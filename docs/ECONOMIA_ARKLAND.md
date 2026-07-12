@@ -552,9 +552,10 @@ Propaga atualizações de R do `market_species_defaults.json` para o `config.jso
 |------|--------|------|
 | Eventos com multiplicador de Âmbar | Planejado | Não implementado |
 | Doações → Âmbar automático | Planejado | Sem pipeline |
-| Taxa/taxa de listagem no Mercado P2P | Não implementado | Vendedor recebe 100% |
-| Taxa de transação na compra P2P | Não implementado | Zero fee atualmente |
-| Expiração de anúncios | Não documentado | Verificar CustomShop |
+| Taxa/taxa de listagem no Mercado P2P | Não implementado | Solteiros: vendedor recebe 100% (`fee_amount=0`) |
+| Taxa de transação na compra P2P (solteiro) | Zero fee | Mantido |
+| Venda em casal (M+F) + contribuição 40% ao Sorteio | **Implementado** ([§8.7.3–8.7.4](./REGULAMENTO_SERVIDOR.md)) | Checkout `Y=0,60×S`; pote `prize_amber_from_market += 0,40×S`; tribo reparte sobre **Y**; solteiros inalterados (`fee_amount=0`); desistência/expiração: reembolso `0,60×Y` (pote sem estorno) |
+| Expiração de anúncios ACTIVE | Não implementado / sem prazo automático | Só claim de resgate (~24h) tem expiração |
 | Kits para espécies Abyss | Não implementado | Apenas vanilla+mods populares |
 | Price ceiling | Implementado mas desabilitado | `"enabled": false` |
 

@@ -48,6 +48,7 @@ Aliases aceitos: `WebStoreUrl`, `ApiKey`.
 |---------|--------|
 | `DinoDeliver.Reload` | Recarrega `config.json` (console / RCON) |
 | `/dinolab` | Força verificação de fila (chat) |
+| `/dinoclass` | Admin: dump `*_C` + path do dino mais próximo (`/dumpdino`) |
 
 ## Build
 

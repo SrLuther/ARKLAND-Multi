@@ -665,11 +665,14 @@ class TestContest:
     def test_contest_sets_status(self, client):
         _login(client, USER_STEAM)
         oid = _create_order_direct()
-        r = client.post(f"/api/player/orders/{oid}/contest",
-                        json={"reason": "não recebi o item"})
+        r = client.post(
+            f"/api/player/orders/{oid}/contest",
+            json={"reason": "não recebi o item no servidor após várias tentativas"},
+        )
         d = r.get_json()
         assert d["ok"] is True
         assert d["status"] == "CONTESTADO"
+        assert d.get("ticket_id")
 
     def test_contest_requires_reason(self, client):
         _login(client, USER_STEAM)
@@ -677,16 +680,31 @@ class TestContest:
         r = client.post(f"/api/player/orders/{oid}/contest", json={"reason": "  "})
         assert r.status_code == 400
 
-    def test_contest_creates_dispute_record(self, client):
+    def test_contest_requires_detailed_reason(self, client):
         _login(client, USER_STEAM)
         oid = _create_order_direct()
-        client.post(f"/api/player/orders/{oid}/contest", json={"reason": "bug"})
+        r = client.post(f"/api/player/orders/{oid}/contest", json={"reason": "curto"})
+        assert r.status_code == 400
+        assert r.get_json().get("code") == "reason_too_short"
+
+    def test_contest_creates_dispute_and_ticket(self, client):
+        _login(client, USER_STEAM)
+        oid = _create_order_direct()
+        reason = "Item não entregue após inventário livre e várias tentativas de /shop"
+        client.post(f"/api/player/orders/{oid}/contest", json={"reason": reason})
         db = _app_module._SessionLocal()
         try:
             dispute = db.query(_app_module.Dispute).filter(_app_module.Dispute.order_id == oid).first()
             assert dispute is not None
-            assert dispute.reason == "bug"
+            assert dispute.reason == reason
             assert dispute.status == "ABERTO"
+            ticket = (
+                db.query(_app_module.SupportTicket)
+                .filter(_app_module.SupportTicket.order_id == oid)
+                .first()
+            )
+            assert ticket is not None
+            assert ticket.category == "resgate"
         finally:
             db.close()
 

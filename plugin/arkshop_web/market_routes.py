@@ -58,6 +58,7 @@ from market_listings import (
     list_pending_classification,
     list_seller_listings,
     list_seller_vitrine_audit_events,
+    link_pair_listings,
     mark_claim_delivered,
     pause_listing,
     player_market_history,
@@ -71,6 +72,7 @@ from market_listings import (
     purchase_listing,
     release_claims,
     set_listing_price,
+    unlink_pair_listings,
     upsert_display_name,
     withdraw_listing,
     expire_stale_claims,
@@ -1002,6 +1004,41 @@ def register_market_routes(
             if "custom_description" in body:
                 kwargs["custom_description"] = body.get("custom_description")
             result = set_listing_price(db, listing_id, steam_id, **kwargs)
+            return jsonify({"ok": True, "listing": result})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/listings/<int:listing_id>/pair", methods=["POST"])
+    @login_required
+    def market_link_pair(listing_id: int):
+        """Vincula este anúncio a outro (macho+fêmea mesma espécie) como casal."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        mate_id = body.get("mate_listing_id")
+        if mate_id is None:
+            return jsonify({"ok": False, "error": "mate_listing_id obrigatório"}), 400
+        steam_id = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            result = link_pair_listings(db, listing_id, int(mate_id), steam_id)
+            return jsonify({"ok": True, "listing": result})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/listings/<int:listing_id>/pair", methods=["DELETE"])
+    @login_required
+    def market_unlink_pair(listing_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        steam_id = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            result = unlink_pair_listings(db, listing_id, steam_id)
             return jsonify({"ok": True, "listing": result})
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400

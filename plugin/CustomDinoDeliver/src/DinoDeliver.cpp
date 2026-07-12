@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <limits>
 #include <thread>
 #include <chrono>
@@ -1049,6 +1050,86 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
     NotifyPlayer(controller, FColorList::Green, "Dino customizado spawnado ao seu lado.");
     result.ok = true;
     return result;
+}
+
+namespace {
+
+// Qualquer dino vivo (tamed ou wild) — dump admin para PropagatorDinoBlacklist / mods.
+APrimalDinoCharacter* FindNearestAnyDino(AShooterPlayerController* controller,
+                                         float max_dist,
+                                         float* out_dist) {
+    if (out_dist) *out_dist = 0.0f;
+    if (!controller) return nullptr;
+    AShooterCharacter* pawn = controller->GetPlayerCharacter();
+    if (!pawn) return nullptr;
+
+    const FVector player_loc = GetActorLocation(pawn);
+    UWorld* world = ArkApi::GetApiUtils().GetWorld();
+    if (!world) return nullptr;
+
+    TArray<AActor*> actors;
+    UGameplayStatics::GetAllActorsOfClass(
+        world,
+        APrimalDinoCharacter::GetPrivateStaticClass(),
+        &actors);
+
+    APrimalDinoCharacter* best = nullptr;
+    const float max_dist_sq = max_dist < 0.0f
+        ? std::numeric_limits<float>::max()
+        : max_dist * max_dist;
+    float best_dist_sq = max_dist_sq;
+
+    for (AActor* actor : actors) {
+        auto* dino = static_cast<APrimalDinoCharacter*>(actor);
+        if (!dino) continue;
+        const FVector loc = GetActorLocation(dino);
+        const float dx = loc.X - player_loc.X;
+        const float dy = loc.Y - player_loc.Y;
+        const float dz = loc.Z - player_loc.Z;
+        const float dist_sq = dx * dx + dy * dy + dz * dz;
+        if (dist_sq <= best_dist_sq) {
+            best_dist_sq = dist_sq;
+            best = dino;
+        }
+    }
+    if (best && out_dist)
+        *out_dist = std::sqrt(best_dist_sq);
+    return best;
+}
+
+std::string ExtractPathHint(const std::string& full_name) {
+    // GetFullName tipico: "Class /Game/Mods/.../Foo.Foo_C" ou "Class Package.Foo_C"
+    const auto slash = full_name.find("/Game/");
+    if (slash == std::string::npos) return "";
+    std::string path = full_name.substr(slash);
+    while (!path.empty() && (path.back() == ' ' || path.back() == '\r' || path.back() == '\n'))
+        path.pop_back();
+    return path;
+}
+
+} // anonymous namespace
+
+DinoClassDump DumpNearestDinoClass(AShooterPlayerController* controller,
+                                   float max_dist) {
+    DinoClassDump out;
+    float dist = 0.0f;
+    APrimalDinoCharacter* dino = FindNearestAnyDino(controller, max_dist, &dist);
+    if (!dino) return out;
+
+    UClass* cls = dino->ClassField();
+    if (!cls) return out;
+
+    FString short_fs;
+    cls->NameField().ToString(&short_fs);
+    out.class_name = short_fs.ToString();
+
+    FString full_fs;
+    cls->GetFullName(&full_fs, nullptr);
+    out.full_name = full_fs.ToString();
+    out.path_hint = ExtractPathHint(out.full_name);
+    out.dist = dist;
+    out.ok = !out.class_name.empty();
+    return out;
 }
 
 } // namespace CustomDinoDeliver

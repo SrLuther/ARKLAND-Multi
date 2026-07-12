@@ -40,6 +40,15 @@ from market_economy import (
     species_economy_meta_from_defaults,
 )
 from market_service import species_row_to_economy
+from market_pair import (
+    is_pair_listing,
+    is_pair_primary,
+    pair_checkout_price,
+    pair_claim_refund,
+    pair_pricing_breakdown,
+    pair_prize_contribution,
+    validate_pair_eligibility,
+)
 from stat_points_asb import enrich_stats_with_points
 
 log = logging.getLogger("arkshop.market_listings")
@@ -789,6 +798,10 @@ def listing_to_public(
         "mutations_female": row.mutations_female,
         "dino_level": row.dino_level,
         "is_female": row.is_female,
+        "is_pair": is_pair_listing(row),
+        "pair_mate_listing_id": getattr(row, "pair_mate_listing_id", None),
+        "pair_group_id": getattr(row, "pair_group_id", None),
+        "is_pair_primary": is_pair_primary(row) if is_pair_listing(row) else False,
         "stats": {
             "health": row.stat_health,
             "melee": row.stat_melee,
@@ -803,6 +816,56 @@ def listing_to_public(
     if include_breakdown:
         out["calculation_breakdown"] = meta.get("calculation_breakdown") or []
     return out
+
+
+def _load_pair_mate(db: Session, row: Any) -> Any | None:
+    mate_id = getattr(row, "pair_mate_listing_id", None)
+    if not mate_id:
+        return None
+    from app import MarketListing
+
+    return db.query(MarketListing).filter(MarketListing.id == int(mate_id)).first()
+
+
+def enrich_listing_pair_fields(
+    db: Session,
+    item: dict[str, Any],
+    row: Any,
+    *,
+    species_by_key: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Anexa mate + preço Y no payload público (sem badge −40%/taxa)."""
+    if not is_pair_listing(row):
+        item["listing_kind"] = "single"
+        return item
+    mate = _load_pair_mate(db, row)
+    if not mate:
+        item["listing_kind"] = "single"
+        item["is_pair"] = False
+        return item
+    species_row = None
+    if species_by_key is not None:
+        species_row = species_by_key.get(mate.species_key or "")
+    else:
+        species_row = resolve_species(db, species_key=mate.species_key)
+    mate_pub = listing_to_public(mate, species_row=species_row)
+    pricing = pair_pricing_breakdown(
+        int(row.effective_price or 0),
+        int(mate.effective_price or 0),
+    )
+    suggested_sum = int(row.computed_base_value or 0) + int(mate.computed_base_value or 0)
+    item["listing_kind"] = "pair"
+    item["is_pair"] = True
+    item["is_pair_primary"] = is_pair_primary(row)
+    item["pair_mate"] = mate_pub
+    item["pair_asking_sum"] = pricing["sum_asking"]
+    item["pair_checkout_price"] = pricing["checkout_price"]
+    item["pair_suggested_sum"] = suggested_sum
+    # Preço exibido na vitrine = Y (checkout); pedidos individuais ficam nos cards internos
+    if is_pair_primary(row):
+        item["effective_price"] = pricing["checkout_price"]
+        item["display_price"] = pricing["checkout_price"]
+    return item
 
 
 def list_active_listings(
@@ -820,15 +883,123 @@ def list_active_listings(
         q = q.filter(MarketListing.species_key == species_key)
     if seller_steam_id:
         q = q.filter(MarketListing.seller_steam_id == seller_steam_id)
-    rows = q.order_by(MarketListing.effective_price.asc()).offset(offset).limit(limit).all()
-    names = _steam_personas_map(db, [r.seller_steam_id for r in rows])
-    species_by_key = _species_map(db, {r.species_key for r in rows})
-    out = []
+    # Casal: só o primário (menor id) aparece na vitrine pública
+    rows = q.order_by(MarketListing.effective_price.asc()).offset(0).limit(limit * 3 + offset).all()
+    visible: list[Any] = []
     for row in rows:
+        if is_pair_listing(row) and not is_pair_primary(row):
+            continue
+        visible.append(row)
+    visible = visible[offset : offset + limit]
+    names = _steam_personas_map(db, [r.seller_steam_id for r in visible])
+    species_by_key = _species_map(db, {r.species_key for r in visible})
+    out = []
+    for row in visible:
         item = listing_to_public(row, species_row=species_by_key.get(row.species_key or ""))
         item["seller_display_name"] = names.get(row.seller_steam_id)
+        enrich_listing_pair_fields(db, item, row, species_by_key=species_by_key)
         out.append(item)
     return out
+
+
+def link_pair_listings(
+    db: Session,
+    listing_id: int,
+    mate_listing_id: int,
+    seller_steam_id: str,
+) -> dict[str, Any]:
+    """Vincula macho+fêmea da mesma espécie num anúncio de casal."""
+    from app import MarketListing
+
+    a = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    b = db.query(MarketListing).filter(MarketListing.id == mate_listing_id).first()
+    if not a or not b:
+        raise ValueError("Anúncio não encontrado")
+    if a.seller_steam_id != seller_steam_id or b.seller_steam_id != seller_steam_id:
+        raise ValueError("Sem permissão")
+    validate_pair_eligibility(a, b)
+    # Desvincula pares anteriores se re-link no mesmo par
+    for row in (a, b):
+        old_mate = getattr(row, "pair_mate_listing_id", None)
+        if old_mate and int(old_mate) not in (int(a.id), int(b.id)):
+            other = db.query(MarketListing).filter(MarketListing.id == int(old_mate)).first()
+            if other:
+                other.pair_mate_listing_id = None
+                other.pair_group_id = None
+                other.updated_at = _now()
+    group_id = str(uuid.uuid4())
+    a.pair_mate_listing_id = int(b.id)
+    b.pair_mate_listing_id = int(a.id)
+    a.pair_group_id = group_id
+    b.pair_group_id = group_id
+    a.updated_at = _now()
+    b.updated_at = _now()
+    db.commit()
+    market_audit_event(
+        db,
+        "MARKET_PAIR_LINKED",
+        steam_id=seller_steam_id,
+        listing_id=a.id,
+        market_trace_id=a.market_trace_id,
+        metadata={
+            "mate_listing_id": b.id,
+            "pair_group_id": group_id,
+            "species_key": a.species_key,
+            "summary_pt": f"Casal vinculado: #{a.id} + #{b.id}",
+        },
+        commit=True,
+    )
+    species_row = resolve_species(db, species_key=a.species_key)
+    item = listing_to_public(a, include_breakdown=True, species_row=species_row)
+    enrich_listing_pair_fields(db, item, a)
+    return item
+
+
+def unlink_pair_listings(
+    db: Session,
+    listing_id: int,
+    seller_steam_id: str,
+) -> dict[str, Any]:
+    """Remove vínculo de casal; ambos voltam a solteiros."""
+    from app import MarketListing
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+    if row.seller_steam_id != seller_steam_id:
+        raise ValueError("Sem permissão")
+    if not is_pair_listing(row):
+        raise ValueError("Anúncio não faz parte de um casal")
+    if row.status not in ("DRAFT", "PAUSED", "PENDING_CLASSIFICATION", "ACTIVE"):
+        raise ValueError(f"Status não permite desvincular casal: {row.status}")
+    mate = _load_pair_mate(db, row)
+    group_id = getattr(row, "pair_group_id", None)
+    row.pair_mate_listing_id = None
+    row.pair_group_id = None
+    row.updated_at = _now()
+    if mate:
+        if mate.status in ("DRAFT", "PAUSED", "PENDING_CLASSIFICATION", "ACTIVE"):
+            mate.pair_mate_listing_id = None
+            mate.pair_group_id = None
+            mate.updated_at = _now()
+        else:
+            raise ValueError("Parceiro do casal não está em status editável")
+    db.commit()
+    market_audit_event(
+        db,
+        "MARKET_PAIR_UNLINKED",
+        steam_id=seller_steam_id,
+        listing_id=row.id,
+        market_trace_id=row.market_trace_id,
+        metadata={
+            "mate_listing_id": mate.id if mate else None,
+            "pair_group_id": group_id,
+            "summary_pt": f"Casal desvinculado: #{row.id}",
+        },
+        commit=True,
+    )
+    species_row = resolve_species(db, species_key=row.species_key)
+    return listing_to_public(row, include_breakdown=True, species_row=species_row)
 
 
 def set_listing_price(
@@ -891,6 +1062,26 @@ def set_listing_price(
             species_row=species_row,
             skip=skip_price_ceiling,
         )
+        # Casal: ambos devem estar prontos; snapshot de tribo usa Y (crédito do vendedor)
+        split_price = int(row.effective_price or 0)
+        mate_row = None
+        if is_pair_listing(row):
+            mate_row = _load_pair_mate(db, row)
+            if not mate_row:
+                raise ValueError("Parceiro do casal não encontrado")
+            if mate_row.status not in ("DRAFT", "PAUSED", "ACTIVE"):
+                raise ValueError("Parceiro do casal não está pronto para ativar")
+            mate_meta = _json_loads(mate_row.metadata_json)
+            if _needs_admin_classification(mate_row, mate_meta):
+                raise ValueError("Parceiro do casal aguarda classificação admin")
+            if int(mate_row.effective_price or 0) < int(mate_row.computed_base_value or 0):
+                raise ValueError("Parceiro do casal com preço abaixo do sugerido")
+            split_price = pair_checkout_price(
+                int(row.effective_price or 0),
+                int(mate_row.effective_price or 0),
+            )
+            mate_row.status = "ACTIVE"
+            mate_row.updated_at = _now()
         row.status = "ACTIVE"
         # Opt-in por jogador: se o vendedor aceitou a partilha da tribo, congela snapshot
         try:
@@ -904,15 +1095,21 @@ def set_listing_price(
                 snap = get_split_snapshot_for_listing(
                     db,
                     oid,
-                    int(row.effective_price or 0),
+                    split_price,
                     seller_steam_id=seller_steam_id,
                 )
             if snap:
                 row.tribe_split_id = int(snap["split_id"])
                 row.split_snapshot = _json_dumps(snap)
+                if mate_row is not None:
+                    mate_row.tribe_split_id = int(snap["split_id"])
+                    mate_row.split_snapshot = _json_dumps(snap)
             else:
                 row.tribe_split_id = None
                 row.split_snapshot = None
+                if mate_row is not None:
+                    mate_row.tribe_split_id = None
+                    mate_row.split_snapshot = None
         except Exception as _split_exc:
             log.warning(
                 "Split snapshot na ativação falhou listing=%s: %s",
@@ -920,6 +1117,9 @@ def set_listing_price(
             )
             row.tribe_split_id = None
             row.split_snapshot = None
+            if mate_row is not None:
+                mate_row.tribe_split_id = None
+                mate_row.split_snapshot = None
 
     row.updated_at = _now()
     db.commit()
@@ -941,7 +1141,9 @@ def set_listing_price(
         commit=True,
     )
     species_row = resolve_species(db, species_key=row.species_key)
-    return listing_to_public(row, include_breakdown=True, species_row=species_row)
+    item = listing_to_public(row, include_breakdown=True, species_row=species_row)
+    enrich_listing_pair_fields(db, item, row)
+    return item
 
 
 def _player_points(db: Session, steam_id: str) -> int:
@@ -1009,7 +1211,53 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
     if row.seller_steam_id == buyer_steam_id:
         raise ValueError("Não é possível comprar seu próprio anúncio")
 
-    price = int(row.effective_price or 0)
+    mate: Any | None = None
+    is_pair = is_pair_listing(row)
+    if is_pair:
+        if not is_pair_primary(row):
+            mate_locked_id = int(row.id)
+            primary_id = int(row.pair_mate_listing_id)
+            row = (
+                db.query(MarketListing)
+                .filter(MarketListing.id == primary_id)
+                .with_for_update()
+                .first()
+            )
+            if not row or row.status != "ACTIVE":
+                raise ValueError("Anúncio de casal não disponível")
+            mate = (
+                db.query(MarketListing)
+                .filter(MarketListing.id == mate_locked_id)
+                .with_for_update()
+                .first()
+            )
+        else:
+            mate = (
+                db.query(MarketListing)
+                .filter(MarketListing.id == int(row.pair_mate_listing_id))
+                .with_for_update()
+                .first()
+            )
+        if not mate or mate.status != "ACTIVE":
+            raise ValueError("Parceiro do casal não está disponível")
+        if mate.seller_steam_id != row.seller_steam_id:
+            raise ValueError("Casal inválido")
+
+    if is_pair and mate is not None:
+        price = pair_checkout_price(
+            int(row.effective_price or 0),
+            int(mate.effective_price or 0),
+        )
+        prize_contrib = pair_prize_contribution(
+            int(row.effective_price or 0),
+            int(mate.effective_price or 0),
+        )
+        base_at_sale = int(row.computed_base_value or 0) + int(mate.computed_base_value or 0)
+    else:
+        price = int(row.effective_price or 0)
+        prize_contrib = 0
+        base_at_sale = int(row.computed_base_value or 0)
+
     buyer_before = _player_points(db, buyer_steam_id)
     if buyer_before < price:
         raise ValueError(f"Saldo insuficiente ({buyer_before} < {price})")
@@ -1018,13 +1266,14 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
     status_before = row.status
 
     row.status = "RESERVING"
+    if mate is not None:
+        mate.status = "RESERVING"
     db.flush()
 
     buyer_after = _debit_points(db, buyer_steam_id, price)
 
     # ── Divisão de ganhos de tribo (§18 — tribe split) ────────
-    # Se o anúncio tem split_snapshot configurado, distribui proporcionalmente.
-    # Caso contrário (split desativado ou ausente), crédito integral ao vendedor.
+    # Em casal, o snapshot / crédito usam Y (não S). fee_amount permanece 0.
     _split_snapshot = getattr(row, "split_snapshot", None)
     _split_payouts: list[dict] = []
     if _split_snapshot:
@@ -1053,13 +1302,18 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
     row.buyer_steam_id = buyer_steam_id
     row.sold_at = now
     row.updated_at = now
+    if mate is not None:
+        mate.status = "AWAITING_CLAIM"
+        mate.buyer_steam_id = buyer_steam_id
+        mate.sold_at = now
+        mate.updated_at = now
 
     tx = MarketTransaction(
         listing_id=row.id,
         buyer_steam_id=buyer_steam_id,
         seller_steam_id=row.seller_steam_id,
         price_paid=price,
-        base_value_at_sale=row.computed_base_value,
+        base_value_at_sale=base_at_sale,
         fee_amount=0,
         buyer_points_before=buyer_before,
         buyer_points_after=buyer_after,
@@ -1069,6 +1323,7 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         created_at=now,
     )
     db.add(tx)
+    db.flush()
 
     claim = MarketClaim(
         listing_id=row.id,
@@ -1081,6 +1336,39 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
     )
     _apply_claim_reservation(claim, now=now)
     db.add(claim)
+    mate_claim = None
+    if mate is not None:
+        mate_claim = MarketClaim(
+            listing_id=mate.id,
+            recipient_steam_id=buyer_steam_id,
+            claim_type="BUYER",
+            status="PENDENTE",
+            market_trace_id=mate.market_trace_id or row.market_trace_id,
+            created_at=now,
+            updated_at=now,
+        )
+        _apply_claim_reservation(mate_claim, now=now)
+        db.add(mate_claim)
+
+    prize_result: dict[str, Any] = {"credited": 0}
+    if prize_contrib > 0:
+        try:
+            from lottery_service import contribute_market_pair_to_prize
+
+            prize_result = contribute_market_pair_to_prize(
+                db,
+                amount=prize_contrib,
+                listing_id=row.id,
+                tx_id=int(tx.id),
+                seller_steam_id=row.seller_steam_id,
+            )
+        except Exception as pot_exc:
+            log.warning(
+                "Contribuição sorteio casal falhou listing=%s: %s",
+                row.id,
+                pot_exc,
+            )
+
     db.commit()
 
     market_audit_event(
@@ -1089,7 +1377,7 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         steam_id=buyer_steam_id,
         counterparty_steam_id=row.seller_steam_id,
         listing_id=row.id,
-        computed_base_value=row.computed_base_value,
+        computed_base_value=base_at_sale,
         effective_price=price,
         points_delta=-price,
         points_before=buyer_before,
@@ -1100,8 +1388,14 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
             "buyer_steam_id": buyer_steam_id,
             "listing_status_before": status_before,
             "listing_status_after": row.status,
+            "is_pair": bool(mate is not None),
+            "pair_mate_listing_id": mate.id if mate else None,
+            "prize_contribution": prize_contrib,
+            "prize_campaign_id": prize_result.get("campaign_id"),
             "summary_pt": (
-                f"Compra do anúncio #{row.id} por {price:,} Âmbar"
+                f"Compra {'casal' if mate else 'solteiro'} #{row.id}"
+                + (f"+#{mate.id}" if mate else "")
+                + f" por {price:,} Âmbar"
             ).replace(",", "."),
             "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
             "reservation_hours": CLAIM_RESERVATION_HOURS,
@@ -1138,7 +1432,7 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         log.warning("Âmbarômetro market purchase hook: %s", amber_exc)
 
     hrs = _hours_remaining(claim.claim_expires_at, now=now)
-    return {
+    result = {
         "listing_id": row.id,
         "claim_id": claim.id,
         "price_paid": price,
@@ -1146,7 +1440,16 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
         "hours_remaining": round(hrs, 2) if hrs is not None else CLAIM_RESERVATION_HOURS,
         "message": f"Você tem {CLAIM_RESERVATION_HOURS} horas para resgatar com /mercado in-game.",
+        "is_pair": bool(mate is not None),
+        "prize_contribution": prize_contrib,
     }
+    if mate is not None and mate_claim is not None:
+        result["pair_mate_listing_id"] = mate.id
+        result["pair_mate_claim_id"] = mate_claim.id
+        result["message"] = (
+            f"Casal comprado! Resgate ambos os dinos em até {CLAIM_RESERVATION_HOURS}h com /mercado."
+        )
+    return result
 
 
 def get_pending_claims(db: Session, steam_id: str) -> list[dict[str, Any]]:
@@ -1333,9 +1636,12 @@ def mark_claim_delivered(db: Session, claim_id: int, steam_id: str) -> dict[str,
     return {"claim_id": claim.id, "listing_id": listing.id, "status": "DELIVERED"}
 
 
-def _refund_amount_for_listing(db: Session, listing_id: int, listing: Any | None = None) -> int:
-    """Valor integral a reembolsar ao comprador (preço + taxas). Taxa atual: 0."""
+def _paid_amount_for_listing(db: Session, listing_id: int, listing: Any | None = None) -> int:
+    """Valor pago na compra (Y no casal primário; preço no solteiro). Mate do casal → 0."""
     from app import MarketTransaction
+
+    if listing is not None and is_pair_listing(listing) and not is_pair_primary(listing):
+        return 0
 
     tx = (
         db.query(MarketTransaction)
@@ -1344,10 +1650,36 @@ def _refund_amount_for_listing(db: Session, listing_id: int, listing: Any | None
         .first()
     )
     if tx:
-        return int(tx.price_paid or 0) + int(tx.fee_amount or 0)
+        return int(tx.price_paid or 0)
+    if listing is not None and is_pair_listing(listing) and is_pair_primary(listing):
+        mate = _load_pair_mate(db, listing)
+        if mate:
+            return pair_checkout_price(
+                int(listing.effective_price or 0),
+                int(mate.effective_price or 0),
+            )
     if listing is not None:
         return int(getattr(listing, "effective_price", 0) or 0)
     return 0
+
+
+def _refund_amount_for_listing(db: Session, listing_id: int, listing: Any | None = None) -> int:
+    """Valor a reembolsar ao comprador.
+
+    Solteiro: 100% de price_paid (fee_amount=0).
+    Casal: só o anúncio primário; reembolso = round(0,60 × Y). Mate → 0 (evita double-refund).
+    """
+    if listing is None:
+        from app import MarketListing
+
+        listing = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+
+    paid = _paid_amount_for_listing(db, listing_id, listing)
+    if paid <= 0:
+        return 0
+    if listing is not None and is_pair_listing(listing) and is_pair_primary(listing):
+        return pair_claim_refund(paid)
+    return paid
 
 
 def _expire_buyer_claim(
@@ -1357,7 +1689,13 @@ def _expire_buyer_claim(
     *,
     now: datetime,
 ) -> dict[str, Any] | None:
-    """Reembolso justo: comprador recebe 100% do pago; vendedor devolve o que tiver em saldo."""
+    """Claim comprador expirado: reembolso + dino de volta ao vendedor.
+
+    Solteiro: reembolso integral; estorno ao vendedor = valor pago.
+    Casal (primário): comprador recebe 60% de Y; vendedor devolve Y (dinos voltam);
+    parcela retida (40% de Y) fica no sistema; pote do sorteio não é estornado.
+    Mate do casal: sem movimento de Âmbar (só devolve o dino).
+    """
     if claim.claim_status in (CLAIM_STATUS_EXPIRED, CLAIM_STATUS_REFUNDED):
         return None
     if claim.status not in ("PENDENTE", "CLAIMED"):
@@ -1365,9 +1703,11 @@ def _expire_buyer_claim(
     if not _claim_is_expired(claim, now=now):
         return None
 
+    paid = _paid_amount_for_listing(db, listing.id, listing)
     refund = _refund_amount_for_listing(db, listing.id, listing)
     buyer_id = listing.buyer_steam_id or claim.recipient_steam_id
     seller_id = listing.seller_steam_id
+    is_pair_primary_row = is_pair_listing(listing) and is_pair_primary(listing)
 
     buyer_before = _player_points(db, buyer_id) if buyer_id else 0
     seller_before = _player_points(db, seller_id) if seller_id else 0
@@ -1376,7 +1716,15 @@ def _expire_buyer_claim(
     seller_after = seller_before
     seller_debited = 0
 
-    if refund <= 0:
+    # Mate do casal: sem movimento de Âmbar (Y já tratado no primário); só devolve o dino
+    pair_mate_no_cash = (
+        is_pair_listing(listing)
+        and not is_pair_primary(listing)
+        and refund <= 0
+        and paid <= 0
+    )
+
+    if refund <= 0 and paid <= 0 and not pair_mate_no_cash:
         claim.claim_status = CLAIM_STATUS_EXPIRED
         claim.updated_at = now
         market_audit_event(
@@ -1393,12 +1741,14 @@ def _expire_buyer_claim(
         )
         return None
 
-    if buyer_id:
+    if refund > 0 and buyer_id:
         buyer_after = _credit_points(db, buyer_id, refund)
 
-    if refund > 0 and seller_id:
+    # Estorno ao vendedor = valor que recebeu (Y / preço), não o reembolso parcial do casal
+    seller_reversal = paid if (paid > 0 and not pair_mate_no_cash) else 0
+    if seller_reversal > 0 and seller_id:
         seller_balance = _player_points(db, seller_id)
-        seller_debited = min(seller_balance, refund)
+        seller_debited = min(seller_balance, seller_reversal)
         if seller_debited > 0:
             seller_after = _debit_points(db, seller_id, seller_debited)
 
@@ -1426,6 +1776,17 @@ def _expire_buyer_claim(
     db.add(seller_claim)
     db.flush()
 
+    if pair_mate_no_cash:
+        policy = "Casal mate: sem Âmbar (Y no primário). "
+    elif is_pair_primary_row:
+        policy = (
+            "Casal: reembolso 60% do valor pago ao comprador; "
+            "estorno integral de Y ao vendedor; pote sem estorno. "
+        )
+    else:
+        policy = "Reembolso integral ao comprador (fee_amount=0). "
+    policy += "Vendedor devolve até o saldo disponível."
+
     market_audit_event(
         db,
         "MARKET_CLAIM_EXPIRED_REFUND",
@@ -1442,32 +1803,39 @@ def _expire_buyer_claim(
         market_trace_id=listing.market_trace_id,
         metadata={
             "refund_amount": refund,
+            "price_paid": paid,
+            "seller_reversal": seller_reversal,
             "seller_debited": seller_debited,
             "seller_points_before": seller_before,
             "seller_points_after": seller_after,
             "seller_claim_id": seller_claim.id,
-            "policy": "Reembolso integral ao comprador (preço + taxas=0). Vendedor devolve até o saldo disponível.",
+            "pair_mate_no_cash": pair_mate_no_cash,
+            "is_pair": is_pair_listing(listing),
+            "retained_from_buyer": max(0, paid - refund) if is_pair_primary_row else 0,
+            "policy": policy,
         },
         commit=False,
     )
-    try:
-        from amber_ledger import record_market_claim_refund
+    if refund > 0 or seller_debited > 0:
+        try:
+            from amber_ledger import record_market_claim_refund
 
-        record_market_claim_refund(
-            db,
-            listing_id=listing.id,
-            claim_id=claim.id,
-            buyer_steam_id=buyer_id or "",
-            seller_steam_id=seller_id or "",
-            refund=refund,
-            seller_debited=seller_debited,
-        )
-    except Exception as amber_exc:
-        log.warning("Âmbarômetro market claim refund hook: %s", amber_exc)
+            record_market_claim_refund(
+                db,
+                listing_id=listing.id,
+                claim_id=claim.id,
+                buyer_steam_id=buyer_id or "",
+                seller_steam_id=seller_id or "",
+                refund=refund,
+                seller_debited=seller_debited,
+            )
+        except Exception as amber_exc:
+            log.warning("Âmbarômetro market claim refund hook: %s", amber_exc)
     return {
         "claim_id": claim.id,
         "listing_id": listing.id,
         "refund_amount": refund,
+        "price_paid": paid,
         "seller_claim_id": seller_claim.id,
     }
 
@@ -1509,7 +1877,8 @@ def _expire_seller_claim(db: Session, claim: Any, listing: Any, *, now: datetime
 def expire_stale_claims(db: Session, *, batch_size: int = 50) -> dict[str, Any]:
     """
     Processa claims expirados (idempotente).
-    Comprador: reembolso integral + devolução do dino ao vendedor via novo claim SELLER.
+    Comprador solteiro: reembolso integral + devolução do dino ao vendedor.
+    Comprador casal: reembolso 60% de Y + devolução dos dinos; pote sem estorno.
     Vendedor (retirada): listing volta a PAUSED.
     """
     from app import MarketClaim, MarketListing
@@ -1601,6 +1970,7 @@ def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, An
         pending = claims_by_listing.get(row.id)
         if pending:
             item.update(_claim_to_public(pending))
+        enrich_listing_pair_fields(db, item, row, species_by_key=species_by_key)
         out.append(item)
     return out
 
@@ -1628,6 +1998,7 @@ def get_listing_detail(
     )
     item["seller_display_name"] = _profile_display_name(db, row.seller_steam_id)
     item["is_owner"] = bool(is_owner)
+    enrich_listing_pair_fields(db, item, row)
     return item
 
 
@@ -1643,6 +2014,11 @@ def pause_listing(db: Session, listing_id: int, seller_steam_id: str) -> dict[st
         raise ValueError("Somente anúncios ACTIVE podem ser pausados")
     row.status = "PAUSED"
     row.updated_at = _now()
+    if is_pair_listing(row):
+        mate = _load_pair_mate(db, row)
+        if mate and mate.status == "ACTIVE":
+            mate.status = "PAUSED"
+            mate.updated_at = _now()
     db.commit()
     market_audit_event(
         db,
@@ -1652,7 +2028,9 @@ def pause_listing(db: Session, listing_id: int, seller_steam_id: str) -> dict[st
         market_trace_id=row.market_trace_id,
         commit=True,
     )
-    return listing_to_public(row)
+    item = listing_to_public(row)
+    enrich_listing_pair_fields(db, item, row)
+    return item
 
 
 def withdraw_listing(db: Session, listing_id: int, seller_steam_id: str) -> dict[str, Any]:

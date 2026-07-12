@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 
 log = logging.getLogger("arkshop.market_migrate")
 
-MARKET_SCHEMA_VERSION = "1.2.0"
+MARKET_SCHEMA_VERSION = "1.3.0"
 
 MARKET_TABLES: tuple[str, ...] = (
     "market_species",
@@ -75,6 +75,34 @@ def _ensure_listing_presentation_columns(engine: Any) -> None:
         if alters:
             conn.commit()
             log.info("Mercado: colunas de personalização de anúncio adicionadas em market_listings")
+
+
+def _ensure_listing_pair_columns(engine: Any) -> None:
+    """Adiciona pair_mate_listing_id e pair_group_id em market_listings (casal M+F)."""
+    if "market_listings" not in _existing_tables(engine):
+        return
+    is_mysql = _is_mysql(engine)
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("market_listings")}
+        alters: list[str] = []
+        if "pair_mate_listing_id" not in cols:
+            alters.append(
+                "ADD COLUMN `pair_mate_listing_id` INT NULL"
+                if is_mysql
+                else "ADD COLUMN pair_mate_listing_id INTEGER"
+            )
+        if "pair_group_id" not in cols:
+            alters.append(
+                "ADD COLUMN `pair_group_id` VARCHAR(36) NULL"
+                if is_mysql
+                else "ADD COLUMN pair_group_id VARCHAR(36)"
+            )
+        for fragment in alters:
+            conn.execute(text(f"ALTER TABLE market_listings {fragment}"))
+        if alters:
+            conn.commit()
+            log.info("Mercado: colunas de casal (pair_*) adicionadas em market_listings")
 
 
 def _ensure_claim_reservation_columns(engine: Any) -> None:
@@ -227,6 +255,7 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
     _ensure_mysql_mediumblob(engine)
     _ensure_claim_reservation_columns(engine)
     _ensure_listing_presentation_columns(engine)
+    _ensure_listing_pair_columns(engine)
 
     after = _existing_tables(engine)
     still_missing = [t for t in MARKET_TABLES if t not in after]

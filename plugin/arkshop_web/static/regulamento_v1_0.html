@@ -91,6 +91,20 @@
 
 <p>A equipe pode intervir em situações de emergência (duplicação, raid de estruturas por bug, chat criminoso, etc.) sem aviso prévio. Intervenções são registradas quando tecnicamente possível.</p>
 
+<h3>3.5 Doações entre jogadores (recursos, dinos e itens)</h3>
+
+<p>A administração <strong>aconselha</strong> que os jogadores <strong>não façam nenhum tipo de doação</strong> entre si (recursos, dinos, itens, cryopods ou equivalentes), para evitar disputas, prejuízo e burla de progressão.</p>
+
+<p>Independentemente desse aviso:</p>
+
+<table class="regulamento-table"><tbody>
+<tr><td>Conduta</td><td>Status</td></tr>
+<tr><td>Doar, transferir ou ceder <strong>recursos, dinos ou itens</strong> cujo uso, posse ou obtenção <strong>exige licença ativa</strong> (Gamma, Beta, Alfa, Nuvem ou outra licença do catálogo) a quem <strong>não</strong> possui essa licença</td><td><strong>Proibido</strong></td></tr>
+<tr><td>Receber de forma consciente esses bens sem a licença exigida</td><td><strong>Proibido</strong> (mesmo grau de responsabilidade, quando comprovado)</td></tr>
+</tbody></table>
+
+<p>Violação sujeita a <strong>punição administrativa</strong> (<a href="#9-sistema-de-punições" target="_blank" rel="noopener">Seção 9</a>): remoção dos bens, advertência, ban temporário ou permanente conforme gravidade e reincidência. Comércio legítimo via <strong>mercado P2P em Âmbares</strong> (<a href="#87-mercado-p2p-de-dinos" target="_blank" rel="noopener">§8.7</a>) e resgates oficiais da Web Store <strong>não</strong> se confundem com doação informal in-game.</p>
+
 <p>---</p>
 
 <h2 id="4-regras-pve-gameplay-no-servidor">4. Regras PvE — gameplay no servidor</h2>
@@ -139,7 +153,7 @@
 <li>Não destruir purposefulmente gaiolas de breeding ou armadilhas de outro jogador;</li>
 <li>Explorar bugs de line breeding, stat stacking ou duplicação é <strong>proibido</strong> (ver <a href="#6-exploits-cheats-e-abuso-técnico" target="_blank" rel="noopener">Seção 6</a>);</li>
 <li>Respeite limites de dinos pessoais domados (`MaxPersonalTamedDinos`) quando ativos;</li>
-<li>Dinos em comércio P2P devem seguir as regras do mercado (<a href="#85-mercado-p2p-de-dinos" target="_blank" rel="noopener">Seção 8.5</a>).</li>
+<li>Dinos em comércio P2P devem seguir as regras do mercado (<a href="#87-mercado-p2p-de-dinos" target="_blank" rel="noopener">Seção 8.7</a>).</li>
 </ul>
 
 <h3>4.5 Bosses, cavernas e conteúdo PvE</h3>
@@ -200,6 +214,7 @@
 
 <ul>
 <li>É proibido negociar itens, dinos ou contas por <strong>dinheiro real</strong> ou fora dos sistemas oficiais (loja e mercado P2P em Âmbares);</li>
+<li>Doações informais in-game de bens ligados a <strong>licença</strong> seguem a <a href="#35-doações-entre-jogadores-recursos-dinos-e-itens" target="_blank" rel="noopener">§3.5</a>;</li>
 <li>Divulgação de streams e conteúdo é bem-vinda quando não configurar spam.</li>
 </ul>
 
@@ -310,11 +325,23 @@
 <li>Descrições, requisitos e avisos de cada item são exibidos no modal de resgate.</li>
 </ul>
 
-<p>#### 8.4.2 Kits e limites de resgate</p>
+<p>#### 8.4.2 Desistência e reembolso (catálogo / Web Store)</p>
+
+<table class="regulamento-table"><tbody>
+<tr><td>Situação</td><td>Reembolso</td></tr>
+<tr><td><strong>Desistência</strong> de resgate PENDENTE (após cooldown de 24h)</td><td><strong>90%</strong> do valor pago (retenção de <strong>10%</strong>)</td></tr>
+<tr><td><strong>Auto-cancelamento</strong> sem resgate (≥48h)</td><td><strong>90%</strong> do valor pago (mesma retenção)</td></tr>
+<tr><td><strong>Reembolso integral (100%)</strong></td><td>Somente via <strong>contestação</strong> — o jogador <strong>deve abrir ticket</strong> e <strong>explicar o motivo</strong>; a equipe analisa e, se procedente, reembolsa 100%</td></tr>
+<tr><td><strong>Licenças</strong></td><td>Irrevogáveis — sem desistência nem reembolso</td></tr>
+</tbody></table>
+
+<p>Texto ao jogador na desistência: o reembolso automático <strong>não</strong> é integral. Para pedir 100%, use contestação + ticket com explicação obrigatória.</p>
+
+<p>#### 8.4.3 Kits e limites de resgate</p>
 
 <p>Alguns kits possuem <strong>limite de resgates</strong> (`DefaultAmount`). Quando o limite é atingido, novos resgates ficam bloqueados até renovação da licença vinculada ou intervenção administrativa. Ao <strong>renovar</strong> licenças Alfa, Beta ou Gamma, limites de kits associados ao mesmo grupo são restaurados conforme o catálogo vigente.</p>
 
-<p>#### 8.4.3 Compras in-game (`/shop`)</p>
+<p>#### 8.4.4 Compras in-game (`/shop`)</p>
 
 <p>O plugin CustomShop permite compras diretas no jogo com Âmbares, sujeitas aos mesmos princípios de saldo e auditoria.</p>
 
@@ -364,26 +391,93 @@
 
 <h3>8.7 Mercado P2P de dinos</h3>
 
-<p>Marketplace <strong>jogador contra jogador</strong>, exclusivamente em <strong>Âmbares</strong>, <strong>sem taxas</strong> e <strong>sem dinheiro real</strong>.</p>
+<p>Marketplace <strong>jogador contra jogador</strong>, exclusivamente em <strong>Âmbares</strong> e <strong>sem dinheiro real</strong>.</p>
 
-<p>#### Requisitos do vendedor</p>
+<p>&gt; <strong>Estado das regras de casal (§8.7.3–8.7.4):</strong> regras <strong>aprovadas e normativas</strong> neste regulamento. Implementação web: anúncio em casal (`pair_mate_listing_id`), checkout `Y` e crédito `prize_amber_from_market` na campanha ativa do Sorteio. Anúncios individuais (§8.7.2) continuam válidos.</p>
+
+<p>#### 8.7.1 Requisitos do vendedor</p>
 
 <ul>
 <li><strong>Licença Nuvem</strong> ativa;</li>
 <li>Dino em <strong>cryopod oficial</strong> vanilla (não Soul Trap / mods de captura alternativos);</li>
 <li><strong>Imprint 100%</strong> obrigatório;</li>
 <li><strong>Nome de exibição</strong> cadastrado em Minha Área;</li>
-<li>Preço de anúncio <strong>≥ valor sugerido</strong> pelo sistema (piso econômico).</li>
+<li>Preço de anúncio (pedido) <strong>≥ valor sugerido</strong> pelo sistema (piso econômico);</li>
+<li>O valor sugerido é <strong>referência</strong>; o vendedor pode pedir acima do piso, sob seu risco de liquidez.</li>
 </ul>
 
-<p>#### Fluxo in-game</p>
+<p>#### 8.7.2 Anúncios individuais (solteiros)</p>
+
+<ul>
+<li>Continuam <strong>permitidos</strong>;</li>
+<li>O comprador paga o <strong>preço de pedido integral</strong> do anúncio;</li>
+<li><strong>Taxa de transação:</strong> `fee_amount = 0` — o vendedor recebe <strong>100%</strong> do valor pago (salvo repartição opcional de tribo, ver §8.7.7);</li>
+<li>Não há contribuição automática ao prêmio dos sorteios em vendas individuais.</li>
+</ul>
+
+<p>#### 8.7.3 Venda em casal (bundle macho + fêmea)</p>
+
+<p>O vendedor pode <strong>vincular um macho e uma fêmea da mesma espécie</strong> num único anúncio de casal.</p>
+
+<table class="regulamento-table"><tbody>
+<tr><td>Regra</td><td>Detalhe</td></tr>
+<tr><td>Elegibilidade</td><td>Mesma espécie; um macho + uma fêmea; ambos cumprem os requisitos de §8.7.1</td></tr>
+<tr><td>Preço individual</td><td>Cada dino mantém um <strong>preço de pedido</strong> (`P_macho`, `P_fêmea`) definido pelo vendedor (≥ valor sugerido de cada um)</td></tr>
+<tr><td>Preço do casal (checkout)</td><td>`Y = (P_macho + P_fêmea) × 0,60` — o comprador paga <strong>Y</strong></td></tr>
+<tr><td>Solteiros vs casal</td><td>Solteiro = preço de pedido integral; casal = checkout combinado a <strong>60%</strong> da soma dos pedidos</td></tr>
+<tr><td>Incentivo</td><td>O casal é <strong>incentivado</strong>; a UI deve distinguir claramente anúncio individual de anúncio em casal</td></tr>
+<tr><td>Desistência / claim expirado</td><td><strong>Em caso de desistência, o reembolso é de apenas 60% do valor pago</strong> (60% de <strong>Y</strong>). O vendedor recupera os dinos e o crédito de <strong>Y</strong> é estornado. Anúncios <strong>solteiros</strong> (§8.7.2): na expiração do claim de 24h o comprador recebe reembolso <strong>integral</strong> do valor pago e o dino volta ao vendedor. Disputas de mercado / pedidos de exceção: ticket categoria <strong>Mercado de dinos</strong>.</td></tr>
+</tbody></table>
+
+<p><strong>Exibição pública (card do anúncio):</strong> mostra ambos os dinos, valores sugeridos pelo sistema (de cada um e/ou da soma) e o <strong>preço final do casal Y</strong>. A atratividade face aos sugeridos é implícita; a interface <strong>pode omitir</strong> badges do tipo “−40%”, “desconto” ou “taxa” no card — isso é decisão de produto/UI e <strong>não</strong> limita a transparência deste regulamento.</p>
+
+<p>#### 8.7.4 Contribuição ao prêmio dos sorteios (venda em casal)</p>
+
+<p>Em toda <strong>venda de casal concluída</strong>, parte do valor de referência do casal <strong>reverte para o prêmio dos sorteios do cluster</strong> (área `#/sorteio` / Sorteio de Doações — campanha ativa).</p>
+
+<p>Sejam `P1` e `P2` os preços de pedido dos dois dinos e `S = P1 + P2`:</p>
+
+<table class="regulamento-table"><tbody>
+<tr><td>Parte</td><td>Valor</td><td>Destino</td></tr>
+<tr><td>Comprador paga</td><td>`0,60 × S` (= <strong>Y</strong>)</td><td>Débito da carteira do comprador</td></tr>
+<tr><td>Vendedor recebe</td><td>`0,60 × S`</td><td>Crédito na carteira do vendedor (ou repartição de tribo sobre esse montante)</td></tr>
+<tr><td>Prêmio do sorteio</td><td>`0,40 × S`</td><td>Crédito de sistema ao <strong>pote / prêmio</strong> da campanha de sorteio ativa</td></tr>
+</tbody></table>
+
+<p><strong>Incidência:</strong> a parcela de <strong>40%</strong> é <strong>receita não recebida</strong> pelo vendedor (custo de oportunidade face a vender os dois dinos como solteiros). <strong>Não</strong> há débito extra na carteira do vendedor além do que deixou de receber; o sistema credita o pote com `0,40 × S`.</p>
+
+<p><strong>Exemplo canônico:</strong> `S = 200` → comprador paga <strong>120</strong>, vendedor recebe <strong>120</strong>, sorteio <strong>+80</strong>.</p>
+
+<p><strong>Nota operacional (staff / auditoria):</strong> em liquidação de casal, o ledger deve refletir débito do comprador = crédito ao vendedor = `Y`, e crédito ao pool do sorteio = `0,40 × S` (canal de sorteio / contribuição de mercado, conforme implementação). Em solteiros, `fee_amount` permanece <strong>0</strong> salvo decisão futura documentada. Em desistência/expiração de casal: crédito ao comprador = `round(0,60 × Y)`; estorno ao vendedor = `Y` (dinos de volta); parcela retida `0,40 × Y` permanece no sistema; <strong>não</strong> há estorno do crédito `0,40 × S` já lançado no pote.</p>
+
+<p>#### 8.7.5 Preços, tetos e limites</p>
+
+<table class="regulamento-table"><tbody>
+<tr><td>Regra</td><td>Estado</td></tr>
+<tr><td>Moeda</td><td>Somente <strong>Âmbares</strong></td></tr>
+<tr><td>Piso</td><td>Preço de pedido <strong>≥ valor sugerido</strong> (`computed_base_value`)</td></tr>
+<tr><td>Teto absoluto de referência econômica</td><td>Valor sugerido / modelo `floor_quality` limitado a cerca de <strong>150.000 Âmbares</strong> (`market_absolute_max`)</td></tr>
+<tr><td>Teto por tier (`_price_ceiling`)</td><td><strong>Desabilitado</strong> em produção (`enabled: false`); não limita anúncios além do modelo vigente</td></tr>
+<tr><td>Auto-compra</td><td><strong>Proibida</strong> — não é possível comprar o próprio anúncio</td></tr>
+<tr><td>Dinheiro real</td><td><strong>Proibido</strong> (ver também <a href="#5-conduta-chat-e-comunicação" target="_blank" rel="noopener">Seção 5</a>)</td></tr>
+</tbody></table>
+
+<p>#### 8.7.6 Fluxo in-game e prazos</p>
 
 <p>1. `/enviar` — preview do dino (cryopod permanece no inventário);</p>
 <p>2. `/confirmar` — dentro do prazo (ex.: 2 minutos); cryopod é <strong>removida</strong> do inventário; timer de cryopod, se houver, é <strong>eliminado permanentemente</strong>;</p>
-<p>3. Definir preço e ativar na <strong>Minha Loja</strong> (web);</p>
+<p>3. Definir preço (e, quando disponível, vincular casal) e ativar na <strong>Minha Loja</strong> (web);</p>
 <p>4. Comprador paga em Âmbares; resgate via `/mercado`.</p>
 
-<p>#### Regras de conduta no mercado</p>
+<p><strong>Resgate após compra:</strong> o comprador tem tipicamente <strong>24 horas</strong> para resgatar in-game (`/mercado`). Se o prazo expirar sem resgate (ou em desistência equivalente): em <strong>solteiro</strong>, reembolso <strong>integral</strong> do valor pago e devolução do dino ao vendedor; em <strong>casal</strong>, aplica-se a regra de §8.7.3 — *Em caso de desistência, o reembolso é de apenas 60% do valor pago* — com devolução dos dinos ao vendedor.</p>
+
+<p><strong>Expiração de anúncios ACTIVE:</strong> <strong>não há</strong>, neste momento, expiração automática documentada de anúncios à venda por tempo decorrido. Anúncios permanecem até venda, pausa ou retirada pelo vendedor (ou intervenção administrativa). Qualquer prazo futuro de expiração de listagem será anunciado com alteração deste regulamento.</p>
+
+<p>#### 8.7.7 Repartição de tribo (opcional)</p>
+
+<p>A <strong>Área da Tribo</strong> pode repartir o crédito recebido pelo vendedor entre membros que optaram pelo pool (default típico 60/40 — quem envia / demais do pool). Sem opt-in, o vendedor recebe <strong>100%</strong> do que lhe cabe na liquidação (em solteiro: o preço pago; em casal: `Y`). Detalhes operacionais: documentação interna de repartição de mercado.</p>
+
+<p>#### 8.7.8 Regras de conduta no mercado</p>
 
 <table class="regulamento-table"><tbody>
 <tr><td>Conduta</td><td>Status</td></tr>
@@ -392,6 +486,7 @@
 <tr><td>Tentativa de duplicação no envio</td><td><strong>Ban permanente</strong></td></tr>
 <tr><td>Comércio por dinheiro real</td><td><strong>Proibido</strong></td></tr>
 <tr><td>Assédio ou golpes em negociações</td><td><strong>Proibido</strong></td></tr>
+<tr><td>Comprar o próprio anúncio (wash trading)</td><td><strong>Proibido</strong> — bloqueio técnico</td></tr>
 </tbody></table>
 
 <p>Disputas de compra/venda usam ticket categoria <strong>Mercado de dinos</strong> (<a href="#10-denúncias-e-tickets-de-suporte" target="_blank" rel="noopener">Seção 10</a>).</p>
@@ -600,6 +695,8 @@
 <tr><td><strong>Cryopod</strong></td><td>Cápsula oficial de Extinction para transporte de dinos</td></tr>
 <tr><td><strong>Licença Alfa/Beta/Gamma</strong></td><td>Tier de benefícios temporários (Timed Points e acesso a kits)</td></tr>
 <tr><td><strong>Licença Nuvem</strong></td><td>Habilita cofre `/upload`/`/download` e envio ao mercado</td></tr>
+<tr><td><strong>Casal (mercado)</strong></td><td>Anúncio vinculado macho + fêmea da mesma espécie; checkout a 60% da soma dos pedidos</td></tr>
+<tr><td><strong>Sorteio</strong></td><td>Promoção contínua `#/sorteio` — prêmio em Âmbares; vendas em casal contribuem 40% de `S` ao pote</td></tr>
 <tr><td><strong>Timed Points</strong></td><td>Recompensa periódica de Âmbares por tempo online</td></tr>
 <tr><td><strong>Web Store</strong></td><td>Plataforma web ARKLAND Donations</td></tr>
 <tr><td><strong>Ticket</strong></td><td>Chamado formal de suporte ou denúncia na web</td></tr>
@@ -609,4 +706,4 @@
 
 <p>*ARKLAND — Comunidade PvE ARK: Survival Evolved. Jogue limpo, respeite a comunidade, use tickets com provas.*</p>
 
-<p><strong>Fim do Regulamento — Versão 1.0</strong></p>
+<p><strong>Fim do Regulamento — Versão 1.1</strong></p>

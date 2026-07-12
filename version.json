@@ -1,9 +1,17 @@
 {
-    "version": "1.10.27",
+    "version": "1.10.28",
     "date": "2026-07-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.27/ARKLAND-Multi-Setup-v1.10.27.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.28/ARKLAND-Multi-Setup-v1.10.28.exe",
     "changelog": [
-        "Feat (CustomShop / Web Store): dinos nível 200 no catálogo — entradas `*_l200` com preço `P200 = round(clamp(P1 × k, P1+1, 0.75×M))` (k=1.40 configurável, M=root_value); skip se 0.75×M ≤ P1; aba dedicada «Dinos 200» (aba Dinos só L1); script idempotente tools/apply_shop_l200_prices.py; docs/SHOP_L200_PRICING.md.",
-        "Fix (CustomShop): alinhamento catálogo — ID `astrodelphis_1` → `astrodelphis` (defaults/mercado); `MarketInclude: true` nos 81 L1 em falta; 29 `*_l200` reaplicados com defaults do repo (não WEBSTORE Desktop); configs espelhados em bin."
+        "Feat (Web Store / Catálogo): desistência e auto-cancel reembolsam 90% do valor pago (retenção 10%); reembolso 100% só via contestação + ticket com explicação obrigatória (mín. 20 caracteres). Docs §8.4 + UI.",
+        "Feat (Web Store / Mercado): desistência/expiração de claim em casal — reembolso 60% de Y; vendedor recupera dinos e sofre estorno de Y; pote do sorteio sem estorno; solteiros mantêm reembolso integral no claim. Texto: «Em caso de desistência, o reembolso é de apenas 60% do valor pago». Docs §8.7 + UI tutorial.",
+        "Feat (Web Store / Mercado): venda em casal (M+F) — vínculo pair_mate_listing_id, checkout Y=(P1+P2)×0,60, crédito prize_amber_from_market +=0,40×S na campanha ativa do Sorteio; solteiros inalterados (fee_amount=0); tribo reparte sobre Y; card público sem badge −40%/taxa. Docs §8.7 + ECONOMIA.",
+        "Feat (Web Store / Encomenda): cotação Lab com breakdown explícito (stats V, cores C, α, β, total); α/β alinhados a _floor_quality; UI wizard + Simular preço. Docs ENCOMENDA_DINO_SPEC.",
+        "Feat (Web Store / Encomenda): vitrine rotativa — 10 slots (mix 6 grande + 2 médio + 2 pequeno) + até 5 permanentes; duração em dias (7/15/custom); auto-rotação ao expirar; «Rodar agora»; catálogo jogador filtrado pela vitrine. Admin: Dino Lab → Vitrine.",
+        "Feat (CustomDinoDeliver): `/dinoclass` (alias `/dumpdino`) — admin imprime GetClass *_C + path do dino mais próximo (PropagatorDinoBlacklist / ItensAlfa). Bump v1.10.14 → v1.10.15. Docs/ARKLAND_PLUGIN_DEBUG.md.",
+        "Fix (CustomShop / economia opção A): L1 Price = root_value (sync_shop_l1_prices_from_root.py + kits pack10 a 25% off); L200 = round(0.40 × V254) com V254=min(R+B, market_absolute_max); docs/SHOP_L200_PRICING.md.",
+        "Fix (CustomShop): dinos *_l200 com sexo aleatório — remove Gender (plugin não força male/female); Name/Description sem «Fêmea»; apply_shop_l200_prices.py e docs/SHOP_L200_PRICING.md.",
+        "Fix (Plugins / Debug ARKLAND): pasta logs/ + README + boot em arkland_debug.log sempre no arranque; TribeSync avisa se ServerId/MySQL offline. Bump CustomShop v1.10.15 → v1.10.16; CustomDinoDeliver v1.10.13 → v1.10.15. Docs/ARKLAND_PLUGIN_DEBUG.md.",
+        "Docs (Regulamento v1.1): §3.5 aconselha não doar entre jogadores e proíbe doar recursos/dinos/itens que exigem licença ativa (punição administrativa); §8.4 desistência 90%/contestação+ticket; §8.7 casal 60% + contribuição sorteio; solteiros claim integral."
     ]
 }

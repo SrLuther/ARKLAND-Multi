@@ -312,6 +312,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               prize_amber_rollover_in INTEGER NOT NULL DEFAULT 0,
               prize_amber_from_purchases INTEGER NOT NULL DEFAULT 0,
               prize_amber_from_donations INTEGER NOT NULL DEFAULT 0,
+              prize_amber_from_market INTEGER NOT NULL DEFAULT 0,
               prize_amber_paid INTEGER NOT NULL DEFAULT 0,
               prize_amber_subsidy INTEGER NOT NULL DEFAULT 0,
               prize_pool_fully_distributed INTEGER NOT NULL DEFAULT 0,
@@ -422,6 +423,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               prize_amber_rollover_in INT NOT NULL DEFAULT 0,
               prize_amber_from_purchases INT NOT NULL DEFAULT 0,
               prize_amber_from_donations INT NOT NULL DEFAULT 0,
+              prize_amber_from_market INT NOT NULL DEFAULT 0,
               prize_amber_paid INT NOT NULL DEFAULT 0,
               prize_amber_subsidy INT NOT NULL DEFAULT 0,
               prize_pool_fully_distributed TINYINT(1) NOT NULL DEFAULT 0,
@@ -833,6 +835,7 @@ def _migrate_lottery_columns(engine: Engine) -> None:
         "starts_at": "DATETIME NULL",
         "prize_amber_from_purchases": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_from_donations": "INTEGER NOT NULL DEFAULT 0",
+        "prize_amber_from_market": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_paid": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_subsidy": "INTEGER NOT NULL DEFAULT 0",
         "prize_pool_fully_distributed": "INTEGER NOT NULL DEFAULT 0",
@@ -949,6 +952,7 @@ def _prize_total(row: Any) -> int:
         + int(_row_val(row, "prize_amber_rollover_in", 0) or 0)
         + int(_row_val(row, "prize_amber_from_purchases", 0) or 0)
         + int(_row_val(row, "prize_amber_from_donations", 0) or 0)
+        + int(_row_val(row, "prize_amber_from_market", 0) or 0)
     )
 
 
@@ -989,6 +993,7 @@ def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, A
         "prize_amber_rollover_in": int(_row_val(row, "prize_amber_rollover_in", 0) or 0),
         "prize_amber_from_purchases": int(_row_val(row, "prize_amber_from_purchases", 0) or 0),
         "prize_amber_from_donations": int(_row_val(row, "prize_amber_from_donations", 0) or 0),
+        "prize_amber_from_market": int(_row_val(row, "prize_amber_from_market", 0) or 0),
         "prize_catalog": _parse_prize_catalog_row(row),
         "amber_random_price": int(_row_val(row, "amber_random_price", 1000) or 1000),
         "amber_reserve_price": int(_row_val(row, "amber_reserve_price", 2000) or 2000),
@@ -1372,6 +1377,65 @@ def reserve_number(db: Session, steam_id: str, number: int) -> dict[str, Any]:
         "number": {"value": number, "source": "AMBER_RESERVE", "amber_cost": price},
         "prize_amber_total": _prize_total(row) if row else 0,
         "new_balance": _player_balance(db, steam_id),
+    }
+
+
+def contribute_market_pair_to_prize(
+    db: Session,
+    *,
+    amount: int,
+    listing_id: int,
+    tx_id: int,
+    seller_steam_id: str | None = None,
+) -> dict[str, Any]:
+    """Credita 0,40×S ao pote da campanha ACTIVE/DRAWING (venda em casal).
+
+    Crédito de sistema — não debita carteira do vendedor. Idempotente via ledger.
+    Se não houver campanha ativa, retorna credited=0 (deferral operacional).
+    """
+    amount = max(0, int(amount))
+    if amount <= 0:
+        return {"credited": 0, "campaign_id": None, "prize_amber_total": 0}
+    campaign = get_active_campaign(db)
+    if not campaign:
+        log.warning(
+            "Casal listing=%s: sem campanha ativa — contribuição %s Âmbar não creditada",
+            listing_id,
+            amount,
+        )
+        return {"credited": 0, "campaign_id": None, "prize_amber_total": 0, "reason": "no_active_campaign"}
+    cid = int(campaign.id)
+    db.execute(
+        text(
+            "UPDATE lottery_campaigns SET prize_amber_from_market = "
+            "COALESCE(prize_amber_from_market, 0) + :amt, updated_at = :now WHERE id = :id"
+        ),
+        {"amt": amount, "now": _naive(_utcnow()), "id": cid},
+    )
+    try:
+        from amber_ledger import record_lottery_market_pair_contribution
+
+        record_lottery_market_pair_contribution(
+            db,
+            campaign_id=cid,
+            listing_id=listing_id,
+            tx_id=tx_id,
+            amount=amount,
+            seller_steam_id=seller_steam_id,
+        )
+    except Exception as exc:
+        log.warning("Ledger market pair contribution: %s", exc)
+    row = _fetch_campaign_row(db, cid)
+    _audit_safe(
+        db,
+        "lottery_market_pair_contribution",
+        {"listing_id": listing_id, "tx_id": tx_id, "amount": amount},
+        campaign_id=cid,
+    )
+    return {
+        "credited": amount,
+        "campaign_id": cid,
+        "prize_amber_total": _prize_total(row) if row else 0,
     }
 
 

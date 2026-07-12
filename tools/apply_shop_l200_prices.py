@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Gera/atualiza entradas Type:dino Level 200 no CustomShop (idempotente).
 
-Regras aprovadas (Jul/2026):
-  M = root_value (market_species_defaults)
-  k = 1.40 (L200_MARKUP_K em market_economy — constante configurável)
-  P200 = round(clamp(P1 × k, P1+1, 0.75×M))
-  Se 0.75×M ≤ P1 → não listar (remove par *_l200 se existir)
+Regras aprovadas (Jul/2026, opção A):
+  R = root_value, B = premium_budget (market_species_defaults)
+  V254 = min(R + B, market_absolute_max)   # Q=1 full 254
+  P200 = round(0.40 × V254)                # L200_OF_V254_RATIO
+  Se P200 <= P1 → não listar (remove par *_l200 se existir)
 
 Uso:
   python tools/apply_shop_l200_prices.py
@@ -29,6 +29,7 @@ sys.path.insert(0, str(WEB))
 import market_economy as me  # noqa: E402
 
 _LEVEL_IN_TEXT = re.compile(r"N[ií]vel\s+\d+", re.I)
+_SEX_IN_TEXT = re.compile(r"\s*F[eê]mea\s*", re.I)
 
 
 def _rewrite_level_text(text: str, level: int) -> str:
@@ -38,6 +39,15 @@ def _rewrite_level_text(text: str, level: int) -> str:
     if _LEVEL_IN_TEXT.search(raw):
         return _LEVEL_IN_TEXT.sub(f"Nível {level}", raw)
     return f"{raw} Nível {level}"
+
+
+def _strip_fixed_sex_text(text: str) -> str:
+    """L200 não tem sexo fixo — remove 'Fêmea' do nome/descrição."""
+    raw = str(text or "").strip()
+    if not raw:
+        return raw
+    out = _SEX_IN_TEXT.sub(" ", raw)
+    return re.sub(r"\s+", " ", out).strip()
 
 
 def _build_l200_entry(l1_entry: dict[str, Any], price: int) -> dict[str, Any]:
@@ -51,11 +61,17 @@ def _build_l200_entry(l1_entry: dict[str, Any], price: int) -> dict[str, Any]:
     d0["Level"] = 200
     d0.setdefault("ForceTame", True)
     d0.setdefault("Neutered", False)
+    # Sexo aleatório: omitir Gender (plugin ApplyGender só força male/female)
+    d0.pop("Gender", None)
     entry["Dinos"] = [d0]
     if entry.get("Description"):
-        entry["Description"] = _rewrite_level_text(str(entry["Description"]), 200)
+        entry["Description"] = _strip_fixed_sex_text(
+            _rewrite_level_text(str(entry["Description"]), 200)
+        )
     if entry.get("Name"):
-        entry["Name"] = _rewrite_level_text(str(entry["Name"]), 200)
+        entry["Name"] = _strip_fixed_sex_text(
+            _rewrite_level_text(str(entry["Name"]), 200)
+        )
     elif entry.get("Description"):
         entry["Name"] = str(entry["Description"])
     return entry
@@ -64,7 +80,7 @@ def _build_l200_entry(l1_entry: dict[str, Any], price: int) -> dict[str, Any]:
 def apply_l200_to_catalog(
     catalog: dict[str, Any],
     *,
-    k: float = me.L200_MARKUP_K,
+    ratio: float = me.L200_OF_V254_RATIO,
 ) -> dict[str, Any]:
     """Aplica L200 in-place. Devolve resumo {created, updated, skipped, removed, details}."""
     items: dict[str, Any] = catalog.setdefault("Items", {})
@@ -72,56 +88,76 @@ def apply_l200_to_catalog(
     updated: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     removed: list[dict[str, Any]] = []
+    market_cap = me.load_market_absolute_max()
 
     l1_pairs = me.iter_catalog_dinos(catalog, level1_only=True)
     wanted_l200_ids: set[str] = set()
 
     for l1_id, l1_entry in l1_pairs:
         p1 = int(l1_entry.get("Price") or 0)
-        m = me.resolve_species_root_value(l1_id, l1_entry)
+        root = me.resolve_species_root_value(l1_id, l1_entry)
+        budget = me.resolve_species_premium_budget(l1_id, l1_entry)
         l200_id = me.l200_shop_id(l1_id)
-        if m is None or m <= 0:
+        if root is None or root < 0 or budget is None:
             skipped.append(
-                {"l1_id": l1_id, "l200_id": l200_id, "reason": "missing_root_value", "p1": p1, "m": m}
+                {
+                    "l1_id": l1_id,
+                    "l200_id": l200_id,
+                    "reason": "missing_economy",
+                    "p1": p1,
+                    "root": root,
+                    "premium_budget": budget,
+                }
             )
             continue
-        price = me.compute_l200_price(p1, m, k=k)
+        v254 = me.compute_v254(root, budget, market_cap)
+        price = me.compute_l200_price(
+            p1, root, budget, market_absolute_max=market_cap, ratio=ratio
+        )
         if price is None:
             skipped.append(
                 {
                     "l1_id": l1_id,
                     "l200_id": l200_id,
-                    "reason": "cap_leq_p1",
+                    "reason": "p200_leq_p1",
                     "p1": p1,
-                    "m": m,
-                    "cap": round(me.L200_CAP_RATIO * m, 2),
+                    "root": root,
+                    "premium_budget": budget,
+                    "v254": v254,
+                    "p200": int(round(float(ratio) * float(v254))),
                 }
             )
             if l200_id in items and me.is_catalog_dino_level200(items[l200_id]):
                 del items[l200_id]
-                removed.append({"l200_id": l200_id, "reason": "cap_leq_p1", "p1": p1, "m": m})
+                removed.append(
+                    {
+                        "l200_id": l200_id,
+                        "reason": "p200_leq_p1",
+                        "p1": p1,
+                        "v254": v254,
+                    }
+                )
             continue
 
         wanted_l200_ids.add(l200_id)
         new_entry = _build_l200_entry(l1_entry, price)
+        detail = {
+            "l1_id": l1_id,
+            "l200_id": l200_id,
+            "p1": p1,
+            "root": root,
+            "premium_budget": budget,
+            "v254": v254,
+            "price": price,
+        }
         if l200_id in items:
             prev = items[l200_id]
             items[l200_id] = new_entry
-            updated.append(
-                {
-                    "l1_id": l1_id,
-                    "l200_id": l200_id,
-                    "p1": p1,
-                    "m": m,
-                    "price": price,
-                    "prev_price": int(prev.get("Price") or 0),
-                }
-            )
+            detail["prev_price"] = int(prev.get("Price") or 0)
+            updated.append(detail)
         else:
             items[l200_id] = new_entry
-            created.append(
-                {"l1_id": l1_id, "l200_id": l200_id, "p1": p1, "m": m, "price": price}
-            )
+            created.append(detail)
 
     # Remove órfãos *_l200 que já não têm L1 elegível
     for item_id in list(items.keys()):
@@ -136,8 +172,8 @@ def apply_l200_to_catalog(
 
     return {
         "ok": True,
-        "k": k,
-        "cap_ratio": me.L200_CAP_RATIO,
+        "ratio": ratio,
+        "market_absolute_max": market_cap,
         "created": created,
         "updated": updated,
         "skipped": skipped,
@@ -168,7 +204,12 @@ def main() -> int:
         type=Path,
         default=WEB / "data" / "market_species_defaults.json",
     )
-    parser.add_argument("--k", type=float, default=me.L200_MARKUP_K, help="Markup L1→L200")
+    parser.add_argument(
+        "--ratio",
+        type=float,
+        default=me.L200_OF_V254_RATIO,
+        help="Fração de V254 para o preço L200 (default 0.40)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -190,10 +231,10 @@ def main() -> int:
             print(f"SKIP (ausente): {cfg_path}")
             continue
         catalog = json.loads(cfg_path.read_text(encoding="utf-8"))
-        summary = apply_l200_to_catalog(catalog, k=float(args.k))
+        summary = apply_l200_to_catalog(catalog, ratio=float(args.ratio))
         print(f"=== {cfg_path}")
         print(
-            f"k={summary['k']} cap_ratio={summary['cap_ratio']} | "
+            f"ratio={summary['ratio']} cap={summary['market_absolute_max']} | "
             f"created={summary['created_count']} updated={summary['updated_count']} "
             f"skipped={summary['skipped_count']} removed={summary['removed_count']}"
         )
@@ -201,12 +242,18 @@ def main() -> int:
             for row in summary["created"]:
                 print(
                     f"  + {row['l1_id']} -> {row['l200_id']}  "
-                    f"P1={row['p1']} M={row['m']} P200={row['price']}"
+                    f"P1={row['p1']} V254={row['v254']} P200={row['price']}"
+                )
+            for row in summary["updated"][:20]:
+                print(
+                    f"  ~ {row['l1_id']} -> {row['l200_id']}  "
+                    f"P1={row['p1']} V254={row['v254']} "
+                    f"P200={row['prev_price']}->{row['price']}"
                 )
             for row in summary["skipped"][:30]:
                 print(
                     f"  · skip {row['l1_id']}: {row['reason']} "
-                    f"P1={row.get('p1')} M={row.get('m')} cap={row.get('cap')}"
+                    f"P1={row.get('p1')} V254={row.get('v254')} P200={row.get('p200')}"
                 )
             if summary["skipped_count"] > 30:
                 print(f"  · … +{summary['skipped_count'] - 30} skips")

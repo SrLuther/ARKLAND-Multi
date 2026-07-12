@@ -551,6 +551,36 @@ def record_lottery_donation_prize_contribution(
     )
 
 
+def record_lottery_market_pair_contribution(
+    db: Session,
+    *,
+    campaign_id: int,
+    listing_id: int,
+    tx_id: int,
+    amount: int,
+    seller_steam_id: str | None = None,
+    **kw: Any,
+) -> bool:
+    """Crédito de sistema ao pote a partir de venda em casal (§8.7.4)."""
+    return record_movement(
+        db,
+        channel="lottery",
+        event_type="lottery_market_pair_prize_contribution",
+        signed_delta=amount,
+        idempotency_key=f"lottery:market_pair:{campaign_id}:{tx_id}",
+        steam_id=seller_steam_id or "system",
+        source_table="market_transactions",
+        source_id=str(tx_id),
+        metadata={
+            "campaign_id": campaign_id,
+            "listing_id": listing_id,
+            "tx_id": tx_id,
+            "note": "pair_sale_prize_pool",
+        },
+        **kw,
+    )
+
+
 def record_lottery_donation_amber(
     db: Session,
     *,

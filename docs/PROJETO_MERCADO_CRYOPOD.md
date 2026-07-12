@@ -1509,3 +1509,4 @@ Este documento serve como base para revisão de stakeholders, estimativa de esfo
 | `docs/PROJETO_ARKLAND_MASTER.md` | SpawnExact, gap loja admin |
 | `src/spawn_exact.py` | Stats breeding, cores, imprint |
 | [`docs/TRIBO_REPARTICAO_MERCADO.md`](TRIBO_REPARTICAO_MERCADO.md) | **§18** — Divisão de receita de vendas P2P entre membros de tribo: piso 60% ao criador, opt-in/opt-out, audit log, 25 edge cases, 4 fases MVP |
+| [`docs/REGULAMENTO_SERVIDOR.md`](REGULAMENTO_SERVIDOR.md) **§8.7** | Regras oficiais jogador/admin: solteiros (`fee_amount=0`), **casal M+F** (`Y=0,60×S`), contribuição **`0,40×S` ao prêmio do Sorteio** (fórmula e exemplo no regulamento); UI do card pode omitir badge “−40%/taxa”. **Estado:** regra aprovada; implementação de casal/pote pendente |

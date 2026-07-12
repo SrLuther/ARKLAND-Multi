@@ -20,4 +20,16 @@ struct DeliverCustomDinoResult {
 DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
                                           const nlohmann::json& payload);
 
+// Admin debug: classe UClass do dino mais próximo (PropagatorDinoBlacklist / mods).
+struct DinoClassDump {
+    bool ok = false;
+    std::string class_name;  // ex.: TekStrider_Character_BP_C
+    std::string full_name;   // GetFullName()
+    std::string path_hint;   // /Game/... se presente no full name
+    float dist = 0.0f;
+};
+
+DinoClassDump DumpNearestDinoClass(AShooterPlayerController* controller,
+                                   float max_dist = 12000.0f);
+
 } // namespace CustomDinoDeliver

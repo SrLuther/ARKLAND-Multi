@@ -5451,8 +5451,9 @@
           </div>
           <div id="market-encomenda-content" style="display:none;">
             <div class="encomenda-rule-callout" role="note">
-              <strong>Catálogo curado pela equipe</strong>
-              Somente os dinos exibidos nesta galeria estão disponíveis para encomenda. Outras espécies não aparecem aqui até a administração publicar novas referências de cor — acompanhe as atualizações do servidor.
+              <strong>Vitrine rotativa</strong>
+              Somente os dinos exibidos nesta galeria estão disponíveis para encomenda neste período
+              (slots rotativos + permanentes definidos pela administração). Acompanhe as atualizações do servidor.
             </div>
             <div class="catalog-toolbar" style="margin-bottom:16px;">
               <div class="catalog-search-wrap">
@@ -5468,7 +5469,7 @@
               Encomende dinos sob medida — cores, stats e sexo. Preço calculado com paridade ao mercado + prêmio de serviço.
             </p>
             <div id="encomenda-gallery" class="catalog-dinos-grid"></div>
-            <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie disponível na galeria. A equipe ainda não publicou referências de cor.</p>
+            <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie na vitrine neste período. Volte mais tarde ou acompanhe o anúncio do servidor.</p>
             <details style="margin-top:20px;" id="encomenda-color-ids-details">
               <summary style="cursor:pointer;font-size:13px;color:var(--text2);">🎨 Referência de Color IDs (ARK)</summary>
               <div class="card" style="margin-top:12px;padding:12px;">
@@ -6338,7 +6339,7 @@
               </ol>
 
               <h4>Aba «Disponível» — cancelar antes da entrega</h4>
-              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível com <strong>reembolso integral</strong> dos Âmbares. Após entrega in-game, o resgate é definitivo.</p>
+              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível após 24h da compra. O reembolso de desistência é de <strong>90% do valor pago</strong> (retenção de 10%). Reembolso <strong>integral (100%)</strong> só via <strong>contestação + ticket</strong> com explicação do motivo. Licenças são irrevogáveis. Após entrega in-game, o resgate é definitivo.</p>
 
               <div class="tutorial-callout tutorial-callout--warn">
                 <strong>⚠️ Atenção</strong>
@@ -6413,7 +6414,7 @@
 
               <div class="tutorial-callout tutorial-callout--warn">
                 <strong>⚠️ Se expirar as 24h</strong>
-                O claim é cancelado automaticamente. O <strong>comprador recebe reembolso integral</strong> (preço + taxas) em Âmbar e o <strong>dino volta ao vendedor</strong>. Não é possível resgatar após expiração — será necessário nova compra se o anúncio ainda estiver ativo.
+                O claim é cancelado automaticamente e o <strong>dino volta ao vendedor</strong>. Em anúncio <strong>individual</strong>, o comprador recebe <strong>reembolso integral</strong>. Em compra de <strong>casal</strong>: <em>em caso de desistência, o reembolso é de apenas 60% do valor pago</em>. Não é possível resgatar após expiração — será necessário nova compra se o anúncio ainda estiver ativo.
               </div>
 
               <h4>Retirada pelo vendedor</h4>
@@ -6684,7 +6685,7 @@
               </ul>
 
               <h4>Expirou as 24h do resgate</h4>
-              <p>O sistema reembolsa o comprador automaticamente e devolve o dino ao vendedor. Não há como recuperar o claim expirado — o comprador deve buscar novo anúncio se ainda quiser o dino.</p>
+              <p>O sistema processa o claim automaticamente e devolve o dino ao vendedor. Em compra individual o reembolso é integral; em casal, o reembolso é de apenas 60% do valor pago. Não há como recuperar o claim expirado — o comprador deve buscar novo anúncio se ainda quiser o dino.</p>
 
               <h4>Preview do /enviar expirou</h4>
               <p>O preview dura <strong>2 minutos</strong>. Digite <code>/enviar</code> novamente e confirme com <code>/confirmar</code> mais rápido.</p>
@@ -7250,6 +7251,7 @@
           <button type="button" class="catalog-tab active" data-dinolab-tab="deliver" onclick="setDinoLabTab('deliver')">Nova entrega</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="history" onclick="setDinoLabTab('history')">Histórico</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="encomenda" onclick="setDinoLabTab('encomenda')">Encomendas</button>
+          <button type="button" class="catalog-tab" data-dinolab-tab="vitrine" onclick="setDinoLabTab('vitrine')">Vitrine</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="showcase" onclick="setDinoLabTab('showcase')">Galeria cores</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="block" onclick="setDinoLabTab('block')">IDs bloqueados</button>
         </div>
@@ -7393,12 +7395,63 @@
           </div>
           <div id="dinolab-encomenda-list" style="color:var(--text2);">Carregando…</div>
         </div>
+        <div id="dinolab-panel-vitrine" class="catalog-panel">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Vitrine de encomenda</div>
+            <p style="font-size:12px;color:var(--text2);margin:8px 0 0;line-height:1.55;">
+              O catálogo jogador (Comércio → Encomenda) lista apenas as espécies desta vitrine:
+              <strong>10 rotativas</strong> (mix 6 grande + 2 médio + 2 pequeno) e até <strong>5 permanentes</strong>.
+              Ao acabar o período, o sistema sorteia de novo automaticamente. Permanentes ficam fora do sorteio.
+              Se o pool de um porte for curto, o restante é preenchido com outros portes (fallback).
+            </p>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Duração do ciclo (dias)</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <select id="dl-vitrine-days-preset" onchange="dinoLabVitrinePresetChange()">
+                    <option value="7">7 dias</option>
+                    <option value="15">15 dias</option>
+                    <option value="custom">Personalizado</option>
+                  </select>
+                  <input id="dl-vitrine-days" type="number" min="1" max="90" value="7" style="width:88px;" />
+                  <button class="btn btn-ghost btn-sm" type="button" onclick="dinoLabVitrineSaveDays()">Salvar duração</button>
+                </div>
+                <p style="font-size:11px;color:var(--text3);margin:6px 0 0;">Salvar duração não reinicia o timer atual. Use «Rodar agora» para novo sorteio + novo prazo.</p>
+              </div>
+              <div class="form-group" style="align-self:end;">
+                <div id="dl-vitrine-countdown" style="font-size:13px;font-weight:600;color:var(--amber);">—</div>
+                <button class="btn btn-primary btn-sm" type="button" style="margin-top:8px;" onclick="dinoLabVitrineRotateNow()">🎲 Rodar agora</button>
+              </div>
+            </div>
+            <div id="dl-vitrine-fallback-hint" class="hidden" style="margin-top:10px;font-size:12px;color:var(--amber);"></div>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title" style="font-size:13px;">Slots rotativos (10)</div>
+            <div id="dl-vitrine-rotating" style="margin-top:10px;color:var(--text2);">Carregando…</div>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title" style="font-size:13px;">Permanentes (até 5)</div>
+            <div class="form-grid" style="margin-top:10px;">
+              <div class="form-group">
+                <label>Adicionar espécie</label>
+                <select id="dl-vitrine-perm-species"></select>
+              </div>
+              <div class="form-group" style="align-self:end;">
+                <button class="btn btn-ghost btn-sm" type="button" onclick="dinoLabVitrineAddPermanent()">Adicionar</button>
+              </div>
+            </div>
+            <div id="dl-vitrine-permanents" style="margin-top:10px;color:var(--text2);">Nenhuma permanente.</div>
+          </div>
+        </div>
         <div id="dinolab-panel-showcase" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
-            <div class="card-title">Galeria de cores — catálogo de encomendas</div>
+            <div class="card-title">Galeria de cores — referências visuais</div>
             <p style="font-size:12px;color:var(--text2);margin:8px 0 0;line-height:1.55;">
-              Apenas espécies com pelo menos uma vitrine ativa aparecem para os jogadores em <strong>Comércio → Encomenda</strong>.
-              Máximo <strong>10 imagens</strong> por espécie. Publique referências visuais com cores Obelisk e descrição para orientar o pedido.
+              Referências opcionais de cor para espécies já na <strong>Vitrine</strong>.
+              O catálogo encomendável é definido pela aba <strong>Vitrine</strong> (não por estas imagens).
+              Máximo <strong>10 imagens</strong> por espécie.
             </p>
           </div>
           <div class="form-grid" style="margin-bottom:12px;">
@@ -10159,7 +10212,7 @@ async function loadAvailable() {
     const policy = d.cancel_policy || {};
     const cooldownH = policy.cooldown_hours || 24;
     const autoH = policy.auto_cancel_hours || 48;
-    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (com reembolso) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado automaticamente. <strong>Licenças</strong> são irrevogáveis — não dá para desistir nem reembolsar.</p>`;
+    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (reembolso de <strong>90%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 90% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> são irrevogáveis — não dá para desistir nem reembolsar.</p>`;
     if (!pending.length) {
       html += `<p class="available-hint">Nenhum resgate pendente no momento.</p>`;
     } else {
@@ -10835,12 +10888,12 @@ async function loadMyAreaLicenses() {
 
 async function cancelPendingOrder(orderId) {
   if (!orderId) return;
-  if (!confirm("Desistir deste resgate? O valor em Âmbar será reembolsado se ainda não foi entregue no servidor. (Disponível só após 24h da compra; licenças não podem ser canceladas.)")) return;
+  if (!confirm("Desistir deste resgate? Será reembolsado 90% do valor pago (retenção de 10%). Disponível só após 24h da compra; licenças não podem ser canceladas. Para pedir 100%, use Contestação (⚠️) com ticket e explicação.")) return;
   try {
     const r = await fetch(API + "/api/player/orders/" + encodeURIComponent(orderId) + "/cancel", { method: "POST" });
     const d = await r.json();
     if (d.ok) {
-      toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados`, "success");
+      toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados (90%)`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
       loadMyArea();
@@ -10983,15 +11036,27 @@ function resetMyAreaPage() {
 }
 
 async function contestOrder(orderId) {
-  const reason = prompt("Descreva o motivo da contestação:");
+  const reason = prompt(
+    "Contestação abre um ticket de suporte obrigatório.\n\n" +
+    "Explique o motivo com detalhes (mín. 20 caracteres).\n" +
+    "Reembolso integral (100%) só após análise da equipe."
+  );
   if (!reason || !reason.trim()) return;
+  if (reason.trim().length < 20) {
+    toast("Explique o motivo com pelo menos 20 caracteres.", "warning");
+    return;
+  }
   const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/contest`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ reason: reason.trim() }),
   });
   const d = await r.json();
-  if (d.ok) { toast("Contestação enviada.", "success"); loadMyAreaHistory(); }
+  if (d.ok) {
+    const tid = d.ticket_id ? ` (ticket #${d.ticket_id})` : "";
+    toast((d.message || "Contestação enviada.") + tid, "success");
+    loadMyAreaHistory();
+  }
   else { toast(d.error || "Falha ao contestar", "error"); }
 }
 
@@ -12792,10 +12857,12 @@ function setDinoLabTab(tab) {
   document.getElementById("dinolab-panel-deliver")?.classList.toggle("active", tab === "deliver");
   document.getElementById("dinolab-panel-history")?.classList.toggle("active", tab === "history");
   document.getElementById("dinolab-panel-encomenda")?.classList.toggle("active", tab === "encomenda");
+  document.getElementById("dinolab-panel-vitrine")?.classList.toggle("active", tab === "vitrine");
   document.getElementById("dinolab-panel-showcase")?.classList.toggle("active", tab === "showcase");
   document.getElementById("dinolab-panel-block")?.classList.toggle("active", tab === "block");
   if (tab === "history") loadDinoLabHistory();
   if (tab === "encomenda") loadDinoLabEncomendaQueue();
+  if (tab === "vitrine") loadDinoLabVitrineAdmin();
   if (tab === "showcase") loadDinoLabShowcaseAdminInit();
   if (tab === "block") loadDinoLabBlockList();
 }
@@ -14381,6 +14448,157 @@ function closeEncomendaWizard() {
 }
 
 let _dinoLabShowcaseMax = 10;
+let _dinoLabVitrine = null;
+
+function _dinoLabVitrineSizeLabel(sc) {
+  const k = String(sc || "medium").toLowerCase();
+  if (k === "large" || k === "grande") return "Grande";
+  if (k === "small" || k === "pequeno") return "Pequeno";
+  return "Médio";
+}
+
+function _dinoLabVitrineFormatCountdown(seconds) {
+  if (seconds == null) return "Sem prazo definido";
+  const s = Math.max(0, parseInt(seconds, 10) || 0);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `Expira em ${d}d ${h}h ${m}m`;
+  if (h > 0) return `Expira em ${h}h ${m}m`;
+  return `Expira em ${m}m`;
+}
+
+function _dinoLabVitrineSpeciesChips(list) {
+  if (!list || !list.length) return `<p style="margin:0;color:var(--text3);">Nenhuma.</p>`;
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;">${list.map(s => {
+    const name = escHtml(s.display_name || s.species_key);
+    const porte = _dinoLabVitrineSizeLabel(s.size_class);
+    const sk = escHtml(s.species_key);
+    const remove = s.slot_kind === "permanent"
+      ? ` <button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px;" onclick="dinoLabVitrineRemovePermanent('${sk}')">×</button>`
+      : "";
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);font-size:12px;">
+      <strong>${name}</strong>
+      <span style="color:var(--text3);">${porte}</span>${remove}
+    </span>`;
+  }).join("")}</div>`;
+}
+
+function dinoLabVitrinePresetChange() {
+  const preset = document.getElementById("dl-vitrine-days-preset")?.value;
+  const input = document.getElementById("dl-vitrine-days");
+  if (!input) return;
+  if (preset === "7" || preset === "15") input.value = preset;
+}
+
+async function loadDinoLabVitrineAdmin() {
+  const rotatingEl = document.getElementById("dl-vitrine-rotating");
+  const permEl = document.getElementById("dl-vitrine-permanents");
+  const countdown = document.getElementById("dl-vitrine-countdown");
+  const hint = document.getElementById("dl-vitrine-fallback-hint");
+  try {
+    const d = await fetchJson("/api/admin/dino-order/vitrine");
+    if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    const v = d.vitrine || {};
+    _dinoLabVitrine = v;
+    const days = parseInt(v.rotation_days, 10) || 7;
+    const daysInput = document.getElementById("dl-vitrine-days");
+    const preset = document.getElementById("dl-vitrine-days-preset");
+    if (daysInput) daysInput.value = String(days);
+    if (preset) {
+      if (days === 7 || days === 15) preset.value = String(days);
+      else preset.value = "custom";
+    }
+    if (countdown) {
+      const ends = v.rotation_ends_at ? new Date(v.rotation_ends_at).toLocaleString() : "—";
+      countdown.textContent = `${_dinoLabVitrineFormatCountdown(v.seconds_remaining)} · fim ${ends}`;
+    }
+    if (hint) {
+      if (v.last_rotation_fallback) {
+        hint.textContent = "Última rotação usou fallback de porte (pool insuficiente para 6+2+2).";
+        hint.classList.remove("hidden");
+      } else {
+        hint.classList.add("hidden");
+      }
+    }
+    if (rotatingEl) rotatingEl.innerHTML = _dinoLabVitrineSpeciesChips(v.rotating || []);
+    if (permEl) permEl.innerHTML = _dinoLabVitrineSpeciesChips(v.permanents || []);
+    const sel = document.getElementById("dl-vitrine-perm-species");
+    if (sel) {
+      const permanentSet = new Set(v.permanent_species_keys || []);
+      const candidates = (v.candidates || []).filter(c => !permanentSet.has(c.species_key));
+      sel.innerHTML = candidates.length
+        ? candidates.map(c =>
+            `<option value="${escHtml(c.species_key)}">${escHtml(c.display_name || c.species_key)} (${_dinoLabVitrineSizeLabel(c.size_class)})</option>`
+          ).join("")
+        : '<option value="">— sem espécies —</option>';
+    }
+  } catch (e) {
+    if (rotatingEl) rotatingEl.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;
+  }
+}
+
+async function dinoLabVitrineSaveDays() {
+  const days = parseInt(document.getElementById("dl-vitrine-days")?.value || "7", 10);
+  try {
+    const d = await fetchJson("/api/admin/dino-order/vitrine/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rotation_days: days }),
+    });
+    if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    toast("Duração salva", "success");
+    loadDinoLabVitrineAdmin();
+  } catch (e) {
+    toast(e.message || String(e), "error");
+  }
+}
+
+async function dinoLabVitrineRotateNow() {
+  if (!confirm("Sortear novas 10 espécies e reiniciar o prazo do ciclo?")) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-order/vitrine/rotate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    toast("Vitrine rotacionada", "success");
+    loadDinoLabVitrineAdmin();
+  } catch (e) {
+    toast(e.message || String(e), "error");
+  }
+}
+
+async function dinoLabVitrineAddPermanent() {
+  const sk = document.getElementById("dl-vitrine-perm-species")?.value || "";
+  if (!sk) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-order/vitrine/permanents", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ species_key: sk, action: "add" }),
+    });
+    if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    loadDinoLabVitrineAdmin();
+  } catch (e) {
+    toast(e.message || String(e), "error");
+  }
+}
+
+async function dinoLabVitrineRemovePermanent(speciesKey) {
+  try {
+    const d = await fetchJson("/api/admin/dino-order/vitrine/permanents", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ species_key: speciesKey, action: "remove" }),
+    });
+    if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    loadDinoLabVitrineAdmin();
+  } catch (e) {
+    toast(e.message || String(e), "error");
+  }
+}
 
 async function loadDinoLabShowcaseAdminInit() {
   const sel = document.getElementById("dl-showcase-species");
@@ -14586,10 +14804,12 @@ async function encomendaRefreshQuote() {
       ? '<span style="color:var(--success);">Aprovação automática</span>'
       : '<span style="color:var(--amber);">Requer aprovação admin</span>';
     box.innerHTML = `
-      <div style="display:grid;gap:4px;font-size:12px;">
-        <div>Stats: ${formatAmberAmount(d.stats_component)} · Cores: ${formatAmberAmount(d.color_component)}</div>
-        <div>Taxa base: ${formatAmberAmount(d.base_surcharge)} · Serviço (${d.service_surcharge_pct}%): ${formatAmberAmount(d.service_premium)}</div>
-        <div style="font-size:15px;font-weight:700;color:var(--amber);margin-top:6px;">Total: ${amberPriceHtml(d.total, 16)}</div>
+      <div style="display:grid;gap:6px;font-size:12px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span>Valor de stats (mercado V)</span><strong>${formatAmberAmount(d.stats_component)}</strong></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span>Cores</span><strong>${formatAmberAmount(d.color_component)}</strong></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span>Taxa base α (serviço)</span><strong>${formatAmberAmount(d.base_surcharge)}</strong></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span>Prêmio serviço β (${d.service_surcharge_pct}%)</span><strong>${formatAmberAmount(d.service_premium)}</strong></div>
+        <div style="font-size:15px;font-weight:700;color:var(--amber);margin-top:6px;display:flex;justify-content:space-between;"><span>Total</span><span>${amberPriceHtml(d.total, 16)}</span></div>
         <div style="margin-top:4px;">${approveNote}</div>
       </div>`;
     if (btn) btn.disabled = false;
@@ -15641,6 +15861,23 @@ function _marketUpdateCharCount(listingId) {
   if (ta && counter) counter.textContent = `${ta.value.length}/${_MARKET_DESC_MAX}`;
 }
 
+function _marketPairMateSummary(mate) {
+  if (!mate) return "";
+  const g = mate.is_female ? "♀" : "♂";
+  const title = mate.display_title || mate.species_display_name || "Parceiro";
+  const stats = mate.stats || {};
+  return `<div class="market-listing-card__pair-mate" style="margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
+    <div style="font-size:12px;font-weight:600;">${escHtml(title)} ${g}</div>
+    <div style="font-size:11px;color:var(--text2);">Pedido: ${Number(mate.effective_price || 0).toLocaleString("pt-BR")} Â · Sugerido: ${Number(mate.computed_base_value || 0).toLocaleString("pt-BR")}</div>
+    <div style="font-size:11px;color:var(--text2);">HP ${stats.health || 0} · Dmg ${stats.melee || 0} · Lvl ${mate.dino_level || "?"}</div>
+  </div>`;
+}
+
+function _marketPairPreviewY(p1, p2) {
+  const s = (Number(p1) || 0) + (Number(p2) || 0);
+  return Math.round(s * 0.6);
+}
+
 function _marketListingCard(l, { showBuy = false, showSellerActions = false, showAdminClassify = false } = {}) {
   const stats = l.stats || {};
   const gender = l.is_female ? "♀" : "♂";
@@ -15654,11 +15891,19 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
   const suggestedVal = l.suggested_base_value || l.computed_base_value || (sug && sug.root_value) || 0;
   const ceilingVal = l.price_ceiling || 0;
   const awaitingCls = l.awaiting_classification === true;
+  const isPair = !!(l.is_pair || l.listing_kind === "pair");
+  const pairMate = l.pair_mate || null;
+  const checkoutPrice = isPair
+    ? (l.pair_checkout_price != null ? l.pair_checkout_price : (l.display_price || l.effective_price))
+    : (l.effective_price || 0);
   const sellerBadge = l.seller_display_name
     ? `<div class="market-listing-card__seller">🏪 ${escHtml(l.seller_display_name)}</div>`
     : (l.seller_steam_id ? `<div class="market-listing-card__seller" style="opacity:0.7;">Vendedor: <code style="font-size:11px;">${escHtml(l.seller_steam_id)}</code></div>` : "");
   const categoryChip = category
     ? `<span class="market-listing-card__category" title="Categoria sugerida">${escHtml(category)}</span>`
+    : "";
+  const pairChip = isPair
+    ? `<span class="market-listing-card__category" style="background:rgba(232,120,32,.2);color:var(--amber);" title="Anúncio em casal">Casal</span>`
     : "";
   const sugChip = sug && awaitingCls
     ? `<span class="market-listing-card__suggestion" title="Confiança: ${escHtml(sug.confidence || "?")}">${sug.needs_review ? "⚠ novo — revisar" : "✓ sugestão automática"}</span>`
@@ -15669,18 +15914,46 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
   const descHtml = _marketListingDescHtml(l, l.listing_id);
   let actions = "";
   if (showBuy && l.status === "ACTIVE") {
-    actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:4px;" onclick="marketPurchaseListing(${l.listing_id})">Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar</button>`;
+    const buyLabel = isPair
+      ? `Comprar casal — ${Number(checkoutPrice || 0).toLocaleString("pt-BR")} Âmbar`
+      : `Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar`;
+    actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:4px;" onclick="marketPurchaseListing(${l.listing_id})">${buyLabel}</button>`;
   }
   if (showSellerActions) {
     const canEditPrice = !awaitingCls;
+    const pairCandidates = (_marketMyListings || []).filter(o =>
+      o.listing_id !== l.listing_id
+      && o.species_key === l.species_key
+      && !!o.is_female !== !!l.is_female
+      && ["DRAFT", "PAUSED", "ACTIVE", "PENDING_CLASSIFICATION"].includes(o.status)
+      && !o.is_pair
+    );
+    const pairControls = isPair
+      ? `<div style="margin-top:6px;display:grid;gap:4px;">
+          <div style="font-size:12px;color:var(--amber);">Casal com #${l.pair_mate_listing_id}
+            · Y = ${Number(l.pair_checkout_price || checkoutPrice || 0).toLocaleString("pt-BR")} Â
+            <span id="market-pair-live-${l.listing_id}"></span>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="marketUnlinkPair(${l.listing_id})">Desvincular casal</button>
+        </div>`
+      : (canEditPrice && pairCandidates.length
+        ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <select id="market-pair-mate-${l.listing_id}" style="flex:1;min-width:120px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">
+              <option value="">Vincular casal…</option>
+              ${pairCandidates.map(c => `<option value="${c.listing_id}">#${c.listing_id} ${c.is_female ? "♀" : "♂"} · ${Number(c.effective_price || c.computed_base_value || 0).toLocaleString("pt-BR")} Â</option>`).join("")}
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="marketLinkPair(${l.listing_id})">Vincular</button>
+          </div>`
+        : "");
     actions = `
       ${canEditPrice ? _marketListingEditForm(l) : ""}
       <div style="margin-top:6px;display:grid;gap:6px;">
         ${canEditPrice ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <input id="market-price-${l.listing_id}" type="number" min="${l.computed_base_value || suggestedVal}"${ceilingVal > 0 ? ` max="${ceilingVal}"` : ""} value="${l.effective_price || l.computed_base_value || suggestedVal}" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+          <input id="market-price-${l.listing_id}" type="number" min="${l.computed_base_value || suggestedVal}"${ceilingVal > 0 ? ` max="${ceilingVal}"` : ""} value="${l.effective_price || l.computed_base_value || suggestedVal}" oninput="marketUpdatePairPreview(${l.listing_id})" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
           <button class="btn btn-ghost btn-sm" onclick="marketSetPrice(${l.listing_id}, false)">Salvar</button>
           ${l.status === "DRAFT" || l.status === "PAUSED" ? `<button class="btn btn-success btn-sm" onclick="marketSetPrice(${l.listing_id}, true)">Ativar</button>` : ""}
         </div>${ceilingVal > 0 ? `<div style="font-size:11px;color:var(--text2);">Teto máximo: <strong>${Number(ceilingVal).toLocaleString("pt-BR")}</strong> Âmbar</div>` : ""}` : ""}
+        ${pairControls}
         ${l.status === "ACTIVE" ? `<button class="btn btn-ghost btn-sm" onclick="marketPauseListing(${l.listing_id})">Pausar</button>` : ""}
         ${["DRAFT","ACTIVE","PAUSED"].includes(l.status) ? `<button class="btn btn-ghost btn-sm" onclick="marketWithdrawListing(${l.listing_id})">Recuperar dino</button>` : ""}
         ${awaitingCls ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${Number(sug.root_value || 0).toLocaleString("pt-BR")} Âmbar</span>` : ""}</div>` : ""}
@@ -15713,22 +15986,32 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
   const statusBadge = awaitingCls
     ? '<span class="badge" style="background:var(--warn);">AGUARDANDO</span>'
     : `<span class="badge">${escHtml(l.status)}</span>`;
+  const suggestedPair = isPair
+    ? (l.pair_suggested_sum != null
+      ? l.pair_suggested_sum
+      : (Number(l.computed_base_value || 0) + Number((pairMate && pairMate.computed_base_value) || 0)))
+    : (l.computed_base_value || 0);
   const priceLine = awaitingCls
     ? `<div style="color:var(--text2);font-size:12px;">Sugerido: <strong style="color:var(--amber);">${Number(suggestedVal).toLocaleString("pt-BR")}</strong> Âmbar <span style="opacity:0.7;">(após aprovação)</span></div>`
-    : `<div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
-        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}${ceilingVal > 0 ? ` · Teto: ${Number(ceilingVal).toLocaleString("pt-BR")}` : ""}</div>`;
+    : (isPair
+      ? `<div>Preço do casal: <strong style="color:var(--amber);">${Number(checkoutPrice || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
+        <div style="color:var(--text2);font-size:12px;">Sugeridos (soma): ${Number(suggestedPair).toLocaleString("pt-BR")}${ceilingVal > 0 ? ` · Teto: ${Number(ceilingVal).toLocaleString("pt-BR")}` : ""}</div>
+        <div style="color:var(--text2);font-size:11px;">Pedidos: ${Number(l.effective_price || 0).toLocaleString("pt-BR")} + ${Number((pairMate && pairMate.effective_price) || 0).toLocaleString("pt-BR")} Â</div>`
+      : `<div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
+        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}${ceilingVal > 0 ? ` · Teto: ${Number(ceilingVal).toLocaleString("pt-BR")}` : ""}</div>`);
   return `
-    <div class="card market-listing-card">
+    <div class="card market-listing-card${isPair ? " market-listing-card--pair" : ""}">
       <div class="market-listing-card__body">
         ${_marketSpeciesThumbHtml(l)}
         <div style="min-width:0;flex:1;">
       <div class="market-listing-card__header">
         <div style="min-width:0;flex:1;">
           ${sellerBadge}
-          <div class="market-listing-card__title">${escHtml(title)} ${gender}</div>
+          <div class="market-listing-card__title">${escHtml(title)} ${gender}${isPair ? " + casal" : ""}</div>
           ${speciesLine ? `<div class="market-listing-card__species">${escHtml(speciesLine)}</div>` : ""}
-          <div class="market-listing-card__chips">${categoryChip}${sugChip}${roleChip}</div>
+          <div class="market-listing-card__chips">${pairChip}${categoryChip}${sugChip}${roleChip}</div>
           ${descHtml}
+          ${isPair ? _marketPairMateSummary(pairMate) : ""}
         </div>
         ${statusBadge}
       </div>
@@ -16054,6 +16337,49 @@ async function marketSetPrice(listingId, activate) {
   } catch (e) {
     toast(String(e), "error");
   }
+}
+
+function marketUpdatePairPreview(listingId) {
+  const el = document.getElementById("market-pair-live-" + listingId);
+  const listing = (_marketMyListings || []).find(x => x.listing_id === listingId);
+  if (!el || !listing || !listing.is_pair) return;
+  const inp = document.getElementById("market-price-" + listingId);
+  const p1 = inp ? parseInt(inp.value, 10) : Number(listing.effective_price || 0);
+  const mate = listing.pair_mate || (_marketMyListings || []).find(x => x.listing_id === listing.pair_mate_listing_id);
+  const p2 = Number((mate && mate.effective_price) || 0);
+  const y = _marketPairPreviewY(p1, p2);
+  el.textContent = ` (preview Y: ${Number(y).toLocaleString("pt-BR")} Â)`;
+}
+
+async function marketLinkPair(listingId) {
+  const sel = document.getElementById("market-pair-mate-" + listingId);
+  const mateId = sel ? parseInt(sel.value, 10) : 0;
+  if (!mateId) {
+    toast("Escolha o parceiro do casal", "warning");
+    return;
+  }
+  try {
+    const r = await fetch(API + "/api/market/listings/" + listingId + "/pair", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mate_listing_id: mateId }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao vincular", "error"); return; }
+    toast("Casal vinculado", "success");
+    loadMarketMyShop();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketUnlinkPair(listingId) {
+  if (!confirm("Desvincular casal? Ambos voltam a anúncios individuais.")) return;
+  try {
+    const r = await fetch(API + "/api/market/listings/" + listingId + "/pair", { method: "DELETE" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Casal desvinculado", "success");
+    loadMarketMyShop();
+  } catch (e) { toast(String(e), "error"); }
 }
 
 async function marketPauseListing(listingId) {

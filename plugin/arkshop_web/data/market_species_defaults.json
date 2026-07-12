@@ -2884,6 +2884,46 @@
       "blueprint_aliases": []
     },
     {
+      "species_key": "giga_rockwell",
+      "display_name": "Giganotosaurus Rockwell",
+      "blueprint_path": "/Game/Genesis2/Dinos/BiomeVariants/Gigant_Character_BP_Rockwell.Gigant_Character_BP_Rockwell",
+      "catalog_item_id": "giga_rockwell_femea",
+      "reference_catalog_item_id": "giga_rockwell_femea",
+      "catalog_item_ids": [
+        "giga_rockwell_femea"
+      ],
+      "root_value": 22500,
+      "premium_budget": 85500,
+      "tier": "S",
+      "dino_role": "ataque",
+      "prestige_rank": 82,
+      "commerce_channel": "market_p2p",
+      "pricing_mode": "floor_quality",
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "breeding_difficulty": "muito alto",
+      "breeding_notes": "Variante Rockwell (Genesis 2 BiomeVariants / Giga R); preços iguais ao Giga vanilla",
+      "mod_source": "dlc_genesis2",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": true
+        }
+      },
+      "blueprint_aliases": []
+    },
+    {
       "species_key": "bionicgigant",
       "display_name": "Giganotossauro Tek",
       "blueprint_path": "/Game/PrimalEarth/Dinos/Giganotosaurus/BionicGigant_Character_BP.BionicGigant_Character_BP",

@@ -760,10 +760,12 @@ def _catalog_item_blueprint(entry: dict[str, Any]) -> str:
     return str(dino.get("Blueprint") or "")
 
 
-# Markup L1→L200 (configurável). Aprovado Jul/2026: k=1.40, teto 0.75×M (M=root_value).
-L200_MARKUP_K: float = 1.40
-L200_CAP_RATIO: float = 0.75
+# L200 = 40% do valor de mercado full-254 (Q=1). Aprovado Jul/2026 (opção A).
+# V254 = min(R + B, market_absolute_max); P200 = round(0.40 × V254).
+L200_OF_V254_RATIO: float = 0.40
 L200_ID_SUFFIX: str = "_l200"
+# Kits breeding pack10: 25% off vs preço unitário L1 (paga 75% do retail).
+BREEDING_KIT_PAY_RATIO: float = 0.75
 
 
 def is_catalog_dino_level1(entry: dict[str, Any]) -> bool:
@@ -795,33 +797,50 @@ def l200_shop_id(l1_item_id: str) -> str:
     return f"{base}{L200_ID_SUFFIX}"
 
 
+def compute_v254(
+    root_value: int,
+    premium_budget: int,
+    market_absolute_max: int | None = None,
+) -> int:
+    """Valor de mercado full-254 (Q=1): ``min(R + B, market_absolute_max)``."""
+    cap = (
+        int(market_absolute_max)
+        if market_absolute_max is not None
+        else int(load_market_absolute_max())
+    )
+    r = max(0, int(root_value))
+    b = max(0, int(premium_budget))
+    return min(r + b, max(1, cap))
+
+
 def compute_l200_price(
     p1: int,
-    m: int,
+    root_value: int,
+    premium_budget: int,
     *,
-    k: float = L200_MARKUP_K,
-    cap_ratio: float = L200_CAP_RATIO,
+    market_absolute_max: int | None = None,
+    ratio: float = L200_OF_V254_RATIO,
 ) -> int | None:
-    """Preço L200 a partir do L1 e do piso M (root_value).
+    """Preço L200 a partir de R+B (valor full-254) e do L1.
 
-    Fórmula aprovada: ``P200 = round(clamp(P1 × k, P1+1, cap_ratio×M))``.
-    Devolve ``None`` (skip / não listar) quando ``cap_ratio×M ≤ P1``.
+    Fórmula aprovada (Jul/2026): ``P200 = round(ratio × V254)`` com
+    ``V254 = min(R + B, market_absolute_max)`` e ``ratio`` default ``0.40``.
+    Devolve ``None`` (skip / não listar) quando ``P200 <= P1``.
     """
     p1_i = int(p1)
-    m_i = int(m)
-    if p1_i < 0 or m_i <= 0:
+    if p1_i < 0:
         return None
-    cap = float(cap_ratio) * float(m_i)
-    if cap <= p1_i:
+    v254 = compute_v254(root_value, premium_budget, market_absolute_max)
+    if v254 <= 0:
         return None
-    lo = float(p1_i + 1)
-    raw = float(p1_i) * float(k)
-    clamped = max(lo, min(raw, cap))
-    return int(round(clamped))
+    p200 = int(round(float(ratio) * float(v254)))
+    if p200 <= p1_i:
+        return None
+    return p200
 
 
 def resolve_species_root_value(l1_item_id: str, entry: dict[str, Any] | None = None) -> int | None:
-    """M = root_value da espécie em market_species_defaults (opção A)."""
+    """R = root_value da espécie em market_species_defaults (opção A)."""
     catalog_map = build_catalog_economy_map()
     defn = catalog_map.get(str(l1_item_id))
     if defn is not None and defn.get("root_value") is not None:
@@ -832,6 +851,115 @@ def resolve_species_root_value(l1_item_id: str, entry: dict[str, Any] | None = N
         if price is not None:
             return int(price)
     return None
+
+
+def resolve_species_premium_budget(
+    l1_item_id: str, entry: dict[str, Any] | None = None
+) -> int | None:
+    """B = premium_budget da espécie em market_species_defaults."""
+    _ = entry  # API simétrica a resolve_species_root_value; B só vem dos defaults
+    catalog_map = build_catalog_economy_map()
+    defn = catalog_map.get(str(l1_item_id))
+    if defn is None:
+        return None
+    if defn.get("premium_budget") is not None:
+        return max(0, int(defn.get("premium_budget") or 0))
+    return 0
+
+
+def sync_catalog_l1_prices_from_root(catalog: dict[str, Any]) -> dict[str, Any]:
+    """Opção A: ``Items[L1].Price = root_value`` para cada dino ligado aos defaults."""
+    catalog_map = build_catalog_economy_map()
+    changed: list[dict[str, Any]] = []
+    unchanged: list[str] = []
+    skipped: list[dict[str, Any]] = []
+    for l1_id, entry in iter_catalog_dinos(catalog, level1_only=True):
+        defn = catalog_map.get(str(l1_id))
+        if defn is None or defn.get("root_value") is None:
+            skipped.append({"l1_id": l1_id, "reason": "missing_root_value"})
+            continue
+        root = int(defn.get("root_value") or 0)
+        old = int(entry.get("Price") or 0)
+        if old == root:
+            unchanged.append(l1_id)
+            continue
+        entry["Price"] = root
+        changed.append({"l1_id": l1_id, "old_price": old, "new_price": root})
+    return {
+        "ok": True,
+        "changed": changed,
+        "unchanged": unchanged,
+        "skipped": skipped,
+        "changed_count": len(changed),
+        "unchanged_count": len(unchanged),
+        "skipped_count": len(skipped),
+    }
+
+
+def is_breeding_pack_kit(kit_id: str, kit: dict[str, Any]) -> bool:
+    """Kits pack10 de breeding (25% off vs L1 unitário) — não licenças alfa/beta/gamma."""
+    kid = str(kit_id or "")
+    if kid in {"kit_alfa", "kit_beta", "kit_gamma", "recursos", "starter", "starter2"}:
+        return False
+    if kid.endswith("_pack10"):
+        return True
+    desc = str(kit.get("Description") or "")
+    return "25% off" in desc.lower()
+
+
+def sync_breeding_kit_prices(catalog: dict[str, Any]) -> dict[str, Any]:
+    """Recalcula preço dos kits breeding: ``round(n × P1 × 0.75)``."""
+    items = catalog.get("Items") or catalog.get("ShopItems") or {}
+    bp_to_l1: dict[str, tuple[str, int]] = {}
+    for l1_id, entry in iter_catalog_dinos(catalog, level1_only=True):
+        bp = normalize_blueprint(_catalog_item_blueprint(entry))
+        if not bp:
+            continue
+        # Preferir o primeiro L1 visto; preços iguais após sync root
+        bp_to_l1.setdefault(bp, (l1_id, int(entry.get("Price") or 0)))
+
+    kits = catalog.get("Kits") or {}
+    changed: list[dict[str, Any]] = []
+    unchanged: list[str] = []
+    skipped: list[dict[str, Any]] = []
+    for kit_id, kit in list(kits.items()):
+        if not isinstance(kit, dict) or not is_breeding_pack_kit(kit_id, kit):
+            continue
+        dinos = kit.get("Dinos") or []
+        if not dinos:
+            skipped.append({"kit_id": kit_id, "reason": "no_dinos"})
+            continue
+        bp = normalize_blueprint(str((dinos[0] or {}).get("Blueprint") or ""))
+        if not bp or bp not in bp_to_l1:
+            skipped.append({"kit_id": kit_id, "reason": "no_l1_match", "blueprint": bp})
+            continue
+        l1_id, p1 = bp_to_l1[bp]
+        n = len(dinos)
+        new_price = int(round(float(n) * float(p1) * float(BREEDING_KIT_PAY_RATIO)))
+        old = int(kit.get("Price") or 0)
+        if old == new_price:
+            unchanged.append(kit_id)
+            continue
+        kit["Price"] = new_price
+        changed.append(
+            {
+                "kit_id": kit_id,
+                "l1_id": l1_id,
+                "n": n,
+                "p1": p1,
+                "old_price": old,
+                "new_price": new_price,
+            }
+        )
+    return {
+        "ok": True,
+        "changed": changed,
+        "unchanged": unchanged,
+        "skipped": skipped,
+        "changed_count": len(changed),
+        "unchanged_count": len(unchanged),
+        "skipped_count": len(skipped),
+    }
 
 
 def iter_catalog_dinos(

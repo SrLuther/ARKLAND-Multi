@@ -5,7 +5,7 @@
 | **Documento** | Especificação de implementação — Regulamento no site |
 | **Versão do spec** | 1.0 |
 | **Data** | 04 de julho de 2026 |
-| **Regulamento de referência** | [`REGULAMENTO_SERVIDOR.md`](./REGULAMENTO_SERVIDOR.md) v1.0 |
+| **Regulamento de referência** | [`REGULAMENTO_SERVIDOR.md`](./REGULAMENTO_SERVIDOR.md) v1.1 |
 | **Escopo** | Web Store (`plugin/arkshop_web`) — frontend SPA + backend Flask |
 | **Fora de escopo (v1)** | Plugin C++ in-game, Discord bot, notificações push externas |
 
@@ -152,8 +152,8 @@ Na página `#page-tickets`, painel **Novo ticket**:
 |-------|------|
 | Home — pilar "Transparência" | Adicionar menção ao regulamento + link |
 | Catálogo — ao lado de "Política" | Botão "📋 Regulamento" |
-| Mercado P2P — banner de regras | Link "Regras completas no regulamento §8.7" |
-| Minha Área | Linha "Regulamento aceito: v1.0 em DD/MM/AAAA" |
+| Mercado P2P — banner de regras | Link "Regras completas no regulamento §8.7" (solteiros, casal M+F, contribuição 40% ao prêmio do Sorteio — ver §8.7.3–8.7.4) |
+| Minha Área | Linha "Regulamento aceito: v1.1 em DD/MM/AAAA" |
 
 ---
 
@@ -205,8 +205,8 @@ Constante única no backend (e espelhada no frontend para exibição):
 
 ```python
 # plugin/arkshop_web/regulamento_config.py (novo)
-REGULAMENTO_VERSION = "1.0"
-REGULAMENTO_UPDATED_AT = "2026-07-04"
+REGULAMENTO_VERSION = "1.1"
+REGULAMENTO_UPDATED_AT = "2026-07-12"
 REGULAMENTO_SOURCE_DOC = "docs/REGULAMENTO_SERVIDOR.md"
 ```
 

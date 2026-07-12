@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import text
@@ -29,7 +29,8 @@ from dino_order_service import (
     quote,
     reject_order,
 )
-from dino_order_showcase_service import configure_dino_order_showcase, create_showcase
+from dino_order_showcase_service import configure_dino_order_showcase
+from dino_order_vitrine_service import configure_dino_order_vitrine, set_permanent_species
 
 USER = "76561198000000001"
 ADMIN = "76561198000000003"
@@ -62,6 +63,7 @@ def fresh_db(tmp_path, monkeypatch):
         showcases_file=tmp_path / "showcases.json",
         uploads_dir=tmp_path / "showcase_uploads",
     )
+    configure_dino_order_vitrine(vitrine_file=tmp_path / "vitrine.json")
     yield
     _configure_database("")
 
@@ -96,19 +98,14 @@ def _seed_species(db, *, species_key, display_name, root_value=5000):
     db.commit()
 
 
-def _seed_rex_showcase():
-    create_showcase({
-        "species_key": "rex",
-        "color_name": "Padrão",
-        "colors": [0, 0, 0, 0, 0, 0],
-        "description": "Teste",
-        "active": True,
-    })
+def _seed_rex_on_vitrine():
+    """Coloca rex nos permanentes da vitrine (catálogo encomendável)."""
+    set_permanent_species(["rex"])
 
 
 def _seed_rex(db):
     _seed_species(db, species_key="rex", display_name="Rex")
-    _seed_rex_showcase()
+    _seed_rex_on_vitrine()
     db.execute(
         text("INSERT INTO players (steam_id, points, kits) VALUES (:sid, :pts, '{}')"),
         {"sid": USER, "pts": 1_000_000},
@@ -121,12 +118,7 @@ def test_list_gallery_species_dedup_by_display_name():
     try:
         _seed_species(db, species_key="astrodelphis_1", display_name="Astrodelphis", root_value=4000)
         _seed_species(db, species_key="astrodelphis_200", display_name="Astrodelphis", root_value=6000)
-        create_showcase({
-            "species_key": "astrodelphis_1",
-            "color_name": "Azul",
-            "colors": [2, 2, 2, 0, 0, 0],
-            "active": True,
-        })
+        set_permanent_species(["astrodelphis_1"])
         gallery = list_gallery_species(db)
         astro = [s for s in gallery if str(s.get("display_name")).lower() == "astrodelphis"]
         assert len(astro) == 1
@@ -147,10 +139,22 @@ def _base_spec(**overrides):
     return spec
 
 
-def test_quote_rejects_species_without_showcase():
+def test_quote_rejects_species_without_vitrine():
     db = _app_module._SessionLocal()
     try:
         _seed_species(db, species_key="rex", display_name="Rex")
+        _seed_species(db, species_key="dodo", display_name="Dodo")
+        # Vitrine válida sem rex (não auto-roda enquanto o prazo for futuro)
+        from dino_order_vitrine_service import load_store, save_store
+
+        store = load_store()
+        store["rotating_species_keys"] = ["dodo"]
+        store["permanent_species_keys"] = []
+        store["rotation_days"] = 7
+        store["rotation_ends_at"] = (
+            datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=7)
+        ).isoformat()
+        save_store(store)
         with pytest.raises(ValueError, match="species_not_in_gallery"):
             quote(_base_spec(), db=db)
     finally:
@@ -195,6 +199,77 @@ def test_quote_moderate_stats():
         assert q["stats_component"] > 5000
         assert q["color_component"] == 400
         assert q["total"] > q["market_equivalent"]
+    finally:
+        db.close()
+
+
+def test_quote_indominus_full_254_with_colors(monkeypatch):
+    """Indominus 254 pts + cores: Lab > mercado V; breakdown stats/serviço/cores."""
+    from market_economy import SpeciesEconomy, calculate_encomenda_value
+
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(
+            db,
+            species_key="indominus",
+            display_name="Indominus Rex",
+            root_value=28_000,
+        )
+        set_permanent_species(["indominus"])
+
+        # Garante meta floor_quality mesmo sem defaults JSON da espécie
+        orig_resolve = __import__(
+            "dino_order_service", fromlist=["_resolve_species_economy"]
+        )._resolve_species_economy
+
+        def _fake_resolve(db_sess, species_key):
+            eco = orig_resolve(db_sess, species_key)
+            if eco is None:
+                return None
+            eco.premium_budget = 122_000
+            eco.dino_role = "boss"
+            eco.pricing_mode = "floor_quality"
+            return eco
+
+        monkeypatch.setattr("dino_order_service._resolve_species_economy", _fake_resolve)
+
+        colors = [14, 22, 33, 44, 55, 66]
+        q = quote(
+            {
+                "species_key": "indominus",
+                "level": 150,
+                "gender": "female",
+                "colors": colors,
+                "stat_points": {
+                    "health": 254,
+                    "melee": 254,
+                    "weight": 254,
+                    "stamina": 254,
+                    "speed": 254,
+                },
+            },
+            db=db,
+            skip_vanilla_check=True,
+        )
+        assert q["stats_component"] >= 28_000
+        assert q["color_component"] > 0
+        assert q["service_premium"] > 0
+        assert q["base_surcharge"] == round(28_000 * 0.25)
+        assert q["service_component"] == q["base_surcharge"] + q["service_premium"]
+        assert q["total"] > q["market_equivalent"]
+        expected = calculate_encomenda_value(
+            SpeciesEconomy(
+                species_key="indominus",
+                display_name="Indominus Rex",
+                root_value=28_000,
+                tier="S+",
+                dino_role="boss",
+                premium_budget=122_000,
+            ),
+            q["stats_component"],
+            color_component=q["color_component"],
+        )
+        assert q["total"] == expected
     finally:
         db.close()
 

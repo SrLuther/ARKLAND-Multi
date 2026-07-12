@@ -15,7 +15,15 @@ Caminho completo (por mapa), exemplo CustomShop:
 | CustomShop | `ArkApi/Plugins/CustomShop/logs/arkland_debug.log` |
 | CustomDinoDeliver | `ArkApi/Plugins/CustomDinoDeliver/logs/arkland_debug.log` |
 
-**A pasta `logs/` é criada sempre no boot do plugin** (mesmo com `Debug.Enabled=false`). No arranque grava-se uma linha JSONL de marcador (`category: Boot`) para o ficheiro existir e a pasta ser visível após o deploy da DLL.
+**A pasta `logs/` é criada sempre no boot do plugin** (mesmo com `Debug.Enabled=false`). No arranque:
+
+- `arkland_debug.log` — linha JSONL `category: Boot` (explica se TRACE está off)
+- `README.txt` — como ligar TRACE / TribeSync
+- `.arkland_debug_ready` — marcador para a pasta ser óbvia no Explorer
+
+Se **não há pasta `logs/`**, a DLL em execução é anterior a CustomShop **1.10.15** / DinoDeliver **1.10.14**, ou o plugin não carregou.
+
+Exemplo CI: `...\MAPAS\CI\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\logs\`
 
 `Debug.Enabled` controla **apenas o volume TRACE** (ring + eventos detalhados no ficheiro) — **não** controla se o sistema/pasta existe.
 
@@ -82,6 +90,24 @@ Tabela: `arkland_plugin_debug` (criada pelo CustomShop no `ShopPoints::Open` e p
 - Boot: marcador de canal no arranque
 - HttpClient: HTTP ≥400 / timeout
 - SpawnExact: falha do motor, find-after-spawn, identity capture
+
+## Dump da classe do dino (`/dinoclass`) — PropagatorDinoBlacklist
+
+Quando falta o `*_Character_BP_C` de um mod (ex. Alfa Tek Strider Perfect / ItensAlfa — no repo só existe o **spawner** `AlfaItem_Spawner_Strider_Perfect*`, não a Character class):
+
+1. Como **admin**, spawne o item ItensAlfa, use-o, fique ao lado do dino.
+2. No chat: `/dinoclass` (alias `/dumpdino`).
+
+Saída no chat (e no log do servidor `[DinoClass]`):
+
+```
+class=Something_Character_BP_C
+path=/Game/Mods/ItensAlfa/.../Something_Character_BP.Something_Character_BP_C
+```
+
+Copie `class=` para `PropagatorDinoBlacklist` no `Game.ini` (S+). Raio ~12 000 uu. Plugin: **CustomDinoDeliver** ≥ 1.10.15.
+
+> Nota: o scan em massa `/bp` (`docs/dinolab-blueprint-scan.md`) ainda é só especificação — não está implementado. Para um dino já spawnado, use `/dinoclass`.
 
 ## Extensão a outros plugins
 

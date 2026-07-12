@@ -286,6 +286,8 @@ total             = clamp(subtotal, floor × (1 + β_min), ceiling_encomenda)
 
 Onde `β_min` opcional (ex. 15%) garante que mesmo Rex L1 customizado pague algum prêmio: `max(subtotal, floor × 1.15)`.
 
+**Implementação (arkshop_web):** `dino_order_service.quote` + `market_economy.calculate_encomenda_value` usam α/β de `_floor_quality` (`encomenda_alpha` / `encomenda_beta`, default 0.25 / 0.35) e teto `encomenda_absolute_max`. A UI do wizard e do Dino Lab («Simular preço») exibe breakdown: stats (V), cores (C), taxa α, prêmio β e total. Objetivo: encomenda sempre acima do equivalente P2P (`total > V`).
+
 ### 5.3 Componente de cores
 
 | Regra | Fórmula proposta |
@@ -437,20 +439,30 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 | Admin | Lista pedidos pagos, aprovar/rejeitar acima do limite |
 | Auditoria | `dino_encomenda_created`, `dino_encomenda_approved/rejected` |
 
-**Ativação:** `custom_dino_enabled` + `dino_order_enabled` em Configurações. Arquivos: `dino_order_service.py`, `dino_order_routes.py`, `dino_order_showcase_service.py`, aba Encomenda em `static/index.html`.
+**Ativação:** `custom_dino_enabled` + `dino_order_enabled` em Configurações. Arquivos: `dino_order_service.py`, `dino_order_routes.py`, `dino_order_vitrine_service.py`, `dino_order_showcase_service.py`, aba Encomenda em `static/index.html`.
 
-### 7.1.1 Galeria visual de cores (implementado 2026-07-07)
+### 7.1.1 Vitrine rotativa de encomenda (implementado 2026-07-12)
 
 | Item | Detalhe |
 |------|---------|
-| **Catálogo curado** | Somente espécies com ≥1 vitrine **ativa** aparecem em Comércio → Encomenda |
-| **Armazenamento** | JSON `data/dino_order_color_showcases.json` + uploads em `data/encomenda_showcase_uploads/` |
-| **Limite** | Máx. **10 imagens/vitrines por espécie** (API + contador admin `X/10`) |
-| **Admin** | Dino Lab → aba **Galeria cores** — upload/URL, nome da cor, regiões, descrição, cores Obelisk |
-| **Jogador** | Callout estático na aba; botão **Ver cores**; modal com grid; wizard aplica cores ao clicar |
-| **Aviso jogador** | Texto fixo em `index.html` (editável no fonte) — sem CMS/config |
+| **Catálogo encomendável** | União de **10 slots rotativos** + até **5 permanentes** (admin) |
+| **Mix de porte** | Alvo **6 large + 2 medium + 2 small** (`size_class` dos defaults). Se o pool de um porte for curto, preenche com outros portes (**fallback**) |
+| **Ciclo** | Admin define só a **duração em dias** (presets 7/15 ou custom 1–90). Ao expirar, auto-sorteio + novo timer (sem admin online). **Rodar agora** força novo sorteio e reinicia o prazo |
+| **Armazenamento** | JSON `data/dino_order_vitrine.json` |
+| **Admin** | Dino Lab → aba **Vitrine** |
+| **Pool** | Espécies vanilla ACTIVE do mercado; permanentes excluídas do sorteio |
 
-Espécies do mercado sem vitrine publicada **não** são encomendáveis (`species_not_in_gallery` em quote/checkout).
+Espécies fora da vitrine **não** são encomendáveis (`species_not_in_gallery` em quote/checkout).
+
+### 7.1.2 Galeria visual de cores (implementado 2026-07-07)
+
+| Item | Detalhe |
+|------|---------|
+| **Papel** | Referências **opcionais** de cor (não controlam mais o allowlist) |
+| **Armazenamento** | JSON `data/dino_order_color_showcases.json` + uploads em `data/encomenda_showcase_uploads/` |
+| **Limite** | Máx. **10 imagens por espécie** (API + contador admin `X/10`) |
+| **Admin** | Dino Lab → aba **Galeria cores** — upload/URL, nome da cor, regiões, descrição, cores Obelisk |
+| **Jogador** | Botão **Ver cores**; modal com grid; wizard aplica cores ao clicar |
 
 ### 7.2 Fase 2
 

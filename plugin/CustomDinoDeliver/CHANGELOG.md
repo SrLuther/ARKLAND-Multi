@@ -8,6 +8,12 @@ A UI «Versões esperadas» (Dino Lab) lê `PluginInfo.json` embutido no app (`V
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.15] - 2026-07-12
+
+### Feature
+
+- **`/dinoclass`** (alias `/dumpdino`): admin — imprime `class=` (`*_C`) e `path=`/`full=` do dino mais próximo (uso: `PropagatorDinoBlacklist` / ItensAlfa sem FModel). Ver `docs/ARKLAND_PLUGIN_DEBUG.md`.
+
 ## [1.10.14] - 2026-07-12
 
 ### Fix

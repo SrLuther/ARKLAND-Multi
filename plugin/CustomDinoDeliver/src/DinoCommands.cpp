@@ -2,14 +2,21 @@
 #include "DinoCommands.h"
 #include "DinoBridge.h"
 #include "DinoConfig.h"
+#include "DinoDeliver.h"
 #include "DinoHttpClient.h"
 #include "DinoDebug.h"
 
 namespace {
 
+constexpr float kDinoClassDumpRadius = 12000.0f;
+
 void SendMsg(AShooterPlayerController* c, const FLinearColor& color, const std::string& msg) {
     if (!c || msg.empty()) return;
     ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
+}
+
+bool IsAdminPlayer(AShooterPlayerController* controller) {
+    return controller && controller->bIsAdmin()();
 }
 
 void CmdAdminReload(APlayerController* pc, FString*, bool) {
@@ -127,6 +134,40 @@ void CmdPollDinopoll(AShooterPlayerController* controller, FString* args, EChatS
     CmdPollImpl(controller, args, mode, "/dinopoll");
 }
 
+void CmdDinoClassDump(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    if (!IsAdminPlayer(controller)) {
+        SendMsg(controller, FColorList::Red, "Apenas admin: /dinoclass");
+        return;
+    }
+
+    const CustomDinoDeliver::DinoClassDump dump =
+        CustomDinoDeliver::DumpNearestDinoClass(controller, kDinoClassDumpRadius);
+    if (!dump.ok) {
+        SendMsg(controller, FColorList::Yellow,
+                "Nenhum dino perto (raio ~12k). Spawne o ItensAlfa e fique ao lado.");
+        Log::GetLog()->warn(
+            "[DinoClass] steam={} nenhum dino no raio",
+            CustomDinoDeliver::Bridge::GetSteamId(controller));
+        return;
+    }
+
+    // class_name = forma *_C para PropagatorDinoBlacklist
+    SendMsg(controller, FColorList::Green, "class=" + dump.class_name);
+    if (!dump.path_hint.empty())
+        SendMsg(controller, FColorList::Cyan, "path=" + dump.path_hint);
+    else if (!dump.full_name.empty())
+        SendMsg(controller, FColorList::Cyan, "full=" + dump.full_name);
+
+    Log::GetLog()->info(
+        "[DinoClass] steam={} dist={:.0f} class={} full={} path={}",
+        CustomDinoDeliver::Bridge::GetSteamId(controller),
+        dump.dist,
+        dump.class_name,
+        dump.full_name,
+        dump.path_hint);
+}
+
 } // anonymous namespace
 
 namespace CustomDinoDeliver {
@@ -138,8 +179,11 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/dinolab", &CmdPollDinolab);
     ArkApi::GetCommands().AddChatCommand("/dinopoll", &CmdPollDinopoll);
     ArkApi::GetCommands().AddChatCommand("/dinodebug", &CmdDinoDebugLog);
+    ArkApi::GetCommands().AddChatCommand("/dinoclass", &CmdDinoClassDump);
+    ArkApi::GetCommands().AddChatCommand("/dumpdino", &CmdDinoClassDump);
     Log::GetLog()->info(
-        "CustomDinoDeliver: commands registered (/dinolab, /dinopoll, /dinodebug)");
+        "CustomDinoDeliver: commands registered "
+        "(/dinolab, /dinopoll, /dinodebug, /dinoclass, /dumpdino)");
 }
 
 void Unregister() {
@@ -148,6 +192,8 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/dinolab");
     ArkApi::GetCommands().RemoveChatCommand("/dinopoll");
     ArkApi::GetCommands().RemoveChatCommand("/dinodebug");
+    ArkApi::GetCommands().RemoveChatCommand("/dinoclass");
+    ArkApi::GetCommands().RemoveChatCommand("/dumpdino");
 }
 
 } // namespace Commands

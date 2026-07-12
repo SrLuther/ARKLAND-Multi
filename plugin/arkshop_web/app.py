@@ -294,6 +294,7 @@ _SERVERS_FILE = _DATA_DIR / "servers.json"
 _TICKET_UPLOADS_DIR = _DATA_DIR / "ticket_uploads"
 _ENCOMENDA_SHOWCASE_FILE = _DATA_DIR / "dino_order_color_showcases.json"
 _ENCOMENDA_SHOWCASE_UPLOADS_DIR = _DATA_DIR / "encomenda_showcase_uploads"
+_ENCOMENDA_VITRINE_FILE = _DATA_DIR / "dino_order_vitrine.json"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
@@ -816,6 +817,9 @@ class MarketListing(Base):
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tribe_split_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     split_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Casal M+F (§8.7.3): vínculo bidirecional; primário = menor listing_id
+    pair_mate_listing_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    pair_group_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
 
 class MarketTransaction(Base):
@@ -7894,6 +7898,11 @@ def player_cancel_order(order_id: str):
     if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     db = _SessionLocal()
+    refund = 0
+    paid_amount = 0
+    new_balance = None
+    item_type = "shop"
+    item_id = ""
     try:
         order = (
             db.query(Order)
@@ -7920,7 +7929,8 @@ def player_cancel_order(order_id: str):
         item_id = str(order.item_id or "")
         order_amount = int(order.amount or 1)
 
-        refund = max(0, _order_refund_amount(order, db))
+        refund = max(0, _order_desist_refund_amount(order, db))
+        paid_amount = max(0, _order_refund_amount(order, db))
         new_balance = _credit_order_refund_tx(db, steam_id, refund)
 
         order.status = "CANCELADO"
@@ -7962,18 +7972,23 @@ def player_cancel_order(order_id: str):
         status_before="PENDENTE",
         status_after="CANCELADO",
         message=(
-            f"Desistência — reembolso de {refund} Âmbar"
+            f"Desistência — reembolso de {refund} Âmbar "
+            f"(90% de {paid_amount}; retenção 10%)"
             if refund > 0
             else "Desistência — cancelado sem reembolso"
         ),
         price=refund,
         points_after=new_balance,
+        paid_amount=paid_amount,
+        refund_factor=_ORDER_DESIST_REFUND_FACTOR,
     )
     return jsonify({
         "ok": True,
         "order_id": order_id,
         "status": "CANCELADO",
         "refunded": refund,
+        "paid_amount": paid_amount,
+        "refund_factor": _ORDER_DESIST_REFUND_FACTOR,
         "new_balance": new_balance,
     })
 
@@ -8249,7 +8264,9 @@ def player_available():
             "cancel_policy": {
                 "cooldown_hours": _ORDER_CANCEL_COOLDOWN_HOURS,
                 "auto_cancel_hours": _ORDER_AUTO_EXPIRE_HOURS,
+                "desist_refund_factor": _ORDER_DESIST_REFUND_FACTOR,
                 "licenses_irrevocable": True,
+                "full_refund_requires_contest_ticket": True,
             },
         })
     except Exception as exc:
@@ -8892,6 +8909,7 @@ def player_order_detail(order_id: str):
 @app.route("/api/player/orders/<order_id>/contest", methods=["POST"])
 @login_required
 def player_contest(order_id: str):
+    """Contesta pedido: motivo obrigatório + abre ticket vinculado (caminho para reembolso 100%)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -8900,7 +8918,21 @@ def player_contest(order_id: str):
     body = request.get_json(force=True)
     reason = str(body.get("reason", "")).strip()
     if not reason:
-        return jsonify({"ok": False, "error": "Motivo é obrigatório"}), 400
+        return jsonify({
+            "ok": False,
+            "error": "Motivo é obrigatório — explique o problema no ticket de contestação",
+            "code": "reason_required",
+        }), 400
+    if len(reason) < _CONTEST_REASON_MIN_LEN:
+        return jsonify({
+            "ok": False,
+            "error": (
+                f"Explique o motivo com pelo menos {_CONTEST_REASON_MIN_LEN} caracteres. "
+                "A contestação abre um ticket de suporte obrigatório."
+            ),
+            "code": "reason_too_short",
+            "min_length": _CONTEST_REASON_MIN_LEN,
+        }), 400
 
     db = _SessionLocal()
     try:
@@ -8912,9 +8944,39 @@ def player_contest(order_id: str):
         order.contested = True
         order.status = "CONTESTADO"
         order.updated_at = _now()
-        db.add(Dispute(order_id=order.order_id, steam_id=steam_id, reason=reason, status="ABERTO", created_at=_now()))
-        db.commit()
-        final_status = order.status
+        db.add(Dispute(
+            order_id=order.order_id,
+            steam_id=steam_id,
+            reason=reason,
+            status="ABERTO",
+            created_at=_now(),
+        ))
+
+        from ticket_service import create_ticket
+
+        player_name = _resolve_player_display_name(steam_id) or steam_id
+        short = order_id[:8]
+        ticket_result = create_ticket(
+            db,
+            steam_id=steam_id,
+            player_name=str(player_name),
+            subject=f"Contestação do pedido {short}…",
+            body=reason,
+            category="resgate",
+            priority="urgente",
+            order_id=order_id,
+        )
+        if not ticket_result.get("ok"):
+            db.rollback()
+            return jsonify({
+                "ok": False,
+                "error": ticket_result.get("error") or "Falha ao abrir ticket de contestação",
+                "code": "ticket_required",
+            }), 400
+
+        # create_ticket já fez commit (pedido contestado + ticket)
+        final_status = "CONTESTADO"
+        ticket_id = (ticket_result.get("ticket") or {}).get("id")
         _audit_event(
             "order_contested",
             actor_type="player",
@@ -8925,11 +8987,21 @@ def player_contest(order_id: str):
             item_id=order.item_id,
             status_before=status_before,
             status_after="CONTESTADO",
-            message=f"Jogador contestou pedido {order_id[:8]}…",
+            message=f"Jogador contestou pedido {short}… (ticket #{ticket_id})",
             reason=reason,
+            ticket_id=ticket_id,
         )
-        return jsonify({"ok": True, "status": final_status})
+        return jsonify({
+            "ok": True,
+            "status": final_status,
+            "ticket_id": ticket_id,
+            "message": (
+                "Contestação registrada. Foi aberto um ticket de suporte — "
+                "acompanhe em Tickets. Reembolso integral só após análise da equipe."
+            ),
+        })
     except Exception as exc:
+        db.rollback()
         _log_error("player_contest", order_id=order_id, steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao contestar pedido: {exc}"}), 500
     finally:
@@ -8951,9 +9023,12 @@ def player_rebuy(order_id: str):
 _ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
 
 # Desistência do jogador: licenças irrevogáveis; demais itens só após 24h.
-# Pedidos PENDENTE (não licença) sem resgate ≥48h → cancelamento + reembolso automático.
+# Pedidos PENDENTE (não licença) sem resgate ≥48h → cancelamento + reembolso automático (90%).
+# Reembolso integral (100%) do catálogo: apenas via contestação + ticket + decisão admin.
 _ORDER_CANCEL_COOLDOWN_HOURS = 24
 _ORDER_AUTO_EXPIRE_HOURS = 48
+_ORDER_DESIST_REFUND_FACTOR = 0.90
+_CONTEST_REASON_MIN_LEN = 20
 
 
 def _datetime_as_utc(dt: datetime | None) -> datetime | None:
@@ -9031,6 +9106,7 @@ def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[s
         "cancel_available_at": cancel_available_at.isoformat() if not is_license else None,
         "cancel_cooldown_hours": _ORDER_CANCEL_COOLDOWN_HOURS,
         "auto_cancel_hours": _ORDER_AUTO_EXPIRE_HOURS,
+        "desist_refund_factor": _ORDER_DESIST_REFUND_FACTOR,
         "order_age_seconds": max(0, int(age.total_seconds())),
     }
 
@@ -9084,7 +9160,8 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
         order_id = str(locked.order_id)
         item_type = str(locked.item_type or "shop")
         item_id = str(locked.item_id or "")
-        refund = max(0, _order_refund_amount(locked, db))
+        refund = max(0, _order_desist_refund_amount(locked, db))
+        paid_amount = max(0, _order_refund_amount(locked, db))
         try:
             new_balance = _credit_order_refund_tx(db, steam_id, refund)
             locked.status = "CANCELADO"
@@ -9121,19 +9198,22 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
             status_after="CANCELADO",
             message=(
                 f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate — "
-                f"reembolso de {refund} Âmbar"
+                f"reembolso de {refund} Âmbar (90% de {paid_amount}; retenção 10%)"
                 if refund > 0
                 else f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate"
             ),
             price=refund,
             points_after=new_balance,
             auto_expire_hours=_ORDER_AUTO_EXPIRE_HOURS,
+            paid_amount=paid_amount,
+            refund_factor=_ORDER_DESIST_REFUND_FACTOR,
         )
         cancelled.append({
             "order_id": order_id,
             "steam_id": steam_id,
             "item_id": item_id,
             "refunded": refund,
+            "paid_amount": paid_amount,
         })
         _log(
             "order_auto_cancelled",
@@ -9151,7 +9231,7 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
 
 
 def _order_refund_amount(order: Order, db: Any | None = None) -> int:
-    """Valor em Âmbar a devolver (points_spent → catálogo → auditoria do resgate)."""
+    """Valor pago em Âmbar (points_spent → catálogo → auditoria). Usado em reembolso admin 100%."""
     refund = int(order.points_spent or 0)
     if refund > 0:
         return refund
@@ -9184,6 +9264,12 @@ def _order_refund_amount(order: Order, db: Any | None = None) -> int:
         if price > 0:
             return price
     return 0
+
+
+def _order_desist_refund_amount(order: Order, db: Any | None = None) -> int:
+    """Reembolso de desistência/auto-cancel do catálogo: 90% do valor pago (retenção 10%)."""
+    paid = max(0, _order_refund_amount(order, db))
+    return int(round(paid * _ORDER_DESIST_REFUND_FACTOR))
 
 
 def _credit_order_refund_tx(db: Any, steam_id: str, refund: int) -> int:
@@ -10660,11 +10746,13 @@ register_custom_dino_routes(
 from dino_order_routes import register_dino_order_routes
 from dino_order_service import configure_dino_order
 from dino_order_showcase_service import configure_dino_order_showcase
+from dino_order_vitrine_service import configure_dino_order_vitrine
 
 configure_dino_order_showcase(
     showcases_file=_ENCOMENDA_SHOWCASE_FILE,
     uploads_dir=_ENCOMENDA_SHOWCASE_UPLOADS_DIR,
 )
+configure_dino_order_vitrine(vitrine_file=_ENCOMENDA_VITRINE_FILE)
 configure_dino_order(
     settings_fn=_load_settings,
     debit_fn=_subtract_player_points_tx,

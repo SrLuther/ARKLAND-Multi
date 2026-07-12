@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.16] - 2026-07-12
+
+### Fix
+
+- **ShopDebug / TribeSync**: alinhamento pós-1.10.15 — boot de `logs/` + avisos TribeSync quando ServerId/MySQL offline (diagnóstico).
+
 ## [1.10.15] - 2026-07-12
 
 ### Fix

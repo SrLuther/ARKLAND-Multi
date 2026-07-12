@@ -809,8 +809,28 @@ void PollPendingSyncRequests() {
     try {
         const std::string server_id = ResolveServerId();
         if (IsPlaceholderServerId(server_id)) {
-            Log::GetLog()->debug(
-                "TribeSync: PollPendingSyncRequests skip — ServerId inválido");
+            static bool warned_sid = false;
+            if (!warned_sid) {
+                warned_sid = true;
+                Log::GetLog()->warn(
+                    "TribeSync: PollPendingSyncRequests skip — ServerId inválido "
+                    "(Settings.ServerId / CrossChat.ServerId / mapa). "
+                    "Sincronize CustomShop no TEK.");
+            }
+            return;
+        }
+
+        if (!Db()) {
+            static bool warned_db = false;
+            if (!warned_db) {
+                warned_db = true;
+                Log::GetLog()->warn(
+                    "TribeSync: PollPendingSyncRequests skip — MySQL offline "
+                    "(mesma DB da web? Database.Host/Password no config do mapa)");
+                Debug::Fields f;
+                f.server_id = server_id;
+                Debug::Error("TribeSync", f, "poll skip: MySQL offline");
+            }
             return;
         }
 

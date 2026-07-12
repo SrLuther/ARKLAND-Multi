@@ -77,6 +77,15 @@ def is_dino_order_enabled() -> bool:
 
 def get_pricing_config() -> dict[str, Any]:
     cfg = dict(_DEFAULT_PRICING)
+    try:
+        from market_economy import load_encomenda_absolute_max, load_floor_quality_config
+
+        fq = load_floor_quality_config()
+        cfg["alpha"] = float(fq.get("encomenda_alpha", cfg["alpha"]))
+        cfg["beta"] = float(fq.get("encomenda_beta", cfg["beta"]))
+        cfg["absolute_max"] = int(load_encomenda_absolute_max())
+    except Exception:
+        pass
     if _settings_fn is None:
         return cfg
     s = _settings_fn()
@@ -166,28 +175,35 @@ def _dedup_gallery_species(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(by_name.values())
 
 
-def _is_species_in_gallery(species_key: str) -> bool:
+def _is_species_in_gallery(species_key: str, db: Session | None = None) -> bool:
+    """Encomendável se estiver na vitrine rotativa ∪ permanente."""
     try:
-        from dino_order_showcase_service import is_species_orderable
+        from dino_order_vitrine_service import is_species_on_vitrine
 
-        return is_species_orderable(species_key)
+        return is_species_on_vitrine(species_key, db)
     except Exception:
         return False
 
 
 def list_gallery_species(db: Session) -> list[dict[str, Any]]:
-    """Espécies vanilla ACTIVE com vitrine ativa (galeria define o catálogo)."""
+    """Espécies da vitrine de encomenda (10 rotativos + ≤5 permanentes)."""
     if not is_dino_order_enabled():
         return []
     try:
         from market_service import list_species_public
         from dino_order_showcase_service import primary_showcase_by_species, showcase_counts_by_species
+        from dino_order_vitrine_service import ensure_vitrine
 
         rows = list_species_public(db, active_only=True)
         showcase_counts = showcase_counts_by_species(active_only=True)
         primary_showcases = primary_showcase_by_species(active_only=True)
+        vitrine = ensure_vitrine(db)
+        orderable = set(vitrine.get("orderable_species_keys") or [])
     except Exception as exc:
         log.warning("dino_order gallery: %s", exc)
+        return []
+
+    if not orderable:
         return []
 
     cfg = get_pricing_config()
@@ -196,7 +212,7 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
         sk = str(item.get("species_key") or "")
         if _species_mod_source(sk) != "vanilla":
             continue
-        if int(showcase_counts.get(sk) or 0) < 1:
+        if sk not in orderable:
             continue
         economy = _resolve_species_economy(db, sk)
         if economy is None:
@@ -219,6 +235,7 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             or item.get("image_url")
             or _species_image(sk, item.get("tier"))
         )
+        slot_kind = "permanent" if sk in set(vitrine.get("permanent_species_keys") or []) else "rotating"
         out.append({
             "species_key": sk,
             "display_name": item.get("display_name") or sk,
@@ -228,6 +245,8 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             "image_url": thumb,
             "starting_price": int(min_quote.get("total") or 0),
             "showcase_count": int(showcase_counts.get(sk) or 0),
+            "slot_kind": slot_kind,
+            "rotation_ends_at": vitrine.get("rotation_ends_at"),
         })
     out = _dedup_gallery_species(out)
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
@@ -341,7 +360,7 @@ def quote(
 
     if db is None:
         raise ValueError("db_required")
-    if not skip_gallery_check and not _is_species_in_gallery(species_key):
+    if not skip_gallery_check and not _is_species_in_gallery(species_key, db):
         raise ValueError("species_not_in_gallery")
     economy = _resolve_species_economy(db, species_key)
     if economy is None:
@@ -374,6 +393,7 @@ def quote(
         "color_component": color_component,
         "base_surcharge": base_surcharge,
         "service_premium": service_premium,
+        "service_component": base_surcharge + service_premium,
         "subtotal": subtotal,
         "floor": floor,
         "ceiling": ceiling,
@@ -382,8 +402,16 @@ def quote(
         "market_breakdown": market_breakdown,
         "pricing_version": PRICING_VERSION,
         "service_surcharge_pct": round(float(cfg["beta"]) * 100),
+        "alpha": float(cfg["alpha"]),
+        "beta": float(cfg["beta"]),
         "auto_approve": total <= int(cfg["auto_approve_max"]),
         "dry_run": True,
+        "breakdown_labels": {
+            "stats": "Valor de stats (equivalente mercado)",
+            "colors": "Componente de cores",
+            "service": "Serviço Lab (α + β)",
+            "total": "Total encomenda",
+        },
     }
 
 

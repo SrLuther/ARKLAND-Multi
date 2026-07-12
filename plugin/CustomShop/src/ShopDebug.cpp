@@ -78,12 +78,38 @@ std::string IsoTimestamp() {
     return oss.str();
 }
 
+void WriteReadmeUnlocked() {
+    if (g_log_dir.empty()) return;
+    const std::string readme = g_log_dir + "/README.txt";
+    // Só cria se ainda não existir — não sobrescrever notas do admin.
+    const DWORD attrs = GetFileAttributesA(readme.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES) return;
+    std::ofstream out(readme, std::ios::out | std::ios::binary);
+    if (!out.is_open()) return;
+    out << "ARKLAND CustomShop — pasta de debug\r\n"
+           "====================================\r\n"
+           "\r\n"
+           "Ficheiro principal: arkland_debug.log (JSONL)\r\n"
+           "\r\n"
+           "Como ligar TRACE:\r\n"
+           "  1) Em config.json → \"Debug\": { \"Enabled\": true, \"Level\": \"TRACE\" }\r\n"
+           "  2) Shop.Reload  OU  chat: Shop.DebugLevel trace\r\n"
+           "  3) Diagnóstico TribeSync: Categories [\"TribeSync\"] + Level INFO/TRACE\r\n"
+           "\r\n"
+           "Docs: docs/ARKLAND_PLUGIN_DEBUG.md\r\n"
+           "Desligar: Debug.Enabled=false ou Shop.DebugLevel off\r\n";
+}
+
 void EnsureLogDirUnlocked() {
-    if (!g_log_dir.empty()) return;
-    g_log_dir = ArkApi::Tools::GetCurrentDir() +
-                "/ArkApi/Plugins/CustomShop/logs";
-    CreateDirectoryA(g_log_dir.c_str(), nullptr);
-    g_log_path = g_log_dir + "/arkland_debug.log";
+    if (g_log_dir.empty()) {
+        g_log_dir = ArkApi::Tools::GetCurrentDir() +
+                    "/ArkApi/Plugins/CustomShop/logs";
+        CreateDirectoryA(g_log_dir.c_str(), nullptr);
+        g_log_path = g_log_dir + "/arkland_debug.log";
+    } else {
+        CreateDirectoryA(g_log_dir.c_str(), nullptr);
+    }
+    WriteReadmeUnlocked();
 }
 
 void RotateIfNeededUnlocked() {
@@ -125,6 +151,7 @@ void OpenFileUnlocked() {
 
 /** Uma linha de boot — pasta/ficheiro sempre visíveis após deploy. */
 void WriteBootMarkerUnlocked(bool enabled) {
+    EnsureLogDirUnlocked();
     OpenFileUnlocked();
     if (!g_file.is_open()) return;
     nlohmann::json line = {
@@ -136,13 +163,20 @@ void WriteBootMarkerUnlocked(bool enabled) {
         {"message",
          enabled
              ? "ShopDebug channel ready (file logging on)"
-             : "ShopDebug channel ready (TRACE off — set Debug.Enabled=true "
-               "or Shop.DebugLevel trace; see docs/ARKLAND_PLUGIN_DEBUG.md)"},
+             : "Debug disabled; set Debug.Enabled=true (Level TRACE) "
+               "or Shop.DebugLevel trace — see logs/README.txt"},
     };
     const std::string line_str = line.dump();
     g_file << line_str << '\n';
     g_file.flush();
     g_file_bytes += line_str.size() + 1;
+
+    const std::string marker = g_log_dir + "/.arkland_debug_ready";
+    std::ofstream m(marker, std::ios::out | std::ios::binary | std::ios::trunc);
+    if (m.is_open()) {
+        m << "ready version=" << ARKLAND_PLUGIN_VERSION
+          << " enabled=" << (enabled ? "yes" : "no") << "\n";
+    }
 }
 
 void EscapeMysql(MYSQL* db, const std::string& in, std::string& out) {

@@ -28,6 +28,17 @@ from dino_order_showcase_service import (
     save_showcase_image,
     update_showcase,
 )
+from dino_order_vitrine_service import (
+    MAX_PERMANENT,
+    ROTATING_SLOTS,
+    ROTATION_PRESETS,
+    add_permanent_species,
+    ensure_vitrine,
+    force_rotate,
+    remove_permanent_species,
+    set_permanent_species,
+    set_rotation_days,
+)
 
 log = logging.getLogger("arkshop_web.dino_order_routes")
 
@@ -98,7 +109,7 @@ def register_dino_order_routes(
         except ValueError as exc:
             code = str(exc)
             msgs = {
-                "species_not_in_gallery": "Esta espécie não está na galeria de encomendas.",
+                "species_not_in_gallery": "Esta espécie não está na vitrine de encomendas neste período.",
             }
             return jsonify({
                 "ok": False,
@@ -145,6 +156,153 @@ def register_dino_order_routes(
         if path is None:
             return jsonify({"ok": False, "error": "not_found"}), 404
         return send_from_directory(path.parent, path.name)
+
+    _VITRINE_ERRORS = {
+        "vitrine_not_configured": "Vitrine de encomenda não configurada.",
+        "permanent_limit_exceeded": f"Máximo de {MAX_PERMANENT} espécies permanentes.",
+        "species_key_required": "Espécie obrigatória.",
+    }
+
+    @app.route("/api/admin/dino-order/vitrine", methods=["GET"])
+    @admin_required
+    def dino_order_admin_vitrine_get():
+        err = _require_db()
+        if err:
+            return err
+        db = session_factory()
+        try:
+            snap = ensure_vitrine(db)
+            return jsonify({
+                "ok": True,
+                "vitrine": snap,
+                "max_rotating": ROTATING_SLOTS,
+                "max_permanent": MAX_PERMANENT,
+                "rotation_presets": list(ROTATION_PRESETS),
+            })
+        except ValueError as exc:
+            code = str(exc)
+            return jsonify({
+                "ok": False,
+                "error": code,
+                "message": _VITRINE_ERRORS.get(code, code),
+            }), 400
+        except Exception as exc:
+            log.exception("dino_order vitrine get: %s", exc)
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        finally:
+            db.close()
+
+    @app.route("/api/admin/dino-order/vitrine/settings", methods=["PUT"])
+    @admin_required
+    @_limit("30 per minute")
+    def dino_order_admin_vitrine_settings():
+        body = request.get_json(force=True, silent=True) or {}
+        try:
+            days = int(body.get("rotation_days"))
+        except (TypeError, ValueError):
+            return jsonify({
+                "ok": False,
+                "error": "invalid_rotation_days",
+                "message": "Informe rotation_days (inteiro).",
+            }), 400
+        try:
+            result = set_rotation_days(days)
+            audit_event(
+                "dino_encomenda_vitrine_settings",
+                actor_type="admin",
+                actor_steam_id=steam_id_from_session() or "",
+                message=f"Duração vitrine encomenda = {result.get('rotation_days')} dias",
+            )
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            code = str(exc)
+            return jsonify({
+                "ok": False,
+                "error": code,
+                "message": _VITRINE_ERRORS.get(code, code),
+            }), 400
+
+    @app.route("/api/admin/dino-order/vitrine/permanents", methods=["PUT"])
+    @admin_required
+    @_limit("30 per minute")
+    def dino_order_admin_vitrine_permanents():
+        body = request.get_json(force=True, silent=True) or {}
+        keys = body.get("species_keys")
+        if keys is None and body.get("species_key"):
+            # add/remove unitário
+            action = str(body.get("action") or "add").strip().lower()
+            sk = str(body.get("species_key") or "").strip()
+            try:
+                if action == "remove":
+                    result = remove_permanent_species(sk)
+                else:
+                    result = add_permanent_species(sk)
+                audit_event(
+                    "dino_encomenda_vitrine_permanents",
+                    actor_type="admin",
+                    actor_steam_id=steam_id_from_session() or "",
+                    message=f"Permanente {action}: {sk}",
+                )
+                return jsonify({"ok": True, **result})
+            except ValueError as exc:
+                code = str(exc)
+                return jsonify({
+                    "ok": False,
+                    "error": code,
+                    "message": _VITRINE_ERRORS.get(code, code),
+                }), 400
+        if not isinstance(keys, list):
+            return jsonify({
+                "ok": False,
+                "error": "species_keys_required",
+                "message": "Informe species_keys (lista) ou species_key + action.",
+            }), 400
+        try:
+            result = set_permanent_species(keys)
+            audit_event(
+                "dino_encomenda_vitrine_permanents",
+                actor_type="admin",
+                actor_steam_id=steam_id_from_session() or "",
+                message=f"Permanentes = {len(result.get('permanent_species_keys') or [])}",
+            )
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            code = str(exc)
+            return jsonify({
+                "ok": False,
+                "error": code,
+                "message": _VITRINE_ERRORS.get(code, code),
+            }), 400
+
+    @app.route("/api/admin/dino-order/vitrine/rotate", methods=["POST"])
+    @admin_required
+    @_limit("10 per minute")
+    def dino_order_admin_vitrine_rotate():
+        err = _require_db()
+        if err:
+            return err
+        db = session_factory()
+        try:
+            snap = force_rotate(db)
+            audit_event(
+                "dino_encomenda_vitrine_rotated",
+                actor_type="admin",
+                actor_steam_id=steam_id_from_session() or "",
+                message="Rodar agora — vitrine encomenda",
+            )
+            return jsonify({"ok": True, "vitrine": snap})
+        except ValueError as exc:
+            code = str(exc)
+            return jsonify({
+                "ok": False,
+                "error": code,
+                "message": _VITRINE_ERRORS.get(code, code),
+            }), 400
+        except Exception as exc:
+            log.exception("dino_order vitrine rotate: %s", exc)
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        finally:
+            db.close()
 
     @app.route("/api/admin/dino-order/showcases", methods=["GET"])
     @admin_required
@@ -295,7 +453,7 @@ def register_dino_order_routes(
                 "rate_limit_exceeded": f"Limite de {3} encomendas por 7 dias atingido.",
                 "species_not_available": "Espécie indisponível para encomenda.",
                 "species_not_vanilla": "Apenas espécies vanilla no MVP.",
-                "species_not_in_gallery": "Esta espécie não está na galeria de encomendas.",
+                "species_not_in_gallery": "Esta espécie não está na vitrine de encomendas neste período.",
             }
             return jsonify({
                 "ok": False,
