@@ -3766,10 +3766,64 @@
     },
     "kit_itensalfa_delta": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Delta — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Delta — 22 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekShiledArmor_D.AlfaItemWeapon_TekShiledArmor_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_ShoulderCannon_D.AlfaItemWeapon_ShoulderCannon_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekBow_D.AlfaItemWeapon_TekBow_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekPistol_D.AlfaItemWeapon_TekPistol_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_EletricPod_D.AlfaItemWeapon_EletricPod_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekSword_D.AlfaItemWeapon_TekSword_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekClaws_D.AlfaItemWeapon_TekClaws_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekRifle_D.AlfaItemWeapon_TekRifle_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Sniper_D.AlfaItemWeapon_Sniper_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Pike_D.AlfaItemWeapon_Pike_D",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3781,7 +3835,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Sickle_D.AlfaItemTools_Sickle_D",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Chainsaw_D.AlfaItemTools_Chainsaw_D",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3793,13 +3847,25 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Chainsaw_D.AlfaItemTools_Chainsaw_D",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_MiningDrill_D.AlfaItemTools_MiningDrill_D",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Pick_D.AlfaItemTools_Pick_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Sickle_D.AlfaItemTools_Sickle_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_FishingRod_D.AlfaItemTools_FishingRod_D",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3837,15 +3903,69 @@
       ],
       "Name": "Kit ItensAlfa Delta",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 8600,
+      "Price": 9890,
       "Type": "kit"
     },
     "kit_itensalfa_gamma": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Gamma — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Gamma — 22 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekShiledArmor_G.AlfaItemWeapon_TekShiledArmor_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G.AlfaItemWeapon_ShoulderCannon_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekBow_G.AlfaItemWeapon_TekBow_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekPistol_G.AlfaItemWeapon_TekPistol_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_EletricPod_G.AlfaItemWeapon_EletricPod_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekSword_G.AlfaItemWeapon_TekSword_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekClaws_G.AlfaItemWeapon_TekClaws_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekRifle_G.AlfaItemWeapon_TekRifle_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Sniper_G.AlfaItemWeapon_Sniper_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Pike_G.AlfaItemWeapon_Pike_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3857,7 +3977,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Sickle_G.AlfaItemTools_Sickle_G",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Chainsaw_G.AlfaItemTools_Chainsaw_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3869,13 +3989,25 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Chainsaw_G.AlfaItemTools_Chainsaw_G",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_MiningDrill_G.AlfaItemTools_MiningDrill_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Pick_G.AlfaItemTools_Pick_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Sickle_G.AlfaItemTools_Sickle_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_FishingRod_G.AlfaItemTools_FishingRod_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3913,15 +4045,69 @@
       ],
       "Name": "Kit ItensAlfa Gamma",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 14600,
+      "Price": 16790,
       "Type": "kit"
     },
     "kit_itensalfa_beta": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Beta — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Beta — 22 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekShiledArmor_B.AlfaItemWeapon_TekShiledArmor_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_ShoulderCannon_B.AlfaItemWeapon_ShoulderCannon_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekBow_B.AlfaItemWeapon_TekBow_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekPistol_B.AlfaItemWeapon_TekPistol_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_EletricPod_B.AlfaItemWeapon_EletricPod_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekSword_B.AlfaItemWeapon_TekSword_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekClaws_B.AlfaItemWeapon_TekClaws_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekRifle_B.AlfaItemWeapon_TekRifle_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Sniper_B.AlfaItemWeapon_Sniper_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Pike_B.AlfaItemWeapon_Pike_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3933,7 +4119,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Sickle_B.AlfaItemTools_Sickle_B",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Chainsaw_B.AlfaItemTools_Chainsaw_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3945,13 +4131,25 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Chainsaw_B.AlfaItemTools_Chainsaw_B",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_MiningDrill_B.AlfaItemTools_MiningDrill_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Pick_B.AlfaItemTools_Pick_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Sickle_B.AlfaItemTools_Sickle_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_FishingRod_B.AlfaItemTools_FishingRod_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3989,15 +4187,69 @@
       ],
       "Name": "Kit ItensAlfa Beta",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 24000,
+      "Price": 27600,
       "Type": "kit"
     },
     "kit_itensalfa_alfa": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Alfa — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Alfa — 28 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekShiledArmor.AlfaItemWeapon_TekShiledArmor",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_ShoulderCannon.AlfaItemWeapon_ShoulderCannon",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekBow.AlfaItemWeapon_TekBow",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekPistol.AlfaItemWeapon_TekPistol",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_EletricPod.AlfaItemWeapon_EletricPod",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekSword.AlfaItemWeapon_TekSword",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekClaws.AlfaItemWeapon_TekClaws",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekRifle.AlfaItemWeapon_TekRifle",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Sniper.AlfaItemWeapon_Sniper",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Pike.AlfaItemWeapon_Pike",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4009,13 +4261,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Sickle.AlfaItemTools_Sickle",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_StoneClub.AlfaItemWeapon_StoneClub",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Hatched.AlfaItemTools_Hatched",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_GrenadeLauncher.AlfaItemWeapon_GrenadeLauncher",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekCruiseMissile.AlfaItemWeapon_TekCruiseMissile",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4027,7 +4285,49 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Hatched.AlfaItemTools_Hatched",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_MiningDrill.AlfaItemTools_MiningDrill",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Pick.AlfaItemTools_Pick",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Sickle.AlfaItemTools_Sickle",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_FishingRod.AlfaItemTools_FishingRod",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Torch.AlfaItemTools_Torch",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Whip.AlfaItemTools_Whip",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_LanternCharge.AlfaItemTools_LanternCharge",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4065,15 +4365,69 @@
       ],
       "Name": "Kit ItensAlfa Alfa",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 37000,
+      "Price": 42550,
       "Type": "kit"
     },
     "kit_itensalfa_omega": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Omega — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Omega — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekShiledArmor_O.AlfaItemWeapon_TekShiledArmor_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_ShoulderCannon_O.AlfaItemWeapon_ShoulderCannon_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekBow_O.AlfaItemWeapon_TekBow_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekPistol_O.AlfaItemWeapon_TekPistol_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_EletricPod_O.AlfaItemWeapon_EletricPod_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekSword_O.AlfaItemWeapon_TekSword_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekClaws_O.AlfaItemWeapon_TekClaws_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekRifle_O.AlfaItemWeapon_TekRifle_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_Sniper_O.AlfaItemWeapon_Sniper_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_Pike_O.AlfaItemWeapon_Pike_O",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4085,7 +4439,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Sickle_O.AlfaItemTools_Sickle_O",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Chainsaw_O.AlfaItemTools_Chainsaw_O",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4097,13 +4451,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Chainsaw_O.AlfaItemTools_Chainsaw_O",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_MiningDrill_O.AlfaItemTools_MiningDrill_O",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Pick_O.AlfaItemTools_Pick_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Sickle_O.AlfaItemTools_Sickle_O",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4141,15 +4501,69 @@
       ],
       "Name": "Kit ItensAlfa Omega",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 51600,
+      "Price": 59340,
       "Type": "kit"
     },
     "kit_itensalfa_transcendente": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Transcendente — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Transcendente — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekShiledArmor_GOD.AlfaItemWeapon_TekShiledArmor_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_ShoulderCannon_GOD.AlfaItemWeapon_ShoulderCannon_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekBow_GOD.AlfaItemWeapon_TekBow_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekPistol_GOD.AlfaItemWeapon_TekPistol_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_EletricPod_GOD.AlfaItemWeapon_EletricPod_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekSword_GOD.AlfaItemWeapon_TekSword_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekClaws_GOD.AlfaItemWeapon_TekClaws_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekRifle_GOD.AlfaItemWeapon_TekRifle_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_Sniper_GOD.AlfaItemWeapon_Sniper_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_Pike_GOD.AlfaItemWeapon_Pike_GOD",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4161,7 +4575,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Sickle_GOD.AlfaItemTools_Sickle_GOD",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Chainsaw_GOD.AlfaItemTools_Chainsaw_GOD",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4173,13 +4587,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Chainsaw_GOD.AlfaItemTools_Chainsaw_GOD",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_MiningDrill_GOD.AlfaItemTools_MiningDrill_GOD",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Pick_GOD.AlfaItemTools_Pick_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Sickle_GOD.AlfaItemTools_Sickle_GOD",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4217,15 +4637,69 @@
       ],
       "Name": "Kit ItensAlfa Transcendente",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 60700,
+      "Price": 69805,
       "Type": "kit"
     },
     "kit_itensalfa_etereo": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Etéreo — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Etéreo — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekShiledArmor_ET.AlfaItemWeapon_TekShiledArmor_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_ShoulderCannon_ET.AlfaItemWeapon_ShoulderCannon_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekBow_ET.AlfaItemWeapon_TekBow_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekPistol_ET.AlfaItemWeapon_TekPistol_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_EletricPod_ET.AlfaItemWeapon_EletricPod_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekSword_ET.AlfaItemWeapon_TekSword_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekClaws_ET.AlfaItemWeapon_TekClaws_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekRifle_ET.AlfaItemWeapon_TekRifle_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_Sniper_ET.AlfaItemWeapon_Sniper_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_Pike_ET.AlfaItemWeapon_Pike_ET",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4237,7 +4711,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Sickle_ET.AlfaItemTools_Sickle_ET",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Chainsaw_ET.AlfaItemTools_Chainsaw_ET",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4249,13 +4723,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Chainsaw_ET.AlfaItemTools_Chainsaw_ET",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_MiningDrill_ET.AlfaItemTools_MiningDrill_ET",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Pick_ET.AlfaItemTools_Pick_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Sickle_ET.AlfaItemTools_Sickle_ET",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4293,15 +4773,69 @@
       ],
       "Name": "Kit ItensAlfa Etéreo",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 85400,
+      "Price": 98210,
       "Type": "kit"
     },
     "kit_itensalfa_universal": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Universal — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Universal — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekShiledArmor_Uni.AlfaItemWeapon_TekShiledArmor_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_ShoulderCannon_Uni.AlfaItemWeapon_ShoulderCannon_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekBow_Uni.AlfaItemWeapon_TekBow_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekPistol_Uni.AlfaItemWeapon_TekPistol_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_EletricPod_Uni.AlfaItemWeapon_EletricPod_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekSword_Uni.AlfaItemWeapon_TekSword_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekClaws_Uni.AlfaItemWeapon_TekClaws_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekRifle_Uni.AlfaItemWeapon_TekRifle_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_Sniper_Uni.AlfaItemWeapon_Sniper_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_Pike_Uni.AlfaItemWeapon_Pike_Uni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4313,7 +4847,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Sickle_Uni.AlfaItemTools_Sickle_Uni",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Chainsaw_Uni.AlfaItemTools_Chainsaw_Uni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4325,13 +4859,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Chainsaw_Uni.AlfaItemTools_Chainsaw_Uni",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_MiningDrill_Uni.AlfaItemTools_MiningDrill_Uni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Pick_Uni.AlfaItemTools_Pick_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Sickle_Uni.AlfaItemTools_Sickle_Uni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4369,15 +4909,69 @@
       ],
       "Name": "Kit ItensAlfa Universal",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 113400,
+      "Price": 130410,
       "Type": "kit"
     },
     "kit_itensalfa_onipotente": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Onipotente — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Onipotente — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekShiledArmor_Oni.AlfaItemWeapon_TekShiledArmor_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_ShoulderCannon_Oni.AlfaItemWeapon_ShoulderCannon_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekBow_Oni.AlfaItemWeapon_TekBow_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekPistol_Oni.AlfaItemWeapon_TekPistol_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_EletricPod_Oni.AlfaItemWeapon_EletricPod_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekSword_Oni.AlfaItemWeapon_TekSword_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekClaws_Oni.AlfaItemWeapon_TekClaws_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekRifle_Oni.AlfaItemWeapon_TekRifle_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_Sniper_Oni.AlfaItemWeapon_Sniper_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_Pike_Oni.AlfaItemWeapon_Pike_Oni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4389,7 +4983,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Sickle_Oni.AlfaItemTools_Sickle_Oni",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Chainsaw_Oni.AlfaItemTools_Chainsaw_Oni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4401,13 +4995,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Chainsaw_Oni.AlfaItemTools_Chainsaw_Oni",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_MiningDrill_Oni.AlfaItemTools_MiningDrill_Oni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Pick_Oni.AlfaItemTools_Pick_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Sickle_Oni.AlfaItemTools_Sickle_Oni",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4445,15 +5045,69 @@
       ],
       "Name": "Kit ItensAlfa Onipotente",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 149000,
+      "Price": 171350,
       "Type": "kit"
     },
     "kit_itensalfa_surreal": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Surreal — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Surreal — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekShiledArmor_Sur.AlfaItemWeapon_TekShiledArmor_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_ShoulderCannon_Sur.AlfaItemWeapon_ShoulderCannon_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekBow_Sur.AlfaItemWeapon_TekBow_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekPistol_Sur.AlfaItemWeapon_TekPistol_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_EletricPod_Sur.AlfaItemWeapon_EletricPod_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekSword_Sur.AlfaItemWeapon_TekSword_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekClaws_Sur.AlfaItemWeapon_TekClaws_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekRifle_Sur.AlfaItemWeapon_TekRifle_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_Sniper_Sur.AlfaItemWeapon_Sniper_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_Pike_Sur.AlfaItemWeapon_Pike_Sur",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4465,7 +5119,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Sickle_Sur.AlfaItemTools_Sickle_Sur",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Chainsaw_Sur.AlfaItemTools_Chainsaw_Sur",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4477,13 +5131,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Chainsaw_Sur.AlfaItemTools_Chainsaw_Sur",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_MiningDrill_Sur.AlfaItemTools_MiningDrill_Sur",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Pick_Sur.AlfaItemTools_Pick_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Sickle_Sur.AlfaItemTools_Sickle_Sur",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4521,15 +5181,69 @@
       ],
       "Name": "Kit ItensAlfa Surreal",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 192000,
+      "Price": 220800,
       "Type": "kit"
     },
     "kit_itensalfa_imaterial": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Imaterial — 11 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Kit ItensAlfa Imaterial — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
       "Items": [
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekShiledArmor_Im.AlfaItemWeapon_TekShiledArmor_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_ShoulderCannon_Im.AlfaItemWeapon_ShoulderCannon_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekBow_Im.AlfaItemWeapon_TekBow_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekPistol_Im.AlfaItemWeapon_TekPistol_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_EletricPod_Im.AlfaItemWeapon_EletricPod_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekSword_Im.AlfaItemWeapon_TekSword_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekClaws_Im.AlfaItemWeapon_TekClaws_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekRifle_Im.AlfaItemWeapon_TekRifle_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_Sniper_Im.AlfaItemWeapon_Sniper_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_Pike_Im.AlfaItemWeapon_Pike_Im",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4541,7 +5255,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Sickle_Im.AlfaItemTools_Sickle_Im",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Chainsaw_Im.AlfaItemTools_Chainsaw_Im",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4553,13 +5267,19 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Chainsaw_Im.AlfaItemTools_Chainsaw_Im",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_MiningDrill_Im.AlfaItemTools_MiningDrill_Im",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Pick_Im.AlfaItemTools_Pick_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Sickle_Im.AlfaItemTools_Sickle_Im",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4597,7 +5317,7 @@
       ],
       "Name": "Kit ItensAlfa Imaterial",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 242000,
+      "Price": 278300,
       "Type": "kit"
     },
     "kit_itensalfa_exotico": {
@@ -4637,7 +5357,7 @@
       ],
       "Name": "Kit ItensAlfa Exótico",
       "Permissions": "Admins,Exotico",
-      "Price": 305400,
+      "Price": 351210,
       "Type": "kit"
     }
   },
@@ -4895,17 +5615,6 @@
       "Price": 700,
       "Quality": 0,
       "Type": "dino"
-    },
-    "abyss_hover_sail": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
-      "Category": "Veículos",
-      "Description": "Vela Thalassiana (HoverSail) (mod Abyss)",
-      "ForceBlueprint": false,
-      "Name": "Vela Thalassiana (HoverSail) (mod Abyss)",
-      "Price": 5000,
-      "Quality": 0,
-      "Quantity": 1,
-      "Type": "item"
     },
     "abyss_hover_skiff": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
@@ -5430,7 +6139,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 1300,
+      "Price": 1495,
       "Quality": 0,
       "Type": "item"
     },
@@ -5448,7 +6157,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Beta (1x)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 800,
+      "Price": 920,
       "Quality": 0,
       "Type": "item"
     },
@@ -5466,7 +6175,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Gamma (1x)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 500,
+      "Price": 575,
       "Quality": 0,
       "Type": "item"
     },
@@ -6712,7 +7421,7 @@
       ],
       "Name": "Escopeta ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 1300,
+      "Price": 1495,
       "Quality": 0,
       "Type": "item"
     },
@@ -6730,7 +7439,7 @@
       ],
       "Name": "Escopeta ItensAlfa Beta (1x)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 800,
+      "Price": 920,
       "Quality": 0,
       "Type": "item"
     },
@@ -6748,7 +7457,7 @@
       ],
       "Name": "Escopeta ItensAlfa Gamma (1x)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 500,
+      "Price": 575,
       "Quality": 0,
       "Type": "item"
     },
@@ -6781,7 +7490,7 @@
       ],
       "Name": "Foice ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 1000,
+      "Price": 1150,
       "Quality": 0,
       "Type": "item"
     },
@@ -6799,7 +7508,7 @@
       ],
       "Name": "Foice ItensAlfa Beta (1x)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 700,
+      "Price": 805,
       "Quality": 0,
       "Type": "item"
     },
@@ -6817,7 +7526,7 @@
       ],
       "Name": "Foice ItensAlfa Gamma (1x)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 400,
+      "Price": 460,
       "Quality": 0,
       "Type": "item"
     },
@@ -7400,7 +8109,7 @@
       ],
       "Name": "Machado ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 1000,
+      "Price": 1150,
       "Quality": 0,
       "Type": "item"
     },
@@ -7418,7 +8127,7 @@
       ],
       "Name": "Machado ItensAlfa Beta (1x)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 700,
+      "Price": 805,
       "Quality": 0,
       "Type": "item"
     },
@@ -7436,7 +8145,7 @@
       ],
       "Name": "Machado ItensAlfa Gamma (1x)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 400,
+      "Price": 460,
       "Quality": 0,
       "Type": "item"
     },
@@ -7550,7 +8259,7 @@
       ],
       "Name": "Motosserra ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 1000,
+      "Price": 1150,
       "Quality": 0,
       "Type": "item"
     },
@@ -7568,7 +8277,7 @@
       ],
       "Name": "Motosserra ItensAlfa Beta (1x)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 700,
+      "Price": 805,
       "Quality": 0,
       "Type": "item"
     },
@@ -7586,7 +8295,7 @@
       ],
       "Name": "Motosserra ItensAlfa Gamma (1x)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 400,
+      "Price": 460,
       "Quality": 0,
       "Type": "item"
     },
@@ -7831,7 +8540,7 @@
       ],
       "Name": "Picareta ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 1000,
+      "Price": 1150,
       "Quality": 0,
       "Type": "item"
     },
@@ -7849,7 +8558,7 @@
       ],
       "Name": "Picareta ItensAlfa Beta (1x)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 700,
+      "Price": 805,
       "Quality": 0,
       "Type": "item"
     },
@@ -7867,7 +8576,7 @@
       ],
       "Name": "Picareta ItensAlfa Gamma (1x)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 400,
+      "Price": 460,
       "Quality": 0,
       "Type": "item"
     },
@@ -13457,7 +14166,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Delta (1x)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 300,
+      "Price": 345,
       "Quality": 0,
       "Type": "item"
     },
@@ -13475,7 +14184,7 @@
       ],
       "Name": "Escopeta ItensAlfa Delta (1x)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 300,
+      "Price": 345,
       "Quality": 0,
       "Type": "item"
     },
@@ -13493,7 +14202,7 @@
       ],
       "Name": "Foice ItensAlfa Delta (1x)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 200,
+      "Price": 230,
       "Quality": 0,
       "Type": "item"
     },
@@ -13511,7 +14220,7 @@
       ],
       "Name": "Machado ItensAlfa Delta (1x)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 200,
+      "Price": 230,
       "Quality": 0,
       "Type": "item"
     },
@@ -13529,7 +14238,7 @@
       ],
       "Name": "Motosserra ItensAlfa Delta (1x)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 200,
+      "Price": 230,
       "Quality": 0,
       "Type": "item"
     },
@@ -13547,7 +14256,7 @@
       ],
       "Name": "Picareta ItensAlfa Delta (1x)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 200,
+      "Price": 230,
       "Quality": 0,
       "Type": "item"
     },
@@ -13565,7 +14274,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Omega (1x)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 1800,
+      "Price": 2070,
       "Quality": 0,
       "Type": "item"
     },
@@ -13583,7 +14292,7 @@
       ],
       "Name": "Escopeta ItensAlfa Omega (1x)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 1800,
+      "Price": 2070,
       "Quality": 0,
       "Type": "item"
     },
@@ -13601,7 +14310,7 @@
       ],
       "Name": "Foice ItensAlfa Omega (1x)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 1400,
+      "Price": 1610,
       "Quality": 0,
       "Type": "item"
     },
@@ -13619,7 +14328,7 @@
       ],
       "Name": "Machado ItensAlfa Omega (1x)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 1400,
+      "Price": 1610,
       "Quality": 0,
       "Type": "item"
     },
@@ -13637,7 +14346,7 @@
       ],
       "Name": "Motosserra ItensAlfa Omega (1x)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 1400,
+      "Price": 1610,
       "Quality": 0,
       "Type": "item"
     },
@@ -13655,7 +14364,7 @@
       ],
       "Name": "Picareta ItensAlfa Omega (1x)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 1400,
+      "Price": 1610,
       "Quality": 0,
       "Type": "item"
     },
@@ -13673,7 +14382,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Transcendente (1x)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 2600,
+      "Price": 2990,
       "Quality": 0,
       "Type": "item"
     },
@@ -13691,7 +14400,7 @@
       ],
       "Name": "Escopeta ItensAlfa Transcendente (1x)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 2600,
+      "Price": 2990,
       "Quality": 0,
       "Type": "item"
     },
@@ -13709,7 +14418,7 @@
       ],
       "Name": "Foice ItensAlfa Transcendente (1x)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 2000,
+      "Price": 2300,
       "Quality": 0,
       "Type": "item"
     },
@@ -13727,7 +14436,7 @@
       ],
       "Name": "Machado ItensAlfa Transcendente (1x)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 2000,
+      "Price": 2300,
       "Quality": 0,
       "Type": "item"
     },
@@ -13745,7 +14454,7 @@
       ],
       "Name": "Motosserra ItensAlfa Transcendente (1x)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 2000,
+      "Price": 2300,
       "Quality": 0,
       "Type": "item"
     },
@@ -13763,7 +14472,7 @@
       ],
       "Name": "Picareta ItensAlfa Transcendente (1x)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 2000,
+      "Price": 2300,
       "Quality": 0,
       "Type": "item"
     },
@@ -13781,7 +14490,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Etéreo (1x)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 3600,
+      "Price": 4140,
       "Quality": 0,
       "Type": "item"
     },
@@ -13799,7 +14508,7 @@
       ],
       "Name": "Escopeta ItensAlfa Etéreo (1x)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 3600,
+      "Price": 4140,
       "Quality": 0,
       "Type": "item"
     },
@@ -13817,7 +14526,7 @@
       ],
       "Name": "Foice ItensAlfa Etéreo (1x)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 2900,
+      "Price": 3335,
       "Quality": 0,
       "Type": "item"
     },
@@ -13835,7 +14544,7 @@
       ],
       "Name": "Machado ItensAlfa Etéreo (1x)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 2900,
+      "Price": 3335,
       "Quality": 0,
       "Type": "item"
     },
@@ -13853,7 +14562,7 @@
       ],
       "Name": "Motosserra ItensAlfa Etéreo (1x)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 2900,
+      "Price": 3335,
       "Quality": 0,
       "Type": "item"
     },
@@ -13871,7 +14580,7 @@
       ],
       "Name": "Picareta ItensAlfa Etéreo (1x)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 2900,
+      "Price": 3335,
       "Quality": 0,
       "Type": "item"
     },
@@ -13889,7 +14598,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Universal (1x)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 4800,
+      "Price": 5520,
       "Quality": 0,
       "Type": "item"
     },
@@ -13907,7 +14616,7 @@
       ],
       "Name": "Escopeta ItensAlfa Universal (1x)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 4800,
+      "Price": 5520,
       "Quality": 0,
       "Type": "item"
     },
@@ -13925,7 +14634,7 @@
       ],
       "Name": "Foice ItensAlfa Universal (1x)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 3800,
+      "Price": 4370,
       "Quality": 0,
       "Type": "item"
     },
@@ -13943,7 +14652,7 @@
       ],
       "Name": "Machado ItensAlfa Universal (1x)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 3800,
+      "Price": 4370,
       "Quality": 0,
       "Type": "item"
     },
@@ -13961,7 +14670,7 @@
       ],
       "Name": "Motosserra ItensAlfa Universal (1x)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 3800,
+      "Price": 4370,
       "Quality": 0,
       "Type": "item"
     },
@@ -13979,7 +14688,7 @@
       ],
       "Name": "Picareta ItensAlfa Universal (1x)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 3800,
+      "Price": 4370,
       "Quality": 0,
       "Type": "item"
     },
@@ -13997,7 +14706,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Onipotente (1x)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 6300,
+      "Price": 7245,
       "Quality": 0,
       "Type": "item"
     },
@@ -14015,7 +14724,7 @@
       ],
       "Name": "Escopeta ItensAlfa Onipotente (1x)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 6300,
+      "Price": 7245,
       "Quality": 0,
       "Type": "item"
     },
@@ -14033,7 +14742,7 @@
       ],
       "Name": "Foice ItensAlfa Onipotente (1x)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 5000,
+      "Price": 5750,
       "Quality": 0,
       "Type": "item"
     },
@@ -14051,7 +14760,7 @@
       ],
       "Name": "Machado ItensAlfa Onipotente (1x)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 5000,
+      "Price": 5750,
       "Quality": 0,
       "Type": "item"
     },
@@ -14069,7 +14778,7 @@
       ],
       "Name": "Motosserra ItensAlfa Onipotente (1x)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 5000,
+      "Price": 5750,
       "Quality": 0,
       "Type": "item"
     },
@@ -14087,7 +14796,7 @@
       ],
       "Name": "Picareta ItensAlfa Onipotente (1x)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 5000,
+      "Price": 5750,
       "Quality": 0,
       "Type": "item"
     },
@@ -14105,7 +14814,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Surreal (1x)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 8100,
+      "Price": 9315,
       "Quality": 0,
       "Type": "item"
     },
@@ -14123,7 +14832,7 @@
       ],
       "Name": "Escopeta ItensAlfa Surreal (1x)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 8100,
+      "Price": 9315,
       "Quality": 0,
       "Type": "item"
     },
@@ -14141,7 +14850,7 @@
       ],
       "Name": "Foice ItensAlfa Surreal (1x)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 6500,
+      "Price": 7475,
       "Quality": 0,
       "Type": "item"
     },
@@ -14159,7 +14868,7 @@
       ],
       "Name": "Machado ItensAlfa Surreal (1x)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 6500,
+      "Price": 7475,
       "Quality": 0,
       "Type": "item"
     },
@@ -14177,7 +14886,7 @@
       ],
       "Name": "Motosserra ItensAlfa Surreal (1x)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 6500,
+      "Price": 7475,
       "Quality": 0,
       "Type": "item"
     },
@@ -14195,7 +14904,7 @@
       ],
       "Name": "Picareta ItensAlfa Surreal (1x)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 6500,
+      "Price": 7475,
       "Quality": 0,
       "Type": "item"
     },
@@ -14213,7 +14922,7 @@
       ],
       "Name": "Arco Tek ItensAlfa Imaterial (1x)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 10200,
+      "Price": 11730,
       "Quality": 0,
       "Type": "item"
     },
@@ -14231,7 +14940,7 @@
       ],
       "Name": "Escopeta ItensAlfa Imaterial (1x)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 10200,
+      "Price": 11730,
       "Quality": 0,
       "Type": "item"
     },
@@ -14249,7 +14958,7 @@
       ],
       "Name": "Foice ItensAlfa Imaterial (1x)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 8200,
+      "Price": 9430,
       "Quality": 0,
       "Type": "item"
     },
@@ -14267,7 +14976,7 @@
       ],
       "Name": "Machado ItensAlfa Imaterial (1x)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 8200,
+      "Price": 9430,
       "Quality": 0,
       "Type": "item"
     },
@@ -14285,7 +14994,7 @@
       ],
       "Name": "Motosserra ItensAlfa Imaterial (1x)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 8200,
+      "Price": 9430,
       "Quality": 0,
       "Type": "item"
     },
@@ -14303,7 +15012,7 @@
       ],
       "Name": "Picareta ItensAlfa Imaterial (1x)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 8200,
+      "Price": 9430,
       "Quality": 0,
       "Type": "item"
     },
@@ -14345,7 +15054,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Alfa (5 peças)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 8500,
+      "Price": 9775,
       "Quality": 0,
       "Type": "item"
     },
@@ -14387,7 +15096,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Beta (5 peças)",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 5500,
+      "Price": 6325,
       "Quality": 0,
       "Type": "item"
     },
@@ -14429,7 +15138,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Gamma (5 peças)",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 3500,
+      "Price": 4025,
       "Quality": 0,
       "Type": "item"
     },
@@ -14471,7 +15180,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Delta (5 peças)",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 2000,
+      "Price": 2300,
       "Quality": 0,
       "Type": "item"
     },
@@ -14513,7 +15222,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Omega (5 peças)",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 12000,
+      "Price": 13800,
       "Quality": 0,
       "Type": "item"
     },
@@ -14555,7 +15264,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Transcendente (5 peças)",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 17000,
+      "Price": 19550,
       "Quality": 0,
       "Type": "item"
     },
@@ -14597,7 +15306,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Etéreo (5 peças)",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 24000,
+      "Price": 27600,
       "Quality": 0,
       "Type": "item"
     },
@@ -14639,7 +15348,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Universal (5 peças)",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 32000,
+      "Price": 36800,
       "Quality": 0,
       "Type": "item"
     },
@@ -14681,7 +15390,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Onipotente (5 peças)",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 42000,
+      "Price": 48300,
       "Quality": 0,
       "Type": "item"
     },
@@ -14723,7 +15432,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Surreal (5 peças)",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 54000,
+      "Price": 62100,
       "Quality": 0,
       "Type": "item"
     },
@@ -14765,7 +15474,7 @@
       ],
       "Name": "Armadura TEK ItensAlfa Imaterial (5 peças)",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 68000,
+      "Price": 78200,
       "Quality": 0,
       "Type": "item"
     },
@@ -14807,13 +15516,13 @@
       ],
       "Name": "Armadura TEK ItensAlfa Exótico (5 peças)",
       "Permissions": "Admins,Exotico",
-      "Price": 86000,
+      "Price": 98900,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_hoverskiff_gama": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "HoverSkiff Gamma ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "HoverSkiff Gamma ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -14824,14 +15533,14 @@
         }
       ],
       "Name": "HoverSkiff Gamma ItensAlfa (1x)",
-      "Permissions": "Admins,Gamma,Beta",
-      "Price": 6200,
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 7130,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_hoverskiff_beta": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "HoverSkiff Beta ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "HoverSkiff Beta ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -14842,14 +15551,14 @@
         }
       ],
       "Name": "HoverSkiff Beta ItensAlfa (1x)",
-      "Permissions": "Admins,Beta,Alfa",
-      "Price": 9700,
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 11155,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_hoverskiff_alfa": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "HoverSkiff Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "HoverSkiff Alfa ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -14860,104 +15569,14 @@
         }
       ],
       "Name": "HoverSkiff Alfa ItensAlfa (1x)",
-      "Permissions": "Admins,Alfa,Omega",
-      "Price": 15000,
-      "Quality": 0,
-      "Type": "item"
-    },
-    "itensalfa_hoversail_alfa": {
-      "Category": "ItensAlfa — Criaturas",
-      "Description": "HoverSail Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
-      "ForceBlueprint": false,
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSail.AlfaItem_HoverSail",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Name": "HoverSail Alfa ItensAlfa (1x)",
-      "Permissions": "Admins,Alfa,Omega",
-      "Price": 12000,
-      "Quality": 0,
-      "Type": "item"
-    },
-    "itensalfa_exomek_alfa": {
-      "Category": "ItensAlfa — Criaturas",
-      "Description": "Exo-Mek Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
-      "ForceBlueprint": false,
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_ExoMek_Alfa.AlfaItem_ExoMek_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Name": "Exo-Mek Alfa ItensAlfa (1x)",
-      "Permissions": "Admins,Alfa,Omega",
-      "Price": 20000,
-      "Quality": 0,
-      "Type": "item"
-    },
-    "itensalfa_mek_alfa": {
-      "Category": "ItensAlfa — Criaturas",
-      "Description": "Mek Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
-      "ForceBlueprint": false,
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Mek_Alfa.AlfaItem_Mek_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Name": "Mek Alfa ItensAlfa (1x)",
-      "Permissions": "Admins,Alfa,Omega",
-      "Price": 30000,
-      "Quality": 0,
-      "Type": "item"
-    },
-    "itensalfa_mek_omega": {
-      "Category": "ItensAlfa — Criaturas",
-      "Description": "Mek Omega ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
-      "ForceBlueprint": false,
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Mek_Omega.AlfaItem_Mek_Omega",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Name": "Mek Omega ItensAlfa (1x)",
-      "Permissions": "Admins,Omega,Transcendente",
-      "Price": 42400,
-      "Quality": 0,
-      "Type": "item"
-    },
-    "itensalfa_mek_minimega": {
-      "Category": "ItensAlfa — Criaturas",
-      "Description": "Mek Minimega ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
-      "ForceBlueprint": false,
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_MiniMegaMek_Alfa.AlfaItem_MiniMegaMek_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Name": "Mek Minimega ItensAlfa (1x)",
-      "Permissions": "Admins,Omega,Transcendente",
-      "Price": 42400,
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 17250,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_enforcer_alfa": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "Enforcer Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "Enforcer Alfa ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -14968,14 +15587,14 @@
         }
       ],
       "Name": "Enforcer Alfa ItensAlfa (1x)",
-      "Permissions": "Admins,Alfa,Omega",
-      "Price": 8000,
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 9200,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_defender_alfa": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "Defender Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "Defender Alfa ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -14986,14 +15605,14 @@
         }
       ],
       "Name": "Defender Alfa ItensAlfa (1x)",
-      "Permissions": "Admins,Alfa,Omega",
-      "Price": 8000,
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 9200,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_stryder_perfectpve": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "Stryder PerfectPVE (ItensAlfa) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
+      "Description": "Stryder PerfectPVE ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -15005,13 +15624,13 @@
       ],
       "Name": "Stryder PerfectPVE ItensAlfa (1x)",
       "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
-      "Price": 25000,
+      "Price": 28750,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_submarine_comum": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "Submarine Comum ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "Submarine Comum ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -15022,14 +15641,14 @@
         }
       ],
       "Name": "Submarine Comum ItensAlfa (1x)",
-      "Permissions": "Admins,Delta,Gamma",
-      "Price": 4200,
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 4830,
       "Quality": 0,
       "Type": "item"
     },
     "itensalfa_submarine_alfa": {
       "Category": "ItensAlfa — Criaturas",
-      "Description": "Submarine Alfa ItensAlfa (1x) — gate N+N−1 (próprio tier + um acima). Licença Nuvem/keyvault não desbloqueia.",
+      "Description": "Submarine Alfa ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
       "ForceBlueprint": false,
       "Items": [
         {
@@ -15040,8 +15659,2222 @@
         }
       ],
       "Name": "Submarine Alfa ItensAlfa (1x)",
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 20700,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_stryder_alfa": {
+      "Category": "ItensAlfa — Criaturas",
+      "Description": "Stryder Alfa ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Strider.AlfaItem_Spawner_Strider",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Stryder Alfa ItensAlfa (1x)",
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 28750,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_stryder_universal": {
+      "Category": "ItensAlfa — Criaturas",
+      "Description": "Stryder Universal ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_UniversalStrider.AlfaItem_Spawner_UniversalStrider",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Stryder Universal ItensAlfa (1x)",
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 108215,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_stryder_perfectpvp": {
+      "Category": "ItensAlfa — Criaturas",
+      "Description": "Stryder PerfectPVP ItensAlfa (1x) — resgatável com qualquer licença Delta→Exótico (Nuvem/keyvault não conta).",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Strider_PerfectPVP.AlfaItem_Spawner_Strider_PerfectPVP",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Stryder PerfectPVP ItensAlfa (1x)",
+      "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
+      "Price": 28750,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_delta": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekShiledArmor_D.AlfaItemWeapon_TekShiledArmor_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_delta": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_ShoulderCannon_D.AlfaItemWeapon_ShoulderCannon_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_delta": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekPistol_D.AlfaItemWeapon_TekPistol_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_delta": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_EletricPod_D.AlfaItemWeapon_EletricPod_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_delta": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekSword_D.AlfaItemWeapon_TekSword_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_delta": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekClaws_D.AlfaItemWeapon_TekClaws_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_delta": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekRifle_D.AlfaItemWeapon_TekRifle_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_delta": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Sniper_D.AlfaItemWeapon_Sniper_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_delta": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Pike_D.AlfaItemWeapon_Pike_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 345,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_delta": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_MiningDrill_D.AlfaItemTools_MiningDrill_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 230,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "vara_pesca_delta": {
+      "Category": "Ferramentas",
+      "Description": "Vara de Pesca ItensAlfa Delta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_FishingRod_D.AlfaItemTools_FishingRod_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Vara de Pesca ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 230,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_gamma": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekShiledArmor_G.AlfaItemWeapon_TekShiledArmor_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_gamma": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G.AlfaItemWeapon_ShoulderCannon_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_gamma": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekPistol_G.AlfaItemWeapon_TekPistol_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_gamma": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_EletricPod_G.AlfaItemWeapon_EletricPod_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_gamma": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekSword_G.AlfaItemWeapon_TekSword_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_gamma": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekClaws_G.AlfaItemWeapon_TekClaws_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_gamma": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekRifle_G.AlfaItemWeapon_TekRifle_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_gamma": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Sniper_G.AlfaItemWeapon_Sniper_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_gamma": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Pike_G.AlfaItemWeapon_Pike_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 575,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_gamma": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_MiningDrill_G.AlfaItemTools_MiningDrill_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "vara_pesca_gamma": {
+      "Category": "Ferramentas",
+      "Description": "Vara de Pesca ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_FishingRod_G.AlfaItemTools_FishingRod_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Vara de Pesca ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_beta": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekShiledArmor_B.AlfaItemWeapon_TekShiledArmor_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_beta": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_ShoulderCannon_B.AlfaItemWeapon_ShoulderCannon_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_beta": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekPistol_B.AlfaItemWeapon_TekPistol_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_beta": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_EletricPod_B.AlfaItemWeapon_EletricPod_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_beta": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekSword_B.AlfaItemWeapon_TekSword_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_beta": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekClaws_B.AlfaItemWeapon_TekClaws_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_beta": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekRifle_B.AlfaItemWeapon_TekRifle_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_beta": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Sniper_B.AlfaItemWeapon_Sniper_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_beta": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Pike_B.AlfaItemWeapon_Pike_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 920,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_beta": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_MiningDrill_B.AlfaItemTools_MiningDrill_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 805,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "vara_pesca_beta": {
+      "Category": "Ferramentas",
+      "Description": "Vara de Pesca ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_FishingRod_B.AlfaItemTools_FishingRod_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Vara de Pesca ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 805,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_alfa": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekShiledArmor.AlfaItemWeapon_TekShiledArmor",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Alfa (1x)",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 18000,
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_alfa": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_ShoulderCannon.AlfaItemWeapon_ShoulderCannon",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_alfa": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekPistol.AlfaItemWeapon_TekPistol",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_alfa": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_EletricPod.AlfaItemWeapon_EletricPod",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_alfa": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekSword.AlfaItemWeapon_TekSword",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_alfa": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekClaws.AlfaItemWeapon_TekClaws",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_alfa": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekRifle.AlfaItemWeapon_TekRifle",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_alfa": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Sniper.AlfaItemWeapon_Sniper",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_alfa": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Pike.AlfaItemWeapon_Pike",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "clava_alfa": {
+      "Category": "Armas",
+      "Description": "Clava ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_StoneClub.AlfaItemWeapon_StoneClub",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Clava ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "lanca_granadas_alfa": {
+      "Category": "Armas",
+      "Description": "Lança-Granadas TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_GrenadeLauncher.AlfaItemWeapon_GrenadeLauncher",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Lança-Granadas TEK ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "cruise_missile_alfa": {
+      "Category": "Armas",
+      "Description": "Cruise Missile TEK ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekCruiseMissile.AlfaItemWeapon_TekCruiseMissile",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Cruise Missile TEK ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1495,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_alfa": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_MiningDrill.AlfaItemTools_MiningDrill",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "vara_pesca_alfa": {
+      "Category": "Ferramentas",
+      "Description": "Vara de Pesca ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_FishingRod.AlfaItemTools_FishingRod",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Vara de Pesca ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "tocha_alfa": {
+      "Category": "Ferramentas",
+      "Description": "Tocha ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Torch.AlfaItemTools_Torch",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Tocha ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "chicote_alfa": {
+      "Category": "Ferramentas",
+      "Description": "Chicote ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Whip.AlfaItemTools_Whip",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Chicote ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "lanterna_alfa": {
+      "Category": "Ferramentas",
+      "Description": "Lanterna de Carga ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_LanternCharge.AlfaItemTools_LanternCharge",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Lanterna de Carga ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_omega": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekShiledArmor_O.AlfaItemWeapon_TekShiledArmor_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_omega": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_ShoulderCannon_O.AlfaItemWeapon_ShoulderCannon_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_omega": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekPistol_O.AlfaItemWeapon_TekPistol_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_omega": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_EletricPod_O.AlfaItemWeapon_EletricPod_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_omega": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekSword_O.AlfaItemWeapon_TekSword_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_omega": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekClaws_O.AlfaItemWeapon_TekClaws_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_omega": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekRifle_O.AlfaItemWeapon_TekRifle_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_omega": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_Sniper_O.AlfaItemWeapon_Sniper_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_omega": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_Pike_O.AlfaItemWeapon_Pike_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2070,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_omega": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Omega (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_MiningDrill_O.AlfaItemTools_MiningDrill_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 1610,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_transcendente": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekShiledArmor_GOD.AlfaItemWeapon_TekShiledArmor_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_transcendente": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_ShoulderCannon_GOD.AlfaItemWeapon_ShoulderCannon_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_transcendente": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekPistol_GOD.AlfaItemWeapon_TekPistol_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_transcendente": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_EletricPod_GOD.AlfaItemWeapon_EletricPod_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_transcendente": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekSword_GOD.AlfaItemWeapon_TekSword_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_transcendente": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekClaws_GOD.AlfaItemWeapon_TekClaws_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_transcendente": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekRifle_GOD.AlfaItemWeapon_TekRifle_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_transcendente": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_Sniper_GOD.AlfaItemWeapon_Sniper_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_transcendente": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_Pike_GOD.AlfaItemWeapon_Pike_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2990,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_transcendente": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Transcendente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_MiningDrill_GOD.AlfaItemTools_MiningDrill_GOD",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Transcendente (1x)",
+      "Permissions": "Admins,Transcendente,Etereo",
+      "Price": 2300,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_etereo": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekShiledArmor_ET.AlfaItemWeapon_TekShiledArmor_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_etereo": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_ShoulderCannon_ET.AlfaItemWeapon_ShoulderCannon_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_etereo": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekPistol_ET.AlfaItemWeapon_TekPistol_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_etereo": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_EletricPod_ET.AlfaItemWeapon_EletricPod_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_etereo": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekSword_ET.AlfaItemWeapon_TekSword_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_etereo": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekClaws_ET.AlfaItemWeapon_TekClaws_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_etereo": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekRifle_ET.AlfaItemWeapon_TekRifle_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_etereo": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_Sniper_ET.AlfaItemWeapon_Sniper_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_etereo": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_Pike_ET.AlfaItemWeapon_Pike_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 4140,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_etereo": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Etéreo (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_MiningDrill_ET.AlfaItemTools_MiningDrill_ET",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Etéreo (1x)",
+      "Permissions": "Admins,Etereo,Universal",
+      "Price": 3335,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_universal": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekShiledArmor_Uni.AlfaItemWeapon_TekShiledArmor_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_universal": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_ShoulderCannon_Uni.AlfaItemWeapon_ShoulderCannon_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_universal": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekPistol_Uni.AlfaItemWeapon_TekPistol_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_universal": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_EletricPod_Uni.AlfaItemWeapon_EletricPod_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_universal": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekSword_Uni.AlfaItemWeapon_TekSword_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_universal": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekClaws_Uni.AlfaItemWeapon_TekClaws_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_universal": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekRifle_Uni.AlfaItemWeapon_TekRifle_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_universal": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_Sniper_Uni.AlfaItemWeapon_Sniper_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_universal": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_Pike_Uni.AlfaItemWeapon_Pike_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 5520,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_universal": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Universal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_MiningDrill_Uni.AlfaItemTools_MiningDrill_Uni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Universal (1x)",
+      "Permissions": "Admins,Universal,Onipotente",
+      "Price": 4370,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_onipotente": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekShiledArmor_Oni.AlfaItemWeapon_TekShiledArmor_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_onipotente": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_ShoulderCannon_Oni.AlfaItemWeapon_ShoulderCannon_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_onipotente": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekPistol_Oni.AlfaItemWeapon_TekPistol_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_onipotente": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_EletricPod_Oni.AlfaItemWeapon_EletricPod_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_onipotente": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekSword_Oni.AlfaItemWeapon_TekSword_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_onipotente": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekClaws_Oni.AlfaItemWeapon_TekClaws_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_onipotente": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekRifle_Oni.AlfaItemWeapon_TekRifle_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_onipotente": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_Sniper_Oni.AlfaItemWeapon_Sniper_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_onipotente": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_Pike_Oni.AlfaItemWeapon_Pike_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 7245,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_onipotente": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Onipotente (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_MiningDrill_Oni.AlfaItemTools_MiningDrill_Oni",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Onipotente (1x)",
+      "Permissions": "Admins,Onipotente,Surreal",
+      "Price": 5750,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_surreal": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekShiledArmor_Sur.AlfaItemWeapon_TekShiledArmor_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_surreal": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_ShoulderCannon_Sur.AlfaItemWeapon_ShoulderCannon_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_surreal": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekPistol_Sur.AlfaItemWeapon_TekPistol_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_surreal": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_EletricPod_Sur.AlfaItemWeapon_EletricPod_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_surreal": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekSword_Sur.AlfaItemWeapon_TekSword_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_surreal": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekClaws_Sur.AlfaItemWeapon_TekClaws_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_surreal": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekRifle_Sur.AlfaItemWeapon_TekRifle_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_surreal": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_Sniper_Sur.AlfaItemWeapon_Sniper_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_surreal": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_Pike_Sur.AlfaItemWeapon_Pike_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 9315,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_surreal": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Surreal (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_MiningDrill_Sur.AlfaItemTools_MiningDrill_Sur",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Surreal (1x)",
+      "Permissions": "Admins,Surreal,Imaterial",
+      "Price": 7475,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "escudo_tek_imaterial": {
+      "Category": "Armas",
+      "Description": "Escudo TEK ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekShiledArmor_Im.AlfaItemWeapon_TekShiledArmor_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Escudo TEK ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "canhao_ombro_imaterial": {
+      "Category": "Armas",
+      "Description": "Canhão de Ombro ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_ShoulderCannon_Im.AlfaItemWeapon_ShoulderCannon_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Canhão de Ombro ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pistola_tek_imaterial": {
+      "Category": "Armas",
+      "Description": "Pistola TEK ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekPistol_Im.AlfaItemWeapon_TekPistol_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pistola TEK ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "electropod_imaterial": {
+      "Category": "Armas",
+      "Description": "ElectroPod ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_EletricPod_Im.AlfaItemWeapon_EletricPod_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "ElectroPod ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "espada_tek_imaterial": {
+      "Category": "Armas",
+      "Description": "Espada TEK ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekSword_Im.AlfaItemWeapon_TekSword_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Espada TEK ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "garras_tek_imaterial": {
+      "Category": "Armas",
+      "Description": "Garras TEK ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekClaws_Im.AlfaItemWeapon_TekClaws_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Garras TEK ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "rifle_tek_imaterial": {
+      "Category": "Armas",
+      "Description": "Rifle TEK ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekRifle_Im.AlfaItemWeapon_TekRifle_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Rifle TEK ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sniper_imaterial": {
+      "Category": "Armas",
+      "Description": "Sniper ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_Sniper_Im.AlfaItemWeapon_Sniper_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sniper ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "pike_imaterial": {
+      "Category": "Armas",
+      "Description": "Pike ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_Pike_Im.AlfaItemWeapon_Pike_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Pike ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 11730,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "mining_drill_imaterial": {
+      "Category": "Ferramentas",
+      "Description": "Mining Drill ItensAlfa Imaterial (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_MiningDrill_Im.AlfaItemTools_MiningDrill_Im",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Mining Drill ItensAlfa Imaterial (1x)",
+      "Permissions": "Admins,Imaterial,Exotico",
+      "Price": 9430,
       "Quality": 0,
       "Type": "item"
     }

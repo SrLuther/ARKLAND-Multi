@@ -218,6 +218,44 @@ def test_checkout_debits_and_creates_order():
         assert int(row[1]) == 8000
         payload = json.loads(row[2])
         assert payload["order_source"] == ORDER_SOURCE
+        # Sem pontos de stats → SpawnExact off (nível simples)
+        assert payload.get("spawn_exact", {}).get("enabled") is False
+    finally:
+        db.close()
+
+
+def test_checkout_with_stat_points_enables_spawn_exact(tmp_path, monkeypatch):
+    """Problema A: HP/melee da encomenda devem ir para wild_stats (SpawnExact)."""
+    settings_file = tmp_path / "settings_spawn_exact.json"
+    settings_file.write_text(
+        json.dumps({
+            "dino_order_enabled": True,
+            "custom_dino_enabled": True,
+            "custom_dino_spawn_exact": True,
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        result = checkout(
+            db,
+            USER,
+            _base_spec(stat_points={"health": 78, "melee": 105}),
+        )
+        db.commit()
+        payload = result["payload"]
+        se = payload["spawn_exact"]
+        assert se["enabled"] is True
+        assert se["wild_stats"][0] == 78  # Health
+        assert se["wild_stats"][5] == 105  # Melee
+        assert payload["level"] == 1 + 78 + 105
+        assert payload["stat_points_requested"] == {"health": 78, "melee": 105}
     finally:
         db.close()
 

@@ -434,6 +434,8 @@ Exemplo: `"colors": [14, 14, 14, 0, 0, 0]` — três regiões pretas (ID 14), de
 | `401` / claim vazio | API key errada | Sync plugins; conferir `WebApiKey` no `config.json` |
 | Cores erradas | Índice inválido para espécie | Conferir índices ASB; região pode estar `PreventColorization` |
 | Cryopod não aparece | Inventário cheio | Esvaziar inventário ou ativar ground fallback |
+| **Stats não batem (Problema A)** | Sem **Modo SpawnExact**; encomenda sem `custom_dino_spawn_exact`; fallback antigo pegava tame vizinho; stats desativados na espécie (ex. Oxygen em terrestre) | Ativar SpawnExact na UI + `custom_dino_spawn_exact` + sync plugin; recompilar CustomDinoDeliver; não pôr pontos em stats que a espécie não usa |
+| **Dino nasce no chão mas pedido FALHA (Problema B)** | Find-after-spawn não achou o actor (wyvern/mod longe, variante Fire/Ice, timing) | CustomDinoDeliver atualizado: raio maior, retry, só dinos **novos**; mensagem `spawn_exact_not_found` (não confundir com identity) |
 | `rate_limit_exceeded` | >30 entregas/h por admin | Aguardar ou escalar com dono |
 | `custom_dino_disabled` na API | Flag off | Ativar em settings |
 | Reload não aplica | RCON off ou servidor parado | Ligar RCON; iniciar mapa; `DinoDeliver.Reload` |

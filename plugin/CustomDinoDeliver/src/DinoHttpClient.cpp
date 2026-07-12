@@ -338,19 +338,14 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
                 deliver_result.identity.dino_id2,
                 deliver_result.identity.ancestors.size());
         } else {
+            if (!deliver_result.failure_reason.empty())
+                error = deliver_result.failure_reason;
             failed_ids.push_back(order_id);
             result.failed++;
             failures.push_back({
                 {"order_id", order_id},
                 {"error", error},
             });
-            if (deliver_result.identity.dino_id1 == 0 && deliver_result.identity.dino_id2 == 0) {
-                Log::GetLog()->error(
-                    "[DinoLabDeliver] identity capture failed order={} species={} steam={}",
-                    order_id, species, steam_id);
-                error = "identity_capture_failed";
-                failures.back()["error"] = error;
-            }
             Log::GetLog()->error("DinoHttpClient: failed order {} ({})", order_id, error);
         }
     }

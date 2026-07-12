@@ -40,6 +40,12 @@ def is_custom_dino_enabled() -> bool:
     return bool(_settings_fn().get("custom_dino_enabled", False))
 
 
+def is_custom_dino_spawn_exact_enabled() -> bool:
+    if _settings_fn is None:
+        return False
+    return bool(_settings_fn().get("custom_dino_spawn_exact", False))
+
+
 def get_stale_entregando_minutes() -> int:
     """Minutos antes de reabrir pedidos ENTREGANDO presos (0 = desabilitado)."""
     if _settings_fn is None:
@@ -148,31 +154,54 @@ def _utcnow() -> datetime:
 
 
 def _format_blueprint(path: str) -> str:
+    """Canonical ``Blueprint'/Game/.../Class.Class'`` (strip quotes / nested wraps)."""
     p = (path or "").strip()
+    if not p:
+        return ""
+
+    def _strip_outer_quotes(s: str) -> str:
+        while len(s) >= 2 and (
+            (s[0] == "'" and s[-1] == "'") or (s[0] == '"' and s[-1] == '"')
+        ):
+            s = s[1:-1].strip()
+        return s
+
+    p = _strip_outer_quotes(p)
+    # Unwrap nested Blueprint'Blueprint'/Game/...'...'
+    for _ in range(4):
+        if p.startswith("Blueprint'") and p.endswith("'") and len(p) > 11:
+            inner = _strip_outer_quotes(p[10:-1].strip())
+            if inner.startswith("Blueprint'"):
+                p = inner
+                continue
+            p = inner
+            break
+        break
+
     if not p:
         return ""
     if p.startswith("Blueprint'"):
         return p
     if not p.startswith("/"):
-        p = "/" + p
+        p = f"/{p}" if p.startswith("Game/") else f"/Game/{p}"
     return f"Blueprint'{p}'"
 
 
 def _is_valid_blueprint_raw(path: str) -> bool:
-    p = (path or "").strip()
-    if not p:
+    formatted = _format_blueprint(path)
+    if not formatted:
         return False
-    if p.startswith("Blueprint'") and p.endswith("'"):
-        inner = p[10:-1].strip()
+    if formatted.startswith("Blueprint'") and formatted.endswith("'"):
+        inner = formatted[10:-1].strip()
         return bool(inner) and inner.startswith("/Game/")
-    return p.startswith("/Game/") and len(p) > 6
+    return False
 
 
 def _blueprint_inner(path: str) -> str:
-    p = (path or "").strip()
-    if p.startswith("Blueprint'") and p.endswith("'"):
-        return p[10:-1].strip()
-    return p
+    formatted = _format_blueprint(path)
+    if formatted.startswith("Blueprint'") and formatted.endswith("'"):
+        return formatted[10:-1].strip()
+    return formatted
 
 
 def _looks_like_dino_species_blueprint(path: str) -> bool:

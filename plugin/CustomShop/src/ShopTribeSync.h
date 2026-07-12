@@ -6,8 +6,14 @@ namespace CustomShop {
 namespace TribeSync {
 
 /// Envia snapshot de tribo do jogador para POST /api/tribe/presence.
-/// Chamado no HandleNewPlayer (com delay) para o painel Minha Tribo vincular o mapa.
-void SyncPlayer(AShooterPlayerController* player);
+/// Retorna true se a presença foi aceite pela API (tribo válida + HTTP ok).
+bool SyncPlayer(AShooterPlayerController* player);
+
+/// Agenda várias tentativas pós-login (tribo pode demorar a carregar).
+void ScheduleSyncAfterLogin(AShooterPlayerController* player);
+
+/// Sincroniza todos os jogadores online (poll / Shop.Reload / Shop.TribeSync).
+void SyncAllOnlinePlayers();
 
 } // namespace TribeSync
 } // namespace CustomShop

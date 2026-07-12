@@ -3932,13 +3932,6 @@
       "Price": 2800,
       "Type": "dino"
     },
-    "abyss_hover_sail": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
-      "Description": "Vela Thalassiana (HoverSail) (Aquática)",
-      "Price": 20000,
-      "Quantity": 1,
-      "Type": "item"
-    },
     "abyss_hover_skiff": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
       "Description": "Skiff Thalassiano (Aquática)",

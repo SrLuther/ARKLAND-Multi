@@ -1,13 +1,18 @@
 {
-    "version": "1.10.21",
+    "version": "1.10.22",
     "date": "2026-07-11",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.21/ARKLAND-Multi-Setup-v1.10.21.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.22/ARKLAND-Multi-Setup-v1.10.22.exe",
     "changelog": [
-        "Feat (CustomShop / ShopTribeSync): presença do proprietário no login (OwnerPlayerDataID/Proprietário) → API de mapa; CustomShop.dll recompilado com ShopTribeSync no build_cl.",
-        "Fix (Web Store / Minha Tribo): auto-link sem tribe_name, POST /api/tribe/sync no Verificar de novo, ServerId no CrossChat mesmo desligado.",
-        "Fix (Licenças / Permissions): renovação soma dias no ark_permission e no RCON AddTimed (horas = expires residual+novos), em vez de substituir por now+Days — corrigia keyvault/~17d após compra de 30d com residual; afecta todos os tiers temporários (Delta→Exótico, Nuvem, VIP).",
-        "Fix (config): licenca_nuvem volta a Type license + LicenseGrant keyvault/30d (regressão Type command sem Grant).",
-        "Fix (CustomShop / SyncPlayerOnJoin): grupos temporários realinhados ao expires do DB mesmo se já estiverem no Permissions (evita residual stale).",
-        "Fix (Web Store / claim): ENTREGUE por «já licenciado» só se source=order_id; re-sync Permissions ao finalizar — residual antigo não salta a entrega da renovação."
+        "Fix (CustomShop / TribeSync): retries pós-login (8/20/45/90s), poll ~3 min, Shop.Reload/Shop.TribeSync e validação HTTP — corrige «Nenhuma presença» quando a tribo demora ou o jogador já estava online; aviso se ServerId em falta.",
+        "Fix (Web Store / Minha Tribo): toast dedupe + aviso curto no Verificar de novo (não empilha 5 toasts iguais); ignora server_id=unknown no auto-link.",
+        "Bump (CustomShop): v1.10.7 → v1.10.8 — TribeSync retries/poll.",
+        "Feat (Plugins): CHANGELOG.md por plugin (CustomShop, CustomDinoDeliver); gate no _release.ps1 (scripts/check_plugin_release_gate.py) exige bump de plugin_version.txt + secção no changelog do plugin quando o código C++ muda; «Versões esperadas» na UI lê PluginInfo.json embutido (VersionLabel).",
+        "Bump (CustomShop): v1.10.6 → v1.10.7 — ShopTribeSync, SyncPlayerOnJoin/licenças e melhorias cryo/mercado; sync PluginInfo + plugin_version.h.",
+        "Bump (CustomDinoDeliver / Dino Lab): v1.10.10 → v1.10.11 — SpawnExact wild_stats, find-after-spawn e NormalizeBlueprintPath (stats/Titan Wyvern).",
+        "Feat (Web Store / Pedidos): desistência com regras — licenças irrevogáveis (sem cancel/reembolso); itens/kits só após 24h; auto-cancel + reembolso Âmbar em PENDENTE ≥48h no worker arkshop-retry (idempotente).",
+        "Feat (CustomShop / ItensAlfa): catálogo completo de armas/ferramentas da planilha (14 armas + 9 ferramentas por BP disponível) na loja e nos kits kit_itensalfa_*; +120 SKUs; BPs só da planilha (sem inventar).",
+        "Feat (CustomShop / ItensAlfa): acréscimo de +15% em todos os preços de itens, kits e criaturas ItensAlfa (base proposta × 1.15); licenças licenca_* sem alteração.",
+        "Feat (CustomShop / ItensAlfa): criaturas/veículos TEK (HoverSkiff, Enforcer, Defender, Submarine, Stryder Alfa/Universal/PerfectPVE/PerfectPVP) passam a exigir QUALQUER licença Delta→Exótico (sem Nuvem/keyvault); armaduras/armas/kits mantêm gate N+N−1.",
+        "Fix (CustomShop): remove Mek/MiniMegaMek/Exo-Mek e HoverSail do catálogo (crash no servidor) — IDs abyss_hover_sail, itensalfa_hoversail_alfa, itensalfa_exomek_alfa, itensalfa_mek_alfa/omega/minimega; HoverSkiff/Enforcer/Defender/Stryder/Submarine mantidos; apply_itensalfa bloqueia reintrodução."
     ]
 }

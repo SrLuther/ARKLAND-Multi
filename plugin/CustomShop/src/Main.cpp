@@ -23,12 +23,20 @@ namespace {
 
 constexpr int kPendingPollSeconds = 60;
 
+int g_tribe_sync_poll_ticks = 0;
+
 void PollPendingForOnlinePlayers() {
     const auto& pcs =
         ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
     for (TWeakObjectPtr<APlayerController> wpc : pcs) {
         auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
         if (sc) CustomShop::HttpClient::DeliverPending(sc);
+    }
+    // A cada ~3 min: reenvia presença (jogadores já online / tribo atrasada).
+    ++g_tribe_sync_poll_ticks;
+    if (g_tribe_sync_poll_ticks >= 3) {
+        g_tribe_sync_poll_ticks = 0;
+        CustomShop::TribeSync::SyncAllOnlinePlayers();
     }
 }
 
@@ -87,17 +95,8 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
         CustomShop::HttpClient::DeliverPending(raw_ctrl);
     }, 8);
 
-    // Tribe data pode ainda não estar pronto no tick do login — delay curto.
-    API::Timer::Get().DelayExecute([raw_ctrl]() {
-        if (!raw_ctrl) return;
-        try {
-            CustomShop::TribeSync::SyncPlayer(raw_ctrl);
-        } catch (const std::exception& e) {
-            Log::GetLog()->error("TribeSync delay failed: {}", e.what());
-        } catch (...) {
-            Log::GetLog()->error("TribeSync delay failed: unknown");
-        }
-    }, 12);
+    // Tribe data pode ainda não estar pronto no tick do login — várias tentativas.
+    CustomShop::TribeSync::ScheduleSyncAfterLogin(raw_ctrl);
 
     return result;
 }

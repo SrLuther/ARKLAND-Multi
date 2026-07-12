@@ -11,6 +11,7 @@
 #include "ShopMarket.h"
 #include "TimedPoints.h"
 #include "ShopCrossChat.h"
+#include "ShopTribeSync.h"
 #include "ShopEngrams.h"
 #include "ShopNotes.h"
 
@@ -397,13 +398,27 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
         CustomShop::ShopConfig::Get().Load();
         CustomShop::TimedPoints::OnConfigReload();
         CustomShop::CrossChat::OnConfigReload();
+        CustomShop::TribeSync::SyncAllOnlinePlayers();
 
         if (admin)
-            SendMsg(admin, FColorList::Green, "CustomShop reloaded");
+            SendMsg(admin, FColorList::Green, "CustomShop reloaded (+TribeSync)");
         Log::GetLog()->info("CustomShop: config reloaded by admin command");
     }
     catch (const std::exception& e) {
         const std::string err = std::string("Reload failed: ") + e.what();
+        Log::GetLog()->error("{}", err);
+        if (admin) SendMsg(admin, FColorList::Red, err);
+    }
+}
+
+void CmdAdminTribeSync(APlayerController* pc, FString*, bool) {
+    auto* admin = static_cast<AShooterPlayerController*>(pc);
+    try {
+        CustomShop::TribeSync::SyncAllOnlinePlayers();
+        if (admin)
+            SendMsg(admin, FColorList::Green, "TribeSync: presença reenviada para jogadores online");
+    } catch (const std::exception& e) {
+        const std::string err = std::string("TribeSync failed: ") + e.what();
         Log::GetLog()->error("{}", err);
         if (admin) SendMsg(admin, FColorList::Red, err);
     }
@@ -832,6 +847,7 @@ void Register() {
     ArkApi::GetCommands().AddConsoleCommand("Shop.SetPoints",  &CmdAdminSetPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.GetPoints",  &CmdAdminGetPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Reload",     &CmdAdminReload);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.TribeSync",  &CmdAdminTribeSync);
     ArkApi::GetCommands().AddConsoleCommand("Shop.GiveKit",    &CmdAdminGiveKit);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Deliver",    &CmdAdminDeliver);
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddVip",     &CmdAdminAddVip);
@@ -863,6 +879,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.SetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Reload");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.TribeSync");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GiveKit");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Deliver");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.AddVip");

@@ -1,5 +1,6 @@
 {
-  "source": "Itens Alfa.xlsx GiveItem cheats",
+  "source": "Itens Alfa.xlsx GiveItem cheats (ASE Armas / ASE - Ferramentas + armaduras/selas)",
+  "notes": "Armas/ferramentas sincronizadas da planilha. Etéreo normalizado para Etereo. Club/GrenadeLauncher/CruiseMissile/Torch/Whip/LanternCharge só Alfa na planilha; FishingRod só Delta→Alfa. Sem BPs Exótico para armas/ferramentas.",
   "families": {
     "Chainsaw": {
       "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Chainsaw_D.AlfaItemTools_Chainsaw_D",
@@ -140,9 +141,9 @@
     },
     "ShoulderCannon": {
       "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_ShoulderCannon_D.AlfaItemWeapon_ShoulderCannon_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G.AlfaItemWeapon_ShoulderCannon_G",
       "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_ShoulderCannon_B.AlfaItemWeapon_ShoulderCannon_B",
       "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_ShoulderCannon.AlfaItemWeapon_ShoulderCannon",
-      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G.AlfaItemWeapon_ShoulderCannon_G",
       "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_ShoulderCannon_O.AlfaItemWeapon_ShoulderCannon_O",
       "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_ShoulderCannon_GOD.AlfaItemWeapon_ShoulderCannon_GOD",
       "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_ShoulderCannon_ET.AlfaItemWeapon_ShoulderCannon_ET",
@@ -150,9 +151,6 @@
       "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_ShoulderCannon_Oni.AlfaItemWeapon_ShoulderCannon_Oni",
       "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_ShoulderCannon_Sur.AlfaItemWeapon_ShoulderCannon_Sur",
       "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_ShoulderCannon_Im.AlfaItemWeapon_ShoulderCannon_Im"
-    },
-    "ShoulderCannon_G2": {
-      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G2.AlfaItemWeapon_ShoulderCannon_G2"
     },
     "Sickle": {
       "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Sickle_D.AlfaItemTools_Sickle_D",

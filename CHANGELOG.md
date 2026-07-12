@@ -5,6 +5,30 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased] - 
+
+## [1.10.22] - 2026-07-11
+
+### Feature
+
+- Feat (Plugins): CHANGELOG.md por plugin (CustomShop, CustomDinoDeliver); gate no _release.ps1 (scripts/check_plugin_release_gate.py) exige bump de plugin_version.txt + secção no changelog do plugin quando o código C++ muda; «Versões esperadas» na UI lê PluginInfo.json embutido (VersionLabel).
+- Feat (Web Store / Pedidos): desistência com regras — licenças irrevogáveis (sem cancel/reembolso); itens/kits só após 24h; auto-cancel + reembolso Âmbar em PENDENTE ≥48h no worker arkshop-retry (idempotente).
+- Feat (CustomShop / ItensAlfa): catálogo completo de armas/ferramentas da planilha (14 armas + 9 ferramentas por BP disponível) na loja e nos kits kit_itensalfa_*; +120 SKUs; BPs só da planilha (sem inventar).
+- Feat (CustomShop / ItensAlfa): acréscimo de +15% em todos os preços de itens, kits e criaturas ItensAlfa (base proposta × 1.15); licenças licenca_* sem alteração.
+- Feat (CustomShop / ItensAlfa): criaturas/veículos TEK (HoverSkiff, Enforcer, Defender, Submarine, Stryder Alfa/Universal/PerfectPVE/PerfectPVP) passam a exigir QUALQUER licença Delta→Exótico (sem Nuvem/keyvault); armaduras/armas/kits mantêm gate N+N−1.
+
+### Fix
+
+- Fix (CustomShop / TribeSync): retries pós-login (8/20/45/90s), poll ~3 min, Shop.Reload/Shop.TribeSync e validação HTTP — corrige «Nenhuma presença» quando a tribo demora ou o jogador já estava online; aviso se ServerId em falta.
+- Fix (Web Store / Minha Tribo): toast dedupe + aviso curto no Verificar de novo (não empilha 5 toasts iguais); ignora server_id=unknown no auto-link.
+- Fix (CustomShop): remove Mek/MiniMegaMek/Exo-Mek e HoverSail do catálogo (crash no servidor) — IDs abyss_hover_sail, itensalfa_hoversail_alfa, itensalfa_exomek_alfa, itensalfa_mek_alfa/omega/minimega; HoverSkiff/Enforcer/Defender/Stryder/Submarine mantidos; apply_itensalfa bloqueia reintrodução.
+
+### Other
+
+- Bump (CustomShop): v1.10.7 → v1.10.8 — TribeSync retries/poll.
+- Bump (CustomShop): v1.10.6 → v1.10.7 — ShopTribeSync, SyncPlayerOnJoin/licenças e melhorias cryo/mercado; sync PluginInfo + plugin_version.h.
+- Bump (CustomDinoDeliver / Dino Lab): v1.10.10 → v1.10.11 — SpawnExact wild_stats, find-after-spawn e NormalizeBlueprintPath (stats/Titan Wyvern).
+
 ## [1.10.21] - 2026-07-11
 
 ### Feature
@@ -18,6 +42,8 @@
 - Fix (config): licenca_nuvem volta a Type license + LicenseGrant keyvault/30d (regressão Type command sem Grant).
 - Fix (CustomShop / SyncPlayerOnJoin): grupos temporários realinhados ao expires do DB mesmo se já estiverem no Permissions (evita residual stale).
 - Fix (Web Store / claim): ENTREGUE por «já licenciado» só se source=order_id; re-sync Permissions ao finalizar — residual antigo não salta a entrega da renovação.
+- Fix (Dino Lab / Problema A — stats): encomenda com HP/melee passa a gerar spawn_exact.wild_stats quando custom_dino_spawn_exact=true; plugin deixa de escolher tame antigo no find-after-spawn (cryopod com stats errados).
+- Fix (Dino Lab / Problema B — Titan Wyvern): NormalizeBlueprintPath endurecido; find-after-spawn com raio 15k, retry e só dinos novos; erro spawn_exact_not_found em vez de identity_capture_failed falso; aspas no log eram artefacto de formatação (BP do catálogo estava correcto).
 
 ## [1.10.20] - 2026-07-11
 

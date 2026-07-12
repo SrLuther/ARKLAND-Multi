@@ -271,6 +271,27 @@ def test_sync_owner_maps_hint_sem_presenca(db):
     assert "presença" in sync["hint"].lower() or "Relogue" in sync["hint"]
 
 
+def test_presence_unknown_server_id_nao_vincula(db):
+    """server_id=unknown não deve criar tribe_map_links (falta CrossChat.ServerId)."""
+    from tribe_service import sync_owner_maps
+
+    get_or_create_owner(db, USER_A, "Cyana")
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id="unknown",
+        map_name="unknown",
+        tribe_id=70007,
+        tribe_name="[STAFF]",
+        is_owner=True,
+        member_rank="Proprietário",
+    )
+    sync = sync_owner_maps(db, USER_A)
+    assert sync["maps"] == []
+    assert sync["hint"]
+    assert "ServerId" in sync["hint"] or "unknown" in sync["hint"].lower()
+
+
 def test_rank_implies_owner_helpers():
     from tribe_service import rank_implies_owner, resolve_is_owner
 

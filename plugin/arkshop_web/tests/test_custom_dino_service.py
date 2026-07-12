@@ -112,6 +112,19 @@ def test_ensure_custom_dino_schema_adds_payload_json(tmp_path):
     ensure_custom_dino_schema(engine)
 
 
+def test_format_blueprint_strips_quotes_and_nested_wraps():
+    from custom_dino_service import _format_blueprint
+
+    inner = "/Game/Mods/Funny_Creatures/TitanWyvern/Wyvern_Character_BP_Titan.Wyvern_Character_BP_Titan"
+    expected = f"Blueprint'{inner}'"
+    assert _format_blueprint(inner) == expected
+    assert _format_blueprint(expected) == expected
+    assert _format_blueprint(f"'{inner}'") == expected
+    assert _format_blueprint(f'"{expected}"') == expected
+    # Nested wrap that previously produced confusing log paths
+    assert _format_blueprint(f"Blueprint'{expected}'") == expected
+
+
 def test_validate_catalog_only_species_via_catalog_lookup(monkeypatch):
     """Espécies só no catálogo (ex. SmallBosses) devem validar como na lista admin."""
     sb_bp = (

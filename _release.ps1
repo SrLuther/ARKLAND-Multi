@@ -14,7 +14,14 @@
       - src/version.py  → APP_VERSION
       - version.json    → version, date, download_url, changelog
       - setup.iss       → AppVersion, OutputBaseFilename
-      - plugin/*/plugin_version.txt + PluginInfo.json  → VersionLabel = APP_VERSION
+      - plugin/*/PluginInfo.json  → sincronizado a partir de plugin_version.txt
+        (versões dos plugins são independentes; NÃO sobrescreve com APP_VERSION)
+
+    Gates obrigatórios (falham o release se em falta):
+      - Entrada CHANGELOG em src/version.py para a versão do app
+      - Plugins oficiais (CustomShop, CustomDinoDeliver): se o código C++ mudou
+        desde o último bump, exige plugin_version.txt maior + secção no
+        plugin/*/CHANGELOG.md (scripts/check_plugin_release_gate.py)
 
 .PARAMETER Version
     Versão a publicar no formato X.Y.Z (ex: "1.2.2")
@@ -55,8 +62,16 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     Write-Fail "Formato inválido: '$Version'. Use X.Y.Z (ex: 1.2.2)"
 }
 
+# ── 0b) Gate de versão dos plugins (código alterado ⇒ bump + CHANGELOG) ───────
+Write-Step 0 7 "Validando versoes dos plugins (CustomShop / CustomDinoDeliver)..."
+& $python (Join-Path $root "scripts\check_plugin_release_gate.py")
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "Gate de plugins falhou. Bumpe plugin_version.txt + plugin/*/CHANGELOG.md e sincronize com scripts\sync_plugin_versions.py antes de continuar."
+}
+Write-Ok "Plugins alinhados (versao + CHANGELOG + PluginInfo)"
+
 # ── 1) Validar changelog em src/version.py ───────────────────────────────────
-Write-Step 1 6 "Validando src/version.py..."
+Write-Step 1 7 "Validando src/version.py..."
 
 $versionPyPath = Join-Path $root "src\version.py"
 $versionPyRaw  = [System.IO.File]::ReadAllText($versionPyPath, [System.Text.Encoding]::UTF8)
@@ -97,7 +112,7 @@ $changelogJson = & $python -c $extractScript
 $changes = $changelogJson | ConvertFrom-Json
 
 # ── 3) Atualizar APP_VERSION em src/version.py ───────────────────────────────
-Write-Step 2 6 "Atualizando arquivos de versao..."
+Write-Step 2 7 "Atualizando arquivos de versao..."
 
 $newPy = $versionPyRaw -replace 'APP_VERSION\s*:\s*str\s*=\s*"[^"]+"', "APP_VERSION: str = `"$Version`""
 [System.IO.File]::WriteAllText($versionPyPath, $newPy, $utf8NoBOM)
@@ -165,7 +180,7 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_changelog_md.py falhou" }
 Write-Ok "CHANGELOG.md    →  sincronizado com src\version.py"
 
 # ── 6) Build ──────────────────────────────────────────────────────────────────
-Write-Step 3 6 "Rodando build.bat..."
+Write-Step 3 7 "Rodando build.bat..."
 Push-Location $root
 # 2>&1 faz o merge de stderr→stdout no nível do cmd, evitando NativeCommandError
 # quando $ErrorActionPreference = Stop e o script está num pipeline (Tee-Object).
@@ -179,20 +194,25 @@ if (-not (Test-Path $installer)) { Write-Fail "Installer nao encontrado apos bui
 Write-Ok "Installer: $installer  ($([Math]::Round((Get-Item $installer).Length/1MB,1)) MB)"
 
 # ── 7) Git commit + push ──────────────────────────────────────────────────────
-Write-Step 4 6 "Commitando alteracoes..."
-git add -A
-git commit -m "release: v$Version"
-git push
+Write-Step 4 7 "Commitando alteracoes..."
+# Redirect stderr→stdout: git CRLF warnings viram NativeCommandError com
+# $ErrorActionPreference=Stop / StrictMode e abortam o release a meio.
+cmd /c "git add -A 2>&1"
+if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
+cmd /c "git commit -m `"release: v$Version`" 2>&1"
+if ($LASTEXITCODE -ne 0) { Write-Fail "git commit falhou (exit $LASTEXITCODE)" }
+cmd /c "git push 2>&1"
+if ($LASTEXITCODE -ne 0) { Write-Fail "git push falhou (exit $LASTEXITCODE)" }
 Write-Ok "Commit + push → main"
 
 # ── 8) GitHub Release ─────────────────────────────────────────────────────────
-Write-Step 5 6 "Obtendo token GitHub..."
+Write-Step 5 7 "Obtendo token GitHub..."
 $credLines = "protocol=https`nhost=github.com`n" | git credential fill 2>$null
 $ghToken   = ($credLines | Where-Object { $_ -match "^password=" }) -replace "^password=", ""
 if (-not $ghToken) { Write-Fail "Token GitHub nao encontrado no Windows Credential Manager" }
 Write-Ok "Token obtido"
 
-Write-Step 6 6 "Publicando GitHub Release v$Version..."
+Write-Step 6 7 "Publicando GitHub Release v$Version..."
 
 # Python faz o request HTTP diretamente — evita o bug do PS 5.1 onde
 # Invoke-RestMethod corrompe strings Unicode mesmo com charset=utf-8.

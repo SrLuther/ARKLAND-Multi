@@ -5429,6 +5429,19 @@ def _retry_worker() -> None:
             _log_error("market_claims_expire_worker", error=str(exc))
 
         try:
+            odb = _SessionLocal()
+            try:
+                result = expire_stale_pending_orders(odb)
+                if result.get("processed"):
+                    _log("shop_orders_auto_cancelled", **{
+                        k: v for k, v in result.items() if k != "cancelled"
+                    })
+            finally:
+                _release_db_session(odb)
+        except Exception as exc:
+            _log_error("shop_orders_auto_cancel_worker", error=str(exc))
+
+        try:
             from lottery_service import process_due_draws
 
             ldb = _SessionLocal()
@@ -7840,11 +7853,18 @@ def player_cancel_order(order_id: str):
         )
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
-        if order.status != "PENDENTE":
+
+        policy = _order_cancel_policy(order)
+        if not policy["can_cancel"]:
+            code = policy.get("cancel_blocked_code") or "cancel_blocked"
+            status = 409 if code == "not_pending" else 403
             return jsonify({
                 "ok": False,
-                "error": "Só é possível desistir de resgates ainda pendentes (aguardando entrada no servidor)",
-            }), 409
+                "error": policy.get("cancel_blocked_reason") or "Não é possível desistir deste pedido",
+                "code": code,
+                "cancel_available_at": policy.get("cancel_available_at"),
+                "is_license": bool(policy.get("is_license")),
+            }), status
 
         item_type = str(order.item_type or "shop")
         item_id = str(order.item_id or "")
@@ -8123,6 +8143,7 @@ def player_available():
         pending = []
         for row in pending_rows:
             meta = _describe_catalog_entry(row.item_type, row.item_id)
+            policy = _order_cancel_policy(row)
             pending.append({
                 "order_id": row.order_id,
                 "item_type": row.item_type,
@@ -8130,7 +8151,11 @@ def player_available():
                 "amount": row.amount,
                 "status": row.status,
                 "points_spent": int(row.points_spent or 0),
-                "can_cancel": row.status == "PENDENTE",
+                "can_cancel": bool(policy["can_cancel"]),
+                "is_license": bool(policy["is_license"]),
+                "cancel_blocked_code": policy.get("cancel_blocked_code"),
+                "cancel_blocked_reason": policy.get("cancel_blocked_reason"),
+                "cancel_available_at": policy.get("cancel_available_at"),
                 "name": meta["name"],
                 "description": meta["description"],
                 "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -8167,7 +8192,16 @@ def player_available():
                     "type": "kit",
                 })
 
-        return jsonify({"ok": True, "pending": pending, "redeemable": redeemable})
+        return jsonify({
+            "ok": True,
+            "pending": pending,
+            "redeemable": redeemable,
+            "cancel_policy": {
+                "cooldown_hours": _ORDER_CANCEL_COOLDOWN_HOURS,
+                "auto_cancel_hours": _ORDER_AUTO_EXPIRE_HOURS,
+                "licenses_irrevocable": True,
+            },
+        })
     except Exception as exc:
         _log_error("player_available", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -8866,6 +8900,205 @@ def player_rebuy(order_id: str):
 
 _ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
 
+# Desistência do jogador: licenças irrevogáveis; demais itens só após 24h.
+# Pedidos PENDENTE (não licença) sem resgate ≥48h → cancelamento + reembolso automático.
+_ORDER_CANCEL_COOLDOWN_HOURS = 24
+_ORDER_AUTO_EXPIRE_HOURS = 48
+
+
+def _datetime_as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _is_order_license(order: Order) -> bool:
+    """True para Type license / licenca_* / entrada de catálogo de licença."""
+    item_id = str(order.item_id or "").strip()
+    item_type = str(order.item_type or "shop")
+    key = item_id.lower()
+    if key.startswith("licenca_"):
+        return True
+    entry = _catalog_entry("kit" if item_type == "kit" else "shop", item_id)
+    if isinstance(entry, dict) and entry and _is_catalog_license_item(entry, item_id):
+        return True
+    return False
+
+
+def _format_duration_short(delta: timedelta) -> str:
+    secs = max(0, int(delta.total_seconds()))
+    hours, rem = divmod(secs, 3600)
+    minutes = rem // 60
+    if hours > 0:
+        return f"{hours}h{minutes:02d}m" if minutes else f"{hours}h"
+    if minutes > 0:
+        return f"{minutes} min"
+    return "menos de 1 min"
+
+
+def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[str, Any]:
+    """Regras de desistência/cancelamento para UI e API do jogador."""
+    now_utc = _datetime_as_utc(now) or _now()
+    created = _datetime_as_utc(order.created_at) or now_utc
+    age = now_utc - created
+    is_license = _is_order_license(order)
+    cooldown = timedelta(hours=_ORDER_CANCEL_COOLDOWN_HOURS)
+    cancel_available_at = created + cooldown
+
+    can_cancel = False
+    reason_code: str | None = None
+    reason: str | None = None
+
+    if str(order.status or "") != "PENDENTE":
+        reason_code = "not_pending"
+        reason = (
+            "Só é possível desistir de resgates ainda pendentes "
+            "(aguardando entrada no servidor)"
+        )
+    elif is_license:
+        reason_code = "license_irrevocable"
+        reason = (
+            "Licenças não podem ser canceladas nem reembolsadas — "
+            "a activação é irrevogável."
+        )
+    elif age < cooldown:
+        reason_code = "cooldown_24h"
+        remaining = cooldown - age
+        reason = (
+            f"Só é possível desistir após {_ORDER_CANCEL_COOLDOWN_HOURS}h da compra. "
+            f"Aguarde mais {_format_duration_short(remaining)}."
+        )
+    else:
+        can_cancel = True
+
+    return {
+        "is_license": is_license,
+        "can_cancel": can_cancel,
+        "cancel_blocked_code": reason_code,
+        "cancel_blocked_reason": reason,
+        "cancel_available_at": cancel_available_at.isoformat() if not is_license else None,
+        "cancel_cooldown_hours": _ORDER_CANCEL_COOLDOWN_HOURS,
+        "auto_cancel_hours": _ORDER_AUTO_EXPIRE_HOURS,
+        "order_age_seconds": max(0, int(age.total_seconds())),
+    }
+
+
+def _license_cancel_blocked_response():
+    return jsonify({
+        "ok": False,
+        "error": (
+            "Licenças não podem ser canceladas nem reembolsadas — "
+            "a activação é irrevogável."
+        ),
+        "code": "license_irrevocable",
+    }), 403
+
+
+def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, Any]:
+    """Cancela + reembolsa pedidos PENDENTE (não licença) com idade ≥ 48h. Idempotente."""
+    now = _now()
+    cutoff = now - timedelta(hours=_ORDER_AUTO_EXPIRE_HOURS)
+    candidates = (
+        db.query(Order)
+        .filter(Order.status == "PENDENTE", Order.created_at <= cutoff)
+        .order_by(Order.created_at.asc())
+        .limit(max(1, min(200, int(batch_size))))
+        .all()
+    )
+
+    cancelled: list[dict[str, Any]] = []
+    skipped_license = 0
+
+    for order in candidates:
+        if _is_order_license(order):
+            skipped_license += 1
+            continue
+        locked = (
+            db.query(Order)
+            .filter(Order.order_id == order.order_id, Order.status == "PENDENTE")
+            .with_for_update()
+            .first()
+        )
+        if not locked:
+            continue
+        if _is_order_license(locked):
+            skipped_license += 1
+            continue
+        created = _datetime_as_utc(locked.created_at)
+        if created is not None and created > cutoff:
+            continue
+
+        steam_id = str(locked.steam_id)
+        order_id = str(locked.order_id)
+        item_type = str(locked.item_type or "shop")
+        item_id = str(locked.item_id or "")
+        refund = max(0, _order_refund_amount(locked, db))
+        try:
+            new_balance = _credit_order_refund_tx(db, steam_id, refund)
+            locked.status = "CANCELADO"
+            locked.updated_at = now
+            _revoke_entitlement_for_order(steam_id, order_id, db=db)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        if refund > 0:
+            try:
+                from amber_ledger import record_shop_refund
+
+                record_shop_refund(
+                    db,
+                    order_id=order_id,
+                    steam_id=steam_id,
+                    refund=refund,
+                    event_type="order_auto_cancelled",
+                    commit=True,
+                )
+            except Exception as amber_exc:
+                log.warning("Âmbarômetro order_auto_cancel hook: %s", amber_exc)
+
+        _audit_event(
+            "order_auto_cancelled",
+            actor_type="system",
+            target_steam_id=steam_id,
+            order_id=order_id,
+            item_type=item_type,
+            item_id=item_id,
+            status_before="PENDENTE",
+            status_after="CANCELADO",
+            message=(
+                f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate — "
+                f"reembolso de {refund} Âmbar"
+                if refund > 0
+                else f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate"
+            ),
+            price=refund,
+            points_after=new_balance,
+            auto_expire_hours=_ORDER_AUTO_EXPIRE_HOURS,
+        )
+        cancelled.append({
+            "order_id": order_id,
+            "steam_id": steam_id,
+            "item_id": item_id,
+            "refunded": refund,
+        })
+        _log(
+            "order_auto_cancelled",
+            order_id=order_id,
+            steam_id=steam_id,
+            item_id=item_id,
+            refunded=refund,
+        )
+
+    return {
+        "processed": len(cancelled),
+        "skipped_license": skipped_license,
+        "cancelled": cancelled,
+    }
+
 
 def _order_refund_amount(order: Order, db: Any | None = None) -> int:
     """Valor em Âmbar a devolver (points_spent → catálogo → auditoria do resgate)."""
@@ -9092,6 +9325,7 @@ def admin_list_orders():
                         "contested": bool(o.contested),
                         "retry_count": o.retry_count,
                         "last_error": o.last_error,
+                        "is_license": _is_order_license(o),
                         "created_at": o.created_at.isoformat() if o.created_at else None,
                         "updated_at": o.updated_at.isoformat() if o.updated_at else None,
                     }
@@ -9126,6 +9360,8 @@ def admin_refund_order(order_id: str):
         )
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if _is_order_license(order):
+            return _license_cancel_blocked_response()
         if order.status in _ADMIN_TERMINAL_STATUSES:
             return jsonify({
                 "ok": False,
@@ -9308,6 +9544,8 @@ def admin_cancel_order(order_id: str):
         )
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if _is_order_license(order):
+            return _license_cancel_blocked_response()
         if order.status in _ADMIN_TERMINAL_STATUSES:
             return jsonify({
                 "ok": False,

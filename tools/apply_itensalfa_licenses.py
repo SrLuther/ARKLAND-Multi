@@ -7,6 +7,9 @@ BPs: tools/itensalfa_blueprints.json + tools/itensalfa_creatures.json
 Fontes preços: docs/LICENCAS_PRECOS_PROPOSTA.md, tools/itensalfa_kits_por_tier.csv,
                tools/itensalfa_precos_proposta.csv
 
+Preços de itens/kits/criaturas ItensAlfa: base da proposta × PRICE_MARKUP (15%).
+Licenças (licenca_*) NÃO recebem markup.
+
 Uso:
   python tools/apply_itensalfa_licenses.py
   python tools/apply_itensalfa_licenses.py --dry-run
@@ -23,6 +26,14 @@ CONFIG = ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
 BIN_CONFIG = ROOT / "plugin" / "CustomShop" / "bin" / "config.json"
 BP_INDEX = ROOT / "tools" / "itensalfa_blueprints.json"
 CREATURES_INDEX = ROOT / "tools" / "itensalfa_creatures.json"
+
+# Acréscimo loja ItensAlfa (itens, kits, criaturas). Não aplicar a licenças.
+PRICE_MARKUP = 1.15
+
+
+def _shop_price(base: int | float) -> int:
+    """Preço final na loja = base proposta × 15%, arredondado ao inteiro."""
+    return int(round(float(base) * PRICE_MARKUP))
 
 # Ordem da escada (grupo Permissions). Gama → Gamma (legado produção).
 TIER_LADDER: list[dict] = [
@@ -71,40 +82,57 @@ KIT_IA_PRICES: dict[str, int] = {
 }
 
 # prefix shop → (família BP index, label, category, price_key)
+# Completo face à planilha ASE Armas / ASE - Ferramentas (só entra se houver BP no índice).
 ITEM_MAP = [
+    # Armas (14 famílias; Club/Grenade/Cruise só Alfa na planilha)
+    ("escudo_tek", "TekShiledArmor", "Escudo TEK ItensAlfa", "Armas", "weapon"),
+    ("canhao_ombro", "ShoulderCannon", "Canhão de Ombro ItensAlfa", "Armas", "weapon"),
     ("arco_tek", "TekBow", "Arco Tek ItensAlfa", "Armas", "weapon"),
+    ("pistola_tek", "TekPistol", "Pistola TEK ItensAlfa", "Armas", "weapon"),
+    ("electropod", "EletricPod", "ElectroPod ItensAlfa", "Armas", "weapon"),
+    ("espada_tek", "TekSword", "Espada TEK ItensAlfa", "Armas", "weapon"),
+    ("garras_tek", "TekClaws", "Garras TEK ItensAlfa", "Armas", "weapon"),
+    ("rifle_tek", "TekRifle", "Rifle TEK ItensAlfa", "Armas", "weapon"),
+    ("sniper", "Sniper", "Sniper ItensAlfa", "Armas", "weapon"),
+    ("pike", "Pike", "Pike ItensAlfa", "Armas", "weapon"),
     ("escopeta", "PumpAction", "Escopeta ItensAlfa", "Armas", "weapon"),
-    ("foice", "Sickle", "Foice ItensAlfa", "Ferramentas", "tool"),
-    ("machado", "Hatched", "Machado ItensAlfa", "Ferramentas", "tool"),
+    ("clava", "StoneClub", "Clava ItensAlfa", "Armas", "weapon"),
+    ("lanca_granadas", "GrenadeLauncher", "Lança-Granadas TEK ItensAlfa", "Armas", "weapon"),
+    ("cruise_missile", "TekCruiseMissile", "Cruise Missile TEK ItensAlfa", "Armas", "weapon"),
+    # Ferramentas (9; FishingRod Delta→Alfa; Torch/Whip/Lanterna só Alfa)
     ("motosserra", "Chainsaw", "Motosserra ItensAlfa", "Ferramentas", "tool"),
+    ("machado", "Hatched", "Machado ItensAlfa", "Ferramentas", "tool"),
+    ("mining_drill", "MiningDrill", "Mining Drill ItensAlfa", "Ferramentas", "tool"),
     ("picareta", "Pick", "Picareta ItensAlfa", "Ferramentas", "tool"),
+    ("foice", "Sickle", "Foice ItensAlfa", "Ferramentas", "tool"),
+    ("vara_pesca", "FishingRod", "Vara de Pesca ItensAlfa", "Ferramentas", "tool"),
+    ("tocha", "Torch", "Tocha ItensAlfa", "Ferramentas", "tool"),
+    ("chicote", "Whip", "Chicote ItensAlfa", "Ferramentas", "tool"),
+    ("lanterna", "LanternCharge", "Lanterna de Carga ItensAlfa", "Ferramentas", "tool"),
 ]
 
 ARMOR_FAMILIES = ("TekHelmet", "TekShirtNew", "TekGloves", "TekPants", "TekBoots")
 
 # Preço Â âncora (proposta §5.6 / CSV) no tier de referência da família.
-# Mek ausente na proposta — âncora por craft vs Exo-Mek (1.5× Alfa).
+# HoverSail / Mek / Exo-Mek / MiniMegaMek removidos do catálogo (crash no servidor).
+CREATURE_BLOCKED_FAMILIES: frozenset[str] = frozenset({"HOVERSAIL", "EXO-MEK", "MEK"})
 CREATURE_PRICE_ANCHOR: dict[str, tuple[int, str]] = {
     "HOVERSKIFF": (15000, "alfa"),
-    "HOVERSAIL": (12000, "alfa"),
-    "EXO-MEK": (20000, "alfa"),
-    "MEK": (30000, "alfa"),
     "ENFORCER": (8000, "alfa"),
     "DEFENDER": (8000, "alfa"),
     "STRYDER": (25000, "alfa"),
     "SUBMARINE": (18000, "alfa"),
 }
 
-# Labels de planilha → id da escada (Comum/Minimega não são grupos Permissions).
+# Labels de planilha → id da escada (Comum/Minimega/Perfect* não são grupos Permissions).
+# PerfectPVE/PerfectPVP: âncora Alfa para preço; gate real = qualquer licença excepto Nuvem.
 CREATURE_TIER_ALIAS: dict[str, str] = {
     "Gama": "gamma",
     "Comum": "delta",
     "Minimega": "omega",
+    "PerfectPVE": "alfa",
+    "PerfectPVP": "alfa",
 }
-
-# Stryder: só PerfectPVE; Alfa/Universal/PerfectPVP ficam de fora do catálogo.
-STRYDER_SHOP_TIER = "PerfectPVE"
-
 
 def _load_bp_index() -> dict[str, dict[str, str]]:
     raw = json.loads(BP_INDEX.read_text(encoding="utf-8"))
@@ -153,6 +181,7 @@ def _creature_price(family: str, tier_id: str) -> int:
     ref = ITEM_PRICES[anchor_tier]["armor_set"]
     scale = ITEM_PRICES[tier_id]["armor_set"] / ref
     raw = anchor_price * scale
+    # Base arredondada à centena; markup 15% aplicado em _creature_item.
     return max(100, int(round(raw / 100.0) * 100))
 
 
@@ -165,9 +194,6 @@ def _creature_shop_key(family: str, sheet_tier: str) -> str:
 def _creature_display_name(family: str, sheet_tier: str, tier_id: str) -> str:
     fam_names = {
         "HOVERSKIFF": "HoverSkiff",
-        "HOVERSAIL": "HoverSail",
-        "EXO-MEK": "Exo-Mek",
-        "MEK": "Mek",
         "ENFORCER": "Enforcer",
         "DEFENDER": "Defender",
         "SUBMARINE": "Submarine",
@@ -189,33 +215,24 @@ def _creature_item(
     sheet_tier: str,
     bp: str,
     tier_id: str,
-    idx: int,
-    special_stryder: bool,
 ) -> dict:
-    if special_stryder:
-        name = "Stryder PerfectPVE ItensAlfa (1x)"
-        desc = (
-            "Stryder PerfectPVE (ItensAlfa) — resgatável com qualquer licença "
-            "Delta→Exótico (Nuvem/keyvault não conta)."
-        )
-        perms = _perms_all_license_tiers()
-        price = int(CREATURE_PRICE_ANCHOR["STRYDER"][0])
+    name = _creature_display_name(family, sheet_tier, tier_id)
+    # Stryder PerfectPVE/PerfectPVP: preço âncora fixo (proposta); restantes escalam por tier.
+    if family == "STRYDER" and sheet_tier in ("PerfectPVE", "PerfectPVP"):
+        price = _shop_price(CREATURE_PRICE_ANCHOR["STRYDER"][0])
     else:
-        name = _creature_display_name(family, sheet_tier, tier_id)
-        desc = (
-            f"{name} — gate N+N−1 (próprio tier + um acima). "
-            "Licença Nuvem/keyvault não desbloqueia."
-        )
-        perms = _perms_for_tier_index(idx)
-        price = _creature_price(family, tier_id)
-
+        price = _shop_price(_creature_price(family, tier_id))
+    desc = (
+        f"{name} — resgatável com qualquer licença Delta→Exótico "
+        "(Nuvem/keyvault não conta)."
+    )
     return {
         "Category": "ItensAlfa — Criaturas",
         "Description": desc,
         "ForceBlueprint": False,
         "Items": [_bp_entry(bp)],
         "Name": name,
-        "Permissions": perms,
+        "Permissions": _perms_all_license_tiers(),
         "Price": price,
         "Quality": 0,
         "Type": "item",
@@ -281,7 +298,7 @@ def _weapon_item(label: str, category: str, price_key: str, bp: str, tier: dict,
         "Items": [_bp_entry(bp)],
         "Name": name,
         "Permissions": _perms_for_tier_index(idx),
-        "Price": int(prices[price_key]),
+        "Price": _shop_price(prices[price_key]),
         "Quality": 0,
         "Type": "item",
     }
@@ -297,7 +314,7 @@ def _armor_item(bps: list[str], tier: dict, idx: int) -> dict:
         "Items": [_bp_entry(bp) for bp in bps],
         "Name": name,
         "Permissions": _perms_for_tier_index(idx),
-        "Price": int(prices["armor_set"]),
+        "Price": _shop_price(prices["armor_set"]),
         "Quality": 0,
         "Type": "item",
     }
@@ -314,7 +331,7 @@ def _kit_itensalfa(tier: dict, idx: int, item_bps: list[str]) -> dict:
         "Items": [_bp_entry(bp) for bp in item_bps],
         "Name": f"Kit ItensAlfa {tier['label']}",
         "Permissions": _perms_for_tier_index(idx),
-        "Price": int(KIT_IA_PRICES[tier["id"]]),
+        "Price": _shop_price(KIT_IA_PRICES[tier["id"]]),
         "Type": "kit",
     }
 
@@ -343,8 +360,7 @@ def _collect_tier_bps(index: dict, tier: dict) -> list[str]:
 
 
 def _apply_creatures(items: dict, stats: dict[str, int]) -> None:
-    """Upsert criaturas/veículos ItensAlfa; Stryder só PerfectPVE."""
-    wanted_keys: set[str] = set()
+    """Upsert todas as criaturas/veículos ItensAlfa da planilha (gate any-license excepto Nuvem)."""
     for row in _load_creatures():
         family = str(row.get("family") or "").strip().upper()
         sheet_tier = str(row.get("tier") or "").strip()
@@ -352,23 +368,9 @@ def _apply_creatures(items: dict, stats: dict[str, int]) -> None:
         if not family or not sheet_tier or not bp:
             stats["creatures_skipped"] += 1
             continue
-
-        if family == "STRYDER":
-            if sheet_tier != STRYDER_SHOP_TIER:
-                stats["stryder_variants_excluded"] += 1
-                continue
-            key = _creature_shop_key(family, sheet_tier)
-            # PerfectPVE: perms Delta→Exótico; tier_id só para preço âncora
-            items[key] = _creature_item(
-                family=family,
-                sheet_tier=sheet_tier,
-                bp=bp,
-                tier_id="alfa",
-                idx=0,
-                special_stryder=True,
-            )
-            wanted_keys.add(key)
-            stats["creatures_upserted"] += 1
+        if family in CREATURE_BLOCKED_FAMILIES:
+            stats["creatures_skipped"] += 1
+            print(f"  SKIP creature (bloqueada — crash): {family} {sheet_tier}")
             continue
 
         tier_id = _resolve_creature_tier_id(sheet_tier)
@@ -381,26 +383,14 @@ def _apply_creatures(items: dict, stats: dict[str, int]) -> None:
             print(f"  SKIP creature (sem preço âncora): {family} {sheet_tier}")
             continue
 
-        idx = _tier_index_by_id(tier_id)
         key = _creature_shop_key(family, sheet_tier)
         items[key] = _creature_item(
             family=family,
             sheet_tier=sheet_tier,
             bp=bp,
             tier_id=tier_id,
-            idx=idx,
-            special_stryder=False,
         )
-        wanted_keys.add(key)
         stats["creatures_upserted"] += 1
-
-    # Remover variantes Stryder ItensAlfa que não sejam PerfectPVE
-    for key in list(items.keys()):
-        if not key.startswith("itensalfa_stryder_"):
-            continue
-        if key not in wanted_keys:
-            del items[key]
-            stats["stryder_variants_removed"] += 1
 
 
 def apply_config(data: dict, index: dict) -> dict[str, int]:
@@ -415,8 +405,6 @@ def apply_config(data: dict, index: dict) -> dict[str, int]:
         "visous_keys_removed": 0,
         "creatures_upserted": 0,
         "creatures_skipped": 0,
-        "stryder_variants_excluded": 0,
-        "stryder_variants_removed": 0,
     }
     items = data.setdefault("Items", {})
     kits = data.setdefault("Kits", {})

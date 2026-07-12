@@ -310,6 +310,11 @@ def get_or_create_owner(db: Session, steam_id: str, display_name: str = "") -> d
     return get_or_create_owner(db, steam_id, display_name)
 
 
+def _is_usable_server_id(server_id: str | None) -> bool:
+    sid = str(server_id or "").strip().lower()
+    return bool(sid) and sid not in ("unknown", "server")
+
+
 def backfill_owner_links_from_presence(db: Session, steam_id: str) -> int:
     """Cria tribe_map_links a partir de tribe_presences onde o jogador foi líder.
 
@@ -334,7 +339,7 @@ def backfill_owner_links_from_presence(db: Session, steam_id: str) -> int:
     now = _naive(_utcnow())
     for r in rows:
         server_id = str(r[0] or "")
-        if not server_id or server_id in seen_servers:
+        if not _is_usable_server_id(server_id) or server_id in seen_servers:
             continue
         if not resolve_is_owner(is_owner=r[3], member_rank=r[4]):
             continue
@@ -543,7 +548,7 @@ def record_presence(
         )
 
     # Auto-vincula owner ao tribe_map_links (tribe_name opcional — nome vazio não bloqueia)
-    if owner_flag and tribe_id:
+    if owner_flag and tribe_id and _is_usable_server_id(server_id):
         owner = get_owner(db, steam_id)
         if owner:
             _auto_link_owner(
@@ -667,19 +672,30 @@ def sync_owner_maps(db: Session, steam_id: str) -> dict[str, Any]:
     tribes = get_my_tribes(db, steam_id, _skip_backfill=True)
     presences = get_presence_summary(db, steam_id)
     owner_presences = [p for p in presences if p.get("is_owner")]
+    usable_owner = [
+        p for p in owner_presences if _is_usable_server_id(p.get("server_id"))
+    ]
     hint = None
     if not tribes.get("maps"):
         if not presences:
             hint = (
                 "Nenhuma presença in-game registada. Relogue no servidor ARKLAND "
                 "como Proprietário da tribo (após o plugin CustomShop com TribeSync) "
-                "e depois clique em Verificar de novo."
+                "e depois clique em Verificar de novo. Se já relogou: confirme no log "
+                "do mapa a linha «TribeSync: presence OK» e CrossChat.ServerId no config."
             )
         elif not owner_presences:
             hint = (
                 "Há presença no mapa, mas o sistema não marcou ownership "
                 "(OwnerPlayerDataID / rank Proprietário). Confirme que é o "
                 "Proprietário da tribo in-game (não só Admin) e relogue."
+            )
+        elif not usable_owner:
+            hint = (
+                "Presença de líder chegou com ServerId inválido (unknown). "
+                "No TEK, sincronize o CustomShop do mapa para gravar "
+                "CrossChat.ServerId (ex.: BRIGHAMIA), faça Shop.Reload ou reinicie "
+                "o mapa e relogue."
             )
         else:
             hint = "Presença de líder encontrada, mas o vínculo falhou — tente novamente."

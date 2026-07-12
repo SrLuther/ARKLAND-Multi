@@ -7,6 +7,9 @@
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
+#include <limits>
+#include <thread>
+#include <chrono>
 
 namespace {
 
@@ -18,7 +21,10 @@ constexpr int kStatCount = 7;          // Dino Lab payload (7 stats)
 constexpr int kSpawnExactCsvCount = 8; // SpawnExactDino CSV (incl. Crafting)
 constexpr int kStatMax = 254;
 constexpr int kSpawnExactMaxTotalLevel = 5000;
-constexpr float kSpawnExactSearchRadius = 600.0f;
+// Wyverns/mods voadores podem nascer longe do pawn; 600u era curto demais.
+constexpr float kSpawnExactSearchRadius = 15000.0f;
+constexpr int kSpawnExactFindAttempts = 8;
+constexpr int kSpawnExactFindRetryMs = 75;
 
 struct SpawnExactCheatParams {
     UShooterCheatManager* cheat = nullptr;
@@ -76,19 +82,64 @@ static int SehSpawnExactDinoInvoke(SpawnExactCheatParams* params) {
     }
 }
 
+void StripOuterQuotesInPlace(std::string& s) {
+    while (s.size() >= 2) {
+        const char a = s.front();
+        const char b = s.back();
+        if ((a == '\'' && b == '\'') || (a == '"' && b == '"')) {
+            s = s.substr(1, s.size() - 2);
+            // trim whitespace after unwrap
+            while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))
+                s.erase(s.begin());
+            while (!s.empty() && (s.back() == ' ' || s.back() == '\t'))
+                s.pop_back();
+            continue;
+        }
+        break;
+    }
+}
+
+// Canonical: Blueprint'/Game/.../Class.Class'
 std::string NormalizeBlueprintPath(std::string bp) {
     if (bp.empty()) return bp;
-    if (bp.find("Blueprint'") != std::string::npos) return bp;
+    // Trim + remover aspas externas repetidas (JSON / copy-paste).
+    while (!bp.empty() && (bp.front() == ' ' || bp.front() == '\t'))
+        bp.erase(bp.begin());
+    while (!bp.empty() && (bp.back() == ' ' || bp.back() == '\t'))
+        bp.pop_back();
+    StripOuterQuotesInPlace(bp);
+
+    // Desembrulhar Blueprint'...' aninhado / repetido.
+    for (int i = 0; i < 4; ++i) {
+        if (bp.rfind("Blueprint'", 0) == 0 && bp.size() >= 11 && bp.back() == '\'') {
+            std::string inner = bp.substr(10, bp.size() - 11);
+            StripOuterQuotesInPlace(inner);
+            if (inner.rfind("Blueprint'", 0) == 0) {
+                bp = inner;
+                continue;
+            }
+            bp = inner;
+            break;
+        }
+        break;
+    }
+
+    if (bp.empty()) return bp;
+    if (bp.rfind("Blueprint'", 0) == 0)
+        return bp;
     if (bp.front() == '/')
         return "Blueprint'" + bp + "'";
+    if (bp.rfind("Game/", 0) == 0)
+        return "Blueprint'/" + bp + "'";
     return "Blueprint'/Game/" + bp + "'";
 }
 
 std::string BlueprintPathInner(const std::string& bp) {
     if (bp.empty()) return bp;
-    if (bp.rfind("Blueprint'", 0) == 0 && bp.size() >= 2 && bp.back() == '\'')
-        return bp.substr(10, bp.size() - 11);
-    return bp;
+    const std::string norm = NormalizeBlueprintPath(bp);
+    if (norm.rfind("Blueprint'", 0) == 0 && norm.size() >= 11 && norm.back() == '\'')
+        return norm.substr(10, norm.size() - 11);
+    return norm;
 }
 
 std::string LowerAscii(std::string s) {
@@ -277,6 +328,7 @@ void CollectTeamTamedDinos(AShooterPlayerController* controller,
 
 // Seleciona o dino tameado mais proximo do jogador; opcionalmente exclui atores
 // pre-existentes (SpawnExact) e filtra por especie esperada.
+// max_dist < 0 → sem limite de distancia.
 APrimalDinoCharacter* FindNearestTamedDino(
     AShooterPlayerController* controller,
     float max_dist,
@@ -298,7 +350,9 @@ APrimalDinoCharacter* FindNearestTamedDino(
         &actors);
 
     APrimalDinoCharacter* best = nullptr;
-    const float max_dist_sq = max_dist * max_dist;
+    const float max_dist_sq = max_dist < 0.0f
+        ? std::numeric_limits<float>::max()
+        : max_dist * max_dist;
     float best_dist_sq = max_dist_sq;
 
     for (AActor* actor : actors) {
@@ -317,6 +371,43 @@ APrimalDinoCharacter* FindNearestTamedDino(
         }
     }
     return best;
+}
+
+// Pos-SpawnExact: so considera dinos NOVOS (nao estavam no snapshot). Nunca
+// devolve um tame antigo — isso entregava cryopod com stats errados (Problema A).
+APrimalDinoCharacter* FindNewTamedAfterSpawnExact(
+    AShooterPlayerController* controller,
+    const std::unordered_set<APrimalDinoCharacter*>& before_spawn,
+    UClass* expected_class,
+    const std::string& blueprint_for_log) {
+    // 1) Novo + classe (ou child), raio amplo
+    APrimalDinoCharacter* dino = FindNearestTamedDino(
+        controller, kSpawnExactSearchRadius, &before_spawn, expected_class);
+    if (dino) return dino;
+
+    // 2) Qualquer novo tame da team no raio (mods com variante Fire/Ice sibling)
+    dino = FindNearestTamedDino(
+        controller, kSpawnExactSearchRadius, &before_spawn, nullptr);
+    if (dino) {
+        Log::GetLog()->warn(
+            "[DinoLabDeliver] SpawnExact — usando dino novo sem match de classe "
+            "(species={})",
+            blueprint_for_log);
+        return dino;
+    }
+
+    // 3) Qualquer novo tame sem limite de distancia (voadores longe do pawn)
+    dino = FindNearestTamedDino(controller, -1.0f, &before_spawn, expected_class);
+    if (dino) return dino;
+
+    dino = FindNearestTamedDino(controller, -1.0f, &before_spawn, nullptr);
+    if (dino) {
+        Log::GetLog()->warn(
+            "[DinoLabDeliver] SpawnExact — dino novo encontrado fora do raio "
+            "(species={})",
+            blueprint_for_log);
+    }
+    return dino;
 }
 
 bool ValidateSpawnExactContext(AShooterPlayerController* controller,
@@ -492,21 +583,34 @@ APrimalDinoCharacter* SpawnExactFromPayload(AShooterPlayerController* controller
 
     if (!spawn_ok) {
         Log::GetLog()->error(
-            "[DinoLabDeliver] SpawnExact — excecao ou falha no motor (species='{}')",
+            "[DinoLabDeliver] SpawnExact — excecao ou falha no motor (species={})",
             blueprint);
         return nullptr;
     }
 
-    // SpawnExact nao retorna ponteiro: preferir dino novo (nao estava no snapshot),
-    // mesma especie e menor distancia ao jogador.
-    APrimalDinoCharacter* dino =
-        FindNearestTamedDino(controller, kSpawnExactSearchRadius, &before_spawn, species_class);
-    if (!dino)
-        dino = FindNearestTamedDino(controller, kSpawnExactSearchRadius, nullptr, species_class);
-    if (!dino)
+    // SpawnExact nao retorna ponteiro: so dinos NOVOS (snapshot). Retry porque
+    // alguns mods (ex. Titan Wyvern) registam o actor um pouco depois do cheat.
+    APrimalDinoCharacter* dino = nullptr;
+    for (int attempt = 0; attempt < kSpawnExactFindAttempts; ++attempt) {
+        dino = FindNewTamedAfterSpawnExact(
+            controller, before_spawn, species_class, blueprint);
+        if (dino) break;
+        if (attempt + 1 < kSpawnExactFindAttempts) {
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(kSpawnExactFindRetryMs));
+        }
+    }
+    if (!dino) {
         Log::GetLog()->warn(
-            "[DinoLabDeliver] SpawnExact — dino nao encontrado apos spawn (species='{}')",
+            "[DinoLabDeliver] SpawnExact — dino nao encontrado apos spawn "
+            "(species={} attempts={} — o dino pode ter nascido no mundo; "
+            "nao ha fallback para tame antigo)",
+            blueprint, kSpawnExactFindAttempts);
+    } else {
+        Log::GetLog()->info(
+            "[DinoLabDeliver] SpawnExact — dino encontrado apos spawn (species={})",
             blueprint);
+    }
     return dino;
 }
 
@@ -798,24 +902,26 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
     if (payload_spawn_exact && !DinoConfig::Get().UseSpawnExact()) {
         Log::GetLog()->error(
             "[DinoLabDeliver] SpawnExact pedido no payload mas UseSpawnExact=false "
-            "no plugin (species='{}') — re-sincronize CustomDinoDeliver/config.json",
+            "no plugin (species={}) — re-sincronize CustomDinoDeliver/config.json",
             blueprint);
         NotifyPlayer(controller, FColorList::Red,
                      "SpawnExact desabilitado no servidor. Contate um admin "
                      "(UseSpawnExact no plugin).");
+        result.failure_reason = "spawn_exact_disabled";
         return result;
     }
 
     Log::GetLog()->info(
-        "DinoDeliver: start '{}' blueprint='{}' level={} spawn_exact={} deliver_as={}",
+        "DinoDeliver: start '{}' blueprint={} level={} spawn_exact={} deliver_as={}",
         display, blueprint, level, use_spawn_exact, deliver_as);
 
     if (!BlueprintPathLooksLikeDinoSpecies(blueprint)) {
         Log::GetLog()->error(
-            "[DinoLabDeliver] species blueprint rejeitado antes do spawn: '{}'",
+            "[DinoLabDeliver] species blueprint rejeitado antes do spawn: {}",
             blueprint);
         NotifyPlayer(controller, FColorList::Red,
                      "Blueprint de especie invalido. Contate um admin.");
+        result.failure_reason = "invalid_species_blueprint";
         return result;
     }
 
@@ -825,22 +931,25 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
             dino = SpawnExactFromPayload(controller, payload);
         } catch (const std::exception& e) {
             Log::GetLog()->error(
-                "[DinoLabDeliver] SpawnExact exception species='{}' — {}",
+                "[DinoLabDeliver] SpawnExact exception species={} — {}",
                 blueprint, e.what());
             dino = nullptr;
         } catch (...) {
             Log::GetLog()->error(
-                "[DinoLabDeliver] SpawnExact unknown exception species='{}'",
+                "[DinoLabDeliver] SpawnExact unknown exception species={}",
                 blueprint);
             dino = nullptr;
         }
         if (!dino) {
             Log::GetLog()->error(
-                "[DinoLabDeliver] SpawnExact failed for '{}' — sem fallback SpawnDino "
-                "(stats do payload nao seriam aplicados)",
+                "[DinoLabDeliver] SpawnExact failed for {} — find-after-spawn "
+                "nao encontrou o dino (pode existir no mundo com stats do "
+                "SpawnExact; sem fallback SpawnDino)",
                 blueprint);
             NotifyPlayer(controller, FColorList::Red,
-                         "Falha ao spawnar dino (SpawnExact). Contate um admin.");
+                         "Falha ao localizar dino apos SpawnExact. Contate um admin "
+                         "(o dino pode ter nascido no chao).");
+            result.failure_reason = "spawn_exact_not_found";
             return result;
         }
     } else {
@@ -848,9 +957,10 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
         dino = ArkApi::GetApiUtils().SpawnDino(
             controller, fbp, nullptr, level, force_tame, neutered);
         if (!dino) {
-            Log::GetLog()->error("DinoDeliver: failed to spawn '{}'", blueprint);
+            Log::GetLog()->error("DinoDeliver: failed to spawn {}", blueprint);
             NotifyPlayer(controller, FColorList::Red,
                          "Falha ao spawnar o dino customizado. Contate um admin.");
+            result.failure_reason = "spawn_failed";
             return result;
         }
     }
@@ -870,16 +980,17 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
         result.identity.dino_id1 != 0 || result.identity.dino_id2 != 0;
     const std::string steam_id = Bridge::GetSteamId(controller);
     Log::GetLog()->info(
-        "[DinoLabDeliver] identity id1={} id2={} ancestors={} species='{}' steam={}",
+        "[DinoLabDeliver] identity id1={} id2={} ancestors={} species={} steam={}",
         result.identity.dino_id1, result.identity.dino_id2,
         result.identity.ancestors.size(), display, steam_id);
 
     if (!has_identity) {
         Log::GetLog()->error(
-            "[DinoLabDeliver] identity capture failed species='{}' steam={} — aborting delivery",
+            "[DinoLabDeliver] identity capture failed species={} steam={} — aborting delivery",
             display, steam_id);
         NotifyPlayer(controller, FColorList::Red,
                      "Falha ao registrar identidade do dino. Contate um admin.");
+        result.failure_reason = "identity_capture_failed";
         dino->Destroy(true, false);
         return result;
     }
@@ -905,6 +1016,7 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
 
         NotifyPlayer(controller, FColorList::Red,
                      "Falha ao entregar cryopod. Inventario cheio.");
+        result.failure_reason = "cryopod_inventory_full";
         dino->Destroy(true, false);
         return result;
     }

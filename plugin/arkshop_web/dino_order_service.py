@@ -14,11 +14,13 @@ from sqlalchemy.orm import Session
 from custom_dino_service import (
     DEFAULT_LEVEL,
     ITEM_TYPE,
+    STAT_COUNT,
     STAT_MAX,
     _parse_payload,
     _row_val,
     _utcnow,
     is_custom_dino_enabled,
+    is_custom_dino_spawn_exact_enabled,
     validate_payload,
 )
 from market_economy import (
@@ -238,6 +240,18 @@ def calc_color_component(root_value: int, colors: list[int], cfg: dict[str, Any]
     return base + regions * round(r * float(cfg["delta_region"]))
 
 
+# Ordem SpawnExact / Dino Lab: Health, Stamina, Oxygen, Food, Weight, Melee, Speed
+_STAT_POINT_INDEX = {
+    "health": 0,
+    "stamina": 1,
+    "oxygen": 2,
+    "food": 3,
+    "weight": 4,
+    "melee": 5,
+    "speed": 6,
+}
+
+
 def _normalize_player_spec(raw: dict[str, Any]) -> dict[str, Any]:
     spec = dict(raw or {})
     stat_raw = spec.get("stat_points") or spec.get("stat_points_requested") or {}
@@ -255,8 +269,39 @@ def _normalize_player_spec(raw: dict[str, Any]) -> dict[str, Any]:
     return spec
 
 
+def _stat_points_to_spawn_exact(stat_points: dict[str, Any]) -> dict[str, Any] | None:
+    """Converte pontos Spyglass (encomenda) → wild_stats SpawnExact.
+
+    Sem isto o plugin usa só SpawnDino(level) e ignora HP/melee pedidos (Problema A).
+    """
+    if not is_custom_dino_spawn_exact_enabled():
+        return None
+    wild = [0] * STAT_COUNT
+    any_pts = False
+    for key, idx in _STAT_POINT_INDEX.items():
+        try:
+            val = int((stat_points or {}).get(key, 0) or 0)
+        except (TypeError, ValueError):
+            val = 0
+        val = max(0, min(STAT_MAX, val))
+        wild[idx] = val
+        if val > 0:
+            any_pts = True
+    if not any_pts:
+        return None
+    return {
+        "enabled": True,
+        "wild_stats": wild,
+        "tamed_stats": [0] * STAT_COUNT,
+        "imprint_pct": 0.0,
+        "imprinter_name": "",
+        "imprinter_id_hex": "",
+    }
+
+
 def _build_validate_body(spec: dict[str, Any]) -> dict[str, Any]:
-    body = {
+    spawn_exact = _stat_points_to_spawn_exact(spec.get("stat_points") or {})
+    body: dict[str, Any] = {
         "species_key": spec.get("species_key"),
         "level": spec.get("level", DEFAULT_LEVEL),
         "gender": spec.get("gender", "female"),
@@ -264,7 +309,7 @@ def _build_validate_body(spec: dict[str, Any]) -> dict[str, Any]:
         "colors": spec.get("colors") or [0, 0, 0, 0, 0, 0],
         "deliver_as": "cryopod",
         "note": str(spec.get("note") or "Encomenda web — dino customizado"),
-        "spawn_exact": {"enabled": False},
+        "spawn_exact": spawn_exact or {"enabled": False},
     }
     return body
 

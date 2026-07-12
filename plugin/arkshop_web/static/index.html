@@ -9945,21 +9945,36 @@ async function loadAvailable() {
     const redeemable = d.redeemable || [];
 
     html += `<div class="available-section"><div class="available-section__title">⏳ Aguardando resgate no servidor</div>`;
-    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Antes da entrega, você pode desistir e receber reembolso em Âmbares.</p>`;
+    const policy = d.cancel_policy || {};
+    const cooldownH = policy.cooldown_hours || 24;
+    const autoH = policy.auto_cancel_hours || 48;
+    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (com reembolso) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado automaticamente. <strong>Licenças</strong> são irrevogáveis — não dá para desistir nem reembolsar.</p>`;
     if (!pending.length) {
       html += `<p class="available-hint">Nenhum resgate pendente no momento.</p>`;
     } else {
-      html += pending.map(p => `
+      html += pending.map(p => {
+        let cancelBtn = "";
+        if (p.can_cancel) {
+          cancelBtn = `<button class="btn btn-ghost btn-sm" onclick="cancelPendingOrder('${escHtml(p.order_id)}')">Desistir</button>`;
+        } else if (p.is_license) {
+          cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:180px;text-align:right;">Licença irrevogável</span>`;
+        } else if (p.cancel_blocked_code === "cooldown_24h") {
+          cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:200px;text-align:right;" title="${escHtml(p.cancel_blocked_reason || "")}">Desistir após ${cooldownH}h</span>`;
+        } else if (p.cancel_blocked_reason) {
+          cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:200px;text-align:right;">${escHtml(p.cancel_blocked_reason)}</span>`;
+        }
+        return `
         <div class="available-card">
           <div>
             <div class="available-card__name">${escHtml(p.name)}</div>
-            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}</div>
+            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}${p.is_license ? " · Licença" : ""}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
             <span style="font-size:12px;color:var(--text2);">Entre no servidor</span>
-            ${p.can_cancel ? `<button class="btn btn-ghost btn-sm" onclick="cancelPendingOrder('${escHtml(p.order_id)}')">Desistir</button>` : ""}
+            ${cancelBtn}
           </div>
-        </div>`).join("");
+        </div>`;
+      }).join("");
     }
     html += `</div>`;
 
@@ -10609,7 +10624,7 @@ async function loadMyAreaLicenses() {
 
 async function cancelPendingOrder(orderId) {
   if (!orderId) return;
-  if (!confirm("Desistir deste resgate? O valor em Âmbar será reembolsado se ainda não foi entregue no servidor.")) return;
+  if (!confirm("Desistir deste resgate? O valor em Âmbar será reembolsado se ainda não foi entregue no servidor. (Disponível só após 24h da compra; licenças não podem ser canceladas.)")) return;
   try {
     const r = await fetch(API + "/api/player/orders/" + encodeURIComponent(orderId) + "/cancel", { method: "POST" });
     const d = await r.json();
@@ -10855,12 +10870,26 @@ function extractApiError(data, response, fallback = "Operação falhou") {
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
+const _toastRecent = new Map(); // key -> timestamp ms
 function toast(msg, type = "success") {
+  const text = String(msg || "");
+  const key = type + "\0" + text;
+  const now = Date.now();
+  const prev = _toastRecent.get(key) || 0;
+  if (now - prev < 4000) return; // não empilhar o mesmo aviso
+  _toastRecent.set(key, now);
+  if (_toastRecent.size > 40) {
+    for (const [k, t] of _toastRecent) {
+      if (now - t > 8000) _toastRecent.delete(k);
+    }
+  }
   const c = document.getElementById("toast-container");
+  if (!c) return;
   const t = document.createElement("div");
   t.className = `toast ${type}`;
   const icon = type === "success" ? "✅" : type === "error" ? "❌" : "⚠️";
-  t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  t.innerHTML = `<span>${icon}</span><span></span>`;
+  t.lastElementChild.textContent = text;
   c.appendChild(t);
   setTimeout(() => t.remove(), 3500);
 }
@@ -14096,7 +14125,11 @@ function _renderTribeWaitingDetection() {
 
 async function tribeForceSync() {
   const btn = document.getElementById("tribe-resync-btn");
-  if (btn) { btn.disabled = true; btn.textContent = "A verificar…"; }
+  if (btn) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = "A verificar…";
+  }
   try {
     const d = await fetchJson("/api/tribe/sync", { method: "POST", body: {} });
     if (!d.ok) {
@@ -14115,14 +14148,16 @@ async function tribeForceSync() {
       return;
     }
     const hint = data.hint || "Ainda sem mapa. Relogue no servidor como Proprietário e tente de novo.";
-    toast(hint, "warning");
+    // Toast curto — o texto completo fica no painel (evita spam empilhado).
+    toast("Ainda sem mapa vinculado. Veja o aviso abaixo e relogue se preciso.", "warning");
     _tribeData = Object.assign({}, _tribeData || {}, data, { _sync_hint: hint, maps: [] });
     const root = document.getElementById("myarea-tribe-root");
     if (root) root.innerHTML = _renderTribeWaitingDetection();
   } catch (e) {
     toast(String(e.message || e), "error");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "↺ Verificar de novo"; }
+    const live = document.getElementById("tribe-resync-btn");
+    if (live) { live.disabled = false; live.textContent = "↺ Verificar de novo"; }
   }
 }
 
@@ -20073,8 +20108,9 @@ async function loadAdminOrders() {
                 <div class="order-admin-actions">
                   <button class="btn btn-ghost btn-sm" title="Ver detalhes e histórico" onclick="viewAdminOrderDetails('${o.order_id}')">Detalhes</button>
                   <button class="btn btn-primary btn-sm" title="Reenviar para fila /shop (sem novo débito)" onclick="adminResendOrder('${o.order_id}')">Reenviar</button>
+                  ${o.is_license ? `<span style="font-size:11px;color:var(--text2);" title="Licenças não podem ser canceladas nem reembolsadas">Licença irrevogável</span>` : `
                   <button class="btn btn-success btn-sm" title="Reembolsar Âmbar ao jogador" onclick="adminRefundOrder('${o.order_id}')">Reembolsar</button>
-                  <button class="btn btn-danger btn-sm" title="Cancelar sem reembolso" onclick="adminCancelOrder('${o.order_id}')">Cancelar</button>
+                  <button class="btn btn-danger btn-sm" title="Cancelar sem reembolso" onclick="adminCancelOrder('${o.order_id}')">Cancelar</button>`}
                 </div>
               </td>
             </tr>

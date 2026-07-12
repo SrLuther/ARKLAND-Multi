@@ -1,7 +1,7 @@
 {
   "source": "C:\\Users\\Ciano\\Downloads\\Itens Alfa.xlsx",
   "sheet": "Criaturas",
-  "count": 16,
+  "count": 11,
   "creatures": [
     {
       "family": "HOVERSKIFF",
@@ -17,31 +17,6 @@
       "family": "HOVERSKIFF",
       "tier": "Alfa",
       "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSkiff_Alfa.AlfaItem_HoverSkiff_Alfa"
-    },
-    {
-      "family": "HOVERSAIL",
-      "tier": "Alfa",
-      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSail.AlfaItem_HoverSail"
-    },
-    {
-      "family": "EXO-MEK",
-      "tier": "Alfa",
-      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_ExoMek_Alfa.AlfaItem_ExoMek_Alfa"
-    },
-    {
-      "family": "MEK",
-      "tier": "Alfa",
-      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Mek_Alfa.AlfaItem_Mek_Alfa"
-    },
-    {
-      "family": "MEK",
-      "tier": "Omega",
-      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Mek_Omega.AlfaItem_Mek_Omega"
-    },
-    {
-      "family": "MEK",
-      "tier": "Minimega",
-      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_MiniMegaMek_Alfa.AlfaItem_MiniMegaMek_Alfa"
     },
     {
       "family": "ENFORCER",

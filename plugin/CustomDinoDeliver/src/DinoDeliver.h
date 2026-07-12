@@ -13,6 +13,8 @@ struct DinoIdentityCapture {
 struct DeliverCustomDinoResult {
     bool ok = false;
     DinoIdentityCapture identity;
+    // Motivo curto para logs/HTTP quando ok=false (ex.: spawn_exact_not_found).
+    std::string failure_reason;
 };
 
 DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,

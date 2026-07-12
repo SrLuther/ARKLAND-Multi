@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -115,9 +116,10 @@ def _write_settings(tmp_path, **overrides):
     (tmp_path / "settings.json").write_text(json.dumps(data), encoding="utf-8")
 
 
-def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default", points_spent=0, item_type="shop"):
+def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default", points_spent=0, item_type="shop", created_at=None):
     db = _app_module._SessionLocal()
     try:
+        ts = created_at or _now()
         o = _app_module.Order(
             order_id=str(uuid.uuid4()),
             steam_id=steam_id,
@@ -127,8 +129,8 @@ def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status=
             amount=amount,
             points_spent=max(0, int(points_spent)),
             status=status,
-            created_at=_now(),
-            updated_at=_now(),
+            created_at=ts,
+            updated_at=ts,
         )
         db.add(o)
         db.commit()
@@ -2194,6 +2196,7 @@ class TestKitRedemptionLimit:
             item_type="kit",
             status="PENDENTE",
             points_spent=0,
+            created_at=_now() - timedelta(hours=25),
         )
         _login(client, USER_STEAM)
         r = client.post(f"/api/player/orders/{oid}/cancel", json={})
@@ -2214,6 +2217,7 @@ class TestKitRedemptionLimit:
             item_type="kit",
             status="PENDENTE",
             points_spent=0,
+            created_at=_now() - timedelta(hours=25),
         )
         _login(client, USER_STEAM)
 
