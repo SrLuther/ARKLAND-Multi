@@ -1939,7 +1939,7 @@
       line-height: 1.4;
     }
 
-    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
+    #catalog-grid, #catalog-dinos-grid, #catalog-dinos200-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
@@ -2489,7 +2489,7 @@
       margin-bottom: 20px;
     }
     #catalog-search, #catalog-cat,
-    #catalog-dinos-search, #catalog-kits-search, #catalog-licenses-search,
+    #catalog-dinos-search, #catalog-dinos200-search, #catalog-kits-search, #catalog-licenses-search,
     .catalog-search-wrap input {
       background: var(--surface2);
       border: 1px solid var(--border);
@@ -2504,7 +2504,7 @@
     }
     #catalog-search { flex: 1; min-width: 180px; max-width: none; }
     #catalog-search:focus, #catalog-cat:focus,
-    #catalog-dinos-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus,
+    #catalog-dinos-search:focus, #catalog-dinos200-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus,
     #shop-admin-search:focus { border-color: var(--tek); }
     #catalog-cat option { background: var(--surface); }
 
@@ -3100,7 +3100,7 @@
         width: 100%;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
+      #catalog-grid, #catalog-dinos-grid, #catalog-dinos200-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
       .recharge-grid {
         grid-template-columns: 1fr;
         gap: 12px;
@@ -3240,7 +3240,7 @@
         text-align: center;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-recharge-grid {
+      #catalog-grid, #catalog-dinos-grid, #catalog-dinos200-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-recharge-grid {
         grid-template-columns: 1fr;
       }
 
@@ -5259,6 +5259,7 @@
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
           <button type="button" class="catalog-tab" data-catalog-tab="dinos" onclick="setCatalogTab('dinos')">🦕 Dinos</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="dinos200" onclick="setCatalogTab('dinos200')">🦖 Dinos 200</button>
           <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
           <button type="button" class="catalog-tab" data-catalog-tab="licenses" onclick="setCatalogTab('licenses')">📜 Licenças</button>
           <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação</button>
@@ -5298,6 +5299,21 @@
           <p id="catalog-dinos-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-dinos-grid"></div>
           <div id="catalog-dinos-empty" class="catalog-empty-state" style="display:none;"></div>
+        </div>
+        <div id="catalog-panel-dinos200" class="catalog-panel">
+          <div class="catalog-toolbar catalog-toolbar--sticky">
+            <div class="catalog-search-wrap">
+              <input id="catalog-dinos200-search" type="search" placeholder="Buscar dino nível 200, espécie ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos200')" />
+            </div>
+            <select id="catalog-dinos200-sort" class="catalog-sort-select" onchange="renderCatalogDinos200()" aria-label="Ordenar dinos 200">
+              <option value="name">Nome A–Z</option>
+              <option value="price-asc">Preço ↑</option>
+              <option value="price-desc">Preço ↓</option>
+            </select>
+          </div>
+          <p id="catalog-dinos200-result-count" class="catalog-result-count" style="display:none;"></p>
+          <div id="catalog-dinos200-grid"></div>
+          <div id="catalog-dinos200-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-kits" class="catalog-panel">
           <div class="catalog-toolbar catalog-toolbar--sticky">
@@ -6283,7 +6299,8 @@
               <h4>Abas do Catálogo</h4>
               <ul>
                 <li><strong>📦 Itens</strong> — recursos, ferramentas, armas e materiais.</li>
-                <li><strong>🦕 Dinos</strong> — criaturas configuradas pela equipe.</li>
+                <li><strong>🦕 Dinos</strong> — criaturas nível 1 configuradas pela equipe.</li>
+                <li><strong>🦖 Dinos 200</strong> — mesmo blueprint no nível 200 (quando o teto de mercado permite).</li>
                 <li><strong>🎁 Kits</strong> — pacotes com vários itens de uma vez.</li>
                 <li><strong>📜 Licenças</strong> — Gamma, Beta, Alfa (bônus de Âmbar) e <strong>Nuvem</strong> (cofre de inventário).</li>
                 <li><strong>💚 Doação</strong> — doação voluntária via PIX ou cartão (Mercado Pago).</li>
@@ -9374,6 +9391,7 @@ function setCatalogTab(tab) {
   if (panel) panel.classList.add("active");
   if (tab === "items") renderCatalogItems();
   if (tab === "dinos") renderCatalogDinos();
+  if (tab === "dinos200") renderCatalogDinos200();
   if (tab === "kits") renderCatalogKits();
   if (tab === "licenses") renderCatalogLicenses();
   if (tab === "available") loadAvailable();
@@ -9383,6 +9401,11 @@ function setCatalogTab(tab) {
 
 function _isDinoType(t) {
   return String(t || "").toLowerCase() === "dino";
+}
+
+function _catalogDinoLevel(i) {
+  const n = Number(i?.dinoLevel ?? i?.dino_level ?? 1);
+  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
 function _isLicenseItem(i) {
@@ -9570,6 +9593,7 @@ function debounceCatalogSearch(tab) {
   _catalogSearchTimers[tab] = setTimeout(() => {
     if (tab === "items") renderCatalogItems();
     else if (tab === "dinos") renderCatalogDinos();
+    else if (tab === "dinos200") renderCatalogDinos200();
     else if (tab === "kits") renderCatalogKits();
     else if (tab === "licenses") renderCatalogLicenses();
   }, 280);
@@ -9609,6 +9633,8 @@ function _catalogEmptyStateHtml(tab, search, cat) {
   if (search) suggestions.push({ label: "Limpar busca", action: "clear-search" });
   if (cat) suggestions.push({ label: "Todas as categorias", action: "clear-cat" });
   if (tab === "dinos") suggestions.push({ label: "Ver aba Itens", action: "tab-items" });
+  if (tab === "dinos") suggestions.push({ label: "Ver Dinos 200", action: "tab-dinos200" });
+  if (tab === "dinos200") suggestions.push({ label: "Ver Dinos L1", action: "tab-dinos" });
   if (tab === "items") suggestions.push({ label: "Ver Dinos", action: "tab-dinos" });
   if (tab === "kits") suggestions.push({ label: "Ver Licenças", action: "tab-licenses" });
   const sugHtml = suggestions.map(s =>
@@ -9622,7 +9648,7 @@ function _catalogEmptyStateHtml(tab, search, cat) {
 
 function _handleCatalogEmptyAction(action) {
   if (action === "clear-search") {
-    ["catalog-search", "catalog-dinos-search", "catalog-kits-search", "catalog-licenses-search"].forEach(id => {
+    ["catalog-search", "catalog-dinos-search", "catalog-dinos200-search", "catalog-kits-search", "catalog-licenses-search"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
@@ -9630,9 +9656,11 @@ function _handleCatalogEmptyAction(action) {
   if (action === "clear-cat") setCatalogCategory("");
   if (action === "tab-items") setCatalogTab("items");
   if (action === "tab-dinos") setCatalogTab("dinos");
+  if (action === "tab-dinos200") setCatalogTab("dinos200");
   if (action === "tab-licenses") setCatalogTab("licenses");
   if (_catalogActiveTab === "items") renderCatalogItems();
   else if (_catalogActiveTab === "dinos") renderCatalogDinos();
+  else if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
   else if (_catalogActiveTab === "kits") renderCatalogKits();
   else if (_catalogActiveTab === "licenses") renderCatalogLicenses();
 }
@@ -9878,6 +9906,7 @@ async function loadCatalog() {
       tier: v.tier || "",
       speciesKey: v.species_key || "",
       blueprint: v.blueprint || "",
+      dinoLevel: Number(v.dino_level ?? ((v.Dinos || [])[0] || {}).Level ?? 1) || 1,
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
     }));
@@ -9937,6 +9966,7 @@ async function loadCatalog() {
     renderCatalogCats(dynamicCats, catCounts);
     if (_catalogActiveTab === "items") renderCatalogItems();
     if (_catalogActiveTab === "dinos") renderCatalogDinos();
+    if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
     if (_catalogActiveTab === "kits") renderCatalogKits();
     if (_catalogActiveTab === "licenses") renderCatalogLicenses();
     if (_catalogActiveTab === "available") loadAvailable();
@@ -9996,6 +10026,7 @@ function renderCatalogDinos() {
 
   const filtered = _catalogSortItems(_catalogItems.filter(i => {
     if (!_isDinoType(i.type)) return false;
+    if (_catalogDinoLevel(i) !== 1) return false;
     return _catalogMatchesSearch(i, search);
   }), sort);
 
@@ -10004,6 +10035,37 @@ function renderCatalogDinos() {
     if (empty) {
       empty.style.display = "";
       empty.innerHTML = _catalogEmptyStateHtml("dinos", search, "");
+    }
+    if (countEl) countEl.style.display = "none";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "dinos");
+  }
+  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
+}
+
+function renderCatalogDinos200() {
+  const search = (document.getElementById("catalog-dinos200-search")?.value || "").trim();
+  const sort = document.getElementById("catalog-dinos200-sort")?.value || "name";
+  const grid = document.getElementById("catalog-dinos200-grid");
+  const empty = document.getElementById("catalog-dinos200-empty");
+  const countEl = document.getElementById("catalog-dinos200-result-count");
+  if (!grid) return;
+
+  const filtered = _catalogSortItems(_catalogItems.filter(i => {
+    if (!_isDinoType(i.type)) return false;
+    if (_catalogDinoLevel(i) !== 200) return false;
+    return _catalogMatchesSearch(i, search);
+  }), sort);
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) {
+      empty.style.display = "";
+      empty.innerHTML = _catalogEmptyStateHtml("dinos200", search, "");
     }
     if (countEl) countEl.style.display = "none";
     return;

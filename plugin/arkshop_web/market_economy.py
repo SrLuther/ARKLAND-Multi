@@ -760,6 +760,12 @@ def _catalog_item_blueprint(entry: dict[str, Any]) -> str:
     return str(dino.get("Blueprint") or "")
 
 
+# Markup L1→L200 (configurável). Aprovado Jul/2026: k=1.40, teto 0.75×M (M=root_value).
+L200_MARKUP_K: float = 1.40
+L200_CAP_RATIO: float = 0.75
+L200_ID_SUFFIX: str = "_l200"
+
+
 def is_catalog_dino_level1(entry: dict[str, Any]) -> bool:
     """True se Type:dino e primeiro Dinos[].Level == 1 (referência de piso)."""
     if str(entry.get("Type") or "").lower() != "dino":
@@ -768,10 +774,71 @@ def is_catalog_dino_level1(entry: dict[str, Any]) -> bool:
     return int(dino.get("Level") or 1) == 1
 
 
+def is_catalog_dino_level200(entry: dict[str, Any]) -> bool:
+    """True se Type:dino e primeiro Dinos[].Level == 200."""
+    if str(entry.get("Type") or "").lower() != "dino":
+        return False
+    dino = (entry.get("Dinos") or [{}])[0]
+    return int(dino.get("Level") or 0) == 200
+
+
+def catalog_dino_level(entry: dict[str, Any]) -> int:
+    dino = (entry.get("Dinos") or [{}])[0]
+    return int(dino.get("Level") or 1)
+
+
+def l200_shop_id(l1_item_id: str) -> str:
+    """ID de loja para o par L200 (`rex_femea` → `rex_femea_l200`)."""
+    base = str(l1_item_id or "").strip()
+    if base.endswith(L200_ID_SUFFIX):
+        return base
+    return f"{base}{L200_ID_SUFFIX}"
+
+
+def compute_l200_price(
+    p1: int,
+    m: int,
+    *,
+    k: float = L200_MARKUP_K,
+    cap_ratio: float = L200_CAP_RATIO,
+) -> int | None:
+    """Preço L200 a partir do L1 e do piso M (root_value).
+
+    Fórmula aprovada: ``P200 = round(clamp(P1 × k, P1+1, cap_ratio×M))``.
+    Devolve ``None`` (skip / não listar) quando ``cap_ratio×M ≤ P1``.
+    """
+    p1_i = int(p1)
+    m_i = int(m)
+    if p1_i < 0 or m_i <= 0:
+        return None
+    cap = float(cap_ratio) * float(m_i)
+    if cap <= p1_i:
+        return None
+    lo = float(p1_i + 1)
+    raw = float(p1_i) * float(k)
+    clamped = max(lo, min(raw, cap))
+    return int(round(clamped))
+
+
+def resolve_species_root_value(l1_item_id: str, entry: dict[str, Any] | None = None) -> int | None:
+    """M = root_value da espécie em market_species_defaults (opção A)."""
+    catalog_map = build_catalog_economy_map()
+    defn = catalog_map.get(str(l1_item_id))
+    if defn is not None and defn.get("root_value") is not None:
+        return int(defn.get("root_value") or 0)
+    if entry is not None:
+        # fallback fraco: Price L1 (só se defaults em falta)
+        price = entry.get("Price")
+        if price is not None:
+            return int(price)
+    return None
+
+
 def iter_catalog_dinos(
     catalog: dict[str, Any],
     *,
     level1_only: bool = False,
+    level200_only: bool = False,
 ) -> list[tuple[str, dict[str, Any]]]:
     items = catalog.get("Items") or catalog.get("ShopItems") or {}
     out: list[tuple[str, dict[str, Any]]] = []
@@ -779,6 +846,8 @@ def iter_catalog_dinos(
         if str(entry.get("Type") or "").lower() != "dino":
             continue
         if level1_only and not is_catalog_dino_level1(entry):
+            continue
+        if level200_only and not is_catalog_dino_level200(entry):
             continue
         out.append((item_id, entry))
     out.sort(key=lambda x: -int(x[1].get("Price") or 0))

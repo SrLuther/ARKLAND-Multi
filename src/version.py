@@ -9,6 +9,19 @@ BUILD_DATE: str = "2026-07-12"
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "Unreleased",
+        "date": "TBD",
+        "changes": [
+            "Feat (CustomShop / Web Store): dinos nível 200 no catálogo — "
+            "entradas `*_l200` com preço "
+            "`P200 = round(clamp(P1 × k, P1+1, 0.75×M))` "
+            "(k=1.40 configurável, M=root_value); skip se 0.75×M ≤ P1; "
+            "aba dedicada «Dinos 200» (aba Dinos só L1); "
+            "script idempotente tools/apply_shop_l200_prices.py; "
+            "docs/SHOP_L200_PRICING.md.",
+        ],
+    },
+    {
         "version": "1.10.26",
         "date": "2026-07-12",
         "changes": [

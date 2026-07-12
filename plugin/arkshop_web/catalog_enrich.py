@@ -235,6 +235,12 @@ def enrich_shop_item(key: str, entry: dict[str, Any]) -> dict[str, Any]:
         out["species_key"] = species_key
     if blueprint:
         out["blueprint"] = blueprint
+    if itype == "dino":
+        dinos = entry.get("Dinos") or []
+        if dinos and isinstance(dinos[0], dict):
+            out["dino_level"] = int(dinos[0].get("Level") or 1)
+        else:
+            out["dino_level"] = 1
     if license_days is not None:
         out["license_days"] = license_days
     if license_group:

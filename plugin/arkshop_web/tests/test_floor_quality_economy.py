@@ -52,19 +52,31 @@ def test_ladder_file_exists():
     assert "blueprint_overrides" in ladder
 
 
-def test_catalog_l1_only_species():
-    """Todos os dinos do catálogo devem ser Level 1 (migração Jul/2026 — somente L1).
-    Contagem esperada: 189 (98 originais + 91 vanilla/DLC adicionados em Jul/2026).
+def test_catalog_l1_and_optional_l200():
+    """Catálogo: 189 L1 (piso) + pares opcionais *_l200 (Level 200) quando a fórmula cabe no teto.
+    Contagem L1: 189 (98 originais + 91 vanilla/DLC Jul/2026).
     """
     if not CONFIG_PATH.is_file():
         pytest.skip("config.json ausente")
     catalog = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     items = catalog.get("Items") or {}
-    dinos = [e for e in items.values() if str(e.get("Type") or "").lower() == "dino"]
-    assert len(dinos) == 189, f"Esperado 189 dinos L1, encontrado {len(dinos)}"
-    for entry in dinos:
+    l1 = []
+    l200 = []
+    for item_id, entry in items.items():
+        if str(entry.get("Type") or "").lower() != "dino":
+            continue
         level = int((entry.get("Dinos") or [{}])[0].get("Level") or 0)
-        assert level == 1, f"Dino nao-L1 encontrado: {entry.get('Name')} Level={level}"
+        if level == 1:
+            l1.append(item_id)
+        elif level == 200:
+            assert str(item_id).endswith("_l200"), f"L200 sem sufixo: {item_id}"
+            l200.append(item_id)
+        else:
+            raise AssertionError(f"Nível inesperado {level} em {item_id}")
+    assert len(l1) == 189, f"Esperado 189 dinos L1, encontrado {len(l1)}"
+    for l200_id in l200:
+        l1_id = l200_id[: -len("_l200")]
+        assert l1_id in items, f"L200 órfão: {l200_id}"
 
 
 def test_matrix_has_79_rows():

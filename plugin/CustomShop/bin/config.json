@@ -2,13 +2,22 @@
   "Debug": {
     "Enabled": false,
     "Level": "INFO",
-    "Categories": ["*"],
+    "Categories": [
+      "*"
+    ],
     "RingBufferSize": 500,
     "MaxFileBytes": 10485760,
     "MaxFiles": 5,
     "MySqlPersist": true,
     "MySqlMinLevel": "WARN",
-    "MySqlCategories": ["TribeSync", "Http", "MySQL", "License", "Permissions", "Identity"],
+    "MySqlCategories": [
+      "TribeSync",
+      "Http",
+      "MySQL",
+      "License",
+      "Permissions",
+      "Identity"
+    ],
     "_comment": "ARKLAND debug JSONL em ArkApi/Plugins/CustomShop/logs/arkland_debug.log. Ligar Enabled=true + Level=TRACE temporariamente; Shop.Reload ou /shopdebug. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
   },
   "CrossChat": {
@@ -17889,6 +17898,497 @@
       "Price": 9430,
       "Quality": 0,
       "Type": "item"
+    },
+    "indominus_femea_l200": {
+      "Description": "Indominus Rex Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Indominus Rex Fêmea Nível 200",
+      "Price": 21000,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "giga_femea_l200": {
+      "Description": "Giganotosaurus Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/PrimalEarth/Dinos/Giganotosaurus/Gigant_Character_BP.Gigant_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 16875,
+      "Type": "dino",
+      "Name": "Giganotosaurus Fêmea Nível 200"
+    },
+    "carcha_femea_l200": {
+      "Description": "Carcharodontosaurus Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/PrimalEarth/Dinos/Carcharodontosaurus/Carcha_Character_BP.Carcha_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 16800,
+      "Type": "dino",
+      "Name": "Carcharodontosaurus Fêmea Nível 200"
+    },
+    "lionfish_femea_l200": {
+      "Description": "Shadowmane Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/LionfishLion/LionfishLion_Character_BP.LionfishLion_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Shadowmane Fêmea Nível 200",
+      "Price": 14000,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "sb_hydra_l200": {
+      "Description": "Small Hydra Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallHydra/SmallHydra_Character_BP.SmallHydra_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Hydra Nível 200 (SmallBosses)",
+      "Price": 12600,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_volcano_dragon_l200": {
+      "Description": "Volcano Small Dragon Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallDragon/Volcano_SmallDragon_Character_BP.Volcano_SmallDragon_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Volcano Small Dragon Nível 200 (SmallBosses)",
+      "Price": 11900,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "acrocanto_femea_l200": {
+      "Description": "Acrocantossauro Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP.Acrocanthosaurus_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 11200,
+      "Type": "dino",
+      "Name": "Acrocantossauro Fêmea Nível 200"
+    },
+    "sb_fire_elemental_l200": {
+      "Description": "Fire Elemental Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP.FireElemental_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Fire Elemental Nível 200 (SmallBosses)",
+      "Price": 11200,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_fire_elemental_tame_l200": {
+      "Description": "Fire Elemental Domável Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP_Tameable.FireElemental_Character_BP_Tameable",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Fire Elemental Domável Nível 200 (SmallBosses)",
+      "Price": 11200,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_small_dragon_l200": {
+      "Description": "Small Dragon Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallDragon/SmallDragon_Character_BP.SmallDragon_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Dragon Nível 200 (SmallBosses)",
+      "Price": 11200,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "xenomorphgen2_femea_l200": {
+      "Description": "Reaper Gen2 Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/Summoner/SummonedDinos/Xenomorph_Character_BP_Male_Gen2_Summoned.Xenomorph_Character_BP_Male_Gen2_Summoned",
+          "ForceTame": true,
+          "Level": 200,
+          "Neutered": true
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Reaper Gen2 Nível 200",
+      "Price": 11200,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "sb_broodmother_l200": {
+      "Description": "Small Broodmother Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallBroodmother/SmallBroodmother_Character_BP.SmallBroodmother_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Broodmother Nível 200 (SmallBosses)",
+      "Price": 10500,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "megalosaurus_aberrant_femea_l200": {
+      "Description": "Megalosaurus Aberrante Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP_Aberrant.Megalosaurus_Character_BP_Aberrant",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 7125,
+      "Type": "dino",
+      "Name": "Megalosaurus Aberrante Fêmea Nível 200"
+    },
+    "sb_crystal_queen_l200": {
+      "Description": "Crystal Wyvern Queen Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Queen.CrystalWyvern_Character_BP_Queen",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Crystal Wyvern Queen Nível 200 (SmallBosses)",
+      "Price": 9800,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_desert_titan_l200": {
+      "Description": "Small Desert Titan Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallDesertTitan/DesertTitan_Character_BP_SB.DesertTitan_Character_BP_SB",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Desert Titan Nível 200 (SmallBosses)",
+      "Price": 9800,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_dodoreaper_l200": {
+      "Description": "Small Dodoreaper Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallDodoreaper/SmallDodoreaper_Character_BP.SmallDodoreaper_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Dodoreaper Nível 200 (SmallBosses)",
+      "Price": 9800,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_dodorex_l200": {
+      "Description": "Small DodoRex Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallDodoRex/SmallDodoRex_Character_BP.SmallDodoRex_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small DodoRex Nível 200 (SmallBosses)",
+      "Price": 9800,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_manticore_l200": {
+      "Description": "Small Manticore Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallManticore/SmallManticore_Character_BP.SmallManticore_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Manticore Nível 200 (SmallBosses)",
+      "Price": 9800,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "xenomorph_femea_l200": {
+      "Description": "Reaper Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Aberration/Dinos/Nameless/Xenomorph_Character_BP_Male.Xenomorph_Character_BP_Male",
+          "ForceTame": true,
+          "Level": 200,
+          "Neutered": true
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Reaper Nível 200",
+      "Price": 9800,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "sb_megapithecus_l200": {
+      "Description": "Small Megapithecus Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallMegapithecus/SmallGorilla_Character_BP.SmallGorilla_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Megapithecus Nível 200 (SmallBosses)",
+      "Price": 9100,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "indoraptor_femea_l200": {
+      "Description": "IndoRaptor Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "IndoRaptor Nível 200",
+      "Price": 8400,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "megalosaurus_femea_l200": {
+      "Description": "Megalosaurus Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP.Megalosaurus_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 6750,
+      "Type": "dino",
+      "Name": "Megalosaurus Fêmea Nível 200"
+    },
+    "sb_crystal_blood_l200": {
+      "Description": "Crystal Wyvern Blood Descendant Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Blood.CrystalWyvern_Character_BP_Descendant_Blood",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Crystal Wyvern Blood Descendant Nível 200 (SmallBosses)",
+      "Price": 8400,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_crystal_ember_l200": {
+      "Description": "Crystal Wyvern Ember Descendant Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Ember.CrystalWyvern_Character_BP_Descendant_Ember",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Crystal Wyvern Ember Descendant Nível 200 (SmallBosses)",
+      "Price": 8400,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_cyclops_l200": {
+      "Description": "Small Cyclops Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallCyclops/SmallCyclops_Character_BP.SmallCyclops_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Cyclops Nível 200 (SmallBosses)",
+      "Price": 8400,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "sb_drake_fire_l200": {
+      "Description": "Small Drake Fogo Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Drake Fogo Nível 200 (SmallBosses)",
+      "Price": 7700,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "deinonychus_femea_l200": {
+      "Description": "Deinonychus Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/PrimalEarth/Dinos/Raptor/Uberraptor/Deinonychus_Character_BP.Deinonychus_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 7000,
+      "Type": "dino",
+      "Name": "Deinonychus Fêmea Nível 200"
+    },
+    "rex_femea_l200": {
+      "Description": "Rex Fêmea Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "Price": 7000,
+      "Type": "dino",
+      "Name": "Rex Fêmea Nível 200"
+    },
+    "sb_moeder_l200": {
+      "Description": "Small Moeder Nível 200 (SmallBosses)",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/SmallBosses/SmallMoeder/SmallMoeder_Character_BP.SmallMoeder_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Small Moeder Nível 200 (SmallBosses)",
+      "Price": 3750,
+      "Quality": 0,
+      "Type": "dino"
     }
   },
   "Downloads": [
