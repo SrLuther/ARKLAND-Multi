@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.23"
+APP_VERSION: str = "1.10.24"
 BUILD_DATE: str = "2026-07-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.24",
+        "date": "2026-07-12",
+        "changes": [
+            "Fix (Web Store / Sorteio): editor de campanha lista automaticamente kits e "
+            "licenças do catálogo CustomShop (checkboxes via "
+            "`GET /api/admin/lottery/prize-options`); corrige dropdown vazio por IDs "
+            "duplicados no `<select>`; cada ganhador recebe 1× de cada prémio extra "
+            "seleccionado + parcela de Âmbares; entrega automática no draw.",
+        ],
+    },
     {
         "version": "1.10.23",
         "date": "2026-07-12",

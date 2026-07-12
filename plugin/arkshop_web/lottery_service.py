@@ -98,11 +98,14 @@ def get_prize_options() -> dict[str, Any]:
         raw = _prize_options_fn() or {}
     except Exception as exc:
         log.warning("lottery prize_options_fn: %s", exc)
-        return {"kits": [], "licenses": []}
-    return {
+        return {"kits": [], "licenses": [], "errors": [str(exc)]}
+    out: dict[str, Any] = {
         "kits": list(raw.get("kits") or []),
         "licenses": list(raw.get("licenses") or []),
     }
+    if raw.get("errors"):
+        out["errors"] = list(raw["errors"])
+    return out
 
 
 def normalize_catalog_prizes(raw: Any, *, resolve: bool = True) -> list[dict[str, Any]]:

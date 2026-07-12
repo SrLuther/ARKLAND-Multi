@@ -10444,21 +10444,36 @@ def _lottery_resolve_catalog_prize(kind: str, item_id: str) -> dict[str, Any] | 
 
 
 def _lottery_prize_options() -> dict[str, Any]:
-    kits = [
-        {"item_id": k["kit_id"], "label": k["label"], "kind": "kit"}
-        for k in _catalog_kit_options()
-    ]
-    licenses = [
-        {
-            "item_id": x["item_id"],
-            "label": x["label"],
-            "kind": "license",
-            "group": x.get("group"),
-            "days": x.get("days"),
-        }
-        for x in _catalog_license_options()
-    ]
-    return {"kits": kits, "licenses": licenses}
+    """Lista kits e licenças do catálogo CustomShop para o admin do sorteio."""
+    kits: list[dict[str, Any]] = []
+    licenses: list[dict[str, Any]] = []
+    errors: list[str] = []
+    try:
+        kits = [
+            {"item_id": k["kit_id"], "label": k["label"], "kind": "kit"}
+            for k in _catalog_kit_options()
+        ]
+    except Exception as exc:
+        _log("lottery_prize_options_kits_failed", error=str(exc))
+        errors.append(f"kits:{exc}")
+    try:
+        licenses = [
+            {
+                "item_id": x["item_id"],
+                "label": x["label"],
+                "kind": "license",
+                "group": x.get("group"),
+                "days": x.get("days"),
+            }
+            for x in _catalog_license_options()
+        ]
+    except Exception as exc:
+        _log("lottery_prize_options_licenses_failed", error=str(exc))
+        errors.append(f"licenses:{exc}")
+    out: dict[str, Any] = {"kits": kits, "licenses": licenses}
+    if errors:
+        out["errors"] = errors
+    return out
 
 
 def _lottery_deliver_catalog_prize(

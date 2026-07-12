@@ -7202,26 +7202,11 @@
           </div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
             <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Prémios extras (kits / licenças)</div>
-            <p style="font-size:11px;color:var(--text2);margin:0 0 10px;">Opcionais. Cada titular de número sorteado recebe estes prémios além da parcela de Âmbares (fila de resgate da loja).</p>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;">
-              <div class="form-group" style="margin:0;min-width:110px;">
-                <label>Tipo</label>
-                <select id="lot-admin-prize-kind" onchange="lotteryAdminPrizeKindChanged()">
-                  <option value="kit">Kit</option>
-                  <option value="license">Licença</option>
-                </select>
-              </div>
-              <div class="form-group" style="margin:0;flex:1;min-width:180px;">
-                <label>Item</label>
-                <select id="lot-admin-prize-item"></select>
-              </div>
-              <div class="form-group" style="margin:0;width:80px;">
-                <label>Qtd</label>
-                <input id="lot-admin-prize-amount" type="number" min="1" max="99" value="1" />
-              </div>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminAddPrize()">+ Adicionar</button>
-            </div>
-            <div id="lot-admin-prize-list" style="font-size:12px;color:var(--text2);"></div>
+            <p style="font-size:11px;color:var(--text2);margin:0 0 10px;">
+              Opcionais. <strong>Cada ganhador recebe 1× de cada prémio extra seleccionado</strong>,
+              além da sua parcela de Âmbares (pool dividido entre titulares). Entrega automática na fila da loja no draw.
+            </p>
+            <div id="lot-create-prize-picker"></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary" onclick="lotteryAdminCreate()">Criar rascunho</button>
@@ -12207,8 +12192,8 @@ async function loadHomeLotteryTeaser() {
 
 function lotteryAdminShowCreate() {
   document.getElementById("lottery-admin-create")?.classList.remove("hidden");
+  lotteryAdminHideEdit();
   _lotteryAdminDraftPrizes = [];
-  lotteryAdminRenderPrizeList();
   lotteryAdminLoadPrizeOptions();
 }
 function lotteryAdminHideCreate() { document.getElementById("lottery-admin-create")?.classList.add("hidden"); }
@@ -12230,70 +12215,106 @@ function _lotteryFormatCatalogPrizes(list) {
   }).join(" · ");
 }
 
+function _lotteryPrizeAttr(value) {
+  return String(value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 async function lotteryAdminLoadPrizeOptions() {
   try {
     const d = await fetchJson("/api/admin/lottery/prize-options");
     if (!d.ok) throw new Error(d.error || "Falha ao carregar opções");
-    _lotteryAdminPrizeOptions = { kits: d.kits || [], licenses: d.licenses || [] };
-    lotteryAdminPrizeKindChanged();
+    _lotteryAdminPrizeOptions = {
+      kits: Array.isArray(d.kits) ? d.kits : [],
+      licenses: Array.isArray(d.licenses) ? d.licenses : [],
+      errors: Array.isArray(d.errors) ? d.errors : [],
+    };
   } catch (e) {
     console.warn("lottery prize options", e);
-    _lotteryAdminPrizeOptions = { kits: [], licenses: [] };
-    lotteryAdminPrizeKindChanged();
+    _lotteryAdminPrizeOptions = { kits: [], licenses: [], errors: [String(e.message || e)] };
   }
+  lotteryAdminRenderPrizePickers();
 }
 
-function lotteryAdminPrizeKindChanged() {
-  const kind = document.getElementById("lot-admin-prize-kind")?.value || "kit";
-  const sel = document.getElementById("lot-admin-prize-item");
-  if (!sel) return;
-  const items = kind === "license" ? (_lotteryAdminPrizeOptions.licenses || []) : (_lotteryAdminPrizeOptions.kits || []);
-  sel.innerHTML = items.length
-    ? items.map(i => `<option value="${escHtml(i.item_id)}">${escHtml(i.label || i.item_id)}</option>`).join("")
-    : `<option value="">(nenhum ${kind === "license" ? "licença" : "kit"} no catálogo)</option>`;
+function lotteryAdminRenderPrizePickers() {
+  lotteryAdminRenderPrizePicker("lot-create-prize-picker");
+  lotteryAdminRenderPrizePicker("lot-edit-prize-picker");
 }
 
-function lotteryAdminRenderPrizeList() {
-  const el = document.getElementById("lot-admin-prize-list");
-  if (!el) return;
-  if (!_lotteryAdminDraftPrizes.length) {
-    el.innerHTML = `<span style="color:var(--text2);">Nenhum prémio de catálogo — só Âmbares.</span>`;
-    return;
-  }
-  el.innerHTML = _lotteryAdminDraftPrizes.map((p, idx) => `
-    <div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
-      <span><strong>${escHtml(_lotteryPrizeKindLabel(p.kind))}</strong> · ${escHtml(p.label || p.item_id)} ×${p.amount || 1}</span>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminRemovePrize(${idx})">Remover</button>
-    </div>`).join("");
+function lotteryAdminIsPrizeSelected(kind, itemId) {
+  return _lotteryAdminDraftPrizes.some(p => p.kind === kind && p.item_id === itemId);
 }
 
-function lotteryAdminAddPrize() {
-  const kind = document.getElementById("lot-admin-prize-kind")?.value || "kit";
-  const itemId = document.getElementById("lot-admin-prize-item")?.value?.trim();
-  const amount = Math.max(1, parseInt(document.getElementById("lot-admin-prize-amount")?.value || "1", 10) || 1);
-  if (!itemId) { toast("Selecione um kit ou licença.", "error"); return; }
-  if (_lotteryAdminDraftPrizes.some(p => p.kind === kind && p.item_id === itemId)) {
-    toast("Esse prémio já está na lista.", "error"); return;
-  }
-  if (_lotteryAdminDraftPrizes.length >= 10) {
-    toast("Máximo de 10 prémios de catálogo.", "error"); return;
-  }
-  const pool = kind === "license" ? _lotteryAdminPrizeOptions.licenses : _lotteryAdminPrizeOptions.kits;
+function lotteryAdminTogglePrize(kind, itemId, checked) {
+  const pool = kind === "license"
+    ? (_lotteryAdminPrizeOptions.licenses || [])
+    : (_lotteryAdminPrizeOptions.kits || []);
   const found = (pool || []).find(i => i.item_id === itemId);
-  _lotteryAdminDraftPrizes.push({
-    kind,
-    item_id: itemId,
-    amount,
-    label: found?.label || itemId,
-  });
-  lotteryAdminRenderPrizeList();
-  lotteryAdminRenderEditPrizeList();
+  if (checked) {
+    if (lotteryAdminIsPrizeSelected(kind, itemId)) return;
+    if (_lotteryAdminDraftPrizes.length >= 10) {
+      toast("Máximo de 10 prémios de catálogo.", "error");
+      lotteryAdminRenderPrizePickers();
+      return;
+    }
+    _lotteryAdminDraftPrizes.push({
+      kind,
+      item_id: itemId,
+      amount: 1,
+      label: found?.label || itemId,
+    });
+  } else {
+    _lotteryAdminDraftPrizes = _lotteryAdminDraftPrizes.filter(
+      p => !(p.kind === kind && p.item_id === itemId)
+    );
+  }
+  lotteryAdminRenderPrizePickers();
 }
 
-function lotteryAdminRemovePrize(idx) {
-  _lotteryAdminDraftPrizes.splice(idx, 1);
-  lotteryAdminRenderPrizeList();
-  lotteryAdminRenderEditPrizeList();
+function _lotteryPrizeCheckboxRow(kind, item) {
+  const id = String(item.item_id || "");
+  const checked = lotteryAdminIsPrizeSelected(kind, id) ? "checked" : "";
+  const meta = kind === "license" && item.days != null
+    ? ` <span style="color:var(--text2);">· ${Number(item.days) <= 0 ? "permanente" : `${item.days}d`}${item.group ? ` · ${escHtml(String(item.group))}` : ""}</span>`
+    : "";
+  return `<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;cursor:pointer;font-size:12px;">
+    <input type="checkbox" ${checked}
+      onchange="lotteryAdminTogglePrize('${_lotteryPrizeAttr(kind)}','${_lotteryPrizeAttr(id)}',this.checked)"
+      style="margin-top:2px;" />
+    <span><strong>${escHtml(item.label || id)}</strong>
+      <span style="color:var(--text2);font-family:monospace;font-size:11px;"> ${escHtml(id)}</span>${meta}
+    </span>
+  </label>`;
+}
+
+function lotteryAdminRenderPrizePicker(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const kits = _lotteryAdminPrizeOptions.kits || [];
+  const licenses = _lotteryAdminPrizeOptions.licenses || [];
+  const errors = _lotteryAdminPrizeOptions.errors || [];
+  const selectedNote = _lotteryAdminDraftPrizes.length
+    ? `<div style="font-size:12px;color:var(--amber);margin-bottom:8px;">Seleccionados (${_lotteryAdminDraftPrizes.length}/10): ${escHtml(_lotteryFormatCatalogPrizes(_lotteryAdminDraftPrizes))}</div>`
+    : `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Nenhum prémio extra — só Âmbares.</div>`;
+  const errNote = errors.length
+    ? `<div style="font-size:12px;color:var(--danger);margin-bottom:8px;">Falha ao carregar catálogo: ${escHtml(errors.join("; "))}</div>`
+    : "";
+  const emptyBoth = !kits.length && !licenses.length;
+  const emptyNote = emptyBoth && !errors.length
+    ? `<div style="font-size:12px;color:var(--warning);margin-bottom:8px;">Catálogo sem kits/licenças (ou API prize-options vazia). Verifique o config CustomShop.</div>`
+    : "";
+  const kitBlock = `<div style="flex:1;min-width:220px;">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Kits (${kits.length})</div>
+    <div style="max-height:220px;overflow:auto;padding:8px;border:1px solid var(--border);border-radius:8px;background:rgba(0,0,0,.12);">
+      ${kits.length ? kits.map(k => _lotteryPrizeCheckboxRow("kit", k)).join("") : `<span style="color:var(--text2);font-size:12px;">Nenhum kit no catálogo.</span>`}
+    </div>
+  </div>`;
+  const licBlock = `<div style="flex:1;min-width:220px;">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Licenças (${licenses.length})</div>
+    <div style="max-height:220px;overflow:auto;padding:8px;border:1px solid var(--border);border-radius:8px;background:rgba(0,0,0,.12);">
+      ${licenses.length ? licenses.map(l => _lotteryPrizeCheckboxRow("license", l)).join("") : `<span style="color:var(--text2);font-size:12px;">Nenhuma licença no catálogo.</span>`}
+    </div>
+  </div>`;
+  el.innerHTML = `${selectedNote}${errNote}${emptyNote}<div style="display:flex;flex-wrap:wrap;gap:12px;">${kitBlock}${licBlock}</div>`;
 }
 
 async function lotteryAdminCreate() {
@@ -12463,47 +12484,22 @@ async function lotteryAdminShowEdit(campaignId) {
       </div>
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Prémios extras (kits / licenças)</div>
-        <div id="lot-edit-prize-list" style="margin-bottom:8px;"></div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;">
-          <div class="form-group" style="margin:0;min-width:110px;">
-            <label>Tipo</label>
-            <select id="lot-admin-prize-kind" onchange="lotteryAdminPrizeKindChanged()">
-              <option value="kit">Kit</option>
-              <option value="license">Licença</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin:0;flex:1;min-width:180px;">
-            <label>Item</label>
-            <select id="lot-admin-prize-item"></select>
-          </div>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminAddPrize(); lotteryAdminRenderEditPrizeList();">+ Adicionar</button>
-        </div>
+        <p style="font-size:11px;color:var(--text2);margin:0 0 10px;">
+          <strong>Cada ganhador recebe 1× de cada prémio extra seleccionado</strong>, além da parcela de Âmbares.
+          Entrega automática no draw (fila da loja + entitlement de licença).
+        </p>
+        <div id="lot-edit-prize-picker"></div>
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-primary" onclick="lotteryAdminSaveEdit(${campaignId})">Salvar alterações</button>
         ${c.status === "DRAFT" ? `<button class="btn btn-success" onclick="lotteryAdminPublish(${campaignId})">Publicar agora</button>` : ""}
         <button class="btn btn-ghost" onclick="lotteryAdminHideEdit()">Cancelar</button>
       </div>`;
-    lotteryAdminPrizeKindChanged();
-    lotteryAdminRenderEditPrizeList();
+    lotteryAdminRenderPrizePicker("lot-edit-prize-picker");
     el.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (e) {
     el.innerHTML = `<p style="color:var(--danger);padding:12px;">${escHtml(String(e))}</p>`;
   }
-}
-
-function lotteryAdminRenderEditPrizeList() {
-  const el = document.getElementById("lot-edit-prize-list");
-  if (!el) return;
-  if (!_lotteryAdminDraftPrizes.length) {
-    el.innerHTML = `<p style="font-size:12px;color:var(--text2);margin:0;">Nenhum prémio extra.</p>`;
-    return;
-  }
-  el.innerHTML = _lotteryAdminDraftPrizes.map((p, idx) => `
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
-      <span>${escHtml(_lotteryPrizeKindLabel(p.kind))}: ${escHtml(p.label || p.item_id)}${Number(p.amount || 1) > 1 ? ` ×${p.amount}` : ""}</span>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminRemovePrize(${idx}); lotteryAdminRenderEditPrizeList();">Remover</button>
-    </div>`).join("");
 }
 
 async function lotteryAdminSaveEdit(campaignId) {

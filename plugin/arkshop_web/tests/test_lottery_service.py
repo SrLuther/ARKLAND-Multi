@@ -24,6 +24,7 @@ from lottery_service import (
     get_campaign_admin_report,
     get_participants_public,
     get_player_me,
+    get_prize_options,
     get_public_current,
     on_donation_credited,
     process_due_activations,
@@ -77,6 +78,10 @@ def _lottery_enabled(tmp_path, monkeypatch):
         credit_fn=_app_module._add_player_points_tx,
         debit_fn=_app_module._subtract_player_points_tx,
         settings_fn=_app_module._load_settings,
+        resolve_catalog_prize_fn=_app_module._lottery_resolve_catalog_prize,
+        deliver_catalog_prize_fn=_app_module._lottery_deliver_catalog_prize,
+        prize_options_fn=_app_module._lottery_prize_options,
+        sync_license_permissions_fn=_app_module._lottery_sync_license_permissions,
     )
 
 
@@ -1031,3 +1036,144 @@ def test_draw_without_catalog_prizes_unchanged(lottery_db, monkeypatch):
     assert result.get("prize_catalog") == []
     pts = lottery_db.execute(text("SELECT points FROM players WHERE steam_id = :s"), {"s": USER}).fetchone()
     assert int(pts[0]) == 100
+
+
+def test_get_prize_options_returns_kits_and_licenses(monkeypatch):
+    import lottery_service as ls
+
+    monkeypatch.setattr(
+        ls,
+        "_prize_options_fn",
+        lambda: {
+            "kits": [{"item_id": "kit_a", "label": "Kit A", "kind": "kit"}],
+            "licenses": [{"item_id": "licenca_gamma", "label": "Gamma", "kind": "license"}],
+        },
+    )
+    opts = get_prize_options()
+    assert len(opts["kits"]) == 1
+    assert opts["kits"][0]["item_id"] == "kit_a"
+    assert len(opts["licenses"]) == 1
+    assert opts["licenses"][0]["item_id"] == "licenca_gamma"
+
+
+def test_get_prize_options_empty_when_fn_missing(monkeypatch):
+    import lottery_service as ls
+
+    monkeypatch.setattr(ls, "_prize_options_fn", None)
+    assert get_prize_options() == {"kits": [], "licenses": []}
+
+
+def test_get_prize_options_survives_fn_error(monkeypatch):
+    import lottery_service as ls
+
+    def _boom():
+        raise RuntimeError("catalog_down")
+
+    monkeypatch.setattr(ls, "_prize_options_fn", _boom)
+    opts = get_prize_options()
+    assert opts["kits"] == []
+    assert opts["licenses"] == []
+    assert opts.get("errors")
+
+
+def test_app_lottery_prize_options_lists_catalog(monkeypatch):
+    monkeypatch.setattr(
+        _app_module,
+        "_catalog_kit_options",
+        lambda: [{"kit_id": "kit_x", "label": "Kit X", "price": 10}],
+    )
+    monkeypatch.setattr(
+        _app_module,
+        "_catalog_license_options",
+        lambda: [{"item_id": "licenca_y", "label": "Lic Y", "group": "Gamma", "days": 30}],
+    )
+    opts = _app_module._lottery_prize_options()
+    assert opts["kits"] == [{"item_id": "kit_x", "label": "Kit X", "kind": "kit"}]
+    assert opts["licenses"][0]["item_id"] == "licenca_y"
+    assert opts["licenses"][0]["kind"] == "license"
+    assert "errors" not in opts
+
+
+def test_app_lottery_prize_options_isolates_source_errors(monkeypatch):
+    monkeypatch.setattr(
+        _app_module,
+        "_catalog_kit_options",
+        lambda: (_ for _ in ()).throw(RuntimeError("kits_boom")),
+    )
+    monkeypatch.setattr(
+        _app_module,
+        "_catalog_license_options",
+        lambda: [{"item_id": "licenca_ok", "label": "OK", "group": "G", "days": 7}],
+    )
+    opts = _app_module._lottery_prize_options()
+    assert opts["kits"] == []
+    assert len(opts["licenses"]) == 1
+    assert any("kits:" in e for e in opts.get("errors", []))
+
+
+def test_draw_delivers_catalog_prizes_to_each_winner(lottery_db, monkeypatch):
+    """Cada titular de número sorteado recebe 1× de cada item do prize_catalog."""
+    import lottery_service as ls
+
+    delivered: list[dict] = []
+
+    def _resolve(kind, item_id):
+        return {"item_id": item_id, "label": item_id, "kind": kind}
+
+    def _deliver(db, steam_id, prize, *, campaign_id, winning_number):
+        delivered.append({"steam_id": steam_id, "item_id": prize["item_id"], "winning_number": winning_number})
+        return {"order_id": f"ord-{steam_id}-{prize['item_id']}", "item_id": prize["item_id"], "kind": prize["kind"]}
+
+    monkeypatch.setattr(ls, "_resolve_catalog_prize_fn", _resolve)
+    monkeypatch.setattr(ls, "_deliver_catalog_prize_fn", _deliver)
+
+    camp = create_campaign_draft(
+        lottery_db,
+        data={
+            "prize_amber_base": 100,
+            "winning_numbers_count": 2,
+            "draw_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+            "starts_at": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+            "prize_catalog": [
+                {"kind": "kit", "item_id": "kit_alfa"},
+                {"kind": "license", "item_id": "licenca_gamma"},
+            ],
+        },
+    )
+    publish_campaign(lottery_db, int(camp["id"]))
+    cid = int(camp["id"])
+    for num, sid in ((111, USER), (222, USER2)):
+        lottery_db.execute(
+            text(
+                "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status) "
+                "VALUES (:c, :s, 'DONATION', :n, 'ACTIVE')"
+            ),
+            {"c": cid, "s": sid, "n": num},
+        )
+    lottery_db.commit()
+
+    monkeypatch.setattr(
+        "lottery_service.draw_winning_numbers",
+        lambda *a, **k: (
+            [111, 222],
+            {"seed_hash": "t", "algorithm_version": "t", "drawn_at": "now", "method": "t"},
+        ),
+    )
+    result = run_draw(lottery_db, cid, job_id="multi-winner-catalog")
+    lottery_db.commit()
+
+    assert result["matched_count"] == 2
+    # 2 winners × 2 prizes
+    assert len(delivered) == 4
+    by_user = {}
+    for d in delivered:
+        by_user.setdefault(d["steam_id"], set()).add(d["item_id"])
+    assert by_user[USER] == {"kit_alfa", "licenca_gamma"}
+    assert by_user[USER2] == {"kit_alfa", "licenca_gamma"}
+    # Âmbares: pool 100 ÷ 2 = 50 cada
+    wins = lottery_db.execute(
+        text("SELECT steam_id, prize_amber FROM lottery_winners WHERE campaign_id = :c ORDER BY winning_number"),
+        {"c": cid},
+    ).fetchall()
+    assert len(wins) == 2
+    assert {int(w[1]) for w in wins} == {50}

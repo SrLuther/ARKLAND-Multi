@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.24] - 2026-07-12
+
+### Fix
+
+- Fix (Web Store / Sorteio): editor de campanha lista automaticamente kits e licenças do catálogo CustomShop (checkboxes via `GET /api/admin/lottery/prize-options`); corrige dropdown vazio por IDs duplicados no `<select>`; cada ganhador recebe 1× de cada prémio extra seleccionado + parcela de Âmbares; entrega automática no draw.
+
 ## [1.10.23] - 2026-07-12
 
 ### Feature
