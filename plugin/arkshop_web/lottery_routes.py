@@ -24,6 +24,7 @@ from lottery_service import (
     get_number_grid,
     get_participants_public,
     get_player_me,
+    get_prize_options,
     get_public_current,
     list_campaigns_admin,
     lottery_meta,
@@ -353,6 +354,13 @@ def register_lottery_routes(
         finally:
             db.close()
 
+    @app.route("/api/admin/lottery/prize-options", methods=["GET"])
+    @admin_required
+    def lottery_admin_prize_options():
+        """Kits e licenças disponíveis como prémios de catálogo do sorteio."""
+        opts = get_prize_options()
+        return jsonify({"ok": True, **opts})
+
     @app.route("/api/admin/lottery/campaigns", methods=["POST"])
     @admin_required
     def lottery_admin_create():
@@ -366,6 +374,9 @@ def register_lottery_routes(
             )
             db.commit()
             return jsonify({"ok": True, "campaign": camp})
+        except ValueError as exc:
+            db.rollback()
+            return jsonify({"ok": False, "error": str(exc)}), 400
         finally:
             db.close()
 

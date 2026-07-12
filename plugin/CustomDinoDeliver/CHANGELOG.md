@@ -8,6 +8,12 @@ A UI «Versões esperadas» (Dino Lab) lê `PluginInfo.json` embutido no app (`V
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.12] - 2026-07-11
+
+### Fix
+
+- DinoHttpClient: `WinHttpSetTimeouts` (5s/5s/8s/8s) — limita bloqueio síncrono no game thread se a API estiver lenta/indisponível (mitigação HangWatcher ASE).
+
 ## [1.10.11] - 2026-07-11
 
 ### Fix

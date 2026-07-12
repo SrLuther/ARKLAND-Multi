@@ -22,8 +22,7 @@
 namespace {
 
 constexpr int kPendingPollSeconds = 60;
-
-int g_tribe_sync_poll_ticks = 0;
+constexpr int kTribeSyncPollSeconds = 180;
 
 void PollPendingForOnlinePlayers() {
     const auto& pcs =
@@ -31,12 +30,6 @@ void PollPendingForOnlinePlayers() {
     for (TWeakObjectPtr<APlayerController> wpc : pcs) {
         auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
         if (sc) CustomShop::HttpClient::DeliverPending(sc);
-    }
-    // A cada ~3 min: reenvia presença (jogadores já online / tribo atrasada).
-    ++g_tribe_sync_poll_ticks;
-    if (g_tribe_sync_poll_ticks >= 3) {
-        g_tribe_sync_poll_ticks = 0;
-        CustomShop::TribeSync::SyncAllOnlinePlayers();
     }
 }
 
@@ -46,6 +39,15 @@ void SchedulePendingPoll() {
             PollPendingForOnlinePlayers();
         SchedulePendingPoll();
     }, kPendingPollSeconds);
+}
+
+// Separado do DeliverPending: não empilhar N delivers + N TribeSync POSTs no mesmo tick.
+void ScheduleTribeSyncPoll() {
+    API::Timer::Get().DelayExecute([]() {
+        if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready)
+            CustomShop::TribeSync::SyncAllOnlinePlayers();
+        ScheduleTribeSyncPoll();
+    }, kTribeSyncPollSeconds);
 }
 
 } // anonymous namespace
@@ -66,6 +68,7 @@ void Hook_AShooterGameMode_BeginPlay(AShooterGameMode* _this) {
     }
 
     SchedulePendingPoll();
+    ScheduleTribeSyncPoll();
 }
 
 DECLARE_HOOK(AShooterGameMode_HandleNewPlayer, bool,
@@ -95,7 +98,9 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
         CustomShop::HttpClient::DeliverPending(raw_ctrl);
     }, 8);
 
-    // Tribe data pode ainda não estar pronto no tick do login — várias tentativas.
+    // TribeSync é independente de CrossChat.Enabled — presença Minha Tribo.
+    Log::GetLog()->info(
+        "HandleNewPlayer: TribeSync schedule steam_id='{}'", steam_id);
     CustomShop::TribeSync::ScheduleSyncAfterLogin(raw_ctrl);
 
     return result;
@@ -158,14 +163,24 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
             CustomShop::Data::InitPlayer(sc);
         }
         SchedulePendingPoll();
+        ScheduleTribeSyncPoll();
     }
 
-    Log::GetLog()->info(
-        "CustomShop v{} ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem, cross_chat={})",
-        ARKLAND_PLUGIN_VERSION,
-        CustomShop::ShopConfig::Get().ShopName(),
-        CustomShop::ShopConfig::Get().WebApiUrl(),
-        CustomShop::ShopConfig::Get().CrossChat().value("Enabled", false) ? "on" : "off");
+    {
+        const auto& settings = CustomShop::ShopConfig::Get().Settings();
+        const std::string settings_sid = settings.value("ServerId", "");
+        const std::string cc_sid =
+            CustomShop::ShopConfig::Get().CrossChat().value("ServerId", "");
+        Log::GetLog()->info(
+            "CustomShop v{} ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem, "
+            "cross_chat={}, Settings.ServerId='{}', CrossChat.ServerId='{}')",
+            ARKLAND_PLUGIN_VERSION,
+            CustomShop::ShopConfig::Get().ShopName(),
+            CustomShop::ShopConfig::Get().WebApiUrl(),
+            CustomShop::ShopConfig::Get().CrossChat().value("Enabled", false) ? "on" : "off",
+            settings_sid.empty() ? "(vazio)" : settings_sid,
+            cc_sid.empty() ? "(vazio)" : cc_sid);
+    }
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {

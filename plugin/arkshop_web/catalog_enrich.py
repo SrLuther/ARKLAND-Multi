@@ -1,12 +1,21 @@
 """Enriquecimento do catálogo público da Web Store (thumbnails, busca, metadados)."""
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from ark_species_registry import lookup_species, tier_icon_url
 from resource_icon_registry import resolve_resource_icon
+
+_WEB_DIR = Path(__file__).resolve().parent
+_ITENSALFA_DESC_CANDIDATES = (
+    _WEB_DIR / "data" / "itensalfa_kit_descriptions.json",
+    _WEB_DIR.parents[1] / "tools" / "itensalfa_kit_descriptions.json",
+)
 
 CATEGORY_ICONS: dict[str, str] = {
     "ferramentas": "/catalog/tool.svg",
@@ -249,44 +258,195 @@ def _kit_item_label(item: dict[str, Any]) -> str:
     return "Item"
 
 
+@lru_cache(maxsize=1)
+def _load_itensalfa_kit_descriptions() -> dict[str, Any]:
+    for path in _ITENSALFA_DESC_CANDIDATES:
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("by_blueprint"), dict):
+                return data
+        except Exception:
+            continue
+    return {"by_blueprint": {}, "status_by_tier": {}}
+
+
+def _lookup_itensalfa_meta(blueprint: str) -> dict[str, Any] | None:
+    bp = (blueprint or "").strip()
+    if not bp:
+        return None
+    by_bp = _load_itensalfa_kit_descriptions().get("by_blueprint") or {}
+    meta = by_bp.get(bp)
+    if isinstance(meta, dict):
+        return meta
+    # Fallback: caminho sem sufixo .ClassName duplicado
+    if "." in bp:
+        alt = bp.split(".")[0]
+        for key, val in by_bp.items():
+            if isinstance(val, dict) and (key == alt or key.startswith(alt + ".")):
+                return val
+    return None
+
+
+def _components_meta_map(entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Indexa ComponentsMeta do config por blueprint (ou índice numérico como str)."""
+    raw = entry.get("ComponentsMeta") or entry.get("components_meta")
+    out: dict[str, dict[str, Any]] = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            if isinstance(v, dict):
+                out[str(k).strip()] = v
+        return out
+    if isinstance(raw, list):
+        for idx, v in enumerate(raw):
+            if not isinstance(v, dict):
+                continue
+            bp = str(v.get("Blueprint") or v.get("blueprint") or "").strip()
+            if bp:
+                out[bp] = v
+            out[str(idx)] = v
+    return out
+
+
+def _component_characteristics(
+    raw: dict[str, Any],
+    *,
+    index: int,
+    meta_map: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Características por componente: config > ComponentsMeta > planilha ItensAlfa."""
+    bp = str(raw.get("Blueprint") or "").strip()
+    extras: dict[str, Any] = {}
+
+    sheet = _lookup_itensalfa_meta(bp) if bp else None
+    if sheet:
+        extras.update({
+            "kind": sheet.get("kind"),
+            "tier": sheet.get("tier"),
+            "stats": sheet.get("stats") or {},
+            "materials": sheet.get("materials") or [],
+            "materials_text": sheet.get("materials_text") or "",
+            "summary": sheet.get("summary") or "",
+        })
+        if sheet.get("name"):
+            extras["name"] = sheet["name"]
+
+    cfg_meta = meta_map.get(bp) or meta_map.get(str(index)) or {}
+    if cfg_meta:
+        for field in ("kind", "tier", "summary", "materials_text", "name", "characteristics"):
+            val = cfg_meta.get(field) or cfg_meta.get(field.capitalize())
+            if val:
+                extras[field if field != "characteristics" else "characteristics"] = val
+        if isinstance(cfg_meta.get("materials"), list):
+            extras["materials"] = cfg_meta["materials"]
+        if isinstance(cfg_meta.get("stats"), dict):
+            extras["stats"] = cfg_meta["stats"]
+
+    for field in ("Characteristics", "characteristics", "ItemDescription", "item_description"):
+        val = str(raw.get(field) or "").strip()
+        if val:
+            extras["characteristics"] = val
+            break
+
+    manual_name = str(raw.get("Name") or raw.get("name") or "").strip()
+    if manual_name:
+        extras["name"] = manual_name
+
+    if not extras.get("characteristics"):
+        # Monta texto legível a partir de summary / materiais / stats
+        parts: list[str] = []
+        if extras.get("summary"):
+            parts.append(str(extras["summary"]))
+        elif extras.get("materials_text"):
+            kind_pt = {
+                "armor": "Armadura",
+                "weapon": "Arma",
+                "tool": "Ferramenta",
+                "saddle": "Sela",
+            }.get(str(extras.get("kind") or ""), "")
+            tier = extras.get("tier") or ""
+            head = " ".join(p for p in (kind_pt, tier) if p).strip()
+            if head:
+                parts.append(f"{head} · Craft: {extras['materials_text']}")
+            else:
+                parts.append(f"Craft: {extras['materials_text']}")
+        if parts:
+            extras["characteristics"] = parts[0]
+
+    # Estrutura pronta mesmo sem dados (kits não-ItensAlfa)
+    extras.setdefault("kind", None)
+    extras.setdefault("tier", None)
+    extras.setdefault("stats", {})
+    extras.setdefault("materials", [])
+    extras.setdefault("materials_text", "")
+    extras.setdefault("summary", "")
+    extras.setdefault("characteristics", "")
+    return extras
+
+
 def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(entry, dict):
         return {}
 
     desc = str(entry.get("Description") or entry.get("description") or key).strip()
+    kit_description = str(
+        entry.get("KitDescription")
+        or entry.get("kit_description")
+        or ""
+    ).strip()
     price = int(entry.get("Price") or entry.get("price") or 0)
     raw_items = entry.get("Items") or []
+    meta_map = _components_meta_map(entry)
     kit_contents: list[dict[str, Any]] = []
     if isinstance(raw_items, list):
-        for raw in raw_items[:80]:
+        for idx, raw in enumerate(raw_items[:80]):
             if not isinstance(raw, dict):
                 continue
-            kit_contents.append({
-                "label": _kit_item_label(raw),
+            char = _component_characteristics(raw, index=idx, meta_map=meta_map)
+            label = char.get("name") or _kit_item_label(raw)
+            content: dict[str, Any] = {
+                "label": label,
                 "blueprint": str(raw.get("Blueprint") or "").strip(),
                 "amount": int(raw.get("Amount") or raw.get("Quantity") or 1),
-            })
+                "kind": char.get("kind"),
+                "tier": char.get("tier"),
+                "stats": char.get("stats") or {},
+                "materials": char.get("materials") or [],
+                "materials_text": char.get("materials_text") or "",
+                "summary": char.get("summary") or "",
+                "characteristics": char.get("characteristics") or "",
+            }
+            kit_contents.append(content)
 
     item_count = len(raw_items) if isinstance(raw_items, list) else 0
     tier = _kit_price_tier(price)
     thumbnail_url = tier_icon_url(tier)
 
-    search_text = _build_search_text(
+    search_bits = [
         key,
         desc,
+        kit_description,
         "kit",
         str(item_count),
         " ".join(c["label"] for c in kit_contents[:12]),
-    )
+        " ".join(
+            str(c.get("characteristics") or c.get("summary") or "")
+            for c in kit_contents[:12]
+        ),
+    ]
+    search_text = _build_search_text(*search_bits)
 
-    return {
+    out: dict[str, Any] = {
         "display_category": "Kit",
         "thumbnail_url": thumbnail_url,
         "search_text": search_text,
         "item_count": item_count,
         "kit_contents": kit_contents,
         "tier": tier,
+        "kit_description": kit_description,
     }
+    return out
 
 
 def enrich_catalog_payload(

@@ -7,6 +7,7 @@
 #include <Timer.h>
 #include <algorithm>
 #include <cctype>
+#include <memory>
 #include <string>
 
 namespace CustomShop {
@@ -56,12 +57,33 @@ bool IsPlaceholderServerId(const std::string& id) {
     return lower.empty() || lower == "unknown" || lower == "server";
 }
 
+std::string CurrentMapName() {
+    try {
+        const auto& utils = ArkApi::GetApiUtils();
+        if (utils.GetStatus() != ArkApi::ServerStatus::Ready)
+            return "";
+        AShooterGameMode* gm = utils.GetShooterGameMode();
+        if (!gm) return "";
+        FString map_name;
+        gm->GetMapName(&map_name);
+        return SanitizeAscii(map_name.ToString());
+    } catch (...) {
+        return "";
+    }
+}
+
+/// ServerId independente de CrossChat.Enabled — TribeSync precisa do ID do mapa
+/// mesmo com chat cluster off (plugin de terceiros).
 std::string ResolveServerId() {
     const auto& settings = ShopConfig::Get().Settings();
     std::string id = SanitizeAscii(settings.value("ServerId", ""));
     if (!IsPlaceholderServerId(id)) return id;
 
+    // CrossChat.ServerId continua a ser a fonte TEK por mapa (mesmo Enabled=false).
     id = SanitizeAscii(ShopConfig::Get().CrossChat().value("ServerId", ""));
+    if (!IsPlaceholderServerId(id)) return id;
+
+    id = CurrentMapName();
     if (!IsPlaceholderServerId(id)) return id;
 
     return "unknown";
@@ -125,24 +147,33 @@ bool ResponseLooksOk(const std::string& resp) {
         && resp.find("\"ok\": false") == std::string::npos;
 }
 
-bool PlayerStillOnline(AShooterPlayerController* player) {
-    if (!player) return false;
+AShooterPlayerController* ResolveOnlinePlayer(
+    AShooterPlayerController* preferred,
+    const std::string& steam_id) {
+    if (!steam_id.empty()) {
+        if (AShooterPlayerController* by_sid = Bridge::FindPlayer(steam_id))
+            return by_sid;
+    }
+    if (!preferred) return nullptr;
     try {
         const auto& pcs =
             ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
         for (TWeakObjectPtr<APlayerController> wpc : pcs) {
-            if (static_cast<AShooterPlayerController*>(wpc.Get()) == player)
-                return true;
+            if (static_cast<AShooterPlayerController*>(wpc.Get()) == preferred)
+                return preferred;
         }
     } catch (...) {
     }
-    return false;
+    return nullptr;
 }
 
 } // namespace
 
 bool SyncPlayer(AShooterPlayerController* player) {
-    if (!player) return false;
+    if (!player) {
+        Log::GetLog()->warn("TribeSync: player null — skip");
+        return false;
+    }
 
     const std::string steam_id = Bridge::GetSteamId(player);
     if (steam_id.empty()) {
@@ -151,13 +182,19 @@ bool SyncPlayer(AShooterPlayerController* player) {
     }
 
     const std::string server_id = ResolveServerId();
-    if (IsPlaceholderServerId(server_id)) {
+    const bool server_id_ok = !IsPlaceholderServerId(server_id);
+    if (!server_id_ok) {
         Log::GetLog()->warn(
-            "TribeSync: ServerId ausente (Settings.ServerId / CrossChat.ServerId) "
+            "TribeSync: ServerId ausente (Settings.ServerId / CrossChat.ServerId / mapa) "
             "— presence com server_id=unknown (steam={}). "
-            "Sincronize CustomShop no TEK para gravar CrossChat.ServerId.",
+            "Sincronize CustomShop no TEK para gravar CrossChat.ServerId "
+            "(mesmo com CrossChat.Enabled=false).",
             steam_id);
     }
+
+    Log::GetLog()->info(
+        "TribeSync: tentativa steam={} server_id={} (ok={})",
+        steam_id, server_id, server_id_ok ? "yes" : "no");
 
     auto* ps = static_cast<AShooterPlayerState*>(player->PlayerStateField());
     if (!ps) {
@@ -191,6 +228,12 @@ bool SyncPlayer(AShooterPlayerController* player) {
     const std::string my_rank = RankNameFor(tribe, my_pdid);
     if (!is_owner && RankImpliesOwner(my_rank))
         is_owner = true;
+
+    Log::GetLog()->info(
+        "TribeSync: tribe steam={} tribe_id={} name='{}' is_owner={} rank='{}' "
+        "pdid={} owner_pdid={}",
+        steam_id, tribe_id, tribe_name, is_owner ? "yes" : "no", my_rank,
+        my_pdid, owner_pdid);
 
     nlohmann::json members = nlohmann::json::array();
     try {
@@ -283,18 +326,53 @@ bool SyncPlayer(AShooterPlayerController* player) {
 }
 
 void ScheduleSyncAfterLogin(AShooterPlayerController* player) {
-    if (!player) return;
+    if (!player) {
+        Log::GetLog()->warn("TribeSync: ScheduleSyncAfterLogin player null — skip");
+        return;
+    }
+
+    const std::string steam_id = Bridge::GetSteamId(player);
     // Tentativas escalonadas: a tribo ASE por vezes só está pronta >12s após login.
+    // Para no primeiro sucesso — evita 4 POSTs síncronos por login no game thread.
     static constexpr int kDelaysSec[] = {8, 20, 45, 90};
+    Log::GetLog()->info(
+        "TribeSync: agendado pós-login steam={} delays=8/20/45/90s server_id={}",
+        steam_id.empty() ? "(vazio)" : steam_id,
+        ResolveServerId());
+
+    auto done = std::make_shared<bool>(false);
     for (int delay : kDelaysSec) {
         AShooterPlayerController* raw = player;
-        API::Timer::Get().DelayExecute([raw, delay]() {
-            if (!PlayerStillOnline(raw)) return;
+        const std::string sid = steam_id;
+        API::Timer::Get().DelayExecute([raw, sid, delay, done]() {
+            if (*done) {
+                Log::GetLog()->info(
+                    "TribeSync: skip delay {}s — já sincronizado (steam={})",
+                    delay, sid.empty() ? "?" : sid);
+                return;
+            }
+            AShooterPlayerController* live = ResolveOnlinePlayer(raw, sid);
+            if (!live) {
+                Log::GetLog()->warn(
+                    "TribeSync: skip delay {}s — jogador offline / PC inválido "
+                    "(steam={})",
+                    delay, sid.empty() ? "?" : sid);
+                return;
+            }
             try {
-                if (SyncPlayer(raw)) {
+                Log::GetLog()->info(
+                    "TribeSync: executando delay {}s (steam={})",
+                    delay, sid.empty() ? "?" : sid);
+                if (SyncPlayer(live)) {
+                    *done = true;
                     Log::GetLog()->info(
                         "TribeSync: sync ok após {}s (steam={})",
-                        delay, Bridge::GetSteamId(raw));
+                        delay, Bridge::GetSteamId(live));
+                } else {
+                    Log::GetLog()->info(
+                        "TribeSync: delay {}s sem sucesso — próxima tentativa "
+                        "se agendada (steam={})",
+                        delay, sid.empty() ? "?" : sid);
                 }
             } catch (const std::exception& e) {
                 Log::GetLog()->error(
@@ -307,21 +385,39 @@ void ScheduleSyncAfterLogin(AShooterPlayerController* player) {
 }
 
 void SyncAllOnlinePlayers() {
+    // Um POST por tick (1s de intervalo) — N POSTs seguidos no mesmo callback
+    // bloqueavam o game thread o suficiente para o HangWatcher se a API atrasasse.
     try {
         const auto& pcs =
             ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
-        int n = 0;
+        int scheduled = 0;
         for (TWeakObjectPtr<APlayerController> wpc : pcs) {
             auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
             if (!sc) continue;
-            try {
-                if (SyncPlayer(sc)) ++n;
-            } catch (const std::exception& e) {
-                Log::GetLog()->warn("TribeSync online: {}", e.what());
-            } catch (...) {
-            }
+            AShooterPlayerController* raw = sc;
+            const std::string sid = Bridge::GetSteamId(sc);
+            const int delay_sec = scheduled;
+            ++scheduled;
+            API::Timer::Get().DelayExecute([raw, sid]() {
+                AShooterPlayerController* live = ResolveOnlinePlayer(raw, sid);
+                if (!live) {
+                    Log::GetLog()->warn(
+                        "TribeSync online: skip — offline (steam={})",
+                        sid.empty() ? "?" : sid);
+                    return;
+                }
+                try {
+                    SyncPlayer(live);
+                } catch (const std::exception& e) {
+                    Log::GetLog()->warn("TribeSync online: {}", e.what());
+                } catch (...) {
+                    Log::GetLog()->warn("TribeSync online: unknown error");
+                }
+            }, delay_sec);
         }
-        Log::GetLog()->info("TribeSync: SyncAllOnlinePlayers ok_count={}", n);
+        Log::GetLog()->info(
+            "TribeSync: SyncAllOnlinePlayers scheduled_count={} server_id={}",
+            scheduled, ResolveServerId());
     } catch (const std::exception& e) {
         Log::GetLog()->error("TribeSync: SyncAllOnlinePlayers failed: {}", e.what());
     }

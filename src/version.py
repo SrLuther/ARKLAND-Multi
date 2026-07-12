@@ -3,15 +3,40 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.22"
-BUILD_DATE: str = "2026-07-11"
+APP_VERSION: str = "1.10.23"
+BUILD_DATE: str = "2026-07-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
-        "version": "Unreleased",
-        "date": "",
-        "changes": [],
+        "version": "1.10.23",
+        "date": "2026-07-12",
+        "changes": [
+            "Feat (Web Store / Sorteio): prémios de catálogo — kits (kit_*) e licenças "
+            "(licenca_*/Type license) configuráveis na admin; cada titular recebe Âmbares + "
+            "pedidos na fila da loja (licença activa entitlement como compra).",
+            "Feat (Web Store / Sorteio): após COMPLETED o auto-chain cria o próximo sorteio em "
+            "DRAFT com janela de preparação de 24h (`starts_at`); só vira ACTIVE (venda de "
+            "números) depois — staff pode editar prémio, kits/licenças, título e datas; "
+            "auto-ativação no worker.",
+            "Fix (Web Store / Sorteio): relatório COMPLETED e página pública passam a mostrar "
+            "sempre números sorteados e vencedores; modal de resultado após o draw "
+            "(antes de/independente do próximo); `last_completed` + `upcoming` em "
+            "`/api/public/lottery/current`.",
+            "Feat (Web Store / Kits ItensAlfa): «o que inclui» — descrições e conteúdo dos kits "
+            "a partir de itensalfa_kit_descriptions.json no enrich do catálogo (cards e modal).",
+            "Fix (CustomShop / TribeSync): silêncio total no login — logs em cada tentativa/skip; "
+            "resolve PC por SteamID; ServerId independente de CrossChat.Enabled "
+            "(Settings.ServerId + CrossChat.ServerId + mapa); sync TEK grava ServerId "
+            "mesmo com chat off; painel deixa de apagar ServerId ao guardar CrossChat.",
+            "Fix (CustomShop / HangWatcher): WinHttpSetTimeouts no HttpClient; TribeSync poll "
+            "separado do DeliverPending; SyncAllOnlinePlayers 1 POST/s; retries login param no sucesso.",
+            "Fix (CustomDinoDeliver / HangWatcher): WinHttpSetTimeouts no DinoHttpClient "
+            "(mitiga bloqueio longo no game thread se a API não responder).",
+            "Bump (CustomShop): v1.10.9 → v1.10.10 — TribeSync logs + ServerId desacoplado.",
+            "Bump (CustomShop): v1.10.8 → v1.10.9 — HTTP timeouts + TribeSync não empilha no tick.",
+            "Bump (CustomDinoDeliver): v1.10.11 → v1.10.12 — HTTP timeouts.",
+        ],
     },
     {
         "version": "1.10.22",

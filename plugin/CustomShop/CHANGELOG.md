@@ -8,6 +8,21 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.10] - 2026-07-11
+
+### Fix
+
+- TribeSync: silêncio total no login — logs em **cada** tentativa/skip (offline, sem tribo, sem ServerId, HTTP fail); resolve jogador por SteamID (não só ponteiro); agenda log imediato no HandleNewPlayer.
+- TribeSync: `ServerId` independente de `CrossChat.Enabled` — lê `Settings.ServerId` → `CrossChat.ServerId` → nome do mapa ASE; fallback explícito com aviso.
+- Confirmado: CrossChat off **não** desactiva TribeSync (nunca esteve acoplado no C++; o problema era config sem ServerId + skips sem log).
+
+## [1.10.9] - 2026-07-11
+
+### Fix
+
+- HttpClient: `WinHttpSetTimeouts` (5s/5s/8s/8s) — evita hang longo no game thread se a API não responder (HangWatcher ASE).
+- TribeSync: poll separado do DeliverPending; `SyncAllOnlinePlayers` agenda 1 POST/s; retries pós-login param no primeiro sucesso.
+
 ## [1.10.8] - 2026-07-11
 
 ### Fix

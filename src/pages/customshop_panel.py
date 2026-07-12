@@ -641,11 +641,18 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
 
         if _ccv:
             cc_out = data.setdefault("CrossChat", {})
+            # Preservar ServerId do catálogo (se existir) — o sync por mapa
+            # redefine CrossChat.ServerId / Settings.ServerId; não apagar aqui
+            # para não deixar configs sem ID entre saves do painel e o sync.
+            preserved_sid = str(cc_out.get("ServerId") or "").strip()
             cc_out.clear()
             cc_out["_comment"] = (
-                "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros."
+                "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros. "
+                "ServerId por mapa é gravado no sync (TribeSync / Minha Tribo)."
             )
             cc_out["Enabled"] = False
+            if preserved_sid:
+                cc_out["ServerId"] = preserved_sid
 
         if _dbv:
             db_out = data.setdefault("Database", {})

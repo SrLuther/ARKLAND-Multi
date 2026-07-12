@@ -13,6 +13,7 @@ bool SyncPlayer(AShooterPlayerController* player);
 void ScheduleSyncAfterLogin(AShooterPlayerController* player);
 
 /// Sincroniza todos os jogadores online (poll / Shop.Reload / Shop.TribeSync).
+/// Agenda um POST por segundo (não bloqueia N pedidos no mesmo tick).
 void SyncAllOnlinePlayers();
 
 } // namespace TribeSync

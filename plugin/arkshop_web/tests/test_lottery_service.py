@@ -12,6 +12,7 @@ import app as _app_module
 from lottery_draw import compute_prize_split
 from lottery_service import (
     FIXED_NUMBER_CHANGE_COST,
+    CHAIN_PREP_HOURS,
     buy_random_number,
     change_fixed_lottery_number,
     configure_lottery,
@@ -25,9 +26,11 @@ from lottery_service import (
     get_player_me,
     get_public_current,
     on_donation_credited,
+    process_due_activations,
     publish_campaign,
     reserve_number,
     run_draw,
+    update_campaign,
 )
 
 USER = "76561198000000001"
@@ -275,6 +278,113 @@ def test_admin_report_stats_and_nicknames(lottery_db):
     assert by_sid[USER2]["steam_nickname"] == "SecondPlayer"
     assert len(by_sid[USER]["numbers"]) == 2
     assert len(by_sid[USER2]["numbers"]) == 1
+    assert report.get("draw_results") is None
+
+
+def test_admin_report_shows_winning_numbers_when_completed(lottery_db, monkeypatch):
+    cid = _active_campaign(lottery_db, base=100, w=1, draw_past=True)
+    lottery_db.execute(
+        text(
+            "INSERT INTO store_users (steam_id, market_display_name) VALUES (:s, 'WinnerNick')"
+        ),
+        {"s": USER},
+    )
+    lottery_db.execute(
+        text(
+            "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status) "
+            "VALUES (:c, :s, 'DONATION', 333, 'ACTIVE')"
+        ),
+        {"c": cid, "s": USER},
+    )
+    lottery_db.commit()
+
+    def _fixed_draw(*args, **kwargs):
+        return [333], {"seed_hash": "t", "algorithm_version": "t", "drawn_at": "now", "method": "t"}
+
+    monkeypatch.setattr("lottery_service.draw_winning_numbers", _fixed_draw)
+    run_draw(lottery_db, cid, job_id="report-draw")
+    lottery_db.commit()
+    report = get_campaign_admin_report(lottery_db, cid)
+    assert report["campaign"]["status"] == "COMPLETED"
+    dr = report["draw_results"]
+    assert dr is not None
+    assert dr["winning_numbers"] == [333]
+    assert dr["matched_count"] == 1
+    assert len(dr["winners"]) == 1
+    assert dr["winners"][0]["steam_id"] == USER
+    assert dr["winners"][0]["steam_nickname"] == "WinnerNick"
+    assert dr["winners"][0]["winning_number"] == 333
+
+
+def test_auto_chain_creates_draft_with_24h_prep(lottery_db):
+    cid = _active_campaign(lottery_db, base=100, w=1, draw_past=True)
+    result = run_draw(lottery_db, cid, job_id="chain-draft")
+    lottery_db.commit()
+    assert result["next_campaign_id"] is not None
+    next_id = int(result["next_campaign_id"])
+    row = lottery_db.execute(
+        text("SELECT status, starts_at, previous_campaign_id FROM lottery_campaigns WHERE id = :id"),
+        {"id": next_id},
+    ).fetchone()
+    assert str(row.status) == "DRAFT"
+    assert int(row.previous_campaign_id) == cid
+    starts = row.starts_at
+    if isinstance(starts, str):
+        starts = datetime.fromisoformat(starts.replace("Z", "+00:00"))
+    if starts.tzinfo is None:
+        starts = starts.replace(tzinfo=timezone.utc)
+    delta_h = (starts - datetime.now(timezone.utc)).total_seconds() / 3600
+    assert 23.0 <= delta_h <= float(CHAIN_PREP_HOURS) + 0.1
+    assert get_active_campaign(lottery_db) is None
+    pub = get_public_current(lottery_db)
+    assert pub["campaign"] is None
+    assert pub["upcoming"] is not None
+    assert pub["upcoming"]["id"] == next_id
+    assert pub["upcoming"]["status"] == "DRAFT"
+    assert pub["upcoming"]["seconds_until_start"] > 0
+    assert pub["last_completed"] is not None
+    assert pub["last_completed"]["campaign_id"] == cid
+    assert "winning_numbers" in pub["last_completed"]
+
+
+def test_update_draft_during_prep_window(lottery_db):
+    cid = _active_campaign(lottery_db, base=100, w=1, draw_past=True)
+    result = run_draw(lottery_db, cid, job_id="edit-draft")
+    lottery_db.commit()
+    next_id = int(result["next_campaign_id"])
+    new_draw = datetime.now(timezone.utc) + timedelta(days=10)
+    updated = update_campaign(
+        lottery_db,
+        next_id,
+        {
+            "title": "Sorteio Editado Staff",
+            "prize_amber_base": 7777,
+            "draw_at": new_draw.isoformat(),
+        },
+    )
+    lottery_db.commit()
+    assert updated["title"] == "Sorteio Editado Staff"
+    assert updated["prize_amber_base"] == 7777
+    assert updated["status"] == "DRAFT"
+
+
+def test_process_due_activations_opens_after_starts_at(lottery_db):
+    cid = _active_campaign(lottery_db, base=100, w=1, draw_past=True)
+    result = run_draw(lottery_db, cid, job_id="activate-later")
+    lottery_db.commit()
+    next_id = int(result["next_campaign_id"])
+    past = datetime.now(timezone.utc) - timedelta(minutes=1)
+    lottery_db.execute(
+        text("UPDATE lottery_campaigns SET starts_at = :s WHERE id = :id"),
+        {"s": past.replace(tzinfo=None), "id": next_id},
+    )
+    lottery_db.commit()
+    n = process_due_activations(lottery_db)
+    assert n == 1
+    active = get_active_campaign(lottery_db)
+    assert active is not None
+    assert int(active.id) == next_id
+    assert str(active.status) == "ACTIVE"
 
 
 def test_buy_random_limit(lottery_db):
@@ -761,3 +871,163 @@ def test_change_fixed_number_insufficient_balance(lottery_db):
     lottery_db.commit()
     with pytest.raises(ValueError, match="insufficient_balance"):
         change_fixed_lottery_number(lottery_db, USER, 777)
+
+
+def test_normalize_catalog_prizes_kit_and_license():
+    from lottery_service import normalize_catalog_prizes
+
+    def _resolve(kind, item_id):
+        if kind == "kit" and item_id == "kit_alfa":
+            return {"item_id": "kit_alfa", "label": "Kit Alfa"}
+        if kind == "license" and item_id == "licenca_gamma":
+            return {"item_id": "licenca_gamma", "label": "Licença Gamma"}
+        return None
+
+    import lottery_service as ls
+    prev = ls._resolve_catalog_prize_fn
+    ls._resolve_catalog_prize_fn = _resolve
+    try:
+        out = normalize_catalog_prizes([
+            {"kind": "kit", "item_id": "kit_alfa", "amount": 2},
+            {"type": "license", "item_id": "licenca_gamma"},
+        ])
+        assert len(out) == 2
+        assert out[0] == {"kind": "kit", "item_id": "kit_alfa", "amount": 2, "label": "Kit Alfa"}
+        assert out[1]["kind"] == "license"
+        assert out[1]["item_id"] == "licenca_gamma"
+        assert out[1]["amount"] == 1
+    finally:
+        ls._resolve_catalog_prize_fn = prev
+
+
+def test_normalize_catalog_prizes_rejects_unknown_kind():
+    from lottery_service import normalize_catalog_prizes
+
+    with pytest.raises(ValueError, match="unsupported_prize_kind"):
+        normalize_catalog_prizes([{"kind": "dino", "item_id": "rex"}], resolve=False)
+
+
+def test_create_campaign_with_catalog_prizes(lottery_db, monkeypatch):
+    import lottery_service as ls
+
+    monkeypatch.setattr(
+        ls,
+        "_resolve_catalog_prize_fn",
+        lambda kind, item_id: {"item_id": item_id, "label": item_id} if item_id else None,
+    )
+    camp = create_campaign_draft(
+        lottery_db,
+        data={
+            "title": "Sorteio com kit",
+            "prize_amber_base": 1000,
+            "prize_catalog": [
+                {"kind": "kit", "item_id": "kit_starter", "amount": 1},
+                {"kind": "license", "item_id": "licenca_gamma", "amount": 1},
+            ],
+        },
+    )
+    lottery_db.commit()
+    assert len(camp["prize_catalog"]) == 2
+    assert camp["prize_catalog"][0]["kind"] == "kit"
+    assert camp["prize_catalog"][1]["kind"] == "license"
+    row = lottery_db.execute(
+        text("SELECT prize_catalog_json FROM lottery_campaigns WHERE id = :id"),
+        {"id": camp["id"]},
+    ).fetchone()
+    assert "kit_starter" in str(row[0])
+
+
+def test_draw_delivers_catalog_prizes_to_winner(lottery_db, monkeypatch):
+    import lottery_service as ls
+
+    delivered: list[dict] = []
+
+    def _resolve(kind, item_id):
+        return {"item_id": item_id, "label": item_id, "kind": kind}
+
+    def _deliver(db, steam_id, prize, *, campaign_id, winning_number):
+        delivered.append({
+            "steam_id": steam_id,
+            "prize": dict(prize),
+            "campaign_id": campaign_id,
+            "winning_number": winning_number,
+        })
+        out = {"order_id": f"ord-{prize['item_id']}", "item_id": prize["item_id"], "kind": prize["kind"]}
+        if prize["kind"] == "license":
+            out["license_group"] = "Gamma"
+            out["license_days"] = 30
+        return out
+
+    monkeypatch.setattr(ls, "_resolve_catalog_prize_fn", _resolve)
+    monkeypatch.setattr(ls, "_deliver_catalog_prize_fn", _deliver)
+    monkeypatch.setattr(ls, "_sync_license_permissions_fn", lambda *a, **k: None)
+
+    camp = create_campaign_draft(
+        lottery_db,
+        data={
+            "prize_amber_base": 50,
+            "winning_numbers_count": 1,
+            "draw_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+            "starts_at": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+            "prize_catalog": [
+                {"kind": "kit", "item_id": "kit_alfa"},
+                {"kind": "license", "item_id": "licenca_gamma"},
+            ],
+        },
+    )
+    publish_campaign(lottery_db, int(camp["id"]))
+    cid = int(camp["id"])
+    lottery_db.execute(
+        text(
+            "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status) "
+            "VALUES (:c, :s, 'DONATION', 333, 'ACTIVE')"
+        ),
+        {"c": cid, "s": USER},
+    )
+    lottery_db.commit()
+
+    def _fixed_draw(*args, **kwargs):
+        return [333], {"seed_hash": "test", "algorithm_version": "test", "drawn_at": "now", "method": "test"}
+
+    monkeypatch.setattr("lottery_service.draw_winning_numbers", _fixed_draw)
+    result = run_draw(lottery_db, cid, job_id="test-catalog")
+    lottery_db.commit()
+
+    assert result["matched_count"] == 1
+    assert len(result["prize_catalog"]) == 2
+    assert len(delivered) == 2
+    assert {d["prize"]["item_id"] for d in delivered} == {"kit_alfa", "licenca_gamma"}
+    assert all(d["steam_id"] == USER for d in delivered)
+
+    win = lottery_db.execute(
+        text("SELECT catalog_orders_json, prize_amber FROM lottery_winners WHERE campaign_id = :c"),
+        {"c": cid},
+    ).fetchone()
+    assert int(win[1]) == 50
+    orders = json.loads(str(win[0]))
+    assert len(orders) == 2
+    assert orders[0]["order_id"]
+
+
+def test_draw_without_catalog_prizes_unchanged(lottery_db, monkeypatch):
+    """Campanhas só com Âmbares continuam a funcionar (sem deliver_fn)."""
+    cid = _active_campaign(lottery_db, base=100, w=1, draw_past=True)
+    lottery_db.execute(
+        text(
+            "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status) "
+            "VALUES (:c, :s, 'DONATION', 200, 'ACTIVE')"
+        ),
+        {"c": cid, "s": USER},
+    )
+    lottery_db.commit()
+
+    def _fixed_draw(*args, **kwargs):
+        return [200], {"seed_hash": "t", "algorithm_version": "t", "drawn_at": "now", "method": "t"}
+
+    monkeypatch.setattr("lottery_service.draw_winning_numbers", _fixed_draw)
+    result = run_draw(lottery_db, cid, job_id="amber-only")
+    lottery_db.commit()
+    assert result["matched_count"] == 1
+    assert result.get("prize_catalog") == []
+    pts = lottery_db.execute(text("SELECT points FROM players WHERE steam_id = :s"), {"s": USER}).fetchone()
+    assert int(pts[0]) == 100

@@ -38,21 +38,32 @@ NUMBER_SOURCES = frozenset({"DONATION", "AMBER_RANDOM", "AMBER_RESERVE", "FIXED_
 LOTTERY_REGULAMENTO_VERSION = "1.5"
 FIXED_NUMBER_CHANGE_COST = 5000
 CONFIRMATION_DEADLINE_HOURS = 2
+# Após COMPLETED: próximo sorteio (auto-chain) nasce DRAFT e só vira ACTIVE após esta janela.
+CHAIN_PREP_HOURS = 24
 DONATION_AMBER_PER_REAL = 100  # R$ 1 doado = +100 Âmbares no prêmio total do sorteio
 RULES_SUMMARY = (
     "R$ 5 = 1 número · cada real doado soma +100 Âmbares ao prêmio · "
     "compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · "
     "número fixo gratuito (confirme em Minha Área) · troca de número fixo 5.000 Âmbares · "
-    "até 5 sorteados · prêmio dividido igualmente entre titulares dos sorteados."
+    "até 5 sorteados · prêmio (Âmbares + kits/licenças opcionais) dividido entre titulares."
 )
 TZ_LABEL = "Horário de Brasília (UTC-3)"
 TZ_OFFSET = timezone(timedelta(hours=-3))
 _MAX_RANDOM_ATTEMPTS = 50
+ALLOWED_CATALOG_PRIZE_KINDS = frozenset({"kit", "license"})
+MAX_CATALOG_PRIZES = 10
 
 _credit_fn: Callable[[Session, str, int], int] | None = None
 _debit_fn: Callable[[Session, str, int], int] | None = None
 _settings_fn: Callable[[], dict[str, Any]] | None = None
 _save_settings_fn: Callable[[dict[str, Any]], None] | None = None
+# resolve(kind, item_id) -> {item_id, label, ...} ou None se inválido
+_resolve_catalog_prize_fn: Callable[[str, str], dict[str, Any] | None] | None = None
+# deliver(db, steam_id, prize, *, campaign_id, winning_number) -> {order_id, ...}
+_deliver_catalog_prize_fn: Callable[..., dict[str, Any]] | None = None
+_prize_options_fn: Callable[[], dict[str, Any]] | None = None
+# pós-commit: sync Permissions de licenças [(steam_id, group, days), ...]
+_sync_license_permissions_fn: Callable[[str, str, int], Any] | None = None
 
 
 def configure_lottery(
@@ -61,12 +72,123 @@ def configure_lottery(
     debit_fn: Callable[[Session, str, int], int],
     settings_fn: Callable[[], dict[str, Any]] | None = None,
     save_settings_fn: Callable[[dict[str, Any]], None] | None = None,
+    resolve_catalog_prize_fn: Callable[[str, str], dict[str, Any] | None] | None = None,
+    deliver_catalog_prize_fn: Callable[..., dict[str, Any]] | None = None,
+    prize_options_fn: Callable[[], dict[str, Any]] | None = None,
+    sync_license_permissions_fn: Callable[[str, str, int], Any] | None = None,
 ) -> None:
     global _credit_fn, _debit_fn, _settings_fn, _save_settings_fn
+    global _resolve_catalog_prize_fn, _deliver_catalog_prize_fn, _prize_options_fn
+    global _sync_license_permissions_fn
     _credit_fn = credit_fn
     _debit_fn = debit_fn
     _settings_fn = settings_fn
     _save_settings_fn = save_settings_fn
+    _resolve_catalog_prize_fn = resolve_catalog_prize_fn
+    _deliver_catalog_prize_fn = deliver_catalog_prize_fn
+    _prize_options_fn = prize_options_fn
+    _sync_license_permissions_fn = sync_license_permissions_fn
+
+
+def get_prize_options() -> dict[str, Any]:
+    """Opções de kits/licenças para o admin configurar prémios de catálogo."""
+    if _prize_options_fn is None:
+        return {"kits": [], "licenses": []}
+    try:
+        raw = _prize_options_fn() or {}
+    except Exception as exc:
+        log.warning("lottery prize_options_fn: %s", exc)
+        return {"kits": [], "licenses": []}
+    return {
+        "kits": list(raw.get("kits") or []),
+        "licenses": list(raw.get("licenses") or []),
+    }
+
+
+def normalize_catalog_prizes(raw: Any, *, resolve: bool = True) -> list[dict[str, Any]]:
+    """Valida e normaliza prémios de catálogo (kits / licenças).
+
+    Formato aceite por item: {kind|type: 'kit'|'license', item_id, amount?}
+    """
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError("invalid_prize_catalog") from exc
+    if not isinstance(raw, list):
+        raise ValueError("invalid_prize_catalog")
+    if len(raw) > MAX_CATALOG_PRIZES:
+        raise ValueError("too_many_catalog_prizes")
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise ValueError("invalid_prize_catalog_entry")
+        kind = str(entry.get("kind") or entry.get("type") or "").strip().lower()
+        if kind in ("licenca", "licença", "licence"):
+            kind = "license"
+        if kind not in ALLOWED_CATALOG_PRIZE_KINDS:
+            raise ValueError("unsupported_prize_kind")
+        item_id = str(entry.get("item_id") or entry.get("id") or "").strip()
+        if not item_id:
+            raise ValueError("prize_item_id_required")
+        try:
+            amount = max(1, min(99, int(entry.get("amount") or 1)))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid_prize_amount") from exc
+        label = str(entry.get("label") or entry.get("display_name") or "").strip()
+        if resolve and _resolve_catalog_prize_fn is not None:
+            resolved = _resolve_catalog_prize_fn(kind, item_id)
+            if not resolved:
+                raise ValueError(f"prize_not_found:{kind}:{item_id}")
+            item_id = str(resolved.get("item_id") or item_id)
+            label = str(resolved.get("label") or label or item_id)
+        key = (kind, item_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "kind": kind,
+            "item_id": item_id,
+            "amount": amount,
+            "label": label or item_id,
+        })
+    return out
+
+
+def _parse_prize_catalog_row(row: Any) -> list[dict[str, Any]]:
+    raw = _row_val(row, "prize_catalog_json", None)
+    if raw is None or raw == "":
+        return []
+    try:
+        return normalize_catalog_prizes(raw, resolve=False)
+    except ValueError:
+        if isinstance(raw, str):
+            try:
+                data = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        else:
+            data = raw
+        if not isinstance(data, list):
+            return []
+        cleaned: list[dict[str, Any]] = []
+        for entry in data:
+            if not isinstance(entry, dict):
+                continue
+            kind = str(entry.get("kind") or "").strip().lower()
+            item_id = str(entry.get("item_id") or "").strip()
+            if kind not in ALLOWED_CATALOG_PRIZE_KINDS or not item_id:
+                continue
+            cleaned.append({
+                "kind": kind,
+                "item_id": item_id,
+                "amount": max(1, int(entry.get("amount") or 1)),
+                "label": str(entry.get("label") or item_id),
+            })
+        return cleaned
 
 
 def lottery_meta() -> dict[str, Any]:
@@ -192,6 +314,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               prize_pool_fully_distributed INTEGER NOT NULL DEFAULT 0,
               matched_winners_count INTEGER NOT NULL DEFAULT 0,
               prize_amber_rollover_out INTEGER NOT NULL DEFAULT 0,
+              prize_catalog_json TEXT NOT NULL DEFAULT '[]',
               amber_random_price INTEGER NOT NULL DEFAULT 1000,
               amber_reserve_price INTEGER NOT NULL DEFAULT 2000,
               amber_random_max_per_player INTEGER NOT NULL DEFAULT 5,
@@ -245,7 +368,8 @@ def ensure_lottery_schema(engine: Engine) -> None:
               share_per_match INTEGER NOT NULL,
               credited INTEGER NOT NULL DEFAULT 0,
               credited_at DATETIME NULL,
-              ledger_idempotency_key VARCHAR(128) NOT NULL
+              ledger_idempotency_key VARCHAR(128) NOT NULL,
+              catalog_orders_json TEXT NOT NULL DEFAULT '[]'
             )
             """,
             """
@@ -300,6 +424,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               prize_pool_fully_distributed TINYINT(1) NOT NULL DEFAULT 0,
               matched_winners_count TINYINT NOT NULL DEFAULT 0,
               prize_amber_rollover_out INT NOT NULL DEFAULT 0,
+              prize_catalog_json JSON NULL,
               amber_random_price INT NOT NULL DEFAULT 1000,
               amber_reserve_price INT NOT NULL DEFAULT 2000,
               amber_random_max_per_player TINYINT NOT NULL DEFAULT 5,
@@ -358,7 +483,8 @@ def ensure_lottery_schema(engine: Engine) -> None:
               share_per_match INT NOT NULL,
               credited TINYINT(1) NOT NULL DEFAULT 0,
               credited_at DATETIME(3) NULL,
-              ledger_idempotency_key VARCHAR(128) NOT NULL
+              ledger_idempotency_key VARCHAR(128) NOT NULL,
+              catalog_orders_json JSON NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
             """
@@ -709,6 +835,7 @@ def _migrate_lottery_columns(engine: Engine) -> None:
         "prize_pool_fully_distributed": "INTEGER NOT NULL DEFAULT 0",
         "matched_winners_count": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_rollover_out": "INTEGER NOT NULL DEFAULT 0",
+        "prize_catalog_json": "TEXT NULL",
         "amber_random_price": "INTEGER NOT NULL DEFAULT 1000",
         "amber_reserve_price": "INTEGER NOT NULL DEFAULT 2000",
         "amber_random_max_per_player": "INTEGER NOT NULL DEFAULT 5",
@@ -724,6 +851,9 @@ def _migrate_lottery_columns(engine: Engine) -> None:
         "assigned_at": "DATETIME NULL",
         "revoked_at": "DATETIME NULL",
         "revoke_reason": "VARCHAR(64) NULL",
+    }
+    winner_cols = {
+        "catalog_orders_json": "TEXT NULL",
     }
     with engine.connect() as conn:
         if is_sqlite:
@@ -741,6 +871,13 @@ def _migrate_lottery_columns(engine: Engine) -> None:
             for col, ddl in number_cols.items():
                 if col not in existing_num:
                     conn.execute(text(f"ALTER TABLE lottery_numbers ADD COLUMN {col} {ddl}"))
+            existing_win = {
+                str(r[1])
+                for r in conn.execute(text("PRAGMA table_info(lottery_winners)")).fetchall()
+            }
+            for col, ddl in winner_cols.items():
+                if col not in existing_win:
+                    conn.execute(text(f"ALTER TABLE lottery_winners ADD COLUMN {col} {ddl}"))
         else:
             for col, ddl in campaign_cols.items():
                 row = conn.execute(text(f"SHOW COLUMNS FROM lottery_campaigns LIKE '{col}'")).fetchone()
@@ -750,6 +887,10 @@ def _migrate_lottery_columns(engine: Engine) -> None:
                 row = conn.execute(text(f"SHOW COLUMNS FROM lottery_numbers LIKE '{col}'")).fetchone()
                 if row is None:
                     conn.execute(text(f"ALTER TABLE lottery_numbers ADD COLUMN {col} {ddl}"))
+            for col, ddl in winner_cols.items():
+                row = conn.execute(text(f"SHOW COLUMNS FROM lottery_winners LIKE '{col}'")).fetchone()
+                if row is None:
+                    conn.execute(text(f"ALTER TABLE lottery_winners ADD COLUMN {col} {ddl}"))
         conn.commit()
 
 
@@ -810,8 +951,12 @@ def _prize_total(row: Any) -> int:
 
 def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, Any]:
     draw = _parse_dt(_row_val(row, "draw_at"))
+    starts = _parse_dt(_row_val(row, "starts_at"))
     now = _utcnow()
     secs = max(0, int((draw - now).total_seconds())) if draw and draw > now else 0
+    secs_until_start = 0
+    if starts and starts > now:
+        secs_until_start = max(0, int((starts - now).total_seconds()))
     issued = 0
     participants = 0
     donated = 0.0
@@ -820,6 +965,8 @@ def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, A
         participants = _participant_count(db, int(_row_val(row, "id", 0)))
         donated = _total_donated_brl(db, int(_row_val(row, "id", 0)))
     status = str(_row_val(row, "status", ""))
+    prev_id = _row_val(row, "previous_campaign_id", None)
+    prep_window = status == "DRAFT" and secs_until_start > 0
     return {
         "id": int(_row_val(row, "id", 0)),
         "sequence_number": int(_row_val(row, "sequence_number", 0)),
@@ -827,6 +974,11 @@ def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, A
         "status": status,
         "draw_at_utc": _iso_utc(draw),
         "draw_at_display": _iso_display(draw),
+        "starts_at_utc": _iso_utc(starts),
+        "starts_at_display": _iso_display(starts),
+        "seconds_until_start": secs_until_start,
+        "prep_window": prep_window,
+        "previous_campaign_id": int(prev_id) if prev_id else None,
         "timezone_label": TZ_LABEL,
         "seconds_remaining": secs,
         "prize_amber_total": _prize_total(row),
@@ -834,6 +986,7 @@ def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, A
         "prize_amber_rollover_in": int(_row_val(row, "prize_amber_rollover_in", 0) or 0),
         "prize_amber_from_purchases": int(_row_val(row, "prize_amber_from_purchases", 0) or 0),
         "prize_amber_from_donations": int(_row_val(row, "prize_amber_from_donations", 0) or 0),
+        "prize_catalog": _parse_prize_catalog_row(row),
         "amber_random_price": int(_row_val(row, "amber_random_price", 1000) or 1000),
         "amber_reserve_price": int(_row_val(row, "amber_reserve_price", 2000) or 2000),
         "amber_random_max_per_player": int(_row_val(row, "amber_random_max_per_player", 5) or 5),
@@ -845,6 +998,7 @@ def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, A
         "regulamento_version": str(_row_val(row, "regulamento_version") or LOTTERY_REGULAMENTO_VERSION),
         "rules_summary": RULES_SUMMARY,
         "results_pending": status == "DRAWING",
+        "editable": status in ("DRAFT", "ACTIVE"),
     }
 
 
@@ -1218,15 +1372,91 @@ def reserve_number(db: Session, steam_id: str, number: int) -> dict[str, Any]:
     }
 
 
+def _last_completed_results_payload(db: Session, *, prefer_campaign_id: int | None = None) -> dict[str, Any] | None:
+    """Último sorteio COMPLETED com números sorteados/vencedores (para UI pós auto-chain)."""
+    camp_row = None
+    if prefer_campaign_id:
+        camp_row = _fetch_campaign_row(db, int(prefer_campaign_id))
+        if camp_row and str(_row_val(camp_row, "status", "")) != "COMPLETED":
+            camp_row = None
+    if camp_row is None:
+        order_col = (
+            "completed_at DESC, id DESC"
+            if _table_has_column(db, "lottery_campaigns", "completed_at")
+            else "id DESC"
+        )
+        camp_row = db.execute(
+            text(
+                f"SELECT * FROM lottery_campaigns WHERE status = 'COMPLETED' "
+                f"ORDER BY {order_col} LIMIT 1"
+            )
+        ).fetchone()
+    if not camp_row:
+        return None
+    cid = int(_row_val(camp_row, "id", 0))
+    try:
+        res = get_campaign_results(db, cid)
+    except ValueError:
+        return None
+    return {
+        **res,
+        "title": str(_row_val(camp_row, "title", "")),
+        "sequence_number": int(_row_val(camp_row, "sequence_number", 0) or 0),
+        "completed_at": _iso_display(_parse_dt(_row_val(camp_row, "completed_at"))),
+        "draw_at_display": _iso_display(_parse_dt(_row_val(camp_row, "draw_at"))),
+    }
+
+
+def get_scheduled_draft_campaign(db: Session) -> Any | None:
+    """Próxima campanha DRAFT (janela de preparação / agendada)."""
+    has_starts = _table_has_column(db, "lottery_campaigns", "starts_at")
+    if has_starts:
+        return db.execute(
+            text(
+                "SELECT * FROM lottery_campaigns WHERE status = 'DRAFT' "
+                "ORDER BY CASE WHEN starts_at IS NULL THEN 1 ELSE 0 END, "
+                "starts_at ASC, id ASC LIMIT 1"
+            )
+        ).fetchone()
+    return db.execute(
+        text(
+            "SELECT * FROM lottery_campaigns WHERE status = 'DRAFT' "
+            "ORDER BY id ASC LIMIT 1"
+        )
+    ).fetchone()
+
+
 def get_public_current(db: Session) -> dict[str, Any]:
     row = get_active_campaign(db)
     base = {
         "regulamento_version": LOTTERY_REGULAMENTO_VERSION,
         "regulamento_url": "/api/public/lottery/regulamento",
     }
+    prefer_prev = int(_row_val(row, "previous_campaign_id", 0) or 0) if row else None
+    upcoming_row = None if row else get_scheduled_draft_campaign(db)
+    if not prefer_prev and upcoming_row:
+        prefer_prev = int(_row_val(upcoming_row, "previous_campaign_id", 0) or 0) or None
+    last_completed = _last_completed_results_payload(
+        db, prefer_campaign_id=prefer_prev or None,
+    )
+    upcoming = _campaign_public_dict(upcoming_row, db=db) if upcoming_row else None
     if not row:
-        return {"ok": True, "campaign": None, "enabled": _is_enabled(), **base}
-    return {"ok": True, "campaign": _campaign_public_dict(row, db=db), "enabled": _is_enabled(), **base}
+        return {
+            "ok": True,
+            "campaign": None,
+            "upcoming": upcoming,
+            "enabled": _is_enabled(),
+            "last_completed": last_completed,
+            **base,
+        }
+    return {
+        "ok": True,
+        "campaign": _campaign_public_dict(row, db=db),
+        "upcoming": None,
+        "enabled": _is_enabled(),
+        "last_completed": last_completed,
+        **base,
+    }
 
 
 def get_number_grid(db: Session, campaign_id: int, *, viewer_steam_id: str | None = None) -> dict[str, Any]:
@@ -1438,10 +1668,18 @@ def get_campaign_results(db: Session, campaign_id: int) -> dict[str, Any]:
     winners = []
     for w in winners_rows:
         name = _resolve_display_name(db, str(w.steam_id))
+        catalog_orders: list[dict[str, Any]] = []
+        raw_orders = _row_val(w, "catalog_orders_json", None)
+        if raw_orders:
+            try:
+                catalog_orders = json.loads(raw_orders) if isinstance(raw_orders, str) else list(raw_orders)
+            except (json.JSONDecodeError, TypeError):
+                catalog_orders = []
         winners.append({
             "display_name_masked": mask_display_name(name),
             "winning_number": int(w.winning_number),
             "prize_amber": int(w.prize_amber),
+            "catalog_orders": catalog_orders,
         })
     matched = {int(w.winning_number) for w in winners_rows}
     unmatched = [n for n in winning if int(n) not in matched]
@@ -1457,6 +1695,7 @@ def get_campaign_results(db: Session, campaign_id: int) -> dict[str, Any]:
         "prize_amber_paid": int(camp.prize_amber_paid or 0),
         "prize_amber_subsidy": int(camp.prize_amber_subsidy or 0),
         "prize_pool_fully_distributed": bool(int(camp.prize_pool_fully_distributed or 0)),
+        "prize_catalog": _parse_prize_catalog_row(camp),
         "winners": winners,
         "unmatched_drawn_numbers": unmatched,
         "draw_audit": {
@@ -1521,41 +1760,80 @@ def create_campaign_draft(db: Session, *, data: dict[str, Any], admin_steam_id: 
     starts_at = _parse_dt(data.get("starts_at"))
     if starts_at is None:
         starts_at = _utcnow() + timedelta(hours=24)
-    db.execute(
-        text(
-            "INSERT INTO lottery_campaigns "
-            "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
-            "prize_amber_rollover_in, amber_random_price, amber_reserve_price, "
-            "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
-            "auto_chain_enabled, next_campaign_draw_offset_hours, created_at, updated_at) "
-            "VALUES (:seq, :title, 'DRAFT', :draw, :starts, :wnc, :base, :rol, :arp, :aresv, :armax, "
-            ":reg, :staff, :chain, :offset, :now, :now)"
-        ),
-        {
-            "seq": seq,
-            "title": str(data.get("title") or f"Sorteio ARKLAND #{seq}"),
-            "draw": _naive(draw_at),
-            "starts": _naive(starts_at),
-            "wnc": max(1, min(5, int(data.get("winning_numbers_count") or 1))),
-            "base": int(data.get("prize_amber_base") or 5000),
-            "rol": int(data.get("prize_amber_rollover_in") or 0),
-            "arp": int(data.get("amber_random_price") or 1000),
-            "aresv": int(data.get("amber_reserve_price") or 2000),
-            "armax": int(data.get("amber_random_max_per_player") or 5),
-            "reg": str(data.get("regulamento_version") or LOTTERY_REGULAMENTO_VERSION),
-            "staff": 1 if data.get("allow_staff_participation", True) else 0,
-            "chain": 1 if data.get("auto_chain_enabled", True) else 0,
-            "offset": int(data.get("next_campaign_draw_offset_hours") or 168),
-            "now": now,
-        },
+    prize_catalog = normalize_catalog_prizes(
+        data.get("prize_catalog", data.get("prize_catalog_json")),
+        resolve=True,
     )
+    catalog_json = json.dumps(prize_catalog, ensure_ascii=False)
+    has_pcat = _table_has_column(db, "lottery_campaigns", "prize_catalog_json")
+    if has_pcat:
+        db.execute(
+            text(
+                "INSERT INTO lottery_campaigns "
+                "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
+                "prize_amber_rollover_in, prize_catalog_json, amber_random_price, amber_reserve_price, "
+                "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
+                "auto_chain_enabled, next_campaign_draw_offset_hours, created_at, updated_at) "
+                "VALUES (:seq, :title, 'DRAFT', :draw, :starts, :wnc, :base, :rol, :pcat, :arp, :aresv, :armax, "
+                ":reg, :staff, :chain, :offset, :now, :now)"
+            ),
+            {
+                "seq": seq,
+                "title": str(data.get("title") or f"Sorteio ARKLAND #{seq}"),
+                "draw": _naive(draw_at),
+                "starts": _naive(starts_at),
+                "wnc": max(1, min(5, int(data.get("winning_numbers_count") or 1))),
+                "base": int(data.get("prize_amber_base") or 5000),
+                "rol": int(data.get("prize_amber_rollover_in") or 0),
+                "pcat": catalog_json,
+                "arp": int(data.get("amber_random_price") or 1000),
+                "aresv": int(data.get("amber_reserve_price") or 2000),
+                "armax": int(data.get("amber_random_max_per_player") or 5),
+                "reg": str(data.get("regulamento_version") or LOTTERY_REGULAMENTO_VERSION),
+                "staff": 1 if data.get("allow_staff_participation", True) else 0,
+                "chain": 1 if data.get("auto_chain_enabled", True) else 0,
+                "offset": int(data.get("next_campaign_draw_offset_hours") or 168),
+                "now": now,
+            },
+        )
+    else:
+        if prize_catalog:
+            raise ValueError("prize_catalog_not_supported")
+        db.execute(
+            text(
+                "INSERT INTO lottery_campaigns "
+                "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
+                "prize_amber_rollover_in, amber_random_price, amber_reserve_price, "
+                "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
+                "auto_chain_enabled, next_campaign_draw_offset_hours, created_at, updated_at) "
+                "VALUES (:seq, :title, 'DRAFT', :draw, :starts, :wnc, :base, :rol, :arp, :aresv, :armax, "
+                ":reg, :staff, :chain, :offset, :now, :now)"
+            ),
+            {
+                "seq": seq,
+                "title": str(data.get("title") or f"Sorteio ARKLAND #{seq}"),
+                "draw": _naive(draw_at),
+                "starts": _naive(starts_at),
+                "wnc": max(1, min(5, int(data.get("winning_numbers_count") or 1))),
+                "base": int(data.get("prize_amber_base") or 5000),
+                "rol": int(data.get("prize_amber_rollover_in") or 0),
+                "arp": int(data.get("amber_random_price") or 1000),
+                "aresv": int(data.get("amber_reserve_price") or 2000),
+                "armax": int(data.get("amber_random_max_per_player") or 5),
+                "reg": str(data.get("regulamento_version") or LOTTERY_REGULAMENTO_VERSION),
+                "staff": 1 if data.get("allow_staff_participation", True) else 0,
+                "chain": 1 if data.get("auto_chain_enabled", True) else 0,
+                "offset": int(data.get("next_campaign_draw_offset_hours") or 168),
+                "now": now,
+            },
+        )
     db.flush()
     row = db.execute(
         text("SELECT * FROM lottery_campaigns WHERE sequence_number = :seq ORDER BY id DESC LIMIT 1"),
         {"seq": seq},
     ).fetchone()
     cid = int(row.id)
-    _audit(db, "lottery_campaign_created", {"admin": admin_steam_id}, campaign_id=cid)
+    _audit(db, "lottery_campaign_created", {"admin": admin_steam_id, "prize_catalog": prize_catalog}, campaign_id=cid)
     _maybe_enable_lottery_after_first_campaign(db)
     return _campaign_public_dict(row, db=db)
 
@@ -1612,6 +1890,15 @@ def update_campaign(db: Session, campaign_id: int, patch: dict[str, Any]) -> dic
     if "prize_amber_base" in patch:
         fields.append("prize_amber_base = :base")
         params["base"] = int(patch["prize_amber_base"])
+    if "prize_catalog" in patch or "prize_catalog_json" in patch:
+        if not _table_has_column(db, "lottery_campaigns", "prize_catalog_json"):
+            raise ValueError("prize_catalog_not_supported")
+        prize_catalog = normalize_catalog_prizes(
+            patch.get("prize_catalog", patch.get("prize_catalog_json")),
+            resolve=True,
+        )
+        fields.append("prize_catalog_json = :pcat")
+        params["pcat"] = json.dumps(prize_catalog, ensure_ascii=False)
     if "allow_staff_participation" in patch:
         fields.append("allow_staff_participation = :staff")
         params["staff"] = 1 if patch["allow_staff_participation"] else 0
@@ -1713,6 +2000,57 @@ def get_campaign_admin_report(db: Session, campaign_id: int) -> dict[str, Any]:
         entry["numbers"].sort(key=lambda n: n["value"])
         participants.append(entry)
     participants.sort(key=lambda p: (-p["number_count"], p["steam_nickname"].lower()))
+    draw_results: dict[str, Any] | None = None
+    status = str(_row_val(row, "status", ""))
+    if status in ("COMPLETED", "DRAWING"):
+        try:
+            public_res = get_campaign_results(db, cid)
+            winners_rows = db.execute(
+                text(
+                    "SELECT * FROM lottery_winners WHERE campaign_id = :cid "
+                    "ORDER BY winning_number"
+                ),
+                {"cid": cid},
+            ).fetchall()
+            admin_winners = []
+            for w in winners_rows:
+                sid = str(w.steam_id)
+                catalog_orders: list[dict[str, Any]] = []
+                raw_orders = _row_val(w, "catalog_orders_json", None)
+                if raw_orders:
+                    try:
+                        catalog_orders = (
+                            json.loads(raw_orders) if isinstance(raw_orders, str) else list(raw_orders)
+                        )
+                    except (json.JSONDecodeError, TypeError):
+                        catalog_orders = []
+                admin_winners.append({
+                    "steam_id": sid,
+                    "steam_nickname": _resolve_display_name(db, sid),
+                    "display_name_masked": mask_display_name(_resolve_display_name(db, sid)),
+                    "winning_number": int(w.winning_number),
+                    "prize_amber": int(w.prize_amber),
+                    "share_per_match": int(w.share_per_match or 0),
+                    "credited": bool(int(_row_val(w, "credited", 0) or 0)),
+                    "catalog_orders": catalog_orders,
+                })
+            draw_results = {
+                "winning_numbers": public_res["winning_numbers"],
+                "winning_numbers_count": public_res["winning_numbers_count"],
+                "matched_count": public_res["matched_count"],
+                "share_per_match": public_res["share_per_match"],
+                "prize_amber_total": public_res["prize_amber_total"],
+                "prize_amber_paid": public_res["prize_amber_paid"],
+                "prize_amber_subsidy": public_res["prize_amber_subsidy"],
+                "prize_pool_fully_distributed": public_res["prize_pool_fully_distributed"],
+                "prize_catalog": public_res.get("prize_catalog") or [],
+                "winners": admin_winners,
+                "unmatched_drawn_numbers": public_res.get("unmatched_drawn_numbers") or [],
+                "rollover_next": public_res.get("rollover_next", 0),
+                "draw_audit": public_res.get("draw_audit"),
+            }
+        except ValueError:
+            draw_results = None
     return {
         "ok": True,
         "campaign": _campaign_public_dict(row, db=db),
@@ -1725,6 +2063,7 @@ def get_campaign_admin_report(db: Session, campaign_id: int) -> dict[str, Any]:
             "by_source": by_source,
         },
         "participants": participants,
+        "draw_results": draw_results,
     }
 
 
@@ -1828,23 +2167,75 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
     ).fetchone()
     draw_id = int(draw_row.id)
     share = int(split["share_per_match"])
+    catalog_prizes = _parse_prize_catalog_row(row)
+    pending_license_sync: list[tuple[str, str, int]] = []
     if _credit_fn and matched_count > 0:
         for mw in matched_winners:
             sid = mw["steam_id"]
             num = mw["winning_number"]
             idem = f"lottery:prize:{cid}:{num}"
-            db.execute(
-                text(
-                    "INSERT INTO lottery_winners "
-                    "(campaign_id, draw_result_id, steam_id, winning_number, prize_amber, "
-                    "share_per_match, credited, credited_at, ledger_idempotency_key) "
-                    "VALUES (:cid, :did, :sid, :num, :prize, :share, 0, NULL, :idem)"
-                ),
-                {
-                    "cid": cid, "did": draw_id, "sid": sid, "num": num,
-                    "prize": share, "share": share, "idem": idem,
-                },
-            )
+            catalog_orders: list[dict[str, Any]] = []
+            if catalog_prizes and _deliver_catalog_prize_fn is not None:
+                for prize in catalog_prizes:
+                    try:
+                        delivered = _deliver_catalog_prize_fn(
+                            db,
+                            sid,
+                            prize,
+                            campaign_id=cid,
+                            winning_number=num,
+                        ) or {}
+                        catalog_orders.append({
+                            "kind": prize.get("kind"),
+                            "item_id": prize.get("item_id"),
+                            "amount": prize.get("amount", 1),
+                            "label": prize.get("label"),
+                            "order_id": delivered.get("order_id"),
+                            "skipped": bool(delivered.get("skipped")),
+                        })
+                        lic_group = delivered.get("license_group")
+                        if lic_group:
+                            pending_license_sync.append(
+                                (sid, str(lic_group), int(delivered.get("license_days") or 30))
+                            )
+                    except Exception as exc:
+                        log.warning(
+                            "Lottery catalog prize failed campaign=%s winner=%s prize=%s: %s",
+                            cid, num, prize.get("item_id"), exc,
+                        )
+                        catalog_orders.append({
+                            "kind": prize.get("kind"),
+                            "item_id": prize.get("item_id"),
+                            "error": str(exc),
+                        })
+            has_catalog_col = _table_has_column(db, "lottery_winners", "catalog_orders_json")
+            if has_catalog_col:
+                db.execute(
+                    text(
+                        "INSERT INTO lottery_winners "
+                        "(campaign_id, draw_result_id, steam_id, winning_number, prize_amber, "
+                        "share_per_match, credited, credited_at, ledger_idempotency_key, catalog_orders_json) "
+                        "VALUES (:cid, :did, :sid, :num, :prize, :share, 0, NULL, :idem, :cat)"
+                    ),
+                    {
+                        "cid": cid, "did": draw_id, "sid": sid, "num": num,
+                        "prize": share, "share": share, "idem": idem,
+                        "cat": json.dumps(catalog_orders, ensure_ascii=False),
+                    },
+                )
+            else:
+                db.execute(
+                    text(
+                        "INSERT INTO lottery_winners "
+                        "(campaign_id, draw_result_id, steam_id, winning_number, prize_amber, "
+                        "share_per_match, credited, credited_at, ledger_idempotency_key) "
+                        "VALUES (:cid, :did, :sid, :num, :prize, :share, 0, NULL, :idem)"
+                    ),
+                    {
+                        "cid": cid, "did": draw_id, "sid": sid, "num": num,
+                        "prize": share, "share": share, "idem": idem,
+                    },
+                )
             _credit_fn(db, sid, share)
             try:
                 from amber_ledger import record_lottery_prize
@@ -1891,68 +2282,170 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
     )
     _audit(
         db, "lottery_draw_completed",
-        {"winning_numbers": winning, "matched_count": matched_count, "split": split},
+        {
+            "winning_numbers": winning,
+            "matched_count": matched_count,
+            "split": split,
+            "prize_catalog": catalog_prizes,
+        },
         campaign_id=cid,
     )
     next_id = None
     if int(row.auto_chain_enabled or 0) and _is_enabled():
         next_id = _create_chained_campaign(db, row, rollover_out)
+    # Sync Permissions fora do caminho crítico — best-effort após flush
+    if pending_license_sync and _sync_license_permissions_fn is not None:
+        seen_sync: set[tuple[str, str]] = set()
+        for sid, group, days in pending_license_sync:
+            key = (sid, group)
+            if key in seen_sync:
+                continue
+            seen_sync.add(key)
+            try:
+                _sync_license_permissions_fn(sid, group, days)
+            except Exception as exc:
+                log.warning("Lottery license permissions sync %s/%s: %s", sid, group, exc)
     return {
         "campaign_id": cid,
         "winning_numbers": winning,
         "matched_count": matched_count,
         "split": split,
+        "prize_catalog": catalog_prizes,
         "next_campaign_id": next_id,
     }
 
 
 def _create_chained_campaign(db: Session, prev_row: Any, rollover_in: int) -> int | None:
+    """Cria próximo sorteio em DRAFT: editável na janela de preparação; ACTIVE só após starts_at."""
     seq = _next_sequence(db)
     now = _utcnow()
     offset_h = int(prev_row.next_campaign_draw_offset_hours or 168)
-    draw_at = now + timedelta(hours=offset_h)
-    starts_at = now + timedelta(hours=24)
+    starts_at = now + timedelta(hours=CHAIN_PREP_HOURS)
+    # draw sugerido: offset da campanha anterior, nunca antes de starts_at + 1h
+    draw_at = now + timedelta(hours=max(offset_h, CHAIN_PREP_HOURS + 1))
+    if draw_at <= starts_at:
+        draw_at = starts_at + timedelta(hours=1)
     ts = _naive(now)
-    db.execute(
-        text(
-            "INSERT INTO lottery_campaigns "
-            "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
-            "prize_amber_rollover_in, prize_amber_from_purchases, amber_random_price, amber_reserve_price, "
-            "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
-            "auto_chain_enabled, next_campaign_draw_offset_hours, previous_campaign_id, created_at, updated_at) "
-            "VALUES (:seq, :title, 'ACTIVE', :draw, :starts, :wnc, :base, :rol, 0, :arp, :aresv, :armax, "
-            ":reg, :staff, :chain, :offset, :prev, :now, :now)"
-        ),
-        {
-            "seq": seq,
-            "title": f"Sorteio ARKLAND #{seq}",
-            "draw": _naive(draw_at),
-            "starts": _naive(starts_at),
-            "wnc": int(prev_row.winning_numbers_count or 1),
-            "base": int(prev_row.prize_amber_base or 5000),
-            "rol": int(rollover_in),
-            "arp": int(prev_row.amber_random_price or 1000),
-            "aresv": int(prev_row.amber_reserve_price or 2000),
-            "armax": int(prev_row.amber_random_max_per_player or 5),
-            "reg": str(prev_row.regulamento_version or LOTTERY_REGULAMENTO_VERSION),
-            "staff": int(prev_row.allow_staff_participation or 1),
-            "chain": int(prev_row.auto_chain_enabled or 1),
-            "offset": offset_h,
-            "prev": int(prev_row.id),
-            "now": ts,
-        },
-    )
+    catalog_json = json.dumps(_parse_prize_catalog_row(prev_row), ensure_ascii=False)
+    has_pcat = _table_has_column(db, "lottery_campaigns", "prize_catalog_json")
+    if has_pcat:
+        db.execute(
+            text(
+                "INSERT INTO lottery_campaigns "
+                "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
+                "prize_amber_rollover_in, prize_amber_from_purchases, prize_catalog_json, "
+                "amber_random_price, amber_reserve_price, "
+                "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
+                "auto_chain_enabled, next_campaign_draw_offset_hours, previous_campaign_id, created_at, updated_at) "
+                "VALUES (:seq, :title, 'DRAFT', :draw, :starts, :wnc, :base, :rol, 0, :pcat, :arp, :aresv, :armax, "
+                ":reg, :staff, :chain, :offset, :prev, :now, :now)"
+            ),
+            {
+                "seq": seq,
+                "title": f"Sorteio ARKLAND #{seq}",
+                "draw": _naive(draw_at),
+                "starts": _naive(starts_at),
+                "wnc": int(prev_row.winning_numbers_count or 1),
+                "base": int(prev_row.prize_amber_base or 5000),
+                "rol": int(rollover_in),
+                "pcat": catalog_json,
+                "arp": int(prev_row.amber_random_price or 1000),
+                "aresv": int(prev_row.amber_reserve_price or 2000),
+                "armax": int(prev_row.amber_random_max_per_player or 5),
+                "reg": str(prev_row.regulamento_version or LOTTERY_REGULAMENTO_VERSION),
+                "staff": int(prev_row.allow_staff_participation or 1),
+                "chain": int(prev_row.auto_chain_enabled or 1),
+                "offset": offset_h,
+                "prev": int(prev_row.id),
+                "now": ts,
+            },
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO lottery_campaigns "
+                "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
+                "prize_amber_rollover_in, prize_amber_from_purchases, amber_random_price, amber_reserve_price, "
+                "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
+                "auto_chain_enabled, next_campaign_draw_offset_hours, previous_campaign_id, created_at, updated_at) "
+                "VALUES (:seq, :title, 'DRAFT', :draw, :starts, :wnc, :base, :rol, 0, :arp, :aresv, :armax, "
+                ":reg, :staff, :chain, :offset, :prev, :now, :now)"
+            ),
+            {
+                "seq": seq,
+                "title": f"Sorteio ARKLAND #{seq}",
+                "draw": _naive(draw_at),
+                "starts": _naive(starts_at),
+                "wnc": int(prev_row.winning_numbers_count or 1),
+                "base": int(prev_row.prize_amber_base or 5000),
+                "rol": int(rollover_in),
+                "arp": int(prev_row.amber_random_price or 1000),
+                "aresv": int(prev_row.amber_reserve_price or 2000),
+                "armax": int(prev_row.amber_random_max_per_player or 5),
+                "reg": str(prev_row.regulamento_version or LOTTERY_REGULAMENTO_VERSION),
+                "staff": int(prev_row.allow_staff_participation or 1),
+                "chain": int(prev_row.auto_chain_enabled or 1),
+                "offset": offset_h,
+                "prev": int(prev_row.id),
+                "now": ts,
+            },
+        )
     row = db.execute(
         text("SELECT id FROM lottery_campaigns WHERE sequence_number = :seq ORDER BY id DESC LIMIT 1"),
         {"seq": seq},
     ).fetchone()
-    return int(row.id) if row else None
+    next_id = int(row.id) if row else None
+    if next_id:
+        _audit(
+            db,
+            "lottery_campaign_chained_draft",
+            {
+                "previous_campaign_id": int(prev_row.id),
+                "starts_at": _iso_utc(starts_at),
+                "draw_at": _iso_utc(draw_at),
+                "prep_hours": CHAIN_PREP_HOURS,
+            },
+            campaign_id=next_id,
+        )
+    return next_id
+
+
+def process_due_activations(db: Session) -> int:
+    """Ativa campanhas DRAFT cuja starts_at já passou (janela de preparação encerrada)."""
+    if not _is_enabled():
+        return 0
+    now = _naive(_utcnow())
+    if get_active_campaign(db):
+        return 0
+    rows = db.execute(
+        text(
+            "SELECT id FROM lottery_campaigns WHERE status = 'DRAFT' "
+            "AND starts_at IS NOT NULL AND starts_at <= :now "
+            "ORDER BY starts_at ASC, id ASC LIMIT 5"
+        ),
+        {"now": now},
+    ).fetchall()
+    activated = 0
+    for r in rows:
+        cid = int(r.id)
+        try:
+            if get_active_campaign(db):
+                break
+            publish_campaign(db, cid)
+            db.commit()
+            activated += 1
+            break  # só uma ACTIVE de cada vez
+        except Exception as exc:
+            db.rollback()
+            log.warning("Lottery auto-activate failed campaign=%s: %s", cid, exc)
+    return activated
 
 
 def process_due_draws(db: Session) -> int:
-    """Job periódico — sorteia campanhas ACTIVE com draw_at vencido."""
+    """Job periódico — ativa DRAFTs com starts_at vencido e sorteia ACTIVE com draw_at vencido."""
     if not _is_enabled():
         return 0
+    processed = process_due_activations(db)
     now = _naive(_utcnow())
     rows = db.execute(
         text(
@@ -1960,7 +2453,6 @@ def process_due_draws(db: Session) -> int:
         ),
         {"now": now},
     ).fetchall()
-    processed = 0
     for r in rows:
         cid = int(r.id)
         try:

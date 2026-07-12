@@ -11,12 +11,24 @@ namespace {
 
 HINTERNET g_session = nullptr;
 
+// Capas o bloqueio no game thread: WinHTTP default (resolve infinito / connect 60s)
+// pode ultrapassar o HangWatcher do ASE se a API estiver lenta ou inacessível.
+constexpr int kHttpResolveMs = 5000;
+constexpr int kHttpConnectMs = 5000;
+constexpr int kHttpSendMs = 8000;
+constexpr int kHttpReceiveMs = 8000;
+
 bool EnsureSession() {
     if (!g_session) {
         g_session = WinHttpOpen(
             L"CustomShop/1.0",
             WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
             nullptr, nullptr, 0);
+        if (g_session) {
+            WinHttpSetTimeouts(
+                g_session,
+                kHttpResolveMs, kHttpConnectMs, kHttpSendMs, kHttpReceiveMs);
+        }
     }
     return g_session != nullptr;
 }

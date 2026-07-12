@@ -13,12 +13,23 @@ HINTERNET g_session = nullptr;
 std::mutex g_deliver_mutex;
 std::unordered_set<std::string> g_deliver_inflight;
 
+// Evita hang longo no game thread (HangWatcher ASE) se a API não responder.
+constexpr int kHttpResolveMs = 5000;
+constexpr int kHttpConnectMs = 5000;
+constexpr int kHttpSendMs = 8000;
+constexpr int kHttpReceiveMs = 8000;
+
 bool EnsureSession() {
     if (!g_session) {
         g_session = WinHttpOpen(
             L"CustomDinoDeliver/1.0",
             WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
             nullptr, nullptr, 0);
+        if (g_session) {
+            WinHttpSetTimeouts(
+                g_session,
+                kHttpResolveMs, kHttpConnectMs, kHttpSendMs, kHttpReceiveMs);
+        }
     }
     return g_session != nullptr;
 }

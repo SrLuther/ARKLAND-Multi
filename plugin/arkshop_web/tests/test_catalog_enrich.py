@@ -166,3 +166,43 @@ def test_infer_category_estrutura():
     assert meta["thumbnail_url"].endswith(".svg")
     assert meta["tier"] == "B"
     assert "kit iniciante" in meta["search_text"]
+    # Estrutura pronta para kits sem metadados ItensAlfa
+    assert meta["kit_description"] == ""
+    assert "characteristics" in meta["kit_contents"][0]
+    assert meta["kit_contents"][0]["characteristics"] == ""
+
+
+def test_enrich_kit_itensalfa_from_sheet():
+    entry = {
+        "Description": "Kit ItensAlfa Delta",
+        "KitDescription": "Pacote completo do tier Delta.",
+        "Price": 9890,
+        "Items": [{
+            "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekRifle_D.AlfaItemWeapon_TekRifle_D",
+            "Quantity": 1,
+        }],
+    }
+    meta = enrich_kit("kit_itensalfa_delta", entry)
+    assert meta["kit_description"] == "Pacote completo do tier Delta."
+    assert len(meta["kit_contents"]) == 1
+    c0 = meta["kit_contents"][0]
+    assert c0["label"] == "Rifle TEK"
+    assert c0["kind"] == "weapon"
+    assert c0["tier"] == "Delta"
+    assert "Dano" in (c0.get("characteristics") or "")
+    assert "Polímero" in (c0.get("materials_text") or "")
+
+
+def test_enrich_kit_manual_characteristics_override():
+    entry = {
+        "Description": "Kit custom",
+        "Price": 100,
+        "Items": [{
+            "Blueprint": "/Game/Foo/Bar.Bar",
+            "Amount": 2,
+            "Characteristics": "Item especial de evento",
+        }],
+    }
+    meta = enrich_kit("kit_custom", entry)
+    assert meta["kit_contents"][0]["characteristics"] == "Item especial de evento"
+    assert meta["kit_contents"][0]["amount"] == 2

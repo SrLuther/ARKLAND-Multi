@@ -2417,26 +2417,67 @@
       margin: 0;
       padding: 0;
       list-style: none;
-      max-height: 50vh;
+      max-height: 58vh;
       overflow-y: auto;
     }
     .kit-contents-modal .kit-contents-list li {
       display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 8px 0;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 0;
       border-bottom: 1px solid var(--border);
       font-size: 13px;
       color: var(--text2);
+    }
+    .kit-contents-modal .kit-contents-list li .kit-c-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
     }
     .kit-contents-modal .kit-contents-list li strong {
       color: #fff;
       font-weight: 600;
     }
-    .kit-contents-modal .kit-contents-list li span {
+    .kit-contents-modal .kit-contents-list li .kit-c-amt {
       color: var(--amber);
       font-weight: 700;
       flex-shrink: 0;
+    }
+    .kit-contents-modal .kit-contents-list li .kit-c-meta {
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .kit-contents-modal .kit-contents-list li .kit-c-kind {
+      display: inline-block;
+      margin-right: 6px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      background: rgba(251,191,36,.1);
+      color: #fbbf24;
+      border: 1px solid rgba(251,191,36,.22);
+    }
+    .kit-contents-modal .kit-includes-title {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      color: var(--amber);
+      margin: 0 0 8px;
+      letter-spacing: .04em;
+    }
+    .kit-contents-modal .kit-includes-blurb {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
 
     /* catalog filter bar (legado — select oculto, chips visíveis) */
@@ -5258,7 +5299,7 @@
         <div id="catalog-panel-kits" class="catalog-panel">
           <div class="catalog-toolbar catalog-toolbar--sticky">
             <div class="catalog-search-wrap">
-              <input id="catalog-kits-search" type="search" placeholder="Buscar kit ou conteúdo incluído…" autocomplete="off" oninput="debounceCatalogSearch('kits')" />
+              <input id="catalog-kits-search" type="search" placeholder="Buscar kit, item ou características…" autocomplete="off" oninput="debounceCatalogSearch('kits')" />
             </div>
             <select id="catalog-kits-sort" class="catalog-sort-select" onchange="renderCatalogKits()" aria-label="Ordenar kits">
               <option value="name">Nome A–Z</option>
@@ -7159,12 +7200,36 @@
             <div class="form-group"><label>Números sorteados (1–5)</label><input id="lot-admin-wcount" type="number" min="1" max="5" value="1" /></div>
             <div class="form-group"><label>Sorteio em (local)</label><input id="lot-admin-draw" type="datetime-local" /></div>
           </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Prémios extras (kits / licenças)</div>
+            <p style="font-size:11px;color:var(--text2);margin:0 0 10px;">Opcionais. Cada titular de número sorteado recebe estes prémios além da parcela de Âmbares (fila de resgate da loja).</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;">
+              <div class="form-group" style="margin:0;min-width:110px;">
+                <label>Tipo</label>
+                <select id="lot-admin-prize-kind" onchange="lotteryAdminPrizeKindChanged()">
+                  <option value="kit">Kit</option>
+                  <option value="license">Licença</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+                <label>Item</label>
+                <select id="lot-admin-prize-item"></select>
+              </div>
+              <div class="form-group" style="margin:0;width:80px;">
+                <label>Qtd</label>
+                <input id="lot-admin-prize-amount" type="number" min="1" max="99" value="1" />
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminAddPrize()">+ Adicionar</button>
+            </div>
+            <div id="lot-admin-prize-list" style="font-size:12px;color:var(--text2);"></div>
+          </div>
           <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-primary" onclick="lotteryAdminCreate()">Criar rascunho</button>
             <button class="btn btn-ghost" onclick="lotteryAdminHideCreate()">Cancelar</button>
           </div>
         </div>
         <div id="lottery-admin-report" class="card hidden" style="margin-bottom:16px;"></div>
+        <div id="lottery-admin-edit" class="card hidden" style="margin-bottom:16px;"></div>
         <div id="lottery-admin-list" style="color:var(--text2);">Carregando…</div>
       </div>
 
@@ -9564,13 +9629,43 @@ function openKitContentsModal(kitKey) {
   const list = document.getElementById("kit-contents-list");
   const title = document.getElementById("kit-contents-title");
   const sub = document.getElementById("kit-contents-subtitle");
+  const includesTitle = document.getElementById("kit-contents-includes-title");
+  const blurb = document.getElementById("kit-contents-blurb");
   if (!modal || !list) return;
   if (title) title.textContent = kit.name || "Conteúdo do kit";
   if (sub) sub.textContent = `${kit.itemCount || 0} itens incluídos · ${kit.price > 0 ? formatAmberAmount(kit.price) : "Grátis"}`;
+  if (includesTitle) includesTitle.textContent = "O que inclui";
+  if (blurb) {
+    const text = String(kit.kitDescription || "").trim();
+    if (text) {
+      blurb.style.display = "";
+      blurb.textContent = text;
+    } else {
+      blurb.style.display = "none";
+      blurb.textContent = "";
+    }
+  }
+  const kindLabel = (k) => ({
+    armor: "Armadura", weapon: "Arma", tool: "Ferramenta", saddle: "Sela",
+  })[String(k || "").toLowerCase()] || "";
   const contents = kit.kitContents || [];
   list.innerHTML = contents.length
-    ? contents.map(c => `<li><strong>${escHtml(c.label || "Item")}</strong><span>×${escHtml(String(c.amount || 1))}</span></li>`).join("")
-    : `<li><strong>Sem detalhes publicados</strong><span>—</span></li>`;
+    ? contents.map(c => {
+        const kind = kindLabel(c.kind);
+        const char = String(c.characteristics || c.summary || c.materials_text || "").trim();
+        const metaBits = [];
+        if (kind || c.tier) metaBits.push([kind, c.tier].filter(Boolean).join(" "));
+        if (c.stats && c.stats.label) metaBits.push(c.stats.label);
+        const metaLine = char || metaBits.join(" · ");
+        return `<li>
+          <div class="kit-c-head">
+            <strong>${kind ? `<span class="kit-c-kind">${escHtml(kind)}</span>` : ""}${escHtml(c.label || "Item")}</strong>
+            <span class="kit-c-amt">×${escHtml(String(c.amount || 1))}</span>
+          </div>
+          ${metaLine ? `<div class="kit-c-meta">${escHtml(metaLine)}</div>` : ""}
+        </li>`;
+      }).join("")
+    : `<li><strong>Sem detalhes publicados</strong><div class="kit-c-meta">—</div></li>`;
   modal.classList.remove("hidden");
 }
 
@@ -9657,7 +9752,7 @@ function _renderProductCard(i, btnLabel) {
   if (i.licenseDays) {
     metaLine = `<div class="item-card__meta-line">📜 ${escHtml(String(i.licenseDays))} dias${i.licenseGroup ? ` · ${escHtml(i.licenseGroup)}` : ""}</div>`;
   } else if (i.catalogKind === "kit" && i.itemCount) {
-    metaLine = `<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>ver conteúdo</button></div>`;
+    metaLine = `<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>o que inclui</button></div>`;
   }
   if (kitLim && kitLim.limit > 0) {
     const eff = kitLim.effective_remaining ?? kitLim.remaining ?? 0;
@@ -9747,6 +9842,7 @@ async function loadCatalog() {
       kitItems: v.item_count ?? (v.Items || []).length,
       itemCount: v.item_count ?? (v.Items || []).length,
       kitContents: v.kit_contents || [],
+      kitDescription: v.kit_description || v.KitDescription || "",
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
       thumbnailUrl: v.thumbnail_url || "",
@@ -11117,6 +11213,7 @@ function renderKits() {
               <td>${kit.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
               <td>${(kit.Items||[]).length} item(s) · ${(kit.Dinos||[]).length} dino(s) · ${(kit.Commands||[]).length} cmd(s)${kit.VipLicense ? " · VIP" : ""}</td>
               <td><div class="actions-col">
+                <button class="btn btn-ghost btn-sm" title="Ver o que inclui" onclick="previewKitContents('${k}')">👁</button>
                 <button class="btn btn-ghost btn-sm" onclick="openKitModal('${k}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteKit('${k}')">🗑</button>
               </div></td>
@@ -11125,6 +11222,17 @@ function renderKits() {
         </tbody>
       </table>
     </div>`;
+}
+
+async function previewKitContents(kitKey) {
+  if (!_catalogKits.length) {
+    try { await loadCatalog(); } catch (_) {}
+  }
+  if (_catalogKits.find(k => k.key === kitKey)) {
+    openKitContentsModal(kitKey);
+    return;
+  }
+  toast("Kit ainda não está no catálogo público — salve/recarregue o catálogo.", "warning");
 }
 
 function renderSell() {
@@ -11769,6 +11877,96 @@ function _formatCountdown(secs) {
   return `${String(d).padStart(2,"0")}d ${String(h).padStart(2,"0")}h ${String(m).padStart(2,"0")}m ${String(r).padStart(2,"0")}s`;
 }
 
+function _lotteryIsoToLocalInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function _lotteryRenderWinningNumbers(nums) {
+  const list = Array.isArray(nums) ? nums : [];
+  if (!list.length) return `<span style="color:var(--text2);">—</span>`;
+  return list.map(n =>
+    `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:40px;margin:2px 6px 2px 0;padding:0 10px;border-radius:8px;background:rgba(232,120,32,.15);border:1px solid var(--amber);font-size:18px;font-weight:800;color:var(--amber);">${escHtml(String(n))}</span>`
+  ).join("");
+}
+
+function _lotteryRenderResultsBlock(res, { admin = false } = {}) {
+  if (!res) return "";
+  const winning = res.winning_numbers || [];
+  const winners = res.winners || [];
+  const unmatched = res.unmatched_drawn_numbers || [];
+  const title = res.title ? escHtml(res.title) : "Resultado do sorteio";
+  const winnersHtml = winners.length ? `
+    <div style="overflow-x:auto;margin-top:8px;">
+      <table class="pkg-admin-table">
+        <thead><tr>
+          <th>Nº</th>
+          <th>${admin ? "Nick / Steam" : "Vencedor"}</th>
+          <th style="text-align:right;">Âmbares</th>
+          ${admin ? "<th>Creditado</th>" : ""}
+        </tr></thead>
+        <tbody>
+          ${winners.map(w => `
+            <tr>
+              <td><strong style="color:var(--amber);">${escHtml(String(w.winning_number))}</strong></td>
+              <td>${admin
+                ? `<strong>${escHtml(w.steam_nickname || w.display_name_masked || "—")}</strong><div style="font-size:11px;font-family:monospace;color:var(--text2);">${escHtml(w.steam_id || "")}</div>`
+                : escHtml(w.display_name_masked || "—")}</td>
+              <td style="text-align:right;">${_formatAmberAmountPt(w.prize_amber || 0)}</td>
+              ${admin ? `<td>${w.credited ? "✓" : "—"}</td>` : ""}
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>` : `<p style="color:var(--text2);margin:8px 0 0;">Nenhum titular nos números sorteados${res.rollover_next ? ` · acumulado ${_formatAmberAmountPt(res.rollover_next)} Âmbares (+25%)` : ""}.</p>`;
+  return `
+    <div style="padding:14px;border:1px solid var(--amber);border-radius:10px;background:rgba(232,120,32,.06);margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px;">🎲 ${title}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">
+        Números sorteados (${winning.length}) · titulares: <strong>${res.matched_count || 0}</strong>
+        ${res.share_per_match ? ` · parcela: <strong>${_formatAmberAmountPt(res.share_per_match)}</strong>` : ""}
+      </div>
+      <div style="margin-bottom:10px;">${_lotteryRenderWinningNumbers(winning)}</div>
+      ${unmatched.length ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Sem titular: ${unmatched.map(n => escHtml(String(n))).join(", ")}</div>` : ""}
+      <div style="font-size:12px;font-weight:600;margin-top:4px;">Vencedores</div>
+      ${winnersHtml}
+    </div>`;
+}
+
+function _lotteryResultSeenKey(campaignId) {
+  return `lottery_result_seen_v1_${campaignId}`;
+}
+
+function closeLotteryResultModal() {
+  const modal = document.getElementById("modal-lottery-result");
+  if (!modal) return;
+  const cid = modal.dataset.campaignId;
+  if (cid) {
+    try { localStorage.setItem(_lotteryResultSeenKey(cid), "1"); } catch (_) {}
+  }
+  closeModal("modal-lottery-result");
+}
+
+function openLotteryResultModal(res) {
+  if (!res || !res.campaign_id) return;
+  const modal = document.getElementById("modal-lottery-result");
+  const body = document.getElementById("lottery-result-modal-body");
+  if (!modal || !body) return;
+  modal.dataset.campaignId = String(res.campaign_id);
+  body.innerHTML = _lotteryRenderResultsBlock(res, { admin: false });
+  openModal("modal-lottery-result");
+}
+
+function _lotteryMaybeShowResultModal(last) {
+  if (!last || !last.campaign_id) return;
+  try {
+    if (localStorage.getItem(_lotteryResultSeenKey(last.campaign_id))) return;
+  } catch (_) {}
+  openLotteryResultModal(last);
+}
+
 function _lotterySourceBadge(src) {
   if (src === "DONATION") return "🎁";
   if (src === "AMBER_RESERVE") return "⭐";
@@ -11792,52 +11990,88 @@ async function loadSorteio() {
   try {
     const cur = await fetchJson("/api/public/lottery/current");
     _lotteryCurrent = cur.campaign;
+    const last = cur.last_completed || null;
+    const upcoming = cur.upcoming || null;
     if (!cur.enabled) {
       root.innerHTML = `<div class="card"><p>O sorteio está desabilitado no momento. Quando ativo, você poderá participar por doação ou compra com Âmbares.</p>${_lotteryRegulamentoBanner("Leia o regulamento completo antes de participar.")}</div>`;
       return;
     }
-    if (!cur.campaign) {
-      root.innerHTML = `<div class="card"><p>Nenhuma campanha ativa no momento. Acompanhe o histórico em breve.</p>${_lotteryRegulamentoBanner()}</div>`;
-      return;
+    let mainHtml = "";
+    if (last) {
+      mainHtml += `<div class="card" style="margin-bottom:16px;">${_lotteryRenderResultsBlock(last)}</div>`;
     }
-    const c = cur.campaign;
-    const grid = await fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`);
-    const parts = await fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=20`);
-    const auth = _auth.authenticated;
-    const actions = auth ? `
-      <button class="btn btn-primary btn-sm" onclick="lotteryBuyRandom()">Comprar aleatório (${c.amber_random_price} Âmbares)</button>
-      <button class="btn btn-ghost btn-sm" onclick="goToPage('catalog')">Doar e participar</button>
-    ` : `<button class="btn btn-primary btn-sm" onclick="promptLogin('Sorteio')">Entrar para participar</button>`;
-    root.innerHTML = `
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div style="font-size:18px;font-weight:700;color:var(--amber);">${escHtml(c.title)}</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:4px;">Status: ${escHtml(c.status)} · ${escHtml(c.timezone_label || "")}</div>
+    if (cur.campaign) {
+      const c = cur.campaign;
+      const grid = await fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`);
+      const parts = await fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=20`);
+      const auth = _auth.authenticated;
+      const actions = auth ? `
+        <button class="btn btn-primary btn-sm" onclick="lotteryBuyRandom()">Comprar aleatório (${c.amber_random_price} Âmbares)</button>
+        <button class="btn btn-ghost btn-sm" onclick="goToPage('catalog')">Doar e participar</button>
+      ` : `<button class="btn btn-primary btn-sm" onclick="promptLogin('Sorteio')">Entrar para participar</button>`;
+      mainHtml += `
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:18px;font-weight:700;color:var(--amber);">${escHtml(c.title)}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:4px;">Status: ${escHtml(c.status)} · ${escHtml(c.timezone_label || "")}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:22px;font-weight:700;">${_formatAmberAmountPt(c.prize_amber_total)} Âmbares</div>
+              <div style="font-size:12px;color:var(--text2);">Sorteio em: ${_formatCountdown(c.seconds_remaining)}</div>
+              ${c.prize_catalog && c.prize_catalog.length ? `<div style="font-size:12px;margin-top:6px;color:var(--amber);">+ ${_lotteryFormatCatalogPrizes(c.prize_catalog)}</div>` : ""}
+            </div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:22px;font-weight:700;">${_formatAmberAmountPt(c.prize_amber_total)} Âmbares</div>
-            <div style="font-size:12px;color:var(--text2);">Sorteio em: ${_formatCountdown(c.seconds_remaining)}</div>
+          <p style="font-size:12px;color:var(--text2);margin:12px 0;">${escHtml(c.rules_summary || "")}</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}
+            <button class="btn btn-ghost btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button>
           </div>
+          <p style="font-size:11px;color:var(--text2);margin:10px 0 0;">Regulamento v${escHtml(cur.regulamento_version || "1.5")} · Âmbares na conta ARKLAND; kits/licenças na fila de resgate</p>
         </div>
-        <p style="font-size:12px;color:var(--text2);margin:12px 0;">${escHtml(c.rules_summary || "")}</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}
-          <button class="btn btn-ghost btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:10px;">Grade 100–999</div>
+          ${renderLotteryGrid(grid.cells, auth ? "lotteryReserveFromGrid" : null)}
         </div>
-        <p style="font-size:11px;color:var(--text2);margin:10px 0 0;">Regulamento v${escHtml(cur.regulamento_version || "1.5")} · Prêmio creditado na conta ARKLAND (Âmbares)</p>
-      </div>
-      <div class="card" style="margin-bottom:16px;">
-        <div class="card-title" style="margin-bottom:10px;">Grade 100–999</div>
-        ${renderLotteryGrid(grid.cells, auth ? "lotteryReserveFromGrid" : null)}
-      </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:10px;">Participantes (${parts.total || 0})</div>
-        ${(parts.participants || []).map(p => `
-          <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
-            <strong>${escHtml(p.display_name_masked)}</strong> —
-            ${(p.numbers || []).map(n => `${n.value}${_lotterySourceBadge(n.source)}`).join(" ")}
-          </div>`).join("") || "<p>Nenhum participante ainda.</p>"}
-      </div>`;
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:10px;">Participantes (${parts.total || 0})</div>
+          ${(parts.participants || []).map(p => `
+            <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <strong>${escHtml(p.display_name_masked)}</strong> —
+              ${(p.numbers || []).map(n => `${n.value}${_lotterySourceBadge(n.source)}`).join(" ")}
+            </div>`).join("") || "<p>Nenhum participante ainda.</p>"}
+        </div>`;
+    } else if (upcoming) {
+      mainHtml += `
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:18px;font-weight:700;color:var(--amber);">${escHtml(upcoming.title || "Próximo sorteio")}</div>
+          <p style="margin:10px 0 0;font-size:14px;">Em preparação — abre em <strong>${_formatCountdown(upcoming.seconds_until_start)}</strong>.</p>
+          <p style="font-size:12px;color:var(--text2);margin:8px 0 0;">
+            Prêmio previsto: <strong>${_formatAmberAmountPt(upcoming.prize_amber_total || 0)} Âmbares</strong>
+            · sorteio em ${escHtml(upcoming.draw_at_display || "—")}
+            ${upcoming.prize_catalog && upcoming.prize_catalog.length ? ` · + ${escHtml(_lotteryFormatCatalogPrizes(upcoming.prize_catalog))}` : ""}
+          </p>
+          <p style="font-size:12px;color:var(--text2);margin:10px 0 0;">Números ainda não estão à venda. Acompanhe o resultado acima e volte quando a campanha abrir.</p>
+          <div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button></div>
+        </div>`;
+    } else {
+      mainHtml += `<div class="card" style="margin-bottom:16px;"><p>Nenhuma campanha ativa no momento.${last ? " Veja o resultado do último sorteio acima." : " Acompanhe o histórico em breve."}</p>${_lotteryRegulamentoBanner()}</div>`;
+    }
+    try {
+      const hist = await fetchJson("/api/public/lottery/history?page=1");
+      const camps = (hist.campaigns || []).filter(c => !last || c.id !== last.campaign_id);
+      if (camps.length) {
+        mainHtml += `<div class="card"><div class="card-title" style="margin-bottom:10px;">Histórico recente</div>
+          ${camps.slice(0, 5).map(h => `
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+              <div style="font-weight:600;">${escHtml(h.title || "")}</div>
+              <div style="margin:6px 0;">${_lotteryRenderWinningNumbers(h.winning_numbers || [])}</div>
+              <div style="font-size:12px;color:var(--text2);">${h.matched_count || 0} titular(es) · ${_formatAmberAmountPt(h.prize_amber_total || 0)} Âmbares</div>
+            </div>`).join("")}
+        </div>`;
+      }
+    } catch (_) {}
+    root.innerHTML = mainHtml;
+    _lotteryMaybeShowResultModal(last);
   } catch (e) {
     root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
@@ -11962,6 +12196,7 @@ async function loadHomeLotteryTeaser() {
           <div>
             <div style="font-weight:700;color:var(--amber);">🎲 ${escHtml(c.title)}</div>
             <div style="font-size:13px;margin-top:4px;">Prêmio: <strong>${_formatAmberAmountPt(c.prize_amber_total)} Âmbares</strong> · ${_formatCountdown(c.seconds_remaining)}</div>
+            ${c.prize_catalog && c.prize_catalog.length ? `<div style="font-size:12px;color:var(--amber);margin-top:2px;">+ ${escHtml(_lotteryFormatCatalogPrizes(c.prize_catalog))}</div>` : ""}
             <div style="font-size:12px;color:var(--text2);">${c.participant_count || 0} participantes · ${c.numbers_issued_count || 0}/900 números</div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="goToPage('sorteio')">Ver sorteio completo →</button>
@@ -11970,15 +12205,103 @@ async function loadHomeLotteryTeaser() {
   } catch (_) { slot.innerHTML = ""; }
 }
 
-function lotteryAdminShowCreate() { document.getElementById("lottery-admin-create")?.classList.remove("hidden"); }
+function lotteryAdminShowCreate() {
+  document.getElementById("lottery-admin-create")?.classList.remove("hidden");
+  _lotteryAdminDraftPrizes = [];
+  lotteryAdminRenderPrizeList();
+  lotteryAdminLoadPrizeOptions();
+}
 function lotteryAdminHideCreate() { document.getElementById("lottery-admin-create")?.classList.add("hidden"); }
+
+let _lotteryAdminPrizeOptions = { kits: [], licenses: [] };
+let _lotteryAdminDraftPrizes = [];
+
+function _lotteryPrizeKindLabel(kind) {
+  if (kind === "kit") return "Kit";
+  if (kind === "license") return "Licença";
+  return kind || "";
+}
+
+function _lotteryFormatCatalogPrizes(list) {
+  if (!list || !list.length) return "";
+  return list.map(p => {
+    const qty = Number(p.amount || 1) > 1 ? ` ×${p.amount}` : "";
+    return `${_lotteryPrizeKindLabel(p.kind)}: ${p.label || p.item_id}${qty}`;
+  }).join(" · ");
+}
+
+async function lotteryAdminLoadPrizeOptions() {
+  try {
+    const d = await fetchJson("/api/admin/lottery/prize-options");
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar opções");
+    _lotteryAdminPrizeOptions = { kits: d.kits || [], licenses: d.licenses || [] };
+    lotteryAdminPrizeKindChanged();
+  } catch (e) {
+    console.warn("lottery prize options", e);
+    _lotteryAdminPrizeOptions = { kits: [], licenses: [] };
+    lotteryAdminPrizeKindChanged();
+  }
+}
+
+function lotteryAdminPrizeKindChanged() {
+  const kind = document.getElementById("lot-admin-prize-kind")?.value || "kit";
+  const sel = document.getElementById("lot-admin-prize-item");
+  if (!sel) return;
+  const items = kind === "license" ? (_lotteryAdminPrizeOptions.licenses || []) : (_lotteryAdminPrizeOptions.kits || []);
+  sel.innerHTML = items.length
+    ? items.map(i => `<option value="${escHtml(i.item_id)}">${escHtml(i.label || i.item_id)}</option>`).join("")
+    : `<option value="">(nenhum ${kind === "license" ? "licença" : "kit"} no catálogo)</option>`;
+}
+
+function lotteryAdminRenderPrizeList() {
+  const el = document.getElementById("lot-admin-prize-list");
+  if (!el) return;
+  if (!_lotteryAdminDraftPrizes.length) {
+    el.innerHTML = `<span style="color:var(--text2);">Nenhum prémio de catálogo — só Âmbares.</span>`;
+    return;
+  }
+  el.innerHTML = _lotteryAdminDraftPrizes.map((p, idx) => `
+    <div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span><strong>${escHtml(_lotteryPrizeKindLabel(p.kind))}</strong> · ${escHtml(p.label || p.item_id)} ×${p.amount || 1}</span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminRemovePrize(${idx})">Remover</button>
+    </div>`).join("");
+}
+
+function lotteryAdminAddPrize() {
+  const kind = document.getElementById("lot-admin-prize-kind")?.value || "kit";
+  const itemId = document.getElementById("lot-admin-prize-item")?.value?.trim();
+  const amount = Math.max(1, parseInt(document.getElementById("lot-admin-prize-amount")?.value || "1", 10) || 1);
+  if (!itemId) { toast("Selecione um kit ou licença.", "error"); return; }
+  if (_lotteryAdminDraftPrizes.some(p => p.kind === kind && p.item_id === itemId)) {
+    toast("Esse prémio já está na lista.", "error"); return;
+  }
+  if (_lotteryAdminDraftPrizes.length >= 10) {
+    toast("Máximo de 10 prémios de catálogo.", "error"); return;
+  }
+  const pool = kind === "license" ? _lotteryAdminPrizeOptions.licenses : _lotteryAdminPrizeOptions.kits;
+  const found = (pool || []).find(i => i.item_id === itemId);
+  _lotteryAdminDraftPrizes.push({
+    kind,
+    item_id: itemId,
+    amount,
+    label: found?.label || itemId,
+  });
+  lotteryAdminRenderPrizeList();
+  lotteryAdminRenderEditPrizeList();
+}
+
+function lotteryAdminRemovePrize(idx) {
+  _lotteryAdminDraftPrizes.splice(idx, 1);
+  lotteryAdminRenderPrizeList();
+  lotteryAdminRenderEditPrizeList();
+}
 
 async function lotteryAdminCreate() {
   const title = document.getElementById("lot-admin-title")?.value?.trim();
   const prize_amber_base = parseInt(document.getElementById("lot-admin-base")?.value || "5000", 10);
   const winning_numbers_count = parseInt(document.getElementById("lot-admin-wcount")?.value || "1", 10);
   const drawLocal = document.getElementById("lot-admin-draw")?.value;
-  const body = { title, prize_amber_base, winning_numbers_count };
+  const body = { title, prize_amber_base, winning_numbers_count, prize_catalog: _lotteryAdminDraftPrizes };
   if (drawLocal) body.draw_at = new Date(drawLocal).toISOString();
   try {
     const d = await fetchJson("/api/admin/lottery/campaigns", {
@@ -12012,6 +12335,11 @@ function lotteryAdminHideReport() {
   if (el) { el.classList.add("hidden"); el.innerHTML = ""; }
 }
 
+function lotteryAdminHideEdit() {
+  const el = document.getElementById("lottery-admin-edit");
+  if (el) { el.classList.add("hidden"); el.innerHTML = ""; }
+}
+
 async function lotteryAdminShowReport(campaignId) {
   const el = document.getElementById("lottery-admin-report");
   if (!el) return;
@@ -12026,6 +12354,12 @@ async function lotteryAdminShowReport(campaignId) {
     const pct = s.numbers_total ? Math.round((s.numbers_issued / s.numbers_total) * 100) : 0;
     const bySrc = s.by_source || {};
     const participants = d.participants || [];
+    const draw = d.draw_results || null;
+    const drawBlock = (c.status === "COMPLETED" || c.status === "DRAWING")
+      ? (draw
+        ? _lotteryRenderResultsBlock({ ...draw, title: c.title, campaign_id: campaignId }, { admin: true })
+        : `<div style="padding:12px;border:1px solid var(--warning);border-radius:8px;margin-bottom:16px;color:var(--warning);">Status ${escHtml(c.status)} mas resultado do draw ainda não disponível.</div>`)
+      : "";
     el.innerHTML = `
       <div class="card-header" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;">
         <div class="card-title">Relatório — ${escHtml(c.title || "")}</div>
@@ -12034,6 +12368,7 @@ async function lotteryAdminShowReport(campaignId) {
           <button class="btn btn-ghost btn-sm" onclick="lotteryAdminHideReport()">Fechar</button>
         </div>
       </div>
+      ${drawBlock}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
         <div class="card" style="padding:12px;margin:0;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Números usados</div>
@@ -12093,28 +12428,138 @@ async function lotteryAdminShowReport(campaignId) {
   }
 }
 
+async function lotteryAdminShowEdit(campaignId) {
+  const el = document.getElementById("lottery-admin-edit");
+  if (!el) return;
+  lotteryAdminHideReport();
+  el.classList.remove("hidden");
+  el.innerHTML = `<p style="padding:12px;">Carregando…</p>`;
+  try {
+    const list = await fetchJson("/api/admin/lottery/campaigns");
+    const c = (list.campaigns || []).find(x => x.id === campaignId);
+    if (!c) throw new Error("Campanha não encontrada");
+    if (!c.editable && c.status !== "DRAFT" && c.status !== "ACTIVE") {
+      throw new Error("Campanha não editável neste status");
+    }
+    _lotteryAdminDraftPrizes = Array.isArray(c.prize_catalog) ? c.prize_catalog.map(p => ({ ...p })) : [];
+    await lotteryAdminLoadPrizeOptions();
+    const prepNote = c.status === "DRAFT"
+      ? (c.prep_window || c.seconds_until_start > 0
+        ? `<p style="font-size:12px;color:var(--amber);margin:0 0 12px;">Janela de preparação — abre automaticamente em <strong>${_formatCountdown(c.seconds_until_start)}</strong> (staff pode editar prémio, kits/licenças e datas).</p>`
+        : `<p style="font-size:12px;color:var(--text2);margin:0 0 12px;">Rascunho. Publique manualmente ou aguarde a auto-ativação se <code>starts_at</code> já passou.</p>`)
+      : `<p style="font-size:12px;color:var(--text2);margin:0 0 12px;">Campanha ACTIVE — edições aplicadas imediatamente.</p>`;
+    el.innerHTML = `
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div class="card-title">Editar #${c.sequence_number} — ${escHtml(c.title || "")}</div>
+        <button class="btn btn-ghost btn-sm" onclick="lotteryAdminHideEdit()">Fechar</button>
+      </div>
+      ${prepNote}
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1;"><label>Título</label><input id="lot-edit-title" type="text" value="${escHtml(c.title || "")}" /></div>
+        <div class="form-group"><label>Prêmio base (Âmbares)</label><input id="lot-edit-base" type="number" min="0" value="${Number(c.prize_amber_base || 0)}" /></div>
+        <div class="form-group"><label>Números sorteados (1–5)</label><input id="lot-edit-wcount" type="number" min="1" max="5" value="${Number(c.winning_numbers_count || 1)}" /></div>
+        <div class="form-group"><label>Abre em / starts_at (local)</label><input id="lot-edit-starts" type="datetime-local" value="${escHtml(_lotteryIsoToLocalInput(c.starts_at_utc))}" /></div>
+        <div class="form-group"><label>Sorteio em / draw_at (local)</label><input id="lot-edit-draw" type="datetime-local" value="${escHtml(_lotteryIsoToLocalInput(c.draw_at_utc))}" /></div>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Prémios extras (kits / licenças)</div>
+        <div id="lot-edit-prize-list" style="margin-bottom:8px;"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px;">
+          <div class="form-group" style="margin:0;min-width:110px;">
+            <label>Tipo</label>
+            <select id="lot-admin-prize-kind" onchange="lotteryAdminPrizeKindChanged()">
+              <option value="kit">Kit</option>
+              <option value="license">Licença</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+            <label>Item</label>
+            <select id="lot-admin-prize-item"></select>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminAddPrize(); lotteryAdminRenderEditPrizeList();">+ Adicionar</button>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="lotteryAdminSaveEdit(${campaignId})">Salvar alterações</button>
+        ${c.status === "DRAFT" ? `<button class="btn btn-success" onclick="lotteryAdminPublish(${campaignId})">Publicar agora</button>` : ""}
+        <button class="btn btn-ghost" onclick="lotteryAdminHideEdit()">Cancelar</button>
+      </div>`;
+    lotteryAdminPrizeKindChanged();
+    lotteryAdminRenderEditPrizeList();
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger);padding:12px;">${escHtml(String(e))}</p>`;
+  }
+}
+
+function lotteryAdminRenderEditPrizeList() {
+  const el = document.getElementById("lot-edit-prize-list");
+  if (!el) return;
+  if (!_lotteryAdminDraftPrizes.length) {
+    el.innerHTML = `<p style="font-size:12px;color:var(--text2);margin:0;">Nenhum prémio extra.</p>`;
+    return;
+  }
+  el.innerHTML = _lotteryAdminDraftPrizes.map((p, idx) => `
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <span>${escHtml(_lotteryPrizeKindLabel(p.kind))}: ${escHtml(p.label || p.item_id)}${Number(p.amount || 1) > 1 ? ` ×${p.amount}` : ""}</span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="lotteryAdminRemovePrize(${idx}); lotteryAdminRenderEditPrizeList();">Remover</button>
+    </div>`).join("");
+}
+
+async function lotteryAdminSaveEdit(campaignId) {
+  const title = document.getElementById("lot-edit-title")?.value?.trim() || "";
+  const prize_amber_base = parseInt(document.getElementById("lot-edit-base")?.value || "0", 10);
+  const winning_numbers_count = parseInt(document.getElementById("lot-edit-wcount")?.value || "1", 10);
+  const drawLocal = document.getElementById("lot-edit-draw")?.value;
+  const startsLocal = document.getElementById("lot-edit-starts")?.value;
+  const body = {
+    title,
+    prize_amber_base,
+    winning_numbers_count,
+    prize_catalog: _lotteryAdminDraftPrizes,
+  };
+  if (drawLocal) body.draw_at = new Date(drawLocal).toISOString();
+  if (startsLocal) body.starts_at = new Date(startsLocal).toISOString();
+  try {
+    const d = await fetchJson(`/api/admin/lottery/campaigns/${campaignId}`, { method: "PATCH", body });
+    if (!d.ok) throw new Error(d.error || d.message || "Falha ao salvar");
+    toast("Campanha atualizada.", "success");
+    lotteryAdminHideEdit();
+    loadLotteryAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
 async function loadLotteryAdmin() {
   lotteryAdminHideReport();
+  lotteryAdminHideEdit();
   const root = document.getElementById("lottery-admin-list");
   if (!root) return;
   root.textContent = "Carregando…";
   try {
     const d = await fetchJson("/api/admin/lottery/campaigns");
     if (!d.ok) throw new Error(d.error);
-    root.innerHTML = (d.campaigns || []).map(c => `
+    root.innerHTML = (d.campaigns || []).map(c => {
+      const prepBadge = c.status === "DRAFT" && (c.prep_window || c.seconds_until_start > 0)
+        ? `<span class="badge" style="background:rgba(232,120,32,.2);color:var(--amber);">Abre em ${_formatCountdown(c.seconds_until_start)}</span>`
+        : "";
+      return `
       <div class="card" style="margin-bottom:12px;padding:12px;">
         <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;">
-          <div><strong>#${c.sequence_number}</strong> ${escHtml(c.title)} · <span class="badge">${escHtml(c.status)}</span></div>
+          <div><strong>#${c.sequence_number}</strong> ${escHtml(c.title)} · <span class="badge">${escHtml(c.status)}</span> ${prepBadge}</div>
           <div style="font-size:12px;">Prêmio: ${_formatAmberAmountPt(c.prize_amber_total)} · Sorteio: ${escHtml(c.draw_at_display || "")}</div>
         </div>
+        ${c.prize_catalog && c.prize_catalog.length ? `<div style="font-size:12px;color:var(--amber);margin-top:4px;">Extras: ${escHtml(_lotteryFormatCatalogPrizes(c.prize_catalog))}</div>` : ""}
         <div style="font-size:12px;color:var(--text2);margin-top:6px;">
           ${c.numbers_issued_count || 0}/900 números usados · ${c.numbers_available_count || 0} disponíveis · ${c.participant_count || 0} participantes
+          ${c.status === "DRAFT" && c.starts_at_display ? ` · Abertura: ${escHtml(c.starts_at_display)}` : ""}
         </div>
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="lotteryAdminShowReport(${c.id})">📊 Ver relatório</button>
-          ${c.status === "DRAFT" ? `<button class="btn btn-success btn-sm" onclick="lotteryAdminPublish(${c.id})">Publicar</button>` : ""}
+          ${(c.status === "DRAFT" || c.status === "ACTIVE") ? `<button class="btn btn-ghost btn-sm" onclick="lotteryAdminShowEdit(${c.id})">✎ Editar</button>` : ""}
+          ${c.status === "DRAFT" ? `<button class="btn btn-success btn-sm" onclick="lotteryAdminPublish(${c.id})">Publicar agora</button>` : ""}
         </div>
-      </div>`).join("") || "<p>Nenhuma campanha.</p>";
+      </div>`;
+    }).join("") || "<p>Nenhuma campanha.</p>";
   } catch (e) { root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`; }
 }
 
@@ -17452,9 +17897,9 @@ function normalizeKitItem(raw) {
   if (!raw || typeof raw !== "object") {
     if (typeof raw === "string") {
       const bp = normalizeBlueprintPath(raw);
-      return { Blueprint: bp, Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "" };
+      return { Blueprint: bp, Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "", Characteristics: "" };
     }
-    return { Blueprint: "", Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "" };
+    return { Blueprint: "", Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "", Characteristics: "" };
   }
   return {
     Blueprint: normalizeBlueprintPath(raw.Blueprint || ""),
@@ -17464,6 +17909,7 @@ function normalizeKitItem(raw) {
     Damage: raw.Damage ?? "",
     Durability: raw.Durability ?? "",
     Armor: raw.Armor ?? "",
+    Characteristics: raw.Characteristics || raw.characteristics || "",
   };
 }
 
@@ -17542,6 +17988,10 @@ function kitItemEntryHtml(item, idx, removeFn) {
         <div class="form-group">
           <label>Armadura %</label>
           <input data-field="armor" type="number" step="0.1" value="${item.Armor === "" ? "" : item.Armor}" placeholder="opcional" />
+        </div>
+        <div class="form-group span-2">
+          <label>Características (O que inclui)</label>
+          <input data-field="characteristics" type="text" value="${escHtml(item.Characteristics || "")}" placeholder="Ex: Arma Delta · Dano 120 · Craft: Polímero×60… (vazio = auto ItensAlfa)" />
         </div>
       </div>
       <div class="kit-entry-checks">
@@ -17633,6 +18083,7 @@ function syncKitDraftFromDOM() {
       Damage: row.querySelector('[data-field="damage"]')?.value ?? "",
       Durability: row.querySelector('[data-field="durability"]')?.value ?? "",
       Armor: row.querySelector('[data-field="armor"]')?.value ?? "",
+      Characteristics: row.querySelector('[data-field="characteristics"]')?.value ?? "",
     };
   });
   document.querySelectorAll("#mk-dinos-list .kit-entry").forEach((row, idx) => {
@@ -17728,6 +18179,8 @@ function readKitItemsFromDOM() {
     if (dmg !== "") entry.Damage = parseFloat(dmg);
     if (dur !== "") entry.Durability = parseFloat(dur);
     if (arm !== "") entry.Armor = parseFloat(arm);
+    const chars = String(item.Characteristics ?? "").trim();
+    if (chars) entry.Characteristics = chars;
     out.push(entry);
   });
   return out;
@@ -17798,6 +18251,11 @@ function openKitModal(key) {
           <label>Descrição</label>
           <input id="mk-desc" type="text" value="${escHtml(kit.Description||"")}" />
         </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>O que inclui (KitDescription)</label>
+          <textarea id="mk-kit-desc" rows="2" placeholder="Texto geral sobre o kit (opcional). Nos ItensAlfa as características por item vêm da planilha automaticamente.">${escHtml(kit.KitDescription||"")}</textarea>
+          <div class="kit-json-hint">Aparece no modal «ver conteúdo» do catálogo. Por item use o campo Características abaixo, ou ComponentsMeta no JSON.</div>
+        </div>
         <div class="form-group"><label>Permissões</label><input id="mk-perms" type="text" value="${escHtml(kit.Permissions||"")}" placeholder="VIPBronze, Staff (vazio = todos)" /></div>
         <div class="form-group"><label>Usos padrão (DefaultAmount)</label><input id="mk-default-amt" type="number" min="1" value="${kit.DefaultAmount??1}" /></div>
         <div class="form-group"><label>VIP — Tier</label><input id="mk-vip-tier" type="text" value="${escHtml(vip.Tier||"")}" placeholder="VIPBronze (opcional)" /></div>
@@ -17847,6 +18305,9 @@ async function confirmKit() {
   kit.Price         = parseInt(document.getElementById("mk-price").value, 10) || 0;
   kit.Description   = document.getElementById("mk-desc").value;
   kit.DefaultAmount = parseInt(document.getElementById("mk-default-amt").value, 10) || 1;
+
+  const kitDesc = (document.getElementById("mk-kit-desc")?.value || "").trim();
+  if (kitDesc) kit.KitDescription = kitDesc; else delete kit.KitDescription;
 
   const perms = document.getElementById("mk-perms").value.trim();
   if (perms) kit.Permissions = perms; else delete kit.Permissions;
@@ -20917,9 +21378,25 @@ document.addEventListener("keydown", (e) => {
     <button type="button" class="modal-close" onclick="closeKitContentsModal()" aria-label="Fechar">✕</button>
     <h3 id="kit-contents-title" style="font-family:'Cinzel',serif;font-size:17px;color:#fff;margin:0 0 8px;">Conteúdo do kit</h3>
     <p id="kit-contents-subtitle" style="font-size:12px;color:var(--text2);margin:0 0 14px;"></p>
+    <div id="kit-contents-includes-title" class="kit-includes-title">O que inclui</div>
+    <p id="kit-contents-blurb" class="kit-includes-blurb" style="display:none;"></p>
     <ul id="kit-contents-list" class="kit-contents-list"></ul>
     <div style="margin-top:16px;text-align:right;">
       <button type="button" class="btn btn-ghost" onclick="closeKitContentsModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal resultado do sorteio ───────────────────────────────────────────── -->
+<div id="modal-lottery-result" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="lottery-result-modal-title" onclick="if(event.target===this)closeLotteryResultModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="lottery-result-modal-title">Resultado do sorteio</div>
+      <button type="button" class="modal-close" onclick="closeLotteryResultModal()" aria-label="Fechar">✕</button>
+    </div>
+    <div id="lottery-result-modal-body"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" onclick="closeLotteryResultModal()">Entendi</button>
     </div>
   </div>
 </div>

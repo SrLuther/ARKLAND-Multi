@@ -75,7 +75,10 @@ def catalog_entry_total(data: Dict[str, Any]) -> int:
 
 
 # Chaves de Settings definidas pelo TEK na sincronização (por mapa / cluster).
-TEK_MANAGED_SETTINGS_KEYS = frozenset({"WebsiteUrl", "WebApiUrl", "WebApiKey"})
+# ServerId: ID do mapa para TribeSync (Minha Tribo) — independente de CrossChat.Enabled.
+TEK_MANAGED_SETTINGS_KEYS = frozenset(
+    {"WebsiteUrl", "WebApiUrl", "WebApiKey", "ServerId"}
+)
 
 # Seções compartilhadas que devem propagar entre mestre TEK, WEBSTORE e plugins.
 SHARED_SYNC_TOP_LEVEL_KEYS = (
@@ -419,15 +422,26 @@ def repair_cross_chat_server_ids_on_disk(
             notes.append(f"{path.name}: leitura falhou ({exc})")
             continue
         cc = data.setdefault("CrossChat", {})
-        old = str(cc.get("ServerId") or "").strip()
-        if old == label:
+        settings = data.setdefault("Settings", {})
+        old_cc = str(cc.get("ServerId") or "").strip()
+        old_settings = str(settings.get("ServerId") or "").strip()
+        if old_cc == label and old_settings == label:
             continue
         if preview:
-            notes.append(f"PREVIEW {folder}: ServerId {old!r} -> {label!r}")
+            notes.append(
+                f"PREVIEW {folder}: CrossChat.ServerId {old_cc!r} / "
+                f"Settings.ServerId {old_settings!r} -> {label!r}"
+            )
             continue
         cc["ServerId"] = label
+        settings["ServerId"] = label
+        # Manter Enabled=false se já estava off — não reactivar chat integrado.
+        if "Enabled" not in cc:
+            cc["Enabled"] = False
         save_plugin_config(path, data)
-        notes.append(f"{folder}: CrossChat.ServerId {old!r} -> {label!r}")
+        notes.append(
+            f"{folder}: ServerId CrossChat {old_cc!r} / Settings {old_settings!r} -> {label!r}"
+        )
 
     return notes
 
@@ -2827,6 +2841,17 @@ def sync_plugin_at_path(
             catalog_cc=catalog.get("CrossChat") or {},
             existing_cc=merged.get("CrossChat") or {},
         )
+        # TribeSync lê Settings.ServerId primeiro — espelha o ID do mapa
+        # mesmo com CrossChat.Enabled=false (plugin de chat de terceiros).
+        map_sid = _cross_chat_server_label(srv)
+        settings_out = merged.setdefault("Settings", {})
+        settings_out["ServerId"] = map_sid
+        logger.info(
+            "CustomShop sync ServerId [%s]: Settings/CrossChat.ServerId=%r (cross_chat=%s)",
+            label,
+            map_sid,
+            "on" if is_cross_chat_enabled(shop) else "off",
+        )
     after_ni, after_nk = catalog_entry_counts(merged)
     logger.info(
         "CustomShop sync catálogo [%s]: itens %d→%d kits %d→%d (mestre %d/%d) → %s",
@@ -3386,16 +3411,16 @@ def sync_all_plugins(
     reg_n = register_arkshop_servers(cm, shop, asm_cm=asm_cm, errors=errors)
     if reg_n:
         ok.append(f"Servidores registrados na loja: {reg_n}")
-    if is_cross_chat_enabled(shop):
-        try:
-            from .arkland_environment import try_load_environment_paths
+    # ServerId por pasta MAPAS é necessário para TribeSync mesmo com CrossChat off.
+    try:
+        from .arkland_environment import try_load_environment_paths
 
-            env = try_load_environment_paths()
-            if env and env.maps:
-                for note in repair_cross_chat_server_ids_on_disk(env.maps):
-                    ok.append(note)
-        except Exception as exc:
-            errors.append(f"CrossChat ServerId: {exc}")
+        env = try_load_environment_paths()
+        if env and env.maps:
+            for note in repair_cross_chat_server_ids_on_disk(env.maps):
+                ok.append(note)
+    except Exception as exc:
+        errors.append(f"CrossChat/TribeSync ServerId: {exc}")
     return ok, errors
 
 

@@ -10409,11 +10409,159 @@ register_home_notice_routes(
 from lottery_routes import register_lottery_routes
 from lottery_service import configure_lottery
 
+
+def _lottery_resolve_catalog_prize(kind: str, item_id: str) -> dict[str, Any] | None:
+    kind = str(kind or "").strip().lower()
+    item_id = str(item_id or "").strip()
+    if not item_id:
+        return None
+    if kind == "kit":
+        resolved = _resolve_catalog_item_id("kit", item_id)
+        entry = _catalog_entry("kit", resolved)
+        if not entry:
+            return None
+        return {
+            "kind": "kit",
+            "item_id": resolved,
+            "label": str(entry.get("Description") or entry.get("Name") or resolved),
+        }
+    if kind == "license":
+        resolved = _resolve_catalog_item_id("shop", item_id)
+        entry = _catalog_entry("shop", resolved)
+        if not entry or not _is_catalog_license_item(entry, resolved):
+            return None
+        lic = _get_license_grant(entry, resolved)
+        if not lic:
+            return None
+        return {
+            "kind": "license",
+            "item_id": resolved,
+            "label": str(entry.get("Description") or entry.get("Name") or resolved),
+            "group": str(lic.get("Group") or ""),
+            "days": int(lic.get("Days", 30) or 30),
+        }
+    return None
+
+
+def _lottery_prize_options() -> dict[str, Any]:
+    kits = [
+        {"item_id": k["kit_id"], "label": k["label"], "kind": "kit"}
+        for k in _catalog_kit_options()
+    ]
+    licenses = [
+        {
+            "item_id": x["item_id"],
+            "label": x["label"],
+            "kind": "license",
+            "group": x.get("group"),
+            "days": x.get("days"),
+        }
+        for x in _catalog_license_options()
+    ]
+    return {"kits": kits, "licenses": licenses}
+
+
+def _lottery_deliver_catalog_prize(
+    db: Any,
+    steam_id: str,
+    prize: dict[str, Any],
+    *,
+    campaign_id: int,
+    winning_number: int,
+) -> dict[str, Any]:
+    """Cria pedido PENDENTE (fila da loja) e activa entitlement de licença se aplicável."""
+    kind = str(prize.get("kind") or "").strip().lower()
+    item_id = str(prize.get("item_id") or "").strip()
+    amount = max(1, int(prize.get("amount") or 1))
+    if kind not in ("kit", "license") or not item_id:
+        raise ValueError("invalid_catalog_prize")
+    item_type = "kit" if kind == "kit" else "shop"
+    resolved = _resolve_catalog_item_id(item_type, item_id)
+    idem = f"lottery:catalog:{int(campaign_id)}:{int(winning_number)}:{resolved}"
+    order_id = str(uuid.uuid4())
+    now = _now()
+    server_id = str(_load_settings().get("server_id", "default"))
+    # Kits de prémio ignoram DefaultAmount (mesmo padrão que entrega admin)
+    original = idem if kind == "license" else f"__admin_skip_kit_limit__|{idem}"
+    existing = db.execute(
+        text(
+            "SELECT order_id FROM orders "
+            "WHERE original_order_id = :a OR original_order_id = :b LIMIT 1"
+        ),
+        {"a": idem, "b": f"__admin_skip_kit_limit__|{idem}"},
+    ).fetchone()
+    if existing:
+        return {
+            "order_id": str(existing[0]),
+            "item_id": resolved,
+            "kind": kind,
+            "skipped": True,
+        }
+    order = Order(
+        order_id=order_id,
+        steam_id=str(steam_id),
+        server_id=server_id,
+        item_type=item_type,
+        item_id=resolved,
+        amount=amount,
+        points_spent=0,
+        status="PENDENTE",
+        original_order_id=original,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(order)
+    db.flush()
+    result: dict[str, Any] = {
+        "order_id": order_id,
+        "item_id": resolved,
+        "kind": kind,
+        "amount": amount,
+    }
+    if kind == "license":
+        entry = _catalog_entry("shop", resolved)
+        lic = _get_license_grant(entry, resolved) if entry else None
+        if not lic:
+            raise ValueError(f"license_grant_missing:{resolved}")
+        days = int(lic.get("Days", 30) or 30)
+        group = str(lic["Group"])
+        _apply_entitlement_grant_tx(
+            db,
+            str(steam_id),
+            group,
+            days,
+            source=order_id,
+            notes=f"lottery:{resolved}",
+        )
+        result["license_group"] = group
+        result["license_days"] = days
+    _log(
+        "lottery_catalog_prize_queued",
+        order_id=order_id,
+        steam_id=str(steam_id),
+        item_id=resolved,
+        kind=kind,
+        campaign_id=int(campaign_id),
+        winning_number=int(winning_number),
+    )
+    return result
+
+
+def _lottery_sync_license_permissions(steam_id: str, group: str, days: int) -> Any:
+    return _sync_license_permissions_all_servers(
+        str(steam_id), str(group), grant=True, days=int(days),
+    )
+
+
 configure_lottery(
     credit_fn=_add_player_points_tx,
     debit_fn=_subtract_player_points_tx,
     settings_fn=_load_settings,
     save_settings_fn=_save_settings,
+    resolve_catalog_prize_fn=_lottery_resolve_catalog_prize,
+    deliver_catalog_prize_fn=_lottery_deliver_catalog_prize,
+    prize_options_fn=_lottery_prize_options,
+    sync_license_permissions_fn=_lottery_sync_license_permissions,
 )
 register_lottery_routes(
     app,
