@@ -49,9 +49,10 @@ std::string NewCorrelationId();
 
 /**
  * Emite um evento estruturado.
- * - Sempre (se Enabled + nível + categoria): ring buffer + ficheiro JSONL.
+ * - Enabled=true + nível + categoria: ring buffer + ficheiro JSONL (volume TRACE).
+ * - Pasta logs/ + arkland_debug.log existem sempre após Configure (boot marker).
  * - ERROR: também espelha para Log::GetLog()->error (ArkApi).
- * - Críticos (MySqlPersist): INSERT em arkland_plugin_debug.
+ * - Críticos (MySqlPersist): INSERT em arkland_plugin_debug (mesmo com Enabled=false).
  */
 void Emit(Level level,
           const char* category,

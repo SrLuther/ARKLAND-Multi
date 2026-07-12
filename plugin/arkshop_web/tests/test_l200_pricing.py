@@ -112,6 +112,14 @@ def test_apply_l200_idempotent(tmp_path, monkeypatch):
 def test_repo_l200_entries_match_formula_when_present():
     if not CONFIG.is_file():
         return
+    # Forçar defaults do repo (não o WEBSTORE Desktop antigo via webstore_data_dir).
+    defaults = ROOT / "plugin" / "arkshop_web" / "data" / "market_species_defaults.json"
+    me._DEFAULTS_FILE = defaults.resolve()
+    for fn_name in ("load_defaults_file", "load_default_species_map", "build_catalog_economy_map"):
+        fn = getattr(me, fn_name, None)
+        if fn is not None and hasattr(fn, "cache_clear"):
+            fn.cache_clear()  # type: ignore[attr-defined]
+
     catalog = json.loads(CONFIG.read_text(encoding="utf-8"))
     for item_id, entry in me.iter_catalog_dinos(catalog, level200_only=True):
         assert item_id.endswith(me.L200_ID_SUFFIX), item_id

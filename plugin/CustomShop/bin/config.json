@@ -18,7 +18,7 @@
       "Permissions",
       "Identity"
     ],
-    "_comment": "ARKLAND debug JSONL em ArkApi/Plugins/CustomShop/logs/arkland_debug.log. Ligar Enabled=true + Level=TRACE temporariamente; Shop.Reload ou /shopdebug. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
+    "_comment": "ARKLAND debug: pasta logs/ criada no boot sempre. JSONL em ArkApi/Plugins/CustomShop/logs/arkland_debug.log. Enabled=true + Level=TRACE para volume TRACE; Shop.Reload ou Shop.DebugLevel trace. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
   },
   "CrossChat": {
     "Enabled": false,
@@ -5548,7 +5548,8 @@
       "Name": "Anquilossauro Abissal Fêmea Nível 1",
       "Price": 700,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_aqualyrium": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium",
@@ -5596,7 +5597,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Dakosaurus Fêmea Nível 1"
+      "Name": "Dakosaurus Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_fish_scale": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale",
@@ -5635,7 +5637,8 @@
       "Name": "Lagosta (Homarus) Fêmea Nível 1",
       "Price": 700,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_hover_skiff": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
@@ -5663,7 +5666,8 @@
       "Name": "Marlim (Istiophorus) Fêmea Nível 1",
       "Price": 1000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_kathreptis": {
       "Description": "Kathreptis Fêmea Nível 1",
@@ -5680,7 +5684,8 @@
       "Name": "Kathreptis Fêmea Nível 1",
       "Price": 700,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_malleocephalus": {
       "Description": "Malleocephalus Fêmea Nível 1",
@@ -5697,7 +5702,8 @@
       "Name": "Malleocephalus Fêmea Nível 1",
       "Price": 700,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_manganese": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
@@ -5725,7 +5731,8 @@
       "Name": "Camarão-mantis Fêmea Nível 1",
       "Price": 1500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_monodon": {
       "Description": "Narval (Monodon) Fêmea Nível 1",
@@ -5742,7 +5749,8 @@
       "Name": "Narval (Monodon) Fêmea Nível 1",
       "Price": 600,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_moschops_abyssal": {
       "Description": "Moschops Abissal Fêmea Nível 1",
@@ -5759,7 +5767,8 @@
       "Name": "Moschops Abissal Fêmea Nível 1",
       "Price": 600,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_mudpuppy": {
       "Description": "Mudpuppy Fêmea Nível 1",
@@ -5774,7 +5783,8 @@
       ],
       "Price": 650,
       "Type": "dino",
-      "Name": "Mudpuppy Fêmea Nível 1"
+      "Name": "Mudpuppy Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_ocepechelon": {
       "Description": "Ocepechelon Fêmea Nível 1",
@@ -5791,7 +5801,8 @@
       "Name": "Ocepechelon Fêmea Nível 1",
       "Price": 700,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_onchopristis": {
       "Description": "Onchopristis Fêmea Nível 1",
@@ -5808,7 +5819,8 @@
       "Name": "Onchopristis Fêmea Nível 1",
       "Price": 1200,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_qarmoutus": {
       "Description": "Qarmoutus Fêmea Nível 1",
@@ -5825,7 +5837,8 @@
       "Name": "Qarmoutus Fêmea Nível 1",
       "Price": 700,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_reaper_abyssal": {
       "Description": "Reaper Abissal Fêmea Nível 1",
@@ -5840,7 +5853,8 @@
       ],
       "Price": 16000,
       "Type": "dino",
-      "Name": "Reaper Abissal Fêmea Nível 1"
+      "Name": "Reaper Abissal Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_rex_abyssal": {
       "Description": "Rex Abissal Fêmea Nível 1",
@@ -5855,7 +5869,8 @@
       ],
       "Price": 16500,
       "Type": "dino",
-      "Name": "Rex Abissal Fêmea Nível 1"
+      "Name": "Rex Abissal Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_riftcrawler": {
       "Description": "Rift Crawler Fêmea Nível 1",
@@ -5870,7 +5885,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Rift Crawler Fêmea Nível 1"
+      "Name": "Rift Crawler Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_seahorse": {
       "Description": "Cavalo-marinho Fêmea Nível 1",
@@ -5885,7 +5901,8 @@
       ],
       "Price": 650,
       "Type": "dino",
-      "Name": "Cavalo-marinho Fêmea Nível 1"
+      "Name": "Cavalo-marinho Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_seaweed": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed",
@@ -5946,7 +5963,8 @@
       "Name": "Stegossauro Abissal Fêmea Nível 1",
       "Price": 800,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_stereolepis": {
       "Description": "Stereolepis Fêmea Nível 1",
@@ -5961,7 +5979,8 @@
       ],
       "Price": 800,
       "Type": "dino",
-      "Name": "Stereolepis Fêmea Nível 1"
+      "Name": "Stereolepis Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_takifugu": {
       "Description": "Baiacu (Takifugu) Fêmea Nível 1",
@@ -5976,7 +5995,8 @@
       ],
       "Price": 700,
       "Type": "dino",
-      "Name": "Baiacu (Takifugu) Fêmea Nível 1"
+      "Name": "Baiacu (Takifugu) Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_theriz_abyssal": {
       "Description": "Therizinosaur Abissal Fêmea Nível 1",
@@ -5991,7 +6011,8 @@
       ],
       "Price": 2500,
       "Type": "dino",
-      "Name": "Therizinosaur Abissal Fêmea Nível 1"
+      "Name": "Therizinosaur Abissal Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_thunnus": {
       "Description": "Atum (Thunnus) Fêmea Nível 1",
@@ -6006,7 +6027,8 @@
       ],
       "Price": 700,
       "Type": "dino",
-      "Name": "Atum (Thunnus) Fêmea Nível 1"
+      "Name": "Atum (Thunnus) Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_thyla_abyssal": {
       "Description": "Thylacoleo Abissal Fêmea Nível 1",
@@ -6021,7 +6043,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Thylacoleo Abissal Fêmea Nível 1"
+      "Name": "Thylacoleo Abissal Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_tiktaalik": {
       "Description": "Tiktaalik Fêmea Nível 1",
@@ -6036,7 +6059,8 @@
       ],
       "Price": 800,
       "Type": "dino",
-      "Name": "Tiktaalik Fêmea Nível 1"
+      "Name": "Tiktaalik Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_tridacna": {
       "Description": "Tridacna Fêmea Nível 1",
@@ -6051,7 +6075,8 @@
       ],
       "Price": 800,
       "Type": "dino",
-      "Name": "Tridacna Fêmea Nível 1"
+      "Name": "Tridacna Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_vulcanite": {
       "Description": "Vulcanita Fêmea Nível 1",
@@ -6066,7 +6091,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Vulcanita Fêmea Nível 1"
+      "Name": "Vulcanita Fêmea Nível 1",
+      "MarketInclude": true
     },
     "abyss_water_wyvern": {
       "Description": "Wyvern Aquática Fêmea Nível 1",
@@ -6083,7 +6109,8 @@
       "Name": "Wyvern Aquática Fêmea Nível 1",
       "Price": 6500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "abyss_yuty_abyssal": {
       "Description": "Yutyrannus Abissal Fêmea Nível 1",
@@ -6100,7 +6127,8 @@
       "Name": "Yutyrannus Abissal Fêmea Nível 1",
       "Price": 10000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "acrocanto_femea": {
       "Description": "Acrocantossauro Fêmea Nível 1",
@@ -6114,7 +6142,8 @@
         }
       ],
       "Price": 8000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "ancient_wyvern": {
       "Description": "Ancient Wyvern Fêmea Nível 1",
@@ -6129,7 +6158,8 @@
       ],
       "Price": 32000,
       "Type": "dino",
-      "Name": "Ancient Wyvern Fêmea Nível 1"
+      "Name": "Ancient Wyvern Fêmea Nível 1",
+      "MarketInclude": true
     },
     "archelon": {
       "Description": "Archelon Fêmea Nível 1",
@@ -6144,7 +6174,8 @@
       ],
       "Price": 2500,
       "Type": "dino",
-      "Name": "Archelon Fêmea Nível 1"
+      "Name": "Archelon Fêmea Nível 1",
+      "MarketInclude": true
     },
     "arco_tek_alfa": {
       "Category": "Armas",
@@ -6542,7 +6573,8 @@
         }
       ],
       "Price": 35000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "armor_flak": {
       "Category": "Armaduras",
@@ -7204,23 +7236,6 @@
       "Price": 200,
       "Type": "item"
     },
-    "astrodelphis_1": {
-      "Description": "Astrodelphis Nível 1",
-      "Dinos": [
-        {
-          "Blueprint": "/Game/Genesis2/Dinos/SpaceDolphin/SpaceDolphin_Character_BP.SpaceDolphin_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
-          "Level": 1,
-          "Neutered": false
-        }
-      ],
-      "ForceBlueprint": false,
-      "Name": "Astrodelphis Nível 1",
-      "Price": 6000,
-      "Quality": 0,
-      "Type": "dino"
-    },
     "bionicgigant_femea": {
       "Description": "Giganotossauro Tek Fêmea Nível 1",
       "Dinos": [
@@ -7233,7 +7248,8 @@
         }
       ],
       "Price": 25000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "bionicrex_femea": {
       "Description": "Rex Tek Fêmea Nível 1",
@@ -7247,7 +7263,8 @@
         }
       ],
       "Price": 20000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brachio": {
       "Description": "Brachiosaurus Fêmea Nível 1",
@@ -7262,7 +7279,8 @@
       ],
       "Price": 2500,
       "Type": "dino",
-      "Name": "Brachiosaurus Fêmea Nível 1"
+      "Name": "Brachiosaurus Fêmea Nível 1",
+      "MarketInclude": true
     },
     "carcha_femea": {
       "Description": "Carcharodontosaurus Fêmea Nível 1",
@@ -7276,7 +7294,8 @@
         }
       ],
       "Price": 12000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "concavenator": {
       "Description": "Concavenator Fêmea Nível 1",
@@ -7291,7 +7310,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Concavenator Fêmea Nível 1"
+      "Name": "Concavenator Fêmea Nível 1",
+      "MarketInclude": true
     },
     "cryolophosaurus": {
       "Description": "Cryolophosaurus Fêmea Nível 1",
@@ -7306,7 +7326,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Cryolophosaurus Fêmea Nível 1"
+      "Name": "Cryolophosaurus Fêmea Nível 1",
+      "MarketInclude": true
     },
     "daco_sushi": {
       "Category": "Recursos",
@@ -7335,7 +7356,8 @@
         }
       ],
       "Price": 5000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "deinosuchus": {
       "Description": "Deinosuchus Fêmea Nível 1",
@@ -7350,7 +7372,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Deinosuchus Fêmea Nível 1"
+      "Name": "Deinosuchus Fêmea Nível 1",
+      "MarketInclude": true
     },
     "desmodus_femea": {
       "Description": "Desmodus Fêmea Nível 1",
@@ -7364,7 +7387,8 @@
         }
       ],
       "Price": 8000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "dipping_net": {
       "Category": "Ferramentas",
@@ -7411,7 +7435,8 @@
       ],
       "Price": 1500,
       "Type": "dino",
-      "Name": "Diru-Ya-Ku Fêmea Nível 1"
+      "Name": "Diru-Ya-Ku Fêmea Nível 1",
+      "MarketInclude": true
     },
     "dread_wyvern": {
       "Description": "Dread Wyvern Fêmea Nível 1",
@@ -7426,7 +7451,8 @@
       ],
       "Price": 33000,
       "Type": "dino",
-      "Name": "Dread Wyvern Fêmea Nível 1"
+      "Name": "Dread Wyvern Fêmea Nível 1",
+      "MarketInclude": true
     },
     "escopeta_alfa": {
       "Category": "Armas",
@@ -7563,7 +7589,8 @@
         }
       ],
       "Price": 15000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "indominus_femea": {
       "Description": "Indominus Rex Fêmea Nível 1",
@@ -7580,7 +7607,8 @@
       "Name": "Indominus Rex Fêmea Nível 1",
       "Price": 20000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "indoraptor_femea": {
       "Description": "IndoRaptor Nivel 1",
@@ -7597,7 +7625,8 @@
       "Name": "IndoRaptor Nivel 1",
       "Price": 6000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "item_improved_hover_skiff": {
       "Blueprint": "/Game/Mods/ImprovedSkiff/Skiff/PrimalItem_Spawner_ImprovedHoverSkiff.PrimalItem_Spawner_ImprovedHoverSkiff",
@@ -8038,7 +8067,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Kutsu-Ya-Ku Fêmea Nível 1"
+      "Name": "Kutsu-Ya-Ku Fêmea Nível 1",
+      "MarketInclude": true
     },
     "licenca_alfa": {
       "Category": "Licenças",
@@ -8114,7 +8144,8 @@
       "Name": "Shadowmane Fêmea Nível 1",
       "Price": 10000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "machado_alfa": {
       "Category": "Ferramentas",
@@ -8182,7 +8213,8 @@
         }
       ],
       "Price": 7000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "megalosaurus_femea": {
       "Description": "Megalosaurus Fêmea Nível 1",
@@ -8196,7 +8228,8 @@
         }
       ],
       "Price": 6000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "meraxes_femea": {
       "Description": "Meraxes Fêmea Nível 1 (BigAL's Collection)",
@@ -8213,7 +8246,8 @@
       "Name": "Meraxes Fêmea Nível 1 (BigAL's Collection)",
       "Price": 15000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "meraxes_scorched_femea": {
       "Description": "Meraxes Scorched Fêmea Nível 1 (BigAL's Collection)",
@@ -8230,7 +8264,8 @@
       "Name": "Meraxes Scorched Fêmea Nível 1 (BigAL's Collection)",
       "Price": 15000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "meraxes_rockwell_femea": {
       "Description": "Meraxes Rockwell Fêmea Nível 1 (BigAL's Collection)",
@@ -8247,7 +8282,8 @@
       "Name": "Meraxes Rockwell Fêmea Nível 1 (BigAL's Collection)",
       "Price": 15000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "meraxes_snow_femea": {
       "Description": "Meraxes X-Snow Fêmea Nível 1 (BigAL's Collection)",
@@ -8264,7 +8300,8 @@
       "Name": "Meraxes X-Snow Fêmea Nível 1 (BigAL's Collection)",
       "Price": 15000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "motosserra_alfa": {
       "Category": "Ferramentas",
@@ -8614,7 +8651,8 @@
       ],
       "Price": 9500,
       "Type": "dino",
-      "Name": "Puretotokage Fêmea Nível 1"
+      "Name": "Puretotokage Fêmea Nível 1",
+      "MarketInclude": true
     },
     "rec_HardenedSteelIngot": {
       "Description": "Lingote de Aço Endurecido (1000x)",
@@ -9202,7 +9240,8 @@
         }
       ],
       "Price": 5000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_broodmother": {
       "Description": "Small Broodmother Nível 1 (SmallBosses)",
@@ -9525,7 +9564,8 @@
       "Name": "Small Moeder Nível 1 (SmallBosses)",
       "Price": 3500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_small_dragon": {
       "Description": "Small Dragon Nível 1 (SmallBosses)",
@@ -9542,7 +9582,8 @@
       "Name": "Small Dragon Nível 1 (SmallBosses)",
       "Price": 8000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_volcano_dragon": {
       "Description": "Volcano Small Dragon Nível 1 (SmallBosses)",
@@ -9559,7 +9600,8 @@
       "Name": "Volcano Small Dragon Nível 1 (SmallBosses)",
       "Price": 8500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "seafin_glider": {
       "Description": "Planador Seafin (1x)",
@@ -11501,7 +11543,8 @@
       ],
       "Price": 9500,
       "Type": "dino",
-      "Name": "Shimosaur Fêmea Nível 1"
+      "Name": "Shimosaur Fêmea Nível 1",
+      "MarketInclude": true
     },
     "brighamia_titan_wyvern": {
       "Description": "Titan Wyvern Fêmea Nível 1 (Brighamia Creatures)",
@@ -11518,7 +11561,8 @@
       "Name": "Titan Wyvern Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 40000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_wyvern_gold": {
       "Description": "Gold Fire Wyvern Fêmea Nível 1 (Brighamia Creatures)",
@@ -11535,7 +11579,8 @@
       "Name": "Gold Fire Wyvern Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 8000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_wyvern_red": {
       "Description": "Red Lightning Wyvern Fêmea Nível 1 (Brighamia Creatures)",
@@ -11552,7 +11597,8 @@
       "Name": "Red Lightning Wyvern Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 8000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_b_quetzal": {
       "Description": "B Quetzal Fêmea Nível 1 (Brighamia Creatures)",
@@ -11569,7 +11615,8 @@
       "Name": "B Quetzal Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 4500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_b_liopleurodon": {
       "Description": "B Liopleurodon Fêmea Nível 1 (Brighamia Creatures)",
@@ -11586,7 +11633,8 @@
       "Name": "B Liopleurodon Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 4000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_b_ammonite": {
       "Description": "B Ammonite Fêmea Nível 1 (Brighamia Creatures)",
@@ -11603,7 +11651,8 @@
       "Name": "B Ammonite Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 3000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_b_compy": {
       "Description": "B Compy Fêmea Nível 1 (Brighamia Creatures)",
@@ -11620,7 +11669,8 @@
       "Name": "B Compy Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 800,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_jagged_golem": {
       "Description": "Jagged Rock Golem Nível 1 (Brighamia Creatures)",
@@ -11636,7 +11686,8 @@
       "Name": "Jagged Rock Golem Nível 1 (Brighamia Creatures)",
       "Price": 12000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_ancient_golem": {
       "Description": "Ancient Rock Golem Nível 1 (Brighamia Creatures)",
@@ -11652,7 +11703,8 @@
       "Name": "Ancient Rock Golem Nível 1 (Brighamia Creatures)",
       "Price": 18000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_poss_onyc": {
       "Description": "Possessed Onyc Fêmea Nível 1 (Brighamia Creatures)",
@@ -11669,7 +11721,8 @@
       "Name": "Possessed Onyc Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 2000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_poss_karkinos": {
       "Description": "Possessed Karkinos Fêmea Nível 1 (Brighamia Creatures)",
@@ -11686,7 +11739,8 @@
       "Name": "Possessed Karkinos Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 2500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_poss_scorpion": {
       "Description": "Possessed Pulmonoscorpius Fêmea Nível 1 (Brighamia Creatures)",
@@ -11703,7 +11757,8 @@
       "Name": "Possessed Pulmonoscorpius Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 1500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_poss_achatina": {
       "Description": "Possessed Achatina Fêmea Nível 1 (Brighamia Creatures)",
@@ -11720,7 +11775,8 @@
       "Name": "Possessed Achatina Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 1200,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_poss_araneo": {
       "Description": "Possessed Araneo Fêmea Nível 1 (Brighamia Creatures)",
@@ -11737,7 +11793,8 @@
       "Name": "Possessed Araneo Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 1800,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "brighamia_poss_trilobite": {
       "Description": "Possessed Trilobite Fêmea Nível 1 (Brighamia Creatures)",
@@ -11754,7 +11811,8 @@
       "Name": "Possessed Trilobite Fêmea Nível 1 (Brighamia Creatures)",
       "Price": 1500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "struct_generatortek": {
       "Category": "Ferramentas",
@@ -12145,7 +12203,8 @@
         }
       ],
       "Price": 30000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "volcanorex_femea": {
       "Description": "Volcano Rex Fêmea Nível 1",
@@ -12159,7 +12218,8 @@
         }
       ],
       "Price": 10000,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "xenomorph_femea": {
       "Description": "Reaper Nível 1",
@@ -12175,7 +12235,8 @@
       "Name": "Reaper Nível 1",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "xenomorphgen2_femea": {
       "Description": "Reaper Gen2 Nível 1",
@@ -12191,7 +12252,8 @@
       "Name": "Reaper Gen2 Nível 1",
       "Price": 8000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "xiphactinus": {
       "Description": "Xiphactinus Fêmea Nível 1",
@@ -12206,7 +12268,8 @@
       ],
       "Price": 3500,
       "Type": "dino",
-      "Name": "Xiphactinus Fêmea Nível 1"
+      "Name": "Xiphactinus Fêmea Nível 1",
+      "MarketInclude": true
     },
     "allosaurus": {
       "Description": "Allosaurus Femea Nivel 1",
@@ -17914,7 +17977,8 @@
       "Name": "Indominus Rex Fêmea Nível 200",
       "Price": 21000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "giga_femea_l200": {
       "Description": "Giganotosaurus Fêmea Nível 200",
@@ -17929,6 +17993,7 @@
       ],
       "Price": 16875,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Giganotosaurus Fêmea Nível 200"
     },
     "carcha_femea_l200": {
@@ -17944,6 +18009,7 @@
       ],
       "Price": 16800,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Carcharodontosaurus Fêmea Nível 200"
     },
     "lionfish_femea_l200": {
@@ -17961,7 +18027,8 @@
       "Name": "Shadowmane Fêmea Nível 200",
       "Price": 14000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_hydra_l200": {
       "Description": "Small Hydra Nível 200 (SmallBosses)",
@@ -17996,7 +18063,8 @@
       "Name": "Volcano Small Dragon Nível 200 (SmallBosses)",
       "Price": 11900,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "acrocanto_femea_l200": {
       "Description": "Acrocantossauro Fêmea Nível 200",
@@ -18011,6 +18079,7 @@
       ],
       "Price": 11200,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Acrocantossauro Fêmea Nível 200"
     },
     "sb_fire_elemental_l200": {
@@ -18064,7 +18133,8 @@
       "Name": "Small Dragon Nível 200 (SmallBosses)",
       "Price": 11200,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "xenomorphgen2_femea_l200": {
       "Description": "Reaper Gen2 Nível 200",
@@ -18080,7 +18150,8 @@
       "Name": "Reaper Gen2 Nível 200",
       "Price": 11200,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_broodmother_l200": {
       "Description": "Small Broodmother Nível 200 (SmallBosses)",
@@ -18113,6 +18184,7 @@
       ],
       "Price": 7125,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Megalosaurus Aberrante Fêmea Nível 200"
     },
     "sb_crystal_queen_l200": {
@@ -18219,7 +18291,8 @@
       "Name": "Reaper Nível 200",
       "Price": 9800,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_megapithecus_l200": {
       "Description": "Small Megapithecus Nível 200 (SmallBosses)",
@@ -18254,7 +18327,8 @@
       "Name": "IndoRaptor Nível 200",
       "Price": 8400,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "megalosaurus_femea_l200": {
       "Description": "Megalosaurus Fêmea Nível 200",
@@ -18269,6 +18343,7 @@
       ],
       "Price": 6750,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Megalosaurus Fêmea Nível 200"
     },
     "sb_crystal_blood_l200": {
@@ -18356,6 +18431,7 @@
       ],
       "Price": 7000,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Deinonychus Fêmea Nível 200"
     },
     "rex_femea_l200": {
@@ -18371,6 +18447,7 @@
       ],
       "Price": 7000,
       "Type": "dino",
+      "MarketInclude": true,
       "Name": "Rex Fêmea Nível 200"
     },
     "sb_moeder_l200": {
@@ -18388,7 +18465,26 @@
       "Name": "Small Moeder Nível 200 (SmallBosses)",
       "Price": 3750,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
+    },
+    "astrodelphis": {
+      "Description": "Astrodelphis Nível 1",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/SpaceDolphin/SpaceDolphin_Character_BP.SpaceDolphin_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 1,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Astrodelphis Nível 1",
+      "Price": 6000,
+      "Quality": 0,
+      "Type": "dino",
+      "MarketInclude": true
     }
   },
   "Downloads": [

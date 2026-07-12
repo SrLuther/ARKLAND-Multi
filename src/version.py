@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.26"
+APP_VERSION: str = "1.10.27"
 BUILD_DATE: str = "2026-07-12"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,6 +12,17 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "TBD",
         "changes": [
+            "Fix (Plugins / Debug ARKLAND): pasta `logs/` + marcador boot em "
+            "`arkland_debug.log` criados sempre no arranque (mesmo com "
+            "Debug.Enabled=false); Enabled só controla volume TRACE. "
+            "Bump CustomShop v1.10.14 → v1.10.15; CustomDinoDeliver "
+            "v1.10.13 → v1.10.14. Docs/ARKLAND_PLUGIN_DEBUG.md.",
+        ],
+    },
+    {
+        "version": "1.10.27",
+        "date": "2026-07-12",
+        "changes": [
             "Feat (CustomShop / Web Store): dinos nível 200 no catálogo — "
             "entradas `*_l200` com preço "
             "`P200 = round(clamp(P1 × k, P1+1, 0.75×M))` "
@@ -19,6 +30,10 @@ CHANGELOG: list[dict] = [
             "aba dedicada «Dinos 200» (aba Dinos só L1); "
             "script idempotente tools/apply_shop_l200_prices.py; "
             "docs/SHOP_L200_PRICING.md.",
+            "Fix (CustomShop): alinhamento catálogo — ID `astrodelphis_1` → "
+            "`astrodelphis` (defaults/mercado); `MarketInclude: true` nos 81 L1 "
+            "em falta; 29 `*_l200` reaplicados com defaults do repo "
+            "(não WEBSTORE Desktop); configs espelhados em bin.",
         ],
     },
     {

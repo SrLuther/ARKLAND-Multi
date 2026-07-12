@@ -8,6 +8,12 @@ A UI «Versões esperadas» (Dino Lab) lê `PluginInfo.json` embutido no app (`V
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.14] - 2026-07-12
+
+### Fix
+
+- **DinoDebug**: cria `logs/` + linha boot em `arkland_debug.log` no arranque **sempre** (mesmo com `Debug.Enabled=false`). Enabled só controla volume TRACE.
+
 ## [1.10.13] - 2026-07-12
 
 ### Feature

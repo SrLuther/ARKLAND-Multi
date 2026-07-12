@@ -15,6 +15,6 @@
     "HttpPersist": true,
     "HttpMinLevel": "WARN",
     "HttpCategories": ["Deliver", "DinoLab", "Http", "SpawnExact"],
-    "_comment": "JSONL em ArkApi/Plugins/CustomDinoDeliver/logs/arkland_debug.log. Ligar Enabled=true + Level=TRACE; DinoDeliver.Reload. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
+    "_comment": "Pasta logs/ criada no boot sempre. JSONL em ArkApi/Plugins/CustomDinoDeliver/logs/arkland_debug.log. Enabled=true + Level=TRACE; DinoDeliver.Reload ou DinoDeliver.DebugLevel trace. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
   }
 }

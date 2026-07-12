@@ -7,9 +7,19 @@
 
 ## [Unreleased] - TBD
 
+### Fix
+
+- Fix (Plugins / Debug ARKLAND): pasta `logs/` + marcador boot em `arkland_debug.log` criados sempre no arranque (mesmo com Debug.Enabled=false); Enabled só controla volume TRACE. Bump CustomShop v1.10.14 → v1.10.15; CustomDinoDeliver v1.10.13 → v1.10.14. Docs/ARKLAND_PLUGIN_DEBUG.md.
+
+## [1.10.27] - 2026-07-12
+
 ### Feature
 
 - Feat (CustomShop / Web Store): dinos nível 200 no catálogo — entradas `*_l200` com preço `P200 = round(clamp(P1 × k, P1+1, 0.75×M))` (k=1.40 configurável, M=root_value); skip se 0.75×M ≤ P1; aba dedicada «Dinos 200» (aba Dinos só L1); script idempotente tools/apply_shop_l200_prices.py; docs/SHOP_L200_PRICING.md.
+
+### Fix
+
+- Fix (CustomShop): alinhamento catálogo — ID `astrodelphis_1` → `astrodelphis` (defaults/mercado); `MarketInclude: true` nos 81 L1 em falta; 29 `*_l200` reaplicados com defaults do repo (não WEBSTORE Desktop); configs espelhados em bin.
 
 ## [1.10.26] - 2026-07-12
 

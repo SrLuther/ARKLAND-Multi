@@ -122,6 +122,28 @@ void OpenFileUnlocked() {
     }
 }
 
+/** Uma linha de boot — pasta/ficheiro sempre visíveis após deploy. */
+void WriteBootMarkerUnlocked(bool enabled) {
+    OpenFileUnlocked();
+    if (!g_file.is_open()) return;
+    nlohmann::json line = {
+        {"ts", IsoTimestamp()},
+        {"plugin", "CustomDinoDeliver"},
+        {"version", ARKLAND_PLUGIN_VERSION},
+        {"level", "INFO"},
+        {"category", "Boot"},
+        {"message",
+         enabled
+             ? "DinoDebug channel ready (file logging on)"
+             : "DinoDebug channel ready (TRACE off — set Debug.Enabled=true "
+               "or DinoDeliver.DebugLevel trace; see docs/ARKLAND_PLUGIN_DEBUG.md)"},
+    };
+    const std::string line_str = line.dump();
+    g_file << line_str << '\n';
+    g_file.flush();
+    g_file_bytes += line_str.size() + 1;
+}
+
 } // namespace
 
 const char* LevelName(Level level) {
@@ -163,8 +185,11 @@ void Configure(const nlohmann::json& debug_cfg) {
         "HttpCategories",
         nlohmann::json::array({"Deliver", "DinoLab", "Http", "SpawnExact"})));
 
+    // Sempre criar logs/ + marcador de boot (Enabled só controla volume TRACE).
+    EnsureLogDirUnlocked();
+    WriteBootMarkerUnlocked(g_enabled);
+
     if (g_enabled) {
-        OpenFileUnlocked();
         Log::GetLog()->info(
             "DinoDebug: enabled level={} file={} http_persist={}",
             LevelName(g_level), g_log_path, g_http_persist ? "yes" : "no");
@@ -173,7 +198,9 @@ void Configure(const nlohmann::json& debug_cfg) {
             g_file.flush();
             g_file.close();
         }
-        Log::GetLog()->info("DinoDebug: disabled (produção — ligar Debug.Enabled=true)");
+        Log::GetLog()->info(
+            "DinoDebug: TRACE off — pasta pronta em {} (ligar Debug.Enabled=true)",
+            g_log_path);
     }
 }
 
@@ -330,7 +357,13 @@ std::string LogFilePath() {
 void SetEnabledRuntime(bool enabled) {
     std::lock_guard<std::mutex> lock(g_mu);
     g_enabled = enabled;
-    if (g_enabled) OpenFileUnlocked();
+    EnsureLogDirUnlocked();
+    if (g_enabled) {
+        OpenFileUnlocked();
+    } else if (g_file.is_open()) {
+        g_file.flush();
+        g_file.close();
+    }
 }
 
 void SetLevelRuntime(Level level) {

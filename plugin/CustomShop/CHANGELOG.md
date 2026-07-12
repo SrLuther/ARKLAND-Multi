@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.15] - 2026-07-12
+
+### Fix
+
+- **ShopDebug**: cria `logs/` + linha boot em `arkland_debug.log` no arranque **sempre** (mesmo com `Debug.Enabled=false`). Enabled só controla volume TRACE — o canal deixa de ficar invisível após deploy.
+
 ## [1.10.14] - 2026-07-12
 
 ### Feature
