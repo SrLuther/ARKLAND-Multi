@@ -1,20 +1,8 @@
 {
-    "version": "1.10.29",
+    "version": "1.10.30",
     "date": "2026-07-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.29/ARKLAND-Multi-Setup-v1.10.29.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.30/ARKLAND-Multi-Setup-v1.10.30.exe",
     "changelog": [
-        "Feat (Área da Tribo / Cluster): códigos de convite /tribe.CODE (máx. 30 dias, regenerável), pedidos PENDING/ACCEPTED/DENIED, membros confirmados (confirmed_via=code|sync), split só confirmados; leave in-game revoga membership web só naquele mapa; Principal/Fob com cooldown 24h e ≤1 principal por SteamID; transferência de ownership + alertas admin; painel admin Tribos (lista; limites de construção adiados/sem enforcement); CustomShop chat /tribe.CODE + presença tribe_id=0. Docs §20.8 + regulamento §8.10.1. Bump CustomShop v1.10.16 → v1.10.17.",
-        "Feat (Web Store / Encomenda): vitrine em grade 3×5 (desktop); modal com campos numéricos de todos os stats, nível auto (1+soma), regiões 1–6 legendadas e aceite §8.12 antes do checkout.",
-        "Feat (Web Store / Licenças): painel «Benefícios por licença» com abas Gamma/Beta/Alfa/Nuvem e bullets detalhados (Timed Points, acesso ItensAlfa, renovação de kits, cofre /upload·/download, Mercado P2P) a partir de config.json / LICENSE_TIMED_BONUS / regulamento §8.5–8.7.",
-        "Feat (Broadcasts TEK): pacote Regulamento — mensagens curtas das regras de alto impacto (doação/licença §3.5, RMT, cheats, conduta, estruturas, mercado, etc.); botão «Regulamento» no painel Broadcasts (ativar/editar/intervalo no ciclo existente).",
-        "Feat (CustomShop / ItensAlfa): 35 selas TEK (7 espécies × Delta→Omega) no catálogo — Megalodon, Mosassauro, Rex, Rock Drake, Astrodelph, Astrocetus, Tapejara; preços CSV×1,15; licença próprio+um acima; também incluídas nos kits Delta→Omega.",
-        "Feat (Web Store / Kits): cards e modal com detalhe estruturado (armaduras/armas/ferramentas/selas + stats da planilha itensalfa_kit_descriptions.json); KitDescription com contagens; título via Name.",
-        "Feat (Área da Tribo / Log): espelho do TribeLog por mapa — tabela tribe_logs, POST /api/tribe/log/ingest, GET /api/tribe/log/<mapa>, poller TribeLog.log + remote_agent /tribelog; aba Log em Minha Tribo (um stream por mapa selecionado).",
-        "Fix (Área da Tribo / Minha Tribo): is_owner reflete o proprietário in-game (OwnerPlayerDataID), não quem ativou o painel; remove lock web que reescrevia is_owner por steam do painel; Admin com badge correto; lista completa via FTribeData (offline com pdid:<id>); CustomShop deixa de usar IsTribeOwner (marcava Admin como dono).",
-        "Fix (Web Store / Encomenda): cotação no wizard — debounce 280ms + abort de pedidos antigos; quote deixa de re-listar todo o catálogo (timeout 15s ao mexer nos sliders); rate limit 90/min.",
-        "Fix (Web Store / Encomenda): nomes amigáveis na galeria e Dino Lab — defaults/catálogo primeiro (Shadowmane, Small Manticore, Meraxes); remove «Nível 200» e ids crus (lionfishlion, sb_*_200, meraxes_femea).",
-        "Docs (Área da Tribo): decisões finais Jul/2026 — limites de construção adiados (sem enforcement); breeding só regulamento; 1 pessoa=1 Principal; logs do grupo para todos; admin (exceto support) no painel/códigos; §20.8 + regulamento §8.10.1 v1.3.",
-        "Docs (Área da Tribo): PROJETO_AREA_TRIBO.md §20 (cluster/códigos/Principal-Fob); regulamento §8.10.1 + ponteiro em §4.2; bump regulamento 1.2.",
-        "Docs (Regulamento §8.12): Encomenda de Dinos — vitrine, preço α/β, nível auto, contestação via ticket; version bump 1.1 na Web Store."
+        "Fix (Área da Tribo / Web): crash no arranque Flask — `@api_key_required` sem () nas rotas invite/join, leave e ownership-transfer registava endpoint `decorator` e abortava com AssertionError (site não subia após 1.10.29)."
     ]
 }

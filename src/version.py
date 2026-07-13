@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.29"
+APP_VERSION: str = "1.10.30"
 BUILD_DATE: str = "2026-07-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.30",
+        "date": "2026-07-12",
+        "changes": [
+            "Fix (Área da Tribo / Web): crash no arranque Flask — "
+            "`@api_key_required` sem () nas rotas invite/join, leave e "
+            "ownership-transfer registava endpoint `decorator` e abortava "
+            "com AssertionError (site não subia após 1.10.29).",
+        ],
+    },
     {
         "version": "1.10.29",
         "date": "2026-07-12",

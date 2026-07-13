@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.30] - 2026-07-12
+
+### Fix
+
+- Fix (Área da Tribo / Web): crash no arranque Flask — `@api_key_required` sem () nas rotas invite/join, leave e ownership-transfer registava endpoint `decorator` e abortava com AssertionError (site não subia após 1.10.29).
+
 ## [1.10.29] - 2026-07-12
 
 ### Feature

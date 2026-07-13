@@ -882,7 +882,7 @@ def register_tribe_routes(
             db.close()
 
     @app.route("/api/tribe/invite/join", methods=["POST"])
-    @api_key_required
+    @api_key_required()
     def tribe_invite_join():
         """Plugin: /tribe.CODE → cria pedido PENDING."""
         if not db_ready():
@@ -932,7 +932,7 @@ def register_tribe_routes(
             db.close()
 
     @app.route("/api/tribe/leave", methods=["POST"])
-    @api_key_required
+    @api_key_required()
     def tribe_leave_revoke():
         """Plugin: tribe_id=0 / leave → revoga membership neste mapa."""
         if not db_ready():
@@ -954,7 +954,7 @@ def register_tribe_routes(
             db.close()
 
     @app.route("/api/tribe/ownership-transfer", methods=["POST"])
-    @api_key_required
+    @api_key_required()
     def tribe_ownership_transfer():
         if not db_ready():
             return _fail("DB não disponível", 503)
