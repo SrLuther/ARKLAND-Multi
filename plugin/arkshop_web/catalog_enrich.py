@@ -396,6 +396,7 @@ def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
         return {}
 
     desc = str(entry.get("Description") or entry.get("description") or key).strip()
+    name = str(entry.get("Name") or entry.get("name") or "").strip()
     kit_description = str(
         entry.get("KitDescription")
         or entry.get("kit_description")
@@ -429,18 +430,91 @@ def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
     tier = _kit_price_tier(price)
     thumbnail_url = tier_icon_url(tier)
 
+    counts: dict[str, int] = {"armor": 0, "weapon": 0, "tool": 0, "saddle": 0, "other": 0}
+    for c in kit_contents:
+        kind = str(c.get("kind") or "").lower()
+        if kind in counts:
+            counts[kind] += 1
+        else:
+            counts["other"] += 1
+
+    # Stats representativos do tier (primeiro item de cada kind com stats)
+    stats_by_kind: dict[str, dict[str, Any]] = {}
+    for c in kit_contents:
+        kind = str(c.get("kind") or "").lower()
+        if not kind or kind in stats_by_kind:
+            continue
+        st = c.get("stats") if isinstance(c.get("stats"), dict) else {}
+        if st:
+            stats_by_kind[kind] = st
+
+    # Fallback: status_by_tier da planilha ItensAlfa
+    sheet = _load_itensalfa_kit_descriptions()
+    status_by_tier = sheet.get("status_by_tier") or {}
+    sheet_tier = next((c.get("tier") for c in kit_contents if c.get("tier")), None)
+    if sheet_tier and isinstance(status_by_tier.get(sheet_tier), dict):
+        st_tier = status_by_tier[sheet_tier]
+        if "armor" not in stats_by_kind and st_tier.get("armor"):
+            stats_by_kind["armor"] = {"armor": st_tier["armor"], "label": f"Armadura {st_tier['armor']}"}
+        if "weapon" not in stats_by_kind and st_tier.get("weapon"):
+            stats_by_kind["weapon"] = {"damage": st_tier["weapon"], "label": f"Dano {st_tier['weapon']}"}
+        if "saddle" not in stats_by_kind and st_tier.get("saddle"):
+            stats_by_kind["saddle"] = {
+                "armor": st_tier["saddle"],
+                "label": f"Armadura da sela {st_tier['saddle']}",
+            }
+
+    highlight_lines: list[str] = []
+    if counts["armor"]:
+        lab = (stats_by_kind.get("armor") or {}).get("label") or ""
+        highlight_lines.append(
+            f"{counts['armor']} armadura(s) TEK" + (f" · {lab}" if lab else "")
+        )
+    if counts["weapon"]:
+        lab = (stats_by_kind.get("weapon") or {}).get("label") or ""
+        highlight_lines.append(
+            f"{counts['weapon']} arma(s)" + (f" · {lab}" if lab else "")
+        )
+    if counts["tool"]:
+        highlight_lines.append(f"{counts['tool']} ferramenta(s)")
+    if counts["saddle"]:
+        lab = (stats_by_kind.get("saddle") or {}).get("label") or ""
+        highlight_lines.append(
+            f"{counts['saddle']} sela(s) TEK" + (f" · {lab}" if lab else "")
+        )
+    if counts["other"] and not any(counts[k] for k in ("armor", "weapon", "tool", "saddle")):
+        highlight_lines.append(f"{counts['other']} item(ns)")
+
+    # Auto-descrição só quando há classificação útil (ItensAlfa / kinds conhecidos)
+    has_typed = any(counts[k] for k in ("armor", "weapon", "tool", "saddle"))
+    if not kit_description and has_typed and highlight_lines:
+        kit_description = (
+            f"Inclui {item_count} itens: " + "; ".join(highlight_lines) + "."
+        )
+
+    kit_summary = {
+        "counts": counts,
+        "stats_by_kind": stats_by_kind,
+        "highlights": highlight_lines,
+        "sheet_tier": sheet_tier,
+    }
+
     search_bits = [
         key,
+        name,
         desc,
         kit_description,
         "kit",
         str(item_count),
+        " ".join(highlight_lines),
         " ".join(c["label"] for c in kit_contents[:12]),
         " ".join(
             str(c.get("characteristics") or c.get("summary") or "")
             for c in kit_contents[:12]
         ),
     ]
+    if counts["saddle"]:
+        search_bits.append("selas saddle")
     search_text = _build_search_text(*search_bits)
 
     out: dict[str, Any] = {
@@ -449,6 +523,7 @@ def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
         "search_text": search_text,
         "item_count": item_count,
         "kit_contents": kit_contents,
+        "kit_summary": kit_summary,
         "tier": tier,
         "kit_description": kit_description,
     }

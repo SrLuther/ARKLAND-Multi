@@ -200,6 +200,18 @@ def list_candidate_species(db: Any) -> list[dict[str, Any]]:
         return []
 
     rows = list_species_public(db, active_only=True)
+    try:
+        from market_economy import friendly_species_display_name
+    except Exception:
+        friendly_species_display_name = None  # type: ignore[assignment]
+    shop_catalog = None
+    if friendly_species_display_name is not None:
+        try:
+            from app import _read_shop_config
+
+            shop_catalog = _read_shop_config()
+        except Exception:
+            shop_catalog = None
     # Dedup por display_name (mesma regra da galeria)
     by_name: dict[str, dict[str, Any]] = {}
     for item in rows:
@@ -207,10 +219,16 @@ def list_candidate_species(db: Any) -> list[dict[str, Any]]:
         if not sk or not _is_vanilla(sk):
             continue
         size = normalize_size_class(item.get("size_class") or _size_for_key(sk))
-        name_key = str(item.get("display_name") or sk).strip().lower()
+        if friendly_species_display_name is not None:
+            display_name = friendly_species_display_name(
+                sk, fallback=item.get("display_name"), catalog=shop_catalog
+            )
+        else:
+            display_name = item.get("display_name") or sk
+        name_key = str(display_name or sk).strip().lower()
         entry = {
             "species_key": sk,
-            "display_name": item.get("display_name") or sk,
+            "display_name": display_name or sk,
             "size_class": size,
             "tier": item.get("tier") or "",
             "root_value": int(item.get("root_value") or 0),
@@ -403,14 +421,22 @@ def get_vitrine_snapshot(
     def _enrich(keys: list[str], *, slot_kind: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for sk in keys:
-            base = by_key.get(sk) or {
-                "species_key": sk,
-                "display_name": sk,
-                "size_class": _size_for_key(sk),
-                "tier": "",
-                "root_value": 0,
-                "image_url": "",
-            }
+            base = by_key.get(sk)
+            if base is None:
+                try:
+                    from market_economy import friendly_species_display_name
+
+                    label = friendly_species_display_name(sk, fallback=sk)
+                except Exception:
+                    label = sk
+                base = {
+                    "species_key": sk,
+                    "display_name": label or sk,
+                    "size_class": _size_for_key(sk),
+                    "tier": "",
+                    "root_value": 0,
+                    "image_url": "",
+                }
             out.append({**base, "slot_kind": slot_kind})
         return out
 
@@ -511,11 +537,14 @@ def force_rotate(
 
 
 def orderable_species_keys(db: Any | None = None) -> set[str]:
-    """Chaves encomendáveis (rotating ∪ permanent), com auto-rotação se preciso."""
-    if db is not None:
-        snap = ensure_vitrine(db)
-        return set(snap.get("orderable_species_keys") or [])
+    """Chaves encomendáveis (rotating ∪ permanent), com auto-rotação se preciso.
+
+    Caminho quente (cotação): só lê o store JSON — não lista todo o catálogo.
+    """
     store = load_store()
+    if db is not None and _needs_rotation(store):
+        ensure_vitrine(db, reason="auto")
+        store = load_store()
     return set(
         _normalize_key_list(store.get("rotating_species_keys"), max_len=ROTATING_SLOTS)
         + _normalize_key_list(store.get("permanent_species_keys"), max_len=MAX_PERMANENT)
@@ -526,4 +555,16 @@ def is_species_on_vitrine(species_key: str, db: Any | None = None) -> bool:
     key = str(species_key or "").strip()
     if not key:
         return False
-    return key in orderable_species_keys(db)
+    keys = orderable_species_keys(db)
+    if key in keys:
+        return True
+    try:
+        from market_economy import canonicalize_species_key
+
+        canon = canonicalize_species_key(key)
+        if canon and canon in keys:
+            return True
+        # Chave canônica na vitrine vs variante pedida (ou o inverso)
+        return any(canonicalize_species_key(k) == (canon or key) for k in keys)
+    except Exception:
+        return False

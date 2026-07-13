@@ -2230,6 +2230,20 @@
       color: #fff;
       outline: none;
     }
+    .item-card__kit-highlights {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin: 4px 0 2px;
+      text-align: left;
+    }
+    .item-card__kit-highlights span {
+      font-size: 10px;
+      line-height: 1.35;
+      color: var(--text2);
+      padding-left: 8px;
+      border-left: 2px solid rgba(56, 189, 248, .35);
+    }
     .item-card__desc--admin {
       font-size: 10px;
       opacity: .8;
@@ -2326,6 +2340,121 @@
       line-height: 1.55;
     }
     .redeem-doc-block__list li { margin-bottom: 4px; }
+    /* Painel detalhado de benefícios por licença (RedeemDocs) */
+    .redeem-doc-block--license-benefits {
+      border-color: rgba(0, 200, 255, 0.28);
+      background: rgba(0, 200, 255, 0.04);
+    }
+    .redeem-license-benefits {
+      margin-top: 8px;
+    }
+    .redeem-license-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .redeem-license-tab {
+      flex: 1 1 100px;
+      min-width: 88px;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--text2);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .redeem-license-tab:hover {
+      border-color: rgba(0, 200, 255, 0.35);
+      color: var(--text);
+    }
+    .redeem-license-tab.is-active {
+      border-color: rgba(0, 200, 255, 0.55);
+      background: rgba(0, 200, 255, 0.1);
+      color: var(--tek);
+    }
+    .redeem-license-tab__name {
+      display: block;
+      font-family: "Rajdhani", sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .redeem-license-tab__hint {
+      display: block;
+      font-size: 10px;
+      margin-top: 2px;
+      color: var(--amber);
+      font-weight: 600;
+      opacity: 0.9;
+    }
+    .redeem-license-panel {
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0, 200, 255, 0.22);
+      background: rgba(0, 0, 0, 0.22);
+    }
+    .redeem-license-panel[hidden],
+    .redeem-license-panel.hidden {
+      display: none !important;
+    }
+    .redeem-license-panel__title {
+      font-family: "Rajdhani", sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--tek);
+      margin: 0 0 4px;
+    }
+    .redeem-license-panel__meta {
+      font-size: 12px;
+      color: var(--amber);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .redeem-license-panel__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .redeem-license-chip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(245, 166, 35, 0.12);
+      border: 1px solid rgba(245, 166, 35, 0.28);
+      color: var(--amber);
+    }
+    .redeem-license-chip--tek {
+      background: rgba(0, 200, 255, 0.1);
+      border-color: rgba(0, 200, 255, 0.3);
+      color: var(--tek);
+    }
+    .redeem-license-panel__summary {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+      margin: 0 0 10px;
+    }
+    .redeem-license-panel__benefits-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+    .redeem-license-panel__source {
+      font-size: 10px;
+      color: var(--text2);
+      opacity: 0.7;
+      margin: 10px 0 0;
+      line-height: 1.4;
+    }
+    /* Cards compactos legados (fallback) */
     .redeem-license-tiers {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -4647,6 +4776,73 @@
       color: var(--text);
     }
     .encomenda-rule-callout strong { color: var(--amber); display: block; margin-bottom: 4px; }
+    /* Vitrine encomenda: 3×5 no desktop (até 15 slots) */
+    #encomenda-gallery.encomenda-vitrine-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+    #encomenda-gallery .encomenda-vitrine-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__thumb {
+      width: 100%;
+      min-height: 0;
+      aspect-ratio: 1;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__thumb img {
+      width: 64px;
+      height: 64px;
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px 12px;
+      min-width: 0;
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__name {
+      font-size: 14px;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__meta-line {
+      font-size: 12px;
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__footer {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #encomenda-gallery .encomenda-vitrine-card .item-card__footer .btn {
+      width: 100%;
+      justify-content: center;
+      white-space: normal;
+      line-height: 1.2;
+      padding: 8px 10px;
+      font-size: 11px;
+    }
+    @media (max-width: 900px) {
+      #encomenda-gallery.encomenda-vitrine-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 560px) {
+      #encomenda-gallery.encomenda-vitrine-grid {
+        grid-template-columns: 1fr;
+      }
+    }
     .encomenda-showcase-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -5134,6 +5330,9 @@
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
     </div>
+    <div class="nav-item admin-only" data-page="tribe-admin" onclick="nav(this)">
+      <span class="nav-icon">🏰</span> Tribos
+    </div>
     <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
       <span class="nav-icon">📋</span> Auditoria
     </div>
@@ -5468,7 +5667,7 @@
             <p id="encomenda-gallery-hint" style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
               Encomende dinos sob medida — cores, stats e sexo. Preço calculado com paridade ao mercado + prêmio de serviço.
             </p>
-            <div id="encomenda-gallery" class="catalog-dinos-grid"></div>
+            <div id="encomenda-gallery" class="encomenda-vitrine-grid"></div>
             <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie na vitrine neste período. Volte mais tarde ou acompanhe o anúncio do servidor.</p>
             <details style="margin-top:20px;" id="encomenda-color-ids-details">
               <summary style="cursor:pointer;font-size:13px;color:var(--text2);">🎨 Referência de Color IDs (ARK)</summary>
@@ -7864,6 +8063,42 @@
         </div>
       </div>
 
+      <!-- PAGE: Tribos admin (mínimo) -->
+      <div id="page-tribe-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Tribos — Admin</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadTribeAdmin()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+            Lista de painéis de tribo e alertas (ex.: conflito de Principal após transferência).
+            Acesso: <strong>admins</strong> do site apenas (papel <em>support</em> não entra).
+            Intervenção em denúncias/abusos / códigos quando necessário.
+          </p>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Limites de construção — adiados</div>
+          <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.5;">
+            <strong style="color:var(--amber);">Sem enforcement.</strong>
+            Dois membros do mesmo grupo podem ter cada um uma base ★ Principal em mapas diferentes;
+            por isso limites de construção Principal vs Fob <em>não</em> são aplicados como regra dura.
+            Conduta abusiva continua sujeita a sanção caso a caso.
+          </p>
+          <div class="form-group" style="margin:0;">
+            <label>Notas internas (opcional)</label>
+            <input id="tribe-admin-notes" type="text" placeholder="Notas admin — não ativa limites" />
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="saveTribeAdminLimits()">Salvar notas</button>
+          <div id="tribe-admin-limits-hint" style="font-size:11px;color:var(--text2);margin-top:8px;">
+            Breeding oficial: apenas no mapa Principal (regulamento; sem bloqueio técnico).
+          </div>
+        </div>
+        <div id="tribe-admin-alerts" style="margin-bottom:16px;"></div>
+        <div id="tribe-admin-list"></div>
+      </div>
+
       <!-- PAGE: Debug Plugins (admin) -->
       <div id="page-plugin-debug" class="page admin-only">
         <div id="topbar">
@@ -8119,6 +8354,12 @@
     </div>
     <div id="encomenda-wizard-body">
       <div id="encomenda-wizard-species" style="font-weight:600;margin-bottom:12px;"></div>
+      <div class="encomenda-rule-callout" style="margin-bottom:14px;" role="note">
+        <strong>Regras da encomenda</strong>
+        Preço = valor de mercado dos stats + cores + taxa de serviço (α/β). Só espécies da vitrine.
+        Contestação / problemas: abra ticket. Leia o
+        <a href="#/regulamento" onclick="closeEncomendaWizard();nav(document.querySelector('[data-page=regulamento]'));return false;" style="color:var(--amber);">§8.12 do Regulamento</a>.
+      </div>
       <div class="form-grid">
         <div class="form-group">
           <label>Sexo</label>
@@ -8128,19 +8369,54 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Nível</label>
-          <input id="encomenda-level" type="number" min="1" max="450" value="150" onchange="encomendaRefreshQuote()" />
+          <label>Nível (calculado)</label>
+          <input id="encomenda-level" type="number" value="1" readonly disabled
+            style="opacity:0.85;cursor:not-allowed;background:var(--surface2);"
+            title="Nível = 1 + soma dos pontos de stats" aria-describedby="encomenda-level-hint" />
+          <div id="encomenda-level-hint" style="font-size:11px;color:var(--text3);margin-top:4px;">1 + soma dos pontos (0–254 por stat)</div>
         </div>
         <div class="form-group" style="grid-column:1/-1;">
           <label><input id="encomenda-neutered" type="checkbox" onchange="encomendaRefreshQuote()" /> Castrado</label>
         </div>
         <div class="form-group" style="grid-column:1/-1;">
-          <label>Vida (pontos desejados) <span id="encomenda-hp-val">0</span></label>
-          <input id="encomenda-hp" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-hp-val').textContent=this.value;encomendaRefreshQuote()" />
-        </div>
-        <div class="form-group" style="grid-column:1/-1;">
-          <label>Dano (pontos desejados) <span id="encomenda-melee-val">0</span></label>
-          <input id="encomenda-melee" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-melee-val').textContent=this.value;encomendaRefreshQuote()" />
+          <label>Pontos desejados (0–254 por stat)</label>
+          <div id="encomenda-stats-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-health">Vida</label>
+              <input id="encomenda-stat-health" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-stamina">Estamina</label>
+              <input id="encomenda-stat-stamina" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-oxygen">Oxigênio</label>
+              <input id="encomenda-stat-oxygen" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-food">Comida</label>
+              <input id="encomenda-stat-food" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-weight">Peso</label>
+              <input id="encomenda-stat-weight" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-melee">Dano</label>
+              <input id="encomenda-stat-melee" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-stat-speed">Velocidade</label>
+              <input id="encomenda-stat-speed" type="number" min="0" max="254" value="0" inputmode="numeric"
+                oninput="encomendaOnStatChange()" />
+            </div>
+          </div>
         </div>
         <div class="form-group" style="grid-column:1/-1;">
           <label>Referências de cor (clique para aplicar)</label>
@@ -8152,24 +8428,48 @@
         </div>
         <div class="form-group" style="grid-column:1/-1;">
           <label style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-            Cores (6 regiões — índice Obelisk 0–255)
+            Cores (índice Obelisk 0–255)
             <button type="button" class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 10px;" onclick="openArkColorIdsModal()">🎨 Ver tabela de IDs</button>
           </label>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-            <input id="encomenda-color-0" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-            <input id="encomenda-color-1" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-            <input id="encomenda-color-2" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-            <input id="encomenda-color-3" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-            <input id="encomenda-color-4" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-            <input id="encomenda-color-5" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-color-0">Região 1</label>
+              <input id="encomenda-color-0" type="number" min="0" max="255" value="0" oninput="encomendaRefreshQuote()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-color-1">Região 2</label>
+              <input id="encomenda-color-1" type="number" min="0" max="255" value="0" oninput="encomendaRefreshQuote()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-color-2">Região 3</label>
+              <input id="encomenda-color-2" type="number" min="0" max="255" value="0" oninput="encomendaRefreshQuote()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-color-3">Região 4</label>
+              <input id="encomenda-color-3" type="number" min="0" max="255" value="0" oninput="encomendaRefreshQuote()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-color-4">Região 5</label>
+              <input id="encomenda-color-4" type="number" min="0" max="255" value="0" oninput="encomendaRefreshQuote()" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="encomenda-color-5">Região 6</label>
+              <input id="encomenda-color-5" type="number" min="0" max="255" value="0" oninput="encomendaRefreshQuote()" />
+            </div>
           </div>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-weight:500;">
+            <input id="encomenda-rules-accept" type="checkbox" style="margin-top:3px;" onchange="encomendaSyncCheckoutBtn()" />
+            <span>Li e aceito as regras da <strong>Encomenda de Dino</strong> (§8.12 do Regulamento), incluindo preço de serviço, vitrine limitada e contestação via ticket.</span>
+          </label>
         </div>
       </div>
       <div id="encomenda-quote-box" style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;">
         <div style="color:var(--text2);">Calculando cotação…</div>
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="encomenda-checkout-btn" onclick="encomendaCheckout()">Pagar e encomendar</button>
+        <button class="btn btn-primary" id="encomenda-checkout-btn" disabled onclick="encomendaCheckout()">Pagar e encomendar</button>
         <button class="btn btn-ghost" onclick="closeEncomendaWizard()">Cancelar</button>
       </div>
     </div>
@@ -8459,9 +8759,24 @@ async function readFetchJson(r) {
   throw err;
 }
 
-async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null } = {}) {
+async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null, signal = null } = {}) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, timeoutMs);
+  const onExternalAbort = () => ctrl.abort();
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timer);
+      const err = new Error("aborted");
+      err.name = "AbortError";
+      err.stale = true;
+      throw err;
+    }
+    signal.addEventListener("abort", onExternalAbort, { once: true });
+  }
   try {
     const opts = { method, signal: ctrl.signal, credentials: "same-origin" };
     if (body != null) {
@@ -8481,11 +8796,18 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
     return data;
   } catch (e) {
     if (e.name === "AbortError") {
+      if (!timedOut || (signal && signal.aborted)) {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        err.stale = true;
+        throw err;
+      }
       throw new Error(`Timeout (${Math.round(timeoutMs / 1000)}s) em ${path}`);
     }
     throw e;
   } finally {
     clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", onExternalAbort);
   }
 }
 
@@ -8854,6 +9176,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "plugin-debug") loadPluginDebug();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
+  if (page === "tribe-admin") loadTribeAdmin();
   if (page === "polls-admin") loadPollsAdmin();
   if (page === "lottery-admin") loadLotteryAdmin();
   if (page === "dino-lab-admin") loadDinoLabAdmin();
@@ -9767,7 +10090,12 @@ function openKitContentsModal(kitKey) {
   const blurb = document.getElementById("kit-contents-blurb");
   if (!modal || !list) return;
   if (title) title.textContent = kit.name || "Conteúdo do kit";
-  if (sub) sub.textContent = `${kit.itemCount || 0} itens incluídos · ${kit.price > 0 ? formatAmberAmount(kit.price) : "Grátis"}`;
+  const summary = kit.kitSummary || {};
+  const highlights = summary.highlights || [];
+  const subBits = [`${kit.itemCount || 0} itens incluídos`];
+  if (kit.price > 0) subBits.push(formatAmberAmount(kit.price));
+  if (highlights.length) subBits.push(highlights.join(" · "));
+  if (sub) sub.textContent = subBits.join(" · ");
   if (includesTitle) includesTitle.textContent = "O que inclui";
   if (blurb) {
     const text = String(kit.kitDescription || "").trim();
@@ -9782,14 +10110,23 @@ function openKitContentsModal(kitKey) {
   const kindLabel = (k) => ({
     armor: "Armadura", weapon: "Arma", tool: "Ferramenta", saddle: "Sela",
   })[String(k || "").toLowerCase()] || "";
-  const contents = kit.kitContents || [];
+  const kindOrder = { armor: 0, weapon: 1, tool: 2, saddle: 3 };
+  const contents = [...(kit.kitContents || [])].sort((a, b) => {
+    const ka = kindOrder[String(a.kind || "").toLowerCase()];
+    const kb = kindOrder[String(b.kind || "").toLowerCase()];
+    const oa = ka === undefined ? 9 : ka;
+    const ob = kb === undefined ? 9 : kb;
+    if (oa !== ob) return oa - ob;
+    return String(a.label || "").localeCompare(String(b.label || ""), "pt");
+  });
   list.innerHTML = contents.length
     ? contents.map(c => {
         const kind = kindLabel(c.kind);
-        const char = String(c.characteristics || c.summary || c.materials_text || "").trim();
+        const char = String(c.characteristics || c.summary || "").trim();
         const metaBits = [];
         if (kind || c.tier) metaBits.push([kind, c.tier].filter(Boolean).join(" "));
         if (c.stats && c.stats.label) metaBits.push(c.stats.label);
+        if (!char && c.materials_text) metaBits.push(`Craft: ${c.materials_text}`);
         const metaLine = char || metaBits.join(" · ");
         return `<li>
           <div class="kit-c-head">
@@ -9886,7 +10223,11 @@ function _renderProductCard(i, btnLabel) {
   if (i.licenseDays) {
     metaLine = `<div class="item-card__meta-line">📜 ${escHtml(String(i.licenseDays))} dias${i.licenseGroup ? ` · ${escHtml(i.licenseGroup)}` : ""}</div>`;
   } else if (i.catalogKind === "kit" && i.itemCount) {
-    metaLine = `<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>o que inclui</button></div>`;
+    const hl = ((i.kitSummary && i.kitSummary.highlights) || []).slice(0, 4);
+    const hlHtml = hl.length
+      ? `<div class="item-card__kit-highlights">${hl.map(h => `<span>${escHtml(h)}</span>`).join("")}</div>`
+      : "";
+    metaLine = `${hlHtml}<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>o que inclui</button></div>`;
   }
   if (kitLim && kitLim.limit > 0) {
     const eff = kitLim.effective_remaining ?? kitLim.remaining ?? 0;
@@ -9966,8 +10307,8 @@ async function loadCatalog() {
 
     _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
       key,
-      name:     v.Description || v.description || formatKey(key),
-      desc:     v.Description || v.description || "",
+      name:     v.Name || v.name || v.Description || v.description || formatKey(key),
+      desc:     v.kit_description || v.KitDescription || v.Description || v.description || "",
       price:    v.Price ?? v.price ?? 0,
       type:     "kit",
       category: "Kit",
@@ -9978,6 +10319,7 @@ async function loadCatalog() {
       itemCount: v.item_count ?? (v.Items || []).length,
       kitContents: v.kit_contents || [],
       kitDescription: v.kit_description || v.KitDescription || "",
+      kitSummary: v.kit_summary || {},
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
       thumbnailUrl: v.thumbnail_url || "",
@@ -14225,6 +14567,9 @@ async function loadMarketEncomenda() {
 
 let _encomendaWizardSpecies = null;
 let _encomendaQuote = null;
+let _encomendaQuoteTimer = null;
+let _encomendaQuoteAbort = null;
+let _encomendaQuoteSeq = 0;
 
 function renderEncomendaGallery() {
   const grid = document.getElementById("encomenda-gallery");
@@ -14254,14 +14599,14 @@ function renderEncomendaGallery() {
     const tier = s.tier ? `<span class="item-card__tier-badge">${escHtml(s.tier)}</span>` : "";
     const sk = escHtml(s.species_key);
     const sc = parseInt(s.showcase_count, 10) || 0;
-    return `<article class="item-card">
+    return `<article class="item-card encomenda-vitrine-card">
       <div class="item-card__thumb">${thumb}${tier}</div>
       <div class="item-card__body">
         <div class="item-card__name">${escHtml(s.display_name || s.species_key)}</div>
         <div class="item-card__meta-line">a partir de ${amberPriceHtml(s.starting_price || 0, 14)}${sc ? ` · ${sc} cor${sc > 1 ? "es" : ""}` : ""}</div>
-        <div class="item-card__footer" style="display:flex;flex-direction:column;gap:6px;">
-          <button class="btn btn-ghost btn-sm" onclick="openEncomendaShowcaseModal('${sk}')">Ver cores</button>
-          <button class="btn btn-primary btn-sm btn-buy" onclick="openEncomendaWizard('${sk}')">ENCOMENDAR MEU DINO</button>
+        <div class="item-card__footer">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openEncomendaShowcaseModal('${sk}')">Ver cores</button>
+          <button type="button" class="btn btn-primary btn-sm btn-buy" onclick="openEncomendaWizard('${sk}')">Encomendar</button>
         </div>
       </div>
     </article>`;
@@ -14419,22 +14764,69 @@ function encomendaShowcaseOrder() {
   if (sc) setTimeout(() => encomendaApplyShowcaseColors(sc), 50);
 }
 
+const _ENCOMENDA_STAT_KEYS = ["health", "stamina", "oxygen", "food", "weight", "melee", "speed"];
+
+function encomendaClampStat(raw) {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(254, n);
+}
+
+function encomendaReadStatPoints() {
+  const pts = {};
+  for (const key of _ENCOMENDA_STAT_KEYS) {
+    pts[key] = encomendaClampStat(document.getElementById("encomenda-stat-" + key)?.value || "0");
+  }
+  return pts;
+}
+
+function encomendaUpdateLevelFromStats() {
+  const pts = encomendaReadStatPoints();
+  let sum = 0;
+  for (const key of _ENCOMENDA_STAT_KEYS) sum += pts[key] || 0;
+  const level = Math.max(1, 1 + sum);
+  const el = document.getElementById("encomenda-level");
+  if (el) el.value = String(level);
+  return level;
+}
+
+function encomendaOnStatChange() {
+  for (const key of _ENCOMENDA_STAT_KEYS) {
+    const el = document.getElementById("encomenda-stat-" + key);
+    if (el) el.value = String(encomendaClampStat(el.value));
+  }
+  encomendaUpdateLevelFromStats();
+  encomendaRefreshQuote();
+}
+
+function encomendaSyncCheckoutBtn() {
+  const btn = document.getElementById("encomenda-checkout-btn");
+  if (!btn) return;
+  const accepted = !!document.getElementById("encomenda-rules-accept")?.checked;
+  const hasQuote = !!_encomendaQuote;
+  btn.disabled = !(accepted && hasQuote);
+}
+
 function openEncomendaWizard(speciesKey) {
   const sp = (window._encomendaSpecies || []).find(s => s.species_key === speciesKey);
   if (!sp) return;
   _encomendaWizardSpecies = sp;
+  _encomendaQuote = null;
   document.getElementById("encomenda-wizard-species").textContent = sp.display_name || speciesKey;
   document.getElementById("encomenda-gender").value = "female";
-  document.getElementById("encomenda-level").value = "150";
   document.getElementById("encomenda-neutered").checked = false;
-  document.getElementById("encomenda-hp").value = "0";
-  document.getElementById("encomenda-melee").value = "0";
-  document.getElementById("encomenda-hp-val").textContent = "0";
-  document.getElementById("encomenda-melee-val").textContent = "0";
+  const accept = document.getElementById("encomenda-rules-accept");
+  if (accept) accept.checked = false;
+  for (const key of _ENCOMENDA_STAT_KEYS) {
+    const el = document.getElementById("encomenda-stat-" + key);
+    if (el) el.value = "0";
+  }
   for (let i = 0; i < 6; i++) {
     const el = document.getElementById("encomenda-color-" + i);
     if (el) el.value = "0";
   }
+  encomendaUpdateLevelFromStats();
+  encomendaSyncCheckoutBtn();
   document.getElementById("encomenda-wizard-modal")?.classList.remove("hidden");
   encomendaLoadWizardShowcases(speciesKey);
   encomendaRefreshQuote();
@@ -14773,23 +15165,32 @@ function encomendaBuildSpec() {
   for (let i = 0; i < 6; i++) {
     colors.push(parseInt(document.getElementById("encomenda-color-" + i)?.value || "0", 10) || 0);
   }
+  const level = encomendaUpdateLevelFromStats();
   return {
     species_key: _encomendaWizardSpecies?.species_key,
-    level: parseInt(document.getElementById("encomenda-level")?.value || "150", 10) || 150,
+    level,
     gender: document.getElementById("encomenda-gender")?.value || "female",
     neutered: !!document.getElementById("encomenda-neutered")?.checked,
     colors,
-    stat_points: {
-      health: parseInt(document.getElementById("encomenda-hp")?.value || "0", 10) || 0,
-      melee: parseInt(document.getElementById("encomenda-melee")?.value || "0", 10) || 0,
-    },
+    stat_points: encomendaReadStatPoints(),
   };
 }
 
 async function encomendaRefreshQuote() {
+  clearTimeout(_encomendaQuoteTimer);
+  _encomendaQuoteTimer = setTimeout(() => encomendaRefreshQuoteNow(), 280);
+}
+
+async function encomendaRefreshQuoteNow() {
   const box = document.getElementById("encomenda-quote-box");
   const btn = document.getElementById("encomenda-checkout-btn");
   if (!box || !_encomendaWizardSpecies) return;
+  const seq = ++_encomendaQuoteSeq;
+  if (_encomendaQuoteAbort) {
+    try { _encomendaQuoteAbort.abort(); } catch (_) {}
+  }
+  _encomendaQuoteAbort = new AbortController();
+  const signal = _encomendaQuoteAbort.signal;
   box.innerHTML = '<div style="color:var(--text2);">Calculando…</div>';
   if (btn) btn.disabled = true;
   try {
@@ -14797,7 +15198,10 @@ async function encomendaRefreshQuote() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(encomendaBuildSpec()),
+      signal,
+      timeoutMs: 15000,
     });
+    if (seq !== _encomendaQuoteSeq) return;
     if (!d.ok) throw new Error(d.message || d.error || "Cotação falhou");
     _encomendaQuote = d;
     const approveNote = d.auto_approve
@@ -14812,14 +15216,20 @@ async function encomendaRefreshQuote() {
         <div style="font-size:15px;font-weight:700;color:var(--amber);margin-top:6px;display:flex;justify-content:space-between;"><span>Total</span><span>${amberPriceHtml(d.total, 16)}</span></div>
         <div style="margin-top:4px;">${approveNote}</div>
       </div>`;
-    if (btn) btn.disabled = false;
+    encomendaSyncCheckoutBtn();
   } catch (e) {
+    if (e.stale || e.name === "AbortError" || seq !== _encomendaQuoteSeq) return;
     box.innerHTML = `<div style="color:var(--danger);">${escHtml(e.message)}</div>`;
+    encomendaSyncCheckoutBtn();
   }
 }
 
 async function encomendaCheckout() {
   if (!_encomendaQuote || !_encomendaWizardSpecies) return;
+  if (!document.getElementById("encomenda-rules-accept")?.checked) {
+    toast("Aceite as regras da Encomenda (§8.12) para continuar.", "error");
+    return;
+  }
   const btn = document.getElementById("encomenda-checkout-btn");
   if (btn) btn.disabled = true;
   try {
@@ -14835,7 +15245,7 @@ async function encomendaCheckout() {
     await loadMarketEncomenda();
   } catch (e) {
     toast(e.message, "error");
-    if (btn) btn.disabled = false;
+    encomendaSyncCheckoutBtn();
   }
 }
 
@@ -14881,7 +15291,7 @@ async function loadMyAreaDinoOrders() {
 
 let _tribeData = null;
 let _tribeActiveMap = null;
-let _tribeActiveTab = "status"; // 'status' | 'members' | 'regulamento' | 'split'
+let _tribeActiveTab = "status"; // 'status' | 'members' | 'log' | 'regulamento' | 'split'
 let _tribeModalSaveFn = null;
 
 async function loadMyTribe() {
@@ -14901,7 +15311,8 @@ async function loadMyTribe() {
     _tribeData = d.data || {};
     const maps = _tribeData.maps || [];
     const isOwner = !!_tribeData.is_owner;
-    const panelOn = !!_tribeData.panel_activated || isOwner;
+    const canManage = !!_tribeData.can_manage;
+    const panelOn = !!_tribeData.panel_activated || canManage;
 
     if (!panelOn && !maps.length) {
       root.innerHTML = _renderTribeEmptyGuest();
@@ -14936,18 +15347,33 @@ function _renderTribeEmptyGuest() {
 }
 
 function _renderTribeWaitingDetection() {
+  const role = (_tribeData && _tribeData.viewer_role) || "";
+  const rank = (_tribeData && _tribeData.member_rank) || "";
+  const gameOwner = (_tribeData && _tribeData.game_owner) || null;
+  const isGameOwner = !!(_tribeData && _tribeData.is_owner);
   const name = (_tribeData && _tribeData.owner && _tribeData.owner.display_name) || _auth.steam_persona || _auth.steam_id || "";
   const hint = (_tribeData && _tribeData._sync_hint) || "";
+  const roleNote = !isGameOwner && role === "admin"
+    ? `<p style="margin:12px 0 0;color:var(--amber);">Você está como <strong>Admin</strong> in-game (não Proprietário). O vínculo do mapa exige login como Proprietário da tribo.</p>`
+    : !isGameOwner && role === "member" && rank
+      ? `<p style="margin:12px 0 0;color:var(--text2);">Seu rank in-game: <strong>${escHtml(rank)}</strong>.</p>`
+      : "";
+  const ownerLine = isGameOwner
+    ? `Proprietário: <strong style="color:var(--text);">${escHtml(name)}</strong>.`
+    : gameOwner
+      ? `Proprietário da tribo: <strong style="color:var(--text);">${escHtml(gameOwner.display_name || gameOwner.steam_id || "—")}</strong>.`
+      : `Painel ativado por <strong style="color:var(--text);">${escHtml(name)}</strong>.`;
   return `
     <div style="text-align:center;padding:20px 0;">
       <div style="font-size:32px;margin-bottom:12px;">✅</div>
       <div style="color:var(--text);font-weight:600;margin-bottom:8px;">Painel ativado</div>
       <div style="color:var(--text2);font-size:12px;margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto;line-height:1.55;text-align:left;">
-        Proprietário: <strong style="color:var(--text);">${escHtml(name)}</strong>.
+        ${ownerLine}
         Ainda não há mapa vinculado. Entre em um servidor ARKLAND <strong>como Proprietário da tribo</strong>
         (o rank in-game «Proprietário», não só Admin). O plugin grava a presença na base de dados
         (login / poll ~15s / «Verificar de novo»). Depois disso, na aba Membros você pode adicionar SteamIDs
         manualmente se alguém ainda não logou.
+        ${roleNote}
         ${hint ? `<p style="margin:12px 0 0;color:var(--amber);">${escHtml(hint)}</p>` : ""}
       </div>
       <button class="btn btn-ghost btn-sm" id="tribe-resync-btn" onclick="tribeForceSync()">↺ Verificar de novo</button>
@@ -15026,9 +15452,13 @@ async function tribeForceSync() {
 }
 
 function _renderTribePanel(data) {
-  const isOwner = data.is_owner;
+  const isOwner = !!data.is_owner;
+  const canManage = !!data.can_manage;
+  const viewerRole = data.viewer_role || (isOwner ? "owner" : "member");
+  const memberRank = data.member_rank || "";
   const maps = data.maps || [];
   const owner = data.owner || {};
+  const gameOwner = data.game_owner || null;
   const active = maps.find(m => m.server_id === _tribeActiveMap) || maps[0] || null;
 
   const tabBtns = (tabs) => tabs.map(([id, label]) =>
@@ -15046,10 +15476,16 @@ function _renderTribePanel(data) {
 
   let tabContent = "";
   if (active) {
-    if (_tribeActiveTab === "status") tabContent = _renderTribeStatus(active, isOwner);
-    else if (_tribeActiveTab === "members") tabContent = _renderTribeMembers(active, isOwner);
-    else if (_tribeActiveTab === "regulamento") tabContent = _renderTribeRegulamento(data, isOwner, active);
-    else if (_tribeActiveTab === "split") tabContent = _renderTribeSplit(data, isOwner, active);
+    if (_tribeActiveTab === "status") tabContent = _renderTribeStatus(active, canManage);
+    else if (_tribeActiveTab === "members") tabContent = _renderTribeMembers(active, canManage);
+    else if (_tribeActiveTab === "log") tabContent = _renderTribeLog(active, canManage);
+    else if (_tribeActiveTab === "regulamento") tabContent = _renderTribeRegulamento(data, canManage, active);
+    else if (_tribeActiveTab === "split") tabContent = _renderTribeSplit(data, canManage, active);
+  }
+
+  // Carrega painel de convite após render (Status + owner)
+  if (active && _tribeActiveTab === "status" && canManage) {
+    setTimeout(() => tribeLoadInvitePanel(), 0);
   }
 
   const ownerBlock = isOwner ? `
@@ -15059,9 +15495,16 @@ function _renderTribePanel(data) {
         &nbsp;|&nbsp;
         <strong>Visibilidade do log:</strong> ${escHtml(owner.log_visibility || "members")}
       </div>
+    </div>` : viewerRole === "admin" ? `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:6px;">
+      Você é <strong style="color:var(--text);">Admin</strong> desta tribo${memberRank ? ` (rank: ${escHtml(memberRank)})` : ""}.
+      ${gameOwner ? ` Proprietário: <strong style="color:var(--text);">${escHtml(gameOwner.display_name || gameOwner.steam_id)}</strong>.` : ""}
+      Gestão (membros, regulamento, divisão) é do Proprietário in-game.
     </div>` : `
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:6px;">
-      Você é <strong style="color:var(--text);">membro</strong> desta tribo. Gestão (membros, regulamento, divisão) é do líder.
+      Você é <strong style="color:var(--text);">membro</strong> desta tribo${memberRank ? ` (rank: ${escHtml(memberRank)})` : ""}.
+      ${gameOwner ? ` Proprietário: <strong style="color:var(--text);">${escHtml(gameOwner.display_name || gameOwner.steam_id)}</strong>.` : ""}
+      Gestão (membros, regulamento, divisão) é do líder.
     </div>`;
 
   return `
@@ -15074,6 +15517,7 @@ function _renderTribePanel(data) {
       ${tabBtns([
         ["status", "📊 Status"],
         ["members", "👥 Membros"],
+        ["log", "📜 Log"],
         ["regulamento", "📋 Regulamento"],
         ["split", "💰 Divisão de Ganhos"],
       ])}
@@ -15083,21 +15527,39 @@ function _renderTribePanel(data) {
 
 function _tribeSetMap(serverId) {
   _tribeActiveMap = serverId;
-  _tribeActiveTab = "status";
+  const keepLog = _tribeActiveTab === "log";
+  if (!keepLog) _tribeActiveTab = "status";
   const root = document.getElementById("myarea-tribe-root");
   if (root && _tribeData) root.innerHTML = _renderTribePanel(_tribeData);
+  if (keepLog) {
+    const maps = (_tribeData && _tribeData.maps) || [];
+    const active = maps.find(m => m.server_id === serverId) || maps[0];
+    if (active) tribeLoadLog(active.server_id, active.tribe_id);
+  }
 }
 
 function _tribeSetTab(tab) {
   _tribeActiveTab = tab;
   const root = document.getElementById("myarea-tribe-root");
   if (root && _tribeData) root.innerHTML = _renderTribePanel(_tribeData);
+  if (tab === "log") {
+    const maps = (_tribeData && _tribeData.maps) || [];
+    const active = maps.find(m => m.server_id === _tribeActiveMap) || maps[0];
+    if (active) tribeLoadLog(active.server_id, active.tribe_id);
+  }
 }
 
 function _renderTribeStatus(mapData, isOwner) {
   const fobTag = mapData.tribe_type === "fob"
     ? `<span style="font-size:11px;color:var(--text2);padding:2px 6px;border:1px solid var(--border);border-radius:4px;">FOB</span>`
     : `<span style="font-size:11px;color:var(--amber);padding:2px 6px;border:1px solid var(--amber);border-radius:4px;">★ Principal</span>`;
+  const breedBadge = mapData.tribe_type === "fob"
+    ? `<div style="margin-top:8px;font-size:12px;color:var(--text2);padding:8px;background:var(--bg2);border-radius:6px;">🐣 Breeding oficial da tribo: apenas no mapa <strong style="color:var(--amber)">★ Principal</strong> (regulamento; sem bloqueio técnico).</div>`
+    : `<div style="margin-top:8px;font-size:12px;color:var(--text2);padding:8px;background:var(--bg2);border-radius:6px;">🐣 Este é o mapa <strong style="color:var(--amber)">Principal</strong> — breeding oficial permitido aqui (ver regulamento).</div>`;
+  const principalBtn = isOwner && mapData.tribe_type === "fob"
+    ? `<button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="tribeSetPrincipal('${escHtml(mapData.server_id)}')">Definir como ★ Principal (cooldown 24h)</button>`
+    : "";
+  const inviteBlock = isOwner ? `<div id="tribe-invite-panel" style="margin-top:14px;"></div>` : "";
   return `
     <div class="form-grid" style="margin-bottom:12px;">
       <div class="form-group"><label>Tribo</label><input readonly value="${escHtml(mapData.tribe_name_local || mapData.tribe_name || '—')}" /></div>
@@ -15106,19 +15568,201 @@ function _renderTribeStatus(mapData, isOwner) {
       <div class="form-group"><label>Tipo</label><div style="padding:8px 0;">${fobTag}</div></div>
       <div class="form-group"><label>Membros</label><input readonly value="${mapData.member_count ?? (mapData.members || []).length}" /></div>
     </div>
-    ${mapData.tribe_type === "fob" ? '<div style="color:var(--text2);font-size:12px;padding:8px;background:var(--bg2);border-radius:6px;">ℹ Fobs não possuem configuração de divisão de ganhos. Divisão é exclusiva da tribo principal.</div>' : ''}`;
+    ${breedBadge}
+    ${principalBtn}
+    ${mapData.tribe_type === "fob" ? '<div style="color:var(--text2);font-size:12px;padding:8px;background:var(--bg2);border-radius:6px;margin-top:8px;">ℹ Fobs não possuem configuração de divisão de ganhos. Divisão é exclusiva da tribo principal.</div>' : ''}
+    ${inviteBlock}`;
 }
 
-function _renderTribeMembers(mapData, isOwner) {
+async function tribeLoadInvitePanel() {
+  const el = document.getElementById("tribe-invite-panel");
+  if (!el || !_tribeData || !_tribeData.is_owner) return;
+  try {
+    const d = await fetchJson("/api/tribe/invite");
+    if (!d.ok) {
+      el.innerHTML = `<div style="color:var(--danger);font-size:12px;">${escHtml(d.error || "Erro ao carregar convite")}</div>`;
+      return;
+    }
+    const data = d.data || {};
+    const inv = data.invite;
+    const reqs = data.requests || [];
+    const confirmed = data.confirmed || [];
+    let codeHtml = inv
+      ? `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+           <code style="font-size:15px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;">${escHtml(inv.chat_command || ("/tribe." + inv.code))}</code>
+           <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${escHtml(inv.chat_command || ("/tribe." + inv.code))}').then(()=>toast('Copiado'))">Copiar</button>
+           <button class="btn btn-ghost btn-sm" onclick="tribeRegenInvite()">Regenerar</button>
+         </div>
+         <div style="font-size:11px;color:var(--text2);margin-top:6px;">Válido até ${escHtml(inv.expires_at || "—")} (máx. 30 dias). Regenerar invalida o anterior. Partilha é responsabilidade do dono.</div>`
+      : `<button class="btn btn-primary btn-sm" onclick="tribeRegenInvite(false)">Gerar código /tribe.CODE</button>
+         <div style="font-size:11px;color:var(--text2);margin-top:6px;">Membros digitam o comando in-game na tribo; você aceita no site. Não auto-entra.</div>`;
+    const reqHtml = reqs.length
+      ? `<div style="margin-top:12px;"><div style="font-weight:600;font-size:13px;margin-bottom:6px;">Pedidos pendentes</div>
+         ${reqs.map(r => `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px;background:var(--bg2);border-radius:6px;margin-bottom:6px;font-size:12px;">
+           <span>${escHtml(r.character_name || r.steam_id)} · ${escHtml(r.server_id)} · tribe ${r.tribe_id}</span>
+           <button class="btn btn-success btn-sm" onclick="tribeResolveRequest(${r.id},'accept')">Aceitar</button>
+           <button class="btn btn-ghost btn-sm" onclick="tribeResolveRequest(${r.id},'deny',true)">Negar + regenerar</button>
+           <button class="btn btn-ghost btn-sm" onclick="tribeResolveRequest(${r.id},'deny',false)">Negar</button>
+         </div>`).join("")}</div>`
+      : `<div style="margin-top:10px;font-size:12px;color:var(--text2);">Sem pedidos pendentes.</div>`;
+    const confHtml = confirmed.length
+      ? `<div style="margin-top:10px;font-size:11px;color:var(--text2);">Confirmados no grupo: ${confirmed.map(c => escHtml(c.steam_id) + " (" + escHtml(c.confirmed_via) + ")").join(", ")}</div>`
+      : "";
+    el.innerHTML = `<div style="padding:12px;border:1px solid var(--border);border-radius:8px;">
+      <div style="font-weight:600;margin-bottom:8px;">Código de convite (cluster)</div>
+      ${codeHtml}${reqHtml}${confHtml}
+    </div>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger);font-size:12px;">${escHtml(String(e.message || e))}</div>`;
+  }
+}
+
+async function tribeRegenInvite(force) {
+  try {
+    const d = await fetchJson("/api/tribe/invite", {
+      method: "POST",
+      body: { regenerate: force !== false },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(d.data && d.data.chat_command ? ("Código: " + d.data.chat_command) : "Código gerado");
+    await tribeLoadInvitePanel();
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
+}
+
+async function tribeResolveRequest(id, action, regen) {
+  try {
+    const d = await fetchJson(`/api/tribe/invite/requests/${id}`, {
+      method: "POST",
+      body: { action, regenerate_code: !!regen },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(action === "accept" ? "Pedido aceito" : "Pedido negado");
+    await tribeLoadInvitePanel();
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
+}
+
+async function tribeSetPrincipal(serverId) {
+  if (!confirm("Definir este mapa como ★ Principal? Os outros passam a Fob. Cooldown de 24h.")) return;
+  try {
+    const d = await fetchJson("/api/tribe/principal", {
+      method: "POST",
+      body: { server_id: serverId },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Principal atualizado");
+    await loadMyTribe();
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
+}
+
+const _TRIBE_LOG_TYPE_COLORS = {
+  killed: "#ef4444",
+  structure: "#f59e0b",
+  tamed: "#22c55e",
+  admin: "#a855f7",
+  player: "#38bdf8",
+  other: "#94a3b8",
+};
+let _tribeLogFilter = "all";
+let _tribeLogCache = {};
+
+function _renderTribeLog(mapData, _isOwner) {
+  const sid = mapData.server_id || "";
+  const cached = _tribeLogCache[sid];
+  const filters = ["all", "player", "killed", "structure", "tamed", "admin", "other"];
+  const chips = filters.map(t => {
+    const label = t === "all" ? "Todos" : t.charAt(0).toUpperCase() + t.slice(1);
+    const active = _tribeLogFilter === t;
+    return `<button type="button" class="btn ${active ? "btn-primary" : "btn-ghost"} btn-sm"
+      style="margin:0 4px 4px 0;" onclick="_tribeLogSetFilter('${t}')">${label}</button>`;
+  }).join("");
+
+  let body = `<div style="color:var(--text2);padding:16px;text-align:center;">Carregando log de <strong style="color:var(--amber)">${escHtml(sid)}</strong>…</div>`;
+  if (cached && cached.error) {
+    body = `<div style="color:var(--danger);padding:12px;">${escHtml(cached.error)}</div>`;
+  } else if (cached && Array.isArray(cached.lines)) {
+    const lines = cached.lines.filter(l => _tribeLogFilter === "all" || l.event_type === _tribeLogFilter);
+    if (!lines.length) {
+      body = `<div style="color:var(--text2);padding:16px;text-align:center;">Nenhuma entrada neste mapa${_tribeLogFilter !== "all" ? " para este filtro" : ""}.<br><span style="font-size:11px;">O log chega via TribeLog.log (poller) ou POST /api/tribe/log/ingest.</span></div>`;
+    } else {
+      body = `<div style="font-family:Consolas,monospace;font-size:12px;line-height:1.55;max-height:360px;overflow:auto;background:#0a0e14;border:1px solid var(--border);border-radius:8px;padding:10px 12px;">`
+        + lines.map(l => {
+          const color = _TRIBE_LOG_TYPE_COLORS[l.event_type] || _TRIBE_LOG_TYPE_COLORS.other;
+          const day = l.day_number != null ? `Day ${l.day_number}` : "";
+          const tm = l.event_time || "";
+          const prefix = [day, tm].filter(Boolean).join(" ");
+          return `<div style="margin-bottom:4px;"><span style="color:#475569;">${escHtml(prefix)}</span> <span style="color:${color};">${escHtml(l.raw_line || "")}</span></div>`;
+        }).join("")
+        + `</div>`;
+    }
+  }
+
+  return `
+    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
+      <div>
+        <div style="font-weight:600;color:var(--text);">Log da tribo — ${escHtml(mapData.tribe_name_local || mapData.tribe_name || sid)}</div>
+        <div style="font-size:11px;color:var(--text2);">Mapa: ${escHtml(sid)} · cada mapa tem o seu próprio log</div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="tribeLoadLog('${escHtml(sid)}', ${Number(mapData.tribe_id) || 0})">↺ Atualizar</button>
+    </div>
+    <div style="margin-bottom:10px;">${chips}</div>
+    <div id="tribe-log-body">${body}</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:8px;">Mostrando até 200 linhas · cronológico</div>`;
+}
+
+async function tribeLoadLog(serverId, tribeId) {
+  if (!serverId) return;
+  const qs = new URLSearchParams({ limit: "200" });
+  if (tribeId) qs.set("tribe_id", String(tribeId));
+  try {
+    const d = await fetchJson(`/api/tribe/log/${encodeURIComponent(serverId)}?${qs}`);
+    if (!d.ok) {
+      _tribeLogCache[serverId] = { error: d.error || "Erro ao carregar log", lines: [] };
+    } else {
+      _tribeLogCache[serverId] = d.data || { lines: [] };
+    }
+  } catch (e) {
+    _tribeLogCache[serverId] = { error: String(e.message || e), lines: [] };
+  }
+  if (_tribeActiveTab === "log" && _tribeData) {
+    const root = document.getElementById("myarea-tribe-root");
+    if (root) root.innerHTML = _renderTribePanel(_tribeData);
+  }
+}
+
+function _tribeLogSetFilter(ftype) {
+  _tribeLogFilter = ftype || "all";
+  if (_tribeData) {
+    const root = document.getElementById("myarea-tribe-root");
+    if (root) root.innerHTML = _renderTribePanel(_tribeData);
+  }
+}
+
+function _tribeRankBadge(rankName) {
+  const r = String(rankName || "").trim();
+  if (!r) return escHtml("Membro");
+  const lower = r.toLowerCase();
+  if (lower === "admin" || lower.startsWith("admin ")) {
+    return '<span class="badge" style="background:#7c3aed;color:#fff;">Admin</span>';
+  }
+  return escHtml(r);
+}
+
+function _renderTribeMembers(mapData, canManage) {
   const members = mapData.members || [];
   const rows = members.length ? members.map(m => `<tr>
     <td style="font-family:monospace;font-size:11px;">${escHtml(m.character_name || "—")}</td>
     <td style="font-family:monospace;font-size:11px;">${escHtml(m.steam_id || "—")}</td>
-    <td>${m.is_owner ? '<span class="badge" style="background:var(--amber);color:#000;">Líder</span>' : escHtml(m.rank_name || "Membro")}</td>
+    <td>${m.is_owner ? '<span class="badge" style="background:var(--amber);color:#000;">Líder</span>' : _tribeRankBadge(m.rank_name)}</td>
     <td style="font-size:11px;color:var(--text2);">${escHtml((m.last_seen_at || "").slice(0, 16) || "—")}</td>
   </tr>`).join("") : `<tr><td colspan="4" style="color:var(--text2);">Nenhum membro sincronizado ainda.</td></tr>`;
 
-  const addForm = isOwner ? `
+  const addForm = canManage ? `
     <div style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
       <div style="font-weight:600;color:var(--text);margin-bottom:6px;">Adicionar membro (SteamID64)</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45;">
@@ -21369,6 +22013,68 @@ async function syncAllPermissionsAdmin() {
     }
   } catch (_) {
     toast("Falha ao sincronizar Permissions.", "error");
+  }
+}
+
+async function loadTribeAdmin() {
+  const listEl = document.getElementById("tribe-admin-list");
+  const alertsEl = document.getElementById("tribe-admin-alerts");
+  if (listEl) listEl.innerHTML = "<p style='color:var(--text2)'>Carregando…</p>";
+  try {
+    const d = await fetchJson("/api/tribe/admin/list");
+    if (!d.ok) {
+      if (listEl) listEl.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    const data = d.data || {};
+    const lim = data.construction_limits || {};
+    const notes = document.getElementById("tribe-admin-notes");
+    if (notes) notes.value = lim.notes || "";
+    const hint = document.getElementById("tribe-admin-limits-hint");
+    if (hint && lim.breeding_policy) {
+      hint.textContent = lim.breeding_policy;
+    }
+    const alerts = data.alerts || [];
+    if (alertsEl) {
+      alertsEl.innerHTML = alerts.length
+        ? `<div class="card"><div class="card-title">Alertas</div>${alerts.map(a =>
+            `<div style="font-size:12px;padding:8px;margin-bottom:6px;background:var(--bg2);border-radius:6px;">
+              <strong>${escHtml(a.severity || "")}</strong> ${escHtml(a.alert_type || "")}: ${escHtml(a.message || "")}
+              <div style="color:var(--text2);font-size:11px;">${escHtml(a.steam_id || "")} · ${escHtml(a.server_id || "")} · ${escHtml(a.created_at || "")}</div>
+            </div>`).join("")}</div>`
+        : `<div class="card" style="font-size:12px;color:var(--text2);">Sem alertas abertos.</div>`;
+    }
+    const tribes = data.tribes || [];
+    if (listEl) {
+      listEl.innerHTML = tribes.length
+        ? `<table class="pkg-admin-table"><thead><tr>
+            <th>Steam</th><th>Nome</th><th>Mapas</th><th>Principais</th><th>Criado</th>
+           </tr></thead><tbody>${tribes.map(t => `<tr>
+            <td style="font-family:monospace;font-size:11px;">${escHtml(t.steam_id)}</td>
+            <td>${escHtml(t.display_name || "—")}</td>
+            <td>${t.map_count ?? 0}</td>
+            <td>${t.principal_count ?? 0}</td>
+            <td style="font-size:11px;">${escHtml(t.created_at || "")}</td>
+           </tr>`).join("")}</tbody></table>`
+        : `<p style="color:var(--text2)">Nenhuma tribo registada.</p>`;
+    }
+  } catch (e) {
+    if (listEl) listEl.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function saveTribeAdminLimits() {
+  try {
+    const d = await fetchJson("/api/tribe/admin/construction-limits", {
+      method: "POST",
+      body: {
+        notes: document.getElementById("tribe-admin-notes")?.value || "",
+      },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Notas salvas (limites continuam sem enforcement)");
+  } catch (e) {
+    toast(String(e.message || e), "error");
   }
 }
 

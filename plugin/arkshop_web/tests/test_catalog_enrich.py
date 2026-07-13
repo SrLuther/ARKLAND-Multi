@@ -191,6 +191,32 @@ def test_enrich_kit_itensalfa_from_sheet():
     assert c0["tier"] == "Delta"
     assert "Dano" in (c0.get("characteristics") or "")
     assert "Polímero" in (c0.get("materials_text") or "")
+    assert meta["kit_summary"]["counts"]["weapon"] == 1
+    assert meta["kit_summary"]["highlights"]
+
+
+def test_enrich_kit_itensalfa_with_saddle():
+    entry = {
+        "Name": "Kit ItensAlfa Delta",
+        "Description": "legacy one-liner",
+        "Price": 9890,
+        "Items": [
+            {
+                "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekBoots_D.AlfaItemArmor_TekBoots_D",
+                "Quantity": 1,
+            },
+            {
+                "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Megalodon_D.AlfaItemSaddle_Megalodon_D",
+                "Quantity": 1,
+            },
+        ],
+    }
+    meta = enrich_kit("kit_itensalfa_delta", entry)
+    assert meta["kit_summary"]["counts"]["armor"] == 1
+    assert meta["kit_summary"]["counts"]["saddle"] == 1
+    assert any("sela" in h.lower() for h in meta["kit_summary"]["highlights"])
+    assert "Armadura da sela" in (meta["kit_contents"][1].get("characteristics") or meta["kit_contents"][1].get("stats", {}).get("label") or "")
+    assert meta["kit_description"]  # auto a partir dos highlights
 
 
 def test_enrich_kit_manual_characteristics_override():

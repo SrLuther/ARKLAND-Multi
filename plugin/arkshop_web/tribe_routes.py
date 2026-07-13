@@ -7,7 +7,8 @@ Endpoints públicos (player, login_required):
   POST /api/tribe/register     — ativar painel de tribo
   GET  /api/tribe/members      — membros por mapa
   POST /api/tribe/members/add  — owner adiciona membro por SteamID (MVP)
-  GET  /api/tribe/log/<server> — log por mapa (stub MVP)
+  GET  /api/tribe/log/<server> — log por mapa (espelho TribeLog)
+  POST /api/tribe/log/ingest   — ingestão de linhas (api_key / plugin / poller)
   GET  /api/tribe/split        — configuração de split
   POST /api/tribe/split        — criar/atualizar split
   POST /api/tribe/split/optout — sair do pool (100% nas vendas próprias)
@@ -64,7 +65,8 @@ def register_tribe_routes(
         get_or_create_owner,
         get_owner,
         get_regulation,
-        get_tribe_log_stub,
+        get_tribe_log,
+        ingest_tribe_log_lines,
         is_tribe_member,
         link_fob,
         manual_add_member,
@@ -400,11 +402,70 @@ def register_tribe_routes(
         finally:
             db.close()
 
+    @app.route("/api/tribe/log/ingest", methods=["POST"])
+    @api_key_required(allow_admin_session=True)
+    def tribe_log_ingest():
+        """Ingestão de linhas do TribeLog (plugin, poller ou admin)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        server_id = str(body.get("server_id") or "").strip()
+        lines = body.get("lines")
+        if not server_id:
+            return _fail("server_id obrigatório")
+        if not isinstance(lines, list) or not lines:
+            return _fail("lines obrigatório (lista não vazia)")
+        db = _db()
+        try:
+            result = ingest_tribe_log_lines(
+                db,
+                server_id=server_id,
+                lines=lines,
+                tribe_id=body.get("tribe_id"),
+                tribe_name=body.get("tribe_name"),
+                steam_id=body.get("steam_id"),
+                source=str(body.get("source") or "api"),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            log.warning("tribe_log_ingest error: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
     @app.route("/api/tribe/log/<server_id>", methods=["GET"])
     @login_required
     def tribe_log(server_id: str):
-        """Log de tribo por mapa (stub MVP — ver TODO em tribe_service.get_tribe_log_stub)."""
-        return _ok(get_tribe_log_stub(server_id, limit=int(request.args.get("limit", 200))))
+        """Log de tribo por mapa (espelho em tribe_logs)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        if not steam_id:
+            return _fail("Não autenticado", 401)
+        db = _db()
+        try:
+            admin = bool(is_admin_steamid(steam_id))
+            data = get_tribe_log(
+                db,
+                steam_id=steam_id,
+                server_id=server_id,
+                limit=int(request.args.get("limit", 200)),
+                event_type=request.args.get("type") or request.args.get("event_type"),
+                tribe_id=request.args.get("tribe_id"),
+                is_admin=admin,
+            )
+            return _ok(data)
+        except PermissionError as exc:
+            return _fail(str(exc), 403)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            log.warning("tribe_log error server=%s: %s", server_id, exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
 
     # ── Fob linking ──────────────────────────────────────────
 
@@ -682,6 +743,277 @@ def register_tribe_routes(
             return _ok(result)
         except ValueError as exc:
             return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    # ── Convite /tribe.CODE + Principal/Fob + admin ───────────
+
+    def _invite():
+        from tribe_invite_service import (
+            create_join_request,
+            generate_invite_code,
+            get_active_invite_code,
+            get_group_for_owner,
+            get_or_stub_construction_limits,
+            handle_ownership_transfer,
+            list_admin_alerts,
+            list_admin_tribes,
+            list_confirmed_members,
+            list_join_requests,
+            resolve_join_request,
+            revoke_membership_on_map,
+            save_construction_limits,
+            set_principal_map,
+        )
+        return {
+            "generate_invite_code": generate_invite_code,
+            "get_active_invite_code": get_active_invite_code,
+            "get_group_for_owner": get_group_for_owner,
+            "create_join_request": create_join_request,
+            "list_join_requests": list_join_requests,
+            "resolve_join_request": resolve_join_request,
+            "list_confirmed_members": list_confirmed_members,
+            "set_principal_map": set_principal_map,
+            "revoke_membership_on_map": revoke_membership_on_map,
+            "handle_ownership_transfer": handle_ownership_transfer,
+            "list_admin_tribes": list_admin_tribes,
+            "list_admin_alerts": list_admin_alerts,
+            "get_or_stub_construction_limits": get_or_stub_construction_limits,
+            "save_construction_limits": save_construction_limits,
+        }
+
+    @app.route("/api/tribe/invite", methods=["GET"])
+    @login_required
+    def tribe_invite_get():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        if not steam_id:
+            return _fail("Não autenticado", 401)
+        db = _db()
+        try:
+            inv = _invite()
+            group = inv["get_group_for_owner"](db, steam_id)
+            if not group:
+                return _ok({"invite": None, "cluster_group": None, "requests": [], "confirmed": []})
+            code = inv["get_active_invite_code"](db, group["id"])
+            return _ok({
+                "invite": code,
+                "cluster_group": group,
+                "requests": inv["list_join_requests"](db, owner_steam_id=steam_id, status="PENDING"),
+                "confirmed": inv["list_confirmed_members"](db, group["id"]),
+                "construction_limits": inv["get_or_stub_construction_limits"](db, group["id"]),
+            })
+        except Exception as exc:
+            log.warning("tribe_invite_get: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/invite", methods=["POST"])
+    @login_required
+    def tribe_invite_generate():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        if not steam_id:
+            return _fail("Não autenticado", 401)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["generate_invite_code"](
+                db,
+                owner_steam_id=steam_id,
+                regenerate=bool(body.get("regenerate")),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            log.warning("tribe_invite_generate: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/invite/requests", methods=["GET"])
+    @login_required
+    def tribe_invite_requests():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        if not steam_id:
+            return _fail("Não autenticado", 401)
+        status = str(request.args.get("status") or "PENDING")
+        db = _db()
+        try:
+            rows = _invite()["list_join_requests"](
+                db, owner_steam_id=steam_id, status=status,
+            )
+            return _ok({"requests": rows})
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/invite/requests/<int:req_id>", methods=["POST"])
+    @login_required
+    def tribe_invite_resolve(req_id: int):
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        if not steam_id:
+            return _fail("Não autenticado", 401)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["resolve_join_request"](
+                db,
+                owner_steam_id=steam_id,
+                request_id=req_id,
+                action=str(body.get("action") or ""),
+                regenerate_code_on_deny=bool(body.get("regenerate_code")),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/invite/join", methods=["POST"])
+    @api_key_required
+    def tribe_invite_join():
+        """Plugin: /tribe.CODE → cria pedido PENDING."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["create_join_request"](
+                db,
+                code=str(body.get("code") or ""),
+                steam_id=str(body.get("steam_id") or ""),
+                server_id=str(body.get("server_id") or ""),
+                tribe_id=int(body.get("tribe_id") or 0),
+                character_name=str(body.get("character_name") or ""),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            log.warning("tribe_invite_join: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/principal", methods=["POST"])
+    @login_required
+    def tribe_set_principal():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        if not steam_id:
+            return _fail("Não autenticado", 401)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["set_principal_map"](
+                db,
+                owner_steam_id=steam_id,
+                server_id=str(body.get("server_id") or ""),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/leave", methods=["POST"])
+    @api_key_required
+    def tribe_leave_revoke():
+        """Plugin: tribe_id=0 / leave → revoga membership neste mapa."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["revoke_membership_on_map"](
+                db,
+                steam_id=str(body.get("steam_id") or ""),
+                server_id=str(body.get("server_id") or ""),
+                tribe_id=int(body.get("tribe_id") or 0) or None,
+                reason=str(body.get("reason") or "plugin_leave"),
+            )
+            return _ok(result)
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/ownership-transfer", methods=["POST"])
+    @api_key_required
+    def tribe_ownership_transfer():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["handle_ownership_transfer"](
+                db,
+                server_id=str(body.get("server_id") or ""),
+                tribe_id=int(body.get("tribe_id") or 0),
+                new_owner_steam_id=str(body.get("new_owner_steam_id") or ""),
+                old_owner_steam_id=str(body.get("old_owner_steam_id") or "") or None,
+                tribe_name=str(body.get("tribe_name") or ""),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    # Painel Tribos / códigos: somente admins (@admin_required).
+    # Papel support NÃO entra (lista separada de admin_steamids).
+    @app.route("/api/tribe/admin/list", methods=["GET"])
+    @admin_required
+    def tribe_admin_list():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        db = _db()
+        try:
+            inv = _invite()
+            return _ok({
+                "tribes": inv["list_admin_tribes"](db),
+                "alerts": inv["list_admin_alerts"](db),
+                "construction_limits": inv["get_or_stub_construction_limits"](db),
+            })
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/admin/construction-limits", methods=["POST"])
+    @admin_required
+    def tribe_admin_construction_limits():
+        """Notas admin apenas — sem enforcement (decisão Jul/2026 §20.8)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session() or ""
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = _invite()["save_construction_limits"](
+                db,
+                admin_steam_id=steam_id,
+                principal_max=0,
+                fob_max=0,
+                notes=str(body.get("notes") or ""),
+                cluster_group_id=int(body["cluster_group_id"]) if body.get("cluster_group_id") else None,
+            )
+            return _ok(result)
         except Exception as exc:
             return _fail(str(exc), 500)
         finally:

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|-------|
 | **Documento** | Regulamento do Servidor e Ecossistema Digital ARKLAND |
-| **Versão** | 1.1 |
+| **Versão** | 1.3 |
 | **Última atualização** | 12 de julho de 2026 |
 | **Aplicável a** | Servidores PvE do cluster ARKLAND (ARK: Survival Evolved) e plataforma web associada |
 | **Idioma** | Português (Brasil) |
@@ -47,6 +47,7 @@ O **ARKLAND** é um cluster privado de servidores **PvE** de ARK: Survival Evolv
 - **Servidores in-game** com plugin CustomShop e regras de comunidade;
 - **Web Store** ([arkland.com.br](https://arkland.com.br)) — autenticação Steam, catálogo, doações, resgates e Minha Área;
 - **Mercado P2P de dinos** — comércio entre jogadores exclusivamente em **Âmbares**;
+- **Encomenda de Dinos** — serviço pago sob demanda (vitrine + cotação) na Web Store;
 - **Inventário na Nuvem** — cofre cluster-wide via comandos in-game;
 - **Sistema de tickets** — suporte, denúncias e recursos formais;
 - **Notificações in-app** — avisos sobre pedidos, mercado, tickets e eventos.
@@ -143,7 +144,8 @@ Esta seção reúne regras convencionais de servidores ARK **PvE não dedicados*
 - Respeite os limites de membros por tribo e de alianças configurados no servidor;
 - **Fusão, convite e expulsão** são responsabilidade dos líderes; a administração não medeia disputas internas de tribo salvo fraude ou violação grave deste regulamento;
 - É proibido criar tribos “laranjas” para burlar limites, acumular benefícios ou ocultar identidade em denúncias;
-- Nomes de tribo ofensivos, discriminatórios ou que imitem a equipe ARKLAND são proibidos.
+- Nomes de tribo ofensivos, discriminatórios ou que imitem a equipe ARKLAND são proibidos;
+- Associação ao painel web da tribo (códigos `/tribe.CODE`, Principal/Fob): ver [§8.10.1](#8101-área-da-tribo-cluster-principal--fobs).
 
 ### 4.3 Construções e estruturas
 
@@ -474,11 +476,64 @@ Enquetes publicadas na web podem conceder Âmbares simbólicos por participaçã
 
 ### 8.10 Minha Área
 
-Central do jogador na web: saldo, licenças ativas, histórico de pedidos, perfil de mercado, tickets e notificações. Manter dados de exibição verdadeiros e atualizados é responsabilidade do jogador.
+Central do jogador na web: saldo, licenças ativas, histórico de pedidos, perfil de mercado, tickets, notificações e **Área da Tribo**. Manter dados de exibição verdadeiros e atualizados é responsabilidade do jogador.
+
+### 8.10.1 Área da Tribo (cluster Principal + Fobs)
+
+A Área da Tribo no site agrega as tribos in-game por mapa num **grupo de cluster**:
+
+- **★ Principal** — mapa âncora do grupo. Regra: **1 pessoa = 1 Principal**; os demais mapas do grupo dessa pessoa são **Fob**. Breeding oficial da tribo (política do regulamento) e divisão de ganhos do mercado aplicam-se ao Principal.
+- **Fob** — demais mapas do mesmo grupo. Sair da tribo numa Fob **não** remove a associação nos outros mapas. Breeding em Fob **não** é bloqueado tecnicamente; o regulamento aconselha concentrar o breeding oficial no Principal.
+- O **proprietário do grupo** em cada mapa é o Proprietário in-game daquela tribo (rank Proprietário / `OwnerPlayerDataID`), não um Admin.
+- **Logs:** todos os integrantes do grupo veem os logs de **todos** os mapas do grupo (Principal + Fobs).
+
+#### Códigos de convite
+
+- O proprietário gera um código no site (comando in-game no formato `/tribe.CODIGO`).
+- Validade máxima: **30 dias**. Regenerar invalida o código anterior.
+- Digitar o código **não** entra automaticamente no painel web: cria um **pedido** que o proprietário deve **aceitar** ou **negar** no site.
+- Em caso de código vazado, o proprietário deve negar pedidos indevidos e regenerar o código. **Admins** do site (exceto papel **support**) podem intervir no painel Tribos / códigos por segurança ou abuso.
+- A partilha do código é responsabilidade do proprietário.
+
+#### Limites e conduta
+
+- **Limites de construção (Principal vs Fob) não são aplicados** como regra dura do sistema: com a lógica atual, dois membros do mesmo grupo podem ter cada um uma base Principal em mapas diferentes, o que torna o enforcement inviável. Conduta abusiva (bases laranja, farm de fobs, etc.) continua sujeita a sanção administrativa caso a caso.
+- **Não** existe exceção do tipo “dois donos / fob grande” para contornar limites de construção — esses limites simplesmente não são enforced.
+- **Venda de tribo por RMT** (dinheiro real): **banimento permanente**.
+- Outras formas de “venda” de tribo/posição: investigação administrativa caso a caso.
+- Transferência de ownership in-game atualiza o painel web; se o novo dono já tiver um mapa Principal noutro servidor, o mapa transferido torna-se Fob (mantém 1 pessoa = 1 Principal) e a staff é alertada.
 
 ### 8.11 Auditoria e integridade
 
 Todas as transações críticas (doações, resgates, mercado, ajustes admin) geram registros de auditoria. Tentativas de fraude, chargeback abusivo ou falsificação de comprovantes PIX podem resultar em ban permanente e comunicação às autoridades quando cabível.
+
+### 8.12 Encomenda de Dinos (serviço pago sob demanda)
+
+Canal **jogador-facing** na Web Store (aba **Encomenda** do Mercado / Dino Lab) para solicitar um dino customizado (espécie, sexo, cores, pontos de stats) com cobrança em **Âmbares**, entregue via fila do plugin CustomDinoDeliver.
+
+#### 8.12.1 Vitrine e elegibilidade
+
+- Somente espécies exibidas na **vitrine rotativa** (slots rotativos + permanentes definidos pela administração) podem ser encomendadas no período vigente.
+- Espécies fora da vitrine **não** são encomendáveis, mesmo que existam no catálogo da loja ou no mercado P2P.
+- A encomenda **não substitui** o catálogo fixo nem o mercado P2P: é um serviço de manufatura sob demanda com prêmio de preço.
+
+#### 8.12.2 Preço e serviço
+
+- O preço é calculado em cotação: valor equivalente de mercado dos stats (modelo `floor_quality`) + componente de cores + **taxa base α** + **prêmio de serviço β**.
+- O total de encomenda deve ficar **acima** do equivalente P2P dos mesmos stats, como prêmio pelo serviço Lab.
+- Limites de valor, auto-aprovação e teto absoluto seguem a configuração econômica do servidor; pedidos acima do limiar de auto-aprovação passam por **revisão administrativa**.
+
+#### 8.12.3 Specs, nível e entrega
+
+- O jogador informa pontos desejados por stat (0–254). O **nível** é calculado automaticamente (`1 + soma dos pontos`) e não é editável manualmente.
+- A encomenda entrega um dino conforme a especificação paga (cores/stats/sexo). **Não** replica mutações de breeding nem imprint de linhagens de jogadores, salvo funcionalidade futura explicitamente anunciada.
+- Há limite configurável de encomendas por jogador por período (anti-farm / revenda).
+
+#### 8.12.4 Contestação e suporte
+
+- Problemas de entrega, divergência de specs ou falhas técnicas: abra **ticket** na Web Store (categoria adequada — Mercado / suporte), com provas quando disponíveis.
+- Reembolsos de encomenda **não** são automáticos por desistência após pagamento; seguem análise administrativa e, quando aplicável, a mesma lógica de boa-fé e contestação com explicação obrigatória usada no ecossistema digital ([§8.4](#84-catálogo-resgates-e-entregas)).
+- Uso do Dino Lab **gratuito** pela staff para entregar o que o jogador deveria pagar por encomenda é proibido como prática rotineira (auditoria cruzada).
 
 ---
 
@@ -657,10 +712,17 @@ A administração **não atende** pedidos de suporte por mensagem privada em red
 | **Licença Alfa/Beta/Gamma** | Tier de benefícios temporários (Timed Points e acesso a kits) |
 | **Licença Nuvem** | Habilita cofre `/upload`/`/download` e envio ao mercado |
 | **Casal (mercado)** | Anúncio vinculado macho + fêmea da mesma espécie; checkout a 60% da soma dos pedidos |
+| **Encomenda de Dino** | Serviço pago sob demanda (vitrine + cotação α/β) — §8.12 |
 | **Sorteio** | Promoção contínua `#/sorteio` — prêmio em Âmbares; vendas em casal contribuem 40% de `S` ao pote |
 | **Timed Points** | Recompensa periódica de Âmbares por tempo online |
 | **Web Store** | Plataforma web ARKLAND Donations |
 | **Ticket** | Chamado formal de suporte ou denúncia na web |
+
+---
+
+## Nota operacional — Broadcasts (staff)
+
+No painel **Broadcasts** do ARKLAND Server Manager (TEK), a administração pode carregar o **pacote Regulamento**: mensagens curtas (uma por regra de alto impacto) rotacionadas pelo intervalo do ciclo automático. Jogadores veem o aviso in-game via RCON; o texto completo permanece neste documento e na Web Store.
 
 ---
 

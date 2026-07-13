@@ -52,18 +52,19 @@ TIER_LADDER: list[dict] = [
 ]
 
 ITEM_PRICES: dict[str, dict[str, int]] = {
-    "delta": {"armor_piece": 400, "weapon": 300, "tool": 200, "armor_set": 2000},
-    "gamma": {"armor_piece": 700, "weapon": 500, "tool": 400, "armor_set": 3500},
-    "beta": {"armor_piece": 1100, "weapon": 800, "tool": 700, "armor_set": 5500},
-    "alfa": {"armor_piece": 1700, "weapon": 1300, "tool": 1000, "armor_set": 8500},
-    "omega": {"armor_piece": 2400, "weapon": 1800, "tool": 1400, "armor_set": 12000},
-    "transcendente": {"armor_piece": 3400, "weapon": 2600, "tool": 2000, "armor_set": 17000},
-    "etereo": {"armor_piece": 4800, "weapon": 3600, "tool": 2900, "armor_set": 24000},
-    "universal": {"armor_piece": 6400, "weapon": 4800, "tool": 3800, "armor_set": 32000},
-    "onipotente": {"armor_piece": 8400, "weapon": 6300, "tool": 5000, "armor_set": 42000},
-    "surreal": {"armor_piece": 10800, "weapon": 8100, "tool": 6500, "armor_set": 54000},
-    "imaterial": {"armor_piece": 13600, "weapon": 10200, "tool": 8200, "armor_set": 68000},
-    "exotico": {"armor_piece": 17200, "weapon": 12900, "tool": 10300, "armor_set": 86000},
+    # Selas TEK: tools/itensalfa_precos_proposta.csv / kits_por_tier (só Delta→Omega).
+    "delta": {"armor_piece": 400, "weapon": 300, "tool": 200, "saddle": 400, "armor_set": 2000},
+    "gamma": {"armor_piece": 700, "weapon": 500, "tool": 400, "saddle": 600, "armor_set": 3500},
+    "beta": {"armor_piece": 1100, "weapon": 800, "tool": 700, "saddle": 1000, "armor_set": 5500},
+    "alfa": {"armor_piece": 1700, "weapon": 1300, "tool": 1000, "saddle": 1500, "armor_set": 8500},
+    "omega": {"armor_piece": 2400, "weapon": 1800, "tool": 1400, "saddle": 2100, "armor_set": 12000},
+    "transcendente": {"armor_piece": 3400, "weapon": 2600, "tool": 2000, "saddle": 0, "armor_set": 17000},
+    "etereo": {"armor_piece": 4800, "weapon": 3600, "tool": 2900, "saddle": 0, "armor_set": 24000},
+    "universal": {"armor_piece": 6400, "weapon": 4800, "tool": 3800, "saddle": 0, "armor_set": 32000},
+    "onipotente": {"armor_piece": 8400, "weapon": 6300, "tool": 5000, "saddle": 0, "armor_set": 42000},
+    "surreal": {"armor_piece": 10800, "weapon": 8100, "tool": 6500, "saddle": 0, "armor_set": 54000},
+    "imaterial": {"armor_piece": 13600, "weapon": 10200, "tool": 8200, "saddle": 0, "armor_set": 68000},
+    "exotico": {"armor_piece": 17200, "weapon": 12900, "tool": 10300, "saddle": 0, "armor_set": 86000},
 }
 
 KIT_IA_PRICES: dict[str, int] = {
@@ -109,9 +110,33 @@ ITEM_MAP = [
     ("tocha", "Torch", "Tocha ItensAlfa", "Ferramentas", "tool"),
     ("chicote", "Whip", "Chicote ItensAlfa", "Ferramentas", "tool"),
     ("lanterna", "LanternCharge", "Lanterna de Carga ItensAlfa", "Ferramentas", "tool"),
+    # Selas TEK (7; apenas Delta→Omega na planilha — BPs ausentes = skip)
+    ("itensalfa_sela_megalodon", "Megalodon", "Sela TEK Megalodon ItensAlfa", "ItensAlfa — Selas", "saddle"),
+    ("itensalfa_sela_mosassauro", "Mosa", "Sela TEK Mosassauro ItensAlfa", "ItensAlfa — Selas", "saddle"),
+    ("itensalfa_sela_rex", "Rex", "Sela TEK Rex ItensAlfa", "ItensAlfa — Selas", "saddle"),
+    ("itensalfa_sela_rockdrake", "RockDrake", "Sela TEK Rock Drake ItensAlfa", "ItensAlfa — Selas", "saddle"),
+    ("itensalfa_sela_astrodelph", "SpaceDolphin", "Sela TEK Astrodelph ItensAlfa", "ItensAlfa — Selas", "saddle"),
+    ("itensalfa_sela_astrocetus", "SpaceWhale", "Sela TEK Astrocetus ItensAlfa", "ItensAlfa — Selas", "saddle"),
+    ("itensalfa_sela_tapejara", "Tapejara", "Sela TEK Tapejara ItensAlfa", "ItensAlfa — Selas", "saddle"),
 ]
 
 ARMOR_FAMILIES = ("TekHelmet", "TekShirtNew", "TekGloves", "TekPants", "TekBoots")
+
+# Stats de combate por tier (planilha Status dos itens → itensalfa_kit_descriptions.json).
+TIER_STATUS: dict[str, dict[str, int]] = {
+    "Delta": {"armor": 180, "weapon": 120, "saddle": 40},
+    "Gama": {"armor": 500, "weapon": 250, "saddle": 100},
+    "Beta": {"armor": 1000, "weapon": 450, "saddle": 350},
+    "Alfa": {"armor": 1900, "weapon": 750, "saddle": 600},
+    "Omega": {"armor": 3200, "weapon": 1300, "saddle": 790},
+    "Transcendente": {"armor": 4900, "weapon": 1850, "saddle": 0},
+    "Etereo": {"armor": 7000, "weapon": 2500, "saddle": 0},
+    "Universal": {"armor": 9500, "weapon": 3250, "saddle": 0},
+    "Onipotente": {"armor": 12400, "weapon": 4100, "saddle": 0},
+    "Surreal": {"armor": 15700, "weapon": 4950, "saddle": 0},
+    "Imaterial": {"armor": 19400, "weapon": 5800, "saddle": 0},
+    "Exotico": {"armor": 23500, "weapon": 6650, "saddle": 0},
+}
 
 # Preço Â âncora (proposta §5.6 / CSV) no tier de referência da família.
 # HoverSail / Mek / Exo-Mek / MiniMegaMek removidos do catálogo (crash no servidor).
@@ -290,18 +315,28 @@ def _bp_entry(bp: str) -> dict:
 
 def _weapon_item(label: str, category: str, price_key: str, bp: str, tier: dict, idx: int) -> dict:
     prices = ITEM_PRICES[tier["id"]]
+    base = int(prices.get(price_key) or 0)
     name = f"{label} {tier['label']} (1x)"
-    return {
+    entry = {
         "Category": category,
         "Description": name,
         "ForceBlueprint": False,
         "Items": [_bp_entry(bp)],
         "Name": name,
         "Permissions": _perms_for_tier_index(idx),
-        "Price": _shop_price(prices[price_key]),
+        "Price": _shop_price(base),
         "Quality": 0,
         "Type": "item",
     }
+    if price_key == "saddle":
+        st = TIER_STATUS.get(tier["sheet"]) or {}
+        saddle_armor = int(st.get("saddle") or 0)
+        if saddle_armor:
+            entry["Description"] = (
+                f"{name} — armadura da sela {saddle_armor}. "
+                f"Licença: próprio ou um acima."
+            )
+    return entry
 
 
 def _armor_item(bps: list[str], tier: dict, idx: int) -> dict:
@@ -320,19 +355,75 @@ def _armor_item(bps: list[str], tier: dict, idx: int) -> dict:
     }
 
 
+def _classify_kit_bps(item_bps: list[str]) -> dict[str, int]:
+    counts = {"armor": 0, "weapon": 0, "tool": 0, "saddle": 0, "other": 0}
+    for bp in item_bps:
+        low = (bp or "").lower()
+        if "saddle" in low or "/selas/" in low:
+            counts["saddle"] += 1
+        elif "tool" in low or "/ferramentas/" in low:
+            counts["tool"] += 1
+        elif "weapon" in low or "/armas/" in low or "shiled" in low or "shield" in low:
+            # Escudo TEK (TekShiledArmor) conta como arma na planilha Status
+            counts["weapon"] += 1
+        elif "armor" in low or "/armadura/" in low:
+            counts["armor"] += 1
+        else:
+            counts["other"] += 1
+    return counts
+
+
+def _kit_detail_blurb(tier: dict, item_bps: list[str]) -> str:
+    """Texto estruturado do kit (stats + contagens) — fonte: TIER_STATUS / BPs."""
+    counts = _classify_kit_bps(item_bps)
+    st = TIER_STATUS.get(tier["sheet"]) or {}
+    parts: list[str] = []
+    if counts["armor"]:
+        arm = st.get("armor")
+        parts.append(
+            f"{counts['armor']} armaduras TEK"
+            + (f" (armadura {arm})" if arm else "")
+        )
+    if counts["weapon"]:
+        dmg = st.get("weapon")
+        parts.append(
+            f"{counts['weapon']} armas"
+            + (f" (dano {dmg})" if dmg else "")
+        )
+    if counts["tool"]:
+        parts.append(f"{counts['tool']} ferramentas")
+    if counts["saddle"]:
+        sad = st.get("saddle")
+        parts.append(
+            f"{counts['saddle']} selas TEK"
+            + (f" (armadura da sela {sad})" if sad else "")
+        )
+    elif tier["id"] in ("delta", "gamma", "beta", "alfa", "omega"):
+        parts.append("sem selas neste pacote")
+    else:
+        parts.append("sem selas (selas só até Omega)")
+    if counts["other"]:
+        parts.append(f"{counts['other']} outros")
+    body = "; ".join(parts) if parts else "conteúdo do tier"
+    return (
+        f"Inclui {len(item_bps)} blueprints ItensAlfa {tier['label']}: {body}. "
+        f"Licença: próprio ou um acima."
+    )
+
+
 def _kit_itensalfa(tier: dict, idx: int, item_bps: list[str]) -> dict:
     n = len(item_bps)
+    blurb = _kit_detail_blurb(tier, item_bps)
     return {
         "DefaultAmount": 1,
-        "Description": (
-            f"Kit ItensAlfa {tier['label']} — {n} blueprints ItensAlfa do tier "
-            f"(armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima."
-        ),
+        "Description": blurb,
+        "KitDescription": blurb,
         "Items": [_bp_entry(bp) for bp in item_bps],
         "Name": f"Kit ItensAlfa {tier['label']}",
         "Permissions": _perms_for_tier_index(idx),
         "Price": _shop_price(KIT_IA_PRICES[tier["id"]]),
         "Type": "kit",
+        "ItemCountHint": n,
     }
 
 

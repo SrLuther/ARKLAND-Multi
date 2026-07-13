@@ -2220,6 +2220,34 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.broadcast_import_export import broadcast_import
         broadcast_import(self)
 
+    def _broadcast_tek_seed_regulamento(self) -> None:
+        """Carrega/atualiza o pacote de regras do Regulamento na biblioteca."""
+        from tkinter import messagebox
+
+        from .pages.broadcast_regulamento_pack import (
+            PACK_VERSION,
+            seed_regulamento_pack,
+        )
+
+        ok = messagebox.askyesno(
+            "Pacote Regulamento",
+            "Incluir as mensagens oficiais do Regulamento na biblioteca?\n\n"
+            "• Uma mensagem curta por regra de alto impacto (punições)\n"
+            "• IDs estáveis — reaplicar atualiza o texto oficial\n"
+            "• Edite, ative/desative e defina o intervalo no painel\n"
+            f"• Pacote v{PACK_VERSION} (docs/REGULAMENTO_SERVIDOR.md)\n\n"
+            "Continuar?",
+            parent=self,
+        )
+        if not ok:
+            return
+        added, updated = seed_regulamento_pack(self, update_existing=True)
+        self._broadcast_library_refresh()
+        self._toast(
+            f"Pacote Regulamento: {added} nova(s), {updated} atualizada(s).",
+            kind="info",
+        )
+
     def _broadcast_library_add_from_ui(self) -> None:
         from .pages.broadcast_library_add import broadcast_library_add
         label = getattr(self, "_broadcast_new_label", tk.StringVar()).get()

@@ -1794,6 +1794,12 @@ def _ensure_runtime_initialized_before_request() -> None:
         start_catalog_feed_scheduler_if_needed()
     except Exception:
         pass
+    try:
+        from tribe_log_poller import start_tribe_log_poller_if_needed
+
+        start_tribe_log_poller_if_needed()
+    except Exception:
+        pass
     _kick_background_db_init()
 
 

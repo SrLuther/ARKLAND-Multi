@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -174,7 +176,31 @@ def load_defaults_file() -> dict[str, Any]:
     path = _defaults_file_path()
     if not path.is_file():
         return {"species": [], "global_stat_labels": {}}
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        mtime = path.stat().st_mtime
+        path_key = str(path.resolve())
+    except OSError:
+        mtime = -1.0
+        path_key = str(path)
+    cache = getattr(load_defaults_file, "_cache", None)
+    if (
+        isinstance(cache, dict)
+        and cache.get("path") == path_key
+        and cache.get("mtime") == mtime
+        and isinstance(cache.get("data"), dict)
+    ):
+        return cache["data"]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    load_defaults_file._cache = {"path": path_key, "mtime": mtime, "data": data}  # type: ignore[attr-defined]
+    return data
+
+
+def invalidate_defaults_cache() -> None:
+    load_defaults_file._cache = None  # type: ignore[attr-defined]
+    try:
+        _bundled_species_map.cache_clear()
+    except Exception:
+        pass
 
 
 def load_size_caps() -> dict[str, int]:
@@ -510,6 +536,7 @@ def save_defaults_file(data: dict[str, Any]) -> None:
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    invalidate_defaults_cache()
 
 
 def patch_economy_global_config(updates: dict[str, Any]) -> dict[str, Any]:
@@ -1740,14 +1767,232 @@ _CATALOG_SPECIES_GROUPS: dict[str, str] = {
     "tekstrider_femea": "tekstrider",
 }
 
+# Tokens/ids legados → species_key canônico dos defaults (ex.: class name ARK).
+_SPECIES_KEY_ALIASES: dict[str, str] = {
+    "lionfishlion": "lionfish",
+    "shadowmane": "lionfish",
+}
+
+_LEVEL_SUFFIX_RE = re.compile(
+    r"\s*(?:[Nn][ií]vel|Nivel|Level)\s*200\b",
+    re.IGNORECASE,
+)
+_DISPLAY_LEVEL_SUFFIXES = (
+    " Fêmea Nível 200",
+    " Femea Nivel 200",
+    " Fêmea Nível 1",
+    " Femea Nivel 1",
+    " Nível 200",
+    " Nivel 200",
+    " Level 200",
+    " Nível 1",
+    " Nivel 1",
+    " Level 1",
+)
+
+
+def clean_species_display_name(raw: str | None) -> str:
+    """Remove tags de mod e sufixos «Nível 1/200» do nome de catálogo/loja."""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    if text.endswith(")") and "(" in text:
+        text = text[: text.rfind("(")].strip()
+    for suffix in _DISPLAY_LEVEL_SUFFIXES:
+        if text.endswith(suffix):
+            text = text[: -len(suffix)].strip()
+            break
+    text = _LEVEL_SUFFIX_RE.sub("", text).strip(" -–—\t")
+    return text.strip()
+
+
+def canonicalize_species_key(species_key: str | None) -> str:
+    """Normaliza species_key / catalog id legado para a chave econômica canônica."""
+    key = str(species_key or "").strip()
+    if not key:
+        return ""
+    grouped = _CATALOG_SPECIES_GROUPS.get(key)
+    if grouped:
+        return grouped
+    low = key.lower()
+    if low in _SPECIES_KEY_ALIASES:
+        return _SPECIES_KEY_ALIASES[low]
+    for suffix in (L200_ID_SUFFIX, "_200"):
+        if key.endswith(suffix) and len(key) > len(suffix):
+            key = key[: -len(suffix)]
+            break
+    if key.endswith("_femea"):
+        key = key[: -len("_femea")]
+    low = key.lower()
+    if low in _SPECIES_KEY_ALIASES:
+        return _SPECIES_KEY_ALIASES[low]
+    defaults = load_default_species_map()
+    if key in defaults:
+        return key
+    try:
+        cem = build_catalog_economy_map()
+        hit = cem.get(key) or cem.get(low)
+        if hit and hit.get("species_key"):
+            return str(hit["species_key"])
+    except Exception:
+        pass
+    return key
+
+
+def _looks_like_raw_species_label(
+    label: str | None,
+    species_key: str | None = None,
+    *,
+    also_reject: tuple[str, ...] | list[str] | None = None,
+) -> bool:
+    """True se o rótulo parece id técnico (sb_manticore_200) ou blueprint cru."""
+    text = str(label or "").strip()
+    if not text:
+        return True
+    try:
+        from ark_species_registry import is_raw_blueprint_label
+
+        if is_raw_blueprint_label(text):
+            return True
+    except Exception:
+        pass
+    low = text.lower()
+    for candidate in (species_key, *(also_reject or ())):
+        c = str(candidate or "").strip().lower()
+        if c and low == c:
+            return True
+    # snake_case / ids de catálogo
+    if " " not in text and "_" in text and text.isascii() and text == text.lower():
+        return True
+    # token compacto só minúsculas (ex.: «lionfish» devolvido como Name falho)
+    if " " not in text and text.isascii() and text == text.lower() and text.isalnum():
+        return True
+    return False
+
+
+@lru_cache(maxsize=1)
+def _bundled_species_map() -> dict[str, dict[str, Any]]:
+    """Mapa do JSON empacotado no repo — fallback quando a cópia gravável está desatualizada."""
+    path = _bundled_defaults_path()
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            str(s["species_key"]): s
+            for s in (data.get("species") or [])
+            if s.get("species_key")
+        }
+    except Exception:
+        return {}
+
+
+def _species_defn_for_display(species_key: str) -> dict[str, Any]:
+    """Preferência: defaults graváveis → bundle do repo."""
+    key = str(species_key or "").strip()
+    if not key:
+        return {}
+    live = load_default_species_map().get(key) or {}
+    if str(live.get("display_name") or "").strip():
+        return live
+    bundled = _bundled_species_map().get(key) or {}
+    if bundled:
+        # Mescla: mantém overrides vivos, preenche nome/ids do bundle
+        merged = dict(bundled)
+        merged.update({k: v for k, v in live.items() if v not in (None, "", [], {})})
+        if not str(merged.get("display_name") or "").strip():
+            merged["display_name"] = bundled.get("display_name")
+        return merged
+    return live
+
+
+def friendly_species_display_name(
+    species_key: str | None,
+    *,
+    fallback: str | None = None,
+    catalog: dict[str, Any] | None = None,
+) -> str:
+    """Nome amigável para UI: defaults/catálogo primeiro; sem ids crus nem «Nível 200»."""
+    sk = str(species_key or "").strip()
+    canon = canonicalize_species_key(sk) if sk else ""
+    defn = _species_defn_for_display(canon) or _species_defn_for_display(sk)
+    reject_ids = tuple(
+        x
+        for x in (sk, canon, *(str(c) for c in (defn.get("catalog_item_ids") or []) if c))
+        if x
+    )
+    from_defaults = clean_species_display_name(str(defn.get("display_name") or ""))
+    if from_defaults and not _looks_like_raw_species_label(
+        from_defaults, sk, also_reject=reject_ids
+    ):
+        return from_defaults
+
+    catalog_ids: list[str] = []
+    for cid in (
+        defn.get("reference_catalog_item_id"),
+        defn.get("catalog_item_id"),
+        *(defn.get("catalog_item_ids") or []),
+        f"{canon}_femea" if canon else "",
+        f"{sk}_femea" if sk else "",
+        sk,
+        canon,
+    ):
+        c = str(cid or "").strip()
+        if c and c not in catalog_ids:
+            catalog_ids.append(c)
+
+    shop = catalog
+    if shop is None and catalog_ids:
+        try:
+            from app import _read_shop_config
+
+            shop = _read_shop_config()
+        except Exception:
+            shop = None
+    if shop:
+        for cid in catalog_ids:
+            label = shop_catalog_display_name(shop, cid)
+            # shop_catalog_display_name devolve o próprio id quando o item não existe
+            if not label or label.strip() == cid:
+                continue
+            cleaned = clean_species_display_name(label)
+            if cleaned and not _looks_like_raw_species_label(
+                cleaned, sk, also_reject=reject_ids
+            ):
+                return cleaned
+
+    for candidate in (fallback, from_defaults):
+        cleaned = clean_species_display_name(str(candidate or ""))
+        if cleaned and not _looks_like_raw_species_label(
+            cleaned, sk, also_reject=reject_ids
+        ):
+            return cleaned
+
+    if from_defaults:
+        return from_defaults
+    cleaned_fb = clean_species_display_name(fallback)
+    if cleaned_fb and not _looks_like_raw_species_label(cleaned_fb, sk, also_reject=reject_ids):
+        return cleaned_fb
+    return canon or sk
+
 
 def _species_key_from_catalog_item_id(item_id: str) -> str:
     grouped = _CATALOG_SPECIES_GROUPS.get(item_id)
     if grouped:
         return grouped
     key = str(item_id or "").strip()
+    low = key.lower()
+    if low in _SPECIES_KEY_ALIASES:
+        return _SPECIES_KEY_ALIASES[low]
+    for suffix in (L200_ID_SUFFIX, "_200"):
+        if key.endswith(suffix) and len(key) > len(suffix):
+            key = key[: -len(suffix)]
+            break
     if key.endswith("_femea"):
         key = key[: -len("_femea")]
+    low = key.lower()
+    if low in _SPECIES_KEY_ALIASES:
+        return _SPECIES_KEY_ALIASES[low]
     return key or item_id
 
 
@@ -1826,19 +2071,7 @@ def _infer_tier_role_budget(price: int, species_key: str) -> dict[str, Any]:
 
 def _display_name_from_catalog_entry(item_id: str, entry: dict[str, Any]) -> str:
     raw = str(entry.get("Name") or entry.get("Description") or item_id).strip()
-    # Remove tags de mod entre parênteses no fim primeiro.
-    if raw.endswith(")") and "(" in raw:
-        raw = raw[: raw.rfind("(")].strip()
-    for suffix in (
-        " Fêmea Nível 1",
-        " Femea Nivel 1",
-        " Nível 1",
-        " Nivel 1",
-        " Level 1",
-    ):
-        if raw.endswith(suffix):
-            raw = raw[: -len(suffix)].strip()
-    return raw or item_id
+    return clean_species_display_name(raw) or item_id
 
 
 def find_catalog_dinos_missing_from_defaults(

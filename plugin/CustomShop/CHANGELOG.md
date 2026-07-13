@@ -8,6 +8,17 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.17] - 2026-07-12
+
+### Feature
+
+- **TribeSync / leave**: `tribe_id=0` grava presença de saída + DELETE `tribe_members` neste `server_id` (outros mapas intactos); HTTP `/api/tribe/presence` + `/api/tribe/leave`.
+- **Chat `/tribe.CODE`**: callback `CustomShopTribeInvite` — valida tribo in-game no mapa e POST `/api/tribe/invite/join` (pedido PENDING no site).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.17) em cada mapa.
+
 ## [1.10.16] - 2026-07-12
 
 ### Fix

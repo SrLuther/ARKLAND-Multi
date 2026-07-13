@@ -28,6 +28,8 @@ from dino_order_service import (
     list_player_orders,
     quote,
     reject_order,
+    _level_from_stat_points,
+    _normalize_player_spec,
 )
 from dino_order_showcase_service import configure_dino_order_showcase
 from dino_order_vitrine_service import configure_dino_order_vitrine, set_permanent_species
@@ -113,6 +115,19 @@ def _seed_rex(db):
     db.commit()
 
 
+def test_level_from_stat_points_auto():
+    assert _level_from_stat_points({}) == 1
+    assert _level_from_stat_points({"health": 10, "melee": 5}) == 16
+    assert _level_from_stat_points({"health": 254, "melee": 254}) == 509
+    spec = _normalize_player_spec({
+        "species_key": "rex",
+        "level": 999,
+        "stat_points": {"health": 20, "stamina": 10, "melee": 5},
+    })
+    assert spec["level"] == 36
+    assert spec["stat_points"]["health"] == 20
+
+
 def test_list_gallery_species_dedup_by_display_name():
     db = _app_module._SessionLocal()
     try:
@@ -123,6 +138,32 @@ def test_list_gallery_species_dedup_by_display_name():
         astro = [s for s in gallery if str(s.get("display_name")).lower() == "astrodelphis"]
         assert len(astro) == 1
         assert astro[0]["species_key"] == "astrodelphis_1"
+    finally:
+        db.close()
+
+
+def test_list_gallery_species_uses_friendly_catalog_names():
+    """Legacy keys / English class names → nome do catálogo (Shadowmane, Small Manticore)."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(
+            db,
+            species_key="lionfishlion",
+            display_name="Lionfish Lion",
+            root_value=16000,
+        )
+        _seed_species(
+            db,
+            species_key="sb_manticore_200",
+            display_name="sb_manticore_200",
+            root_value=22400,
+        )
+        set_permanent_species(["lionfishlion", "sb_manticore_200"])
+        gallery = list_gallery_species(db)
+        by_key = {s["species_key"]: s for s in gallery}
+        assert by_key["lionfishlion"]["display_name"] == "Shadowmane"
+        assert by_key["sb_manticore_200"]["display_name"] == "Small Manticore"
+        assert "Nível 200" not in by_key["sb_manticore_200"]["display_name"]
     finally:
         db.close()
 

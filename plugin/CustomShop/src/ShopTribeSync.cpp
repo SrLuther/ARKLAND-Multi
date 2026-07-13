@@ -130,6 +130,23 @@ std::string SteamIdForPlayerDataId(unsigned int player_data_id) {
     return "";
 }
 
+/// Chave para tribe_members: SteamID online ou pdid:<PlayerDataID> offline.
+std::string MemberSteamKey(
+    unsigned int player_data_id,
+    const std::string& syncing_steam_id,
+    unsigned int my_pdid) {
+    std::string m_steam = SteamIdForPlayerDataId(player_data_id);
+    if (m_steam.empty() && player_data_id == my_pdid)
+        m_steam = syncing_steam_id;
+    if (m_steam.empty() && player_data_id != 0)
+        m_steam = "pdid:" + std::to_string(player_data_id);
+    return m_steam;
+}
+
+bool IsGameOwnerPdid(unsigned int owner_pdid, unsigned int player_data_id) {
+    return owner_pdid != 0 && player_data_id != 0 && owner_pdid == player_data_id;
+}
+
 std::string RankNameFor(FTribeData* tribe, unsigned int player_data_id) {
     if (!tribe || player_data_id == 0) return "";
     try {
@@ -549,13 +566,54 @@ bool SyncPlayer(AShooterPlayerController* player) {
     FTribeData* tribe = ResolveTribeData(ps);
     const int tribe_id = ResolveTribeId(ps, player, tribe);
     if (tribe_id <= 0) {
+        // Saiu da tribo neste mapa — revoga membership web só neste server_id.
         Log::GetLog()->info(
-            "TribeSync: sem tribo / TribeID inválido (steam={} my_tribe={} "
-            "get_tribe_id/targeting=0)",
-            steam_id, tribe ? "ptr" : "null");
+            "TribeSync: leave / sem tribo steam={} server={} — revoke neste mapa",
+            steam_id, server_id);
         f.extra["my_tribe"] = tribe ? "ptr" : "null";
-        Debug::Info("TribeSync", f, "skip: sem tribo / TribeID invalido");
-        return false;
+        f.extra["leave"] = true;
+        Debug::Info("TribeSync", f, "leave: tribe_id=0 — revoke neste mapa");
+
+        nlohmann::json leave_body = {
+            {"steam_id", steam_id},
+            {"server_id", server_id},
+            {"map_name", server_id},
+            {"tribe_id", 0},
+            {"tribe_name", ""},
+            {"is_owner", false},
+            {"member_rank", ""},
+            {"members", nlohmann::json::array()},
+            {"source", "plugin_leave"},
+            {"reason", "tribe_id_zero"},
+        };
+        bool db_ok = false;
+        MYSQL* db = Db();
+        if (db && server_id_ok) {
+            std::string esc_sid, esc_srv;
+            if (EscapeSql(db, steam_id, esc_sid) && EscapeSql(db, server_id, esc_srv)) {
+                const std::string del =
+                    "DELETE FROM tribe_members WHERE steam_id='" + esc_sid +
+                    "' AND server_id='" + esc_srv + "'";
+                ExecSql(db, del);
+                const std::string ins =
+                    "INSERT INTO tribe_presences "
+                    "(steam_id, server_id, map_name, tribe_id, tribe_name, is_owner, "
+                    "member_rank, captured_at, source) VALUES ('" +
+                    esc_sid + "', '" + esc_srv + "', '" + esc_srv +
+                    "', 0, NULL, 0, NULL, UTC_TIMESTAMP(6), 'plugin_leave')";
+                db_ok = ExecSql(db, ins);
+            }
+        }
+        bool http_ok = false;
+        try {
+            http_ok = PostPresenceHttp(leave_body);
+            try {
+                HttpClient::PostJson("/api/tribe/leave", leave_body.dump());
+            } catch (...) {
+            }
+        } catch (...) {
+        }
+        return db_ok || http_ok;
     }
 
     const std::string tribe_name = ResolveTribeName(player, tribe);
@@ -568,19 +626,14 @@ bool SyncPlayer(AShooterPlayerController* player) {
         }
     }
 
-    bool is_owner = (owner_pdid != 0 && my_pdid != 0 && owner_pdid == my_pdid);
-    try {
-        if (my_pdid != 0 && ps->IsTribeOwner(my_pdid))
-            is_owner = true;
-    } catch (...) {
-    }
+    bool is_owner = IsGameOwnerPdid(owner_pdid, my_pdid);
 
     const std::string my_rank = RankNameFor(tribe, my_pdid);
     if (!is_owner && RankImpliesOwner(my_rank))
         is_owner = true;
 
-    // Sem FTribeData completo mas GetTribeId/IsTribeOwner OK — ainda enviamos presença.
-    // Se IsTribeOwner falhar e não houver rank, marca owner=false (API ainda grava presença).
+    // Sem FTribeData completo mas GetTribeId OK — ainda enviamos presença.
+    // is_owner só via OwnerPlayerDataID / rank Proprietário (IsTribeOwner marca Admin como dono).
     Log::GetLog()->info(
         "TribeSync: tribe steam={} tribe_id={} name='{}' is_owner={} rank='{}' "
         "pdid={} owner_pdid={} tribe_ptr={}",
@@ -603,9 +656,7 @@ bool SyncPlayer(AShooterPlayerController* player) {
             const int n = static_cast<int>(ids.Num());
             for (int i = 0; i < n; ++i) {
                 const unsigned int mid = ids[i];
-                std::string m_steam = SteamIdForPlayerDataId(mid);
-                if (m_steam.empty() && mid == my_pdid)
-                    m_steam = steam_id;
+                const std::string m_steam = MemberSteamKey(mid, steam_id, my_pdid);
                 if (m_steam.empty())
                     continue;
 
@@ -614,11 +665,11 @@ bool SyncPlayer(AShooterPlayerController* player) {
                     char_name = FStringToUtf8(names[i]);
 
                 const std::string rank = RankNameFor(tribe, mid);
-                const bool m_owner =
-                    (owner_pdid != 0 && mid == owner_pdid) || RankImpliesOwner(rank);
+                const bool m_owner = IsGameOwnerPdid(owner_pdid, mid);
 
                 members.push_back({
                     {"steam_id", m_steam},
+                    {"player_data_id", mid},
                     {"character_name", char_name},
                     {"is_owner", m_owner},
                     {"rank_name", rank},
@@ -646,6 +697,7 @@ bool SyncPlayer(AShooterPlayerController* player) {
         }
         members.push_back({
             {"steam_id", steam_id},
+            {"player_data_id", my_pdid},
             {"character_name", char_name},
             {"is_owner", is_owner},
             {"rank_name", my_rank},
@@ -884,6 +936,109 @@ void PollPendingSyncRequests() {
         Log::GetLog()->error(
             "TribeSync: PollPendingSyncRequests failed: {}", e.what());
     }
+}
+
+void SendTribeChat(AShooterPlayerController* player, FLinearColor /*color*/,
+                   const std::string& msg) {
+    if (!player || msg.empty()) return;
+    static const FString kSender(L"ARKLAND");
+    std::string safe = msg;
+    for (char& c : safe) {
+        if (static_cast<unsigned char>(c) < 32) c = ' ';
+    }
+    ArkApi::GetApiUtils().SendChatMessage(player, kSender, safe.c_str());
+}
+
+bool OnTribeInviteChat(AShooterPlayerController* player, FString* message,
+                       EChatSendMode::Type /*mode*/, bool /*spam*/,
+                       bool command_executed) {
+    if (command_executed || !player || !message)
+        return false;
+    const std::string msg = SanitizeAscii(message->ToString());
+    if (msg.size() < 8)
+        return false;
+    // /tribe.CODE  (ponto obrigatório)
+    const std::string prefix = "/tribe.";
+    if (msg.size() <= prefix.size() ||
+        ToLowerAscii(msg.substr(0, prefix.size())) != prefix)
+        return false;
+
+    std::string code = msg.substr(prefix.size());
+    // trim espaços / args extras
+    const auto sp = code.find(' ');
+    if (sp != std::string::npos)
+        code = code.substr(0, sp);
+    for (char& c : code) {
+        if (c >= 'a' && c <= 'z')
+            c = static_cast<char>(c - 'a' + 'A');
+    }
+    if (code.empty() || code.size() > 16) {
+        SendTribeChat(player, FColorList::Red, "Codigo invalido. Use /tribe.CODIGO");
+        return true;
+    }
+
+    const std::string steam_id = Bridge::GetSteamId(player);
+    const std::string server_id = ResolveServerId();
+    FTribeData* tribe = nullptr;
+    auto* ps = static_cast<AShooterPlayerState*>(player->PlayerStateField());
+    if (ps)
+        tribe = ResolveTribeData(ps);
+    const int tribe_id = ResolveTribeId(ps, player, tribe);
+    if (tribe_id <= 0) {
+        SendTribeChat(player, FColorList::Red,
+                      "Entre na tribo in-game neste mapa antes de usar o codigo.");
+        return true;
+    }
+
+    std::string char_name;
+    if (AShooterCharacter* ch = player->GetPlayerCharacter()) {
+        try {
+            char_name = FStringToUtf8(ch->PlayerNameField());
+        } catch (...) {
+        }
+    }
+
+    nlohmann::json body = {
+        {"code", code},
+        {"steam_id", steam_id},
+        {"server_id", server_id},
+        {"tribe_id", tribe_id},
+        {"character_name", char_name},
+    };
+
+    try {
+        const std::string resp =
+            HttpClient::PostJson("/api/tribe/invite/join", body.dump());
+        if (ResponseLooksOk(resp)) {
+            SendTribeChat(
+                player, FColorList::Green,
+                "Pedido enviado. O Proprietario precisa aceitar no site (Minha Tribo).");
+        } else {
+            std::string err = "Falha ao enviar pedido.";
+            try {
+                const auto j = nlohmann::json::parse(resp);
+                if (j.contains("error") && j["error"].is_string())
+                    err = j["error"].get<std::string>();
+            } catch (...) {
+            }
+            SendTribeChat(player, FColorList::Red, err);
+        }
+    } catch (const std::exception& e) {
+        Log::GetLog()->warn("TribeSync invite: {}", e.what());
+        SendTribeChat(player, FColorList::Red,
+                      "Erro de rede ao enviar pedido. Tente novamente.");
+    }
+    return true;
+}
+
+void RegisterChatCommands() {
+    ArkApi::GetCommands().AddOnChatMessageCallback(
+        "CustomShopTribeInvite", &OnTribeInviteChat);
+    Log::GetLog()->info("TribeSync: chat /tribe.CODE registado");
+}
+
+void UnregisterChatCommands() {
+    ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopTribeInvite");
 }
 
 } // namespace TribeSync

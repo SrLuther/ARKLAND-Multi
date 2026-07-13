@@ -104,41 +104,79 @@ def get_pricing_config() -> dict[str, Any]:
 
 
 def _species_mod_source(species_key: str) -> str:
-    defn = load_default_species_map().get(species_key) or {}
-    return str(defn.get("mod_source") or "vanilla")
+    try:
+        from market_economy import canonicalize_species_key
+
+        keys = [species_key, canonicalize_species_key(species_key)]
+    except Exception:
+        keys = [species_key]
+    for key in keys:
+        if not key:
+            continue
+        defn = load_default_species_map().get(key) or {}
+        if defn:
+            return str(defn.get("mod_source") or "vanilla")
+    return "vanilla"
+
+
+def _apply_friendly_display_name(economy: Any, species_key: str) -> Any:
+    try:
+        from market_economy import friendly_species_display_name
+
+        name = friendly_species_display_name(
+            species_key,
+            fallback=getattr(economy, "display_name", None),
+        )
+        if name:
+            economy.display_name = name
+    except Exception:
+        pass
+    return economy
 
 
 def _resolve_species_economy(db: Session, species_key: str) -> Any | None:
     """Espécie ACTIVE no mercado com economia completa; fallback para defaults JSON."""
+    from market_economy import canonicalize_species_key
+
+    keys = [species_key]
+    canon = canonicalize_species_key(species_key)
+    if canon and canon not in keys:
+        keys.append(canon)
+
     try:
         from app import MarketSpecies, MarketSpeciesStatMultiplier
         from market_service import species_row_to_economy
 
-        row = (
-            db.query(MarketSpecies)
-            .filter(
-                MarketSpecies.species_key == species_key,
-                MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")),
+        for key in keys:
+            row = (
+                db.query(MarketSpecies)
+                .filter(
+                    MarketSpecies.species_key == key,
+                    MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")),
+                )
+                .first()
             )
-            .first()
-        )
-        if row:
-            mult_rows = (
-                db.query(MarketSpeciesStatMultiplier)
-                .filter(MarketSpeciesStatMultiplier.species_id == row.id)
-                .all()
-            )
-            return species_row_to_economy(row, mult_rows)
+            if row:
+                mult_rows = (
+                    db.query(MarketSpeciesStatMultiplier)
+                    .filter(MarketSpeciesStatMultiplier.species_id == row.id)
+                    .all()
+                )
+                return _apply_friendly_display_name(
+                    species_row_to_economy(row, mult_rows),
+                    species_key,
+                )
     except Exception as exc:
         log.debug("dino_order species db lookup: %s", exc)
 
     try:
         from market_economy import merge_species_from_defaults
 
-        defn = load_default_species_map().get(species_key)
-        if defn:
-            species, _ = merge_species_from_defaults(defn, status="ACTIVE")
-            return species
+        for key in keys:
+            defn = load_default_species_map().get(key)
+            if defn:
+                species, _ = merge_species_from_defaults(defn, status="ACTIVE")
+                return _apply_friendly_display_name(species, species_key)
     except Exception as exc:
         log.debug("dino_order species defaults fallback: %s", exc)
     return None
@@ -192,13 +230,15 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
     try:
         from market_service import list_species_public
         from dino_order_showcase_service import primary_showcase_by_species, showcase_counts_by_species
-        from dino_order_vitrine_service import ensure_vitrine
+        from dino_order_vitrine_service import load_store, orderable_species_keys
 
         rows = list_species_public(db, active_only=True)
         showcase_counts = showcase_counts_by_species(active_only=True)
         primary_showcases = primary_showcase_by_species(active_only=True)
-        vitrine = ensure_vitrine(db)
-        orderable = set(vitrine.get("orderable_species_keys") or [])
+        orderable = orderable_species_keys(db)
+        store = load_store()
+        permanent = set(store.get("permanent_species_keys") or [])
+        rotation_ends_at = store.get("rotation_ends_at")
     except Exception as exc:
         log.warning("dino_order gallery: %s", exc)
         return []
@@ -206,13 +246,26 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
     if not orderable:
         return []
 
+    try:
+        from market_economy import canonicalize_species_key, friendly_species_display_name
+    except Exception:
+        canonicalize_species_key = None  # type: ignore[assignment]
+        friendly_species_display_name = None  # type: ignore[assignment]
+
+    orderable_canon = set()
+    if canonicalize_species_key is not None:
+        orderable_canon = {canonicalize_species_key(k) for k in orderable}
+
     cfg = get_pricing_config()
     out: list[dict[str, Any]] = []
     for item in rows:
         sk = str(item.get("species_key") or "")
         if _species_mod_source(sk) != "vanilla":
             continue
-        if sk not in orderable:
+        in_vitrine = sk in orderable
+        if not in_vitrine and canonicalize_species_key is not None:
+            in_vitrine = canonicalize_species_key(sk) in orderable_canon
+        if not in_vitrine:
             continue
         economy = _resolve_species_economy(db, sk)
         if economy is None:
@@ -235,10 +288,17 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             or item.get("image_url")
             or _species_image(sk, item.get("tier"))
         )
-        slot_kind = "permanent" if sk in set(vitrine.get("permanent_species_keys") or []) else "rotating"
+        slot_kind = "permanent" if sk in permanent else "rotating"
+        if friendly_species_display_name is not None:
+            display_name = friendly_species_display_name(
+                sk,
+                fallback=item.get("display_name") or getattr(economy, "display_name", None),
+            )
+        else:
+            display_name = item.get("display_name") or getattr(economy, "display_name", None) or sk
         out.append({
             "species_key": sk,
-            "display_name": item.get("display_name") or sk,
+            "display_name": display_name or sk,
             "tier": item.get("tier") or "",
             "root_value": int(item.get("root_value") or 0),
             "size_class": item.get("size_class") or "medium",
@@ -246,7 +306,7 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             "starting_price": int(min_quote.get("total") or 0),
             "showcase_count": int(showcase_counts.get(sk) or 0),
             "slot_kind": slot_kind,
-            "rotation_ends_at": vitrine.get("rotation_ends_at"),
+            "rotation_ends_at": rotation_ends_at,
         })
     out = _dedup_gallery_species(out)
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
@@ -280,13 +340,23 @@ _STAT_POINT_INDEX = {
 }
 
 
+def _level_from_stat_points(stat_points: dict[str, Any] | None) -> int:
+    """Nível ARK efetivo (encomenda = pontos wild desejados): 1 + soma dos pontos."""
+    total = 0
+    for key in _STAT_POINT_INDEX:
+        try:
+            total += max(0, min(STAT_MAX, int((stat_points or {}).get(key, 0) or 0)))
+        except (TypeError, ValueError):
+            continue
+    return max(1, 1 + total)
+
+
 def _normalize_player_spec(raw: dict[str, Any]) -> dict[str, Any]:
     spec = dict(raw or {})
     stat_raw = spec.get("stat_points") or spec.get("stat_points_requested") or {}
     pts: dict[str, int] = {}
     if isinstance(stat_raw, dict):
-        # Encomenda MVP: health+melee; simulação Dino Lab pode enviar todos os economy stats.
-        for key in ("health", "melee", "weight", "stamina", "speed", "oxygen", "food"):
+        for key in ("health", "stamina", "oxygen", "food", "weight", "melee", "speed"):
             if key not in stat_raw:
                 continue
             try:
@@ -295,6 +365,8 @@ def _normalize_player_spec(raw: dict[str, Any]) -> dict[str, Any]:
                 continue
             pts[key] = max(0, min(STAT_MAX, val))
     spec["stat_points"] = pts
+    # Nível sempre derivado dos pontos (cliente só-leitura).
+    spec["level"] = _level_from_stat_points(pts)
     return spec
 
 

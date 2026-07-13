@@ -182,3 +182,33 @@ def test_is_species_on_vitrine_union(monkeypatch):
     assert is_species_on_vitrine("large_9", _FakeDb()) is True
     assert is_species_on_vitrine("missing_species", _FakeDb()) is False
     assert "large_9" not in rotating
+
+
+def test_orderable_keys_hot_path_skips_full_catalog(monkeypatch):
+    """Cotação não pode re-listar todo o catálogo a cada slider."""
+    from dino_order_vitrine_service import orderable_species_keys
+
+    class _FakeDb:
+        pass
+
+    calls = {"n": 0}
+
+    def _boom(db):
+        calls["n"] += 1
+        raise AssertionError("list_candidate_species não deve ser chamado no hot path")
+
+    monkeypatch.setattr("dino_order_vitrine_service.list_candidate_species", _boom)
+
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+    store = load_store()
+    store["rotating_species_keys"] = [f"r{i}" for i in range(10)]
+    store["permanent_species_keys"] = ["p0"]
+    # Longe no futuro em relação a _utcnow() — evita auto-rotação no hot path
+    store["rotation_ends_at"] = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    save_store(store)
+
+    keys = orderable_species_keys(_FakeDb())
+    assert calls["n"] == 0
+    assert "r0" in keys and "p0" in keys
+    assert is_species_on_vitrine("r0", _FakeDb()) is True
+    assert calls["n"] == 0

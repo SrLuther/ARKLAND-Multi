@@ -7,6 +7,7 @@ namespace TribeSync {
 
 /// Lê tribo in-game e grava presença (MySQL arkland_shop e/ou HTTP).
 /// Retorna true se MySQL ou HTTP aceitou o snapshot.
+/// tribe_id=0 (saiu da tribo) → revoga membership web neste mapa.
 bool SyncPlayer(AShooterPlayerController* player);
 
 /// Agenda várias tentativas pós-login (tribo pode demorar a carregar).
@@ -19,6 +20,10 @@ void SyncAllOnlinePlayers();
 /// Pull: reclama tribe_sync_requests pending na MySQL para jogadores online
 /// e executa SyncPlayer (caminho principal do «Verificar de novo», sem RCON).
 void PollPendingSyncRequests();
+
+/// Chat: /tribe.CODE — pedido de associação web (PENDING no site).
+void RegisterChatCommands();
+void UnregisterChatCommands();
 
 } // namespace TribeSync
 } // namespace CustomShop

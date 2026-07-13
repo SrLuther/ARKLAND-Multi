@@ -397,3 +397,33 @@ def test_legacy_multipliers_mode():
     total, breakdown = calculate_suggested_value(species, points)
     assert total == 5000 + 10 * species.multipliers["melee"].multiplier
     assert any(r.get("kind") == "mode" for r in breakdown)
+
+
+def test_clean_species_display_name_strips_nivel_200():
+    from market_economy import clean_species_display_name
+
+    assert clean_species_display_name("Shadowmane Nível 200") == "Shadowmane"
+    assert clean_species_display_name("Small Manticore Nível 200 (SmallBosses)") == "Small Manticore"
+    assert clean_species_display_name("Rex Fêmea Nível 1") == "Rex"
+
+
+def test_canonicalize_and_friendly_display_names():
+    from market_economy import canonicalize_species_key, friendly_species_display_name
+
+    assert canonicalize_species_key("lionfishlion") == "lionfish"
+    assert canonicalize_species_key("sb_manticore_200") == "sb_manticore"
+    assert canonicalize_species_key("sb_manticore_l200") == "sb_manticore"
+    assert canonicalize_species_key("meraxes_femea") == "meraxes"
+
+    assert friendly_species_display_name("lionfishlion", fallback="Lionfish Lion") == "Shadowmane"
+    assert friendly_species_display_name("sb_manticore_200", fallback="sb_manticore_200") == (
+        "Small Manticore"
+    )
+    meraxes_name = friendly_species_display_name("meraxes_femea", fallback="meraxes_femea")
+    assert meraxes_name != "meraxes_femea"
+    assert "Nível" not in meraxes_name and "Nivel" not in meraxes_name
+    assert "Meraxes" in meraxes_name
+    assert "Nível 200" not in friendly_species_display_name(
+        "lionfish",
+        fallback="Shadowmane Nível 200",
+    )

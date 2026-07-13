@@ -4,9 +4,10 @@ Implementa:
   - Esquema DB (tribe_owners, tribe_map_links, tribe_cluster_groups,
     tribe_members, tribe_presences, tribe_regulations,
     tribe_splits, tribe_split_members, tribe_split_audit,
-    tribe_sync_requests)
+    tribe_sync_requests, tribe_logs)
   - Gestão de membros, presença, regulamento e cluster (principal + fobs)
   - Fila pull de sync (Verificar de novo → plugin poll, sem depender de RCON)
+  - Espelho do TribeLog por mapa (ingest + consulta com permissões)
   - Regras de split (R1–R14) — integração com market_listings via tribe_split_service
 
 Padrão de integração (igual lottery_service):
@@ -16,6 +17,7 @@ Padrão de integração (igual lottery_service):
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import math
 from datetime import datetime, timedelta, timezone
@@ -95,9 +97,264 @@ def rank_implies_owner(rank: str | None) -> bool:
 
 def resolve_is_owner(*, is_owner: Any = None, member_rank: str | None = None) -> bool:
     """Combina flag explícita + rank (Owner/Proprietário)."""
+    if rank_implies_admin(member_rank):
+        return False
     if _as_bool(is_owner):
         return True
     return rank_implies_owner(member_rank)
+
+
+def resolve_member_is_owner(
+    *,
+    is_owner: Any = None,
+    member_rank: str | None = None,
+) -> bool:
+    """Proprietário in-game para um membro da lista — Admin nunca é dono."""
+    return resolve_is_owner(is_owner=is_owner, member_rank=member_rank)
+
+
+def member_steam_key(*, steam_id: str | None = None, player_data_id: Any = None) -> str:
+    """Chave estável para tribe_members — offline usa pdid:<id>."""
+    sid = str(steam_id or "").strip()
+    if sid:
+        return sid
+    pdid = player_data_id
+    if pdid is not None and str(pdid).strip().isdigit() and int(pdid) > 0:
+        return f"pdid:{int(pdid)}"
+    return ""
+
+
+def _normalize_rank_text(rank: str | None) -> str:
+    if not rank:
+        return ""
+    r = str(rank).strip().lower()
+    for a, b in (("á", "a"), ("ã", "a"), ("â", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u")):
+        r = r.replace(a, b)
+    return r
+
+
+def rank_implies_admin(rank: str | None) -> bool:
+    """True se o rank in-game é Admin (não Proprietário)."""
+    r = _normalize_rank_text(rank)
+    if not r:
+        return False
+    if rank_implies_owner(rank):
+        return False
+    return r == "admin" or r.startswith("admin ") or r.endswith(" admin")
+
+
+def get_viewer_membership_snapshot(db: Session, steam_id: str) -> dict[str, Any]:
+    """Última filiação conhecida do jogador (tribe_members → tribe_presences)."""
+    steam_id = str(steam_id or "").strip()
+    row = db.execute(
+        text("""
+            SELECT is_owner, rank_name, server_id, tribe_id, tribe_name, last_seen_at
+            FROM tribe_members
+            WHERE steam_id = :sid
+            ORDER BY last_seen_at DESC
+            LIMIT 1
+        """),
+        {"sid": steam_id},
+    ).fetchone()
+    if row:
+        return {
+            "is_game_owner": bool(row[0]),
+            "rank_name": row[1] or "",
+            "server_id": row[2],
+            "tribe_id": row[3],
+            "tribe_name": row[4] or "",
+            "seen_at": str(row[5]) if row[5] else None,
+            "source": "members",
+        }
+    row = db.execute(
+        text("""
+            SELECT is_owner, member_rank, server_id, tribe_id, tribe_name, captured_at
+            FROM tribe_presences
+            WHERE steam_id = :sid AND tribe_id IS NOT NULL
+            ORDER BY captured_at DESC
+            LIMIT 1
+        """),
+        {"sid": steam_id},
+    ).fetchone()
+    if row:
+        return {
+            "is_game_owner": resolve_is_owner(is_owner=row[0], member_rank=row[1]),
+            "rank_name": row[1] or "",
+            "server_id": row[2],
+            "tribe_id": row[3],
+            "tribe_name": row[4] or "",
+            "seen_at": str(row[5]) if row[5] else None,
+            "source": "presence",
+        }
+    return {
+        "is_game_owner": False,
+        "rank_name": "",
+        "server_id": None,
+        "tribe_id": None,
+        "tribe_name": "",
+        "seen_at": None,
+        "source": None,
+    }
+
+
+def resolve_viewer_role(*, is_game_owner: bool, rank_name: str | None) -> str:
+    """Papel do jogador na tribo: owner | admin | member."""
+    if is_game_owner:
+        return "owner"
+    if rank_implies_admin(rank_name):
+        return "admin"
+    return "member"
+
+
+def resolve_viewer_tribe_context(db: Session, steam_id: str, *, panel_activated: bool) -> dict[str, Any]:
+    """Contexto de papel do visitante — separa painel web de proprietário in-game."""
+    snap = get_viewer_membership_snapshot(db, steam_id)
+    is_game_owner = bool(snap.get("is_game_owner"))
+    member_rank = str(snap.get("rank_name") or "")
+    viewer_role = resolve_viewer_role(is_game_owner=is_game_owner, rank_name=member_rank)
+
+    can_manage = False
+    if panel_activated:
+        if is_game_owner:
+            can_manage = True
+        elif snap.get("source") is None:
+            # Painel com mapas vinculados antes de haver snapshot de membro (backfill antigo).
+            owner = get_owner(db, steam_id)
+            if owner and get_map_links(db, owner["id"]):
+                can_manage = True
+                is_game_owner = True
+                viewer_role = "owner"
+        # Presença explícita como Admin bloqueia gestão mesmo com painel ativo.
+        if rank_implies_admin(member_rank) and snap.get("source"):
+            can_manage = False
+            is_game_owner = False
+            viewer_role = "admin"
+
+    return {
+        "is_game_owner": is_game_owner,
+        "viewer_role": viewer_role,
+        "member_rank": member_rank,
+        "can_manage": can_manage,
+        "membership": snap,
+    }
+
+
+def get_game_owner_member(
+    db: Session, *, server_id: str, tribe_id: int
+) -> dict[str, Any] | None:
+    """Membro marcado como proprietário in-game num mapa/tribo."""
+    row = db.execute(
+        text("""
+            SELECT steam_id, character_name, rank_name
+            FROM tribe_members
+            WHERE server_id = :svid AND tribe_id = :tid AND is_owner = 1
+            ORDER BY last_seen_at DESC
+            LIMIT 1
+        """),
+        {"svid": server_id, "tid": int(tribe_id)},
+    ).fetchone()
+    if row:
+        return {
+            "steam_id": row[0],
+            "display_name": row[1] or row[0],
+            "rank_name": row[2] or "",
+        }
+    row = db.execute(
+        text("""
+            SELECT steam_id, character_name, rank_name
+            FROM tribe_members
+            WHERE server_id = :svid AND tribe_id = :tid
+              AND (
+                LOWER(rank_name) LIKE '%propriet%'
+                OR LOWER(rank_name) = 'owner'
+              )
+            ORDER BY last_seen_at DESC
+            LIMIT 1
+        """),
+        {"svid": server_id, "tid": int(tribe_id)},
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "steam_id": row[0],
+        "display_name": row[1] or row[0],
+        "rank_name": row[2] or "",
+    }
+
+
+def _collect_member_maps(db: Session, steam_id: str) -> list[dict[str, Any]]:
+    """Mapas onde o jogador aparece como membro (sem painel de proprietário)."""
+    member_rows = db.execute(
+        text("""
+            SELECT server_id, tribe_id, tribe_name
+            FROM tribe_members WHERE steam_id = :sid
+            ORDER BY last_seen_at DESC
+        """),
+        {"sid": steam_id},
+    ).fetchall()
+    if not member_rows:
+        member_rows = db.execute(
+            text("""
+                SELECT server_id, tribe_id, tribe_name
+                FROM tribe_presences WHERE steam_id = :sid AND tribe_id IS NOT NULL
+                ORDER BY captured_at DESC
+            """),
+            {"sid": steam_id},
+        ).fetchall()
+
+    maps_data: list[dict[str, Any]] = []
+    seen: set[tuple[str, int]] = set()
+    for r in member_rows:
+        key = (str(r[0]), int(r[1] or 0))
+        if key in seen or not key[1]:
+            continue
+        seen.add(key)
+        members = get_members_by_map(db, server_id=key[0], tribe_id=key[1])
+        game_owner = get_game_owner_member(db, server_id=key[0], tribe_id=key[1])
+        maps_data.append({
+            "server_id": key[0],
+            "tribe_id": key[1],
+            "tribe_name": r[2] or "",
+            "tribe_name_local": r[2] or "",
+            "tribe_type": "principal",
+            "members": members,
+            "member_count": len(members),
+            "game_owner": game_owner,
+        })
+    return maps_data
+
+
+def _game_owner_from_maps(maps_data: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for m in maps_data:
+        go = m.get("game_owner")
+        if go:
+            return go
+    return None
+
+
+def _my_tribes_payload(
+    db: Session,
+    steam_id: str,
+    *,
+    panel_owner: dict[str, Any] | None,
+    maps_data: list[dict[str, Any]],
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    panel_activated = panel_owner is not None
+    game_owner_info = _game_owner_from_maps(maps_data)
+    payload: dict[str, Any] = {
+        "is_owner": ctx["is_game_owner"],
+        "can_manage": ctx["can_manage"],
+        "panel_activated": panel_activated,
+        "viewer_role": ctx["viewer_role"],
+        "member_rank": ctx["member_rank"],
+        "owner": panel_owner if ctx["is_game_owner"] else None,
+        "game_owner": game_owner_info,
+        "maps": maps_data,
+        "_regulation": get_regulation(db, panel_owner["id"]) if panel_owner and ctx["can_manage"] else None,
+        "_split": get_active_split(db, panel_owner["id"]) if panel_owner and ctx["can_manage"] else None,
+    }
+    return payload
 
 
 def get_registered_owner_for_tribe(
@@ -363,6 +620,23 @@ def ensure_tribe_schema(engine: Engine) -> None:
           last_error            TEXT
         )
         """,
+        # ── Tribe Log espelhado por mapa (TribeLog.log / ingest plugin)
+        f"""
+        CREATE TABLE IF NOT EXISTS tribe_logs (
+          id            {_pk},
+          server_id     VARCHAR(64) NOT NULL,
+          tribe_id      INTEGER,
+          tribe_name    VARCHAR(128),
+          steam_id      VARCHAR(32),
+          day_number    INTEGER,
+          event_time    VARCHAR(16),
+          event_type    VARCHAR(32) NOT NULL DEFAULT 'other',
+          raw_line      TEXT NOT NULL,
+          file_offset   BIGINT NOT NULL DEFAULT 0,
+          captured_at   {_now_col} NOT NULL,
+          UNIQUE {"" if is_sqlite else "KEY uq_server_offset"} (server_id, file_offset)
+        )
+        """,
     ]
 
     with engine.connect() as conn:
@@ -381,8 +655,27 @@ def ensure_tribe_schema(engine: Engine) -> None:
             ))
         except Exception as exc:
             log.debug("tribe_schema index tribe_sync_requests: %s", exc)
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_tribe_logs_server_captured "
+                "ON tribe_logs (server_id, captured_at DESC)"
+            ))
+        except Exception as exc:
+            log.debug("tribe_schema index tribe_logs: %s", exc)
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_tribe_logs_server_tribe "
+                "ON tribe_logs (server_id, tribe_id)"
+            ))
+        except Exception as exc:
+            log.debug("tribe_schema index tribe_logs tribe: %s", exc)
         conn.commit()
     log.info("tribe_schema: tabelas verificadas/criadas")
+    try:
+        from tribe_invite_service import ensure_invite_schema
+        ensure_invite_schema(engine)
+    except Exception as exc:
+        log.warning("tribe_invite_schema: %s", exc)
 
 
 def _add_col_if_missing(conn: Any, is_sqlite: bool, table: str, col: str, col_type: str) -> None:
@@ -625,44 +918,82 @@ def record_presence(
     source: str = "login_hook",
     members: list[dict[str, Any]] | None = None,
 ) -> None:
-    """Grava snapshot de presença e atualiza tribe_members."""
+    """Grava snapshot de presença e atualiza tribe_members.
+
+    tribe_id <= 0 (saída de tribo neste mapa) → revoga membership web só neste mapa.
+    """
     steam_id = str(steam_id or "").strip()
     server_id = str(server_id or "").strip()
     tribe_name_s = str(tribe_name or "").strip()
     member_rank_s = str(member_rank or "").strip() or None
+
+    tid_int: int | None
+    try:
+        tid_int = int(tribe_id) if tribe_id is not None else None
+    except (TypeError, ValueError):
+        tid_int = None
+
+    # Saída de tribo neste mapa — revoga só este server_id (outros mapas intactos).
+    if tid_int is None or tid_int <= 0:
+        try:
+            from tribe_invite_service import revoke_membership_on_map
+            revoke_membership_on_map(
+                db,
+                steam_id=steam_id,
+                server_id=server_id,
+                tribe_id=None,
+                reason=str(source or "presence_leave"),
+            )
+        except Exception as exc:
+            log.warning("tribe leave-revoke falhou: %s", exc)
+        return
+
     owner_flag = resolve_is_owner(is_owner=is_owner, member_rank=member_rank_s)
 
     # Se a web já tem proprietário para esta tribo/mapa, não deixar outro jogador
     # reivindicar ownership (nem via map_link). Continua membro.
     registered = None
-    if tribe_id is not None and _is_usable_server_id(server_id):
+    if _is_usable_server_id(server_id):
         registered = get_registered_owner_for_tribe(
-            db, server_id=server_id, tribe_id=int(tribe_id),
+            db, server_id=server_id, tribe_id=tid_int,
         )
     claim_owner_link = owner_flag
     if registered and registered["steam_id"] != steam_id:
         claim_owner_link = False
+        # Transferência: sync do novo Proprietário in-game (OwnerPlayerDataID)
+        if owner_flag:
+            try:
+                from tribe_invite_service import handle_ownership_transfer
+                handle_ownership_transfer(
+                    db,
+                    server_id=server_id,
+                    tribe_id=tid_int,
+                    new_owner_steam_id=steam_id,
+                    old_owner_steam_id=registered["steam_id"],
+                    tribe_name=tribe_name_s,
+                )
+            except Exception as exc:
+                log.warning("tribe ownership transfer: %s", exc)
         owner_flag = False
 
-    # Normaliza membros: is_owner via flag ou rank_name
+    # Normaliza membros: is_owner via flag/rank in-game (não sobrescreve com dono web).
     normalized_members: list[dict[str, Any]] | None = None
     if members:
         normalized_members = []
         for m in members:
             mm = dict(m)
-            mm["is_owner"] = resolve_is_owner(
+            mm["is_owner"] = resolve_member_is_owner(
                 is_owner=mm.get("is_owner"),
                 member_rank=mm.get("rank_name") or mm.get("member_rank"),
             )
-            sid = str(mm.get("steam_id") or "").strip()
-            if sid:
-                mm["steam_id"] = sid
-                # Preserva dono web: só o steam_id registado fica is_owner=1
-                if registered and sid != registered["steam_id"]:
-                    mm["is_owner"] = False
-                elif registered and sid == registered["steam_id"]:
-                    mm["is_owner"] = True
-                normalized_members.append(mm)
+            sid = member_steam_key(
+                steam_id=mm.get("steam_id"),
+                player_data_id=mm.get("player_data_id"),
+            )
+            if not sid:
+                continue
+            mm["steam_id"] = sid
+            normalized_members.append(mm)
 
     now = _naive(_utcnow())
     db.execute(text("""
@@ -671,26 +1002,26 @@ def record_presence(
         VALUES (:sid, :svid, :mn, :tid, :tn, :iso, :mr, :now, :src)
     """), {
         "sid": steam_id, "svid": server_id, "mn": map_name or server_id,
-        "tid": tribe_id, "tn": tribe_name_s or None,
+        "tid": tid_int, "tn": tribe_name_s or None,
         "iso": 1 if owner_flag else 0,
         "mr": member_rank_s, "now": now, "src": source,
     })
 
     # Se enviou lista de membros, upsert em tribe_members
-    if normalized_members and tribe_id:
+    if normalized_members and tid_int:
         _upsert_members(
-            db, server_id=server_id, tribe_id=int(tribe_id),
+            db, server_id=server_id, tribe_id=tid_int,
             tribe_name=tribe_name_s, members=normalized_members, now=now,
         )
 
     # Auto-vincula owner ao tribe_map_links (tribe_name opcional — nome vazio não bloqueia)
-    if claim_owner_link and tribe_id and _is_usable_server_id(server_id):
+    if claim_owner_link and tid_int and _is_usable_server_id(server_id):
         owner = get_owner(db, steam_id)
         if owner:
             _auto_link_owner(
                 db, owner=owner, server_id=server_id,
-                tribe_id=int(tribe_id),
-                tribe_name=tribe_name_s or f"Tribo {tribe_id}",
+                tribe_id=tid_int,
+                tribe_name=tribe_name_s or f"Tribo {tid_int}",
                 now=now,
             )
 
@@ -701,10 +1032,53 @@ def _upsert_members(
     db: Session, *, server_id: str, tribe_id: int,
     tribe_name: str, members: list[dict[str, Any]], now: datetime
 ) -> None:
+    """Upsert membros; garante um único is_owner=1 por tribo/mapa no snapshot."""
+    owner_key: str | None = None
     for m in members:
-        sid = str(m.get("steam_id") or "")
+        if m.get("is_owner"):
+            owner_key = member_steam_key(
+                steam_id=m.get("steam_id"),
+                player_data_id=m.get("player_data_id"),
+            ) or str(m.get("steam_id") or "").strip()
+            if owner_key:
+                break
+    if owner_key:
+        db.execute(
+            text("""
+                UPDATE tribe_members
+                SET is_owner = 0, updated_at = :now
+                WHERE server_id = :svid AND tribe_id = :tid AND steam_id != :owner_key
+            """),
+            {"svid": server_id, "tid": tribe_id, "owner_key": owner_key, "now": now},
+        )
+
+    for m in members:
+        sid = member_steam_key(
+            steam_id=m.get("steam_id"),
+            player_data_id=m.get("player_data_id"),
+        )
         if not sid:
             continue
+        char_name = str(m.get("character_name") or "").strip()
+        pdid = m.get("player_data_id")
+        if pdid and not str(sid).startswith("pdid:"):
+            pdid_key = member_steam_key(player_data_id=pdid)
+            if pdid_key and pdid_key != sid:
+                db.execute(
+                    text("""
+                        UPDATE tribe_members
+                        SET steam_id = :sid, character_name = :cn, is_owner = :iso,
+                            rank_name = :rn, last_seen_at = :now, updated_at = :now,
+                            tribe_name = :tn
+                        WHERE server_id = :svid AND tribe_id = :tid AND steam_id = :pdid_key
+                    """),
+                    {
+                        "sid": sid, "cn": char_name or None,
+                        "iso": 1 if m.get("is_owner") else 0,
+                        "rn": m.get("rank_name"), "now": now, "tn": tribe_name,
+                        "svid": server_id, "tid": tribe_id, "pdid_key": pdid_key,
+                    },
+                )
         existing = db.execute(
             text("SELECT id FROM tribe_members WHERE server_id = :svid AND tribe_id = :tid AND steam_id = :sid"),
             {"svid": server_id, "tid": tribe_id, "sid": sid},
@@ -716,7 +1090,7 @@ def _upsert_members(
                     last_seen_at = :now, updated_at = :now, tribe_name = :tn
                 WHERE server_id = :svid AND tribe_id = :tid AND steam_id = :sid
             """), {
-                "cn": m.get("character_name"), "iso": 1 if m.get("is_owner") else 0,
+                "cn": char_name or None, "iso": 1 if m.get("is_owner") else 0,
                 "rn": m.get("rank_name"), "now": now, "tn": tribe_name,
                 "svid": server_id, "tid": tribe_id, "sid": sid,
             })
@@ -727,7 +1101,7 @@ def _upsert_members(
                 VALUES (:svid, :tid, :tn, :sid, :cn, :iso, :rn, :now, :now, :now)
             """), {
                 "svid": server_id, "tid": tribe_id, "tn": tribe_name, "sid": sid,
-                "cn": m.get("character_name"), "iso": 1 if m.get("is_owner") else 0,
+                "cn": char_name or None, "iso": 1 if m.get("is_owner") else 0,
                 "rn": m.get("rank_name"), "now": now,
             })
 
@@ -1108,12 +1482,17 @@ def sync_owner_maps(db: Session, steam_id: str) -> dict[str, Any]:
             )
         else:
             hint = "Presença de líder encontrada, mas o vínculo falhou — tente novamente."
+    ctx = resolve_viewer_tribe_context(db, steam_id, panel_activated=True)
     return {
         "panel_activated": True,
-        "is_owner": True,
+        "is_owner": ctx["is_game_owner"],
+        "can_manage": ctx["can_manage"],
+        "viewer_role": ctx["viewer_role"],
+        "member_rank": ctx["member_rank"],
         "maps_linked": linked,
         "maps": tribes.get("maps") or [],
         "owner": tribes.get("owner"),
+        "game_owner": tribes.get("game_owner"),
         "presences": presences,
         "sync_request": sync_req,
         "hint": hint,
@@ -1132,70 +1511,31 @@ def get_my_tribes(db: Session, steam_id: str, *, _skip_backfill: bool = False) -
         except Exception as exc:
             log.debug("get_my_tribes backfill: %s", exc)
 
-    if not owner:
-        # Membro (não dono do painel): mapas onde aparece em tribe_members / presence
-        member_rows = db.execute(
-            text("""
-                SELECT server_id, tribe_id, tribe_name
-                FROM tribe_members WHERE steam_id = :sid
-                ORDER BY last_seen_at DESC
-            """),
-            {"sid": steam_id},
-        ).fetchall()
-        if not member_rows:
-            member_rows = db.execute(
-                text("""
-                    SELECT server_id, tribe_id, tribe_name
-                    FROM tribe_presences WHERE steam_id = :sid AND tribe_id IS NOT NULL
-                    ORDER BY captured_at DESC
-                """),
-                {"sid": steam_id},
-            ).fetchall()
+    ctx = resolve_viewer_tribe_context(db, steam_id, panel_activated=owner is not None)
 
-        maps_data: list[dict[str, Any]] = []
-        seen: set[tuple[str, int]] = set()
-        for r in member_rows:
-            key = (str(r[0]), int(r[1] or 0))
-            if key in seen or not key[1]:
-                continue
-            seen.add(key)
-            members = get_members_by_map(db, server_id=key[0], tribe_id=key[1])
-            maps_data.append({
-                "server_id": key[0],
-                "tribe_id": key[1],
-                "tribe_name": r[2] or "",
-                "tribe_name_local": r[2] or "",
-                "tribe_type": "principal",
-                "members": members,
-                "member_count": len(members),
-            })
-        return {
-            "is_owner": False,
-            "owner": None,
-            "maps": maps_data,
-            "panel_activated": False,
-            "_regulation": None,
-            "_split": None,
-        }
+    if not owner:
+        maps_data = _collect_member_maps(db, steam_id)
+        return _my_tribes_payload(db, steam_id, panel_owner=None, maps_data=maps_data, ctx=ctx)
 
     links = get_map_links(db, owner["id"])
-    maps_data = []
+    maps_data: list[dict[str, Any]] = []
     for link in links:
         members = get_members_by_map(db, server_id=link["server_id"], tribe_id=link["tribe_id"])
+        game_owner = get_game_owner_member(
+            db, server_id=link["server_id"], tribe_id=link["tribe_id"],
+        )
         maps_data.append({
             **link,
             "members": members,
             "member_count": len(members),
+            "game_owner": game_owner,
         })
 
-    return {
-        "is_owner": True,
-        "owner": owner,
-        "maps": maps_data,
-        "panel_activated": True,
-        "_regulation": get_regulation(db, owner["id"]),
-        "_split": get_active_split(db, owner["id"]),
-    }
+    # Painel ativado por Admin (não proprietário) sem mapas vinculados — mostra visão de membro.
+    if not maps_data and not ctx["is_game_owner"]:
+        maps_data = _collect_member_maps(db, steam_id)
+
+    return _my_tribes_payload(db, steam_id, panel_owner=owner, maps_data=maps_data, ctx=ctx)
 
 
 def manual_add_member(
@@ -1221,6 +1561,11 @@ def manual_add_member(
     owner = get_owner(db, owner_steam_id)
     if not owner:
         raise ValueError("Painel de tribo não ativado. Use /api/tribe/register primeiro.")
+    ctx = resolve_viewer_tribe_context(db, owner_steam_id, panel_activated=True)
+    if not ctx["can_manage"]:
+        raise ValueError(
+            "Apenas o Proprietário in-game pode gerir membros (rank Admin não basta)."
+        )
 
     link = db.execute(
         text("""
@@ -1247,6 +1592,20 @@ def manual_add_member(
         }],
         now=now,
     )
+    try:
+        from tribe_invite_service import confirm_group_member, get_group_for_owner
+        group = get_group_for_owner(db, owner_steam_id)
+        if group:
+            confirm_group_member(
+                db,
+                cluster_group_id=group["id"],
+                steam_id=member_steam_id,
+                confirmed_via="sync",
+                confirmed_by_steam_id=owner_steam_id,
+                commit=False,
+            )
+    except Exception as exc:
+        log.debug("manual_add confirm: %s", exc)
     db.commit()
     return {
         "steam_id": member_steam_id,
@@ -1613,6 +1972,14 @@ def create_or_update_split(
     ).fetchone()
     if link and link[0] == "fob":
         raise ValueError("Fobs não possuem configuração de split (R13). Split é exclusivo da tribo principal.")
+
+    try:
+        from tribe_invite_service import filter_confirmed_for_split
+        members = filter_confirmed_for_split(
+            db, tribe_owner_id=tribe_owner_id, members=members,
+        )
+    except Exception as exc:
+        log.debug("split confirmed filter: %s", exc)
 
     validate_split_config(members)
 
@@ -2029,22 +2396,348 @@ def apply_split_payout(
 
 
 # ────────────────────────────────────────────────────────────
-# Stub de log — TODO: integrar com asm_tribe_log.py / remote_agent
+# Tribe Log espelhado por mapa
 # ────────────────────────────────────────────────────────────
 
+def _player_maps_for_log(db: Session, steam_id: str) -> list[dict[str, Any]]:
+    """Mapas onde o jogador tem presença (owner links ou membership)."""
+    data = get_my_tribes(db, steam_id, _skip_backfill=True)
+    return list(data.get("maps") or [])
+
+
+def resolve_log_access(
+    db: Session,
+    steam_id: str,
+    server_id: str,
+    *,
+    is_admin: bool = False,
+) -> dict[str, Any]:
+    """Verifica se o jogador pode ver o log do mapa e devolve contexto.
+
+    Raises PermissionError se não tiver acesso.
+    """
+    server_id = str(server_id or "").strip()
+    if not server_id:
+        raise ValueError("server_id obrigatório")
+
+    if is_admin:
+        return {
+            "allowed": True,
+            "role": "admin",
+            "server_id": server_id,
+            "tribe_id": None,
+            "tribe_name": None,
+            "log_visibility": "admin",
+        }
+
+    maps = _player_maps_for_log(db, steam_id)
+    match = next((m for m in maps if str(m.get("server_id")) == server_id), None)
+    if not match:
+        raise PermissionError("Sem acesso ao log deste mapa")
+
+    owner = get_owner(db, steam_id)
+    # Owner do painel: vê todos os mapas vinculados
+    if owner and any(
+        str(m.get("server_id")) == server_id for m in get_map_links(db, owner["id"])
+    ):
+        return {
+            "allowed": True,
+            "role": "owner",
+            "server_id": server_id,
+            "tribe_id": match.get("tribe_id"),
+            "tribe_name": match.get("tribe_name_local") or match.get("tribe_name"),
+            "log_visibility": owner.get("log_visibility") or "members",
+        }
+
+    # Membro: respeita log_visibility do owner daquele mapa (se existir)
+    tribe_id = int(match.get("tribe_id") or 0)
+    link_owner_row = db.execute(
+        text("""
+            SELECT o.steam_id, o.log_visibility
+            FROM tribe_map_links l
+            JOIN tribe_owners o ON o.id = l.tribe_owner_id
+            WHERE l.server_id = :sid AND l.tribe_id = :tid AND l.is_active = 1
+            ORDER BY l.confirmed_at ASC LIMIT 1
+        """),
+        {"sid": server_id, "tid": tribe_id},
+    ).fetchone()
+    visibility = (link_owner_row[1] if link_owner_row else None) or "members"
+    if visibility == "owner":
+        raise PermissionError("Log visível apenas ao proprietário da tribo")
+    if visibility == "public" or visibility == "members":
+        return {
+            "allowed": True,
+            "role": "member",
+            "server_id": server_id,
+            "tribe_id": tribe_id or None,
+            "tribe_name": match.get("tribe_name_local") or match.get("tribe_name"),
+            "log_visibility": visibility,
+        }
+    raise PermissionError("Sem permissão para ver o log")
+
+
+def ingest_tribe_log_lines(
+    db: Session,
+    *,
+    server_id: str,
+    lines: list[dict[str, Any]] | list[str],
+    tribe_id: int | None = None,
+    tribe_name: str | None = None,
+    steam_id: str | None = None,
+    source: str = "ingest",
+) -> dict[str, Any]:
+    """Insere linhas do TribeLog (dedup por server_id + file_offset).
+
+    Aceita lista de strings ou dicts já parseados
+    ({raw_line, file_offset, event_type, day_number, event_time, ...}).
+    """
+    from tribe_log_parser import parse_tribe_log_line
+
+    server_id = str(server_id or "").strip()
+    if not server_id:
+        raise ValueError("server_id obrigatório")
+    if not isinstance(lines, list) or not lines:
+        return {"inserted": 0, "skipped": 0, "server_id": server_id, "source": source}
+
+    now = _naive(_utcnow())
+    inserted = 0
+    skipped = 0
+    tid = int(tribe_id) if tribe_id not in (None, "", 0, "0") else None
+    tname = (tribe_name or "").strip() or None
+    sid = (steam_id or "").strip() or None
+
+    is_sqlite = False
+    try:
+        bind = db.get_bind()
+        is_sqlite = bool(bind and bind.dialect and bind.dialect.name == "sqlite")
+    except Exception:
+        is_sqlite = False
+
+    insert_sql = text(
+        """
+        INSERT OR IGNORE INTO tribe_logs
+          (server_id, tribe_id, tribe_name, steam_id, day_number,
+           event_time, event_type, raw_line, file_offset, captured_at)
+        VALUES
+          (:server_id, :tribe_id, :tribe_name, :steam_id, :day_number,
+           :event_time, :event_type, :raw_line, :file_offset, :captured_at)
+        """
+        if is_sqlite
+        else """
+        INSERT IGNORE INTO tribe_logs
+          (server_id, tribe_id, tribe_name, steam_id, day_number,
+           event_time, event_type, raw_line, file_offset, captured_at)
+        VALUES
+          (:server_id, :tribe_id, :tribe_name, :steam_id, :day_number,
+           :event_time, :event_type, :raw_line, :file_offset, :captured_at)
+        """
+    )
+
+    for idx, item in enumerate(lines):
+        tid_line = tid
+        tname_line = tname
+        sid_line = sid
+
+        if isinstance(item, str):
+            parsed = parse_tribe_log_line(item, file_offset=0)
+            if not parsed:
+                skipped += 1
+                continue
+            payload = parsed
+        elif isinstance(item, dict):
+            raw = str(item.get("raw_line") or item.get("line") or item.get("body") or "").strip()
+            if not raw:
+                skipped += 1
+                continue
+            if item.get("event_type") and (
+                "day_number" in item or "event_time" in item or item.get("file_offset")
+            ):
+                payload = {
+                    "day_number": item.get("day_number"),
+                    "event_time": item.get("event_time"),
+                    "event_type": str(item.get("event_type") or "other")[:32],
+                    "raw_line": raw,
+                    "file_offset": int(item.get("file_offset") or 0),
+                }
+            else:
+                parsed = parse_tribe_log_line(
+                    raw, file_offset=int(item.get("file_offset") or 0),
+                )
+                if not parsed:
+                    skipped += 1
+                    continue
+                payload = parsed
+            if item.get("tribe_id") not in (None, "", 0, "0"):
+                try:
+                    tid_line = int(item["tribe_id"])
+                except (TypeError, ValueError):
+                    tid_line = tid
+            tname_line = (item.get("tribe_name") or tname or None)
+            sid_line = (item.get("steam_id") or sid or None)
+        else:
+            skipped += 1
+            continue
+
+        offset = int(payload.get("file_offset") or 0)
+        if offset <= 0:
+            digest = hashlib.md5(
+                f"{server_id}:{payload['raw_line']}".encode("utf-8", errors="replace")
+            ).hexdigest()
+            offset = -int(digest[:12], 16)
+            if offset == 0:
+                offset = -(idx + 1)
+
+        result = db.execute(
+            insert_sql,
+            {
+                "server_id": server_id,
+                "tribe_id": tid_line,
+                "tribe_name": tname_line,
+                "steam_id": sid_line,
+                "day_number": payload.get("day_number"),
+                "event_time": (str(payload.get("event_time") or "")[:16] or None),
+                "event_type": str(payload.get("event_type") or "other")[:32],
+                "raw_line": payload["raw_line"],
+                "file_offset": offset,
+                "captured_at": now,
+            },
+        )
+        if int(result.rowcount or 0) > 0:
+            inserted += 1
+            # Leave / removed → revoga membership web só neste mapa
+            raw_line = str(payload.get("raw_line") or "")
+            if payload.get("event_type") == "player" and (
+                "removed from the Tribe" in raw_line
+                or "left the Tribe" in raw_line
+                or "Left the Tribe" in raw_line
+            ):
+                try:
+                    from tribe_invite_service import (
+                        parse_leave_character_name,
+                        revoke_by_character_name,
+                    )
+                    cname = parse_leave_character_name(
+                        str(payload.get("body") or raw_line),
+                    )
+                    if cname:
+                        revoke_by_character_name(
+                            db,
+                            server_id=server_id,
+                            character_name=cname,
+                            tribe_id=tid_line,
+                            reason="tribelog_removed",
+                        )
+                except Exception as exc:
+                    log.debug("tribe log leave-revoke: %s", exc)
+        else:
+            skipped += 1
+
+    db.commit()
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "server_id": server_id,
+        "source": source,
+        "tribe_id": tid,
+    }
+
+
+def get_max_file_offset(db: Session, server_id: str) -> int:
+    """Maior file_offset positivo já ingerido para o mapa (para resume do tail)."""
+    row = db.execute(
+        text("""
+            SELECT MAX(file_offset) FROM tribe_logs
+            WHERE server_id = :sid AND file_offset > 0
+        """),
+        {"sid": server_id},
+    ).fetchone()
+    if not row or row[0] is None:
+        return 0
+    return int(row[0])
+
+
+def get_tribe_log(
+    db: Session,
+    *,
+    steam_id: str,
+    server_id: str,
+    limit: int = 200,
+    event_type: str | None = None,
+    tribe_id: int | None = None,
+    is_admin: bool = False,
+) -> dict[str, Any]:
+    """Consulta log espelhado de um mapa com verificação de permissão."""
+    access = resolve_log_access(db, steam_id, server_id, is_admin=is_admin)
+    limit = max(1, min(int(limit or 200), 500))
+    etype = (event_type or "").strip().lower() or None
+    if etype in ("all", "todos", "*"):
+        etype = None
+
+    preferred_tid = tribe_id if tribe_id not in (None, "", 0, "0") else access.get("tribe_id")
+    try:
+        preferred_tid = int(preferred_tid) if preferred_tid not in (None, "") else None
+    except (TypeError, ValueError):
+        preferred_tid = None
+
+    params: dict[str, Any] = {"sid": server_id, "lim": limit}
+    where = ["server_id = :sid"]
+    # Prefere linhas da tribo do jogador; inclui linhas sem tribe_id (arquivo global do mapa)
+    if preferred_tid:
+        where.append("(tribe_id IS NULL OR tribe_id = :tid)")
+        params["tid"] = preferred_tid
+    if etype:
+        where.append("event_type = :etype")
+        params["etype"] = etype
+
+    sql = f"""
+        SELECT id, server_id, tribe_id, tribe_name, steam_id,
+               day_number, event_time, event_type, raw_line, file_offset, captured_at
+        FROM tribe_logs
+        WHERE {' AND '.join(where)}
+        ORDER BY captured_at DESC, id DESC
+        LIMIT :lim
+    """
+    rows = db.execute(text(sql), params).fetchall()
+    lines = []
+    for r in rows:
+        lines.append({
+            "id": r[0],
+            "server_id": r[1],
+            "tribe_id": r[2],
+            "tribe_name": r[3],
+            "steam_id": r[4],
+            "day_number": r[5],
+            "event_time": r[6],
+            "event_type": r[7],
+            "raw_line": r[8],
+            "file_offset": r[9],
+            "captured_at": str(r[10]) if r[10] else None,
+        })
+    # Cronológico crescente na UI
+    lines.reverse()
+
+    return {
+        "server_id": server_id,
+        "status": "ok",
+        "access": {
+            "role": access.get("role"),
+            "log_visibility": access.get("log_visibility"),
+            "tribe_id": access.get("tribe_id"),
+            "tribe_name": access.get("tribe_name"),
+        },
+        "count": len(lines),
+        "lines": lines,
+        "filters": {"event_type": etype, "tribe_id": preferred_tid, "limit": limit},
+    }
+
+
+# Compat: nome antigo do stub
 def get_tribe_log_stub(server_id: str, limit: int = 200) -> dict[str, Any]:
-    """
-    TODO: Integrar com remote_agent.py endpoint /server/{id}/tribelog
-    e com src/asm_ui/asm_tribe_log.py para polling real.
-    Por ora retorna stub com instruções para implementação futura.
-    """
+    """Deprecated — use get_tribe_log com sessão DB."""
     return {
         "server_id": server_id,
         "status": "stub",
-        "message": (
-            "Log de tribo não disponível no MVP. "
-            "Implementar remote_agent endpoint /server/{id}/tribelog "
-            "e tribe_log_poller.py conforme PROJETO_AREA_TRIBO.md §5 Opção B."
-        ),
+        "message": "Use get_tribe_log(db, steam_id=..., server_id=...).",
         "lines": [],
+        "limit": limit,
     }

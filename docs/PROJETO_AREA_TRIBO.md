@@ -2,11 +2,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | 📋 Especificação — pendente aprovação |
-| **Versão** | 1.1 |
-| **Data** | 10 de julho de 2026 |
-| **Escopo** | Seção "Minha Área" do site ARKLAND — painel de tribo por mapa (uma tribo independente por servidor), logs espelhados, detecção automática de membros |
-| **Fora de escopo** | Implementação de código, sistema de guerras, ranking de tribos, identidade unificada cross-mapa |
+| **Status** | ✅ Decisões de produto aprovadas (Jul/2026) — implementação em curso |
+| **Versão** | 1.3 |
+| **Data** | 12 de julho de 2026 |
+| **Escopo** | Seção "Minha Área" do site ARKLAND — painel de tribo por mapa, cluster Principal+Fob, códigos de convite, logs espelhados, sync de membros |
+| **Fora de escopo** | Sistema de guerras, ranking de tribos, **enforcement de limites de construção** (adiado — ver §20.8) |
 | **Documento relacionado** | [`PORTAL_JOGADOR_SPEC.md`](PORTAL_JOGADOR_SPEC.md), [`PROJETO_ARKLAND_MASTER.md`](PROJETO_ARKLAND_MASTER.md) |
 
 ---
@@ -808,13 +808,15 @@ O admin ou o owner declara no site "esta tribo no Mapa B é fob da minha tribo n
 
 #### Quem vê o quê
 
+> **Atualização Jul/2026 (§20.8):** qualquer integrante confirmado do **grupo** vê os logs de **todos** os mapas do grupo (Principal + Fobs). A tabela abaixo reflete essa política; permissões de edição permanecem por papel.
+
 | Perfil | Tribo Principal | Fobs | Logs |
 |--------|----------------|------|------|
-| **Owner principal** | Tudo — editar, gerenciar membros, vincular fobs | Vê todas as fobs, pode desvincular | Log principal + log de todas as fobs (cluster view) |
-| **Owner de fob** | Vê a principal (somente leitura se for membro) | Vê e gerencia **sua fob** | Log da sua fob + log da principal (se permissão) |
-| **Membro da principal** | Vê membros e log (conforme visibilidade) | Vê lista de fobs, não acessa logs das fobs | Log da principal apenas |
-| **Membro só de fob** | Vê nome da principal (read-only) | Vê log da sua fob | Log da sua fob apenas |
-| **Admin ARKLAND** | Tudo | Tudo | Tudo |
+| **Owner principal** | Tudo — editar, gerenciar membros, vincular fobs | Vê todas as fobs, pode desvincular | **Todos os mapas do grupo** |
+| **Owner de fob** | Vê a principal (somente leitura se for membro) | Vê e gerencia **sua fob** | **Todos os mapas do grupo** |
+| **Membro da principal** | Vê membros e log | Vê lista de fobs | **Todos os mapas do grupo** |
+| **Membro só de fob** | Vê nome da principal (read-only) | Vê a sua fob | **Todos os mapas do grupo** |
+| **Admin ARKLAND** (não support) | Tudo | Tudo | Tudo |
 
 ---
 
@@ -862,7 +864,7 @@ Uma timeline unificada, intercalando eventos de todos os mapas com marcação de
 | Q2 | Aprovação de vínculo fob | A vinculação requer **aprovação do owner principal** — não é automática mesmo que o SteamID já esteja na principal. |
 | Q3 | Limite de fobs por mapa | Após o mapa principal ser definido, todos os outros mapas do grupo devem ser **fobs**. Múltiplas fobs do mesmo grupo no mesmo mapa secundário são possíveis, mas cada fob é vinculada explicitamente pelo owner principal. |
 | Q4 | Membro exclusivo de fob (sem presença na principal) | Membro que pertence somente a uma fob **não pode participar do split** nem da área de tribo da principal no site. **Regra adicional:** membro em uma fob em determinado mapa **não pode participar de split de outra tribo nesse mesmo mapa**. |
-| Q5 | Visibilidade do log da fob | Apenas **integrantes confirmados** da tribo/fob têm acesso ao log. O owner principal pode ver logs de fobs vinculadas; o owner da fob pode ver o log da principal (somente leitura). |
+| Q5 | Visibilidade do log da fob | **Jul/2026:** todos os integrantes confirmados do **grupo** veem os logs de **todos** os mapas (Principal + Fobs). Visitantes externos continuam sem acesso. |
 | Q6 | Pós-wipe de mapa secundário | Vínculo fica como **"inativo — aguardando re-vínculo"**. O owner principal re-vincula quando a fob for recriada no mapa. |
 | Q7 | Fob sem owner definido | Admin deve **intervir manualmente** para re-atribuir ownership da fob ou dissolver o vínculo. |
 | Q8 | Renomeação de fob in-game | O vínculo é preservado por `TribeID`, não por nome. Se o TribeID mudar (wipe), re-vínculo é necessário. Renomear sem wipe mantém o vínculo. |
@@ -1220,3 +1222,92 @@ Esta seção documenta a política de **divisão de receita de vendas no Comérc
 10. Fases MVP e status de decisões
 
 > O MVP pode ser aprovado para implementação — todas as questões abertas foram respondidas.
+
+---
+
+## 20. Cluster, códigos de convite e Principal/Fob (aprovado Jul/2026)
+
+> **Status:** ✅ Decisões de produto aprovadas pelo admin em chat (julho 2026).  
+> Esta seção é a fonte autoritativa para o MVP de associação web via `/tribe.CODE`, leave por mapa, e hierarquia Principal ★ / Fob.  
+> **§20.8** trava as decisões finais de Jul/2026 (limites, breeding, logs, staff).
+
+### 20.1 Princípios
+
+| Regra | Decisão |
+|-------|---------|
+| Uma tribo por mapa (engine) | Mantida — o site agrega via **cluster group** (Principal + Fobs) |
+| Dono do grupo | = Proprietário **in-game** da tribo **naquele mapa** (`OwnerPlayerDataID`, não `IsTribeOwner`/Admin) |
+| Sair de um mapa | Revoga membership **web só naquele mapa**; outros mapas do grupo permanecem |
+| Split de ganhos | Apenas membros **confirmados** (`confirmed_via=code\|sync`) |
+| Código vazado | Owner **aceita** associação; pode **negar** e **regenerar** o código |
+| Staff | **Admins** do site (exceto papel **support**) no painel Tribos / códigos — ver §20.8 |
+| Venda RMT de tribo | Ban permanente; outras vendas → investigação admin |
+| Punições | Por mapa (grupo owner = owner in-game daquele mapa) |
+
+### 20.2 Código de convite `/tribe.CODE`
+
+1. **Owner-only** gera/copia/regenera o código em Minha Tribo (validade máx. **30 dias**; regenerar invalida o anterior).
+2. Partilha do código é responsabilidade do owner.
+3. In-game: jogador na tribo **daquele mapa** digita `/tribe.CODIGO` (plugin CustomShop).
+4. API cria `tribe_join_requests` com status **PENDING** — **não** auto-aceita.
+5. Owner no site: Aceitar / Negar (negar pode oferecer regenerar código).
+6. O **mesmo código** vale em **todos os mapas** do grupo — ao aceitar num mapa ainda não vinculado, a fob liga-se ao cluster.
+7. Primeira ativação válida do owner → esse mapa é ★ **Principal** até troca explícita.
+8. **Staff:** admins (`@admin_required` / nav `admin-only`) podem ver e operar o painel de tribos e códigos quando necessário (segurança/abuso). Papel **support** **não** tem acesso. Overrides futuros de regenerate/accept por staff devem reutilizar o mesmo gate.
+
+### 20.3 Modelo de dados (MVP)
+
+- `tribe_invite_codes` — `cluster_group_id`, `code`, `expires_at` (≤30d), `revoked_at` / `is_active`
+- `tribe_join_requests` — PENDING / ACCEPTED / DENIED
+- `tribe_group_members` — `confirmed_via` ∈ {`code`,`sync`}
+- `tribe_members.confirmed_via` — espelho por mapa
+- `tribe_construction_limits` — tabela legada / notas; **sem enforcement** (§20.8)
+- `tribe_admin_alerts` — ex.: conflito de Principal após transferência
+
+### 20.4 Principal ★ / Fob
+
+- **Regra simples:** **1 pessoa = 1 Principal**. Todos os outros mapas do grupo dessa pessoa são **Fob**.
+- Owner define qual mapa é Principal; os demais do grupo são Fob.
+- **Cooldown 24h** entre trocas de Principal.
+- Constraint: `COUNT(principal WHERE owner_steam_id=X) ≤ 1`.
+- **Não** há exceção do tipo “dois donos / fob grande” como carve-out de limites de construção — limites de construção **não** são aplicados (§20.8).
+- Breeding oficial da tribo: **apenas no Principal** — **só regulamento** + badge na UI (**sem** bloqueio técnico).
+
+### 20.5 Transferência de ownership in-game
+
+1. Plugin detecta novo `OwnerPlayerDataID` → atualiza web.
+2. Se o novo dono **já tem** Principal noutro mapa → mapa atual vira **Fob** + **alerta admin** (mantém 1 pessoa = 1 Principal).
+3. Se o novo dono **não tem** conta no site → mantém dados da tribo web, associa `steam_id`, membros veem «aguardando novo dono conectar ao site».
+
+### 20.6 Leave / revoke
+
+Preferência de wiring:
+
+1. Presença com `tribe_id=0` (plugin SyncPlayer) → `revoke_membership_on_map` (só aquele `server_id`).
+2. TribeLog «removed from the Tribe» / «left the Tribe» → match por `character_name` no mapa.
+
+### 20.7 Logs do grupo
+
+- **Todos** os integrantes confirmados do cluster group veem os logs de **todos** os mapas do grupo (Principal + Fobs).
+- Visão por mapa (abas) e eventual Cluster View agregada são opções de UX; a permissão de leitura é a mesma para o grupo inteiro.
+- Visitantes externos / não membros: sem acesso.
+
+### 20.8 Decisões finais travadas (Jul/2026)
+
+| Tema | Decisão autoritativa |
+|------|------------------------|
+| **Limites de construção** | **Não aplicar / não enforceable** com a lógica atual: dois membros do mesmo grupo podem ter cada um uma base Principal em mapas diferentes. Adiado; UI/API não devem sugerir enforcement. |
+| **Breeding em Fob** | **Só regulamento** — aconselhar breeding no Principal; **sem** hard-block técnico. |
+| **Principal** | **1 pessoa = 1 Principal**; restantes mapas do grupo = Fob. Sem exceção “dois donos / fob grande” para burlar limites (limites não existem como regra dura). |
+| **Visibilidade de logs** | **Todo o grupo** vê **todos** os logs (todos os mapas). |
+| **Admin × códigos / painel** | Admins do site (com permissão) **exceto support** podem ver e fazer tudo no painel Tribos / códigos quando necessário. Gate existente: `@admin_required` + `admin-only` (support já excluído). |
+
+### 20.9 Fases de implementação
+
+| Fase | Escopo | Estado |
+|------|--------|--------|
+| 1 | Owner vs Admin (OwnerPlayerDataID), membros offline (`pdid:`), sem lock web de is_owner, leave→revoke 1 mapa | ✅ / em curso |
+| 2 | Convite `/tribe.CODE`, pedidos, confirmados, split só confirmados | MVP |
+| 3 | Principal/Fob + cooldown + transferência + admin list (sem enforcement de construção) | MVP parcial |
+
+---

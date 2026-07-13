@@ -70,6 +70,12 @@ def build_broadcasts_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> 
     btn_bar = ctk.CTkFrame(hdr, fg_color="transparent")
     btn_bar.grid(row=0, column=1, sticky="e")
     ctk.CTkButton(
+        btn_bar, text="📜 Regulamento", width=130, height=36,
+        fg_color=acc_mb, hover_color=acc_dk,
+        text_color=accent, border_width=1, border_color=acc_dk,
+        command=app._broadcast_tek_seed_regulamento,
+    ).pack(side="left", padx=(0, 8))
+    ctk.CTkButton(
         btn_bar, text="⬇  Importar", width=110, height=36,
         fg_color=acc_mb, hover_color=acc_dk,
         text_color=accent, border_width=1, border_color=acc_dk,
@@ -300,7 +306,8 @@ def build_broadcasts_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> 
         font=ctk.CTkFont(size=11, weight="bold"), text_color=t_mut,
     ).pack(side="left")
     ctk.CTkLabel(
-        lib_hdr, text="☑ = incluir no ciclo automático",
+        lib_hdr,
+        text="☑ = ciclo · «Regulamento» = pacote oficial (intervalo acima)",
         font=ctk.CTkFont(size=10), text_color=t_mut,
     ).pack(side="right")
 

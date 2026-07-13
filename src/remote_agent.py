@@ -12,6 +12,7 @@ Endpoints (todos exigem header  Authorization: Bearer <token>):
   POST /server/{id}/stop/force  → Para forçado (taskkill)
   POST /server/{id}/restart     → Reinicia o servidor
   GET  /server/{id}/logs        → Últimas N linhas de log (?n=200)
+  GET  /server/{id}/tribelog    → Tail do TribeLog.log (?offset=bytes)
   POST /server/{id}/rcon        → Executa comando RCON (body: {"command": "..."})
   GET  /logs                    → Últimas 200 linhas do log do agente (legado)
   GET  /status                  → Status do sync engine (legado)
@@ -234,6 +235,65 @@ class RemoteAgent:
                             self._json(200, {"logs": inst.log_buffer[-n:]})
                         else:
                             self._json(404, {"error": "Servidor não encontrado"})
+                    else:
+                        self._json(404, {"error": "Endpoint não encontrado"})
+
+                elif path.startswith("/server/") and path.endswith("/tribelog"):
+                    parts = path.split("/")  # ['', 'server', '{id}', 'tribelog']
+                    if len(parts) == 4:
+                        sid = parts[2]
+                        inst = agent._server_manager.get_instance(sid)
+                        if not inst:
+                            self._json(404, {"error": "Servidor não encontrado"})
+                            return
+                        install = getattr(getattr(inst, "config", None), "install_dir", "") or ""
+                        log_path = Path(install) / "ShooterGame" / "Saved" / "Logs" / "TribeLog.log"
+                        if not install or not log_path.is_file():
+                            self._json(404, {
+                                "error": "TribeLog.log não encontrado",
+                                "path": str(log_path) if install else "",
+                            })
+                            return
+                        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                        try:
+                            offset = max(0, int(qs.get("offset", ["0"])[0]))
+                        except Exception:
+                            offset = 0
+                        try:
+                            max_bytes = max(1024, min(int(qs.get("max_bytes", ["524288"])[0]), 2_000_000))
+                        except Exception:
+                            max_bytes = 524288
+                        size = log_path.stat().st_size
+                        if offset > size:
+                            offset = 0
+                        with log_path.open("rb") as fh:
+                            fh.seek(offset)
+                            chunk = fh.read(max_bytes)
+                            new_offset = fh.tell()
+                        text = chunk.decode("utf-8", errors="replace")
+                        if offset > 0 and chunk and chunk[0:1] not in (b"\n", b"\r"):
+                            nl = text.find("\n")
+                            if nl >= 0:
+                                skip = nl + 1
+                                text = text[skip:]
+                                offset = offset + skip
+                        lines_out: list[dict] = []
+                        pos = offset
+                        for part in text.splitlines(keepends=True):
+                            raw = part.rstrip("\r\n")
+                            if raw.strip():
+                                lines_out.append({
+                                    "raw_line": raw,
+                                    "file_offset": pos,
+                                })
+                            pos += len(part.encode("utf-8", errors="replace"))
+                        self._json(200, {
+                            "server_id": sid,
+                            "path": str(log_path),
+                            "size": size,
+                            "offset": new_offset,
+                            "lines": lines_out,
+                        })
                     else:
                         self._json(404, {"error": "Endpoint não encontrado"})
 
@@ -501,6 +561,10 @@ class RemoteClient:
 
     def get_server_logs(self, sid: str, n: int = 200) -> dict:
         return self._request("GET", f"/server/{sid}/logs?n={n}")
+
+    def get_tribe_log(self, sid: str, offset: int = 0, max_bytes: int = 524288) -> dict:
+        qs = urllib.parse.urlencode({"offset": int(offset), "max_bytes": int(max_bytes)})
+        return self._request("GET", f"/server/{sid}/tribelog?{qs}")
 
     def send_rcon(self, sid: str, command: str) -> dict:
         return self._request("POST", f"/server/{sid}/rcon", {"command": command})

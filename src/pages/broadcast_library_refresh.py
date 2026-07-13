@@ -69,12 +69,26 @@ def broadcast_library_refresh(app: "ARKServerManagerApp") -> None:
             command=app._broadcast_tek_save_settings_from_ui,
         ).grid(row=0, column=0, padx=(10, 4), pady=10)
 
+        label_col = ctk.CTkFrame(row, fg_color="transparent")
+        label_col.grid(row=0, column=1, sticky="w", padx=(0, 8), pady=10)
+
         ctk.CTkLabel(
-            row, text=entry.get("label", ""),
+            label_col, text=entry.get("label", ""),
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=accent,
             anchor="w", width=140, wraplength=130,
-        ).grid(row=0, column=1, sticky="w", padx=(0, 8), pady=10)
+        ).pack(anchor="w")
+
+        if str(entry.get("source") or "") == "regulamento" or entry.get("category"):
+            badge = str(entry.get("category") or "Regulamento")
+            sec = str(entry.get("section") or "").strip()
+            badge_txt = f"{badge} §{sec}" if sec else badge
+            ctk.CTkLabel(
+                label_col, text=badge_txt,
+                font=ctk.CTkFont(size=9),
+                text_color=t_mut,
+                anchor="w",
+            ).pack(anchor="w", pady=(2, 0))
 
         msg = entry.get("message", "")
         preview = msg if len(msg) <= 90 else msg[:87] + "..."

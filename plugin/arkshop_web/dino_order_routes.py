@@ -94,7 +94,7 @@ def register_dino_order_routes(
 
     @app.route("/api/player/dino-order/quote", methods=["POST"])
     @login_required
-    @_limit("30 per minute")
+    @_limit("90 per minute")
     def dino_order_quote():
         if not is_dino_order_enabled():
             return _disabled()

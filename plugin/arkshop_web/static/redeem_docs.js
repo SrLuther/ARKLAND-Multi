@@ -5,30 +5,103 @@
 (function (global) {
   "use strict";
 
+  /** Fonte: config.json (licenca_*), TimedPointsReward, LICENSE_TIMED_BONUS, ShopCloudInventory. */
+  const LICENSE_DEFAULT_BONUS = 25;
+  const LICENSE_CYCLE_MINUTES = 30;
+
   const LICENSE_TIERS = {
     Gamma: {
+      id: "Gamma",
       label: "Gamma",
+      permissionGroup: "Gamma",
+      catalogId: "licenca_gamma",
       durationDays: 30,
+      priceAmber: 50000,
       timedBonus: 25,
-      summary: "Licença de entrada — ideal para começar a desbloquear conteúdos exclusivos.",
+      cycleMinutes: LICENSE_CYCLE_MINUTES,
+      defaultBonus: LICENSE_DEFAULT_BONUS,
+      accessTiers: ["Gama", "Delta"],
+      summary:
+        "Licença de entrada — acesso Gama + Delta e +25 Âmbar por ciclo online (total 50 com Default).",
+      benefits: [
+        "Validade de 30 dias a partir do resgate (SKU licenca_gamma).",
+        "Preço de referência: 50.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
+        "Bônus Timed Points: +25 Âmbar a cada 30 min online, somado ao Default (+25) → total 50 Âmbar / ciclo.",
+        "Acesso a itens e kits do catálogo com cadeado Permissions que incluem Gamma (Description: Gama + Delta / ItensAlfa).",
+        "Ao renovar a licença Gamma, limites de resgate (DefaultAmount) dos kits ligados ao grupo Gamma são restaurados.",
+        "Pessoal e intransferível — não substitui doação PIX nem cargos MOD/STAFF.",
+      ],
     },
     Beta: {
+      id: "Beta",
       label: "Beta",
+      permissionGroup: "Beta",
+      catalogId: "licenca_beta",
       durationDays: 30,
+      priceAmber: 75000,
       timedBonus: 50,
-      summary: "Licença intermediária — mais bônus por tempo online e acesso ampliado.",
+      cycleMinutes: LICENSE_CYCLE_MINUTES,
+      defaultBonus: LICENSE_DEFAULT_BONUS,
+      accessTiers: ["Beta", "Gama"],
+      summary:
+        "Licença intermediária — acesso Beta + Gama e +50 Âmbar por ciclo online (total 75 com Default).",
+      benefits: [
+        "Validade de 30 dias a partir do resgate (SKU licenca_beta).",
+        "Preço de referência: 75.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
+        "Bônus Timed Points: +50 Âmbar a cada 30 min online, somado ao Default (+25) → total 75 Âmbar / ciclo.",
+        "Acesso a itens e kits do catálogo com cadeado Permissions que incluem Beta (Description: Beta + Gama / ItensAlfa).",
+        "Ao renovar a licença Beta, limites de resgate (DefaultAmount) dos kits ligados ao grupo Beta são restaurados.",
+        "Pessoal e intransferível — não substitui doação PIX nem cargos MOD/STAFF.",
+      ],
     },
     Alfa: {
+      id: "Alfa",
       label: "Alfa",
+      permissionGroup: "Alfa",
+      catalogId: "licenca_alfa",
       durationDays: 30,
+      priceAmber: 100000,
       timedBonus: 75,
-      summary: "Licença avançada — máximo bônus por tempo online e acesso aos conteúdos mais raros.",
+      cycleMinutes: LICENSE_CYCLE_MINUTES,
+      defaultBonus: LICENSE_DEFAULT_BONUS,
+      accessTiers: ["Alfa", "Beta"],
+      summary:
+        "Licença avançada — acesso Alfa + Beta e +75 Âmbar por ciclo online (total 100 com Default).",
+      benefits: [
+        "Validade de 30 dias a partir do resgate (SKU licenca_alfa).",
+        "Preço de referência: 100.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
+        "Bônus Timed Points: +75 Âmbar a cada 30 min online, somado ao Default (+25) → total 100 Âmbar / ciclo.",
+        "Acesso a itens e kits do catálogo com cadeado Permissions que incluem Alfa (Description: Alfa + Beta / ItensAlfa).",
+        "Ao renovar a licença Alfa, limites de resgate (DefaultAmount) dos kits ligados ao grupo Alfa são restaurados.",
+        "Pessoal e intransferível — não substitui doação PIX nem cargos MOD/STAFF.",
+      ],
     },
     keyvault: {
+      id: "keyvault",
       label: "Nuvem",
+      permissionGroup: "keyvault",
+      catalogId: "licenca_nuvem",
       durationDays: 30,
+      priceAmber: 5000,
       timedBonus: 0,
-      summary: "Cofre de inventário no cluster — use /upload, /download e /nuvem no chat (até 250 itens).",
+      cycleMinutes: LICENSE_CYCLE_MINUTES,
+      defaultBonus: LICENSE_DEFAULT_BONUS,
+      accessTiers: [],
+      cloudMaxItems: 250,
+      cloudCooldownSeconds: 30,
+      summary:
+        "Cofre de inventário no cluster — /upload, /download e /nuvem (até 250 pilhas); obrigatória para enviar ao Mercado P2P.",
+      benefits: [
+        "Validade de 30 dias a partir do resgate (SKU licenca_nuvem, grupo keyvault).",
+        "Preço de referência: 5.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
+        "Sem bônus Timed Points — não altera o ganho de Âmbar por tempo online.",
+        "/upload — envia até 250 pilhas transferíveis do inventário para o cofre cluster-wide e esvazia o inventário (exige licença ativa).",
+        "/download — restaura os itens em qualquer mapa do cluster; permitido mesmo com a licença expirada (política atual do plugin).",
+        "/nuvem ou /cloud — consulta quantas pilhas estão no cofre.",
+        "Um snapshot por SteamID: novo /upload é recusado enquanto houver itens na nuvem (use /download antes).",
+        "Cooldown de 30 s entre operações de nuvem.",
+        "Obrigatória para enviar dinos ao Mercado P2P in-game (/enviar → /confirmar), além de imprint 100% e demais regras §8.7.",
+      ],
     },
   };
 
@@ -114,14 +187,15 @@
         "bloqueados e aumentam quanto Âmbar você ganha automaticamente enquanto joga. " +
         "Não substituem doação nem garantem VIP automático — são conquistadas no sistema de resgates.",
       notes: [
-        "Validade: 30 dias a partir do resgate.",
-        "Três níveis: Gamma (+25), Beta (+50) e Alfa (+75) de bônus por ciclo de tempo online.",
-        "Licença Nuvem: armazena até 250 itens do inventário (/upload) e recupera em qualquer mapa (/download).",
-        "Vários conteúdos do catálogo só aparecem desbloqueados com a licença correta ativa.",
-        "Você pode renovar antes do vencimento resgatando novamente, se disponível no catálogo.",
+        "Validade típica: 30 dias a partir do resgate (preços e bônus: ver painel Benefícios por licença abaixo).",
+        "Gamma / Beta / Alfa: bônus Timed Points a cada 30 min online (+25 / +50 / +75), somados ao Default (+25).",
+        "Acesso a itens/kits ItensAlfa e outros com cadeado: Gamma→Gama+Delta, Beta→Beta+Gama, Alfa→Alfa+Beta (Descriptions do catálogo).",
+        "Licença Nuvem (keyvault): cofre /upload · /download · /nuvem (até 250 pilhas) e envio ao Mercado P2P.",
+        "Renovação restaura limites DefaultAmount dos kits do mesmo grupo de permissão.",
       ],
       warnings: [
-        "Licença expirada remove o bônus e o acesso a itens que dependem dela.",
+        "Licença expirada remove o bônus Timed Points e o acesso a itens/kits que exigem o grupo.",
+        "Na Nuvem, upload exige licença ativa; download de itens já guardados permanece permitido após expirar.",
         "Doações PIX não concedem licença automaticamente — resgate com Âmbares no catálogo.",
       ],
       licenseTiers: true,
@@ -267,11 +341,20 @@
           "Use Âmbares conquistados jogando ou apoiando o servidor para obter este recurso.";
       }
     } else if (category === "kits") {
-      const n = item.kitItems ? ` (${item.kitItems} itens)` : "";
-      shortDescription = `Kit ${name}${n} — pacote de recursos para sua base ou aventura.`;
+      const highlights = (item.kitSummary && item.kitSummary.highlights) || [];
+      const n = item.kitItems || item.itemCount || 0;
+      const kitDesc = String(item.kitDescription || "").trim();
+      const displayName = String(item.name || name || "Kit").replace(/^Kit\s+/i, "");
+      if (highlights.length) {
+        shortDescription = `Kit ${displayName} — ${highlights.slice(0, 3).join("; ")}.`;
+      } else {
+        const countBit = n ? ` (${n} itens)` : "";
+        shortDescription = `Kit ${displayName}${countBit} — pacote de recursos para sua base ou aventura.`;
+      }
+      detailedDescription = kitDesc || adminDesc || detailedDescription;
       if (!detailedDescription) {
         detailedDescription =
-          `O kit ${name} reúne itens selecionados pela equipe. Ideal para acelerar sua progressão ` +
+          `O kit ${displayName} reúne itens selecionados pela equipe. Ideal para acelerar sua progressão ` +
           "sem perder o espírito de conquista do Arkland.";
       }
     } else if (category === "dinos" || category === "dinos200") {
@@ -305,10 +388,22 @@
     }
 
     const benefits = [];
+    const kitHighlights = (item.kitSummary && item.kitSummary.highlights) || [];
     if (category === "licenses" && tierInfo) {
-      benefits.push(`+${tierInfo.timedBonus} Âmbares por ciclo de tempo online (além do padrão)`);
-      benefits.push(`Acesso a conteúdos que exigem licença ${tierInfo.label}`);
-      benefits.push(`Validade de ${tierInfo.durationDays} dias`);
+      if (tierInfo.benefits && tierInfo.benefits.length) {
+        benefits.push(...tierInfo.benefits);
+      } else {
+        if (tierInfo.timedBonus > 0) {
+          benefits.push(
+            `+${tierInfo.timedBonus} Âmbares a cada ${tierInfo.cycleMinutes || 30} min online (além do Default)`
+          );
+        }
+        benefits.push(`Acesso conforme grupo de permissão ${tierInfo.label}`);
+        benefits.push(`Validade de ${tierInfo.durationDays} dias`);
+      }
+    } else if (category === "kits" && kitHighlights.length) {
+      benefits.push(...kitHighlights);
+      benefits.push("Entrega após confirmação — retire com /shop no jogo");
     } else if (!isFree) {
       benefits.push("Entrega após confirmação — retire com /shop no jogo");
     } else {
@@ -359,18 +454,111 @@
       </div>`;
   }
 
-  function renderLicenseTiersGrid() {
-    const cards = Object.values(LICENSE_TIERS)
-      .map(
-        (t) => `
-      <div class="redeem-license-tier">
-        <div class="redeem-license-tier__name">${esc(t.label)}</div>
-        <div class="redeem-license-tier__meta">${t.durationDays} dias · +${t.timedBonus} Âmbar/ciclo</div>
-        <div class="redeem-license-tier__desc">${esc(t.summary)}</div>
-      </div>`
-      )
+  function formatAmberRef(n) {
+    const v = Number(n) || 0;
+    try {
+      return v.toLocaleString("pt-BR");
+    } catch (_) {
+      return String(v);
+    }
+  }
+
+  function licenseTimedMeta(t) {
+    if (!t) return "";
+    if (t.timedBonus > 0) {
+      const total = (t.defaultBonus || LICENSE_DEFAULT_BONUS) + t.timedBonus;
+      const mins = t.cycleMinutes || LICENSE_CYCLE_MINUTES;
+      return `+${t.timedBonus} Âmbar / ${mins} min · total ${total} com Default`;
+    }
+    return "Sem bônus Timed Points";
+  }
+
+  function licenseAccessMeta(t) {
+    if (!t) return "";
+    if (t.id === "keyvault") return "Cofre cluster + Mercado P2P";
+    if (t.accessTiers && t.accessTiers.length) {
+      return `Acesso catálogo: ${t.accessTiers.join(" + ")}`;
+    }
+    return `Grupo ${t.permissionGroup || t.label}`;
+  }
+
+  function renderLicenseTierGrid(activeId) {
+    const tiers = Object.values(LICENSE_TIERS);
+    const selected =
+      activeId && LICENSE_TIERS[activeId] ? activeId : tiers[0] ? tiers[0].id : "Gamma";
+
+    const tabs = tiers
+      .map((t) => {
+        const active = t.id === selected ? " is-active" : "";
+        return `
+      <button type="button" class="redeem-license-tab${active}"
+        role="tab" aria-selected="${t.id === selected ? "true" : "false"}"
+        data-license-tier="${esc(t.id)}"
+        onclick="RedeemDocs.selectLicenseTierTab('${esc(t.id)}')">
+        <span class="redeem-license-tab__name">${esc(t.label)}</span>
+        <span class="redeem-license-tab__hint">${
+          t.timedBonus > 0 ? `+${t.timedBonus}/ciclo` : "cofre"
+        }</span>
+      </button>`;
+      })
       .join("");
-    return `<div class="redeem-license-tiers">${cards}</div>`;
+
+    const panels = tiers
+      .map((t) => {
+        const hidden = t.id === selected ? "" : " hidden";
+        const price =
+          t.priceAmber != null
+            ? `${formatAmberRef(t.priceAmber)} Âmbares (referência catálogo)`
+            : "Preço conforme catálogo";
+        const lis = (t.benefits || [])
+          .map((b) => `<li>${esc(b)}</li>`)
+          .join("");
+        return `
+      <div class="redeem-license-panel${hidden}" role="tabpanel"
+        data-license-panel="${esc(t.id)}" ${t.id === selected ? "" : "hidden"}>
+        <div class="redeem-license-panel__head">
+          <div class="redeem-license-panel__title">${esc(t.label)}</div>
+          <div class="redeem-license-panel__meta">
+            ${t.durationDays} dias · ${esc(price)}
+          </div>
+          <div class="redeem-license-panel__chips">
+            <span class="redeem-license-chip">${esc(licenseTimedMeta(t))}</span>
+            <span class="redeem-license-chip redeem-license-chip--tek">${esc(
+              licenseAccessMeta(t)
+            )}</span>
+          </div>
+          <p class="redeem-license-panel__summary">${esc(t.summary)}</p>
+        </div>
+        <div class="redeem-license-panel__benefits">
+          <div class="redeem-license-panel__benefits-title">Benefícios detalhados</div>
+          <ul class="redeem-doc-block__list">${lis}</ul>
+        </div>
+        <p class="redeem-license-panel__source">Fonte: config.json / TimedPointsReward / regulamento §8.5–8.7</p>
+      </div>`;
+      })
+      .join("");
+
+    return `
+      <div class="redeem-license-benefits" data-redeem-license-benefits>
+        <div class="redeem-license-tabs" role="tablist" aria-label="Níveis de licença">${tabs}</div>
+        <div class="redeem-license-panels">${panels}</div>
+      </div>`;
+  }
+
+  function selectLicenseTierTab(tierId) {
+    const root = document.querySelector("[data-redeem-license-benefits]");
+    if (!root || !LICENSE_TIERS[tierId]) return;
+    root.querySelectorAll(".redeem-license-tab").forEach((btn) => {
+      const on = btn.getAttribute("data-license-tier") === tierId;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    root.querySelectorAll(".redeem-license-panel").forEach((panel) => {
+      const on = panel.getAttribute("data-license-panel") === tierId;
+      panel.classList.toggle("hidden", !on);
+      if (on) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    });
   }
 
   function renderCategoryDocHtml(tab) {
@@ -385,8 +573,8 @@
 
     if (doc.licenseTiers) {
       body += `
-        <div class="redeem-doc-block">
-          <div class="redeem-doc-block__title">Níveis de licença</div>
+        <div class="redeem-doc-block redeem-doc-block--license-benefits">
+          <div class="redeem-doc-block__title">Benefícios por licença</div>
           ${renderLicenseTiersGrid()}
         </div>`;
     }
@@ -427,7 +615,7 @@
       </div>`
     );
 
-    if (doc.benefits && doc.benefits.length) {
+    if (doc.benefits && doc.benefits.length && !doc.licenseTierInfo) {
       blocks.push(renderDocBlock("Benefícios", doc.benefits));
     }
     if (doc.requirements && doc.requirements.length) {
@@ -439,11 +627,21 @@
 
     if (doc.licenseTierInfo) {
       const t = doc.licenseTierInfo;
+      const benefitLis = (t.benefits || doc.benefits || [])
+        .map((b) => `<li>${esc(b)}</li>`)
+        .join("");
       blocks.push(`
         <div class="redeem-doc-block redeem-doc-block--license">
-          <div class="redeem-doc-block__title">Licença ${esc(t.label)}</div>
+          <div class="redeem-doc-block__title">Licença ${esc(t.label)} — benefícios</div>
           <p class="redeem-modal-section__text">${esc(t.summary)}</p>
-          <p class="redeem-modal-section__meta">${t.durationDays} dias · +${t.timedBonus} Âmbar por ciclo de tempo online</p>
+          <p class="redeem-modal-section__meta">${t.durationDays} dias · ${esc(
+            licenseTimedMeta(t)
+          )}</p>
+          ${
+            benefitLis
+              ? `<ul class="redeem-doc-block__list" style="margin-top:8px">${benefitLis}</ul>`
+              : ""
+          }
         </div>`);
     }
 
@@ -478,6 +676,8 @@
   global.RedeemDocs = {
     CATEGORY_DOCS,
     LICENSE_TIERS,
+    LICENSE_DEFAULT_BONUS,
+    LICENSE_CYCLE_MINUTES,
     parsePerms,
     detectLicenseTier,
     resolveItemCategory,
@@ -487,5 +687,6 @@
     renderModalDocHtml,
     mountCategoryDoc,
     renderLicenseTiersGrid,
+    selectLicenseTierTab,
   };
 })(typeof window !== "undefined" ? window : globalThis);

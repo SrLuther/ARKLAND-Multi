@@ -892,6 +892,7 @@ void Register() {
         "CustomShopCloudChat", &OnCloudChatMessage);
 
     ShopMarket::RegisterCommands();
+    CustomShop::TribeSync::RegisterChatCommands();
 
     // Admin (RCON ou console in-game)
     ArkApi::GetCommands().AddConsoleCommand("Shop.Upload",     &CmdConsoleCloudUpload);
@@ -925,6 +926,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/nuvem");
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ShopMarket::UnregisterCommands();
+    CustomShop::TribeSync::UnregisterChatCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveChatCommand("/engramas");
     ArkApi::GetCommands().RemoveChatCommand("/notas");

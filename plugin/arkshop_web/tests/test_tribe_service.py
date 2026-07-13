@@ -172,6 +172,7 @@ def test_record_presence_auto_link(db):
 
     tribes = get_my_tribes(db, USER_A)
     assert tribes["is_owner"] is True
+    assert tribes["can_manage"] is True
     assert tribes["panel_activated"] is True
     assert any(m["server_id"] == SERVER_ISLAND for m in tribes["maps"])
 
@@ -191,16 +192,19 @@ def test_register_backfill_from_presence(db):
         is_owner=True,
         members=[{"steam_id": USER_A, "character_name": "A", "is_owner": True}],
     )
-    # Sem owner → sem map_link
+    # Sem owner → sem map_link; presença já marca como proprietário in-game
     assert get_owner(db, USER_A) is None
     empty = get_my_tribes(db, USER_A)
-    assert empty["is_owner"] is False
+    assert empty["is_owner"] is True
+    assert empty["can_manage"] is False
+    assert empty["panel_activated"] is False
 
     owner = get_or_create_owner(db, USER_A, "Jogador A")
     linked = backfill_owner_links_from_presence(db, USER_A)
     assert linked == 1
     tribes = get_my_tribes(db, USER_A)
     assert tribes["is_owner"] is True
+    assert tribes["can_manage"] is True
     assert tribes["owner"]["id"] == owner["id"]
     assert any(m["tribe_id"] == 20002 for m in tribes["maps"])
 
@@ -348,14 +352,59 @@ def test_presence_unknown_server_id_nao_vincula(db):
 
 
 def test_rank_implies_owner_helpers():
-    from tribe_service import rank_implies_owner, resolve_is_owner
+    from tribe_service import rank_implies_admin, rank_implies_owner, resolve_is_owner
 
     assert rank_implies_owner("Proprietário") is True
     assert rank_implies_owner("Owner") is True
     assert rank_implies_owner("Admin") is False
     assert rank_implies_owner("Leader") is False
+    assert rank_implies_admin("Admin") is True
+    assert rank_implies_admin("Proprietário") is False
     assert resolve_is_owner(is_owner="true") is True
     assert resolve_is_owner(is_owner=0, member_rank="proprietario") is True
+
+
+def test_admin_com_painel_nao_e_proprietario(db):
+    """Admin que ativou o painel não deve aparecer como proprietário in-game."""
+    from tribe_service import manual_add_member, sync_owner_maps
+
+    get_or_create_owner(db, USER_B, "Admin Tribo")
+    record_presence(
+        db,
+        steam_id=USER_B,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=80008,
+        tribe_name="Tribo Beta",
+        is_owner=False,
+        member_rank="Admin",
+        members=[
+            {"steam_id": USER_A, "character_name": "Dono", "is_owner": True, "rank_name": "Proprietário"},
+            {"steam_id": USER_B, "character_name": "Admin", "is_owner": False, "rank_name": "Admin"},
+        ],
+    )
+    tribes = get_my_tribes(db, USER_B)
+    assert tribes["panel_activated"] is True
+    assert tribes["is_owner"] is False
+    assert tribes["can_manage"] is False
+    assert tribes["viewer_role"] == "admin"
+    assert tribes["member_rank"] == "Admin"
+    assert tribes["owner"] is None
+    assert tribes["game_owner"]["steam_id"] == USER_A
+    assert any(m["tribe_id"] == 80008 for m in tribes["maps"])
+
+    sync = sync_owner_maps(db, USER_B)
+    assert sync["is_owner"] is False
+    assert sync["viewer_role"] == "admin"
+
+    with pytest.raises(ValueError, match="Proprietário in-game"):
+        manual_add_member(
+            db,
+            owner_steam_id=USER_B,
+            server_id=SERVER_ISLAND,
+            tribe_id=80008,
+            member_steam_id=USER_C,
+        )
 
 
 def test_manual_add_member(db):
@@ -369,6 +418,16 @@ def test_manual_add_member(db):
         tribe_id=30003,
         tribe_name_local="ARKLAND",
         tribe_type="principal",
+    )
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=30003,
+        tribe_name="ARKLAND",
+        is_owner=True,
+        members=[{"steam_id": USER_A, "character_name": "Owner", "is_owner": True}],
     )
     result = manual_add_member(
         db,
@@ -766,7 +825,7 @@ def test_presence_nao_sobrescreve_dono_web(db):
     assert reg is not None
     assert reg["steam_id"] == USER_A
 
-    # USER_B ativa painel e sincroniza como "owner" in-game — não rouba o link
+    # USER_B (Admin) sincroniza com is_owner=true errado (bug IsTribeOwner) — não rouba dono
     get_or_create_owner(db, USER_B, "Intruso")
     record_presence(
         db,
@@ -776,9 +835,11 @@ def test_presence_nao_sobrescreve_dono_web(db):
         tribe_id=70007,
         tribe_name="Tribo Alpha",
         is_owner=True,
+        member_rank="Admin",
         members=[
-            {"steam_id": USER_A, "character_name": "A", "is_owner": False},
-            {"steam_id": USER_B, "character_name": "B", "is_owner": True},
+            {"steam_id": USER_A, "character_name": "grioo", "is_owner": True, "rank_name": "Proprietário"},
+            {"steam_id": USER_B, "character_name": "oCyano", "is_owner": True, "rank_name": "Admin"},
+            {"steam_id": USER_C, "character_name": "Peregrino", "is_owner": False, "rank_name": "Admin"},
         ],
     )
     reg2 = get_registered_owner_for_tribe(db, server_id=SERVER_ISLAND, tribe_id=70007)
@@ -787,9 +848,62 @@ def test_presence_nao_sobrescreve_dono_web(db):
     assert not any(l["tribe_id"] == 70007 and l["server_id"] == SERVER_ISLAND for l in links_b)
 
     members = get_members_by_map(db, server_id=SERVER_ISLAND, tribe_id=70007)
-    owner_flags = {m["steam_id"]: m["is_owner"] for m in members}
-    assert owner_flags.get(USER_A) is True
-    assert owner_flags.get(USER_B) is False
+    by_sid = {m["steam_id"]: m for m in members}
+    assert by_sid[USER_A]["is_owner"] is True
+    assert by_sid[USER_B]["is_owner"] is False
+    assert by_sid[USER_B]["rank_name"] == "Admin"
+    assert by_sid[USER_C]["rank_name"] == "Admin"
+    assert len(members) == 3
+
+
+def test_staff_tribe_sync_offline_owner_pdid(db):
+    """STAFF: sync com dono offline (pdid) + admins — lista completa e ranks corretos."""
+    get_or_create_owner(db, USER_B, "oCyano")
+    record_presence(
+        db,
+        steam_id=USER_B,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=90009,
+        tribe_name="STAFF",
+        is_owner=False,
+        member_rank="Admin",
+        members=[
+            {
+                "steam_id": "pdid:11101",
+                "player_data_id": 11101,
+                "character_name": "grioo",
+                "is_owner": True,
+                "rank_name": "Proprietário",
+            },
+            {
+                "steam_id": USER_B,
+                "player_data_id": 11102,
+                "character_name": "oCyano",
+                "is_owner": False,
+                "rank_name": "Admin",
+            },
+            {
+                "steam_id": USER_C,
+                "player_data_id": 11103,
+                "character_name": "Peregrino",
+                "is_owner": False,
+                "rank_name": "Admin",
+            },
+        ],
+    )
+    members = get_members_by_map(db, server_id=SERVER_ISLAND, tribe_id=90009)
+    assert len(members) == 3
+    by_name = {m["character_name"]: m for m in members}
+    assert by_name["grioo"]["is_owner"] is True
+    assert by_name["oCyano"]["is_owner"] is False
+    assert by_name["oCyano"]["rank_name"] == "Admin"
+    assert by_name["Peregrino"]["rank_name"] == "Admin"
+
+    tribes = get_my_tribes(db, USER_B)
+    assert tribes["is_owner"] is False
+    assert tribes["viewer_role"] == "admin"
+    assert tribes["game_owner"]["display_name"] == "grioo"
 
 
 def test_build_default_split_60_40(db):
@@ -848,6 +962,104 @@ def test_snapshot_exige_optin_do_vendedor(db):
     seller = next(m for m in snap["members"] if m["is_seller"])
     assert seller["steam_id"] == USER_A
     assert seller["percentage"] == 60
+
+
+# ────────────────────────────────────────────────────────────
+# Tribe Log
+# ────────────────────────────────────────────────────────────
+
+def test_parse_tribe_log_line():
+    from tribe_log_parser import classify_event, parse_tribe_log_line
+
+    p = parse_tribe_log_line(
+        "Day 501, 14:30:15: JogadorX was added to the Tribe by JogadorY!",
+        file_offset=100,
+    )
+    assert p is not None
+    assert p["day_number"] == 501
+    assert p["event_time"] == "14:30:15"
+    assert p["event_type"] == "player"
+    assert p["file_offset"] == 100
+    assert classify_event("Your Tribe killed Raptor - Lvl 45!") == "killed"
+
+
+def test_ingest_and_get_tribe_log(db):
+    from tribe_service import (
+        get_or_create_owner,
+        get_tribe_log,
+        ingest_tribe_log_lines,
+        upsert_map_link,
+    )
+
+    owner = get_or_create_owner(db, USER_A, "Jogador A")
+    upsert_map_link(
+        db,
+        tribe_owner_id=owner["id"],
+        server_id=SERVER_ISLAND,
+        tribe_id=42,
+        tribe_name_local="ARKLAND BR",
+    )
+
+    r1 = ingest_tribe_log_lines(
+        db,
+        server_id=SERVER_ISLAND,
+        tribe_id=42,
+        tribe_name="ARKLAND BR",
+        lines=[
+            {
+                "raw_line": "Day 10, 12:00:00: Alice was added to the Tribe by Bob!",
+                "file_offset": 10,
+            },
+            {
+                "raw_line": "Day 10, 12:05:00: Your Tribe killed Dilophosaurus - Lvl 20!",
+                "file_offset": 80,
+            },
+        ],
+        source="test",
+    )
+    assert r1["inserted"] == 2
+
+    # Dedup
+    r2 = ingest_tribe_log_lines(
+        db,
+        server_id=SERVER_ISLAND,
+        lines=[{
+            "raw_line": "Day 10, 12:00:00: Alice was added to the Tribe by Bob!",
+            "file_offset": 10,
+        }],
+        source="test",
+    )
+    assert r2["inserted"] == 0
+    assert r2["skipped"] == 1
+
+    data = get_tribe_log(
+        db, steam_id=USER_A, server_id=SERVER_ISLAND, limit=50,
+    )
+    assert data["status"] == "ok"
+    assert data["count"] == 2
+    assert data["lines"][0]["event_type"] == "player"
+    assert data["lines"][1]["event_type"] == "killed"
+
+    filtered = get_tribe_log(
+        db, steam_id=USER_A, server_id=SERVER_ISLAND, event_type="killed",
+    )
+    assert filtered["count"] == 1
+
+
+def test_tribe_log_permission_denied(db):
+    from tribe_service import get_tribe_log, ingest_tribe_log_lines
+    import pytest
+
+    ingest_tribe_log_lines(
+        db,
+        server_id=SERVER_ISLAND,
+        lines=[{
+            "raw_line": "Day 1, 00:00:01: Someone joined the game!",
+            "file_offset": 1,
+        }],
+    )
+    with pytest.raises(PermissionError):
+        get_tribe_log(db, steam_id=USER_B, server_id=SERVER_ISLAND)
 
 
 def _past():

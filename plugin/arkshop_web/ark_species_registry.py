@@ -181,7 +181,7 @@ VANILLA_CURATED: tuple[tuple[str, str, str, str, str, int], ...] = (
     ("kaprosuchus", "Kaprosuchus", "kaprosuchus", "B", "pvp", 2500),
     ("castoroides", "Castoroides", "beaver", "B", "farm", 1800),
     ("doedicurus", "Doedicurus", "doed", "B", "farm", 2200),
-    ("lionfishlion", "Lionfish Lion", "lionfishlion", "S", "pvp", 9000),
+    ("lionfishlion", "Shadowmane", "lionfishlion", "S", "pvp", 9000),
     ("bionicgigant", "Giga Bionic", "bionicgigant", "S", "boss", 14000),
     ("bionicrex", "Rex Bionic", "bionicrex", "A", "pvp", 5500),
     ("volcanorex", "Rex Vulcão", "volcanorex", "A", "pvp", 5200),
@@ -426,6 +426,21 @@ def _merged_species_list() -> list[dict[str, Any]]:
             existing = by_key[sk]
             tokens = set(existing.get("class_tokens") or [])
             tokens.add(token)
+            existing["class_tokens"] = sorted(tokens)
+            continue
+        # Alias legado (ex.: lionfishlion → lionfish nos defaults)
+        alias_target = None
+        try:
+            from market_economy import _SPECIES_KEY_ALIASES
+
+            alias_target = _SPECIES_KEY_ALIASES.get(sk)
+        except Exception:
+            alias_target = None
+        if alias_target and alias_target in by_key:
+            existing = by_key[alias_target]
+            tokens = set(existing.get("class_tokens") or [])
+            tokens.add(token)
+            tokens.add(sk)
             existing["class_tokens"] = sorted(tokens)
             continue
         by_key[sk] = {

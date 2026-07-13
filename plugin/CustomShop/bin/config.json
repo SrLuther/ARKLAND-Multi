@@ -3790,7 +3790,8 @@
     },
     "kit_itensalfa_delta": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Delta — 22 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 29 blueprints ItensAlfa Delta: 5 armaduras TEK (armadura 180); 11 armas (dano 120); 6 ferramentas; 7 selas TEK (armadura da sela 40). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 29 blueprints ItensAlfa Delta: 5 armaduras TEK (armadura 180); 11 armas (dano 120); 6 ferramentas; 7 selas TEK (armadura da sela 40). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekShiledArmor_D.AlfaItemWeapon_TekShiledArmor_D",
@@ -3895,6 +3896,48 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Megalodon_D.AlfaItemSaddle_Megalodon_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Mosa_D.AlfaItemSaddle_Mosa_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Rex_D.AlfaItemSaddle_Rex_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_RockDrake_D.AlfaItemSaddle_RockDrake_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_SpaceDolphin_D.AlfaItemSaddle_SpaceDolphin_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_SpaceWhale_D.AlfaItemSaddle_SpaceWhale_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Tapejara_D.AlfaItemSaddle_Tapejara_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekHelmet_D.AlfaItemArmor_TekHelmet_D",
           "Quantity": 1,
           "Quality": 0,
@@ -3928,11 +3971,13 @@
       "Name": "Kit ItensAlfa Delta",
       "Permissions": "Admins,Delta,Gamma",
       "Price": 9890,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 29
     },
     "kit_itensalfa_gamma": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Gamma — 22 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 29 blueprints ItensAlfa Gamma: 5 armaduras TEK (armadura 500); 11 armas (dano 250); 6 ferramentas; 7 selas TEK (armadura da sela 100). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 29 blueprints ItensAlfa Gamma: 5 armaduras TEK (armadura 500); 11 armas (dano 250); 6 ferramentas; 7 selas TEK (armadura da sela 100). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekShiledArmor_G.AlfaItemWeapon_TekShiledArmor_G",
@@ -4037,6 +4082,48 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Megalodon_G.AlfaItemSaddle_Megalodon_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Mosa_G.AlfaItemSaddle_Mosa_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Rex_G.AlfaItemSaddle_Rex_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_RockDrake_G.AlfaItemSaddle_RockDrake_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_SpaceDolphin_G.AlfaItemSaddle_SpaceDolphin_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_SpaceWhale_G.AlfaItemSaddle_SpaceWhale_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Tapejara_G.AlfaItemSaddle_Tapejara_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekHelmet_G.AlfaItemArmor_TekHelmet_G",
           "Quantity": 1,
           "Quality": 0,
@@ -4070,11 +4157,13 @@
       "Name": "Kit ItensAlfa Gamma",
       "Permissions": "Admins,Gamma,Beta",
       "Price": 16790,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 29
     },
     "kit_itensalfa_beta": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Beta — 22 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 29 blueprints ItensAlfa Beta: 5 armaduras TEK (armadura 1000); 11 armas (dano 450); 6 ferramentas; 7 selas TEK (armadura da sela 350). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 29 blueprints ItensAlfa Beta: 5 armaduras TEK (armadura 1000); 11 armas (dano 450); 6 ferramentas; 7 selas TEK (armadura da sela 350). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekShiledArmor_B.AlfaItemWeapon_TekShiledArmor_B",
@@ -4179,6 +4268,48 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Megalodon_B.AlfaItemSaddle_Megalodon_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Mosa_B.AlfaItemSaddle_Mosa_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Rex_B.AlfaItemSaddle_Rex_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_RockDrake_B.AlfaItemSaddle_RockDrake_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_SpaceDolphin_B.AlfaItemSaddle_SpaceDolphin_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_SpaceWhale_B.AlfaItemSaddle_SpaceWhale_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Tapejara_B.AlfaItemSaddle_Tapejara_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekHelmet_B.AlfaItemArmor_TekHelmet_B",
           "Quantity": 1,
           "Quality": 0,
@@ -4212,11 +4343,13 @@
       "Name": "Kit ItensAlfa Beta",
       "Permissions": "Admins,Beta,Alfa",
       "Price": 27600,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 29
     },
     "kit_itensalfa_alfa": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Alfa — 28 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 35 blueprints ItensAlfa Alfa: 5 armaduras TEK (armadura 1900); 14 armas (dano 750); 9 ferramentas; 7 selas TEK (armadura da sela 600). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 35 blueprints ItensAlfa Alfa: 5 armaduras TEK (armadura 1900); 14 armas (dano 750); 9 ferramentas; 7 selas TEK (armadura da sela 600). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekShiledArmor.AlfaItemWeapon_TekShiledArmor",
@@ -4357,6 +4490,48 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Megalodon.AlfaItemSaddle_Megalodon",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Mosa.AlfaItemSaddle_Mosa",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Rex.AlfaItemSaddle_Rex",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_RockDrake.AlfaItemSaddle_RockDrake",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_SpaceDolphin.AlfaItemSaddle_SpaceDolphin",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_SpaceWhale.AlfaItemSaddle_SpaceWhale",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Tapejara.AlfaItemSaddle_Tapejara",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekHelmet.AlfaItemArmor_TekHelmet",
           "Quantity": 1,
           "Quality": 0,
@@ -4390,11 +4565,13 @@
       "Name": "Kit ItensAlfa Alfa",
       "Permissions": "Admins,Alfa,Omega",
       "Price": 42550,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 35
     },
     "kit_itensalfa_omega": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Omega — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 28 blueprints ItensAlfa Omega: 5 armaduras TEK (armadura 3200); 11 armas (dano 1300); 5 ferramentas; 7 selas TEK (armadura da sela 790). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 28 blueprints ItensAlfa Omega: 5 armaduras TEK (armadura 3200); 11 armas (dano 1300); 5 ferramentas; 7 selas TEK (armadura da sela 790). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekShiledArmor_O.AlfaItemWeapon_TekShiledArmor_O",
@@ -4493,6 +4670,48 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Megalodon_O.AlfaItemSaddle_Megalodon_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Mosa_O.AlfaItemSaddle_Mosa_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Rex_O.AlfaItemSaddle_Rex_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_RockDrake_O.AlfaItemSaddle_RockDrake_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_SpaceDolphin_O.AlfaItemSaddle_SpaceDolphin_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_SpaceWhale_O.AlfaItemSaddle_SpaceWhale_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Tapejara_O.AlfaItemSaddle_Tapejara_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Omega/AlfaItemArmor_TekHelmet_O.AlfaItemArmor_TekHelmet_O",
           "Quantity": 1,
           "Quality": 0,
@@ -4526,11 +4745,13 @@
       "Name": "Kit ItensAlfa Omega",
       "Permissions": "Admins,Omega,Transcendente",
       "Price": 59340,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 28
     },
     "kit_itensalfa_transcendente": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Transcendente — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 21 blueprints ItensAlfa Transcendente: 5 armaduras TEK (armadura 4900); 11 armas (dano 1850); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 21 blueprints ItensAlfa Transcendente: 5 armaduras TEK (armadura 4900); 11 armas (dano 1850); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekShiledArmor_GOD.AlfaItemWeapon_TekShiledArmor_GOD",
@@ -4662,11 +4883,13 @@
       "Name": "Kit ItensAlfa Transcendente",
       "Permissions": "Admins,Transcendente,Etereo",
       "Price": 69805,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 21
     },
     "kit_itensalfa_etereo": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Etéreo — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 21 blueprints ItensAlfa Etéreo: 5 armaduras TEK (armadura 7000); 11 armas (dano 2500); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 21 blueprints ItensAlfa Etéreo: 5 armaduras TEK (armadura 7000); 11 armas (dano 2500); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekShiledArmor_ET.AlfaItemWeapon_TekShiledArmor_ET",
@@ -4798,11 +5021,13 @@
       "Name": "Kit ItensAlfa Etéreo",
       "Permissions": "Admins,Etereo,Universal",
       "Price": 98210,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 21
     },
     "kit_itensalfa_universal": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Universal — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 21 blueprints ItensAlfa Universal: 5 armaduras TEK (armadura 9500); 11 armas (dano 3250); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 21 blueprints ItensAlfa Universal: 5 armaduras TEK (armadura 9500); 11 armas (dano 3250); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekShiledArmor_Uni.AlfaItemWeapon_TekShiledArmor_Uni",
@@ -4934,11 +5159,13 @@
       "Name": "Kit ItensAlfa Universal",
       "Permissions": "Admins,Universal,Onipotente",
       "Price": 130410,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 21
     },
     "kit_itensalfa_onipotente": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Onipotente — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 21 blueprints ItensAlfa Onipotente: 5 armaduras TEK (armadura 12400); 11 armas (dano 4100); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 21 blueprints ItensAlfa Onipotente: 5 armaduras TEK (armadura 12400); 11 armas (dano 4100); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekShiledArmor_Oni.AlfaItemWeapon_TekShiledArmor_Oni",
@@ -5070,11 +5297,13 @@
       "Name": "Kit ItensAlfa Onipotente",
       "Permissions": "Admins,Onipotente,Surreal",
       "Price": 171350,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 21
     },
     "kit_itensalfa_surreal": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Surreal — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 21 blueprints ItensAlfa Surreal: 5 armaduras TEK (armadura 15700); 11 armas (dano 4950); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 21 blueprints ItensAlfa Surreal: 5 armaduras TEK (armadura 15700); 11 armas (dano 4950); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekShiledArmor_Sur.AlfaItemWeapon_TekShiledArmor_Sur",
@@ -5206,11 +5435,13 @@
       "Name": "Kit ItensAlfa Surreal",
       "Permissions": "Admins,Surreal,Imaterial",
       "Price": 220800,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 21
     },
     "kit_itensalfa_imaterial": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Imaterial — 21 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 21 blueprints ItensAlfa Imaterial: 5 armaduras TEK (armadura 19400); 11 armas (dano 5800); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 21 blueprints ItensAlfa Imaterial: 5 armaduras TEK (armadura 19400); 11 armas (dano 5800); 5 ferramentas; sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekShiledArmor_Im.AlfaItemWeapon_TekShiledArmor_Im",
@@ -5342,11 +5573,13 @@
       "Name": "Kit ItensAlfa Imaterial",
       "Permissions": "Admins,Imaterial,Exotico",
       "Price": 278300,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 21
     },
     "kit_itensalfa_exotico": {
       "DefaultAmount": 1,
-      "Description": "Kit ItensAlfa Exótico — 5 blueprints ItensAlfa do tier (armadura TEK + armas/ferramentas mapeadas). Licença: próprio ou um acima.",
+      "Description": "Inclui 5 blueprints ItensAlfa Exótico: 5 armaduras TEK (armadura 23500); sem selas (selas só até Omega). Licença: próprio ou um acima.",
+      "KitDescription": "Inclui 5 blueprints ItensAlfa Exótico: 5 armaduras TEK (armadura 23500); sem selas (selas só até Omega). Licença: próprio ou um acima.",
       "Items": [
         {
           "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Exotico/AlfaItemArmor_TekHelmet_Ex.AlfaItemArmor_TekHelmet_Ex",
@@ -5382,7 +5615,8 @@
       "Name": "Kit ItensAlfa Exótico",
       "Permissions": "Admins,Exotico",
       "Price": 351210,
-      "Type": "kit"
+      "Type": "kit",
+      "ItemCountHint": 5
     }
   },
   "PointPackages": [
@@ -15818,6 +16052,636 @@
       "Name": "Stryder PerfectPVP ItensAlfa (1x)",
       "Permissions": "Admins,Delta,Gamma,Beta,Alfa,Omega,Transcendente,Etereo,Universal,Onipotente,Surreal,Imaterial,Exotico",
       "Price": 28750,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrocetus_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrocetus ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_SpaceWhale.AlfaItemSaddle_SpaceWhale",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrocetus ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrocetus_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrocetus ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_SpaceWhale_B.AlfaItemSaddle_SpaceWhale_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrocetus ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrocetus_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrocetus ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_SpaceWhale_D.AlfaItemSaddle_SpaceWhale_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrocetus ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrocetus_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrocetus ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_SpaceWhale_G.AlfaItemSaddle_SpaceWhale_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrocetus ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrocetus_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrocetus ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_SpaceWhale_O.AlfaItemSaddle_SpaceWhale_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrocetus ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrodelph_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrodelph ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_SpaceDolphin.AlfaItemSaddle_SpaceDolphin",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrodelph ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrodelph_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrodelph ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_SpaceDolphin_B.AlfaItemSaddle_SpaceDolphin_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrodelph ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrodelph_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrodelph ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_SpaceDolphin_D.AlfaItemSaddle_SpaceDolphin_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrodelph ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrodelph_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrodelph ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_SpaceDolphin_G.AlfaItemSaddle_SpaceDolphin_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrodelph ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_astrodelph_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Astrodelph ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_SpaceDolphin_O.AlfaItemSaddle_SpaceDolphin_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Astrodelph ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_megalodon_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Megalodon ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Megalodon.AlfaItemSaddle_Megalodon",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Megalodon ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_megalodon_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Megalodon ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Megalodon_B.AlfaItemSaddle_Megalodon_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Megalodon ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_megalodon_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Megalodon ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Megalodon_D.AlfaItemSaddle_Megalodon_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Megalodon ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_megalodon_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Megalodon ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Megalodon_G.AlfaItemSaddle_Megalodon_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Megalodon ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_megalodon_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Megalodon ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Megalodon_O.AlfaItemSaddle_Megalodon_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Megalodon ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_mosassauro_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Mosassauro ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Mosa.AlfaItemSaddle_Mosa",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Mosassauro ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_mosassauro_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Mosassauro ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Mosa_B.AlfaItemSaddle_Mosa_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Mosassauro ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_mosassauro_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Mosassauro ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Mosa_D.AlfaItemSaddle_Mosa_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Mosassauro ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_mosassauro_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Mosassauro ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Mosa_G.AlfaItemSaddle_Mosa_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Mosassauro ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_mosassauro_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Mosassauro ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Mosa_O.AlfaItemSaddle_Mosa_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Mosassauro ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rex_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rex ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Rex.AlfaItemSaddle_Rex",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rex ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rex_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rex ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Rex_B.AlfaItemSaddle_Rex_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rex ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rex_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rex ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Rex_D.AlfaItemSaddle_Rex_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rex ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rex_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rex ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Rex_G.AlfaItemSaddle_Rex_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rex ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rex_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rex ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Rex_O.AlfaItemSaddle_Rex_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rex ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rockdrake_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rock Drake ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_RockDrake.AlfaItemSaddle_RockDrake",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rock Drake ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rockdrake_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rock Drake ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_RockDrake_B.AlfaItemSaddle_RockDrake_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rock Drake ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rockdrake_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rock Drake ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_RockDrake_D.AlfaItemSaddle_RockDrake_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rock Drake ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rockdrake_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rock Drake ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_RockDrake_G.AlfaItemSaddle_RockDrake_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rock Drake ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_rockdrake_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Rock Drake ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_RockDrake_O.AlfaItemSaddle_RockDrake_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Rock Drake ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_tapejara_alfa": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Tapejara ItensAlfa Alfa (1x) — armadura da sela 600. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Tapejara.AlfaItemSaddle_Tapejara",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Tapejara ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa,Omega",
+      "Price": 1725,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_tapejara_beta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Tapejara ItensAlfa Beta (1x) — armadura da sela 350. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Tapejara_B.AlfaItemSaddle_Tapejara_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Tapejara ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta,Alfa",
+      "Price": 1150,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_tapejara_delta": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Tapejara ItensAlfa Delta (1x) — armadura da sela 40. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Tapejara_D.AlfaItemSaddle_Tapejara_D",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Tapejara ItensAlfa Delta (1x)",
+      "Permissions": "Admins,Delta,Gamma",
+      "Price": 460,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_tapejara_gamma": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Tapejara ItensAlfa Gamma (1x) — armadura da sela 100. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Tapejara_G.AlfaItemSaddle_Tapejara_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Tapejara ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma,Beta",
+      "Price": 690,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_sela_tapejara_omega": {
+      "Category": "ItensAlfa — Selas",
+      "Description": "Sela TEK Tapejara ItensAlfa Omega (1x) — armadura da sela 790. Licença: próprio ou um acima.",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Tapejara_O.AlfaItemSaddle_Tapejara_O",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Sela TEK Tapejara ItensAlfa Omega (1x)",
+      "Permissions": "Admins,Omega,Transcendente",
+      "Price": 2415,
       "Quality": 0,
       "Type": "item"
     },

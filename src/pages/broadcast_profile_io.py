@@ -29,13 +29,24 @@ def normalize_entry(raw: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Cada mensagem precisa de rótulo e texto.")
     entry_id = str(raw.get("id") or uuid.uuid4())
     now = _now_iso()
-    return {
+    entry: dict[str, Any] = {
         "id": entry_id,
         "label": label[:120],
         "message": message[:_MAX_MSG_LEN],
         "created_at": str(raw.get("created_at") or now),
         "updated_at": str(raw.get("updated_at") or now),
     }
+    # Metadados opcionais (ex.: pacote Regulamento)
+    source = str(raw.get("source") or "").strip()
+    if source:
+        entry["source"] = source[:64]
+    category = str(raw.get("category") or "").strip()
+    if category:
+        entry["category"] = category[:64]
+    section = str(raw.get("section") or "").strip()
+    if section:
+        entry["section"] = section[:32]
+    return entry
 
 
 def get_library(app: "ARKServerManagerApp") -> list[dict[str, Any]]:

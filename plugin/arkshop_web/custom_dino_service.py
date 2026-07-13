@@ -301,9 +301,18 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
                     if vanilla_only and mod != "vanilla":
                         continue
                     seen.add(key)
+                    try:
+                        from market_economy import friendly_species_display_name
+
+                        display = friendly_species_display_name(
+                            key,
+                            fallback=str(row.display_name or defn.get("display_name") or key),
+                        )
+                    except Exception:
+                        display = str(row.display_name or defn.get("display_name") or key)
                     items.append({
                         "species_key": key,
-                        "display_name": str(row.display_name or defn.get("display_name") or key),
+                        "display_name": display,
                         "blueprint_path": _format_blueprint(bp),
                         "mod_source": mod,
                         "tier": str(row.tier or defn.get("tier") or ""),
@@ -332,9 +341,17 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
         if vanilla_only and mod != "vanilla":
             continue
         seen.add(key)
+        try:
+            from market_economy import friendly_species_display_name
+
+            display = friendly_species_display_name(
+                key, fallback=str(defn.get("display_name") or key)
+            )
+        except Exception:
+            display = str(defn.get("display_name") or key)
         items.append({
             "species_key": key,
-            "display_name": str(defn.get("display_name") or key),
+            "display_name": display,
             "blueprint_path": _format_blueprint(bp),
             "mod_source": mod,
             "tier": str(defn.get("tier") or ""),
@@ -362,11 +379,18 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
             if vanilla_only and mod != "vanilla":
                 continue
             display = str(entry.get("Name") or entry.get("Description") or sk).strip()
-            for suffix in (" Fêmea Nível 1", " Nível 1", " Level 1"):
-                if display.endswith(suffix):
-                    display = display[: -len(suffix)].strip()
-            if display.endswith(")") and "(" in display:
-                display = display[: display.rfind("(")].strip()
+            try:
+                from market_economy import clean_species_display_name, friendly_species_display_name
+
+                display = friendly_species_display_name(
+                    sk, fallback=clean_species_display_name(display) or display
+                )
+            except Exception:
+                for suffix in (" Fêmea Nível 1", " Nível 1", " Level 1", " Nível 200", " Nivel 200"):
+                    if display.endswith(suffix):
+                        display = display[: -len(suffix)].strip()
+                if display.endswith(")") and "(" in display:
+                    display = display[: display.rfind("(")].strip()
             seen.add(sk)
             items.append({
                 "species_key": sk,
@@ -471,27 +495,52 @@ def _resolve_species_from_db(species_key: str) -> dict[str, Any] | None:
             return None
         from app import MarketSpecies
 
+        keys = [species_key]
+        try:
+            from market_economy import canonicalize_species_key
+
+            canon = canonicalize_species_key(species_key)
+            if canon and canon not in keys:
+                keys.append(canon)
+        except Exception:
+            pass
+
         db = session_factory()
         try:
-            row = (
-                db.query(MarketSpecies)
-                .filter(MarketSpecies.species_key == species_key)
-                .filter(MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")))
-                .first()
-            )
+            row = None
+            for key in keys:
+                row = (
+                    db.query(MarketSpecies)
+                    .filter(MarketSpecies.species_key == key)
+                    .filter(MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")))
+                    .first()
+                )
+                if row:
+                    break
             if not row:
                 return None
-            defn = _species_catalog().get(species_key, {})
+            resolved_key = str(row.species_key or species_key)
+            defn = _species_catalog().get(resolved_key, {}) or _species_catalog().get(species_key, {})
             bp = (
                 str(row.blueprint_path or "").strip()
                 or _blueprint_from_catalog(defn)
+                or _blueprint_from_catalog_item(resolved_key)
                 or _blueprint_from_catalog_item(species_key)
             )
             if not bp:
                 return None
+            try:
+                from market_economy import friendly_species_display_name
+
+                display = friendly_species_display_name(
+                    species_key,
+                    fallback=str(row.display_name or defn.get("display_name") or species_key),
+                )
+            except Exception:
+                display = str(row.display_name or defn.get("display_name") or species_key)
             return {
-                "species_key": species_key,
-                "display_name": str(row.display_name or defn.get("display_name") or species_key),
+                "species_key": resolved_key,
+                "display_name": display,
                 "species_blueprint": _format_blueprint(bp),
                 "mod_source": _infer_mod_source(bp, defn),
             }
@@ -507,13 +556,29 @@ def _resolve_species(species_key: str) -> dict[str, Any] | None:
     if not species_key:
         return None
 
-    defn = _species_catalog().get(species_key, {})
+    try:
+        from market_economy import canonicalize_species_key
+
+        canon = canonicalize_species_key(species_key)
+    except Exception:
+        canon = species_key
+
+    defn = _species_catalog().get(species_key, {}) or _species_catalog().get(canon, {})
     bp = (
         str(defn.get("blueprint_path") or "").strip()
         or _blueprint_from_catalog(defn)
         or _blueprint_from_catalog_item(species_key)
+        or _blueprint_from_catalog_item(canon)
     )
-    display_name = str(defn.get("display_name") or species_key)
+    try:
+        from market_economy import friendly_species_display_name
+
+        display_name = friendly_species_display_name(
+            species_key,
+            fallback=str(defn.get("display_name") or species_key),
+        )
+    except Exception:
+        display_name = str(defn.get("display_name") or species_key)
 
     if not bp:
         # Tentar species_key derivado do item_id (ex.: meraxes_femea → meraxes).
@@ -531,14 +596,23 @@ def _resolve_species(species_key: str) -> dict[str, Any] | None:
                 )
                 if bp:
                     species_key = alt
-                    display_name = str(defn.get("display_name") or alt)
+                    try:
+                        from market_economy import friendly_species_display_name
+
+                        display_name = friendly_species_display_name(
+                            alt, fallback=str(defn.get("display_name") or alt)
+                        )
+                    except Exception:
+                        display_name = str(defn.get("display_name") or alt)
         except Exception:
             pass
 
     if not bp:
-        return _resolve_species_from_db(species_key)
+        return _resolve_species_from_db(species_key) or (
+            _resolve_species_from_db(canon) if canon != species_key else None
+        )
     return {
-        "species_key": species_key,
+        "species_key": canon or species_key,
         "display_name": display_name,
         "species_blueprint": _format_blueprint(bp),
         "mod_source": _infer_mod_source(bp, defn),

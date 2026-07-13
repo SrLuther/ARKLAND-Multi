@@ -23,6 +23,7 @@
 8. [Fases de implementação](#8-fases-de-implementação)
 9. [Checklist de arquivos](#9-checklist-de-arquivos)
 10. [Critérios de aceite e testes](#10-critérios-de-aceite-e-testes)
+11. [Broadcasts in-game (painel TEK)](#11-broadcasts-in-game-painel-tek)
 
 ---
 
@@ -636,6 +637,22 @@ def test_denuncia_without_proof_rejected():
 
 ---
 
+## 11. Broadcasts in-game (painel TEK)
+
+Avisos curtos das regras com **maior impacto em punição administrativa** podem rodar no ciclo automático de **Broadcasts** do ARKLAND Server Manager (TEK).
+
+| Item | Detalhe |
+|------|---------|
+| **Onde** | App TEK → sidebar **Broadcasts** → botão **Regulamento** |
+| **O quê** | Pacote curado (`src/pages/broadcast_regulamento_pack.py`) — uma mensagem por regra (§3.5 doação/licença, RMT, cheats, conduta, estruturas, mercado, etc.) |
+| **Gestão** | Mesma biblioteca global: ☑ no ciclo, editar texto, intervalo (5–180 min), ordem sequencial/aleatória, servidores destino |
+| **Sync markdown** | Não há sync automático do `REGULAMENTO_SERVIDOR.md`; o catálogo é seed editável (IDs estáveis `arkland-reg-*`) |
+| **Export** | Incluído no `.arkbroadcast` junto com o restante da biblioteca |
+
+Fonte normativa: [`REGULAMENTO_SERVIDOR.md`](./REGULAMENTO_SERVIDOR.md).
+
+---
+
 ## Referências cruzadas
 
 | Documento | Relação |
@@ -644,6 +661,7 @@ def test_denuncia_without_proof_rejected():
 | [`PROJETO_ARKLAND_MASTER.md`](./PROJETO_ARKLAND_MASTER.md) | Visão do ecossistema |
 | `plugin/arkshop_web/static/index.html` | Padrões UI (`openPolicyModal`, `display-name-gate`, tickets) |
 | `plugin/arkshop_web/ticket_service.py` | Categorias e anexos atuais |
+| `src/pages/broadcast_regulamento_pack.py` | Pacote de broadcasts in-game (TEK) |
 
 ---
 
