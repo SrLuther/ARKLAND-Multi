@@ -1388,36 +1388,56 @@ def contribute_market_pair_to_prize(
     tx_id: int,
     seller_steam_id: str | None = None,
 ) -> dict[str, Any]:
-    """Credita 0,40×S ao pote da campanha ACTIVE/DRAWING (venda em casal).
+    """Destina 0,40×S ao ARKBANK (tesouraria) — deixa de alimentar o pote do sorteio.
 
-    Crédito de sistema — não debita carteira do vendedor. Idempotente via ledger.
-    Se não houver campanha ativa, retorna credited=0 (deferral operacional).
+    Cutover opção A (docs/ARKBANK_SPEC.md §7): prize_amber_from_market fica congelado;
+    o crédito de sistema vai para arkbank_transactions (market_pair_share).
+    Não depende de campanha ativa. Idempotente via arkbank:pair:{tx_id}.
     """
     amount = max(0, int(amount))
     if amount <= 0:
-        return {"credited": 0, "campaign_id": None, "prize_amber_total": 0}
-    campaign = get_active_campaign(db)
-    if not campaign:
-        log.warning(
-            "Casal listing=%s: sem campanha ativa — contribuição %s Âmbar não creditada",
-            listing_id,
-            amount,
+        return {
+            "credited": 0,
+            "campaign_id": None,
+            "prize_amber_total": 0,
+            "destination": "arkbank",
+        }
+    ark_result: dict[str, Any] = {}
+    try:
+        from arkbank_service import credit_market_pair_share
+
+        ark_result = credit_market_pair_share(
+            db,
+            amount=amount,
+            listing_id=listing_id,
+            tx_id=tx_id,
+            seller_steam_id=seller_steam_id,
+            commit=False,
         )
-        return {"credited": 0, "campaign_id": None, "prize_amber_total": 0, "reason": "no_active_campaign"}
-    cid = int(campaign.id)
-    db.execute(
-        text(
-            "UPDATE lottery_campaigns SET prize_amber_from_market = "
-            "COALESCE(prize_amber_from_market, 0) + :amt, updated_at = :now WHERE id = :id"
-        ),
-        {"amt": amount, "now": _naive(_utcnow()), "id": cid},
-    )
+    except Exception as exc:
+        log.warning(
+            "ARKBANK market pair share falhou listing=%s tx=%s: %s",
+            listing_id,
+            tx_id,
+            exc,
+        )
+        return {
+            "credited": 0,
+            "campaign_id": None,
+            "prize_amber_total": 0,
+            "destination": "arkbank",
+            "error": str(exc),
+        }
+
     try:
         from amber_ledger import record_lottery_market_pair_contribution
 
+        # Mantém Âmbarômetro (gross) — destino económico é ARKBANK, não o pote.
+        campaign = get_active_campaign(db)
+        cid = int(campaign.id) if campaign else 0
         record_lottery_market_pair_contribution(
             db,
-            campaign_id=cid,
+            campaign_id=cid or 0,
             listing_id=listing_id,
             tx_id=tx_id,
             amount=amount,
@@ -1425,17 +1445,29 @@ def contribute_market_pair_to_prize(
         )
     except Exception as exc:
         log.warning("Ledger market pair contribution: %s", exc)
-    row = _fetch_campaign_row(db, cid)
+
+    campaign = get_active_campaign(db)
+    cid = int(campaign.id) if campaign else None
+    row = _fetch_campaign_row(db, cid) if cid else None
     _audit_safe(
         db,
-        "lottery_market_pair_contribution",
-        {"listing_id": listing_id, "tx_id": tx_id, "amount": amount},
+        "arkbank_market_pair_share",
+        {
+            "listing_id": listing_id,
+            "tx_id": tx_id,
+            "amount": amount,
+            "destination": "arkbank",
+            "duplicate": bool(ark_result.get("duplicate")),
+        },
         campaign_id=cid,
     )
     return {
-        "credited": amount,
+        "credited": amount if ark_result.get("applied") or ark_result.get("duplicate") else 0,
         "campaign_id": cid,
         "prize_amber_total": _prize_total(row) if row else 0,
+        "destination": "arkbank",
+        "arkbank_balance_after": ark_result.get("balance_after"),
+        "duplicate": bool(ark_result.get("duplicate")),
     }
 
 

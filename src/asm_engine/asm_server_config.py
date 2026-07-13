@@ -163,7 +163,7 @@ class AsmServerConfig:
     # Curva de XP / rampa (unificação nível máximo — ver PLAYER_MAX_LEVEL_SPEC.md)
     player_xp_curve_mode:               str   = "vanilla"  # vanilla | custom
     player_xp_curve_base:               int   = 70
-    player_xp_curve_mult:               float = 1.15
+    player_xp_curve_mult:               float = 1.05  # ≤1.08; 1.15 torna pós-100 impraticável
     player_xp_curve_formula:            str   = "base * (mult ** i)"
     player_ramp_entry_count:            int   = 0   # lido do Game.ini ou derivado no save
     player_ramp_max_index:              int   = -1

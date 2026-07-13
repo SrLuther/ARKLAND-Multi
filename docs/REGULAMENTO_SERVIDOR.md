@@ -319,12 +319,12 @@ A **Web Store ARKLAND** ([arkland.com.br](https://arkland.com.br)) é a platafor
 
 | Situação | Reembolso |
 |----------|-----------|
-| **Desistência** de resgate PENDENTE (após cooldown de 24h) | **90%** do valor pago (retenção de **10%**) |
-| **Auto-cancelamento** sem resgate (≥48h) | **90%** do valor pago (mesma retenção) |
+| **Desistência** de resgate PENDENTE (após cooldown de 24h) | **80%** do valor pago (retenção de **20%**) |
+| **Auto-cancelamento** sem resgate (≥48h) | **80%** do valor pago (mesma retenção) |
 | **Reembolso integral (100%)** | Somente via **contestação** — o jogador **deve abrir ticket** e **explicar o motivo**; a equipe analisa e, se procedente, reembolsa 100% |
 | **Licenças** | Irrevogáveis — sem desistência nem reembolso |
 
-Texto ao jogador na desistência: o reembolso automático **não** é integral. Para pedir 100%, use contestação + ticket com explicação obrigatória.
+Texto ao jogador na desistência: o reembolso automático **não** é integral. Para pedir 100%, use contestação + ticket com explicação obrigatória. A retenção de **20%** permanece no ecossistema do cluster (quando a Tesouraria ARKBANK estiver ativa, esse valor alimenta a emissão por tempo — ver planeamento interno).
 
 #### 8.4.3 Kits e limites de resgate
 

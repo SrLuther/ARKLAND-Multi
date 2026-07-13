@@ -2345,17 +2345,25 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     ctk.CTkLabel(gen_card, text="⚡ Gerador rápido",
                  font=ctk.CTkFont(size=11, weight="bold"),
                  text_color=accent).grid(row=0, column=0, columnspan=8,
-                 padx=12, pady=(8, 4), sticky="w")
+                 padx=12, pady=(8, 2), sticky="w")
+    ctk.CTkLabel(
+        gen_card,
+        text="Curva geométrica: default mult=1.05 (máx. recomendado ~1.08). "
+             "Mult ≥1.15 torna pós-100 impraticável em rampas longas. "
+             "Prefira modo vanilla no painel «Nível máximo» quando possível.",
+        font=ctk.CTkFont(size=9), text_color="#7ab8c8", wraplength=640,
+    ).grid(row=1, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
 
     # ── Presets de tabelas populares ──────────────────────────────────────────
     preset_f = ctk.CTkFrame(gen_card, fg_color="transparent")
-    preset_f.grid(row=1, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
+    preset_f.grid(row=2, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
 
+    # Mult geométrico ≤1.08 — 1.15+ torna rampas longas (150/200) impraticáveis.
     _PRESETS = {
-        "Official (70 lvls)":   {"max": 70,  "base": 5,   "mult": 1.20, "engrams": 8},
-        "Hard (150 lvls)":      {"max": 150, "base": 10,  "mult": 1.18, "engrams": 8},
-        "Custom (100 lvls)":    {"max": 100, "base": 8,   "mult": 1.15, "engrams": 10},
-        "Extreme (200 lvls)":   {"max": 200, "base": 15,  "mult": 1.14, "engrams": 12},
+        "Official (70 lvls)":   {"max": 70,  "base": 5,   "mult": 1.08, "engrams": 8},
+        "Hard (150 lvls)":      {"max": 150, "base": 10,  "mult": 1.06, "engrams": 8},
+        "Custom (100 lvls)":    {"max": 100, "base": 8,   "mult": 1.05, "engrams": 10},
+        "Extreme (200 lvls)":   {"max": 200, "base": 15,  "mult": 1.05, "engrams": 12},
     }
 
     def _apply_preset(name: str):
@@ -2391,20 +2399,20 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
 
     _fields_p = [
         ("Nível máx.", str(_prefill_max)), ("XP base (lv0)", "70"),
-        ("Multiplicador XP", "1.15"), ("Engrams/nível", "8"),
+        ("Multiplicador XP", "1.05"), ("Engrams/nível", "8"),
     ]
     _vars_p: list[tk.StringVar] = []
     for col, (lbl, default) in enumerate(_fields_p):
         ctk.CTkLabel(gen_card, text=lbl, font=ctk.CTkFont(size=10),
-                     text_color="#8899aa").grid(row=2, column=col * 2, padx=(12, 2), pady=(0, 4), sticky="e")
+                     text_color="#8899aa").grid(row=3, column=col * 2, padx=(12, 2), pady=(0, 4), sticky="e")
         v = tk.StringVar(value=default)
         _vars_p.append(v)
         ctk.CTkEntry(gen_card, textvariable=v, width=80, height=28).grid(
-            row=2, column=col * 2 + 1, padx=(0, 8), pady=(0, 4), sticky="w")
+            row=3, column=col * 2 + 1, padx=(0, 8), pady=(0, 4), sticky="w")
 
     # ── Modo fórmula custom ───────────────────────────────────────────────────
     custom_f = ctk.CTkFrame(gen_card, fg_color="transparent")
-    custom_f.grid(row=3, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
+    custom_f.grid(row=4, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
 
     ctk.CTkLabel(custom_f, text="Fórmula custom (Python):",
                  font=ctk.CTkFont(size=10), text_color="#8899aa").pack(side="left", padx=(0, 6))
@@ -2501,12 +2509,12 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                   height=28, fg_color="#1e293b", hover_color="#334155",
                   font=ctk.CTkFont(size=11),
                   command=_preview_player_gen).grid(
-        row=4, column=0, padx=12, pady=(0, 8), sticky="w")
+        row=5, column=0, padx=12, pady=(0, 8), sticky="w")
     ctk.CTkButton(gen_card, text="Gerar e aplicar",
                   height=28, fg_color="#0e4a6e", hover_color="#0a3550",
                   font=ctk.CTkFont(size=11),
                   command=_apply_player_gen).grid(
-        row=4, column=1, padx=(0, 12), pady=(0, 8), sticky="w")
+        row=5, column=1, padx=(0, 12), pady=(0, 8), sticky="w")
 
     # ── Textbox raw (export somente leitura) ─────────────────────────────────
     box_p = ctk.CTkTextbox(sf, height=180, font=ctk.CTkFont(family="Consolas", size=10))
@@ -2518,7 +2526,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                 _prefill_max,
                 mode=str(getattr(srv, "player_xp_curve_mode", "vanilla") or "vanilla"),
                 xp_base=int(getattr(srv, "player_xp_curve_base", 70) or 70),
-                xp_mult=float(getattr(srv, "player_xp_curve_mult", 1.15) or 1.15),
+                xp_mult=float(getattr(srv, "player_xp_curve_mult", 1.05) or 1.05),
                 formula=str(getattr(srv, "player_xp_curve_formula", "base * (mult ** i)") or "base * (mult ** i)"),
             )
         )

@@ -5362,6 +5362,9 @@
     <div class="nav-item admin-only" data-page="lottery-admin" onclick="nav(this)">
       <span class="nav-icon">🎲</span> Sorteios
     </div>
+    <div class="nav-item admin-only" data-page="arkbank" onclick="nav(this)">
+      <span class="nav-icon">🏦</span> ARKBANK
+    </div>
     <div class="nav-item admin-only" data-page="dino-lab-admin" onclick="nav(this)">
       <span class="nav-icon">🧬</span> Dino Lab
     </div>
@@ -6582,7 +6585,7 @@
               </ol>
 
               <h4>Aba «Disponível» — cancelar antes da entrega</h4>
-              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível após 24h da compra. O reembolso de desistência é de <strong>90% do valor pago</strong> (retenção de 10%). Reembolso <strong>integral (100%)</strong> só via <strong>contestação + ticket</strong> com explicação do motivo. Licenças são irrevogáveis. Após entrega in-game, o resgate é definitivo.</p>
+              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível após 24h da compra. O reembolso de desistência é de <strong>80% do valor pago</strong> (retenção de 20%). Reembolso <strong>integral (100%)</strong> só via <strong>contestação + ticket</strong> com explicação do motivo. Licenças são irrevogáveis. Após entrega in-game, o resgate é definitivo.</p>
 
               <div class="tutorial-callout tutorial-callout--warn">
                 <strong>⚠️ Atenção</strong>
@@ -7480,6 +7483,56 @@
         <div id="lottery-admin-report" class="card hidden" style="margin-bottom:16px;"></div>
         <div id="lottery-admin-edit" class="card hidden" style="margin-bottom:16px;"></div>
         <div id="lottery-admin-list" style="color:var(--text2);">Carregando…</div>
+      </div>
+
+      <!-- PAGE: ARKBANK (admin) -->
+      <div id="page-arkbank" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🏦 ARKBANK — Tesouraria</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadArkbankAdmin()">↺ Atualizar</button>
+            <button class="btn btn-primary" onclick="arkbankShowAdjust()">± Ajuste</button>
+          </div>
+        </div>
+        <div id="arkbank-hero" class="card" style="margin-bottom:16px;padding:20px;">
+          <div style="font-size:12px;color:var(--text2);letter-spacing:.04em;text-transform:uppercase;">Saldo da tesouraria</div>
+          <div id="arkbank-balance" style="font-size:2.4rem;font-weight:700;margin:6px 0;font-variant-numeric:tabular-nums;">—</div>
+          <div id="arkbank-health" style="font-size:13px;color:var(--text2);"></div>
+          <div id="arkbank-delta" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
+        </div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="card" style="padding:14px;">
+            <div style="font-size:11px;color:var(--text2);">Entradas (7d)</div>
+            <div id="arkbank-inflow" style="font-size:1.4rem;font-weight:600;color:#3ecf8e;">—</div>
+          </div>
+          <div class="card" style="padding:14px;">
+            <div style="font-size:11px;color:var(--text2);">Saídas (7d)</div>
+            <div id="arkbank-outflow" style="font-size:1.4rem;font-weight:600;color:var(--amber);">—</div>
+          </div>
+          <div class="card" style="padding:14px;">
+            <div style="font-size:11px;color:var(--text2);">Líquido (7d)</div>
+            <div id="arkbank-net" style="font-size:1.4rem;font-weight:600;">—</div>
+          </div>
+        </div>
+        <div id="arkbank-breakdown" class="card" style="margin-bottom:16px;padding:14px;">
+          <div class="card-title" style="margin-bottom:8px;">Breakdown por tipo</div>
+          <div id="arkbank-by-type" style="font-size:13px;color:var(--text2);">—</div>
+        </div>
+        <div id="arkbank-adjust" class="card hidden" style="margin-bottom:16px;padding:14px;">
+          <div class="card-title" style="margin-bottom:10px;">Ajuste manual</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Valor (+ top-up / − correção)</label><input id="arkbank-adj-amount" type="number" value="0" /></div>
+            <div class="form-group" style="grid-column:1/-1;"><label>Motivo</label><input id="arkbank-adj-reason" type="text" placeholder="Obrigatório" /></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-primary" onclick="arkbankSubmitAdjust()">Confirmar</button>
+            <button class="btn btn-ghost" onclick="arkbankHideAdjust()">Cancelar</button>
+          </div>
+        </div>
+        <div class="card" style="padding:14px;">
+          <div class="card-title" style="margin-bottom:10px;">Extrato recente</div>
+          <div id="arkbank-tx-list" style="color:var(--text2);">Carregando…</div>
+        </div>
       </div>
 
       <!-- PAGE: Dino Lab (admin) -->
@@ -9223,6 +9276,7 @@ function nav(el) {
   if (page === "tribe-admin") loadTribeAdmin();
   if (page === "polls-admin") loadPollsAdmin();
   if (page === "lottery-admin") loadLotteryAdmin();
+  if (page === "arkbank") loadArkbankAdmin();
   if (page === "dino-lab-admin") loadDinoLabAdmin();
   if (page === "midias-admin") loadMidiasAdmin();
   if (page === "sugestoes-admin") loadSugestoesAdmin();
@@ -10598,7 +10652,7 @@ async function loadAvailable() {
     const policy = d.cancel_policy || {};
     const cooldownH = policy.cooldown_hours || 24;
     const autoH = policy.auto_cancel_hours || 48;
-    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (reembolso de <strong>90%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 90% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> são irrevogáveis — não dá para desistir nem reembolsar.</p>`;
+    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (reembolso de <strong>80%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 80% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> são irrevogáveis — não dá para desistir nem reembolsar.</p>`;
     if (!pending.length) {
       html += `<p class="available-hint">Nenhum resgate pendente no momento.</p>`;
     } else {
@@ -11274,12 +11328,12 @@ async function loadMyAreaLicenses() {
 
 async function cancelPendingOrder(orderId) {
   if (!orderId) return;
-  if (!confirm("Desistir deste resgate? Será reembolsado 90% do valor pago (retenção de 10%). Disponível só após 24h da compra; licenças não podem ser canceladas. Para pedir 100%, use Contestação (⚠️) com ticket e explicação.")) return;
+  if (!confirm("Desistir deste resgate? Será reembolsado 80% do valor pago (retenção de 20%). Disponível só após 24h da compra; licenças não podem ser canceladas. Para pedir 100%, use Contestação (⚠️) com ticket e explicação.")) return;
   try {
     const r = await fetch(API + "/api/player/orders/" + encodeURIComponent(orderId) + "/cancel", { method: "POST" });
     const d = await r.json();
     if (d.ok) {
-      toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados (90%)`, "success");
+      toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados (80%)`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
       loadMyArea();
@@ -13138,6 +13192,116 @@ async function loadLotteryAdmin() {
       </div>`;
     }).join("") || "<p>Nenhuma campanha.</p>";
   } catch (e) { root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`; }
+}
+
+const _ARKBANK_TX_LABELS = {
+  catalog_spend: "Catálogo",
+  catalog_refund_clawback: "Desistência (clawback)",
+  market_pair_share: "Casal 40%",
+  dino_order_pay: "Encomenda",
+  dino_order_refund_clawback: "Encomenda (reembolso)",
+  donation_brl: "Doação",
+  donation_brl_clawback: "Doação (estorno)",
+  timed_reward: "TimedPoints",
+  admin_adjust: "Ajuste admin",
+};
+
+function arkbankShowAdjust() {
+  document.getElementById("arkbank-adjust")?.classList.remove("hidden");
+}
+function arkbankHideAdjust() {
+  document.getElementById("arkbank-adjust")?.classList.add("hidden");
+}
+
+async function arkbankSubmitAdjust() {
+  const amount = parseInt(document.getElementById("arkbank-adj-amount")?.value || "0", 10) || 0;
+  const reason = (document.getElementById("arkbank-adj-reason")?.value || "").trim();
+  if (!reason) { toast("Informe o motivo.", "error"); return; }
+  if (!amount) { toast("Informe um valor ≠ 0.", "error"); return; }
+  try {
+    const d = await fetchJson("/api/admin/arkbank/adjust", {
+      method: "POST",
+      body: { amount, reason },
+    });
+    if (!d.ok) throw new Error(d.error || "Falha");
+    toast("Ajuste registado.", "success");
+    arkbankHideAdjust();
+    loadArkbankAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function loadArkbankAdmin() {
+  const balEl = document.getElementById("arkbank-balance");
+  const healthEl = document.getElementById("arkbank-health");
+  const deltaEl = document.getElementById("arkbank-delta");
+  const txRoot = document.getElementById("arkbank-tx-list");
+  if (txRoot) txRoot.textContent = "Carregando…";
+  try {
+    const [sum, txs] = await Promise.all([
+      fetchJson("/api/admin/arkbank?days=7"),
+      fetchJson("/api/admin/arkbank/transactions?limit=50"),
+    ]);
+    if (!sum.ok) throw new Error(sum.error || "Falha ao carregar saldo");
+    const bal = Number(sum.balance || 0);
+    if (balEl) {
+      balEl.textContent = _formatAmberAmountPt(bal);
+      balEl.style.color = bal < 0 ? "var(--amber)" : "#3ecf8e";
+    }
+    if (healthEl) {
+      healthEl.textContent = bal < 0
+        ? "Deficitário — emissão por tempo supera a recolha (permitido)"
+        : "Saudável — tesouraria com saldo positivo";
+    }
+    if (deltaEl) {
+      const d24 = Number(sum.delta_24h || 0);
+      deltaEl.textContent = `Δ 24h: ${_formatAmberAmountPt(d24)} Âmbar`;
+    }
+    const setAmt = (id, v, colorNeg) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const n = Number(v || 0);
+      el.textContent = _formatAmberAmountPt(n);
+      if (colorNeg && n < 0) el.style.color = "var(--amber)";
+    };
+    setAmt("arkbank-inflow", sum.inflow);
+    setAmt("arkbank-outflow", sum.outflow);
+    setAmt("arkbank-net", sum.net, true);
+    const by = sum.by_type || {};
+    const byRoot = document.getElementById("arkbank-by-type");
+    if (byRoot) {
+      const keys = Object.keys(by);
+      byRoot.innerHTML = keys.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${keys.map(k => {
+            const t = by[k].total || 0;
+            const label = _ARKBANK_TX_LABELS[k] || k;
+            const col = t < 0 ? "var(--amber)" : "#3ecf8e";
+            return `<span class="badge" style="background:rgba(255,255,255,.04);">${escHtml(label)}: <span style="color:${col}">${_formatAmberAmountPt(t)}</span> ×${by[k].count || 0}</span>`;
+          }).join("")}</div>`
+        : "<span>Sem movimentos nos últimos 7 dias.</span>";
+    }
+    if (txRoot) {
+      const list = (txs.ok && txs.transactions) ? txs.transactions : [];
+      txRoot.innerHTML = list.length
+        ? `<div class="table-scroll"><table class="data-table"><thead><tr>
+            <th>Quando</th><th>Tipo</th><th>Valor</th><th>Saldo após</th><th>Steam</th><th>Ref</th>
+          </tr></thead><tbody>${list.map(t => {
+            const amt = Number(t.amount || 0);
+            const col = amt < 0 ? "var(--amber)" : "#3ecf8e";
+            const label = _ARKBANK_TX_LABELS[t.tx_type] || t.tx_type;
+            return `<tr>
+              <td style="white-space:nowrap;font-size:12px;">${escHtml(String(t.created_at || "").replace("T", " ").slice(0, 19))}</td>
+              <td>${escHtml(label)}</td>
+              <td style="color:${col};font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(amt)}</td>
+              <td style="font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(t.balance_after)}</td>
+              <td style="font-size:11px;">${escHtml(t.steam_id || "—")}</td>
+              <td style="font-size:11px;">${escHtml([t.ref_table, t.ref_id].filter(Boolean).join(" ") || (t.map_id || "—"))}</td>
+            </tr>`;
+          }).join("")}</tbody></table></div>`
+        : "<p>Nenhuma transação ainda.</p>";
+    }
+  } catch (e) {
+    if (txRoot) txRoot.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
 }
 
 let _dinoLabSpecies = [];

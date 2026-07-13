@@ -1352,6 +1352,12 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("Âmbarômetro (sqlite dev): migrate falhou: %s", exc)
         try:
+            from arkbank_service import ensure_arkbank_schema
+
+            ensure_arkbank_schema(engine)
+        except Exception as exc:
+            log.warning("ARKBANK (sqlite dev): migrate falhou: %s", exc)
+        try:
             from lottery_service import ensure_lottery_schema
 
             ensure_lottery_schema(engine)
@@ -1514,6 +1520,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_amber_schema(engine)
     except Exception as exc:
         log.warning("Âmbarômetro: migrate falhou: %s", exc)
+    try:
+        from arkbank_service import ensure_arkbank_schema
+
+        ensure_arkbank_schema(engine)
+    except Exception as exc:
+        log.warning("ARKBANK: migrate falhou: %s", exc)
     try:
         from lottery_service import ensure_lottery_schema
 
@@ -5514,6 +5526,19 @@ def _retry_worker() -> None:
         except Exception as exc:
             _log_error("lottery_draw_worker", error=str(exc))
 
+        try:
+            from arkbank_service import process_timed_outbox
+
+            adb = _SessionLocal()
+            try:
+                result = process_timed_outbox(adb)
+                if result.get("processed"):
+                    _log("arkbank_timed_outbox_processed", **result)
+            finally:
+                _release_db_session(adb)
+        except Exception as exc:
+            _log_error("arkbank_timed_outbox_worker", error=str(exc))
+
         if _delivery_mode() != "rcon":
             continue
         db = _SessionLocal()
@@ -7816,6 +7841,18 @@ def player_purchase():
                 )
             except Exception as amber_exc:
                 log.warning("Âmbarômetro shop debit hook: %s", amber_exc)
+            try:
+                from arkbank_service import credit_catalog_spend
+
+                credit_catalog_spend(
+                    db,
+                    order_id=order.order_id,
+                    steam_id=str(steam_id),
+                    points=price,
+                    commit=True,
+                )
+            except Exception as ark_exc:
+                log.warning("ARKBANK catalog_spend hook: %s", ark_exc)
     except Exception as exc:
         db.rollback()
         purchase_db_error = str(exc)
@@ -7957,6 +7994,19 @@ def player_cancel_order(order_id: str):
                 )
             except Exception as amber_exc:
                 log.warning("Âmbarômetro order_cancel hook: %s", amber_exc)
+            try:
+                from arkbank_service import debit_catalog_refund_clawback
+
+                debit_catalog_refund_clawback(
+                    db,
+                    order_id=order_id,
+                    steam_id=steam_id,
+                    refunded=refund,
+                    event="cancel",
+                    commit=True,
+                )
+            except Exception as ark_exc:
+                log.warning("ARKBANK catalog_refund clawback hook: %s", ark_exc)
     except Exception as exc:
         db.rollback()
         _log_error("player_cancel_order", order_id=order_id, steam_id=steam_id, error=str(exc))
@@ -8162,6 +8212,19 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 )
             except Exception as lottery_exc:
                 log.warning("Sorteio donation hook: %s", lottery_exc)
+            try:
+                from arkbank_service import credit_donation_brl
+
+                credit_donation_brl(
+                    db,
+                    payment_id=payment.payment_id,
+                    steam_id=payment.steam_id,
+                    amount_brl=float(payment.amount_brl or 0),
+                    payment_method=pm,
+                    commit=False,
+                )
+            except Exception as ark_exc:
+                log.warning("ARKBANK donation_brl hook: %s", ark_exc)
         except Exception as exc:
             _audit_event(
                 "pix_credit_failed",
@@ -8193,6 +8256,18 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
             revoke_lottery_numbers_for_payment(db, payment_id=payment_id)
         except Exception as lottery_revoke_exc:
             log.warning("Sorteio revoke hook: %s", lottery_revoke_exc)
+        try:
+            from arkbank_service import debit_donation_clawback
+
+            debit_donation_clawback(
+                db,
+                payment_id=payment_id,
+                steam_id=str(payment.steam_id or ""),
+                amount_brl=float(payment.amount_brl or 0),
+                commit=False,
+            )
+        except Exception as ark_exc:
+            log.warning("ARKBANK donation clawback hook: %s", ark_exc)
 
 
 @app.route("/api/player/available", methods=["GET"])
@@ -9029,11 +9104,12 @@ def player_rebuy(order_id: str):
 _ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
 
 # Desistência do jogador: licenças irrevogáveis; demais itens só após 24h.
-# Pedidos PENDENTE (não licença) sem resgate ≥48h → cancelamento + reembolso automático (90%).
+# Pedidos PENDENTE (não licença) sem resgate ≥48h → cancelamento + reembolso automático (80%).
+# Retenção 20% — destino ARKBANK quando o ledger existir (docs/ARKBANK_SPEC.md §6.1).
 # Reembolso integral (100%) do catálogo: apenas via contestação + ticket + decisão admin.
 _ORDER_CANCEL_COOLDOWN_HOURS = 24
 _ORDER_AUTO_EXPIRE_HOURS = 48
-_ORDER_DESIST_REFUND_FACTOR = 0.90
+_ORDER_DESIST_REFUND_FACTOR = 0.80
 _CONTEST_REASON_MIN_LEN = 20
 
 
@@ -9192,6 +9268,19 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
                 )
             except Exception as amber_exc:
                 log.warning("Âmbarômetro order_auto_cancel hook: %s", amber_exc)
+            try:
+                from arkbank_service import debit_catalog_refund_clawback
+
+                debit_catalog_refund_clawback(
+                    db,
+                    order_id=order_id,
+                    steam_id=steam_id,
+                    refunded=refund,
+                    event="auto_cancel",
+                    commit=True,
+                )
+            except Exception as ark_exc:
+                log.warning("ARKBANK catalog_refund auto_cancel hook: %s", ark_exc)
 
         _audit_event(
             "order_auto_cancelled",
@@ -9204,7 +9293,7 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
             status_after="CANCELADO",
             message=(
                 f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate — "
-                f"reembolso de {refund} Âmbar (90% de {paid_amount}; retenção 10%)"
+                f"reembolso de {refund} Âmbar (80% de {paid_amount}; retenção 20%)"
                 if refund > 0
                 else f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate"
             ),
@@ -9273,7 +9362,7 @@ def _order_refund_amount(order: Order, db: Any | None = None) -> int:
 
 
 def _order_desist_refund_amount(order: Order, db: Any | None = None) -> int:
-    """Reembolso de desistência/auto-cancel do catálogo: 90% do valor pago (retenção 10%)."""
+    """Reembolso de desistência/auto-cancel do catálogo: 80% do valor pago (retenção 20%)."""
     paid = max(0, _order_refund_amount(order, db))
     return int(round(paid * _ORDER_DESIST_REFUND_FACTOR))
 
@@ -9545,6 +9634,20 @@ def admin_refund_order(order_id: str):
             )
         except Exception as amber_exc:
             log.warning("Âmbarômetro admin_refund hook: %s", amber_exc)
+        try:
+            from arkbank_service import debit_catalog_refund_clawback
+
+            # Reembolso admin 100% → zera o efeito do catalog_spend no banco.
+            debit_catalog_refund_clawback(
+                db,
+                order_id=order_id,
+                steam_id=steam_id,
+                refunded=refund,
+                event="admin_refund",
+                commit=True,
+            )
+        except Exception as ark_exc:
+            log.warning("ARKBANK admin_refund clawback hook: %s", ark_exc)
     except Exception as exc:
         db.rollback()
         _log_error("admin_refund_order", order_id=order_id, admin=admin_id, error=str(exc))
@@ -10708,6 +10811,104 @@ def _lottery_sync_license_permissions(steam_id: str, group: str, days: int) -> A
     return _sync_license_permissions_all_servers(
         str(steam_id), str(group), grant=True, days=int(days),
     )
+
+
+@app.route("/api/admin/arkbank", methods=["GET"])
+@admin_required
+def admin_arkbank_summary():
+    """Saldo, totais in/out e breakdown da tesouraria ARKBANK."""
+    if (err := _require_db()) is not None:
+        return err
+    days = request.args.get("days", 7, type=int) or 7
+    db = _SessionLocal()
+    try:
+        from arkbank_service import ensure_arkbank_schema, summary as arkbank_summary
+
+        ensure_arkbank_schema(db.get_bind())
+        data = arkbank_summary(db, days=days)
+        return jsonify({"ok": True, **data})
+    except Exception as exc:
+        _log_error("admin_arkbank_summary", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/admin/arkbank/transactions", methods=["GET"])
+@admin_required
+def admin_arkbank_transactions():
+    """Extrato recente do ARKBANK."""
+    if (err := _require_db()) is not None:
+        return err
+    limit = request.args.get("limit", 50, type=int) or 50
+    offset = request.args.get("offset", 0, type=int) or 0
+    tx_type = (request.args.get("tx_type") or "").strip() or None
+    db = _SessionLocal()
+    try:
+        from arkbank_service import ensure_arkbank_schema, get_balance, list_transactions
+
+        ensure_arkbank_schema(db.get_bind())
+        txs = list_transactions(db, limit=limit, offset=offset, tx_type=tx_type)
+        return jsonify({
+            "ok": True,
+            "balance": get_balance(db),
+            "transactions": txs,
+            "limit": limit,
+            "offset": offset,
+        })
+    except Exception as exc:
+        _log_error("admin_arkbank_transactions", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/admin/arkbank/adjust", methods=["POST"])
+@admin_required
+def admin_arkbank_adjust():
+    """Top-up / correção manual com motivo obrigatório."""
+    if (err := _require_db()) is not None:
+        return err
+    admin_id = str(_steam_id_from_session())
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        amount = int(body.get("amount") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "amount inválido"}), 400
+    reason = str(body.get("reason") or "").strip()
+    if not reason:
+        return jsonify({"ok": False, "error": "Motivo obrigatório"}), 400
+    if amount == 0:
+        return jsonify({"ok": False, "error": "amount não pode ser zero"}), 400
+    db = _SessionLocal()
+    try:
+        from arkbank_service import admin_adjust, ensure_arkbank_schema
+
+        ensure_arkbank_schema(db.get_bind())
+        result = admin_adjust(
+            db,
+            amount=amount,
+            admin_steam_id=admin_id,
+            reason=reason,
+            commit=True,
+        )
+        _audit_event(
+            "arkbank_admin_adjust",
+            actor_type="admin",
+            actor_steam_id=admin_id,
+            amount=amount,
+            message=reason[:200],
+            balance_after=result.get("balance_after"),
+        )
+        return jsonify({"ok": True, **{k: v for k, v in result.items() if k != "metadata"}})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        db.rollback()
+        _log_error("admin_arkbank_adjust", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
 
 
 configure_lottery(

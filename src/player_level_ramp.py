@@ -32,6 +32,11 @@ _RAMP_STRIP_RE = re.compile(
 XP_CURVE_VANILLA = "vanilla"
 XP_CURVE_CUSTOM = "custom"
 
+# Curva geométrica custom — mult alto (ex. 1.15) torna pós-100 impraticável.
+DEFAULT_CUSTOM_XP_BASE = 70
+DEFAULT_CUSTOM_XP_MULT = 1.05
+DEFAULT_CUSTOM_XP_FORMULA = "base * (mult ** i)"
+
 
 def is_player_level_progressions_enabled(cfg: object | None) -> bool:
     """Espelha ASM EnableLevelProgressions — rampa/engrams no Game.ini só quando True."""
@@ -64,7 +69,7 @@ def infer_xp_curve_from_ramp(values: list[int]) -> dict[str, Any]:
     if all(_slot_matches_vanilla(i, values[i]) for i in range(sample)):
         return {"mode": XP_CURVE_VANILLA}
     xp_base = max(1, int(values[0]))
-    xp_mult = 1.15
+    xp_mult = DEFAULT_CUSTOM_XP_MULT
     if len(values) > 1 and values[0] > 0:
         xp_mult = float(values[1]) / float(values[0])
     xp_mult = max(1.01, min(xp_mult, 3.0))
@@ -185,10 +190,12 @@ def detect_and_apply_legacy_curve(cfg: object) -> bool:
         _apply_curve_params_to_cfg(
             cfg,
             {
-                "xp_base": _read_cfg_int(cfg, "player_xp_curve_base", 70),
-                "xp_mult": _read_cfg_float(cfg, "player_xp_curve_mult", 1.15),
+                "xp_base": _read_cfg_int(cfg, "player_xp_curve_base", DEFAULT_CUSTOM_XP_BASE),
+                "xp_mult": _read_cfg_float(
+                    cfg, "player_xp_curve_mult", DEFAULT_CUSTOM_XP_MULT
+                ),
                 "formula": _read_cfg_str(
-                    cfg, "player_xp_curve_formula", "base * (mult ** i)"
+                    cfg, "player_xp_curve_formula", DEFAULT_CUSTOM_XP_FORMULA
                 ),
             },
         )
@@ -203,10 +210,14 @@ def detect_and_apply_legacy_curve(cfg: object) -> bool:
             _apply_curve_params_to_cfg(
                 cfg,
                 {
-                    "xp_base": _read_cfg_int(cfg, "player_xp_curve_base", 70),
-                    "xp_mult": _read_cfg_float(cfg, "player_xp_curve_mult", 1.15),
+                    "xp_base": _read_cfg_int(
+                        cfg, "player_xp_curve_base", DEFAULT_CUSTOM_XP_BASE
+                    ),
+                    "xp_mult": _read_cfg_float(
+                        cfg, "player_xp_curve_mult", DEFAULT_CUSTOM_XP_MULT
+                    ),
                     "formula": _read_cfg_str(
-                        cfg, "player_xp_curve_formula", "base * (mult ** i)"
+                        cfg, "player_xp_curve_formula", DEFAULT_CUSTOM_XP_FORMULA
                     ),
                 },
             )
@@ -266,9 +277,9 @@ def build_ramp_values(
     base_level: int,
     *,
     mode: str = XP_CURVE_VANILLA,
-    xp_base: int = 70,
-    xp_mult: float = 1.15,
-    formula: str = "base * (mult ** i)",
+    xp_base: int = DEFAULT_CUSTOM_XP_BASE,
+    xp_mult: float = DEFAULT_CUSTOM_XP_MULT,
+    formula: str = DEFAULT_CUSTOM_XP_FORMULA,
 ) -> list[int]:
     """Gera valores de XP por slot: base_level farmáveis + 75 ascensão."""
     count = total_ramp_slots(base_level)
@@ -279,7 +290,7 @@ def build_ramp_values(
             try:
                 xp = int(
                     eval(
-                        (formula or "base * (mult ** i)").strip(),
+                        (formula or DEFAULT_CUSTOM_XP_FORMULA).strip(),
                         {"__builtins__": {}},
                         {"i": i, "base": int(xp_base), "mult": float(xp_mult)},
                     )
@@ -457,16 +468,18 @@ def _curve_params_from_cfg(cfg: object | None) -> dict[str, Any]:
     if cfg is None:
         return {
             "mode": XP_CURVE_VANILLA,
-            "xp_base": 70,
-            "xp_mult": 1.15,
-            "formula": "base * (mult ** i)",
+            "xp_base": DEFAULT_CUSTOM_XP_BASE,
+            "xp_mult": DEFAULT_CUSTOM_XP_MULT,
+            "formula": DEFAULT_CUSTOM_XP_FORMULA,
         }
     mode = resolve_xp_curve_mode(cfg)
     return {
         "mode": mode,
-        "xp_base": _read_cfg_int(cfg, "player_xp_curve_base", 70),
-        "xp_mult": _read_cfg_float(cfg, "player_xp_curve_mult", 1.15),
-        "formula": _read_cfg_str(cfg, "player_xp_curve_formula", "base * (mult ** i)"),
+        "xp_base": _read_cfg_int(cfg, "player_xp_curve_base", DEFAULT_CUSTOM_XP_BASE),
+        "xp_mult": _read_cfg_float(cfg, "player_xp_curve_mult", DEFAULT_CUSTOM_XP_MULT),
+        "formula": _read_cfg_str(
+            cfg, "player_xp_curve_formula", DEFAULT_CUSTOM_XP_FORMULA
+        ),
     }
 
 

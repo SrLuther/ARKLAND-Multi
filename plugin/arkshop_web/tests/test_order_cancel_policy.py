@@ -250,10 +250,10 @@ class TestPlayerCancelPolicy:
         assert r.status_code == 200
         d = r.get_json()
         assert d["ok"] is True
-        assert d["refunded"] == 90
+        assert d["refunded"] == 80
         assert d["paid_amount"] == 100
-        assert d["refund_factor"] == 0.9
-        assert d["new_balance"] == 140
+        assert d["refund_factor"] == 0.8
+        assert d["new_balance"] == 130
         assert _order_status(oid) == "CANCELADO"
 
     def test_available_flags_can_cancel(self, client, monkeypatch, tmp_path):
@@ -320,9 +320,9 @@ class TestAutoCancel48h:
         assert first["processed"] == 1
         assert first["skipped_license"] >= 1
         assert first["cancelled"][0]["order_id"] == oid
-        assert first["cancelled"][0]["refunded"] == 180
+        assert first["cancelled"][0]["refunded"] == 160
         assert second["processed"] == 0
         assert _order_status(oid) == "CANCELADO"
         assert _order_status(lic) == "PENDENTE"
         assert _order_status(young) == "PENDENTE"
-        assert _player_points(USER_STEAM) == 190
+        assert _player_points(USER_STEAM) == 170

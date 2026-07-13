@@ -8,11 +8,65 @@
 #include "ShopEntitlements.h"
 
 #include <Timer.h>
+#include <chrono>
 #include <sstream>
 
 namespace {
 
 bool g_timer_scheduled = false;
+
+std::string TimedMapId() {
+    const auto& settings = CustomShop::ShopConfig::Get().Settings();
+    std::string id = settings.value("ServerId", "");
+    if (!id.empty() && id != "CHANGE_ME" && id != "default")
+        return id;
+    try {
+        auto* gm = ArkApi::GetApiUtils().GetShooterGameMode();
+        if (gm) {
+            FString map_name;
+            gm->GetMapName(&map_name);
+            if (!map_name.IsEmpty())
+                return map_name.ToString();
+        }
+    } catch (...) {
+    }
+    return "unknown";
+}
+
+void EnqueueArkbankTimedOutbox(const std::string& steam_id,
+                               int amount,
+                               const std::string& map_id,
+                               const std::string& cycle_key) {
+    if (amount <= 0 || steam_id.empty()) return;
+    MYSQL* db = CustomShop::ShopPoints::Get().GetDb();
+    if (!db) return;
+
+    auto escape = [&](const std::string& s) -> std::string {
+        char buf[512];
+        unsigned long len = mysql_real_escape_string(
+            db, buf, s.c_str(),
+            static_cast<unsigned long>(
+                s.size() < sizeof(buf) - 1 ? s.size() : sizeof(buf) - 1));
+        return std::string("'") + std::string(buf, len) + "'";
+    };
+
+    // Tabela criada pelo Flask (ensure_arkbank_schema). INSERT ignora falha
+    // se ainda não existir — TimedPoints nunca é bloqueado pelo ARKBANK.
+    const std::string sql =
+        "INSERT IGNORE INTO arkbank_timed_outbox "
+        "(created_at, steam_id, amount, map_id, cycle_key, processed_at) VALUES ("
+        "UTC_TIMESTAMP(3),"
+        + escape(steam_id) + ","
+        + std::to_string(amount) + ","
+        + escape(map_id.substr(0, 64)) + ","
+        + escape(cycle_key.substr(0, 64)) + ","
+        "NULL)";
+
+    if (mysql_query(db, sql.c_str()) != 0) {
+        Log::GetLog()->debug(
+            "TimedPoints ARKBANK outbox skip: {}", mysql_error(db));
+    }
+}
 
 void NotifyTimedReward(AShooterPlayerController* controller,
                        int awarded,
@@ -143,6 +197,11 @@ void Tick() {
         return;
     }
 
+    const auto cycle_epoch = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    const std::string map_id = TimedMapId();
+    const std::string cycle_key = std::to_string(cycle_epoch);
+
     auto* world = ArkApi::GetApiUtils().GetWorld();
     if (!world) return;
 
@@ -190,6 +249,7 @@ void Tick() {
             const int balance =
                 CustomShop::ShopPoints::Get().GetPoints(sid);
             NotifyTimedReward(sc, award, balance);
+            EnqueueArkbankTimedOutbox(sid, award, map_id, cycle_key);
             ++awarded;
             Log::GetLog()->info(
                 "TimedPoints: {} +{} pts (balance={})", sid, award, balance);

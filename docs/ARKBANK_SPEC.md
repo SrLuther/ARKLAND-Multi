@@ -3,13 +3,14 @@
 
 | Campo | Valor |
 | ----- | ----- |
-| **Status** | 📋 Planejamento — **sem implementação de lógica/rotas/migrações** |
-| **Versão do documento** | 0.1 |
+| **Status** | MVP implementado (ledger + hooks + aba admin) — polish Fase 2 |
+| **Versão do documento** | 0.4 |
 | **Data** | 13 de julho de 2026 |
 | **Escopo** | Visão de produto, modelo econômico, mapeamento de código, dados, UI, edge cases, redesign do sorteio, fases e perguntas abertas |
-| **Fora de escopo (este doc)** | Código de produção, DDL definitivo em migração, APIs finais, UI implementada |
+| **Fora de escopo (este doc)** | Soft transparency pública; patrocínio sorteio opção B; instrumentação catálogo in-game |
 | **Moeda** | Âmbar (`players.points`) |
 | **Fuso canônico** | America/Sao_Paulo (UTC−3) |
+| **Changelog do doc** | **0.4** — MVP: arkbank_service, hooks web, casal→ARKBANK (opção A), outbox TimedPoints, aba admin; **0.3** — retenção catálogo **20**/reembolso **80**; **0.2** — doação R$ 1 = 1.000 Âmbar |
 
 > **Ver também:** [`ECONOMIA_ARKLAND.md`](./ECONOMIA_ARKLAND.md), [`PROJETO_ECONOMIA_IDEAL.md`](./PROJETO_ECONOMIA_IDEAL.md), [`SORTEIO_DOACOES_SPEC.md`](./SORTEIO_DOACOES_SPEC.md), [`ENCOMENDA_DINO_SPEC.md`](./ENCOMENDA_DINO_SPEC.md), [`ambarmeter_spec.md`](./ambarmeter_spec.md), [`TRIBO_REPARTICAO_MERCADO.md`](./TRIBO_REPARTICAO_MERCADO.md).
 
@@ -17,18 +18,19 @@
 
 ## Sumário executivo
 
-O **ARKBANK** é a **tesouraria simbólica do cluster**: um saldo único (pode ser **negativo**) que recebe o Âmbar que hoje “some” em sumidouros administrados — catálogo, fatia de casal do mercado e encomendas — e **financia automaticamente** os ganhos por tempo online (`TimedPointsReward` + bônus de licença).
+O **ARKBANK** é a **tesouraria simbólica do cluster**: um saldo único (pode ser **negativo**) que recebe o Âmbar que hoje “some” em sumidouros administrados — catálogo, fatia de casal do mercado e encomendas — **e também** uma fatia simbólica das **doações PIX/cartão confirmadas**, e **financia automaticamente** os ganhos por tempo online (`TimedPointsReward` + bônus de licença).
 
 | Pergunta | Resposta (intenção de produto) |
 | -------- | ------------------------------ |
 | **O que é?** | Ledger + saldo da “casa” do ARKLAND — não é carteira de jogador |
-| **Para que serve?** | Tornar transparente a saúde da economia; ligar gastos da loja à emissão por tempo |
-| **Entra (inflow)** | 100% do gasto no catálogo; 40% da venda em casal (hoje `prize_amber_from_market`); 100% do pagamento de encomenda de dino |
+| **Para que serve?** | Tornar transparente a saúde da economia; ligar gastos da loja **e doações** à emissão por tempo |
+| **Entra (inflow)** | 100% do gasto no catálogo; na desistência/auto-cancel, **retenção 20%** permanece no banco (clawback 80%); 40% da venda em casal; 100% do pagamento de encomenda; **doação confirmada: R$ 1,00 → +1.000 Âmbar** |
 | **Sai (outflow)** | Todo Âmbar creditado por tick de TimedPoints (base + licenças), **sem teto** |
 | **Pode ficar negativo?** | **Sim** — outflows nunca são bloqueados por saldo do banco |
-| **O que muda no sorteio?** | A fatia 40% do casal **deixa de alimentar** o pote; o sorteio precisa de novo funding (opções §7) |
+| **O que muda no sorteio?** | A fatia 40% do casal **deixa de alimentar** o pote; o sorteio precisa de novo funding (opções §7). **Doações continuam** a alimentar o pote como hoje (`prize_amber_from_donations`) |
+| **O que muda na doação?** | **Nada** no pacote do jogador (Âmbares, números, VIPDoacao, etc.) — só há **crédito adicional paralelo** no ARKBANK |
 
-**Tagline interna:** *“O que a loja recolhe, o tempo devolve — a tesouraria mostra o pulso do cluster.”*
+**Tagline interna:** *“O que a loja e a doação recolhem, o tempo devolve — a tesouraria mostra o pulso do cluster.”*
 
 **Princípio inegociável v1:** o jogador **sempre** recebe o TimedPoints configurado; o ARKBANK **nunca** é um soft-cap disfarçado.
 
@@ -44,11 +46,12 @@ O ARKBANK muda a história:
 
 - O cluster passa a ter um **cofre coletivo visível** (mesmo que só para staff no MVP).
 - Gastos na loja e na encomenda **sustentam** a emissão por tempo: jogar gera Âmbar porque a economia realimenta a tesouraria.
+- **Doações confirmadas** (PIX ou cartão) também **injetam Âmbar na tesouraria** — além dos benefícios que o doador já recebe hoje. Esse Âmbar “da casa” **volta depois** como TimedPoints (ganhos por tempo) para quem está online.
 - Saldo negativo não é “falência do servidor” — é um **sinal de saúde**: a emissão por tempo está a superar os sumidouros (ou vice-versa). Narrativa: *“a casa está a investir em quem joga”* vs *“a casa está a acumular”*.
 
 Mensagem curta para UI futura (soft transparency):
 
-> **Tesouraria ARKLAND** — Âmbar que circula pela loja e pelas encomendas volta como recompensa por tempo online.
+> **Tesouraria ARKLAND** — Âmbar da loja, das encomendas e das doações volta como recompensa por tempo online.
 
 ### 1.2 Para admins / operação
 
@@ -69,15 +72,18 @@ Não substitui o Âmbarômetro (`amber_ledger` / gross turnover): o Âmbarômetr
 ┌──────────────────────────────────────────────────────────────────┐
 │                     JOGADORES (carteiras)                         │
 │   TimedPoints ──► +Âmbar     Catálogo / Encomenda / Casal ──► −Âmbar │
+│   Doação PIX/cartão ──► +Âmbar (pacote do doador; modelo atual)   │
 └──────────────▲─────────────────────────────┬─────────────────────┘
                │ outflow                     │ inflow (destinos “casa”)
-               │ (sempre honrado)            │
+               │ (sempre honrado)            │  + doação → +1.000 Âmbar/R$
 ┌──────────────┴─────────────────────────────▼─────────────────────┐
 │                         ARKBANK (tesouraria)                       │
 │   balance ∈ ℤ  (pode ser < 0)                                      │
 │   ledger append-only · audit admin · painéis                       │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+Narrativa da doação: o real doado **já** compra benefícios ao jogador (pacote de Âmbares, números do sorteio, etc.). Em paralelo, a tesouraria recebe **1.000 Âmbar por real** — stock simbólico que o TimedPoints devolverá ao cluster ao longo do tempo.
 
 ---
 
@@ -102,6 +108,7 @@ B_{t+1} = B_t + I − O
 | `catalog_spend` | Compra no catálogo (web e, idealmente, in-game `/shop`) | \(+\text{price}\) integral |
 | `market_pair_share` | Venda em casal concluída (checkout) | \(+\texttt{pair_prize_contribution}(P1,P2)\) = \(round(0{,}40 \times S)\) |
 | `dino_order_pay` | Checkout de encomenda | \(+\text{total}\) integral |
+| `donation_brl` | Doação PIX/cartão **confirmada** (`PointPayment` → `APROVADO` + `credited`) | \(+\texttt{round}(\text{amount\_brl} \times 1000)\) — **R$ 1,00 = 1.000 Âmbar** |
 
 **Outflows (v1 — intenção):**
 
@@ -113,8 +120,9 @@ B_{t+1} = B_t + I − O
 
 | Código | Quando |
 | ------ | ------ |
-| `catalog_refund_clawback` | Desistência/cancelamento catálogo — ARKBANK devolve proporcional ao que o jogador recupera? (ver §6 e §9) |
+| `catalog_refund_clawback` | Desistência/auto-cancel catálogo — clawback **80%** do `catalog_spend` (retenção **20%** fica no ARKBANK; ver §6.1) |
 | `dino_order_refund_clawback` | Rejeição/cancelamento de encomenda com reembolso integral |
+| `donation_brl_clawback` | Estorno/chargeback MP (`ESTORNADO`) após crédito ARKBANK — ver §6.10 |
 | `market_pair_no_clawback` | Desistência de claim de casal — **hoje o pote não estorna**; proposta: ARKBANK também **não estorna** o 40% (alinhar ao comportamento atual do sorteio) |
 | `admin_adjust` | Top-up / correção manual com trilha de auditoria |
 
@@ -167,10 +175,38 @@ Para evitar ambiguidade com o Âmbarômetro e com P2P puro:
 | Compra de números do sorteio | Não (v1) | Continua a alimentar o pote / ledger lottery |
 | Prêmio do sorteio pago ao vencedor | Não como inflow; outflow do *pote*, não do ARKBANK (salvo opção B §7) |
 | Enquetes (`record_poll_reward`) | Não (v1) | Emissão promocional separada |
-| Doação PIX → pontos do jogador | Não (v1) | Monetização → carteira do doador |
+| Âmbares do **pacote** creditados ao doador (`payment.points`) | Não como inflow ARKBANK | Monetização → carteira do doador (inalterado) |
+| Contribuição doação → pote (`prize_amber_from_donations`, R$ 1 = +100 Âmbar) | Não | Continua no sorteio; **paralelo** ao `donation_brl` do banco |
 | Admin `Shop.AddPoints` / adjust | Não automático | Só via `admin_adjust` explícito no ARKBANK |
 
----
+### 2.6 Doação confirmada → ARKBANK (aprovado)
+
+**Conversão canónica (v1):**
+
+```
+arkbank_credit = round(amount_brl × 1000)   # R$ 1,00 doado = 1.000 Âmbar
+```
+
+Base: `PointPayment.amount_brl` no momento em que o pagamento fica **APROVADO** e `credited=True` — **não** usar `payment.points` (pacote do jogador tem bônus e não é linear com o real).
+
+**O que *não* muda** (modelo de doação atual intacto):
+
+| Benefício atual | Continua? |
+| --------------- | --------- |
+| Crédito de Âmbares do pacote ao jogador (`_add_player_points_tx` / `payment.points`) | Sim |
+| Âmbarômetro `record_donation(..., points=payment.points)` | Sim |
+| Sorteio `on_donation_credited` — números (R$ 5 = 1) + pote (R$ 1 = +100 Âmbar) | Sim |
+| Qualquer VIPDoacao / perks / UI de pacotes | Sim |
+
+**Exemplo (pacote R$ 5 → 10.000 Âmbares ao jogador):**
+
+| Destino | Valor |
+| ------- | ----- |
+| Carteira do doador | +10.000 Âmbar (pacote) |
+| Pote do sorteio (se campanha ativa) | +500 Âmbar (`5 × 100`) |
+| **ARKBANK** | **+5.000 Âmbar** (`5 × 1000`) |
+
+Três destinos **independentes**; o crédito ao banco **não** reduz o pacote nem o pote.
 
 ## 3. Pontos de entrada mapeados ao código existente
 
@@ -189,11 +225,14 @@ Para evitar ambiguidade com o Âmbarômetro e com P2P puro:
 | Camada | Arquivo / função | O que acontece hoje |
 | ------ | ---------------- | ------------------- |
 | Web Store compra | `plugin/arkshop_web/app.py` — fluxo de criação de pedido (~`_create_order` / purchase path ~7744+) | Debita jogador; `record_shop_debit(...)` |
-| Desistência 90% | `app.py` — `_ORDER_DESIST_REFUND_FACTOR = 0.90`, `_order_desist_refund_amount`, cancel paths ~7928 / ~9169 | Credita 90% ao jogador; `record_shop_refund` |
-| Auto-cancel 48h | `app.py` ~9032+ | Mesma política 90% |
+| Desistência **80%** | `app.py` — `_ORDER_DESIST_REFUND_FACTOR = 0.80`, `_order_desist_refund_amount`, cancel paths ~7928 / ~9169 | Credita **80%** ao jogador; `record_shop_refund`; retenção **20%** |
+| Auto-cancel 48h | `app.py` ~9032+ / `expire_stale_pending_orders` | Mesma política **80%** |
 | In-game `/shop` | `plugin/CustomShop/src/` (`ShopStore.cpp`, `ShopPoints.cpp`) | Debita `players.points` **sem** passar pelo Flask; **lacuna** para ARKBANK se só instrumentarmos a web |
+| Regulamento | `docs/REGULAMENTO_SERVIDOR.md` §8.4.2; `static/regulamento_v1_3.html`; copy em `index.html` | Norma jogador |
 
-**Hook proposto (web):** imediatamente após débito bem-sucedido e `record_shop_debit`, chamar `arkbank.credit(catalog_spend, amount=points_spent, steam_id=..., ref_id=order_id)`.
+**Hook proposto (web — compra):** imediatamente após débito bem-sucedido e `record_shop_debit`, chamar `arkbank.credit(catalog_spend, amount=points_spent, ...)`.
+
+**Hook proposto (web — desistência/auto-cancel):** após crédito 80% ao jogador, `arkbank.debit(catalog_refund_clawback, amount=refunded)` — restam **20%** de \(P\) no banco. **Ledger ARKBANK ainda não existe** — a taxa 20% já está em produção no reembolso ao jogador; o crédito/clawback no banco fica para a Fase 1.
 
 **Hook proposto (in-game):** endpoint ou fila (RCON/HTTP bridge) notificando gasto de catálogo — **fase 2**, se o volume in-game for material; MVP pode documentar “só web” se a maioria das compras premium for web.
 
@@ -259,7 +298,47 @@ Renomear semanticamente `PAIR_PRIZE_FACTOR` → `PAIR_BANK_FACTOR` (ou manter o 
 | `lottery_service.py` | Campanhas, compra de números, doação→prêmio, draw, rollover |
 | `lottery_routes.py` | APIs |
 | `prize_amber_from_market` | Coluna fica **congelada** ou só histórica após cutover; novas vendas não incrementam |
-| `docs/SORTEIO_DOACOES_SPEC.md` | Atualizar na fase de implementação (addendum) |
+| `on_donation_credited` | **Mantém-se** — pote e números **não** são substituídos pelo ARKBANK |
+| `docs/SORTEIO_DOACOES_SPEC.md` | Atualizar na fase de implementação (addendum); notar inflow paralelo ao banco |
+
+### 3.7 Doação PIX / cartão confirmada → ARKBANK
+
+Ponto único de confirmação de pagamento (PIX **e** cartão): `_finalize_pix_payment` em `plugin/arkshop_web/app.py` (~8071). Apesar do nome, serve ambos os métodos (`payment_method` ∈ `{pix, card}`).
+
+| Camada | Arquivo / função | Hoje |
+| ------ | ---------------- | ---- |
+| Pacotes BRL→Âmbar (jogador) | `app.py` — `_DEFAULT_POINT_PACKAGES` (~388+) | Ex.: R$ 5 → 10.000 pts; R$ 75 → 170.000 — **inalterado** |
+| Checkout PIX | `POST /api/player/pix/checkout` → `create_pix_payment` | Cria `PointPayment` PENDENTE |
+| Checkout cartão | checkout card (~8515+) | Idem; `payment_method=card` |
+| **Confirmação (webhook)** | `POST /api/payments/webhook` (~8655) → `fetch_payment` → **`_finalize_pix_payment(..., source="webhook")`** | Caminho principal em produção |
+| **Confirmação (poll)** | `GET /api/player/pix/<payment_id>/status` (~8539) → poll MP / retry → **`_finalize_pix_payment`** | Fallback UI enquanto o modal está aberto |
+| Crédito ao jogador | Dentro de `_finalize_pix_payment` quando `mapped == "APROVADO"` e `not credited` | `_add_player_points_tx(db, steam_id, payment.points)` |
+| Âmbarômetro | `amber_ledger.record_donation(payment_id, steam_id, points=payment.points)` | Volume bruto do pacote |
+| Sorteio | `lottery_service.on_donation_credited(..., amount_brl=payment.amount_brl)` | Pote R$ 1 = +100; números R$ 5 = 1 |
+| Estorno | `mapped == "ESTORNADO"` → `revoke_lottery_numbers_for_payment` | Números revogados; **hoje não** debita automaticamente o pacote do jogador |
+
+**Hook proposto (único, idempotente):** no mesmo bloco em que `credited` passa a `True` (após `_add_player_points_tx` bem-sucedido), **além** de `record_donation` e `on_donation_credited`:
+
+```
+# conceptual — não implementar neste entregável
+arkbank.credit(
+    donation_brl,
+    amount=round(payment.amount_brl * 1000),
+    steam_id=payment.steam_id,
+    ref_id=payment.payment_id,
+    idempotency_key=f"arkbank:donation:{payment.payment_id}",
+    metadata={"amount_brl": payment.amount_brl, "payment_method": pm},
+)
+```
+
+**Não** instrumentar checkout (PENDENTE) — só o momento de **aprovação creditada**. Webhook e poll já convergem em `_finalize_pix_payment`; um único hook cobre os dois.
+
+**Constante sugerida (espelho do padrão do sorteio):**
+
+```
+# lottery_service: DONATION_AMBER_PER_REAL = 100   # pote
+ARKBANK_DONATION_AMBER_PER_REAL = 1000            # tesouraria
+```
 
 ---
 
@@ -345,6 +424,8 @@ Toda mutação manual **obrigatoriamente** gera linha em `arkbank_transactions` 
 | Casal | `arkbank:pair:{tx_id}` ou `arkbank:pair:{listing_id}:{sold_at}` |
 | Encomenda | `arkbank:dino_order:{order_id}` |
 | Encomenda refund | `arkbank:dino_order_refund:{order_id}` |
+| Doação confirmada | `arkbank:donation:{payment_id}` |
+| Doação estorno | `arkbank:donation_clawback:{payment_id}` |
 | Timed | `arkbank:timed:{map_id}:{steam_id}:{cycle_key}` |
 
 ---
@@ -359,7 +440,7 @@ Local sugerido: área Admin da Web Store (junto a Comércio / Sorteios / Âmbar�
 
 1. **Hero do saldo** — número grande `B`, badge “saudável / deficitário”, Δ 24h / 7d.
 2. **Gráfico in/out** — série temporal diária: barras inflow vs outflow (ou área empilhada por `tx_type`).
-3. **Breakdown** — pizza/tabela: catálogo / casal / encomenda / timed / admin / refunds.
+3. **Breakdown** — pizza/tabela: catálogo / casal / encomenda / **doação** / timed / admin / refunds.
 4. **Transações recentes** — tabela com tipo, valor, steam (link Minha Área/admin player), ref, mapa, data.
 5. **Ações** — Top-up / correção com motivo obrigatório (modal + confirmação).
 6. **Saúde vs sorteio** — card secundário: “pote ativo atual” vs “contribuição casal desviada (acumulado desde cutover)” para calibrar §7.
@@ -401,19 +482,23 @@ Não fundir os widgets; podem viver lado a lado na home admin.
 
 ## 6. Edge cases
 
-### 6.1 Reembolsos — catálogo 90%
+### 6.1 Reembolsos — catálogo 80% (retenção 20% → ARKBANK) — **aprovado**
 
-Hoje: jogador recebe \(0{,}90 \times P\); casa “retém” \(0{,}10 \times P\) economicamente (hoje esse 10% também “desaparece”).
+**Produção (já em vigor no código / regulamento):** jogador recebe \(0{,}80 \times P\); retenção \(0{,}20 \times P\).
 
-**Opções para ARKBANK:**
+Constante: `_ORDER_DESIST_REFUND_FACTOR = 0.80` em `app.py` (desistência manual e auto-cancel 48h).
 
-| Política | Efeito no banco | Notas |
-| -------- | --------------- | ----- |
-| **R1 — Clawback 90%** | Na compra \(+P\); na desistência \(-0{,}9P\); restam \(+0{,}1P\) | Alinha retenção à tesouraria |
-| **R2 — Clawback 100%** | Compra \(+P\); desistência \(-P\) | Simples; perde narrativa da retenção |
-| **R3 — Sem clawback** | Compra \(+P\); refund só na carteira | Banco fica artificialmente alto |
+**Política ARKBANK (R1 — aprovada):**
 
-**Recomendação:** **R1**.
+| Momento | Movimento ARKBANK |
+| ------- | ----------------- |
+| Compra | `catalog_spend` \(+P\) |
+| Desistência / auto-cancel | `catalog_refund_clawback` \(-0{,}80P\) |
+| Resultado líquido | \(+0{,}20P\) permanece na tesouraria |
+
+Contestação com reembolso admin **100%:** clawback adicional dos 20% restantes (zerar o efeito da compra no banco), quando o ledger existir.
+
+**Nota de faseamento:** até existir `arkbank_service`, a retenção 20% já é aplicada na carteira do jogador; o destino “tesouraria” é contabilizado só na Fase 1.
 
 ### 6.2 Reembolsos — casal 60% do Y (claim)
 
@@ -466,7 +551,13 @@ Se MVP só instrumentar web: documentar gap e métrica “% catálogo web vs plu
 
 ### 6.9 Licenças e kits no catálogo
 
-São `catalog_spend` como qualquer item — **entram** no ARKBANK. TimedPoints bonus da licença **sai** do ARKBANK depois — loop virtuoso/intencional: quem compra licença alimenta o banco que depois paga o bônus.
+São `catalog_spend` como qualquer item — **entram** no ARKBANK. TimedPoints bonus da licença **sai** do ARKBANK depois — loop virtuoso/intencional: quem compra licença alimenta o banco que depois paga o bônus. Licenças **não** têm desistência (irrevogáveis) — sem clawback de retenção.
+
+### 6.10 Doação estornada / chargeback (`ESTORNADO`)
+
+Hoje (`_finalize_pix_payment`): em `ESTORNADO` só revoga números do sorteio (`revoke_lottery_numbers_for_payment`); **não** há débito automático dos Âmbares do pacote ao jogador.
+
+**Proposta ARKBANK:** se `donation_brl` já foi creditado, aplicar `donation_brl_clawback` com a mesma magnitude (`round(amount_brl × 1000)`), idempotente por `payment_id`. Clawback da carteira do jogador / pote do sorteio permanece política operacional existente (fora do escopo desta spec salvo nota).
 
 ---
 
@@ -530,23 +621,24 @@ Assim o ARKBANK cumpre a visão económica sem hipotecar o TimedPoints.
 ### Fase 0 — Spec & alinhamento (este documento)
 
 - [x] Spec de planejamento
-- [ ] Respostas às perguntas abertas (§9)
-- [ ] Decisão sorteio A/B/C
-- [ ] Decisão refund R1/R2/R3
-- [ ] Decisão TimedPoints outbox A/B/C
+- [x] Inflow doação PIX/cartão (R$ 1 = 1.000 Âmbar) — aprovado
+- [x] Retenção catálogo 20% / reembolso 80% (R1) — aprovado; fator em código; ledger ARKBANK ligado
+- [ ] Respostas restantes às perguntas abertas (§9)
+- [x] Decisão sorteio A (cutover) + caminho B com teto depois
+- [x] Decisão TimedPoints outbox B (MySQL)
 
 ### Fase 1 — MVP (só backend + admin mínimo)
 
-1. Tabelas `arkbank_state` + `arkbank_transactions` (+ outbox se B).
-2. Serviço `arkbank_service.py` (credit/debit idempotente).
-3. Hooks: catálogo web, casal (`purchase_listing`), encomenda (`checkout` / `reject_order`).
-4. Desligar crédito a `prize_amber_from_market` (feature flag).
-5. Consumidor TimedPoints (outbox → debit).
-6. Admin API: GET saldo, GET txs, POST adjust.
-7. Testes espelhando `test_market_pair.py` / dino_order / shop debit.
-8. Cutover M0 (saldo zero).
+1. Tabelas `arkbank_state` + `arkbank_transactions` (+ outbox se B). ✅
+2. Serviço `arkbank_service.py` (credit/debit idempotente). ✅
+3. Hooks: catálogo web (compra + clawback 80% na desistência), casal (`purchase_listing`), encomenda (`checkout` / `reject_order`), **doação** (`_finalize_pix_payment` → `donation_brl`). ✅
+4. Desligar crédito a `prize_amber_from_market` (feature flag). ✅ cutover seco → ARKBANK
+5. Consumidor TimedPoints (outbox → debit). ✅ plugin INSERT + worker Flask
+6. Admin API: GET saldo, GET txs, POST adjust. ✅ + aba **ARKBANK** admin-only
+7. Testes espelhando `test_market_pair.py` / dino_order / shop debit / finalize PIX. ✅
+8. Cutover M0 (saldo zero). ✅
 
-**Critério de pronto:** TimedPoints nunca falha por saldo; idempotência verde; casal deixa de incrementar pote.
+**Critério de pronto:** TimedPoints nunca falha por saldo; idempotência verde; casal deixa de incrementar pote; doação confirmada credita banco sem alterar pacote do jogador.
 
 ### Fase 2 — Observabilidade
 
@@ -572,7 +664,7 @@ Assim o ARKBANK cumpre a visão económica sem hipotecar o TimedPoints.
 ## 9. Perguntas abertas (para o utilizador)
 
 1. **Âmbito do catálogo:** ARKBANK recebe só compras **Web Store**, ou também **`/shop` in-game** (CustomShop) na v1?
-2. **Refund catálogo:** confirmar política **R1** (clawback 90%, retenção 10% fica no banco)?
+2. ~~**Refund catálogo:**~~ **Decidido — R1 com 80%/20%** (retenção 20% fica no ARKBANK; fator `_ORDER_DESIST_REFUND_FACTOR = 0.80` já em código).
 3. **Casal / claim:** confirmar **sem estorno** do 40% no ARKBANK (igual ao pote hoje)?
 4. **Sorteio:** preferência **A** (autossuficiente), **B** (patrocínio ARKBANK com teto), **C** (top-up admin), ou híbrida?
 5. **TimedPoints → banco:** OK com **outbox MySQL (B)** e atraso de segundos, ou exigem tempo real (HTTP)?
@@ -583,6 +675,7 @@ Assim o ARKBANK cumpre a visão económica sem hipotecar o TimedPoints.
 10. **Feature flag / rollback:** durante quantos dias manter dual-write (pote + banco) para comparação, ou cutover seco?
 11. **Staff TimedPoints alto (Moderação):** algum teto especial no *débito ao banco* (não no crédito ao jogador), ou tratar igual?
 12. **Nome público:** “ARKBANK”, “Tesouraria ARKLAND”, ou outro?
+13. **Doação ESTORNADO:** clawback ARKBANK automático (§6.10) — confirmar? Clawback da carteira do jogador continua fora / caso a caso?
 
 ---
 
@@ -632,9 +725,10 @@ plugin/arkshop_web/
   amber_ledger.py              # Âmbarômetro (não confundir com ARKBANK)
   market_pair.py               # 0.40 / 0.60 / claim refund
   market_listings.py           # purchase_listing → contribute_market_pair_to_prize
-  lottery_service.py           # contribute_market_pair_to_prize, prize pool
+  lottery_service.py           # contribute_market_pair_to_prize, on_donation_credited, prize pool
   dino_order_service.py        # checkout / reject_order
-  app.py                       # catálogo web, desistência 90%, LICENSE_TIMED_BONUS
+  app.py                       # catálogo web, desistência 80%, _finalize_pix_payment (PIX/cartão)
+  pix_payments.py              # Mercado Pago create/fetch/map status
   poll_service.py              # fora do ARKBANK v1
 
 plugin/CustomShop/src/
@@ -647,6 +741,7 @@ docs/
   SORTEIO_DOACOES_SPEC.md
   ENCOMENDA_DINO_SPEC.md
   ambarmeter_spec.md
+  REGULAMENTO_SERVIDOR.md      # §8.4.2 desistência 80%/retenção 20%
   ARKBANK_SPEC.md              # este documento
 ```
 
@@ -658,11 +753,13 @@ docs/
 | ----- | ----------- |
 | \(S\) | Soma dos asking do casal \(P1+P2\) |
 | \(Y\) | Checkout casal \(round(0{,}60\times S)\) |
+| \(P\) | Valor pago no catálogo (`points_spent`) |
 | Pote | `prize_amber_total` da campanha de sorteio |
 | Tesouraria / ARKBANK | Saldo sistema \(B\) deste spec |
 | TimedPoints | Recompensa periódica online no CustomShop |
 | Clawback | Débito no ARKBANK que anula (parcial/total) um inflow após refund |
+| `donation_brl` | Inflow ARKBANK: \(round(\text{amount\_brl}\times 1000)\) por doação confirmada |
 
 ---
 
-*Fim do documento de planejamento ARKBANK v0.1 — Jul 2026. Nenhuma lógica de banco, rota ou migração foi implementada neste entregável.*
+*MVP ARKBANK v0.4 — Jul 2026: ledger + hooks web + aba admin. TimedPoints via outbox MySQL; sorteio opção A (casal → tesouraria).*

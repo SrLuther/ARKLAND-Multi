@@ -685,6 +685,18 @@ def checkout(
             "now": now,
         },
     )
+    try:
+        from arkbank_service import credit_dino_order_pay
+
+        credit_dino_order_pay(
+            db,
+            order_id=order_id,
+            steam_id=steam_id,
+            total=total,
+            commit=False,
+        )
+    except Exception as ark_exc:
+        log.warning("ARKBANK dino_order_pay hook: %s", ark_exc)
     return {
         "order_id": order_id,
         "status": status,
@@ -768,6 +780,19 @@ def reject_order(
             "pj": json.dumps(payload, ensure_ascii=False),
         },
     )
+    if refund > 0:
+        try:
+            from arkbank_service import debit_dino_order_refund
+
+            debit_dino_order_refund(
+                db,
+                order_id=order_id,
+                steam_id=steam_id,
+                refunded=refund,
+                commit=False,
+            )
+        except Exception as ark_exc:
+            log.warning("ARKBANK dino_order_refund hook: %s", ark_exc)
     return {
         "order_id": order_id,
         "status": "REJEITADO",

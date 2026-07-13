@@ -234,10 +234,14 @@ def test_pair_link_purchase_and_pot_credit():
         assert buyer_before - buyer_after == 120
         assert seller_after - seller_before == 120
 
+        # Cutover ARKBANK (opção A): 40% vai à tesouraria; pote de mercado congela.
         pot = db.execute(
             text("SELECT prize_amber_from_market FROM lottery_campaigns WHERE status='ACTIVE'")
         ).scalar()
-        assert int(pot or 0) == 80
+        assert int(pot or 0) == 0
+        from arkbank_service import get_balance
+
+        assert get_balance(db) == 80
 
         tx = db.execute(
             text("SELECT price_paid, fee_amount FROM market_transactions ORDER BY id DESC LIMIT 1")
@@ -282,9 +286,10 @@ def test_pair_claim_refund_is_sixty_percent_of_y():
     assert pair_claim_refund(0) == 0
 
 
-def test_pair_claim_expiry_refunds_60pct_y_pot_unchanged():
-    """Casal: comprador +0,60×Y; vendedor −Y; pote mantém 0,40×S da compra."""
+def test_pair_claim_expiry_refunds_60pct_y_arkbank_unchanged():
+    """Casal: comprador +0,60×Y; vendedor −Y; ARKBANK mantém 0,40×S (sem clawback)."""
     from app import MarketClaim
+    from arkbank_service import get_balance
     from lottery_service import ensure_lottery_schema
     from market_listings import (
         CLAIM_STATUS_REFUNDED,
@@ -332,7 +337,9 @@ def test_pair_claim_expiry_refunds_60pct_y_pot_unchanged():
             ).scalar()
             or 0
         )
-        assert pot_after_buy == 80
+        assert pot_after_buy == 0
+        bank_after_buy = get_balance(db)
+        assert bank_after_buy == 80
 
         # Expira ambos os claims do comprador
         claims = (
@@ -370,7 +377,9 @@ def test_pair_claim_expiry_refunds_60pct_y_pot_unchanged():
             ).scalar()
             or 0
         )
-        assert pot_after_refund == pot_after_buy == 80
+        assert pot_after_refund == 0
+        # SPEC §6.2: desistência de claim NÃO estorna o 40% da tesouraria
+        assert get_balance(db) == bank_after_buy == 80
 
         for c in claims:
             db.refresh(c)

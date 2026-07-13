@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased] - 
+
+## [1.10.32] - 2026-07-13
+
+### Feature
+
+- Feat (Web Store / ARKBANK): tesouraria do cluster — ledger (saldo pode ser negativo), hooks catálogo/desistência 20%, casal 40%→ARKBANK (não sorteio), encomenda, doação R$1=1000Â, TimedPoints via outbox; aba admin ARKBANK + APIs.
+- Feat (Web Store / Catálogo): desistência e auto-cancel passam a reembolsar 80% do valor pago (retenção 20%); destino ARKBANK quando o ledger existir (docs/ARKBANK_SPEC.md §6.1). Regulamento §8.4.2 + UI.
+- Feat (CustomShop): TimedPoints enfileira outbox ARKBANK (arkbank_timed_outbox). Bump CustomShop v1.10.17 → v1.10.18.
+
+### Improvement
+
+- Melhoria (Nível do jogador): curva geométrica custom default 70×1.05^i (antes 1.15); presets Hard/Extreme suavizados (mult≤1.08); hints UI. Preferir vanilla. Mapas existentes: regenerar rampa no gerador e salvar perfil — sem migração automática de asm_servers.json. Docs PLAYER_MAX_LEVEL_SPEC.
+
+### Other
+
+- Docs: ARKBANK v0.4 MVP — inflow doações PIX/cartão confirmadas (R$ 1,00 = 1.000 Âmbar na tesouraria, paralelo ao pacote/pote) + retenção catálogo 20% → banco; hooks em `_finalize_pix_payment`.
+
 ## [1.10.31] - 2026-07-13
 
 ### Fix

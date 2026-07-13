@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.18] - 2026-07-13
+
+### Feature
+
+- **TimedPoints / ARKBANK**: após premiar Âmbar, enfileira linha em `arkbank_timed_outbox` (INSERT IGNORE; falha silenciosa se a tabela ainda não existir — TimedPoints nunca é bloqueado pelo banco).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.18) em cada mapa.
+
 ## [1.10.17] - 2026-07-12
 
 ### Feature

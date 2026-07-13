@@ -97,7 +97,7 @@ def test_sync_config_player_level_sets_xp_at_base_not_total():
     assert derived["ramp_entries"] == total_ramp_slots(105)
     assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
     assert srv.override_max_xp_player == cumulative_xp_on_ramp(
-        build_ramp_values(105, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.15), 105
+        build_ramp_values(105, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.05), 105
     )
 
 

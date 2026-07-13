@@ -177,8 +177,10 @@ XP(nível) = Σ round(0.667 × i^2.04)  para i = 1 .. nível-1
 O gerador rápido de «Progressões de Nível» usa outra fórmula:
 
 ```
-XP[i] = xp_base × mult^i     (geométrica; defaults: base=70, mult=1.15)
+XP[i] = xp_base × mult^i     (geométrica; defaults ARKLAND: base=70, mult=1.05)
 ```
+
+> **Equilíbrio (1.10.32+):** o default geométrico passou de **1.15 → 1.05** (presets Hard/Extreme também suavizados, mult ≤1.08). Rampas longas com 1.15+ tornam o pós-100 impraticável. Servidores já gravados **não** são migrados automaticamente — o admin deve **regenerar a rampa** (Progressões → Gerar e aplicar, ou reativar progressões no painel) e salvar o perfil / reiniciar o mapa. Preferir **modo vanilla** quando possível.
 
 | Mecanismo | Curva | Efeito |
 |-----------|-------|--------|
@@ -273,7 +275,7 @@ O admin define **o que quer** (nível base, bônus habilitados no servidor, curv
     "xp_curve": {
       "mode": "vanilla",
       "preset": null,
-      "custom": { "xp_base": 70, "mult": 1.15, "formula": "base * (mult ** i)" }
+      "custom": { "xp_base": 70, "mult": 1.05, "formula": "base * (mult ** i)" }
     },
     "engram_multiplier": 5.0,
     "derived": {

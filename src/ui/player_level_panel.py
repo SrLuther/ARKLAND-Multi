@@ -206,7 +206,8 @@ def _progressions_toggle_row(
         fr,
         text=(
             "Desmarcado = modo simples (vanilla): só nível base, teto +100 e cap de XP no GUS — "
-            "sem LevelExperienceRampOverrides nem OverridePlayerLevelEngramPoints."
+            "sem LevelExperienceRampOverrides nem OverridePlayerLevelEngramPoints. "
+            "Com progressões: curva geométrica default 70×1.05^i (não 1.15)."
         ),
         bg=bg,
         fg="gray50",
@@ -421,7 +422,7 @@ def build_classic_player_level_panel(
         text=(
             "Informe o nível base (farmável com XP). O teto total (+100) é automático. "
             "No modo simples (vanilla), só o cap de XP no GUS é gravado; marque progressões "
-            "customizadas para rampa e engramas no Game.ini."
+            "customizadas para rampa e engramas no Game.ini (curva default 70×1.05^i)."
         ),
         bg=_BG_PANEL, fg="gray50", font=ctk.CTkFont(size=10), justify="left",
         wraplength=560,
