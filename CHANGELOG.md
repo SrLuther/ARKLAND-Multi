@@ -5,7 +5,11 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased] - 
+## [1.10.33] - 2026-07-13
+
+### Fix
+
+- Fix (Nível do jogador): OverrideMaxExperiencePointsPlayer volta para Game.ini [/Script/ShooterGame.ShooterGameMode] (docs ARK) — remove caminho falso «vanilla GUS-only» para base 160. Base >105 força progressões: rampa + OverrideMaxXP + engrams 400/nível (curva soft 70×1.05^i). Cap legado no GUS é removido ao salvar. Regenerar INI + reiniciar mapas.
 
 ## [1.10.32] - 2026-07-13
 

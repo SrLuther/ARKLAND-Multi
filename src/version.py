@@ -3,15 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.32"
+APP_VERSION: str = "1.10.33"
 BUILD_DATE: str = "2026-07-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
-        "version": "Unreleased",
-        "date": "",
-        "changes": [],
+        "version": "1.10.33",
+        "date": "2026-07-13",
+        "changes": [
+            "Fix (Nível do jogador): OverrideMaxExperiencePointsPlayer volta para "
+            "Game.ini [/Script/ShooterGame.ShooterGameMode] (docs ARK) — remove "
+            "caminho falso «vanilla GUS-only» para base 160. Base >105 força "
+            "progressões: rampa + OverrideMaxXP + engrams 400/nível (curva soft "
+            "70×1.05^i). Cap legado no GUS é removido ao salvar. Regenerar INI + "
+            "reiniciar mapas.",
+        ],
     },
     {
         "version": "1.10.32",

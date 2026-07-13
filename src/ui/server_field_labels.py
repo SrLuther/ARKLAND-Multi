@@ -118,7 +118,7 @@ _PT_OVERRIDES: dict[str, str] = {
     "player_harvesting_damage_multiplier": "Dano de coleta",
     "crafting_skill_bonus_multiplier": "Bônus de skill de crafting",
     "enable_flyer_carry": "Permitir carregar com voador (PvE)",
-    "override_max_xp_player": "XP máximo do jogador (0=padrão)",
+    "override_max_xp_player": "XP máximo do jogador (Game.ini; 0=padrão)",
     "player_engram_points_multiplier": "Multiplicador de pontos de engrama/nível",
     "craft_xp_multiplier": "XP de crafting",
     "generic_xp_multiplier": "XP genérico",
@@ -226,7 +226,7 @@ _PT_OVERRIDES.update(EXTRA_PT_OVERRIDES)
 _HINTS: dict[str, str] = {
     "xp_multiplier": "Multiplicador geral de XP. Outros tipos de XP são aplicados adicionalmente.",
     "player_damage_multiplier": "Valores acima de 1.0 aumentam o atributo; abaixo diminuem.",
-    "override_max_xp_player": "Cap de XP máximo atingível. 0 usa o padrão do jogo.",
+    "override_max_xp_player": "Cap de XP em Game.ini (OverrideMaxExperiencePointsPlayer). Base >105 exige rampa no mesmo arquivo.",
     "player_engram_points_multiplier": "Multiplica os 8 pontos vanilla por nível (5.0 = 40 pts — permite aprender todos os engramas).",
     "enable_flyer_carry": "Permite que pterodatos e outros voadores carreguem outros dinos em PvE.",
     "dino_damage_multiplier": "Afeta todos os dinos (selvagens e domesticados). 1.5 = 50% mais dano.",

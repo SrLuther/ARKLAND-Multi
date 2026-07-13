@@ -56,12 +56,27 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
     elif cfg is not None:
         progressions = is_player_level_progressions_enabled(cfg)
 
+    # Base > vanilla exige Game.ini (rampa + cap XP) — toggle sozinho não basta.
+    from ..player_level_ramp import (
+        base_requires_game_ini_progressions,
+        ensure_progressions_for_elevated_base,
+    )
+
+    if base_requires_game_ini_progressions(base):
+        progressions = True
+        if prog_var is not None:
+            try:
+                prog_var.set(True)
+            except tk.TclError:
+                pass
+
     if cfg is not None:
         if hasattr(cfg, "player_base_level"):
             cfg.player_base_level = base
         if hasattr(cfg, "player_level_progressions_enabled"):
             cfg.player_level_progressions_enabled = progressions
         if progressions:
+            ensure_progressions_for_elevated_base(cfg)
             detect_and_apply_legacy_curve(cfg)
 
     total = calc_max_total_level(base)
@@ -74,7 +89,11 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
             xp_mult=float(curve["xp_mult"]),
             formula=str(curve["formula"]),
         )
-        xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
+        xp = (
+            max(1, cumulative_xp_on_ramp(ramp_values, base) + 1)
+            if ramp_values
+            else level_to_xp(base)
+        )
         if cfg is not None:
             existing = int(getattr(cfg, "override_max_xp_player", 0) or 0)
             gs = getattr(cfg, "game_settings", None)
@@ -88,7 +107,7 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
         ramp_entries = len(ramp_values)
     else:
         ramp_values = []
-        xp = level_to_xp(base)
+        xp = 0
         ramp_entries = 0
 
     if "player_ascension_state" in vars_ref:
@@ -102,11 +121,10 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
     if "_pl_total_var" in vars_ref:
         vars_ref["_pl_total_var"].set(str(total))
     if "_pl_xp_var" in vars_ref:
-        xp_label = (
-            f"{xp:,} XP (cap farmável no nível base)"
-            if progressions
-            else f"{xp:,} XP (curva vanilla — cap GUS)"
-        )
+        if progressions:
+            xp_label = f"{xp:,} XP (OverrideMaxXP no Game.ini)"
+        else:
+            xp_label = "vanilla (sem override — base ≤105)"
         vars_ref["_pl_xp_var"].set(xp_label)
     if "_pl_asc_bonus_var" in vars_ref:
         vars_ref["_pl_asc_bonus_var"].set(f"+{ARK_TOTAL_BONUS_LEVELS}")
@@ -114,7 +132,7 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
         vars_ref["_pl_effective_var"].set(str(total))
     if "_pl_ramp_var" in vars_ref:
         vars_ref["_pl_ramp_var"].set(
-            str(ramp_entries) if progressions else "— (vanilla)"
+            str(ramp_entries) if progressions else "— (vanilla stock)"
         )
     if "_pl_engram_var" in vars_ref:
         vars_ref["_pl_engram_var"].set(
@@ -149,6 +167,16 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
     elif hasattr(gs, "player_level_progressions_enabled"):
         progressions = bool(getattr(gs, "player_level_progressions_enabled", False))
 
+    from ..player_level_ramp import base_requires_game_ini_progressions
+
+    if base_requires_game_ini_progressions(base):
+        progressions = True
+        if prog_var is not None:
+            try:
+                prog_var.set(True)
+            except tk.TclError:
+                pass
+
     if hasattr(gs, "player_base_level"):
         gs.player_base_level = base
     if hasattr(gs, "player_level_progressions_enabled"):
@@ -166,9 +194,13 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
             xp_mult=float(curve["xp_mult"]),
             formula=str(curve["formula"]),
         )
-        xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
+        xp = (
+            max(1, cumulative_xp_on_ramp(ramp_values, base) + 1)
+            if ramp_values
+            else level_to_xp(base)
+        )
     else:
-        xp = level_to_xp(base)
+        xp = 0
 
     if hasattr(gs, "player_base_level"):
         gs.player_base_level = base
@@ -205,9 +237,11 @@ def _progressions_toggle_row(
     tk.Label(
         fr,
         text=(
-            "Desmarcado = modo simples (vanilla): só nível base, teto +100 e cap de XP no GUS — "
-            "sem LevelExperienceRampOverrides nem OverridePlayerLevelEngramPoints. "
-            "Com progressões: curva geométrica default 70×1.05^i (não 1.15)."
+            "Desmarcado = vanilla stock (só com base ≤105): sem rampa/engrams/OverrideMaxXP no Game.ini. "
+            "Base >105 força progressões automaticamente — o ARK exige "
+            "LevelExperienceRampOverrides + OverrideMaxExperiencePointsPlayer + "
+            "OverridePlayerLevelEngramPoints em [/Script/ShooterGame.ShooterGameMode] (Game.ini). "
+            "Curva soft default: 70×1.05^i; engrams 400/nível. Cap no GUS NÃO funciona."
         ),
         bg=bg,
         fg="gray50",
@@ -421,8 +455,9 @@ def build_classic_player_level_panel(
         panel,
         text=(
             "Informe o nível base (farmável com XP). O teto total (+100) é automático. "
-            "No modo simples (vanilla), só o cap de XP no GUS é gravado; marque progressões "
-            "customizadas para rampa e engramas no Game.ini (curva default 70×1.05^i)."
+            "Para base >105 (ex.: 160), as progressões no Game.ini são obrigatórias: "
+            "rampa LevelExperienceRampOverrides, OverrideMaxExperiencePointsPlayer e "
+            "engrams 400/nível (curva soft 70×1.05^i). Gravar só no GUS não altera o teto no ARK."
         ),
         bg=_BG_PANEL, fg="gray50", font=ctk.CTkFont(size=10), justify="left",
         wraplength=560,

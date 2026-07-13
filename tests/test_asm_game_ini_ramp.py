@@ -84,6 +84,33 @@ def test_parse_ramp_single_line_official_format():
     assert parsed["slots"] == {0: 1, 1: 3, 2: 5}
 
 
+def test_write_ini_vanilla_stock_base_105_skips_ramp_and_max_xp(tmp_path):
+    """Base ≤105 sem progressões: Game.ini sem rampa/OverrideMaxXP (vanilla stock)."""
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.player_base_level = 105
+    cfg.player_level_progressions_enabled = False
+    cfg.override_max_xp_player = 0
+
+    path = _game_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    pre = (
+        f"[{_GAME_MODE_SECTION}]\r\n"
+        "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=70)\r\n"
+        "OverridePlayerLevelEngramPoints=400\r\n"
+    )
+    path.write_bytes(b"\xff\xfe" + pre.encode("utf-16-le"))
+
+    write_ini(cfg)
+
+    text = path.read_text(encoding="utf-16")
+    block = extract_ini_section_text(text, _GAME_MODE_SECTION).lower()
+    assert "levelexperiencerampoverrides" not in block
+    assert "overrideplayerlevelengrampoints" not in block
+    assert "overridemaxexperiencepointsplayer" not in block
+    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == 0
+
+
 def test_write_ini_writes_single_line_ramp(tmp_path):
     cfg = AsmServerConfig()
     cfg.install_dir = str(tmp_path)
@@ -99,6 +126,7 @@ def test_write_ini_writes_single_line_ramp(tmp_path):
     )
     assert ramp_physical_lines == 1
     assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == total_ramp_slots(160)
+    assert "OverrideMaxExperiencePointsPlayer=" in block
 
 
 def test_patch_accepts_single_line_ramp(tmp_path):
@@ -114,12 +142,12 @@ def test_patch_accepts_single_line_ramp(tmp_path):
     assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == 5
 
 
-def test_legacy_write_removes_existing_ramp_and_writes_no_ramp(tmp_path):
-    """Modo simples: patch remove rampa antiga e não reinsere."""
+def test_legacy_write_with_base_160_writes_game_ini_ramp_and_max_xp(tmp_path):
+    """Base >105 força progressões: rampa + OverrideMaxXP + engrams no Game.ini (não GUS)."""
     cfg = AsmServerConfig()
     cfg.install_dir = str(tmp_path)
     cfg.player_base_level = 160
-    cfg.player_level_progressions_enabled = False
+    cfg.player_level_progressions_enabled = False  # deve ser forçado ao escrever
     cfg.override_max_xp_player = 0
 
     path = _game_path(tmp_path)
@@ -128,19 +156,24 @@ def test_legacy_write_removes_existing_ramp_and_writes_no_ramp(tmp_path):
         f"[{_GAME_MODE_SECTION}]\r\n"
         "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=70,"
         "ExperiencePointsForLevel[1]=80)\r\n"
-        "OverridePlayerLevelEngramPoints=400\r\n"
-        "OverridePlayerLevelEngramPoints=400\r\n"
     )
     path.write_bytes(b"\xff\xfe" + pre.encode("utf-16-le"))
 
+    # Também simula legado errado no GUS — deve ser removido
+    gus_path = tmp_path / "ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini"
+    gus_pre = "[ServerSettings]\r\nOverrideMaxExperiencePointsPlayer=999\r\n"
+    gus_path.write_bytes(b"\xff\xfe" + gus_pre.encode("utf-16-le"))
+
     write_ini(cfg)
 
+    assert cfg.player_level_progressions_enabled is True
     text = path.read_text(encoding="utf-16")
-    block = extract_ini_section_text(text, _GAME_MODE_SECTION).lower()
-    assert "levelexperiencerampoverrides" not in block
-    assert "overrideplayerlevelengrampoints" not in block
-    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == 0
+    block = extract_ini_section_text(text, _GAME_MODE_SECTION)
+    block_l = block.lower()
+    assert "levelexperiencerampoverrides" in block_l
+    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == total_ramp_slots(160)
+    assert "overridemaxexperiencepointsplayer=" in block_l
+    assert "overrideplayerlevelengrampoints=400" in block_l
 
-    gus_path = tmp_path / "ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini"
     gus_text = gus_path.read_text(encoding="utf-16")
-    assert "OverrideMaxExperiencePointsPlayer=1090536" in gus_text.replace(" ", "")
+    assert "OverrideMaxExperiencePointsPlayer" not in gus_text

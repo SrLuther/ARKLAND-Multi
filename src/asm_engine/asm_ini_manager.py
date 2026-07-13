@@ -103,7 +103,8 @@ INI_MAP: dict[str, tuple] = {
     "player_harvesting_damage_multiplier":  ("GUS","ServerSettings","PlayerHarvestingDamageMultiplier",        {}),
     "crafting_skill_bonus_multiplier":      ("GUS","ServerSettings","CraftingSkillBonusMultiplier",            {}),
     "enable_flyer_carry":                   ("GUS","ServerSettings","AllowFlyerCarryPVE",                      {}),
-    "override_max_xp_player":              ("GUS","ServerSettings","OverrideMaxExperiencePointsPlayer",       {"conditional_on": "override_max_xp_player"}),
+    # Oficial ARK: [/Script/ShooterGame.ShooterGameMode] em Game.ini (não GUS).
+    "override_max_xp_player":              ("Game","GameMode",     "OverrideMaxExperiencePointsPlayer",       {"conditional_on": "override_max_xp_player"}),
 
     # Dinos
     "dino_damage_multiplier":               ("GUS","ServerSettings","DinoDamageMultiplier",                   {}),
@@ -692,6 +693,8 @@ def write_ini(cfg: AsmServerConfig) -> None:
     remove_gus_options: list[tuple[str, str]] = []
     if not _evt:
         remove_gus_options.append(("ServerSettings", "ActiveEvent"))
+    # Cap de XP do jogador é oficialmente Game.ini — remove legado incorreto no GUS.
+    remove_gus_options.append(("ServerSettings", "OverrideMaxExperiencePointsPlayer"))
 
     # SessionName por último — raw/custom não pode sobrescrever o nome efetivo
     _sn = effective_session_name(cfg)
@@ -727,7 +730,12 @@ def write_ini(cfg: AsmServerConfig) -> None:
 
     _write_ini_file(_ini_path_for_cfg(cfg, "GUS", write=True),  gus, remove_options=remove_gus_options)
     _game_path = _ini_path_for_cfg(cfg, "Game", write=True)
-    _write_ini_file(_game_path, game)
+    remove_game_options: list[tuple[str, str]] = []
+    if not int(getattr(cfg, "override_max_xp_player", 0) or 0):
+        remove_game_options.append(
+            (_GAME_MODE_SECTION, "OverrideMaxExperiencePointsPlayer")
+        )
+    _write_ini_file(_game_path, game, remove_options=remove_game_options or None)
 
     from .asm_game_list_ini import (
         build_repeated_game_lines,
@@ -854,6 +862,19 @@ def read_ini(cfg: AsmServerConfig) -> None:
 
         setattr(cfg, field_name, val)
 
+    # Legado: OverrideMaxExperiencePointsPlayer no GUS — migração para Game.ini
+    if not int(getattr(cfg, "override_max_xp_player", 0) or 0):
+        _gus_p = parsers.get("GUS")
+        if _gus_p is not None and _gus_p.has_option(
+            "ServerSettings", "OverrideMaxExperiencePointsPlayer"
+        ):
+            try:
+                cfg.override_max_xp_player = int(
+                    float(_gus_p.get("ServerSettings", "OverrideMaxExperiencePointsPlayer"))
+                )
+            except (TypeError, ValueError):
+                pass
+
     from ..ui_constants import normalize_active_event
     cfg.active_event = normalize_active_event(cfg.active_event)
 
@@ -967,6 +988,19 @@ def read_ini_from_paths(
             val = not val
 
         setattr(cfg, field_name, val)
+
+    # Legado: OverrideMaxExperiencePointsPlayer no GUS — migração para Game.ini
+    if not int(getattr(cfg, "override_max_xp_player", 0) or 0):
+        _gus_p = parsers.get("GUS")
+        if _gus_p is not None and _gus_p.has_option(
+            "ServerSettings", "OverrideMaxExperiencePointsPlayer"
+        ):
+            try:
+                cfg.override_max_xp_player = int(
+                    float(_gus_p.get("ServerSettings", "OverrideMaxExperiencePointsPlayer"))
+                )
+            except (TypeError, ValueError):
+                pass
 
     # Per-level stat multipliers (array-indexed)
     _PERLEVEL_INI_TO_FIELD = {

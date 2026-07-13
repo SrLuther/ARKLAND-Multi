@@ -2350,7 +2350,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         gen_card,
         text="Curva geométrica: default mult=1.05 (máx. recomendado ~1.08). "
              "Mult ≥1.15 torna pós-100 impraticável em rampas longas. "
-             "Prefira modo vanilla no painel «Nível máximo» quando possível.",
+             "Base >105 exige progressões no Game.ini (não GUS).",
         font=ctk.CTkFont(size=9), text_color="#7ab8c8", wraplength=640,
     ).grid(row=1, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
 

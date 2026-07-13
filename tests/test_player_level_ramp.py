@@ -7,7 +7,6 @@ from src.player_engram_points import build_engram_points_ini_lines
 from src.player_level_ascension import (
     ARK_TOTAL_BONUS_LEVELS,
     calc_max_total_level,
-    level_to_xp,
     resolve_max_player_level,
     resolve_theoretical_player_level,
 )
@@ -96,9 +95,10 @@ def test_sync_config_player_level_sets_xp_at_base_not_total():
     assert derived["ascension_bonus"] == ARK_TOTAL_BONUS_LEVELS
     assert derived["ramp_entries"] == total_ramp_slots(105)
     assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
-    assert srv.override_max_xp_player == cumulative_xp_on_ramp(
+    expected = cumulative_xp_on_ramp(
         build_ramp_values(105, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.05), 105
-    )
+    ) + 1
+    assert srv.override_max_xp_player == expected
 
 
 def test_engram_lines_match_ramp_slots_not_base_only():
@@ -189,32 +189,58 @@ def test_is_legacy_geometric_xp_cap_detects_trillion_cap():
     assert vanilla_xp_cap_for_base(160) == VANILLA_CAP_BASE_160
 
 
-def test_sync_keeps_vanilla_mode_when_progressions_disabled():
-    """Modo simples: base=160, curva vanilla, cap GUS — sem rampa geométrica."""
+def test_sync_keeps_vanilla_stock_when_base_105_progressions_disabled():
+    """Vanilla stock: base≤105, sem progressões — sem rampa nem OverrideMaxXP."""
     @dataclass
     class _Srv:
-        player_base_level: int = 160
+        player_base_level: int = 105
         player_ascension_state: str = ""
         override_max_xp_player: int = VANILLA_CAP_BASE_160
         player_level_stats_raw: str = export_ramp_raw(
-            build_ramp_values(160, mode=XP_CURVE_VANILLA)
+            build_ramp_values(105, mode=XP_CURVE_VANILLA)
         )
-        player_ramp_entry_count: int = total_ramp_slots(160)
-        player_ramp_max_index: int = total_ramp_slots(160) - 1
+        player_ramp_entry_count: int = total_ramp_slots(105)
+        player_ramp_max_index: int = total_ramp_slots(105) - 1
         player_xp_curve_mode: str = XP_CURVE_VANILLA
         player_level_progressions_enabled: bool = False
 
     srv = _Srv()
     derived = sync_config_player_level(srv)
     assert srv.player_xp_curve_mode == XP_CURVE_VANILLA
-    assert srv.override_max_xp_player == level_to_xp(160)
-    assert derived["override_xp"] == level_to_xp(160)
-    assert derived["theoretical_total"] == calc_max_total_level(160)
+    assert srv.override_max_xp_player == 0
+    assert derived["override_xp"] == 0
+    assert derived["theoretical_total"] == calc_max_total_level(105)
     assert derived["ramp_entries"] == 0
     assert srv.player_level_stats_raw == ""
     ramp_lines = build_player_ramp_ini_lines(srv)
     assert ramp_lines == []
     assert not build_engram_points_ini_lines(srv)
+
+
+def test_base_160_forces_game_ini_progressions_even_when_toggle_off():
+    """Base >105 exige Game.ini — toggle off não cria caminho GUS-only falso."""
+    @dataclass
+    class _Srv:
+        player_base_level: int = 160
+        player_ascension_state: str = ""
+        override_max_xp_player: int = 0
+        player_level_stats_raw: str = ""
+        player_ramp_entry_count: int = 0
+        player_ramp_max_index: int = -1
+        player_xp_curve_mode: str = XP_CURVE_VANILLA
+        player_level_progressions_enabled: bool = False
+
+    srv = _Srv()
+    assert is_player_level_progressions_enabled(srv)
+    derived = sync_config_player_level(srv)
+    assert srv.player_level_progressions_enabled is True
+    assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
+    assert derived["ramp_entries"] == total_ramp_slots(160)
+    assert srv.override_max_xp_player == cumulative_xp_on_ramp(
+        build_ramp_values(160, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.05), 160
+    ) + 1
+    assert build_player_ramp_ini_lines(srv)
+    assert build_engram_points_ini_lines(srv)
 
 
 def test_corrupted_single_slot_ramp_expands_to_full_on_write():
@@ -252,10 +278,18 @@ def test_detect_legacy_from_gus_cap_even_when_ramp_is_vanilla():
     assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
 
 
-def test_legacy_mode_default_is_progressions_disabled():
+def test_legacy_mode_default_is_progressions_disabled_at_vanilla_base():
+    @dataclass
+    class _Srv:
+        player_base_level: int = 105
+
+    srv = _Srv()
+    assert not is_player_level_progressions_enabled(srv)
+
+
+def test_elevated_base_implies_progressions_enabled():
     @dataclass
     class _Srv:
         player_base_level: int = 160
 
-    srv = _Srv()
-    assert not is_player_level_progressions_enabled(srv)
+    assert is_player_level_progressions_enabled(_Srv())

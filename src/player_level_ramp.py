@@ -10,7 +10,6 @@ from .player_level_ascension import (
     ARK_DEFAULT_BASE_LEVEL,
     ARK_TOTAL_BONUS_LEVELS,
     calc_max_total_level,
-    level_to_xp,
 )
 
 ARK_ASCENSION_RAMP_SLOTS = ARK_BOSS_ASCENSION_LEVELS  # 75 slots na rampa Game.ini
@@ -38,11 +37,34 @@ DEFAULT_CUSTOM_XP_MULT = 1.05
 DEFAULT_CUSTOM_XP_FORMULA = "base * (mult ** i)"
 
 
-def is_player_level_progressions_enabled(cfg: object | None) -> bool:
-    """Espelha ASM EnableLevelProgressions — rampa/engrams no Game.ini só quando True."""
+def base_requires_game_ini_progressions(base_level: int) -> bool:
+    """Base acima do vanilla (105) exige rampa + cap XP + engrams no Game.ini."""
+    return max(0, int(base_level or 0)) > ARK_DEFAULT_BASE_LEVEL
+
+
+def ensure_progressions_for_elevated_base(cfg: object | None) -> bool:
+    """Ativa progressões quando base > vanilla — GUS-only não estende níveis no ARK."""
     if cfg is None:
         return False
+    base = _resolve_base_level(cfg)
+    if base_requires_game_ini_progressions(base) and hasattr(
+        cfg, "player_level_progressions_enabled"
+    ):
+        cfg.player_level_progressions_enabled = True
+        return True
     return bool(getattr(cfg, "player_level_progressions_enabled", False))
+
+
+def is_player_level_progressions_enabled(cfg: object | None) -> bool:
+    """True = escrever LevelExperienceRampOverrides + OverrideMaxXP + engrams no Game.ini.
+
+    Base > vanilla força True (cap só no GUS ou só OverrideMaxXP sem rampa não sobe o teto).
+    """
+    if cfg is None:
+        return False
+    if bool(getattr(cfg, "player_level_progressions_enabled", False)):
+        return True
+    return base_requires_game_ini_progressions(_resolve_base_level(cfg))
 
 
 def vanilla_xp_per_slot(index: int) -> int:
@@ -484,7 +506,8 @@ def _curve_params_from_cfg(cfg: object | None) -> dict[str, Any]:
 
 
 def sync_config_player_level(cfg: object) -> dict[str, int]:
-    """Ponto único de derivação: rampa (base+75), XP cap no base, teto base+100."""
+    """Ponto único de derivação: rampa (base+75), XP cap no Game.ini, teto base+100."""
+    ensure_progressions_for_elevated_base(cfg)
     progressions = is_player_level_progressions_enabled(cfg)
     if progressions:
         detect_and_apply_legacy_curve(cfg)
@@ -508,7 +531,8 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
             formula=str(curve["formula"]),
         )
         xp_level = base if base > 0 else ramp_base
-        override_xp = cumulative_xp_on_ramp(values, xp_level)
+        # Cap no nível base farmável; ideal ≥ último slot da rampa farmável + 1.
+        override_xp = max(1, cumulative_xp_on_ramp(values, xp_level) + 1)
         existing_xp = _read_override_xp_from_cfg(cfg)
         if existing_xp > override_xp:
             if (
@@ -517,9 +541,9 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
             ):
                 override_xp = existing_xp
     else:
+        # Vanilla stock (base ≤ 105, sem progressões): não gravar override no INI.
         values = []
-        xp_level = base if base > 0 else ramp_base
-        override_xp = level_to_xp(xp_level)
+        override_xp = 0
 
     effective = theoretical if base > 0 else resolve_effective_ingame_cap(
         cfg,
