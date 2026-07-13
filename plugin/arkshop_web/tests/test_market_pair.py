@@ -203,7 +203,14 @@ def test_pair_link_purchase_and_pot_credit():
         pair_cards = [x for x in active if x.get("is_pair")]
         assert len(pair_cards) == 1
         assert pair_cards[0]["pair_checkout_price"] == 120
-        assert pair_cards[0]["effective_price"] == 120
+        assert pair_cards[0]["effective_price"] == 120  # vitrine: Y
+        assert pair_cards[0]["asking_price"] == 100  # pedido individual do primário
+        assert pair_cards[0]["pair_asking_sum"] == 200
+        bd = pair_cards[0].get("pair_breakdown") or {}
+        assert bd.get("sum_asking") == 200
+        assert bd.get("checkout_price") == 120
+        assert (bd.get("male") or {}).get("asking_price") == 100
+        assert (bd.get("female") or {}).get("asking_price") == 100
 
         buyer_before = db.execute(
             text("SELECT points FROM players WHERE steam_id=:s"), {"s": BUYER}

@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.31] - 2026-07-13
+
+### Fix
+
+- Fix (Web Store / Mercado): card de casal — breakdown claro (Macho/Fêmea pedido+sugerido → Isolados → Preço do casal Y); input da Minha Loja edita só o pedido individual (`asking_price`), nunca Y; sem misturar Y nos Pedidos.
+- Fix (Web Store / Encomenda): imagens da vitrine passam a preencher a área do card (deixam de ficar em ~64px no centro).
+
+### Other
+
+- Docs: ARKBANK planning spec (`docs/ARKBANK_SPEC.md`).
+
 ## [1.10.30] - 2026-07-12
 
 ### Fix

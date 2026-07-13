@@ -1,8 +1,9 @@
 {
-    "version": "1.10.30",
-    "date": "2026-07-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.30/ARKLAND-Multi-Setup-v1.10.30.exe",
+    "version": "1.10.31",
+    "date": "2026-07-13",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.31/ARKLAND-Multi-Setup-v1.10.31.exe",
     "changelog": [
-        "Fix (Área da Tribo / Web): crash no arranque Flask — `@api_key_required` sem () nas rotas invite/join, leave e ownership-transfer registava endpoint `decorator` e abortava com AssertionError (site não subia após 1.10.29)."
+        "Fix (Web Store / Mercado): card de casal — breakdown claro (Macho/Fêmea pedido+sugerido → Isolados → Preço do casal Y); input da Minha Loja edita só o pedido individual (`asking_price`), nunca Y; sem misturar Y nos Pedidos.",
+        "Fix (Web Store / Encomenda): imagens da vitrine passam a preencher a área do card (deixam de ficar em ~64px no centro)."
     ]
 }

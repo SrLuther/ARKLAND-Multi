@@ -1141,6 +1141,45 @@
       font-size: 13px;
       font-family: inherit;
     }
+    .market-listing-card__pair-pricing {
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface2);
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text2);
+    }
+    .market-listing-card__pair-pricing-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      margin-bottom: 4px;
+    }
+    .market-listing-card__pair-pricing-row strong {
+      color: var(--text);
+      font-weight: 600;
+      min-width: 3.2em;
+    }
+    .market-listing-card__pair-pricing-sep {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 8px 0;
+    }
+    .market-listing-card__pair-pricing-total {
+      color: var(--text);
+      font-size: 13px;
+    }
+    .market-listing-card__pair-pricing-total .pair-y {
+      color: var(--amber);
+      font-weight: 700;
+    }
+    .market-listing-card__price-label {
+      font-size: 11px;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
     .market-listing-card__char-count {
       font-size: 10px;
       color: var(--text2);
@@ -4795,10 +4834,15 @@
       aspect-ratio: 1;
       border-right: none;
       border-bottom: 1px solid var(--border);
+      padding: 10px;
+      box-sizing: border-box;
     }
     #encomenda-gallery .encomenda-vitrine-card .item-card__thumb img {
-      width: 64px;
-      height: 64px;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
     }
     #encomenda-gallery .encomenda-vitrine-card .item-card__body {
       flex: 1;
@@ -16505,21 +16549,80 @@ function _marketUpdateCharCount(listingId) {
   if (ta && counter) counter.textContent = `${ta.value.length}/${_MARKET_DESC_MAX}`;
 }
 
-function _marketPairMateSummary(mate) {
-  if (!mate) return "";
-  const g = mate.is_female ? "♀" : "♂";
-  const title = mate.display_title || mate.species_display_name || "Parceiro";
-  const stats = mate.stats || {};
-  return `<div class="market-listing-card__pair-mate" style="margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
-    <div style="font-size:12px;font-weight:600;">${escHtml(title)} ${g}</div>
-    <div style="font-size:11px;color:var(--text2);">Pedido: ${Number(mate.effective_price || 0).toLocaleString("pt-BR")} Â · Sugerido: ${Number(mate.computed_base_value || 0).toLocaleString("pt-BR")}</div>
-    <div style="font-size:11px;color:var(--text2);">HP ${stats.health || 0} · Dmg ${stats.melee || 0} · Lvl ${mate.dino_level || "?"}</div>
-  </div>`;
+function _marketFmtAmber(n) {
+  return Number(n || 0).toLocaleString("pt-BR");
+}
+
+/** Pedido individual deste anúncio — nunca o Y do casal. */
+function _marketAskingPrice(l) {
+  if (!l) return 0;
+  if (l.asking_price != null && l.asking_price !== "") return Number(l.asking_price) || 0;
+  if (l.is_pair && l.is_pair_primary && l.pair_asking_sum != null && l.pair_mate) {
+    const mateAsk = _marketAskingPrice(l.pair_mate);
+    const recovered = Number(l.pair_asking_sum) - mateAsk;
+    if (recovered > 0) return recovered;
+  }
+  // Primário antigo: effective_price podia ser Y — não usar como pedido
+  if (l.is_pair && l.is_pair_primary && l.pair_checkout_price != null
+      && Number(l.effective_price) === Number(l.pair_checkout_price)) {
+    return Number(l.computed_base_value || l.suggested_base_value || 0);
+  }
+  return Number(l.effective_price || l.computed_base_value || 0);
 }
 
 function _marketPairPreviewY(p1, p2) {
   const s = (Number(p1) || 0) + (Number(p2) || 0);
   return Math.round(s * 0.6);
+}
+
+function _marketPairMateStatsLine(mate) {
+  if (!mate) return "";
+  const stats = mate.stats || {};
+  const title = mate.display_title || mate.species_display_name || "Parceiro";
+  const g = mate.is_female ? "♀" : "♂";
+  return `<div class="market-listing-card__pair-mate" style="margin-top:6px;font-size:11px;color:var(--text2);">
+    Parceiro: <strong style="color:var(--text);">${escHtml(title)} ${g}</strong>
+    · HP ${stats.health || 0} · Dmg ${stats.melee || 0} · Lvl ${mate.dino_level || "?"}
+    · Mut ${mate.mutations_male || 0}/${mate.mutations_female || 0}
+  </div>`;
+}
+
+/** Breakdown claro Macho/Fêmea · Isolados · Preço do casal Y (sem badge −40%). */
+function _marketPairPricingHtml(l, pairMate, { liveId = null } = {}) {
+  const bd = l.pair_breakdown || null;
+  let maleAsk, femaleAsk, maleSug, femaleSug;
+  if (bd && bd.male && bd.female) {
+    maleAsk = Number(bd.male.asking_price || 0);
+    femaleAsk = Number(bd.female.asking_price || 0);
+    maleSug = Number(bd.male.suggested_value || 0);
+    femaleSug = Number(bd.female.suggested_value || 0);
+  } else {
+    const selfAsk = _marketAskingPrice(l);
+    const mateAsk = _marketAskingPrice(pairMate);
+    const selfSug = Number(l.computed_base_value || l.suggested_base_value || 0);
+    const mateSug = Number((pairMate && (pairMate.computed_base_value || pairMate.suggested_base_value)) || 0);
+    if (l.is_female) {
+      femaleAsk = selfAsk; femaleSug = selfSug;
+      maleAsk = mateAsk; maleSug = mateSug;
+    } else {
+      maleAsk = selfAsk; maleSug = selfSug;
+      femaleAsk = mateAsk; femaleSug = mateSug;
+    }
+  }
+  const sumAsk = l.pair_asking_sum != null
+    ? Number(l.pair_asking_sum)
+    : (maleAsk + femaleAsk);
+  const y = l.pair_checkout_price != null
+    ? Number(l.pair_checkout_price)
+    : _marketPairPreviewY(maleAsk, femaleAsk);
+  const liveAttr = liveId ? ` id="${liveId}"` : "";
+  return `<div class="market-listing-card__pair-pricing"${liveAttr}>
+    <div class="market-listing-card__pair-pricing-row"><strong>Macho</strong> — pedido: ${_marketFmtAmber(maleAsk)} · sugerido: ${_marketFmtAmber(maleSug)}</div>
+    <div class="market-listing-card__pair-pricing-row"><strong>Fêmea</strong> — pedido: ${_marketFmtAmber(femaleAsk)} · sugerido: ${_marketFmtAmber(femaleSug)}</div>
+    <hr class="market-listing-card__pair-pricing-sep" />
+    <div class="market-listing-card__pair-pricing-row">Isolados (soma): ${_marketFmtAmber(sumAsk)}</div>
+    <div class="market-listing-card__pair-pricing-total">Preço do casal: <span class="pair-y">${_marketFmtAmber(y)}</span> Âmbar</div>
+  </div>`;
 }
 
 function _marketListingCard(l, { showBuy = false, showSellerActions = false, showAdminClassify = false } = {}) {
@@ -16537,8 +16640,9 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
   const awaitingCls = l.awaiting_classification === true;
   const isPair = !!(l.is_pair || l.listing_kind === "pair");
   const pairMate = l.pair_mate || null;
+  const askingPrice = _marketAskingPrice(l);
   const checkoutPrice = isPair
-    ? (l.pair_checkout_price != null ? l.pair_checkout_price : (l.display_price || l.effective_price))
+    ? (l.pair_checkout_price != null ? l.pair_checkout_price : (l.display_price || _marketPairPreviewY(askingPrice, _marketAskingPrice(pairMate))))
     : (l.effective_price || 0);
   const sellerBadge = l.seller_display_name
     ? `<div class="market-listing-card__seller">🏪 ${escHtml(l.seller_display_name)}</div>`
@@ -16559,8 +16663,8 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
   let actions = "";
   if (showBuy && l.status === "ACTIVE") {
     const buyLabel = isPair
-      ? `Comprar casal — ${Number(checkoutPrice || 0).toLocaleString("pt-BR")} Âmbar`
-      : `Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar`;
+      ? `Comprar casal — ${_marketFmtAmber(checkoutPrice)} Âmbar`
+      : `Comprar — ${_marketFmtAmber(l.effective_price || 0)} Âmbar`;
     actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:4px;" onclick="marketPurchaseListing(${l.listing_id})">${buyLabel}</button>`;
   }
   if (showSellerActions) {
@@ -16574,33 +16678,36 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
     );
     const pairControls = isPair
       ? `<div style="margin-top:6px;display:grid;gap:4px;">
-          <div style="font-size:12px;color:var(--amber);">Casal com #${l.pair_mate_listing_id}
-            · Y = ${Number(l.pair_checkout_price || checkoutPrice || 0).toLocaleString("pt-BR")} Â
-            <span id="market-pair-live-${l.listing_id}"></span>
-          </div>
+          <div style="font-size:12px;color:var(--text2);">Vinculado ao anúncio #${l.pair_mate_listing_id}. O preço do casal (Y) atualiza ao editar os pedidos individuais.</div>
           <button class="btn btn-ghost btn-sm" onclick="marketUnlinkPair(${l.listing_id})">Desvincular casal</button>
         </div>`
       : (canEditPrice && pairCandidates.length
         ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <select id="market-pair-mate-${l.listing_id}" style="flex:1;min-width:120px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">
               <option value="">Vincular casal…</option>
-              ${pairCandidates.map(c => `<option value="${c.listing_id}">#${c.listing_id} ${c.is_female ? "♀" : "♂"} · ${Number(c.effective_price || c.computed_base_value || 0).toLocaleString("pt-BR")} Â</option>`).join("")}
+              ${pairCandidates.map(c => `<option value="${c.listing_id}">#${c.listing_id} ${c.is_female ? "♀" : "♂"} · ${_marketFmtAmber(_marketAskingPrice(c))} Â</option>`).join("")}
             </select>
             <button class="btn btn-ghost btn-sm" onclick="marketLinkPair(${l.listing_id})">Vincular</button>
           </div>`
         : "");
+    const priceInputMin = l.computed_base_value || suggestedVal;
     actions = `
       ${canEditPrice ? _marketListingEditForm(l) : ""}
       <div style="margin-top:6px;display:grid;gap:6px;">
-        ${canEditPrice ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <input id="market-price-${l.listing_id}" type="number" min="${l.computed_base_value || suggestedVal}"${ceilingVal > 0 ? ` max="${ceilingVal}"` : ""} value="${l.effective_price || l.computed_base_value || suggestedVal}" oninput="marketUpdatePairPreview(${l.listing_id})" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+        ${canEditPrice ? `<div>
+          <div class="market-listing-card__price-label">${isPair
+            ? `Teu preço deste dino (${l.is_female ? "fêmea" : "macho"}) — pedido individual`
+            : "Preço de pedido"}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <input id="market-price-${l.listing_id}" type="number" min="${priceInputMin}"${ceilingVal > 0 ? ` max="${ceilingVal}"` : ""} value="${askingPrice || priceInputMin}" oninput="marketUpdatePairPreview(${l.listing_id})" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
           <button class="btn btn-ghost btn-sm" onclick="marketSetPrice(${l.listing_id}, false)">Salvar</button>
           ${l.status === "DRAFT" || l.status === "PAUSED" ? `<button class="btn btn-success btn-sm" onclick="marketSetPrice(${l.listing_id}, true)">Ativar</button>` : ""}
-        </div>${ceilingVal > 0 ? `<div style="font-size:11px;color:var(--text2);">Teto máximo: <strong>${Number(ceilingVal).toLocaleString("pt-BR")}</strong> Âmbar</div>` : ""}` : ""}
+        </div>${ceilingVal > 0 ? `<div style="font-size:11px;color:var(--text2);">Teto máximo: <strong>${_marketFmtAmber(ceilingVal)}</strong> Âmbar</div>` : ""}
+        </div>` : ""}
         ${pairControls}
         ${l.status === "ACTIVE" ? `<button class="btn btn-ghost btn-sm" onclick="marketPauseListing(${l.listing_id})">Pausar</button>` : ""}
         ${["DRAFT","ACTIVE","PAUSED"].includes(l.status) ? `<button class="btn btn-ghost btn-sm" onclick="marketWithdrawListing(${l.listing_id})">Recuperar dino</button>` : ""}
-        ${awaitingCls ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${Number(sug.root_value || 0).toLocaleString("pt-BR")} Âmbar</span>` : ""}</div>` : ""}
+        ${awaitingCls ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${_marketFmtAmber(sug.root_value || 0)} Âmbar</span>` : ""}</div>` : ""}
         ${l.status === "AWAITING_CLAIM" ? `<div style="margin-top:6px;">${_marketClaimCountdownHtml(l) || '<span style="font-size:12px;color:var(--amber);">Use /mercado in-game</span>'}</div>` : ""}
       </div>`;
   }
@@ -16630,19 +16737,18 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
   const statusBadge = awaitingCls
     ? '<span class="badge" style="background:var(--warn);">AGUARDANDO</span>'
     : `<span class="badge">${escHtml(l.status)}</span>`;
-  const suggestedPair = isPair
-    ? (l.pair_suggested_sum != null
-      ? l.pair_suggested_sum
-      : (Number(l.computed_base_value || 0) + Number((pairMate && pairMate.computed_base_value) || 0)))
-    : (l.computed_base_value || 0);
+  const pairPricingBlock = isPair && !awaitingCls
+    ? _marketPairPricingHtml(l, pairMate, {
+        liveId: showSellerActions ? `market-pair-live-${l.listing_id}` : null,
+      })
+    : "";
   const priceLine = awaitingCls
-    ? `<div style="color:var(--text2);font-size:12px;">Sugerido: <strong style="color:var(--amber);">${Number(suggestedVal).toLocaleString("pt-BR")}</strong> Âmbar <span style="opacity:0.7;">(após aprovação)</span></div>`
+    ? `<div style="color:var(--text2);font-size:12px;">Sugerido: <strong style="color:var(--amber);">${_marketFmtAmber(suggestedVal)}</strong> Âmbar <span style="opacity:0.7;">(após aprovação)</span></div>`
     : (isPair
-      ? `<div>Preço do casal: <strong style="color:var(--amber);">${Number(checkoutPrice || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
-        <div style="color:var(--text2);font-size:12px;">Sugeridos (soma): ${Number(suggestedPair).toLocaleString("pt-BR")}${ceilingVal > 0 ? ` · Teto: ${Number(ceilingVal).toLocaleString("pt-BR")}` : ""}</div>
-        <div style="color:var(--text2);font-size:11px;">Pedidos: ${Number(l.effective_price || 0).toLocaleString("pt-BR")} + ${Number((pairMate && pairMate.effective_price) || 0).toLocaleString("pt-BR")} Â</div>`
-      : `<div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
-        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}${ceilingVal > 0 ? ` · Teto: ${Number(ceilingVal).toLocaleString("pt-BR")}` : ""}</div>`);
+      ? pairPricingBlock
+      : `<div>Preço: <strong style="color:var(--amber);">${_marketFmtAmber(l.effective_price || 0)}</strong> Âmbar</div>
+        <div style="color:var(--text2);font-size:12px;">Sugerido: ${_marketFmtAmber(l.computed_base_value || 0)}${ceilingVal > 0 ? ` · Teto: ${_marketFmtAmber(ceilingVal)}` : ""}</div>`);
+  const pairTitleSuffix = isPair ? " · casal" : "";
   return `
     <div class="card market-listing-card${isPair ? " market-listing-card--pair" : ""}">
       <div class="market-listing-card__body">
@@ -16651,11 +16757,11 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
       <div class="market-listing-card__header">
         <div style="min-width:0;flex:1;">
           ${sellerBadge}
-          <div class="market-listing-card__title">${escHtml(title)} ${gender}${isPair ? " + casal" : ""}</div>
+          <div class="market-listing-card__title">${escHtml(title)} ${gender}${pairTitleSuffix}</div>
           ${speciesLine ? `<div class="market-listing-card__species">${escHtml(speciesLine)}</div>` : ""}
           <div class="market-listing-card__chips">${pairChip}${categoryChip}${sugChip}${roleChip}</div>
           ${descHtml}
-          ${isPair ? _marketPairMateSummary(pairMate) : ""}
+          ${isPair ? _marketPairMateStatsLine(pairMate) : ""}
         </div>
         ${statusBadge}
       </div>
@@ -16984,15 +17090,38 @@ async function marketSetPrice(listingId, activate) {
 }
 
 function marketUpdatePairPreview(listingId) {
-  const el = document.getElementById("market-pair-live-" + listingId);
   const listing = (_marketMyListings || []).find(x => x.listing_id === listingId);
-  if (!el || !listing || !listing.is_pair) return;
+  if (!listing || !listing.is_pair) return;
+  const mate = listing.pair_mate
+    || (_marketMyListings || []).find(x => x.listing_id === listing.pair_mate_listing_id);
   const inp = document.getElementById("market-price-" + listingId);
-  const p1 = inp ? parseInt(inp.value, 10) : Number(listing.effective_price || 0);
-  const mate = listing.pair_mate || (_marketMyListings || []).find(x => x.listing_id === listing.pair_mate_listing_id);
-  const p2 = Number((mate && mate.effective_price) || 0);
-  const y = _marketPairPreviewY(p1, p2);
-  el.textContent = ` (preview Y: ${Number(y).toLocaleString("pt-BR")} Â)`;
+  const mateInp = mate ? document.getElementById("market-price-" + mate.listing_id) : null;
+  const pSelf = inp ? parseInt(inp.value, 10) : _marketAskingPrice(listing);
+  const pMate = mateInp
+    ? parseInt(mateInp.value, 10)
+    : _marketAskingPrice(mate);
+  const maleAsk = listing.is_female ? pMate : pSelf;
+  const femaleAsk = listing.is_female ? pSelf : pMate;
+  const maleSug = listing.is_female
+    ? Number((mate && (mate.computed_base_value || mate.suggested_base_value)) || 0)
+    : Number(listing.computed_base_value || listing.suggested_base_value || 0);
+  const femaleSug = listing.is_female
+    ? Number(listing.computed_base_value || listing.suggested_base_value || 0)
+    : Number((mate && (mate.computed_base_value || mate.suggested_base_value)) || 0);
+  const sumAsk = (Number(pSelf) || 0) + (Number(pMate) || 0);
+  const y = _marketPairPreviewY(pSelf, pMate);
+  const html = `
+    <div class="market-listing-card__pair-pricing-row"><strong>Macho</strong> — pedido: ${_marketFmtAmber(maleAsk)} · sugerido: ${_marketFmtAmber(maleSug)}</div>
+    <div class="market-listing-card__pair-pricing-row"><strong>Fêmea</strong> — pedido: ${_marketFmtAmber(femaleAsk)} · sugerido: ${_marketFmtAmber(femaleSug)}</div>
+    <hr class="market-listing-card__pair-pricing-sep" />
+    <div class="market-listing-card__pair-pricing-row">Isolados (soma): ${_marketFmtAmber(sumAsk)}</div>
+    <div class="market-listing-card__pair-pricing-total">Preço do casal: <span class="pair-y">${_marketFmtAmber(y)}</span> Âmbar</div>`;
+  const ids = [listingId];
+  if (mate && mate.listing_id) ids.push(mate.listing_id);
+  ids.forEach(id => {
+    const el = document.getElementById("market-pair-live-" + id);
+    if (el) el.innerHTML = html;
+  });
 }
 
 async function marketLinkPair(listingId) {

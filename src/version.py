@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.30"
-BUILD_DATE: str = "2026-07-12"
+APP_VERSION: str = "1.10.31"
+BUILD_DATE: str = "2026-07-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.31",
+        "date": "2026-07-13",
+        "changes": [
+            "Fix (Web Store / Mercado): card de casal — breakdown claro "
+            "(Macho/Fêmea pedido+sugerido → Isolados → Preço do casal Y); "
+            "input da Minha Loja edita só o pedido individual (`asking_price`), "
+            "nunca Y; sem misturar Y nos Pedidos.",
+            "Fix (Web Store / Encomenda): imagens da vitrine passam a preencher "
+            "a área do card (deixam de ficar em ~64px no centro).",
+            "Docs: ARKBANK planning spec (`docs/ARKBANK_SPEC.md`).",
+        ],
+    },
     {
         "version": "1.10.30",
         "date": "2026-07-12",

@@ -849,11 +849,15 @@ def enrich_listing_pair_fields(
     else:
         species_row = resolve_species(db, species_key=mate.species_key)
     mate_pub = listing_to_public(mate, species_row=species_row)
-    pricing = pair_pricing_breakdown(
-        int(row.effective_price or 0),
-        int(mate.effective_price or 0),
-    )
-    suggested_sum = int(row.computed_base_value or 0) + int(mate.computed_base_value or 0)
+    asking_self = int(row.effective_price or 0)
+    asking_mate = int(mate.effective_price or 0)
+    pricing = pair_pricing_breakdown(asking_self, asking_mate)
+    suggested_self = int(row.computed_base_value or 0)
+    suggested_mate = int(mate.computed_base_value or 0)
+    suggested_sum = suggested_self + suggested_mate
+    # Pedido individual deste anúncio (nunca Y). UI de edição/vendedor usa isto.
+    item["asking_price"] = asking_self
+    mate_pub["asking_price"] = asking_mate
     item["listing_kind"] = "pair"
     item["is_pair"] = True
     item["is_pair_primary"] = is_pair_primary(row)
@@ -861,9 +865,35 @@ def enrich_listing_pair_fields(
     item["pair_asking_sum"] = pricing["sum_asking"]
     item["pair_checkout_price"] = pricing["checkout_price"]
     item["pair_suggested_sum"] = suggested_sum
-    # Preço exibido na vitrine = Y (checkout); pedidos individuais ficam nos cards internos
+    # Breakdown estável para UI (Macho/Fêmea · pedido · sugerido)
+    self_line = {
+        "listing_id": int(row.id),
+        "is_female": bool(row.is_female),
+        "asking_price": asking_self,
+        "suggested_value": suggested_self,
+        "display_title": item.get("display_title") or item.get("species_display_name"),
+    }
+    mate_line = {
+        "listing_id": int(mate.id),
+        "is_female": bool(mate.is_female),
+        "asking_price": asking_mate,
+        "suggested_value": suggested_mate,
+        "display_title": mate_pub.get("display_title") or mate_pub.get("species_display_name"),
+    }
+    male_line = mate_line if self_line["is_female"] else self_line
+    female_line = self_line if self_line["is_female"] else mate_line
+    item["pair_breakdown"] = {
+        "male": male_line,
+        "female": female_line,
+        "sum_asking": pricing["sum_asking"],
+        "checkout_price": pricing["checkout_price"],
+        "suggested_sum": suggested_sum,
+    }
+    # Preço exibido na vitrine / ordenação = Y (checkout); pedidos individuais em asking_price
     if is_pair_primary(row):
         item["effective_price"] = pricing["checkout_price"]
+        item["display_price"] = pricing["checkout_price"]
+    else:
         item["display_price"] = pricing["checkout_price"]
     return item
 
