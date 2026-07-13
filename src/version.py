@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.33"
+APP_VERSION: str = "1.10.34"
 BUILD_DATE: str = "2026-07-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.34",
+        "date": "2026-07-13",
+        "changes": [
+            "Fix (Nível do jogador): checkbox «Progressões customizadas» voltou a "
+            "ser livre (remove force ON quando base >105). Com base >105 e "
+            "progressões OFF: aviso na UI — ARK não honra o teto (reverte "
+            "vanilla); limpa rampa/OverrideMaxXP/engrams do Game.ini e remove "
+            "legado no GUS. Com ON mantém escrita no Game.ini (curva soft "
+            "70×1.05^i, 400 EP). Docs PLAYER_MAX_LEVEL_SPEC.",
+        ],
+    },
     {
         "version": "1.10.33",
         "date": "2026-07-13",

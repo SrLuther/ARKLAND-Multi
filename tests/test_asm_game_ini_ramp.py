@@ -142,12 +142,12 @@ def test_patch_accepts_single_line_ramp(tmp_path):
     assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == 5
 
 
-def test_legacy_write_with_base_160_writes_game_ini_ramp_and_max_xp(tmp_path):
-    """Base >105 força progressões: rampa + OverrideMaxXP + engrams no Game.ini (não GUS)."""
+def test_write_ini_base_160_progressions_off_clears_game_ini_overrides(tmp_path):
+    """Base >105 com toggle OFF: limpa rampa/OverrideMaxXP/engrams; remove GUS legado."""
     cfg = AsmServerConfig()
     cfg.install_dir = str(tmp_path)
     cfg.player_base_level = 160
-    cfg.player_level_progressions_enabled = False  # deve ser forçado ao escrever
+    cfg.player_level_progressions_enabled = False
     cfg.override_max_xp_player = 0
 
     path = _game_path(tmp_path)
@@ -156,17 +156,49 @@ def test_legacy_write_with_base_160_writes_game_ini_ramp_and_max_xp(tmp_path):
         f"[{_GAME_MODE_SECTION}]\r\n"
         "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=70,"
         "ExperiencePointsForLevel[1]=80)\r\n"
+        "OverrideMaxExperiencePointsPlayer=999\r\n"
+        "OverridePlayerLevelEngramPoints=400\r\n"
     )
     path.write_bytes(b"\xff\xfe" + pre.encode("utf-16-le"))
 
-    # Também simula legado errado no GUS — deve ser removido
     gus_path = tmp_path / "ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini"
     gus_pre = "[ServerSettings]\r\nOverrideMaxExperiencePointsPlayer=999\r\n"
     gus_path.write_bytes(b"\xff\xfe" + gus_pre.encode("utf-16-le"))
 
     write_ini(cfg)
 
-    assert cfg.player_level_progressions_enabled is True
+    assert cfg.player_level_progressions_enabled is False
+    text = path.read_text(encoding="utf-16")
+    block = extract_ini_section_text(text, _GAME_MODE_SECTION).lower()
+    assert "levelexperiencerampoverrides" not in block
+    assert "overridemaxexperiencepointsplayer" not in block
+    assert "overrideplayerlevelengrampoints" not in block
+    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == 0
+
+    gus_text = gus_path.read_text(encoding="utf-16")
+    assert "OverrideMaxExperiencePointsPlayer" not in gus_text
+
+
+def test_write_ini_base_160_progressions_on_writes_game_ini_ramp(tmp_path):
+    """Progressões ON: rampa + OverrideMaxXP + engrams no Game.ini (não GUS)."""
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.player_base_level = 160
+    cfg.player_level_progressions_enabled = True
+    cfg.override_max_xp_player = 0
+
+    path = _game_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(
+        b"\xff\xfe" + f"[{_GAME_MODE_SECTION}]\r\n".encode("utf-16-le")
+    )
+
+    gus_path = tmp_path / "ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini"
+    gus_pre = "[ServerSettings]\r\nOverrideMaxExperiencePointsPlayer=999\r\n"
+    gus_path.write_bytes(b"\xff\xfe" + gus_pre.encode("utf-16-le"))
+
+    write_ini(cfg)
+
     text = path.read_text(encoding="utf-16")
     block = extract_ini_section_text(text, _GAME_MODE_SECTION)
     block_l = block.lower()

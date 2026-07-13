@@ -1,8 +1,8 @@
 {
-    "version": "1.10.33",
+    "version": "1.10.34",
     "date": "2026-07-13",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.33/ARKLAND-Multi-Setup-v1.10.33.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.34/ARKLAND-Multi-Setup-v1.10.34.exe",
     "changelog": [
-        "Fix (Nível do jogador): OverrideMaxExperiencePointsPlayer volta para Game.ini [/Script/ShooterGame.ShooterGameMode] (docs ARK) — remove caminho falso «vanilla GUS-only» para base 160. Base >105 força progressões: rampa + OverrideMaxXP + engrams 400/nível (curva soft 70×1.05^i). Cap legado no GUS é removido ao salvar. Regenerar INI + reiniciar mapas."
+        "Fix (Nível do jogador): checkbox «Progressões customizadas» voltou a ser livre (remove force ON quando base >105). Com base >105 e progressões OFF: aviso na UI — ARK não honra o teto (reverte vanilla); limpa rampa/OverrideMaxXP/engrams do Game.ini e remove legado no GUS. Com ON mantém escrita no Game.ini (curva soft 70×1.05^i, 400 EP). Docs PLAYER_MAX_LEVEL_SPEC."
     ]
 }

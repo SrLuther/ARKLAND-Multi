@@ -9,7 +9,7 @@
 | **Fora de escopo** | Código, deploy, migração de servidores em produção |
 | **Relacionado** | [`ARK_SERVER_CONFIG_REFERENCE.md`](../ARK_SERVER_CONFIG_REFERENCE.md), [`ARKLAND_TEK.md`](../ARKLAND_TEK.md) |
 
-> **Resumo (atualizado 2026-07-13):** o ARK espera progresso custom do jogador em **`Game.ini`** sob `[/Script/ShooterGame.ShooterGameMode]`: `LevelExperienceRampOverrides`, `OverrideMaxExperiencePointsPlayer` e opcionalmente `OverridePlayerLevelEngramPoints`. Gravar só `OverrideMaxExperiencePointsPlayer` em **GameUserSettings.ini** **não** estende o teto além da rampa default. O ARKLAND (v1.10.33+) escreve o cap no **Game.ini**; base **>105** força progressões (rampa soft 70×1.05^i + 400 EP/nível). O painel TEK e a Web Store podem divergir se a rampa custom no disco não for regenerada após mudar o nível base.
+> **Resumo (atualizado 2026-07-13 / v1.10.34):** o ARK espera progresso custom do jogador em **`Game.ini`** sob `[/Script/ShooterGame.ShooterGameMode]`: `LevelExperienceRampOverrides`, `OverrideMaxExperiencePointsPlayer` e opcionalmente `OverridePlayerLevelEngramPoints`. Gravar só `OverrideMaxExperiencePointsPlayer` em **GameUserSettings.ini** **não** estende o teto além da rampa default. O ARKLAND escreve o cap no **Game.ini** quando **progressões estão ON** (curva soft 70×1.05^i + 400 EP/nível). O checkbox é **livre**: base **>105** com progressões **OFF** mostra aviso na UI — o jogo reverte para progressão vanilla. O painel TEK e a Web Store podem divergir se a rampa custom no disco não for regenerada após mudar o nível base.
 
 ---
 
@@ -31,7 +31,7 @@
 
 | # | Superfície UI | Seção TEK / ASM | Campo(s) internos | Destino no INI | Usado por Web Store? | Usado pelo jogo? |
 |---|---------------|-----------------|-------------------|----------------|----------------------|------------------|
-| A | **Nível máximo do jogador** | Configurações do Jogador | `player_base_level`, `override_max_xp_player`, `player_level_progressions_enabled` | **Game.ini** → `OverrideMaxExperiencePointsPlayer` (+ rampa/engrams se progressões) | ✅ Sim (`resolve_max_player_level`) | ✅ Com progressões / base >105 |
+| A | **Nível máximo do jogador** | Configurações do Jogador | `player_base_level`, `override_max_xp_player`, `player_level_progressions_enabled` | **Game.ini** → `OverrideMaxExperiencePointsPlayer` (+ rampa/engrams se progressões ON) | ✅ Sim (`resolve_max_player_level`) | ✅ Só com progressões ON |
 | B | **Override de Nível do Jogador** | Progressões de Nível | `player_level_stats_raw` | `Game.ini` → `LevelExperienceRampOverrides` (+ engrams no raw) | ❌ Não | ✅ Sim (define rampa de XP) |
 | C | **Multiplicador de engramas** | Configurações do Jogador | `player_engram_points_multiplier` | `Game.ini` → `OverridePlayerLevelEngramPoints` (gerado, N linhas) | ❌ Não (só nível) | ✅ Sim |
 | D | **Fallback dificuldade** | Configurações do Dino / Dificuldade | `enable_difficulty_override`, `override_official_difficulty` | `GameUserSettings.ini` | ✅ Se A vazio | ❌ Não para jogador |
@@ -45,7 +45,7 @@
 | `override_max_xp_player` | `asm_servers.json` **e** espelhado em **Game.ini** (não GUS) | ✅ Sim (Game.ini; GUS legado só na leitura) |
 | `player_level_stats_raw` | `asm_servers.json` apenas | ❌ Não (textbox carrega do JSON, não re-parseia `Game.ini`) |
 
-**Regra ARK (2026-07-13):** base **>105** ativa progressões automaticamente. Sem `LevelExperienceRampOverrides` no Game.ini, mudar só o cap de XP (mesmo no arquivo certo) **não** sobe o nível além do vanilla.
+**Regra UI (2026-07-13 / v1.10.34):** checkbox de progressões é **livre**. Base **>105** sem progressões: aviso claro — sem `LevelExperienceRampOverrides` no Game.ini o ARK **não** honra o teto elevado (reverte ~vanilla). OFF limpa rampa + OverrideMaxXP + engrams do Game.ini (e remove legado no GUS).
 
 ### 1.3 Fluxo de escrita (`write_ini`)
 
@@ -60,7 +60,7 @@ asm_servers.json
        │         ├─► LevelExperienceRampOverrides (rampa player)
        │         └─► OverridePlayerLevelEngramPoints × N
        │
-       └─► (base ≤105 + progressões off = vanilla stock, sem overrides)
+       └─► (progressões OFF = vanilla stock, sem overrides; base>105 OFF = aviso UI)
 ```
 
 ### 1.4 Fluxo de exibição Web Store
@@ -400,7 +400,7 @@ Mapeamento para estruturas atuais (migração):
 
 ## 10. Hipótese de causa-raiz (executiva)
 
-**O ARKLAND chegou a gravar `OverrideMaxExperiencePointsPlayer` só em `GameUserSettings.ini` (caminho «vanilla GUS» para base 160) — isso contradiz a documentação oficial do ARK e não estende níveis sem `LevelExperienceRampOverrides` no `Game.ini`. Corrigido: cap + rampa + engrams em `[/Script/ShooterGame.ShooterGameMode]`; base >105 força progressões (curva soft 1.05, 400 EP). A Web Store lê intenção do perfil; o jogo aplica a rampa no disco — regenerar INI e reiniciar após mudar o nível base.**
+**O ARKLAND chegou a gravar `OverrideMaxExperiencePointsPlayer` só em `GameUserSettings.ini` (caminho «vanilla GUS» para base 160) — isso contradiz a documentação oficial do ARK e não estende níveis sem `LevelExperienceRampOverrides` no `Game.ini`. Corrigido (1.10.33+): cap + rampa + engrams em `[/Script/ShooterGame.ShooterGameMode]` quando progressões ON (curva soft 1.05, 400 EP). Em 1.10.34 o toggle voltou a ser livre: base >105 OFF avisa e limpa overrides (vanilla). A Web Store lê intenção do perfil; o jogo aplica a rampa no disco — regenerar INI e reiniciar após mudar o nível base.**
 
 ---
 

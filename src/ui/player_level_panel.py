@@ -56,19 +56,7 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
     elif cfg is not None:
         progressions = is_player_level_progressions_enabled(cfg)
 
-    # Base > vanilla exige Game.ini (rampa + cap XP) — toggle sozinho não basta.
-    from ..player_level_ramp import (
-        base_requires_game_ini_progressions,
-        ensure_progressions_for_elevated_base,
-    )
-
-    if base_requires_game_ini_progressions(base):
-        progressions = True
-        if prog_var is not None:
-            try:
-                prog_var.set(True)
-            except tk.TclError:
-                pass
+    from ..player_level_ramp import base_requires_game_ini_progressions
 
     if cfg is not None:
         if hasattr(cfg, "player_base_level"):
@@ -76,7 +64,6 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
         if hasattr(cfg, "player_level_progressions_enabled"):
             cfg.player_level_progressions_enabled = progressions
         if progressions:
-            ensure_progressions_for_elevated_base(cfg)
             detect_and_apply_legacy_curve(cfg)
 
     total = calc_max_total_level(base)
@@ -123,6 +110,8 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
     if "_pl_xp_var" in vars_ref:
         if progressions:
             xp_label = f"{xp:,} XP (OverrideMaxXP no Game.ini)"
+        elif base_requires_game_ini_progressions(base):
+            xp_label = "vanilla (sem override — ARK ignora base elevada sem rampa)"
         else:
             xp_label = "vanilla (sem override — base ≤105)"
         vars_ref["_pl_xp_var"].set(xp_label)
@@ -143,7 +132,13 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
             export_ramp_raw(ramp_values) if progressions and ramp_values else ""
         )
     if "_pl_warn_var" in vars_ref:
-        vars_ref["_pl_warn_var"].set("")
+        if base_requires_game_ini_progressions(base) and not progressions:
+            vars_ref["_pl_warn_var"].set(
+                "AVISO: base >105 sem progressões — o ARK NÃO honra o teto elevado. "
+                "Sem rampa no Game.ini a progressão reverte para vanilla (~105)."
+            )
+        else:
+            vars_ref["_pl_warn_var"].set("")
 
     return base, total, xp, ramp_entries
 
@@ -166,16 +161,6 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
             progressions = False
     elif hasattr(gs, "player_level_progressions_enabled"):
         progressions = bool(getattr(gs, "player_level_progressions_enabled", False))
-
-    from ..player_level_ramp import base_requires_game_ini_progressions
-
-    if base_requires_game_ini_progressions(base):
-        progressions = True
-        if prog_var is not None:
-            try:
-                prog_var.set(True)
-            except tk.TclError:
-                pass
 
     if hasattr(gs, "player_base_level"):
         gs.player_base_level = base
@@ -237,11 +222,10 @@ def _progressions_toggle_row(
     tk.Label(
         fr,
         text=(
-            "Desmarcado = vanilla stock (só com base ≤105): sem rampa/engrams/OverrideMaxXP no Game.ini. "
-            "Base >105 força progressões automaticamente — o ARK exige "
-            "LevelExperienceRampOverrides + OverrideMaxExperiencePointsPlayer + "
-            "OverridePlayerLevelEngramPoints em [/Script/ShooterGame.ShooterGameMode] (Game.ini). "
-            "Curva soft default: 70×1.05^i; engrams 400/nível. Cap no GUS NÃO funciona."
+            "Marcado = rampa + OverrideMaxXP + engrams no Game.ini "
+            "[/Script/ShooterGame.ShooterGameMode] (curva soft 70×1.05^i; 400 EP/nível). "
+            "Desmarcado = limpa esses overrides (vanilla stock). Cap no GUS NÃO funciona. "
+            "Toggle livre — com base >105 desmarcado o ARK ignora o teto elevado."
         ),
         bg=bg,
         fg="gray50",
@@ -394,6 +378,17 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
         bg=bg,
         accent=accent,
     )
+    warn_lbl = tk.Label(
+        body,
+        textvariable=vars_ref["_pl_warn_var"],
+        bg=bg,
+        fg="#e8a838",
+        font=ctk.CTkFont(size=10, weight="bold"),
+        wraplength=540,
+        justify="left",
+    )
+    warn_lbl.grid(row=r, column=0, sticky="ew", padx=12, pady=(0, 4))
+    r += 1
     _unified_summary_row(
         body, row=r,
         base_var=vars_ref["player_base_level"],
@@ -442,6 +437,7 @@ def build_classic_player_level_panel(
     w["_pl_asc_bonus_var"] = tk.StringVar(value=f"+{ARK_TOTAL_BONUS_LEVELS}")
     w["_pl_ramp_var"] = tk.StringVar()
     w["_pl_engram_var"] = tk.StringVar(value=str(ARK_ENGRAM_POINTS_PER_LEVEL))
+    w["_pl_warn_var"] = tk.StringVar()
     w["player_level_progressions_enabled"] = tk.BooleanVar(
         value=bool(getattr(gs, "player_level_progressions_enabled", False))
     )
@@ -455,9 +451,9 @@ def build_classic_player_level_panel(
         panel,
         text=(
             "Informe o nível base (farmável com XP). O teto total (+100) é automático. "
-            "Para base >105 (ex.: 160), as progressões no Game.ini são obrigatórias: "
-            "rampa LevelExperienceRampOverrides, OverrideMaxExperiencePointsPlayer e "
-            "engrams 400/nível (curva soft 70×1.05^i). Gravar só no GUS não altera o teto no ARK."
+            "Com progressões ON: rampa + OverrideMaxXP + engrams 400/nível no Game.ini "
+            "(curva soft 70×1.05^i). Toggle livre — base >105 OFF avisa que o ARK "
+            "reverte para progressão vanilla. Cap só no GUS não altera o teto."
         ),
         bg=_BG_PANEL, fg="gray50", font=ctk.CTkFont(size=10), justify="left",
         wraplength=560,
@@ -475,6 +471,17 @@ def build_classic_player_level_panel(
         bg=_BG_PANEL,
         accent=_GREEN,
     )
+    warn_lbl = tk.Label(
+        panel,
+        textvariable=w["_pl_warn_var"],
+        bg=_BG_PANEL,
+        fg="#e8a838",
+        font=ctk.CTkFont(size=10, weight="bold"),
+        wraplength=540,
+        justify="left",
+    )
+    warn_lbl.grid(row=r, column=0, sticky="ew", padx=12, pady=(0, 4))
+    r += 1
     _unified_summary_row(
         panel, row=r,
         base_var=w["gs_player_base_level"],
