@@ -7608,6 +7608,145 @@
         }
       },
       "blueprint_aliases": []
+    },
+    {
+      "species_key": "ceratosaurus",
+      "display_name": "Ceratosaurus",
+      "blueprint_path": "/Game/Mods/Additions_Pack/Ceratosaurus/Dinos/CeratosaurusAA_Character_BP.CeratosaurusAA_Character_BP",
+      "catalog_item_id": "ceratosaurus",
+      "reference_catalog_item_id": "ceratosaurus",
+      "catalog_item_ids": [
+        "ceratosaurus"
+      ],
+      "root_value": 3500,
+      "premium_budget": 31500,
+      "tier": "B",
+      "dino_role": "ataque",
+      "prestige_rank": 50,
+      "commerce_channel": "market_p2p",
+      "pricing_mode": "floor_quality",
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "ARK Additions — mid carnivore com heal por bleed; peer Allo/Concavenator (R=3500)",
+      "mod_source": "ark_additions",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": true
+        }
+      },
+      "blueprint_aliases": [
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Ceratosaurus/Dinos/Gen2_CeratosaurusAA_Character_BP.Gen2_CeratosaurusAA_Character_BP",
+          "variant_label": "R-Ceratosaurus"
+        }
+      ]
+    },
+    {
+      "species_key": "deinotherium",
+      "display_name": "Deinotherium",
+      "blueprint_path": "/Game/Mods/Additions_Pack/Deinotherium/Dinos/Deinotherium_Character_BP.Deinotherium_Character_BP",
+      "catalog_item_id": "deinotherium",
+      "reference_catalog_item_id": "deinotherium",
+      "catalog_item_ids": [
+        "deinotherium"
+      ],
+      "root_value": 7000,
+      "premium_budget": 35000,
+      "tier": "A",
+      "dino_role": "ataque",
+      "prestige_rank": 58,
+      "commerce_channel": "market_p2p",
+      "pricing_mode": "floor_quality",
+      "diet_class": "herbivore",
+      "size_class": "large",
+      "breeding_difficulty": "alto",
+      "breeding_notes": "ARK Additions — elefante de combate/cerco; peer Therizino (R=7000), acima de Mammoth/Brachio",
+      "mod_source": "ark_additions",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": true
+        }
+      },
+      "blueprint_aliases": [
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Deinotherium/Dinos/Rockwell_Deinotherium_Character_BP.Rockwell_Deinotherium_Character_BP",
+          "variant_label": "R-Deinotherium"
+        }
+      ]
+    },
+    {
+      "species_key": "helicoprion",
+      "display_name": "Helicoprion",
+      "blueprint_path": "/Game/Mods/Additions_Pack/Helicoprion/Dinos/G_Helicoprion_Character_BP.G_Helicoprion_Character_BP",
+      "catalog_item_id": "helicoprion",
+      "reference_catalog_item_id": "helicoprion",
+      "catalog_item_ids": [
+        "helicoprion"
+      ],
+      "root_value": 3500,
+      "premium_budget": 31500,
+      "tier": "B",
+      "dino_role": "utilitario",
+      "prestige_rank": 52,
+      "commerce_channel": "market_p2p",
+      "pricing_mode": "floor_quality",
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "ARK Additions — aquático utilitário (crafting/BP); peer Xiphactinus/Megalodon (R=3500)",
+      "mod_source": "ark_additions",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": true
+        }
+      },
+      "blueprint_aliases": [
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Helicoprion/Dinos/G_OceanHelicoprion_Character_BP.G_OceanHelicoprion_Character_BP",
+          "variant_label": "X-Helicoprion"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Helicoprion/Dinos/G_EdenHelicoprion_Character_BP.G_EdenHelicoprion_Character_BP",
+          "variant_label": "R-Helicoprion"
+        }
+      ]
     }
   ],
   "_size_caps": {

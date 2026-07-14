@@ -36,7 +36,7 @@ def test_l200_ratio_constant():
     assert me.L200_OF_V254_RATIO == 0.40
     assert me.L200_ID_SUFFIX == "_l200"
     assert me.l200_shop_id("rex_femea") == "rex_femea_l200"
-    assert me.BREEDING_KIT_PAY_RATIO == 0.75
+    assert me.BREEDING_KIT_PAY_RATIO == 0.60
 
 
 def test_apply_l200_idempotent(tmp_path, monkeypatch):

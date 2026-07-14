@@ -10629,6 +10629,16 @@ register_suggestion_routes(
     limiter=limiter,
 )
 
+from season_pass_routes import register_season_pass_routes
+
+register_season_pass_routes(
+    app,
+    db_ready=_db_ready,
+    login_required=login_required,
+    steam_id_from_session=_steam_id_from_session,
+    limiter=limiter,
+)
+
 from media_routes import register_media_routes
 
 register_media_routes(

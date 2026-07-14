@@ -440,8 +440,24 @@ def quote(
     if not skip_vanilla_check and _species_mod_source(species_key) != "vanilla":
         raise ValueError("species_not_vanilla")
 
+    # Garante B/role mesmo se a row do DB tiver species_key desalinhada do JSON.
+    try:
+        from market_economy import apply_economy_meta
+
+        apply_economy_meta(economy)
+    except Exception:
+        pass
+
     stat_points = normalize_stat_points(spec.get("stat_points") or {})
     market_value, market_breakdown = calculate_suggested_value(economy, stat_points)
+    if (
+        int(getattr(economy, "premium_budget", 0) or 0) <= 0
+        and any(int(v or 0) > 0 for v in stat_points.values())
+    ):
+        log.warning(
+            "dino_order quote: premium_budget=0 para %s com stats>0 — V cola no root",
+            species_key,
+        )
     r = int(economy.root_value)
     colors = [int(c) for c in (spec.get("colors") or [0] * 6)]
     color_component = calc_color_component(r, colors, cfg)
@@ -454,6 +470,10 @@ def quote(
     ceiling = load_encomenda_absolute_max()
     total = calculate_encomenda_value(economy, market_value, color_component=color_component)
 
+    quality_row = next(
+        (row for row in market_breakdown if isinstance(row, dict) and row.get("kind") == "quality"),
+        {},
+    )
     quote_id = f"qt_{secrets.token_hex(6)}"
     return {
         "quote_id": quote_id,
@@ -461,6 +481,8 @@ def quote(
         "species_key": species_key,
         "species_display_name": economy.display_name,
         "root_value": r,
+        "premium_budget": int(getattr(economy, "premium_budget", 0) or 0),
+        "q_index": quality_row.get("q_index"),
         "stats_component": market_value,
         "color_component": color_component,
         "base_surcharge": base_surcharge,

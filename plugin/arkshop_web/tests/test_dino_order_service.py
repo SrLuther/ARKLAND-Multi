@@ -238,10 +238,90 @@ def test_quote_moderate_stats():
             db=db,
         )
         assert q["stats_component"] > 5000
+        assert q["premium_budget"] > 0
+        assert (q.get("q_index") or 0) > 0
         assert q["color_component"] == 400
         assert q["total"] > q["market_equivalent"]
     finally:
         db.close()
+
+
+def test_quote_full_254_raises_above_floor():
+    """Full 254 deve subir V acima do root — não pode colar no «a partir de»."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(
+            db,
+            species_key="sb_drake_fire",
+            display_name="Small Drake Fogo",
+            root_value=5500,
+        )
+        set_permanent_species(["sb_drake_fire"])
+        q0 = quote(
+            {
+                "species_key": "sb_drake_fire",
+                "colors": [0, 0, 0, 0, 0, 0],
+                "stat_points": {},
+            },
+            db=db,
+            skip_vanilla_check=True,
+        )
+        q254 = quote(
+            {
+                "species_key": "sb_drake_fire",
+                "colors": [0, 0, 0, 0, 0, 0],
+                "stat_points": {
+                    "health": 254,
+                    "stamina": 254,
+                    "oxygen": 254,
+                    "food": 254,
+                    "weight": 254,
+                    "melee": 254,
+                    "speed": 254,
+                },
+            },
+            db=db,
+            skip_vanilla_check=True,
+        )
+        assert q0["stats_component"] == 5500
+        assert q0["total"] == 8800
+        assert q254["premium_budget"] > 0
+        assert q254["q_index"] == 1.0
+        assert q254["stats_component"] > q0["stats_component"]
+        assert q254["total"] > q0["total"]
+    finally:
+        db.close()
+
+
+def test_quote_mismatched_key_recovers_budget_via_blueprint():
+    """species_key fora do JSON mas blueprint certo → ainda aplica B."""
+    from market_economy import SpeciesEconomy, apply_economy_meta, calculate_suggested_value
+
+    eco = SpeciesEconomy(
+        species_key="legacy_small_drake_fire_typo",
+        display_name="Small Drake Fogo",
+        root_value=5500,
+        blueprint_path=(
+            "/Game/Mods/SmallBosses/SmallDrake/"
+            "SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire"
+        ),
+        pricing_mode="floor_quality",
+    )
+    apply_economy_meta(eco)
+    assert eco.premium_budget > 0
+    v0, _ = calculate_suggested_value(eco, {})
+    v254, _ = calculate_suggested_value(
+        eco,
+        {
+            "health": 254,
+            "melee": 254,
+            "weight": 254,
+            "stamina": 254,
+            "speed": 254,
+        },
+    )
+    assert v0 == 5500
+    assert v254 > v0
 
 
 def test_quote_indominus_full_254_with_colors(monkeypatch):

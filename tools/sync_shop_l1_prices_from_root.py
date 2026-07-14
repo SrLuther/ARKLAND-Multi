@@ -3,7 +3,7 @@
 
 Fonte oficial: market_species_defaults.json → root_value (R).
   Items[Type:dino Level 1].Price = R
-  Kits *_pack10 (25% off) → round(n × P1 × 0.75)
+  Kits *_pack10 (40% off) → round(n × P1 × 0.60)
 
 Uso:
   python tools/sync_shop_l1_prices_from_root.py
@@ -98,7 +98,7 @@ def main() -> int:
             for row in (kits.get("changed") or [])[:40]:
                 print(
                     f"  Kit {row['kit_id']}: {row['old_price']} -> {row['new_price']} "
-                    f"(n={row['n']} × P1={row['p1']} × 0.75)"
+                    f"(n={row['n']} × P1={row['p1']} × 0.60)"
                 )
             for row in kits.get("skipped") or []:
                 print(f"  · kit skip {row['kit_id']}: {row.get('reason')}")

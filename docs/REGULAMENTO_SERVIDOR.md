@@ -4,7 +4,7 @@
 |-------|-------|
 | **Documento** | Regulamento do Servidor e Ecossistema Digital ARKLAND |
 | **Versão** | 1.3 |
-| **Última atualização** | 12 de julho de 2026 |
+| **Última atualização** | 14 de julho de 2026 |
 | **Aplicável a** | Servidores PvE do cluster ARKLAND (ARK: Survival Evolved) e plataforma web associada |
 | **Idioma** | Português (Brasil) |
 
@@ -36,6 +36,8 @@ O ecossistema ARKLAND inclui servidores de jogo **PvE** (Player versus Environme
 12. [Alterações deste regulamento](#12-alterações-deste-regulamento)
 13. [Contato e canais oficiais](#13-contato-e-canais-oficiais)
 
+> **Season Pass:** regras jogador-facing em detalhe — [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) e [§8.13](#813-season-pass).
+
 ---
 
 ## 1. Introdução
@@ -48,6 +50,7 @@ O **ARKLAND** é um cluster privado de servidores **PvE** de ARK: Survival Evolv
 - **Web Store** ([arkland.com.br](https://arkland.com.br)) — autenticação Steam, catálogo, doações, resgates e Minha Área;
 - **Mercado P2P de dinos** — comércio entre jogadores exclusivamente em **Âmbares**;
 - **Encomenda de Dinos** — serviço pago sob demanda (vitrine + cotação) na Web Store;
+- **Season Pass** — progresso pessoal por temporada (XP = Timed Points; Premium em Âmbar) — [§8.13](#813-season-pass);
 - **Inventário na Nuvem** — cofre cluster-wide via comandos in-game;
 - **Sistema de tickets** — suporte, denúncias e recursos formais;
 - **Notificações in-app** — avisos sobre pedidos, mercado, tickets e eventos.
@@ -535,6 +538,22 @@ Canal **jogador-facing** na Web Store (aba **Encomenda** do Mercado / Dino Lab) 
 - Reembolsos de encomenda **não** são automáticos por desistência após pagamento; seguem análise administrativa e, quando aplicável, a mesma lógica de boa-fé e contestação com explicação obrigatória usada no ecossistema digital ([§8.4](#84-catálogo-resgates-e-entregas)).
 - Uso do Dino Lab **gratuito** pela staff para entregar o que o jogador deveria pagar por encomenda é proibido como prática rotineira (auditoria cruzada).
 
+### 8.13 Season Pass
+
+Progresso pessoal por temporada na Web Store (área **SEASON PASS**). Texto completo jogador-facing: [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md). Resumo normativo:
+
+| Tema | Regra |
+|------|--------|
+| **Duração** | **30 dias** fixos; **fim automático**. A season seguinte **só começa** quando a administração **iniciar** manualmente. |
+| **XP** | Igual ao Âmbar do tick Timed Points, em **todos os mapas**. No nível 30 (XP máximo), Âmbar do tick **continua**; XP do Pass **congela**. |
+| **Premium** | Compra **só com Âmbar** (sem PIX/cartão), na área SEASON PASS. Vale **só** a season actual. **100%** do valor paga o cofre da temporada. |
+| **Resgate** | **Sempre manual**. Comprar Premium a meio desbloqueia catch-up das caixas já desbloqueadas. |
+| **Não resgatadas (unclaimed)** | No fim dos 30 dias **não** se perdem de imediato. Continuam resgatáveis **até** a administração abrir a próxima season. Quando a próxima começa → claims da anterior **fecham** → o não resgatado fica **perdido**. |
+| **Licença no Pass** | Duração **normal de 30 dias** do tier da season (ex. Delta 30 dias). Se o jogador já tiver licença de **tier superior**, no claim **escolhe** a licença **ou** o valor de catálogo em Âmbar. |
+| **Meta coletiva** | Ao completar, a administração **agenda** data de evento (não dispara sozinha). A meta **não** alonga a season. |
+
+Abuso ligado ao Season Pass segue [Seção 9](#9-sistema-de-punições).
+
 ---
 
 ## 9. Sistema de punições
@@ -713,6 +732,7 @@ A administração **não atende** pedidos de suporte por mensagem privada em red
 | **Licença Nuvem** | Habilita cofre `/upload`/`/download` e envio ao mercado |
 | **Casal (mercado)** | Anúncio vinculado macho + fêmea da mesma espécie; checkout a 60% da soma dos pedidos |
 | **Encomenda de Dino** | Serviço pago sob demanda (vitrine + cotação α/β) — §8.12 |
+| **Season Pass** | Progresso pessoal por temporada (XP = Timed Points); Premium em Âmbar — §8.13 · `REGULAMENTO_SEASON_PASS.md` |
 | **Sorteio** | Promoção contínua `#/sorteio` — prêmio em Âmbares; vendas em casal contribuem 40% de `S` ao pote |
 | **Timed Points** | Recompensa periódica de Âmbares por tempo online |
 | **Web Store** | Plataforma web ARKLAND Donations |
@@ -728,4 +748,4 @@ No painel **Broadcasts** do ARKLAND Server Manager (TEK), a administração pode
 
 *ARKLAND — Comunidade PvE ARK: Survival Evolved. Jogue limpo, respeite a comunidade, use tickets com provas.*
 
-**Fim do Regulamento — Versão 1.1**
+**Fim do Regulamento — Versão 1.3**

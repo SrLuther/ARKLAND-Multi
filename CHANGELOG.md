@@ -5,6 +5,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.35] - 2026-07-14
+
+### Feature
+
+- Feat (Web Store / Season Pass): UI + stubs API (Free/Premium), regulamento Season Pass; preview público sem login Steam (compra Premium continua a exigir autenticação).
+- Feat (CustomShop / Catálogo): kits Pack10 em massa — nome «KIT 10 FÊMEAS LVL 1 - {NOME}», preço 10×L1×0.60 (~191 kits).
+- Feat (CustomShop / Catálogo): ARK Additions — Ceratosaurus, Deinotherium e Helicoprion (L1 + L200) e respectivos Pack10.
+- Feat (CustomShop / ItensAlfa): selas com Quality=100 + Armor no máx. do tier (ex. Omega armadura 790) via apply_itensalfa_licenses.
+
+### Fix
+
+- Fix (Web Store / Encomenda): market_economy volta a fazer merge com market_species_defaults (repo) e restaura floor_quality B no quote.
+
+### Other
+
+- Note: auditoria de dinos duplicados no catálogo ainda pendente (não bloqueia este patch).
+
 ## [1.10.34] - 2026-07-13
 
 ### Fix

@@ -913,6 +913,120 @@
       gap: 8px;
     }
 
+    /* ── Season Pass (player) ─────────────────────────────────────────────── */
+    .sp-hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .sp-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--amber);
+    }
+    .sp-status::before {
+      content: "";
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(18,216,124,.5);
+    }
+    .sp-status.is-ended::before { background: var(--text2); box-shadow: none; }
+    .sp-status.is-ended { color: var(--text2); }
+    .sp-xp-bar {
+      height: 10px;
+      border-radius: 6px;
+      background: rgba(0,0,0,.35);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin: 10px 0 6px;
+    }
+    .sp-xp-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--amber), var(--fire));
+      transition: width .35s ease;
+    }
+    .sp-xp-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text2);
+      font-variant-numeric: tabular-nums;
+    }
+    .sp-tracks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 4px;
+    }
+    @media (max-width: 720px) {
+      .sp-tracks { grid-template-columns: 1fr; }
+    }
+    .sp-track {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .sp-track.is-locked { opacity: .78; }
+    .sp-track__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .sp-track__title {
+      font-family: Cinzel, serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--text);
+    }
+    .sp-track__badge {
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .sp-track__badge.is-locked { color: var(--warning); }
+    .sp-track__badge.is-owned { color: var(--success); }
+    .sp-node {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 0;
+      border-top: 1px solid rgba(44,32,20,.6);
+      font-size: 13px;
+    }
+    .sp-node:first-of-type { border-top: none; }
+    .sp-node__lvl {
+      min-width: 28px;
+      font-weight: 700;
+      color: var(--amber);
+      font-variant-numeric: tabular-nums;
+    }
+    .sp-node__body { flex: 1; color: var(--text2); }
+    .sp-node.is-pending .sp-node__lvl { color: var(--text2); }
+    .sp-node.is-locked .sp-node__body { color: var(--text3); }
+    .sp-note {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.55;
+      padding: 10px 12px;
+      border-left: 3px solid var(--border-g);
+      background: rgba(0,0,0,.2);
+    }
+
     /* ── Tables ───────────────────────────────────────────────────────────── */
     .tbl { width: 100%; border-collapse: collapse; }
     .tbl th {
@@ -5431,6 +5545,9 @@
     <div class="nav-item" data-page="sorteio" onclick="nav(this)">
       <span class="nav-icon">🎲</span> Sorteio
     </div>
+    <div class="nav-item" data-page="season-pass" onclick="nav(this)">
+      <span class="nav-icon">🎫</span> SEASON PASS
+    </div>
     <div class="nav-item" data-page="sugestoes" onclick="nav(this)">
       <span class="nav-icon">💡</span> Sugestões
     </div>
@@ -7225,6 +7342,17 @@
           </div>
         </div>
         <div id="sorteio-root" style="color:var(--text2);">Carregando…</div>
+      </div>
+
+      <!-- PAGE: Season Pass (jogador — separado do ARKBANK admin) -->
+      <div id="page-season-pass" class="page">
+        <div id="topbar">
+          <div class="page-title">🎫 SEASON PASS</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadSeasonPass()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div id="season-pass-root" style="color:var(--text2);">Carregando…</div>
       </div>
 
       <!-- PAGE: Regulamento do Sorteio -->
@@ -9236,11 +9364,11 @@ function nav(el) {
     promptLogin("Sugestões");
     return;
   }
-  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "midias" && page !== "sorteio" && page !== "sorteio-regulamento" && playerNeedsRegulamentoAccept()) {
+  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "midias" && page !== "sorteio" && page !== "sorteio-regulamento" && page !== "season-pass" && playerNeedsRegulamentoAccept()) {
     showRegulamentoGate();
     return;
   }
-  if (playerNeedsDisplayName() && page !== "regulamento" && page !== "home" && page !== "catalog") {
+  if (playerNeedsDisplayName() && page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "season-pass") {
     showDisplayNameGate("navegar no portal");
     return;
   }
@@ -9255,6 +9383,7 @@ function nav(el) {
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "polls") loadPolls();
   if (page === "sorteio") loadSorteio();
+  if (page === "season-pass") loadSeasonPass();
   if (page === "sorteio-regulamento") loadLotteryRegulamentoPage();
   if (page === "midias") loadMidias();
   if (page === "sugestoes" && _auth.authenticated) loadSugestoes();
@@ -13213,6 +13342,128 @@ function arkbankHideAdjust() {
   document.getElementById("arkbank-adjust")?.classList.add("hidden");
 }
 
+function _spTrackNodesHtml(nodes, lockedTrack) {
+  if (!nodes || !nodes.length) {
+    return `<p style="font-size:12px;color:var(--text2);margin:0;">Sem slots nesta track.</p>`;
+  }
+  return nodes.map((n) => {
+    const st = String(n.state || (lockedTrack ? "locked" : "pending"));
+    return `<div class="sp-node is-${escHtml(st)}">
+      <div class="sp-node__lvl">${Number(n.level) || "?"}</div>
+      <div class="sp-node__body">${escHtml(n.reward_hint || n.label || "Recompensa")}</div>
+    </div>`;
+  }).join("");
+}
+
+async function seasonPassBuyPremium() {
+  if (!_auth.authenticated) { promptLogin("SEASON PASS"); return; }
+  try {
+    const d = await fetchJson("/api/season-pass/premium", { method: "POST", body: {} });
+    if (!d.ok) throw new Error(d.error || "Compra indisponível");
+    toast("Premium adquirido.", "success");
+    loadSeasonPass();
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
+}
+
+async function loadSeasonPass() {
+  const root = document.getElementById("season-pass-root");
+  if (!root) return;
+  root.innerHTML = `<p style="color:var(--text2);">Carregando…</p>`;
+  try {
+    const endpoint = _auth.authenticated ? "/api/season-pass/me" : "/api/season-pass/preview";
+    const d = await fetchJson(endpoint);
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    const season = d.season || {};
+    const player = d.player || {};
+    const prem = d.premium || {};
+    const notes = d.notes || {};
+    const tracks = d.tracks || {};
+    const title = season.title || season.name || "Season Pass — Delta";
+    const dur = Number(season.duration_days || 30);
+    const left = season.days_remaining != null ? Number(season.days_remaining) : dur;
+    const status = String(season.status || "active");
+    const statusCls = status === "ended" ? "is-ended" : "";
+    const statusLabel = season.status_label || (status === "ended" ? "Encerrada" : "Ativa");
+    const xp = Number(player.xp || 0);
+    const level = Number(player.level || 0);
+    const into = Number(player.xp_into_level || 0);
+    const need = Number(player.xp_for_next || 0) || 1;
+    const pct = player.next_level == null ? 100 : Math.max(0, Math.min(100, Math.round((into / need) * 100)));
+    const nextLine = player.next_level == null
+      ? `Nível máximo (${level})`
+      : `Nível ${level} → ${player.next_level} · ${into} / ${need} XP`;
+    const owned = !!prem.owned;
+    const cta = prem.cta_label || "Comprar Premium";
+    const titleEl = document.querySelector("#page-season-pass .page-title");
+    if (titleEl) titleEl.textContent = `🎫 ${title}`;
+
+    root.innerHTML = `
+      <div class="card" style="margin-bottom:16px;padding:20px;">
+        <div style="font-size:12px;color:var(--text2);letter-spacing:.04em;text-transform:uppercase;">Temporada</div>
+        <div style="font-family:Cinzel,serif;font-size:1.35rem;font-weight:700;margin-top:4px;color:var(--text);">${escHtml(title)}</div>
+        <div class="sp-hero-meta">
+          <span class="sp-status ${statusCls}">${escHtml(statusLabel)}</span>
+          <span style="font-size:12px;color:var(--text2);">${dur} dias fixos · restam ~${left} dias</span>
+        </div>
+        ${season.note ? `<p style="margin:10px 0 0;font-size:12px;color:var(--text2);line-height:1.5;">${escHtml(season.note)}</p>` : ""}
+      </div>
+
+      <div class="card" style="margin-bottom:16px;padding:16px;">
+        <div class="card-title" style="margin-bottom:8px;">Progresso de XP</div>
+        <div style="font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;">${xp.toLocaleString("pt-BR")} XP · ${escHtml(nextLine)}</div>
+        <div class="sp-xp-bar"><div class="sp-xp-fill" style="width:${pct}%;"></div></div>
+        <div class="sp-xp-meta">
+          <span>${pct}% até ao próximo nível</span>
+          <span>Max 4.875 XP / 30 níveis</span>
+        </div>
+      </div>
+
+      <div class="sp-tracks" style="margin-bottom:16px;">
+        <div class="sp-track">
+          <div class="sp-track__head">
+            <div class="sp-track__title">Free</div>
+            <div class="sp-track__badge">a cada 4 níveis</div>
+          </div>
+          ${_spTrackNodesHtml(tracks.free, false)}
+        </div>
+        <div class="sp-track ${owned ? "" : "is-locked"}">
+          <div class="sp-track__head">
+            <div class="sp-track__title">Premium</div>
+            <div class="sp-track__badge ${owned ? "is-owned" : "is-locked"}">${owned ? "Desbloqueado" : "Bloqueado"}</div>
+          </div>
+          ${_spTrackNodesHtml(tracks.premium, !owned)}
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;padding:16px;">
+        <div class="card-title" style="margin-bottom:10px;">Season Pass Premium</div>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--text2);line-height:1.5;">
+          Premium recebe recompensa em <strong>todos</strong> os 30 níveis e também as Free nos múltiplos de 4.
+          Compra <strong>só com Âmbar</strong> (sem PIX/cartão). Válido <strong>só nesta season</strong> (30 dias).
+          ${prem.vault_note ? `<br><span style="font-size:12px;">${escHtml(prem.vault_note)}</span>` : ""}
+          ${prem.claim_note ? `<br><span style="font-size:12px;">${escHtml(prem.claim_note)}</span>` : ""}
+        </p>
+        <button class="btn btn-primary" type="button" onclick="seasonPassBuyPremium()" ${prem.purchase_enabled ? "" : "disabled title=\"Em breve\""}>
+          ${escHtml(cta)}${prem.price_tbd ? " · TBD" : ""}
+        </button>
+      </div>
+
+      <div class="sp-note">
+        ${escHtml(notes.xp_source || "XP do passe = Â dos ticks TimedPoints (todos os mapas); congela no L30.")}
+        <br>${escHtml(notes.vault_vs_pass || "Meta coletiva ≠ XP do passe; admin agenda o evento.")}
+        <br>${escHtml(notes.duration || "30 dias (fim automático); próxima season = start manual admin.")}
+        <br>${escHtml(notes.claim || "Resgate manual. Unclaimed: até o start da próxima season; depois perdido.")}
+        <br>${escHtml(notes.premium_scope || "Premium só em Âmbar, só nesta área, só a season actual.")}
+        ${notes.regulamento ? `<br>${escHtml(notes.regulamento)}` : ""}
+      </div>
+    `;
+  } catch (e) {
+    root.innerHTML = `<div class="card"><p style="color:var(--danger);margin:0;">${escHtml(String(e.message || e))}</p></div>`;
+  }
+}
+
 async function arkbankSubmitAdjust() {
   const amount = parseInt(document.getElementById("arkbank-adj-amount")?.value || "0", 10) || 0;
   const reason = (document.getElementById("arkbank-adj-reason")?.value || "").trim();
@@ -15423,6 +15674,7 @@ async function encomendaRefreshQuoteNow() {
         <div style="display:flex;justify-content:space-between;gap:8px;"><span>Prêmio serviço β (${d.service_surcharge_pct}%)</span><strong>${formatAmberAmount(d.service_premium)}</strong></div>
         <div style="font-size:15px;font-weight:700;color:var(--amber);margin-top:6px;display:flex;justify-content:space-between;"><span>Total</span><span>${amberPriceHtml(d.total, 16)}</span></div>
         <div style="margin-top:4px;">${approveNote}</div>
+        ${d.q_index != null ? `<div style="color:var(--text3);margin-top:2px;">Índice Q ${Number(d.q_index).toFixed(2)} · orçamento B ${formatAmberAmount(d.premium_budget || 0)}</div>` : ""}
       </div>`;
     encomendaSyncCheckoutBtn();
   } catch (e) {

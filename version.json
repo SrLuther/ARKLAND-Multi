@@ -1,8 +1,13 @@
 {
-    "version": "1.10.34",
-    "date": "2026-07-13",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.34/ARKLAND-Multi-Setup-v1.10.34.exe",
+    "version": "1.10.35",
+    "date": "2026-07-14",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.35/ARKLAND-Multi-Setup-v1.10.35.exe",
     "changelog": [
-        "Fix (Nível do jogador): checkbox «Progressões customizadas» voltou a ser livre (remove force ON quando base >105). Com base >105 e progressões OFF: aviso na UI — ARK não honra o teto (reverte vanilla); limpa rampa/OverrideMaxXP/engrams do Game.ini e remove legado no GUS. Com ON mantém escrita no Game.ini (curva soft 70×1.05^i, 400 EP). Docs PLAYER_MAX_LEVEL_SPEC."
+        "Feat (Web Store / Season Pass): UI + stubs API (Free/Premium), regulamento Season Pass; preview público sem login Steam (compra Premium continua a exigir autenticação).",
+        "Feat (CustomShop / Catálogo): kits Pack10 em massa — nome «KIT 10 FÊMEAS LVL 1 - {NOME}», preço 10×L1×0.60 (~191 kits).",
+        "Feat (CustomShop / Catálogo): ARK Additions — Ceratosaurus, Deinotherium e Helicoprion (L1 + L200) e respectivos Pack10.",
+        "Feat (CustomShop / ItensAlfa): selas com Quality=100 + Armor no máx. do tier (ex. Omega armadura 790) via apply_itensalfa_licenses.",
+        "Fix (Web Store / Encomenda): market_economy volta a fazer merge com market_species_defaults (repo) e restaura floor_quality B no quote.",
+        "Note: auditoria de dinos duplicados no catálogo ainda pendente (não bloqueia este patch)."
     ]
 }

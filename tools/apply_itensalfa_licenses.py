@@ -309,33 +309,46 @@ def _license_entry(tier: dict, *, renewal: bool = False) -> dict:
     return entry
 
 
-def _bp_entry(bp: str) -> dict:
-    return {"Blueprint": bp, "Quantity": 1, "Quality": 0, "ForceBlueprint": False}
+def _bp_entry(bp: str, *, quality: float = 0, armor: float | int | None = None) -> dict:
+    entry: dict = {
+        "Blueprint": bp,
+        "Quantity": 1,
+        "Quality": quality,
+        "ForceBlueprint": False,
+    }
+    # Mesmo padrão das selas vanilla da loja: Quality=100 + Armor explícito.
+    if armor is not None and float(armor) > 0:
+        entry["Armor"] = float(armor)
+    return entry
 
 
 def _weapon_item(label: str, category: str, price_key: str, bp: str, tier: dict, idx: int) -> dict:
     prices = ITEM_PRICES[tier["id"]]
     base = int(prices.get(price_key) or 0)
     name = f"{label} {tier['label']} (1x)"
+    nested = _bp_entry(bp)
+    desc = name
+    if price_key == "saddle":
+        st = TIER_STATUS.get(tier["sheet"]) or {}
+        saddle_armor = int(st.get("saddle") or 0)
+        # Max def do tier ItensAlfa (planilha Status) via Quality + Armor do CustomShop.
+        nested = _bp_entry(bp, quality=100, armor=saddle_armor or None)
+        if saddle_armor:
+            desc = (
+                f"{name} — armadura da sela {saddle_armor} (máx. do tier). "
+                f"Licença: próprio ou um acima."
+            )
     entry = {
         "Category": category,
-        "Description": name,
+        "Description": desc,
         "ForceBlueprint": False,
-        "Items": [_bp_entry(bp)],
+        "Items": [nested],
         "Name": name,
         "Permissions": _perms_for_tier_index(idx),
         "Price": _shop_price(base),
         "Quality": 0,
         "Type": "item",
     }
-    if price_key == "saddle":
-        st = TIER_STATUS.get(tier["sheet"]) or {}
-        saddle_armor = int(st.get("saddle") or 0)
-        if saddle_armor:
-            entry["Description"] = (
-                f"{name} — armadura da sela {saddle_armor}. "
-                f"Licença: próprio ou um acima."
-            )
     return entry
 
 

@@ -484,8 +484,156 @@ def _parse_economy_stat_entry(val: Any) -> tuple[bool, float | None]:
     return False, None
 
 
-def species_economy_meta_from_defaults(species_key: str) -> dict[str, Any]:
-    defn = load_default_species_map().get(species_key, {})
+def _pick_positive_int(*candidates: Any) -> int | None:
+    for raw in candidates:
+        if raw is None:
+            continue
+        try:
+            val = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if val > 0:
+            return val
+    return None
+
+
+def _merge_species_defn(*sources: dict[str, Any]) -> dict[str, Any]:
+    """Mescla definições (esquerda → direita sobrescreve); B/floor_quality do bundle prevalece se o vivo for legado."""
+    merged: dict[str, Any] = {}
+    for src in sources:
+        if not src:
+            continue
+        for key, val in src.items():
+            if val in (None, "", [], {}):
+                continue
+            if key == "premium_budget":
+                picked = _pick_positive_int(merged.get("premium_budget"), val)
+                if picked is not None:
+                    merged["premium_budget"] = picked
+                else:
+                    try:
+                        merged["premium_budget"] = int(val)
+                    except (TypeError, ValueError):
+                        pass
+                continue
+            merged[key] = val
+    return merged
+
+
+def _prefer_bundled_floor_quality(merged: dict[str, Any], bundled: dict[str, Any]) -> dict[str, Any]:
+    """Cópia WEBSTORE legada (proportional, sem B) não deve anular floor_quality do repo."""
+    if not bundled:
+        return merged
+    b_bundled = int(bundled.get("premium_budget") or 0)
+    if b_bundled <= 0:
+        return merged
+    out = dict(merged)
+    b_now = int(out.get("premium_budget") or 0)
+    if b_now <= 0:
+        out["premium_budget"] = b_bundled
+        b_now = b_bundled
+    mode = str(out.get("pricing_mode") or "").strip().lower()
+    # Legado: proportional sem orçamento próprio → restaurar floor_quality do bundle.
+    if mode == "proportional":
+        for field in ("pricing_mode", "dino_role", "prestige_rank", "commerce_channel"):
+            if bundled.get(field) is not None:
+                out[field] = bundled[field]
+        out["premium_budget"] = max(b_bundled, b_now)
+    return out
+
+
+def _defn_by_blueprint_in_maps(
+    blueprint: str | None,
+    *maps: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    bp_norm = normalize_blueprint(blueprint)
+    if not bp_norm:
+        return {}
+    for species_map in maps:
+        if not species_map:
+            continue
+        for defn in species_map.values():
+            paths = [str(defn.get("blueprint_path") or "")]
+            for alias in defn.get("blueprint_aliases") or []:
+                if isinstance(alias, dict):
+                    paths.append(str(alias.get("blueprint_path") or ""))
+                elif isinstance(alias, str):
+                    paths.append(alias)
+            for path in paths:
+                if normalize_blueprint(path) == bp_norm:
+                    return dict(defn)
+    return {}
+
+
+def _resolve_species_defaults_defn(
+    species_key: str,
+    *,
+    blueprint_path: str | None = None,
+) -> dict[str, Any]:
+    """Resolve defaults com canonicalização + bundle + blueprint.
+
+    Sem isto, espécie no DB com key fora do JSON fica B=0 em floor_quality
+    e a cotação da encomenda cola no piso R mesmo com stats 254.
+    """
+    raw_key = str(species_key or "").strip()
+    keys: list[str] = []
+    if raw_key:
+        keys.append(raw_key)
+        try:
+            canon = canonicalize_species_key(raw_key)
+        except Exception:
+            canon = ""
+        if canon and canon not in keys:
+            keys.append(canon)
+
+    live_map = load_default_species_map()
+    try:
+        bundled = _bundled_species_map()
+    except Exception:
+        bundled = {}
+
+    best: dict[str, Any] = {}
+    best_bundled: dict[str, Any] = {}
+    for key in keys:
+        bdef = bundled.get(key) or {}
+        ldef = live_map.get(key) or {}
+        candidate = _prefer_bundled_floor_quality(_merge_species_defn(bdef, ldef), bdef)
+        if not candidate:
+            continue
+        if int(candidate.get("premium_budget") or 0) > int(best.get("premium_budget") or 0):
+            best = candidate
+            best_bundled = bdef
+        elif not best:
+            best = candidate
+            best_bundled = bdef
+
+    if int(best.get("premium_budget") or 0) <= 0 and blueprint_path:
+        by_bp = _defn_by_blueprint_in_maps(blueprint_path, bundled, live_map)
+        if by_bp:
+            bp_key = str(by_bp.get("species_key") or "").strip()
+            bdef = (bundled.get(bp_key) or {}) if bp_key else {}
+            ldef = (live_map.get(bp_key) or {}) if bp_key else {}
+            # by_bp pode já ser a def bundled completa
+            candidate = _prefer_bundled_floor_quality(
+                _merge_species_defn(bdef or by_bp, ldef, by_bp),
+                bdef or by_bp,
+            )
+            if int(candidate.get("premium_budget") or 0) > int(best.get("premium_budget") or 0):
+                best = candidate
+            elif not best:
+                best = candidate
+
+    if best and best_bundled:
+        best = _prefer_bundled_floor_quality(best, best_bundled)
+    return best
+
+
+def species_economy_meta_from_defaults(
+    species_key: str,
+    *,
+    blueprint_path: str | None = None,
+) -> dict[str, Any]:
+    defn = _resolve_species_defaults_defn(species_key, blueprint_path=blueprint_path)
     raw_stats = defn.get("economy_stats") or {}
     economy_stats: dict[str, dict[str, Any]] = {}
     for sk in ECONOMY_STAT_KEYS:
@@ -517,7 +665,10 @@ def species_economy_meta_from_defaults(species_key: str) -> dict[str, Any]:
 
 
 def apply_economy_meta(species: "SpeciesEconomy") -> "SpeciesEconomy":
-    meta = species_economy_meta_from_defaults(species.species_key)
+    meta = species_economy_meta_from_defaults(
+        species.species_key,
+        blueprint_path=getattr(species, "blueprint_path", None) or None,
+    )
     species.diet_class = meta["diet_class"]
     species.size_class = meta["size_class"]
     species.economy_stats = meta["economy_stats"]
@@ -791,8 +942,8 @@ def _catalog_item_blueprint(entry: dict[str, Any]) -> str:
 # V254 = min(R + B, market_absolute_max); P200 = round(0.40 × V254).
 L200_OF_V254_RATIO: float = 0.40
 L200_ID_SUFFIX: str = "_l200"
-# Kits breeding pack10: 25% off vs preço unitário L1 (paga 75% do retail).
-BREEDING_KIT_PAY_RATIO: float = 0.75
+# Kits breeding pack10: 40% off vs preço unitário L1 (paga 60% do retail).
+BREEDING_KIT_PAY_RATIO: float = 0.60
 
 
 def is_catalog_dino_level1(entry: dict[str, Any]) -> bool:
@@ -924,18 +1075,19 @@ def sync_catalog_l1_prices_from_root(catalog: dict[str, Any]) -> dict[str, Any]:
 
 
 def is_breeding_pack_kit(kit_id: str, kit: dict[str, Any]) -> bool:
-    """Kits pack10 de breeding (25% off vs L1 unitário) — não licenças alfa/beta/gamma."""
+    """Kits pack10 de breeding (40% off / paga 60% vs L1 unitário) — não licenças alfa/beta/gamma."""
     kid = str(kit_id or "")
     if kid in {"kit_alfa", "kit_beta", "kit_gamma", "recursos", "starter", "starter2"}:
         return False
     if kid.endswith("_pack10"):
         return True
     desc = str(kit.get("Description") or "")
-    return "25% off" in desc.lower()
+    dl = desc.lower()
+    return "kit 10" in dl or "25% off" in dl or "40% off" in dl
 
 
 def sync_breeding_kit_prices(catalog: dict[str, Any]) -> dict[str, Any]:
-    """Recalcula preço dos kits breeding: ``round(n × P1 × 0.75)``."""
+    """Recalcula preço dos kits breeding: ``round(n × P1 × 0.60)``."""
     items = catalog.get("Items") or catalog.get("ShopItems") or {}
     bp_to_l1: dict[str, tuple[str, int]] = {}
     for l1_id, entry in iter_catalog_dinos(catalog, level1_only=True):

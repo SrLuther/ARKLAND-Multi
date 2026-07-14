@@ -112,12 +112,36 @@
           "source_url": "plugin/CustomShop/configs/config.json",
           "in_catalog": true,
           "action": "already_present"
+        },
+        {
+          "display_name": "Ceratosaurus",
+          "catalog_id": "ceratosaurus",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Ceratosaurus/Dinos/CeratosaurusAA_Character_BP.CeratosaurusAA_Character_BP",
+          "source_url": "https://ark.wiki.gg/wiki/Mod:ARK_Additions/Ceratosaurus",
+          "in_catalog": true,
+          "action": "added_jul2026"
+        },
+        {
+          "display_name": "Deinotherium",
+          "catalog_id": "deinotherium",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Deinotherium/Dinos/Deinotherium_Character_BP.Deinotherium_Character_BP",
+          "source_url": "https://ark.wiki.gg/wiki/Mod:ARK_Additions/Deinotherium",
+          "in_catalog": true,
+          "action": "added_jul2026"
+        },
+        {
+          "display_name": "Helicoprion",
+          "catalog_id": "helicoprion",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Helicoprion/Dinos/G_Helicoprion_Character_BP.G_Helicoprion_Character_BP",
+          "source_url": "https://ark.wiki.gg/wiki/Mod:ARK_Additions/Helicoprion",
+          "in_catalog": true,
+          "action": "added_jul2026"
         }
       ],
       "summary": {
-        "total_found": 7,
-        "already_in_catalog": 7,
-        "added": 0,
+        "total_found": 10,
+        "already_in_catalog": 10,
+        "added": 3,
         "pending_no_path": 0
       }
     },
@@ -346,26 +370,146 @@
       "mod_name": "Small Bosses",
       "mod_path_prefix": "/Game/Mods/SmallBosses",
       "creatures": [
-        { "display_name": "Small Broodmother", "catalog_id": "sb_small_broodmother", "blueprint_path": "/Game/Mods/SmallBosses/SmallBroodmother/SmallBroodmother_Character_BP.SmallBroodmother_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Crystal Wyvern Blood Descendant", "catalog_id": "sb_crystal_blood", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Blood.CrystalWyvern_Character_BP_Descendant_Blood", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Crystal Wyvern Ember Descendant", "catalog_id": "sb_crystal_ember", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Ember.CrystalWyvern_Character_BP_Descendant_Ember", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Crystal Wyvern Queen", "catalog_id": "sb_crystal_queen", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Queen.CrystalWyvern_Character_BP_Queen", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Crystal Wyvern Tropical Descendant", "catalog_id": "sb_crystal_tropical", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Tropical.CrystalWyvern_Character_BP_Descendant_Tropical", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Cyclops", "catalog_id": "sb_small_cyclops", "blueprint_path": "/Game/Mods/SmallBosses/SmallCyclops/SmallCyclops_Character_BP.SmallCyclops_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Desert Titan", "catalog_id": "sb_small_desert_titan", "blueprint_path": "/Game/Mods/SmallBosses/SmallDesertTitan/DesertTitan_Character_BP_SB.DesertTitan_Character_BP_SB", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Dodoreaper", "catalog_id": "sb_small_dodoreaper", "blueprint_path": "/Game/Mods/SmallBosses/SmallDodoreaper/SmallDodoreaper_Character_BP.SmallDodoreaper_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small DodoRex", "catalog_id": "sb_small_dodorex", "blueprint_path": "/Game/Mods/SmallBosses/SmallDodoRex/SmallDodoRex_Character_BP.SmallDodoRex_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Dodowyvern", "catalog_id": "sb_small_dodowyvern", "blueprint_path": "/Game/Mods/SmallBosses/SmallDodowyvern/SmallDodowyvern_Character_BP.SmallDodowyvern_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Dragon", "catalog_id": "sb_small_dragon", "blueprint_path": "/Game/Mods/SmallBosses/SmallDragon/SmallDragon_Character_BP.SmallDragon_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Volcano Small Dragon", "catalog_id": "sb_volcano_dragon", "blueprint_path": "/Game/Mods/SmallBosses/SmallDragon/Volcano_SmallDragon_Character_BP.Volcano_SmallDragon_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Drake (Fire)", "catalog_id": "sb_small_drake_fire", "blueprint_path": "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Hippocampus", "catalog_id": "sb_small_hippocampus", "blueprint_path": "/Game/Mods/SmallBosses/SmallHippocampus/SmallHippocampus_Character_BP.SmallHippocampus_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Hydra", "catalog_id": "sb_small_hydra", "blueprint_path": "/Game/Mods/SmallBosses/SmallHydra/SmallHydra_Character_BP.SmallHydra_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Manticore", "catalog_id": "sb_small_manticore", "blueprint_path": "/Game/Mods/SmallBosses/SmallManticore/SmallManticore_Character_BP.SmallManticore_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Megapithecus", "catalog_id": "sb_small_megapithecus", "blueprint_path": "/Game/Mods/SmallBosses/SmallMegapithecus/SmallGorilla_Character_BP.SmallGorilla_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Small Moeder", "catalog_id": "sb_small_moeder", "blueprint_path": "/Game/Mods/SmallBosses/SmallMoeder/SmallMoeder_Character_BP.SmallMoeder_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Fire Elemental", "catalog_id": "sb_fire_elemental", "blueprint_path": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP.FireElemental_Character_BP", "in_catalog": true, "action": "already_present" },
-        { "display_name": "Fire Elemental (Domável)", "catalog_id": "sb_fire_elemental_tame", "blueprint_path": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP_Tameable.FireElemental_Character_BP_Tameable", "in_catalog": true, "action": "already_present" }
+        {
+          "display_name": "Small Broodmother",
+          "catalog_id": "sb_small_broodmother",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallBroodmother/SmallBroodmother_Character_BP.SmallBroodmother_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Crystal Wyvern Blood Descendant",
+          "catalog_id": "sb_crystal_blood",
+          "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Blood.CrystalWyvern_Character_BP_Descendant_Blood",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Crystal Wyvern Ember Descendant",
+          "catalog_id": "sb_crystal_ember",
+          "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Ember.CrystalWyvern_Character_BP_Descendant_Ember",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Crystal Wyvern Queen",
+          "catalog_id": "sb_crystal_queen",
+          "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Queen.CrystalWyvern_Character_BP_Queen",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Crystal Wyvern Tropical Descendant",
+          "catalog_id": "sb_crystal_tropical",
+          "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Tropical.CrystalWyvern_Character_BP_Descendant_Tropical",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Cyclops",
+          "catalog_id": "sb_small_cyclops",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallCyclops/SmallCyclops_Character_BP.SmallCyclops_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Desert Titan",
+          "catalog_id": "sb_small_desert_titan",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDesertTitan/DesertTitan_Character_BP_SB.DesertTitan_Character_BP_SB",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Dodoreaper",
+          "catalog_id": "sb_small_dodoreaper",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDodoreaper/SmallDodoreaper_Character_BP.SmallDodoreaper_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small DodoRex",
+          "catalog_id": "sb_small_dodorex",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDodoRex/SmallDodoRex_Character_BP.SmallDodoRex_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Dodowyvern",
+          "catalog_id": "sb_small_dodowyvern",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDodowyvern/SmallDodowyvern_Character_BP.SmallDodowyvern_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Dragon",
+          "catalog_id": "sb_small_dragon",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDragon/SmallDragon_Character_BP.SmallDragon_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Volcano Small Dragon",
+          "catalog_id": "sb_volcano_dragon",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDragon/Volcano_SmallDragon_Character_BP.Volcano_SmallDragon_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Drake (Fire)",
+          "catalog_id": "sb_small_drake_fire",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Hippocampus",
+          "catalog_id": "sb_small_hippocampus",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallHippocampus/SmallHippocampus_Character_BP.SmallHippocampus_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Hydra",
+          "catalog_id": "sb_small_hydra",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallHydra/SmallHydra_Character_BP.SmallHydra_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Manticore",
+          "catalog_id": "sb_small_manticore",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallManticore/SmallManticore_Character_BP.SmallManticore_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Megapithecus",
+          "catalog_id": "sb_small_megapithecus",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallMegapithecus/SmallGorilla_Character_BP.SmallGorilla_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Small Moeder",
+          "catalog_id": "sb_small_moeder",
+          "blueprint_path": "/Game/Mods/SmallBosses/SmallMoeder/SmallMoeder_Character_BP.SmallMoeder_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Fire Elemental",
+          "catalog_id": "sb_fire_elemental",
+          "blueprint_path": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP.FireElemental_Character_BP",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Fire Elemental (Domável)",
+          "catalog_id": "sb_fire_elemental_tame",
+          "blueprint_path": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP_Tameable.FireElemental_Character_BP_Tameable",
+          "in_catalog": true,
+          "action": "already_present"
+        }
       ],
       "summary": {
         "total_found": 20,
