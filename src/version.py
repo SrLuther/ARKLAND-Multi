@@ -3,12 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.35"
+APP_VERSION: str = "1.10.36"
 BUILD_DATE: str = "2026-07-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
         {
+        "version": "1.10.36",
+        "date": "2026-07-14",
+        "changes": [
+            "Feat (Web Store / SeasonLand): rename Season Pass → SeasonLand, logo dedicada, bloco informativo na home e painel admin de config do passe.",
+            "Feat (Web Store / Home): mural de avisos vira carrossel de cards (CRUD admin, upload de imagens, reordenação, rotação 5 s).",
+            "Melhoria (Web Store / Admin mural): dimensões 1200 × 675 px (16:9) em destaque — banner, helper no upload, placeholder e validação client-side ao escolher ficheiro.",
+            "Feat (Web Store / Regulamento): página Season Pass restilizada (regulamento_season_pass.html).",
+            "Docs: actualizações ARKBANK_SPEC + regulamentos Season Pass / servidor.",
+        ],
+    },
+    {
         "version": "1.10.35",
         "date": "2026-07-14",
         "changes": [

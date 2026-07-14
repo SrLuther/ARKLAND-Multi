@@ -1,4 +1,4 @@
-﻿; ============================================================
+; ============================================================
 ; Inno Setup Script ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ARKLAND - Server Manager Installer
 ; Requer: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Antes de gerar o installer, rode build.bat para criar o .exe
@@ -8,7 +8,7 @@
 ; ============================================================
 
 ; Atualizado automaticamente por _release.ps1
-#define ReleaseVersion "1.10.35"
+#define ReleaseVersion "1.10.36"
 
 [Setup]
 AppName=ARKLAND - Server Manager

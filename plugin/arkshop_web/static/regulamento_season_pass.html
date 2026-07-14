@@ -1,54 +1,338 @@
-<h2 id="regulamento-season-pass">Regulamento — Season Pass ARKLAND</h2>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SeasonLand — Regulamento Season Pass ARKLAND</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<p><em>Versão 1.0 · 14 de julho de 2026 · Texto jogador-facing. Design interno: ARKBANK_SPEC §15 · Regulamento do servidor §8.13.</em></p>
+    :root {
+      --bg:         #060402;
+      --surface:    #0d0a06;
+      --surface2:   #131008;
+      --surface3:   #1c1710;
+      --border:     #2c2014;
+      --border-g:   #3e2e1a;
+      --amber:      #e87820;
+      --amber-dim:  rgba(232,120,32,.14);
+      --fire:       #ff6010;
+      --tek:        #00c8ff;
+      --success:    #12d87c;
+      --danger:     #e83030;
+      --text:       #d4c8a8;
+      --text2:      #7a6848;
+      --text3:      #3e2e18;
+      --radius:     8px;
+      --radius-lg:  14px;
+      --shadow:     0 10px 50px rgba(0,0,0,.8);
+    }
 
-<h3>1. O que é</h3>
-<p>O Season Pass é um progresso <strong>pessoal</strong> de até <strong>30 níveis</strong>, separado da <strong>meta coletiva</strong> do cofre. Jogar online sobe o teu Pass; o cofre do cluster é outra barra e <strong>não</strong> alonga a temporada.</p>
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
 
-<h3>2. Duração e calendário</h3>
-<ul>
-<li>Cada season dura <strong>exactamente 30 dias</strong>. O <strong>fim é automático</strong>.</li>
-<li>A <strong>próxima</strong> season <strong>só começa</strong> quando a <strong>administração iniciar</strong> manualmente.</li>
-<li>A meta coletiva <strong>não</strong> mexe neste relógio.</li>
-</ul>
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 59px,
+          rgba(60,36,12,.18) 59px,
+          rgba(60,36,12,.18) 60px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 79px,
+          rgba(60,36,12,.12) 79px,
+          rgba(60,36,12,.12) 80px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
 
-<h3>3. Como sobe o XP</h3>
-<ul>
-<li>O XP do Pass é igual ao <strong>Âmbar</strong> que recebes em cada tick de Timed Points.</li>
-<li>Conta em <strong>todos os mapas</strong> do cluster.</li>
-<li>Ao chegares ao <strong>nível 30</strong>, continuas a receber Âmbar por tempo, mas o <strong>XP do Pass deixa de subir</strong>.</li>
-</ul>
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 280px;
+      background: radial-gradient(ellipse 80% 60% at 50% 120%,
+        rgba(255,96,16,.07) 0%,
+        rgba(232,120,32,.04) 40%,
+        transparent 70%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
 
-<h3>4. Tracks Free e Premium</h3>
-<ul>
-<li><strong>Free:</strong> níveis <strong>4, 8, 12, 16, 20, 24 e 28</strong>.</li>
-<li><strong>Premium:</strong> níveis <strong>1 a 30</strong>. Quem tem Premium recebe Free + Premium nos múltiplos de 4.</li>
-</ul>
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
 
-<h3>5. Compra do Premium</h3>
-<ul>
-<li>Compra <strong>apenas com Âmbar</strong>, na área <strong>SEASON PASS</strong>.</li>
-<li><strong>Não</strong> há compra por PIX, cartão ou dinheiro real.</li>
-<li>O valor vai <strong>inteiro</strong> para o cofre da temporada e vale <strong>só nesta season</strong>.</li>
-</ul>
+    .doc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
 
-<h3>6. Resgate (claim)</h3>
-<ul>
-<li><strong>Todas</strong> as recompensas são resgatadas <strong>manualmente</strong>. Catch-up ao comprar Premium a meio da season.</li>
-</ul>
+    .doc-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
 
-<h4>6.1 Recompensas não resgatadas no fim dos 30 dias</h4>
-<p><strong>Importante:</strong> no último dia da season as recompensas <strong>não são perdidas de imediato</strong>.</p>
-<ol>
-<li>Depois do dia 30, enquanto a administração <strong>ainda não</strong> tiver aberto a season seguinte, podes <strong>continuar a resgatar</strong>.</li>
-<li>Quando a administração <strong>iniciar a próxima season</strong>, o resgate da season anterior <strong>fecha</strong>.</li>
-<li>O que não tiveres resgatado até esse instante fica <strong>perdido</strong>.</li>
-</ol>
+    .doc-brand img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 12px rgba(232,120,32,.35));
+    }
 
-<h3>7. Licença no Pass</h3>
-<p>Duração <strong>normal de catálogo: 30 dias</strong> (ex. Delta 30 dias no Premium L29). Se já tiveres licença de <strong>tier superior</strong>, no claim <strong>escolhes</strong> a licença <strong>ou</strong> o valor de catálogo em Âmbar.</p>
+    .doc-brand-text {
+      min-width: 0;
+    }
 
-<h3>8. Meta coletiva e evento</h3>
-<p>Quando a meta for atingida, a administração <strong>marca uma data</strong> de evento. O evento <strong>não</strong> dispara sozinho no instante em que a barra enche.</p>
+    .doc-brand-eyebrow {
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 700;
+    }
 
-<p><em>ARKLAND — Season Pass. Resgata a tempo: após o start da próxima season, o que não foi claimado está perdido.</em></p>
+    .doc-brand-title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--text);
+      text-shadow: 0 0 20px rgba(232,120,32,.25);
+      line-height: 1.25;
+    }
+
+    .doc-brand-sub {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+
+    .doc-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      background: var(--surface2);
+      transition: filter .15s ease, transform .15s ease;
+    }
+    .doc-back:hover { filter: brightness(1.12); transform: translateY(-1px); color: var(--amber); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #16120c 0%, var(--surface) 100%);
+    }
+
+    .card-title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--text);
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    .regulamento-body {
+      padding: 18px 20px 24px;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.65;
+    }
+
+    .regulamento-body h2 {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      color: var(--text);
+      margin: 0 0 10px;
+    }
+
+    .regulamento-body h3 {
+      color: var(--amber);
+      font-family: 'Rajdhani', sans-serif;
+      margin: 22px 0 8px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    .regulamento-body h3:first-of-type { margin-top: 14px; }
+
+    .regulamento-body h4 {
+      color: var(--amber);
+      font-family: 'Rajdhani', sans-serif;
+      margin: 16px 0 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .regulamento-body p { margin: 0 0 10px; }
+    .regulamento-body strong { color: var(--text); font-weight: 700; }
+    .regulamento-body em { color: var(--text2); }
+    .regulamento-body a { color: var(--tek); text-decoration: none; font-weight: 600; }
+    .regulamento-body a:hover { text-decoration: underline; }
+
+    .regulamento-body ul,
+    .regulamento-body ol {
+      margin: 8px 0 12px 18px;
+    }
+    .regulamento-body li { margin-bottom: 6px; }
+
+    .regulamento-body .lede {
+      margin-bottom: 4px;
+    }
+
+    .regulamento-body .doc-foot {
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    @media (max-width: 560px) {
+      .wrap { padding: 18px 14px 36px; }
+      .doc-brand img { width: 44px; height: 44px; }
+      .doc-brand-title { font-size: 16px; }
+      .regulamento-body { padding: 14px 14px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="doc-header">
+      <div class="doc-brand">
+        <img src="/SeasonLand_Logo.png" alt="SeasonLand" width="56" height="56" />
+        <div class="doc-brand-text">
+          <div class="doc-brand-eyebrow">SeasonLand</div>
+          <div class="doc-brand-title">Season Pass ARKLAND</div>
+          <div class="doc-brand-sub">Regulamento oficial · Web Store</div>
+        </div>
+      </div>
+      <a class="doc-back" href="/">← Voltar à loja</a>
+    </header>
+
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Regulamento — Season Pass ARKLAND</div>
+        <span class="card-meta">v1.0 · 14 de julho de 2026</span>
+      </div>
+      <div class="regulamento-body">
+        <h2 id="regulamento-season-pass">Regulamento — Season Pass ARKLAND</h2>
+
+        <p class="lede"><em>Versão 1.0 · 14 de julho de 2026 · Texto jogador-facing. Área na Web Store: <strong>SeasonLand</strong>. Design interno: ARKBANK_SPEC §15 · Regulamento do servidor §8.13.</em></p>
+
+        <h3>1. O que é</h3>
+        <p>O Season Pass é um progresso <strong>pessoal</strong> de até <strong>30 níveis</strong>, separado da <strong>meta coletiva</strong> do cofre. Jogar online sobe o teu Pass; o cofre do cluster é outra barra e <strong>não</strong> alonga a temporada.</p>
+
+        <h3>2. Duração e calendário</h3>
+        <ul>
+          <li>Cada season dura <strong>exactamente 30 dias</strong>. O <strong>fim é automático</strong>.</li>
+          <li>A <strong>próxima</strong> season <strong>só começa</strong> quando a <strong>administração iniciar</strong> manualmente.</li>
+          <li>A meta coletiva <strong>não</strong> mexe neste relógio.</li>
+        </ul>
+
+        <h3>3. Como sobe o XP</h3>
+        <ul>
+          <li>O XP do Pass é igual ao <strong>Âmbar</strong> que recebes em cada tick de Timed Points.</li>
+          <li>Conta em <strong>todos os mapas</strong> do cluster.</li>
+          <li>Ao chegares ao <strong>nível 30</strong>, continuas a receber Âmbar por tempo, mas o <strong>XP do Pass deixa de subir</strong>.</li>
+        </ul>
+
+        <h3>4. Tracks Free e Premium</h3>
+        <ul>
+          <li><strong>Free:</strong> níveis <strong>4, 8, 12, 16, 20, 24 e 28</strong>.</li>
+          <li><strong>Premium:</strong> níveis <strong>1 a 30</strong>. Quem tem Premium recebe Free + Premium nos múltiplos de 4.</li>
+        </ul>
+
+        <h3>5. Compra do Premium</h3>
+        <ul>
+          <li>Compra <strong>apenas com Âmbar</strong>, na área <strong>SeasonLand</strong>.</li>
+          <li><strong>Não</strong> há compra por PIX, cartão ou dinheiro real.</li>
+          <li>O valor vai <strong>inteiro</strong> para o cofre da temporada e vale <strong>só nesta season</strong>.</li>
+        </ul>
+
+        <h3>6. Resgate (claim)</h3>
+        <ul>
+          <li><strong>Todas</strong> as recompensas são resgatadas <strong>manualmente</strong>. Catch-up ao comprar Premium a meio da season.</li>
+        </ul>
+
+        <h4>6.1 Recompensas não resgatadas no fim dos 30 dias</h4>
+        <p><strong>Importante:</strong> no último dia da season as recompensas <strong>não são perdidas de imediato</strong>.</p>
+        <ol>
+          <li>Depois do dia 30, enquanto a administração <strong>ainda não</strong> tiver aberto a season seguinte, podes <strong>continuar a resgatar</strong>.</li>
+          <li>Quando a administração <strong>iniciar a próxima season</strong>, o resgate da season anterior <strong>fecha</strong>.</li>
+          <li>O que não tiveres resgatado até esse instante fica <strong>perdido</strong>.</li>
+        </ol>
+
+        <h3>7. Licença no Pass</h3>
+        <p>Duração <strong>normal de catálogo: 30 dias</strong> (ex. Delta 30 dias no Premium L29). Se já tiveres licença de <strong>tier superior</strong>, no claim <strong>escolhes</strong> a licença <strong>ou</strong> o valor de catálogo em Âmbar.</p>
+
+        <h3>8. Meta coletiva e evento</h3>
+        <p>Quando a meta for atingida, a administração <strong>marca uma data</strong> de evento. O evento <strong>não</strong> dispara sozinho no instante em que a barra enche.</p>
+
+        <p class="doc-foot"><em>ARKLAND — Season Pass. Resgata a tempo: após o start da próxima season, o que não foi claimado está perdido.</em></p>
+      </div>
+    </article>
+  </div>
+</body>
+</html>

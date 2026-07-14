@@ -294,7 +294,10 @@ _SERVERS_FILE = _DATA_DIR / "servers.json"
 _TICKET_UPLOADS_DIR = _DATA_DIR / "ticket_uploads"
 _ENCOMENDA_SHOWCASE_FILE = _DATA_DIR / "dino_order_color_showcases.json"
 _ENCOMENDA_SHOWCASE_UPLOADS_DIR = _DATA_DIR / "encomenda_showcase_uploads"
+_HOME_CARD_UPLOADS_DIR = _DATA_DIR / "home_card_uploads"
 _ENCOMENDA_VITRINE_FILE = _DATA_DIR / "dino_order_vitrine.json"
+_SEASON_PASS_CONFIG_FILE = _DATA_DIR / "season_pass_config.json"
+_SEASON_PASS_CLAIMS_FILE = _DATA_DIR / "season_pass_claims.json"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
@@ -6831,6 +6834,7 @@ def public_home():
         "featured_maps": _load_featured_maps_public(),
         "featured_maps_section": _featured_maps_section_meta(),
         "home_notice": _public_home_notice(),
+        "home_cards": _public_home_cards(),
     })
 
 
@@ -6853,6 +6857,22 @@ def _public_home_notice() -> dict[str, Any]:
     except Exception as exc:
         _log_error("public_home_notice", error=str(exc))
         return empty
+    finally:
+        _release_db_session(db)
+
+
+def _public_home_cards() -> list[dict[str, Any]]:
+    """Cards ativos do carrossel da home (degrada sem DB)."""
+    if not _db_ready():
+        return []
+    db = _SessionLocal()
+    try:
+        from home_notice_service import list_home_cards
+
+        return list_home_cards(db, active_only=True)
+    except Exception as exc:
+        _log_error("public_home_cards", error=str(exc))
+        return []
     finally:
         _release_db_session(db)
 
@@ -10629,12 +10649,18 @@ register_suggestion_routes(
     limiter=limiter,
 )
 
+from season_pass_config import configure_season_pass
 from season_pass_routes import register_season_pass_routes
 
+configure_season_pass(
+    config_file=_SEASON_PASS_CONFIG_FILE,
+    claims_file=_SEASON_PASS_CLAIMS_FILE,
+)
 register_season_pass_routes(
     app,
     db_ready=_db_ready,
     login_required=login_required,
+    admin_required=admin_required,
     steam_id_from_session=_steam_id_from_session,
     limiter=limiter,
 )
@@ -10651,6 +10677,10 @@ register_media_routes(
 )
 
 from home_notice_routes import register_home_notice_routes
+from home_notice_service import configure_home_cards
+
+_HOME_CARD_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+configure_home_cards(uploads_dir=_HOME_CARD_UPLOADS_DIR)
 
 register_home_notice_routes(
     app,

@@ -8,7 +8,7 @@
 | **Normativo interno** | `docs/ARKBANK_SPEC.md` §15 · Regulamento do servidor §8.13 |
 | **Idioma** | Português (Brasil) |
 
-Este texto explica as regras do **Season Pass** para quem joga. Em caso de dúvida técnica de produto, prevalece o design em `docs/ARKBANK_SPEC.md` §15.
+Este texto explica as regras do **Season Pass** para quem joga. Na Web Store, a área do jogador chama-se **SeasonLand**. Em caso de dúvida técnica de produto, prevalece o design em `docs/ARKBANK_SPEC.md` §15.
 
 ---
 
@@ -46,7 +46,7 @@ Cada season tem o nome de um tier de licença (Delta, Gamma, Beta, Alfa, Omega, 
 
 ## 5. Compra do Premium
 
-- Compra **apenas com Âmbar**, na área **SEASON PASS** da Web Store.
+- Compra **apenas com Âmbar**, na área **SeasonLand** da Web Store.
 - **Não** há compra de Premium por PIX, cartão ou dinheiro real.
 - O valor pago vai **inteiro** para o cofre da temporada.
 - O Premium vale **só nesta season**. Na seguinte, precisas de comprar de novo.

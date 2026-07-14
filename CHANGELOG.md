@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.36] - 2026-07-14
+
+### Feature
+
+- Feat (Web Store / SeasonLand): rename Season Pass → SeasonLand, logo dedicada, bloco informativo na home e painel admin de config do passe.
+- Feat (Web Store / Home): mural de avisos vira carrossel de cards (CRUD admin, upload de imagens, reordenação, rotação 5 s).
+- Feat (Web Store / Regulamento): página Season Pass restilizada (regulamento_season_pass.html).
+
+### Improvement
+
+- Melhoria (Web Store / Admin mural): dimensões 1200 × 675 px (16:9) em destaque — banner, helper no upload, placeholder e validação client-side ao escolher ficheiro.
+
+### Other
+
+- Docs: actualizações ARKBANK_SPEC + regulamentos Season Pass / servidor.
+
 ## [1.10.35] - 2026-07-14
 
 ### Feature

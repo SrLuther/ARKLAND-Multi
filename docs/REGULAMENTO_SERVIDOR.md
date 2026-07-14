@@ -540,13 +540,13 @@ Canal **jogador-facing** na Web Store (aba **Encomenda** do Mercado / Dino Lab) 
 
 ### 8.13 Season Pass
 
-Progresso pessoal por temporada na Web Store (área **SEASON PASS**). Texto completo jogador-facing: [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md). Resumo normativo:
+Progresso pessoal por temporada na Web Store (área **SeasonLand**). Texto completo jogador-facing: [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md). Resumo normativo:
 
 | Tema | Regra |
 |------|--------|
 | **Duração** | **30 dias** fixos; **fim automático**. A season seguinte **só começa** quando a administração **iniciar** manualmente. |
 | **XP** | Igual ao Âmbar do tick Timed Points, em **todos os mapas**. No nível 30 (XP máximo), Âmbar do tick **continua**; XP do Pass **congela**. |
-| **Premium** | Compra **só com Âmbar** (sem PIX/cartão), na área SEASON PASS. Vale **só** a season actual. **100%** do valor paga o cofre da temporada. |
+| **Premium** | Compra **só com Âmbar** (sem PIX/cartão), na área SeasonLand. Vale **só** a season actual. **100%** do valor paga o cofre da temporada. |
 | **Resgate** | **Sempre manual**. Comprar Premium a meio desbloqueia catch-up das caixas já desbloqueadas. |
 | **Não resgatadas (unclaimed)** | No fim dos 30 dias **não** se perdem de imediato. Continuam resgatáveis **até** a administração abrir a próxima season. Quando a próxima começa → claims da anterior **fecham** → o não resgatado fica **perdido**. |
 | **Licença no Pass** | Duração **normal de 30 dias** do tier da season (ex. Delta 30 dias). Se o jogador já tiver licença de **tier superior**, no claim **escolhe** a licença **ou** o valor de catálogo em Âmbar. |

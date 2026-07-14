@@ -771,7 +771,7 @@ docs/
 
 ## 15. Season Pass + Meta coletiva (design)
 
-> **Status:** regras de produto **fechadas** (incl. claim pós-season, Premium só Âmbar, multi-mapa, calendário admin, licença 30d + opção Â, XP freeze @ L30); motor de grant / XP persistente **ainda não**; shell UI na área **SEASON PASS**. Texto jogador-facing: **§15.11** e [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) (também §8.13 do regulamento do servidor).
+> **Status:** regras de produto **fechadas** (incl. claim pós-season, Premium só Âmbar, multi-mapa, calendário admin, licença 30d + opção Â, XP freeze @ L30); motor de grant / XP persistente **ainda não**; shell UI na área jogador-facing **SeasonLand** (sistema = Season Pass). Texto jogador-facing: **§15.11** e [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) (também §8.13 do regulamento do servidor).
 > **Princípio:** dois progressos distintos — **Pass individual** (XP por jogador) ≠ **Meta coletiva** (cofre / receita ARKBANK).
 
 ### 15.1 Visão em uma frase
@@ -784,9 +784,9 @@ O jogador sobe um **Pass pessoal** jogando online (XP = TimedPoints em **qualque
 | - | ----- |
 | 1 | **Pass XP = Âmbar exacto** creditado em cada tick de TimedPoints (ex.: 25 sem licença, 100 com Alfa, etc. — mesmos montantes que o tick concede hoje). |
 | 1b | **Multi-mapa — locked:** XP conta em **todos** os mapas do cluster. Sempre que o jogador recebe Â num tick TimedPoints (em qualquer mapa), **o mesmo montante** credita Pass XP (até ao cap L30 — regra #14). |
-| 2 | Compra do **Season Pass Premium** (preço \(X\) Âmbar por season — tabela §15.2.2): o jogador gasta \(X\) Â → **100% de \(X\) creditado no cofre ARKBANK**. Compra **somente** na área UI **SEASON PASS**. |
+| 2 | Compra do **Season Pass Premium** (preço \(X\) Âmbar por season — tabela §15.2.2): o jogador gasta \(X\) Â → **100% de \(X\) creditado no cofre ARKBANK**. Compra **somente** na área UI **SeasonLand**. |
 | 2b | **Premium = só Âmbar — locked:** **sem** PIX, cartão ou outro canal de dinheiro real. Moeda do Pass = `players.points` (Âmbar). |
-| 3 | **Meta coletiva (cofre) ≠ Pass XP individual.** Barras / progressos separados: Pass na UI **SEASON PASS**; cofre / tesouraria no **ARKBANK** (admin). |
+| 3 | **Meta coletiva (cofre) ≠ Pass XP individual.** Barras / progressos separados: Pass na UI **SeasonLand**; cofre / tesouraria no **ARKBANK** (admin). |
 | 4 | **Duração da season = 30 dias fixos** de calendário por season/tier. O relógio **não** depende da meta coletiva. **Fim = automático** ao completar os 30 dias. |
 | 4b | **Próxima season — locked:** **só começa** quando um **admin inicia manualmente** (buffer operacional entre seasons). Não há auto-start imediato no dia 30. |
 | 5 | **Meta coletiva:** ligada à receita / progresso do cofre ARKBANK. Ao atingir a meta (durante ou após a season) → **admin agenda** a data do evento para caber à maioria dos jogadores — **não** dispara evento instantâneo automático. A season **termina no dia 30** na mesma (relógio independente). |
@@ -804,7 +804,7 @@ O jogador sobe um **Pass pessoal** jogando online (XP = TimedPoints em **qualque
 ### 15.3 Dois progressos (não misturar)
 
 ```
-┌─ SEASON PASS (UI jogador) ──────────┐   ┌─ ARKBANK (UI admin / cofre) ────┐
+┌─ SeasonLand (UI jogador / Season Pass) ─┐   ┌─ ARKBANK (UI admin / cofre) ────┐
 │  [A] PASS INDIVIDUAL                │   │  [B] META COLETIVA / LEDGER     │
 │      XP += award_TimedPoints        │   │      Progresso ← inflows season │
 │      (todos os mapas; cap @ L30)    │   │      Meta → admin AGENDA evento │
@@ -821,7 +821,7 @@ O jogador sobe um **Pass pessoal** jogando online (XP = TimedPoints em **qualque
 | **Quem avança** | Só aquele jogador (online + ticks em qualquer mapa) | Todo o cluster (gastos + Premium + outros inflows) |
 | **Fim da season** | Partilha o relógio de **30 dias** (fim automático); claims ainda abertos até start da seguinte (§15.2 #12) | **Não** encerra a season; admin **agenda** evento |
 | **Premium** | Desbloqueia track Premium (e mantém Free nos ×4); entitlement = **esta** season; compra **só Âmbar** | Compra alimenta o cofre (100% de \(X\); §15.2.2) |
-| **UI** | Área dedicada **SEASON PASS** (compra + claim manual aqui) | Tab **ARKBANK** (admin) + barra de cofre se/quando pública |
+| **UI** | Área dedicada **SeasonLand** (compra + claim manual aqui) | Tab **ARKBANK** (admin) + barra de cofre se/quando pública |
 
 ### 15.2.1 Nomes das seasons (= tiers de licença)
 
@@ -854,7 +854,7 @@ Os nomes públicos das seasons **reutilizam exactamente** os grupos de licença 
 | **Transcendente** | **45.000** | **100%** → cofre ARKBANK |
 
 - \(X\) = valor da linha da season activa; ledger `season_pass_premium` creditado com \(+X\) (§15.7).
-- Compra **só** na UI **SEASON PASS**; pagamento **apenas em Âmbar** (sem PIX/cartão); entitlement = **esta** season de 30 dias.
+- Compra **só** na UI **SeasonLand**; pagamento **apenas em Âmbar** (sem PIX/cartão); entitlement = **esta** season de 30 dias.
 
 ### 15.4 Premissas de calibração (TimedPoints)
 
@@ -1055,7 +1055,7 @@ Novo tipo de inflow proposto (quando implementar):
 
 | Código | Evento | Valor no ARKBANK |
 | ------ | ------ | ---------------- |
-| `season_pass_premium` | Compra Season Pass Premium (UI SEASON PASS) | \(+X\) integral (§15.2.2); jogador −\(X\) em `players.points` |
+| `season_pass_premium` | Compra Season Pass Premium (UI SeasonLand) | \(+X\) integral (§15.2.2); jogador −\(X\) em `players.points` |
 
 Não confundir com `catalog_spend` genérico se o Premium for SKU especial — preferir tipo dedicado para dashboards da meta / season.
 
@@ -1073,7 +1073,7 @@ Não confundir com `catalog_spend` genérico se o Premium for SKU especial — p
 
 ### 15.9 UI
 
-- **Pass individual:** área dedicada **SEASON PASS**. Título: **Season Pass — {Tier}** (ex. *Season Pass — Delta*). Copy de duração: **30 dias**; fim automático; próxima season só quando admin abrir.
+- **Pass individual:** área dedicada **SeasonLand** (aba da Web Store). Título da season no painel: **Season Pass — {Tier}** (ex. *Season Pass — Delta*). Copy de duração: **30 dias**; fim automático; próxima season só quando admin abrir.
 - Conteúdo Pass: status + dias restantes, nível / XP / próximo threshold (com **freeze** após L30), dual track Free (só ×4) | Premium (1–30), **CTA Compra Premium** (só Âmbar; preço §15.2.2), botões **Resgatar** por nó claimável, nota XP=Â TimedPoints multi-mapa ≠ meta do cofre.
 - Compra Premium **não** ocorre noutro ecrã nem via PIX/cartão — só neste painel, em Âmbar.
 - Copy: Premium só vale **esta** season; claim é **manual**; buy mid-season desbloqueia catch-up 1..N; **unclaimed** após dia 30 ainda resgatáveis **até** a próxima season arrancar.
@@ -1107,13 +1107,13 @@ Não confundir com `catalog_spend` genérico se o Premium for SKU especial — p
 
 ### 15.11 Regulamento Season Pass (texto jogador-facing)
 
-Documento dedicado (pode ser exportado como link na UI SEASON PASS): [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md). Espelho normativo no regulamento do servidor: **§8.13**.
+Documento dedicado (pode ser exportado como link na UI SeasonLand): [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md). Espelho normativo no regulamento do servidor: **§8.13**.
 
 Resumo normativo (obrigatório incluir **unclaimed**):
 
 1. **Duração:** cada season dura **30 dias**; o **fim é automático**. A **próxima** season só começa quando a **administração iniciar** manualmente.
 2. **XP:** jogar online em **qualquer mapa** — cada Âmbar recebido por TimedPoints sobe o Pass XP na **mesma** quantidade, até ao **nível 30**. Depois disso, os Âmbares do tick **continuam**, mas o XP do Pass **não sobe mais**.
-3. **Premium:** compra **apenas com Âmbar** na área SEASON PASS (sem PIX/cartão). Vale **só** a season actual. Resgates são **sempre manuais**; comprar a meio desbloqueia catch-up das caixas já desbloqueadas.
+3. **Premium:** compra **apenas com Âmbar** na área SeasonLand (sem PIX/cartão). Vale **só** a season actual. Resgates são **sempre manuais**; comprar a meio desbloqueia catch-up das caixas já desbloqueadas.
 4. **Recompensas não resgatadas:** no fim dos 30 dias **não** se perdem de imediato. Ainda podes resgatar **até a administração abrir a próxima season**. Quando a próxima season começa, o resgate da season anterior **fecha** e o que não foi resgatado **é perdido**.
 5. **Licença (ex. Delta 30 dias no Premium L29):** duração normal de catálogo (**30 dias**). Se já tiveres uma licença de **tier superior**, no resgate **escolhes** a licença do Pass **ou** o valor de catálogo em Âmbar.
 6. **Meta colectiva:** ao completar, a administração **marca uma data** de evento para a maioria poder participar — **não** é um evento automático no instante em que a barra enche.
