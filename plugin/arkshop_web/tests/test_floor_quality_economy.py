@@ -182,3 +182,62 @@ def test_catalog_price_matches_root_for_rex(tmp_path, monkeypatch):
     data = load_defaults_file()
     rex_def = next(s for s in data["species"] if s["species_key"] == "rex")
     assert int(rex_item["Price"]) == int(rex_def["root_value"])
+
+
+def test_stale_live_defaults_b0_restored_from_repo_bundle(tmp_path, monkeypatch):
+    """Cópia WEBSTORE legada (B=0 / proportional) não pode colar o quote no «a partir de»."""
+    if not _REPO_DEFAULTS.is_file():
+        pytest.skip("market_species_defaults do repo ausente")
+
+    repo = json.loads(_REPO_DEFAULTS.read_text(encoding="utf-8"))
+    species_list = repo.get("species") or []
+    target = next((s for s in species_list if s.get("species_key") == "sb_drake_fire"), None)
+    if not target or int(target.get("premium_budget") or 0) <= 0:
+        pytest.skip("sb_drake_fire sem B no bundle do repo")
+
+    # Live gravável «podre»: espécie presente mas sem orçamento (bug pré-1.10.35).
+    stale = {
+        "species": [
+            {
+                "species_key": "sb_drake_fire",
+                "display_name": "Small Drake Fogo",
+                "blueprint_path": target["blueprint_path"],
+                "root_value": int(target["root_value"]),
+                "premium_budget": 0,
+                "pricing_mode": "proportional",
+                "dino_role": "ataque",
+                "tier": "A",
+            }
+        ],
+        "_floor_quality": repo.get("_floor_quality") or {},
+    }
+    live_path = tmp_path / "market_species_defaults.json"
+    live_path.write_text(json.dumps(stale, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    monkeypatch.setattr(market_economy, "_DEFAULTS_FILE", live_path)
+    monkeypatch.setattr(market_economy, "_bundled_defaults_path", lambda: _REPO_DEFAULTS)
+    market_economy._bundled_species_map.cache_clear()
+
+    meta = market_economy.species_economy_meta_from_defaults(
+        "sb_drake_fire",
+        blueprint_path=str(target["blueprint_path"]),
+    )
+    assert meta["pricing_mode"] == "floor_quality"
+    assert int(meta["premium_budget"]) == int(target["premium_budget"])
+
+    eco = SpeciesEconomy(
+        species_key="sb_drake_fire",
+        display_name="Small Drake Fogo",
+        root_value=int(target["root_value"]),
+        blueprint_path=str(target["blueprint_path"]),
+        premium_budget=0,
+        pricing_mode="proportional",
+    )
+    apply_economy_meta(eco)
+    assert eco.premium_budget == int(target["premium_budget"])
+    assert eco.pricing_mode == "floor_quality"
+
+    v0, _ = calculate_suggested_value(eco, {})
+    v254, _ = calculate_suggested_value(eco, _all_stat_points(254))
+    assert v0 == int(target["root_value"])
+    assert v254 > v0

@@ -7,6 +7,22 @@
 
 ## [Unreleased] - 2026-07-15
 
+## [1.10.39] - 2026-07-15
+
+### Improvement
+
+- Melhoria (Web Store / Dino Lab): filtros UI (fila ativa vs historico, status); rota admin /history; steam_id na fila.
+
+### Fix
+
+- Fix (Web Store / Dino Lab Encomendas): fila admin operacional inclui PENDENTE e ENTREGANDO (auto-aprovados pagos) alem de AGUARDANDO_APROVACAO e FALHA; historico separado; status_label e badges «Paga — …»; reenvio de FALHA.
+- Fix (Web Store / Encomenda): quote com floor_quality B=0 restaurado a partir de defaults do repo quando live stale; payment_status_label na API.
+- Fix (Web Store / Dino Lab Encomendas): estorno PENDENTE/FALHA → CANCELADO + credito Âmbar; UI Rejeitar/Estornar/Reenviar ligada; fluxo ops E2E completo.
+
+### Other
+
+- Test (Web Store / Dino Lab Encomendas): cobertura fila, historico, payment_status, estorno e reenvio (25 testes).
+
 ## [1.10.38] - 2026-07-15
 
 ### Feature

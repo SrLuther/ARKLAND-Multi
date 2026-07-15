@@ -24,11 +24,13 @@ from dino_order_service import (
     checkout,
     configure_dino_order,
     get_pricing_config,
+    list_admin_history,
     list_admin_queue,
     list_gallery_species,
     list_player_orders,
     quote,
     reject_order,
+    requeue_failed_order,
     _level_from_stat_points,
     _normalize_player_spec,
 )
@@ -114,6 +116,14 @@ def _seed_rex(db):
         {"sid": USER, "pts": 1_000_000},
     )
     db.commit()
+
+
+def _set_dino_order_settings(tmp_path, **extra):
+    """Atualiza settings.json do fixture (auto_approve_max etc.)."""
+    path = tmp_path / "settings.json"
+    data = {"dino_order_enabled": True, "custom_dino_enabled": True}
+    data.update(extra)
+    path.write_text(json.dumps(data), encoding="utf-8")
 
 
 def test_level_from_stat_points_auto():
@@ -471,34 +481,187 @@ def test_list_player_orders_includes_species_image_url():
         db.close()
 
 
-def test_checkout_auto_approve_high_value():
+def test_admin_queue_includes_auto_approved_pendente():
+    """Bug: checkout auto-approve → PENDENTE sumia da fila admin (só AGUARDANDO/FALHA)."""
     db = _app_module._SessionLocal()
     try:
         _seed_rex(db)
-        result = checkout(
-            db,
-            USER,
-            _base_spec(
-                colors=[1, 2, 3, 4, 5, 6],
-                stat_points={"health": 254, "melee": 254},
-            ),
-        )
+        result = checkout(db, USER, _base_spec())
         db.commit()
-        assert result["status"] == "AGUARDANDO_APROVACAO"
-        assert result["points_spent"] > 200_000
+        assert result["status"] == "PENDENTE"
+        queue = list_admin_queue(db)
+        ids = [o["order_id"] for o in queue["orders"]]
+        assert result["order_id"] in ids
+        row = next(o for o in queue["orders"] if o["order_id"] == result["order_id"])
+        assert row["status"] == "PENDENTE"
+        assert row["status_label"] == "Paga — na fila de entrega"
+        assert row["steam_id"] == USER
     finally:
         db.close()
 
 
-def test_approve_moves_to_pendente():
+def test_admin_queue_includes_aguardando_and_falha(tmp_path):
     db = _app_module._SessionLocal()
     try:
         _seed_rex(db)
-        result = checkout(
-            db,
-            USER,
-            _base_spec(stat_points={"health": 254, "melee": 254}),
+        _set_dino_order_settings(tmp_path, dino_order_auto_approve_max=1)
+        high = checkout(db, USER, _base_spec())
+        db.commit()
+        assert high["status"] == "AGUARDANDO_APROVACAO"
+
+        fail_id = "de_failtest01"
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        payload = {
+            "order_source": ORDER_SOURCE,
+            "species_key": "rex",
+            "species_display_name": "Rex",
+        }
+        db.execute(
+            text(
+                "INSERT INTO orders "
+                "(order_id, steam_id, server_id, item_type, item_id, amount, points_spent, status, "
+                "retry_count, contested, payload_json, last_error, created_at, updated_at) "
+                "VALUES (:oid, :sid, 'default', 'custom_dino', :oid, 1, 1000, 'FALHA', "
+                "0, 0, :pj, 'spawn failed', :now, :now)"
+            ),
+            {
+                "oid": fail_id,
+                "sid": USER,
+                "pj": json.dumps(payload, ensure_ascii=False),
+                "now": now,
+            },
         )
+        db.commit()
+
+        queue = list_admin_queue(db)
+        by_id = {o["order_id"]: o for o in queue["orders"]}
+        assert high["order_id"] in by_id
+        assert by_id[high["order_id"]]["status_label"] == "Paga — aguardando aprovação"
+        assert fail_id in by_id
+        assert by_id[fail_id]["status_label"] == "Falha de entrega"
+
+        filtered = list_admin_queue(db, status="FALHA")
+        assert filtered["total"] >= 1
+        assert all(o["status"] == "FALHA" for o in filtered["orders"])
+    finally:
+        db.close()
+
+
+def test_admin_queue_excludes_entregue_and_rejeitado():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        created = checkout(db, USER, _base_spec())
+        db.commit()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.execute(
+            text("UPDATE orders SET status = 'ENTREGUE', updated_at = :now WHERE order_id = :oid"),
+            {"now": now, "oid": created["order_id"]},
+        )
+        db.commit()
+        queue = list_admin_queue(db)
+        ids = [o["order_id"] for o in queue["orders"]]
+        assert created["order_id"] not in ids
+
+        hist = list_admin_history(db)
+        hist_ids = [o["order_id"] for o in hist["orders"]]
+        assert created["order_id"] in hist_ids
+        row = next(o for o in hist["orders"] if o["order_id"] == created["order_id"])
+        assert row["status_label"] == "Entregue"
+        assert row["payment_status"] == "paid"
+
+        filt = list_admin_history(db, status="ENTREGUE")
+        assert all(o["status"] == "ENTREGUE" for o in filt["orders"])
+    finally:
+        db.close()
+
+
+def test_admin_queue_status_filter_pendente(tmp_path):
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        created = checkout(db, USER, _base_spec())
+        db.commit()
+        assert created["status"] == "PENDENTE"
+        _set_dino_order_settings(tmp_path, dino_order_auto_approve_max=1)
+        waiting = checkout(db, USER, _base_spec(stat_points={"health": 10, "melee": 10}))
+        db.commit()
+        assert waiting["status"] == "AGUARDANDO_APROVACAO"
+        filt = list_admin_queue(db, status="PENDENTE")
+        assert filt["total"] >= 1
+        assert all(o["status"] == "PENDENTE" for o in filt["orders"])
+        ids = {o["order_id"] for o in filt["orders"]}
+        assert created["order_id"] in ids
+        assert waiting["order_id"] not in ids
+    finally:
+        db.close()
+
+
+def test_requeue_failed_order_returns_to_pendente():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        created = checkout(db, USER, _base_spec())
+        db.commit()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.execute(
+            text(
+                "UPDATE orders SET status = 'FALHA', last_error = 'spawn failed', "
+                "updated_at = :now WHERE order_id = :oid"
+            ),
+            {"now": now, "oid": created["order_id"]},
+        )
+        db.commit()
+        result = requeue_failed_order(db, created["order_id"], admin_steam_id=ADMIN)
+        db.commit()
+        assert result["status"] == "PENDENTE"
+        assert result["status_label"] == "Paga — na fila de entrega"
+        row = db.execute(
+            text("SELECT status, last_error FROM orders WHERE order_id = :oid"),
+            {"oid": created["order_id"]},
+        ).fetchone()
+        assert row[0] == "PENDENTE"
+        assert row[1] is None
+    finally:
+        db.close()
+
+
+def test_player_orders_include_payment_and_status_labels():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        created = checkout(db, USER, _base_spec())
+        db.commit()
+        data = list_player_orders(db, USER)
+        assert data["total"] == 1
+        o = data["orders"][0]
+        assert o["order_id"] == created["order_id"]
+        assert o["payment_status"] == "paid"
+        assert o["payment_status_label"] == "Paga"
+        assert o["status_label"] == "Paga — na fila de entrega"
+    finally:
+        db.close()
+
+
+def test_checkout_requires_manual_approve_when_above_auto_max(tmp_path):
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        _set_dino_order_settings(tmp_path, dino_order_auto_approve_max=1)
+        result = checkout(db, USER, _base_spec())
+        db.commit()
+        assert result["status"] == "AGUARDANDO_APROVACAO"
+        assert result["points_spent"] > 1
+    finally:
+        db.close()
+
+
+def test_approve_moves_to_pendente(tmp_path):
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        _set_dino_order_settings(tmp_path, dino_order_auto_approve_max=1)
+        result = checkout(db, USER, _base_spec())
         db.commit()
         assert result["status"] == "AGUARDANDO_APROVACAO"
         approved = approve_order(db, result["order_id"], admin_steam_id=ADMIN)
@@ -508,16 +671,13 @@ def test_approve_moves_to_pendente():
         db.close()
 
 
-def test_reject_refunds_points():
+def test_reject_refunds_points(tmp_path):
     db = _app_module._SessionLocal()
     try:
         _seed_rex(db)
+        _set_dino_order_settings(tmp_path, dino_order_auto_approve_max=1)
         before = _get_player_points(USER)
-        result = checkout(
-            db,
-            USER,
-            _base_spec(stat_points={"health": 254, "melee": 254}),
-        )
+        result = checkout(db, USER, _base_spec())
         db.commit()
         mid = _get_player_points(USER)
         assert mid < before
@@ -527,6 +687,57 @@ def test_reject_refunds_points():
         assert rejected["status"] == "REJEITADO"
         assert rejected["refunded"] == result["points_spent"]
         assert after == before
+    finally:
+        db.close()
+
+
+def test_reject_pendente_cancels_with_refund():
+    """Auto-aprovada (PENDENTE) deve poder ser estornada pela fila Encomendas."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        before = _get_player_points(USER)
+        result = checkout(db, USER, _base_spec())
+        db.commit()
+        assert result["status"] == "PENDENTE"
+        mid = _get_player_points(USER)
+        assert mid == before - result["points_spent"]
+        cancelled = reject_order(db, result["order_id"], admin_steam_id=ADMIN, reason="Pedido duplicado")
+        db.commit()
+        assert cancelled["status"] == "CANCELADO"
+        assert cancelled["status_label"] == "Cancelado"
+        assert cancelled["refunded"] == result["points_spent"]
+        assert cancelled["steam_id"] == USER
+        assert _get_player_points(USER) == before
+        queue = list_admin_queue(db)
+        assert result["order_id"] not in [o["order_id"] for o in queue["orders"]]
+        hist = list_admin_history(db)
+        assert result["order_id"] in [o["order_id"] for o in hist["orders"]]
+    finally:
+        db.close()
+
+
+def test_reject_falha_cancels_with_refund():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        before = _get_player_points(USER)
+        result = checkout(db, USER, _base_spec())
+        db.commit()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.execute(
+            text(
+                "UPDATE orders SET status = 'FALHA', last_error = 'spawn failed', "
+                "updated_at = :now WHERE order_id = :oid"
+            ),
+            {"now": now, "oid": result["order_id"]},
+        )
+        db.commit()
+        cancelled = reject_order(db, result["order_id"], admin_steam_id=ADMIN, reason="Abortar")
+        db.commit()
+        assert cancelled["status"] == "CANCELADO"
+        assert cancelled["refunded"] == result["points_spent"]
+        assert _get_player_points(USER) == before
     finally:
         db.close()
 

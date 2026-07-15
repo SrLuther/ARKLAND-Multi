@@ -170,10 +170,14 @@ def _resolve_species_economy(db: Session, species_key: str) -> Any | None:
         log.debug("dino_order species db lookup: %s", exc)
 
     try:
-        from market_economy import merge_species_from_defaults
+        from market_economy import (
+            _resolve_species_defaults_defn,
+            merge_species_from_defaults,
+        )
 
         for key in keys:
-            defn = load_default_species_map().get(key)
+            # Resolve via live∪bundle: cópia WEBSTORE legada (B=0) não anula floor_quality do repo.
+            defn = _resolve_species_defaults_defn(key) or load_default_species_map().get(key)
             if defn:
                 species, _ = merge_species_from_defaults(defn, status="ACTIVE")
                 return _apply_friendly_display_name(species, species_key)
@@ -531,16 +535,54 @@ def _new_order_id() -> str:
     return f"de_{uuid.uuid4().hex[:12]}"
 
 
+# Fila operacional admin: paga aguardando aprovação, paga na entrega, em entrega, falha.
+# (Checkout debita Âmbar na hora — não há estado "não pago"; auto-approve ≤ max → PENDENTE.)
+ADMIN_QUEUE_STATUSES = (
+    "AGUARDANDO_APROVACAO",
+    "PENDENTE",
+    "ENTREGANDO",
+    "FALHA",
+)
+
+ADMIN_HISTORY_STATUSES = (
+    "ENTREGUE",
+    "REJEITADO",
+    "CANCELADO",
+)
+
+ADMIN_STATUS_LABELS = {
+    "AGUARDANDO_APROVACAO": "Paga — aguardando aprovação",
+    "PENDENTE": "Paga — na fila de entrega",
+    "ENTREGANDO": "Entregando",
+    "FALHA": "Falha de entrega",
+    "ENTREGUE": "Entregue",
+    "REJEITADO": "Rejeitado",
+    "CANCELADO": "Cancelado",
+}
+
+
+def order_status_label(status: str) -> str:
+    st = str(status or "").strip().upper()
+    return ADMIN_STATUS_LABELS.get(st, st or "—")
+
+
 def _order_to_player_dict(row: Any) -> dict[str, Any]:
     payload = _parse_payload(_row_val(row, "payload_json"))
     pricing = payload.get("pricing") if isinstance(payload.get("pricing"), dict) else {}
     species_key = payload.get("species_key")
     species_image_url = _species_image(str(species_key or ""), payload.get("tier"))
+    status = str(_row_val(row, "status", ""))
+    points = int(_row_val(row, "points_spent", 0) or 0)
+    # Checkout debita na criação — points_spent>0 implica paga; 0 = lab gratuito (fora desta lista).
+    payment_status = "paid" if points > 0 else "unpaid"
     return {
         "order_id": str(_row_val(row, "order_id", "")),
         "steam_id": str(_row_val(row, "steam_id", "") or ""),
-        "status": str(_row_val(row, "status", "")),
-        "points_spent": int(_row_val(row, "points_spent", 0) or 0),
+        "status": status,
+        "status_label": order_status_label(status),
+        "payment_status": payment_status,
+        "payment_status_label": "Paga" if payment_status == "paid" else "Não paga",
+        "points_spent": points,
         "species_key": species_key,
         "species_display_name": payload.get("species_display_name"),
         "species_image_url": species_image_url,
@@ -589,32 +631,14 @@ def list_player_orders(
     }
 
 
-# Fila operacional admin: paga aguardando aprovação, paga na entrega, em entrega, falha.
-# (Checkout debita Âmbar na hora — não há estado "não pago"; auto-approve ≤ max → PENDENTE.)
-ADMIN_QUEUE_STATUSES = (
-    "AGUARDANDO_APROVACAO",
-    "PENDENTE",
-    "ENTREGANDO",
-    "FALHA",
-)
-
-ADMIN_STATUS_LABELS = {
-    "AGUARDANDO_APROVACAO": "Paga — aguardando aprovação",
-    "PENDENTE": "Paga — na fila de entrega",
-    "ENTREGANDO": "Entregando",
-    "FALHA": "Falha de entrega",
-    "ENTREGUE": "Entregue",
-    "REJEITADO": "Rejeitado",
-    "CANCELADO": "Cancelado",
-}
-
-
-def list_admin_queue(
+def _list_admin_orders(
     db: Session,
     *,
-    page: int = 1,
-    page_size: int = 25,
-    status: str | None = None,
+    page: int,
+    page_size: int,
+    status: str | None,
+    default_statuses: tuple[str, ...],
+    order_asc: bool,
 ) -> dict[str, Any]:
     page = max(1, page)
     page_size = max(1, min(100, page_size))
@@ -630,28 +654,61 @@ def list_admin_queue(
         where += " AND status = :st"
         params["st"] = st
     else:
-        placeholders = ", ".join(f":qs{i}" for i in range(len(ADMIN_QUEUE_STATUSES)))
+        placeholders = ", ".join(f":qs{i}" for i in range(len(default_statuses)))
         where += f" AND status IN ({placeholders})"
-        for i, st in enumerate(ADMIN_QUEUE_STATUSES):
+        for i, st in enumerate(default_statuses):
             params[f"qs{i}"] = st
+    order_sql = "ASC" if order_asc else "DESC"
     count_row = db.execute(text(f"SELECT COUNT(*) FROM orders WHERE {where}"), params).fetchone()
     total = int(count_row[0] if count_row else 0)
     rows = db.execute(
-        text(f"SELECT * FROM orders WHERE {where} ORDER BY created_at ASC LIMIT :lim OFFSET :off"),
+        text(
+            f"SELECT * FROM orders WHERE {where} "
+            f"ORDER BY created_at {order_sql} LIMIT :lim OFFSET :off"
+        ),
         params,
     ).fetchall()
-    orders = []
-    for r in rows:
-        d = _order_to_player_dict(r)
-        st = str(d.get("status") or "")
-        d["status_label"] = ADMIN_STATUS_LABELS.get(st, st)
-        orders.append(d)
     return {
         "page": page,
         "page_size": page_size,
         "total": total,
-        "orders": orders,
+        "orders": [_order_to_player_dict(r) for r in rows],
     }
+
+
+def list_admin_queue(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 25,
+    status: str | None = None,
+) -> dict[str, Any]:
+    return _list_admin_orders(
+        db,
+        page=page,
+        page_size=page_size,
+        status=status,
+        default_statuses=ADMIN_QUEUE_STATUSES,
+        order_asc=True,
+    )
+
+
+def list_admin_history(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 25,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """Histórico de encomendas encerradas (entregues / rejeitadas / canceladas)."""
+    return _list_admin_orders(
+        db,
+        page=page,
+        page_size=page_size,
+        status=status,
+        default_statuses=ADMIN_HISTORY_STATUSES,
+        order_asc=False,
+    )
 
 
 def checkout(
@@ -789,6 +846,15 @@ def approve_order(db: Session, order_id: str, *, admin_steam_id: str) -> dict[st
     return {"order_id": order_id, "status": "PENDENTE", "approved_by": admin_steam_id}
 
 
+# Estorno admin antes/sem entrega bem-sucedida.
+# ENTREGANDO fica de fora (plugin pode concluir); stale recovery devolve a PENDENTE.
+REJECTABLE_STATUSES = (
+    "AGUARDANDO_APROVACAO",
+    "PENDENTE",
+    "FALHA",
+)
+
+
 def reject_order(
     db: Session,
     order_id: str,
@@ -796,6 +862,7 @@ def reject_order(
     admin_steam_id: str,
     reason: str = "",
 ) -> dict[str, Any]:
+    """Rejeita (specs) ou cancela (fila/falha) com estorno integral do points_spent."""
     if _credit_fn is None:
         raise ValueError("dino_order_not_configured")
     row = db.execute(
@@ -808,29 +875,39 @@ def reject_order(
     if payload.get("order_source") != ORDER_SOURCE:
         raise ValueError("not_dino_encomenda")
     status = str(_row_val(row, "status", ""))
-    if status not in ("AGUARDANDO_APROVACAO", "FALHA"):
+    if status not in REJECTABLE_STATUSES:
         raise ValueError("invalid_status")
+    # Spec: REJEITADO = recusa de specs; CANCELADO = estorno admin antes da entrega / após falha.
+    terminal = "REJEITADO" if status == "AGUARDANDO_APROVACAO" else "CANCELADO"
     refund = int(_row_val(row, "points_spent", 0) or 0)
     steam_id = str(_row_val(row, "steam_id", ""))
     now = _utcnow().replace(tzinfo=None)
-    new_balance = _credit_fn(db, steam_id, refund) if refund > 0 else None
     payload["rejected_by"] = admin_steam_id
     payload["rejected_at"] = _utcnow().isoformat()
+    payload["terminal_status"] = terminal
     if reason:
         payload["reject_reason"] = reason[:500]
-    db.execute(
+    # Atualiza status primeiro (CAS) — só estorna se ainda estava no estado esperado.
+    updated = db.execute(
         text(
-            "UPDATE orders SET status = 'REJEITADO', updated_at = :now, "
+            "UPDATE orders SET status = :st, updated_at = :now, "
             "last_error = :err, payload_json = :pj "
-            "WHERE order_id = :oid"
+            "WHERE order_id = :oid AND status = :prev"
         ),
         {
+            "st": terminal,
             "now": now,
             "oid": order_id,
-            "err": (reason or "Rejeitado pelo admin")[:2000],
+            "prev": status,
+            "err": (reason or ("Rejeitado pelo admin" if terminal == "REJEITADO" else "Cancelado pelo admin"))[
+                :2000
+            ],
             "pj": json.dumps(payload, ensure_ascii=False),
         },
     )
+    if int(getattr(updated, "rowcount", 0) or 0) <= 0:
+        raise ValueError("invalid_status")
+    new_balance = _credit_fn(db, steam_id, refund) if refund > 0 else None
     if refund > 0:
         try:
             from arkbank_service import debit_dino_order_refund
@@ -846,8 +923,52 @@ def reject_order(
             log.warning("ARKBANK dino_order_refund hook: %s", ark_exc)
     return {
         "order_id": order_id,
-        "status": "REJEITADO",
+        "status": terminal,
+        "status_label": order_status_label(terminal),
         "refunded": refund,
         "new_balance": new_balance,
         "rejected_by": admin_steam_id,
+        "steam_id": steam_id,
+    }
+
+
+def requeue_failed_order(
+    db: Session,
+    order_id: str,
+    *,
+    admin_steam_id: str,
+) -> dict[str, Any]:
+    """Reenvia encomenda em FALHA para a fila de entrega (PENDENTE)."""
+    row = db.execute(
+        text("SELECT * FROM orders WHERE order_id = :oid AND item_type = :it LIMIT 1"),
+        {"oid": order_id, "it": ITEM_TYPE},
+    ).fetchone()
+    if not row:
+        raise ValueError("order_not_found")
+    payload = _parse_payload(_row_val(row, "payload_json"))
+    if payload.get("order_source") != ORDER_SOURCE:
+        raise ValueError("not_dino_encomenda")
+    status = str(_row_val(row, "status", ""))
+    if status != "FALHA":
+        raise ValueError("invalid_status")
+    now = _utcnow().replace(tzinfo=None)
+    payload["requeued_by"] = admin_steam_id
+    payload["requeued_at"] = _utcnow().isoformat()
+    db.execute(
+        text(
+            "UPDATE orders SET status = 'PENDENTE', updated_at = :now, "
+            "last_error = NULL, payload_json = :pj "
+            "WHERE order_id = :oid AND status = 'FALHA'"
+        ),
+        {
+            "now": now,
+            "oid": order_id,
+            "pj": json.dumps(payload, ensure_ascii=False),
+        },
+    )
+    return {
+        "order_id": order_id,
+        "status": "PENDENTE",
+        "status_label": order_status_label("PENDENTE"),
+        "requeued_by": admin_steam_id,
     }

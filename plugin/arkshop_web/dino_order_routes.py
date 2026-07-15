@@ -7,15 +7,20 @@ from typing import Any, Callable
 from flask import Flask, jsonify, request, send_from_directory
 
 from dino_order_service import (
+    ADMIN_HISTORY_STATUSES,
+    ADMIN_QUEUE_STATUSES,
+    ADMIN_STATUS_LABELS,
     approve_order,
     checkout,
     get_pricing_config,
     is_dino_order_enabled,
+    list_admin_history,
     list_admin_queue,
     list_gallery_species,
     list_player_orders,
     quote,
     reject_order,
+    requeue_failed_order,
 )
 from dino_order_showcase_service import (
     MAX_SHOWCASES_PER_SPECIES,
@@ -499,7 +504,36 @@ def register_dino_order_routes(
         db = session_factory()
         try:
             data = list_admin_queue(db, page=page, page_size=page_size, status=status)
-            return jsonify({"ok": True, **data, "pricing": get_pricing_config()})
+            return jsonify({
+                "ok": True,
+                **data,
+                "pricing": get_pricing_config(),
+                "filter_statuses": list(ADMIN_QUEUE_STATUSES),
+                "status_labels": dict(ADMIN_STATUS_LABELS),
+            })
+        finally:
+            db.close()
+
+    @app.route("/api/admin/dino-order/history", methods=["GET"])
+    @admin_required
+    def dino_order_admin_history():
+        if not is_dino_order_enabled():
+            return _disabled()
+        err = _require_db()
+        if err:
+            return err
+        page = int(request.args.get("page", 1) or 1)
+        page_size = int(request.args.get("page_size", 25) or 25)
+        status = request.args.get("status")
+        db = session_factory()
+        try:
+            data = list_admin_history(db, page=page, page_size=page_size, status=status)
+            return jsonify({
+                "ok": True,
+                **data,
+                "filter_statuses": list(ADMIN_HISTORY_STATUSES),
+                "status_labels": dict(ADMIN_STATUS_LABELS),
+            })
         finally:
             db.close()
 
@@ -545,15 +579,45 @@ def register_dino_order_routes(
         try:
             result = reject_order(db, order_id, admin_steam_id=admin_id, reason=reason)
             db.commit()
+            terminal = str(result.get("status") or "REJEITADO")
             audit_event(
-                "dino_encomenda_rejected",
+                "dino_encomenda_rejected" if terminal == "REJEITADO" else "dino_encomenda_cancelled",
                 actor_type="admin",
                 actor_steam_id=admin_id,
-                target_steam_id=result.get("order_id"),
+                target_steam_id=result.get("steam_id"),
                 order_id=order_id,
-                status_after="REJEITADO",
+                status_after=terminal,
                 amount=result.get("refunded"),
-                message=reason or "Encomenda rejeitada",
+                message=reason or (
+                    "Encomenda rejeitada" if terminal == "REJEITADO" else "Encomenda cancelada com estorno"
+                ),
+            )
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            db.rollback()
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/admin/dino-order/<order_id>/requeue", methods=["POST"])
+    @admin_required
+    def dino_order_admin_requeue(order_id: str):
+        if not is_dino_order_enabled():
+            return _disabled()
+        err = _require_db()
+        if err:
+            return err
+        admin_id = steam_id_from_session() or ""
+        db = session_factory()
+        try:
+            result = requeue_failed_order(db, order_id, admin_steam_id=admin_id)
+            db.commit()
+            audit_event(
+                "dino_encomenda_requeued",
+                actor_type="admin",
+                actor_steam_id=admin_id,
+                order_id=order_id,
+                status_after="PENDENTE",
             )
             return jsonify({"ok": True, **result})
         except ValueError as exc:

@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.38"
+APP_VERSION: str = "1.10.39"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -14,6 +14,18 @@ CHANGELOG: list[dict] = [
         "date": "2026-07-15",
         "changes": [],
     },
+    {
+        "version": "1.10.39",
+        "date": "2026-07-15",
+        "changes": [
+            "Fix (Web Store / Dino Lab Encomendas): fila admin operacional inclui PENDENTE e ENTREGANDO (auto-aprovados pagos) alem de AGUARDANDO_APROVACAO e FALHA; historico separado; status_label e badges «Paga — …»; reenvio de FALHA.",
+            "Fix (Web Store / Encomenda): quote com floor_quality B=0 restaurado a partir de defaults do repo quando live stale; payment_status_label na API.",
+            "Melhoria (Web Store / Dino Lab): filtros UI (fila ativa vs historico, status); rota admin /history; steam_id na fila.",
+            "Fix (Web Store / Dino Lab Encomendas): estorno PENDENTE/FALHA → CANCELADO + credito Âmbar; UI Rejeitar/Estornar/Reenviar ligada; fluxo ops E2E completo.",
+            "Test (Web Store / Dino Lab Encomendas): cobertura fila, historico, payment_status, estorno e reenvio (25 testes).",
+        ],
+    },
+
     {
         "version": "1.10.38",
         "date": "2026-07-15",

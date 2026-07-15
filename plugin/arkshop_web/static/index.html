@@ -8368,8 +8368,17 @@
           <div id="dinolab-history-list" style="color:var(--text2);">Carregando…</div>
         </div>
         <div id="dinolab-panel-encomenda" class="catalog-panel">
-          <div class="card" style="margin-bottom:12px;">
-            <p style="font-size:12px;color:var(--text2);margin:0;">Pedidos pagos: aguardando aprovação, na fila de entrega, em entrega ou com falha.</p>
+          <div class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+            <p style="font-size:12px;color:var(--text2);margin:0;flex:1 1 240px;">Pedidos pagos: fila operacional ou histórico encerrado. Labels indicam pagamento e estado.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <select id="dinolab-encomenda-scope" class="btn btn-ghost" style="padding:7px 12px;" onchange="(document.getElementById('dinolab-encomenda-filter-status')||{}).value='';loadDinoLabEncomendaQueue()">
+                <option value="queue">Fila ativa</option>
+                <option value="history">Histórico</option>
+              </select>
+              <select id="dinolab-encomenda-filter-status" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadDinoLabEncomendaQueue()">
+                <option value="">Todos os status</option>
+              </select>
+            </div>
           </div>
           <div id="dinolab-encomenda-list" style="color:var(--text2);">Carregando…</div>
         </div>
@@ -16719,23 +16728,17 @@ async function loadMyAreaDinoOrders() {
       host.innerHTML = "<p>Nenhuma encomenda ainda.</p>";
       return;
     }
-    const statusLabel = {
-      PENDENTE: "Pendente",
-      AGUARDANDO_APROVACAO: "Aguardando aprovação",
-      ENTREGANDO: "Entregando",
-      ENTREGUE: "Entregue",
-      FALHA: "Falha",
-      REJEITADO: "Rejeitado",
-      CANCELADO: "Cancelado",
-    };
     host.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
       <th>Espécie</th><th>Total</th><th>Status</th><th>Data</th>
-    </tr></thead><tbody>${orders.map(o => `<tr>
+    </tr></thead><tbody>${orders.map(o => {
+      const label = o.status_label || o.status || "—";
+      return `<tr>
       <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
       <td>${formatAmberAmount(o.points_spent || 0)}</td>
-      <td><span class="badge">${escHtml(statusLabel[o.status] || o.status)}</span></td>
+      <td><span class="badge">${escHtml(label)}</span></td>
       <td style="font-size:11px;">${escHtml((o.created_at || "").slice(0, 16))}</td>
-    </tr>`).join("")}</tbody></table></div>`;
+    </tr>`;
+    }).join("")}</tbody></table></div>`;
   } catch (e) {
     host.textContent = "Erro ao carregar encomendas.";
   }
@@ -17595,43 +17598,79 @@ function _dinoOrderAdminStatusBadge(o) {
     PENDENTE: "Paga — na fila de entrega",
     ENTREGANDO: "Entregando",
     FALHA: "Falha de entrega",
+    ENTREGUE: "Entregue",
+    REJEITADO: "Rejeitado",
+    CANCELADO: "Cancelado",
   })[st] || st;
   const cls = ({
     AGUARDANDO_APROVACAO: "badge-warning",
     PENDENTE: "badge-success",
     ENTREGANDO: "badge-ticket-analise",
     FALHA: "badge-danger",
+    ENTREGUE: "badge-success",
+    REJEITADO: "badge-danger",
+    CANCELADO: "badge-danger",
   })[st] || "";
-  return `<span class="badge ${cls}">${escHtml(label)}</span>`;
+  const pay = o.payment_status_label
+    ? `<span style="display:block;font-size:10px;color:var(--text2);margin-top:2px;">${escHtml(o.payment_status_label)}</span>`
+    : "";
+  return `<span class="badge ${cls}">${escHtml(label)}</span>${pay}`;
+}
+
+function _fillDinoLabEncomendaStatusFilter(d) {
+  const sel = document.getElementById("dinolab-encomenda-filter-status");
+  if (!sel) return;
+  const prev = sel.value || "";
+  const labels = d.status_labels || {};
+  const statuses = d.filter_statuses || [];
+  sel.innerHTML = `<option value="">Todos os status</option>` + statuses.map(st =>
+    `<option value="${escHtml(st)}">${escHtml(labels[st] || st)}</option>`
+  ).join("");
+  if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 async function loadDinoLabEncomendaQueue() {
   const root = document.getElementById("dinolab-encomenda-list");
   if (!root) return;
   root.textContent = "Carregando…";
+  const scope = (document.getElementById("dinolab-encomenda-scope") || {}).value || "queue";
+  const status = (document.getElementById("dinolab-encomenda-filter-status") || {}).value || "";
+  const path = scope === "history" ? "/api/admin/dino-order/history" : "/api/admin/dino-order/queue";
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   try {
-    const d = await fetchJson("/api/admin/dino-order/queue");
+    const d = await fetchJson(path + qs);
     if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    _fillDinoLabEncomendaStatusFilter(d);
     const orders = d.orders || [];
     if (!orders.length) {
-      root.innerHTML = "<p>Nenhum pedido na fila.</p>";
+      root.innerHTML = scope === "history"
+        ? "<p>Nenhuma encomenda no histórico.</p>"
+        : "<p>Nenhum pedido na fila.</p>";
       return;
     }
+    const showActions = scope !== "history";
     root.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
-      <th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Total</th><th>Status</th><th>Ações</th>
+      <th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Total</th><th>Status</th>${showActions ? "<th>Ações</th>" : "<th>Atualizado</th>"}
     </tr></thead><tbody>${orders.map(o => {
       const canApprove = o.status === "AGUARDANDO_APROVACAO";
-      const canReject = o.status === "AGUARDANDO_APROVACAO" || o.status === "FALHA";
+      // PENDENTE = auto-aprovada na fila — estorno admin ainda é necessário (regulamento §8.12.4).
+      const canReject = o.status === "AGUARDANDO_APROVACAO" || o.status === "PENDENTE" || o.status === "FALHA";
+      const canRequeue = o.status === "FALHA";
+      const rejectLabel = o.status === "AGUARDANDO_APROVACAO" ? "Rejeitar" : "Estornar";
+      const actions = showActions
+        ? `<td style="white-space:nowrap;">
+        ${canApprove ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button> ` : ""}
+        ${canRequeue ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminRequeue('${escHtml(o.order_id)}')">Reenviar</button> ` : ""}
+        ${canReject ? `<button class="btn btn-ghost btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">${rejectLabel}</button>` : (!canApprove && !canRequeue ? `<span style="color:var(--text2);font-size:11px;">—</span>` : "")}
+      </td>`
+        : `<td style="font-size:11px;">${escHtml(String(o.updated_at || o.created_at || "").slice(0, 16))}</td>`;
       return `<tr>
       <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
       <td style="font-size:11px;">${escHtml(o.steam_id || "")}</td>
       <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
       <td>${formatAmberAmount(o.points_spent || 0)}</td>
       <td>${_dinoOrderAdminStatusBadge(o)}</td>
-      <td style="white-space:nowrap;">
-        ${canApprove ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button>` : ""}
-        ${canReject ? `<button class="btn btn-ghost btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">Rejeitar</button>` : `<span style="color:var(--text2);font-size:11px;">—</span>`}
-      </td>
+      ${actions}
     </tr>`;
     }).join("")}</tbody></table></div>`;
   } catch (e) {
@@ -17650,7 +17689,7 @@ async function dinoOrderAdminApprove(orderId) {
 }
 
 async function dinoOrderAdminReject(orderId) {
-  const reason = prompt("Motivo da rejeição (estorno automático):", "");
+  const reason = prompt("Motivo (estorno integral dos Âmbares):", "");
   if (reason === null) return;
   try {
     const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/reject", {
@@ -17659,7 +17698,18 @@ async function dinoOrderAdminReject(orderId) {
       body: JSON.stringify({ reason }),
     });
     if (!d.ok) throw new Error(d.error || "Falha");
-    toast(`Rejeitado — ${formatAmberAmount(d.refunded || 0)} estornados.`, "success");
+    const label = d.status_label || d.status || "encerrado";
+    toast(`${label} — ${formatAmberAmount(d.refunded || 0)} estornados.`, "success");
+    loadDinoLabEncomendaQueue();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function dinoOrderAdminRequeue(orderId) {
+  if (!confirm("Reenviar encomenda " + orderId + " para a fila de entrega?")) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/requeue", { method: "POST" });
+    if (!d.ok) throw new Error(d.error || "Falha");
+    toast("Encomenda reenviada — status PENDENTE.", "success");
     loadDinoLabEncomendaQueue();
   } catch (e) { toast(e.message, "error"); }
 }
