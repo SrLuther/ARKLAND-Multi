@@ -1,7 +1,7 @@
-"""Season Pass — config persistente (preço Premium + recompensas tipadas).
+"""Season Pass — config persistente (calendário + preço Premium + recompensas).
 
 Armazenamento: JSON em data dir (mesmo padrão de dino_order_vitrine).
-Grant in-game: fora de escopo — claims enfileiram grants pretendidos.
+Calendário / XP / grants: ver season_pass_service.
 """
 from __future__ import annotations
 
@@ -96,17 +96,23 @@ def _pending(
 
 
 def default_delta_config() -> dict[str, Any]:
-    """Seed §15.6.1–15.6.2 — Â tipado; kits/dinos/items/licenses com label + id TBD."""
+    """Seed §15.6.1–15.6.2 — Â tipado; kits/dinos/items/licenses com IDs CustomShop."""
     free: dict[str, list[dict[str, Any]]] = {
         "4": [_amber(500)],
-        "8": [_pending("kit", "Kit consumíveis / stock (~1–2k Â)", grant_id=None)],
+        "8": [_pending("kit", "Kit Recursos Emergencial (~stock/consumíveis)", grant_id="recursos")],
         "12": [_amber(1500)],
         "16": [
-            _pending("item", "Cryopod", grant_id=None),
-            _pending("dino", "Dino L1 comum (não apex)", grant_id=None),
+            _pending("item", "Cryopod", grant_id="cryopod"),
+            _pending("dino", "Moschops L1 comum", grant_id="moschops"),
         ],
         "20": [_amber(3000)],
-        "24": [_pending("kit", "Kit selas vanilla / item utilitário (alta quality)", grant_id=None)],
+        "24": [
+            _pending(
+                "kit",
+                "Kit selas vanilla (Raptor+Trike+Argentavis, Q100)",
+                grant_id="kit_selas_vanilla",
+            )
+        ],
         "28": [_amber(5000)],
     }
     premium: dict[str, list[dict[str, Any]]] = {
@@ -115,46 +121,52 @@ def default_delta_config() -> dict[str, Any]:
         "3": [_amber(750)],
         "4": [
             _amber(400),
-            _pending("item", "Tag / cosmetic menor", grant_id=None),
+            _pending("item", "Rede de Mergulho (utilitário leve)", grant_id="dipping_net"),
         ],
         "5": [_amber(1000)],
-        "6": [_pending("item", "Cosmetic menor (placeholder)", grant_id=None)],
+        "6": [_pending("item", "Sushi Daco (consumível leve)", grant_id="daco_sushi")],
         "7": [_amber(1000)],
         "8": [
             _amber(500),
-            _pending("item", "Consumível leve", grant_id=None),
+            _pending("item", "Basic Kibble (1000x)", grant_id="kibble_basic"),
         ],
         "9": [_amber(2000)],
-        "10": [_pending("kit", "Kit L1 comum (pack pequeno)", grant_id=None)],
+        "10": [_pending("dino", "Parasaur L1 comum", grant_id="parasaur")],
         "11": [_amber(2000)],
         "12": [
             _amber(750),
-            _pending("item", "Item utilitário leve", grant_id=None),
+            _pending("item", "Poção Médica (1000x)", grant_id="rec_medicalbrew"),
         ],
-        "13": [_pending("dino", "Dino L1 mid", grant_id=None)],
+        "13": [_pending("dino", "Raptor L1 mid", grant_id="raptor")],
         "14": [_amber(2500)],
         "15": [_amber(2500, label="Boost curto (ou 2.500 Â)")],
         "16": [
             _amber(1000),
-            _pending("item", "Consumível / item leve", grant_id=None),
+            _pending("item", "Estimulante (1000x)", grant_id="rec_stimulant"),
         ],
         "17": [_amber(3000)],
         "18": [
-            _pending("item", "Item ItensAlfa Delta (ou 3.500 Â)", grant_id=None),
+            _pending("item", "Foice ItensAlfa Delta", grant_id="foice_delta"),
         ],
         "19": [_amber(4000)],
         "20": [
             _amber(1200),
-            _pending("item", "Cosmetic / title leve", grant_id=None),
+            _pending("item", "Soul Traps (utilitário leve)", grant_id="item_soultraps_20"),
         ],
-        "21": [_pending("kit", "Pack10 comum barato (ou 5.000 Â)", grant_id=None)],
+        "21": [_pending("kit", "Pack10 Moschops L1", grant_id="moschops_pack10")],
         "22": [_amber(5500)],
-        "23": [_pending("kit", "Pack10 / kit gear barato (ou 6.000 Â)", grant_id=None)],
+        "23": [_pending("kit", "Pack10 Parasaur L1", grant_id="parasaur_pack10")],
         "24": [
             _amber(1500),
-            _pending("item", "Sela vanilla leve", grant_id=None),
+            _pending("item", "Sela de Raptor (Q100)", grant_id="sela_raptor"),
         ],
-        "25": [_pending("kit", "Kit selas / gear", grant_id=None)],
+        "25": [
+            _pending(
+                "kit",
+                "Kit selas vanilla (Raptor+Trike+Argentavis, Q100)",
+                grant_id="kit_selas_vanilla",
+            )
+        ],
         "26": [
             _pending(
                 "license",
@@ -163,10 +175,10 @@ def default_delta_config() -> dict[str, Any]:
                 grant_id="Delta",
             ),
         ],
-        "27": [_pending("kit", "Kit gear / utilitário mid (ou 8.000 Â)", grant_id=None)],
+        "27": [_pending("kit", "Kit Recursos Emergencial (utilitário mid)", grant_id="recursos")],
         "28": [
             _amber(2000),
-            _pending("item", "Item distintivo pequeno", grant_id=None),
+            _pending("item", "Picareta ItensAlfa Delta", grant_id="picareta_delta"),
         ],
         "29": [
             _pending(
@@ -182,14 +194,52 @@ def default_delta_config() -> dict[str, Any]:
         "version": _DATA_VERSION,
         "current_tier": "Delta",
         "duration_days": 30,
+        "season_id": None,
+        "starts_at": None,
+        "ends_at": None,
         "tier_sequence": list(_SEASON_TIERS),
         "premium_price_by_tier": dict(_DEFAULT_PREMIUM_PRICE),
         "xp_thresholds": list(_XP_THRESHOLDS),
         "free_levels": list(_FREE_LEVELS),
         "free_rewards": free,
         "premium_rewards": premium,
+        # Meta colectiva (§15.8) — Â into vault toward goal; ≠ Pass XP / ≠ vault balance
+        "meta_target_amber": 0,
+        "meta_reached": False,
+        "meta_reached_at": None,
+        "meta_event_at": None,
+        "meta_event_notes": "",
         "updated_at": None,
         "updated_by_steam_id": None,
+    }
+
+
+def _normalize_meta_fields(raw: dict[str, Any], base: dict[str, Any]) -> dict[str, Any]:
+    """Normaliza campos da meta colectiva persistidos na config da season."""
+    try:
+        target = int(raw.get("meta_target_amber", base.get("meta_target_amber", 0)) or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("meta_target_amber_invalid") from exc
+    if target < 0:
+        raise ValueError("meta_target_amber_negative")
+
+    def _opt_iso(key: str) -> str | None:
+        val = raw.get(key, base.get(key))
+        if val is None or str(val).strip() == "":
+            return None
+        return str(val).strip()[:64]
+
+    notes = raw.get("meta_event_notes", base.get("meta_event_notes", ""))
+    if notes is None:
+        notes = ""
+    notes = str(notes).strip()[:2000]
+    reached = bool(raw.get("meta_reached", base.get("meta_reached", False)))
+    return {
+        "meta_target_amber": target,
+        "meta_reached": reached,
+        "meta_reached_at": _opt_iso("meta_reached_at"),
+        "meta_event_at": _opt_iso("meta_event_at"),
+        "meta_event_notes": notes,
     }
 
 
@@ -249,7 +299,8 @@ def normalize_grant(raw: Any) -> dict[str, Any]:
         "label": label[:200],
     }
     out["grant_ready"] = grant_ready(out)
-    out["delivery"] = "ready_for_engine" if out["grant_ready"] else "sku_pending"
+    # sku_pending some quando o ID/qty mínimos existirem (outro agente preenche SKUs).
+    out["delivery"] = "ready" if out["grant_ready"] else "sku_pending"
     return out
 
 
@@ -295,11 +346,15 @@ def delivery_summary(grants: list[dict[str, Any]]) -> dict[str, Any]:
         "grants_total": len(grants),
         "grants_ready": ready,
         "grants_sku_pending": pending,
-        "in_game_delivery": False,
+        "in_game_delivery": ready > 0 and pending == 0,
         "note": (
-            "Config OK — entrega in-game ainda não implementada."
-            if grants
-            else "Sem grants configurados."
+            "Pronto para entrega (Â imediato; kit/item/dino → fila PENDENTE; licença → entitlement)."
+            if pending == 0 and grants
+            else (
+                f"{pending} grant(s) com SKU pendente — claim bloqueado até preencher ID."
+                if pending
+                else "Sem grants configurados."
+            )
         ),
     }
 
@@ -339,16 +394,32 @@ def normalize_config(raw: dict[str, Any] | None = None) -> dict[str, Any]:
             raw.get("premium_rewards", base["premium_rewards"]),
             allowed_levels=_PREMIUM_LEVELS,
         )
+        season_id = raw.get("season_id")
+        if season_id is not None and str(season_id).strip() == "":
+            season_id = None
+        elif season_id is not None:
+            season_id = str(season_id).strip()[:80]
+        starts_at = raw.get("starts_at")
+        ends_at = raw.get("ends_at")
+        if starts_at is not None and str(starts_at).strip() == "":
+            starts_at = None
+        if ends_at is not None and str(ends_at).strip() == "":
+            ends_at = None
+        meta = _normalize_meta_fields(raw, base)
         cfg = {
             "version": _DATA_VERSION,
             "current_tier": tier,
             "duration_days": duration,
+            "season_id": season_id,
+            "starts_at": starts_at,
+            "ends_at": ends_at,
             "tier_sequence": list(_SEASON_TIERS),
             "premium_price_by_tier": prices,
             "xp_thresholds": list(_XP_THRESHOLDS),
             "free_levels": list(_FREE_LEVELS),
             "free_rewards": free,
             "premium_rewards": premium,
+            **meta,
             "updated_at": raw.get("updated_at"),
             "updated_by_steam_id": raw.get("updated_by_steam_id"),
         }
@@ -392,12 +463,20 @@ def _write_config_unlocked(cfg: dict[str, Any]) -> None:
         "version": _DATA_VERSION,
         "current_tier": cfg["current_tier"],
         "duration_days": cfg["duration_days"],
+        "season_id": cfg.get("season_id"),
+        "starts_at": cfg.get("starts_at"),
+        "ends_at": cfg.get("ends_at"),
         "tier_sequence": cfg["tier_sequence"],
         "premium_price_by_tier": cfg["premium_price_by_tier"],
         "xp_thresholds": cfg["xp_thresholds"],
         "free_levels": cfg["free_levels"],
         "free_rewards": cfg["free_rewards"],
         "premium_rewards": cfg["premium_rewards"],
+        "meta_target_amber": int(cfg.get("meta_target_amber") or 0),
+        "meta_reached": bool(cfg.get("meta_reached")),
+        "meta_reached_at": cfg.get("meta_reached_at"),
+        "meta_event_at": cfg.get("meta_event_at"),
+        "meta_event_notes": str(cfg.get("meta_event_notes") or ""),
         "updated_at": cfg.get("updated_at"),
         "updated_by_steam_id": cfg.get("updated_by_steam_id"),
     }
@@ -409,9 +488,35 @@ def save_config(
     raw: dict[str, Any],
     *,
     updated_by_steam_id: str | None = None,
+    preserve_calendar: bool = True,
 ) -> dict[str, Any]:
     with _lock:
-        cfg = normalize_config(raw)
+        merged = dict(raw or {})
+        if preserve_calendar:
+            # Admin PUT de rewards/preço não deve apagar o calendário activo.
+            try:
+                existing = None
+                path = _config_path()
+                if path.is_file():
+                    existing = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                existing = None
+            if isinstance(existing, dict):
+                for key in ("season_id", "starts_at", "ends_at"):
+                    if key not in merged or merged.get(key) in (None, ""):
+                        if existing.get(key) not in (None, ""):
+                            merged[key] = existing.get(key)
+                # Meta: preservar quando omitida no PUT (admin não apaga latch/agenda por acidente)
+                for key in (
+                    "meta_reached",
+                    "meta_reached_at",
+                    "meta_target_amber",
+                    "meta_event_at",
+                    "meta_event_notes",
+                ):
+                    if key not in raw and key in existing:
+                        merged[key] = existing[key]
+        cfg = normalize_config(merged)
         cfg["updated_at"] = _iso()
         cfg["updated_by_steam_id"] = (updated_by_steam_id or "").strip() or None
         _write_config_unlocked(cfg)

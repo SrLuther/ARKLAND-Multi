@@ -142,6 +142,13 @@ def save_global_config_tek(app) -> None:
     cfg.startup_with_windows = _g(app, "_cfg_startup_var",         tk.BooleanVar)
     cfg.minimize_to_tray     = _g(app, "_cfg_minimize_tray_var",   tk.BooleanVar)
     cfg.log_debug            = _g(app, "_cfg_log_debug_var",       tk.BooleanVar)
+    cfg.force_day_on_start_enabled = _g(
+        app, "_cfg_force_day_enabled_var", tk.BooleanVar
+    )
+    try:
+        cfg.force_day_on_start = max(0, int(_g(app, "_cfg_force_day_var", strip=True) or "20"))
+    except ValueError:
+        cfg.force_day_on_start = 20
     cfg.steam_api_key        = _g(app, "_steam_api_key_var",       strip=True)
     _save_discord(app, cfg.discord_notify)
     _save_backup(app, cfg.backup)

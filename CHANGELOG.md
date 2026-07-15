@@ -5,6 +5,32 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased] - 2026-07-14
+
+## [1.10.37] - 2026-07-14
+
+### Feature
+
+- Feat (TEK / Configurações Globais): forçar DayNumber no start/restart (force_day_on_start_enabled + force_day_on_start, default 20) — SetDay via RCON com poll/retry até o servidor responder; opcional SaveWorld; aplica a todos os mapas; não altera rates de dia.
+- Feat (Web Store / SeasonLand): motor Season Pass live — calendário admin (Iniciar season / Iniciar próxima), XP TimedPoints multi-mapa via outbox ARKBANK→add_timed_xp no scheduler webstore, Premium Â→cofre, claims Free/Premium com grant engine (Â / fila / licença + escolha tier superior).
+- Feat (Web Store / SeasonLand): meta colectiva (Cofre da temporada) — progresso de inflows ARKBANK da season, barra %, flag meta_reached e agenda do evento só pela admin (sem auto-fire); config admin target/event_at/notes.
+- Feat (Web Store + CustomShop / Licenças): até 2 tiers pagos activos simultâneos; mesmo SKU continua a empilhar +30d; 3.º tier distinto rejeitado (license_slots_full). TimedPoints: entre pagos vence o maior bónus; Default/staff empilham.
+
+### Improvement
+
+- Melhoria (Web Store / SeasonLand admin): formulário de grants com labels claras (Tipo, ID/SKU, Quantidade/Â, Dias, Texto); helper sku_pending; copy e confirmações para iniciar / avançar season (estado, janela de resgate, fecho de unclaimed).
+
+### Fix
+
+- Fix (Web Store / Kits + Licenças): renovação restaura resgates de kits da licença mesmo com pedido PENDENTE antigo (Amount = DefaultAmount + pending); match de grupo case-insensitive; resposta kits_reset; UI refresca entitlements + kit-limits após compra; gate Permissions ignora Admins/Staff.
+- Fix (CustomShop / Licenças): ShopEntitlements::Grant reseta players.kits dos kits DefaultAmount do grupo (paridade web). Bump CustomShop v1.10.18 → v1.10.19.
+- Fix (Web Store / UI): overflow horizontal em SeasonLand/home no mobile (overflow-x + overflow-wrap); carrossel com alturas/nav responsivos.
+
+### Other
+
+- Docs: ARKBANK_SPEC §15.12 checklist ops readiness + passos deploy/activação SeasonLand; regulamentos / economia alinhados.
+- Note (ops): go-live — redeploy webstore, CustomShop 1.10.19 com outbox TimedPoints, preencher SKUs nos grants admin, depois «Iniciar season».
+
 ## [1.10.36] - 2026-07-14
 
 ### Feature

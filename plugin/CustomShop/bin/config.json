@@ -10410,6 +10410,36 @@
       "Type": "kit",
       "ItemCountHint": 21
     },
+    "kit_selas_vanilla": {
+      "DefaultAmount": 1,
+      "Description": "Kit selas vanilla (Raptor + Trike + Argentavis, quality 100)",
+      "Items": [
+        {
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RaptorSaddle.PrimalItemArmor_RaptorSaddle",
+          "Quantity": 1,
+          "Quality": 100,
+          "ForceBlueprint": false,
+          "Armor": 350.0
+        },
+        {
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TrikeSaddle.PrimalItemArmor_TrikeSaddle",
+          "Quantity": 1,
+          "Quality": 100,
+          "ForceBlueprint": false,
+          "Armor": 350.0
+        },
+        {
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ArgentavisSaddle.PrimalItemArmor_ArgentavisSaddle",
+          "Quantity": 1,
+          "Quality": 100,
+          "ForceBlueprint": false,
+          "Armor": 350.0
+        }
+      ],
+      "Name": "Kit Selas Vanilla",
+      "Price": 3500,
+      "Type": "kit"
+    },
     "kutsu_ya_ku_pack10": {
       "Price": 21000,
       "Description": "KIT 10 FÊMEAS LVL 1 - KUTSU-YA-KU",
@@ -19224,6 +19254,23 @@
       "Type": "dino",
       "Name": "Cryolophosaurus Fêmea Nível 1",
       "MarketInclude": true
+    },
+    "cryopod": {
+      "Category": "Ferramentas",
+      "Description": "Cryopod vazia (1x)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Extinction/CoreBlueprints/Weapons/PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Cryopod (1x)",
+      "Price": 500,
+      "Quality": 0,
+      "Type": "item"
     },
     "daco_sushi": {
       "Category": "Recursos",

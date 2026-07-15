@@ -9,6 +9,7 @@ if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
 from src.permission_entitlements_sync import (
+    _build_target_from_entitlements,
     _format_permission_groups,
     _format_timed_groups,
     _is_permanent_group,
@@ -106,3 +107,70 @@ def test_sync_entitlements_builds_timed_and_staff():
     ]
     res = sync_entitlements_to_permission_db("", "76561199333584164", ents)
     assert res["ok"] is False
+
+
+def test_build_target_keeps_two_paid_tiers():
+    ents = [
+        {"group": "Gamma", "expires_at": "2026-12-01T00:00:00+00:00", "permanent": False},
+        {"group": "Alfa", "expires_at": "2026-12-15T00:00:00+00:00", "permanent": False},
+        {"group": "STAFF", "expires_at": None, "permanent": True},
+    ]
+    perm, timed = _build_target_from_entitlements(ents)
+    assert "STAFF" in perm
+    assert "Gamma" in timed
+    assert "Alfa" in timed
+
+
+def test_build_target_caps_three_paid_to_two_longest():
+    ents = [
+        {"group": "Delta", "expires_at": "2026-08-01T00:00:00+00:00", "permanent": False},
+        {"group": "Gamma", "expires_at": "2026-10-01T00:00:00+00:00", "permanent": False},
+        {"group": "Alfa", "expires_at": "2026-12-01T00:00:00+00:00", "permanent": False},
+    ]
+    _perm, timed = _build_target_from_entitlements(ents)
+    assert "Alfa" in timed
+    assert "Gamma" in timed
+    assert "Delta" not in timed
+
+
+def test_grant_third_paid_tier_rejected(monkeypatch):
+    import time
+    from unittest.mock import MagicMock
+
+    now = int(time.time())
+    tpg = f"0;{now + 86400};Gamma,0;{now + 172800};Alfa,"
+
+    class FakeConn:
+        def execute(self, statement, params=None):
+            sql = str(statement)
+            if "SELECT Id FROM players" in sql:
+                return MagicMock(fetchone=lambda: (1,))
+            if "SELECT PermissionGroups" in sql:
+                return MagicMock(fetchone=lambda: ("Default,", tpg))
+            return MagicMock(fetchone=lambda: None)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class FakeEngine:
+        def begin(self):
+            return FakeConn()
+
+        def dispose(self):
+            pass
+
+    monkeypatch.setattr(
+        "src.permission_entitlements_sync._perm_engine",
+        lambda _url: FakeEngine(),
+    )
+    res = grant_group_in_permission_db(
+        "mysql+pymysql://u:p@localhost/arkland_shop",
+        "76561199333584164",
+        "Beta",
+        days=30,
+    )
+    assert res["ok"] is False
+    assert "2 licenças" in res["error"]

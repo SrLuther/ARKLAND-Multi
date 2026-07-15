@@ -24,12 +24,14 @@ TX_DONATION_BRL = "donation_brl"
 TX_DONATION_BRL_CLAWBACK = "donation_brl_clawback"
 TX_TIMED_REWARD = "timed_reward"
 TX_ADMIN_ADJUST = "admin_adjust"
+TX_SEASON_PASS_PREMIUM = "season_pass_premium"
 
 INFLOW_TYPES = frozenset({
     TX_CATALOG_SPEND,
     TX_MARKET_PAIR_SHARE,
     TX_DINO_ORDER_PAY,
     TX_DONATION_BRL,
+    TX_SEASON_PASS_PREMIUM,
 })
 OUTFLOW_TYPES = frozenset({
     TX_CATALOG_REFUND_CLAWBACK,
@@ -601,6 +603,28 @@ def debit_timed_reward(
     )
 
 
+def credit_season_pass_premium(
+    db: Session,
+    *,
+    steam_id: str,
+    amount: int,
+    season_id: str,
+    commit: bool = False,
+) -> dict[str, Any]:
+    """100% do preço Premium → cofre ARKBANK (SPEC §15.7)."""
+    return credit(
+        db,
+        tx_type=TX_SEASON_PASS_PREMIUM,
+        amount=int(amount),
+        idempotency_key=f"arkbank:season_pass_premium:{season_id}:{steam_id}",
+        steam_id=steam_id,
+        ref_table="season_pass_progress",
+        ref_id=str(season_id),
+        metadata={"season_id": str(season_id), "price": int(amount)},
+        commit=commit,
+    )
+
+
 def admin_adjust(
     db: Session,
     *,
@@ -670,7 +694,7 @@ def enqueue_timed_outbox(
 
 
 def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any]:
-    """Consome outbox pendente e debita ARKBANK (nunca bloqueia)."""
+    """Consome outbox pendente, debita ARKBANK e credita Season Pass XP."""
     rows = db.execute(
         text(
             "SELECT id, steam_id, amount, map_id, cycle_key FROM arkbank_timed_outbox "
@@ -680,6 +704,7 @@ def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any
     ).fetchall()
     processed = 0
     duplicates = 0
+    xp_applied = 0
     for row in rows:
         oid = int(row[0])
         steam_id = str(row[1])
@@ -696,6 +721,25 @@ def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any
         )
         if result.get("duplicate"):
             duplicates += 1
+        try:
+            from season_pass_service import add_timed_xp
+
+            xp_res = add_timed_xp(
+                db,
+                steam_id=steam_id,
+                amount=amount,
+                map_id=map_id,
+                cycle_key=cycle_key,
+                commit=False,
+            )
+            if xp_res.get("applied"):
+                xp_applied += 1
+        except Exception as exc:
+            log.warning(
+                "season_pass XP from timed outbox failed sid=%s: %s",
+                steam_id,
+                exc,
+            )
         now = _naive_utc()
         db.execute(
             text("UPDATE arkbank_timed_outbox SET processed_at = :now WHERE id = :id"),
@@ -704,7 +748,7 @@ def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any
         processed += 1
     if processed:
         db.commit()
-    return {"processed": processed, "duplicates": duplicates}
+    return {"processed": processed, "duplicates": duplicates, "season_pass_xp": xp_applied}
 
 
 # ── Admin summary / list ──────────────────────────────────────────────────────
@@ -734,6 +778,67 @@ def list_transactions(
         params,
     ).fetchall()
     return [_tx_row_to_dict(r) for r in rows]
+
+
+def season_meta_inflow(
+    db: Session,
+    *,
+    since: datetime | str,
+    until: datetime | str | None = None,
+    include_types: frozenset[str] | None = None,
+) -> dict[str, Any]:
+    """Progresso da meta colectiva = Σ inflows ARKBANK na janela da season.
+
+    ≠ saldo actual do cofre (balance = histórico in − out, pode ser negativo
+    por timed_reward). Conta só ``INFLOW_TYPES`` (catálogo, market, dino order,
+    doação BRL, Premium); exclui ``admin_adjust`` e outflows.
+    """
+    types = include_types if include_types is not None else INFLOW_TYPES
+    if not types:
+        return {
+            "progress": 0,
+            "by_type": {},
+            "since": None,
+            "until": None,
+            "included_types": [],
+            "definition": "season_inflow",
+            "vs_balance": "progress_is_not_vault_balance",
+        }
+    since_n = _naive_utc(since)
+    until_n = _naive_utc(until) if until is not None else None
+    type_list = sorted(types)
+    placeholders = ", ".join(f":t{i}" for i in range(len(type_list)))
+    params: dict[str, Any] = {"since": since_n}
+    for i, tt in enumerate(type_list):
+        params[f"t{i}"] = tt
+    where = f"tx_type IN ({placeholders}) AND created_at >= :since AND amount > 0"
+    if until_n is not None:
+        where += " AND created_at <= :until"
+        params["until"] = until_n
+    rows = db.execute(
+        text(
+            f"SELECT tx_type, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS cnt "
+            f"FROM arkbank_transactions WHERE {where} GROUP BY tx_type"
+        ),
+        params,
+    ).fetchall()
+    by_type: dict[str, dict[str, int]] = {}
+    progress = 0
+    for r in rows:
+        tt = str(r[0])
+        total = int(r[1] or 0)
+        cnt = int(r[2] or 0)
+        by_type[tt] = {"total": total, "count": cnt}
+        progress += total
+    return {
+        "progress": progress,
+        "by_type": by_type,
+        "since": since_n.isoformat(),
+        "until": until_n.isoformat() if until_n else None,
+        "included_types": type_list,
+        "definition": "season_inflow",
+        "vs_balance": "progress_is_not_vault_balance",
+    }
 
 
 def summary(db: Session, *, days: int = 7) -> dict[str, Any]:

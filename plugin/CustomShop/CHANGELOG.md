@@ -8,6 +8,21 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.19] - 2026-07-14
+
+### Feature
+
+- **Licenças**: até 2 tiers pagos activos distintos (`Delta`/`Beta`/`Alfa`/`Nuvem`); re-grant do mesmo grupo continua a empilhar +30d; terceiro tier distinto bloqueado (`license_slots_full`).
+- **TimedPoints**: entre licenças pagas conta só o maior bónus; Default/staff/keyvault continuam a empilhar com esse máximo.
+
+### Fix
+
+- **ShopEntitlements::Grant**: após grant bem-sucedido, `ShopPoints::ResetDependentKitLimits` restaura `players.kits` dos kits com `DefaultAmount` ligados ao grupo (paridade com a web / renovação).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.19) em cada mapa.
+
 ## [1.10.18] - 2026-07-13
 
 ### Feature

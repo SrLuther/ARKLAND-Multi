@@ -4,13 +4,13 @@
 | Campo | Valor |
 | ----- | ----- |
 | **Status** | MVP implementado (ledger + hooks + aba admin) — polish Fase 2 |
-| **Versão do documento** | 0.5.7 |
+| **Versão do documento** | 0.5.8 |
 | **Data** | 14 de julho de 2026 |
 | **Escopo** | Visão de produto, modelo econômico, mapeamento de código, dados, UI, edge cases, redesign do sorteio, fases, perguntas abertas; **design** Season Pass + Meta coletiva (§15) |
-| **Fora de escopo (este doc)** | Soft transparency pública; patrocínio sorteio opção B; instrumentação catálogo in-game; motor de grant / XP persistente do Pass |
+| **Fora de escopo (este doc)** | Soft transparency pública; patrocínio sorteio opção B; instrumentação catálogo in-game; binding SKUs completos §15.6 (kits/dinos placeholders) |
 | **Moeda** | Âmbar (`players.points`) |
 | **Fuso canônico** | America/Sao_Paulo (UTC−3) |
-| **Changelog do doc** | **0.5.7** — claim pós-season até arranque da seguinte; Premium só Âmbar; XP multi-mapa; meta → agenda admin; next season manual; licença L29 = **30 dias** + opção Â se tier superior; XP freeze @ L30; Regulamento Season Pass (§15.11 / `docs/REGULAMENTO_SEASON_PASS.md`); **0.5.6** — preços Premium locked; claim manual + catch-up; **0.5.5** — tabela Free×4 + Premium Delta; **0.5.4** — XP linear L30=4.875; **0.5.3** — 30 dias; **0.5.2** — seasons = tiers; **0.5.1** — Free×4 / Premium 1–30; **0.5** — Pass + Meta; **0.4** — MVP arkbank; **0.3** — 20/80; **0.2** — doação R$ 1 = 1.000 Â |
+| **Changelog do doc** | **0.5.8** — checklist ops readiness §15.12 (DONE vs remaining); confirmação TimedPoints outbox→Pass XP no scheduler webstore; **0.5.7** — claim pós-season até arranque da seguinte; Premium só Âmbar; XP multi-mapa; meta → agenda admin; next season manual; licença L29 = **30 dias** + opção Â se tier superior; XP freeze @ L30; Regulamento Season Pass (§15.11 / `docs/REGULAMENTO_SEASON_PASS.md`); **0.5.6** — preços Premium locked; claim manual + catch-up; **0.5.5** — tabela Free×4 + Premium Delta; **0.5.4** — XP linear L30=4.875; **0.5.3** — 30 dias; **0.5.2** — seasons = tiers; **0.5.1** — Free×4 / Premium 1–30; **0.5** — Pass + Meta; **0.4** — MVP arkbank; **0.3** — 20/80; **0.2** — doação R$ 1 = 1.000 Â |
 
 > **Ver também:** [`ECONOMIA_ARKLAND.md`](./ECONOMIA_ARKLAND.md), [`PROJETO_ECONOMIA_IDEAL.md`](./PROJETO_ECONOMIA_IDEAL.md), [`SORTEIO_DOACOES_SPEC.md`](./SORTEIO_DOACOES_SPEC.md), [`ENCOMENDA_DINO_SPEC.md`](./ENCOMENDA_DINO_SPEC.md), [`ambarmeter_spec.md`](./ambarmeter_spec.md), [`TRIBO_REPARTICAO_MERCADO.md`](./TRIBO_REPARTICAO_MERCADO.md).
 
@@ -771,7 +771,7 @@ docs/
 
 ## 15. Season Pass + Meta coletiva (design)
 
-> **Status:** regras de produto **fechadas** (incl. claim pós-season, Premium só Âmbar, multi-mapa, calendário admin, licença 30d + opção Â, XP freeze @ L30); motor de grant / XP persistente **ainda não**; shell UI na área jogador-facing **SeasonLand** (sistema = Season Pass). Texto jogador-facing: **§15.11** e [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) (também §8.13 do regulamento do servidor).
+> **Status:** regras de produto **fechadas**; **motor MVP live** em `arkshop_web` (`season_pass_service` + rotas + UI SeasonLand): calendário admin (inactive → active → claim_window), XP TimedPoints multi-mapa com freeze @ 4875, Premium Â→ARKBANK, claims Free/Premium com entrega (Â / fila PENDENTE / entitlement + escolha licença↔Â). SKUs kit/item/dino ainda precisam de IDs na config admin (senão claim bloqueia com `sku_pending`). Checklist ops **§15.12**. Texto jogador-facing: **§15.11** e [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) (também §8.13 do regulamento do servidor).
 > **Princípio:** dois progressos distintos — **Pass individual** (XP por jogador) ≠ **Meta coletiva** (cofre / receita ARKBANK).
 
 ### 15.1 Visão em uma frase
@@ -1085,9 +1085,9 @@ Não confundir com `catalog_spend` genérico se o Premium for SKU especial — p
 
 **Fora de escopo nesta spec / nesta fase:**
 
-- Motor completo de grant de recompensas / tabelas de XP persistent.
-- Binding de SKUs / Blueprints aos labels §15.6 (placeholders de produto ok; grant engine não).
+- Binding completo de SKUs / Blueprints a todos os labels §15.6 (engine de grant existe; IDs TBD na config admin).
 - Conteúdo concreto do evento de meta (ops admin) — só a regra de **agendamento** está locked.
+- ~~Motor de grant / XP persistente~~ — **MVP implementado** (jul/2026).
 - Soft transparency pública do saldo ARKBANK (já fora noutros §).
 - Capar TimedPoints ou XP por saldo do banco (**proibido** — §10). TimedPoints Â **nunca** é cortado; só Pass XP congela @ L30.
 - Ciclo de naming após a 6.ª season (Transcendente).
@@ -1115,9 +1115,47 @@ Resumo normativo (obrigatório incluir **unclaimed**):
 2. **XP:** jogar online em **qualquer mapa** — cada Âmbar recebido por TimedPoints sobe o Pass XP na **mesma** quantidade, até ao **nível 30**. Depois disso, os Âmbares do tick **continuam**, mas o XP do Pass **não sobe mais**.
 3. **Premium:** compra **apenas com Âmbar** na área SeasonLand (sem PIX/cartão). Vale **só** a season actual. Resgates são **sempre manuais**; comprar a meio desbloqueia catch-up das caixas já desbloqueadas.
 4. **Recompensas não resgatadas:** no fim dos 30 dias **não** se perdem de imediato. Ainda podes resgatar **até a administração abrir a próxima season**. Quando a próxima season começa, o resgate da season anterior **fecha** e o que não foi resgatado **é perdido**.
-5. **Licença (ex. Delta 30 dias no Premium L29):** duração normal de catálogo (**30 dias**). Se já tiveres uma licença de **tier superior**, no resgate **escolhes** a licença do Pass **ou** o valor de catálogo em Âmbar.
+5. **Licença (ex. Delta 30 dias no Premium L29):** duração normal de catálogo (**30 dias**). Máx. **2 tiers pagos distintos** activos; renovar o mesmo tier empilha **+30 dias**. Se já tiveres tier **superior**, ou os **2 slots** ocupados e o grant seria um 3.º, no resgate **escolhes** a licença do Pass **ou** o valor de catálogo em Âmbar.
 6. **Meta colectiva:** ao completar, a administração **marca uma data** de evento para a maioria poder participar — **não** é um evento automático no instante em que a barra enche.
+
+### 15.12 Checklist ops — SeasonLand readiness (jul/2026)
+
+Estado do motor vs o que ainda falta para abrir a 1.ª season em produção.
+
+#### DONE (código + docs)
+
+| # | Item | Onde |
+| - | ---- | ---- |
+| A | Calendário admin inactive → active → claim_window; start 1.ª / próxima (avança tier; fecha claims) | `season_pass_service.start_season` + `POST /api/admin/season-pass/start` + UI SeasonLand admin |
+| B | Config admin: duração, preço Premium por tier, grants tipados Free×4 / Premium 1–30 | `season_pass_config` + painel admin |
+| C | TimedPoints → Pass XP no **caminho produção** webstore: CustomShop enfileira `arkbank_timed_outbox`; scheduler Flask chama `process_timed_outbox` → `add_timed_xp` (multi-mapa, idempotente, freeze @ 4875) | `TimedPoints.cpp` + `arkbank_service.process_timed_outbox` + worker em `app.py` |
+| D | Schema auto no boot (`season_pass_*`, `arkbank_*`) | `ensure_season_pass_schema` / `ensure_arkbank_schema` |
+| E | Premium só Âmbar → cofre ARKBANK (`season_pass_premium`); UI SeasonLand jogador | `credit_season_pass_premium` + rotas/UI |
+| F | Claims manuais Free/Premium: Â imediato; kit/item/dino → fila PENDENTE; licença → entitlement; escolha licença↔Â se tier superior | `claim_reward` + hooks app |
+| G | Regulação jogador-facing + espelho servidor | §15.11 / `REGULAMENTO_SEASON_PASS.md` / regulamento §8.13 |
+| H | Rename UI SeasonLand + home info + logo | `static/index.html` |
+
+#### REMAINING (bloqueia go-live completo ou polish)
+
+| # | Item | Notas |
+| - | ---- | ----- |
+| R1 | **Binding SKUs** kit/item/dino nos grants admin (§15.6 labels) | Sem `id` → claim `sku_pending`. Âmbar/licença já entregam. |
+| R2 | **Activar season em prod** | Admin SeasonLand → «Iniciar season» (após redeploy). Ver passos abaixo. |
+| R3 | Conteúdo / data do **evento de meta** colectiva | Regra locked; ops agenda quando a barra encher. |
+| R4 | Soft transparency pública do saldo ARKBANK | Fora de escopo desta fase. |
+| R5 | Perguntas abertas §15.10 #2 (subset inflows meta) e #7 (staff XP) | Não bloqueiam MVP Pass. |
+| R6 | Ciclo de naming pós-Transcendente | Design TBD. |
+
+#### Deploy / activação (ops)
+
+1. **Deploy código** webstore (`plugin/arkshop_web`) — scheduler tem de estar a correr (mesmo processo Flask / serviço).
+2. **Boot** cria/atualiza tabelas (`arkbank_*`, `season_pass_*`) — sem SQL manual se `ensure_*_schema` corre no arranque.
+3. **CustomShop** nos mapas com TimedPoints a escrever na outbox (`INSERT … arkbank_timed_outbox`) — DLL ≥ outbox ARKBANK; reiniciar mapas / `Shop.Reload` após update do plugin.
+4. **Redeploy / restart webstore** para aplicar worker `process_timed_outbox` (intervalo `ARKSHOP_RETRY_INTERVAL`, default ~60s). Não há processo separado: o consumer é o scheduler embutido.
+5. **Preencher grants** no admin SeasonLand (IDs de catálogo) e **Guardar config**.
+6. **«Iniciar season»** no admin (1.ª vez). Só então XP TimedPoints aplica Pass XP.
+7. Smoke: jogador online 1 ciclo → linha outbox `processed_at` preenchida → XP sobe no painel SeasonLand; logs `arkbank_timed_outbox_processed` com `season_pass_xp` > 0.
 
 ---
 
-*MVP ARKBANK v0.5.7 — Jul 2026: Season Pass locked — claim pós-season até next start; Premium só Â; XP multi-mapa + freeze @ L30; meta agenda admin; next season manual; licença 30d + opção Â; Regulamento Season Pass. TimedPoints outbox; sorteio opção A.*
+*MVP ARKBANK v0.5.8 — Jul 2026: Season Pass locked + motor MVP live + checklist ops §15.12. TimedPoints outbox → Pass XP; sorteio opção A.*

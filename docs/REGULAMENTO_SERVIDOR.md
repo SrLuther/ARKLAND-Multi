@@ -353,8 +353,12 @@ O ARKLAND utiliza o sistema de **licenças por tier** (não utiliza nomenclatura
 **Regras gerais de licenças:**
 
 - Licenças são **pessoais e intransferíveis**;
-- Renovam-se por novo resgate; benefícios não são cumulativos além do empilhamento configurado de Timed Points;
-- Kits e itens podem exigir licença ativa (cadeado no catálogo);
+- Podes ter até **2 licenças de tier distintas** activas ao mesmo tempo (ex. Gamma + Alfa), cada uma com a sua data de expiração;
+- Comprar/renovar o **mesmo** tier de novo **só prolonga** a validade em **+30 dias** (a partir do maior entre agora e o fim actual) — não ocupa um segundo slot;
+- Tentar activar um **terceiro** tier distinto com 2 já activas é **bloqueado**;
+- Acesso a kits/itens: basta **qualquer** das licenças activas satisfazer o requisito; para bónus Timed Points por tier, **vence o maior** entre os tiers pagos (o Default continua a somar);
+- A **Licença Nuvem** (`keyvault`) é independente e **não** conta para o limite de 2 tiers;
+- Kits e itens podem exigir licença activa (cadeado no catálogo);
 - A **Licença Nuvem** habilita Inventário na Nuvem e envio ao mercado P2P;
 - Cargos **MOD** e **STAFF** são administrativos, distintos das licenças resgatáveis.
 
@@ -549,7 +553,7 @@ Progresso pessoal por temporada na Web Store (área **SeasonLand**). Texto compl
 | **Premium** | Compra **só com Âmbar** (sem PIX/cartão), na área SeasonLand. Vale **só** a season actual. **100%** do valor paga o cofre da temporada. |
 | **Resgate** | **Sempre manual**. Comprar Premium a meio desbloqueia catch-up das caixas já desbloqueadas. |
 | **Não resgatadas (unclaimed)** | No fim dos 30 dias **não** se perdem de imediato. Continuam resgatáveis **até** a administração abrir a próxima season. Quando a próxima começa → claims da anterior **fecham** → o não resgatado fica **perdido**. |
-| **Licença no Pass** | Duração **normal de 30 dias** do tier da season (ex. Delta 30 dias). Se o jogador já tiver licença de **tier superior**, no claim **escolhe** a licença **ou** o valor de catálogo em Âmbar. |
+| **Licença no Pass** | Duração **normal de 30 dias** do tier da season. Máx. **2 tiers** activos; renovar o mesmo empilha +30 dias. Se já tiver tier **superior** ou os 2 slots ocupados (e o grant seria um 3.º), no claim **escolhe** a licença **ou** o valor de catálogo em Âmbar. |
 | **Meta coletiva** | Ao completar, a administração **agenda** data de evento (não dispara sozinha). A meta **não** alonga a season. |
 
 Abuso ligado ao Season Pass segue [Seção 9](#9-sistema-de-punições).

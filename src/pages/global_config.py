@@ -110,7 +110,45 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     ctk.CTkLabel(opt_card,
                  text="Registra mensagens detalhadas no log. Útil para diagnosticar problemas.",
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
-        row=5, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
+        row=5, column=0, padx=(42, 16), pady=(0, 8), sticky="w")
+
+    app._cfg_force_day_enabled_var = tk.BooleanVar(
+        value=bool(getattr(cfg, "force_day_on_start_enabled", False))
+    )
+    try:
+        _force_day_default = int(getattr(cfg, "force_day_on_start", 20) or 20)
+    except (TypeError, ValueError):
+        _force_day_default = 20
+    app._cfg_force_day_var = tk.StringVar(value=str(max(0, _force_day_default)))
+
+    ctk.CTkCheckBox(
+        opt_card,
+        text="Forçar dia do mapa no start/restart (todos os servidores)",
+        variable=app._cfg_force_day_enabled_var,
+        checkmark_color="white", fg_color=_GREEN_DARK,
+        hover_color=_GREEN_HOVER,
+    ).grid(row=6, column=0, padx=16, pady=(0, 2), sticky="w")
+
+    _day_row = ctk.CTkFrame(opt_card, fg_color="transparent")
+    _day_row.grid(row=7, column=0, padx=(42, 16), pady=(0, 2), sticky="w")
+    ctk.CTkLabel(
+        _day_row, text="Dia desejado (DayNumber):",
+        text_color="gray60", width=180, anchor="w",
+    ).pack(side="left")
+    ctk.CTkEntry(
+        _day_row, textvariable=app._cfg_force_day_var,
+        width=80, height=28, placeholder_text="20",
+    ).pack(side="left", padx=(8, 0))
+    ctk.CTkLabel(
+        opt_card,
+        text=(
+            "Ao ficar online, envia SetDay via RCON (com retry até o RCON responder). "
+            "Aviso: redefine o DayNumber do mapa a cada boot/restart — não altera rates "
+            "(DayCycleSpeedScale / duração do dia)."
+        ),
+        text_color="gray45", font=ctk.CTkFont(size=10),
+        wraplength=620, justify="left",
+    ).grid(row=8, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
 
     # ── Seção Steam Web API ─────────────────────────────────────────────────
     app._section_lbl(parent, _next_row + 4, "🔑  Steam Web API")

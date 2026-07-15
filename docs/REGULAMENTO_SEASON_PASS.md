@@ -74,10 +74,12 @@ Não deixes recompensas importantes para a última hora do intervalo entre seaso
 
 Nas rewards de fim de Pass (ex. Premium nível **29** na season Delta) a licença do tier da season tem duração **normal de catálogo: 30 dias** (não é trial de 15 dias).
 
-No resgate, a recompensa aparece como **disponível**. Se **já tiveres uma licença de tier superior** à do Pass, **no momento do claim escolhes**:
+No resgate, a recompensa aparece como **disponível**. Se **já tiveres uma licença de tier superior** à do Pass, **ou** já tiveres **2 tiers distintos activos** e o grant seria um terceiro, **no momento do claim escolhes**:
 
-- receber a **licença** do Season Pass, **ou**
+- receber a **licença** do Season Pass (só se houver slot livre ou for renovação do mesmo tier), **ou**
 - receber o **valor de catálogo em Âmbar** dessa licença.
+
+Podes ter até **2 licenças de tier distintas** activas; renovar o mesmo tier empilha **+30 dias**.
 
 ---
 

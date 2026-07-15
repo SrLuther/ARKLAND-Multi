@@ -108,6 +108,13 @@ bool IsStaffModAlias(const std::string& grp) {
     return grp == "Moderacao" || grp == "Mod" || grp == "MOD";
 }
 
+bool IsPaidLicenseGroup(const std::string& grp) {
+    for (const char* g : CustomShop::kPaidLicenseGroups) {
+        if (grp == g) return true;
+    }
+    return false;
+}
+
 bool PlayerQualifiesForTimedGroup(const std::string& sid,
                                   uint64_t steam_id,
                                   const std::string& grp) {
@@ -231,15 +238,23 @@ void Tick() {
 
         int total = 0;
         int best  = 0;
+        int best_paid = 0;
 
         for (const auto& [grp, amt] : group_amounts) {
             if (!PlayerQualifiesForTimedGroup(sid, steam_id, grp))
                 continue;
-            total += amt;
             if (amt > best) best = amt;
+            // Entre tiers pagos vence o maior bónus; Default/staff/keyvault empilham.
+            if (IsPaidLicenseGroup(grp)) {
+                if (amt > best_paid) best_paid = amt;
+            } else {
+                total += amt;
+            }
         }
+        if (stack) total += best_paid;
+        else total = best;
 
-        const int award = stack ? total : best;
+        const int award = total;
         if (award <= 0) {
             ++skipped_zero;
             continue;

@@ -30,6 +30,8 @@ PAID_LICENSE_GROUPS = frozenset({
     "Imaterial",
     "Exotico",
 })
+# Espelho da regra da loja: até 2 tiers pagos distintos no TimedPermissionGroups.
+MAX_ACTIVE_PAID_LICENSE_TIERS = 2
 TIMED_LICENSE_GROUPS = PAID_LICENSE_GROUPS | frozenset({"keyvault"})
 STAFF_PERM_GROUPS = frozenset({"Moderacao", "Mod", "MOD", "STAFF", "Admins", "Admin"})
 _MANAGED_SYNC_GROUPS = TIMED_LICENSE_GROUPS | STAFF_PERM_GROUPS
@@ -235,11 +237,18 @@ def _build_target_from_entitlements(entitlements: list[dict[str, Any]]) -> tuple
         expiry_raw = ent.get("expires_at") or ent.get("expires")
         timed_groups[group] = _expiry_unix_from_dt(expiry_raw)
 
-    for g in list(timed_groups):
-        if g in PAID_LICENSE_GROUPS:
-            for old in PAID_LICENSE_GROUPS:
-                if old != g:
-                    timed_groups.pop(old, None)
+    # Até 2 tiers pagos distintos: se entitlements viesem com >2 (legado/admin),
+    # mantém os de maior expiry (empate: nome estável).
+    paid_active = [g for g in timed_groups if g in PAID_LICENSE_GROUPS]
+    if len(paid_active) > MAX_ACTIVE_PAID_LICENSE_TIERS:
+        paid_active.sort(
+            key=lambda g: (int(timed_groups.get(g) or 0), g),
+            reverse=True,
+        )
+        keep = set(paid_active[:MAX_ACTIVE_PAID_LICENSE_TIERS])
+        for g in paid_active:
+            if g not in keep:
+                timed_groups.pop(g, None)
 
     return perm_groups, timed_groups
 
@@ -348,11 +357,25 @@ def grant_group_in_permission_db(
             timed_groups = _parse_timed_groups(timed_raw)
 
             if group in PAID_LICENSE_GROUPS:
-                for old in PAID_LICENSE_GROUPS:
-                    if old != group:
-                        timed_groups.pop(old, None)
-                        if old in perm_groups:
-                            perm_groups.remove(old)
+                # Não remove outros tiers — até 2 concurrents. Cap no grant
+                # só se este for um tier NOVO e já existirem 2 distintos.
+                other_paid = [
+                    g for g in timed_groups
+                    if g in PAID_LICENSE_GROUPS and g != group
+                ]
+                already_has = group in timed_groups or group in perm_groups
+                if (
+                    not already_has
+                    and len(other_paid) >= MAX_ACTIVE_PAID_LICENSE_TIERS
+                ):
+                    return {
+                        "ok": False,
+                        "error": (
+                            "Já existem 2 licenças de tier distintas em "
+                            "ark_permission; renova um existente ou revoga "
+                            "um tier antes de activar um terceiro."
+                        ),
+                    }
 
             if _is_permanent_group(group, days):
                 if group not in perm_groups:

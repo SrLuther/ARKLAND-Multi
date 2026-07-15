@@ -11,6 +11,9 @@ static constexpr const char* kPaidLicenseGroups[] = {
     "Etereo", "Universal", "Onipotente", "Surreal", "Imaterial", "Exotico"
 };
 
+// Até 2 tiers pagos distintos activos; renovar o mesmo group empilha +N dias.
+static constexpr int kMaxActivePaidLicenseTiers = 2;
+
 class ShopEntitlements {
 public:
     static ShopEntitlements& Get();

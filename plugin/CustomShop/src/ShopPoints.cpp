@@ -4,6 +4,8 @@
 #include "ShopDebug.h"
 
 #include <algorithm>
+#include <cctype>
+#include <sstream>
 #include <vector>
 
 namespace CustomShop {
@@ -499,6 +501,75 @@ bool ShopPoints::AddKitToStash(const std::string& steam_id,
                                 const std::string& kit_id,
                                 int amount) {
     return ChangeKitAmount(steam_id, kit_id, amount);
+}
+
+namespace {
+
+bool IsStaffOrDefaultGroup(const std::string& group) {
+    return group.empty()
+        || group == "Admins" || group == "Staff" || group == "Default"
+        || group == "Moderacao" || group == "Mod" || group == "STAFF";
+}
+
+bool KitRequiresLicenseGroup(const nlohmann::json& kit, const std::string& license_group) {
+    if (license_group.empty() || !kit.contains("Permissions")) return false;
+    const std::string perms = kit.value("Permissions", "");
+    if (perms.empty()) return false;
+    std::string token;
+    std::istringstream ss(perms);
+    while (std::getline(ss, token, ',')) {
+        // trim
+        size_t start = token.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) continue;
+        size_t end = token.find_last_not_of(" \t\r\n");
+        const std::string g = token.substr(start, end - start + 1);
+        if (IsStaffOrDefaultGroup(g)) continue;
+        if (g.size() == license_group.size()) {
+            bool eq = true;
+            for (size_t i = 0; i < g.size(); ++i) {
+                if (std::tolower(static_cast<unsigned char>(g[i]))
+                    != std::tolower(static_cast<unsigned char>(license_group[i]))) {
+                    eq = false;
+                    break;
+                }
+            }
+            if (eq) return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+int ShopPoints::ResetDependentKitLimits(const std::string& steam_id,
+                                        const std::string& license_group) {
+    if (steam_id.empty() || license_group.empty()) return 0;
+    const auto& kits = ShopConfig::Get().Kits();
+    if (!kits.is_object() || kits.empty()) return 0;
+
+    nlohmann::json stash = GetKitStash(steam_id);
+    int reset_count = 0;
+    for (auto it = kits.begin(); it != kits.end(); ++it) {
+        if (!it.value().is_object()) continue;
+        const auto& kit = it.value();
+        const int default_amt = std::max(0, kit.value("DefaultAmount", 0));
+        if (default_amt <= 0) continue;
+        if (!KitRequiresLicenseGroup(kit, license_group)) continue;
+        stash[it.key()]["Amount"] = default_amt;
+        ++reset_count;
+    }
+    if (reset_count > 0) {
+        if (!SetKitStash(steam_id, stash)) {
+            Log::GetLog()->error(
+                "ShopPoints::ResetDependentKitLimits failed to save for {} group '{}'",
+                steam_id, license_group);
+            return 0;
+        }
+        Log::GetLog()->info(
+            "ShopPoints::ResetDependentKitLimits: {} kit(s) reset for {} (group '{}')",
+            reset_count, steam_id, license_group);
+    }
+    return reset_count;
 }
 
 } // namespace CustomShop

@@ -200,10 +200,27 @@ class AsmServerManager:
         self._get_mod_path_blacklist = get_mod_path_blacklist
         self._on_log = on_log or (lambda _msg, _level: None)
         self._lock = threading.Lock()
+        # IDs com start/restart real (não scan/reconnect) — para ForceDay pós-RUNNING
+        self._force_day_pending: set[str] = set()
         from ..server_visibility import get_steam_poller
         poller = get_steam_poller()
         poller.set_machine_public_ip(self._machine_public_ip)
         poller.set_on_change(self._steam_visibility_callback)
+
+    def mark_force_day_pending(self, server_id: str) -> None:
+        with self._lock:
+            self._force_day_pending.add(server_id)
+
+    def consume_force_day_pending(self, server_id: str) -> bool:
+        with self._lock:
+            if server_id in self._force_day_pending:
+                self._force_day_pending.discard(server_id)
+                return True
+            return False
+
+    def clear_force_day_pending(self, server_id: str) -> None:
+        with self._lock:
+            self._force_day_pending.discard(server_id)
 
     def set_machine_public_ip(self, ip: str) -> None:
         self._machine_public_ip = (ip or "").strip()
@@ -336,6 +353,7 @@ class AsmServerManager:
 
         with self._lock:
             inst.status = ASM_STATUS_STARTING
+            self._force_day_pending.add(cfg.id)
 
         if self._on_status:
             self._on_status(cfg.id, ASM_STATUS_STARTING)
@@ -452,6 +470,8 @@ class AsmServerManager:
             for _ in range(24):
                 time.sleep(5)
                 if proc is not None and proc.poll() is not None:
+                    with self._lock:
+                        self._force_day_pending.discard(cfg.id)
                     inst.status = ASM_STATUS_CRASHED
                     self._stop_steam_watcher(cfg.id)
                     if self._on_status:
@@ -477,6 +497,8 @@ class AsmServerManager:
             self._start_steam_watcher(inst)
 
         except Exception as exc:
+            with self._lock:
+                self._force_day_pending.discard(cfg.id)
             inst.status = ASM_STATUS_CRASHED
             self._stop_steam_watcher(cfg.id)
             if self._on_status:

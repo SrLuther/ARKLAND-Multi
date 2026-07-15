@@ -381,10 +381,12 @@ class ARKServerManagerApp(ctk.CTk):
                 setattr(self, f"_asm_uptime_start_{server_id}", inst.uptime_start)
             else:
                 setattr(self, f"_asm_uptime_start_{server_id}", time.time())
+            self._maybe_apply_force_day_on_start(server_id)
         elif new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
             setattr(self, f"_asm_uptime_start_{server_id}", None)
             rich_key = f"_asm_rich_status_{server_id}"
             setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
+            self.asm_server_manager.clear_force_day_pending(server_id)
 
         refresher = getattr(self, "_asm_panel_refreshers", {}).get(server_id)
         if refresher:
@@ -400,6 +402,55 @@ class ARKServerManagerApp(ctk.CTk):
             self._rebuild_server_sidebar()
 
         self.after(0, _status_ui_refresh)
+
+    def _maybe_apply_force_day_on_start(self, server_id: str) -> None:
+        """Aplica SetDay global após start/restart real (não reconexão de processo)."""
+        try:
+            gcfg = self.config_manager.config
+            if not bool(getattr(gcfg, "force_day_on_start_enabled", False)):
+                self.asm_server_manager.clear_force_day_pending(server_id)
+                return
+            if not self.asm_server_manager.consume_force_day_pending(server_id):
+                return
+            try:
+                day = int(getattr(gcfg, "force_day_on_start", 20) or 20)
+            except (TypeError, ValueError):
+                day = 20
+            day = max(0, day)
+            srv = None
+            for s in self.asm_config_manager.servers:
+                if s.id == server_id:
+                    srv = s
+                    break
+            if srv is None:
+                return
+            from .force_day_on_start import schedule_force_day
+            from .rcon_util import sanitize_rcon_password
+
+            schedule_force_day(
+                server_id=server_id,
+                server_name=getattr(srv, "name", "") or server_id,
+                rcon_host=getattr(srv, "rcon_host", None) or "127.0.0.1",
+                rcon_port=int(getattr(srv, "rcon_port", 0) or 0),
+                rcon_password=sanitize_rcon_password(
+                    getattr(srv, "admin_password", "") or ""
+                ),
+                day=day,
+                on_log=lambda msg, level: self.after(
+                    0, lambda m=msg, lv=level: self._global_log(m, lv)
+                ),
+                save_world=True,
+            )
+        except Exception as exc:
+            try:
+                self.after(
+                    0,
+                    lambda: self._global_log(
+                        f"[ForceDay] erro ao agendar: {exc}", "error"
+                    ),
+                )
+            except Exception:
+                pass
 
     def _setup_bg_watermark(self) -> None:
         """Pré-computa a imagem de watermark para reutilização em todas as páginas."""
@@ -1516,6 +1567,16 @@ class ARKServerManagerApp(ctk.CTk):
         cfg.startup_with_windows = getattr(self, "_cfg_startup_var", tk.BooleanVar()).get()
         cfg.minimize_to_tray     = getattr(self, "_cfg_minimize_tray_var", tk.BooleanVar()).get()
         cfg.log_debug            = getattr(self, "_cfg_log_debug_var", tk.BooleanVar()).get()
+        cfg.force_day_on_start_enabled = getattr(
+            self, "_cfg_force_day_enabled_var", tk.BooleanVar()
+        ).get()
+        try:
+            cfg.force_day_on_start = max(
+                0,
+                int(getattr(self, "_cfg_force_day_var", tk.StringVar(value="20")).get().strip() or "20"),
+            )
+        except ValueError:
+            cfg.force_day_on_start = 20
         cfg.steam_api_key        = getattr(self, "_steam_api_key_var", tk.StringVar()).get().strip()
         # Discord
         dc = cfg.discord_notify

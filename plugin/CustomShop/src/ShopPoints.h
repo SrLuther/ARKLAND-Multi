@@ -71,6 +71,11 @@ public:
     // Overwrites the entire stash JSON for the player.
     bool SetKitStash(const std::string& steam_id, const nlohmann::json& stash);
 
+    // Restores DefaultAmount for kits whose Permissions list includes license_group
+    // (parity with web `_reset_dependent_kit_limits_tx` on renew/grant).
+    int ResetDependentKitLimits(const std::string& steam_id,
+                                const std::string& license_group);
+
 private:
     ShopPoints() = default;
 

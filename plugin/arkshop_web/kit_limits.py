@@ -79,33 +79,51 @@ def _parse_kit_permissions(entry: dict[str, Any]) -> list[str]:
     return [t.strip() for t in str(raw).split(",") if t.strip()]
 
 
+def license_permission_groups(entry: dict[str, Any]) -> list[str]:
+    """Grupos de licença exigidos pelo item/kit (ignora Admins/Staff/Default)."""
+    return [
+        g for g in _parse_kit_permissions(entry)
+        if g not in _NON_LICENSE_PERMISSION_GROUPS
+    ]
+
+
 def kit_requires_license_group(entry: dict[str, Any], license_group: str) -> bool:
     """True quando o kit exige a licença concedida/renovada (campo Permissions)."""
     license_group = str(license_group or "").strip()
     if not license_group:
         return False
-    deps = [
-        g for g in _parse_kit_permissions(entry)
-        if g not in _NON_LICENSE_PERMISSION_GROUPS
-    ]
-    return license_group in deps
+    license_key = license_group.casefold()
+    return any(g.casefold() == license_key for g in license_permission_groups(entry))
 
 
 def reset_kit_limits_for_license(
     stash: dict[str, Any],
     kits_catalog: dict[str, Any],
     license_group: str,
+    *,
+    pending_by_kit: dict[str, int] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Restaura DefaultAmount dos kits com limite vinculados à licença renovada."""
+    """Restaura DefaultAmount dos kits com limite vinculados à licença renovada.
+
+    Se houver pedidos PENDENTE/ENTREGANDO do mesmo kit, soma esses slots ao
+    Amount restaurado para que a reserva antiga não consuma o novo período
+    (effective_remaining = Amount − pending ≡ DefaultAmount).
+    """
     out = dict(stash)
     reset_ids: list[str] = []
+    pending_map = pending_by_kit or {}
     for kit_id, entry in kits_catalog.items():
         if not isinstance(entry, dict):
             continue
         if not kit_has_limit(entry) or not kit_requires_license_group(entry, license_group):
             continue
-        out = reset_kit_limit(out, str(kit_id), entry)
-        reset_ids.append(str(kit_id))
+        kid = str(kit_id)
+        out = reset_kit_limit(out, kid, entry)
+        pending = max(0, int(pending_map.get(kid, 0) or 0))
+        if pending > 0:
+            limit = kit_default_amount(entry)
+            out[kid] = {"Amount": limit + pending}
+        reset_ids.append(kid)
     return out, reset_ids
 
 

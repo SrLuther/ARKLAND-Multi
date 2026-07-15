@@ -3,6 +3,7 @@
 #include "ShopBridge.h"
 #include "ShopPerms.h"
 #include "ShopDebug.h"
+#include "ShopPoints.h"
 
 #include <sstream>
 
@@ -13,6 +14,53 @@ bool IsPaidTier(const std::string& group) {
         if (group == g) return true;
     }
     return false;
+}
+
+std::string PaidGroupsInList() {
+    std::string in_list;
+    for (const char* g : CustomShop::kPaidLicenseGroups) {
+        if (!in_list.empty()) in_list += ",";
+        in_list += "'";
+        in_list += g;
+        in_list += "'";
+    }
+    return in_list;
+}
+
+/** Conta tiers pagos activos distintos; se exclude_group estiver activo, não o conta
+ *  (para saber quantos *outros* slots estão ocupados ao tentar um novo tier). */
+int CountActivePaidLicenses(MYSQL* db, const std::string& steam_escaped,
+                            const std::string& exclude_group_escaped = "") {
+    if (!db) return 0;
+    std::string sql =
+        "SELECT COUNT(*) FROM player_entitlements WHERE steam_id = '"
+        + steam_escaped + "' AND group_name IN (" + PaidGroupsInList() + ") "
+        "AND (expires IS NULL OR expires > NOW())";
+    if (!exclude_group_escaped.empty()) {
+        sql += " AND group_name != '" + exclude_group_escaped + "'";
+    }
+    if (mysql_query(db, sql.c_str()) != 0) return 0;
+    MYSQL_RES* res = mysql_store_result(db);
+    if (!res) return 0;
+    MYSQL_ROW row = mysql_fetch_row(res);
+    int count = (row && row[0]) ? std::atoi(row[0]) : 0;
+    mysql_free_result(res);
+    return count;
+}
+
+bool HasActivePaidGroup(MYSQL* db, const std::string& steam_escaped,
+                        const std::string& group_escaped) {
+    if (!db) return false;
+    const std::string sql =
+        "SELECT 1 FROM player_entitlements WHERE steam_id = '"
+        + steam_escaped + "' AND group_name = '" + group_escaped + "' "
+        "AND (expires IS NULL OR expires > NOW()) LIMIT 1";
+    if (mysql_query(db, sql.c_str()) != 0) return false;
+    MYSQL_RES* res = mysql_store_result(db);
+    if (!res) return false;
+    const bool found = mysql_fetch_row(res) != nullptr;
+    mysql_free_result(res);
+    return found;
 }
 
 std::vector<std::string> ParsePermissionsList(const std::string& perms_str) {
@@ -178,17 +226,22 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
         static_cast<unsigned long>(notes.size()));
 
     if (IsPaidTier(group)) {
-        std::string in_list;
-        for (const char* g : CustomShop::kPaidLicenseGroups) {
-            if (!in_list.empty()) in_list += ",";
-            in_list += "'";
-            in_list += g;
-            in_list += "'";
+        const bool renewing = HasActivePaidGroup(db_, buf_id, buf_grp);
+        if (!renewing) {
+            const int others = CountActivePaidLicenses(db_, buf_id, buf_grp);
+            if (others >= CustomShop::kMaxActivePaidLicenseTiers) {
+                Log::GetLog()->warn(
+                    "ShopEntitlements::Grant blocked: {} already has {} paid tiers "
+                    "(max {}); cannot activate '{}'",
+                    steam_id, others, CustomShop::kMaxActivePaidLicenseTiers, group);
+                CustomShop::Debug::Fields f;
+                f.steam_id = steam_id;
+                f.extra = {{"group", group}, {"days", days},
+                           {"reason", "license_slots_full"}};
+                CustomShop::Debug::Error("License", f, "Grant blocked: max 2 paid tiers");
+                return false;
+            }
         }
-        const std::string del = "DELETE FROM player_entitlements WHERE steam_id = '"
-            + std::string(buf_id) + "' AND group_name IN (" + in_list + ") "
-            "AND group_name != '" + std::string(buf_grp) + "';";
-        mysql_query(db_, del.c_str());
     }
 
     std::string sql;
@@ -239,6 +292,15 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
             "Permissions.AddTimed " + steam_id + " " + group + " "
                 + std::to_string(hours));
     }
+    // Paridade web: renovação / re-grant restaura limites DefaultAmount dos kits do grupo.
+    try {
+        ShopPoints::Get().ResetDependentKitLimits(steam_id, group);
+    } catch (...) {
+        Log::GetLog()->warn(
+            "ShopEntitlements::Grant: kit limits reset failed for {} group '{}'",
+            steam_id, group);
+    }
+
     {
         CustomShop::Debug::Fields f;
         f.steam_id = steam_id;

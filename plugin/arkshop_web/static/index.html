@@ -48,6 +48,9 @@
     }
 
     /* ── Base ─────────────────────────────────────────────────────────────── */
+    html {
+      overflow-x: clip;
+    }
     html, body {
       height: 100%;
       background: var(--bg);
@@ -56,6 +59,10 @@
       font-size: 14px;
       font-weight: 500;
       line-height: 1.5;
+      max-width: 100%;
+    }
+    body {
+      overflow-x: hidden;
     }
 
     /* ── Textura de pedra primitiva (fundo) ──────────────────────────────── */
@@ -776,6 +783,8 @@
     /* ── Main Area ────────────────────────────────────────────────────────── */
     #main {
       flex: 1;
+      min-width: 0;
+      overflow-x: hidden;
       overflow-y: auto;
       padding: 28px 36px;
       scrollbar-width: thin;
@@ -787,9 +796,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
+      min-width: 0;
+      max-width: 100%;
     }
     .page-title {
       font-family: 'Cinzel', Georgia, serif;
@@ -801,6 +813,9 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
     }
     .page-title::before {
       content: '◈';
@@ -997,6 +1012,29 @@
       background: linear-gradient(90deg, var(--amber), var(--fire));
       transition: width .35s ease;
     }
+    .sp-meta-bar {
+      height: 12px;
+      border-radius: 6px;
+      background: rgba(0,0,0,.35);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin: 10px 0 6px;
+    }
+    .sp-meta-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2a8f6e, var(--amber));
+      transition: width .35s ease;
+    }
+    .sp-meta-fill.is-reached {
+      background: linear-gradient(90deg, #3ecf8e, var(--amber));
+    }
+    .sp-meta-status {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--amber);
+    }
+    .sp-meta-status.is-reached { color: #3ecf8e; }
     .sp-xp-meta {
       display: flex;
       justify-content: space-between;
@@ -1078,11 +1116,67 @@
     }
     .sp-admin-row:first-of-type { border-top:none; }
     .sp-grant-edit {
-      display:grid; grid-template-columns:110px 1fr 70px 70px 1.4fr auto; gap:6px;
-      margin-bottom:6px; align-items:center;
+      display:grid;
+      grid-template-columns:150px 1.25fr 120px 110px 1.4fr auto;
+      gap:8px;
+      margin-bottom:10px;
+      align-items:end;
+      padding:10px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      background:rgba(0,0,0,.15);
+    }
+    .sp-grant-edit .form-group { margin:0; gap:4px; min-width:0; }
+    .sp-grant-edit .form-group label {
+      font-size:9px;
+      letter-spacing:.08em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .sp-grant-edit .form-group input,
+    .sp-grant-edit .form-group select {
+      padding:7px 10px;
+      font-size:12px;
+      width:100%;
+      box-sizing:border-box;
+    }
+    .sp-grant-edit .form-group.is-disabled { opacity:.42; }
+    .sp-grant-edit .form-group.is-disabled input {
+      cursor:not-allowed;
+      background:rgba(0,0,0,.25);
+    }
+    .sp-grant-remove {
+      display:flex; flex-direction:column; gap:4px; align-items:stretch;
+    }
+    .sp-grant-remove > span {
+      font-size:9px; font-weight:700; letter-spacing:.08em;
+      text-transform:uppercase; color:transparent; line-height:1; user-select:none;
+    }
+    .sp-grant-help {
+      margin:0 0 14px;
+      font-size:12px;
+      color:var(--text2);
+      line-height:1.55;
+      padding:12px 14px;
+      border-left:3px solid var(--amber);
+      background:rgba(245,158,11,.06);
+      border-radius:0 8px 8px 0;
+    }
+    .sp-grant-help strong { color:var(--text); }
+    .sp-grant-help ul { margin:8px 0 0; padding-left:18px; }
+    .sp-grant-help li { margin-bottom:4px; }
+    .sp-grant-help code {
+      font-family:'JetBrains Mono',monospace;
+      font-size:11px;
+      color:var(--amber);
+      background:rgba(0,0,0,.25);
+      padding:1px 5px;
+      border-radius:3px;
     }
     @media (max-width:900px) {
       .sp-grant-edit { grid-template-columns:1fr 1fr; }
+      .sp-grant-edit .sp-grant-remove { grid-column:1 / -1; align-items:flex-end; }
     }
     .sp-note {
       margin-top: 14px;
@@ -3625,12 +3719,19 @@
     }
 
     /* ── Home (landing) ───────────────────────────────────────────────────── */
-    .home-root { padding: 0 4px 40px; max-width: 1100px; margin: 0 auto; }
+    .home-root {
+      padding: 0 4px 40px;
+      max-width: min(1100px, 100%);
+      width: 100%;
+      margin: 0 auto;
+      min-width: 0;
+      box-sizing: border-box;
+    }
 
     .home-hero {
       position: relative;
       display: grid;
-      grid-template-columns: 1fr minmax(200px, 280px);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
       gap: 28px;
       align-items: center;
       padding: 40px 36px 36px;
@@ -3642,8 +3743,12 @@
         radial-gradient(ellipse 50% 50% at 90% 20%, rgba(0,200,255,.06) 0%, transparent 50%),
         linear-gradient(165deg, #141008 0%, #0a0804 50%, #0d0a06 100%);
       overflow: hidden;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,180,80,.08);
     }
+    .home-hero > * { min-width: 0; max-width: 100%; }
     .home-hero::after {
       content: '⚜';
       position: absolute;
@@ -3662,21 +3767,26 @@
     }
     .home-hero__title {
       font-family: 'Cinzel', Georgia, serif;
-      font-size: clamp(28px, 4.5vw, 44px);
+      font-size: clamp(22px, 4.5vw, 44px);
       font-weight: 900;
       color: #fff;
       letter-spacing: .04em;
       line-height: 1.15;
       text-shadow: 0 0 40px rgba(232,120,32,.4);
       margin-bottom: 12px;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .home-hero__tagline {
       font-size: 15px;
       color: var(--text);
-      max-width: 520px;
+      max-width: min(520px, 100%);
       line-height: 1.65;
       margin-bottom: 16px;
       opacity: .92;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .home-hero__badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
     .home-badge {
@@ -3694,7 +3804,14 @@
     .home-badge--fire { border-color: rgba(232,120,32,.4); color: #ffb070; }
     .home-badge--tek  { border-color: rgba(0,200,255,.35); color: #7ee8ff; }
     .home-badge--ok   { border-color: rgba(18,216,124,.35); color: #6ee7a8; }
-    .home-hero__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+    .home-hero__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+      min-width: 0;
+      max-width: 100%;
+    }
     .home-hero__visual {
       display: flex;
       flex-direction: column;
@@ -3839,6 +3956,10 @@
       border-radius: var(--radius-lg);
       border: 1px solid var(--border);
       background: var(--surface2);
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
     .home-section__head {
       display: flex;
@@ -3868,7 +3989,7 @@
 
     .home-steps {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
       gap: 14px;
     }
     .home-step {
@@ -4098,7 +4219,7 @@
 
     .home-servers-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
       gap: 12px;
     }
     .home-server-card {
@@ -4143,6 +4264,9 @@
       font-size: 12px;
       color: var(--amber);
       letter-spacing: .02em;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      max-width: 100%;
     }
     .home-server-card__actions {
       display: flex;
@@ -4191,8 +4315,12 @@
       background: rgba(0,0,0,.35);
       overflow: hidden;
       aspect-ratio: 16 / 9;
-      min-height: 180px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      min-height: 160px;
       max-height: 340px;
+      box-sizing: border-box;
     }
     .home-carousel:hover .home-carousel__nav { opacity: 1; }
     .home-carousel__track {
@@ -4246,11 +4374,14 @@
     .home-carousel__title {
       margin: 0 0 6px;
       font-family: 'Cinzel', Georgia, serif;
-      font-size: clamp(16px, 2.2vw, 22px);
+      font-size: clamp(15px, 2.2vw, 22px);
       font-weight: 700;
       color: #fff;
       letter-spacing: .03em;
       text-shadow: 0 2px 12px rgba(0,0,0,.55);
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .home-carousel__body {
       margin: 0;
@@ -4258,7 +4389,9 @@
       line-height: 1.55;
       color: rgba(255,245,230,.9);
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
       word-break: break-word;
+      max-width: 100%;
       max-height: 4.8em;
       overflow: hidden;
     }
@@ -4426,6 +4559,9 @@
         radial-gradient(ellipse 50% 40% at 100% 100%, rgba(0,200,255,.08) 0%, transparent 50%),
         linear-gradient(165deg, rgba(12,18,28,.98) 0%, var(--surface2) 40%, var(--surface3) 100%);
       overflow: hidden;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       box-shadow:
         0 0 0 1px rgba(0,200,255,.08) inset,
         0 24px 48px rgba(0,0,0,.35);
@@ -4515,8 +4651,10 @@
     .home-maps-grid {
       position: relative;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
       gap: 16px;
+      min-width: 0;
+      max-width: 100%;
     }
     .home-map-card {
       position: relative;
@@ -4882,7 +5020,7 @@
 
     .home-pillars {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
       gap: 12px;
     }
     .home-pillar {
@@ -4905,7 +5043,7 @@
 
     .home-pkg-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
       gap: 10px;
     }
     .home-pkg {
@@ -4921,7 +5059,7 @@
 
     .home-util-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
       gap: 10px;
     }
     .home-util {
@@ -5007,6 +5145,9 @@
         radial-gradient(ellipse 60% 70% at 100% 20%, rgba(0, 200, 255, .1) 0%, transparent 50%),
         linear-gradient(155deg, #12100a 0%, #0a0906 45%, #0d0c08 100%);
       overflow: hidden;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       box-shadow:
         0 24px 70px rgba(0, 0, 0, .55),
         inset 0 1px 0 rgba(255, 200, 120, .08);
@@ -5027,11 +5168,12 @@
     .home-commerce__inner { position: relative; z-index: 1; }
     .home-commerce__top {
       display: grid;
-      grid-template-columns: 1.15fr minmax(220px, .85fr);
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
       gap: 28px;
       align-items: center;
       margin-bottom: 26px;
     }
+    .home-commerce__top > * { min-width: 0; max-width: 100%; }
     .home-commerce__eyebrow {
       display: inline-flex;
       align-items: center;
@@ -5363,7 +5505,7 @@
     }
     .home-commerce__grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
       gap: 12px;
       margin-bottom: 22px;
     }
@@ -5480,6 +5622,9 @@
         radial-gradient(ellipse 50% 60% at 0% 100%, rgba(255, 96, 16, .08) 0%, transparent 50%),
         linear-gradient(155deg, #161208 0%, #0a0804 50%, #0e0b06 100%);
       overflow: hidden;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
       box-shadow:
         0 20px 56px rgba(0, 0, 0, .5),
         inset 0 1px 0 rgba(255, 200, 120, .1);
@@ -5488,10 +5633,13 @@
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto minmax(0, 1fr);
       gap: 22px 26px;
       align-items: center;
+      min-width: 0;
+      max-width: 100%;
     }
+    .home-seasonland__inner > * { min-width: 0; max-width: 100%; }
     .home-seasonland__brand {
       display: flex;
       flex-direction: column;
@@ -5529,9 +5677,11 @@
       font-size: 14px;
       color: var(--text);
       line-height: 1.7;
-      max-width: 620px;
+      max-width: min(620px, 100%);
       margin-bottom: 10px;
       opacity: .95;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .home-seasonland__lead strong { color: var(--amber); font-weight: 700; }
     .home-seasonland__points {
@@ -5576,20 +5726,47 @@
     .home-seasonland__reg-link:hover { color: var(--amber); }
 
     @media (max-width: 768px) {
-      .home-hero { grid-template-columns: 1fr; padding: 28px 20px; }
+      .home-hero { grid-template-columns: minmax(0, 1fr); padding: 28px 16px; }
       .home-hero__visual { order: -1; }
-      .home-hero__logo { width: 88px; height: 88px; }
-      .home-commerce { padding: 24px 18px; }
-      .home-commerce__top { grid-template-columns: 1fr; }
-      .home-commerce__flow { grid-template-columns: 1fr 1fr; }
+      .home-hero__logo { width: 88px; height: 88px; max-width: 100%; }
+      .home-hero__actions .btn,
+      .home-cta__actions .btn,
+      .home-seasonland__actions .btn { white-space: normal; text-align: center; }
+      .home-commerce { padding: 22px 14px; max-width: 100%; box-sizing: border-box; }
+      .home-commerce__top { grid-template-columns: minmax(0, 1fr); }
+      .home-commerce__flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .home-commerce__flow-step:not(:last-child)::after { display: none; }
       .home-commerce__footer { flex-direction: column; align-items: flex-start; }
-      .home-seasonland { padding: 22px 18px; }
-      .home-seasonland__inner { grid-template-columns: 1fr; text-align: center; }
+      .home-seasonland { padding: 20px 14px; max-width: 100%; box-sizing: border-box; }
+      .home-seasonland__inner { grid-template-columns: minmax(0, 1fr); text-align: center; }
       .home-seasonland__brand { margin: 0 auto; }
+      .home-seasonland__logo { width: 72px; height: 72px; max-width: 100%; }
       .home-seasonland__lead,
-      .home-seasonland__points { margin-left: auto; margin-right: auto; text-align: left; }
+      .home-seasonland__points { margin-left: auto; margin-right: auto; text-align: left; max-width: 100%; }
       .home-seasonland__actions { justify-content: center; }
+      .home-section { padding: 18px 14px; }
+      .home-maps-showcase { padding: 20px 14px 16px; max-width: 100%; box-sizing: border-box; }
+      .home-carousel { min-height: 140px; }
+      .home-carousel__caption { padding: 12px 14px 40px; }
+      .home-carousel__slide--text .home-carousel__caption { padding: 18px 14px 44px; }
+      .amber-meter { padding: 18px 14px; max-width: 100%; box-sizing: border-box; }
+      .page-title { font-size: 15px; letter-spacing: .05em; flex-wrap: wrap; }
+    }
+
+    @media (max-width: 420px) {
+      .home-root { padding: 0 0 32px; }
+      .home-hero { padding: 20px 12px; gap: 16px; }
+      .home-hero__title { font-size: clamp(20px, 7vw, 28px); letter-spacing: .02em; }
+      .home-hero__tagline { font-size: 13px; }
+      .home-commerce__flow { grid-template-columns: minmax(0, 1fr); }
+      .home-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .home-section { padding: 14px 12px; }
+      .home-maps-showcase { padding: 16px 12px 14px; }
+      .home-seasonland { padding: 16px 12px; }
+      .home-cta { padding: 24px 14px; }
+      .home-carousel__nav { width: 30px; height: 30px; }
+      .home-carousel__nav--prev { left: 6px; }
+      .home-carousel__nav--next { right: 6px; }
     }
 
     /* ── Auditoria — detalhe formatado ────────────────────────────────────── */
@@ -10764,20 +10941,26 @@ function _parsePermsList(raw) {
   return String(raw).split(",").map(s => s.trim()).filter(Boolean);
 }
 
+const _NON_LICENSE_PERMS = new Set(["Admins", "Staff", "Default", "Moderacao", "Mod", "STAFF", ""]);
+
+function _licensePermsList(raw) {
+  return _parsePermsList(raw).filter(g => !_NON_LICENSE_PERMS.has(g));
+}
+
 function _itemCanPurchase(item) {
   if (item.canPurchase === false) return false;
-  const perms = _parsePermsList(item.permissions || item.Permissions);
+  const perms = _licensePermsList(item.permissions || item.Permissions);
   if (!perms.length || !_auth.authenticated) return item.canPurchase !== false;
   const mode = String(item.permissionsMode || item.PermissionsMode || "any").toLowerCase();
-  const active = _playerEntitlements.map(e => e.group);
-  const has = g => active.includes(g);
+  const active = new Set((_playerEntitlements || []).map(e => String(e.group || "")));
+  const has = g => active.has(g);
   if (mode === "all") return perms.every(has);
   return perms.some(has);
 }
 
 function _missingLicenses(item) {
-  const perms = _parsePermsList(item.permissions || item.Permissions);
-  const active = new Set(_playerEntitlements.map(e => e.group));
+  const perms = _licensePermsList(item.permissions || item.Permissions);
+  const active = new Set((_playerEntitlements || []).map(e => String(e.group || "")));
   return perms.filter(g => !active.has(g));
 }
 
@@ -10799,7 +10982,7 @@ function _attachRedeemDoc(item) {
 
 function _renderProductCard(i, btnLabel) {
   const doc = i._redeemDoc || (typeof RedeemDocs !== "undefined" ? RedeemDocs.buildItemRedeemDoc(i, _redeemDocHelpers()) : null);
-  const locked = _auth.authenticated && _parsePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
+  const locked = _auth.authenticated && _licensePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
   const kitLim = _kitLimitInfo(i);
   const kitExhausted = !!(kitLim && (kitLim.effective_remaining ?? kitLim.remaining ?? 0) <= 0);
   const buyBtn = !_auth.authenticated
@@ -13730,14 +13913,16 @@ function _spTrackNodesHtml(nodes, lockedTrack) {
     const ready = Number(delivery.grants_ready || 0);
     let badge = "";
     if (n.claimed) {
-      badge = `<span class="sp-grant-badge is-queued">Na queue · sem entrega</span>`;
+      badge = `<span class="sp-grant-badge is-ready">Resgatado</span>`;
     } else if (skuPend > 0) {
-      badge = `<span class="sp-grant-badge is-pending">${skuPend} SKU pendente</span>`;
-    } else if (ready > 0) {
-      badge = `<span class="sp-grant-badge is-ready">${ready} config OK</span>`;
+      badge = `<span class="sp-grant-badge is-pending" title="${escHtml(n.block_reason || delivery.note || "")}">SKU pendente</span>`;
+    } else if (n.claimable) {
+      badge = `<span class="sp-grant-badge is-ready">Pronto</span>`;
+    } else if (ready > 0 && n.block_reason) {
+      badge = `<span class="sp-grant-badge is-queued" title="${escHtml(n.block_reason)}">Bloqueado</span>`;
     }
     const claimBtn = n.claimable
-      ? `<button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassClaim('${escHtml(n.track)}',${Number(n.level)})">Resgatar</button>`
+      ? `<button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassClaim('${escHtml(n.track)}',${Number(n.level)},null,${n.license_amber_alternative != null ? Number(n.license_amber_alternative) : "null"})">Resgatar</button>`
       : "";
     return `<div class="sp-node is-${escHtml(st)}">
       <div class="sp-node__lvl">${Number(n.level) || "?"}</div>
@@ -13752,22 +13937,61 @@ async function seasonPassBuyPremium() {
   try {
     const d = await fetchJson("/api/season-pass/premium", { method: "POST", body: {} });
     if (!d.ok) throw new Error(d.error || "Compra indisponível");
-    toast("Premium adquirido.", "success");
+    toast(d.message || "Premium adquirido.", "success");
     loadSeasonPass();
   } catch (e) {
     toast(String(e.message || e), "error");
   }
 }
 
-async function seasonPassClaim(track, level) {
+async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
   if (!_auth.authenticated) { promptLogin("SeasonLand"); return; }
   try {
+    const body = { track, level };
+    if (licenseChoice) body.license_choice = licenseChoice;
     const d = await fetchJson("/api/season-pass/claim", {
       method: "POST",
-      body: { track, level },
+      body,
     });
     if (!d.ok) throw new Error(d.error || "Claim falhou");
-    toast(d.message || "Claim enfileirado (sem entrega in-game).", d.in_game_delivered ? "success" : "info");
+    toast(d.message || "Recompensa resgatada.", "success");
+    loadSeasonPass();
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (msg.includes("license_choice") || msg.includes("tier superior")) {
+      const alt = amberAlt != null ? Number(amberAlt) : null;
+      const altTxt = alt != null && alt > 0
+        ? alt.toLocaleString("pt-BR") + " Â"
+        : "valor de catálogo em Â";
+      const pick = window.confirm(
+        "Já tens licença de tier superior.\n\n"
+        + "OK = receber a licença do Pass\n"
+        + "Cancelar = receber " + altTxt + " em Âmbar"
+      );
+      return seasonPassClaim(track, level, pick ? "license" : "amber", amberAlt);
+    }
+    if (msg.includes("sku_pending")) {
+      toast("SKU ainda em falta — resgate bloqueado até preencherem o ID no catálogo.", "error");
+      loadSeasonPass();
+      return;
+    }
+    toast(msg, "error");
+  }
+}
+
+async function seasonPassAdminStart(next) {
+  if (!_auth.is_admin) return;
+  const msg = next
+    ? "Iniciar a PRÓXIMA season?\n\n• Fecha definitivamente os resgates da season actual (unclaimed perdido)\n• Avança o tier (ex. Delta → Gamma)\n• Abre calendário novo de 30 dias + XP TimedPoints"
+    : "Iniciar a season actual?\n\n• Abre o calendário de 30 dias (status Activa)\n• Jogadores começam a ganhar XP pelos ticks TimedPoints\n• Compra Premium e resgates ficam disponíveis";
+  if (!window.confirm(msg)) return;
+  try {
+    const d = await fetchJson("/api/admin/season-pass/start", {
+      method: "POST",
+      body: { next: !!next },
+    });
+    if (!d.ok) throw new Error(d.error || "Falha");
+    toast(d.message || "Season actualizada.", "success");
     loadSeasonPass();
   } catch (e) {
     toast(String(e.message || e), "error");
@@ -13776,22 +14000,95 @@ async function seasonPassClaim(track, level) {
 
 let _spAdminCfg = null;
 
+const _SP_GRANT_TYPE_OPTS = [
+  ["amber", "amber — Âmbar"],
+  ["dino", "dino — Dino (catálogo)"],
+  ["item", "item — Item (catálogo)"],
+  ["kit", "kit — Kit (catálogo)"],
+  ["license", "license — Licença"],
+];
+
+function spGrantTypeChanged(sel) {
+  const row = sel && sel.closest ? sel.closest(".sp-grant-edit") : null;
+  if (!row) return;
+  const type = sel.value || "amber";
+  row.dataset.type = type;
+  const idWrap = row.querySelector('[data-f="id"]')?.closest(".form-group");
+  const idInput = row.querySelector('[data-f="id"]');
+  const daysWrap = row.querySelector('[data-f="days"]')?.closest(".form-group");
+  const daysInput = row.querySelector('[data-f="days"]');
+  const qtyInput = row.querySelector('[data-f="qty"]');
+  if (type === "amber") {
+    idWrap?.classList.add("is-disabled");
+    if (idInput) {
+      idInput.disabled = true;
+      idInput.value = "";
+      idInput.placeholder = "não usado";
+    }
+  } else {
+    idWrap?.classList.remove("is-disabled");
+    if (idInput) {
+      idInput.disabled = false;
+      idInput.placeholder = type === "license" ? "ex.: Delta, Alfa" : "ex.: rex_femea";
+    }
+  }
+  if (type === "license") {
+    daysWrap?.classList.remove("is-disabled");
+    if (daysInput) {
+      daysInput.disabled = false;
+      daysInput.placeholder = "ex.: 30";
+    }
+  } else {
+    daysWrap?.classList.add("is-disabled");
+    if (daysInput) {
+      daysInput.disabled = true;
+      daysInput.value = "";
+      daysInput.placeholder = "—";
+    }
+  }
+  if (qtyInput) {
+    qtyInput.placeholder = type === "amber" ? "ex.: 500" : "ex.: 1";
+  }
+}
+
 function _spGrantEditHtml(track, level, g, idx) {
-  const t = escHtml(g.type || "amber");
-  const id = escHtml(g.id || "");
+  const t = String(g.type || "amber");
+  const isAmber = t === "amber";
+  const isLicense = t === "license";
+  const id = isAmber ? "" : escHtml(g.id || "");
   const qty = Number(g.qty != null ? g.qty : 1);
-  const days = g.days != null ? Number(g.days) : "";
+  const days = isLicense && g.days != null ? Number(g.days) : "";
   const label = escHtml(g.label || "");
-  const opts = ["amber", "dino", "item", "kit", "license"].map((x) =>
-    `<option value="${x}" ${x === t ? "selected" : ""}>${x}</option>`
+  const opts = _SP_GRANT_TYPE_OPTS.map(([val, txt]) =>
+    `<option value="${val}" ${val === t ? "selected" : ""}>${txt}</option>`
   ).join("");
-  return `<div class="sp-grant-edit" data-track="${escHtml(track)}" data-level="${level}" data-idx="${idx}">
-    <select data-f="type">${opts}</select>
-    <input data-f="id" type="text" placeholder="id/SKU" value="${id}" />
-    <input data-f="qty" type="number" min="0" placeholder="qty" value="${qty}" />
-    <input data-f="days" type="number" min="0" placeholder="dias" value="${days}" />
-    <input data-f="label" type="text" placeholder="label" value="${label}" />
-    <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('.sp-grant-edit').remove()">✕</button>
+  const idPh = isAmber ? "não usado" : (isLicense ? "ex.: Delta, Alfa" : "ex.: rex_femea");
+  const qtyPh = isAmber ? "ex.: 500" : "ex.: 1";
+  return `<div class="sp-grant-edit" data-track="${escHtml(track)}" data-level="${level}" data-idx="${idx}" data-type="${escHtml(t)}">
+    <div class="form-group">
+      <label>Tipo</label>
+      <select data-f="type" onchange="spGrantTypeChanged(this)" aria-label="Tipo">${opts}</select>
+    </div>
+    <div class="form-group${isAmber ? " is-disabled" : ""}">
+      <label>ID / SKU do catálogo</label>
+      <input data-f="id" type="text" placeholder="${idPh}" value="${id}" ${isAmber ? "disabled" : ""} aria-label="ID / SKU do catálogo" />
+    </div>
+    <div class="form-group">
+      <label>Quantidade / Valor Â</label>
+      <input data-f="qty" type="number" min="0" placeholder="${qtyPh}" value="${qty}" aria-label="Quantidade / Valor Â" />
+    </div>
+    <div class="form-group${isLicense ? "" : " is-disabled"}">
+      <label>Dias (só licença)</label>
+      <input data-f="days" type="number" min="0" placeholder="${isLicense ? "ex.: 30" : "—"}" value="${days}" ${isLicense ? "" : "disabled"} aria-label="Dias (só licença)" />
+    </div>
+    <div class="form-group">
+      <label>Texto exibido</label>
+      <input data-f="label" type="text" placeholder="ex.: 500 Â / Kit consumíveis" value="${label}" aria-label="Texto exibido" />
+    </div>
+    <div class="sp-grant-remove">
+      <span aria-hidden="true">.</span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('.sp-grant-edit').remove()" title="Remover grant" aria-label="Remover grant">✕</button>
+    </div>
   </div>`;
 }
 
@@ -13812,7 +14109,10 @@ function spAdminAddGrant(track, level) {
   const idx = row.querySelectorAll(".sp-grant-edit").length;
   const wrap = document.createElement("div");
   wrap.innerHTML = _spGrantEditHtml(track, level, { type: "amber", qty: 0, label: "" }, idx);
-  row.appendChild(wrap.firstElementChild);
+  const el = wrap.firstElementChild;
+  row.appendChild(el);
+  const typeSel = el?.querySelector?.('[data-f="type"]');
+  if (typeSel) spGrantTypeChanged(typeSel);
 }
 
 function _spCollectGrants(track, level) {
@@ -13820,10 +14120,14 @@ function _spCollectGrants(track, level) {
   const out = [];
   edits.forEach((el) => {
     const type = el.querySelector('[data-f="type"]')?.value || "amber";
-    const id = (el.querySelector('[data-f="id"]')?.value || "").trim();
+    let id = (el.querySelector('[data-f="id"]')?.value || "").trim();
+    if (type === "amber") id = "";
     const qty = parseInt(el.querySelector('[data-f="qty"]')?.value || "0", 10) || 0;
-    const daysRaw = el.querySelector('[data-f="days"]')?.value;
-    const days = daysRaw === "" || daysRaw == null ? null : (parseInt(daysRaw, 10) || 0);
+    let days = null;
+    if (type === "license") {
+      const daysRaw = el.querySelector('[data-f="days"]')?.value;
+      days = daysRaw === "" || daysRaw == null ? null : (parseInt(daysRaw, 10) || 0);
+    }
     const label = (el.querySelector('[data-f="label"]')?.value || "").trim();
     out.push({ type, id: id || null, qty, days, label });
   });
@@ -13859,13 +14163,38 @@ async function loadSeasonPassAdmin() {
     for (let lv = 1; lv <= 30; lv++) {
       premRows.push(_spAdminLevelRow("premium", lv, (cfg.premium_rewards || {})[String(lv)] || []));
     }
+    const season = d.season || {};
+    const st = String(season.status || "inactive");
+    const startBtn = st === "inactive"
+      ? `<button type="button" class="btn btn-primary" onclick="seasonPassAdminStart(false)" title="Abre a season actual (calendário 30 dias + XP)">▶ Iniciar season</button>`
+      : "";
+    const nextBtn = (st === "active" || st === "claim_window")
+      ? `<button type="button" class="btn btn-ghost" onclick="seasonPassAdminStart(true)" title="Fecha claims da actual, avança tier e abre a seguinte">⏭ Iniciar próxima season</button>`
+      : "";
+    const calendarHint = st === "inactive"
+      ? "Calendário parado — usa «Iniciar season» para abrir a season do tier seleccionado (XP TimedPoints só corre com status Activa)."
+      : (st === "claim_window"
+        ? "Season encerrada · janela de resgate — jogadores ainda podem claimar até «Iniciar próxima season» (depois unclaimed perdido)."
+        : "Season activa — XP TimedPoints a correr. No fim dos 30 dias passa a janela de resgate; a próxima só começa com «Iniciar próxima season».");
     root.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
         <div>
-          <div style="font-family:Cinzel,serif;font-weight:700;color:var(--text);">Admin — Config Season Pass</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(d.note || "Preço + grants tipados. Entrega in-game ainda não.")}</div>
+          <div style="font-family:Cinzel,serif;font-weight:700;color:var(--text);">Admin — Config SeasonLand</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(d.note || "Calendário + preço + grants tipados.")}</div>
         </div>
-        <button type="button" class="btn btn-primary" onclick="saveSeasonPassAdmin()">💾 Guardar config</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${startBtn}${nextBtn}
+          <button type="button" class="btn btn-primary" onclick="saveSeasonPassAdmin()">💾 Guardar config</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(0,0,0,.15);">
+        <div style="font-size:13px;color:var(--text);"><strong>Estado:</strong> ${escHtml(season.status_label || st)}
+          · <strong>ID:</strong> ${escHtml(season.id || "—")}
+          · <strong>Dias restantes:</strong> ${season.days_remaining != null ? Number(season.days_remaining) : "—"}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">
+          Início: ${escHtml(season.starts_at || "—")} · Fim: ${escHtml(season.ends_at || "—")}
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.45;">${escHtml(calendarHint)}</div>
       </div>
       <div class="form-grid" style="margin-bottom:14px;">
         <div class="form-group">
@@ -13879,8 +14208,43 @@ async function loadSeasonPassAdmin() {
           <input id="sp-admin-duration" type="number" min="1" max="365" value="${Number(cfg.duration_days || 30)}" />
         </div>
       </div>
+      <div class="card" style="margin-bottom:16px;padding:14px;background:rgba(0,0,0,.12);">
+        <div class="card-title" style="margin-bottom:8px;">Meta colectiva (cofre ARKBANK)</div>
+        <p style="margin:0 0 12px;font-size:12px;color:var(--text2);line-height:1.45;">
+          Target = Â de <strong>inflows</strong> desde o início da season (não o saldo do cofre).
+          Ao atingir: flag <code>meta_reached</code> — agenda a data do evento aqui (sem auto-fire).
+          Progresso actual: <strong>${Number((d.collective_meta || {}).progress_amber || 0).toLocaleString("pt-BR")}</strong> Â
+          ${cfg.meta_reached ? " · <span style=\"color:#3ecf8e;\">meta atingida</span>" : ""}.
+        </p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Target meta (Â)</label>
+            <input id="sp-admin-meta-target" type="number" min="0" value="${Number(cfg.meta_target_amber || 0)}" />
+          </div>
+          <div class="form-group">
+            <label>Data do evento (ISO / texto)</label>
+            <input id="sp-admin-meta-event-at" type="text" placeholder="ex.: 2026-08-02 20:00 BRT" value="${escHtml(cfg.meta_event_at || "")}" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label>Notas do evento (jogador-facing)</label>
+          <textarea id="sp-admin-meta-event-notes" rows="2" placeholder="Ex.: Evento no Discord · mapa Ragnarok">${escHtml(cfg.meta_event_notes || "")}</textarea>
+        </div>
+      </div>
       <div class="card-title" style="margin-bottom:8px;">Preço Premium (Â) por tier</div>
       <div class="form-grid" style="margin-bottom:16px;">${priceInputs}</div>
+      <div class="card-title" style="margin-bottom:8px;">Recompensas (grants)</div>
+      <div class="sp-grant-help">
+        <strong>Como preencher cada campo</strong>
+        <ul>
+          <li><strong>Tipo</strong> — <code>amber</code> = Âmbar · <code>kit</code> / <code>item</code> / <code>dino</code> = chave do catálogo CustomShop · <code>license</code> = tier da licença</li>
+          <li><strong>ID / SKU do catálogo</strong> — ex. <code>rex_femea</code>, <code>tekstrider_pack10</code>; deixe vazio se tipo = Âmbar (só o valor importa). Para licença: <code>Delta</code>, <code>Alfa</code>, etc.</li>
+          <li><strong>Quantidade / Valor Â</strong> — se Âmbar: quantos Âmbar (ex. <code>500</code>). Se item/dino/kit: quantidade (geralmente <code>1</code>).</li>
+          <li><strong>Dias (só licença)</strong> — duração da licença em dias (ex. <code>30</code>). Desactivado nos outros tipos.</li>
+          <li><strong>Texto exibido</strong> — nome amigável mostrado ao jogador (ex. <code>500 Â</code>, <code>Kit consumíveis</code>).</li>
+        </ul>
+        <div style="margin-top:8px;opacity:.9;">Sem ID em kit/item/dino → <em>sku_pending</em> (Resgatar escondido). Assim que o ID existir, o aviso some e o claim fica disponível. Â na hora; kit/item/dino → fila PENDENTE; licença → entitlement (ou Â se tier superior).</div>
+      </div>
       <details open>
         <summary style="cursor:pointer;font-weight:600;color:var(--text);margin-bottom:8px;">Free (×4)</summary>
         ${freeRows}
@@ -13889,10 +14253,6 @@ async function loadSeasonPassAdmin() {
         <summary style="cursor:pointer;font-weight:600;color:var(--text);margin-bottom:8px;">Premium (1–30)</summary>
         ${premRows.join("")}
       </details>
-      <p style="margin:12px 0 0;font-size:12px;color:var(--text2);line-height:1.45;">
-        Tipos: <strong>amber</strong> (qty=Â), <strong>dino/item/kit</strong> (precisa id), <strong>license</strong> (id=tier + days).
-        Sem id → <em>sku_pending</em>. Claim só enfileira — <strong>não entrega no jogo</strong>.
-      </p>
     `;
   } catch (e) {
     root.innerHTML = `<p style="color:var(--danger);margin:0;">${escHtml(String(e.message || e))}</p>`;
@@ -13919,6 +14279,9 @@ async function saveSeasonPassAdmin() {
     premium_price_by_tier: prices,
     free_rewards,
     premium_rewards,
+    meta_target_amber: parseInt(document.getElementById("sp-admin-meta-target")?.value || "0", 10) || 0,
+    meta_event_at: (document.getElementById("sp-admin-meta-event-at")?.value || "").trim() || null,
+    meta_event_notes: (document.getElementById("sp-admin-meta-event-notes")?.value || "").trim(),
   };
   try {
     const d = await fetchJson("/api/admin/season-pass/config", { method: "PUT", body: payload });
@@ -13944,27 +14307,75 @@ async function loadSeasonPass() {
     const prem = d.premium || {};
     const notes = d.notes || {};
     const tracks = d.tracks || {};
+    const cmeta = d.collective_meta || {};
     const title = season.title || season.name || "Season Pass — Delta";
     const dur = Number(season.duration_days || 30);
-    const left = season.days_remaining != null ? Number(season.days_remaining) : dur;
-    const status = String(season.status || "active");
-    const statusCls = status === "ended" ? "is-ended" : "";
-    const statusLabel = season.status_label || (status === "ended" ? "Encerrada" : "Ativa");
+    const left = season.days_remaining != null ? Number(season.days_remaining) : null;
+    const status = String(season.status || "inactive");
+    const statusCls = (status === "ended" || status === "inactive") ? "is-ended" : (status === "claim_window" ? "is-claim" : "");
+    const statusLabel = season.status_label || status;
     const xp = Number(player.xp || 0);
     const level = Number(player.level || 0);
     const into = Number(player.xp_into_level || 0);
     const need = Number(player.xp_for_next || 0) || 1;
     const pct = player.next_level == null ? 100 : Math.max(0, Math.min(100, Math.round((into / need) * 100)));
+    const frozen = !!player.xp_frozen;
     const nextLine = player.next_level == null
-      ? `Nível máximo (${level})`
+      ? `Nível máximo (${level})${frozen ? " · XP congelado" : ""}`
       : `Nível ${level} → ${player.next_level} · ${into} / ${need} XP`;
     const owned = !!prem.owned;
     const cta = prem.cta_label || "Comprar Premium";
-    const liveFlags = [
-      d.xp_live === false ? "XP: stub (TimedPoints não ligado)" : null,
-      d.grant_engine_live === false ? "Entrega in-game: NÃO" : null,
-      d.economy_live === false ? "Compra Premium: stub" : null,
-    ].filter(Boolean).join(" · ");
+    const timeLine = status === "inactive"
+      ? `${dur} dias (ainda não iniciada)`
+      : (status === "claim_window"
+        ? "Season encerrada · janela de resgate aberta"
+        : `${dur} dias fixos · restam ~${left != null ? left : "?"} dias`);
+    const inactiveBanner = status === "inactive"
+      ? `<p style="margin:8px 0 0;font-size:13px;color:var(--warning);">Season ainda não iniciada — XP, Premium e resgates indisponíveis.</p>`
+      : "";
+
+    const metaEnabled = !!cmeta.enabled;
+    const metaPct = Math.max(0, Math.min(100, Number(cmeta.percent || 0)));
+    const metaReached = !!cmeta.meta_reached;
+    const metaProg = Number(cmeta.progress_amber || 0);
+    const metaTarget = Number(cmeta.target_amber || 0);
+    let metaStatusLine = "Meta desactivada (admin define o target Â).";
+    if (metaEnabled) {
+      if (metaReached && cmeta.event_at) {
+        metaStatusLine = `Meta atingida · evento agendado: ${cmeta.event_at}`;
+      } else if (metaReached) {
+        metaStatusLine = "Meta atingida · à espera da admin agendar a data do evento";
+      } else if (status === "inactive") {
+        metaStatusLine = "Aguarda início da season para contar inflows.";
+      } else {
+        metaStatusLine = "Em progresso — inflows ARKBANK desta season";
+      }
+    }
+    const metaEventNotes = cmeta.event_notes
+      ? `<p style="margin:8px 0 0;font-size:12px;color:var(--text2);">${escHtml(cmeta.event_notes)}</p>`
+      : "";
+    const metaCard = `
+      <div class="card" style="margin-bottom:16px;padding:16px;">
+        <div class="card-title" style="margin-bottom:8px;">${escHtml(cmeta.label || "Cofre da temporada")}</div>
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline;">
+          <div style="font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;">
+            ${metaEnabled
+              ? `${metaProg.toLocaleString("pt-BR")} / ${metaTarget.toLocaleString("pt-BR")} Â`
+              : "Target por definir"}
+          </div>
+          <div class="sp-meta-status ${metaReached ? "is-reached" : ""}">${escHtml(metaStatusLine)}</div>
+        </div>
+        <div class="sp-meta-bar"><div class="sp-meta-fill ${metaReached ? "is-reached" : ""}" style="width:${metaEnabled ? metaPct : 0}%;"></div></div>
+        <div class="sp-xp-meta">
+          <span>${metaEnabled ? `${metaPct}% da meta` : "Sem target"}</span>
+          <span>≠ XP do passe · ≠ saldo total do cofre</span>
+        </div>
+        <p style="margin:8px 0 0;font-size:12px;color:var(--text2);line-height:1.45;">
+          Progresso = Â que entra no cofre nesta season (catálogo, market, dino order, doação, Premium).
+          TimedPoints e ajustes admin não contam. Ao atingir a meta, a admin agenda o evento — sem disparo automático.
+        </p>
+        ${metaEventNotes}
+      </div>`;
 
     root.innerHTML = `
       <div class="card" style="margin-bottom:16px;padding:20px;">
@@ -13975,13 +14386,15 @@ async function loadSeasonPass() {
             <div style="font-family:Cinzel,serif;font-size:1.35rem;font-weight:700;margin-top:2px;color:var(--text);">${escHtml(title)}</div>
             <div class="sp-hero-meta">
               <span class="sp-status ${statusCls}">${escHtml(statusLabel)}</span>
-              <span style="font-size:12px;color:var(--text2);">${dur} dias fixos · restam ~${left} dias</span>
+              <span style="font-size:12px;color:var(--text2);">${escHtml(timeLine)}</span>
             </div>
           </div>
         </div>
         ${season.note ? `<p style="margin:10px 0 0;font-size:12px;color:var(--text2);line-height:1.5;">${escHtml(season.note)}</p>` : ""}
-        ${liveFlags ? `<p style="margin:8px 0 0;font-size:11px;color:var(--warning);">${escHtml(liveFlags)}</p>` : ""}
+        ${inactiveBanner}
       </div>
+
+      ${metaCard}
 
       <div class="card" style="margin-bottom:16px;padding:16px;">
         <div class="card-title" style="margin-bottom:8px;">Progresso de XP</div>
@@ -14018,8 +14431,8 @@ async function loadSeasonPass() {
           ${prem.vault_note ? `<br><span style="font-size:12px;">${escHtml(prem.vault_note)}</span>` : ""}
           ${prem.claim_note ? `<br><span style="font-size:12px;">${escHtml(prem.claim_note)}</span>` : ""}
         </p>
-        <button class="btn btn-primary" type="button" onclick="seasonPassBuyPremium()" ${prem.purchase_enabled ? "" : "disabled title=\"Em breve\""}>
-          ${escHtml(cta)}${prem.price_tbd ? " · TBD" : ""}
+        <button class="btn btn-primary" type="button" onclick="seasonPassBuyPremium()" ${prem.purchase_enabled ? "" : `disabled title="${owned ? "Já tens Premium" : "Disponível só com season activa"}"`}>
+          ${escHtml(owned ? "Premium activo nesta season" : cta)}
         </button>
       </div>
 
@@ -21937,7 +22350,19 @@ async function confirmBuy() {
       toast(d.user_message || `✅ Resgate solicitado: ${item.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
-      loadPlayerKitLimits().then(() => renderCatalog()).catch(() => {});
+      // Licença: re-fetch entitlements + kit limits (renovação restaura resgates).
+      const isLicense = _isLicenseItem(item) || !!(item.licenseGrant || item.licenseGroup);
+      Promise.all([
+        loadPlayerKitLimits().catch(() => {}),
+        isLicense
+          ? fetch(API + "/api/player/entitlements").then(er => er.json()).then(ed => {
+              if (ed && ed.ok) {
+                _playerEntitlements = ed.entitlements || [];
+                _playerTimedPointsTotal = ed.timed_points_total || 25;
+              }
+            }).catch(() => {})
+          : Promise.resolve(),
+      ]).then(() => renderCatalog()).catch(() => renderCatalog());
       loadMyArea();
       if (_catalogActiveTab === "available") loadAvailable();
     } else {

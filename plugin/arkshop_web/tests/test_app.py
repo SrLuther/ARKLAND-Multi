@@ -2374,10 +2374,48 @@ class TestLicenseRenewalKitReset:
             json={"item_id": "licenca_alfa", "item_type": "shop", "amount": 1},
         )
         assert renew.status_code == 200
-        assert renew.get_json()["ok"] is True
+        body = renew.get_json()
+        assert body["ok"] is True
+        assert "kit_alfa" in (body.get("kits_reset") or [])
 
         stash = self._read_player_kits(USER_STEAM)
         assert stash["kit_alfa"]["Amount"] == 1
+
+        retry = client.post(
+            "/api/player/purchase",
+            json={"item_id": "kit_alfa", "item_type": "kit", "amount": 1},
+        )
+        assert retry.status_code == 200
+        assert retry.get_json()["ok"] is True
+
+    def test_license_renewal_restores_kit_despite_pending_order(
+        self, client, monkeypatch, tmp_path,
+    ):
+        """Pedido PENDENTE antigo não deve bloquear o novo período pós-renovação."""
+        _mock_display_name_ok(monkeypatch)
+        self._mock_license_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_license(USER_STEAM, "Alfa")
+        self._seed_player_kits(USER_STEAM, {"kit_alfa": {"Amount": 0}})
+        _create_order_direct(
+            steam_id=USER_STEAM,
+            item_id="kit_alfa",
+            item_type="kit",
+            status="PENDENTE",
+            points_spent=0,
+        )
+        _seed_player_points(USER_STEAM, 0)
+        _login(client, USER_STEAM)
+
+        renew = client.post(
+            "/api/player/purchase",
+            json={"item_id": "licenca_alfa", "item_type": "shop", "amount": 1},
+        )
+        assert renew.status_code == 200
+        assert renew.get_json()["ok"] is True
+
+        stash = self._read_player_kits(USER_STEAM)
+        # DefaultAmount(1) + 1 pending → effective_remaining = 1
+        assert stash["kit_alfa"]["Amount"] == 2
 
         retry = client.post(
             "/api/player/purchase",

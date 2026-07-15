@@ -248,6 +248,9 @@ class AppConfig:
     mod_path_blacklist: list = field(
         default_factory=lambda: list(DEFAULT_MOD_PATH_BLACKLIST)
     )
+    # Forçar DayNumber via RCON (SetDay) em todos os mapas no start/restart
+    force_day_on_start_enabled: bool = False
+    force_day_on_start: int = 20
 
 
 class ConfigManager:
@@ -314,6 +317,14 @@ class ConfigManager:
                     self.config.broadcast_library = []
                 if not isinstance(self.config.mod_path_blacklist, list):
                     self.config.mod_path_blacklist = list(DEFAULT_MOD_PATH_BLACKLIST)
+                try:
+                    day = int(self.config.force_day_on_start)
+                except (TypeError, ValueError):
+                    day = 20
+                self.config.force_day_on_start = max(0, min(day, 2_147_483_647))
+                self.config.force_day_on_start_enabled = bool(
+                    self.config.force_day_on_start_enabled
+                )
                 if not self.config.remote_agent_token:
                     self.config.remote_agent_token = str(uuid.uuid4())
                     self.save()

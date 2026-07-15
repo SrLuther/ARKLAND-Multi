@@ -57,6 +57,8 @@ from kit_limits import (
     kit_default_amount,
     kit_has_limit,
     kit_limit_status,
+    kit_requires_license_group,
+    license_permission_groups,
     parse_kit_stash,
     reset_kit_limit,
     reset_kit_limits_for_license,
@@ -1361,6 +1363,12 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("ARKBANK (sqlite dev): migrate falhou: %s", exc)
         try:
+            from season_pass_service import ensure_season_pass_schema
+
+            ensure_season_pass_schema(engine)
+        except Exception as exc:
+            log.warning("Season Pass (sqlite dev): migrate falhou: %s", exc)
+        try:
             from lottery_service import ensure_lottery_schema
 
             ensure_lottery_schema(engine)
@@ -1529,6 +1537,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_arkbank_schema(engine)
     except Exception as exc:
         log.warning("ARKBANK: migrate falhou: %s", exc)
+    try:
+        from season_pass_service import ensure_season_pass_schema
+
+        ensure_season_pass_schema(engine)
+    except Exception as exc:
+        log.warning("Season Pass: migrate falhou: %s", exc)
     try:
         from lottery_service import ensure_lottery_schema
 
@@ -3469,6 +3483,13 @@ PAID_LICENSE_GROUPS = frozenset({
     "Imaterial",
     "Exotico",
 })
+# Até 2 tiers pagos distintos activos; renovar o mesmo SKU só empilha +N dias.
+MAX_ACTIVE_PAID_LICENSE_TIERS = 2
+LICENSE_SLOTS_FULL_MSG = (
+    "Já tens 2 licenças de tier distintas activas. "
+    "Renova uma existente (+30 dias no mesmo tier) ou espera expirar uma "
+    "antes de activar um terceiro tier."
+)
 LICENSE_TIMED_BONUS = {
     "Default": 25,
     "Delta": 5,
@@ -3710,11 +3731,37 @@ def _reset_dependent_kit_limits_tx(db: Any, steam_id: str, license_group: str) -
     data = _read_shop_config()
     kits = data.get("Kits") or {}
     if not isinstance(kits, dict) or not kits:
+        _log(
+            "kit_limits_reset_skipped_empty_catalog",
+            steam_id=str(steam_id),
+            license_group=str(license_group or ""),
+        )
         return []
     stash = _load_player_kit_stash(db, steam_id)
-    new_stash, reset_ids = reset_kit_limits_for_license(stash, kits, license_group)
-    if reset_ids and new_stash != stash:
+    pending_by_kit: dict[str, int] = {}
+    for kit_id, entry in kits.items():
+        if not isinstance(entry, dict) or not kit_has_limit(entry):
+            continue
+        if not kit_requires_license_group(entry, license_group):
+            continue
+        resolved = _resolve_catalog_item_id("kit", str(kit_id))
+        pending = _count_pending_kit_orders(db, steam_id, resolved)
+        if pending > 0:
+            pending_by_kit[str(kit_id)] = pending
+            if resolved != str(kit_id):
+                pending_by_kit[resolved] = pending
+    new_stash, reset_ids = reset_kit_limits_for_license(
+        stash, kits, license_group, pending_by_kit=pending_by_kit,
+    )
+    if reset_ids:
         _save_player_kit_stash(db, steam_id, new_stash)
+        _log(
+            "kit_limits_reset_on_license_grant",
+            steam_id=str(steam_id),
+            license_group=str(license_group or ""),
+            reset_ids=reset_ids,
+            pending_by_kit=pending_by_kit or None,
+        )
     return reset_ids
 
 
@@ -3930,6 +3977,41 @@ def _ensure_entitlements_schema(conn: Any) -> None:
         _ENTITLEMENTS_SCHEMA_READY = True
 
 
+def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
+    """Tiers pagos com entitlement activo (expires NULL ou futuro)."""
+    _ensure_entitlements_schema(db)
+    expires_clause = (
+        "(expires IS NULL OR expires > NOW())"
+        if _is_mysql_engine(db)
+        else "(expires IS NULL OR expires > datetime('now'))"
+    )
+    paid_list = ", ".join(f"'{g}'" for g in sorted(PAID_LICENSE_GROUPS))
+    rows = db.execute(
+        text(
+            "SELECT group_name FROM player_entitlements "
+            f"WHERE steam_id = :sid AND group_name IN ({paid_list}) "
+            f"AND {expires_clause}"
+        ),
+        {"sid": str(steam_id)},
+    ).fetchall()
+    return {str(r[0]) for r in rows if r and r[0]}
+
+
+def _can_accept_paid_license_tx(
+    db: Any, steam_id: str, group: str,
+) -> tuple[bool, str]:
+    """Mesmo tier → renovação OK; tier novo só se slots activos < máx. 2."""
+    if group not in PAID_LICENSE_GROUPS:
+        return True, ""
+    active = _active_paid_license_groups_tx(db, steam_id)
+    if group in active:
+        return True, ""
+    if len(active) >= MAX_ACTIVE_PAID_LICENSE_TIERS:
+        owned = ", ".join(sorted(active))
+        return False, f"{LICENSE_SLOTS_FULL_MSG} (activas: {owned})"
+    return True, ""
+
+
 def _apply_entitlement_grant_tx(
     db: Any,
     steam_id: str,
@@ -3938,18 +4020,12 @@ def _apply_entitlement_grant_tx(
     *,
     source: str = "",
     notes: str = "",
-) -> None:
+) -> list[str]:
+    """Grant/stack entitlement e restaura limites de kits dependentes. Retorna kit_ids resetados."""
     _ensure_entitlements_schema(db)
-    if group in PAID_LICENSE_GROUPS:
-        paid_list = ", ".join(f"'{g}'" for g in sorted(PAID_LICENSE_GROUPS))
-        db.execute(
-            text(
-                "DELETE FROM player_entitlements "
-                f"WHERE steam_id = :sid AND group_name IN ({paid_list}) "
-                "AND group_name != :grp"
-            ),
-            {"sid": str(steam_id), "grp": group},
-        )
+    ok_slot, slot_err = _can_accept_paid_license_tx(db, str(steam_id), str(group))
+    if not ok_slot:
+        raise ValueError(slot_err)
     params = {
         "sid": str(steam_id),
         "grp": group,
@@ -4006,7 +4082,7 @@ def _apply_entitlement_grant_tx(
             ),
             params,
         )
-    _reset_dependent_kit_limits_tx(db, steam_id, group)
+    return _reset_dependent_kit_limits_tx(db, steam_id, group)
 
 
 def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[str, Any]]:
@@ -4060,12 +4136,19 @@ def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[
 
 
 def _compute_timed_points_total(groups: list[str]) -> int:
+    """Default + bónus não-pagos empilham; entre tiers pagos vence o maior bónus."""
     total = LICENSE_TIMED_BONUS.get("Default", 25)
+    best_paid = 0
     for g in groups:
         if g == "Default":
             continue
-        total += LICENSE_TIMED_BONUS.get(g, 0)
-    return total
+        bonus = int(LICENSE_TIMED_BONUS.get(g, 0) or 0)
+        if g in PAID_LICENSE_GROUPS:
+            if bonus > best_paid:
+                best_paid = bonus
+        else:
+            total += bonus
+    return total + best_paid
 
 
 def _schedule_entitlements_reconcile() -> None:
@@ -4154,8 +4237,10 @@ def _player_has_license(steam_id: str, group: str) -> bool:
 
 
 def _check_entry_permissions(steam_id: str, entry: dict[str, Any]) -> tuple[bool, list[str]]:
-    groups = _parse_permissions_field(entry)
+    """Gate de licença na loja — ignora Admins/Staff (só tiers pagos / keyvault)."""
+    groups = license_permission_groups(entry)
     if not groups:
+        # Só staff/Default no campo, ou vazio → aberto para jogadores.
         return True, []
     mode = str(entry.get("PermissionsMode", "any")).strip().lower()
     active = [g for g in groups if _player_has_license(steam_id, g)]
@@ -7743,6 +7828,26 @@ def player_purchase():
             _used_idempotency_keys.pop(idempotency_key, None)
         return jsonify({"ok": False, "error": "Esta licença não pode ser resgatada na loja"}), 403
 
+    if lic and lic.get("Redeemable", True):
+        grant_group = str(lic.get("Group") or "").strip()
+        if grant_group in PAID_LICENSE_GROUPS:
+            slot_db = _SessionLocal()
+            try:
+                ok_slot, slot_err = _can_accept_paid_license_tx(
+                    slot_db, str(steam_id), grant_group,
+                )
+            finally:
+                _release_db_session(slot_db)
+            if not ok_slot:
+                if idempotency_key:
+                    _used_idempotency_keys.pop(idempotency_key, None)
+                return jsonify({
+                    "ok": False,
+                    "error": slot_err,
+                    "license_slots_full": True,
+                    "max_paid_license_tiers": MAX_ACTIVE_PAID_LICENSE_TIERS,
+                }), 409
+
     can_buy, missing = _check_entry_permissions(str(steam_id), entry)
     if not can_buy:
         if idempotency_key:
@@ -7795,6 +7900,7 @@ def player_purchase():
 
     db = _SessionLocal()
     purchase_db_error: str | None = None
+    kits_reset: list[str] = []
     try:
         if price > 0:
             if _is_mysql_engine(db):
@@ -7839,14 +7945,14 @@ def player_purchase():
                 }), 402
 
         if lic and lic.get("Redeemable", True):
-            _apply_entitlement_grant_tx(
+            kits_reset = _apply_entitlement_grant_tx(
                 db,
                 str(steam_id),
                 str(lic["Group"]),
                 int(lic.get("Days", 30)),
                 source=order.order_id,
                 notes=f"web:{item_id}",
-            )
+            ) or []
         db.commit()
         if price > 0:
             try:
@@ -7889,6 +7995,17 @@ def player_purchase():
     if purchase_db_error:
         if idempotency_key:
             _used_idempotency_keys.pop(idempotency_key, None)
+        slots_full = (
+            "2 licenças de tier" in purchase_db_error
+            or "terceiro tier" in purchase_db_error
+        )
+        if slots_full:
+            return jsonify({
+                "ok": False,
+                "error": purchase_db_error,
+                "license_slots_full": True,
+                "max_paid_license_tiers": MAX_ACTIVE_PAID_LICENSE_TIERS,
+            }), 409
         return jsonify({
             "ok": False,
             "error": (
@@ -7923,6 +8040,8 @@ def player_purchase():
     result["user_message"] = _purchase_user_message(
         result, item_type=item_type, item_id=item_id, price=price,
     )
+    if kits_reset:
+        result["kits_reset"] = list(kits_reset)
     if not result.get("error") and not result.get("ok"):
         result["error"] = result["user_message"]
     new_balance = result.get("new_balance")
@@ -7945,6 +8064,7 @@ def player_purchase():
         points_after=new_balance,
         delivery_mode=result.get("delivery_mode"),
         queued=result.get("queued"),
+        kits_reset=kits_reset or None,
         error=result.get("error") if not result.get("ok") else None,
     )
     return jsonify(result), 200 if result.get("ok") else 500
@@ -10651,10 +10771,128 @@ register_suggestion_routes(
 
 from season_pass_config import configure_season_pass
 from season_pass_routes import register_season_pass_routes
+from season_pass_service import configure_engine as configure_season_pass_engine
+
+
+def _season_pass_queue_catalog_order(
+    db: Any,
+    *,
+    steam_id: str,
+    item_type: str,
+    item_id: str,
+    amount: int,
+    original_order_id: str,
+) -> str:
+    """Cria pedido PENDENTE na mesma sessão (fila plugin CustomShop)."""
+    idem = str(original_order_id or "").strip()
+    if not idem:
+        raise ValueError("original_order_id obrigatório")
+    # Kits do Pass ignoram DefaultAmount (mesmo padrão lottery/admin).
+    # Lookup cobre ambas as formas — evita duplicar se o prefixo mudar.
+    skip_key = f"__admin_skip_kit_limit__|{idem}"
+    existing = db.execute(
+        text(
+            "SELECT order_id FROM orders "
+            "WHERE original_order_id = :a OR original_order_id = :b LIMIT 1"
+        ),
+        {"a": idem, "b": skip_key},
+    ).fetchone()
+    if existing:
+        return str(existing[0])
+    resolved = _resolve_catalog_item_id(item_type, item_id)
+    order_id = str(uuid.uuid4())
+    now = _now()
+    server_id = str(_load_settings().get("server_id", "default"))
+    original = skip_key if item_type == "kit" else idem
+    order = Order(
+        order_id=order_id,
+        steam_id=str(steam_id),
+        server_id=server_id,
+        item_type=item_type or "shop",
+        item_id=resolved,
+        amount=max(1, int(amount)),
+        points_spent=0,
+        status="PENDENTE",
+        original_order_id=original,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(order)
+    db.flush()
+    return order_id
+
+
+def _season_pass_grant_license(
+    db: Any,
+    steam_id: str,
+    group: str,
+    days: int,
+    *,
+    source: str = "",
+) -> None:
+    _apply_entitlement_grant_tx(
+        db,
+        str(steam_id),
+        str(group),
+        int(days),
+        source=source or "season_pass",
+        notes="season_pass_claim",
+    )
+    try:
+        _sync_license_permissions_all_servers(
+            str(steam_id), str(group), grant=True, days=int(days),
+        )
+    except Exception as exc:
+        log.warning("Season Pass license permission sync: %s", exc)
+
+
+def _season_pass_license_catalog_price(group: str) -> int:
+    """Preço Â de catálogo da licença (30d) para opção fallback no claim."""
+    for opt in _catalog_license_options():
+        if str(opt.get("group") or "") == str(group):
+            entry = _catalog_entry("shop", str(opt.get("item_id") or ""))
+            if entry:
+                return int(entry.get("Price", 0) or 0)
+    # Fallback: procura licenca_{group}
+    key = f"licenca_{str(group).lower()}"
+    entry = _catalog_entry("shop", key)
+    if entry:
+        return int(entry.get("Price", 0) or 0)
+    return 0
+
+
+def _season_pass_credit_arkbank(
+    db: Any,
+    *,
+    steam_id: str,
+    amount: int,
+    season_id: str,
+    commit: bool = False,
+) -> dict[str, Any]:
+    from arkbank_service import credit_season_pass_premium, ensure_arkbank_schema
+
+    ensure_arkbank_schema(db.get_bind())
+    return credit_season_pass_premium(
+        db,
+        steam_id=steam_id,
+        amount=amount,
+        season_id=season_id,
+        commit=commit,
+    )
+
 
 configure_season_pass(
     config_file=_SEASON_PASS_CONFIG_FILE,
     claims_file=_SEASON_PASS_CLAIMS_FILE,
+)
+configure_season_pass_engine(
+    subtract_points_tx=_subtract_player_points_tx,
+    add_points_tx=_add_player_points_tx,
+    credit_arkbank_premium=_season_pass_credit_arkbank,
+    queue_catalog_order=_season_pass_queue_catalog_order,
+    grant_license=_season_pass_grant_license,
+    get_entitlements=_get_player_entitlements,
+    license_catalog_price=_season_pass_license_catalog_price,
 )
 register_season_pass_routes(
     app,
@@ -10662,6 +10900,8 @@ register_season_pass_routes(
     login_required=login_required,
     admin_required=admin_required,
     steam_id_from_session=_steam_id_from_session,
+    session_factory=_db_session_factory,
+    release_session=_release_db_session,
     limiter=limiter,
 )
 

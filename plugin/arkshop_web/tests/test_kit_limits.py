@@ -79,6 +79,12 @@ def test_kit_requires_license_group():
     assert kit_requires_license_group(alfa_kit, "Beta") is False
     assert kit_requires_license_group(beta_kit, "Beta") is True
     assert kit_requires_license_group({"DefaultAmount": 1}, "Alfa") is False
+    # Case-insensitive (Permissions vs group grant)
+    assert kit_requires_license_group(alfa_kit, "alfa") is True
+    assert kit_requires_license_group(
+        {"DefaultAmount": 1, "Permissions": "Admins,Gamma,Beta"},
+        "gamma",
+    ) is True
 
 
 def test_reset_kit_limits_for_license_only_matching_kits():
@@ -101,3 +107,27 @@ def test_reset_kit_limits_for_license_only_matching_kits():
     assert reset_ids == ["kit_alfa"]
     assert get_kit_remaining(new_stash, "kit_alfa", catalog["kit_alfa"]) == 1
     assert get_kit_remaining(new_stash, "kit_beta", catalog["kit_beta"]) == 0
+
+
+def test_reset_kit_limits_preserves_quota_when_pending_orders():
+    """Pedidos PENDENTE não podem consumir o novo período após renovação."""
+    catalog = {
+        "kit_itensalfa_gamma": {
+            "DefaultAmount": 1,
+            "Permissions": "Admins,Gamma,Beta",
+        },
+    }
+    stash = {"kit_itensalfa_gamma": {"Amount": 0}}
+    new_stash, reset_ids = reset_kit_limits_for_license(
+        stash,
+        catalog,
+        "Gamma",
+        pending_by_kit={"kit_itensalfa_gamma": 1},
+    )
+    assert reset_ids == ["kit_itensalfa_gamma"]
+    # Amount = DefaultAmount + pending → effective_remaining = 1
+    assert new_stash["kit_itensalfa_gamma"]["Amount"] == 2
+    status = kit_limit_status(
+        new_stash, "kit_itensalfa_gamma", catalog["kit_itensalfa_gamma"], pending_orders=1,
+    )
+    assert status["effective_remaining"] == 1
