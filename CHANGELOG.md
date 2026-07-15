@@ -7,6 +7,16 @@
 
 ## [Unreleased] - 2026-07-15
 
+## [1.10.40] - 2026-07-15
+
+### Fix
+
+- Fix (TEK): após restart do app, mapas/servidores ShooterGameServer já em execução são reconectados — matching por install_dir na cmdline (exe vazio), QueryPort, mapa e retentativas de scan no boot.
+
+### Other
+
+- Test (TEK): cobertura de _process_matches_cfg e relê de cmdline via psutil.Process(pid).
+
 ## [1.10.39] - 2026-07-15
 
 ### Improvement

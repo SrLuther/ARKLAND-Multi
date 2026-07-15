@@ -103,29 +103,117 @@ def _normalize_install_dir(path: str) -> str:
     return (path or "").replace("\\", "/").lower().rstrip("/")
 
 
-def _cmdline_matches_server(cmdline: str, cfg: AsmServerConfig) -> bool:
-    """True se a linha de comando pertence ao servidor (porta TEK ?Port= ou -port=)."""
-    if not cmdline or not cfg.server_port:
+def _path_contains_install(haystack: str, install_norm: str) -> bool:
+    """Evita falso positivo quando um install_dir é prefixo de outro."""
+    if not haystack or not install_norm:
         return False
-    port = cfg.server_port
-    return f"?port={port}" in cmdline or f"-port={port}" in cmdline
+    hay = haystack.replace("\\", "/").lower()
+    idx = hay.find(install_norm)
+    if idx < 0:
+        return False
+    after = hay[idx + len(install_norm):]
+    return after == "" or after[0] in "/\\?\"'"
+
+
+def _install_dir_in_process(exe: str, cmdline: str, install_norm: str) -> bool:
+    return (
+        _path_contains_install(exe, install_norm)
+        or _path_contains_install(cmdline, install_norm)
+    )
+
+
+def _cmdline_has_port(cmdline: str, port: int) -> bool:
+    if not cmdline or not port:
+        return False
+    needle = str(port)
+    return (
+        f"?port={needle}" in cmdline
+        or f"-port={needle}" in cmdline
+        or f"?port={needle}?" in cmdline
+    )
+
+
+def _cmdline_has_query_port(cmdline: str, query_port: int) -> bool:
+    if not cmdline or not query_port:
+        return False
+    needle = str(query_port)
+    return (
+        f"?queryport={needle}" in cmdline
+        or f"-queryport={needle}" in cmdline
+        or f"?queryport={needle}?" in cmdline
+    )
+
+
+def _map_token_in_cmdline(cmdline: str, cfg: "AsmServerConfig") -> bool:
+    if not cmdline:
+        return False
+    from .asm_mod_utils import map_cli_name
+
+    token = map_cli_name(cfg.server_map, cfg.install_dir or "").lower()
+    return bool(token) and token in cmdline
+
+
+def _alt_save_in_cmdline(cmdline: str, cfg: "AsmServerConfig") -> bool:
+    alt = (cfg.alt_save_directory_name or "").strip().lower()
+    if not cmdline or not alt or alt == "savegame":
+        return False
+    return f"?altsavedirectoryname={alt}" in cmdline
+
+
+def _cmdline_matches_server(cmdline: str, cfg: "AsmServerConfig") -> bool:
+    """True se a linha de comando pertence ao servidor (porta / query port)."""
+    if not cmdline:
+        return False
+    return (
+        _cmdline_has_port(cmdline, cfg.server_port)
+        or _cmdline_has_query_port(cmdline, cfg.query_port)
+    )
+
+
+def _cmdline_disambiguate(cmdline: str, cfg: "AsmServerConfig") -> bool:
+    """Desambigua vários mapas no mesmo install_dir ou exe indisponível."""
+    if _alt_save_in_cmdline(cmdline, cfg):
+        return True
+    if not _map_token_in_cmdline(cmdline, cfg):
+        return False
+    return (
+        _cmdline_has_port(cmdline, cfg.server_port)
+        or _cmdline_has_query_port(cmdline, cfg.query_port)
+    )
 
 
 def _process_matches_cfg(
-    cfg: AsmServerConfig,
+    cfg: "AsmServerConfig",
     exe: str,
     cmdline: str,
     install_dir_counts: Dict[str, int],
 ) -> bool:
     install_norm = _normalize_install_dir(cfg.install_dir)
-    install_hit = bool(install_norm) and install_norm in exe
+    install_hit = bool(install_norm) and _install_dir_in_process(exe, cmdline, install_norm)
     port_hit = _cmdline_matches_server(cmdline, cfg)
 
     if install_hit:
         if install_dir_counts.get(install_norm, 0) > 1:
-            return port_hit
+            return port_hit or _cmdline_disambiguate(cmdline, cfg)
         return True
-    return port_hit
+    return port_hit or _cmdline_disambiguate(cmdline, cfg)
+
+
+def _read_shooter_process_fields(proc: Any) -> tuple[str, str]:
+    """exe/cmdline normalizados; relê via Process(pid) se process_iter vier incompleto."""
+    exe = proc.info.get("exe") or ""
+    cmdline_parts = proc.info.get("cmdline") or []
+    pid = proc.info.get("pid")
+    if _PSUTIL_OK and _psutil is not None and pid and (not exe or not cmdline_parts):
+        try:
+            raw = _psutil.Process(int(pid))
+            if not exe:
+                exe = raw.exe() or ""
+            if not cmdline_parts:
+                cmdline_parts = raw.cmdline() or []
+        except Exception:
+            pass
+    return exe.replace("\\", "/").lower(), " ".join(cmdline_parts).lower()
 
 
 from .asm_server_config import (
@@ -274,8 +362,7 @@ class AsmServerManager:
                     pid = int(proc.info["pid"])
                     if pid in claimed:
                         continue
-                    exe = (proc.info.get("exe") or "").replace("\\", "/").lower()
-                    cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+                    exe, cmdline = _read_shooter_process_fields(proc)
                     create_time = proc.info.get("create_time")
 
                     with self._lock:

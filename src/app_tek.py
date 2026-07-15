@@ -81,6 +81,7 @@ class ARKServerManagerApp(ctk.CTk):
             ),
             on_log=lambda msg, level: self._global_log(msg, level),
         )
+        self.asm_server_manager.register_servers(self.asm_config_manager.servers)
         from .pages.init_discord_notifier import init_discord_notifier
         init_discord_notifier(self)
         self.server_manager  = ServerManager(
@@ -209,7 +210,8 @@ class ARKServerManagerApp(ctk.CTk):
         # Auto-start: sync e agente remoto (após UI estável)
         self.after(1800, self._purge_mod_path_blacklist_all)
         self.after(2000, self._auto_start_services)
-        self.after(2500, self._asm_scan_running_servers)
+        for _scan_ms in (500, 2500, 8000):
+            self.after(_scan_ms, self._asm_scan_running_servers)
         self.after(2500, self._ensure_buff_manager)
         self.after(2600, self._ensure_global_ark_event_scheduler)
         self.after(3000, self._start_mod_auto_updater)
@@ -499,9 +501,17 @@ class ARKServerManagerApp(ctk.CTk):
         def _worker() -> None:
             servers = self.asm_config_manager.servers
             count = self.asm_server_manager.scan_running_servers(servers)
-            if count:
-                self.after(0, self._asm_refresh_dashboard)
-                self.after(0, self._rebuild_server_sidebar)
+
+            def _refresh() -> None:
+                self._asm_refresh_dashboard()
+                self._rebuild_server_sidebar()
+                if count:
+                    self._global_log(
+                        f"{count} mapa(s)/servidor(es) em execução reconectado(s).",
+                        "info",
+                    )
+
+            self.after(0, _refresh)
 
         threading.Thread(target=_worker, daemon=True, name="AsmScanRunning").start()
 

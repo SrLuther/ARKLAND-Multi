@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.39"
+APP_VERSION: str = "1.10.40"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,14 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "2026-07-15",
         "changes": [],
+    },
+    {
+        "version": "1.10.40",
+        "date": "2026-07-15",
+        "changes": [
+            "Fix (TEK): após restart do app, mapas/servidores ShooterGameServer já em execução são reconectados — matching por install_dir na cmdline (exe vazio), QueryPort, mapa e retentativas de scan no boot.",
+            "Test (TEK): cobertura de _process_matches_cfg e relê de cmdline via psutil.Process(pid).",
+        ],
     },
     {
         "version": "1.10.39",

@@ -1,12 +1,9 @@
 {
-    "version": "1.10.39",
+    "version": "1.10.40",
     "date": "2026-07-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.39/ARKLAND-Multi-Setup-v1.10.39.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.40/ARKLAND-Multi-Setup-v1.10.40.exe",
     "changelog": [
-        "Fix (Web Store / Dino Lab Encomendas): fila admin operacional inclui PENDENTE e ENTREGANDO (auto-aprovados pagos) alem de AGUARDANDO_APROVACAO e FALHA; historico separado; status_label e badges «Paga — …»; reenvio de FALHA.",
-        "Fix (Web Store / Encomenda): quote com floor_quality B=0 restaurado a partir de defaults do repo quando live stale; payment_status_label na API.",
-        "Melhoria (Web Store / Dino Lab): filtros UI (fila ativa vs historico, status); rota admin /history; steam_id na fila.",
-        "Fix (Web Store / Dino Lab Encomendas): estorno PENDENTE/FALHA → CANCELADO + credito Âmbar; UI Rejeitar/Estornar/Reenviar ligada; fluxo ops E2E completo.",
-        "Test (Web Store / Dino Lab Encomendas): cobertura fila, historico, payment_status, estorno e reenvio (25 testes)."
+        "Fix (TEK): após restart do app, mapas/servidores ShooterGameServer já em execução são reconectados — matching por install_dir na cmdline (exe vazio), QueryPort, mapa e retentativas de scan no boot.",
+        "Test (TEK): cobertura de _process_matches_cfg e relê de cmdline via psutil.Process(pid)."
     ]
 }
