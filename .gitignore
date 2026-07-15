@@ -34,6 +34,10 @@ build_*.txt
 .env.*.local
 .secrets.local
 *.secrets.local
+# Evidência de host / dumps (podem conter admin_password, RCON, etc.)
+.bug/
+# Cópia local de edição do config (ex.: Tags/licenças — apply manual pelo host)
+.edit/
 
 # VS Code
 .vscode/

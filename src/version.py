@@ -3,12 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.42"
+APP_VERSION: str = "1.10.43"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.43",
+        "date": "2026-07-15",
+        "changes": [
+            "Fix (TEK / Reconnect): no host real (.bug) os 6 ShooterGameServer vinham com ExecutablePath e CommandLine vazios — regras só-exe/cmdline (v1.10.20) davam 0/6. Adjunct por portas TCP/UDP (server/query/RCON) reconecta 6/6 (BR/CI/AL/G2/VL/AM, portas 7790/7796/…).",
+            "Fix (TEK / Reconnect): count_running e log de boot usam status RUNNING real (sem falso «detectou N»); scans de boot em 0,5/2,5/8 s; após reconnect dispara _asm_status_tick.",
+            "Fix (TEK / Players): após reconnect, tick rico sonda A2S fresco no query_port (bind + 127.0.0.1) e atualiza inst.a2s_players; fallback RCON ListPlayers — caminho em app_tek._asm_status_tick.",
+            "Feat (TEK / Desligamento programado): diálogo multi-servidor com «Marcar todos», tempo em segundos, avisos RCON em milestones sensatos (60/30/10/5…, sem spam em waits longos), cancelável no card; ao zerar usa stop gracioso existente (saveworld/doexit). Também na barra em massa do dashboard.",
+            "Feat (Web Store / Dino Lab Encomendas): auditoria admin — histórico unificado com badge Encomenda; DETALHES (snapshot imutável de specs), REENVIAR (FALHA) e REEMBOLSAR; steam_id + nick (steam_persona).",
+            "Melhoria (Web Store / Dino Lab): checkout congela spec_snapshot (espécie, sexo, níveis, cores, stats, mapa, preço, timestamps); GET /api/admin/dino-order/<id> com trilha de status.",
+            "Melhoria (CustomShop / TimedPoints 1.10.20): chat ao receber Âmbar inclui URL da loja (Settings.WebsiteUrl / WebApiUrl).",
+            "Test (TEK): fixture .bug (exe+cmdline vazios → 0/6 clássico, 6/6 com portas); count_running; milestones/broadcasts do desligamento programado.",
+            "Test (Web Store / Dino Lab Encomendas): cobertura snapshot, nick, origem no Histórico, reenvio+estorno a partir de FALHA.",
+        ],
+    },
     {
         "version": "1.10.42",
         "date": "2026-07-15",

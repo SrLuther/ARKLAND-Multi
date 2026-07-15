@@ -210,6 +210,7 @@ class ARKServerManagerApp(ctk.CTk):
         # Auto-start: sync e agente remoto (após UI estável)
         self.after(1800, self._purge_mod_path_blacklist_all)
         self.after(2000, self._auto_start_services)
+        # Retentativas: exe/cmdline podem nascer vazios; portas UDP demoram a aparecer
         for _scan_ms in (500, 2500, 8000):
             self.after(_scan_ms, self._asm_scan_running_servers)
         self.after(2500, self._ensure_buff_manager)
@@ -318,8 +319,33 @@ class ARKServerManagerApp(ctk.CTk):
                         if ver != "—":
                             data["version"] = ver
 
-                    # Players: A2S (poller) ou RCON
-                    a2s_n = getattr(inst, "a2s_players", None) if inst else None
+                    # Players: A2S fresco no query_port do mapa (não só cache do poller)
+                    a2s_n = None
+                    try:
+                        from .server_visibility import probe_a2s_info
+
+                        qport = int(getattr(srv, "query_port", 0) or 0)
+                        bind = (getattr(srv, "server_ip", None) or "").strip()
+                        # Preferir 127.0.0.1 após bind vazio — timeout curto p/ N mapas
+                        hosts = []
+                        if bind:
+                            hosts.append(bind)
+                        if "127.0.0.1" not in hosts:
+                            hosts.append("127.0.0.1")
+                        for host in hosts:
+                            info = probe_a2s_info(host, qport, timeout=0.8) if qport else None
+                            if info is not None:
+                                a2s_n = info.get("players")
+                                if inst is not None:
+                                    inst.a2s_players = a2s_n
+                                    inst.a2s_max_players = info.get("max_players")
+                                break
+                    except Exception:
+                        a2s_n = getattr(inst, "a2s_players", None) if inst else None
+
+                    if a2s_n is None and inst is not None:
+                        a2s_n = getattr(inst, "a2s_players", None)
+
                     if a2s_n is not None:
                         data["players"] = f"{a2s_n}/{srv.max_players}"
                     elif srv.rcon_enabled and srv.admin_password:
@@ -500,16 +526,29 @@ class ARKServerManagerApp(ctk.CTk):
 
         def _worker() -> None:
             servers = self.asm_config_manager.servers
-            count = self.asm_server_manager.scan_running_servers(servers)
+            self.asm_server_manager.scan_running_servers(servers)
+            # Fonte de verdade = mesmo critério do dashboard ONLINE (status RUNNING)
+            live = self.asm_server_manager.count_running(servers)
 
             def _refresh() -> None:
-                self._asm_refresh_dashboard()
-                self._rebuild_server_sidebar()
-                if count:
+                live_now = self.asm_server_manager.count_running(servers)
+                self._asm_refresh_dashboard(immediate=True)
+                self._rebuild_server_sidebar(immediate=True)
+                if live_now:
                     self._global_log(
-                        f"{count} mapa(s)/servidor(es) em execução reconectado(s).",
+                        f"{live_now} mapa(s)/servidor(es) ONLINE "
+                        f"(status RUNNING após reconnect — UI sincronizada).",
                         "info",
                     )
+                elif live and not live_now:
+                    self._global_log(
+                        "Reconnect: scan havia sinalizado processos, mas nenhum "
+                        "ficou RUNNING — sem falso «detectou N».",
+                        "warning",
+                    )
+                # Players: força tick rico já com mapas RUNNING + A2S
+                if live_now:
+                    self.after(500, self._asm_status_tick)
 
             self.after(0, _refresh)
 
@@ -1244,10 +1283,14 @@ class ARKServerManagerApp(ctk.CTk):
         )
         self._asm_refresh_dashboard()
 
-    def _asm_open_shutdown_schedule(self, server_id: str) -> None:
+    def _asm_open_shutdown_schedule(
+        self,
+        server_id: str | None = None,
+        preselected: list[str] | None = None,
+    ) -> None:
         from .pages.asm_scheduled_shutdown import open_schedule_dialog
 
-        open_schedule_dialog(self, server_id)
+        open_schedule_dialog(self, server_id=server_id, preselected=preselected)
 
     def _asm_cancel_scheduled_shutdown(self, server_id: str) -> None:
         from .pages.asm_scheduled_shutdown import cancel_shutdown

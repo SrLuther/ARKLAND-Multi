@@ -78,6 +78,14 @@ void NotifyTimedReward(AShooterPlayerController* controller,
         << " Ambares em sua conta e agora voce tem "
         << balance << " Ambares";
 
+    // URL da loja (Settings.WebsiteUrl; fallback WebApiUrl) — mesmo padrão de /upload.
+    const auto& shop_cfg = CustomShop::ShopConfig::Get();
+    std::string url = shop_cfg.WebsiteUrl();
+    if (url.empty())
+        url = shop_cfg.WebApiUrl();
+    if (!url.empty())
+        msg << ". Acesse a loja: " << url;
+
     static const FString kSender(L"Nuvem");
     std::string safe;
     const std::string raw = msg.str();

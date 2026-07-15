@@ -17,12 +17,14 @@ os.environ.setdefault("ARKSHOP_WEB_SECRET", "test-secret")
 import app as _app_module
 from app import _add_player_points_tx, _configure_database, _get_player_points, _subtract_player_points_tx
 from custom_dino_service import ensure_custom_dino_schema
+from custom_dino_service import list_custom_dino_orders_admin
 from dino_order_service import (
     ORDER_SOURCE,
     approve_order,
     calc_color_component,
     checkout,
     configure_dino_order,
+    get_admin_order_detail,
     get_pricing_config,
     list_admin_history,
     list_admin_queue,
@@ -751,5 +753,157 @@ def test_rate_limit_blocks_fourth_order():
             db.commit()
         with pytest.raises(ValueError, match="rate_limit"):
             checkout(db, USER, _base_spec())
+    finally:
+        db.close()
+
+
+def _seed_user_nick(db, steam_id: str, *, persona: str = "PlayerNick") -> None:
+    from app import StoreUser
+
+    row = db.get(StoreUser, steam_id)
+    if row is None:
+        db.add(StoreUser(steam_id=steam_id, steam_persona=persona, display_name=persona))
+    else:
+        row.steam_persona = persona
+        row.display_name = persona
+    db.commit()
+
+
+def test_checkout_freezes_spec_snapshot():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        result = checkout(
+            db,
+            USER,
+            _base_spec(
+                gender="male",
+                colors=[1, 2, 3, 4, 5, 6],
+                stat_points={"health": 10, "melee": 5},
+            ),
+        )
+        db.commit()
+        snap = result["payload"]["spec_snapshot"]
+        assert snap["order_source"] == ORDER_SOURCE
+        assert snap["species_key"] == "rex"
+        assert snap["gender"] == "male"
+        assert snap["colors"] == [1, 2, 3, 4, 5, 6]
+        assert snap["stat_points"]["health"] == 10
+        assert snap["stat_points"]["melee"] == 5
+        assert snap["price_total"] == result["points_spent"]
+        assert snap["map"] == "default"
+        assert snap["checkout_at"]
+        # Imutável: alterar payload.gender não apaga o snapshot congelado.
+        payload = result["payload"]
+        payload["gender"] = "female"
+        assert payload["spec_snapshot"]["gender"] == "male"
+    finally:
+        db.close()
+
+
+def test_admin_history_includes_nick_origem_snapshot_and_actions():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        _seed_user_nick(db, USER, persona="RexBuyer")
+        created = checkout(db, USER, _base_spec(colors=[10, 0, 0, 0, 0, 20]))
+        db.commit()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.execute(
+            text("UPDATE orders SET status = 'ENTREGUE', updated_at = :now WHERE order_id = :oid"),
+            {"now": now, "oid": created["order_id"]},
+        )
+        db.commit()
+
+        hist = list_admin_history(db)
+        row = next(o for o in hist["orders"] if o["order_id"] == created["order_id"])
+        assert row["origem"] == "encomenda"
+        assert row["origin_label"] == "Encomenda"
+        assert row["steam_id"] == USER
+        assert row["player_nick"] == "RexBuyer"
+        assert row["spec_snapshot"]["colors"] == [10, 0, 0, 0, 0, 20]
+        assert row["spec_snapshot"]["price_total"] == created["points_spent"]
+        assert row["can_requeue"] is False
+        assert row["can_refund"] is False
+        assert any(t.get("event") == "checkout" for t in row["status_trail"])
+        assert any(t.get("event") == "delivered" for t in row["status_trail"])
+
+        detail = get_admin_order_detail(db, created["order_id"])
+        assert detail is not None
+        assert detail["player_nick"] == "RexBuyer"
+        assert detail["spec_snapshot"]["species_key"] == "rex"
+        assert detail["map"] == "default"
+    finally:
+        db.close()
+
+
+def test_admin_queue_falha_exposes_requeue_and_refund_flags():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        _seed_user_nick(db, USER, persona="FailNick")
+        created = checkout(db, USER, _base_spec())
+        db.commit()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.execute(
+            text(
+                "UPDATE orders SET status = 'FALHA', last_error = 'spawn failed', "
+                "updated_at = :now WHERE order_id = :oid"
+            ),
+            {"now": now, "oid": created["order_id"]},
+        )
+        db.commit()
+        queue = list_admin_queue(db, status="FALHA")
+        row = next(o for o in queue["orders"] if o["order_id"] == created["order_id"])
+        assert row["player_nick"] == "FailNick"
+        assert row["can_requeue"] is True
+        assert row["can_refund"] is True
+        assert row["origem"] == "encomenda"
+
+        requeued = requeue_failed_order(db, created["order_id"], admin_steam_id=ADMIN)
+        db.commit()
+        assert requeued["status"] == "PENDENTE"
+        detail = get_admin_order_detail(db, created["order_id"])
+        assert detail["can_refund"] is True
+        assert detail["can_requeue"] is False
+        assert any(t.get("event") == "requeued" for t in detail["status_trail"])
+
+        before = _get_player_points(USER)
+        refunded = reject_order(db, created["order_id"], admin_steam_id=ADMIN, reason="Abandono")
+        db.commit()
+        assert refunded["status"] == "CANCELADO"
+        assert refunded["refunded"] == created["points_spent"]
+        assert _get_player_points(USER) == before + created["points_spent"]
+        hist = list_admin_history(db)
+        assert created["order_id"] in [o["order_id"] for o in hist["orders"]]
+    finally:
+        db.close()
+
+
+def test_dino_lab_history_includes_encomenda_with_marker():
+    """Histórico unificado do Dino Lab deve listar encomendas com origem=encomenda."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        _seed_user_nick(db, USER, persona="LabNick")
+        created = checkout(db, USER, _base_spec())
+        db.commit()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.execute(
+            text("UPDATE orders SET status = 'ENTREGUE', updated_at = :now WHERE order_id = :oid"),
+            {"now": now, "oid": created["order_id"]},
+        )
+        db.commit()
+
+        listed = list_custom_dino_orders_admin(db, exclude_player_orders=False)
+        ids = [o["order_id"] for o in listed["orders"]]
+        assert created["order_id"] in ids
+        row = next(o for o in listed["orders"] if o["order_id"] == created["order_id"])
+        assert row["origem"] == "encomenda"
+        assert row["player_nick"] == "LabNick"
+        assert row["spec_snapshot"]["price_total"] == created["points_spent"]
+
+        excluded = list_custom_dino_orders_admin(db, exclude_player_orders=True)
+        assert created["order_id"] not in [o["order_id"] for o in excluded["orders"]]
     finally:
         db.close()

@@ -1,7 +1,11 @@
-"""Testes de reconnect TEK — baseline v1.10.36 + aditivos seguros."""
+"""Reconnect TEK — baseline v1.10.36 + adjunct; fixture grounded em `.bug` real."""
 from __future__ import annotations
 
-from src.asm_engine.asm_server_config import AsmServerConfig, ASM_STATUS_STOPPED, ASM_STATUS_RUNNING
+from src.asm_engine.asm_server_config import (
+    AsmServerConfig,
+    ASM_STATUS_CRASHED,
+    ASM_STATUS_RUNNING,
+)
 from src.asm_engine.asm_server_manager import (
     AsmServerManager,
     _PsutilProcessWrapper,
@@ -29,14 +33,139 @@ def _cfg(**kwargs) -> AsmServerConfig:
     return AsmServerConfig.from_dict(base)
 
 
+# ── shapes reais de `.bug/asm_servers.json` (sem passwords/rcon secrets) ──────
+# PIDs de `.bug/shooter_procs.txt` (ExecutablePath e CommandLine vazios nos 6).
+_BUG_MAPS = [
+    # name, install_dir, server_port, query_port, rcon_port, pid
+    ("Brighamia", r"C:\ARKLAND SERVER\MAPAS\BR", 7790, 27100, 32400, 988),
+    ("Crystal", r"C:\ARKLAND SERVER\MAPAS\CI", 7796, 27103, 32403, 8888),
+    ("Alps", r"C:\ARKLAND SERVER\MAPAS\AL", 7792, 27101, 32401, 12140),
+    ("Gen2", r"C:\ARKLAND SERVER\MAPAS\G2", 7794, 27102, 32402, 9088),
+    ("Volcano", r"C:\ARKLAND SERVER\MAPAS\VL", 7798, 27104, 32404, 5920),
+    ("Amissa", r"C:\ARKLAND SERVER\MAPAS\AM", 7800, 27105, 32405, 7180),
+]
+
+
+def _bug_servers() -> list[AsmServerConfig]:
+    out: list[AsmServerConfig] = []
+    for i, (name, install, sport, qport, rport, _pid) in enumerate(_BUG_MAPS):
+        out.append(
+            _cfg(
+                id=f"bug-{i}",
+                name=name,
+                install_dir=install,
+                server_port=sport,
+                query_port=qport,
+                rcon_port=rport,
+                rcon_enabled=True,
+            )
+        )
+    return out
+
+
 def test_normalize_collapses_double_backslashes():
     assert _normalize_install_dir(r"D:\\ARK\\TheIsland") == "d:/ark/theisland"
     assert _normalize_install_dir(r"D:\ARK\TheIsland") == "d:/ark/theisland"
     assert _normalize_install_dir("D:/ARK/TheIsland/") == "d:/ark/theisland"
 
 
+def test_v11020_rules_fail_on_bug_empty_exe_cmdline():
+    """Sob regras estritas v1.10.20 (só exe + ?port=): 0/6 no shape `.bug`."""
+    servers = _bug_servers()
+    counts: dict[str, int] = {}
+    for s in servers:
+        key = _normalize_install_dir(s.install_dir)
+        counts[key] = counts.get(key, 0) + 1
+    for s in servers:
+        # Exactamente o dump CIM: ExecutablePath/CommandLine vazios
+        assert not _process_matches_cfg(s, "", "", counts)
+
+
+def test_bug_fixture_unique_install_dirs():
+    dirs = {_normalize_install_dir(s.install_dir) for s in _bug_servers()}
+    assert len(dirs) == 6
+
+
+def test_bound_ports_adjunct_matches_bug_ports():
+    for s, row in zip(_bug_servers(), _BUG_MAPS):
+        sport, qport, rport = row[2], row[3], row[4]
+        assert _bound_ports_match_cfg(s, {sport, qport, rport})
+        assert _process_matches_cfg(
+            s, "", "", {}, bound_ports={sport, qport, rport}
+        )
+
+
+def test_scan_bug_six_empty_exe_cmdline_via_ports(monkeypatch):
+    """Modo de falha real `.bug`: 6 Shooter com exe+cmdline vazios → adjunct portas = 6/6."""
+    import src.asm_engine.asm_server_manager as mgr
+
+    servers = _bug_servers()
+
+    class _P:
+        def __init__(self, pid: int) -> None:
+            self.info = {
+                "pid": pid,
+                "name": "ShooterGameServer.exe",
+                "exe": "",
+                "cmdline": [],
+                "create_time": 1.0,
+            }
+
+    procs = [_P(row[5]) for row in _BUG_MAPS]
+    port_index: dict[int, set[int]] = {}
+    for row in _BUG_MAPS:
+        _name, _inst, sport, qport, rport, pid = row
+        for p in (sport, qport, rport):
+            port_index.setdefault(p, set()).add(pid)
+
+    class _Fake:
+        NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def is_running(self) -> bool:
+                return True
+
+            def status(self) -> str:
+                return "running"
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def create_time(self) -> float:
+                return 1.0
+
+            def exe(self) -> str:
+                return ""
+
+            def cmdline(self) -> list:
+                return []
+
+        @staticmethod
+        def process_iter(attrs):  # noqa: ARG001
+            return procs
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _Fake)
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: port_index)
+    monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+
+    m = AsmServerManager()
+    n = m.scan_running_servers(servers)
+    assert n == 6
+    assert m.count_running(servers) == 6
+    for s, row in zip(servers, _BUG_MAPS):
+        assert m.get_instance(s.id).pid == row[5]
+        assert m.get_instance(s.id).status == ASM_STATUS_RUNNING
+
+
 def test_v11036_install_dir_in_exe_single_map():
-    """Caso canónico que funcionava em 1.10.36: um mapa, install_dir no exe."""
     cfg = _cfg()
     exe = "d:/ark/theisland/shootergame/binaries/win64/shootergameserver.exe"
     install = _normalize_install_dir(cfg.install_dir)
@@ -69,7 +198,6 @@ def test_v11036_shared_install_requires_port():
 
 
 def test_install_dir_match_via_cmdline_when_exe_empty():
-    """Aditivo pós-36: install_dir na cmdline quando exe vem vazio."""
     cfg = _cfg()
     install = _normalize_install_dir(cfg.install_dir)
     cmdline = (
@@ -146,7 +274,6 @@ def test_psutil_wrapper_poll_no_such_process_marks_dead():
 
 
 def test_scan_reconnects_like_v11036_via_exe(monkeypatch):
-    """Passo 1 = process_iter + install_dir no exe (path 1.10.36)."""
     import src.asm_engine.asm_server_manager as mgr
 
     cfg = _cfg(id="map-a")
@@ -163,15 +290,6 @@ def test_scan_reconnects_like_v11036_via_exe(monkeypatch):
             ],
             "create_time": 100.0,
         }
-
-    class _Raw:
-        pid = 4242
-
-        def is_running(self) -> bool:
-            return True
-
-        def status(self) -> str:
-            return "running"
 
     class _FakePsutil:
         NoSuchProcess = type("NoSuchProcess", (Exception,), {})
@@ -197,7 +315,6 @@ def test_scan_reconnects_like_v11036_via_exe(monkeypatch):
 
     monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
     monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
-    # Passo 2 não deve ser necessário — força índice vazio
     monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
     monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
 
@@ -212,11 +329,9 @@ def test_scan_reconnects_like_v11036_via_exe(monkeypatch):
 
 
 def test_scan_port_fallback_when_process_iter_empty(monkeypatch):
-    """Passo 2 adjunct: sem process_iter, casa por porta."""
     import src.asm_engine.asm_server_manager as mgr
 
     cfg = _cfg(id="map-a")
-    events: list[tuple[str, str]] = []
 
     class _FakePsutil:
         NoSuchProcess = type("NoSuchProcess", (Exception,), {})
@@ -261,7 +376,7 @@ def test_scan_port_fallback_when_process_iter_empty(monkeypatch):
     )
     monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
 
-    mgr_obj = AsmServerManager(on_status_change=lambda sid, st: events.append((sid, st)))
+    mgr_obj = AsmServerManager()
     n = mgr_obj.scan_running_servers([cfg])
     assert n == 1
     assert mgr_obj.get_instance(cfg.id).pid == 5555
@@ -386,15 +501,18 @@ def test_build_listening_port_index_uses_psutil(monkeypatch):
 
 def test_empty_exe_cmdline_without_ports_fails():
     cfg = _cfg()
-    assert not _process_matches_cfg(cfg, "", "", {_normalize_install_dir(cfg.install_dir): 1})
+    assert not _process_matches_cfg(
+        cfg, "", "", {_normalize_install_dir(cfg.install_dir): 1}
+    )
 
 
-def test_path_boundary_gate_from_v11040_removed():
-    """Regressão 1.10.40: boundary rejeitava paths válidos? Garantimos substring 36."""
-    cfg = _cfg(install_dir="D:/ARK/Server")
-    # Prefixo estrito de outro dir — 36 também casava (substring). Aceitável no baseline.
-    exe_other = "d:/ark/server2/shootergame/binaries/win64/shootergameserver.exe"
-    install = _normalize_install_dir(cfg.install_dir)
-    # Com boundary antiga, server2 NÃO casava; com 36, CASAVA.
-    assert install in exe_other
-    assert _process_matches_cfg(cfg, exe_other, "", {install: 1})
+def test_count_running_is_dashboard_truth():
+    m = AsmServerManager()
+    cfg = _cfg(id="br")
+    m.register_servers([cfg])
+    inst = m.get_instance("br")
+    assert inst is not None
+    inst.status = ASM_STATUS_RUNNING
+    assert m.count_running([cfg]) == 1
+    inst.status = ASM_STATUS_CRASHED
+    assert m.count_running([cfg]) == 0

@@ -176,10 +176,18 @@ def register_custom_dino_routes(
         page_size = int(request.args.get("page_size") or 25)
         status = request.args.get("status")
         steam_id = request.args.get("steam_id")
+        # Histórico unificado: inclui encomendas por padrão (badge origem).
+        include_raw = (request.args.get("include_encomenda") or "1").strip().lower()
+        exclude_player = include_raw in ("0", "false", "no", "off")
         db = session_factory()
         try:
             data = list_custom_dino_orders_admin(
-                db, page=page, page_size=page_size, status=status, steam_id=steam_id,
+                db,
+                page=page,
+                page_size=page_size,
+                status=status,
+                steam_id=steam_id,
+                exclude_player_orders=exclude_player,
             )
             return jsonify({"ok": True, **data})
         finally:

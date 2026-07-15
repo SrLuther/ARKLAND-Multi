@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.20] - 2026-07-15
+
+### Melhoria
+
+- **TimedPoints**: mensagem de chat ao receber Âmbar inclui a URL da loja (`Settings.WebsiteUrl`, fallback `WebApiUrl`) — ex.: «Acesse a loja: https://arkland.com.br».
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.20) em cada mapa.
+
 ## [1.10.19] - 2026-07-14
 
 ### Feature

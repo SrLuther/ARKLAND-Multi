@@ -33,6 +33,8 @@ from market_economy import (
 log = logging.getLogger("arkshop_web.dino_order")
 
 ORDER_SOURCE = "dino_encomenda"
+ORDER_ORIGIN = "encomenda"
+ORDER_ORIGIN_LABEL = "Encomenda"
 ORDER_SOURCE_JSON_LIKE = '%"order_source": "dino_encomenda"%'
 PRICING_VERSION = 1
 RATE_LIMIT_ORDERS = 3
@@ -560,24 +562,237 @@ ADMIN_STATUS_LABELS = {
     "CANCELADO": "Cancelado",
 }
 
+# Estorno admin antes/sem entrega bem-sucedida.
+# ENTREGANDO fica de fora (plugin pode concluir); stale recovery devolve a PENDENTE.
+REJECTABLE_STATUSES = (
+    "AGUARDANDO_APROVACAO",
+    "PENDENTE",
+    "FALHA",
+)
+
 
 def order_status_label(status: str) -> str:
     st = str(status or "").strip().upper()
     return ADMIN_STATUS_LABELS.get(st, st or "—")
 
 
-def _order_to_player_dict(row: Any) -> dict[str, Any]:
+def _nick_from_store_row(row: Any) -> str:
+    for col in (
+        _row_val(row, "steam_persona"),
+        _row_val(row, "display_name"),
+        _row_val(row, "market_display_name"),
+    ):
+        if col and str(col).strip():
+            return str(col).strip()
+    return ""
+
+
+def _resolve_player_nick(db: Session, steam_id: str) -> str:
+    sid = str(steam_id or "").strip()
+    if not sid:
+        return ""
+    # store_users: steam_persona / display_name; market_profiles: market_display_name
+    try:
+        row = db.execute(
+            text(
+                "SELECT steam_persona, display_name FROM store_users "
+                "WHERE steam_id = :sid LIMIT 1"
+            ),
+            {"sid": sid},
+        ).fetchone()
+        nick = _nick_from_store_row(row) if row else ""
+        if nick:
+            return nick
+    except Exception:
+        pass
+    try:
+        row = db.execute(
+            text(
+                "SELECT market_display_name FROM market_player_profile "
+                "WHERE steam_id = :sid LIMIT 1"
+            ),
+            {"sid": sid},
+        ).fetchone()
+        if row:
+            return _nick_from_store_row(row)
+    except Exception:
+        pass
+    return ""
+
+
+def _batch_player_nicks(db: Session, steam_ids: list[str]) -> dict[str, str]:
+    ids = sorted({str(s).strip() for s in steam_ids if str(s or "").strip()})
+    out: dict[str, str] = {}
+    if not ids:
+        return out
+    placeholders = ", ".join(f":s{i}" for i in range(len(ids)))
+    params = {f"s{i}": sid for i, sid in enumerate(ids)}
+    try:
+        rows = db.execute(
+            text(
+                f"SELECT steam_id, steam_persona, display_name "
+                f"FROM store_users WHERE steam_id IN ({placeholders})"
+            ),
+            params,
+        ).fetchall()
+        for row in rows:
+            sid = str(_row_val(row, "steam_id", "") or "")
+            nick = _nick_from_store_row(row)
+            if sid and nick:
+                out[sid] = nick
+    except Exception:
+        pass
+    missing = [sid for sid in ids if sid not in out]
+    if missing:
+        try:
+            ph2 = ", ".join(f":m{i}" for i in range(len(missing)))
+            params2 = {f"m{i}": sid for i, sid in enumerate(missing)}
+            rows = db.execute(
+                text(
+                    f"SELECT steam_id, market_display_name FROM market_player_profile "
+                    f"WHERE steam_id IN ({ph2})"
+                ),
+                params2,
+            ).fetchall()
+            for row in rows:
+                sid = str(_row_val(row, "steam_id", "") or "")
+                nick = _nick_from_store_row(row)
+                if sid and nick and sid not in out:
+                    out[sid] = nick
+        except Exception:
+            pass
+    return out
+
+
+def _build_status_trail(payload: dict[str, Any], *, status: str, created_at: Any, updated_at: Any) -> list[dict[str, Any]]:
+    trail: list[dict[str, Any]] = []
+    created = payload.get("created_at") or created_at
+    if created:
+        trail.append({
+            "at": created,
+            "event": "checkout",
+            "status": "AGUARDANDO_APROVACAO" if not payload.get("approved_at") else "PENDENTE",
+            "by": payload.get("created_by"),
+            "label": "Pedido criado (pago)",
+        })
+    if payload.get("approved_at"):
+        trail.append({
+            "at": payload.get("approved_at"),
+            "event": "approved",
+            "status": "PENDENTE",
+            "by": payload.get("approved_by"),
+            "label": "Aprovado pelo admin",
+        })
+    if payload.get("requeued_at"):
+        trail.append({
+            "at": payload.get("requeued_at"),
+            "event": "requeued",
+            "status": "PENDENTE",
+            "by": payload.get("requeued_by"),
+            "label": "Reenviado para fila de entrega",
+        })
+    if payload.get("rejected_at"):
+        terminal = str(payload.get("terminal_status") or status or "").upper()
+        trail.append({
+            "at": payload.get("rejected_at"),
+            "event": "refunded" if terminal in ("REJEITADO", "CANCELADO") else "closed",
+            "status": terminal or status,
+            "by": payload.get("rejected_by"),
+            "label": (
+                "Rejeitado com estorno"
+                if terminal == "REJEITADO"
+                else "Cancelado com estorno"
+            ),
+            "reason": payload.get("reject_reason"),
+        })
+    st = str(status or "").upper()
+    if st == "ENTREGUE" and updated_at:
+        trail.append({
+            "at": updated_at,
+            "event": "delivered",
+            "status": "ENTREGUE",
+            "by": None,
+            "label": "Entregue in-game",
+        })
+    elif st == "FALHA" and updated_at:
+        trail.append({
+            "at": updated_at,
+            "event": "failed",
+            "status": "FALHA",
+            "by": None,
+            "label": "Falha de entrega",
+        })
+    elif st == "ENTREGANDO" and updated_at:
+        trail.append({
+            "at": updated_at,
+            "event": "delivering",
+            "status": "ENTREGANDO",
+            "by": None,
+            "label": "Em entrega",
+        })
+    return trail
+
+
+def _spec_snapshot_from_payload(
+    payload: dict[str, Any],
+    *,
+    server_id: str = "",
+    points_spent: int = 0,
+) -> dict[str, Any]:
+    """Snapshot imutável (congelado no checkout) com fallback para payload legado."""
+    snap = payload.get("spec_snapshot") if isinstance(payload.get("spec_snapshot"), dict) else None
+    if snap:
+        return dict(snap)
+    pricing = payload.get("pricing") if isinstance(payload.get("pricing"), dict) else {}
+    return {
+        "species_key": payload.get("species_key"),
+        "species_display_name": payload.get("species_display_name"),
+        "gender": payload.get("gender"),
+        "level": payload.get("level"),
+        "neutered": bool(payload.get("neutered")),
+        "colors": list(payload.get("colors") or []),
+        "stat_points": dict(payload.get("stat_points_requested") or {}),
+        "map": server_id or payload.get("server_id") or "",
+        "price_total": int(pricing.get("total") or points_spent or 0),
+        "pricing": pricing,
+        "quote_id": pricing.get("quote_id"),
+        "quoted_at": pricing.get("quoted_at"),
+        "checkout_at": payload.get("created_at"),
+        "order_source": ORDER_SOURCE,
+    }
+
+
+def _order_action_flags(status: str) -> dict[str, bool]:
+    st = str(status or "").strip().upper()
+    return {
+        "can_approve": st == "AGUARDANDO_APROVACAO",
+        "can_requeue": st == "FALHA",
+        "can_refund": st in REJECTABLE_STATUSES,
+    }
+
+
+def _order_to_player_dict(
+    row: Any,
+    *,
+    player_nick: str | None = None,
+    include_audit: bool = False,
+) -> dict[str, Any]:
     payload = _parse_payload(_row_val(row, "payload_json"))
     pricing = payload.get("pricing") if isinstance(payload.get("pricing"), dict) else {}
     species_key = payload.get("species_key")
     species_image_url = _species_image(str(species_key or ""), payload.get("tier"))
     status = str(_row_val(row, "status", ""))
     points = int(_row_val(row, "points_spent", 0) or 0)
+    steam_id = str(_row_val(row, "steam_id", "") or "")
+    server_id = str(_row_val(row, "server_id", "") or "")
+    created_at = _row_val(row, "created_at")
+    updated_at = _row_val(row, "updated_at")
     # Checkout debita na criação — points_spent>0 implica paga; 0 = lab gratuito (fora desta lista).
     payment_status = "paid" if points > 0 else "unpaid"
-    return {
+    out: dict[str, Any] = {
         "order_id": str(_row_val(row, "order_id", "")),
-        "steam_id": str(_row_val(row, "steam_id", "") or ""),
+        "steam_id": steam_id,
+        "player_nick": player_nick if player_nick is not None else "",
         "status": status,
         "status_label": order_status_label(status),
         "payment_status": payment_status,
@@ -591,10 +806,29 @@ def _order_to_player_dict(row: Any) -> dict[str, Any]:
         "colors": payload.get("colors"),
         "stat_points_requested": payload.get("stat_points_requested"),
         "pricing": pricing,
-        "created_at": _row_val(row, "created_at"),
-        "updated_at": _row_val(row, "updated_at"),
+        "server_id": server_id,
+        "map": server_id,
+        "origem": "encomenda",
+        "origin": "encomenda",
+        "origin_label": "Encomenda",
+        "created_at": created_at,
+        "updated_at": updated_at,
         "last_error": _row_val(row, "last_error"),
     }
+    if include_audit:
+        snap = _spec_snapshot_from_payload(payload, server_id=server_id, points_spent=points)
+        flags = _order_action_flags(status)
+        out.update({
+            "spec_snapshot": snap,
+            "status_trail": _build_status_trail(
+                payload, status=status, created_at=created_at, updated_at=updated_at,
+            ),
+            "can_approve": flags["can_approve"],
+            "can_requeue": flags["can_requeue"],
+            "can_refund": flags["can_refund"],
+            "payload": payload,
+        })
+    return out
 
 
 def list_player_orders(
@@ -668,12 +902,41 @@ def _list_admin_orders(
         ),
         params,
     ).fetchall()
+    steam_ids = [str(_row_val(r, "steam_id", "") or "") for r in rows]
+    nicks = _batch_player_nicks(db, steam_ids)
+    orders = [
+        _order_to_player_dict(
+            r,
+            player_nick=nicks.get(str(_row_val(r, "steam_id", "") or ""), ""),
+            include_audit=True,
+        )
+        for r in rows
+    ]
     return {
         "page": page,
         "page_size": page_size,
         "total": total,
-        "orders": [_order_to_player_dict(r) for r in rows],
+        "orders": orders,
     }
+
+
+def get_admin_order_detail(db: Session, order_id: str) -> dict[str, Any] | None:
+    """Detalhe admin completo — snapshot, trilha de status, nick e flags de ação."""
+    row = db.execute(
+        text(
+            "SELECT * FROM orders WHERE order_id = :oid AND item_type = :it "
+            "AND payload_json LIKE :src LIMIT 1"
+        ),
+        {"oid": order_id, "it": ITEM_TYPE, "src": ORDER_SOURCE_JSON_LIKE},
+    ).fetchone()
+    if not row:
+        return None
+    steam_id = str(_row_val(row, "steam_id", "") or "")
+    return _order_to_player_dict(
+        row,
+        player_nick=_resolve_player_nick(db, steam_id),
+        include_audit=True,
+    )
 
 
 def list_admin_queue(
@@ -752,8 +1015,12 @@ def checkout(
 
     payload["order_source"] = ORDER_SOURCE
     payload["created_by"] = steam_id
-    payload["created_at"] = _utcnow().isoformat()
+    checkout_at = _utcnow().isoformat()
+    payload["created_at"] = checkout_at
     payload["stat_points_requested"] = dict(spec.get("stat_points") or {})
+    payload["species_display_name"] = q.get("species_display_name") or payload.get(
+        "species_display_name"
+    )
     payload["pricing"] = {
         "version": PRICING_VERSION,
         "root_value": q["root_value"],
@@ -767,6 +1034,23 @@ def checkout(
         "market_equivalent": q["market_equivalent"],
         "quote_id": q["quote_id"],
         "quoted_at": q["quoted_at"],
+    }
+    # Snapshot imutável das specs escolhidas no checkout (auditoria admin).
+    payload["spec_snapshot"] = {
+        "species_key": species_key,
+        "species_display_name": payload.get("species_display_name"),
+        "gender": payload.get("gender"),
+        "level": payload.get("level"),
+        "neutered": bool(payload.get("neutered")),
+        "colors": list(payload.get("colors") or []),
+        "stat_points": dict(spec.get("stat_points") or {}),
+        "map": server_id,
+        "price_total": total,
+        "pricing": dict(payload["pricing"]),
+        "quote_id": q["quote_id"],
+        "quoted_at": q["quoted_at"],
+        "checkout_at": checkout_at,
+        "order_source": ORDER_SOURCE,
     }
 
     order_id = _new_order_id()
@@ -844,15 +1128,6 @@ def approve_order(db: Session, order_id: str, *, admin_steam_id: str) -> dict[st
         {"pj": json.dumps(payload, ensure_ascii=False), "oid": order_id},
     )
     return {"order_id": order_id, "status": "PENDENTE", "approved_by": admin_steam_id}
-
-
-# Estorno admin antes/sem entrega bem-sucedida.
-# ENTREGANDO fica de fora (plugin pode concluir); stale recovery devolve a PENDENTE.
-REJECTABLE_STATUSES = (
-    "AGUARDANDO_APROVACAO",
-    "PENDENTE",
-    "FALHA",
-)
 
 
 def reject_order(

@@ -12,6 +12,7 @@ from dino_order_service import (
     ADMIN_STATUS_LABELS,
     approve_order,
     checkout,
+    get_admin_order_detail,
     get_pricing_config,
     is_dino_order_enabled,
     list_admin_history,
@@ -534,6 +535,23 @@ def register_dino_order_routes(
                 "filter_statuses": list(ADMIN_HISTORY_STATUSES),
                 "status_labels": dict(ADMIN_STATUS_LABELS),
             })
+        finally:
+            db.close()
+
+    @app.route("/api/admin/dino-order/<order_id>", methods=["GET"])
+    @admin_required
+    def dino_order_admin_detail(order_id: str):
+        if not is_dino_order_enabled():
+            return _disabled()
+        err = _require_db()
+        if err:
+            return err
+        db = session_factory()
+        try:
+            order = get_admin_order_detail(db, order_id)
+            if not order:
+                return jsonify({"ok": False, "error": "order_not_found"}), 404
+            return jsonify({"ok": True, "order": order})
         finally:
             db.close()
 

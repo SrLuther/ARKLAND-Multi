@@ -521,17 +521,23 @@ def _build_bulk_bar(app: "ARKServerManagerApp") -> None:
             if srv and srv.active_mods:
                 threading.Thread(target=lambda s=srv: app._asm_update_mods(s), daemon=True).start()
 
+    def _bulk_schedule_shutdown():
+        ids = list(app._asm_selected_servers)
+        app._asm_open_shutdown_schedule(preselected=ids or None)
+
     _bulk_btns = (
         [
             ("\u25b6  Iniciar", _bulk_start, "#dcfce7", "#166534"),
             ("\u23f9  Parar", _bulk_stop, "#fee2e2", "#991b1b"),
             ("\U0001f504  Reiniciar", _bulk_restart, "#f1f5f9", t_sec),
             ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#e0f2fe", "#0369a1"),
+            ("\u23f1  Desligar agend.", _bulk_schedule_shutdown, "#fee2e2", "#991b1b"),
         ] if is_light else [
             ("\u25b6  Iniciar", _bulk_start, "#052e16", "#4ade80"),
             ("\u23f9  Parar", _bulk_stop, "#7f1d1d", "#fca5a5"),
             ("\U0001f504  Reiniciar", _bulk_restart, "#1e293b", t_sec),
             ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#0c1a2e", "#7dd3fc"),
+            ("\u23f1  Desligar agend.", _bulk_schedule_shutdown, "#450a0a", "#fca5a5"),
         ]
     )
     _bulk_hover = "#e2e8f0" if is_light else "#1e293b"

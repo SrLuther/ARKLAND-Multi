@@ -14918,30 +14918,139 @@ async function dinoLabSubmitDeliver() {
   } catch (e) { toast(String(e), "error"); }
 }
 
+function _dinoLabOriginBadge(o) {
+  const origem = String(o.origem || o.origin || "").toLowerCase();
+  if (origem === "encomenda") {
+    return `<span class="badge badge-warning" title="Origem: encomenda jogador">Encomenda</span>`;
+  }
+  return `<span class="badge" title="Origem: entrega admin">Admin</span>`;
+}
+
+function _dinoLabPlayerCell(o) {
+  const nick = (o.player_nick || o.steam_nickname || "").trim();
+  const sid = o.steam_id || "";
+  if (nick) {
+    return `<strong style="font-size:12px;">${escHtml(nick)}</strong>`
+      + `<div style="font-size:10px;font-family:monospace;color:var(--text2);">${escHtml(sid)}</div>`;
+  }
+  return `<span style="font-size:11px;font-family:monospace;">${escHtml(sid)}</span>`;
+}
+
+function _dinoLabOrderActionsHtml(o) {
+  const oid = escHtml(o.order_id || "");
+  const isEnc = String(o.origem || o.origin || "").toLowerCase() === "encomenda";
+  const canRequeue = !!o.can_requeue || o.status === "FALHA";
+  const canRefund = !!o.can_refund || (
+    isEnc && (o.status === "AGUARDANDO_APROVACAO" || o.status === "PENDENTE" || o.status === "FALHA")
+  );
+  const parts = [
+    `<button class="btn btn-ghost btn-sm" title="Ver detalhes da encomenda/entrega" onclick="viewDinoLabOrderDetails('${oid}')">Detalhes</button>`,
+  ];
+  if (isEnc && canRequeue) {
+    parts.push(` <button class="btn btn-primary btn-sm" title="Reenviar para fila de entrega" onclick="dinoOrderAdminRequeue('${oid}')">Reenviar</button>`);
+  }
+  if (isEnc && canRefund) {
+    const label = o.status === "AGUARDANDO_APROVACAO" ? "Reembolsar" : "Reembolsar";
+    parts.push(` <button class="btn btn-success btn-sm" title="Estornar Âmbar ao jogador" onclick="dinoOrderAdminReject('${oid}')">${label}</button>`);
+  }
+  return `<div class="order-admin-actions" style="white-space:nowrap;">${parts.join("")}</div>`;
+}
+
+async function viewDinoLabOrderDetails(orderId) {
+  const body = document.getElementById("modal-order-detail-body");
+  const title = document.querySelector("#modal-order-detail .modal-title");
+  if (title) title.textContent = "🧬 Detalhe — Dino Lab / Encomenda";
+  if (body) body.innerHTML = "<p style=\"color:var(--text2)\">Carregando…</p>";
+  document.getElementById("modal-order-detail")?.classList.remove("hidden");
+  try {
+    let d;
+    try {
+      d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId));
+    } catch (_) {
+      d = null;
+    }
+    if (!d || !d.ok) {
+      d = await fetchJson("/api/admin/custom-dino/orders/" + encodeURIComponent(orderId));
+    }
+    if (!d.ok || !d.order) throw new Error(d.error || "Pedido não encontrado");
+    const o = d.order;
+    const snap = o.spec_snapshot || {};
+    const pricing = snap.pricing || o.pricing || {};
+    const stats = snap.stat_points || o.stat_points_requested || {};
+    const colors = snap.colors || o.colors || [];
+    const trail = o.status_trail || [];
+    const trailHtml = trail.length
+      ? `<ol style="margin:0;padding-left:18px;font-size:12px;line-height:1.55;">${trail.map(t =>
+          `<li><strong>${escHtml(t.label || t.event || "")}</strong>`
+          + ` · ${escHtml(String(t.at || "").slice(0, 19))}`
+          + (t.by ? ` · por <code>${escHtml(t.by)}</code>` : "")
+          + (t.reason ? `<div style="color:var(--text2);">${escHtml(t.reason)}</div>` : "")
+          + `</li>`
+        ).join("")}</ol>`
+      : "<p style=\"color:var(--text2);font-size:12px;\">Sem trilha de status.</p>";
+    const statsHtml = Object.keys(stats).length
+      ? Object.entries(stats).map(([k, v]) => `${escHtml(k)}: <strong>${escHtml(String(v))}</strong>`).join(" · ")
+      : "—";
+    if (body) {
+      body.innerHTML = `
+        <div style="display:grid;gap:12px;font-size:13px;">
+          <div>${_dinoLabOriginBadge(o)} ${_dinoOrderAdminStatusBadge(o)}</div>
+          <div><div style="color:var(--text2);font-size:11px;">Pedido</div><code>${escHtml(o.order_id)}</code></div>
+          <div><div style="color:var(--text2);font-size:11px;">Jogador</div>${_dinoLabPlayerCell(o)}</div>
+          <div><div style="color:var(--text2);font-size:11px;">Espécie / sexo / nível</div>
+            ${_speciesTextWithThumbHtml(o, snap.species_display_name || o.species_display_name || o.species_key || "—")}
+            · ${escHtml(String(snap.gender || o.gender || "—"))}
+            · Lv ${escHtml(String(snap.level ?? o.level ?? "—"))}
+          </div>
+          <div><div style="color:var(--text2);font-size:11px;">Cores (6 regiões)</div>${escHtml((colors || []).join(", ") || "—")}</div>
+          <div><div style="color:var(--text2);font-size:11px;">Stats pedidos</div>${statsHtml}</div>
+          <div><div style="color:var(--text2);font-size:11px;">Mapa / preço</div>
+            ${escHtml(String(snap.map || o.server_id || "—"))}
+            · ${formatAmberAmount(snap.price_total ?? o.points_spent ?? pricing.total ?? 0)}
+          </div>
+          <div><div style="color:var(--text2);font-size:11px;">Timestamps</div>
+            Criado: ${escHtml(String(o.created_at || snap.checkout_at || "").slice(0, 19))}
+            · Atualizado: ${escHtml(String(o.updated_at || "").slice(0, 19))}
+            ${pricing.quoted_at ? ` · Cotação: ${escHtml(String(pricing.quoted_at).slice(0, 19))}` : ""}
+          </div>
+          ${o.last_error ? `<div style="color:var(--danger);font-size:12px;">Erro: ${escHtml(o.last_error)}</div>` : ""}
+          <div><div style="color:var(--text2);font-size:11px;margin-bottom:4px;">Trilha de status</div>${trailHtml}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">${_dinoLabOrderActionsHtml(o)}</div>
+        </div>`;
+    }
+  } catch (e) {
+    if (body) body.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
 async function loadDinoLabHistory() {
   const root = document.getElementById("dinolab-history-list");
   if (!root) return;
   root.textContent = "Carregando…";
   try {
-    const d = await fetchJson("/api/admin/custom-dino/orders?page_size=50");
+    const d = await fetchJson("/api/admin/custom-dino/orders?page_size=50&include_encomenda=1");
     if (!d.ok) throw new Error(d.error);
     const orders = d.orders || [];
     root.innerHTML = orders.length ? `
+      <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">
+        Entregas admin e encomendas (badge «Encomenda»). Auto-entrega in-game mantida.
+      </p>
       <div style="overflow-x:auto;">
         <table class="pkg-admin-table">
           <thead><tr>
-            <th>Data</th><th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Cores</th><th>Status</th><th>Motivo</th>
+            <th>Data</th><th>Origem</th><th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Cores</th><th>Status</th><th>Ações</th>
           </tr></thead>
           <tbody>
             ${orders.map(o => `
               <tr>
                 <td style="font-size:11px;">${escHtml((o.created_at || "").slice(0, 19))}</td>
+                <td>${_dinoLabOriginBadge(o)}</td>
                 <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
-                <td style="font-size:11px;">${escHtml(o.steam_id)}</td>
+                <td>${_dinoLabPlayerCell(o)}</td>
                 <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
                 <td style="font-size:11px;">${(o.colors || []).join(", ")}</td>
-                <td><span class="badge">${escHtml(o.status)}</span></td>
-                <td style="font-size:11px;max-width:200px;">${escHtml(o.note || "")}</td>
+                <td>${o.status_label ? _dinoOrderAdminStatusBadge(o) : `<span class="badge">${escHtml(o.status)}</span>`}</td>
+                <td>${_dinoLabOrderActionsHtml(o)}</td>
               </tr>`).join("")}
           </tbody>
         </table>
@@ -17648,25 +17757,26 @@ async function loadDinoLabEncomendaQueue() {
         : "<p>Nenhum pedido na fila.</p>";
       return;
     }
-    const showActions = scope !== "history";
     root.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
-      <th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Total</th><th>Status</th>${showActions ? "<th>Ações</th>" : "<th>Atualizado</th>"}
+      <th>Pedido</th><th>Origem</th><th>Jogador</th><th>Espécie</th><th>Total</th><th>Status</th><th>Ações</th>
     </tr></thead><tbody>${orders.map(o => {
-      const canApprove = o.status === "AGUARDANDO_APROVACAO";
-      // PENDENTE = auto-aprovada na fila — estorno admin ainda é necessário (regulamento §8.12.4).
-      const canReject = o.status === "AGUARDANDO_APROVACAO" || o.status === "PENDENTE" || o.status === "FALHA";
-      const canRequeue = o.status === "FALHA";
-      const rejectLabel = o.status === "AGUARDANDO_APROVACAO" ? "Rejeitar" : "Estornar";
-      const actions = showActions
-        ? `<td style="white-space:nowrap;">
-        ${canApprove ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button> ` : ""}
-        ${canRequeue ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminRequeue('${escHtml(o.order_id)}')">Reenviar</button> ` : ""}
-        ${canReject ? `<button class="btn btn-ghost btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">${rejectLabel}</button>` : (!canApprove && !canRequeue ? `<span style="color:var(--text2);font-size:11px;">—</span>` : "")}
-      </td>`
-        : `<td style="font-size:11px;">${escHtml(String(o.updated_at || o.created_at || "").slice(0, 16))}</td>`;
+      const canApprove = !!o.can_approve || o.status === "AGUARDANDO_APROVACAO";
+      const canReject = !!o.can_refund
+        || o.status === "AGUARDANDO_APROVACAO"
+        || o.status === "PENDENTE"
+        || o.status === "FALHA";
+      const canRequeue = !!o.can_requeue || o.status === "FALHA";
+      const rejectLabel = o.status === "AGUARDANDO_APROVACAO" ? "Rejeitar" : "Reembolsar";
+      const actions = `<td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="viewDinoLabOrderDetails('${escHtml(o.order_id)}')">Detalhes</button>
+        ${canApprove ? ` <button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button>` : ""}
+        ${canRequeue ? ` <button class="btn btn-primary btn-sm" onclick="dinoOrderAdminRequeue('${escHtml(o.order_id)}')">Reenviar</button>` : ""}
+        ${canReject ? ` <button class="btn btn-success btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">${rejectLabel}</button>` : ""}
+      </td>`;
       return `<tr>
       <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
-      <td style="font-size:11px;">${escHtml(o.steam_id || "")}</td>
+      <td>${_dinoLabOriginBadge(o)}</td>
+      <td>${_dinoLabPlayerCell(o)}</td>
       <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
       <td>${formatAmberAmount(o.points_spent || 0)}</td>
       <td>${_dinoOrderAdminStatusBadge(o)}</td>
@@ -17678,18 +17788,24 @@ async function loadDinoLabEncomendaQueue() {
   }
 }
 
+function _refreshDinoLabOrderViews() {
+  loadDinoLabEncomendaQueue();
+  loadDinoLabHistory();
+  try { closeModal("modal-order-detail"); } catch (_) {}
+}
+
 async function dinoOrderAdminApprove(orderId) {
   if (!confirm("Aprovar encomenda " + orderId + "?")) return;
   try {
     const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/approve", { method: "POST" });
     if (!d.ok) throw new Error(d.error || "Falha");
     toast("Encomenda aprovada — entra na fila de entrega.", "success");
-    loadDinoLabEncomendaQueue();
+    _refreshDinoLabOrderViews();
   } catch (e) { toast(e.message, "error"); }
 }
 
 async function dinoOrderAdminReject(orderId) {
-  const reason = prompt("Motivo (estorno integral dos Âmbares):", "");
+  const reason = prompt("Motivo do reembolso (estorno integral dos Âmbares):", "");
   if (reason === null) return;
   try {
     const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/reject", {
@@ -17700,7 +17816,7 @@ async function dinoOrderAdminReject(orderId) {
     if (!d.ok) throw new Error(d.error || "Falha");
     const label = d.status_label || d.status || "encerrado";
     toast(`${label} — ${formatAmberAmount(d.refunded || 0)} estornados.`, "success");
-    loadDinoLabEncomendaQueue();
+    _refreshDinoLabOrderViews();
   } catch (e) { toast(e.message, "error"); }
 }
 
@@ -17710,7 +17826,7 @@ async function dinoOrderAdminRequeue(orderId) {
     const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/requeue", { method: "POST" });
     if (!d.ok) throw new Error(d.error || "Falha");
     toast("Encomenda reenviada — status PENDENTE.", "success");
-    loadDinoLabEncomendaQueue();
+    _refreshDinoLabOrderViews();
   } catch (e) { toast(e.message, "error"); }
 }
 

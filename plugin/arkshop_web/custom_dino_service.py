@@ -952,7 +952,29 @@ def _iso_dt(val: Any) -> str | None:
     return str(val)
 
 
-def order_to_admin_dict(row: Any) -> dict[str, Any]:
+def _resolve_store_user_nick(db: Session, steam_id: str) -> str:
+    try:
+        from dino_order_service import _resolve_player_nick
+
+        return _resolve_player_nick(db, steam_id)
+    except Exception:
+        return ""
+
+
+def _batch_store_user_nicks(db: Session, steam_ids: list[str]) -> dict[str, str]:
+    try:
+        from dino_order_service import _batch_player_nicks
+
+        return _batch_player_nicks(db, steam_ids)
+    except Exception:
+        return {}
+
+
+def order_to_admin_dict(
+    row: Any,
+    *,
+    player_nick: str | None = None,
+) -> dict[str, Any]:
     payload = _parse_payload(_row_val(row, "payload_json"))
     species_key = payload.get("species_key")
     species_tier = payload.get("tier")
@@ -963,10 +985,14 @@ def order_to_admin_dict(row: Any) -> dict[str, Any]:
         species_image_url = resolve_species_image_for_key(species_key, tier=species_tier)
     except Exception:
         species_image_url = ""
-    return {
+    is_encomenda = is_player_dino_encomenda(payload)
+    status = str(_row_val(row, "status", ""))
+    points = int(_row_val(row, "points_spent", 0) or 0)
+    out: dict[str, Any] = {
         "order_id": str(_row_val(row, "order_id", "")),
         "steam_id": str(_row_val(row, "steam_id", "")),
-        "status": str(_row_val(row, "status", "")),
+        "player_nick": player_nick if player_nick is not None else "",
+        "status": status,
         "server_id": str(_row_val(row, "server_id", "") or ""),
         "original_order_id": _row_val(row, "original_order_id"),
         "species_key": species_key,
@@ -981,10 +1007,57 @@ def order_to_admin_dict(row: Any) -> dict[str, Any]:
         "deliver_as": payload.get("deliver_as"),
         "retry_count": int(_row_val(row, "retry_count", 0) or 0),
         "last_error": _row_val(row, "last_error"),
+        "points_spent": points,
+        "origem": "encomenda" if is_encomenda else "admin",
+        "origin": "encomenda" if is_encomenda else "admin",
+        "origin_label": "Encomenda" if is_encomenda else "Admin",
         "created_at": _iso_dt(_row_val(row, "created_at")),
         "updated_at": _iso_dt(_row_val(row, "updated_at")),
         "payload": payload,
     }
+    if is_encomenda:
+        try:
+            from dino_order_service import (
+                _order_action_flags,
+                _spec_snapshot_from_payload,
+                _build_status_trail,
+                order_status_label,
+            )
+
+            flags = _order_action_flags(status)
+            snap = _spec_snapshot_from_payload(
+                payload,
+                server_id=str(_row_val(row, "server_id", "") or ""),
+                points_spent=points,
+            )
+            out.update({
+                "status_label": order_status_label(status),
+                "spec_snapshot": snap,
+                "status_trail": _build_status_trail(
+                    payload,
+                    status=status,
+                    created_at=_row_val(row, "created_at"),
+                    updated_at=_row_val(row, "updated_at"),
+                ),
+                "stat_points_requested": payload.get("stat_points_requested"),
+                "pricing": payload.get("pricing") if isinstance(payload.get("pricing"), dict) else {},
+                "can_requeue": flags["can_requeue"],
+                "can_refund": flags["can_refund"],
+                "can_approve": flags["can_approve"],
+            })
+        except Exception:
+            out.update({
+                "can_requeue": status == "FALHA",
+                "can_refund": status in ("AGUARDANDO_APROVACAO", "PENDENTE", "FALHA"),
+                "can_approve": status == "AGUARDANDO_APROVACAO",
+            })
+    else:
+        out.update({
+            "can_requeue": False,
+            "can_refund": False,
+            "can_approve": False,
+        })
+    return out
 
 
 def is_player_dino_encomenda(payload: dict[str, Any]) -> bool:
@@ -998,8 +1071,9 @@ def list_custom_dino_orders_admin(
     page_size: int = 25,
     status: str | None = None,
     steam_id: str | None = None,
-    exclude_player_orders: bool = True,
+    exclude_player_orders: bool = False,
 ) -> dict[str, Any]:
+    """Lista histórico Dino Lab (admin + encomendas). exclude_player_orders=True omite encomendas."""
     page = max(1, page)
     page_size = max(1, min(100, page_size))
     params: dict[str, Any] = {"it": ITEM_TYPE, "lim": page_size, "off": (page - 1) * page_size}
@@ -1019,11 +1093,20 @@ def list_custom_dino_orders_admin(
         text(f"SELECT * FROM orders WHERE {where} ORDER BY created_at DESC LIMIT :lim OFFSET :off"),
         params,
     ).fetchall()
+    nicks = _batch_store_user_nicks(
+        db, [str(_row_val(r, "steam_id", "") or "") for r in rows],
+    )
     return {
         "page": page,
         "page_size": page_size,
         "total": total,
-        "orders": [order_to_admin_dict(r) for r in rows],
+        "orders": [
+            order_to_admin_dict(
+                r,
+                player_nick=nicks.get(str(_row_val(r, "steam_id", "") or ""), ""),
+            )
+            for r in rows
+        ],
     }
 
 
@@ -1034,7 +1117,8 @@ def get_custom_dino_order(db: Session, order_id: str) -> dict[str, Any] | None:
     ).fetchone()
     if not row:
         return None
-    return order_to_admin_dict(row)
+    sid = str(_row_val(row, "steam_id", "") or "")
+    return order_to_admin_dict(row, player_nick=_resolve_store_user_nick(db, sid))
 
 
 def claim_custom_dino_orders(

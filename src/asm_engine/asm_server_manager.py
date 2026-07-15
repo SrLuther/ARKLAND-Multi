@@ -488,6 +488,19 @@ class AsmServerManager:
                 inst = self._instances.setdefault(cfg.id, AsmServerInstance(cfg))
                 inst.cfg = cfg
 
+    def count_running(self, servers: Optional[List[AsmServerConfig]] = None) -> int:
+        """ONLINE = status RUNNING (mesma métrica do dashboard / sidebar)."""
+        if servers is None:
+            return sum(
+                1 for inst in self._instances.values() if inst.status == ASM_STATUS_RUNNING
+            )
+        n = 0
+        for cfg in servers:
+            inst = self._instances.get(cfg.id)
+            if inst and inst.status == ASM_STATUS_RUNNING:
+                n += 1
+        return n
+
     def _attach_running_process(
         self,
         cfg: AsmServerConfig,
