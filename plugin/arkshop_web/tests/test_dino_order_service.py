@@ -24,6 +24,7 @@ from dino_order_service import (
     checkout,
     configure_dino_order,
     get_pricing_config,
+    list_admin_queue,
     list_gallery_species,
     list_player_orders,
     quote,

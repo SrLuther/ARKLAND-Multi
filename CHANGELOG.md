@@ -5,7 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased] - 2026-07-14
+## [Unreleased] - 2026-07-15
+
+## [1.10.38] - 2026-07-15
+
+### Feature
+
+- Feat (Web Store / SeasonLand): recalibra curva de XP do Pass — progressiva +25%/nivel com B=3 (delta(n)=max(1,round(B*1.25**(n-1)))); Free L28=6.192 XP (budget 7.500 @ 30d x 5h sem licenca); L30/freeze=9.682 XP.
+
+### Improvement
+
+- Melhoria (Web Store / SeasonLand): MAX_XP dinamico da curva; API/admin expoe xp_cap + xp_curve; UI mostra cap live em vez de 4.875 fixo.
+
+### Other
+
+- Test (Web Store / SeasonLand): cobertura da curva progressiva, Free milestones e freeze @ 9.682.
+- Docs: ARKBANK_SPEC 0.5.11 — curva B=3 locked, tabela Free, pacing 5 h/dia (250 XP/dia).
 
 ## [1.10.37] - 2026-07-14
 

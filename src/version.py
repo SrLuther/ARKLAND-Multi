@@ -3,16 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.37"
-BUILD_DATE: str = "2026-07-14"
+APP_VERSION: str = "1.10.38"
+BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
-        "date": "2026-07-14",
+        "date": "2026-07-15",
         "changes": [],
+    },
+    {
+        "version": "1.10.38",
+        "date": "2026-07-15",
+        "changes": [
+            "Feat (Web Store / SeasonLand): recalibra curva de XP do Pass — progressiva +25%/nivel com B=3 (delta(n)=max(1,round(B*1.25**(n-1)))); Free L28=6.192 XP (budget 7.500 @ 30d x 5h sem licenca); L30/freeze=9.682 XP.",
+            "Melhoria (Web Store / SeasonLand): MAX_XP dinamico da curva; API/admin expoe xp_cap + xp_curve; UI mostra cap live em vez de 4.875 fixo.",
+            "Test (Web Store / SeasonLand): cobertura da curva progressiva, Free milestones e freeze @ 9.682.",
+            "Docs: ARKBANK_SPEC 0.5.11 — curva B=3 locked, tabela Free, pacing 5 h/dia (250 XP/dia).",
+        ],
     },
     {
         "version": "1.10.37",

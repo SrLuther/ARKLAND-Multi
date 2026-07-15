@@ -20,11 +20,39 @@ _SEASON_TIERS = ("Delta", "Gamma", "Beta", "Alfa", "Omega", "Transcendente")
 _FREE_LEVELS = tuple(n for n in range(4, 29, 4))
 _PREMIUM_LEVELS = tuple(range(1, 31))
 
-_XP_THRESHOLDS = [
-    163, 325, 488, 650, 813, 975, 1138, 1300, 1463, 1625,
-    1788, 1950, 2113, 2275, 2438, 2600, 2763, 2925, 3088, 3250,
-    3413, 3575, 3738, 3900, 4063, 4225, 4388, 4550, 4713, 4875,
-]
+# Curva progressiva (§15.5): delta(n) = max(1, round(B * 1.25**(n-1))).
+# B=3 → Free L28 = 6.192 XP (≤ budget 7.500 @ 30d×5h); L30 = 9.682 XP (freeze).
+# B=4 rejeitado: XP_cum(28)=8.257 > 7.500. L1=B (pequeno) — pacing Free prioritário.
+XP_BASE = 3
+XP_GROWTH = 1.25
+MAX_LEVEL = 30
+
+
+def xp_delta(level: int, *, base: int = XP_BASE, growth: float = XP_GROWTH) -> int:
+    """Custo (Δ) para subir ao nível `level` (1-based)."""
+    n = int(level)
+    if n < 1:
+        raise ValueError("xp_delta_level_invalid")
+    return max(1, round(int(base) * (float(growth) ** (n - 1))))
+
+
+def build_xp_thresholds(
+    *,
+    levels: int = MAX_LEVEL,
+    base: int = XP_BASE,
+    growth: float = XP_GROWTH,
+) -> list[int]:
+    """XP cumulativo por nível: sum(delta(1)..delta(L))."""
+    out: list[int] = []
+    total = 0
+    for n in range(1, int(levels) + 1):
+        total += xp_delta(n, base=base, growth=growth)
+        out.append(total)
+    return out
+
+
+_XP_THRESHOLDS = build_xp_thresholds()
+MAX_XP = int(_XP_THRESHOLDS[-1]) if _XP_THRESHOLDS else 0
 
 _DEFAULT_PREMIUM_PRICE: dict[str, int] = {
     "Delta": 15_000,

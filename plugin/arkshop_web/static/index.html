@@ -8369,7 +8369,7 @@
         </div>
         <div id="dinolab-panel-encomenda" class="catalog-panel">
           <div class="card" style="margin-bottom:12px;">
-            <p style="font-size:12px;color:var(--text2);margin:0;">Pedidos pagos aguardando aprovação ou com falha de entrega.</p>
+            <p style="font-size:12px;color:var(--text2);margin:0;">Pedidos pagos: aguardando aprovação, na fila de entrega, em entrega ou com falha.</p>
           </div>
           <div id="dinolab-encomenda-list" style="color:var(--text2);">Carregando…</div>
         </div>
@@ -14315,11 +14315,15 @@ async function loadSeasonPass() {
     const statusCls = (status === "ended" || status === "inactive") ? "is-ended" : (status === "claim_window" ? "is-claim" : "");
     const statusLabel = season.status_label || status;
     const xp = Number(player.xp || 0);
+    const xpCap = Number(player.xp_cap || 0);
     const level = Number(player.level || 0);
     const into = Number(player.xp_into_level || 0);
     const need = Number(player.xp_for_next || 0) || 1;
     const pct = player.next_level == null ? 100 : Math.max(0, Math.min(100, Math.round((into / need) * 100)));
     const frozen = !!player.xp_frozen;
+    const xpCapLabel = xpCap > 0
+      ? `Max ${xpCap.toLocaleString("pt-BR")} XP / 30 níveis`
+      : "Max XP / 30 níveis";
     const nextLine = player.next_level == null
       ? `Nível máximo (${level})${frozen ? " · XP congelado" : ""}`
       : `Nível ${level} → ${player.next_level} · ${into} / ${need} XP`;
@@ -14402,7 +14406,7 @@ async function loadSeasonPass() {
         <div class="sp-xp-bar"><div class="sp-xp-fill" style="width:${pct}%;"></div></div>
         <div class="sp-xp-meta">
           <span>${pct}% até ao próximo nível</span>
-          <span>Max 4.875 XP / 30 níveis</span>
+          <span>${xpCapLabel}</span>
         </div>
       </div>
 
@@ -17584,6 +17588,23 @@ async function tribeSplitOptin(splitId) {
 // Fim MINHA TRIBO
 // ════════════════════════════════════════════════════════════════════
 
+function _dinoOrderAdminStatusBadge(o) {
+  const st = String(o.status || "");
+  const label = o.status_label || ({
+    AGUARDANDO_APROVACAO: "Paga — aguardando aprovação",
+    PENDENTE: "Paga — na fila de entrega",
+    ENTREGANDO: "Entregando",
+    FALHA: "Falha de entrega",
+  })[st] || st;
+  const cls = ({
+    AGUARDANDO_APROVACAO: "badge-warning",
+    PENDENTE: "badge-success",
+    ENTREGANDO: "badge-ticket-analise",
+    FALHA: "badge-danger",
+  })[st] || "";
+  return `<span class="badge ${cls}">${escHtml(label)}</span>`;
+}
+
 async function loadDinoLabEncomendaQueue() {
   const root = document.getElementById("dinolab-encomenda-list");
   if (!root) return;
@@ -17598,17 +17619,21 @@ async function loadDinoLabEncomendaQueue() {
     }
     root.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
       <th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Total</th><th>Status</th><th>Ações</th>
-    </tr></thead><tbody>${orders.map(o => `<tr>
+    </tr></thead><tbody>${orders.map(o => {
+      const canApprove = o.status === "AGUARDANDO_APROVACAO";
+      const canReject = o.status === "AGUARDANDO_APROVACAO" || o.status === "FALHA";
+      return `<tr>
       <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
       <td style="font-size:11px;">${escHtml(o.steam_id || "")}</td>
       <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
       <td>${formatAmberAmount(o.points_spent || 0)}</td>
-      <td><span class="badge">${escHtml(o.status)}</span></td>
+      <td>${_dinoOrderAdminStatusBadge(o)}</td>
       <td style="white-space:nowrap;">
-        ${o.status === "AGUARDANDO_APROVACAO" ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button>` : ""}
-        <button class="btn btn-ghost btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">Rejeitar</button>
+        ${canApprove ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button>` : ""}
+        ${canReject ? `<button class="btn btn-ghost btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">Rejeitar</button>` : `<span style="color:var(--text2);font-size:11px;">—</span>`}
       </td>
-    </tr>`).join("")}</tbody></table></div>`;
+    </tr>`;
+    }).join("")}</tbody></table></div>`;
   } catch (e) {
     root.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;
   }

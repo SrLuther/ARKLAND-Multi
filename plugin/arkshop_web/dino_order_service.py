@@ -538,6 +538,7 @@ def _order_to_player_dict(row: Any) -> dict[str, Any]:
     species_image_url = _species_image(str(species_key or ""), payload.get("tier"))
     return {
         "order_id": str(_row_val(row, "order_id", "")),
+        "steam_id": str(_row_val(row, "steam_id", "") or ""),
         "status": str(_row_val(row, "status", "")),
         "points_spent": int(_row_val(row, "points_spent", 0) or 0),
         "species_key": species_key,
@@ -588,6 +589,26 @@ def list_player_orders(
     }
 
 
+# Fila operacional admin: paga aguardando aprovação, paga na entrega, em entrega, falha.
+# (Checkout debita Âmbar na hora — não há estado "não pago"; auto-approve ≤ max → PENDENTE.)
+ADMIN_QUEUE_STATUSES = (
+    "AGUARDANDO_APROVACAO",
+    "PENDENTE",
+    "ENTREGANDO",
+    "FALHA",
+)
+
+ADMIN_STATUS_LABELS = {
+    "AGUARDANDO_APROVACAO": "Paga — aguardando aprovação",
+    "PENDENTE": "Paga — na fila de entrega",
+    "ENTREGANDO": "Entregando",
+    "FALHA": "Falha de entrega",
+    "ENTREGUE": "Entregue",
+    "REJEITADO": "Rejeitado",
+    "CANCELADO": "Cancelado",
+}
+
+
 def list_admin_queue(
     db: Session,
     *,
@@ -597,7 +618,6 @@ def list_admin_queue(
 ) -> dict[str, Any]:
     page = max(1, page)
     page_size = max(1, min(100, page_size))
-    statuses = ("AGUARDANDO_APROVACAO", "FALHA")
     params: dict[str, Any] = {
         "it": ITEM_TYPE,
         "src": ORDER_SOURCE_JSON_LIKE,
@@ -610,18 +630,27 @@ def list_admin_queue(
         where += " AND status = :st"
         params["st"] = st
     else:
-        where += " AND status IN ('AGUARDANDO_APROVACAO', 'FALHA')"
+        placeholders = ", ".join(f":qs{i}" for i in range(len(ADMIN_QUEUE_STATUSES)))
+        where += f" AND status IN ({placeholders})"
+        for i, st in enumerate(ADMIN_QUEUE_STATUSES):
+            params[f"qs{i}"] = st
     count_row = db.execute(text(f"SELECT COUNT(*) FROM orders WHERE {where}"), params).fetchone()
     total = int(count_row[0] if count_row else 0)
     rows = db.execute(
         text(f"SELECT * FROM orders WHERE {where} ORDER BY created_at ASC LIMIT :lim OFFSET :off"),
         params,
     ).fetchall()
+    orders = []
+    for r in rows:
+        d = _order_to_player_dict(r)
+        st = str(d.get("status") or "")
+        d["status_label"] = ADMIN_STATUS_LABELS.get(st, st)
+        orders.append(d)
     return {
         "page": page,
         "page_size": page_size,
         "total": total,
-        "orders": [_order_to_player_dict(r) for r in rows],
+        "orders": orders,
     }
 
 

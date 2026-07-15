@@ -16,7 +16,7 @@ import season_pass_config as spcfg
 
 log = logging.getLogger("arkshop_web.season_pass")
 
-MAX_XP = 4875
+MAX_XP = spcfg.MAX_XP
 _STATUSES = ("inactive", "active", "claim_window", "ended")
 
 _TIER_RANK = {

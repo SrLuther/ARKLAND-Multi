@@ -4,13 +4,13 @@
 | Campo | Valor |
 | ----- | ----- |
 | **Status** | MVP implementado (ledger + hooks + aba admin) — polish Fase 2 |
-| **Versão do documento** | 0.5.8 |
-| **Data** | 14 de julho de 2026 |
+| **Versão do documento** | 0.5.11 |
+| **Data** | 15 de julho de 2026 |
 | **Escopo** | Visão de produto, modelo econômico, mapeamento de código, dados, UI, edge cases, redesign do sorteio, fases, perguntas abertas; **design** Season Pass + Meta coletiva (§15) |
 | **Fora de escopo (este doc)** | Soft transparency pública; patrocínio sorteio opção B; instrumentação catálogo in-game; binding SKUs completos §15.6 (kits/dinos placeholders) |
 | **Moeda** | Âmbar (`players.points`) |
 | **Fuso canônico** | America/Sao_Paulo (UTC−3) |
-| **Changelog do doc** | **0.5.8** — checklist ops readiness §15.12 (DONE vs remaining); confirmação TimedPoints outbox→Pass XP no scheduler webstore; **0.5.7** — claim pós-season até arranque da seguinte; Premium só Âmbar; XP multi-mapa; meta → agenda admin; next season manual; licença L29 = **30 dias** + opção Â se tier superior; XP freeze @ L30; Regulamento Season Pass (§15.11 / `docs/REGULAMENTO_SEASON_PASS.md`); **0.5.6** — preços Premium locked; claim manual + catch-up; **0.5.5** — tabela Free×4 + Premium Delta; **0.5.4** — XP linear L30=4.875; **0.5.3** — 30 dias; **0.5.2** — seasons = tiers; **0.5.1** — Free×4 / Premium 1–30; **0.5** — Pass + Meta; **0.4** — MVP arkbank; **0.3** — 20/80; **0.2** — doação R$ 1 = 1.000 Â |
+| **Changelog do doc** | **0.5.11** — curva XP locked B=3 (+25%/Δ): Free L28=6.192 ≤ budget 7.500 (30d×5h); L30=9.682; L1=B (supersede L1=500); **0.5.10** — curva B=500 (substituída); **0.5.9** — curva B=2 (substituída); **0.5.8** — checklist ops readiness §15.12; TimedPoints outbox→Pass XP; **0.5.7** — claim pós-season; Premium só Âmbar; XP multi-mapa; meta festiva; next season manual; L29=30d; freeze @ L30; Regulamento; **0.5.6** — preços Premium; **0.5.5** — Free×4 + Premium Delta; **0.5.4** — XP linear; **0.5.3** — 30 dias; **0.5.2** — seasons = tiers; **0.5.1** — Free×4 / Premium 1–30; **0.5** — Pass + Meta; **0.4** — MVP arkbank; **0.3** — 20/80; **0.2** — doação R$ 1 = 1.000 Â |
 
 > **Ver também:** [`ECONOMIA_ARKLAND.md`](./ECONOMIA_ARKLAND.md), [`PROJETO_ECONOMIA_IDEAL.md`](./PROJETO_ECONOMIA_IDEAL.md), [`SORTEIO_DOACOES_SPEC.md`](./SORTEIO_DOACOES_SPEC.md), [`ENCOMENDA_DINO_SPEC.md`](./ENCOMENDA_DINO_SPEC.md), [`ambarmeter_spec.md`](./ambarmeter_spec.md), [`TRIBO_REPARTICAO_MERCADO.md`](./TRIBO_REPARTICAO_MERCADO.md).
 
@@ -765,13 +765,13 @@ docs/
 | Season (nome) | Branding = tier de licença: Delta → Gamma → Beta → Alfa → Omega → Transcendente |
 | Duração da season | **30 dias** de calendário; **fim automático**; **início** da seguinte = **só admin manual** |
 | Claim pós-season | Recompensas não resgatadas **continuam claimáveis** até o admin **iniciar** a season seguinte; depois → **perdidas** |
-| Cap XP Pass | Ao atingir L30 (4.875 XP), TimedPoints continua a dar Â; **Pass XP já não sobe** |
+| Cap XP Pass | Ao atingir L30 (9.682 XP), TimedPoints continua a dar Â; **Pass XP já não sobe** |
 
 ---
 
 ## 15. Season Pass + Meta coletiva (design)
 
-> **Status:** regras de produto **fechadas**; **motor MVP live** em `arkshop_web` (`season_pass_service` + rotas + UI SeasonLand): calendário admin (inactive → active → claim_window), XP TimedPoints multi-mapa com freeze @ 4875, Premium Â→ARKBANK, claims Free/Premium com entrega (Â / fila PENDENTE / entitlement + escolha licença↔Â). SKUs kit/item/dino ainda precisam de IDs na config admin (senão claim bloqueia com `sku_pending`). Checklist ops **§15.12**. Texto jogador-facing: **§15.11** e [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) (também §8.13 do regulamento do servidor).
+> **Status:** regras de produto **fechadas**; **motor MVP live** em `arkshop_web` (`season_pass_service` + rotas + UI SeasonLand): calendário admin (inactive → active → claim_window), XP TimedPoints multi-mapa com freeze @ 9.682 (curva +25%/Δ, B=3), Premium Â→ARKBANK, claims Free/Premium com entrega (Â / fila PENDENTE / entitlement + escolha licença↔Â). SKUs kit/item/dino ainda precisam de IDs na config admin (senão claim bloqueia com `sku_pending`). Checklist ops **§15.12**. Texto jogador-facing: **§15.11** e [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) (também §8.13 do regulamento do servidor).
 > **Princípio:** dois progressos distintos — **Pass individual** (XP por jogador) ≠ **Meta coletiva** (cofre / receita ARKBANK).
 
 ### 15.1 Visão em uma frase
@@ -790,7 +790,7 @@ O jogador sobe um **Pass pessoal** jogando online (XP = TimedPoints em **qualque
 | 4 | **Duração da season = 30 dias fixos** de calendário por season/tier. O relógio **não** depende da meta coletiva. **Fim = automático** ao completar os 30 dias. |
 | 4b | **Próxima season — locked:** **só começa** quando um **admin inicia manualmente** (buffer operacional entre seasons). Não há auto-start imediato no dia 30. |
 | 5 | **Meta coletiva:** ligada à receita / progresso do cofre ARKBANK. Ao atingir a meta (durante ou após a season) → **admin agenda** a data do evento para caber à maioria dos jogadores — **não** dispara evento instantâneo automático. A season **termina no dia 30** na mesma (relógio independente). |
-| 6 | **Pass individual:** thresholds de XP **fixos**; XP cumulativo por jogador; **30 níveis**; curva linear `XP(L) = round(L × 162.5)` (§15.5). Baseline **4 h/dia** sem licença fecha L30 (~**4.875 XP**) **antes** do orçamento de **6.000 XP**/30 dias (margem). |
+| 6 | **Pass individual:** thresholds de XP **fixos**; XP cumulativo por jogador; **30 níveis**; curva progressiva `delta(n)=max(1,round(B×1.25**(n-1)))`, `XP(L)=Σ delta(1..L)` com **B=3** (§15.5). **L1 = B = 3 XP** (pequeno — pacing Free prioriza sobre L1=500, superseded); Free L28 = **6.192 XP**; L30 = **9.682 XP**. Ritmo alvo **250 XP/dia** (5 h sem licença) fecha **todo o Free** numa season de 30 dias; Premium L29–30 ficam além do budget Free por design. |
 | 7 | **Cadência de recompensas (tracks) — locked:** ver §15.6. **Premium** em **todo** nível 1–30; **Free** só em **múltiplos de 4** (4…28). Assinante Premium recebe **ambos** quando aplicável. Exemplo: **Season Pass — Delta** (§15.6.1–15.6.2). |
 | 8 | **Nome da season = tier de licença** — §15.2.1. Título UI: **Season Pass — {Tier}**. |
 | 9 | **Entitlement Premium** vale **apenas** durante a **season actual** (os 30 dias daquele tier). Não arrasta para a season seguinte; há que comprar de novo na próxima. |
@@ -798,7 +798,7 @@ O jogador sobe um **Pass pessoal** jogando online (XP = TimedPoints em **qualque
 | 11 | **Catch-up retroactivo — locked:** comprar Premium a meio da season já no nível \(N\) → pode **resgatar** Premium **1..N** e Free já desbloqueadas ainda não claimadas. |
 | 12 | **Não-resgatadas / unclaimed — locked (obrigatório no Regulamento Season Pass):** no **fim dos 30 dias** as recompensas **não são perdidas de imediato**. O jogador **pode continuar a resgatar** caixas claimáveis da season encerrada **até o admin iniciar a season seguinte**. Quando a admin **abre** a próxima season → claims da season anterior ficam **desactivados** → recompensas não resgatadas estão **perdidas**. |
 | 13 | **Licença de fim de Pass (ex. Premium L29 Delta) — locked:** duração = **licença normal de catálogo de 30 dias** do tier da season (Delta na season Delta; Gamma na Gamma; …). **Não** é trial de 15 dias. No claim, a recompensa aparece como **disponível**; se o jogador **já tem licença de tier superior**, no momento do resgate **escolhe**: (a) receber a licença do Pass **ou** (b) receber o **valor de catálogo em Âmbar** dessa licença. |
-| 14 | **XP freeze @ L30 — locked:** ao atingir o XP máximo do Pass (**4.875** / nível 30), ticks TimedPoints **continuam** a creditar Âmbar normalmente; **deixam de** adicionar Pass XP (cap). |
+| 14 | **XP freeze @ L30 — locked:** ao atingir o XP máximo do Pass (**9.682** / nível 30 = `XP_cum(30)`), ticks TimedPoints **continuam** a creditar Âmbar normalmente; **deixam de** adicionar Pass XP (cap). |
 | 15 | **Preços Premium** §15.2.2 + claim manual + catch-up — **mantidos** (consistentes com 0.5.6). |
 
 ### 15.3 Dois progressos (não misturar)
@@ -866,98 +866,107 @@ Lidas de `TimedPointsReward` em `plugin/CustomShop/configs/config.json` (bin esp
 | Award base (sem licença) | **25 Â / tick** (`Groups.Default.Amount`) | config atual |
 | Stack de licenças | `StackRewards: true` — bónus de grupo soma ao Default (ex. Alfa: 25+75 = **100 Â/tick**) | config + copy das licenças |
 
-**Ritmo “4 h/dia” (baseline sem licença):**
+**Ritmo alvo “5 h/dia” (baseline sem licença) — locked para pacing Free:**
 
 \[
-4\,\text{h/dia} = 240\,\text{min} \Rightarrow \frac{240}{30} = \mathbf{8\ ticks/dia}
+5\,\text{h/dia} = 300\,\text{min} \Rightarrow \frac{300}{30} = \mathbf{10\ ticks/dia}
 \]
 
 \[
-\text{XP/dia base} = 8 \times 25 = \mathbf{200\ XP/dia}
+\text{XP/dia base} = 10 \times 25 = \mathbf{250\ XP/dia}
 \]
 
-**Intencional:** quem tem licença (mais Â/tick ⇒ mais XP/tick) **completa o Pass mais depressa**. A curva usa o baseline **sem licença**; L30 fica **abaixo** do orçamento de 30 dias para deixar margem.
+\[
+\text{Budget season} = 30 \times 250 = \mathbf{7\,500\ XP}
+\]
+
+**Intencional:** quem tem licença (mais Â/tick ⇒ mais XP/tick) **avança o Pass mais depressa**. A curva ancora no baseline **sem licença @ 5 h/dia** para que **todo o track Free (até L28)** seja concluível na season; L29–30 (Premium) ficam além desse budget por design.
 
 **Multi-mapa (locked):** ticks TimedPoints em **qualquer mapa** do cluster geram Pass XP 1:1 com o Âmbar do tick (até ao freeze §15.2 #14).
 
 **Duração da season (locked):** **exactamente 30 dias** de calendário por season/tier; **fim automático**. Independente da meta coletiva. **Início** da season seguinte = **manual admin**.
 
-**Orçamento de XP** (relógio / capacidade de jogo):
+**Capacidade de ritmo** (relógio / XP gerado):
 
-| Janela | XP total @ 200 XP/dia |
-| ------ | --------------------- |
-| **30 dias (locked)** | **6.000** (orçamento de ritmo) |
+| Janela / ritmo | XP gerado |
+| -------------- | --------- |
+| **30 dias @ 250 XP/dia** (5 h sem licença) | **7.500** |
+| **30 dias @ ~1.000 XP/dia** (5 h com Alfa, 100 Â/tick) | **~30.000** |
 
-**Calibração do Pass:** cumulativo **4.875 XP no nível 30** (`30 × 162.5`). @ 200 XP/dia ≈ **~24,4 dias** — o jogador base **fecha cedo** e tem **~1.125 XP** (~5,6 dias) de margem face aos 6.000 do orçamento. Quem joga menos que 4 h/dia pode não fechar até ao dia 30; quem joga mais / com licença termina ainda mais cedo e mantém interesse na **meta do cofre + evento**. Após L30, Âmbar por tick **continua**; **Pass XP congela** (§15.2 #14).
+**Calibração do Pass (locked, Free-first):** B=3 (+25%/Δ) → Free L28 = **6.192 XP** (≤ 7.500; margem ~5 dias); L30 = **9.682 XP**. B=4 rejeitado (`XP_cum(28)=8.257` > 7.500). @ 250 XP/dia ≈ **~24,8 dias** até L28 Free; L30 ≈ **~38,7 dias** (Premium além do season budget Free). Após L30, Âmbar por tick **continua**; **Pass XP congela** (§15.2 #14).
 
 ### 15.5 Tabela cumulativa de XP (30 níveis)
 
-**Design da curva (locked):** linear ancorada nos Free milestones (**+650 XP a cada 4 níveis**).
+**Design da curva (locked):** progressiva — cada nível custa **25% mais Δ** que o anterior; base **B=3**. **L1 = B = 3 XP** (pequeno por design — meta Free L28 no budget 7.500 **supersede** a âncora antiga L1=500).
 
 \[
-\text{XP}(L) = L \times \frac{650}{4} = L \times 162{,}5
+\delta(n)=\max\bigl(1,\ \mathrm{round}(B \times 1{,}25^{n-1})\bigr),\quad B=3
 \]
 
-Âmbar/XP é inteiro → implementação: **`XP(L) = round(L × 162.5)`** (half-up: `int(L×162.5 + 0,5)`). Níveis pares caem em inteiros exactos (incl. todos os Free ×4 e L30).
+\[
+\mathrm{XP}(L)=\sum_{n=1}^{L}\delta(n),\quad \delta(1)=3
+\]
+
+Implementação: `season_pass_config.build_xp_thresholds()` / `xp_delta()`; freeze = `MAX_XP = XP_cum(30) = 9.682`.
 
 **Âncoras Free (só %4==0 — L30 é Premium-only):**
 
-| Nível Free | XP acumulado |
-| ---------- | ------------ |
-| 4 | **650** |
-| 8 | **1.300** |
-| 12 | **1.950** |
-| 16 | **2.600** |
-| 20 | **3.250** |
-| 24 | **3.900** |
-| 28 | **4.550** |
+| Nível Free | XP acumulado | Dias @ 250 XP/dia (5 h) | Dias @ Alfa ~1.000 XP/dia |
+| ---------- | ------------ | ----------------------- | ------------------------- |
+| 4 | **18** | ~0,1 | ~0,0 |
+| 8 | **59** | ~0,2 | ~0,1 |
+| 12 | **162** | ~0,6 | ~0,2 |
+| 16 | **414** | ~1,7 | ~0,4 |
+| 20 | **1.029** | ~4,1 | ~1,0 |
+| 24 | **2.529** | ~10,1 | ~2,5 |
+| 28 | **6.192** | **~24,8** | ~6,2 |
 
-| Nível | XP acumulado | Δ vs. nível anterior | Dias @ 200 XP/dia (sem licença) | Track Free |
-| ----- | ------------ | -------------------- | ------------------------------- | ---------- |
-| 1 | 163 | 163 | ~0,8 | — |
-| 2 | 325 | 162 | ~1,6 | — |
-| 3 | 488 | 163 | ~2,4 | — |
-| 4 | **650** | 162 | ~3,3 | **Free** |
-| 5 | 813 | 163 | ~4,1 | — |
-| 6 | 975 | 162 | ~4,9 | — |
-| 7 | 1.138 | 163 | ~5,7 | — |
-| 8 | **1.300** | 162 | ~6,5 | **Free** |
-| 9 | 1.463 | 163 | ~7,3 | — |
-| 10 | 1.625 | 162 | ~8,1 | — |
-| 11 | 1.788 | 163 | ~8,9 | — |
-| 12 | **1.950** | 162 | ~9,8 | **Free** |
-| 13 | 2.113 | 163 | ~10,6 | — |
-| 14 | 2.275 | 162 | ~11,4 | — |
-| 15 | 2.438 | 163 | ~12,2 | — |
-| 16 | **2.600** | 162 | ~13,0 | **Free** |
-| 17 | 2.763 | 163 | ~13,8 | — |
-| 18 | 2.925 | 162 | ~14,6 | — |
-| 19 | 3.088 | 163 | ~15,4 | — |
-| 20 | **3.250** | 162 | ~16,3 | **Free** |
-| 21 | 3.413 | 163 | ~17,1 | — |
-| 22 | 3.575 | 162 | ~17,9 | — |
-| 23 | 3.738 | 163 | ~18,7 | — |
-| 24 | **3.900** | 162 | ~19,5 | **Free** |
-| 25 | 4.063 | 163 | ~20,3 | — |
-| 26 | 4.225 | 162 | ~21,1 | — |
-| 27 | 4.388 | 163 | ~21,9 | — |
-| 28 | **4.550** | 162 | ~22,8 | **Free** |
-| 29 | 4.713 | 163 | ~23,6 | — |
-| 30 | **4.875** | 162 | **~24,4** | Premium-only |
+| Nível | XP acumulado | Δ vs. nível anterior | Dias @ 250 XP/dia (5 h) | Dias @ Alfa ~1.000 XP/dia | Track Free |
+| ----- | ------------ | -------------------- | ----------------------- | ------------------------- | ---------- |
+| 1 | 3 | 3 | ~0,0 | ~0,0 | — |
+| 2 | 7 | 4 | ~0,0 | ~0,0 | — |
+| 3 | 12 | 5 | ~0,0 | ~0,0 | — |
+| 4 | **18** | 6 | ~0,1 | ~0,0 | **Free** |
+| 5 | 25 | 7 | ~0,1 | ~0,0 | — |
+| 6 | 34 | 9 | ~0,1 | ~0,0 | — |
+| 7 | 45 | 11 | ~0,2 | ~0,0 | — |
+| 8 | **59** | 14 | ~0,2 | ~0,1 | **Free** |
+| 9 | 77 | 18 | ~0,3 | ~0,1 | — |
+| 10 | 99 | 22 | ~0,4 | ~0,1 | — |
+| 11 | 127 | 28 | ~0,5 | ~0,1 | — |
+| 12 | **162** | 35 | ~0,6 | ~0,2 | **Free** |
+| 13 | 206 | 44 | ~0,8 | ~0,2 | — |
+| 14 | 261 | 55 | ~1,0 | ~0,3 | — |
+| 15 | 329 | 68 | ~1,3 | ~0,3 | — |
+| 16 | **414** | 85 | ~1,7 | ~0,4 | **Free** |
+| 17 | 521 | 107 | ~2,1 | ~0,5 | — |
+| 18 | 654 | 133 | ~2,6 | ~0,7 | — |
+| 19 | 821 | 167 | ~3,3 | ~0,8 | — |
+| 20 | **1.029** | 208 | ~4,1 | ~1,0 | **Free** |
+| 21 | 1.289 | 260 | ~5,2 | ~1,3 | — |
+| 22 | 1.614 | 325 | ~6,5 | ~1,6 | — |
+| 23 | 2.021 | 407 | ~8,1 | ~2,0 | — |
+| 24 | **2.529** | 508 | ~10,1 | ~2,5 | **Free** |
+| 25 | 3.164 | 635 | ~12,7 | ~3,2 | — |
+| 26 | 3.958 | 794 | ~15,8 | ~4,0 | — |
+| 27 | 4.951 | 993 | ~19,8 | ~5,0 | — |
+| 28 | **6.192** | 1.241 | **~24,8** | ~6,2 | **Free** |
+| 29 | 7.743 | 1.551 | ~31,0 | ~7,7 | — |
+| 30 | **9.682** | 1.939 | **~38,7** | **~9,7** | Premium-only |
 
-**Checagem rápida:**
+**Checagem rápida (pacing Free @ 5 h sem licença):**
 
 \[
-4\,875 \div 200 \approx 24{,}4\ \text{dias @ 4 h/dia sem licença (margem vs 30 dias / 6.000 XP)}
+6\,192 \div 250 \approx 24{,}8\ \text{dias} \le 30\ \text{(margem ~1.308 XP / ~5,2 dias)}
 \]
 
 \[
-4\,875 \div (8 \times 100) \approx 6{,}1\ \text{dias @ 4 h/dia com Alfa (100 Â/tick)}
+9\,682 \div 250 \approx 38{,}7\ \text{dias @ 5 h/dia sem licença (L30 além do budget Free)}
 \]
 
-Quem joga menos que 4 h/dia pode ficar com Pass parcial ao fecho dos 30 dias; quem joga o ritmo base **fecha cedo** (~dia 24) e mantém interesse na **meta coletiva + evento** (que **não** estende a season).
+Numa season de **30 dias**, @ 250 XP/dia o jogador gera **7.500 XP** → fecha **todo o Free (L28 = 6.192)** com folga; Premium L29–30 pedem XP além desse budget. B=4 (`XP_cum(28)=8.257`) ultrapassaria 7.500 e **não** seria fiável a fechar Free na season.
 
-*Tuning permitido na implementação:* alterar só o factor (162,5) / thresholds se telemetria mostrar o Pass demasiado fácil/difícil — **sem** mudar Free=%4==0, Premium=1–30, XP = Â do tick **nem** a duração de 30 dias.
+*Tuning:* B=3 / growth=1.25 estão **locked** nesta versão; alterar só via decisão de produto explícita — **sem** mudar Free=%4==0, Premium=1–30, XP = Â do tick **nem** a duração de 30 dias.
 
 ### 15.6 Tracks Free vs Premium (cadência + exemplo Delta)
 
@@ -1128,7 +1137,7 @@ Estado do motor vs o que ainda falta para abrir a 1.ª season em produção.
 | - | ---- | ---- |
 | A | Calendário admin inactive → active → claim_window; start 1.ª / próxima (avança tier; fecha claims) | `season_pass_service.start_season` + `POST /api/admin/season-pass/start` + UI SeasonLand admin |
 | B | Config admin: duração, preço Premium por tier, grants tipados Free×4 / Premium 1–30 | `season_pass_config` + painel admin |
-| C | TimedPoints → Pass XP no **caminho produção** webstore: CustomShop enfileira `arkbank_timed_outbox`; scheduler Flask chama `process_timed_outbox` → `add_timed_xp` (multi-mapa, idempotente, freeze @ 4875) | `TimedPoints.cpp` + `arkbank_service.process_timed_outbox` + worker em `app.py` |
+| C | TimedPoints → Pass XP no **caminho produção** webstore: CustomShop enfileira `arkbank_timed_outbox`; scheduler Flask chama `process_timed_outbox` → `add_timed_xp` (multi-mapa, idempotente, freeze @ 9.682) | `TimedPoints.cpp` + `arkbank_service.process_timed_outbox` + worker em `app.py` |
 | D | Schema auto no boot (`season_pass_*`, `arkbank_*`) | `ensure_season_pass_schema` / `ensure_arkbank_schema` |
 | E | Premium só Âmbar → cofre ARKBANK (`season_pass_premium`); UI SeasonLand jogador | `credit_season_pass_premium` + rotas/UI |
 | F | Claims manuais Free/Premium: Â imediato; kit/item/dino → fila PENDENTE; licença → entitlement; escolha licença↔Â se tier superior | `claim_reward` + hooks app |
@@ -1158,4 +1167,4 @@ Estado do motor vs o que ainda falta para abrir a 1.ª season em produção.
 
 ---
 
-*MVP ARKBANK v0.5.8 — Jul 2026: Season Pass locked + motor MVP live + checklist ops §15.12. TimedPoints outbox → Pass XP; sorteio opção A.*
+*MVP ARKBANK v0.5.11 — Jul 2026: Season Pass locked + curva XP +25%/Δ (B=3, Free L28=6.192, L30=9.682) + motor MVP live + checklist ops §15.12. TimedPoints outbox → Pass XP; sorteio opção A.*

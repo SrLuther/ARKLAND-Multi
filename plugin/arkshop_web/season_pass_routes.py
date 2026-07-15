@@ -200,7 +200,7 @@ def _player_payload(
         "notes": {
             "xp_source": (
                 "XP do passe = Âmbar dos ticks TimedPoints (todos os mapas). "
-                "Congela no nível 30 (4.875 XP)."
+                f"Congela no nível 30 ({_fmt_amber(sps.MAX_XP)} XP)."
                 if live
                 else "Season não iniciada — XP ainda não conta."
             ),
@@ -292,7 +292,7 @@ def register_season_pass_routes(
             "tier_sequence": list(cfg.get("tier_sequence") or []),
             "collective_meta": collective,
             "notes": {
-                "xp_source": "XP = Â TimedPoints (multi-mapa), cap 4.875.",
+                "xp_source": f"XP = Â TimedPoints (multi-mapa), cap {_fmt_amber(sps.MAX_XP)} (curva +25%/nível).",
                 "vault_vs_pass": (
                     "Meta coletiva ≠ XP do passe; progresso = inflows da season "
                     "(≠ saldo do cofre); admin agenda o evento."
@@ -451,8 +451,16 @@ def register_season_pass_routes(
             "note": (
                 "Calendário: «Iniciar season» / «Iniciar próxima». "
                 "Meta colectiva: target Â (inflows da season) + agenda do evento (não auto-fire). "
+                f"XP: curva +25%/nível (B={spcfg.XP_BASE}), cap L30={_fmt_amber(sps.MAX_XP)}. "
                 "IDs vazios em kit/item/dino = claim bloqueado (sku_pending)."
             ),
+            "xp_cap": sps.MAX_XP,
+            "xp_curve": {
+                "base": spcfg.XP_BASE,
+                "growth": spcfg.XP_GROWTH,
+                "max_level": spcfg.MAX_LEVEL,
+                "formula": "delta(n)=max(1,round(B*1.25**(n-1))); XP(L)=sum(delta(1..L))",
+            },
         })
 
     @app.route("/api/admin/season-pass/config", methods=["PUT"])

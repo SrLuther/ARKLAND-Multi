@@ -18,6 +18,11 @@ ADMIN_STEAM = "76561198000000001"
 USER_STEAM = "76561198000000002"
 
 
+def _xp_at(level: int) -> int:
+    """XP cumulativo exacto para atingir o nível (thresholds live da curva)."""
+    return int(spcfg.build_xp_thresholds()[int(level) - 1])
+
+
 @pytest.fixture(autouse=True)
 def _sp_env(tmp_path, monkeypatch):
     monkeypatch.setenv("ARKSHOP_WEB_SECRET", "test-secret")
@@ -208,18 +213,66 @@ def test_xp_cap_freeze(sp_db):
     db, _ = sp_db
     now = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
     sps.start_season(now=now)
-    r1 = sps.add_timed_xp(db, steam_id=USER_STEAM, amount=4800, map_id="ragnarok", cycle_key="c1")
+    near = sps.MAX_XP - 100
+    r1 = sps.add_timed_xp(db, steam_id=USER_STEAM, amount=near, map_id="ragnarok", cycle_key="c1")
     assert r1["applied"] is True
-    assert r1["xp_after"] == 4800
+    assert r1["xp_after"] == near
     r2 = sps.add_timed_xp(db, steam_id=USER_STEAM, amount=200, map_id="ragnarok", cycle_key="c2")
     assert r2["applied"] is True
     assert r2["xp_after"] == sps.MAX_XP
-    assert r2["xp_added"] == 75
+    assert r2["xp_added"] == 100
     r3 = sps.add_timed_xp(db, steam_id=USER_STEAM, amount=100, map_id="aberration", cycle_key="c3")
     assert r3["applied"] is False
     assert r3.get("frozen") is True or r3.get("reason") == "xp_cap"
     prog = sps.get_progress(db, USER_STEAM, spcfg.load_config()["season_id"])
     assert prog["xp"] == sps.MAX_XP
+
+
+def test_xp_progressive_curve_and_level_boundaries():
+    """Curva +25%/Δ com B=3 → Free L28=6192 (≤7500), L30=9682; free ×4; boundaries."""
+    assert spcfg.XP_BASE == 3
+    assert spcfg.XP_GROWTH == 1.25
+    thr = spcfg.build_xp_thresholds()
+    assert len(thr) == 30
+    assert thr == list(spcfg._XP_THRESHOLDS)
+    assert thr[0] == 3
+    assert thr[27] == 6192  # last Free
+    assert thr[-1] == spcfg.MAX_XP == sps.MAX_XP == 9682
+    assert thr[27] <= 7500  # finishable @ 30d × 5h × 25Â
+
+    expected_deltas = [max(1, round(3 * (1.25 ** (n - 1)))) for n in range(1, 31)]
+    for n, d in enumerate(expected_deltas, start=1):
+        assert spcfg.xp_delta(n) == d
+    running = 0
+    for i, d in enumerate(expected_deltas):
+        running += d
+        assert thr[i] == running
+
+    free_xp = {
+        4: 18,
+        8: 59,
+        12: 162,
+        16: 414,
+        20: 1029,
+        24: 2529,
+        28: 6192,
+    }
+    for lv, xp in free_xp.items():
+        assert thr[lv - 1] == xp
+        assert spcfg.level_from_xp(xp, thr)["level"] == lv
+
+    assert spcfg.level_from_xp(0, thr)["level"] == 0
+    assert spcfg.level_from_xp(thr[0] - 1, thr)["level"] == 0
+    assert spcfg.level_from_xp(thr[0], thr)["level"] == 1
+    mid = thr[3] + 1  # past L4, before L5
+    prog = spcfg.level_from_xp(mid, thr)
+    assert prog["level"] == 4
+    assert prog["next_level"] == 5
+    assert prog["xp_to_next"] == thr[4] - mid
+    top = spcfg.level_from_xp(thr[-1], thr)
+    assert top["level"] == 30
+    assert top["next_level"] is None
+    assert top["xp_to_next"] == 0
 
 
 def test_xp_idempotent_and_inactive(sp_db):
@@ -316,7 +369,7 @@ def test_claim_amber_free(sp_db):
     now = datetime(2026, 7, 14, tzinfo=timezone.utc)
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=650, premium=False, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(4), premium=False, claimed=set())
     db.commit()
     before = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
     result = sps.claim_reward(db, steam_id=USER_STEAM, track="free", level=4)
@@ -414,7 +467,7 @@ def test_slots_full_license_choice_amber(sp_db):
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
     sps._upsert_progress(
-        db, steam_id=USER_STEAM, season_id=sid, xp=4713, premium=True, claimed=set(),
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(29), premium=True, claimed=set(),
     )
     db.commit()
     sps.configure_engine(
@@ -446,7 +499,7 @@ def test_higher_license_choice_amber(sp_db):
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
     # bump XP to L29 + set premium
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=4713, premium=True, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(29), premium=True, claimed=set())
     db.commit()
     sps.configure_engine(get_entitlements=lambda sid, db=None: [{"group": "Alfa"}])
     before = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
@@ -584,7 +637,7 @@ def test_higher_license_choice_license(sp_db):
     now = datetime(2026, 7, 14, tzinfo=timezone.utc)
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=4713, premium=True, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(29), premium=True, claimed=set())
     db.commit()
     sps.configure_engine(get_entitlements=lambda sid, db=None: [{"group": "Alfa"}])
     result = sps.claim_reward(
@@ -603,7 +656,7 @@ def test_claim_window_ok_until_next_season(sp_db):
     sps.start_season(now=started)
     old_sid = spcfg.load_config()["season_id"]
     assert sps.compute_status(spcfg.load_config()) == "claim_window"
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=old_sid, xp=650, premium=False, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=old_sid, xp=_xp_at(4), premium=False, claimed=set())
     db.commit()
 
     result = sps.claim_reward(db, steam_id=USER_STEAM, track="free", level=4)
@@ -623,7 +676,7 @@ def test_sku_pending_blocks_before_side_effects(sp_db):
     now = datetime(2026, 7, 14, tzinfo=timezone.utc)
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=325, premium=True, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(2), premium=True, claimed=set())
     db.commit()
     before = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
     # Premium L2 seed is amber-ready; inject a pending kit alongside amber to force preflight
@@ -646,7 +699,7 @@ def test_claim_kit_item_dino_queue(sp_db):
     now = datetime(2026, 7, 14, tzinfo=timezone.utc)
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=650, premium=True, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(4), premium=True, claimed=set())
     db.commit()
     with spcfg._lock:
         cfg = spcfg.load_config()
@@ -656,8 +709,8 @@ def test_claim_kit_item_dino_queue(sp_db):
             {"type": "dino", "id": "dino_spino", "qty": 1, "label": "Spino"},
         ]
         spcfg.save_config(cfg)
-    # Need level 3: threshold is 488
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=488, premium=True, claimed=set())
+    # Need level 3
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(3), premium=True, claimed=set())
     db.commit()
     result = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=3)
     assert result["ok"] is True
@@ -679,7 +732,7 @@ def test_premium_catchup_unlocks_1_to_n(sp_db):
     sps.start_season(now=now)
     sid = spcfg.load_config()["season_id"]
     # Player already at L5 without premium
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=813, premium=False, claimed=set())
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(5), premium=False, claimed=set())
     db.commit()
     with pytest.raises(ValueError, match="Premium"):
         sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=1)
