@@ -3,12 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.41"
+APP_VERSION: str = "1.10.42"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.42",
+        "date": "2026-07-15",
+        "changes": [
+            "Fix (TEK): restaura reconexão de mapas após restart do app como em v1.10.36 — matching por install_dir no exe (substring) e ?Port=/-port= na CLI; as mudanças de v1.10.40/41 (boundary de path + scan over-clever) regressaram o path que já funcionava.",
+            "Fix (TEK): colapsa barras repetidas no install_dir (D:\\\\ARK → d:/ark) para não falhar match com paths Windows escapados.",
+            "Melhoria (TEK): QueryPort na cmdline, install_dir na cmdline (exe vazio), e fallback por portas TCP/UDP / título da janela só como ADJUNTO — nunca substitui o path 1.10.36 quando exe/cmdline funcionam.",
+            "Fix (TEK): mantém poll AccessDenied≠morto (de 1.10.41) e register_servers + retentativas de scan no boot.",
+            "Test (TEK): cobertura do baseline 1.10.36 (exe+install_dir), shared install+porta, fallback por porta, normalize de barras duplas.",
+        ],
+    },
     {
         "version": "1.10.41",
         "date": "2026-07-15",

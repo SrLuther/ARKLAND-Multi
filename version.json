@@ -1,11 +1,12 @@
 {
-    "version": "1.10.41",
+    "version": "1.10.42",
     "date": "2026-07-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.41/ARKLAND-Multi-Setup-v1.10.41.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.42/ARKLAND-Multi-Setup-v1.10.42.exe",
     "changelog": [
-        "Fix (TEK): reconnect pós-restart — a v1.10.40 só casava por exe/cmdline; se ambos vierem vazios o mapa ficava PARADO. Agora casa também por portas TCP/UDP (server/query/RCON) via psutil.net_connections + netstat -ano, título da janela RunServer e QueryFullProcessImageName.",
-        "Fix (TEK): _PsutilProcessWrapper.poll deixa de tratar exceções de permissão (ex. AccessDenied) como processo morto — evitava ONLINE→TRAVADO após reconnect.",
-        "Melhoria (TEK): logs de diagnóstico no scan (Reconnect [mapa] via …; resumo 0 reconectados com candidatos/portas; PID sem match com exe/cmdline/portas).",
-        "Test (TEK): modo de falha v1.10.40 (exe+cmdline vazios), multi-mapa mesmo install_dir só por portas, parser netstat, poll com permissão negada."
+        "Fix (TEK): restaura reconexão de mapas após restart do app como em v1.10.36 — matching por install_dir no exe (substring) e ?Port=/-port= na CLI; as mudanças de v1.10.40/41 (boundary de path + scan over-clever) regressaram o path que já funcionava.",
+        "Fix (TEK): colapsa barras repetidas no install_dir (D:\\\\ARK → d:/ark) para não falhar match com paths Windows escapados.",
+        "Melhoria (TEK): QueryPort na cmdline, install_dir na cmdline (exe vazio), e fallback por portas TCP/UDP / título da janela só como ADJUNTO — nunca substitui o path 1.10.36 quando exe/cmdline funcionam.",
+        "Fix (TEK): mantém poll AccessDenied≠morto (de 1.10.41) e register_servers + retentativas de scan no boot.",
+        "Test (TEK): cobertura do baseline 1.10.36 (exe+install_dir), shared install+porta, fallback por porta, normalize de barras duplas."
     ]
 }

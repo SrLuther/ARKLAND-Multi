@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.42] - 2026-07-15
+
+### Improvement
+
+- Melhoria (TEK): QueryPort na cmdline, install_dir na cmdline (exe vazio), e fallback por portas TCP/UDP / título da janela só como ADJUNTO — nunca substitui o path 1.10.36 quando exe/cmdline funcionam.
+
+### Fix
+
+- Fix (TEK): restaura reconexão de mapas após restart do app como em v1.10.36 — matching por install_dir no exe (substring) e ?Port=/-port= na CLI; as mudanças de v1.10.40/41 (boundary de path + scan over-clever) regressaram o path que já funcionava.
+- Fix (TEK): colapsa barras repetidas no install_dir (D:\\ARK → d:/ark) para não falhar match com paths Windows escapados.
+- Fix (TEK): mantém poll AccessDenied≠morto (de 1.10.41) e register_servers + retentativas de scan no boot.
+
+### Other
+
+- Test (TEK): cobertura do baseline 1.10.36 (exe+install_dir), shared install+porta, fallback por porta, normalize de barras duplas.
+
 ## [1.10.41] - 2026-07-15
 
 ### Improvement

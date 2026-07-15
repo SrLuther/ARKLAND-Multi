@@ -5,7 +5,6 @@ Controla start/stop/restart e monitora o status de cada servidor ASM.
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import threading
 import time
@@ -88,20 +87,22 @@ def _find_server_process(
     """Busca ShooterGameServer.exe criado após `after` com caminho dentro de
     `install_dir`. Sonda process_iter por até `timeout` segundos.
     Retorna None se não encontrado ou se psutil indisponível.
+
+    Baseline v1.10.36: substring simples no exe (sem gate de boundary).
     """
     if not _PSUTIL_OK or _psutil is None:
         return None
-    install_norm = _normalize_install_dir(install_dir)
+    install_norm = (install_dir or "").replace("\\", "/").lower()
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            for p in _psutil.process_iter(["pid", "name", "exe", "cmdline", "create_time"]):
+            for p in _psutil.process_iter(["pid", "name", "exe", "create_time"]):
                 try:
                     name = p.info.get("name") or ""
                     if "shootergameserver" not in name.lower():
                         continue
-                    exe, cmdline = _read_shooter_process_fields(p)
-                    if not _install_dir_in_process(exe, cmdline, install_norm):
+                    exe = (p.info.get("exe") or "").replace("\\", "/").lower()
+                    if install_norm and install_norm not in exe:
                         continue
                     ct = p.info.get("create_time") or 0.0
                     if ct >= after.timestamp() - 5:
@@ -115,84 +116,60 @@ def _find_server_process(
 
 
 def _normalize_install_dir(path: str) -> str:
-    return (path or "").replace("\\", "/").lower().rstrip("/")
+    """Normaliza pasta de instalação para comparação substring (baseline 1.10.36).
+
+    Também colapsa barras repetidas (`D:\\\\ARK` → `d:/ark`) — configs Windows
+    por vezes guardam backslash escapado a mais.
+    """
+    p = (path or "").replace("\\", "/").lower()
+    while "//" in p:
+        p = p.replace("//", "/")
+    return p.rstrip("/")
 
 
-def _path_contains_install(haystack: str, install_norm: str) -> bool:
-    """Evita falso positivo quando um install_dir é prefixo de outro."""
-    if not haystack or not install_norm:
-        return False
-    hay = haystack.replace("\\", "/").lower()
-    idx = hay.find(install_norm)
-    if idx < 0:
-        return False
-    after = hay[idx + len(install_norm):]
-    return after == "" or after[0] in "/\\?\"'"
+def _slash_fold(text: str) -> str:
+    p = (text or "").replace("\\", "/").lower()
+    while "//" in p:
+        p = p.replace("//", "/")
+    return p
 
 
-def _install_dir_in_process(exe: str, cmdline: str, install_norm: str) -> bool:
-    return (
-        _path_contains_install(exe, install_norm)
-        or _path_contains_install(cmdline, install_norm)
-    )
-
-
-def _cmdline_has_port(cmdline: str, port: int) -> bool:
+def _port_token_in_cmdline(cmdline: str, keys: tuple[str, ...], port: int) -> bool:
+    """Substring estilo v1.10.36, com guarda para não casar prefixo (777 ⊂ 7777)."""
     if not cmdline or not port:
         return False
-    needle = str(int(port))
-    return bool(re.search(rf"(?:\?port=|-port=){re.escape(needle)}(?!\d)", cmdline))
-
-
-def _cmdline_has_query_port(cmdline: str, query_port: int) -> bool:
-    if not cmdline or not query_port:
-        return False
-    needle = str(int(query_port))
-    return bool(
-        re.search(rf"(?:\?queryport=|-queryport=){re.escape(needle)}(?!\d)", cmdline)
-    )
-
-
-def _map_token_in_cmdline(cmdline: str, cfg: "AsmServerConfig") -> bool:
-    if not cmdline:
-        return False
-    from .asm_mod_utils import map_cli_name
-
-    token = map_cli_name(cfg.server_map, cfg.install_dir or "").lower()
-    return bool(token) and token in cmdline
-
-
-def _alt_save_in_cmdline(cmdline: str, cfg: "AsmServerConfig") -> bool:
-    alt = (cfg.alt_save_directory_name or "").strip().lower()
-    if not cmdline or not alt or alt == "savegame":
-        return False
-    return f"?altsavedirectoryname={alt}" in cmdline
+    needle_num = str(int(port))
+    cl = cmdline.lower()
+    for key in keys:
+        token = f"{key}{needle_num}"
+        start = 0
+        while True:
+            idx = cl.find(token, start)
+            if idx < 0:
+                break
+            after = idx + len(token)
+            if after >= len(cl) or not cl[after].isdigit():
+                return True
+            start = idx + 1
+    return False
 
 
 def _cmdline_matches_server(cmdline: str, cfg: "AsmServerConfig") -> bool:
-    """True se a linha de comando pertence ao servidor (porta / query port)."""
+    """True se a CLI pertence ao servidor.
+
+    Baseline v1.10.36: ?Port= / -port=. Aditivo seguro: QueryPort nas mesmas formas.
+    """
     if not cmdline:
         return False
-    return (
-        _cmdline_has_port(cmdline, cfg.server_port)
-        or _cmdline_has_query_port(cmdline, cfg.query_port)
-    )
-
-
-def _cmdline_disambiguate(cmdline: str, cfg: "AsmServerConfig") -> bool:
-    """Desambigua vários mapas no mesmo install_dir ou exe indisponível."""
-    if _alt_save_in_cmdline(cmdline, cfg):
+    cl = cmdline.lower()
+    if _port_token_in_cmdline(cl, ("?port=", "-port="), int(cfg.server_port or 0)):
         return True
-    if not _map_token_in_cmdline(cmdline, cfg):
-        return False
-    return (
-        _cmdline_has_port(cmdline, cfg.server_port)
-        or _cmdline_has_query_port(cmdline, cfg.query_port)
-    )
+    if _port_token_in_cmdline(cl, ("?queryport=", "-queryport="), int(cfg.query_port or 0)):
+        return True
+    return False
 
 
 def _cfg_identity_ports(cfg: "AsmServerConfig") -> List[int]:
-    """Portas que identificam o mapa: game, query e RCON (TCP)."""
     ports: List[int] = []
     for raw in (getattr(cfg, "server_port", 0), getattr(cfg, "query_port", 0)):
         try:
@@ -214,8 +191,7 @@ def _cfg_identity_ports(cfg: "AsmServerConfig") -> List[int]:
 def _bound_ports_match_cfg(cfg: "AsmServerConfig", bound_ports: Set[int]) -> bool:
     if not bound_ports:
         return False
-    wanted = set(_cfg_identity_ports(cfg))
-    return bool(wanted & bound_ports)
+    return bool(set(_cfg_identity_ports(cfg)) & bound_ports)
 
 
 def _window_title_matches(title: str, cfg: "AsmServerConfig") -> bool:
@@ -237,114 +213,36 @@ def _process_matches_cfg(
     bound_ports: Optional[Set[int]] = None,
     window_title: str = "",
 ) -> bool:
+    """Baseline v1.10.36 + aditivos que NÃO substituem o path antigo.
+
+    v1.10.36: ``install_norm in exe``; shared install exige ?Port=.
+    Aditivos (só ampliam):
+      - install_dir também na cmdline (exe vazio)
+      - QueryPort na cmdline
+      - portas bound / título só quando o path clássico não basta
+    Removido de propósito: boundary `_path_contains_install` (v1.10.40).
+    """
     install_norm = _normalize_install_dir(cfg.install_dir)
-    install_hit = bool(install_norm) and _install_dir_in_process(exe, cmdline, install_norm)
-    port_hit = _cmdline_matches_server(cmdline, cfg) or _bound_ports_match_cfg(
-        cfg, bound_ports or set()
+    exe_l = _slash_fold(exe)
+    cmd_l = _slash_fold(cmdline)
+    install_hit = bool(install_norm) and (
+        install_norm in exe_l or install_norm in cmd_l
     )
+    port_hit = _cmdline_matches_server(cmd_l, cfg)
+    # Adjunct: só entra se clássico (cmdline port) falhou
+    if not port_hit and bound_ports:
+        port_hit = _bound_ports_match_cfg(cfg, bound_ports)
     title_hit = _window_title_matches(window_title, cfg)
-    disambig = _cmdline_disambiguate(cmdline, cfg)
 
     if install_hit:
         if install_dir_counts.get(install_norm, 0) > 1:
-            return port_hit or disambig or title_hit
+            return port_hit or title_hit
         return True
-    return port_hit or disambig or title_hit
-
-
-def _match_diagnostic(
-    cfg: "AsmServerConfig",
-    exe: str,
-    cmdline: str,
-    install_dir_counts: Dict[str, int],
-    bound_ports: Optional[Set[int]] = None,
-    window_title: str = "",
-) -> List[str]:
-    """Sinais parciais — útil quando o processo existe mas não fechou match."""
-    bits: List[str] = []
-    install_norm = _normalize_install_dir(cfg.install_dir)
-    if install_norm and _install_dir_in_process(exe, cmdline, install_norm):
-        bits.append("install_dir")
-    if _cmdline_has_port(cmdline, cfg.server_port):
-        bits.append(f"cmdline_port={cfg.server_port}")
-    if _cmdline_has_query_port(cmdline, cfg.query_port):
-        bits.append(f"cmdline_query={cfg.query_port}")
-    hit_ports = sorted(set(_cfg_identity_ports(cfg)) & (bound_ports or set()))
-    if hit_ports:
-        bits.append(f"bound={hit_ports}")
-    if _window_title_matches(window_title, cfg):
-        bits.append("window_title")
-    if _map_token_in_cmdline(cmdline, cfg):
-        bits.append("map_token")
-    if install_dir_counts.get(install_norm, 0) > 1:
-        bits.append("shared_install")
-    if not exe and not cmdline:
-        bits.append("exe_cmdline_empty")
-    return bits
-
-
-def _query_full_process_image_name(pid: int) -> str:
-    """Win32 QueryFullProcessImageName — funciona sem cmdline elevada."""
-    if os.name != "nt" or not pid:
-        return ""
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        kernel32 = ctypes.windll.kernel32
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
-        if not handle:
-            return ""
-        try:
-            buf = ctypes.create_unicode_buffer(32768)
-            size = wintypes.DWORD(len(buf))
-            ok = kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size))
-            return buf.value if ok else ""
-        finally:
-            kernel32.CloseHandle(handle)
-    except Exception:
-        return ""
-
-
-def _read_shooter_process_fields(proc: Any) -> tuple[str, str]:
-    """exe/cmdline normalizados; relê via Process(pid) / Win32 se process_iter vier incompleto."""
-    info = getattr(proc, "info", None) or {}
-    exe = info.get("exe") or ""
-    cmdline_parts = info.get("cmdline") or []
-    pid = info.get("pid") or getattr(proc, "pid", None)
-    if _PSUTIL_OK and _psutil is not None and pid and (not exe or not cmdline_parts):
-        try:
-            raw = _psutil.Process(int(pid))
-            if not exe:
-                try:
-                    exe = raw.exe() or ""
-                except Exception:
-                    pass
-            if not cmdline_parts:
-                try:
-                    cmdline_parts = raw.cmdline() or []
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    if not exe and pid:
-        exe = _query_full_process_image_name(int(pid))
-    if isinstance(cmdline_parts, str):
-        cmdline_joined = cmdline_parts
-    else:
-        cmdline_joined = " ".join(str(x) for x in (cmdline_parts or []))
-    return exe.replace("\\", "/").lower(), cmdline_joined.lower()
+    return port_hit or title_hit
 
 
 def _parse_netstat_line(line: str) -> Optional[tuple[int, int]]:
-    """Extrai (porta, pid) de uma linha `netstat -ano`. None se irrelevante.
-
-    Formatos Windows típicos (colunas em inglês mesmo em UI PT):
-      TCP    0.0.0.0:27020    0.0.0.0:0    LISTENING    5555
-      UDP    0.0.0.0:7777     *:*                        5555
-      TCP    [::]:27020       [::]:0       LISTENING    5555
-    """
+    """Extrai (porta, pid) de uma linha `netstat -ano`. None se irrelevante."""
     parts = (line or "").split()
     if len(parts) < 4:
         return None
@@ -356,7 +254,6 @@ def _parse_netstat_line(line: str) -> Optional[tuple[int, int]]:
         if len(parts) < 5:
             return None
         status = parts[3].upper()
-        # Aceita LISTENING / LISTEN (e variantes localizadas com "LISTEN")
         if "LISTEN" not in status:
             return None
         pid_s = parts[4]
@@ -368,7 +265,6 @@ def _parse_netstat_line(line: str) -> Optional[tuple[int, int]]:
         return None
     if pid <= 0 or ":" not in local:
         return None
-    # IPv6 [::]:7777 → rsplit pega a porta após o último ':'
     port_s = local.rsplit(":", 1)[-1].strip("[]")
     try:
         port = int(port_s)
@@ -380,7 +276,6 @@ def _parse_netstat_line(line: str) -> Optional[tuple[int, int]]:
 
 
 def _enrich_port_index_netstat(index: Dict[int, Set[int]]) -> None:
-    """Fallback sem elevação: netstat -ano → porta → PID (TCP LISTEN + UDP)."""
     if os.name != "nt":
         return
     for proto in ("tcp", "udp"):
@@ -402,8 +297,10 @@ def _enrich_port_index_netstat(index: Dict[int, Set[int]]) -> None:
             index.setdefault(port, set()).add(pid)
 
 
-def _build_listening_port_index(interesting_ports: Optional[Set[int]] = None) -> Dict[int, Set[int]]:
-    """Mapa porta → PIDs (TCP LISTEN + UDP bound). Preferência: psutil, depois netstat."""
+def _build_listening_port_index(
+    interesting_ports: Optional[Set[int]] = None,
+) -> Dict[int, Set[int]]:
+    """Adjunct: porta → PIDs (TCP LISTEN + UDP). Não usado no path primário 1.10.36."""
     index: Dict[int, Set[int]] = {}
     if _PSUTIL_OK and _psutil is not None:
         try:
@@ -417,30 +314,23 @@ def _build_listening_port_index(interesting_ports: Optional[Set[int]] = None) ->
                     type_name = getattr(conn.type, "name", str(conn.type))
                     is_udp = "DGRAM" in str(type_name).upper()
                     is_tcp_listen = conn.status == "LISTEN"
-                    if not (is_udp or is_tcp_listen):
-                        continue
-                    index.setdefault(port, set()).add(int(conn.pid))
+                    if is_udp or is_tcp_listen:
+                        index.setdefault(port, set()).add(int(conn.pid))
                 except Exception:
                     continue
         except Exception:
             pass
-    before = sum(len(v) for v in index.values())
     _enrich_port_index_netstat(index)
     if interesting_ports is not None:
-        # netstat preenche tudo — filtrar o que não interessa
-        for port in list(index.keys()):
-            if port not in interesting_ports:
-                del index[port]
-    _ = before  # reserved for future diagnostics
+        return {p: index.get(p, set()) for p in interesting_ports}
     return index
 
 
-def _ports_for_pid(index: Dict[int, Set[int]], pid: int) -> Set[int]:
-    return {port for port, pids in index.items() if pid in pids}
+def _ports_for_pid(port_index: Dict[int, Set[int]], pid: int) -> Set[int]:
+    return {port for port, pids in port_index.items() if pid in pids}
 
 
 def _windows_titles_by_pid() -> Dict[int, str]:
-    """Título da janela (RunServer `start \"nome\"`) → PID."""
     if os.name != "nt":
         return {}
     titles: Dict[int, str] = {}
@@ -477,14 +367,6 @@ def _windows_titles_by_pid() -> Dict[int, str]:
     except Exception:
         return {}
     return titles
-
-
-def _is_shooter_candidate(name: str, exe: str, cmdline: str) -> bool:
-    blob = f"{name} {exe} {cmdline}".lower()
-    if "shootergameserver" in blob:
-        return True
-    # Sem nome/exe/cmdline (AccessDenied): candidato só via porta
-    return not (name or exe or cmdline)
 
 
 from .asm_server_config import (
@@ -606,118 +488,149 @@ class AsmServerManager:
                 inst = self._instances.setdefault(cfg.id, AsmServerInstance(cfg))
                 inst.cfg = cfg
 
+    def _attach_running_process(
+        self,
+        cfg: AsmServerConfig,
+        pid: int,
+        create_time: Optional[float],
+    ) -> bool:
+        """Anexa PID ao instance STOPPED. Caller já segura _lock ou status."""
+        if not _PSUTIL_OK or _psutil is None:
+            return False
+        inst = self._instances.get(cfg.id)
+        if not inst or inst.status != ASM_STATUS_STOPPED:
+            return False
+        try:
+            raw = _psutil.Process(pid)
+            inst._proc = _PsutilProcessWrapper(raw)
+            inst.cfg = cfg
+            inst.status = ASM_STATUS_RUNNING
+            inst.uptime_start = float(create_time or time.time())
+            if self._on_status:
+                self._on_status(cfg.id, ASM_STATUS_RUNNING)
+            self._start_monitor(inst)
+            self._start_steam_watcher(inst)
+            return True
+        except Exception:
+            return False
+
     def scan_running_servers(self, servers: List[AsmServerConfig]) -> int:
         """Reconecta processos ShooterGameServer já em execução (ex.: após reiniciar o app).
 
-        Estratégias (host Windows onde os mapas correm):
-        1) install_dir / ?Port= / QueryPort / mapa na cmdline (mesmo com exe vazio)
-        2) PID dono de TCP/UDP em server_port, query_port ou rcon_port
-           (psutil.net_connections + netstat -ano — funciona sem cmdline legível)
-        3) título da janela (RunServer ``start "nome"``)
+        Path primário = v1.10.36 (funcionava no host):
+          ShooterGameServer + install_dir no exe e/ou ?Port=/-port= na CLI.
 
-        A v1.10.40 só usava (1). Se exe+cmdline vierem vazios (psutil sem permissão
-        ou attrs incompletos), nenhum mapa casava — daí o refuerço por porta.
+        Adjunct (não substitui o path 36): se ainda houver mapas STOPPED,
+        tenta PID via portas TCP/UDP / título da janela.
         """
         if not _PSUTIL_OK or _psutil is None:
-            self._on_log(
-                "Scan reconnect: psutil indisponível — não é possível detectar mapas em execução.",
-                "warning",
-            )
-            return 0
-
-        if not servers:
-            self._on_log(
-                "Scan reconnect: nenhum mapa em asm_servers.json — skip.",
-                "warning",
-            )
             return 0
 
         self.register_servers(servers)
         install_counts: Dict[str, int] = {}
-        interesting_ports: Set[int] = set()
-        stopped = 0
         for cfg in servers:
             key = _normalize_install_dir(cfg.install_dir)
             if key:
                 install_counts[key] = install_counts.get(key, 0) + 1
-            interesting_ports.update(_cfg_identity_ports(cfg))
-            inst = self._instances.get(cfg.id)
-            if inst is None or inst.status == ASM_STATUS_STOPPED:
-                stopped += 1
 
-        port_index = _build_listening_port_index(interesting_ports)
-        titles = _windows_titles_by_pid()
         claimed: Set[int] = set()
         reconnected = 0
 
-        # Candidatos: nome ShooterGameServer + PIDs que escutam portas dos perfis
-        candidates: Dict[int, Dict[str, Any]] = {}
+        # ── Passo 1: baseline v1.10.36 ────────────────────────────────────────
         try:
             for proc in _psutil.process_iter(
                 ["pid", "name", "exe", "cmdline", "create_time"]
             ):
                 try:
-                    name = (proc.info.get("name") or "").lower()
+                    name = proc.info.get("name") or ""
+                    if "shootergameserver" not in name.lower():
+                        continue
                     pid = int(proc.info["pid"])
-                    if "shootergameserver" in name:
-                        candidates[pid] = {
-                            "proc": proc,
-                            "name": proc.info.get("name") or "",
-                            "create_time": proc.info.get("create_time"),
-                        }
+                    if pid in claimed:
+                        continue
+                    exe = (proc.info.get("exe") or "").replace("\\", "/").lower()
+                    cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+                    create_time = proc.info.get("create_time")
+
+                    with self._lock:
+                        for cfg in servers:
+                            inst = self._instances.get(cfg.id)
+                            if not inst or inst.status != ASM_STATUS_STOPPED:
+                                continue
+                            if not _process_matches_cfg(
+                                cfg, exe, cmdline, install_counts
+                            ):
+                                continue
+                            if self._attach_running_process(cfg, pid, create_time):
+                                claimed.add(pid)
+                                reconnected += 1
+                                break
                 except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # ── Passo 2 (adjunct): portas / título só para STOPPED restantes ──────
+        still_stopped = [
+            cfg
+            for cfg in servers
+            if (inst := self._instances.get(cfg.id)) is not None
+            and inst.status == ASM_STATUS_STOPPED
+        ]
+        if still_stopped:
+            interesting: Set[int] = set()
+            for cfg in still_stopped:
+                interesting.update(_cfg_identity_ports(cfg))
+            port_index = _build_listening_port_index(interesting)
+            titles = _windows_titles_by_pid()
+            # PIDs candidatos só via portas dos perfis ainda parados
+            candidate_pids: Set[int] = set()
+            for pids in port_index.values():
+                candidate_pids.update(pids)
+            candidate_pids.update(titles.keys())
+            candidate_pids -= claimed
+
+            for pid in list(candidate_pids):
+                if pid in claimed:
                     continue
-        except Exception as exc:
-            self._on_log(f"Scan reconnect: process_iter falhou ({exc}).", "warning")
-
-        for port, pids in port_index.items():
-            for pid in pids:
-                if pid in candidates:
-                    continue
-                candidates[pid] = {
-                    "proc": None,
-                    "name": "",
-                    "create_time": None,
-                    "via_port": port,
-                }
-
-        for pid, meta in list(candidates.items()):
-            if pid in claimed:
-                continue
-            try:
-                proc = meta.get("proc")
-                if proc is None:
-                    class _Stub:
-                        info: Dict[str, Any]
-
-                    stub = _Stub()
-                    stub.info = {"pid": pid, "exe": "", "cmdline": []}
-                    if _psutil is not None:
-                        try:
-                            raw_probe = _psutil.Process(pid)
-                            stub.info["name"] = raw_probe.name() or ""
-                            meta["name"] = stub.info["name"]
-                            meta["create_time"] = raw_probe.create_time()
-                        except Exception:
-                            pass
-                    proc = stub
-
-                name = (
-                    meta.get("name")
-                    or (proc.info.get("name") if hasattr(proc, "info") else "")
-                    or ""
-                )
-                exe, cmdline = _read_shooter_process_fields(proc)
-                if not _is_shooter_candidate(name, exe, cmdline):
-                    continue
-
                 bound = _ports_for_pid(port_index, pid)
                 title = titles.get(pid, "")
-                create_time = meta.get("create_time")
-                matched = False
+                create_time: Optional[float] = None
+                name = ""
+                exe = ""
+                cmdline = ""
+                try:
+                    raw = _psutil.Process(pid)
+                    try:
+                        name = (raw.name() or "").lower()
+                    except Exception:
+                        name = ""
+                    try:
+                        create_time = float(raw.create_time())
+                    except Exception:
+                        create_time = None
+                    try:
+                        exe = (raw.exe() or "").replace("\\", "/").lower()
+                    except Exception:
+                        exe = ""
+                    try:
+                        cmdline = " ".join(raw.cmdline() or []).lower()
+                    except Exception:
+                        cmdline = ""
+                except Exception:
+                    # Sem handle: ainda podemos casar por porta/título
+                    pass
+
+                # Só anexar se parecer Shooter OU se só temos sinal de porta/título
+                looks_shooter = "shootergameserver" in f"{name} {exe} {cmdline}"
+                if not looks_shooter and not bound and not title:
+                    continue
+                if not looks_shooter and not bound:
+                    # título sozinho: ok como adjunct
+                    pass
 
                 with self._lock:
-                    for cfg in servers:
+                    for cfg in still_stopped:
                         inst = self._instances.get(cfg.id)
                         if not inst or inst.status != ASM_STATUS_STOPPED:
                             continue
@@ -730,71 +643,21 @@ class AsmServerManager:
                             window_title=title,
                         ):
                             continue
-
-                        raw = _psutil.Process(pid)
-                        inst._proc = _PsutilProcessWrapper(raw)
-                        inst.cfg = cfg
-                        inst.status = ASM_STATUS_RUNNING
-                        inst.uptime_start = float(create_time or time.time())
-                        how = _match_diagnostic(
-                            cfg, exe, cmdline, install_counts, bound, title
-                        )
-                        self._on_log(
-                            f"Reconnect [{cfg.name}] PID {pid} via {', '.join(how) or 'match'}.",
-                            "info",
-                        )
-                        if self._on_status:
-                            self._on_status(cfg.id, ASM_STATUS_RUNNING)
-                        self._start_monitor(inst)
-                        self._start_steam_watcher(inst)
-                        claimed.add(pid)
-                        reconnected += 1
-                        matched = True
-                        break
-
-                if matched:
-                    continue
-
-                # Processo Shooter / porta dos perfis sem mapa correspondente
-                if "shootergameserver" in f"{name} {exe}".lower() or (
-                    not exe and not cmdline and bound
-                ):
-                    partials: List[str] = []
-                    for cfg in servers:
-                        bits = _match_diagnostic(
-                            cfg, exe, cmdline, install_counts, bound, title
-                        )
-                        if bits:
-                            partials.append(f"{cfg.name}:{','.join(bits)}")
-                    self._on_log(
-                        f"Scan reconnect: PID {pid} não casou com nenhum mapa "
-                        f"(exe={'ok' if exe else 'vazio'}, "
-                        f"cmdline={'ok' if cmdline else 'vazio'}, "
-                        f"portas={sorted(bound) or '—'}, título={title or '—'}). "
-                        f"Parcial: {'; '.join(partials) or 'nenhum'}.",
-                        "warning",
-                    )
-            except Exception as exc:
-                self._on_log(
-                    f"Scan reconnect: erro ao inspecionar PID {pid}: {exc}",
-                    "warning",
-                )
-                continue
-
-        if reconnected == 0 and stopped > 0:
-            self._on_log(
-                f"Scan reconnect: 0 reconectados "
-                f"({len(candidates)} candidato(s), {stopped} mapa(s) STOPPED, "
-                f"portas indexadas={sorted(port_index.keys()) or '—'}, "
-                f"títulos={len(titles)}).",
-                "warning",
-            )
+                        # Exigir evidência: shooter conhecido OU porta do cfg OU título
+                        if not looks_shooter and not _bound_ports_match_cfg(cfg, bound):
+                            if not _window_title_matches(title, cfg):
+                                continue
+                        if self._attach_running_process(cfg, pid, create_time):
+                            claimed.add(pid)
+                            reconnected += 1
+                            break
 
         return reconnected
 
     def try_reconnect_server(self, cfg: AsmServerConfig) -> bool:
         """Tenta reconectar um único servidor já em execução. Retorna True se reconectou."""
         return self.scan_running_servers([cfg]) > 0
+
 
     # ── Start ────────────────────────────────────────────────────────────────
 
