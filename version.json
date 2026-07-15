@@ -1,9 +1,11 @@
 {
-    "version": "1.10.40",
+    "version": "1.10.41",
     "date": "2026-07-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.40/ARKLAND-Multi-Setup-v1.10.40.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.41/ARKLAND-Multi-Setup-v1.10.41.exe",
     "changelog": [
-        "Fix (TEK): após restart do app, mapas/servidores ShooterGameServer já em execução são reconectados — matching por install_dir na cmdline (exe vazio), QueryPort, mapa e retentativas de scan no boot.",
-        "Test (TEK): cobertura de _process_matches_cfg e relê de cmdline via psutil.Process(pid)."
+        "Fix (TEK): reconnect pós-restart — a v1.10.40 só casava por exe/cmdline; se ambos vierem vazios o mapa ficava PARADO. Agora casa também por portas TCP/UDP (server/query/RCON) via psutil.net_connections + netstat -ano, título da janela RunServer e QueryFullProcessImageName.",
+        "Fix (TEK): _PsutilProcessWrapper.poll deixa de tratar exceções de permissão (ex. AccessDenied) como processo morto — evitava ONLINE→TRAVADO após reconnect.",
+        "Melhoria (TEK): logs de diagnóstico no scan (Reconnect [mapa] via …; resumo 0 reconectados com candidatos/portas; PID sem match com exe/cmdline/portas).",
+        "Test (TEK): modo de falha v1.10.40 (exe+cmdline vazios), multi-mapa mesmo install_dir só por portas, parser netstat, poll com permissão negada."
     ]
 }

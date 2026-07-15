@@ -5,7 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased] - 2026-07-15
+## [1.10.41] - 2026-07-15
+
+### Improvement
+
+- Melhoria (TEK): logs de diagnóstico no scan (Reconnect [mapa] via …; resumo 0 reconectados com candidatos/portas; PID sem match com exe/cmdline/portas).
+
+### Fix
+
+- Fix (TEK): reconnect pós-restart — a v1.10.40 só casava por exe/cmdline; se ambos vierem vazios o mapa ficava PARADO. Agora casa também por portas TCP/UDP (server/query/RCON) via psutil.net_connections + netstat -ano, título da janela RunServer e QueryFullProcessImageName.
+- Fix (TEK): _PsutilProcessWrapper.poll deixa de tratar exceções de permissão (ex. AccessDenied) como processo morto — evitava ONLINE→TRAVADO após reconnect.
+
+### Other
+
+- Test (TEK): modo de falha v1.10.40 (exe+cmdline vazios), multi-mapa mesmo install_dir só por portas, parser netstat, poll com permissão negada.
 
 ## [1.10.40] - 2026-07-15
 

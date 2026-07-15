@@ -3,16 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.40"
+APP_VERSION: str = "1.10.41"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
     {
-        "version": "Unreleased",
+        "version": "1.10.41",
         "date": "2026-07-15",
-        "changes": [],
+        "changes": [
+            "Fix (TEK): reconnect pós-restart — a v1.10.40 só casava por exe/cmdline; se ambos vierem vazios o mapa ficava PARADO. Agora casa também por portas TCP/UDP (server/query/RCON) via psutil.net_connections + netstat -ano, título da janela RunServer e QueryFullProcessImageName.",
+            "Fix (TEK): _PsutilProcessWrapper.poll deixa de tratar exceções de permissão (ex. AccessDenied) como processo morto — evitava ONLINE→TRAVADO após reconnect.",
+            "Melhoria (TEK): logs de diagnóstico no scan (Reconnect [mapa] via …; resumo 0 reconectados com candidatos/portas; PID sem match com exe/cmdline/portas).",
+            "Test (TEK): modo de falha v1.10.40 (exe+cmdline vazios), multi-mapa mesmo install_dir só por portas, parser netstat, poll com permissão negada.",
+        ],
     },
     {
         "version": "1.10.40",
