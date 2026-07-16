@@ -3,12 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.45"
-BUILD_DATE: str = "2026-07-15"
+APP_VERSION: str = "1.10.46"
+BUILD_DATE: str = "2026-07-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.46",
+        "date": "2026-07-16",
+        "changes": [
+            "Feat (CustomShop / ItensAlfa): kits kit_itensalfa_armas_* e kit_itensalfa_ferramentas_* por tier (planilha Cheats por Classe); Permissions Admins+N+N+1; ONIPRESENTE→onipotente; ETEREA→etereo. Sem secção Exótico na planilha. BPs só em kits (Mjolnir, ShoulderCannon_G2, Pike/PumpAction_GOD sem SKU individual).",
+            "Fix (CustomShop / Catalogo): reverte Permissions erradas em dinos L1/L200 e pack10 (bionicrex, desmodus, carcha, etc.) — cadeado de licenca fica so nos itens ItensAlfa (58 SKUs), nao nos dinos de kit.",
+            "Fix (CustomShop / ItensAlfa): denylist no build de kits — Criofreezer (AlfaCrioFreezer) e Alfa Fabric banidos do cluster; nunca entram em kits/catálogo via planilha.",
+            "Melhoria (CustomShop / ItensAlfa): Names/Descriptions dos kits limpos (ex. KIT ARMAS ETEREO); Permissions nos SKUs individuais de armas/ferramentas ItensAlfa.",
+            "Feat (Web Store / Catalogo): icones gerados para todos os dinos do catalogo (386/386) em species/icons/generated — cobertura completa incl. Abyss, Brighamia e SmallBosses.",
+        ],
+    },
     {
         "version": "1.10.45",
         "date": "2026-07-15",

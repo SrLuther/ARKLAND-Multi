@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.46] - 2026-07-16
+
+### Feature
+
+- Feat (CustomShop / ItensAlfa): kits kit_itensalfa_armas_* e kit_itensalfa_ferramentas_* por tier (planilha Cheats por Classe); Permissions Admins+N+N+1; ONIPRESENTE→onipotente; ETEREA→etereo. Sem secção Exótico na planilha. BPs só em kits (Mjolnir, ShoulderCannon_G2, Pike/PumpAction_GOD sem SKU individual).
+- Feat (Web Store / Catalogo): icones gerados para todos os dinos do catalogo (386/386) em species/icons/generated — cobertura completa incl. Abyss, Brighamia e SmallBosses.
+
+### Improvement
+
+- Melhoria (CustomShop / ItensAlfa): Names/Descriptions dos kits limpos (ex. KIT ARMAS ETEREO); Permissions nos SKUs individuais de armas/ferramentas ItensAlfa.
+
+### Fix
+
+- Fix (CustomShop / Catalogo): reverte Permissions erradas em dinos L1/L200 e pack10 (bionicrex, desmodus, carcha, etc.) — cadeado de licenca fica so nos itens ItensAlfa (58 SKUs), nao nos dinos de kit.
+- Fix (CustomShop / ItensAlfa): denylist no build de kits — Criofreezer (AlfaCrioFreezer) e Alfa Fabric banidos do cluster; nunca entram em kits/catálogo via planilha.
+
 ## [1.10.45] - 2026-07-15
 
 ### Improvement

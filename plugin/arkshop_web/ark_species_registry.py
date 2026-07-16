@@ -263,10 +263,13 @@ def _bundled_species_icon_urls() -> dict[str, str]:
             urls.setdefault(sk, f"/species/icons/{icon_file.name}")
         generated_dir = icons_dir / "generated"
         if generated_dir.is_dir():
+            # WebP/raster AI icons override SVG silhouettes (doc: preferência para WebP).
             for pattern in ("*.webp", "*.png", "*.jpg", "*.jpeg", "*.gif"):
                 for icon_file in generated_dir.glob(pattern):
                     sk = icon_file.stem.lower()
-                    urls.setdefault(sk, f"/species/icons/generated/{icon_file.name}")
+                    if sk.endswith("_framed_proof") or sk.endswith("_bust"):
+                        continue
+                    urls[sk] = f"/species/icons/generated/{icon_file.name}"
     return urls
 
 
@@ -313,7 +316,12 @@ def resolve_species_image(entry: dict[str, Any] | None, *, tier: str | None = No
 def resolve_species_image_for_key(species_key: str | None, *, tier: str | None = None) -> str:
     """Resolve a imagem canônica por species_key com fallback por tier."""
     entry = get_registry_entry(species_key) if species_key else None
-    return resolve_species_image(entry, tier=tier)
+    if entry:
+        return resolve_species_image(entry, tier=tier)
+    bundled = _bundled_icon_for_species(species_key)
+    if bundled:
+        return bundled
+    return tier_icon_url(tier)
 
 
 @lru_cache(maxsize=1)

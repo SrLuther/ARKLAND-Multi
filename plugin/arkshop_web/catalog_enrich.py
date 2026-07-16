@@ -203,8 +203,30 @@ def enrich_shop_item(key: str, entry: dict[str, Any]) -> dict[str, Any]:
             tier = str(lookup.get("tier") or "B")
             species_key = lookup.get("species_key")
         else:
+            # Dinos de mod fora do registro ainda podem ter ícone AI em generated/*.webp
+            from ark_species_registry import _bundled_icon_for_species
+
+            try:
+                from market_economy import _species_key_from_catalog_item_id
+
+                derived = _species_key_from_catalog_item_id(key) or key
+            except Exception:
+                derived = key
+            candidates = [
+                str(species_key or "").lower(),
+                str(derived or "").lower(),
+                str(key or "").lower(),
+            ]
+            bundled = None
+            for cand in candidates:
+                if not cand:
+                    continue
+                bundled = _bundled_icon_for_species(cand)
+                if bundled:
+                    species_key = cand
+                    break
             tier = "B"
-            thumbnail_url = tier_icon_url(tier)
+            thumbnail_url = bundled or tier_icon_url(tier)
     elif _is_license_entry(entry, key):
         thumbnail_url = LICENSE_ICON
     else:

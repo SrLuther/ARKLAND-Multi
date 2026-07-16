@@ -1,2 +1,0 @@
-{"sessionId": "24417c", "hypothesisId": "A", "location": "asm_server_manager.py:clear_force_day_pending", "message": "clear_force_day enter", "data": {"sid": "lock-test", "lock_held_before": false, "thread": "Thread-1 (_run)"}, "timestamp": 1784165341382}
-{"sessionId": "24417c", "hypothesisId": "A", "location": "asm_server_manager.py:clear_force_day_pending", "message": "clear_force_day enter", "data": {"sid": "lock-test", "lock_held_before": false, "thread": "Thread-3 (_run_ghost)"}, "timestamp": 1784165341395}

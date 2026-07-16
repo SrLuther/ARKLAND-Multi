@@ -1,12 +1,12 @@
 {
   "_comment": "Espécies vanilla/oficiais ARK (sem mods). Gerado por tools/generate_ai_species_icons.py",
-  "count": 99,
+  "count": 127,
   "tier_counts": {
     "S+": 2,
     "S": 12,
-    "A": 23,
-    "B": 39,
-    "C": 23
+    "A": 25,
+    "B": 43,
+    "C": 45
   },
   "species": [
     {
@@ -17,10 +17,10 @@
       "role": "boss"
     },
     {
-      "species_key": "tekstrider_femea",
+      "species_key": "tekstrider",
       "display_name": "Tek Strider",
       "tier": "S+",
-      "source": "market_defaults"
+      "source": "both"
     },
     {
       "species_key": "astrocetus",
@@ -37,12 +37,6 @@
       "role": "boss"
     },
     {
-      "species_key": "giga",
-      "display_name": "Giga",
-      "tier": "S",
-      "source": "market_defaults"
-    },
-    {
       "species_key": "bionicgigant",
       "display_name": "Giga Bionic",
       "tier": "S",
@@ -50,17 +44,10 @@
       "role": "boss"
     },
     {
-      "species_key": "lionfish_femea",
-      "display_name": "Lionfish Lion",
+      "species_key": "giga",
+      "display_name": "Giganotosaurus",
       "tier": "S",
       "source": "market_defaults"
-    },
-    {
-      "species_key": "lionfishlion",
-      "display_name": "Lionfish Lion",
-      "tier": "S",
-      "source": "vanilla_curated",
-      "role": "pvp"
     },
     {
       "species_key": "managarmr",
@@ -77,6 +64,12 @@
       "role": "pvp"
     },
     {
+      "species_key": "rex",
+      "display_name": "Rex",
+      "tier": "S",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "rockdrake",
       "display_name": "Rock Drake",
       "tier": "S",
@@ -84,11 +77,17 @@
       "role": "pvp"
     },
     {
-      "species_key": "tekstrider",
-      "display_name": "Tek Strider",
+      "species_key": "lionfishlion",
+      "display_name": "Shadowmane",
       "tier": "S",
       "source": "vanilla_curated",
-      "role": "utility"
+      "role": "pvp"
+    },
+    {
+      "species_key": "titanosaur",
+      "display_name": "Titanossauro",
+      "tier": "S",
+      "source": "market_defaults"
     },
     {
       "species_key": "wyvern",
@@ -119,12 +118,6 @@
       "role": "pvp"
     },
     {
-      "species_key": "carcha_femea",
-      "display_name": "Carcha",
-      "tier": "A",
-      "source": "market_defaults"
-    },
-    {
       "species_key": "owl",
       "display_name": "Coruja das Neves",
       "tier": "A",
@@ -137,6 +130,12 @@
       "tier": "A",
       "source": "vanilla_curated",
       "role": "pvp"
+    },
+    {
+      "species_key": "desmodus",
+      "display_name": "Desmodus",
+      "tier": "A",
+      "source": "both"
     },
     {
       "species_key": "spino",
@@ -189,10 +188,15 @@
     },
     {
       "species_key": "mosasaurus",
-      "display_name": "Mosasauro",
+      "display_name": "Mosassauro (Mosasaurus)",
       "tier": "A",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "both"
+    },
+    {
+      "species_key": "quetzal",
+      "display_name": "Quetzal",
+      "tier": "A",
+      "source": "market_defaults"
     },
     {
       "species_key": "quetz",
@@ -200,12 +204,6 @@
       "tier": "A",
       "source": "vanilla_curated",
       "role": "transport"
-    },
-    {
-      "species_key": "rex",
-      "display_name": "Rex",
-      "tier": "A",
-      "source": "market_defaults"
     },
     {
       "species_key": "bionicrex",
@@ -236,11 +234,23 @@
       "role": "pvp"
     },
     {
+      "species_key": "therizinosaur",
+      "display_name": "Therizinossauro",
+      "tier": "A",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "tropeognathus",
       "display_name": "Tropeognathus",
       "tier": "A",
       "source": "vanilla_curated",
       "role": "transport"
+    },
+    {
+      "species_key": "tusoteuthis",
+      "display_name": "Tusoteuthis",
+      "tier": "A",
+      "source": "market_defaults"
     },
     {
       "species_key": "tuso",
@@ -264,6 +274,12 @@
       "role": "pvp"
     },
     {
+      "species_key": "allosaurus",
+      "display_name": "Allosaurus",
+      "tier": "B",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "amargasaurus",
       "display_name": "Amargassauro",
       "tier": "B",
@@ -278,11 +294,23 @@
       "role": "pvp"
     },
     {
+      "species_key": "ankylosaurus",
+      "display_name": "Anquilossauro",
+      "tier": "B",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "ankylo",
       "display_name": "Anquilossauro",
       "tier": "B",
       "source": "vanilla_curated",
       "role": "farm"
+    },
+    {
+      "species_key": "argentavis",
+      "display_name": "Argentavis",
+      "tier": "B",
+      "source": "market_defaults"
     },
     {
       "species_key": "argent",
@@ -295,15 +323,13 @@
       "species_key": "baryonyx",
       "display_name": "Baryonyx",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "both"
     },
     {
       "species_key": "basilosaurus",
-      "display_name": "Basilossauro",
+      "display_name": "Basilosaurus",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "utility"
+      "source": "both"
     },
     {
       "species_key": "bloodstalker",
@@ -313,11 +339,23 @@
       "role": "utility"
     },
     {
+      "species_key": "carnotaurus",
+      "display_name": "Carnotauro",
+      "tier": "B",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "carno",
       "display_name": "Carnotauro",
       "tier": "B",
       "source": "vanilla_curated",
       "role": "pvp"
+    },
+    {
+      "species_key": "castoroides",
+      "display_name": "Castoroides",
+      "tier": "B",
+      "source": "both"
     },
     {
       "species_key": "beaver",
@@ -327,28 +365,8 @@
       "role": "farm"
     },
     {
-      "species_key": "castoroides",
-      "display_name": "Castoroides",
-      "tier": "B",
-      "source": "vanilla_curated",
-      "role": "farm"
-    },
-    {
       "species_key": "daeodon",
       "display_name": "Daeodon",
-      "tier": "B",
-      "source": "vanilla_curated",
-      "role": "utility"
-    },
-    {
-      "species_key": "deinonychus_femea",
-      "display_name": "Deinonychus",
-      "tier": "B",
-      "source": "market_defaults"
-    },
-    {
-      "species_key": "desmodus",
-      "display_name": "Desmodus",
       "tier": "B",
       "source": "both"
     },
@@ -360,6 +378,12 @@
       "role": "pvp"
     },
     {
+      "species_key": "doedicurus",
+      "display_name": "Doedicurus",
+      "tier": "B",
+      "source": "both"
+    },
+    {
       "species_key": "doed",
       "display_name": "Doedicurus",
       "tier": "B",
@@ -367,11 +391,10 @@
       "role": "farm"
     },
     {
-      "species_key": "doedicurus",
-      "display_name": "Doedicurus",
+      "species_key": "dunkleosteus",
+      "display_name": "Dunkleosteus",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "farm"
+      "source": "market_defaults"
     },
     {
       "species_key": "dunkle",
@@ -379,6 +402,12 @@
       "tier": "B",
       "source": "vanilla_curated",
       "role": "pvp"
+    },
+    {
+      "species_key": "stegosaurus",
+      "display_name": "Estegossauro",
+      "tier": "B",
+      "source": "market_defaults"
     },
     {
       "species_key": "fjordhawk",
@@ -405,15 +434,19 @@
       "species_key": "kaprosuchus",
       "display_name": "Kaprosuchus",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "both"
+    },
+    {
+      "species_key": "liopleurodon",
+      "display_name": "Liopleurodon",
+      "tier": "B",
+      "source": "market_defaults"
     },
     {
       "species_key": "direwolf",
-      "display_name": "Lobo Gigante",
+      "display_name": "Lobo Temível (Direwolf)",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "both"
     },
     {
       "species_key": "mantis",
@@ -424,29 +457,15 @@
     },
     {
       "species_key": "mammoth",
-      "display_name": "Mamute",
+      "display_name": "Mamute (Mammoth)",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "farm"
+      "source": "both"
     },
     {
       "species_key": "megalodon",
-      "display_name": "Megalodon",
+      "display_name": "Megalodonte (Megalodon)",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "pvp"
-    },
-    {
-      "species_key": "megalosaurus_femea",
-      "display_name": "Megalosaurus",
-      "tier": "B",
-      "source": "market_defaults"
-    },
-    {
-      "species_key": "megalosaurus_aberrant_femea",
-      "display_name": "Megalosaurus Aberrante",
-      "tier": "B",
-      "source": "market_defaults"
+      "source": "both"
     },
     {
       "species_key": "megatherium",
@@ -454,6 +473,12 @@
       "tier": "B",
       "source": "vanilla_curated",
       "role": "farm"
+    },
+    {
+      "species_key": "pachyrhinosaurus",
+      "display_name": "Pachyrhinosaurus",
+      "tier": "B",
+      "source": "market_defaults"
     },
     {
       "species_key": "paracer",
@@ -466,15 +491,7 @@
       "species_key": "plesiosaur",
       "display_name": "Plesiossauro",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "utility"
-    },
-    {
-      "species_key": "procoptodon",
-      "display_name": "Procoptodon",
-      "tier": "B",
-      "source": "vanilla_curated",
-      "role": "transport"
+      "source": "both"
     },
     {
       "species_key": "purlovia",
@@ -484,11 +501,10 @@
       "role": "pvp"
     },
     {
-      "species_key": "sarco",
-      "display_name": "Sarcosuchus",
+      "species_key": "woolly_rhino",
+      "display_name": "Rinoceronte Lanoso",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "market_defaults"
     },
     {
       "species_key": "sabertooth",
@@ -496,6 +512,12 @@
       "tier": "B",
       "source": "vanilla_curated",
       "role": "pvp"
+    },
+    {
+      "species_key": "spinosaur",
+      "display_name": "Spinossauro",
+      "tier": "B",
+      "source": "market_defaults"
     },
     {
       "species_key": "stego",
@@ -508,8 +530,13 @@
       "species_key": "tapejara",
       "display_name": "Tapejara",
       "tier": "B",
-      "source": "vanilla_curated",
-      "role": "transport"
+      "source": "both"
+    },
+    {
+      "species_key": "thylacoleo",
+      "display_name": "Thylacoleo",
+      "tier": "B",
+      "source": "market_defaults"
     },
     {
       "species_key": "thyla",
@@ -519,15 +546,15 @@
       "role": "pvp"
     },
     {
-      "species_key": "xenomorph_femea",
-      "display_name": "Xenomorph",
+      "species_key": "direbear",
+      "display_name": "Urso Temível (Direbear)",
       "tier": "B",
       "source": "market_defaults"
     },
     {
-      "species_key": "xenomorphgen2_femea",
-      "display_name": "Xenomorph Gen2",
-      "tier": "B",
+      "species_key": "giant_bee",
+      "display_name": "Abelha Gigante",
+      "tier": "C",
       "source": "market_defaults"
     },
     {
@@ -536,6 +563,24 @@
       "tier": "C",
       "source": "vanilla_curated",
       "role": "farm"
+    },
+    {
+      "species_key": "beelzebufo",
+      "display_name": "Beelzebufo",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "dung_beetle",
+      "display_name": "Besouro do Esterco",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "brontosaurus",
+      "display_name": "Brontossauro",
+      "tier": "C",
+      "source": "market_defaults"
     },
     {
       "species_key": "bronto",
@@ -548,8 +593,7 @@
       "species_key": "carbonemys",
       "display_name": "Carbonemys",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "utility"
+      "source": "both"
     },
     {
       "species_key": "compy",
@@ -559,6 +603,18 @@
       "role": "utility"
     },
     {
+      "species_key": "dilophosaur",
+      "display_name": "Dilofoossauro",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "dimorphodon",
+      "display_name": "Dimorphodon",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "dimorph",
       "display_name": "Dimorphodon",
       "tier": "C",
@@ -566,11 +622,16 @@
       "role": "pvp"
     },
     {
+      "species_key": "diplocaulus",
+      "display_name": "Diplocaulus",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "diplodocus",
       "display_name": "Diplodocus",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "utility"
+      "source": "both"
     },
     {
       "species_key": "dodo",
@@ -580,25 +641,22 @@
       "role": "utility"
     },
     {
+      "species_key": "electrophorus",
+      "display_name": "Electrophorus",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "equus",
       "display_name": "Equus",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "transport"
-    },
-    {
-      "species_key": "pulmonoscorpius",
-      "display_name": "Escorpião",
-      "tier": "C",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "both"
     },
     {
       "species_key": "gallimimus",
       "display_name": "Gallimimus",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "transport"
+      "source": "both"
     },
     {
       "species_key": "jerboa",
@@ -608,18 +666,22 @@
       "role": "utility"
     },
     {
-      "species_key": "iguanodon",
-      "display_name": "Iguanodonte",
+      "species_key": "ichthyosaurus",
+      "display_name": "Ictiosaurus (Ichthyosaurus)",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "utility"
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "iguanodon",
+      "display_name": "Iguanodon",
+      "tier": "C",
+      "source": "both"
     },
     {
       "species_key": "kairuku",
       "display_name": "Kairuku",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "utility"
+      "source": "both"
     },
     {
       "species_key": "otter",
@@ -630,10 +692,51 @@
     },
     {
       "species_key": "lystrosaurus",
-      "display_name": "Lystrossauro",
+      "display_name": "Lystrosaurus",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "utility"
+      "source": "both"
+    },
+    {
+      "species_key": "manta",
+      "display_name": "Manta",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "megaloceros",
+      "display_name": "Megaloceros",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "mesopithecus",
+      "display_name": "Mesopithecus",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "moschops",
+      "display_name": "Moschops",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "oviraptor",
+      "display_name": "Oviraptor",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "pachy",
+      "display_name": "Pachycephalosaurus",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
+      "species_key": "parasaur",
+      "display_name": "Parasaur",
+      "tier": "C",
+      "source": "market_defaults"
     },
     {
       "species_key": "para",
@@ -646,8 +749,7 @@
       "species_key": "pelagornis",
       "display_name": "Pelagornis",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "transport"
+      "source": "both"
     },
     {
       "species_key": "phiomia",
@@ -657,6 +759,18 @@
       "role": "utility"
     },
     {
+      "species_key": "procoptodon",
+      "display_name": "Procoptodon",
+      "tier": "C",
+      "source": "both"
+    },
+    {
+      "species_key": "pteranodon",
+      "display_name": "Pteranodonte",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "ptera",
       "display_name": "Pteranodonte",
       "tier": "C",
@@ -664,11 +778,22 @@
       "role": "transport"
     },
     {
+      "species_key": "pulmonoscorpius",
+      "display_name": "Pulmonoscorpius",
+      "tier": "C",
+      "source": "both"
+    },
+    {
       "species_key": "raptor",
       "display_name": "Raptor",
       "tier": "C",
-      "source": "vanilla_curated",
-      "role": "pvp"
+      "source": "both"
+    },
+    {
+      "species_key": "sarco",
+      "display_name": "Sarcosuchus",
+      "tier": "C",
+      "source": "both"
     },
     {
       "species_key": "sinomacrops",
@@ -678,6 +803,12 @@
       "role": "utility"
     },
     {
+      "species_key": "terror_bird",
+      "display_name": "Terror Bird",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "titanboa",
       "display_name": "Titanoboa",
       "tier": "C",
@@ -685,11 +816,23 @@
       "role": "pvp"
     },
     {
+      "species_key": "triceratops",
+      "display_name": "Triceratops",
+      "tier": "C",
+      "source": "market_defaults"
+    },
+    {
       "species_key": "trike",
       "display_name": "Triceratops",
       "tier": "C",
       "source": "vanilla_curated",
       "role": "utility"
+    },
+    {
+      "species_key": "troodon",
+      "display_name": "Troodon",
+      "tier": "C",
+      "source": "market_defaults"
     }
   ]
 }
