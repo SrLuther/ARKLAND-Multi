@@ -2201,6 +2201,11 @@ def _list_admin_players(
         persona_map, persona_meta = _backfill_steam_personas(
             db, [(str(r[0]), r[2]) for r in rows], return_status=True,
         )
+        steam_ids = [
+            _normalize_steam_id64(r[0]) or str(r[0]).strip()
+            for r in rows
+        ]
+        ents_by_sid = _get_player_entitlements_batch(db, [s for s in steam_ids if s])
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = _normalize_steam_id64(r[0]) or str(r[0]).strip()
@@ -2209,7 +2214,7 @@ def _list_admin_players(
                 cached_persona = None
             persona = persona_map.get(sid) or cached_persona
             label = _admin_player_persona_label(sid, steam_persona=persona)
-            ents = _get_player_entitlements(sid, db=db)
+            ents = ents_by_sid.get(sid) or []
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
             items.append({
@@ -4278,6 +4283,42 @@ def _apply_entitlement_grant_tx(
     return _reset_dependent_kit_limits_tx(db, steam_id, group)
 
 
+def _entitlement_rows_to_list(rows: list[Any], *, group_idx: int = 0) -> list[dict[str, Any]]:
+    """Dedup por grupo canónico (legado com SKU `licenca_*` + tier correcto)."""
+    by_group: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        grp = _normalize_entitlement_group(str(row[group_idx]))
+        if not grp:
+            continue
+        bonus = _timed_points_bonus_for_group(grp)
+        exp_raw = row[group_idx + 1]
+        if exp_raw is not None and hasattr(exp_raw, "isoformat"):
+            exp_iso = exp_raw.isoformat()
+        elif exp_raw is not None:
+            exp_iso = str(exp_raw)
+        else:
+            exp_iso = None
+        entry = {
+            "group": grp,
+            "expires_at": exp_iso,
+            "permanent": exp_raw is None,
+            "source": row[group_idx + 2],
+            "notes": row[group_idx + 3],
+            "timed_points_bonus": bonus,
+        }
+        prev = by_group.get(grp)
+        if prev is None:
+            by_group[grp] = entry
+            continue
+        if entry["permanent"]:
+            by_group[grp] = entry
+        elif not prev["permanent"] and (entry["expires_at"] or "") > (
+            prev["expires_at"] or ""
+        ):
+            by_group[grp] = entry
+    return list(by_group.values())
+
+
 def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[str, Any]]:
     if not _db_ready():
         return []
@@ -4300,46 +4341,65 @@ def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[
             ),
             {"sid": str(steam_id)},
         ).fetchall()
-        # Dedup por grupo canónico (legado com SKU `licenca_*` + tier correcto).
-        by_group: dict[str, dict[str, Any]] = {}
-        for row in rows:
-            grp = _normalize_entitlement_group(str(row[0]))
-            if not grp:
-                continue
-            bonus = _timed_points_bonus_for_group(grp)
-            exp_raw = row[1]
-            if exp_raw is not None and hasattr(exp_raw, "isoformat"):
-                exp_iso = exp_raw.isoformat()
-            elif exp_raw is not None:
-                exp_iso = str(exp_raw)
-            else:
-                exp_iso = None
-            entry = {
-                "group": grp,
-                "expires_at": exp_iso,
-                "permanent": row[1] is None,
-                "source": row[2],
-                "notes": row[3],
-                "timed_points_bonus": bonus,
-            }
-            prev = by_group.get(grp)
-            if prev is None:
-                by_group[grp] = entry
-                continue
-            # Permanente vence; senão fica o expires mais tarde.
-            if entry["permanent"]:
-                by_group[grp] = entry
-            elif not prev["permanent"] and (entry["expires_at"] or "") > (
-                prev["expires_at"] or ""
-            ):
-                by_group[grp] = entry
-        return list(by_group.values())
+        return _entitlement_rows_to_list(rows)
     except Exception as exc:
         _log_error("get_player_entitlements", steam_id=steam_id, error=str(exc))
         return []
     finally:
         if owns_session:
             _release_db_session(db)
+
+
+def _get_player_entitlements_batch(
+    db: Any,
+    steam_ids: list[str],
+) -> dict[str, list[dict[str, Any]]]:
+    """Entitlements activos para vários SteamIDs numa única query (lista admin)."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    norm_ids: list[str] = []
+    for raw in steam_ids:
+        sid = _normalize_steam_id64(raw) or str(raw or "").strip()
+        if not sid:
+            continue
+        out.setdefault(sid, [])
+        if sid not in norm_ids:
+            norm_ids.append(sid)
+    if not norm_ids:
+        return out
+    try:
+        _ensure_entitlements_schema(db)
+        expires_clause = (
+            "(expires IS NULL OR expires > NOW())"
+            if _is_mysql_engine(db)
+            else "(expires IS NULL OR expires > datetime('now'))"
+        )
+        params: dict[str, Any] = {}
+        placeholders: list[str] = []
+        for i, sid in enumerate(norm_ids):
+            key = f"sid{i}"
+            params[key] = sid
+            placeholders.append(f":{key}")
+        rows = db.execute(
+            text(
+                f"SELECT steam_id, group_name, expires, source, notes, created_at "
+                f"FROM player_entitlements "
+                f"WHERE steam_id IN ({', '.join(placeholders)}) AND {expires_clause} "
+                f"ORDER BY steam_id ASC, expires IS NULL DESC, expires ASC"
+            ),
+            params,
+        ).fetchall()
+        by_sid: dict[str, list[Any]] = {sid: [] for sid in norm_ids}
+        for row in rows:
+            sid = _normalize_steam_id64(row[0]) or str(row[0] or "").strip()
+            if sid not in by_sid:
+                by_sid[sid] = []
+            by_sid[sid].append(row)
+        for sid, sid_rows in by_sid.items():
+            out[sid] = _entitlement_rows_to_list(sid_rows, group_idx=1)
+        return out
+    except Exception as exc:
+        _log_error("get_player_entitlements_batch", error=str(exc), count=len(norm_ids))
+        return {sid: _get_player_entitlements(sid, db=db) for sid in norm_ids}
 
 
 def _compute_timed_points_total(groups: list[str]) -> int:
@@ -4918,7 +4978,11 @@ def _admin_steam_persona_meta(
     return meta
 
 
-def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
+def _fetch_steam_persona_names_batch(
+    steam_ids: list[str],
+    *,
+    timeout: float = 12.0,
+) -> dict[str, str]:
     """Persona Steam em lote (até 100 por request); requer STEAM_API_KEY."""
     api_key = _get_steam_api_key()
     if not api_key:
@@ -4934,6 +4998,7 @@ def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
     if not valid:
         return {}
     result: dict[str, str] = {}
+    req_timeout = max(2.0, float(timeout))
     for i in range(0, len(valid), _STEAM_PERSONA_BATCH_SIZE):
         chunk = valid[i : i + _STEAM_PERSONA_BATCH_SIZE]
         ids_param = ",".join(chunk)
@@ -4944,7 +5009,7 @@ def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
         )
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "arkshop-web"}, method="GET")
-            with urllib.request.urlopen(req, timeout=12) as response:
+            with urllib.request.urlopen(req, timeout=req_timeout) as response:
                 data = json.loads(response.read().decode("utf-8", errors="replace"))
             response_block = data.get("response") or {}
             api_error = response_block.get("error") or data.get("error")
@@ -5056,15 +5121,47 @@ def _backfill_steam_personas(
     *,
     return_status: bool = False,
 ) -> dict[str, str] | tuple[dict[str, str], dict[str, Any]]:
-    """Admin list: sempre busca nick Steam em lote e sobrescreve cache."""
-    steam_ids: list[str] = []
+    """Admin list: usa cache DB; só chama Steam API para IDs sem persona válida (timeout curto)."""
+    cached: dict[str, str] = {}
+    missing: list[str] = []
     seen: set[str] = set()
-    for raw, _ in entries:
+    for raw, cached_persona in entries:
         sid = _normalize_steam_id64(raw)
-        if sid and sid not in seen:
-            seen.add(sid)
-            steam_ids.append(sid)
-    return _refresh_steam_personas(db, steam_ids, return_status=return_status)
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        persona = (str(cached_persona).strip() if cached_persona else "") or None
+        if persona and persona != sid:
+            cached[sid] = persona
+        else:
+            missing.append(sid)
+
+    fetched: dict[str, str] = {}
+    if missing and _steam_api_key_configured():
+        fetched = _fetch_steam_persona_names_batch(missing, timeout=4.0)
+        if fetched:
+            _persist_steam_personas_isolated(fetched)
+    elif missing and not _steam_api_key_configured():
+        _warn_steam_api_key_missing("backfill_steam_personas")
+
+    resolved = {**cached, **fetched}
+    meta: dict[str, Any] = {
+        "steam_api_configured": _steam_api_key_configured(),
+        "steam_persona_warning": None,
+    }
+    if missing:
+        if not _steam_api_key_configured():
+            meta["steam_persona_warning"] = _STEAM_PERSONA_ADMIN_WARNING
+        elif not fetched:
+            meta["steam_persona_warning"] = _STEAM_PERSONA_FETCH_WARNING
+        else:
+            still_missing = [sid for sid in missing if sid not in fetched]
+            if still_missing:
+                meta["steam_persona_warning"] = (
+                    f"Nick Steam parcial: {len(fetched)}/{len(missing)} obtidos via API. "
+                    "Perfis privados ou indisponíveis exibem …últimos dígitos do SteamID."
+                )
+    return (resolved, meta) if return_status else resolved
 
 
 def _fetch_steam_persona_name(steam_id: str) -> str | None:

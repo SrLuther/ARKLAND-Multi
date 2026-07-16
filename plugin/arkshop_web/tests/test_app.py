@@ -2546,7 +2546,7 @@ class TestAdminPlayersSteamBackfill:
         assert f"steamids={ADMIN_STEAM},{USER_STEAM}" in captured[0]
         assert "%2C" not in captured[0]
 
-    def test_list_players_always_refreshes_from_api(self, client, monkeypatch):
+    def test_list_players_uses_cached_persona_without_api(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
         db = _app_module._SessionLocal()
         try:
@@ -2557,15 +2557,19 @@ class TestAdminPlayersSteamBackfill:
             db.close()
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
-        monkeypatch.setattr(
-            _app_module,
-            "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {},
-        )
+        calls: list[list[str]] = []
+
+        def _fake_fetch(ids, timeout=12.0):
+            calls.append(list(ids))
+            return {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {}
+
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _fake_fetch)
         d = client.get("/api/admin/players").get_json()
         row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
-        assert row["steam_persona"] == "Cyanø"
-        assert row["display_name"] == "Cyanø"
+        assert row["steam_persona"] == "Ciano_STAFF"
+        assert row["display_name"] == "Ciano_STAFF"
+        assert calls == []
+        assert d.get("steam_persona_warning") in (None, "")
 
     def test_list_players_backfills_steam_persona(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name=USER_STEAM)
@@ -2574,7 +2578,7 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {},
+            lambda ids, timeout=12.0: {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {},
         )
         d = client.get("/api/admin/players").get_json()
         row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
@@ -2601,7 +2605,11 @@ class TestAdminPlayersSteamBackfill:
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
-        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", lambda _ids: {})
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda _ids, timeout=12.0: {},
+        )
         d = client.get("/api/admin/players").get_json()
         assert d.get("steam_api_configured") is True
         assert d.get("steam_persona_warning")
@@ -2613,7 +2621,7 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "NickBR"} if USER_STEAM in ids else {},
+            lambda ids, timeout=12.0: {USER_STEAM: "NickBR"} if USER_STEAM in ids else {},
         )
 
         def _boom(_db, _m):
@@ -2640,7 +2648,7 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "NickWithSpaceKey"} if USER_STEAM in ids else {},
+            lambda ids, timeout=12.0: {USER_STEAM: "NickWithSpaceKey"} if USER_STEAM in ids else {},
         )
         d = client.get("/api/admin/players").get_json()
         row = next(p for p in d["items"] if USER_STEAM in str(p["steam_id"]))

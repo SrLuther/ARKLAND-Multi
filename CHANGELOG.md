@@ -7,6 +7,12 @@
 
 ## [Unreleased] - 
 
+## [1.10.50] - 2026-07-16
+
+### Fix
+
+- Fix (Web Store / Admin): Gerenciar Jogadores — timeout 15s; lista usa cache de nick Steam (API só para missing, timeout 4s) e entitlements em lote em vez de N+1.
+
 ## [1.10.49] - 2026-07-16
 
 ### Feature
