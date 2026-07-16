@@ -3,12 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.44"
+APP_VERSION: str = "1.10.45"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.45",
+        "date": "2026-07-15",
+        "changes": [
+            "Fix (TEK): restaura Iniciar/Parar/Reiniciar quebrados na 1.10.44 — scan de reconnect chamava callback de status COM o lock preso; o callback reentrava em clear_force_day_pending e deadlockava a thread (UI congelava / botões «não faziam nada»).",
+            "Fix (TEK): defer de notify RUNNING/STOPPED para fora do lock no attach e no reconcile de ghosts; mantém scan multi-estratégia.",
+            "Fix (TEK / UI): pós-reconnect volta ao refresh leve (sem destruir todos os cards) — evita widgets mortos sob clique.",
+            "Melhoria (TEK): lifecycle start/stop/restart passa a logar a mensagem de on_done (fim do no-op silencioso «já em execução»).",
+            "Test (TEK): regressão de deadlock status-callback+lock no scan/reconcile.",
+        ],
+    },
     {
         "version": "1.10.44",
         "date": "2026-07-15",

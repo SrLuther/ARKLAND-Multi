@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.45] - 2026-07-15
+
+### Improvement
+
+- Melhoria (TEK): lifecycle start/stop/restart passa a logar a mensagem de on_done (fim do no-op silencioso «já em execução»).
+
+### Fix
+
+- Fix (TEK): restaura Iniciar/Parar/Reiniciar quebrados na 1.10.44 — scan de reconnect chamava callback de status COM o lock preso; o callback reentrava em clear_force_day_pending e deadlockava a thread (UI congelava / botões «não faziam nada»).
+- Fix (TEK): defer de notify RUNNING/STOPPED para fora do lock no attach e no reconcile de ghosts; mantém scan multi-estratégia.
+- Fix (TEK / UI): pós-reconnect volta ao refresh leve (sem destruir todos os cards) — evita widgets mortos sob clique.
+
+### Other
+
+- Test (TEK): regressão de deadlock status-callback+lock no scan/reconcile.
+
 ## [1.10.44] - 2026-07-15
 
 ### Fix

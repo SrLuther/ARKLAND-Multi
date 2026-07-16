@@ -497,6 +497,16 @@ def _build_bulk_bar(app: "ARKServerManagerApp") -> None:
 
     def _bulk_start():
         import threading
+        # #region agent log
+        try:
+            from .._agent_debug_log import agent_dbg
+            _sel = list(getattr(app, "_asm_selected_servers", set()) or [])
+            agent_dbg("D", "asm_dashboard.py:_bulk_start", "bulk start clicked", {
+                "selected_count": len(_sel), "selected": _sel[:8],
+            })
+        except Exception:
+            pass
+        # #endregion
         for sid in list(app._asm_selected_servers):
             srv = app.asm_config_manager.get_server(sid)
             if srv:

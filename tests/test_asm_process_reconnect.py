@@ -5,6 +5,7 @@ from src.asm_engine.asm_server_config import (
     AsmServerConfig,
     ASM_STATUS_CRASHED,
     ASM_STATUS_RUNNING,
+    ASM_STATUS_STOPPED,
 )
 from src.asm_engine.asm_server_manager import (
     AsmServerManager,
@@ -559,3 +560,125 @@ def test_ghost_running_poll_dead_cleared(monkeypatch):
     assert n == 0
     assert m.count_running([cfg]) == 0
     assert m.get_instance("ghost").status != ASM_STATUS_RUNNING
+
+
+def test_status_callback_under_scan_does_not_deadlock(monkeypatch):
+    """Regressão v1.10.44: attach/reconcile com lock + clear_force_day no callback = freeze UI.
+
+    Simula o caminho real de app_tek._on_server_status_change (clear_force_day_pending
+    reentra em self._lock). Sem o defer de notify, scan trava e Iniciar/Parar travam.
+    """
+    import threading
+
+    import src.asm_engine.asm_server_manager as mgr
+
+    class _FakePsutil:
+        NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def is_running(self) -> bool:
+                return True
+
+            def status(self) -> str:
+                return "running"
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def create_time(self) -> float:
+                return 1.0
+
+            def exe(self) -> str:
+                return r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+
+            def cmdline(self) -> list:
+                return ["ShooterGameServer.exe", "TheIsland?Port=7777?QueryPort=27015"]
+
+        @staticmethod
+        def process_iter(attrs):  # noqa: ARG001
+            class _Info:
+                info = {
+                    "pid": 4242,
+                    "name": "ShooterGameServer.exe",
+                    "exe": r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe",
+                    "cmdline": ["ShooterGameServer.exe", "TheIsland?Port=7777?QueryPort=27015"],
+                    "create_time": 1.0,
+                }
+
+            return [_Info()]
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
+    monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+
+    holder: dict = {}
+
+    def _on_status(server_id: str, status: str) -> None:
+        # Mesmo padrão do app TEK: callback sincronamente toca o lock do manager.
+        m = holder["m"]
+        if status == ASM_STATUS_RUNNING:
+            m.clear_force_day_pending(server_id)
+        elif status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
+            m.clear_force_day_pending(server_id)
+
+    m = AsmServerManager(on_status_change=_on_status)
+    holder["m"] = m
+    cfg = _cfg(id="lock-test")
+    m.register_servers([cfg])
+
+    done = threading.Event()
+    result: dict = {"n": -1, "err": None}
+
+    def _run() -> None:
+        try:
+            result["n"] = m.scan_running_servers([cfg])
+        except Exception as exc:  # pragma: no cover
+            result["err"] = exc
+        finally:
+            done.set()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    assert done.wait(timeout=5.0), "scan_running_servers deadlocked (status callback + lock)"
+    assert result["err"] is None
+    assert result["n"] == 1
+    assert m.count_running([cfg]) == 1
+
+    # Ghost reconcile com o mesmo callback também não pode travar.
+    class _Dead:
+        pid = 4242
+
+        def poll(self):
+            return -1
+
+    monkeypatch.setattr(
+        _FakePsutil,
+        "process_iter",
+        staticmethod(lambda attrs: []),  # noqa: ARG005
+    )
+    inst = m.get_instance("lock-test")
+    assert inst is not None
+    inst.status = ASM_STATUS_RUNNING
+    inst._proc = _Dead()
+    done2 = threading.Event()
+    result2: dict = {"n": -1}
+
+    def _run_ghost() -> None:
+        result2["n"] = m.scan_running_servers([cfg])
+        done2.set()
+
+    threading.Thread(target=_run_ghost, daemon=True).start()
+    assert done2.wait(timeout=5.0), "ghost reconcile deadlocked"
+    assert m.count_running([cfg]) == 0
+    assert m.get_instance("lock-test").status == ASM_STATUS_STOPPED

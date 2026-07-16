@@ -48,6 +48,19 @@ class ARKServerManagerApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
+        # #region agent log
+        try:
+            from ._agent_debug_log import agent_dbg
+            agent_dbg(
+                "BOOT",
+                "app_tek.py:__init__",
+                "instrumented TEK boot",
+                {"APP_VERSION": APP_VERSION, "main": __file__},
+            )
+        except Exception:
+            pass
+        # #endregion
+
         self._frame_cache: Dict[str, Any] = {}
 
         # ── Carrega preferência de variante de tema (persiste entre sessões) ──
@@ -532,16 +545,9 @@ class ARKServerManagerApp(ctk.CTk):
 
             def _refresh() -> None:
                 live_now = self.asm_server_manager.count_running(servers)
-                # Força cards + stats + sidebar do MESMO count_running (sem ghost ONLINE)
-                try:
-                    from .asm_ui.asm_dashboard import (
-                        _rebuild_all_cards,
-                        refresh_dashboard_metrics,
-                    )
-                    _rebuild_all_cards(self)
-                    refresh_dashboard_metrics(self)
-                except Exception:
-                    self._asm_refresh_dashboard(immediate=True)
+                # Refresh leve + sidebar (status callbacks já reconstroem cards).
+                # Evita _rebuild_all_cards em massa — destruía widgets sob clique.
+                self._asm_refresh_dashboard(immediate=True)
                 self._rebuild_server_sidebar(immediate=True)
                 if live_now:
                     self._global_log(
@@ -633,6 +639,8 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _asm_after_server_lifecycle(self, ok: bool, msg: str) -> None:
         self._asm_refresh_dashboard()
+        if msg:
+            self._global_log(msg, "info" if ok else "warning")
         if ok:
             self._sync_server_snapshots_to_webstore()
 
@@ -1205,9 +1213,32 @@ class ARKServerManagerApp(ctk.CTk):
     def _asm_start_server(self, srv: AsmServerConfig, no_mods: bool = False) -> None:
         from tkinter import messagebox
 
+        # #region agent log
+        try:
+            import threading as _dth
+            from ._agent_debug_log import agent_dbg
+            agent_dbg("B,D", "app_tek.py:_asm_start_server:entry", "start clicked", {
+                "server": getattr(srv, "name", None),
+                "sid": getattr(srv, "id", None),
+                "thread": _dth.current_thread().name,
+                "no_mods": no_mods,
+            })
+        except Exception:
+            pass
+        # #endregion
+
         srv = self._asm_persist_server(srv)
         errors = self._validate_server_config(srv)
         if errors:
+            # #region agent log
+            try:
+                from ._agent_debug_log import agent_dbg
+                agent_dbg("C", "app_tek.py:_asm_start_server:validate_fail", "blocked by validation", {
+                    "server": srv.name, "errors": list(errors)[:5],
+                })
+            except Exception:
+                pass
+            # #endregion
             msg = "\n\n".join(f"• {e}" for e in errors)
             messagebox.showerror(
                 "Configuração Incompleta",
@@ -1219,6 +1250,15 @@ class ARKServerManagerApp(ctk.CTk):
 
         conflicts = self._check_port_conflicts(srv)
         if conflicts:
+            # #region agent log
+            try:
+                from ._agent_debug_log import agent_dbg
+                agent_dbg("C", "app_tek.py:_asm_start_server:port_conflict", "blocked by port conflict", {
+                    "server": srv.name, "conflicts": [(p, l) for p, l in conflicts],
+                })
+            except Exception:
+                pass
+            # #endregion
             msg = "\n".join(f"• Porta {p} ({label}) já está em uso" for p, label in conflicts)
             messagebox.showwarning(
                 "Conflito de Portas",
@@ -1282,6 +1322,17 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _asm_stop_server(self, server_id: str) -> None:
         from .pages.asm_scheduled_shutdown import cancel_shutdown
+
+        # #region agent log
+        try:
+            import threading as _dth
+            from ._agent_debug_log import agent_dbg
+            agent_dbg("B,D", "app_tek.py:_asm_stop_server:entry", "stop clicked", {
+                "sid": server_id, "thread": _dth.current_thread().name,
+            })
+        except Exception:
+            pass
+        # #endregion
 
         cancel_shutdown(self, server_id)
         self.asm_server_manager.stop(

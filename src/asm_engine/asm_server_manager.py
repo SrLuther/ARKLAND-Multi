@@ -555,6 +555,17 @@ class AsmServerManager:
             return False
 
     def clear_force_day_pending(self, server_id: str) -> None:
+        # #region agent log
+        try:
+            from .._agent_debug_log import agent_dbg
+            agent_dbg("A", "asm_server_manager.py:clear_force_day_pending", "clear_force_day enter", {
+                "sid": server_id,
+                "lock_held_before": self._lock.locked() if hasattr(self._lock, "locked") else None,
+                "thread": threading.current_thread().name,
+            })
+        except Exception:
+            pass
+        # #endregion
         with self._lock:
             self._force_day_pending.discard(server_id)
 
@@ -596,7 +607,23 @@ class AsmServerManager:
                 n += 1
         return n
 
-    def _mark_stopped(self, cfg: AsmServerConfig, reason: str = "") -> None:
+    def _notify_status(self, server_id: str, status: str) -> None:
+        """Emite status FORA de self._lock — callback UI/app pode reentrar no lock."""
+        cb = self._on_status
+        if not cb:
+            return
+        try:
+            cb(server_id, status)
+        except Exception:
+            pass
+
+    def _mark_stopped(
+        self,
+        cfg: AsmServerConfig,
+        reason: str = "",
+        *,
+        notify: bool = True,
+    ) -> None:
         inst = self._instances.get(cfg.id)
         if not inst:
             return
@@ -604,8 +631,6 @@ class AsmServerManager:
         inst.status = ASM_STATUS_STOPPED
         inst.uptime_start = None
         self._stop_steam_watcher(cfg.id)
-        if self._on_status:
-            self._on_status(cfg.id, ASM_STATUS_STOPPED)
         if reason:
             try:
                 self._on_log(
@@ -614,10 +639,12 @@ class AsmServerManager:
                 )
             except Exception:
                 pass
+        if notify:
+            self._notify_status(cfg.id, ASM_STATUS_STOPPED)
 
     def _reconcile_ghosts(self, servers: List[AsmServerConfig]) -> int:
         """RUNNING sem processo vivo → STOPPED. Retorna quantos limpou."""
-        cleared = 0
+        cleared_ids: List[str] = []
         for cfg in servers:
             inst = self._instances.get(cfg.id)
             if not inst or inst.status != ASM_STATUS_RUNNING:
@@ -627,9 +654,12 @@ class AsmServerManager:
             if dead:
                 with self._lock:
                     if inst.status == ASM_STATUS_RUNNING:
-                        self._mark_stopped(cfg, "poll morto / sem PID")
-                        cleared += 1
-        return cleared
+                        # notify=False: _on_status → clear_force_day_pending precisa do lock
+                        self._mark_stopped(cfg, "poll morto / sem PID", notify=False)
+                        cleared_ids.append(cfg.id)
+        for sid in cleared_ids:
+            self._notify_status(sid, ASM_STATUS_STOPPED)
+        return len(cleared_ids)
 
     def _attach_running_process(
         self,
@@ -638,8 +668,13 @@ class AsmServerManager:
         create_time: Optional[float],
         *,
         strategy: str = "",
+        notify: bool = True,
     ) -> bool:
-        """Anexa PID ao instance STOPPED. Caller já segura _lock ou status."""
+        """Anexa PID ao instance STOPPED.
+
+        Com notify=False o caller DEVE emitir RUNNING fora do lock (evita deadlock
+        com clear_force_day_pending / force_day no callback de status).
+        """
         if not _PSUTIL_OK or _psutil is None:
             return False
         inst = self._instances.get(cfg.id)
@@ -651,8 +686,6 @@ class AsmServerManager:
             inst.cfg = cfg
             inst.status = ASM_STATUS_RUNNING
             inst.uptime_start = float(create_time or time.time())
-            if self._on_status:
-                self._on_status(cfg.id, ASM_STATUS_RUNNING)
             self._start_monitor(inst)
             self._start_steam_watcher(inst)
             try:
@@ -669,6 +702,8 @@ class AsmServerManager:
                     )
                 except Exception:
                     pass
+            if notify:
+                self._notify_status(cfg.id, ASM_STATUS_RUNNING)
             return True
         except Exception:
             return False
@@ -869,12 +904,14 @@ class AsmServerManager:
                 except Exception:
                     pass
 
-        # Anexa por score desc; um PID só para um mapa
+        # Anexa por score desc; um PID só para um mapa.
+        # Status callback SEMPRE fora do lock (app_tek.clear_force_day_pending reentra).
         ordered = sorted(
             ((sid, score, pid, strat, ct) for sid, (score, pid, strat, ct) in best.items()),
             key=lambda row: (-row[1], row[0]),
         )
         used_pids: Set[int] = set(claimed)
+        attached: List[str] = []
         for sid, _score, pid, strat, ct in ordered:
             if pid in used_pids:
                 continue
@@ -882,9 +919,15 @@ class AsmServerManager:
             if cfg is None:
                 continue
             with self._lock:
-                if self._attach_running_process(cfg, pid, ct, strategy=strat):
-                    used_pids.add(pid)
-                    reconnected += 1
+                ok = self._attach_running_process(
+                    cfg, pid, ct, strategy=strat, notify=False
+                )
+            if ok:
+                used_pids.add(pid)
+                attached.append(cfg.id)
+                reconnected += 1
+        for sid in attached:
+            self._notify_status(sid, ASM_STATUS_RUNNING)
 
         return reconnected
 
@@ -901,6 +944,15 @@ class AsmServerManager:
         Args:
             on_done: callback(success: bool, message: str) — chamado ao terminar
         """
+        # #region agent log
+        try:
+            from .._agent_debug_log import agent_dbg
+            agent_dbg("A,B,E", "asm_server_manager.py:start:entry", "manager.start", {
+                "name": cfg.name, "sid": cfg.id, "thread": threading.current_thread().name,
+            })
+        except Exception:
+            pass
+        # #endregion
         if not cfg.install_dir:
             if on_done:
                 on_done(False, "install_dir não configurado")
@@ -909,6 +961,15 @@ class AsmServerManager:
         with self._lock:
             inst = self._instances.setdefault(cfg.id, AsmServerInstance(cfg))
             if inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
+                # #region agent log
+                try:
+                    from .._agent_debug_log import agent_dbg
+                    agent_dbg("E", "asm_server_manager.py:start:already_running", "early return already running", {
+                        "name": cfg.name, "status": inst.status,
+                    })
+                except Exception:
+                    pass
+                # #endregion
                 if on_done:
                     on_done(False, "Servidor já em execução")
                 return
@@ -926,7 +987,25 @@ class AsmServerManager:
         from ..ark_server_files import write_allowed_cheater_steam_ids_safe
         write_allowed_cheater_steam_ids_safe(cfg.install_dir, list(cfg.admin_ids or []))
 
+        # #region agent log
+        try:
+            from .._agent_debug_log import agent_dbg
+            agent_dbg("A,B", "asm_server_manager.py:start:before_reconnect", "calling try_reconnect_server", {
+                "name": cfg.name, "status": inst.status,
+            })
+        except Exception:
+            pass
+        # #endregion
         if inst.status == ASM_STATUS_STOPPED and self.try_reconnect_server(cfg):
+            # #region agent log
+            try:
+                from .._agent_debug_log import agent_dbg
+                agent_dbg("E", "asm_server_manager.py:start:reconnect_ok", "reconnect instead of launch", {
+                    "name": cfg.name,
+                })
+            except Exception:
+                pass
+            # #endregion
             if on_done:
                 on_done(
                     True,
