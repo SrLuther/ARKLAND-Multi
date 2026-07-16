@@ -1399,6 +1399,10 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("ItensAlfa licenses (sqlite dev): migrate falhou: %s", exc)
         try:
+            _repair_entitlement_sku_group_names(engine)
+        except Exception as exc:
+            log.warning("entitlement SKU repair (sqlite dev): %s", exc)
+        try:
             from home_notice_service import ensure_home_notice_schema
 
             ensure_home_notice_schema(engine)
@@ -1573,6 +1577,10 @@ def _migrate_schema(engine: Any) -> None:
         ensure_itensalfa_licenses_schema(engine)
     except Exception as exc:
         log.warning("ItensAlfa licenses: migrate falhou: %s", exc)
+    try:
+        _repair_entitlement_sku_group_names(engine)
+    except Exception as exc:
+        log.warning("entitlement SKU repair: %s", exc)
     try:
         from home_notice_service import ensure_home_notice_schema
 
@@ -2340,10 +2348,10 @@ def _is_catalog_license_item(entry: dict[str, Any], item_id: str = "") -> bool:
 def _catalog_license_group(entry: dict[str, Any], item_id: str) -> str:
     lic = _get_license_grant(entry, item_id)
     if lic and str(lic.get("Group") or "").strip():
-        return str(lic["Group"]).strip()
+        return _normalize_entitlement_group(str(lic["Group"]).strip())
     for perm in _parse_permissions_field(entry):
         if perm not in _LICENSE_GROUP_SKIP:
-            return perm
+            return _normalize_entitlement_group(perm)
     key = str(item_id or "").strip().lower()
     if key.startswith("licenca_"):
         suffix = key[8:]
@@ -2355,6 +2363,8 @@ def _catalog_license_group(entry: dict[str, Any], item_id: str) -> str:
         if len(parts) == 2 and parts[0] == "vip":
             tier = parts[1]
             return "VIP" + (tier[:1].upper() + tier[1:] if tier else "")
+        # Nunca persistir SKU `licenca_*` como PermissionGroup.
+        return ""
     return str(item_id or "").strip()
 
 
@@ -2569,7 +2579,7 @@ def _admin_player_license(
     reason: str = "",
 ) -> dict[str, Any]:
     steam_id = str(steam_id or "").strip()
-    group = str(group or "").strip()
+    group = _normalize_entitlement_group(str(group or "").strip())
     if not _is_valid_steamid64(steam_id):
         return {"ok": False, "error": "SteamID64 inválido"}
     if not group:
@@ -2642,7 +2652,7 @@ def _staff_role_catalog() -> list[dict[str, Any]]:
         out.append({
             "group": group,
             "label": STAFF_ROLE_LABELS.get(group, group),
-            "timed_bonus": LICENSE_TIMED_BONUS.get(group, 0),
+            "timed_bonus": _timed_points_bonus_for_group(group),
             "permanent": True,
         })
     return out
@@ -3863,6 +3873,153 @@ def _license_group_from_item_id(item_id: str) -> str:
     return _LICENSE_ID_GROUP_FALLBACK.get(suffix, "")
 
 
+def _normalize_entitlement_group(group: str) -> str:
+    """SKU `licenca_delta` / aliases → PermissionGroup canónico (`Delta`).
+
+    `group_name` em player_entitlements deve ser o grupo Permissions/TimedPoints,
+    nunca o ID de catálogo. keyvault e cargos ficam intactos.
+    """
+    g = str(group or "").strip()
+    if not g:
+        return ""
+    if g in PAID_LICENSE_GROUPS or g in LICENSE_TIMED_BONUS or g == "keyvault":
+        return g
+    if _is_staff_role_group(g):
+        return "Moderacao" if g in ("Mod", "MOD") else g
+    from_sku = _license_group_from_item_id(g)
+    if from_sku:
+        return from_sku
+    mapped = _LICENSE_ID_GROUP_FALLBACK.get(g.lower())
+    if mapped:
+        return mapped
+    return g
+
+
+def _timed_points_groups_amounts() -> dict[str, int]:
+    """Amount por grupo a partir de TimedPointsReward.Groups (fonte de verdade do plugin)."""
+    data = _read_shop_config()
+    raw = (data.get("TimedPointsReward") or {}).get("Groups") or {}
+    out: dict[str, int] = {}
+    if not isinstance(raw, dict):
+        return out
+    for key, val in raw.items():
+        if not isinstance(val, dict):
+            continue
+        try:
+            out[str(key)] = int(val.get("Amount", 0) or 0)
+        except (TypeError, ValueError):
+            out[str(key)] = 0
+    return out
+
+
+def _timed_points_bonus_for_group(group: str) -> int:
+    """Bónus Â/ciclo do grupo (SKU normalizado). keyvault sem TimedPoints → 0."""
+    canonical = _normalize_entitlement_group(group)
+    if not canonical:
+        return 0
+    amounts = _timed_points_groups_amounts()
+    if canonical in amounts:
+        return max(0, int(amounts[canonical]))
+    return max(0, int(LICENSE_TIMED_BONUS.get(canonical, 0) or 0))
+
+
+def _repair_entitlement_sku_group_names(engine: Any) -> int:
+    """Migra group_name SKU (`licenca_*`) → PermissionGroup; funde se já existir canónico."""
+    if engine is None:
+        return 0
+    repaired = 0
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT steam_id, group_name, expires, source, notes "
+                    "FROM player_entitlements"
+                )
+            ).fetchall()
+            for row in rows:
+                steam_id = str(row[0])
+                raw_group = str(row[1] or "")
+                canonical = _normalize_entitlement_group(raw_group)
+                if not canonical or canonical == raw_group:
+                    continue
+                expires, source, notes = row[2], row[3], row[4]
+                existing = conn.execute(
+                    text(
+                        "SELECT expires, source, notes FROM player_entitlements "
+                        "WHERE steam_id = :sid AND group_name = :grp"
+                    ),
+                    {"sid": steam_id, "grp": canonical},
+                ).fetchone()
+                if existing:
+                    # Mantém o expires mais tarde (None = permanente vence).
+                    keep_exp = existing[0]
+                    sku_exp = expires
+                    if keep_exp is None:
+                        pass
+                    elif sku_exp is None:
+                        conn.execute(
+                            text(
+                                "UPDATE player_entitlements SET expires = NULL, "
+                                "source = :src, notes = :notes "
+                                "WHERE steam_id = :sid AND group_name = :grp"
+                            ),
+                            {
+                                "sid": steam_id,
+                                "grp": canonical,
+                                "src": source or existing[1],
+                                "notes": notes or existing[2],
+                            },
+                        )
+                    else:
+                        # Compara como string ISO / datetime — GREATEST no SQL.
+                        conn.execute(
+                            text(
+                                "UPDATE player_entitlements SET "
+                                "expires = CASE "
+                                "  WHEN expires IS NULL THEN NULL "
+                                "  WHEN :sku_exp IS NULL THEN NULL "
+                                "  WHEN expires < :sku_exp THEN :sku_exp "
+                                "  ELSE expires END, "
+                                "source = COALESCE(NULLIF(:src, ''), source), "
+                                "notes = COALESCE(NULLIF(:notes, ''), notes) "
+                                "WHERE steam_id = :sid AND group_name = :grp"
+                            ),
+                            {
+                                "sid": steam_id,
+                                "grp": canonical,
+                                "sku_exp": sku_exp,
+                                "src": source or "",
+                                "notes": notes or "",
+                            },
+                        )
+                    conn.execute(
+                        text(
+                            "DELETE FROM player_entitlements "
+                            "WHERE steam_id = :sid AND group_name = :grp"
+                        ),
+                        {"sid": steam_id, "grp": raw_group},
+                    )
+                else:
+                    conn.execute(
+                        text(
+                            "UPDATE player_entitlements SET group_name = :canon "
+                            "WHERE steam_id = :sid AND group_name = :raw"
+                        ),
+                        {"canon": canonical, "sid": steam_id, "raw": raw_group},
+                    )
+                repaired += 1
+                log.info(
+                    "entitlement SKU repair: %s %r → %r",
+                    steam_id, raw_group, canonical,
+                )
+    except Exception as exc:
+        log.warning("entitlement SKU group repair falhou: %s", exc)
+        return 0
+    if repaired:
+        log.info("entitlement SKU group repair: %s row(s) normalizada(s)", repaired)
+    return repaired
+
+
 def _days_since_license_expiry(steam_id: str, group: str) -> int | None:
     """Dias desde o vencimento da última entitlement do grupo; None se nunca teve / ainda ativa."""
     if not group or not _db_ready():
@@ -3985,22 +4142,29 @@ def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
         if _is_mysql_engine(db)
         else "(expires IS NULL OR expires > datetime('now'))"
     )
-    paid_list = ", ".join(f"'{g}'" for g in sorted(PAID_LICENSE_GROUPS))
+    # Inclui SKUs legado (`licenca_delta`) — normaliza para o PermissionGroup.
     rows = db.execute(
         text(
             "SELECT group_name FROM player_entitlements "
-            f"WHERE steam_id = :sid AND group_name IN ({paid_list}) "
-            f"AND {expires_clause}"
+            f"WHERE steam_id = :sid AND {expires_clause}"
         ),
         {"sid": str(steam_id)},
     ).fetchall()
-    return {str(r[0]) for r in rows if r and r[0]}
+    out: set[str] = set()
+    for r in rows:
+        if not r or not r[0]:
+            continue
+        g = _normalize_entitlement_group(str(r[0]))
+        if g in PAID_LICENSE_GROUPS:
+            out.add(g)
+    return out
 
 
 def _can_accept_paid_license_tx(
     db: Any, steam_id: str, group: str,
 ) -> tuple[bool, str]:
     """Mesmo tier → renovação OK; tier novo só se slots activos < máx. 2."""
+    group = _normalize_entitlement_group(str(group))
     if group not in PAID_LICENSE_GROUPS:
         return True, ""
     active = _active_paid_license_groups_tx(db, steam_id)
@@ -4023,7 +4187,10 @@ def _apply_entitlement_grant_tx(
 ) -> list[str]:
     """Grant/stack entitlement e restaura limites de kits dependentes. Retorna kit_ids resetados."""
     _ensure_entitlements_schema(db)
-    ok_slot, slot_err = _can_accept_paid_license_tx(db, str(steam_id), str(group))
+    group = _normalize_entitlement_group(str(group))
+    if not group:
+        raise ValueError("Grupo de licença inválido ou vazio")
+    ok_slot, slot_err = _can_accept_paid_license_tx(db, str(steam_id), group)
     if not ok_slot:
         raise ValueError(slot_err)
     params = {
@@ -4107,10 +4274,13 @@ def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[
             ),
             {"sid": str(steam_id)},
         ).fetchall()
-        out: list[dict[str, Any]] = []
+        # Dedup por grupo canónico (legado com SKU `licenca_*` + tier correcto).
+        by_group: dict[str, dict[str, Any]] = {}
         for row in rows:
-            grp = str(row[0])
-            bonus = LICENSE_TIMED_BONUS.get(grp, 0)
+            grp = _normalize_entitlement_group(str(row[0]))
+            if not grp:
+                continue
+            bonus = _timed_points_bonus_for_group(grp)
             exp_raw = row[1]
             if exp_raw is not None and hasattr(exp_raw, "isoformat"):
                 exp_iso = exp_raw.isoformat()
@@ -4118,15 +4288,26 @@ def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[
                 exp_iso = str(exp_raw)
             else:
                 exp_iso = None
-            out.append({
+            entry = {
                 "group": grp,
                 "expires_at": exp_iso,
                 "permanent": row[1] is None,
                 "source": row[2],
                 "notes": row[3],
                 "timed_points_bonus": bonus,
-            })
-        return out
+            }
+            prev = by_group.get(grp)
+            if prev is None:
+                by_group[grp] = entry
+                continue
+            # Permanente vence; senão fica o expires mais tarde.
+            if entry["permanent"]:
+                by_group[grp] = entry
+            elif not prev["permanent"] and (entry["expires_at"] or "") > (
+                prev["expires_at"] or ""
+            ):
+                by_group[grp] = entry
+        return list(by_group.values())
     except Exception as exc:
         _log_error("get_player_entitlements", steam_id=steam_id, error=str(exc))
         return []
@@ -4137,12 +4318,14 @@ def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[
 
 def _compute_timed_points_total(groups: list[str]) -> int:
     """Default + bónus não-pagos empilham; entre tiers pagos vence o maior bónus."""
-    total = LICENSE_TIMED_BONUS.get("Default", 25)
+    amounts = _timed_points_groups_amounts()
+    total = int(amounts.get("Default", LICENSE_TIMED_BONUS.get("Default", 25)) or 25)
     best_paid = 0
-    for g in groups:
-        if g == "Default":
+    for raw in groups:
+        g = _normalize_entitlement_group(str(raw))
+        if not g or g == "Default":
             continue
-        bonus = int(LICENSE_TIMED_BONUS.get(g, 0) or 0)
+        bonus = _timed_points_bonus_for_group(g)
         if g in PAID_LICENSE_GROUPS:
             if bonus > best_paid:
                 best_paid = bonus
@@ -4415,10 +4598,20 @@ def _revoke_player_entitlement_by_group(
         db = _SessionLocal()
     try:
         _ensure_entitlements_schema(db)
-        db.execute(
-            text("DELETE FROM player_entitlements WHERE steam_id = :sid AND group_name = :grp"),
-            {"sid": str(steam_id), "grp": str(group)},
-        )
+        canonical = _normalize_entitlement_group(str(group))
+        names = {str(group), canonical}
+        if canonical in PAID_LICENSE_GROUPS:
+            names.add(f"licenca_{canonical.lower()}")
+        for name in names:
+            if not name:
+                continue
+            db.execute(
+                text(
+                    "DELETE FROM player_entitlements "
+                    "WHERE steam_id = :sid AND group_name = :grp"
+                ),
+                {"sid": str(steam_id), "grp": name},
+            )
         db.commit()
     except Exception:
         db.rollback()
@@ -10440,11 +10633,15 @@ def admin_player_staff_roles(steam_id: str):
 def admin_player_licenses(steam_id: str):
     body = request.get_json(force=True, silent=True) or {}
     group = str(body.get("group") or body.get("license_group") or "").strip()
-    if not group and body.get("item_id"):
-        entry = _catalog_entry("shop", str(body.get("item_id")))
-        lic = _get_license_grant(entry, str(order.item_id or "")) if entry else None
+    item_id = str(body.get("item_id") or "").strip()
+    if not group and item_id:
+        entry = _catalog_entry("shop", item_id)
+        lic = _get_license_grant(entry, item_id) if entry else None
         if lic:
             group = str(lic.get("Group") or "")
+        if not group:
+            group = _catalog_license_group(entry or {}, item_id)
+    group = _normalize_entitlement_group(group)
     days = int(body.get("days", 30) or 30)
     result = _admin_player_license(
         steam_id.strip(),

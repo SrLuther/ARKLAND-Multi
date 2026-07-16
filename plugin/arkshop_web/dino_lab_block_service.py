@@ -94,19 +94,102 @@ def _table_exists(conn: Any, table: str) -> bool:
     return row is not None
 
 
+def _repair_dino_ids_from_canonical(conn: Any) -> int:
+    """Repara dino_id1/2 a partir do canonical_id (corrige overflow INT signed)."""
+    rows = conn.execute(
+        text("SELECT id, canonical_id, dino_id1, dino_id2 FROM dino_lab_blocked_ids")
+    ).fetchall()
+    fixed = 0
+    for row in rows:
+        try:
+            mapping = row._mapping
+            row_id = int(mapping["id"])
+            canon = str(mapping.get("canonical_id") or "").strip().upper()
+            cur1 = int(mapping.get("dino_id1", 0)) & 0xFFFFFFFF
+            cur2 = int(mapping.get("dino_id2", 0)) & 0xFFFFFFFF
+        except Exception:
+            row_id = int(row[0])
+            canon = str(row[1] or "").strip().upper()
+            cur1 = int(row[2] or 0) & 0xFFFFFFFF
+            cur2 = int(row[3] or 0) & 0xFFFFFFFF
+        if "-" not in canon:
+            continue
+        left, right = canon.split("-", 1)
+        try:
+            want1 = int(left, 16) & 0xFFFFFFFF
+            want2 = int(right, 16) & 0xFFFFFFFF
+        except ValueError:
+            continue
+        if want1 == cur1 and want2 == cur2:
+            continue
+        conn.execute(
+            text(
+                "UPDATE dino_lab_blocked_ids "
+                "SET dino_id1 = :id1, dino_id2 = :id2 WHERE id = :rid"
+            ),
+            {"id1": want1, "id2": want2, "rid": row_id},
+        )
+        fixed += 1
+    return fixed
+
+
 def ensure_dino_lab_block_schema(engine: Engine) -> None:
-    """Cria tabela dino_lab_blocked_ids (idempotente)."""
+    """Cria tabela dino_lab_blocked_ids e repara IDs (idempotente)."""
     is_sqlite = "sqlite" in str(engine.url).lower()
     with engine.connect() as conn:
         if is_sqlite:
-            if _table_exists(conn, "dino_lab_blocked_ids"):
-                return
+            if not _table_exists(conn, "dino_lab_blocked_ids"):
+                conn.execute(
+                    text(
+                        "CREATE TABLE dino_lab_blocked_ids ("
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                        "dino_id1 INTEGER NOT NULL,"
+                        "dino_id2 INTEGER NOT NULL,"
+                        "canonical_id VARCHAR(24) NOT NULL,"
+                        "order_id VARCHAR(64) NOT NULL,"
+                        "steam_id VARCHAR(32) NOT NULL,"
+                        "source VARCHAR(32) NOT NULL DEFAULT 'dino_lab',"
+                        "role VARCHAR(16) NOT NULL DEFAULT 'self',"
+                        "generation SMALLINT NULL,"
+                        "delivered_at DATETIME NOT NULL,"
+                        "created_at DATETIME NOT NULL,"
+                        "UNIQUE (dino_id1, dino_id2)"
+                        ")"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_dlb_canonical "
+                        "ON dino_lab_blocked_ids (canonical_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_dlb_order "
+                        "ON dino_lab_blocked_ids (order_id)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_dlb_steam "
+                        "ON dino_lab_blocked_ids (steam_id)"
+                    )
+                )
+                log.info("dino_lab_blocked_ids criada (sqlite)")
+            fixed = _repair_dino_ids_from_canonical(conn)
+            if fixed:
+                log.info("dino_lab_blocked_ids: reparados %s id(s) via canonical", fixed)
+            conn.commit()
+            return
+
+        row = conn.execute(text("SHOW TABLES LIKE 'dino_lab_blocked_ids'")).fetchone()
+        if row is None:
             conn.execute(
                 text(
                     "CREATE TABLE dino_lab_blocked_ids ("
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    "dino_id1 INTEGER NOT NULL,"
-                    "dino_id2 INTEGER NOT NULL,"
+                    "id INT AUTO_INCREMENT PRIMARY KEY,"
+                    "dino_id1 INT UNSIGNED NOT NULL,"
+                    "dino_id2 INT UNSIGNED NOT NULL,"
                     "canonical_id VARCHAR(24) NOT NULL,"
                     "order_id VARCHAR(64) NOT NULL,"
                     "steam_id VARCHAR(32) NOT NULL,"
@@ -115,58 +198,30 @@ def ensure_dino_lab_block_schema(engine: Engine) -> None:
                     "generation SMALLINT NULL,"
                     "delivered_at DATETIME NOT NULL,"
                     "created_at DATETIME NOT NULL,"
-                    "UNIQUE (dino_id1, dino_id2)"
-                    ")"
+                    "UNIQUE KEY uq_dino_pair (dino_id1, dino_id2),"
+                    "INDEX idx_canonical (canonical_id),"
+                    "INDEX idx_order (order_id),"
+                    "INDEX idx_steam (steam_id)"
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
                 )
             )
-            conn.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_dlb_canonical "
-                    "ON dino_lab_blocked_ids (canonical_id)"
+            log.info("dino_lab_blocked_ids criada (mysql)")
+        else:
+            # Garante UNSIGNED — IDs ARK passam de 2^31-1 (ex.: 89271B4F).
+            try:
+                conn.execute(
+                    text(
+                        "ALTER TABLE dino_lab_blocked_ids "
+                        "MODIFY dino_id1 INT UNSIGNED NOT NULL, "
+                        "MODIFY dino_id2 INT UNSIGNED NOT NULL"
+                    )
                 )
-            )
-            conn.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_dlb_order "
-                    "ON dino_lab_blocked_ids (order_id)"
-                )
-            )
-            conn.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_dlb_steam "
-                    "ON dino_lab_blocked_ids (steam_id)"
-                )
-            )
-            conn.commit()
-            log.info("dino_lab_blocked_ids criada (sqlite)")
-            return
-
-        row = conn.execute(text("SHOW TABLES LIKE 'dino_lab_blocked_ids'")).fetchone()
-        if row is not None:
-            return
-        conn.execute(
-            text(
-                "CREATE TABLE dino_lab_blocked_ids ("
-                "id INT AUTO_INCREMENT PRIMARY KEY,"
-                "dino_id1 INT UNSIGNED NOT NULL,"
-                "dino_id2 INT UNSIGNED NOT NULL,"
-                "canonical_id VARCHAR(24) NOT NULL,"
-                "order_id VARCHAR(64) NOT NULL,"
-                "steam_id VARCHAR(32) NOT NULL,"
-                "source VARCHAR(32) NOT NULL DEFAULT 'dino_lab',"
-                "role VARCHAR(16) NOT NULL DEFAULT 'self',"
-                "generation SMALLINT NULL,"
-                "delivered_at DATETIME NOT NULL,"
-                "created_at DATETIME NOT NULL,"
-                "UNIQUE KEY uq_dino_pair (dino_id1, dino_id2),"
-                "INDEX idx_canonical (canonical_id),"
-                "INDEX idx_order (order_id),"
-                "INDEX idx_steam (steam_id)"
-                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-            )
-        )
+            except Exception as exc:
+                log.warning("dino_lab_blocked_ids ALTER UNSIGNED falhou: %s", exc)
+        fixed = _repair_dino_ids_from_canonical(conn)
+        if fixed:
+            log.info("dino_lab_blocked_ids: reparados %s id(s) via canonical", fixed)
         conn.commit()
-        log.info("dino_lab_blocked_ids criada (mysql)")
 
 
 def parse_dino_id_input(body: dict[str, Any] | None) -> tuple[int, int] | None:
@@ -267,6 +322,46 @@ def _normalize_pair(dino_id1: Any, dino_id2: Any) -> tuple[int, int] | None:
     if id1 == 0 and id2 == 0:
         return None
     return id1, id2
+
+
+def _as_signed_i32(value: int) -> int:
+    """Equivente int32 assinado (MySQL INT legacy / overflow)."""
+    u = int(value) & 0xFFFFFFFF
+    return u if u < 0x80000000 else u - 0x100000000
+
+
+def _normalize_id_pairs(id_pairs: list[tuple[int, int]] | list[Any]) -> list[tuple[int, int]]:
+    pairs: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for raw in id_pairs or []:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            continue
+        pair = _normalize_pair(raw[0], raw[1])
+        if pair and pair not in seen:
+            seen.add(pair)
+            pairs.append(pair)
+    return pairs
+
+
+def _build_blocked_lookup_sql(
+    pairs: list[tuple[int, int]],
+) -> tuple[str, dict[str, Any]]:
+    """Match por par unsigned, par signed (legacy) e canonical_id VARCHAR."""
+    clauses: list[str] = []
+    params: dict[str, Any] = {}
+    for i, (id1, id2) in enumerate(pairs):
+        clauses.append(f"(dino_id1 = :id1_{i} AND dino_id2 = :id2_{i})")
+        params[f"id1_{i}"] = id1
+        params[f"id2_{i}"] = id2
+        s1 = _as_signed_i32(id1)
+        s2 = _as_signed_i32(id2)
+        if s1 != id1 or s2 != id2:
+            clauses.append(f"(dino_id1 = :s1_{i} AND dino_id2 = :s2_{i})")
+            params[f"s1_{i}"] = s1
+            params[f"s2_{i}"] = s2
+        clauses.append(f"canonical_id = :canon_{i}")
+        params[f"canon_{i}"] = canonical_id(id1, id2)
+    return " OR ".join(clauses), params
 
 
 def _insert_blocked_row(
@@ -393,50 +488,55 @@ def is_any_id_blocked(db: Session, id_pairs: list[tuple[int, int]]) -> bool:
 
 def check_blocked_reason(db: Session, id_pairs: list[tuple[int, int]]) -> str | None:
     """Retorna mensagem de bloqueio ou None se permitido."""
-    pairs: list[tuple[int, int]] = []
-    for raw in id_pairs:
-        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
-            continue
-        pair = _normalize_pair(raw[0], raw[1])
-        if pair:
-            pairs.append(pair)
-    if not pairs:
-        return None
-
-    # SQLite / MySQL: consulta por pares (tabela pequena; <= ~20 pares por cryo).
-    clauses: list[str] = []
-    params: dict[str, Any] = {}
-    for i, (id1, id2) in enumerate(pairs):
-        clauses.append(f"(dino_id1 = :id1_{i} AND dino_id2 = :id2_{i})")
-        params[f"id1_{i}"] = id1
-        params[f"id2_{i}"] = id2
-
-    row = db.execute(
-        text(
-            "SELECT order_id, source FROM dino_lab_blocked_ids "
-            f"WHERE {' OR '.join(clauses)} LIMIT 1"
-        ),
-        params,
-    ).fetchone()
-    if not row:
-        return None
-    return DINO_LAB_BLOCK_MESSAGE
+    match = lookup_blocked_match(db, id_pairs)
+    return match.get("message") if match else None
 
 
 def extract_id_pairs_from_metadata(metadata: dict[str, Any]) -> list[tuple[int, int]]:
+    """Extrai pares de ID do metadata de cryo (dino_identity + campos soltos)."""
+    if not isinstance(metadata, dict):
+        return []
     pairs: list[tuple[int, int]] = []
-    di = metadata.get("dino_identity")
-    if not isinstance(di, dict):
-        return pairs
-    self_pair = _normalize_pair(di.get("dino_id1"), di.get("dino_id2"))
-    if self_pair:
-        pairs.append(self_pair)
-    for anc in di.get("ancestors") or []:
-        if not isinstance(anc, dict):
-            continue
-        pair = _normalize_pair(anc.get("dino_id1"), anc.get("dino_id2"))
-        if pair:
+    seen: set[tuple[int, int]] = set()
+
+    def _add(pair: tuple[int, int] | None) -> None:
+        if pair and pair not in seen:
+            seen.add(pair)
             pairs.append(pair)
+
+    di = metadata.get("dino_identity")
+    if isinstance(di, dict):
+        _add(_normalize_pair(di.get("dino_id1"), di.get("dino_id2")))
+        for anc in di.get("ancestors") or []:
+            if isinstance(anc, dict):
+                _add(_normalize_pair(anc.get("dino_id1"), anc.get("dino_id2")))
+        raw_canon = str(di.get("canonical_id") or "").strip()
+        if raw_canon:
+            parsed = parse_dino_id_input({"canonical_id": raw_canon})
+            _add(parsed)
+
+    _add(_normalize_pair(metadata.get("dino_id1"), metadata.get("dino_id2")))
+    raw_top = str(metadata.get("canonical_id") or "").strip()
+    if raw_top:
+        _add(parse_dino_id_input({"canonical_id": raw_top}))
+
+    raw_pairs = metadata.get("dino_id_pairs")
+    if isinstance(raw_pairs, list):
+        for item in raw_pairs:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                _add(_normalize_pair(item[0], item[1]))
+
+    return pairs
+
+
+def enforce_market_dino_identity(metadata: dict[str, Any]) -> list[tuple[int, int]]:
+    """Fail-closed: anúncio de cryo exige pelo menos um par de IDs legível."""
+    pairs = extract_id_pairs_from_metadata(metadata if isinstance(metadata, dict) else {})
+    if not pairs:
+        raise ValueError(
+            "Nao foi possivel validar a identidade do dino para o Comercio. "
+            "Tente /enviar novamente."
+        )
     return pairs
 
 
@@ -448,28 +548,16 @@ def lookup_blocked_match(
     db: Session,
     id_pairs: list[tuple[int, int]],
 ) -> dict[str, Any] | None:
-    pairs: list[tuple[int, int]] = []
-    for raw in id_pairs:
-        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
-            continue
-        pair = _normalize_pair(raw[0], raw[1])
-        if pair:
-            pairs.append(pair)
+    pairs = _normalize_id_pairs(id_pairs)
     if not pairs:
         return None
 
-    clauses: list[str] = []
-    params: dict[str, Any] = {}
-    for i, (id1, id2) in enumerate(pairs):
-        clauses.append(f"(dino_id1 = :id1_{i} AND dino_id2 = :id2_{i})")
-        params[f"id1_{i}"] = id1
-        params[f"id2_{i}"] = id2
-
+    where_sql, params = _build_blocked_lookup_sql(pairs)
     row = db.execute(
         text(
             "SELECT order_id, source, canonical_id, dino_id1, dino_id2 "
             "FROM dino_lab_blocked_ids "
-            f"WHERE {' OR '.join(clauses)} LIMIT 1"
+            f"WHERE {where_sql} LIMIT 1"
         ),
         params,
     ).fetchone()

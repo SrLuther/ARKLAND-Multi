@@ -3,12 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.43"
+APP_VERSION: str = "1.10.44"
 BUILD_DATE: str = "2026-07-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.44",
+        "date": "2026-07-15",
+        "changes": [
+            "Fix (TEK / Reconnect): scan multi-estratégia — portas TCP/UDP PRIMEIRO (host .bug: exe/cmdline vazios → 6/6), depois install_dir no exe, QueryFullProcessImageName, cmdline (?Port=/QueryPort), last-PID persistido e título da janela; log hit/miss por mapa.",
+            "Fix (TEK / UI): após reconnect, rebuild de TODOS os cards + sidebar + ONLINE a partir do mesmo count_running(); ghost RUNNING com poll morto → STOPPED (fim do ONLINE=1 com cards PARADO).",
+            "Fix (Web Store / Mercado + Dino Lab): anuncio de cryo do Dino Lab escapava o bloqueio — lookup passa a casar tambem por canonical_id e par signed (ex.: 13CE1FC2-89271B4F), repara dino_id* no boot, exige dino_identity no preview/upload e rejeita compra de anuncio bloqueado.",
+            "Fix (CustomShop 1.10.21): /enviar e /confirmar falham fechados se a identidade da cryo nao puder ser lida ou se o HTTP de bloqueio Dino Lab falhar.",
+            "Fix (CustomShop / Catalogo): dinos isolados (L1+L200) e pack10 cujos BPs estao em kit_gamma/beta/alfa passam a exigir o mesmo Permissions do kit de entrada (Gamma/Beta/Alfa); abyss e resto do catalogo ficam abertos. Script tools/lock_license_kit_dinos.py.",
+            "Fix (Web Store / Licenças + TimedPoints): UI «licenca_delta +0» — group_name SKU era tratado como PermissionGroup; normaliza licenca_*→Delta…Exotico no grant/UI, bónus lido de TimedPointsReward.Groups, migrate repara rows legadas; keyvault continua +0. CustomShop 1.10.22 Grant/HasActive idem.",
+            "Test (TEK): fixture .bug 6/6 via portas; ghost RUNNING→0; estratégias exe/cmdline.",
+            "Test (Web Store / Dino Lab): regressao Manticora canonical alto-bit + preview/upload sem identidade.",
+            "Test (Web Store / Licenças): SKU→grupo, bónus Delta=5, repair licenca_exotico→Exotico, keyvault +0.",
+        ],
+    },
     {
         "version": "1.10.43",
         "date": "2026-07-15",

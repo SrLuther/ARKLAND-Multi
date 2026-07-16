@@ -1,16 +1,16 @@
 {
-    "version": "1.10.43",
+    "version": "1.10.44",
     "date": "2026-07-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.43/ARKLAND-Multi-Setup-v1.10.43.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.44/ARKLAND-Multi-Setup-v1.10.44.exe",
     "changelog": [
-        "Fix (TEK / Reconnect): no host real (.bug) os 6 ShooterGameServer vinham com ExecutablePath e CommandLine vazios — regras só-exe/cmdline (v1.10.20) davam 0/6. Adjunct por portas TCP/UDP (server/query/RCON) reconecta 6/6 (BR/CI/AL/G2/VL/AM, portas 7790/7796/…).",
-        "Fix (TEK / Reconnect): count_running e log de boot usam status RUNNING real (sem falso «detectou N»); scans de boot em 0,5/2,5/8 s; após reconnect dispara _asm_status_tick.",
-        "Fix (TEK / Players): após reconnect, tick rico sonda A2S fresco no query_port (bind + 127.0.0.1) e atualiza inst.a2s_players; fallback RCON ListPlayers — caminho em app_tek._asm_status_tick.",
-        "Feat (TEK / Desligamento programado): diálogo multi-servidor com «Marcar todos», tempo em segundos, avisos RCON em milestones sensatos (60/30/10/5…, sem spam em waits longos), cancelável no card; ao zerar usa stop gracioso existente (saveworld/doexit). Também na barra em massa do dashboard.",
-        "Feat (Web Store / Dino Lab Encomendas): auditoria admin — histórico unificado com badge Encomenda; DETALHES (snapshot imutável de specs), REENVIAR (FALHA) e REEMBOLSAR; steam_id + nick (steam_persona).",
-        "Melhoria (Web Store / Dino Lab): checkout congela spec_snapshot (espécie, sexo, níveis, cores, stats, mapa, preço, timestamps); GET /api/admin/dino-order/<id> com trilha de status.",
-        "Melhoria (CustomShop / TimedPoints 1.10.20): chat ao receber Âmbar inclui URL da loja (Settings.WebsiteUrl / WebApiUrl).",
-        "Test (TEK): fixture .bug (exe+cmdline vazios → 0/6 clássico, 6/6 com portas); count_running; milestones/broadcasts do desligamento programado.",
-        "Test (Web Store / Dino Lab Encomendas): cobertura snapshot, nick, origem no Histórico, reenvio+estorno a partir de FALHA."
+        "Fix (TEK / Reconnect): scan multi-estratégia — portas TCP/UDP PRIMEIRO (host .bug: exe/cmdline vazios → 6/6), depois install_dir no exe, QueryFullProcessImageName, cmdline (?Port=/QueryPort), last-PID persistido e título da janela; log hit/miss por mapa.",
+        "Fix (TEK / UI): após reconnect, rebuild de TODOS os cards + sidebar + ONLINE a partir do mesmo count_running(); ghost RUNNING com poll morto → STOPPED (fim do ONLINE=1 com cards PARADO).",
+        "Fix (Web Store / Mercado + Dino Lab): anuncio de cryo do Dino Lab escapava o bloqueio — lookup passa a casar tambem por canonical_id e par signed (ex.: 13CE1FC2-89271B4F), repara dino_id* no boot, exige dino_identity no preview/upload e rejeita compra de anuncio bloqueado.",
+        "Fix (CustomShop 1.10.21): /enviar e /confirmar falham fechados se a identidade da cryo nao puder ser lida ou se o HTTP de bloqueio Dino Lab falhar.",
+        "Fix (CustomShop / Catalogo): dinos isolados (L1+L200) e pack10 cujos BPs estao em kit_gamma/beta/alfa passam a exigir o mesmo Permissions do kit de entrada (Gamma/Beta/Alfa); abyss e resto do catalogo ficam abertos. Script tools/lock_license_kit_dinos.py.",
+        "Fix (Web Store / Licenças + TimedPoints): UI «licenca_delta +0» — group_name SKU era tratado como PermissionGroup; normaliza licenca_*→Delta…Exotico no grant/UI, bónus lido de TimedPointsReward.Groups, migrate repara rows legadas; keyvault continua +0. CustomShop 1.10.22 Grant/HasActive idem.",
+        "Test (TEK): fixture .bug 6/6 via portas; ghost RUNNING→0; estratégias exe/cmdline.",
+        "Test (Web Store / Dino Lab): regressao Manticora canonical alto-bit + preview/upload sem identidade.",
+        "Test (Web Store / Licenças): SKU→grupo, bónus Delta=5, repair licenca_exotico→Exotico, keyvault +0."
     ]
 }

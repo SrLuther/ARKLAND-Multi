@@ -4,13 +4,15 @@ Controla start/stop/restart e monitora o status de cada servidor ASM.
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import threading
 import time
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 # ── psutil (opcional) ─────────────────────────────────────────────────────────
 try:
@@ -198,11 +200,104 @@ def _window_title_matches(title: str, cfg: "AsmServerConfig") -> bool:
     t = (title or "").strip().lower()
     if not t:
         return False
-    for candidate in (getattr(cfg, "name", ""), getattr(cfg, "session_name", "")):
+    candidates = [
+        getattr(cfg, "name", ""),
+        getattr(cfg, "session_name", ""),
+        getattr(cfg, "server_map", ""),
+    ]
+    install = (getattr(cfg, "install_dir", "") or "").strip()
+    if install:
+        try:
+            candidates.append(Path(install).name)
+        except Exception:
+            pass
+    for candidate in candidates:
         c = (candidate or "").strip().lower()
-        if c and len(c) >= 3 and (t == c or c in t or t in c):
+        if not c:
+            continue
+        # Pasta curta (BR/CI/AL) ou nome do mapa ≥2
+        if len(c) >= 2 and (t == c or c in t or (len(c) >= 3 and t in c)):
             return True
     return False
+
+
+def _query_full_process_image_name(pid: int) -> str:
+    """Win32 QueryFullProcessImageNameW — quando psutil.exe() vem vazio."""
+    if os.name != "nt" or pid <= 0:
+        return ""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        OpenProcess = kernel32.OpenProcess
+        OpenProcess.restype = wintypes.HANDLE
+        OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        QueryFullProcessImageNameW = kernel32.QueryFullProcessImageNameW
+        QueryFullProcessImageNameW.restype = wintypes.BOOL
+        CloseHandle = kernel32.CloseHandle
+
+        handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            return ""
+        try:
+            size = wintypes.DWORD(1024)
+            buf = ctypes.create_unicode_buffer(size.value)
+            ok = QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size))
+            if not ok:
+                return ""
+            return _slash_fold(buf.value or "")
+        finally:
+            CloseHandle(handle)
+    except Exception:
+        return ""
+
+
+def _last_pids_path() -> Path:
+    base = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+    return base / "asm_last_pids.json"
+
+
+def _load_last_pids() -> Dict[str, int]:
+    path = _last_pids_path()
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: Dict[str, int] = {}
+    if isinstance(raw, dict):
+        for sid, pid in raw.items():
+            try:
+                out[str(sid)] = int(pid)
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+def _save_last_pids(pids: Dict[str, int]) -> None:
+    path = _last_pids_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps(pids, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        tmp.replace(path)
+    except Exception:
+        pass
+
+
+# Pesos das estratégias (maior = mais confiável neste host .bug)
+_STRAT_PORTS = 100
+_STRAT_EXE = 80
+_STRAT_IMAGE = 75
+_STRAT_CMDLINE = 70
+_STRAT_LAST_PID = 55
+_STRAT_TITLE = 40
 
 
 def _process_matches_cfg(
@@ -501,11 +596,48 @@ class AsmServerManager:
                 n += 1
         return n
 
+    def _mark_stopped(self, cfg: AsmServerConfig, reason: str = "") -> None:
+        inst = self._instances.get(cfg.id)
+        if not inst:
+            return
+        inst._proc = None
+        inst.status = ASM_STATUS_STOPPED
+        inst.uptime_start = None
+        self._stop_steam_watcher(cfg.id)
+        if self._on_status:
+            self._on_status(cfg.id, ASM_STATUS_STOPPED)
+        if reason:
+            try:
+                self._on_log(
+                    f"Reconnect [{cfg.name or cfg.id}]: ghost RUNNING → STOPPED ({reason})",
+                    "warning",
+                )
+            except Exception:
+                pass
+
+    def _reconcile_ghosts(self, servers: List[AsmServerConfig]) -> int:
+        """RUNNING sem processo vivo → STOPPED. Retorna quantos limpou."""
+        cleared = 0
+        for cfg in servers:
+            inst = self._instances.get(cfg.id)
+            if not inst or inst.status != ASM_STATUS_RUNNING:
+                continue
+            proc = inst._proc
+            dead = proc is None or proc.poll() is not None
+            if dead:
+                with self._lock:
+                    if inst.status == ASM_STATUS_RUNNING:
+                        self._mark_stopped(cfg, "poll morto / sem PID")
+                        cleared += 1
+        return cleared
+
     def _attach_running_process(
         self,
         cfg: AsmServerConfig,
         pid: int,
         create_time: Optional[float],
+        *,
+        strategy: str = "",
     ) -> bool:
         """Anexa PID ao instance STOPPED. Caller já segura _lock ou status."""
         if not _PSUTIL_OK or _psutil is None:
@@ -523,147 +655,236 @@ class AsmServerManager:
                 self._on_status(cfg.id, ASM_STATUS_RUNNING)
             self._start_monitor(inst)
             self._start_steam_watcher(inst)
+            try:
+                last = _load_last_pids()
+                last[cfg.id] = int(pid)
+                _save_last_pids(last)
+            except Exception:
+                pass
+            if strategy:
+                try:
+                    self._on_log(
+                        f"Reconnect [{cfg.name or cfg.id}] via {strategy} pid={pid}",
+                        "info",
+                    )
+                except Exception:
+                    pass
             return True
         except Exception:
             return False
 
     def scan_running_servers(self, servers: List[AsmServerConfig]) -> int:
-        """Reconecta processos ShooterGameServer já em execução (ex.: após reiniciar o app).
+        """Reconecta ShooterGameServer com várias estratégias independentes.
 
-        Path primário = v1.10.36 (funcionava no host):
-          ShooterGameServer + install_dir no exe e/ou ?Port=/-port= na CLI.
-
-        Adjunct (não substitui o path 36): se ainda houver mapas STOPPED,
-        tenta PID via portas TCP/UDP / título da janela.
+        Ordem de preferência (melhor score vence por mapa):
+          1) portas TCP/UDP (server/query/RCON) — PRIMARY no host .bug
+          2) install_dir no exe
+          3) QueryFullProcessImageName (exe vazio)
+          4) install_dir / ?Port= / QueryPort na cmdline
+          5) last-known PID persistido
+          6) título da janela (nome / pasta BR/CI/…)
         """
         if not _PSUTIL_OK or _psutil is None:
             return 0
 
         self.register_servers(servers)
+        self._reconcile_ghosts(servers)
+
         install_counts: Dict[str, int] = {}
         for cfg in servers:
             key = _normalize_install_dir(cfg.install_dir)
             if key:
                 install_counts[key] = install_counts.get(key, 0) + 1
 
-        claimed: Set[int] = set()
-        reconnected = 0
+        interesting: Set[int] = set()
+        for cfg in servers:
+            interesting.update(_cfg_identity_ports(cfg))
+        port_index = _build_listening_port_index(interesting or None)
+        titles = _windows_titles_by_pid()
+        last_pids = _load_last_pids()
 
-        # ── Passo 1: baseline v1.10.36 ────────────────────────────────────────
+        # Inventário de processos (Shooter + PIDs que escutam portas dos mapas)
+        proc_info: Dict[int, Dict[str, Any]] = {}
+
+        def _ensure_pid(pid: int) -> Dict[str, Any]:
+            info = proc_info.get(pid)
+            if info is not None:
+                return info
+            info = {
+                "pid": pid,
+                "name": "",
+                "exe": "",
+                "cmdline": "",
+                "create_time": None,
+            }
+            try:
+                raw = _psutil.Process(pid)
+                try:
+                    info["name"] = (raw.name() or "").lower()
+                except Exception:
+                    pass
+                try:
+                    info["create_time"] = float(raw.create_time())
+                except Exception:
+                    pass
+                try:
+                    info["exe"] = _slash_fold(raw.exe() or "")
+                except Exception:
+                    info["exe"] = ""
+                try:
+                    info["cmdline"] = _slash_fold(" ".join(raw.cmdline() or []))
+                except Exception:
+                    info["cmdline"] = ""
+            except Exception:
+                pass
+            if not info["exe"]:
+                img = _query_full_process_image_name(pid)
+                if img:
+                    info["exe"] = img
+            proc_info[pid] = info
+            return info
+
         try:
             for proc in _psutil.process_iter(
                 ["pid", "name", "exe", "cmdline", "create_time"]
             ):
                 try:
-                    name = proc.info.get("name") or ""
-                    if "shootergameserver" not in name.lower():
+                    name = (proc.info.get("name") or "").lower()
+                    if "shootergameserver" not in name:
                         continue
                     pid = int(proc.info["pid"])
-                    if pid in claimed:
-                        continue
-                    exe = (proc.info.get("exe") or "").replace("\\", "/").lower()
-                    cmdline = " ".join(proc.info.get("cmdline") or []).lower()
-                    create_time = proc.info.get("create_time")
-
-                    with self._lock:
-                        for cfg in servers:
-                            inst = self._instances.get(cfg.id)
-                            if not inst or inst.status != ASM_STATUS_STOPPED:
-                                continue
-                            if not _process_matches_cfg(
-                                cfg, exe, cmdline, install_counts
-                            ):
-                                continue
-                            if self._attach_running_process(cfg, pid, create_time):
-                                claimed.add(pid)
-                                reconnected += 1
-                                break
+                    exe = _slash_fold(proc.info.get("exe") or "")
+                    cmdline = _slash_fold(" ".join(proc.info.get("cmdline") or []))
+                    if not exe:
+                        exe = _query_full_process_image_name(pid) or exe
+                    proc_info[pid] = {
+                        "pid": pid,
+                        "name": name,
+                        "exe": exe,
+                        "cmdline": cmdline,
+                        "create_time": proc.info.get("create_time"),
+                    }
                 except Exception:
                     pass
         except Exception:
             pass
 
-        # ── Passo 2 (adjunct): portas / título só para STOPPED restantes ──────
-        still_stopped = [
-            cfg
-            for cfg in servers
-            if (inst := self._instances.get(cfg.id)) is not None
-            and inst.status == ASM_STATUS_STOPPED
-        ]
-        if still_stopped:
-            interesting: Set[int] = set()
-            for cfg in still_stopped:
-                interesting.update(_cfg_identity_ports(cfg))
-            port_index = _build_listening_port_index(interesting)
-            titles = _windows_titles_by_pid()
-            # PIDs candidatos só via portas dos perfis ainda parados
-            candidate_pids: Set[int] = set()
-            for pids in port_index.values():
-                candidate_pids.update(pids)
-            candidate_pids.update(titles.keys())
-            candidate_pids -= claimed
+        for pids in port_index.values():
+            for pid in pids:
+                _ensure_pid(int(pid))
 
-            for pid in list(candidate_pids):
-                if pid in claimed:
-                    continue
+        claimed: Set[int] = set()
+        for cfg in servers:
+            inst = self._instances.get(cfg.id)
+            if inst and inst.status == ASM_STATUS_RUNNING and inst.pid:
+                claimed.add(int(inst.pid))
+
+        reconnected = 0
+        # Melhor match por server_id: (score, pid, strategy, create_time)
+        best: Dict[str, Tuple[int, int, str, Optional[float]]] = {}
+
+        def _offer(cfg: AsmServerConfig, pid: int, score: int, strategy: str) -> None:
+            if pid <= 0 or pid in claimed:
+                return
+            info = _ensure_pid(pid)
+            ct = info.get("create_time")
+            prev = best.get(cfg.id)
+            if prev is None or score > prev[0]:
+                best[cfg.id] = (score, pid, strategy, ct)
+
+        for cfg in servers:
+            inst = self._instances.get(cfg.id)
+            if not inst or inst.status != ASM_STATUS_STOPPED:
+                continue
+            cfg_ports = set(_cfg_identity_ports(cfg))
+            install_norm = _normalize_install_dir(cfg.install_dir)
+            shared = bool(install_norm) and install_counts.get(install_norm, 0) > 1
+            miss: List[str] = []
+
+            # 1) PORTAS (primary .bug)
+            votes: Counter = Counter()
+            for port in cfg_ports:
+                for pid in port_index.get(port, ()):
+                    votes[int(pid)] += 1
+            if votes:
+                pid, n = votes.most_common(1)[0]
                 bound = _ports_for_pid(port_index, pid)
-                title = titles.get(pid, "")
-                create_time: Optional[float] = None
-                name = ""
-                exe = ""
-                cmdline = ""
+                if _bound_ports_match_cfg(cfg, bound):
+                    _offer(cfg, pid, _STRAT_PORTS + int(n), f"ports={sorted(bound & cfg_ports)}")
+                else:
+                    miss.append("ports-no-overlap")
+            else:
+                miss.append("ports-empty")
+
+            # 2/3/4) exe (incl. QueryFullProcessImageName) / cmdline / título
+            for pid, info in proc_info.items():
+                exe = info.get("exe") or ""
+                cmdline = info.get("cmdline") or ""
+                name = info.get("name") or ""
+                looks = "shootergameserver" in f"{name} {exe} {cmdline}"
+                bound = _ports_for_pid(port_index, int(pid))
+
+                if exe and install_norm and install_norm in exe:
+                    if (not shared) or _cmdline_matches_server(cmdline, cfg) or _bound_ports_match_cfg(cfg, bound):
+                        _offer(cfg, int(pid), _STRAT_EXE, "exe+install_dir")
+
+                if cmdline:
+                    if install_norm and install_norm in cmdline and (
+                        (not shared) or _cmdline_matches_server(cmdline, cfg)
+                    ):
+                        _offer(cfg, int(pid), _STRAT_CMDLINE, "cmdline+install_dir")
+                    elif _cmdline_matches_server(cmdline, cfg):
+                        _offer(cfg, int(pid), _STRAT_CMDLINE, "cmdline+port")
+
+                title = titles.get(int(pid), "")
+                if title and _window_title_matches(title, cfg):
+                    if looks or _bound_ports_match_cfg(cfg, bound):
+                        _offer(cfg, int(pid), _STRAT_TITLE, "window_title")
+
+            # 5) last-known PID
+            cached = int(last_pids.get(cfg.id, 0) or 0)
+            if cached and cached not in claimed:
+                info = _ensure_pid(cached)
+                bound = _ports_for_pid(port_index, cached)
+                name = info.get("name") or ""
+                exe = info.get("exe") or ""
+                looks = "shootergameserver" in f"{name} {exe}"
+                if looks or _bound_ports_match_cfg(cfg, bound):
+                    _offer(cfg, cached, _STRAT_LAST_PID, "last_pid")
+                else:
+                    miss.append(f"last_pid={cached}-invalid")
+
+            # títulos também por PIDs fora do inventário shooter
+            for pid, title in titles.items():
+                if _window_title_matches(title, cfg):
+                    bound = _ports_for_pid(port_index, int(pid))
+                    _offer(cfg, int(pid), _STRAT_TITLE, "window_title")
+
+            if cfg.id not in best:
                 try:
-                    raw = _psutil.Process(pid)
-                    try:
-                        name = (raw.name() or "").lower()
-                    except Exception:
-                        name = ""
-                    try:
-                        create_time = float(raw.create_time())
-                    except Exception:
-                        create_time = None
-                    try:
-                        exe = (raw.exe() or "").replace("\\", "/").lower()
-                    except Exception:
-                        exe = ""
-                    try:
-                        cmdline = " ".join(raw.cmdline() or []).lower()
-                    except Exception:
-                        cmdline = ""
+                    self._on_log(
+                        f"Reconnect [{cfg.name or cfg.id}] FALHOU: {', '.join(miss) or 'sem candidatos'}",
+                        "warning",
+                    )
                 except Exception:
-                    # Sem handle: ainda podemos casar por porta/título
                     pass
 
-                # Só anexar se parecer Shooter OU se só temos sinal de porta/título
-                looks_shooter = "shootergameserver" in f"{name} {exe} {cmdline}"
-                if not looks_shooter and not bound and not title:
-                    continue
-                if not looks_shooter and not bound:
-                    # título sozinho: ok como adjunct
-                    pass
-
-                with self._lock:
-                    for cfg in still_stopped:
-                        inst = self._instances.get(cfg.id)
-                        if not inst or inst.status != ASM_STATUS_STOPPED:
-                            continue
-                        if not _process_matches_cfg(
-                            cfg,
-                            exe,
-                            cmdline,
-                            install_counts,
-                            bound_ports=bound,
-                            window_title=title,
-                        ):
-                            continue
-                        # Exigir evidência: shooter conhecido OU porta do cfg OU título
-                        if not looks_shooter and not _bound_ports_match_cfg(cfg, bound):
-                            if not _window_title_matches(title, cfg):
-                                continue
-                        if self._attach_running_process(cfg, pid, create_time):
-                            claimed.add(pid)
-                            reconnected += 1
-                            break
+        # Anexa por score desc; um PID só para um mapa
+        ordered = sorted(
+            ((sid, score, pid, strat, ct) for sid, (score, pid, strat, ct) in best.items()),
+            key=lambda row: (-row[1], row[0]),
+        )
+        used_pids: Set[int] = set(claimed)
+        for sid, _score, pid, strat, ct in ordered:
+            if pid in used_pids:
+                continue
+            cfg = next((s for s in servers if s.id == sid), None)
+            if cfg is None:
+                continue
+            with self._lock:
+                if self._attach_running_process(cfg, pid, ct, strategy=strat):
+                    used_pids.add(pid)
+                    reconnected += 1
 
         return reconnected
 

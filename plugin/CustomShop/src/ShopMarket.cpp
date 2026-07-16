@@ -258,6 +258,7 @@ std::string FormatDinoIdHex(uint32_t id) {
 
 struct DinoLabBlockCheckResult {
     bool blocked = false;
+    bool check_failed = false;
     std::string order_id;
     std::string canonical_id;
     uint32_t matched_id1 = 0;
@@ -266,15 +267,23 @@ struct DinoLabBlockCheckResult {
 
 DinoLabBlockCheckResult CheckDinoLabBlockedHttp(const CustomShop::DinoIdentity& identity) {
     DinoLabBlockCheckResult result;
-    if (identity.dino_id1 == 0 && identity.dino_id2 == 0)
+    if (identity.dino_id1 == 0 && identity.dino_id2 == 0) {
+        result.check_failed = true;
         return result;
+    }
     const std::string resp = CustomShop::HttpClient::PostJson(
         "/api/market/plugin/check-dino-blocked",
         BuildDinoIdentityPairsBody(identity).dump());
-    if (resp.empty())
+    if (resp.empty()) {
+        result.check_failed = true;
         return result;
+    }
     try {
         const nlohmann::json json = nlohmann::json::parse(resp);
+        if (!json.value("ok", true) && !json.contains("blocked")) {
+            result.check_failed = true;
+            return result;
+        }
         result.blocked = json.value("blocked", false);
         if (!result.blocked)
             return result;
@@ -286,6 +295,7 @@ DinoLabBlockCheckResult CheckDinoLabBlockedHttp(const CustomShop::DinoIdentity& 
             result.matched_id2 = mp[1].get<uint32_t>();
         }
     } catch (...) {
+        result.check_failed = true;
         return result;
     }
     return result;
@@ -315,11 +325,24 @@ bool NotifyIfDinoLabBlocked(AShooterPlayerController* player,
     CustomShop::DinoIdentity identity;
     if (!CustomShop::ExtractDinoIdentityFromCryopod(cryo, player, identity)) {
         Log::GetLog()->warn(
-            "[DinoLabBlock] {} steam={} identity extract failed",
+            "[DinoLabBlock] {} steam={} identity extract failed — blocking",
             stage, sid);
-        return false;
+        SendMsg(player, FColorList::Red,
+                "Nao foi possivel validar a identidade do dino para o Comercio. "
+                "Tente novamente.");
+        return true;
     }
     const DinoLabBlockCheckResult check = CheckDinoLabBlockedHttp(identity);
+    if (check.check_failed) {
+        Log::GetLog()->warn(
+            "[DinoLabBlock] {} steam={} self={}:{} HTTP check failed — blocking",
+            stage, sid,
+            FormatDinoIdHex(identity.dino_id1),
+            FormatDinoIdHex(identity.dino_id2));
+        SendMsg(player, FColorList::Red,
+                "Falha ao validar bloqueio Dino Lab. Tente novamente.");
+        return true;
+    }
     if (!check.blocked)
         return false;
     LogDinoLabBlockHit(stage, sid, identity, check);

@@ -5,9 +5,64 @@
 #include "ShopDebug.h"
 #include "ShopPoints.h"
 
+#include <cctype>
 #include <sstream>
 
 namespace {
+
+std::string ToLowerAsciiLocal(std::string value) {
+    for (char& ch : value)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return value;
+}
+
+/** SKU `licenca_delta` / alias → PermissionGroup canónico (`Delta`). */
+std::string NormalizeEntitlementGroup(const std::string& group) {
+    if (group.empty()) return group;
+    for (const char* g : CustomShop::kPaidLicenseGroups) {
+        if (group == g) return group;
+    }
+    if (group == "keyvault" || group == "Moderacao" || group == "STAFF"
+        || group == "Default" || group == "Admins") {
+        return group;
+    }
+    if (group == "Mod" || group == "MOD") return "Moderacao";
+
+    const std::string lower = ToLowerAsciiLocal(group);
+    std::string suffix = lower;
+    if (suffix.rfind("licenca_", 0) == 0) {
+        suffix = suffix.substr(8);
+        static const char kRenov[] = "_renovacao";
+        if (suffix.size() > sizeof(kRenov) - 1
+            && suffix.compare(
+                   suffix.size() - (sizeof(kRenov) - 1), sizeof(kRenov) - 1, kRenov)
+                   == 0) {
+            suffix.resize(suffix.size() - (sizeof(kRenov) - 1));
+        }
+    }
+    if (suffix == "delta") return "Delta";
+    if (suffix == "gamma" || suffix == "gama") return "Gamma";
+    if (suffix == "beta") return "Beta";
+    if (suffix == "alfa") return "Alfa";
+    if (suffix == "omega") return "Omega";
+    if (suffix == "transcendente") return "Transcendente";
+    if (suffix == "etereo") return "Etereo";
+    if (suffix == "universal") return "Universal";
+    if (suffix == "onipotente") return "Onipotente";
+    if (suffix == "surreal") return "Surreal";
+    if (suffix == "imaterial") return "Imaterial";
+    if (suffix == "exotico") return "Exotico";
+    if (suffix == "nuvem") return "keyvault";
+    return group;
+}
+
+std::string PaidSkuAlias(const std::string& group) {
+    for (const char* g : CustomShop::kPaidLicenseGroups) {
+        if (group == g)
+            return "licenca_" + ToLowerAsciiLocal(group);
+    }
+    return {};
+}
 
 bool IsPaidTier(const std::string& group) {
     for (const char* g : CustomShop::kPaidLicenseGroups) {
@@ -215,17 +270,26 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
                            const std::string& notes) {
     if (!db_ || steam_id.empty() || group.empty()) return false;
 
+    // Nunca gravar SKU de catálogo (`licenca_delta`) — só PermissionGroup TimedPoints.
+    const std::string normalized = NormalizeEntitlementGroup(group);
+    if (normalized.empty()) return false;
+    if (normalized != group) {
+        Log::GetLog()->info(
+            "ShopEntitlements::Grant normalized '{}' → '{}' for {}",
+            group, normalized, steam_id);
+    }
+
     char buf_id[64], buf_grp[64], buf_src[128], buf_notes[512];
     mysql_real_escape_string(db_, buf_id, steam_id.c_str(),
         static_cast<unsigned long>(steam_id.size()));
-    mysql_real_escape_string(db_, buf_grp, group.c_str(),
-        static_cast<unsigned long>(group.size()));
+    mysql_real_escape_string(db_, buf_grp, normalized.c_str(),
+        static_cast<unsigned long>(normalized.size()));
     mysql_real_escape_string(db_, buf_src, source.c_str(),
         static_cast<unsigned long>(source.size()));
     mysql_real_escape_string(db_, buf_notes, notes.c_str(),
         static_cast<unsigned long>(notes.size()));
 
-    if (IsPaidTier(group)) {
+    if (IsPaidTier(normalized)) {
         const bool renewing = HasActivePaidGroup(db_, buf_id, buf_grp);
         if (!renewing) {
             const int others = CountActivePaidLicenses(db_, buf_id, buf_grp);
@@ -233,10 +297,11 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
                 Log::GetLog()->warn(
                     "ShopEntitlements::Grant blocked: {} already has {} paid tiers "
                     "(max {}); cannot activate '{}'",
-                    steam_id, others, CustomShop::kMaxActivePaidLicenseTiers, group);
+                    steam_id, others, CustomShop::kMaxActivePaidLicenseTiers,
+                    normalized);
                 CustomShop::Debug::Fields f;
                 f.steam_id = steam_id;
-                f.extra = {{"group", group}, {"days", days},
+                f.extra = {{"group", normalized}, {"days", days},
                            {"reason", "license_slots_full"}};
                 CustomShop::Debug::Error("License", f, "Grant blocked: max 2 paid tiers");
                 return false;
@@ -275,7 +340,8 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
         Log::GetLog()->error("ShopEntitlements::Grant failed: {}", mysql_error(db_));
         CustomShop::Debug::Fields f;
         f.steam_id = steam_id;
-        f.extra = {{"group", group}, {"days", days}, {"mysql_error", mysql_error(db_)}};
+        f.extra = {{"group", normalized}, {"days", days},
+                   {"mysql_error", mysql_error(db_)}};
         CustomShop::Debug::Error("License", f, "Grant MySQL failed");
         return false;
     }
@@ -283,28 +349,28 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
     // Permissions.AddTimed precisa das horas totais após renovação (DB),
     // não só days*24 — senão residual activo era descartado no plugin.
     if (days <= 0) {
-        SyncPermissionsCommand(steam_id, group, 0);
+        SyncPermissionsCommand(steam_id, normalized, 0);
     } else {
-        int hours = QueryHoursRemaining(steam_id, group);
+        int hours = QueryHoursRemaining(steam_id, normalized);
         if (hours < 1) hours = days * 24;
         RunPermissionConsole(
             steam_id,
-            "Permissions.AddTimed " + steam_id + " " + group + " "
+            "Permissions.AddTimed " + steam_id + " " + normalized + " "
                 + std::to_string(hours));
     }
     // Paridade web: renovação / re-grant restaura limites DefaultAmount dos kits do grupo.
     try {
-        ShopPoints::Get().ResetDependentKitLimits(steam_id, group);
+        ShopPoints::Get().ResetDependentKitLimits(steam_id, normalized);
     } catch (...) {
         Log::GetLog()->warn(
             "ShopEntitlements::Grant: kit limits reset failed for {} group '{}'",
-            steam_id, group);
+            steam_id, normalized);
     }
 
     {
         CustomShop::Debug::Fields f;
         f.steam_id = steam_id;
-        f.extra = {{"group", group}, {"days", days}, {"source", source}};
+        f.extra = {{"group", normalized}, {"days", days}, {"source", source}};
         CustomShop::Debug::Info("License", f, "Grant OK");
     }
     return true;
@@ -313,53 +379,77 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
 bool ShopEntitlements::Revoke(const std::string& steam_id, const std::string& group) {
     if (!db_ || steam_id.empty() || group.empty()) return false;
 
-    char buf_id[64], buf_grp[64];
+    const std::string canonical = NormalizeEntitlementGroup(group);
+    const std::string sku = PaidSkuAlias(canonical);
+
+    char buf_id[64];
     mysql_real_escape_string(db_, buf_id, steam_id.c_str(),
         static_cast<unsigned long>(steam_id.size()));
-    mysql_real_escape_string(db_, buf_grp, group.c_str(),
-        static_cast<unsigned long>(group.size()));
 
-    const std::string sql =
-        "DELETE FROM player_entitlements WHERE steam_id = '"
-        + std::string(buf_id) + "' AND group_name = '" + std::string(buf_grp) + "';";
+    auto delete_group = [&](const std::string& name) -> bool {
+        if (name.empty()) return false;
+        char buf_grp[64];
+        mysql_real_escape_string(db_, buf_grp, name.c_str(),
+            static_cast<unsigned long>(name.size()));
+        const std::string sql =
+            "DELETE FROM player_entitlements WHERE steam_id = '"
+            + std::string(buf_id) + "' AND group_name = '" + std::string(buf_grp)
+            + "';";
+        if (mysql_query(db_, sql.c_str()) != 0) {
+            Log::GetLog()->error("ShopEntitlements::Revoke failed: {}", mysql_error(db_));
+            return false;
+        }
+        return mysql_affected_rows(db_) > 0;
+    };
 
-    if (mysql_query(db_, sql.c_str()) != 0) {
-        Log::GetLog()->error("ShopEntitlements::Revoke failed: {}", mysql_error(db_));
-        return false;
-    }
-
-    RunPermissionConsole(steam_id, "Permissions.Remove " + steam_id + " " + group);
-    return mysql_affected_rows(db_) > 0;
+    const bool removed =
+        delete_group(canonical) || delete_group(sku) || delete_group(group);
+    RunPermissionConsole(steam_id, "Permissions.Remove " + steam_id + " " + canonical);
+    if (!sku.empty())
+        RunPermissionConsole(steam_id, "Permissions.Remove " + steam_id + " " + sku);
+    return removed;
 }
 
 bool ShopEntitlements::HasActive(const std::string& steam_id, const std::string& group) {
     if (group == "Default") return true;
     if (steam_id.empty()) return false;
 
+    const std::string canonical = NormalizeEntitlementGroup(group);
+
     uint64_t sid = 0;
     try { sid = std::stoull(steam_id); } catch (...) {}
 
-    if (sid && Perms::IsInGroup(sid, group)) return true;
+    if (sid && Perms::IsInGroup(sid, canonical)) return true;
+    const std::string sku = PaidSkuAlias(canonical);
+    if (sid && !sku.empty() && Perms::IsInGroup(sid, sku)) return true;
 
     if (!db_) return false;
 
-    char buf_id[64], buf_grp[64];
+    char buf_id[64];
     mysql_real_escape_string(db_, buf_id, steam_id.c_str(),
         static_cast<unsigned long>(steam_id.size()));
-    mysql_real_escape_string(db_, buf_grp, group.c_str(),
-        static_cast<unsigned long>(group.size()));
 
-    const std::string sql =
-        "SELECT 1 FROM player_entitlements WHERE steam_id = '"
-        + std::string(buf_id) + "' AND group_name = '" + std::string(buf_grp) + "' "
-        "AND (expires IS NULL OR expires > NOW()) LIMIT 1;";
+    auto query_group = [&](const std::string& name) -> bool {
+        if (name.empty()) return false;
+        char buf_grp[64];
+        mysql_real_escape_string(db_, buf_grp, name.c_str(),
+            static_cast<unsigned long>(name.size()));
+        const std::string sql =
+            "SELECT 1 FROM player_entitlements WHERE steam_id = '"
+            + std::string(buf_id) + "' AND group_name = '" + std::string(buf_grp)
+            + "' AND (expires IS NULL OR expires > NOW()) LIMIT 1;";
+        if (mysql_query(db_, sql.c_str()) != 0) return false;
+        MYSQL_RES* res = mysql_store_result(db_);
+        if (!res) return false;
+        const bool found = mysql_fetch_row(res) != nullptr;
+        mysql_free_result(res);
+        return found;
+    };
 
-    if (mysql_query(db_, sql.c_str()) != 0) return false;
-    MYSQL_RES* res = mysql_store_result(db_);
-    if (!res) return false;
-    const bool found = mysql_fetch_row(res) != nullptr;
-    mysql_free_result(res);
-    return found;
+    if (query_group(canonical)) return true;
+    // Legado: group_name gravado como SKU `licenca_delta` em vez de `Delta`.
+    if (!sku.empty() && query_group(sku)) return true;
+    return false;
 }
 
 bool ShopEntitlements::HasAnyActive(const std::string& steam_id,

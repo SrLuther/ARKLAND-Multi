@@ -516,3 +516,46 @@ def test_count_running_is_dashboard_truth():
     assert m.count_running([cfg]) == 1
     inst.status = ASM_STATUS_CRASHED
     assert m.count_running([cfg]) == 0
+
+
+def test_ghost_running_poll_dead_cleared(monkeypatch):
+    """RUNNING sem processo vivo não infla ONLINE (ghost count)."""
+    import src.asm_engine.asm_server_manager as mgr
+
+    class _Dead:
+        pid = 1
+
+        def poll(self):
+            return -1
+
+    class _Fake:
+        NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+
+        @staticmethod
+        def process_iter(attrs):  # noqa: ARG001
+            return []
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _Fake)
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
+    monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+
+    m = AsmServerManager()
+    cfg = _cfg(id="ghost")
+    m.register_servers([cfg])
+    inst = m.get_instance("ghost")
+    assert inst is not None
+    inst.status = ASM_STATUS_RUNNING
+    inst._proc = _Dead()
+    assert m.count_running([cfg]) == 1
+    n = m.scan_running_servers([cfg])
+    assert n == 0
+    assert m.count_running([cfg]) == 0
+    assert m.get_instance("ghost").status != ASM_STATUS_RUNNING

@@ -80,6 +80,11 @@ def _ankylo_upload_body():
             "name_map": "Ankylo_Character_BP_C_257",
             "stats_max": {"melee": {"points": 40}},
             "dino_level": 224,
+            "dino_identity": {
+                "dino_id1": 0x55556666,
+                "dino_id2": 0x77778888,
+                "ancestors": [],
+            },
         },
     }
 

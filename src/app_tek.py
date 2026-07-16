@@ -532,7 +532,16 @@ class ARKServerManagerApp(ctk.CTk):
 
             def _refresh() -> None:
                 live_now = self.asm_server_manager.count_running(servers)
-                self._asm_refresh_dashboard(immediate=True)
+                # Força cards + stats + sidebar do MESMO count_running (sem ghost ONLINE)
+                try:
+                    from .asm_ui.asm_dashboard import (
+                        _rebuild_all_cards,
+                        refresh_dashboard_metrics,
+                    )
+                    _rebuild_all_cards(self)
+                    refresh_dashboard_metrics(self)
+                except Exception:
+                    self._asm_refresh_dashboard(immediate=True)
                 self._rebuild_server_sidebar(immediate=True)
                 if live_now:
                     self._global_log(

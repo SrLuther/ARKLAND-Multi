@@ -76,6 +76,11 @@ def _upload_body(**overrides):
             "imprint_pct": 1.0,
             "name_map": "Alpha Rex",
             "stats_max": {"melee": {"points": 59}},
+            "dino_identity": {
+                "dino_id1": 0x11112222,
+                "dino_id2": 0x33334444,
+                "ancestors": [],
+            },
         },
     }
     body.update(overrides)
@@ -146,6 +151,11 @@ def test_upload_pending_classification_unknown_species():
                     "imprint_pct": 1.0,
                     "name_map": "Mod Dino",
                     "stats_max": {},
+                    "dino_identity": {
+                        "dino_id1": 0x9999AAAA,
+                        "dino_id2": 0xBBBBCCCC,
+                        "ancestors": [],
+                    },
                 }
             ),
         )

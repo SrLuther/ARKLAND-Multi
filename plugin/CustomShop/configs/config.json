@@ -2844,7 +2844,8 @@
           "Neutered": false
         }
       ],
-      "Price": 210000
+      "Price": 210000,
+      "Permissions": "Admins,Beta,Alfa"
     },
     "astrodelphis_pack10": {
       "Price": 42000,
@@ -3300,7 +3301,8 @@
           "Neutered": false
         }
       ],
-      "Price": 132000
+      "Price": 132000,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "bionicrex_pack10": {
       "Description": "KIT 10 FÊMEAS LVL 1 - REX TEK",
@@ -3376,7 +3378,8 @@
           "Neutered": false
         }
       ],
-      "Price": 126000
+      "Price": 126000,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "bloodstalker_pack10": {
       "Price": 42000,
@@ -4820,7 +4823,8 @@
           "Neutered": false
         }
       ],
-      "Price": 150000
+      "Price": 150000,
+      "Permissions": "Admins,Beta,Alfa"
     },
     "carnotaurus_pack10": {
       "Price": 21000,
@@ -5580,7 +5584,8 @@
           "Neutered": false
         }
       ],
-      "Price": 42000
+      "Price": 42000,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "dilophosaur_pack10": {
       "Price": 9000,
@@ -10590,7 +10595,8 @@
           "Neutered": false
         }
       ],
-      "Price": 132000
+      "Price": 132000,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "liopleurodon_pack10": {
       "Price": 15000,
@@ -16154,7 +16160,8 @@
           "Level": 1,
           "Neutered": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Alfa,Omega"
     },
     "thorny_dragon_pack10": {
       "Price": 4800,
@@ -18469,7 +18476,8 @@
       ],
       "Price": 35000,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Beta,Alfa"
     },
     "armor_flak": {
       "Category": "Armaduras",
@@ -19144,7 +19152,8 @@
       ],
       "Price": 22000,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "bionicrex_femea": {
       "Description": "Rex Tek Fêmea Nível 1",
@@ -19159,7 +19168,8 @@
       ],
       "Price": 21000,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "brachio": {
       "Description": "Brachiosaurus Fêmea Nível 1",
@@ -19190,7 +19200,8 @@
       ],
       "Price": 25000,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Beta,Alfa"
     },
     "ceratosaurus": {
       "Description": "Ceratosaurus Fêmea Nível 1",
@@ -19362,7 +19373,8 @@
       ],
       "Price": 7000,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "dipping_net": {
       "Category": "Ferramentas",
@@ -20166,7 +20178,8 @@
       "Price": 22000,
       "Quality": 0,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "machado_alfa": {
       "Category": "Ferramentas",
@@ -25100,7 +25113,8 @@
       "Name": "Therizinossauro Femea Nivel 1",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "Permissions": "Admins,Alfa,Omega"
     },
     "thylacoleo": {
       "Description": "Thylacoleo Femea Nivel 1",
@@ -30658,7 +30672,8 @@
       "Price": 60000,
       "Type": "dino",
       "MarketInclude": true,
-      "Name": "Carcharodontosaurus Nível 200"
+      "Name": "Carcharodontosaurus Nível 200",
+      "Permissions": "Admins,Beta,Alfa"
     },
     "lionfish_femea_l200": {
       "Description": "Shadowmane Nível 200",
@@ -30675,7 +30690,8 @@
       "Price": 52000,
       "Quality": 0,
       "Type": "dino",
-      "MarketInclude": true
+      "MarketInclude": true,
+      "Permissions": "Admins,Gamma,Beta"
     },
     "sb_hydra_l200": {
       "Description": "Small Hydra Nível 200 (SmallBosses)",
@@ -31140,7 +31156,8 @@
       "Price": 60000,
       "Type": "dino",
       "MarketInclude": true,
-      "Name": "Armaedron Nível 200"
+      "Name": "Armaedron Nível 200",
+      "Permissions": "Admins,Beta,Alfa"
     },
     "dread_wyvern_l200": {
       "Description": "Dread Wyvern Nível 200",
@@ -31200,7 +31217,8 @@
       "Price": 60000,
       "Type": "dino",
       "MarketInclude": true,
-      "Name": "Giganotossauro Tek Nível 200"
+      "Name": "Giganotossauro Tek Nível 200",
+      "Permissions": "Admins,Gamma,Beta"
     },
     "bionicrex_femea_l200": {
       "Description": "Rex Tek Nível 200",
@@ -31215,7 +31233,8 @@
       "Price": 60000,
       "Type": "dino",
       "MarketInclude": true,
-      "Name": "Rex Tek Nível 200"
+      "Name": "Rex Tek Nível 200",
+      "Permissions": "Admins,Gamma,Beta"
     },
     "brighamia_ancient_golem_l200": {
       "Description": "Ancient Rock Golem Nível 200 (Brighamia Creatures)",
@@ -31645,7 +31664,8 @@
       "Price": 16800,
       "Type": "dino",
       "MarketInclude": true,
-      "Name": "Desmodus Nível 200"
+      "Name": "Desmodus Nível 200",
+      "Permissions": "Admins,Gamma,Beta"
     },
     "quetzal_l200": {
       "Description": "Quetzal Nível 200",
@@ -31679,7 +31699,8 @@
       "Name": "Therizinossauro Nível 200",
       "Price": 16800,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "Permissions": "Admins,Alfa,Omega"
     },
     "karkinos_l200": {
       "Description": "Karkinos Nível 200",

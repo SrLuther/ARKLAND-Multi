@@ -303,8 +303,24 @@ def _compute_economy(db: Session, species_row: Any, metadata: dict[str, Any]) ->
 def preview_plugin_economy(db: Session, metadata: dict[str, Any]) -> dict[str, Any]:
     """Preview de valor sugerido para /enviar in-game (sem persistir)."""
     meta = dict(metadata or {})
-    from dino_lab_block_service import DINO_LAB_BLOCK_MESSAGE, lookup_blocked_from_metadata
+    from dino_lab_block_service import (
+        DINO_LAB_BLOCK_MESSAGE,
+        enforce_market_dino_identity,
+        lookup_blocked_from_metadata,
+    )
 
+    try:
+        enforce_market_dino_identity(meta)
+    except ValueError as exc:
+        return {
+            "ok": False,
+            "blocked": True,
+            "reason": "dino_identity_required",
+            "error": str(exc),
+            "message": str(exc),
+            "computed_base_value": 0,
+            "calculation_breakdown": [],
+        }
     match = lookup_blocked_from_metadata(db, meta)
     if match:
         return {
@@ -427,8 +443,13 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
     if isinstance(metadata, str):
         metadata = _json_loads(metadata)
 
-    from dino_lab_block_service import DINO_LAB_BLOCK_MESSAGE, lookup_blocked_from_metadata
+    from dino_lab_block_service import (
+        DINO_LAB_BLOCK_MESSAGE,
+        enforce_market_dino_identity,
+        lookup_blocked_from_metadata,
+    )
 
+    enforce_market_dino_identity(metadata)
     match = lookup_blocked_from_metadata(db, metadata)
     if match:
         raise ValueError(match.get("message") or DINO_LAB_BLOCK_MESSAGE)
@@ -1241,6 +1262,15 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
     if row.seller_steam_id == buyer_steam_id:
         raise ValueError("Não é possível comprar seu próprio anúncio")
 
+    from dino_lab_block_service import DINO_LAB_BLOCK_MESSAGE, lookup_blocked_from_metadata
+
+    listing_meta = _json_loads(getattr(row, "metadata_json", None) or "{}")
+    buy_match = lookup_blocked_from_metadata(
+        db, listing_meta if isinstance(listing_meta, dict) else {}
+    )
+    if buy_match:
+        raise ValueError(buy_match.get("message") or DINO_LAB_BLOCK_MESSAGE)
+
     mate: Any | None = None
     is_pair = is_pair_listing(row)
     if is_pair:
@@ -1272,6 +1302,12 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
             raise ValueError("Parceiro do casal não está disponível")
         if mate.seller_steam_id != row.seller_steam_id:
             raise ValueError("Casal inválido")
+        mate_meta = _json_loads(getattr(mate, "metadata_json", None) or "{}")
+        mate_match = lookup_blocked_from_metadata(
+            db, mate_meta if isinstance(mate_meta, dict) else {}
+        )
+        if mate_match:
+            raise ValueError(mate_match.get("message") or DINO_LAB_BLOCK_MESSAGE)
 
     if is_pair and mate is not None:
         price = pair_checkout_price(

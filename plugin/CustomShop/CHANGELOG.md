@@ -8,6 +8,26 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.22] - 2026-07-15
+
+### Fix
+
+- **Licenças / TimedPoints**: `ShopEntitlements::Grant` normaliza SKU de catálogo (`licenca_delta` → `Delta`, etc.) antes de gravar `group_name`; `HasActive`/`Revoke` também aceitam o SKU legado — evita bónus +0 e falha de entrega do Amount TimedPoints.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.22) em cada mapa.
+
+## [1.10.21] - 2026-07-15
+
+### Fix
+
+- **Dino Lab / Mercado**: `/enviar` e `/confirmar` passam a falhar fechado se a identidade da cryo não puder ser lida ou se o HTTP de bloqueio falhar (antes permitiam anunciar dinos do Dino Lab).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.21) em cada mapa.
+
 ## [1.10.20] - 2026-07-15
 
 ### Melhoria

@@ -289,6 +289,120 @@ def test_lookup_blocked_match_includes_pair(block_db):
     assert match["order_id"] == ORDER
 
 
+def test_manticora_canonical_high_bit_lookup(block_db):
+    """Regressão: 13CE1FC2-89271B4F (id2 > INT_MAX) — match via canonical + signed."""
+    from dino_lab_block_service import _as_signed_i32
+
+    id1 = 0x13CE1FC2
+    id2 = 0x89271B4F
+    canon = "13CE1FC2-89271B4F"
+    assert canonical_id(id1, id2) == canon
+    assert id2 > 0x7FFFFFFF
+
+    # Simula storage legacy: dino_id* com overflow signed, canonical VARCHAR correcto.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    block_db.execute(
+        text(
+            "INSERT INTO dino_lab_blocked_ids "
+            "(dino_id1, dino_id2, canonical_id, order_id, steam_id, source, role, "
+            "generation, delivered_at, created_at) "
+            "VALUES (:id1, :id2, :canon, :oid, :sid, 'dino_lab', 'self', 0, :now, :now)"
+        ),
+        {
+            "id1": _as_signed_i32(id1),
+            "id2": _as_signed_i32(id2),
+            "canon": canon,
+            "oid": "de_35bf46e5fcee",
+            "sid": "76561199803813432",
+            "now": now,
+        },
+    )
+    block_db.commit()
+
+    match = lookup_blocked_match(block_db, [(id1, id2)])
+    assert match is not None
+    assert match["blocked"] is True
+    assert match["canonical_id"] == canon
+    assert match["order_id"] == "de_35bf46e5fcee"
+
+    # Também via metadata como o /enviar envia
+    match2 = lookup_blocked_from_metadata(
+        block_db,
+        {
+            "dino_identity": {
+                "dino_id1": id1,
+                "dino_id2": id2,
+                "ancestors": [],
+            }
+        },
+    )
+    assert match2 is not None
+    assert match2["canonical_id"] == canon
+
+    # Preview e upload devem rejeitar
+    preview = preview_plugin_economy(
+        block_db,
+        {
+            "species_blueprint": "/Game/Mods/SuperDinos2/Dinos/Manticore/sb_manticore.sb_manticore",
+            "imprint_pct": 1.0,
+            "dino_identity": {"dino_id1": id1, "dino_id2": id2, "ancestors": []},
+        },
+    )
+    assert preview["ok"] is False
+    assert preview["blocked"] is True
+    assert "Dino Lab" in preview["message"]
+
+
+def test_preview_and_upload_require_dino_identity(block_db, tmp_path, monkeypatch):
+    preview = preview_plugin_economy(
+        block_db,
+        {
+            "species_blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+            "imprint_pct": 1.0,
+        },
+    )
+    assert preview["ok"] is False
+    assert preview["reason"] == "dino_identity_required"
+
+    db_url = f"sqlite:///{tmp_path / 'market_upload_noid.db'}"
+    monkeypatch.setattr(_app_module, "_ACTIVE_DATABASE_URL", "")
+    _app_module._configure_database(db_url)
+    db = _app_module._SessionLocal()
+    try:
+        from app import MarketPlayerProfile
+
+        ensure_dino_lab_block_schema(db.bind)
+        db.add(
+            MarketPlayerProfile(
+                steam_id=SELLER,
+                market_display_name="Seller",
+                commerce_enabled=True,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+        with pytest.raises(ValueError, match="identidade"):
+            process_plugin_upload(
+                db,
+                {
+                    "steam_id": SELLER,
+                    "inventory_removed": True,
+                    "inventory_verified_empty": True,
+                    "item_blob_hex": "0102ab",
+                    "upload_id": "trace_noid_0001",
+                    "market_trace_id": "trace_noid_0001",
+                    "metadata": {
+                        "species_blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+                        "imprint_pct": 1.0,
+                        "name_map": "No Identity Rex",
+                    },
+                },
+            )
+    finally:
+        db.close()
+
+
 def test_lookup_blocked_from_metadata(block_db):
     _register_sample(block_db)
     match = lookup_blocked_from_metadata(
