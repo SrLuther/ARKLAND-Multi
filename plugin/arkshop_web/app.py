@@ -404,7 +404,7 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "cross_chat_discord_token", "ticket_discord_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "ticket_discord_token")
 
 _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
     {"id": "p10000", "label": "10.000 Âmbares", "points": 10000, "price_brl": 5.0, "note": "Primeiro passo — ideal para conhecer a loja"},
@@ -1509,12 +1509,6 @@ def _migrate_schema(engine: Any) -> None:
         _ensure_steam_id_collation(engine)
     except Exception as exc:
         log.warning("Mercado: migrate falhou (será retentado pelo watcher): %s", exc)
-    try:
-        from cross_chat_service import ensure_cross_chat_schema
-
-        ensure_cross_chat_schema(engine)
-    except Exception as exc:
-        log.warning("CrossChat: migrate falhou: %s", exc)
     try:
         from ticket_service import ensure_ticket_schema
 
@@ -6433,12 +6427,11 @@ def auth_me():
 @admin_required
 def get_settings():
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "cross_chat_discord_token", "ticket_discord_token")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "ticket_discord_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
     safe["steam_api_key_set"] = bool(_get_steam_api_key())
-    safe["cross_chat_discord_token_set"] = bool(s.get("cross_chat_discord_token"))
     safe["ticket_discord_token_set"] = bool(s.get("ticket_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
     safe["card_enabled"] = _payments_enabled()
@@ -11293,29 +11286,6 @@ register_market_routes(
     steam_id_from_session=_steam_id_from_session,
     audit_event=_audit_event,
     limiter=limiter,
-)
-
-from cross_chat_routes import register_cross_chat_routes
-
-register_cross_chat_routes(
-    app,
-    db_ready=_db_ready,
-    session_factory=_db_session_factory,
-    api_key_required=api_key_required,
-    admin_required=admin_required,
-    limiter=limiter,
-    load_settings=_load_settings,
-    save_settings=_save_settings,
-    steam_id_from_session=_steam_id_from_session,
-)
-
-from cross_chat_discord import start_discord_bridge
-
-start_discord_bridge(
-    session_factory=_db_session_factory,
-    load_settings=_load_settings,
-    save_settings=_save_settings,
-    db_ready=_db_ready,
 )
 
 from ticket_routes import register_ticket_routes

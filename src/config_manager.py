@@ -48,6 +48,8 @@ class BackupConfig:
     max_backup_count:      int  = 10
     exclude_old_backups:   bool = True   # legado — espelha limit_backup_count
     max_backup_days:       int  = 5      # legado — ignorado quando limit_backup_count
+    # Omite cópias internas do ARK (.bak / Map_DD.MM.YYYY_HH.MM.SS.ark) do ZIP
+    backup_exclude_redundant: bool = True
     rcon_broadcast_mode:   str  = "Broadcast"
     save_message:          str  = "ARKLAND: Auto save em andamento"
     auto_backup:           bool = False

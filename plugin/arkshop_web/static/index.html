@@ -6008,9 +6008,6 @@
     <div class="nav-item admin-only" data-page="plugin-debug" onclick="nav(this)">
       <span class="nav-icon">🐛</span> Debug Plugins
     </div>
-    <div class="nav-item admin-only" data-page="cluster-chat" onclick="nav(this)">
-      <span class="nav-icon">🌐</span> Chat Cluster
-    </div>
 
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
@@ -6716,7 +6713,7 @@
           <div class="card-title">🔔 Discord — atualizações de tickets</div>
           <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
             O bot envia uma mensagem no canal sempre que um ticket é criado, respondido, alterado ou encerrado.
-            Pode reutilizar o token do Chat Cluster ou informar um token dedicado.
+            Informe o token do bot Discord dedicado a estas notificações.
           </p>
           <div id="tickets-discord-status" style="font-size:12px;margin-bottom:12px;"></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
@@ -6728,7 +6725,7 @@
               <input id="tickets-discord-channel" type="text" placeholder="123456789012345678" />
             </div>
             <div class="form-group" style="margin:0;flex:1;min-width:220px;">
-              <label>Token do bot (opcional — vazio usa token do Chat Cluster)</label>
+              <label>Token do bot (deixe vazio para manter)</label>
               <input id="tickets-discord-token" type="password" placeholder="••••••••" autocomplete="new-password" />
             </div>
             <button class="btn btn-primary btn-sm" onclick="saveTicketsDiscord()">Salvar Discord</button>
@@ -8972,110 +8969,6 @@
         </div>
       </div>
 
-      <!-- PAGE: Chat Cluster (admin) -->
-      <div id="page-cluster-chat" class="page admin-only">
-        <div id="topbar">
-          <div class="page-title">Chat Cluster</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">
-            Chat global entre mapas (captura automática, sem /c) e ponte Discord bidirecional.
-            Rotulação: <strong>[Mapa] Jogador</strong> no jogo e no Discord.
-          </p>
-          <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadClusterChatAdmin()">↺ Recarregar</button>
-          </div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">🎮 Ponte Discord</div>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
-            Mensagens do jogo aparecem no canal como <code>[Mapa] Jogador: texto</code>.
-            Mensagens do Discord chegam nos servidores como <code>[Discord] Nick: texto</code>.
-            Requer <code>discord.py</code> e token do bot com intent <em>Message Content</em>.
-          </p>
-          <div id="cluster-chat-discord-status" style="font-size:12px;margin-bottom:12px;"></div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
-            <div class="form-group" style="margin:0;">
-              <label><input type="checkbox" id="cluster-chat-discord-enabled" /> Ativar ponte Discord</label>
-            </div>
-            <div class="form-group" style="margin:0;min-width:200px;">
-              <label>ID do canal Discord</label>
-              <input id="cluster-chat-discord-channel" type="text" placeholder="123456789012345678" />
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
-              <label>Token do bot (deixe vazio para manter)</label>
-              <input id="cluster-chat-discord-token" type="password" placeholder="••••••••" autocomplete="new-password" />
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="saveClusterChatDiscord()">Salvar Discord</button>
-          </div>
-          <p style="font-size:11px;color:var(--text2);margin-top:10px;">
-            Variáveis de ambiente opcionais: <code>ARKSHOP_CROSS_CHAT_DISCORD_ENABLED</code>,
-            <code>ARKSHOP_CROSS_CHAT_DISCORD_TOKEN</code>, <code>ARKSHOP_CROSS_CHAT_DISCORD_CHANNEL_ID</code>.
-          </p>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">📤 Enviar para todos os mapas</div>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">
-            Mensagem aparece no chat in-game de <strong>todos</strong> os servidores como
-            <code>[ARKLAND] Admin Site: texto</code> (mesma fila do CrossChat).
-          </p>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
-            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
-              <label>Mensagem</label>
-              <input id="cluster-chat-send-msg" type="text" maxlength="500" placeholder="Aviso para o cluster…" onkeydown="if(event.key==='Enter')clusterChatSend()" />
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="clusterChatSend()">Enviar ▶</button>
-          </div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">📊 Resumo (24h)</div>
-          <div id="cluster-chat-stats" style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;"></div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">🔇 Silenciados</div>
-          <div id="cluster-chat-mutes"></div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:12px;">
-            <div class="form-group" style="margin:0;min-width:180px;">
-              <label>SteamID para silenciar</label>
-              <input id="cluster-chat-mute-steam" type="text" placeholder="7656119…" />
-            </div>
-            <div class="form-group" style="margin:0;min-width:100px;">
-              <label>Horas (vazio = permanente)</label>
-              <input id="cluster-chat-mute-hours" type="number" min="1" placeholder="24" />
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:140px;">
-              <label>Motivo</label>
-              <input id="cluster-chat-mute-reason" type="text" placeholder="spam, ofensa…" />
-            </div>
-            <button class="btn btn-danger btn-sm" onclick="clusterChatMute()">Silenciar</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title">💬 Log de mensagens</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
-            <div class="form-group" style="margin:0;min-width:140px;">
-              <label>Mapa / servidor</label>
-              <select id="cluster-chat-filter-server" onchange="resetClusterChatPage()">
-                <option value="">Todos</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;min-width:180px;">
-              <label>SteamID</label>
-              <input id="cluster-chat-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter')resetClusterChatPage()" />
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:160px;">
-              <label>Busca</label>
-              <input id="cluster-chat-filter-q" type="text" placeholder="nome, mensagem…" onkeydown="if(event.key==='Enter')resetClusterChatPage()" />
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="resetClusterChatPage()">Filtrar</button>
-          </div>
-          <div id="cluster-chat-list"></div>
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
-            <button class="btn btn-ghost btn-sm" onclick="prevClusterChatPage()">◀ Anterior</button>
-            <span id="cluster-chat-page-info" style="font-size:12px;color:var(--text2);align-self:center;"></span>
-            <button class="btn btn-ghost btn-sm" onclick="nextClusterChatPage()">Próxima ▶</button>
-          </div>
-        </div>
-      </div>
-
       <div id="modal-audit-detail" class="modal-backdrop hidden">
         <div class="modal" style="max-width:640px;">
           <div class="modal-header">
@@ -9995,7 +9888,6 @@ function nav(el) {
   if (page === "dino-lab-admin") loadDinoLabAdmin();
   if (page === "midias-admin") loadMidiasAdmin();
   if (page === "sugestoes-admin") loadSugestoesAdmin();
-  if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "tickets-admin") {
     _ticketsAdminSelectedId = null;
     document.getElementById("tickets-admin-detail")?.classList.add("hidden");
@@ -15760,7 +15652,7 @@ async function loadTicketsDiscord() {
     if (ch && d.channel_id) ch.value = String(d.channel_id);
     if (statusEl) {
       const state = d.enabled ? "🟢 ativo" : (d.requested_enabled ? "🟡 config incompleta" : "⚪ desativado");
-      const src = d.token_source === "ticket" ? "token dedicado" : (d.token_source === "cross_chat" ? "token do Chat Cluster" : "sem token");
+      const src = d.token_source === "ticket" ? "token configurado" : "sem token";
       statusEl.innerHTML = `${state} · ${escHtml(d.status_message || "")}<br><span style="color:var(--text2);font-size:0.92em;">Fonte do token: ${escHtml(src)}</span>`;
     }
   } catch (_) {}
@@ -22752,225 +22644,6 @@ async function confirmBuy() {
   }
 }
 
-// ── Chat Cluster (admin) ──────────────────────────────────────────────────────
-let _clusterChatPage = { limit: 50, offset: 0, total: 0 };
-
-function resetClusterChatPage() { _clusterChatPage.offset = 0; loadClusterChatMessages(); }
-function prevClusterChatPage() {
-  _clusterChatPage.offset = Math.max(0, _clusterChatPage.offset - _clusterChatPage.limit);
-  loadClusterChatMessages();
-}
-function nextClusterChatPage() {
-  if (_clusterChatPage.offset + _clusterChatPage.limit < _clusterChatPage.total) {
-    _clusterChatPage.offset += _clusterChatPage.limit;
-    loadClusterChatMessages();
-  }
-}
-
-async function loadClusterChatStats() {
-  const statsEl = document.getElementById("cluster-chat-stats");
-  const serverSel = document.getElementById("cluster-chat-filter-server");
-  if (!statsEl) return;
-  try {
-    const r = await fetch(`${API}/api/admin/chat/stats`);
-    const d = await r.json();
-    if (!d.ok) return;
-    statsEl.innerHTML = [
-      ["Mensagens (24h)", d.messages_24h],
-      ["Jogadores (24h)", d.players_24h],
-      ["Mapas ativos (24h)", d.servers_24h],
-      ["Silenciados", d.active_mutes],
-    ].map(([label, n]) => `<span class="home-maps-pillar">${label}: <strong>${Number(n || 0)}</strong></span>`).join("");
-    if (serverSel && Array.isArray(d.servers)) {
-      const cur = serverSel.value;
-      serverSel.innerHTML = `<option value="">Todos</option>` +
-        d.servers.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join("");
-      if (cur) serverSel.value = cur;
-    }
-  } catch (_) {}
-}
-
-async function loadClusterChatMutes() {
-  const el = document.getElementById("cluster-chat-mutes");
-  if (!el) return;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
-  try {
-    const r = await fetch(`${API}/api/admin/chat/mutes`);
-    const d = await r.json();
-    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
-    const items = d.items || [];
-    if (!items.length) {
-      el.innerHTML = `<div style="color:var(--text2);font-size:12px;">Nenhum jogador silenciado.</div>`;
-      return;
-    }
-    el.innerHTML = `<table class="data-table"><thead><tr>
-      <th>SteamID</th><th>Até</th><th>Motivo</th><th></th>
-    </tr></thead><tbody>` +
-    items.map(m => `<tr>
-      <td><code>${escHtml(m.steam_id)}</code></td>
-      <td>${m.muted_until ? escHtml(m.muted_until) : "Permanente"}</td>
-      <td>${escHtml(m.reason || "—")}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="clusterChatUnmute('${escHtml(m.steam_id)}')">Remover</button></td>
-    </tr>`).join("") + `</tbody></table>`;
-  } catch (e) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(e.message)}</div>`;
-  }
-}
-
-async function loadClusterChatMessages() {
-  const server = document.getElementById("cluster-chat-filter-server")?.value || "";
-  const steam = document.getElementById("cluster-chat-filter-steam")?.value.trim() || "";
-  const q = document.getElementById("cluster-chat-filter-q")?.value.trim() || "";
-  let url = `${API}/api/admin/chat/messages?limit=${_clusterChatPage.limit}&offset=${_clusterChatPage.offset}`;
-  if (server) url += `&source_server=${encodeURIComponent(server)}`;
-  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
-  if (q) url += `&q=${encodeURIComponent(q)}`;
-  const el = document.getElementById("cluster-chat-list");
-  if (!el) return;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando mensagens…</div>`;
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
-    _clusterChatPage.total = d.total || 0;
-    const pageNum = Math.floor(_clusterChatPage.offset / _clusterChatPage.limit) + 1;
-    const totalPages = Math.max(1, Math.ceil(_clusterChatPage.total / _clusterChatPage.limit));
-    const info = document.getElementById("cluster-chat-page-info");
-    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_clusterChatPage.total})`;
-    const items = d.items || [];
-    if (!items.length) {
-      el.innerHTML = `<div style="color:var(--text2);padding:12px 0;">Nenhuma mensagem encontrada.</div>`;
-      return;
-    }
-    el.innerHTML = `<table class="data-table"><thead><tr>
-      <th>Data</th><th>Mapa</th><th>Jogador</th><th>SteamID</th><th>Mensagem</th><th></th>
-    </tr></thead><tbody>` +
-    items.map(m => `<tr>
-      <td style="white-space:nowrap;font-size:11px;">${escHtml(m.created_at || "")}</td>
-      <td><span class="badge badge-kit">${escHtml(m.source_server)}</span>${m.channel === "discord" ? " <span class=\"badge\" style=\"background:#5865F2\">Discord</span>" : ""}</td>
-      <td>${escHtml(m.player_name)}</td>
-      <td><code style="font-size:11px;">${escHtml(m.steam_id)}</code></td>
-      <td>${escHtml(m.message)}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="clusterChatMuteQuick('${escHtml(m.steam_id)}')">Silenciar</button></td>
-    </tr>`).join("") + `</tbody></table>`;
-  } catch (e) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(e.message)}</div>`;
-  }
-}
-
-async function clusterChatSend() {
-  const inp = document.getElementById("cluster-chat-send-msg");
-  const message = inp?.value?.trim() || "";
-  if (!message) { toast("Digite uma mensagem.", "warning"); return; }
-  if (!confirm("Enviar esta mensagem para todos os mapas do cluster?")) return;
-  try {
-    const r = await fetch(`${API}/api/admin/chat/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
-    });
-    const d = await r.json();
-    if (d.ok) {
-      toast("Mensagem enviada ao cluster.", "success");
-      if (inp) inp.value = "";
-      resetClusterChatPage();
-    } else {
-      toast(d.error || "Falha ao enviar", "error");
-    }
-  } catch (e) {
-    toast("Erro de rede: " + e.message, "error");
-  }
-}
-
-function loadClusterChatAdmin() {
-  loadClusterChatDiscord();
-  loadClusterChatStats();
-  loadClusterChatMutes();
-  loadClusterChatMessages();
-}
-
-async function loadClusterChatDiscord() {
-  const statusEl = document.getElementById("cluster-chat-discord-status");
-  try {
-    const r = await fetch(`${API}/api/admin/chat/discord`);
-    const d = await r.json();
-    if (!d.ok) return;
-    const chk = document.getElementById("cluster-chat-discord-enabled");
-    const ch = document.getElementById("cluster-chat-discord-channel");
-    if (chk) chk.checked = !!d.requested_enabled;
-    if (ch && d.channel_id) ch.value = String(d.channel_id);
-    if (statusEl) {
-      const conn = d.connected ? "🟢 conectado" : (d.requested_enabled ? "🟡 aguardando" : "⚪ desativado");
-      const detail = d.status_message ? `<br><span style="color:var(--text2);font-size:0.92em;">${escHtml(d.status_message)}</span>` : "";
-      const err = d.error ? `<br><span style="color:var(--danger);font-size:0.92em;">${escHtml(d.error)}</span>` : "";
-      const py = d.discord_py_available === false ? `<br><span style="color:var(--danger);font-size:0.92em;">discord.py ausente no ambiente</span>` : "";
-      statusEl.innerHTML = `${conn} · último ID encaminhado: <strong>${Number(d.last_forward_id || 0)}</strong>${detail}${err}${py}`;
-    }
-  } catch (_) {}
-}
-
-async function saveClusterChatDiscord() {
-  const body = {
-    cross_chat_discord_enabled: !!document.getElementById("cluster-chat-discord-enabled")?.checked,
-    cross_chat_discord_channel_id: document.getElementById("cluster-chat-discord-channel")?.value.trim() || "",
-  };
-  const tok = document.getElementById("cluster-chat-discord-token")?.value.trim() || "";
-  if (tok) body.cross_chat_discord_token = tok;
-  try {
-    const r = await fetch(`${API}/api/admin/chat/discord`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const d = await r.json();
-    if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
-    toast("Configuração Discord salva — bridge reiniciado");
-    document.getElementById("cluster-chat-discord-token").value = "";
-    loadClusterChatDiscord();
-  } catch (e) {
-    toast(e.message, "error");
-  }
-}
-
-function clusterChatMuteQuick(steamId) {
-  const inp = document.getElementById("cluster-chat-mute-steam");
-  if (inp) inp.value = steamId;
-  document.getElementById("cluster-chat-mute-hours")?.focus();
-}
-
-async function clusterChatMute() {
-  const steam = document.getElementById("cluster-chat-mute-steam")?.value.trim() || "";
-  const hoursRaw = document.getElementById("cluster-chat-mute-hours")?.value.trim() || "";
-  const reason = document.getElementById("cluster-chat-mute-reason")?.value.trim() || "";
-  if (!steam) { toast("Informe o SteamID", "error"); return; }
-  const body = { steam_id: steam, reason };
-  if (hoursRaw) body.hours = parseInt(hoursRaw, 10);
-  try {
-    const r = await fetch(`${API}/api/admin/chat/mute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const d = await r.json();
-    if (!d.ok) { toast(d.error || "Falha ao silenciar", "error"); return; }
-    toast("Jogador silenciado no chat cluster");
-    loadClusterChatAdmin();
-  } catch (e) {
-    toast(e.message, "error");
-  }
-}
-
-async function clusterChatUnmute(steamId) {
-  try {
-    const r = await fetch(`${API}/api/admin/chat/mute/${encodeURIComponent(steamId)}`, { method: "DELETE" });
-    const d = await r.json();
-    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    toast("Silêncio removido");
-    loadClusterChatAdmin();
-  } catch (e) {
-    toast(e.message, "error");
-  }
-}
 
 // ── Auditoria PIX (admin) ─────────────────────────────────────────────────────
 let _pixAuditPage = { limit: 50, offset: 0, total: 0 };

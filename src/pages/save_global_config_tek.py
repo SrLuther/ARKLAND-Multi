@@ -30,6 +30,9 @@ def _save_backup(app, bk) -> None:
     bk.backup_dir          = _g(app, "_bk_dir_var",           strip=True)
     bk.include_savegames   = _g(app, "_bk_include_saves_var", tk.BooleanVar)
     bk.include_config      = _g(app, "_bk_include_config_var", tk.BooleanVar)
+    bk.backup_exclude_redundant = getattr(
+        app, "_bk_exclude_redundant_var", tk.BooleanVar(value=True)
+    ).get()
     bk.limit_backup_count  = _g(app, "_bk_limit_count_var",   tk.BooleanVar)
     try:
         bk.max_backup_count = max(1, int(_g(app, "_bk_max_count_var")))

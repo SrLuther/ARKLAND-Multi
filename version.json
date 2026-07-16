@@ -1,12 +1,10 @@
 {
-    "version": "1.10.48",
+    "version": "1.10.49",
     "date": "2026-07-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.48/ARKLAND-Multi-Setup-v1.10.48.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.49/ARKLAND-Multi-Setup-v1.10.49.exe",
     "changelog": [
-        "Fix CRÍTICO (TEK / ForceDay): SetDay via RCON crasha ASE 361.7 (UShooterCheatManager::SetDay no tick RCON) — derrubou todos os mapas online na 1.10.47. Kill-switch: zero SetDay por RCON; ForceDay OFF ao carregar config; UI «Aplicar agora» recusada; sem auto-apply no start/restart.",
-        "Nota (TEK / ForceDay): «cheat SetDay» não é alternativa segura (mesmo CheatManager). DayNumber alinhado só com método futuro comprovado (plugin/save offline). Shop.Reload RCON mantido (stack do crash apontava SetDay, não Reload).",
-        "Audit (TEK / ForceDay): confirma todos os caminhos SetDay RCON mortos — start/restart nunca agenda schedule_force_day; save/UI forçam enabled=False; teste de persistência OFF ao carregar config antiga.",
-        "Fix (Loja): aba em branco — SyntaxError (nonlocal data após uso) impedia import do painel; caminho mestre em Label (sem CTkEntry readonly); try/except com messagebox+traceback.",
-        "Fix (Web Store): arranque — .exe frozen já não faz sys.exit sem ARKSHOP_WEB_SECRET (usa web_secret.txt / geração); recupera WEBSTORE/config.json stub (~176 B); settings stub só-com-config_path faz merge em memória; launch pré-aquece catálogo+secret; log claro se porta ocupada."
+        "Remoção (Web Store / Chat Cluster): elimina chat global, APIs /api/chat e /api/admin/chat, ponte Discord (spam/canal indisponível) e aba Chat Cluster no TEK — causa de lentidão e timeouts no site.",
+        "Remoção (Web Store): dependency discord.py; tickets Discord passam a exigir token dedicado (já não reutilizam token do Chat Cluster).",
+        "Feat (Backup): filtro de conteúdo — omite por padrão .bak e backups datados do ARK (Map_DD.MM.YYYY_HH.MM.SS.ark); ZIPs ~60–75% menores sem alterar retenção 1h/10; desligável em Config Global."
     ]
 }

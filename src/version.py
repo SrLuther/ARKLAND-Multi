@@ -3,12 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.48"
+APP_VERSION: str = "1.10.49"
 BUILD_DATE: str = "2026-07-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "Unreleased",
+        "date": "",
+        "changes": [],
+    },
+    {
+        "version": "1.10.49",
+        "date": "2026-07-16",
+        "changes": [
+            "Remoção (Web Store / Chat Cluster): elimina chat global, APIs /api/chat e /api/admin/chat, ponte Discord (spam/canal indisponível) e aba Chat Cluster no TEK — causa de lentidão e timeouts no site.",
+            "Remoção (Web Store): dependency discord.py; tickets Discord passam a exigir token dedicado (já não reutilizam token do Chat Cluster).",
+            "Feat (Backup): filtro de conteúdo — omite por padrão .bak e backups datados do ARK (Map_DD.MM.YYYY_HH.MM.SS.ark); ZIPs ~60–75% menores sem alterar retenção 1h/10; desligável em Config Global.",
+        ],
+    },
     {
         "version": "1.10.48",
         "date": "2026-07-16",

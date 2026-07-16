@@ -10,6 +10,7 @@ Estrutura de armazenamento (ZIP):
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import threading
 import zipfile
@@ -25,6 +26,22 @@ if TYPE_CHECKING:
     from .asm_engine.asm_server_config import AsmServerConfig
 
 _DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+
+# Cópias internas do ARK: Map_DD.MM.YYYY_HH.MM.SS.ark (não confundir com Map.ark ativo)
+_DATED_ARK_BACKUP_RE = re.compile(
+    r"^.+_\d{2}\.\d{2}\.\d{4}_\d{2}\.\d{2}\.\d{2}\.ark$",
+    re.IGNORECASE,
+)
+
+
+def is_redundant_ark_save_file(name: str) -> bool:
+    """True para cópias redundantes do mundo (.bak / backup datado) — omitíveis do ZIP."""
+    if not name:
+        return False
+    lower = name.lower()
+    if lower.endswith(".bak"):
+        return True
+    return _DATED_ARK_BACKUP_RE.match(name) is not None
 
 
 def saved_root(install_dir: str) -> Path:
@@ -111,6 +128,7 @@ def asm_server_to_backup_target(asm_srv: "AsmServerConfig", global_bk: "BackupCo
         backup_dir=global_bk.backup_dir,
         backup_include_saves=global_bk.include_savegames,
         backup_include_config=global_bk.include_config,
+        backup_exclude_redundant=getattr(global_bk, "backup_exclude_redundant", True),
         backup_keep_count=keep,
     )
 
@@ -209,6 +227,9 @@ class BackupManager:
         uncompressed_bytes = 0
         save_files = 0
         config_files = 0
+        excluded_count = 0
+        excluded_bytes = 0
+        exclude_redundant = getattr(srv, "backup_exclude_redundant", True)
 
         try:
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -225,12 +246,20 @@ class BackupManager:
                         prefix = _zip_saves_prefix(saves_src, sbase)
                         found_here = 0
                         for f in sorted(saves_src.rglob("*")):
-                            if f.is_file():
-                                arc = f"{prefix}/{f.relative_to(saves_src).as_posix()}"
-                                zf.write(f, arc)
-                                uncompressed_bytes += f.stat().st_size
-                                found_here += 1
-                                added = True
+                            if not f.is_file():
+                                continue
+                            if exclude_redundant and is_redundant_ark_save_file(f.name):
+                                try:
+                                    excluded_bytes += f.stat().st_size
+                                except OSError:
+                                    pass
+                                excluded_count += 1
+                                continue
+                            arc = f"{prefix}/{f.relative_to(saves_src).as_posix()}"
+                            zf.write(f, arc)
+                            uncompressed_bytes += f.stat().st_size
+                            found_here += 1
+                            added = True
                         save_files += found_here
                         if found_here:
                             self._on_log(
@@ -277,11 +306,18 @@ class BackupManager:
         if config_files:
             parts.append(f"{config_files} config")
         content_tag = " + ".join(parts) if parts else "vazio"
+        exclude_note = ""
+        if excluded_count:
+            exclude_note = (
+                f"  |  omitidos {excluded_count} redundante(s) "
+                f"(~{_format_size(excluded_bytes)} não incluídos)"
+            )
         self._on_log(
             f"[Backup] {srv.name}: snapshot salvo → {zip_path.name}  "
             f"[{content_tag}]  "
             f"({_format_size(compressed_bytes)} comprimido / "
-            f"{_format_size(uncompressed_bytes)} original)",
+            f"{_format_size(uncompressed_bytes)} original)"
+            f"{exclude_note}",
             "info",
         )
         self._prune(srv)
@@ -292,6 +328,11 @@ class BackupManager:
                 f"Tamanho: {_format_size(compressed_bytes)} "
                 f"(original: {_format_size(uncompressed_bytes)})"
             )
+            if excluded_count:
+                detail += (
+                    f"\nOmitidos: {excluded_count} redundante(s) "
+                    f"(~{_format_size(excluded_bytes)})"
+                )
             self._discord_notifier.notify_backup(srv.name, detail=detail)  # type: ignore[union-attr]
         return str(zip_path)
 

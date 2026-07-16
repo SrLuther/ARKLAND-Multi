@@ -1686,6 +1686,9 @@ class ARKServerManagerApp(ctk.CTk):
         bk.backup_dir          = getattr(self, "_bk_dir_var",           tk.StringVar()).get().strip()
         bk.include_savegames   = getattr(self, "_bk_include_saves_var", tk.BooleanVar()).get()
         bk.include_config      = getattr(self, "_bk_include_config_var", tk.BooleanVar(value=True)).get()
+        bk.backup_exclude_redundant = getattr(
+            self, "_bk_exclude_redundant_var", tk.BooleanVar(value=True)
+        ).get()
         bk.limit_backup_count  = getattr(self, "_bk_limit_count_var",   tk.BooleanVar(value=True)).get()
         try:
             bk.max_backup_count = max(1, int(getattr(self, "_bk_max_count_var", tk.StringVar(value="10")).get()))

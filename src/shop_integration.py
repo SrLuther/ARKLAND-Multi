@@ -205,7 +205,7 @@ def find_cross_chat_collisions(
         errors.append(
             f"CrossChat ServerId duplicado «{label}» em: {', '.join(names)} — "
             "mensagens não chegam entre esses mapas. Defina «Nome no chat cluster» "
-            "único por servidor (aba Loja / Chat Cluster) e sincronize."
+            "único por servidor (aba Loja) e sincronize."
         )
     for path, names in sorted(by_path.items()):
         if len(names) < 2:

@@ -441,7 +441,6 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
     tabs.add("🛒  Itens")
     tabs.add("🎁  Kits")
     tabs.add("⏱️  Pontos Temporais")
-    tabs.add("💬  Chat Cluster")
     tabs.add("🗄️  Database")
     tabs.add("🌐  Web Store")
 
@@ -471,7 +470,6 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
         builder()
     _sv: Dict[str, tk.Variable] = {}
     _tpv: Dict[str, tk.Variable] = {}
-    _ccv: Dict[str, tk.Variable] = {}
     _dbv: Dict[str, tk.Variable] = {}
     _tp_group_vars: Dict[str, tk.StringVar] = {}
 
@@ -651,29 +649,6 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                       fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                       command=_add_group).pack(side="left")
 
-    def _build_tab_cross_chat() -> None:
-        t_cc = ctk.CTkScrollableFrame(tabs.tab("💬  Chat Cluster"), fg_color=_BG)
-        t_cc.pack(fill="both", expand=True)
-        card_cc = tk.Frame(t_cc, bg=_INNER, highlightthickness=1,
-                           highlightbackground=_BDR)
-        card_cc.pack(fill="x", padx=12, pady=8)
-        _head(card_cc, "💬  Chat Cluster — desativado")
-        tk.Label(
-            card_cc,
-            text=(
-                "O cross-chat integrado do CustomShop foi desativado neste app.\n\n"
-                "Use um plugin de terceiros (ex.: Cross-Ark-Chat, ArkCrossServerChat ou similar). "
-                "O sync grava CrossChat.Enabled = false em cada config.json do mapa para o "
-                "CustomShop não capturar nem retransmitir mensagens.\n\n"
-                "Após instalar o plugin externo, faça «Sync + Reload RCON (todos)» na aba "
-                "Web Store para aplicar nos mapas."
-            ),
-            bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
-            anchor="w", justify="left", wraplength=720,
-        ).pack(fill="x", padx=10, pady=(0, 10))
-        _ccv.clear()
-        _ccv["Enabled"] = tk.BooleanVar(value=False)
-
     def _build_tab_db() -> None:
         t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
         t_db.pack(fill="both", expand=True)
@@ -744,20 +719,17 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                 for g_name, gv in _tp_group_vars.items()
             }
 
-        if _ccv:
-            cc_out = data.setdefault("CrossChat", {})
-            # Preservar ServerId do catálogo (se existir) — o sync por mapa
-            # redefine CrossChat.ServerId / Settings.ServerId; não apagar aqui
-            # para não deixar configs sem ID entre saves do painel e o sync.
-            preserved_sid = str(cc_out.get("ServerId") or "").strip()
-            cc_out.clear()
-            cc_out["_comment"] = (
-                "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros. "
-                "ServerId por mapa é gravado no sync (TribeSync / Minha Tribo)."
-            )
-            cc_out["Enabled"] = False
-            if preserved_sid:
-                cc_out["ServerId"] = preserved_sid
+        # Chat Cluster removido: manter Enabled=false e preservar ServerId (TribeSync).
+        cc_out = data.setdefault("CrossChat", {})
+        preserved_sid = str(cc_out.get("ServerId") or "").strip()
+        cc_out.clear()
+        cc_out["_comment"] = (
+            "Chat Cluster removido do Server Manager. "
+            "ServerId por mapa é gravado no sync (TribeSync / Minha Tribo)."
+        )
+        cc_out["Enabled"] = False
+        if preserved_sid:
+            cc_out["ServerId"] = preserved_sid
 
         if _dbv:
             db_out = data.setdefault("Database", {})
@@ -795,7 +767,6 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
         "🛒  Itens": lambda: _build_items_tab(app, tabs.tab("🛒  Itens"), data),
         "🎁  Kits": lambda: _build_kits_tab(app, tabs.tab("🎁  Kits"), data),
         "⏱️  Pontos Temporais": _build_tab_timed,
-        "💬  Chat Cluster": _build_tab_cross_chat,
         "🗄️  Database": _build_tab_db,
         "🌐  Web Store": lambda: _build_webstore_tab(
             app, tabs.tab("🌐  Web Store"),

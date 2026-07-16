@@ -33,8 +33,6 @@ def load_ticket_discord_config(load_settings: Callable[[], dict[str, Any]]) -> d
     enabled = bool(s.get("ticket_discord_enabled", False))
     channel_id = str(s.get("ticket_discord_channel_id", "")).strip()
     token = str(s.get("ticket_discord_token", "")).strip()
-    if not token:
-        token = str(s.get("cross_chat_discord_token", "")).strip()
 
     env_enabled = os.environ.get("ARKSHOP_TICKET_DISCORD_ENABLED", "").strip().lower()
     if env_enabled in ("1", "true", "yes", "on"):
@@ -46,17 +44,13 @@ def load_ticket_discord_config(load_settings: Callable[[], dict[str, Any]]) -> d
         channel_id = os.environ.get("ARKSHOP_TICKET_DISCORD_CHANNEL_ID", "").strip()
     if not token:
         token = os.environ.get("ARKSHOP_TICKET_DISCORD_TOKEN", "").strip()
-    if not token:
-        token = os.environ.get("ARKSHOP_CROSS_CHAT_DISCORD_TOKEN", "").strip()
 
     try:
         ch_id = int(channel_id) if channel_id else 0
     except ValueError:
         ch_id = 0
 
-    token_source = "ticket" if str(s.get("ticket_discord_token", "")).strip() else (
-        "cross_chat" if token else "none"
-    )
+    token_source = "ticket" if token else "none"
 
     return {
         "enabled": enabled and bool(token) and ch_id > 0,
@@ -85,8 +79,7 @@ def ticket_discord_status(load_settings: Callable[[], dict[str, Any]]) -> dict[s
         labels = {"enabled": "ativação", "token": "token do bot", "channel_id": "ID do canal"}
         status_message = "Config incompleta: falta " + ", ".join(labels.get(m, m) for m in missing)
     elif cfg["enabled"]:
-        src = "token dedicado" if cfg.get("token_source") == "ticket" else "token do Chat Cluster"
-        status_message = f"Pronto — canal {cfg['channel_id']} ({src})"
+        status_message = f"Pronto — canal {cfg['channel_id']} (token dedicado)"
     else:
         status_message = "Desativado"
 

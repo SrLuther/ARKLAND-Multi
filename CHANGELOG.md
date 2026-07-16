@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased] - 
+
+## [1.10.49] - 2026-07-16
+
+### Feature
+
+- Feat (Backup): filtro de conteúdo — omite por padrão .bak e backups datados do ARK (Map_DD.MM.YYYY_HH.MM.SS.ark); ZIPs ~60–75% menores sem alterar retenção 1h/10; desligável em Config Global.
+
+### Other
+
+- Remoção (Web Store / Chat Cluster): elimina chat global, APIs /api/chat e /api/admin/chat, ponte Discord (spam/canal indisponível) e aba Chat Cluster no TEK — causa de lentidão e timeouts no site.
+- Remoção (Web Store): dependency discord.py; tickets Discord passam a exigir token dedicado (já não reutilizam token do Chat Cluster).
+
 ## [1.10.48] - 2026-07-16
 
 ### Fix

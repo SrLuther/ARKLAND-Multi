@@ -571,6 +571,7 @@ class ServerConfig:
     backup_keep_count: int = 10
     backup_include_saves: bool = True
     backup_include_config: bool = False  # INI opcional; saves do mundo são o essencial
+    backup_exclude_redundant: bool = True  # omite .bak / backups datados do ARK no ZIP
     backup_dir: str = ""  # "" = padrão (%APPDATA%/ARKLAND-ServerManager/backups/servers/{id})
 
     # Steam IDs com permissão de admin (gravados em AllowedCheaterSteamIDs.txt)

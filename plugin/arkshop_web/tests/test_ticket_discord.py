@@ -21,7 +21,7 @@ def test_load_ticket_discord_config_from_settings(tmp_path, monkeypatch):
         json.dumps({
             "ticket_discord_enabled": True,
             "ticket_discord_channel_id": "999888777",
-            "cross_chat_discord_token": "shared-token",
+            "ticket_discord_token": "ticket-token",
         }),
         encoding="utf-8",
     )
@@ -33,7 +33,27 @@ def test_load_ticket_discord_config_from_settings(tmp_path, monkeypatch):
     assert cfg["enabled"] is True
     assert cfg["channel_id"] == 999888777
     assert cfg["token_set"] is True
-    assert cfg["token_source"] == "cross_chat"
+    assert cfg["token_source"] == "ticket"
+
+
+def test_load_ticket_discord_ignores_legacy_cross_chat_token(tmp_path):
+    settings_file = tmp_path / "settings.json"
+    settings_file.write_text(
+        json.dumps({
+            "ticket_discord_enabled": True,
+            "ticket_discord_channel_id": "999888777",
+            "cross_chat_discord_token": "legacy-token",
+        }),
+        encoding="utf-8",
+    )
+
+    def load():
+        return json.loads(settings_file.read_text(encoding="utf-8"))
+
+    cfg = load_ticket_discord_config(load)
+    assert cfg["enabled"] is False
+    assert cfg["token_set"] is False
+    assert cfg["token_source"] == "none"
 
 
 def test_format_ticket_discord_message():
