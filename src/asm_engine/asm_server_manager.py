@@ -538,6 +538,8 @@ class AsmServerManager:
         self._lock = threading.Lock()
         # IDs com start/restart real (não scan/reconnect) — para ForceDay pós-RUNNING
         self._force_day_pending: set[str] = set()
+        # Restart intencional: STOPPED não pode limpar pending (race com start).
+        self._force_day_restarting: set[str] = set()
         from ..server_visibility import get_steam_poller
         poller = get_steam_poller()
         poller.set_machine_public_ip(self._machine_public_ip)
@@ -546,6 +548,20 @@ class AsmServerManager:
     def mark_force_day_pending(self, server_id: str) -> None:
         with self._lock:
             self._force_day_pending.add(server_id)
+
+    def begin_force_day_restart(self, server_id: str) -> None:
+        """Marca restart intencional + pending SetDay (sobrevive ao STOPPED)."""
+        with self._lock:
+            self._force_day_restarting.add(server_id)
+            self._force_day_pending.add(server_id)
+
+    def end_force_day_restart(self, server_id: str) -> None:
+        with self._lock:
+            self._force_day_restarting.discard(server_id)
+
+    def is_force_day_restarting(self, server_id: str) -> bool:
+        with self._lock:
+            return server_id in self._force_day_restarting
 
     def consume_force_day_pending(self, server_id: str) -> bool:
         with self._lock:
@@ -567,6 +583,10 @@ class AsmServerManager:
             pass
         # #endregion
         with self._lock:
+            # Durante restart, STOPPED chega atrasado e apagava o pending do start
+            # seguinte — só 1 mapa (ou nenhum) recebia SetDay.
+            if server_id in self._force_day_restarting:
+                return
             self._force_day_pending.discard(server_id)
 
     def set_machine_public_ip(self, ip: str) -> None:
@@ -1295,9 +1315,26 @@ class AsmServerManager:
 
     def restart(self, cfg: AsmServerConfig,
                 on_done: Optional[Callable[[bool, str], None]] = None) -> None:
+        self.begin_force_day_restart(cfg.id)
+
         def _after_stop(ok: bool, msg: str) -> None:
             time.sleep(2)
-            self.start(cfg, on_done=on_done)
+            # Re-marca pending após o stop (defesa extra contra race STOPPED).
+            self.mark_force_day_pending(cfg.id)
+
+            def _done(ok2: bool, msg2: str) -> None:
+                try:
+                    # Se o start só reconectou / “já em execução”, RUNNING pode
+                    # não voltar a disparar — aplica SetDay se ainda estiver pending.
+                    if self.consume_force_day_pending(cfg.id) and self._on_status:
+                        self.mark_force_day_pending(cfg.id)
+                        self._on_status(cfg.id, ASM_STATUS_RUNNING)
+                finally:
+                    self.end_force_day_restart(cfg.id)
+                if on_done:
+                    on_done(ok2, msg2)
+
+            self.start(cfg, on_done=_done)
 
         self.stop(cfg.id, on_done=_after_stop)
 

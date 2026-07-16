@@ -38,6 +38,7 @@ from ..shop_integration import (
     DEFAULT_SHOP_PORT,
     DEFAULT_SHOP_PUBLIC_URL,
     build_webstore_launch,
+    canonical_master_catalog_path,
     check_webstore_firewall_rule,
     collect_groups_from_catalog,
     create_webstore_firewall_rule,
@@ -55,6 +56,7 @@ from ..shop_integration import (
     iter_shop_rcon_servers,
     iter_shop_servers,
     persist_webstore_steam_api_key_setting,
+    propagate_master_catalog,
     provision_permission_groups_for_servers,
     read_webstore_log_tail,
     reload_shop_plugins_via_rcon_for_app,
@@ -199,9 +201,17 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     parent.grid_columnconfigure(0, weight=1)
 
     shop_cfg = app.config_manager.config.shop
-    cfg_path = default_catalog_path(shop_cfg)
+    # Mestre FIXO — nunca o campo «Arquivo:» / WEBSTORE / bin / mapa.
+    cfg_path = canonical_master_catalog_path()
     if not cfg_path.exists() and _DEFAULT_CONFIG_PATH.exists():
-        cfg_path = _DEFAULT_CONFIG_PATH
+        # Bootstrap: copia o configs do repo para o mestre canônico se ainda não existir.
+        try:
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+            shutil.copy2(_DEFAULT_CONFIG_PATH, cfg_path)
+        except Exception:
+            cfg_path = _DEFAULT_CONFIG_PATH
+    shop_cfg.catalog_config_path = str(cfg_path)
     data: Dict[str, Any] = _load_config(cfg_path)
 
     # ── Barra de ações no topo ────────────────────────────────────────────
@@ -210,40 +220,94 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     top_bar.grid_propagate(False)
 
     def _persist_shop_globals() -> None:
-        shop_cfg.catalog_config_path = str(cfg_path)
+        shop_cfg.catalog_config_path = str(canonical_master_catalog_path())
         app.config_manager.save()
 
     def _do_save() -> None:
         _collect_all()
+        master = canonical_master_catalog_path()
+        shop_cfg.catalog_config_path = str(master)
         _persist_shop_globals()
-        if not _save_config(cfg_path, data):
+        if not _save_config(master, data):
             return
-        msgs: list[str] = []
+        msgs: list[str] = ["mestre ok"]
         if shop_cfg.auto_sync_on_save:
-            ok, errs = sync_all_plugins(
-                app.config_manager, shop_cfg, data, Path(cfg_path),
+            ok, errs = propagate_master_catalog(
+                app.config_manager,
+                shop_cfg,
+                catalog=data,
                 asm_cm=getattr(app, "asm_config_manager", None),
+                rcon_reload=False,
+                write_ui_catalog_to_master=True,
             )
             if ok:
-                msgs.append(f"{len(ok)} plugin(s) sincronizado(s)")
+                msgs.append(f"{len(ok)} passo(s) ok")
             if errs:
                 msgs.append("Erros: " + "; ".join(errs[:3]))
         try:
             detail = (" — " + ", ".join(msgs)) if msgs else ""
             app._show_toast(f"Catálogo salvo{detail}", "success")  # type: ignore[attr-defined]
         except AttributeError:
-            messagebox.showinfo("Salvo", "CustomShop salvo com sucesso!")
+            messagebox.showinfo("Salvo", "CustomShop salvo no mestre!")
+
+    def _propagate_everywhere(with_rcon: bool = False) -> None:
+        _collect_all()
+        master = canonical_master_catalog_path()
+        shop_cfg.catalog_config_path = str(master)
+        app.config_manager.save()
+        if not messagebox.askyesno(
+            "Propagar mestre",
+            "Isto vai SUBSTITUIR o catálogo em:\n"
+            "• todos os mapas (CustomShop/config.json)\n"
+            "• WEBSTORE/config.json\n"
+            "• bin/config.json (espelho)\n\n"
+            f"Fonte FIXA (única):\n{master}\n\n"
+            "Continuar?",
+            parent=parent.winfo_toplevel(),
+        ):
+            return
+        ok, errs = propagate_master_catalog(
+            app.config_manager,
+            shop_cfg,
+            catalog=data,
+            asm_cm=getattr(app, "asm_config_manager", None),
+            rcon_reload=with_rcon,
+            write_ui_catalog_to_master=True,
+        )
+        # Recarrega UI a partir do mestre (após limpeza de títulos)
+        nonlocal data
+        if master.is_file():
+            data = _load_config(master)
+            path_var.set(str(master))
+        msg = "\n".join(ok[:12]) if ok else "(sem passos)"
+        if errs:
+            msg += "\n\nErros:\n" + "\n".join(errs[:8])
+        try:
+            app._show_toast(
+                f"Propagado: {len(ok)} ok, {len(errs)} erro(s)",
+                "success" if not errs else "warning",
+            )  # type: ignore[attr-defined]
+        except AttributeError:
+            pass
+        messagebox.showinfo("Propagar mestre", msg, parent=parent.winfo_toplevel())
 
     ctk.CTkButton(
-        top_bar, text="💾  Salvar config.json",
+        top_bar, text="💾  Salvar mestre",
         height=36, font=ctk.CTkFont(size=13, weight="bold"),
         fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         command=_do_save,
     ).pack(side="left", padx=(16, 0), pady=8)
 
     ctk.CTkButton(
-        top_bar, text="🔄  Recarregar do Disco",
-        height=36, width=190, fg_color=_BLUE, hover_color=_BLUE_HOVER,
+        top_bar, text="📢  Propagar mestre → mapas + loja",
+        height=36, font=ctk.CTkFont(size=13, weight="bold"),
+        fg_color="#b45309", hover_color="#c2410c",
+        command=lambda: _propagate_everywhere(False),
+    ).pack(side="left", padx=(10, 0), pady=8)
+
+    ctk.CTkButton(
+        top_bar, text="🔄  Recarregar mestre",
+        height=36, width=160, fg_color=_BLUE, hover_color=_BLUE_HOVER,
         command=lambda: _reload(),
     ).pack(side="left", padx=(10, 0), pady=8)
 
@@ -306,7 +370,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         )
         if result.get("kits_skipped"):
             msg += f", {result['kits_skipped']} sobrescritos"
-        msg += ")\n\nUse «Salvar config.json» para gravar no disco."
+        msg += ")\n\nUse «Salvar mestre» e depois «Propagar mestre → mapas + loja»."
         messagebox.showinfo("Importação concluída", msg, parent=parent.winfo_toplevel())
 
     ctk.CTkButton(
@@ -316,15 +380,19 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     ).pack(side="left", padx=(10, 0), pady=8)
 
     path_var = tk.StringVar(value=str(cfg_path))
-    ctk.CTkLabel(top_bar, text="Arquivo:", text_color="gray50",
-                 font=ctk.CTkFont(size=10)).pack(side="left", padx=(20, 4), pady=8)
-    ctk.CTkEntry(top_bar, textvariable=path_var, width=340, height=28).pack(
-        side="left", pady=8)
-    ctk.CTkButton(
-        top_bar, text="📂", width=36, height=28,
-        fg_color="#252540", hover_color="#1a1a35",
-        command=lambda: _browse_path(path_var),
-    ).pack(side="left", padx=(4, 0), pady=8)
+    ctk.CTkLabel(
+        top_bar,
+        text="Mestre (fixo):",
+        text_color="gray50",
+        font=ctk.CTkFont(size=10),
+    ).pack(side="left", padx=(16, 4), pady=8)
+    ctk.CTkEntry(
+        top_bar,
+        textvariable=path_var,
+        width=420,
+        height=28,
+        state="readonly",
+    ).pack(side="left", pady=8)
 
     # ── Tabs ──────────────────────────────────────────────────────────────
     tabs = ctk.CTkTabview(parent, fg_color=_BG,
@@ -680,7 +748,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     def _collect_and_save_catalog() -> bool:
         """Coleta edições da UI e grava o mestre canônico antes de sync/RCON."""
         _collect_all()
-        path = default_catalog_path(shop_cfg)
+        path = canonical_master_catalog_path()
         shop_cfg.catalog_config_path = str(path)
         app.config_manager.save()
         return _save_config(path, data)
@@ -695,7 +763,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         "🌐  Web Store": lambda: _build_webstore_tab(
             app, tabs.tab("🌐  Web Store"),
             get_catalog=_memory_catalog,
-            get_catalog_path=lambda: default_catalog_path(shop_cfg),
+            get_catalog_path=canonical_master_catalog_path,
             collect_catalog=_collect_all,
             persist_catalog=_collect_and_save_catalog,
         ),
@@ -730,18 +798,23 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
 
     def _reload() -> None:
         nonlocal data
-        new_path = Path(path_var.get())
-        data = _load_config(new_path)
-        messagebox.showinfo("Recarregado", f"Config recarregada de:\n{new_path}")
+        master = canonical_master_catalog_path()
+        path_var.set(str(master))
+        data = _load_config(master)
+        messagebox.showinfo(
+            "Recarregado",
+            f"Catálogo recarregado do mestre FIXO:\n{master}",
+        )
 
     def _browse_path(var: tk.StringVar) -> None:
-        from tkinter import filedialog
-        p = filedialog.askopenfilename(
-            title="Selecionar config.json",
-            filetypes=[("JSON", "*.json"), ("Todos", "*.*")],
+        # Desativado: o mestre é fixo. Mantido só por compatibilidade interna.
+        messagebox.showinfo(
+            "Mestre fixo",
+            "O catálogo mestre é sempre:\n"
+            f"{canonical_master_catalog_path()}\n\n"
+            "Use «Propagar mestre → mapas + loja» para copiar esse ficheiro "
+            "para todos os destinos.",
         )
-        if p:
-            var.set(p)
 
 
 def _refresh_items_list(scroll_items, data: Dict[str, Any], on_select) -> None:
@@ -2060,18 +2133,21 @@ def _build_webstore_tab(
         asm_cm = getattr(app, "asm_config_manager", None)
         if asm_cm:
             asm_cm.save()
-        catalog = get_catalog()
-        ok, errs = sync_all_plugins(
-            app.config_manager, shop, catalog, get_catalog_path(),
+        ok, errs = propagate_master_catalog(
+            app.config_manager,
+            shop,
+            catalog=get_catalog(),
             asm_cm=asm_cm,
+            rcon_reload=False,
+            write_ui_catalog_to_master=True,
         )
-        msg = f"{len(ok)} plugin(s) atualizado(s)."
+        msg = f"Propagado a partir do mestre.\n" + "\n".join(ok[:8])
         if errs:
             msg += "\n" + "\n".join(errs[:5])
         try:
-            app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
+            app._show_toast(msg[:120], "success" if ok and not errs else "warning")  # type: ignore[attr-defined]
         except AttributeError:
-            messagebox.showinfo("Sincronizar", msg)
+            messagebox.showinfo("Propagar mestre", msg)
 
     def _install_customshop() -> None:
         if not _validate_shared_shop_requirements():
@@ -2098,14 +2174,18 @@ def _build_webstore_tab(
             return
         shop_cfg = app.config_manager.config.shop
         catalog = get_catalog()
-        sync_ok, sync_errs = sync_all_plugins(
-            app.config_manager, shop_cfg, catalog, get_catalog_path(),
+        sync_ok, sync_errs = propagate_master_catalog(
+            app.config_manager,
+            shop_cfg,
+            catalog=catalog,
             asm_cm=asm_cm,
+            rcon_reload=False,
+            write_ui_catalog_to_master=True,
         )
         _rebuild_server_rows()
         msg = f"{len(ok)} servidor(es) com plugin instalado."
         if sync_ok:
-            msg += f" Config sincronizado em {len(sync_ok)}."
+            msg += f" Mestre propagado ({len(sync_ok)} passos)."
         all_errs = list(errs) + list(sync_errs)
         if all_errs:
             msg += "\n" + "\n".join(all_errs[:5])
@@ -2135,9 +2215,13 @@ def _build_webstore_tab(
         _save_shop_from_ui()
         shop_cfg = app.config_manager.config.shop
         catalog = get_catalog()
-        sync_ok, sync_errs = sync_all_plugins(
-            app.config_manager, shop_cfg, catalog, get_catalog_path(),
+        sync_ok, sync_errs = propagate_master_catalog(
+            app.config_manager,
+            shop_cfg,
+            catalog=catalog,
             asm_cm=asm_cm,
+            rcon_reload=False,
+            write_ui_catalog_to_master=True,
         )
         msg = f"{len(ok)} servidor(es) com CustomDinoDeliver instalado."
         if sync_ok:
@@ -2167,14 +2251,18 @@ def _build_webstore_tab(
         if asm_cm:
             asm_cm.save()
         catalog = get_catalog()
-        sync_ok, sync_errs = sync_all_plugins(
-            app.config_manager, shop, catalog, get_catalog_path(),
+        sync_ok, sync_errs = propagate_master_catalog(
+            app.config_manager,
+            shop,
+            catalog=catalog,
             asm_cm=asm_cm,
+            rcon_reload=False,
+            write_ui_catalog_to_master=True,
         )
         rcon_ok, rcon_errs, rcon_skips = reload_shop_plugins_via_rcon_for_app(app)
 
         lines = [
-            f"Sincronizados: {len(sync_ok)} plugin(s)",
+            f"Mestre propagado: {len(sync_ok)} passo(s)",
             f"Reload RCON OK (Shop + Dino Lab): {len(rcon_ok)} comando(s)",
         ]
         if rcon_skips:
@@ -2258,16 +2346,16 @@ def _build_webstore_tab(
     ctk.CTkButton(act_row, text="🦕  Instalar Dino Lab",
                   height=34, fg_color="#1a4a3a", hover_color="#1a5a4a",
                   command=_install_customdino).pack(side="left", padx=(0, 10))
-    ctk.CTkButton(act_row, text="🔄  Aplicar em todos os plugins",
-                  height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+    ctk.CTkButton(act_row, text="📢  Propagar mestre → mapas + loja",
+                  height=34, fg_color="#b45309", hover_color="#c2410c",
                   command=_apply_plugins).pack(side="left", padx=(0, 10))
-    ctk.CTkButton(act_row, text="♻  Sync + Reload RCON (todos)",
+    ctk.CTkButton(act_row, text="♻  Propagar + Reload RCON",
                   height=34, fg_color="#0e7490", hover_color="#155e75",
                   command=_reload_customshop_all_servers).pack(side="left", padx=(0, 10))
     ctk.CTkButton(act_row, text="👥  Provisionar grupos (RCON)",
                   height=34, fg_color="#4a3728", hover_color="#5c4632",
                   command=_provision_groups).pack(side="left", padx=(0, 10))
-    ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
+    ctk.CTkCheckBox(act_row, text="Auto-propagar ao salvar mestre",
                     variable=_auto_sync_var).pack(side="left")
     tk.Label(act_row, text="Cross-chat integrado: desativado",
              fg="gray50", font=ctk.CTkFont(size=10)).pack(side="left", padx=(12, 0))

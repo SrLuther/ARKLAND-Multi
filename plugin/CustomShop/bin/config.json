@@ -8229,7 +8229,9 @@
         }
       ],
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 50000
+      "Price": 50000,
+      "Name": "KIT ALFA (30 DIAS) — 100 ÂMBAR A CADA 30 MIN ONLINE",
+      "KitDescription": "KIT ALFA (30 DIAS) — 100 ÂMBAR A CADA 30 MIN ONLINE"
     },
     "kit_beta": {
       "DefaultAmount": 1,
@@ -8414,7 +8416,9 @@
         }
       ],
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 37500
+      "Price": 37500,
+      "Name": "KIT BETA (30 DIAS) — 75 ÂMBAR A CADA 30 MIN ONLINE",
+      "KitDescription": "KIT BETA (30 DIAS) — 75 ÂMBAR A CADA 30 MIN ONLINE"
     },
     "kit_gamma": {
       "DefaultAmount": 1,
@@ -8578,7 +8582,9 @@
         }
       ],
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 25000
+      "Price": 25000,
+      "Name": "KIT GAMMA (30 DIAS) — 50 ÂMBAR A CADA 30 MIN ONLINE",
+      "KitDescription": "KIT GAMMA (30 DIAS) — 50 ÂMBAR A CADA 30 MIN ONLINE"
     },
     "kit_itensalfa_alfa": {
       "DefaultAmount": 1,
@@ -8798,7 +8804,7 @@
       ],
       "Name": "KIT ITENSALFA ALFA",
       "Permissions": "Admins,Alfa,Omega",
-      "Price": 42550,
+      "Price": 50000,
       "Type": "kit",
       "ItemCountHint": 35
     },
@@ -8984,7 +8990,7 @@
       ],
       "Name": "KIT ITENSALFA BETA",
       "Permissions": "Admins,Beta,Alfa",
-      "Price": 27600,
+      "Price": 37500,
       "Type": "kit",
       "ItemCountHint": 29
     },
@@ -9170,7 +9176,7 @@
       ],
       "Name": "KIT ITENSALFA DELTA",
       "Permissions": "Admins,Delta,Gamma",
-      "Price": 9890,
+      "Price": 2400,
       "Type": "kit",
       "ItemCountHint": 29
     },
@@ -9308,7 +9314,7 @@
       ],
       "Name": "KIT ITENSALFA ETEREO",
       "Permissions": "Admins,Etereo,Universal",
-      "Price": 98210,
+      "Price": 60000,
       "Type": "kit",
       "ItemCountHint": 21
     },
@@ -9350,7 +9356,7 @@
       ],
       "Name": "KIT ITENSALFA EXOTICO",
       "Permissions": "Admins,Exotico",
-      "Price": 351210,
+      "Price": 92000,
       "Type": "kit",
       "ItemCountHint": 5
     },
@@ -9536,7 +9542,7 @@
       ],
       "Name": "KIT ITENSALFA GAMMA",
       "Permissions": "Admins,Gamma,Beta",
-      "Price": 16790,
+      "Price": 25000,
       "Type": "kit",
       "ItemCountHint": 29
     },
@@ -9674,7 +9680,7 @@
       ],
       "Name": "KIT ITENSALFA IMATERIAL",
       "Permissions": "Admins,Imaterial,Exotico",
-      "Price": 278300,
+      "Price": 86000,
       "Type": "kit",
       "ItemCountHint": 21
     },
@@ -9854,7 +9860,7 @@
       ],
       "Name": "KIT ITENSALFA OMEGA",
       "Permissions": "Admins,Omega,Transcendente",
-      "Price": 59340,
+      "Price": 46000,
       "Type": "kit",
       "ItemCountHint": 28
     },
@@ -9992,7 +9998,7 @@
       ],
       "Name": "KIT ITENSALFA ONIPOTENTE",
       "Permissions": "Admins,Onipotente,Surreal",
-      "Price": 171350,
+      "Price": 72000,
       "Type": "kit",
       "ItemCountHint": 21
     },
@@ -10130,7 +10136,7 @@
       ],
       "Name": "KIT ITENSALFA SURREAL",
       "Permissions": "Admins,Surreal,Imaterial",
-      "Price": 220800,
+      "Price": 78000,
       "Type": "kit",
       "ItemCountHint": 21
     },
@@ -10268,7 +10274,7 @@
       ],
       "Name": "KIT ITENSALFA TRANSCENDENTE",
       "Permissions": "Admins,Transcendente,Etereo",
-      "Price": 69805,
+      "Price": 52000,
       "Type": "kit",
       "ItemCountHint": 21
     },
@@ -10406,7 +10412,7 @@
       ],
       "Name": "KIT ITENSALFA UNIVERSAL",
       "Permissions": "Admins,Universal,Onipotente",
-      "Price": 130410,
+      "Price": 66000,
       "Type": "kit",
       "ItemCountHint": 21
     },
@@ -17280,7 +17286,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS DELTA",
       "KitDescription": "KIT ARMAS DELTA",
-      "Price": 3864,
+      "Price": 2400,
       "MinLevel": 0,
       "Permissions": "Admins,Delta,Gamma",
       "Items": [
@@ -17363,7 +17369,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS GAMMA",
       "KitDescription": "KIT ARMAS GAMMA",
-      "Price": 6440,
+      "Price": 25000,
       "MinLevel": 0,
       "Permissions": "Admins,Gamma,Beta",
       "Items": [
@@ -17446,7 +17452,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS BETA",
       "KitDescription": "KIT ARMAS BETA",
-      "Price": 10304,
+      "Price": 37500,
       "MinLevel": 0,
       "Permissions": "Admins,Beta,Alfa",
       "Items": [
@@ -17529,7 +17535,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS ALFA",
       "KitDescription": "KIT ARMAS ALFA",
-      "Price": 16744,
+      "Price": 50000,
       "MinLevel": 0,
       "Permissions": "Admins,Alfa,Omega",
       "Items": [
@@ -17624,7 +17630,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS OMEGA",
       "KitDescription": "KIT ARMAS OMEGA",
-      "Price": 23184,
+      "Price": 46000,
       "MinLevel": 0,
       "Permissions": "Admins,Omega,Transcendente",
       "Items": [
@@ -17707,7 +17713,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS TRANSCENDENTE",
       "KitDescription": "KIT ARMAS TRANSCENDENTE",
-      "Price": 35581,
+      "Price": 52000,
       "MinLevel": 0,
       "Permissions": "Admins,Transcendente,Etereo",
       "Items": [
@@ -17790,7 +17796,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS UNIVERSAL",
       "KitDescription": "KIT ARMAS UNIVERSAL",
-      "Price": 65688,
+      "Price": 66000,
       "MinLevel": 0,
       "Permissions": "Admins,Universal,Onipotente",
       "Items": [
@@ -17873,7 +17879,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS ONIPOTENTE",
       "KitDescription": "KIT ARMAS ONIPOTENTE",
-      "Price": 86216,
+      "Price": 72000,
       "MinLevel": 0,
       "Permissions": "Admins,Onipotente,Surreal",
       "Items": [
@@ -17956,7 +17962,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS SURREAL",
       "KitDescription": "KIT ARMAS SURREAL",
-      "Price": 110848,
+      "Price": 78000,
       "MinLevel": 0,
       "Permissions": "Admins,Surreal,Imaterial",
       "Items": [
@@ -18039,7 +18045,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS IMATERIAL",
       "KitDescription": "KIT ARMAS IMATERIAL",
-      "Price": 139587,
+      "Price": 86000,
       "MinLevel": 0,
       "Permissions": "Admins,Imaterial,Exotico",
       "Items": [
@@ -18122,7 +18128,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS DELTA",
       "KitDescription": "KIT FERRAMENTAS DELTA",
-      "Price": 1656,
+      "Price": 2400,
       "MinLevel": 0,
       "Permissions": "Admins,Delta,Gamma",
       "Items": [
@@ -18169,7 +18175,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS GAMMA",
       "KitDescription": "KIT FERRAMENTAS GAMMA",
-      "Price": 3312,
+      "Price": 25000,
       "MinLevel": 0,
       "Permissions": "Admins,Gamma,Beta",
       "Items": [
@@ -18216,7 +18222,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS BETA",
       "KitDescription": "KIT FERRAMENTAS BETA",
-      "Price": 5796,
+      "Price": 37500,
       "MinLevel": 0,
       "Permissions": "Admins,Beta,Alfa",
       "Items": [
@@ -18263,7 +18269,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS ALFA",
       "KitDescription": "KIT FERRAMENTAS ALFA",
-      "Price": 8280,
+      "Price": 50000,
       "MinLevel": 0,
       "Permissions": "Admins,Alfa,Omega",
       "Items": [
@@ -18310,7 +18316,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS OMEGA",
       "KitDescription": "KIT FERRAMENTAS OMEGA",
-      "Price": 11592,
+      "Price": 46000,
       "MinLevel": 0,
       "Permissions": "Admins,Omega,Transcendente",
       "Items": [
@@ -18351,7 +18357,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS TRANSCENDENTE",
       "KitDescription": "KIT FERRAMENTAS TRANSCENDENTE",
-      "Price": 17595,
+      "Price": 52000,
       "MinLevel": 0,
       "Permissions": "Admins,Transcendente,Etereo",
       "Items": [
@@ -18392,7 +18398,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS UNIVERSAL",
       "KitDescription": "KIT FERRAMENTAS UNIVERSAL",
-      "Price": 33430,
+      "Price": 66000,
       "MinLevel": 0,
       "Permissions": "Admins,Universal,Onipotente",
       "Items": [
@@ -18433,7 +18439,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS SURREAL",
       "KitDescription": "KIT FERRAMENTAS SURREAL",
-      "Price": 57184,
+      "Price": 78000,
       "MinLevel": 0,
       "Permissions": "Admins,Surreal,Imaterial",
       "Items": [
@@ -18474,7 +18480,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS IMATERIAL",
       "KitDescription": "KIT FERRAMENTAS IMATERIAL",
-      "Price": 72140,
+      "Price": 86000,
       "MinLevel": 0,
       "Permissions": "Admins,Imaterial,Exotico",
       "Items": [
@@ -18515,7 +18521,7 @@
       "DefaultAmount": 1,
       "Description": "KIT ARMAS ETEREO",
       "KitDescription": "KIT ARMAS ETEREO",
-      "Price": 49266,
+      "Price": 60000,
       "MinLevel": 0,
       "Permissions": "Admins,Etereo,Universal",
       "Items": [
@@ -18598,7 +18604,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS ETEREO",
       "KitDescription": "KIT FERRAMENTAS ETEREO",
-      "Price": 25513,
+      "Price": 60000,
       "MinLevel": 0,
       "Permissions": "Admins,Etereo,Universal",
       "Items": [
@@ -18639,7 +18645,7 @@
       "DefaultAmount": 1,
       "Description": "KIT FERRAMENTAS ONIPOTENTE",
       "KitDescription": "KIT FERRAMENTAS ONIPOTENTE",
-      "Price": 43988,
+      "Price": 72000,
       "MinLevel": 0,
       "Permissions": "Admins,Onipotente,Surreal",
       "Items": [

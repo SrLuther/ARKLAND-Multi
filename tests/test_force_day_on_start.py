@@ -102,3 +102,19 @@ def test_apply_force_day_retries_then_succeeds() -> None:
 
     assert calls["n"] >= 3
     assert any("SetDay 42 aplicado" in m for _, m in logs)
+
+
+def test_clear_force_day_pending_skipped_during_restart() -> None:
+    """Regressão: STOPPED atrasado não pode apagar pending do start seguinte."""
+    from src.asm_engine.asm_server_manager import AsmServerManager
+
+    mgr = AsmServerManager(on_status_change=None, on_log=lambda *_a, **_k: None)
+    sid = "map-alps"
+    mgr.begin_force_day_restart(sid)
+    mgr.mark_force_day_pending(sid)
+    mgr.clear_force_day_pending(sid)  # simula STOPPED atrasado
+    assert mgr.consume_force_day_pending(sid) is True
+    mgr.end_force_day_restart(sid)
+    mgr.mark_force_day_pending(sid)
+    mgr.clear_force_day_pending(sid)
+    assert mgr.consume_force_day_pending(sid) is False

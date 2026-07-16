@@ -74,14 +74,17 @@ from src.shop_integration import (  # noqa: E402
     _merge_arkland_server_entry,
     _resolve_game_host,
     canonical_master_catalog_path,
+    catalog_entry_counts,
     default_customshop_path,
     is_ephemeral_pyinstaller_path,
     is_webstore_catalog_path,
     load_plugin_config,
+    looks_like_customshop_catalog,
     slugify_server_id,
     merge_catalog_into_plugin_config,
     resolve_persistent_catalog_path,
     webstore_data_dir,
+    write_and_propagate_master_catalog,
 )
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
@@ -5508,38 +5511,119 @@ def _resolve_rcon_reload_targets(settings: dict[str, Any]) -> list[dict[str, Any
     return list(by_id.values())
 
 
+def _classify_rcon_error(exc: BaseException | str) -> str:
+    """Classifica falha RCON: timeout | auth_fail | refused | fail."""
+    msg = str(exc or "").lower()
+    if "timeout" in msg or "excedeu" in msg or "timed out" in msg:
+        return "timeout"
+    if any(x in msg for x in ("auth", "password", "senha", "invalid login", "authentication")):
+        return "auth_fail"
+    if any(x in msg for x in ("refused", "recusou", "10061", "econnrefused", "actively refused")):
+        return "refused"
+    return "fail"
+
+
 def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    """Shop.Reload num mapa — relatório detalhado (conectividade + comando)."""
     sid = str(srv.get("server_id") or "server")
     label = str(srv.get("label") or sid)
+    plugin_path = str(srv.get("plugin_config_path") or srv.get("customshop_config_path") or "")
     port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
+    hosts = _rcon_hosts_to_try(srv, settings)
+    endpoint = f"{hosts[0] if hosts else '127.0.0.1'}:{port}"
+
+    base: dict[str, Any] = {
+        "server_id": sid,
+        "label": label,
+        "plugin_config_path": plugin_path,
+        "rcon_host": hosts[0] if hosts else "",
+        "rcon_port": port,
+        "endpoint": endpoint,
+        "hosts_tried": [],
+        "connectivity": "unknown",
+        "command_sent": False,
+        "command": None,
+        "response": None,
+        "status": "fail",
+        "ok": False,
+        "error": None,
+        "reason": None,
+    }
+
+    if srv.get("shop_exclude"):
+        base.update({
+            "status": "skipped",
+            "connectivity": "skipped",
+            "reason": "excluído da loja",
+            "error": "excluído da loja",
+        })
+        return base
+    if srv.get("rcon_enabled") is False:
+        base.update({
+            "status": "skipped",
+            "connectivity": "skipped",
+            "reason": "RCON desativado",
+            "error": "RCON desativado",
+        })
+        return base
+
     password = sanitize_rcon_password(
         str(srv.get("rcon_password") or settings.get("rcon_password") or "")
     )
     if not password:
-        return {
-            "server_id": sid,
-            "label": label,
-            "ok": False,
+        base.update({
+            "status": "skipped",
+            "connectivity": "skipped",
+            "reason": "senha RCON não configurada (cadastre em Servidores ou ASM)",
             "error": "senha RCON não configurada (cadastre em Servidores ou ASM)",
-        }
+        })
+        return base
+    if port <= 0:
+        base.update({
+            "status": "skipped",
+            "connectivity": "skipped",
+            "reason": "porta RCON inválida",
+            "error": "porta RCON inválida",
+        })
+        return base
 
     last_err = ""
-    for host in _rcon_hosts_to_try(srv, settings):
+    last_conn = "fail"
+    for host in hosts:
+        base["hosts_tried"].append(f"{host}:{port}")
         for cmd in CUSTOMSHOP_RELOAD_COMMANDS:
             try:
                 resp = _rcon_command(host, port, password, cmd, connect_retries=5)
                 return {
-                    "server_id": sid,
-                    "label": label,
+                    **base,
                     "ok": True,
-                    "host": host,
+                    "status": "ok",
+                    "rcon_host": host,
+                    "endpoint": f"{host}:{port}",
+                    "connectivity": "ok",
+                    "command_sent": True,
                     "command": cmd,
                     "response": (resp or "")[:200],
+                    "error": None,
+                    "reason": None,
                 }
             except Exception as exc:
+                kind = _classify_rcon_error(exc)
+                last_conn = kind
                 last_err = f"{host}:{port} {cmd}: {exc}"
+                # Auth fail no primeiro host: não adianta tentar outros comandos no mesmo host
+                if kind == "auth_fail":
+                    break
 
-    return {"server_id": sid, "label": label, "ok": False, "error": last_err or "falha RCON"}
+    base.update({
+        "ok": False,
+        "status": "fail",
+        "connectivity": last_conn,
+        "command_sent": False,
+        "error": last_err or "falha RCON",
+        "reason": last_err or "falha RCON",
+    })
+    return base
 
 
 def _trigger_tribe_sync_rcon_all() -> list[dict[str, Any]]:
@@ -6842,6 +6926,316 @@ def save_config():
         "sync_count": len(written),
         "reload_results": reload_results,
         "reload_count": reload_ok,
+        "reload_total": len(reload_results),
+        "catalog_feed": catalog_feed_result,
+    })
+
+
+@app.route("/api/admin/catalog/import", methods=["POST"])
+@admin_required
+def admin_catalog_import():
+    """Upload de config.json → mestre canônico → mapas + WEBSTORE → Shop.Reload RCON.
+
+    Mesma semântica do TEK «Propagar mestre → mapas + loja» (sem WEBSTORE→mestre).
+    Resposta inclui stages, maps (ficheiro) e rcon (por mapa) para auditoria.
+    """
+    stages: list[dict[str, Any]] = []
+
+    upload = request.files.get("file") or request.files.get("config")
+    if upload is None or not getattr(upload, "filename", None):
+        return jsonify({
+            "ok": False,
+            "overall": "fail",
+            "error": "Envie um ficheiro config.json (campo file).",
+            "stages": [{
+                "id": "parse",
+                "label": "Upload / parse JSON",
+                "status": "fail",
+                "detail": "Nenhum ficheiro enviado",
+            }],
+        }), 400
+
+    raw = upload.read()
+    if not raw:
+        return jsonify({
+            "ok": False,
+            "overall": "fail",
+            "error": "Ficheiro vazio.",
+            "stages": [{
+                "id": "parse",
+                "label": "Upload / parse JSON",
+                "status": "fail",
+                "detail": "Ficheiro vazio",
+            }],
+        }), 400
+    if len(raw) > 80 * 1024 * 1024:
+        return jsonify({
+            "ok": False,
+            "overall": "fail",
+            "error": "Ficheiro demasiado grande (máx. 80 MB).",
+            "stages": [{
+                "id": "parse",
+                "label": "Upload / parse JSON",
+                "status": "fail",
+                "detail": "Ficheiro > 80 MB",
+            }],
+        }), 400
+
+    try:
+        text_body = raw.decode("utf-8-sig")
+        try:
+            catalog = json.loads(text_body)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text_body)
+            catalog = json.loads(cleaned)
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "overall": "fail",
+            "error": f"JSON inválido: {exc}",
+            "stages": [{
+                "id": "parse",
+                "label": "Upload / parse JSON",
+                "status": "fail",
+                "detail": str(exc),
+            }],
+        }), 400
+
+    if not looks_like_customshop_catalog(catalog):
+        return jsonify({
+            "ok": False,
+            "overall": "fail",
+            "error": "O ficheiro não parece um catálogo CustomShop (faltam Items/ShopItems e Kits).",
+            "stages": [{
+                "id": "parse",
+                "label": "Upload / parse JSON",
+                "status": "fail",
+                "detail": "Sem Items/ShopItems nem Kits",
+            }],
+        }), 400
+
+    catalog = _normalize_config_to_file(dict(catalog))
+    settings_block = catalog.get("Settings")
+    if isinstance(settings_block, dict) and settings_block.get("ShopName"):
+        settings_block["ShopName"] = _public_brand_name(str(settings_block["ShopName"]))
+
+    ni0, nk0 = catalog_entry_counts(catalog)
+    stages.append({
+        "id": "parse",
+        "label": "Upload / parse JSON",
+        "status": "ok",
+        "detail": f"JSON válido ({ni0} itens, {nk0} kits)",
+        "items": ni0,
+        "kits": nk0,
+        "filename": getattr(upload, "filename", "") or "config.json",
+    })
+
+    s = _load_settings()
+    master_path = str(canonical_master_catalog_path())
+    if str(s.get("config_path") or "").strip() != master_path:
+        s["config_path"] = master_path
+        try:
+            _save_settings(s)
+        except Exception:
+            pass
+
+    map_targets: list[tuple[str, Path]] = []
+    for target in _plugin_sync_targets(s):
+        if target.get("kind") == "server":
+            map_targets.append((str(target.get("label") or ""), Path(target["path"])))
+
+    for discovered in _discover_local_rcon_servers():
+        path = str(discovered.get("plugin_config_path") or "").strip()
+        if not path:
+            continue
+        label = str(discovered.get("label") or discovered.get("server_id") or path)
+        key = path.lower()
+        if any(str(p).lower() == key for _, p in map_targets):
+            continue
+        map_targets.append((label, Path(path)))
+
+    skip_guard = str(request.form.get("force") or request.args.get("force") or "").lower() in (
+        "1", "true", "yes",
+    )
+    prop = write_and_propagate_master_catalog(
+        catalog,
+        map_targets=map_targets,
+        skip_shrink_guard=skip_guard,
+    )
+    stages.extend(prop.get("stages") or [])
+    maps_written = list(prop.get("maps") or [])
+    notes = list(prop.get("notes") or [])
+    errors = list(prop.get("errors") or [])
+    master_path = str(prop.get("master_path") or master_path)
+    ni = int(prop.get("items") or ni0)
+    nk = int(prop.get("kits") or nk0)
+
+    if not prop.get("ok") and not maps_written and any(
+        st.get("id") in ("shrink_guard", "master_written") and st.get("status") == "fail"
+        for st in (prop.get("stages") or [])
+    ):
+        return jsonify({
+            "ok": False,
+            "overall": "fail",
+            "error": (errors[0] if errors else "Falha na propagação"),
+            "errors": errors,
+            "notes": notes,
+            "master_path": master_path,
+            "items": ni,
+            "kits": nk,
+            "stages": stages,
+            "maps": maps_written,
+            "rcon": [],
+        }), 409 if errors and "abortado" in (errors[0] or "").lower() else 500
+
+    _invalidate_shop_config_cache()
+    catalog_feed_result = None
+    try:
+        from catalog_feed_service import maybe_feed_on_catalog_save
+
+        catalog_feed_result = maybe_feed_on_catalog_save(catalog)
+    except Exception as exc:
+        log.debug("catalog_feed on import skipped: %s", exc)
+
+    do_reload = str(request.form.get("reload") or request.args.get("reload") or "1").lower() not in (
+        "0", "false", "no",
+    )
+    reload_results: list[dict[str, Any]] = []
+    if do_reload:
+        try:
+            path_by_sid: dict[str, str] = {}
+            for label, p in map_targets:
+                sid_guess = slugify_server_id(label, str(p))
+                if sid_guess:
+                    path_by_sid[sid_guess] = str(p)
+            for m in maps_written:
+                lbl = str(m.get("label") or "")
+                path_by_sid[slugify_server_id(lbl, str(m.get("path") or ""))] = str(
+                    m.get("path") or ""
+                )
+
+            reload_results = _reload_all_plugins(s)
+            for r in reload_results:
+                sid = str(r.get("server_id") or "")
+                if not r.get("plugin_config_path") and sid in path_by_sid:
+                    r["plugin_config_path"] = path_by_sid[sid]
+                written = next(
+                    (
+                        m for m in maps_written
+                        if str(m.get("path") or "").lower()
+                        == str(r.get("plugin_config_path") or "").lower()
+                        or str(m.get("label") or "").lower()
+                        == str(r.get("label") or "").lower()
+                    ),
+                    None,
+                )
+                r["file_written"] = bool(written and written.get("status") == "ok")
+                if written:
+                    r["file_path"] = written.get("path")
+                    r["file_items"] = written.get("items")
+                    r["file_kits"] = written.get("kits")
+        except Exception as exc:
+            reload_results = [{
+                "server_id": "reload",
+                "label": "reload",
+                "ok": False,
+                "status": "fail",
+                "connectivity": "fail",
+                "command_sent": False,
+                "error": str(exc),
+                "reason": str(exc),
+            }]
+    else:
+        stages.append({
+            "id": "rcon_reload",
+            "label": "Reload RCON (Shop.Reload)",
+            "status": "skipped",
+            "detail": "Reload desativado neste pedido",
+        })
+
+    reload_ok_n = sum(1 for r in reload_results if r.get("status") == "ok" or r.get("ok"))
+    reload_fail_n = sum(
+        1 for r in reload_results
+        if r.get("status") == "fail" or (not r.get("ok") and r.get("status") != "skipped")
+    )
+    reload_skip_n = sum(1 for r in reload_results if r.get("status") == "skipped")
+
+    if do_reload:
+        if not reload_results:
+            stages.append({
+                "id": "rcon_reload",
+                "label": "Reload RCON (Shop.Reload)",
+                "status": "skipped",
+                "detail": "Nenhum servidor RCON configurado",
+            })
+        else:
+            st = "ok" if reload_fail_n == 0 and reload_ok_n > 0 else (
+                "partial" if reload_ok_n > 0 else (
+                    "skipped" if reload_ok_n == 0 and reload_skip_n else "fail"
+                )
+            )
+            stages.append({
+                "id": "rcon_reload",
+                "label": "Reload RCON (Shop.Reload)",
+                "status": st,
+                "detail": (
+                    f"{reload_ok_n} ok / {reload_fail_n} falha(s) / {reload_skip_n} ignorado(s)"
+                ),
+                "ok_count": reload_ok_n,
+                "fail_count": reload_fail_n,
+                "skip_count": reload_skip_n,
+            })
+
+    maps_fail_n = sum(1 for m in maps_written if m.get("status") == "fail")
+    maps_ok_n = sum(1 for m in maps_written if m.get("status") == "ok")
+    hard_fail = any(
+        st.get("status") == "fail" and st.get("id") in ("parse", "master_written", "shrink_guard")
+        for st in stages
+    )
+    if hard_fail or (maps_written and maps_ok_n == 0 and maps_fail_n > 0):
+        overall = "fail"
+    elif errors or maps_fail_n or reload_fail_n or any(
+        st.get("status") == "partial" for st in stages
+    ):
+        overall = "partial"
+    elif any(st.get("status") == "fail" for st in stages):
+        overall = "partial"
+    else:
+        overall = "success"
+
+    _log(
+        "catalog_import",
+        admin=_steam_id_from_session(),
+        master=master_path,
+        items=ni,
+        kits=nk,
+        maps=maps_ok_n,
+        reload_ok=reload_ok_n,
+        reload_total=len(reload_results),
+        overall=overall,
+        errors=len(errors),
+    )
+
+    return jsonify({
+        "ok": overall != "fail",
+        "overall": overall,
+        "master_path": master_path,
+        "items": ni,
+        "kits": nk,
+        "maps_updated": maps_ok_n,
+        "notes": notes,
+        "errors": errors,
+        "stages": stages,
+        "maps": maps_written,
+        "rcon": reload_results,
+        "reload_results": reload_results,
+        "reload_ok": [r for r in reload_results if r.get("ok") or r.get("status") == "ok"],
+        "reload_fail": [
+            r for r in reload_results
+            if r.get("status") == "fail" or (not r.get("ok") and r.get("status") != "skipped")
+        ],
+        "reload_skipped": [r for r in reload_results if r.get("status") == "skipped"],
+        "reload_count": reload_ok_n,
         "reload_total": len(reload_results),
         "catalog_feed": catalog_feed_result,
     })
@@ -8665,8 +9059,8 @@ def player_available():
                     "key": key,
                     "catalog_kind": "kit",
                     "purchase_type": "kit",
-                    "name": kit.get("Description") or key,
-                    "description": kit.get("Description") or "",
+                    "name": kit.get("Name") or kit.get("Description") or key,
+                    "description": kit.get("KitDescription") or kit.get("Description") or "",
                     "price": 0,
                     "type": "kit",
                 })

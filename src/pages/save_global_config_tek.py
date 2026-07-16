@@ -160,3 +160,18 @@ def save_global_config_tek(app) -> None:
     _save_startup_registry(app, cfg, _winreg)
     app.config_manager.save()
     messagebox.showinfo("Salvo", "Configurações globais salvas!", parent=app)
+    if cfg.force_day_on_start_enabled and hasattr(app, "apply_force_day_now_to_all_running"):
+        apply_now = messagebox.askyesno(
+            "ForceDay",
+            f"Aplicar SetDay {cfg.force_day_on_start} agora em todos os mapas ONLINE?\n\n"
+            "Recomendado se os dias na lista de servidores estão desencontrados.",
+            parent=app,
+        )
+        if apply_now:
+            n = app.apply_force_day_now_to_all_running()
+            messagebox.showinfo(
+                "ForceDay",
+                f"SetDay {cfg.force_day_on_start} agendado em {n} mapa(s). "
+                "Veja o log global para confirmação RCON/SaveWorld.",
+                parent=app,
+            )

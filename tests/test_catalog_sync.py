@@ -37,6 +37,12 @@ def test_purge_retired_licenses_and_kits_on_sync():
     assert any("removed:kit:vip_bronze" in c for c in cleared)
     assert data["Kits"]["kit_tek_padrao_alfa"]["Price"] == 50000
     assert "kit_tek_padrao_alfa" in "".join(updates)
+    # Título curto — sem marketing de licença no Name/Description
+    desc = data["Kits"]["kit_tek_padrao_alfa"]["Description"]
+    name = data["Kits"]["kit_tek_padrao_alfa"]["Name"]
+    assert "50%" not in desc and "Âmbar" not in desc and "licença" not in desc.lower()
+    assert name == desc
+    assert len(desc) < 48
 
 
 def test_sanitize_placeholder_tier_kits():

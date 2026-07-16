@@ -801,6 +801,227 @@ def push_catalog_to_webstore(source: Path | str) -> Optional[Path]:
     return dest
 
 
+def _mirror_master_to_bin(master: Path) -> Optional[Path]:
+    """Espelho de build: configs/config.json → bin/config.json (dev/repo)."""
+    try:
+        bin_cfg = _PROJECT_ROOT / "plugin" / "CustomShop" / "bin" / "config.json"
+        if not master.is_file():
+            return None
+        # Só espelha se o mestre for o configs do repo (evita sobrescrever bin com APPDATA).
+        try:
+            same_tree = master.resolve().parent.parent == bin_cfg.resolve().parent.parent
+        except OSError:
+            same_tree = False
+        if not same_tree and master.resolve() != _DEFAULT_CATALOG.resolve():
+            # Em produção ARKLANDSERVER também espelhar se existir pasta bin local no env
+            pass
+        bin_cfg.parent.mkdir(parents=True, exist_ok=True)
+        if master.resolve() != bin_cfg.resolve():
+            shutil.copy2(master, bin_cfg)
+            logger.info("bin/config.json espelhado a partir do mestre → %s", bin_cfg)
+        return bin_cfg
+    except Exception as exc:
+        logger.warning("Falha ao espelhar mestre → bin/config.json: %s", exc)
+        return None
+
+
+_POLLUTED_KIT_MARKERS = (
+    "âmbar",
+    "ambar",
+    "licença",
+    "licenca",
+    "50% da",
+    "requer ",
+    "/ 30 min",
+    "renovação",
+    "renovacao",
+)
+
+
+def sanitize_polluted_kit_titles(catalog: Dict[str, Any]) -> int:
+    """Limpa Name/Description/KitDescription poluídos em kits ItensAlfa.
+
+    Título curto: «KIT ARMAS ETEREO», «KIT FERRAMENTAS ALFA», «KIT ITENSALFA BETA».
+    Retorna quantos kits foram corrigidos.
+    """
+    kits = catalog.get("Kits")
+    if not isinstance(kits, dict):
+        return 0
+    fixed = 0
+    for kid, entry in kits.items():
+        if not isinstance(entry, dict) or not isinstance(kid, str):
+            continue
+        key = kid.lower()
+        if not key.startswith("kit_itensalfa"):
+            continue
+        short: Optional[str] = None
+        if key.startswith("kit_itensalfa_armas_"):
+            tier = key[len("kit_itensalfa_armas_") :].replace("_", " ").upper()
+            short = f"KIT ARMAS {tier}"
+        elif key.startswith("kit_itensalfa_ferramentas_"):
+            tier = key[len("kit_itensalfa_ferramentas_") :].replace("_", " ").upper()
+            short = f"KIT FERRAMENTAS {tier}"
+        elif key.startswith("kit_itensalfa_"):
+            tier = key[len("kit_itensalfa_") :].replace("_", " ").upper()
+            if tier and "ARMAS" not in tier and "FERRAMENTAS" not in tier:
+                short = f"KIT ITENSALFA {tier}"
+        if not short:
+            continue
+        changed = False
+        for field in ("Name", "Description", "KitDescription"):
+            cur = str(entry.get(field) or "").strip()
+            low = cur.lower()
+            polluted = (
+                not cur
+                or len(cur) > 48
+                or any(m in low for m in _POLLUTED_KIT_MARKERS)
+            )
+            if polluted or cur != short:
+                if cur != short:
+                    entry[field] = short
+                    changed = True
+        if changed:
+            fixed += 1
+    return fixed
+
+
+def propagate_master_catalog(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    *,
+    catalog: Optional[Dict[str, Any]] = None,
+    asm_cm: Optional["AsmConfigManager"] = None,
+    rcon_reload: bool = False,
+    write_ui_catalog_to_master: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """ÚNICO fluxo seguro: mestre fixo → substitui mapas + WEBSTORE + bin.
+
+    - Fonte: sempre ``canonical_master_catalog_path()`` (nunca WEBSTORE, nunca bin, nunca mapa).
+    - NÃO faz reconcile WEBSTORE→mestre (era a principal fonte de poluição/confusão).
+    - Em cada mapa: substitui Items/Kits/TimedPoints/…; preserva ServerId e senha DB válida.
+    """
+    from .catalog_sync import apply_catalog_sync
+
+    master = canonical_master_catalog_path()
+    shop.catalog_config_path = str(master)
+    ok: List[str] = []
+    errors: List[str] = []
+
+    if write_ui_catalog_to_master and catalog is not None:
+        try:
+            master.parent.mkdir(parents=True, exist_ok=True)
+            data = deepcopy(catalog)
+            apply_catalog_sync(data)
+            n_clean = sanitize_polluted_kit_titles(data)
+            save_plugin_config(master, data)
+            ok.append(f"Mestre gravado → {master}")
+            if n_clean:
+                ok.append(f"Títulos de kits limpos: {n_clean}")
+        except Exception as exc:
+            return [], [f"Falha ao gravar mestre ({master}): {exc}"]
+
+    if not master.is_file():
+        return [], [
+            f"Mestre inexistente: {master}. "
+            "Edite/salve o catálogo nesse caminho fixo antes de propagar."
+        ]
+
+    catalog = load_plugin_config(master)
+    try:
+        from .shop_catalog_import import sanitize_catalog_blueprints
+
+        sanitize_catalog_blueprints(catalog)
+    except Exception as exc:
+        logger.warning("propagate: sanitize_catalog_blueprints ignorado: %s", exc)
+
+    apply_catalog_sync(catalog)
+    n_clean = sanitize_polluted_kit_titles(catalog)
+    try:
+        save_plugin_config(master, catalog)
+        if n_clean:
+            ok.append(f"Títulos de kits limpos no mestre: {n_clean}")
+    except Exception as exc:
+        errors.append(f"mestre ({master}): {exc}")
+        return ok, errors
+
+    ni, nk = catalog_entry_counts(catalog)
+    ok.append(f"Fonte mestre: {master} ({ni} itens, {nk} kits)")
+
+    ws = push_catalog_to_webstore(master)
+    if ws is not None and ws.is_file():
+        ok.append(f"WEBSTORE substituída → {ws}")
+    else:
+        # Dev sem ARKLANDSERVER: ainda tenta espelho local se webstore_data_dir existir
+        try:
+            dest = webstore_data_dir() / "config.json"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(master, dest)
+            ok.append(f"WEBSTORE/local substituída → {dest}")
+        except Exception as exc:
+            errors.append(f"WEBSTORE: {exc}")
+
+    bin_copy = _mirror_master_to_bin(master)
+    if bin_copy is not None:
+        ok.append(f"bin/config.json espelhado → {bin_copy}")
+
+    shrink_err = check_catalog_shrink_guard(catalog, cm, asm_cm=asm_cm)
+    if shrink_err:
+        errors.append(shrink_err)
+        return ok, errors
+
+    website = resolve_plugin_website_url(shop)
+    api = resolve_plugin_api_url(shop)
+    api_key = shop.api_key or ""
+    db_settings = build_plugin_database_settings(shop)
+    db_ok, db_msg = validate_plugin_database_settings(db_settings)
+    if not db_ok:
+        # Não bloqueia a cópia do catálogo — só avisa (senão 0 mapas atualizados).
+        errors.append(f"AVISO DB (catálogo mesmo assim propagado): {db_msg}")
+
+    catalog_db = catalog.get("Database", {})
+    if catalog_db:
+        catalog_db = {k: v for k, v in catalog_db.items() if k != "Password"}
+        db_settings = {**catalog_db, **db_settings}
+
+    maps_ok = 0
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        path_str = (getattr(srv, "customshop_config_path", "") or "").strip()
+        if not path_str:
+            path_str = default_customshop_path(getattr(srv, "install_dir", ""))
+        if not path_str:
+            errors.append(f"{getattr(srv, 'name', '')}: sem install_dir / caminho do plugin")
+            continue
+        plugin_path = Path(path_str)
+        try:
+            notes = sync_plugin_at_path(
+                catalog,
+                plugin_path,
+                website,
+                api,
+                api_key,
+                db_settings,
+                server_name=getattr(srv, "name", "") or "",
+                shop=shop,
+                srv=srv,
+            )
+            maps_ok += 1
+            for note in notes:
+                ok.append(note)
+            ok.append(f"Mapa substituído ← mestre: {getattr(srv, 'name', plugin_path)}")
+        except Exception as exc:
+            errors.append(f"{getattr(srv, 'name', plugin_path)}: {exc}")
+
+    ok.append(f"{maps_ok} mapa(s) atualizado(s) a partir do mestre")
+
+    if rcon_reload:
+        errors.append(
+            "RCON reload: use o botão «Propagar + Reload RCON» na UI "
+            "(requer o objeto app completo)."
+        )
+
+    return ok, errors
+
+
 def _richest_map_catalog_total(
     cm: "ConfigManager",
     asm_cm: Optional["AsmConfigManager"] = None,
@@ -834,6 +1055,352 @@ def check_catalog_shrink_guard(
             "Recarregue o catálogo do mapa ou backup antes de sincronizar."
         )
     return None
+
+
+def check_catalog_shrink_guard_paths(
+    catalog: Dict[str, Any],
+    map_paths: List[Path] | List[str],
+) -> Optional[str]:
+    """Shrink guard sem ConfigManager — compara mestre com configs nos caminhos dados."""
+    master_total = catalog_entry_total(catalog)
+    richest_map = 0
+    for raw in map_paths:
+        p = Path(raw)
+        if p.is_file():
+            try:
+                richest_map = max(richest_map, catalog_entry_total(load_plugin_config(p)))
+            except Exception:
+                continue
+    if richest_map >= 50 and master_total < max(10, int(richest_map * 0.25)):
+        ni, nk = catalog_entry_counts(catalog)
+        return (
+            f"Sync abortado: catálogo mestre tem apenas {ni} itens e {nk} kits "
+            f"(total {master_total}), mas um mapa tem {richest_map} entradas. "
+            "Recarregue o catálogo do mapa ou backup antes de sincronizar."
+        )
+    return None
+
+
+def looks_like_customshop_catalog(data: Any) -> bool:
+    """True se o JSON parece um catálogo CustomShop (Items/ShopItems e/ou Kits)."""
+    if not isinstance(data, dict):
+        return False
+    items = data.get("Items") if isinstance(data.get("Items"), dict) else None
+    if items is None and isinstance(data.get("ShopItems"), dict):
+        items = data.get("ShopItems")
+    kits = data.get("Kits") if isinstance(data.get("Kits"), dict) else None
+    return bool(items or kits)
+
+
+def write_and_propagate_master_catalog(
+    catalog: Dict[str, Any],
+    *,
+    map_targets: Optional[List[Tuple[str, Path]]] = None,
+    skip_shrink_guard: bool = False,
+) -> Dict[str, Any]:
+    """Grava catálogo como mestre canônico e propaga → WEBSTORE + bin + mapas.
+
+    Mesma semântica de ``propagate_master_catalog`` sem precisar de ConfigManager/TEK:
+    - Fonte: ``canonical_master_catalog_path()``
+    - Sem reconcile WEBSTORE→mestre
+    - Em cada mapa: merge preservando ServerId e senha DB válida
+
+    Retorna relatório estruturado com ``stages``, ``maps``, ``notes``, ``errors``.
+    """
+    from .catalog_sync import apply_catalog_sync
+
+    notes: List[str] = []
+    errors: List[str] = []
+    stages: List[Dict[str, Any]] = []
+    maps_report: List[Dict[str, Any]] = []
+    master = canonical_master_catalog_path()
+    data = deepcopy(catalog)
+    if "ShopItems" in data and "Items" not in data:
+        data["Items"] = data.pop("ShopItems")
+
+    try:
+        from .shop_catalog_import import sanitize_catalog_blueprints
+
+        sanitize_catalog_blueprints(data)
+    except Exception as exc:
+        logger.warning("write_and_propagate: sanitize_catalog_blueprints: %s", exc)
+
+    apply_catalog_sync(data)
+    n_clean = sanitize_polluted_kit_titles(data)
+
+    targets = list(map_targets or [])
+    if not skip_shrink_guard:
+        shrink_err = check_catalog_shrink_guard_paths(
+            data, [p for _, p in targets]
+        )
+        if shrink_err:
+            stages.append({
+                "id": "shrink_guard",
+                "label": "Proteção contra catálogo reduzido",
+                "status": "fail",
+                "detail": shrink_err,
+            })
+            return {
+                "ok": False,
+                "master_path": str(master),
+                "items": 0,
+                "kits": 0,
+                "stages": stages,
+                "maps": [],
+                "notes": [],
+                "errors": [shrink_err],
+                "kits_sanitized": n_clean,
+            }
+
+    ni, nk = 0, 0
+    try:
+        master.parent.mkdir(parents=True, exist_ok=True)
+        save_plugin_config(master, data)
+        ni, nk = catalog_entry_counts(data)
+        detail = f"{master} ({ni} itens, {nk} kits)"
+        if n_clean:
+            detail += f"; títulos de kits limpos: {n_clean}"
+        notes.append(f"Mestre gravado → {master}")
+        notes.append(f"Fonte mestre: {master} ({ni} itens, {nk} kits)")
+        if n_clean:
+            notes.append(f"Títulos de kits limpos: {n_clean}")
+        stages.append({
+            "id": "master_written",
+            "label": "Mestre gravado",
+            "status": "ok",
+            "path": str(master),
+            "items": ni,
+            "kits": nk,
+            "detail": detail,
+        })
+    except Exception as exc:
+        err = f"Falha ao gravar mestre ({master}): {exc}"
+        stages.append({
+            "id": "master_written",
+            "label": "Mestre gravado",
+            "status": "fail",
+            "path": str(master),
+            "detail": err,
+        })
+        return {
+            "ok": False,
+            "master_path": str(master),
+            "items": 0,
+            "kits": 0,
+            "stages": stages,
+            "maps": [],
+            "notes": notes,
+            "errors": [err],
+            "kits_sanitized": n_clean,
+        }
+
+    ws_path: Optional[str] = None
+    ws = push_catalog_to_webstore(master)
+    if ws is not None and ws.is_file():
+        ws_path = str(ws)
+        notes.append(f"WEBSTORE substituída → {ws}")
+        stages.append({
+            "id": "webstore",
+            "label": "WEBSTORE atualizada",
+            "status": "ok",
+            "path": ws_path,
+            "detail": ws_path,
+        })
+    else:
+        try:
+            dest = webstore_data_dir() / "config.json"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(master, dest)
+            ws_path = str(dest)
+            notes.append(f"WEBSTORE/local substituída → {dest}")
+            stages.append({
+                "id": "webstore",
+                "label": "WEBSTORE atualizada",
+                "status": "ok",
+                "path": ws_path,
+                "detail": f"cópia local → {ws_path}",
+            })
+        except Exception as exc:
+            err = f"WEBSTORE: {exc}"
+            errors.append(err)
+            stages.append({
+                "id": "webstore",
+                "label": "WEBSTORE atualizada",
+                "status": "fail",
+                "detail": err,
+            })
+
+    bin_copy = _mirror_master_to_bin(master)
+    if bin_copy is not None:
+        notes.append(f"bin/config.json espelhado → {bin_copy}")
+        stages.append({
+            "id": "bin_mirror",
+            "label": "Espelho bin/config.json",
+            "status": "ok",
+            "path": str(bin_copy),
+            "detail": str(bin_copy),
+        })
+    else:
+        stages.append({
+            "id": "bin_mirror",
+            "label": "Espelho bin/config.json",
+            "status": "skipped",
+            "detail": "Não aplicável neste ambiente",
+        })
+
+    maps_ok = 0
+    for label, plugin_path in targets:
+        path = Path(plugin_path)
+        try:
+            if path.resolve() == master.resolve():
+                continue
+        except OSError:
+            if str(path).lower() == str(master).lower():
+                continue
+        map_label = str(label or path)
+        try:
+            existing = load_plugin_config(path) if path.is_file() else {}
+            merged = merge_catalog_into_plugin_config(data, existing) if existing else deepcopy(data)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            save_plugin_config(path, merged)
+            mi, mk = catalog_entry_counts(merged)
+            maps_ok += 1
+            notes.append(f"Mapa substituído ← mestre: {map_label}")
+            maps_report.append({
+                "label": map_label,
+                "path": str(path),
+                "status": "ok",
+                "items": mi,
+                "kits": mk,
+                "detail": f"gravado ({mi} itens, {mk} kits)",
+            })
+        except Exception as exc:
+            err = f"{map_label}: {exc}"
+            errors.append(err)
+            maps_report.append({
+                "label": map_label,
+                "path": str(path),
+                "status": "fail",
+                "items": 0,
+                "kits": 0,
+                "detail": str(exc),
+                "error": str(exc),
+            })
+
+    notes.append(f"{maps_ok} mapa(s) atualizado(s) a partir do mestre")
+    maps_fail = sum(1 for m in maps_report if m.get("status") == "fail")
+    if maps_report:
+        stages.append({
+            "id": "maps_written",
+            "label": "Configs dos mapas gravados",
+            "status": "ok" if maps_fail == 0 else ("partial" if maps_ok else "fail"),
+            "detail": f"{maps_ok} ok / {maps_fail} falha(s) / {len(maps_report)} total",
+            "maps_ok": maps_ok,
+            "maps_fail": maps_fail,
+        })
+    else:
+        stages.append({
+            "id": "maps_written",
+            "label": "Configs dos mapas gravados",
+            "status": "skipped",
+            "detail": "Nenhum caminho de plugin de mapa configurado",
+        })
+
+    overall_ok = not errors and maps_fail == 0
+    return {
+        "ok": overall_ok,
+        "master_path": str(master),
+        "items": ni,
+        "kits": nk,
+        "stages": stages,
+        "maps": maps_report,
+        "notes": notes,
+        "errors": errors,
+        "kits_sanitized": n_clean,
+        "maps_updated": maps_ok,
+    }
+
+
+def reload_customshop_via_rcon_from_servers(
+    servers: List[Dict[str, Any]],
+    *,
+    fallback_password: str = "",
+    fallback_host: str = "127.0.0.1",
+    fallback_port: int = 27020,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Shop.Reload via RCON a partir de dicts (Web Store / paths) — sem ARKTEKApp.
+
+    Cada entrada pode ter: label/name, rcon_host, rcon_port, rcon_password.
+    Retorna (ok, failed, skipped).
+    """
+    from .rcon_client import RconClient
+    from .rcon_util import CUSTOMSHOP_RELOAD_COMMANDS, sanitize_rcon_password
+
+    ok: List[str] = []
+    failed: List[str] = []
+    skipped: List[str] = []
+    commands = list(CUSTOMSHOP_RELOAD_COMMANDS)
+    fb_pass = sanitize_rcon_password(fallback_password)
+
+    for srv in servers:
+        if not isinstance(srv, dict):
+            continue
+        name = str(srv.get("label") or srv.get("name") or srv.get("server_id") or "Servidor")
+        if srv.get("shop_exclude"):
+            skipped.append(f"{name}: excluído da loja")
+            continue
+        if srv.get("rcon_enabled") is False:
+            skipped.append(f"{name}: RCON desativado")
+            continue
+        rcon_pass = sanitize_rcon_password(
+            str(srv.get("rcon_password") or srv.get("admin_password") or fb_pass or "")
+        )
+        if not rcon_pass:
+            skipped.append(f"{name}: senha RCON/admin não definida")
+            continue
+        port = int(srv.get("rcon_port") or fallback_port or 27020)
+        if port <= 0:
+            skipped.append(f"{name}: porta RCON inválida")
+            continue
+
+        hosts: List[str] = []
+        for candidate in ("127.0.0.1", srv.get("rcon_host"), fallback_host):
+            h = str(candidate or "").strip()
+            if not h or h in ("0.0.0.0",):
+                continue
+            if h.lower() == "localhost":
+                h = "127.0.0.1"
+            if h not in hosts:
+                hosts.append(h)
+        if not hosts:
+            hosts = ["127.0.0.1"]
+
+        success = False
+        last_err = ""
+        for host in hosts:
+            client = RconClient(host, port, rcon_pass)
+            try:
+                client.connect()
+                for cmd in commands:
+                    cmd_ok, result = client.send_command_with_retry(cmd, retries=3)
+                    if cmd_ok:
+                        ok.append(f"{name}: {cmd}")
+                        success = True
+                        break
+                    last_err = (result or "").strip()
+                if success:
+                    break
+            except Exception as exc:
+                last_err = str(exc)
+            finally:
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+        if not success:
+            failed.append(f"{name}: {last_err or 'falha no comando RCON'}")
+
+    return ok, failed, skipped
 
 
 def resolve_webstore_executable() -> Optional[Path]:
@@ -3247,7 +3814,8 @@ def sync_all_plugins(
         shop.catalog_config_path = str(catalog_path)
         shop_dirty = True
 
-    catalog_path, catalog = reconcile_catalog_before_sync(catalog_path, catalog)
+    # NÃO reconciliar WEBSTORE → mestre (puxava ficheiro errado/sujo e bagunçava o sync).
+    # Fonte de verdade: só o mestre canônico no disco.
     if catalog_path.is_file():
         catalog = load_plugin_config(catalog_path)
         ni, nk = catalog_entry_counts(catalog)
@@ -3255,6 +3823,7 @@ def sync_all_plugins(
             "CustomShop sync: mestre canônico recarregado (%d itens, %d kits) ← %s",
             ni, nk, catalog_path,
         )
+    sanitize_polluted_kit_titles(catalog)
 
     try:
         from .shop_catalog_import import sanitize_catalog_blueprints

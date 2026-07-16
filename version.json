@@ -1,12 +1,12 @@
 {
-    "version": "1.10.46",
+    "version": "1.10.47",
     "date": "2026-07-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.46/ARKLAND-Multi-Setup-v1.10.46.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.47/ARKLAND-Multi-Setup-v1.10.47.exe",
     "changelog": [
-        "Feat (CustomShop / ItensAlfa): kits kit_itensalfa_armas_* e kit_itensalfa_ferramentas_* por tier (planilha Cheats por Classe); Permissions Admins+N+N+1; ONIPRESENTE→onipotente; ETEREA→etereo. Sem secção Exótico na planilha. BPs só em kits (Mjolnir, ShoulderCannon_G2, Pike/PumpAction_GOD sem SKU individual).",
-        "Fix (CustomShop / Catalogo): reverte Permissions erradas em dinos L1/L200 e pack10 (bionicrex, desmodus, carcha, etc.) — cadeado de licenca fica so nos itens ItensAlfa (58 SKUs), nao nos dinos de kit.",
-        "Fix (CustomShop / ItensAlfa): denylist no build de kits — Criofreezer (AlfaCrioFreezer) e Alfa Fabric banidos do cluster; nunca entram em kits/catálogo via planilha.",
-        "Melhoria (CustomShop / ItensAlfa): Names/Descriptions dos kits limpos (ex. KIT ARMAS ETEREO); Permissions nos SKUs individuais de armas/ferramentas ItensAlfa.",
-        "Feat (Web Store / Catalogo): icones gerados para todos os dinos do catalogo (386/386) em species/icons/generated — cobertura completa incl. Abyss, Brighamia e SmallBosses."
+        "Fix (TEK / ForceDay): race no restart — STOPPED limpava force_day_pending depois do start o re-marcar; só 1 mapa (ou nenhum) recebia SetDay. Restart marca janela protegida + reaplica se RUNNING não disparar de novo.",
+        "Feat (TEK / ForceDay): botão «Aplicar agora em todos os online» + prompt ao salvar configs — alinha DayNumber nos 6 mapas sem reinício.",
+        "Feat (CustomShop): botão único «Propagar mestre → mapas + loja» — fonte FIXA (CustomShop/configs/config.json); substitui WEBSTORE, bin e todos os mapas; sem reconcile WEBSTORE→mestre.",
+        "Fix (CustomShop / Catalogo): apply_catalog_sync deixava de poluir Name/Description dos kits com «Âmbar (50% da licença)…»; títulos curtos (KIT ARMAS ETEREO, etc.).",
+        "Feat (Web Store / Admin): importar config.json (upload) → mestre canônico → propagar mapas+loja → Shop.Reload RCON; relatório etapa-a-etapa e RCON por mapa (ligação + comando)."
     ]
 }

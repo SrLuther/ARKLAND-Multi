@@ -180,14 +180,30 @@ def _resolve_kit_license(
 SIMPLE_LICENSE_KIT_IDS = frozenset({"kit_gamma", "kit_beta", "kit_alfa"})
 
 
-def _kit_description(kit_id: str, kit: dict[str, Any], kit_price: int, label: str) -> str:
-    if kit_id in SIMPLE_LICENSE_KIT_IDS:
+def _short_kit_title(kit_id: str, kit: dict[str, Any], label: str) -> str:
+    """Título curto para UI — sem preço, % de licença ou marketing."""
+    kid = str(kit_id)
+    if kid in SIMPLE_LICENSE_KIT_IDS:
         return f"KIT {label.upper()}"
-    base = _kit_base_label(kit, kit_id)
-    return (
-        f"{base} — {_fmt_amber(kit_price)} Âmbar (50% da licença). "
-        f"Requer Licença {label}."
-    )
+    if kid.startswith("kit_itensalfa_armas_"):
+        tier = kid[len("kit_itensalfa_armas_") :].replace("_", " ").upper()
+        return f"KIT ARMAS {tier}"
+    if kid.startswith("kit_itensalfa_ferramentas_"):
+        tier = kid[len("kit_itensalfa_ferramentas_") :].replace("_", " ").upper()
+        return f"KIT FERRAMENTAS {tier}"
+    if kid.startswith("kit_itensalfa_"):
+        tier = kid[len("kit_itensalfa_") :].replace("_", " ").upper()
+        return f"KIT ITENSALFA {tier}"
+    base = _kit_base_label(kit, kid)
+    # Evita reintroduzir poluição se Description já veio suja
+    if any(m in base.lower() for m in ("âmbar", "ambar", "licen", "50%", "/ 30")):
+        return f"KIT {label.upper()}"
+    return base
+
+
+def _kit_description(kit_id: str, kit: dict[str, Any], kit_price: int, label: str) -> str:
+    # kit_price mantido na assinatura por compatibilidade — NÃO entra no título.
+    return _short_kit_title(kit_id, kit, label)
 
 
 def _sanitize_placeholder_prices(kits: dict[str, Any]) -> list[str]:
@@ -233,8 +249,17 @@ def _apply_tier_kit_pricing(kits: dict[str, Any], items: dict[str, Any]) -> list
 
         kit["Price"] = kit_price
         if group and group not in SKIP_PERMISSION_GROUPS and not _is_removed_group(group):
-            kit["Permissions"] = f"Admins,{group}"
-        kit["Description"] = _kit_description(kit_id, kit, kit_price, label)
+            # Mantém Admins + tier atual + próximo (se já existia N+1); senão Admins,group
+            existing_perms = _parse_permissions(kit.get("Permissions"))
+            next_tiers = [p for p in existing_perms if p not in SKIP_PERMISSION_GROUPS and p != group]
+            if next_tiers:
+                kit["Permissions"] = "Admins," + ",".join([group] + next_tiers[:1])
+            else:
+                kit["Permissions"] = f"Admins,{group}"
+        title = _short_kit_title(kit_id, kit, label)
+        kit["Name"] = title
+        kit["Description"] = title
+        kit["KitDescription"] = title
         updated.append(f"{kit_id}={kit_price}({group})")
 
     return updated

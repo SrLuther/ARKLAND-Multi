@@ -139,11 +139,60 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         _day_row, textvariable=app._cfg_force_day_var,
         width=80, height=28, placeholder_text="20",
     ).pack(side="left", padx=(8, 0))
+
+    def _apply_force_day_now() -> None:
+        from tkinter import messagebox
+        # Persiste o valor do campo antes de aplicar
+        try:
+            app.config_manager.config.force_day_on_start_enabled = bool(
+                app._cfg_force_day_enabled_var.get()
+            )
+            app.config_manager.config.force_day_on_start = max(
+                0, int((app._cfg_force_day_var.get() or "20").strip())
+            )
+        except ValueError:
+            app.config_manager.config.force_day_on_start = 20
+        app.config_manager.save()
+        if not app.config_manager.config.force_day_on_start_enabled:
+            messagebox.showwarning(
+                "ForceDay",
+                "Ative a opção «Forçar dia do mapa» antes de aplicar.",
+                parent=app,
+            )
+            return
+        day = app.config_manager.config.force_day_on_start
+        n = app.apply_force_day_now_to_all_running()
+        if n <= 0:
+            messagebox.showinfo(
+                "ForceDay",
+                f"Nenhum servidor ONLINE. Com a opção ativa, o dia {day} "
+                "será aplicado no próximo start/restart de cada mapa.",
+                parent=app,
+            )
+            return
+        messagebox.showinfo(
+            "ForceDay",
+            f"SetDay {day} agendado em {n} mapa(s) online "
+            "(aguarda RCON + SaveWorld). Confira o log global.",
+            parent=app,
+        )
+
+    ctk.CTkButton(
+        _day_row,
+        text="Aplicar agora em todos os online",
+        width=220,
+        height=28,
+        fg_color=_GREEN_DARK,
+        hover_color=_GREEN_HOVER,
+        command=_apply_force_day_now,
+    ).pack(side="left", padx=(12, 0))
+
     ctk.CTkLabel(
         opt_card,
         text=(
-            "Ao ficar online, envia SetDay via RCON (com retry até o RCON responder). "
-            "Aviso: redefine o DayNumber do mapa a cada boot/restart — não altera rates "
+            "Ao ficar online, envia SetDay via RCON em TODOS os mapas (com retry). "
+            "Use «Aplicar agora» para alinhar os 6 sem reiniciar. "
+            "Aviso: redefine o DayNumber a cada boot/restart — não altera rates "
             "(DayCycleSpeedScale / duração do dia)."
         ),
         text_color="gray45", font=ctk.CTkFont(size=10),

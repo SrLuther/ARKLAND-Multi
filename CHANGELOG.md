@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.47] - 2026-07-16
+
+### Feature
+
+- Feat (TEK / ForceDay): botão «Aplicar agora em todos os online» + prompt ao salvar configs — alinha DayNumber nos 6 mapas sem reinício.
+- Feat (CustomShop): botão único «Propagar mestre → mapas + loja» — fonte FIXA (CustomShop/configs/config.json); substitui WEBSTORE, bin e todos os mapas; sem reconcile WEBSTORE→mestre.
+- Feat (Web Store / Admin): importar config.json (upload) → mestre canônico → propagar mapas+loja → Shop.Reload RCON; relatório etapa-a-etapa e RCON por mapa (ligação + comando).
+
+### Fix
+
+- Fix (TEK / ForceDay): race no restart — STOPPED limpava force_day_pending depois do start o re-marcar; só 1 mapa (ou nenhum) recebia SetDay. Restart marca janela protegida + reaplica se RUNNING não disparar de novo.
+- Fix (CustomShop / Catalogo): apply_catalog_sync deixava de poluir Name/Description dos kits com «Âmbar (50% da licença)…»; títulos curtos (KIT ARMAS ETEREO, etc.).
+
 ## [1.10.46] - 2026-07-16
 
 ### Feature

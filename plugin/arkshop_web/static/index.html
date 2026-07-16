@@ -7061,6 +7061,29 @@
             <button class="btn btn-ghost" onclick="testDbConnection()">🔌 Testar Conexão DB</button>
           </div>
         </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">
+            <div class="card-title">📦 Importar catálogo (config.json)</div>
+            <div style="font-size:12px;color:var(--text2);">
+              Substitui o mestre e propaga para todos os mapas + loja (igual ao TEK «Propagar mestre → mapas + loja»), depois envia Shop.Reload via RCON.
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.45;">
+            O ficheiro enviado torna-se o catálogo <strong>mestre</strong>. ServerId e senha de DB de cada mapa são preservados.
+            Certifique-se de ter backup antes de importar.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+              <label for="catalog-import-file">Ficheiro config.json</label>
+              <input id="catalog-import-file" type="file" accept=".json,application/json" />
+            </div>
+            <button class="btn btn-primary" type="button" onclick="importCatalogConfig()">
+              Importar config.json e aplicar em todos
+            </button>
+          </div>
+          <div id="catalog-import-results" class="hidden" style="margin-top:14px;"></div>
+        </div>
       </div>
 
       <!-- PAGE: Utilidades (público) -->
@@ -21861,6 +21884,168 @@ async function saveSettings() {
   } catch(e) {
     toast("Erro de rede: " + e.message, "error");
   }
+}
+
+async function importCatalogConfig() {
+  const input = document.getElementById("catalog-import-file");
+  const panel = document.getElementById("catalog-import-results");
+  const file = input && input.files && input.files[0];
+  if (!file) {
+    toast("Selecione um ficheiro config.json", "error");
+    return;
+  }
+  const okConfirm = confirm(
+    "Isto SUBSTITUI o catálogo mestre e propaga para TODOS os mapas + loja web, "
+    + "depois tenta Shop.Reload via RCON.\n\n"
+    + "ServerId e senha DB de cada mapa são preservados.\n\nContinuar?"
+  );
+  if (!okConfirm) return;
+
+  if (panel) {
+    panel.classList.remove("hidden");
+    panel.innerHTML = '<div style="padding:12px;color:var(--text2);">A importar, propagar e recarregar…</div>';
+  }
+  const fd = new FormData();
+  fd.append("file", file, file.name || "config.json");
+  fd.append("reload", "1");
+  try {
+    const r = await fetch(API + "/api/admin/catalog/import", {
+      method: "POST",
+      body: fd,
+      credentials: "same-origin",
+    });
+    const data = await r.json().catch(() => ({}));
+    renderCatalogImportResults(data, r.ok);
+    if (!r.ok || data.overall === "fail" || data.ok === false) {
+      toast(data.error || "Importação falhou", "error");
+      return;
+    }
+    const maps = Number(data.maps_updated || 0);
+    const reloadOk = Number(data.reload_count || 0);
+    const reloadTotal = Number(data.reload_total || 0);
+    const toastType = data.overall === "partial" ? "warning" : "success";
+    toast(
+      `Catálogo ${data.overall === "success" ? "aplicado" : "parcial"} · ${maps} mapa(s) · Reload ${reloadOk}/${reloadTotal}`,
+      toastType
+    );
+    if (input) input.value = "";
+  } catch (e) {
+    if (panel) {
+      panel.classList.remove("hidden");
+      panel.innerHTML = `<div style="padding:12px;color:var(--danger);">❌ ${escHtml(e.message)}</div>`;
+    }
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
+function _catalogImportStatusStyle(status) {
+  const s = String(status || "").toLowerCase();
+  if (s === "ok" || s === "success") {
+    return { bg: "rgba(18,216,124,.12)", color: "var(--success)", border: "rgba(18,216,124,.35)", label: "OK" };
+  }
+  if (s === "partial" || s === "warning") {
+    return { bg: "rgba(232,180,32,.12)", color: "var(--amber)", border: "rgba(232,180,32,.4)", label: "PARCIAL" };
+  }
+  if (s === "skipped") {
+    return { bg: "rgba(140,140,160,.12)", color: "var(--text2)", border: "rgba(140,140,160,.3)", label: "IGNORADO" };
+  }
+  return { bg: "rgba(240,64,80,.12)", color: "var(--danger)", border: "rgba(240,64,80,.35)", label: "FALHA" };
+}
+
+function _catalogImportConnLabel(c) {
+  const map = {
+    ok: "conectou",
+    timeout: "timeout",
+    auth_fail: "auth falhou",
+    refused: "recusou ligação",
+    skipped: "ignorado",
+    fail: "falhou",
+    unknown: "—",
+  };
+  return map[String(c || "").toLowerCase()] || String(c || "—");
+}
+
+function renderCatalogImportResults(data, httpOk) {
+  const panel = document.getElementById("catalog-import-results");
+  if (!panel) return;
+  panel.classList.remove("hidden");
+  const overall = data.overall || (data.ok ? "success" : "fail");
+  const ov = _catalogImportStatusStyle(overall === "success" ? "ok" : overall);
+  const stages = Array.isArray(data.stages) ? data.stages : [];
+  const maps = Array.isArray(data.maps) ? data.maps : [];
+  const rcon = Array.isArray(data.rcon) ? data.rcon : (Array.isArray(data.reload_results) ? data.reload_results : []);
+
+  let html = "";
+  html += `<div style="padding:12px 14px;border-radius:8px;background:${ov.bg};border:1px solid ${ov.border};color:${ov.color};font-weight:600;margin-bottom:12px;">
+    Resultado geral: ${ov.label}${data.error ? " — " + escHtml(data.error) : ""}
+  </div>`;
+
+  if (stages.length) {
+    html += `<div style="font-size:13px;font-weight:600;margin:0 0 8px;">Etapas</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">`;
+    stages.forEach((st) => {
+      const sty = _catalogImportStatusStyle(st.status);
+      html += `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;background:${sty.bg};border:1px solid ${sty.border};">
+        <span style="font-size:11px;font-weight:700;color:${sty.color};min-width:72px;">${sty.label}</span>
+        <div style="flex:1;font-size:12px;color:var(--text);">
+          <div style="font-weight:600;">${escHtml(st.label || st.id || "etapa")}</div>
+          <div style="color:var(--text2);margin-top:2px;word-break:break-all;">${escHtml(st.detail || st.path || "")}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (maps.length) {
+    html += `<div style="font-size:13px;font-weight:600;margin:0 0 8px;">Ficheiros por mapa</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">`;
+    maps.forEach((m) => {
+      const sty = _catalogImportStatusStyle(m.status);
+      const counts = (m.items != null || m.kits != null)
+        ? `${m.items ?? "?"} itens · ${m.kits ?? "?"} kits`
+        : "";
+      html += `<div style="padding:8px 10px;border-radius:8px;background:${sty.bg};border:1px solid ${sty.border};font-size:12px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <strong>${escHtml(m.label || "?")}</strong>
+          <span style="color:${sty.color};font-weight:700;">${sty.label}</span>
+        </div>
+        <div style="color:var(--text2);margin-top:4px;word-break:break-all;">${escHtml(m.path || "")}</div>
+        <div style="color:var(--text2);margin-top:2px;">${escHtml(counts || m.detail || m.error || "")}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (rcon.length) {
+    html += `<div style="font-size:13px;font-weight:600;margin:0 0 8px;">RCON por mapa (Shop.Reload)</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+    rcon.forEach((r) => {
+      const sty = _catalogImportStatusStyle(r.status || (r.ok ? "ok" : "fail"));
+      const endpoint = r.endpoint || ((r.rcon_host || r.host || "?") + ":" + (r.rcon_port || "?"));
+      const fileBit = r.file_written === true
+        ? `ficheiro OK${r.file_items != null ? ` (${r.file_items}i/${r.file_kits}k)` : ""}`
+        : (r.file_written === false ? "ficheiro não confirmado" : "");
+      html += `<div style="padding:8px 10px;border-radius:8px;background:${sty.bg};border:1px solid ${sty.border};font-size:12px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <strong>${escHtml(r.label || r.server_id || "?")}</strong>
+          <span style="color:${sty.color};font-weight:700;">${sty.label}</span>
+        </div>
+        <div style="color:var(--text2);margin-top:4px;">
+          RCON <code>${escHtml(endpoint)}</code>
+          · ligação: <strong>${escHtml(_catalogImportConnLabel(r.connectivity))}</strong>
+          · comando: ${r.command_sent ? escHtml(r.command || "Shop.Reload") : "não enviado"}
+        </div>
+        ${fileBit ? `<div style="color:var(--text2);margin-top:2px;">Disco: ${escHtml(fileBit)}${r.file_path ? " — " + escHtml(r.file_path) : ""}</div>` : ""}
+        ${r.response ? `<div style="color:var(--text2);margin-top:2px;">Resposta: ${escHtml(String(r.response).slice(0, 160))}</div>` : ""}
+        ${r.error || r.reason ? `<div style="color:var(--danger);margin-top:2px;">${escHtml(r.error || r.reason)}</div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  } else if (httpOk && overall !== "fail") {
+    html += `<div style="font-size:12px;color:var(--text2);">Sem alvos RCON para reportar.</div>`;
+  }
+
+  panel.innerHTML = html;
 }
 
 async function testDbConnection() {

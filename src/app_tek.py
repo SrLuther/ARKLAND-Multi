@@ -427,7 +427,9 @@ class ARKServerManagerApp(ctk.CTk):
             setattr(self, f"_asm_uptime_start_{server_id}", None)
             rich_key = f"_asm_rich_status_{server_id}"
             setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
-            self.asm_server_manager.clear_force_day_pending(server_id)
+            # Não limpar pending a meio de restart — senão SetDay falha nos outros mapas.
+            if not self.asm_server_manager.is_force_day_restarting(server_id):
+                self.asm_server_manager.clear_force_day_pending(server_id)
 
         refresher = getattr(self, "_asm_panel_refreshers", {}).get(server_id)
         if refresher:
@@ -492,6 +494,42 @@ class ARKServerManagerApp(ctk.CTk):
                 )
             except Exception:
                 pass
+
+    def apply_force_day_now_to_all_running(self) -> int:
+        """Agenda SetDay imediatamente em todos os mapas RUNNING. Retorna quantos."""
+        gcfg = self.config_manager.config
+        if not bool(getattr(gcfg, "force_day_on_start_enabled", False)):
+            return 0
+        try:
+            day = int(getattr(gcfg, "force_day_on_start", 20) or 20)
+        except (TypeError, ValueError):
+            day = 20
+        day = max(0, day)
+
+        from .force_day_on_start import schedule_force_day
+        from .rcon_util import sanitize_rcon_password
+
+        scheduled = 0
+        for srv in list(self.asm_config_manager.servers):
+            inst = self.asm_server_manager.get_instance(srv.id)
+            if not inst or inst.status != ASM_STATUS_RUNNING:
+                continue
+            schedule_force_day(
+                server_id=srv.id,
+                server_name=getattr(srv, "name", "") or srv.id,
+                rcon_host=getattr(srv, "rcon_host", None) or "127.0.0.1",
+                rcon_port=int(getattr(srv, "rcon_port", 0) or 0),
+                rcon_password=sanitize_rcon_password(
+                    getattr(srv, "admin_password", "") or ""
+                ),
+                day=day,
+                on_log=lambda msg, level: self.after(
+                    0, lambda m=msg, lv=level: self._global_log(m, lv)
+                ),
+                save_world=True,
+            )
+            scheduled += 1
+        return scheduled
 
     def _setup_bg_watermark(self) -> None:
         """Pré-computa a imagem de watermark para reutilização em todas as páginas."""
