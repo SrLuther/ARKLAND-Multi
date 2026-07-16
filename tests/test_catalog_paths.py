@@ -229,7 +229,9 @@ def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
     assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) >= 140
 
 
-def test_ensure_webstore_refreshes_when_master_larger(tmp_path, monkeypatch):
+def test_ensure_webstore_recovers_legacy_stub(tmp_path, monkeypatch):
+    """Stub ~176 B (legado) deve ser substituído mesmo se mtime for mais recente."""
+    import time
     from src.arkland_environment import EnvironmentPaths
 
     root = tmp_path / "ARKLAND SERVER"
@@ -237,13 +239,18 @@ def test_ensure_webstore_refreshes_when_master_larger(tmp_path, monkeypatch):
     webstore = root / "WEBSTORE"
     webstore.mkdir()
     stub = webstore / "config.json"
-    stub.write_text('{"Items":{"a":{}},"Kits":{}}', encoding="utf-8")
+    # Histórico: stub mínimo que quebrava o boot / catálogo vazio
+    stub.write_text('{"Settings":{"ShopName":"x"},"Items":{},"Kits":{}}\n', encoding="utf-8")
+    assert stub.stat().st_size < 512
     master = root / "CustomShop" / "configs" / "config.json"
     master.parent.mkdir(parents=True)
     master.write_text(
-        json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {"k1": {}}}),
+        json.dumps({"Items": {f"x{i}": {"Price": 1} for i in range(40)}, "Kits": {"k": {}}}),
         encoding="utf-8",
     )
+    # Stub mais recente que o mestre
+    time.sleep(0.05)
+    stub.write_text('{"Settings":{"ShopName":"x"},"Items":{},"Kits":{}}\n', encoding="utf-8")
 
     monkeypatch.setattr(
         "src.arkland_environment.try_load_environment_paths",
@@ -251,10 +258,47 @@ def test_ensure_webstore_refreshes_when_master_larger(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
-    dest = ensure_webstore_catalog_config(master)
-    assert dest.resolve() == master.resolve()
+    ensure_webstore_catalog_config(master)
     data = json.loads(stub.read_text(encoding="utf-8"))
-    assert len(data.get("Items") or {}) == 50
+    assert len(data.get("Items") or {}) == 40
+
+
+def test_build_webstore_launch_preps_secret_and_catalog(tmp_path, monkeypatch):
+    """Launch pré-aquece secret + ensure stub WEBSTORE antes de devolver o comando."""
+    from src.arkland_environment import EnvironmentPaths
+    from src.shop_integration import build_webstore_launch
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
+    webstore.mkdir()
+    (webstore / "config.json").write_text(
+        '{"Settings":{},"Items":{},"Kits":{}}\n', encoding="utf-8"
+    )
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
+    payload = json.dumps({"Items": {f"i{n}": {} for n in range(20)}, "Kits": {}})
+    master.write_text(payload, encoding="utf-8")
+
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr("src.shop_integration.resolve_webstore_executable", lambda: None)
+    monkeypatch.setattr(
+        "src.shop_integration.resolve_persistent_catalog_path",
+        lambda *a, **k: master,
+    )
+    monkeypatch.delenv("ARKSHOP_WEB_SECRET", raising=False)
+
+    shop = ShopGlobalConfig(catalog_config_path=str(master), port=5198)
+    cmd, cwd, log_path = build_webstore_launch(shop)
+    assert any(str(p).endswith("app.py") for p in cmd)
+    assert log_path == webstore / "webstore.log"
+    assert (webstore / "web_secret.txt").is_file()
+    data = json.loads((webstore / "config.json").read_text(encoding="utf-8"))
+    assert len(data.get("Items") or {}) == 20
 
 
 def test_app_data_dir_delegates_to_webstore_data_dir(tmp_path, monkeypatch):

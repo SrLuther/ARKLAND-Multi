@@ -750,10 +750,29 @@ def reconcile_catalog_before_sync(
     return master, merged
 
 
+def _is_stub_webstore_catalog(path: Path) -> bool:
+    """True para config.json vazio/legado (~176 bytes) que quebrava o boot da loja."""
+    if not path.is_file():
+        return True
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return True
+    # Stubs históricos ~176 B com Items/Kits vazios — não confundir com edição
+    # pequena mas válida (ex.: 1 item) que ainda deve respeitar mtime.
+    if size >= 512:
+        return False
+    try:
+        return catalog_entry_total(load_plugin_config(path)) == 0
+    except Exception:
+        return True
+
+
 def ensure_webstore_catalog_config(source: Path | str) -> Path:
     """Copia catálogo mestre canônico para WEBSTORE/config.json (cache runtime da Web Store).
 
     Nunca retorna o destino WEBSTORE como mestre — use resolve_persistent_catalog_path().
+    Recupera stubs vazios (legado) mesmo se o mtime do cache for mais recente.
     """
     from .arkland_environment import try_load_environment_paths
 
@@ -765,7 +784,13 @@ def ensure_webstore_catalog_config(source: Path | str) -> Path:
         return resolve_persistent_catalog_path(src)
 
     src_total = catalog_entry_total(load_plugin_config(src))
-    should_copy = not dest.is_file()
+    should_copy = not dest.is_file() or _is_stub_webstore_catalog(dest)
+    if should_copy and dest.is_file() and _is_stub_webstore_catalog(dest):
+        logger.warning(
+            "WEBSTORE/config.json stub/vazio (%s bytes) — recopiando do mestre %s",
+            dest.stat().st_size if dest.is_file() else 0,
+            src,
+        )
     if dest.is_file() and not should_copy:
         dest_mtime = _path_mtime(dest)
         src_mtime = _path_mtime(src)
@@ -1411,8 +1436,25 @@ def resolve_webstore_executable() -> Optional[Path]:
 
 
 def build_webstore_launch(shop: "ShopGlobalConfig") -> Tuple[List[str], str, Path]:
-    """Retorna (comando, cwd, caminho do log)."""
+    """Retorna (comando, cwd, caminho do log).
+
+    Antes do arranque: garante secret persistente e recupera WEBSTORE/config.json stub.
+    """
     data = webstore_data_dir()
+    data.mkdir(parents=True, exist_ok=True)
+    try:
+        resolve_web_secret()
+    except Exception as exc:
+        logger.warning("resolve_web_secret no launch: %s", exc)
+    try:
+        master = resolve_persistent_catalog_path(
+            getattr(shop, "catalog_config_path", "") or "",
+            shop=shop,
+        )
+        if master.is_file():
+            ensure_webstore_catalog_config(master)
+    except Exception as exc:
+        logger.warning("ensure_webstore_catalog_config no launch: %s", exc)
     log_path = data / "webstore.log"
     ws_exe = resolve_webstore_executable()
     if ws_exe is not None:

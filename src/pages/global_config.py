@@ -112,9 +112,8 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
         row=5, column=0, padx=(42, 16), pady=(0, 8), sticky="w")
 
-    app._cfg_force_day_enabled_var = tk.BooleanVar(
-        value=bool(getattr(cfg, "force_day_on_start_enabled", False))
-    )
+    # ForceDay desativado: SetDay via RCON crasha ASE 361.7 (produção 1.10.47).
+    app._cfg_force_day_enabled_var = tk.BooleanVar(value=False)
     try:
         _force_day_default = int(getattr(cfg, "force_day_on_start", 20) or 20)
     except (TypeError, ValueError):
@@ -123,10 +122,11 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
 
     ctk.CTkCheckBox(
         opt_card,
-        text="Forçar dia do mapa no start/restart (todos os servidores)",
+        text="Forçar dia do mapa no start/restart — DESATIVADO (crash ASE)",
         variable=app._cfg_force_day_enabled_var,
         checkmark_color="white", fg_color=_GREEN_DARK,
         hover_color=_GREEN_HOVER,
+        state="disabled",
     ).grid(row=6, column=0, padx=16, pady=(0, 2), sticky="w")
 
     _day_row = ctk.CTkFrame(opt_card, fg_color="transparent")
@@ -138,64 +138,39 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     ctk.CTkEntry(
         _day_row, textvariable=app._cfg_force_day_var,
         width=80, height=28, placeholder_text="20",
+        state="disabled",
     ).pack(side="left", padx=(8, 0))
 
     def _apply_force_day_now() -> None:
         from tkinter import messagebox
-        # Persiste o valor do campo antes de aplicar
-        try:
-            app.config_manager.config.force_day_on_start_enabled = bool(
-                app._cfg_force_day_enabled_var.get()
-            )
-            app.config_manager.config.force_day_on_start = max(
-                0, int((app._cfg_force_day_var.get() or "20").strip())
-            )
-        except ValueError:
-            app.config_manager.config.force_day_on_start = 20
-        app.config_manager.save()
-        if not app.config_manager.config.force_day_on_start_enabled:
-            messagebox.showwarning(
-                "ForceDay",
-                "Ative a opção «Forçar dia do mapa» antes de aplicar.",
-                parent=app,
-            )
-            return
-        day = app.config_manager.config.force_day_on_start
-        n = app.apply_force_day_now_to_all_running()
-        if n <= 0:
-            messagebox.showinfo(
-                "ForceDay",
-                f"Nenhum servidor ONLINE. Com a opção ativa, o dia {day} "
-                "será aplicado no próximo start/restart de cada mapa.",
-                parent=app,
-            )
-            return
-        messagebox.showinfo(
-            "ForceDay",
-            f"SetDay {day} agendado em {n} mapa(s) online "
-            "(aguarda RCON + SaveWorld). Confira o log global.",
+        messagebox.showerror(
+            "ForceDay — desativado",
+            "SetDay via RCON crasha servidores ASE 361.7 "
+            "(UShooterCheatManager::SetDay / RCON tick).\n\n"
+            "Não é seguro aplicar o dia por RCON (nem «cheat SetDay»).\n"
+            "Reinicie os mapas SEM ForceDay. Alinhar DayNumber "
+            "exige outro método (ainda não disponível).",
             parent=app,
         )
 
     ctk.CTkButton(
         _day_row,
-        text="Aplicar agora em todos os online",
+        text="Aplicar agora (indisponível)",
         width=220,
         height=28,
-        fg_color=_GREEN_DARK,
-        hover_color=_GREEN_HOVER,
+        fg_color="gray40",
+        hover_color="gray35",
         command=_apply_force_day_now,
     ).pack(side="left", padx=(12, 0))
 
     ctk.CTkLabel(
         opt_card,
         text=(
-            "Ao ficar online, envia SetDay via RCON em TODOS os mapas (com retry). "
-            "Use «Aplicar agora» para alinhar os 6 sem reiniciar. "
-            "Aviso: redefine o DayNumber a cada boot/restart — não altera rates "
-            "(DayCycleSpeedScale / duração do dia)."
+            "CRÍTICO: na 1.10.47, SetDay via RCON derrubou todos os mapas online. "
+            "O envio está bloqueado no código. Não use ForceDay até haver "
+            "alternativa segura (plugin / edição offline do save)."
         ),
-        text_color="gray45", font=ctk.CTkFont(size=10),
+        text_color="#b33a3a", font=ctk.CTkFont(size=10),
         wraplength=620, justify="left",
     ).grid(row=8, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
 

@@ -196,6 +196,41 @@ def _bool_row(parent: tk.Widget, label: str, var: tk.BooleanVar,
 
 def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> None:
     """Constrói o painel CustomShop dentro de `parent`."""
+    try:
+        _build_customshop_panel_inner(app, parent)
+    except Exception as exc:
+        import traceback
+
+        tb = traceback.format_exc()
+        try:
+            import logging
+            logging.getLogger("arkland").exception("Painel Loja / CustomShop")
+        except Exception:
+            pass
+        tip = (
+            f"Falha ao montar o painel Loja:\n{exc}\n\n"
+            "Dica: veja o traceback completo no log / console "
+            "(também copiado abaixo).\n\n"
+            f"{tb[-1800:]}"
+        )
+        try:
+            messagebox.showerror("Erro na aba Loja", tip, parent=parent.winfo_toplevel())
+        except Exception:
+            pass
+        parent.grid_rowconfigure(0, weight=1)
+        parent.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            parent,
+            text=f"Erro ao carregar o painel Loja:\n{exc}",
+            text_color="#f7768e",
+            wraplength=720,
+            justify="left",
+            font=ctk.CTkFont(size=13),
+        ).grid(row=0, column=0, padx=24, pady=24, sticky="nw")
+
+
+def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget) -> None:
+    """Implementação do painel (exceções capturadas pelo wrapper público)."""
     parent.grid_rowconfigure(0, weight=0)
     parent.grid_rowconfigure(1, weight=1)
     parent.grid_columnconfigure(0, weight=1)
@@ -213,6 +248,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             cfg_path = _DEFAULT_CONFIG_PATH
     shop_cfg.catalog_config_path = str(cfg_path)
     data: Dict[str, Any] = _load_config(cfg_path)
+    path_var = tk.StringVar(value=str(cfg_path))
 
     # ── Barra de ações no topo ────────────────────────────────────────────
     top_bar = tk.Frame(parent, bg=_BG, height=52)
@@ -251,6 +287,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             messagebox.showinfo("Salvo", "CustomShop salvo no mestre!")
 
     def _propagate_everywhere(with_rcon: bool = False) -> None:
+        nonlocal data
         _collect_all()
         master = canonical_master_catalog_path()
         shop_cfg.catalog_config_path = str(master)
@@ -275,7 +312,6 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             write_ui_catalog_to_master=True,
         )
         # Recarrega UI a partir do mestre (após limpeza de títulos)
-        nonlocal data
         if master.is_file():
             data = _load_config(master)
             path_var.set(str(master))
@@ -379,19 +415,20 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         command=_import_catalog,
     ).pack(side="left", padx=(10, 0), pady=8)
 
-    path_var = tk.StringVar(value=str(cfg_path))
     ctk.CTkLabel(
         top_bar,
         text="Mestre (fixo):",
         text_color="gray50",
         font=ctk.CTkFont(size=10),
     ).pack(side="left", padx=(16, 4), pady=8)
-    ctk.CTkEntry(
+    # Label (não CTkEntry readonly) — CustomTkinter rejeita state="readonly".
+    ctk.CTkLabel(
         top_bar,
         textvariable=path_var,
+        text_color="gray60",
+        font=ctk.CTkFont(size=10),
+        anchor="w",
         width=420,
-        height=28,
-        state="readonly",
     ).pack(side="left", pady=8)
 
     # ── Tabs ──────────────────────────────────────────────────────────────

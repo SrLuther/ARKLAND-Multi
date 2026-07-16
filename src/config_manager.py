@@ -248,7 +248,7 @@ class AppConfig:
     mod_path_blacklist: list = field(
         default_factory=lambda: list(DEFAULT_MOD_PATH_BLACKLIST)
     )
-    # Forçar DayNumber via RCON (SetDay) em todos os mapas no start/restart
+    # ForceDay / SetDay via RCON — DESATIVADO (crash ASE 361.7). Campo mantido p/ UI.
     force_day_on_start_enabled: bool = False
     force_day_on_start: int = 20
 
@@ -322,9 +322,11 @@ class ConfigManager:
                 except (TypeError, ValueError):
                     day = 20
                 self.config.force_day_on_start = max(0, min(day, 2_147_483_647))
-                self.config.force_day_on_start_enabled = bool(
-                    self.config.force_day_on_start_enabled
-                )
+                # SetDay via RCON crasha ASE 361.7 — força OFF e persiste se estava ligado.
+                _fd_was_on = bool(self.config.force_day_on_start_enabled)
+                self.config.force_day_on_start_enabled = False
+                if _fd_was_on:
+                    self.save()
                 if not self.config.remote_agent_token:
                     self.config.remote_agent_token = str(uuid.uuid4())
                     self.save()

@@ -76,6 +76,7 @@ from src.shop_integration import (  # noqa: E402
     canonical_master_catalog_path,
     catalog_entry_counts,
     default_customshop_path,
+    ensure_webstore_catalog_config,
     is_ephemeral_pyinstaller_path,
     is_webstore_catalog_path,
     load_plugin_config,
@@ -83,6 +84,7 @@ from src.shop_integration import (  # noqa: E402
     slugify_server_id,
     merge_catalog_into_plugin_config,
     resolve_persistent_catalog_path,
+    resolve_web_secret,
     webstore_data_dir,
     write_and_propagate_master_catalog,
 )
@@ -286,9 +288,15 @@ _CORS_ORIGINS = [
 app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path="")
 CORS(app, origins=_CORS_ORIGINS, supports_credentials=True)
 
-_DEFAULT_CONFIG_PATH = str(
-    resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip())
-)
+try:
+    _DEFAULT_CONFIG_PATH = str(
+        resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip())
+    )
+except Exception as _catalog_boot_exc:
+    log.warning("Catálogo mestre indisponível no boot: %s", _catalog_boot_exc)
+    _DEFAULT_CONFIG_PATH = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip() or str(
+        webstore_data_dir() / "config.json"
+    )
 _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
 _ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
@@ -316,7 +324,8 @@ _RETRY_BATCH_SIZE = int(os.environ.get("ARKSHOP_RETRY_BATCH", "20"))
 
 # ── Security ─────────────────────────────────────────────────────────────────
 
-# Secret key MUST come from environment in production / frozen exe
+# Secret: env → ficheiro persistente (resolve_web_secret) → só então falha em produção.
+# Evita ARKLAND-WebStore.exe a morrer no arranque quando o TEK não injectou ARKSHOP_WEB_SECRET.
 _is_production = os.environ.get("ARKSHOP_ENV", "").strip().lower() == "production"
 _is_frozen = getattr(sys, "frozen", False)
 _secret_from_env = os.environ.get("ARKSHOP_WEB_SECRET", "").strip()
@@ -324,11 +333,15 @@ _session_days = max(1, int(os.environ.get("ARKSHOP_SESSION_DAYS", "30") or "30")
 if _secret_from_env:
     app.secret_key = _secret_from_env
 elif _is_production or _is_frozen:
-    log.error(
-        "ARKSHOP_WEB_SECRET não definida — obrigatória em produção (ARKSHOP_ENV=production) "
-        "ou ao executar o .exe empacotado."
-    )
-    sys.exit(1)
+    try:
+        app.secret_key = resolve_web_secret()
+        log.info("ARKSHOP_WEB_SECRET resolvida via web_secret.txt / geração automática")
+    except Exception as _sec_exc:
+        log.error(
+            "ARKSHOP_WEB_SECRET indisponível em produção/frozen — Web Store não inicia: %s",
+            _sec_exc,
+        )
+        sys.exit(1)
 else:
     app.secret_key = "arkshop-web-dev-secret-change-me-in-prod"
     log.warning(
@@ -1862,22 +1875,7 @@ def _resolve_settings_catalog_path(configured: str = "") -> str:
 
 
 def _load_settings() -> Dict[str, Any]:
-    if _STATE_FILE.exists():
-        try:
-            data = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
-            # Decrypt sensitive fields
-            for key in _SENSITIVE_SETTINGS_KEYS:
-                if key in data and isinstance(data[key], str):
-                    data[key] = _decrypt_value(data[key])
-            cp = str(data.get("config_path") or "").strip()
-            canonical = _resolve_settings_catalog_path(cp)
-            if cp != canonical:
-                data["config_path"] = canonical
-                _save_settings(data)
-            return data
-        except Exception:
-            pass
-    return {
+    defaults: Dict[str, Any] = {
         "config_path": _resolve_settings_catalog_path(_DEFAULT_CONFIG_PATH),
         "rcon_host": "127.0.0.1",
         "rcon_port": 27020,
@@ -1897,6 +1895,37 @@ def _load_settings() -> Dict[str, Any]:
         "steam_api_key": "",
         "mp_sandbox": False,
     }
+    if _STATE_FILE.exists():
+        try:
+            data = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return dict(defaults)
+            for key in _SENSITIVE_SETTINGS_KEYS:
+                if key in data and isinstance(data[key], str):
+                    data[key] = _decrypt_value(data[key])
+            # Stub só com config_path: preenche defaults em memória; no disco só
+            # atualiza o path (não expandir stub e apagar credenciais do TEK sync).
+            merged = {**defaults, **data}
+            cp = str(merged.get("config_path") or "").strip()
+            canonical = _resolve_settings_catalog_path(cp)
+            if cp != canonical:
+                merged["config_path"] = canonical
+                try:
+                    if len(data) > 1:
+                        _save_settings(merged)
+                    else:
+                        stub = dict(data)
+                        stub["config_path"] = canonical
+                        _STATE_FILE.write_text(
+                            json.dumps(stub, indent=2, ensure_ascii=False),
+                            encoding="utf-8",
+                        )
+                except OSError:
+                    pass
+            return merged
+        except Exception:
+            pass
+    return dict(defaults)
 
 
 def _save_settings(data: Dict[str, Any]) -> None:
@@ -11883,8 +11912,28 @@ register_plugin_debug_routes(
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
     _kick_background_db_init()
 
+# Recupera WEBSTORE/config.json stub no arranque (não bloqueia se falhar).
+try:
+    _boot_master = Path(_DEFAULT_CONFIG_PATH)
+    if _boot_master.is_file():
+        ensure_webstore_catalog_config(_boot_master)
+except Exception as _boot_cat_exc:
+    log.warning("ensure_webstore_catalog_config no boot: %s", _boot_cat_exc)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5177))
     log.info("ArkShop Web Manager rodando em http://127.0.0.1:%d", port)
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    try:
+        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    except OSError as exc:
+        # Porta ocupada: se já há loja a responder, não é crash fatal do TEK.
+        err = str(exc).lower()
+        if "address already in use" in err or "10048" in err or "apenas uma utilização" in err:
+            log.error(
+                "Porta %d ocupada — outra instância da Web Store pode já estar a correr. "
+                "Pare o processo antigo ou mude a porta no TEK. Detalhe: %s",
+                port,
+                exc,
+            )
+        raise

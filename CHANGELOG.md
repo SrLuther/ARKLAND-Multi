@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.48] - 2026-07-16
+
+### Fix
+
+- Fix CRÍTICO (TEK / ForceDay): SetDay via RCON crasha ASE 361.7 (UShooterCheatManager::SetDay no tick RCON) — derrubou todos os mapas online na 1.10.47. Kill-switch: zero SetDay por RCON; ForceDay OFF ao carregar config; UI «Aplicar agora» recusada; sem auto-apply no start/restart.
+- Fix (Loja): aba em branco — SyntaxError (nonlocal data após uso) impedia import do painel; caminho mestre em Label (sem CTkEntry readonly); try/except com messagebox+traceback.
+- Fix (Web Store): arranque — .exe frozen já não faz sys.exit sem ARKSHOP_WEB_SECRET (usa web_secret.txt / geração); recupera WEBSTORE/config.json stub (~176 B); settings stub só-com-config_path faz merge em memória; launch pré-aquece catálogo+secret; log claro se porta ocupada.
+
+### Other
+
+- Nota (TEK / ForceDay): «cheat SetDay» não é alternativa segura (mesmo CheatManager). DayNumber alinhado só com método futuro comprovado (plugin/save offline). Shop.Reload RCON mantido (stack do crash apontava SetDay, não Reload).
+- Audit (TEK / ForceDay): confirma todos os caminhos SetDay RCON mortos — start/restart nunca agenda schedule_force_day; save/UI forçam enabled=False; teste de persistência OFF ao carregar config antiga.
+
 ## [1.10.47] - 2026-07-16
 
 ### Feature

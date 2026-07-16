@@ -1,18 +1,37 @@
-"""Força DayNumber via RCON (SetDay) após start/restart do servidor TEK."""
+"""ForceDay — DayNumber via RCON (SetDay).
+
+HISTÓRICO / SEGURANÇA (ASE 361.7, v1.10.47):
+  ``SetDay`` via RCON provoca fatal em ``UShooterCheatManager::SetDay`` durante
+  ``RCONClientConnection::ProcessRCONPacket`` / ``URCONServer::Tick``.
+  Confirmado em produção: crash em todos os mapas quando «Aplicar agora» /
+  ForceDay no start enviava SetDay em paralelo.
+
+  Por isso o envio RCON está **permanentemente desativado** até existir um
+  método comprovadamente seguro (não basta ``cheat SetDay`` — chega ao mesmo
+  CheatManager). Alternativas futuras: plugin nativo, edição offline do save,
+  ou cheat in-game com mundo estável (ainda não validado).
+"""
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from typing import Callable, Optional
 
 _log = logging.getLogger("arkland")
 
-# Poll RCON até sucesso — RUNNING do TEK chega cedo (~15s); o mundo pode demorar bem mais.
+# Kill-switch: NUNCA enviar SetDay/SaveWorld por este caminho em ASE 361.x.
+FORCE_DAY_RCON_ENABLED = False
+
 _INITIAL_DELAY_S = 10.0
-_MAX_WAIT_S = 900.0  # 15 min
+_MAX_WAIT_S = 900.0
 _BACKOFF_START_S = 5.0
 _BACKOFF_MAX_S = 45.0
+
+_UNSAFE_MSG = (
+    "[ForceDay] BLOQUEADO: SetDay via RCON crasha ASE 361.7 "
+    "(UShooterCheatManager::SetDay). Nenhum comando foi enviado. "
+    "Desative a opção nas configs e reinicie os mapas sem ForceDay."
+)
 
 
 def schedule_force_day(
@@ -26,7 +45,16 @@ def schedule_force_day(
     on_log: Optional[Callable[[str, str], None]] = None,
     save_world: bool = True,
 ) -> None:
-    """Lança thread daemon que espera RCON e aplica SetDay <day>."""
+    """Agenda ForceDay — no-op seguro enquanto FORCE_DAY_RCON_ENABLED for False."""
+    if not FORCE_DAY_RCON_ENABLED:
+        label = server_name or server_id
+        _emit(
+            on_log,
+            f"[ForceDay] {label}: {_UNSAFE_MSG}",
+            "error",
+        )
+        return
+
     t = threading.Thread(
         target=_apply_force_day_worker,
         kwargs={
@@ -70,8 +98,15 @@ def _apply_force_day_worker(
     on_log: Optional[Callable[[str, str], None]],
     save_world: bool,
 ) -> None:
+    """Worker legado — só corre se FORCE_DAY_RCON_ENABLED for reativado com prova de segurança."""
+    import time
+
     from .rcon_client import RconClient
     from .rcon_util import sanitize_rcon_password
+
+    if not FORCE_DAY_RCON_ENABLED:
+        _emit(on_log, _UNSAFE_MSG, "error")
+        return
 
     label = server_name or server_id
     day = max(0, min(int(day), 2_147_483_647))
