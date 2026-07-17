@@ -7,6 +7,13 @@
 
 ## [Unreleased] - 
 
+## [1.10.63] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / Boot): erro de sintaxe JS em index.html — catch/finally órfãos em _loadCatalogLegacyUnused() quebravam todo o script principal («Portal não carregou»); fail-safe overlay 4s intacto.
+- Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.63.
+
 ## [1.10.62] - 2026-07-17
 
 ### Fix

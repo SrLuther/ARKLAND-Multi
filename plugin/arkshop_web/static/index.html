@@ -9645,9 +9645,9 @@
   </div>
 </div>
 
-<script src="ark_color_ids.js?v=1.10.62" defer></script>
-<script src="redeem_docs.js?v=1.10.62" defer></script>
-<script src="pwa-install.js?v=1.10.62" defer></script>
+<script src="ark_color_ids.js?v=1.10.63" defer></script>
+<script src="redeem_docs.js?v=1.10.63" defer></script>
+<script src="pwa-install.js?v=1.10.63" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -11954,13 +11954,6 @@ async function _loadCatalogLegacyUnused() {
     updateCatalogPoints();
     if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(_catalogActiveTab);
     return true;
-  } catch (e) {
-    if (e?.name === "AbortError") return false;
-    console.warn("loadCatalog:", e);
-    return false;
-  } finally {
-    clearTimeout(timer);
-    if (_catalogLoadAbort === ctrl) _catalogLoadAbort = null;
   }
 }
 
