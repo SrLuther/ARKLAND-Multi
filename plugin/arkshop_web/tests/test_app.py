@@ -2674,24 +2674,23 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["display_name"] == "Ciano_STAFF"
         assert calls == []
 
-    def test_player_detail_backfills_persona_when_missing(self, client, monkeypatch):
+    def test_player_detail_skips_steam_api_even_when_persona_missing(self, client, monkeypatch):
+        """Detalhe nunca chama Steam — timeout 15s do frontend vs API lenta era a falha."""
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
-        monkeypatch.setattr(
-            _app_module,
-            "_fetch_steam_persona_names_batch",
-            lambda ids, timeout=12.0: {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {},
-        )
+        calls: list[list[str]] = []
+
+        def _fake_fetch(ids, timeout=12.0):
+            calls.append(list(ids))
+            return {USER_STEAM: "SteamNickBR"}
+
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _fake_fetch)
         d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
         assert d["ok"] is True
-        assert d["player"]["display_name"] == "SteamNickBR"
-        db = _app_module._SessionLocal()
-        try:
-            su = db.get(_app_module.StoreUser, USER_STEAM)
-            assert su.steam_persona == "SteamNickBR"
-        finally:
-            db.close()
+        assert calls == []
+        assert d["player"]["steam_persona"] is None
+        assert d["player"]["display_name"] == USER_STEAM
 
     def test_player_detail_survives_steam_fetch_failure(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
@@ -2700,7 +2699,7 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda _ids, timeout=12.0: {},
+            lambda _ids, timeout=12.0: (_ for _ in ()).throw(RuntimeError("steam down")),
         )
         r = client.get(f"/api/admin/players/{USER_STEAM}")
         d = r.get_json()
@@ -2708,3 +2707,55 @@ class TestAdminPlayersSteamBackfill:
         assert d["ok"] is True
         assert d["player"]["steam_persona"] is None
         assert d["player"]["display_name"] == USER_STEAM
+
+    def test_auth_me_uses_cached_persona_without_steam_api(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="CachedNick", steam_persona="CachedNick")
+        _login(client, USER_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        calls: list[list[str]] = []
+
+        def _fake_fetch(ids, timeout=12.0):
+            calls.append(list(ids))
+            return {}
+
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _fake_fetch)
+        d = client.get("/api/auth/me").get_json()
+        assert d["authenticated"] is True
+        assert d["steam_persona"] == "CachedNick"
+        assert calls == []
+
+    def test_catalog_license_options_cached_across_calls(self, tmp_path, monkeypatch):
+        catalog = tmp_path / "shop.json"
+        catalog.write_text(
+            json.dumps({
+                "Items": {
+                    "licenca_gamma": {
+                        "Type": "license",
+                        "Description": "Gamma",
+                        "LicenseGrant": {"Group": "Gamma", "Days": 30},
+                    },
+                },
+                "Kits": {"kit_a": {"Description": "Kit A", "Price": 10}},
+            }),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(_app_module, "_load_settings", lambda: {"config_path": str(catalog)})
+        monkeypatch.setattr(_app_module, "_collect_catalog_search_paths", lambda: [catalog])
+        _app_module._invalidate_shop_config_cache()
+        loads: list[str] = []
+        real_load = _app_module.load_plugin_config
+
+        def _counting_load(path):
+            loads.append(str(path))
+            return real_load(path)
+
+        monkeypatch.setattr(_app_module, "load_plugin_config", _counting_load)
+        first = _app_module._catalog_license_options()
+        second = _app_module._catalog_license_options()
+        kits_a = _app_module._catalog_kit_options()
+        kits_b = _app_module._catalog_kit_options()
+        assert first == second
+        assert kits_a == kits_b
+        assert any(e["group"] == "Gamma" for e in first)
+        # 2ª chamada de license + kit options não reparseia candidatos.
+        assert len(loads) <= 1

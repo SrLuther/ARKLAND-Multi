@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.51"
+APP_VERSION: str = "1.10.52"
 BUILD_DATE: str = "2026-07-16"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,7 +12,15 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "",
+        "changes": [],
+    },
+    {
+        "version": "1.10.52",
+        "date": "2026-07-16",
         "changes": [
+            "Fix (Web Store / Admin): «Falha ao carregar detalhes» — evidência em webstore.log: GET /api/admin/players/<id> devolvia 200 (sem exception), mas o frontend abortava aos 15s. Sob carga o detalhe demorava dezenas de segundos porque (1) reparseava config.json ~1.1MB em todos os mapas via _read_richest_license_catalog_config a cada clique, (2) abria sessões MySQL extra para points/entitlements, (3) podia chamar Steam mesmo com nick em cache; CrossChat Discord ainda spamava ~2s no processo antigo (230 avisos vs 41 HTTP na janela 18:1x). Fix: detalhe só lê steam_persona do DB (zero Steam), reutiliza 1 sessão DB, cache mtime do catálogo de licenças/kits; UI mostra a mensagem real de timeout e não re-dispara detalhe a cada reload da lista.",
+            "Fix (Web Store): /api/auth/me forçava Steam GetPlayerSummaries (timeout 12s, ignora cache) em toda navegação via _refresh_steam_persona — causa partilhada de fila no Werkzeug threaded. Passa a cache-first (_backfill_steam_personas) como a lista admin.",
+            "Test (Web Store / Admin): detalhe sem Steam API; auth/me cache-first; _catalog_license_options/_catalog_kit_options cacheados por fingerprint mtime.",
         ],
     },
     {

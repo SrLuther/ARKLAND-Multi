@@ -2250,12 +2250,14 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
         return {"ok": False, "error": "SteamID64 inválido"}
+    t0 = time.perf_counter()
     db = _SessionLocal()
     try:
         su = db.get(StoreUser, steam_id)
         prof = _safe_market_profile(db, steam_id)
-        points = _get_player_points(steam_id) or 0
-        entitlements = _get_player_entitlements(steam_id)
+        # Reutilizar a mesma sessão — evita 2–3 connects extra sob pressão do Werkzeug.
+        points = _get_player_points(steam_id, db=db) or 0
+        entitlements = _get_player_entitlements(steam_id, db=db)
         orders = (
             db.query(Order)
             .filter(Order.steam_id == steam_id)
@@ -2289,16 +2291,18 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         except Exception:
             kit_stash = {}
         kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
-        # Cache-first (como na lista 1.10.50): Steam API só quando não há persona
-        # em cache, com timeout curto — evita bloquear o detalhe por até 12s.
-        persona = None
-        if su:
-            cached_persona = (str(su.steam_persona).strip() if su.steam_persona else "") or None
-            persona_map = _backfill_steam_personas(db, [(steam_id, cached_persona)])
-            persona = persona_map.get(steam_id) or cached_persona
+        # Só DB cache — nunca bloquear detalhe na Steam API (lista já faz backfill;
+        # frontend aborta aos 15s e o 200 órfão aparecia como «Falha ao carregar»).
+        cached_persona = None
+        if su and su.steam_persona:
+            cached_persona = str(su.steam_persona).strip() or None
+            if cached_persona == steam_id:
+                cached_persona = None
+        persona = cached_persona
         display_name = _admin_player_persona_label(steam_id, steam_persona=persona)
         reg_fields = _auth_regulamento_fields(steam_id, db=db)
-        return {
+        # Catálogos vêm de cache em memória (mtime) — sem reparsear 1MB×N mapas.
+        result = {
             "ok": True,
             "player": {
                 "steam_id": steam_id,
@@ -2345,6 +2349,14 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
             "staff_role_catalog": _staff_role_catalog(),
             "kit_catalog": _catalog_kit_options(),
         }
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        if elapsed_ms >= 500:
+            _log(
+                "get_admin_player_detail_slow",
+                steam_id=steam_id,
+                elapsed_ms=elapsed_ms,
+            )
+        return result
     except Exception as exc:
         _log_error("get_admin_player_detail", steam_id=steam_id, error=str(exc))
         return {"ok": False, "error": str(exc)}
@@ -2424,8 +2436,46 @@ def _count_catalog_license_items(data: dict[str, Any]) -> int:
     )
 
 
+_RICHEST_LICENSE_CONFIG_CACHE: dict[str, Any] = {"fingerprint": "", "data": None}
+_LICENSE_OPTIONS_CACHE: dict[str, Any] = {"fingerprint": "", "items": None}
+_KIT_OPTIONS_CACHE: dict[str, Any] = {"fingerprint": "", "items": None}
+
+
+def _catalog_files_fingerprint() -> str:
+    """mtime+size dos configs candidatos — barato; evita reparse JSON de 1MB×N mapas."""
+    parts: list[str] = []
+    try:
+        s = _load_settings()
+        primary = Path(s.get("config_path", _DEFAULT_CONFIG_PATH))
+        paths = [primary, *_collect_catalog_search_paths()]
+    except Exception:
+        paths = list(_collect_catalog_search_paths())
+    seen: set[str] = set()
+    for path in paths:
+        try:
+            if not path.is_file():
+                continue
+            key = str(path.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            st = path.stat()
+            parts.append(f"{key}:{st.st_mtime_ns}:{st.st_size}")
+        except OSError:
+            continue
+    return "|".join(parts)
+
+
 def _read_richest_license_catalog_config() -> dict[str, Any]:
     """Prefer config com mais licenças — evita dropdown truncado (stub só VIP)."""
+    fingerprint = _catalog_files_fingerprint()
+    cached = _RICHEST_LICENSE_CONFIG_CACHE.get("data")
+    if (
+        fingerprint
+        and _RICHEST_LICENSE_CONFIG_CACHE.get("fingerprint") == fingerprint
+        and isinstance(cached, dict)
+    ):
+        return cached
     best = _read_shop_config()
     best_count = _count_catalog_license_items(best)
     for path in _collect_catalog_search_paths():
@@ -2439,10 +2489,20 @@ def _read_richest_license_catalog_config() -> dict[str, Any]:
         if count > best_count:
             best = candidate
             best_count = count
+    _RICHEST_LICENSE_CONFIG_CACHE["fingerprint"] = fingerprint
+    _RICHEST_LICENSE_CONFIG_CACHE["data"] = best
     return best
 
 
 def _catalog_license_options() -> list[dict[str, Any]]:
+    fingerprint = _catalog_files_fingerprint()
+    cached_items = _LICENSE_OPTIONS_CACHE.get("items")
+    if (
+        fingerprint
+        and _LICENSE_OPTIONS_CACHE.get("fingerprint") == fingerprint
+        and isinstance(cached_items, list)
+    ):
+        return cached_items
     data = _read_richest_license_catalog_config()
     items = _catalog_item_map(data)
     out: list[dict[str, Any]] = []
@@ -2468,10 +2528,20 @@ def _catalog_license_options() -> list[dict[str, Any]]:
             "permanent": days <= 0,
         })
     out.sort(key=lambda x: (x["label"].lower(), x["group"].lower()))
+    _LICENSE_OPTIONS_CACHE["fingerprint"] = fingerprint
+    _LICENSE_OPTIONS_CACHE["items"] = out
     return out
 
 
 def _catalog_kit_options() -> list[dict[str, Any]]:
+    fingerprint = _catalog_files_fingerprint()
+    cached_items = _KIT_OPTIONS_CACHE.get("items")
+    if (
+        fingerprint
+        and _KIT_OPTIONS_CACHE.get("fingerprint") == fingerprint
+        and isinstance(cached_items, list)
+    ):
+        return cached_items
     kits = _read_shop_config().get("Kits") or {}
     out: list[dict[str, Any]] = []
     if isinstance(kits, dict):
@@ -2484,6 +2554,8 @@ def _catalog_kit_options() -> list[dict[str, Any]]:
                 "price": int(entry.get("Price", 0) or 0),
             })
     out.sort(key=lambda x: x["label"].lower())
+    _KIT_OPTIONS_CACHE["fingerprint"] = fingerprint
+    _KIT_OPTIONS_CACHE["items"] = out
     return out
 
 
@@ -3488,6 +3560,9 @@ _CONFIG_CACHE: dict[str, Any] = {"path": "", "mtime": 0.0, "data": {}}
 
 def _invalidate_shop_config_cache() -> None:
     _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
+    _RICHEST_LICENSE_CONFIG_CACHE.update({"fingerprint": "", "data": None})
+    _LICENSE_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
+    _KIT_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
 
 
 def _read_shop_config() -> dict[str, Any]:
@@ -5296,12 +5371,18 @@ def _safe_market_profile(db: Any, steam_id: str) -> Any | None:
 
 
 def _auth_display_name_fields(steam_id: str, is_admin: bool) -> dict[str, Any]:
-    """Campos de /api/auth/me — nick Steam (steam_persona) como única fonte de exibição."""
+    """Campos de /api/auth/me — nick Steam cache-first (sem forçar API a cada navegação)."""
     persona: str | None = None
     if _db_ready():
         db = _SessionLocal()
         try:
-            persona = _steam_persona_label(steam_id, _refresh_steam_persona(db, steam_id))
+            row = db.get(StoreUser, steam_id)
+            cached = (row.steam_persona if row else None)
+            persona_map = _backfill_steam_personas(db, [(steam_id, cached)])
+            persona = _steam_persona_label(
+                steam_id,
+                persona_map.get(steam_id) or cached,
+            )
         finally:
             _release_db_session(db)
     return {

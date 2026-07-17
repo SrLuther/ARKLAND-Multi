@@ -23831,6 +23831,7 @@ let _playersAdminPage = { offset: 0, limit: 40, total: 0 };
 let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;
+let _playersAdminDetailAbort = null;
 
 async function loadPlayersAdminLicenseCatalog() {
   try {
@@ -24054,7 +24055,11 @@ async function loadPlayersAdmin(resetPanel) {
       _playersAdminSelected = null;
       closePlayerAdminPanel();
     } else if (_playersAdminSelected) {
-      selectPlayerAdmin(_playersAdminSelected, true);
+      // Evita tempestade de GET detalhe a cada reload da lista (timeout 15s).
+      const same =
+        _playersAdminDetail
+        && String(_playersAdminDetail.player?.steam_id || "") === String(_playersAdminSelected);
+      if (!same) selectPlayerAdmin(_playersAdminSelected, true);
     }
   } catch (e) {
     const msg = e?.data?.error || e?.message || "Falha ao carregar jogadores.";
@@ -24081,8 +24086,17 @@ async function selectPlayerAdmin(steamId, silent) {
   panel.classList.remove("hidden");
   if (layout) layout.classList.add("has-panel");
   panel.innerHTML = `<p style="color:var(--text2);padding:12px;">Carregando…</p>`;
+  if (_playersAdminDetailAbort) {
+    try { _playersAdminDetailAbort.abort(); } catch (_) {}
+  }
+  const ac = new AbortController();
+  _playersAdminDetailAbort = ac;
   try {
-    const d = await fetchJson("/api/admin/players/" + encodeURIComponent(steamId));
+    const d = await fetchJson("/api/admin/players/" + encodeURIComponent(steamId), {
+      timeoutMs: 15000,
+      signal: ac.signal,
+    });
+    if (_playersAdminSelected !== steamId) return;
     if (!d.ok) {
       panel.innerHTML = `<p style="color:var(--danger);">${escHtml(d.error || "Erro")}</p>`;
       return;
@@ -24091,7 +24105,9 @@ async function selectPlayerAdmin(steamId, silent) {
     renderPlayerAdminPanel(d);
     if (!silent) requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }));
   } catch (e) {
-    panel.innerHTML = `<p style="color:var(--danger);">Falha ao carregar detalhes.</p>`;
+    if (e?.stale || (_playersAdminSelected !== steamId)) return;
+    const msg = e?.data?.error || e?.message || "Falha ao carregar detalhes.";
+    panel.innerHTML = `<p style="color:var(--danger);">${escHtml(msg)}</p>`;
   }
 }
 
