@@ -7,6 +7,13 @@
 
 ## [Unreleased] - 
 
+## [1.10.64] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / Warmup): overlay invisível congelava UI — fail-safe 4s agora remove overlay do DOM, zera pointer-events e restaura overflow body/html; #shell.store-warming sempre libertado.
+- Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.64.
+
 ## [1.10.63] - 2026-07-17
 
 ### Fix

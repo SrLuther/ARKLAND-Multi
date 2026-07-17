@@ -1,9 +1,9 @@
 {
-    "version": "1.10.63",
+    "version": "1.10.64",
     "date": "2026-07-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.63/ARKLAND-Multi-Setup-v1.10.63.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.64/ARKLAND-Multi-Setup-v1.10.64.exe",
     "changelog": [
-        "Fix P0 (Web Store / Boot): erro de sintaxe JS em index.html — catch/finally órfãos em _loadCatalogLegacyUnused() quebravam todo o script principal («Portal não carregou»); fail-safe overlay 4s intacto.",
-        "Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.63."
+        "Fix P0 (Web Store / Warmup): overlay invisível congelava UI — fail-safe 4s agora remove overlay do DOM, zera pointer-events e restaura overflow body/html; #shell.store-warming sempre libertado.",
+        "Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.64."
     ]
 }

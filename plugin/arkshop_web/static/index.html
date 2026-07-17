@@ -3184,7 +3184,12 @@
       justify-content: center;
       padding: 24px;
     }
-    #store-warmup-overlay.hidden { display: none; }
+    #store-warmup-overlay.hidden,
+    #store-warmup-overlay[aria-hidden="true"] {
+      display: none !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
     .store-warmup-card {
       width: 100%;
       max-width: 420px;
@@ -6042,27 +6047,56 @@
   /* Fail-safe ABSOLUTO: não depende do JS principal / IndexedDB / SW. */
   var SKIP_MS = 2000;
   var FORCE_MS = 4000;
-  function forceReleaseWarmup() {
-    if (window.__storeWarmupReady) return;
-    window.__storeWarmupReady = true;
-    window.__warmupForceReleased = true;
+  function resetWarmupBlockers(opts) {
+    opts = opts || {};
+    var removeOverlay = opts.removeFromDom !== false;
     var el = document.getElementById("store-warmup-overlay");
     if (el) {
       el.classList.add("hidden");
+      el.style.display = "none";
+      el.style.pointerEvents = "none";
+      el.setAttribute("aria-hidden", "true");
       el.setAttribute("aria-busy", "false");
+      if (removeOverlay) {
+        try { el.remove(); } catch (_) {}
+      }
     }
-    document.body.classList.remove("store-warming-active");
+    document.querySelectorAll("#store-warmup-overlay").forEach(function (node) {
+      node.classList.add("hidden");
+      node.style.display = "none";
+      node.style.pointerEvents = "none";
+      if (removeOverlay) {
+        try { node.remove(); } catch (_) {}
+      }
+    });
     var shell = document.getElementById("shell");
     if (shell) shell.classList.remove("store-warming");
+    document.body.classList.remove("store-warming-active");
+    document.body.style.overflow = "";
+    document.body.style.overflowX = "";
+    document.body.style.overflowY = "";
+    var html = document.documentElement;
+    if (html) {
+      html.style.overflow = "";
+      html.style.overflowX = "";
+      html.style.overflowY = "";
+    }
     var btn = document.getElementById("store-warmup-skip");
     if (btn) btn.classList.add("hidden");
   }
+  function forceReleaseWarmup() {
+    window.__storeWarmupReady = true;
+    window.__warmupForceReleased = true;
+    resetWarmupBlockers({ removeFromDom: true });
+  }
   function showWarmupSkipEarly() {
-    if (window.__storeWarmupReady) return;
+    if (window.__warmupForceReleased) return;
     var btn = document.getElementById("store-warmup-skip");
     if (btn) btn.classList.remove("hidden");
   }
+  window.__resetWarmupBlockers = resetWarmupBlockers;
   window.__earlyForceReleaseWarmup = forceReleaseWarmup;
+  window.__releaseWarmupBlockers = forceReleaseWarmup;
   window.skipStoreWarmup = window.skipStoreWarmup || forceReleaseWarmup;
   setTimeout(showWarmupSkipEarly, SKIP_MS);
   setTimeout(forceReleaseWarmup, FORCE_MS);
@@ -9645,9 +9679,9 @@
   </div>
 </div>
 
-<script src="ark_color_ids.js?v=1.10.63" defer></script>
-<script src="redeem_docs.js?v=1.10.63" defer></script>
-<script src="pwa-install.js?v=1.10.63" defer></script>
+<script src="ark_color_ids.js?v=1.10.64" defer></script>
+<script src="redeem_docs.js?v=1.10.64" defer></script>
+<script src="pwa-install.js?v=1.10.64" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -11441,14 +11475,37 @@ function _showWarmupOverlay(show) {
   if (show && (window.__warmupForceReleased || window.__storeWarmupReady || _storeWarmupReady)) {
     show = false;
   }
+  if (!show) {
+    if (typeof window.__resetWarmupBlockers === "function") {
+      window.__resetWarmupBlockers({ removeFromDom: false });
+    } else {
+      const el = document.getElementById("store-warmup-overlay");
+      const shell = document.getElementById("shell");
+      if (el) {
+        el.classList.add("hidden");
+        el.style.display = "none";
+        el.style.pointerEvents = "none";
+        el.setAttribute("aria-hidden", "true");
+        el.setAttribute("aria-busy", "false");
+      }
+      if (shell) shell.classList.remove("store-warming");
+      document.body.classList.remove("store-warming-active");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    }
+    return;
+  }
   const el = document.getElementById("store-warmup-overlay");
   const shell = document.getElementById("shell");
   if (el) {
-    el.classList.toggle("hidden", !show);
-    el.setAttribute("aria-busy", show ? "true" : "false");
+    el.classList.remove("hidden");
+    el.style.display = "";
+    el.style.pointerEvents = "";
+    el.removeAttribute("aria-hidden");
+    el.setAttribute("aria-busy", "true");
   }
-  if (shell) shell.classList.toggle("store-warming", show);
-  document.body.classList.toggle("store-warming-active", show);
+  if (shell) shell.classList.add("store-warming");
+  document.body.classList.add("store-warming-active");
 }
 
 function _setWarmupProgress(pct, text) {
@@ -11506,7 +11563,11 @@ function _releaseStoreWarmup(msg) {
   _clearWarmupTimers();
   _showWarmupSkip(false);
   _setWarmupProgress(100, msg || "Loja pronta");
-  _showWarmupOverlay(false);
+  if (typeof window.__resetWarmupBlockers === "function") {
+    window.__resetWarmupBlockers({ removeFromDom: false });
+  } else {
+    _showWarmupOverlay(false);
+  }
 }
 
 async function _fetchAndApplyBootstrap() {
