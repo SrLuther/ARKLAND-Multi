@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#060402" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ARKLAND" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <title>ARKLAND DONATIONS — Doações e Resgates</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -2166,6 +2174,50 @@
       font-weight: 600;
     }
     .site-footer a:hover { text-decoration: underline; }
+    .pwa-install-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 10px;
+      padding: 4px 10px;
+      border: 1px solid var(--border-g);
+      border-radius: var(--radius);
+      background: var(--amber-dim);
+      color: var(--amber);
+      font: inherit;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .pwa-install-btn:hover {
+      border-color: var(--amber);
+      background: rgba(232,120,32,.22);
+    }
+    .pwa-ios-hint {
+      display: block;
+      margin: 12px auto 0;
+      max-width: 420px;
+      padding: 10px 12px;
+      border: 1px dashed var(--border-g);
+      border-radius: var(--radius);
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .pwa-ios-hint strong { color: var(--text); }
+    .pwa-ios-hint__actions {
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+    .pwa-myarea-card p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
     .regulamento-body { max-height: none; }
     .regulamento-body table.regulamento-table {
       width: 100%;
@@ -8050,6 +8102,20 @@
           </div>
           <div id="myarea-summary" class="form-grid"></div>
         </div>
+        <div class="card pwa-myarea-card">
+          <div class="card-header">
+            <div class="card-title">📲 Instalar ARKLAND</div>
+          </div>
+          <p>Instale a loja como aplicativo para abrir rapidamente no celular ou PC.</p>
+          <button type="button" class="btn btn-primary hidden" data-pwa-install>Instalar aplicativo</button>
+          <div class="pwa-ios-hint hidden" data-pwa-ios-hint>
+            No Safari, toque em <strong>Compartilhar</strong> e depois em <strong>Adicionar à Tela de Início</strong>.
+            <div class="pwa-ios-hint__actions">
+              <button type="button" class="btn btn-ghost btn-sm" data-pwa-ios-dismiss>Entendi</button>
+            </div>
+          </div>
+          <p class="hidden" data-pwa-installed>O ARKLAND já está instalado neste dispositivo.</p>
+        </div>
         <div class="card" id="myarea-lottery-card">
           <div class="card-header">
             <div class="card-title">🎲 Sorteio — número fixo</div>
@@ -8985,6 +9051,13 @@
         <a href="#" onclick="openPolicyModal(false); return false;">Política de Doações</a>
         <span aria-hidden="true">·</span>
         <a href="#" onclick="goToTicketsPage(); return false;">Suporte / Tickets</a>
+        <button type="button" class="pwa-install-btn hidden" data-pwa-install>📲 Instalar app</button>
+        <span class="pwa-ios-hint hidden" data-pwa-ios-hint>
+          No iPhone/iPad: Safari → Compartilhar → <strong>Adicionar à Tela de Início</strong>
+          <span class="pwa-ios-hint__actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-pwa-ios-dismiss>Entendi</button>
+          </span>
+        </span>
       </footer>
 
     </div>
@@ -9411,6 +9484,7 @@
 
 <script src="ark_color_ids.js" defer></script>
 <script src="redeem_docs.js" defer></script>
+<script src="pwa-install.js" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -24298,6 +24372,10 @@ function renderPlayerAdminPanel(d) {
       </div>
       <button class="modal-close" type="button" onclick="closePlayerAdminPanel()" title="Fechar">✕</button>
     </div>
+    ${d.partial ? `<div style="background:rgba(255,180,0,.12);border:1px solid rgba(255,180,0,.35);color:var(--amber);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;">
+      ⚠ Detalhe parcial (servidor sob carga). Dados essenciais carregados; pedidos, doações e limites de kits podem estar incompletos.
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px;" type="button" onclick='selectPlayerAdmin(${JSON.stringify(p.steam_id)}, true)'>↻ Recarregar</button>
+    </div>` : ""}
     <div style="font-size:22px;font-weight:700;color:var(--amber);margin-bottom:14px;">
       ${Number(p.points || 0).toLocaleString("pt-BR")} Âmbar
     </div>

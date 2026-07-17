@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import uuid
 from datetime import timedelta
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -2738,6 +2740,52 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["steam_persona"] is None
         assert d["player"]["display_name"] == USER_STEAM
 
+    def test_player_detail_budget_returns_full_when_fast(self, client, monkeypatch):
+        """Com o detalhe rápido, a resposta é completa (sem flag partial)."""
+        _seed_store_user(USER_STEAM, display_name="Rapido", steam_persona="Rapido")
+        _login(client, ADMIN_STEAM)
+        d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
+        assert d["ok"] is True
+        assert not d.get("partial")
+        assert d["player"]["steam_persona"] == "Rapido"
+
+    def test_player_detail_budget_returns_partial_when_slow(self, client, monkeypatch):
+        """Detalhe lento além do budget → resposta parcial rápida, nunca 15s."""
+        _seed_store_user(USER_STEAM, display_name="Lento", steam_persona="Lento")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setattr(_app_module, "_ADMIN_DETAIL_BUDGET_MS", 150)
+
+        def _slow_detail(_sid, cancel=None):
+            # Simula queries lentas; respeita cancel do budget para libertar o slot.
+            for _ in range(30):
+                if cancel is not None and cancel.is_set():
+                    return {"ok": False, "error": "cancelled", "cancelled": True}
+                time.sleep(0.1)
+            return {"ok": True, "player": {"steam_id": _sid}, "recent_orders": []}
+
+        monkeypatch.setattr(_app_module, "_get_admin_player_detail", _slow_detail)
+        t0 = time.perf_counter()
+        r = client.get(f"/api/admin/players/{USER_STEAM}")
+        elapsed = time.perf_counter() - t0
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d.get("partial") is True
+        assert elapsed < 3.0  # respondeu pelo path parcial, não esperou o lento
+        # Campos essenciais presentes mesmo em modo parcial.
+        assert d["player"]["steam_id"] == USER_STEAM
+        assert d["player"]["steam_persona"] == "Lento"
+        assert "license_catalog" in d
+
+    def test_player_detail_budget_disabled_runs_inline(self, client, monkeypatch):
+        """Budget<=0 devolve o detalhe completo diretamente (sem thread/partial)."""
+        _seed_store_user(USER_STEAM, display_name="Inline", steam_persona="Inline")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setattr(_app_module, "_ADMIN_DETAIL_BUDGET_MS", 0)
+        d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
+        assert d["ok"] is True
+        assert not d.get("partial")
+
     def test_auth_me_uses_cached_persona_without_steam_api(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="CachedNick", steam_persona="CachedNick")
         _login(client, USER_STEAM)
@@ -2881,6 +2929,52 @@ class TestAdminPlayersSteamBackfill:
         assert _app_module._HOT_PATH_INDEXES_READY is True
         _app_module._ensure_hot_path_indexes(engine)
         assert _app_module._HOT_PATH_INDEXES_READY is True
+
+    def test_ensure_hot_path_indexes_ready_only_when_all_present(self, monkeypatch):
+        """P0: falha no CREATE NÃO marca READY — senão nunca re-tenta e detalhe full-scan."""
+        engine = _app_module._ENGINE
+        assert engine is not None
+        _app_module._HOT_PATH_INDEXES_READY = False
+
+        def _fail_all_present(*_a, **_k):
+            return False
+
+        monkeypatch.setattr(_app_module, "_hot_path_indexes_all_present", _fail_all_present)
+        _app_module._ensure_hot_path_indexes(engine)
+        assert _app_module._HOT_PATH_INDEXES_READY is False
+        # Self-heal no detalhe: continua a tentar enquanto READY=False.
+        calls = {"n": 0}
+        real = _app_module._ensure_hot_path_indexes
+
+        def _counting(eng):
+            calls["n"] += 1
+            return real(eng)
+
+        monkeypatch.setattr(_app_module, "_ensure_hot_path_indexes", _counting)
+        # Restaura all_present real via ensure real — mas counting wrapper chama real
+        # que ainda tem all_present monkeypatched False.
+        _app_module._get_admin_player_detail(USER_STEAM)
+        assert calls["n"] >= 1
+        assert _app_module._HOT_PATH_INDEXES_READY is False
+
+    def test_ddl_engine_omits_short_read_timeout(self, monkeypatch):
+        """DDL MySQL não herda read_timeout=12s do pool HTTP."""
+        captured: dict[str, Any] = {}
+
+        def _fake_create_engine(url, **kwargs):
+            captured["url"] = str(url)
+            captured["connect_args"] = dict(kwargs.get("connect_args") or {})
+            return _app_module._ENGINE
+
+        monkeypatch.setattr(_app_module, "create_engine", _fake_create_engine)
+
+        class _FakeEng:
+            url = "mysql+pymysql://u:p@localhost/shop"
+
+        out = _app_module._ddl_engine_for(_FakeEng())
+        assert out is _app_module._ENGINE
+        assert "read_timeout" not in captured["connect_args"]
+        assert "write_timeout" not in captured["connect_args"]
 
     def test_list_admin_players_count_skips_joins_without_q(self, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="CountJoin")

@@ -7,6 +7,35 @@
 
 ## [Unreleased] - 
 
+## [1.10.55] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / DB): `_ensure_hot_path_indexes` marcava READY=True mesmo quando CREATE INDEX falhava por read_timeout=12s no boot — detalhe admin nunca re-tentava e estourava Timeout 15s (lista OK; ex. griao). READY só com all_present; DDL em engine sem read_timeout curto; self-heal no GET detalhe; budget com cancel+slots para órfãs não segurarem o pool.
+- Fix (Web Store / Admin): detalhe combina points+kits numa query; budget 9s devolve resposta parcial (timeout UI 15s mantido) com aviso na UI.
+
+### Other
+
+- Test (Web Store / Admin+DB): READY só com índices presentes; DDL omite read_timeout; budget devolve partial quando lento.
+
+## [1.10.54] - 2026-07-17
+
+### Feature
+
+- Feat (Web Store / PWA): loja instalável no celular e PC — manifest, service worker, botão «Instalar app» (Chromium) e dica iOS (Minha Área + rodapé); ícones de atalho derivados da logo oficial ArkLandBR.png.
+
+### Fix
+
+- Fix P0 (Web Store / DB): `_ensure_hot_path_indexes` marcava READY=True mesmo quando CREATE INDEX falhava por read_timeout=12s no boot — detalhe admin nunca re-tentava e estourava Timeout 15s (lista OK; ex. griao). READY só com all_present; DDL em engine sem read_timeout curto; self-heal no GET detalhe.
+- Fix (Web Store / Admin): detalhe combina points+kits numa query; budget backend de 9s com no máximo 2 workers, cancelamento entre queries e resposta parcial quando a DB ultrapassa o budget. Timeout frontend permanece 15s.
+- Fix (Web Store / PWA): service worker nunca armazena /api/* nem HTML autenticado — APIs network-only; navegação sem Cache Storage; só assets estáticos usam cache.
+
+### Other
+
+- Build (Web Store): manifest, service worker, pwa-install.js e ícones (192/512/apple-touch) no bundle frozen via static/.
+- Test (Web Store / Admin+DB+PWA): READY só com índices presentes; DDL omite read_timeout; detalhe rápido/completo, fallback parcial e budget desligado; manifest, service worker, rotas de ícones e instalação.
+- Nota: guards de I/O externo (RCON async/pool, MP throttle, câmbio SWR, Discord ticket async, Steam 5s) já na 1.10.53 — esta build inclui esse código + PWA + fix hot-path.
+
 ## [1.10.53] - 2026-07-17
 
 ### Fix

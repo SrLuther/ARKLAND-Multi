@@ -1314,56 +1314,129 @@ def _mysql_index_exists(conn: Any, table: str, index_name: str) -> bool:
     return row is not None
 
 
+_HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
+    ("orders", "idx_orders_steam_created", "(steam_id, created_at)"),
+    ("orders", "idx_orders_steam_type_status", "(steam_id, item_type, status)"),
+    ("point_payments", "idx_point_payments_steam_created", "(steam_id, created_at)"),
+    ("market_listings", "idx_market_listings_seller_status", "(seller_steam_id, status)"),
+]
+
+
+def _ddl_engine_for(engine: Any) -> Any:
+    """Engine dedicado a DDL — sem read_timeout=12s do pool HTTP.
+
+    CREATE INDEX em tabela grande pode demorar minutos; o pool de pedidos herda
+    ARKSHOP_DB_READ_TIMEOUT=12 e abortava a meio, marcando READY à mesma (bug P0).
+    """
+    url = str(getattr(engine, "url", "") or "")
+    if "mysql" not in url.lower():
+        return engine
+    connect_args: dict[str, Any] = {
+        "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "5") or 5),
+        # PyMySQL: None / 0 = sem limite de leitura no socket (DDL pode demorar).
+        "read_timeout": int(os.environ.get("ARKSHOP_DB_DDL_READ_TIMEOUT", "0") or 0) or None,
+        "write_timeout": int(os.environ.get("ARKSHOP_DB_DDL_WRITE_TIMEOUT", "0") or 0) or None,
+    }
+    return create_engine(
+        url,
+        future=True,
+        pool_pre_ping=True,
+        pool_size=1,
+        max_overflow=0,
+        pool_recycle=1800,
+        connect_args={k: v for k, v in connect_args.items() if v is not None},
+    )
+
+
+def _hot_path_indexes_all_present(conn: Any, engine: Any, *, is_mysql: bool) -> bool:
+    """True só se TODOS os índices exigidos existem (tabelas em falta = skip, não falha)."""
+    for table, idx_name, _cols in _HOT_PATH_INDEX_SPECS:
+        if not _db_table_exists(engine, table):
+            continue
+        if is_mysql:
+            if not _mysql_index_exists(conn, table, idx_name):
+                return False
+        else:
+            row = conn.execute(
+                text(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='index' AND name=:idx LIMIT 1"
+                ),
+                {"idx": idx_name},
+            ).fetchone()
+            if row is None:
+                return False
+    return True
+
+
 def _ensure_hot_path_indexes(engine: Any) -> None:
-    """Índices compostos para detalhe/lista admin — uma vez por processo (sem DDL no hot path HTTP)."""
+    """Índices compostos para detalhe/lista admin.
+
+    Só marca `_HOT_PATH_INDEXES_READY` quando TODOS os índices estão confirmados.
+    Falha parcial (ex.: read_timeout no CREATE) NÃO marca READY — re-tenta no
+    próximo detalhe/boot (self-heal).
+    """
     global _HOT_PATH_INDEXES_READY
-    if _HOT_PATH_INDEXES_READY:
+    if _HOT_PATH_INDEXES_READY or engine is None:
         return
     with _HOT_PATH_INDEXES_LOCK:
         if _HOT_PATH_INDEXES_READY:
             return
-        # (table, index_name, columns_sql)
-        specs: list[tuple[str, str, str]] = [
-            ("orders", "idx_orders_steam_created", "(steam_id, created_at)"),
-            ("orders", "idx_orders_steam_type_status", "(steam_id, item_type, status)"),
-            ("point_payments", "idx_point_payments_steam_created", "(steam_id, created_at)"),
-            ("market_listings", "idx_market_listings_seller_status", "(seller_steam_id, status)"),
-        ]
         is_mysql = "mysql" in str(engine.url).lower()
+        ddl_engine = _ddl_engine_for(engine)
         created = 0
+        all_present = False
         try:
-            with engine.connect() as conn:
-                for table, idx_name, cols in specs:
-                    if not _db_table_exists(engine, table):
-                        continue
-                    try:
-                        if is_mysql:
-                            if _mysql_index_exists(conn, table, idx_name):
-                                continue
-                            conn.execute(
-                                text(f"CREATE INDEX `{idx_name}` ON `{table}` {cols}")
-                            )
-                        else:
-                            conn.execute(
-                                text(
-                                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} {cols}"
+            with ddl_engine.connect() as conn:
+                if _hot_path_indexes_all_present(conn, engine, is_mysql=is_mysql):
+                    all_present = True
+                else:
+                    for table, idx_name, cols in _HOT_PATH_INDEX_SPECS:
+                        if not _db_table_exists(engine, table):
+                            continue
+                        try:
+                            if is_mysql:
+                                if _mysql_index_exists(conn, table, idx_name):
+                                    continue
+                                conn.execute(
+                                    text(f"CREATE INDEX `{idx_name}` ON `{table}` {cols}")
                                 )
+                            else:
+                                conn.execute(
+                                    text(
+                                        f"CREATE INDEX IF NOT EXISTS {idx_name} "
+                                        f"ON {table} {cols}"
+                                    )
+                                )
+                            created += 1
+                        except Exception as exc:
+                            log.warning(
+                                "hot_path_index %s.%s falhou: %s",
+                                table,
+                                idx_name,
+                                exc,
                             )
-                        created += 1
-                    except Exception as exc:
-                        log.warning(
-                            "hot_path_index %s.%s falhou: %s",
-                            table,
-                            idx_name,
-                            exc,
-                        )
-                if created:
-                    conn.commit()
-                    log.info("hot_path_indexes: %s índice(s) criados", created)
+                    if created:
+                        conn.commit()
+                        log.info("hot_path_indexes: %s índice(s) criados", created)
+                    all_present = _hot_path_indexes_all_present(
+                        conn, engine, is_mysql=is_mysql
+                    )
         except Exception as exc:
             log.warning("hot_path_indexes: migrate falhou: %s", exc)
-            return
-        _HOT_PATH_INDEXES_READY = True
+            all_present = False
+        finally:
+            if ddl_engine is not engine:
+                try:
+                    ddl_engine.dispose()
+                except Exception:
+                    pass
+        if all_present:
+            _HOT_PATH_INDEXES_READY = True
+        else:
+            log.warning(
+                "hot_path_indexes: incompletos — READY NÃO marcado; re-tentará"
+            )
 
 
 def _ensure_store_users_schema(engine: Any) -> None:
@@ -2396,20 +2469,52 @@ def _list_admin_players(
         _release_db_session(db)
 
 
-def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
+def _get_admin_player_detail(
+    steam_id: str,
+    *,
+    cancel: threading.Event | None = None,
+) -> dict[str, Any]:
     if not _db_ready():
         return {"ok": False, "error": "Banco não configurado"}
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
         return {"ok": False, "error": "SteamID64 inválido"}
+    # Self-heal: se CREATE INDEX falhou no boot (read_timeout), re-tenta aqui.
+    # Short-circuit imediato quando `_HOT_PATH_INDEXES_READY` já está True.
+    try:
+        if _ENGINE is not None:
+            _ensure_hot_path_indexes(_ENGINE)
+    except Exception as exc:
+        _log_error("ensure_hot_path_indexes_on_detail", error=str(exc))
+    if cancel is not None and cancel.is_set():
+        return {"ok": False, "error": "cancelled", "cancelled": True}
     t0 = time.perf_counter()
     db = _SessionLocal()
     try:
         su = db.get(StoreUser, steam_id)
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
         prof = _safe_market_profile(db, steam_id)
         # Reutilizar a mesma sessão — evita 2–3 connects extra sob pressão do Werkzeug.
-        points = _get_player_points(steam_id, db=db) or 0
+        # points + kits vêm da MESMA row de `players` numa única query (menos 1 round-trip).
+        points = 0
+        kit_stash: dict[str, Any] = {}
+        try:
+            prow = db.execute(
+                text("SELECT points, kits FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            if prow is not None:
+                points = int(prow[0]) if prow[0] is not None else 0
+                kit_stash = parse_kit_stash(prow[1])
+        except Exception:
+            points = _get_player_points(steam_id, db=db) or 0
+            kit_stash = {}
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
         entitlements = _get_player_entitlements(steam_id, db=db)
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
         orders = (
             db.query(Order)
             .filter(Order.steam_id == steam_id)
@@ -2417,6 +2522,8 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
             .limit(20)
             .all()
         )
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
         donations = (
             db.query(PointPayment)
             .filter(PointPayment.steam_id == steam_id)
@@ -2424,6 +2531,8 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
             .limit(10)
             .all()
         )
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
         listings_count = 0
         try:
             listings_count = (
@@ -2433,15 +2542,8 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
             )
         except Exception:
             pass
-        kit_stash: dict[str, Any] = {}
-        try:
-            row = db.execute(
-                text("SELECT kits FROM players WHERE steam_id = :sid"),
-                {"sid": steam_id},
-            ).fetchone()
-            kit_stash = parse_kit_stash(row[0] if row else None)
-        except Exception:
-            kit_stash = {}
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
         kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
         # Só DB cache — nunca bloquear detalhe na Steam API (lista já faz backfill;
         # frontend aborta aos 15s e o 200 órfão aparecia como «Falha ao carregar»).
@@ -2514,6 +2616,221 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
     finally:
         _release_db_session(db)
+
+
+# Budget curto do detalhe admin — o frontend aborta aos 15s. Preferimos SEMPRE uma
+# resposta parcial rápida a segurar o worker até o browser desistir (200 órfão →
+# «Falha ao carregar»). Override por env; <=0 desliga o budget.
+_ADMIN_DETAIL_BUDGET_MS = max(0, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BUDGET_MS", "9000") or 0))
+# Limita threads órfãs do detalhe após budget — cada uma pode segurar 1 conexão do pool
+# até o cancel libertar a sessão entre queries.
+_ADMIN_DETAIL_BG_SLOTS = threading.BoundedSemaphore(
+    max(1, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BG_SLOTS", "2") or 2))
+)
+
+
+def _admin_player_detail_partial(steam_id: str) -> dict[str, Any]:
+    """Payload essencial e barato para quando o detalhe completo estoura o budget.
+
+    Só toca em queries indexadas/baratas (PK get + points indexado + entitlements por
+    índice + catálogos em cache). Listas pesadas (orders/donations/listings/kits) ficam
+    vazias e `partial=True` sinaliza ao cliente que faltam secções — melhor do que 15s+.
+    """
+    steam_id = str(steam_id or "").strip()
+    su = None
+    points = 0
+    entitlements: list[dict[str, Any]] = []
+    persona: str | None = None
+    reg_fields = _auth_regulamento_fields_offline()
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            su = db.get(StoreUser, steam_id)
+            try:
+                prow = db.execute(
+                    text("SELECT points FROM players WHERE steam_id = :sid"),
+                    {"sid": steam_id},
+                ).fetchone()
+                points = int(prow[0]) if prow and prow[0] is not None else 0
+            except Exception:
+                points = 0
+            try:
+                entitlements = _get_player_entitlements(steam_id, db=db)
+            except Exception:
+                entitlements = []
+            try:
+                reg_fields = _auth_regulamento_fields(steam_id, db=db)
+            except Exception:
+                reg_fields = _auth_regulamento_fields_offline()
+        except Exception as exc:
+            _log_error("get_admin_player_detail_partial", steam_id=steam_id, error=str(exc))
+        finally:
+            _release_db_session(db)
+    if su and su.steam_persona:
+        cached = str(su.steam_persona).strip()
+        persona = cached if cached and cached != steam_id else None
+    display_name = _admin_player_persona_label(steam_id, steam_persona=persona)
+    return {
+        "ok": True,
+        "partial": True,
+        "partial_reason": "budget",
+        "player": {
+            "steam_id": steam_id,
+            "steam_persona": persona,
+            "display_name": display_name,
+            "points": points,
+            "site_access_blocked": bool(su and su.site_access_blocked),
+            "ban_reason": su.ban_reason if su else None,
+            "created_at": _dt_iso(su.created_at) if su else None,
+            "last_login_at": _dt_iso(su.last_login_at) if su else None,
+            "market_display_name": None,
+            "commerce_enabled": False,
+            "entitlements": _filter_license_entitlements(entitlements),
+            "staff_roles": _get_player_staff_roles_from_list(entitlements),
+            "kit_stash": {},
+            "kit_limits": [],
+            "listings_count": None,
+            **reg_fields,
+        },
+        "recent_orders": [],
+        "recent_donations": [],
+        "license_catalog": _catalog_license_options(),
+        "staff_role_catalog": _staff_role_catalog(),
+        "kit_catalog": _catalog_kit_options(),
+    }
+
+
+def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
+    """Corre o detalhe completo com deadline; se estourar, devolve parcial rápido.
+
+    Após o budget: `cancel` pede à thread órfã para libertar a scoped_session entre
+    queries (não segura o pool para sempre). Slots limitados evitam tempestade de
+    órfãs sob carga.
+    """
+    budget_ms = _ADMIN_DETAIL_BUDGET_MS
+    if budget_ms <= 0:
+        return _get_admin_player_detail(steam_id)
+
+    if not _ADMIN_DETAIL_BG_SLOTS.acquire(blocking=False):
+        _log(
+            "get_admin_player_detail_bg_slots_full",
+            steam_id=str(steam_id or "").strip(),
+        )
+        try:
+            return _admin_player_detail_partial(steam_id)
+        except Exception as exc:  # pragma: no cover
+            _log_error(
+                "get_admin_player_detail_partial_failed",
+                steam_id=str(steam_id or "").strip(),
+                error=str(exc),
+            )
+            return {
+                "ok": True,
+                "partial": True,
+                "partial_reason": "budget_hard",
+                "player": {
+                    "steam_id": str(steam_id or "").strip(),
+                    "steam_persona": None,
+                    "display_name": str(steam_id or "").strip(),
+                    "points": 0,
+                    "site_access_blocked": False,
+                    "ban_reason": None,
+                    "created_at": None,
+                    "last_login_at": None,
+                    "market_display_name": None,
+                    "commerce_enabled": False,
+                    "entitlements": [],
+                    "staff_roles": [],
+                    "kit_stash": {},
+                    "kit_limits": [],
+                    "listings_count": None,
+                    **_auth_regulamento_fields_offline(),
+                },
+                "recent_orders": [],
+                "recent_donations": [],
+                "license_catalog": _catalog_license_options(),
+                "staff_role_catalog": _staff_role_catalog(),
+                "kit_catalog": _catalog_kit_options(),
+            }
+
+    box: dict[str, Any] = {}
+    done = threading.Event()
+    cancel = threading.Event()
+
+    def _worker() -> None:
+        try:
+            box["result"] = _get_admin_player_detail(steam_id, cancel=cancel)
+        except Exception as exc:  # pragma: no cover - defensivo
+            box["error"] = exc
+        finally:
+            done.set()
+            try:
+                if _SessionLocal is not None:
+                    _SessionLocal.remove()
+            except Exception:
+                pass
+            try:
+                _ADMIN_DETAIL_BG_SLOTS.release()
+            except Exception:
+                pass
+
+    threading.Thread(
+        target=_worker, name="admin-player-detail", daemon=True
+    ).start()
+    if done.wait(budget_ms / 1000.0):
+        if "result" in box:
+            result = box["result"]
+            if isinstance(result, dict) and result.get("cancelled"):
+                try:
+                    return _admin_player_detail_partial(steam_id)
+                except Exception:
+                    pass
+            return result
+        return {"ok": False, "error": str(box.get("error") or "detail_failed")}
+    # Budget esgotado: cancela a órfã (liberta sessão no próximo checkpoint) e
+    # responde parcial na thread do request.
+    cancel.set()
+    _log(
+        "get_admin_player_detail_budget_exceeded",
+        steam_id=str(steam_id or "").strip(),
+        budget_ms=budget_ms,
+    )
+    try:
+        return _admin_player_detail_partial(steam_id)
+    except Exception as exc:  # pragma: no cover - defensivo
+        _log_error(
+            "get_admin_player_detail_partial_failed",
+            steam_id=str(steam_id or "").strip(),
+            error=str(exc),
+        )
+    return {
+        "ok": True,
+        "partial": True,
+        "partial_reason": "budget_hard",
+        "player": {
+            "steam_id": str(steam_id or "").strip(),
+            "steam_persona": None,
+            "display_name": str(steam_id or "").strip(),
+            "points": 0,
+            "site_access_blocked": False,
+            "ban_reason": None,
+            "created_at": None,
+            "last_login_at": None,
+            "market_display_name": None,
+            "commerce_enabled": False,
+            "entitlements": [],
+            "staff_roles": [],
+            "kit_stash": {},
+            "kit_limits": [],
+            "listings_count": None,
+            **_auth_regulamento_fields_offline(),
+        },
+        "recent_orders": [],
+        "recent_donations": [],
+        "license_catalog": _catalog_license_options(),
+        "staff_role_catalog": _staff_role_catalog(),
+        "kit_catalog": _catalog_kit_options(),
+    }
 
 
 _LICENSE_GROUP_SKIP = frozenset({"Admins", "Staff", "Default", "VIPDoacao", ""})
@@ -6723,6 +7040,23 @@ def index():
     resp = make_response(send_from_directory("static", "index.html"))
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
+@app.route("/manifest.webmanifest")
+def pwa_manifest():
+    resp = make_response(app.send_static_file("manifest.webmanifest"))
+    resp.headers["Content-Type"] = "application/manifest+json"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.route("/service-worker.js")
+def pwa_service_worker():
+    resp = make_response(app.send_static_file("service-worker.js"))
+    resp.headers["Content-Type"] = "application/javascript; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Service-Worker-Allowed"] = "/"
     return resp
 
 
@@ -11532,7 +11866,7 @@ def admin_players_list():
 @app.route("/api/admin/players/<steam_id>", methods=["GET"])
 @admin_required
 def admin_player_detail(steam_id: str):
-    result = _get_admin_player_detail(steam_id.strip())
+    result = _get_admin_player_detail_budgeted(steam_id.strip())
     if not result.get("ok"):
         code = 404 if "inválido" in str(result.get("error", "")).lower() else 500
         return jsonify(result), code
