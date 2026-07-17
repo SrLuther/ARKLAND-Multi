@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.55"
+APP_VERSION: str = "1.10.54"
 BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,15 +13,6 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
-    },
-    {
-        "version": "1.10.55",
-        "date": "2026-07-17",
-        "changes": [
-            "Fix P0 (Web Store / DB): `_ensure_hot_path_indexes` marcava READY=True mesmo quando CREATE INDEX falhava por read_timeout=12s no boot — detalhe admin nunca re-tentava e estourava Timeout 15s (lista OK; ex. griao). READY só com all_present; DDL em engine sem read_timeout curto; self-heal no GET detalhe; budget com cancel+slots para órfãs não segurarem o pool.",
-            "Fix (Web Store / Admin): detalhe combina points+kits numa query; budget 9s devolve resposta parcial (timeout UI 15s mantido) com aviso na UI.",
-            "Test (Web Store / Admin+DB): READY só com índices presentes; DDL omite read_timeout; budget devolve partial quando lento.",
-        ],
     },
     {
         "version": "1.10.54",
