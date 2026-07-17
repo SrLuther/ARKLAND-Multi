@@ -1989,28 +1989,52 @@ def _start_db_reconnect_watcher() -> None:
 
 
 def _configure_database(url: str) -> None:
+    """Configura engine/sessão. Single-flight por processo — evita migrate/reconcile duplicados."""
     global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS, _MIGRATE_ASYNC_STARTED
 
     normalized = (url or "").strip()
-    if normalized == _ACTIVE_DATABASE_URL:
-        return
+    with _CONFIGURE_DB_LOCK:
+        if normalized and normalized == _ACTIVE_DATABASE_URL and _SessionLocal is not None:
+            return
+        _configure_database_locked(normalized)
 
-    _MIGRATE_ASYNC_STARTED = False
+
+def _configure_database_locked(normalized: str) -> None:
+    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS, _MIGRATE_ASYNC_STARTED
+    global _ENTITLEMENTS_RECONCILE_STARTED
+
+    # URL mudou de verdade → permite novo migrate; senão mantém flags do pid.
+    url_changed = normalized != _ACTIVE_DATABASE_URL
+    if url_changed:
+        _MIGRATE_ASYNC_STARTED = False
+        _ENTITLEMENTS_RECONCILE_STARTED = False
+        try:
+            os.environ.pop(_migrate_done_env_key(), None)
+            os.environ.pop(_reconcile_done_env_key(), None)
+        except Exception:
+            pass
 
     # Para o watcher de reconexão da URL anterior (se houver)
     _db_reconnect_stop.set()
 
-    if _SessionLocal is not None:
-        _SessionLocal.remove()
-    if _ENGINE is not None:
-        _ENGINE.dispose()
-
-    _ENGINE = None
-    _SessionLocal = None
-    _ACTIVE_DATABASE_URL = ""
-    _reset_schema_runtime_flags()
+    old_session = _SessionLocal
+    old_engine = _ENGINE
 
     if not normalized:
+        if old_session is not None:
+            try:
+                old_session.remove()
+            except Exception:
+                pass
+        if old_engine is not None:
+            try:
+                old_engine.dispose()
+            except Exception:
+                pass
+        _ENGINE = None
+        _SessionLocal = None
+        _ACTIVE_DATABASE_URL = ""
+        _reset_schema_runtime_flags()
         return
 
     # Timeouts agressivos: pool_timeout + read_timeout no pre_ping de conexão
@@ -2047,13 +2071,26 @@ def _configure_database(url: str) -> None:
     attach_engine_listeners(engine)
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
 
-    # Registra o DB como "configurado" ANTES de create_all.
-    # Assim _db_ready() retorna True mesmo se o MariaDB estiver offline no boot;
-    # as queries falharão com erro de conexão (não "Banco não configurado").
+    # Swap atómico: só limpa o engine antigo DEPOIS do novo estar pronto
+    # (evita race onde outro thread vê _SessionLocal=None e reconfigura).
     _ENGINE = engine
     _SessionLocal = session_local
     _ACTIVE_DATABASE_URL = normalized
     _DB_CONNECT_ARGS = dict(connect_args)
+    if url_changed:
+        _reset_schema_runtime_flags()
+
+    if old_session is not None and old_session is not session_local:
+        try:
+            old_session.remove()
+        except Exception:
+            pass
+    if old_engine is not None and old_engine is not engine:
+        try:
+            old_engine.dispose()
+        except Exception:
+            pass
+
     _log(
         "db_configured",
         pid=os.getpid(),
@@ -2080,12 +2117,17 @@ def _configure_database(url: str) -> None:
 
     def _migrate_async() -> None:
         global _MIGRATE_ASYNC_STARTED
+        done_key = _migrate_done_env_key()
+        if os.environ.get(done_key) == "1":
+            log.debug("DB schema migrate já concluído neste pid=%s — skip", os.getpid())
+            return
         if _MIGRATE_ASYNC_STARTED:
             log.debug("DB schema migrate já em curso (pid=%s) — skip", os.getpid())
             return
         _MIGRATE_ASYNC_STARTED = True
         try:
             _migrate_schema(engine)
+            os.environ[done_key] = "1"
             log.info("DB schema migrate concluído (pid=%s)", os.getpid())
             _schedule_entitlements_reconcile()
         except Exception as exc:
@@ -2100,6 +2142,7 @@ def _configure_database(url: str) -> None:
     threading.Thread(target=_migrate_async, daemon=True, name="arkshop-db-migrate").start()
 
 
+_CONFIGURE_DB_LOCK = threading.Lock()
 _DB_INIT_LOCK = threading.Lock()
 _DB_INITIALIZED = False
 _DB_BOOT_THREAD: threading.Thread | None = None
@@ -2120,23 +2163,34 @@ _HEALTH_DB_PING_TIMEOUT = 2.0
 _ADMIN_DB_QUERY_TIMEOUT = 2.0
 
 
+def _migrate_done_env_key() -> str:
+    return f"ARKSHOP_MIGRATE_DONE_{os.getpid()}"
+
+
+def _reconcile_done_env_key() -> str:
+    return f"ARKSHOP_RECONCILE_DONE_{os.getpid()}"
+
+
 def _kick_background_db_init() -> None:
     """Inicia configuração do DB em thread — nunca bloqueia respostas HTTP."""
     global _DB_BOOT_THREAD, _DB_BOOT_KICKED
     if _DB_INITIALIZED:
         return
-    if _DB_BOOT_KICKED and _DB_BOOT_THREAD is not None and _DB_BOOT_THREAD.is_alive():
-        return
+    with _DB_INIT_LOCK:
+        if _DB_INITIALIZED:
+            return
+        if _DB_BOOT_KICKED and _DB_BOOT_THREAD is not None and _DB_BOOT_THREAD.is_alive():
+            return
 
-    def _boot() -> None:
-        try:
-            _initialize_database_if_needed()
-        except Exception as exc:
-            log.warning("DB background boot failed: %s", exc)
+        def _boot() -> None:
+            try:
+                _initialize_database_if_needed()
+            except Exception as exc:
+                log.warning("DB background boot failed: %s", exc)
 
-    _DB_BOOT_THREAD = threading.Thread(target=_boot, name="arkshop-db-boot", daemon=True)
-    _DB_BOOT_KICKED = True
-    _DB_BOOT_THREAD.start()
+        _DB_BOOT_KICKED = True
+        _DB_BOOT_THREAD = threading.Thread(target=_boot, name="arkshop-db-boot", daemon=True)
+        _DB_BOOT_THREAD.start()
 
 
 def _initialize_database_if_needed() -> None:
@@ -5526,8 +5580,11 @@ def _compute_timed_points_total(groups: list[str]) -> int:
 def _schedule_entitlements_reconcile() -> None:
     """Ao subir a web store, reconcilia entitlements ↔ ark_permission em background."""
     global _ENTITLEMENTS_RECONCILE_STARTED
+    done_key = _reconcile_done_env_key()
+    if os.environ.get(done_key) == "1":
+        return
     with _ENTITLEMENTS_RECONCILE_LOCK:
-        if _ENTITLEMENTS_RECONCILE_STARTED:
+        if _ENTITLEMENTS_RECONCILE_STARTED or os.environ.get(done_key) == "1":
             return
         _ENTITLEMENTS_RECONCILE_STARTED = True
 
@@ -5541,6 +5598,7 @@ def _schedule_entitlements_reconcile() -> None:
             from permission_db_sync import reconcile_entitlements_with_permission_db
 
             res = reconcile_entitlements_with_permission_db(shop_url)
+            os.environ[done_key] = "1"
             if res.get("ok"):
                 log.info(
                     "Reconciliação entitlements→ark_permission: verificados=%s irregulares=%s corrigidos=%s",
@@ -7530,11 +7588,24 @@ def mark_pending_delivered(steam_id: str, order_id: str):
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
 
+def _web_build_id() -> str:
+    """Versão do app para cache-bust de assets estáticos (?v=)."""
+    rel = _get_project_release()
+    v = str(rel.get("version") or "").strip()
+    return v or "dev"
+
+
 @app.route("/")
 def index():
-    resp = make_response(send_from_directory("static", "index.html"))
+    static_dir = Path(app.static_folder or "static")
+    html_path = static_dir / "index.html"
+    html = html_path.read_text(encoding="utf-8")
+    build = _web_build_id()
+    html = html.replace("__WEB_BUILD__", build)
+    resp = make_response(html)
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
     return resp
 
 
@@ -13466,7 +13537,11 @@ register_plugin_debug_routes(
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
-    _kick_background_db_init()
+    # Guard de processo: import duplo (__main__ + app) no mesmo pid não re-dispara boot.
+    _boot_env = f"ARKSHOP_DB_BOOT_KICKED_{os.getpid()}"
+    if os.environ.get(_boot_env) != "1":
+        os.environ[_boot_env] = "1"
+        _kick_background_db_init()
 
 # Recupera WEBSTORE/config.json stub no arranque (não bloqueia se falhar).
 try:

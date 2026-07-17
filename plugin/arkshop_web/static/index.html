@@ -8,7 +8,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ARKLAND" />
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="arkland-web-build" content="__WEB_BUILD__" />
+  <link rel="manifest" href="/manifest.webmanifest?v=__WEB_BUILD__" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <title>ARKLAND DONATIONS — Doações e Resgates</title>
@@ -6030,11 +6031,43 @@
     <div class="store-warmup-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div class="store-warmup-bar" id="store-warmup-bar"></div>
     </div>
-    <button type="button" class="store-warmup-skip hidden" id="store-warmup-skip" onclick="skipStoreWarmup()">
-      Entrar na loja agora
+    <button type="button" class="store-warmup-skip hidden" id="store-warmup-skip"
+      onclick="(window.skipStoreWarmup||window.__earlyForceReleaseWarmup||function(){})()">
+      Entrar mesmo assim
     </button>
   </div>
 </div>
+<script>
+(function () {
+  /* Fail-safe ABSOLUTO: não depende do JS principal / IndexedDB / SW. */
+  var SKIP_MS = 2000;
+  var FORCE_MS = 4000;
+  function forceReleaseWarmup() {
+    if (window.__storeWarmupReady) return;
+    window.__storeWarmupReady = true;
+    window.__warmupForceReleased = true;
+    var el = document.getElementById("store-warmup-overlay");
+    if (el) {
+      el.classList.add("hidden");
+      el.setAttribute("aria-busy", "false");
+    }
+    document.body.classList.remove("store-warming-active");
+    var shell = document.getElementById("shell");
+    if (shell) shell.classList.remove("store-warming");
+    var btn = document.getElementById("store-warmup-skip");
+    if (btn) btn.classList.add("hidden");
+  }
+  function showWarmupSkipEarly() {
+    if (window.__storeWarmupReady) return;
+    var btn = document.getElementById("store-warmup-skip");
+    if (btn) btn.classList.remove("hidden");
+  }
+  window.__earlyForceReleaseWarmup = forceReleaseWarmup;
+  window.skipStoreWarmup = window.skipStoreWarmup || forceReleaseWarmup;
+  setTimeout(showWarmupSkipEarly, SKIP_MS);
+  setTimeout(forceReleaseWarmup, FORCE_MS);
+})();
+</script>
 
 <!-- ── Auth Overlay ──────────────────────────────────────────────────────────── -->
 <div id="auth-overlay" class="hidden">
@@ -9612,9 +9645,9 @@
   </div>
 </div>
 
-<script src="ark_color_ids.js" defer></script>
-<script src="redeem_docs.js" defer></script>
-<script src="pwa-install.js" defer></script>
+<script src="ark_color_ids.js?v=1.10.62" defer></script>
+<script src="redeem_docs.js?v=1.10.62" defer></script>
+<script src="pwa-install.js?v=1.10.62" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -11262,9 +11295,9 @@ const STORE_CACHE_LS_KEY = "arkland_store_payload_v1";
 const STORE_CACHE_IDB_NAME = "arkland-store-cache";
 const STORE_CACHE_IDB_STORE = "payloads";
 const STORE_CACHE_TTL_MS = 30 * 60 * 1000;
-const STORE_WARMUP_GATE_MS = 8000;
-const STORE_WARMUP_SKIP_MS = 3000;
-let _storeWarmupReady = false;
+const STORE_WARMUP_GATE_MS = 4000;
+const STORE_WARMUP_SKIP_MS = 2000;
+let _storeWarmupReady = Boolean(window.__storeWarmupReady);
 let _storeWarmupRevalidating = false;
 let _storeWarmupGateTimer = null;
 let _storeWarmupProgressTimer = null;
@@ -11404,6 +11437,10 @@ function _writeStoreCache(catalogData) {
 }
 
 function _showWarmupOverlay(show) {
+  // Nunca reabrir overlay depois do fail-safe inline (4s) ou skip manual.
+  if (show && (window.__warmupForceReleased || window.__storeWarmupReady || _storeWarmupReady)) {
+    show = false;
+  }
   const el = document.getElementById("store-warmup-overlay");
   const shell = document.getElementById("shell");
   if (el) {
@@ -11464,6 +11501,8 @@ function _startWarmupProgressStages() {
 
 function _releaseStoreWarmup(msg) {
   _storeWarmupReady = true;
+  window.__storeWarmupReady = true;
+  window.__warmupForceReleased = true;
   _clearWarmupTimers();
   _showWarmupSkip(false);
   _setWarmupProgress(100, msg || "Loja pronta");
@@ -11511,9 +11550,10 @@ function _releaseStoreWarmupWithBackground(msg, existingPromise) {
 }
 
 function skipStoreWarmup() {
-  if (_storeWarmupReady) return;
+  if (_storeWarmupReady || window.__storeWarmupReady) return;
   _releaseStoreWarmupWithBackground("A entrar na loja…");
 }
+window.skipStoreWarmup = skipStoreWarmup;
 
 async function _applyBootstrapFromCache(cached) {
   if (cached.me) _auth = cached.me;
@@ -11556,62 +11596,62 @@ async function _applyBootstrapPayload(boot, opts = {}) {
 }
 
 async function runStoreWarmup() {
-  _storeWarmupReady = false;
+  // Fail-safe inline já liberou → só bootstrap em background, nunca rebloquear UI.
+  if (window.__warmupForceReleased || window.__storeWarmupReady) {
+    _storeWarmupReady = true;
+    if (_auth == null) _auth = _defaultGuestAuth();
+    applyRoleUi(true);
+    _ensureWarmupBackground();
+    return true;
+  }
+
   _storeWarmupBgPromise = null;
   _clearWarmupTimers();
   _showWarmupOverlay(true);
   _showWarmupSkip(false);
   _startWarmupProgressStages();
 
+  // Skip + gate ABSOLUTOS desde o início (não dependem de IndexedDB/bootstrap).
   _storeWarmupSkipTimer = setTimeout(() => {
-    if (!_storeWarmupReady) _showWarmupSkip(true);
+    if (!_storeWarmupReady && !window.__storeWarmupReady) _showWarmupSkip(true);
   }, STORE_WARMUP_SKIP_MS);
 
-  const warmupDeadline = _storeCacheNow() + STORE_WARMUP_GATE_MS;
-  const gateMsRemaining = () => Math.max(0, warmupDeadline - _storeCacheNow());
-
-  let gateReleased = false;
-  const releaseGate = (msg) => {
-    if (gateReleased) return;
-    gateReleased = true;
-    _releaseStoreWarmup(msg);
-  };
-
-  try {
-    const cached = await _readBootstrapCache();
-    if (_bootstrapCacheValid(cached)) {
-      _setWarmupProgress(38, "A carregar loja do cache…");
-      await _applyBootstrapFromCache(cached);
-      _ensureWarmupBackground(_fetchAndApplyBootstrap());
-      releaseGate("Loja pronta");
-      return true;
-    }
-  } catch (_) {}
-
-  const bootstrapPromise = _fetchAndApplyBootstrap();
-  const gateWait = new Promise((resolve) => {
-    _storeWarmupGateTimer = setTimeout(() => resolve("gate"), gateMsRemaining());
+  const hardGate = new Promise((resolve) => {
+    _storeWarmupGateTimer = setTimeout(() => resolve("gate"), STORE_WARMUP_GATE_MS);
   });
 
-  const raced = await Promise.race([
-    bootstrapPromise.then((ok) => ({ kind: ok ? "boot-ok" : "boot-fail" })),
-    gateWait.then(() => ({ kind: "gate" })),
+  const cacheRace = Promise.race([
+    _readBootstrapCache().then((c) => ({ kind: "cache", cached: c })).catch(() => ({ kind: "cache", cached: null })),
+    new Promise((resolve) => setTimeout(() => resolve({ kind: "cache-timeout" }), 800)),
   ]);
 
-  if (raced.kind === "boot-ok" && !_storeWarmupReady) {
-    if (_storeWarmupGateTimer) { clearTimeout(_storeWarmupGateTimer); _storeWarmupGateTimer = null; }
-    releaseGate("Loja pronta");
+  const bootstrapPromise = _fetchAndApplyBootstrap();
+
+  // UI não espera bootstrap (15s) — só cache rápido OU gate 4s.
+  const raced = await Promise.race([
+    cacheRace.then(async (r) => {
+      if (r.kind === "cache" && _bootstrapCacheValid(r.cached)) {
+        _setWarmupProgress(38, "A carregar loja do cache…");
+        try { await _applyBootstrapFromCache(r.cached); } catch (_) {}
+        return { kind: "cache-ok" };
+      }
+      return { kind: "cache-miss" };
+    }),
+    hardGate.then(() => ({ kind: "gate" })),
+  ]);
+
+  if (raced.kind === "cache-ok" && !_storeWarmupReady) {
+    _ensureWarmupBackground(bootstrapPromise);
+    _releaseStoreWarmup("Loja pronta");
     return true;
   }
 
-  if (raced.kind === "gate" || _storeWarmupReady) {
-    if (!_storeWarmupReady) _releaseStoreWarmupWithBackground("A carregar em segundo plano…", bootstrapPromise);
-    return true;
+  // cache-miss ou gate: libera UI e deixa bootstrap/fallback em background
+  if (!_storeWarmupReady) {
+    _releaseStoreWarmupWithBackground("A carregar em segundo plano…", bootstrapPromise);
+  } else {
+    _ensureWarmupBackground(bootstrapPromise);
   }
-
-  // bootstrap falhou antes do gate — libera já e continua em background (sem bloquear UI)
-  if (_storeWarmupGateTimer) { clearTimeout(_storeWarmupGateTimer); _storeWarmupGateTimer = null; }
-  if (!_storeWarmupReady) _releaseStoreWarmupWithBackground("A carregar em segundo plano…", bootstrapPromise);
   return true;
 }
 

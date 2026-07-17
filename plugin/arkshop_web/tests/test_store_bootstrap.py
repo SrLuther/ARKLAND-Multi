@@ -55,6 +55,8 @@ def test_index_has_warmup_overlay_and_cache_keys():
     assert "STORE_CACHE_META_KEY" in html
     assert "STORE_WARMUP_GATE_MS" in html
     assert "skipStoreWarmup" in html
+    assert "FORCE_MS" in html or "__earlyForceReleaseWarmup" in html
+    assert "Entrar mesmo assim" in html
     assert "indexedDB" in html or "IndexedDB" in html
 
 
@@ -64,3 +66,6 @@ def test_service_worker_does_not_cache_bootstrap(client):
     assert "/api/store/bootstrap" in body
     assert "isPublicCatalog" in body
     assert "store/bootstrap" in body.lower() or "bootstrap" in body
+    assert "arkland-webstore-static-v3" in body
+    assert "no-store" in body
+    assert "skipWaiting" in body

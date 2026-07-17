@@ -3,12 +3,12 @@
  * Estratégia segura para loja autenticada e dinâmica:
  * - /api/catalog → stale-while-revalidate (público e não sensível; acelera warmup)
  * - restante /api/* → network-only (nunca grava em Cache Storage)
- * - HTML/navegação → network-first sem cachear o documento
+ * - HTML/navegação → network-only (no-store; nunca cachear index.html)
  * - assets estáticos (js/css/img/fontes) → cache-first com atualização em background
  */
 "use strict";
 
-const CACHE_NAME = "arkland-webstore-static-v2";
+const CACHE_NAME = "arkland-webstore-static-v3";
 const CATALOG_CACHE = "arkland-webstore-catalog-v1";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
@@ -35,7 +35,7 @@ function isNavigationOrHtml(request, url) {
   const accept = request.headers.get("accept") || "";
   if (accept.includes("text/html")) return true;
   const path = url.pathname;
-  return path === "/" || path.endsWith(".html");
+  return path === "/" || path.endsWith(".html") || path === "/index.html";
 }
 
 function isStaticAsset(url) {
@@ -45,6 +45,7 @@ function isStaticAsset(url) {
 }
 
 self.addEventListener("install", (event) => {
+  // Force update imediato — não esperar tabs antigas fecharem.
   event.waitUntil(
     caches
       .open(CACHE_NAME)
@@ -66,6 +67,12 @@ self.addEventListener("activate", (event) => {
       )
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
@@ -106,7 +113,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // HTML da loja muda com auth/sessão — sempre rede; sem put no cache.
+  // HTML da loja — SEMPRE rede, nunca Cache Storage (evita overlay antigo preso).
   if (isNavigationOrHtml(request, url)) {
     event.respondWith(
       fetch(request, { cache: "no-store" }).catch(() =>

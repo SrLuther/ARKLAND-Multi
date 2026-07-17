@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.61"
+APP_VERSION: str = "1.10.62"
 BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,15 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.62",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix P0 (Web Store / Warmup): overlay «A preparar a loja…» fail-safe absoluto 4s no HTML inline + botão «Entrar mesmo assim» 2s; gate 4s; bootstrap 100% background (IndexedDB não bloqueia UI; runStoreWarmup não reabre overlay).",
+            "Fix P0 (Web Store / PWA): service worker v3 network-only index.html + force update skipWaiting; cache-bust estáticos ?v=1.10.62.",
+            "Fix P0 (Web Store / Boot): migrate/reconcile/schema single-flight por pid (env guard + lock); swap atómico do engine evita race que relançava migrate 2× no mesmo processo.",
+        ],
     },
     {
         "version": "1.10.61",

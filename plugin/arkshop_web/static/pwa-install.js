@@ -98,7 +98,37 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(function () {});
+      navigator.serviceWorker
+        .register("/service-worker.js?v=1.10.62", { scope: "/" })
+        .then(function (reg) {
+          // Force update: activa SW novo de imediato (index.html fail-safe).
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+          reg.update().catch(function () {});
+          reg.addEventListener("updatefound", function () {
+            var nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener("statechange", function () {
+              if (nw.state === "installed" && navigator.serviceWorker.controller) {
+                nw.postMessage({ type: "SKIP_WAITING" });
+              }
+            });
+          });
+        })
+        .catch(function () {});
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (refreshing) return;
+        refreshing = true;
+        // Uma vez só — evita loop se o HTML já tem o fail-safe novo.
+        try {
+          if (!sessionStorage.getItem("arkland_sw_reloaded_v62")) {
+            sessionStorage.setItem("arkland_sw_reloaded_v62", "1");
+            window.location.reload();
+          }
+        } catch (_) {}
+      });
     });
   }
 

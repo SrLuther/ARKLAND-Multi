@@ -7,6 +7,14 @@
 
 ## [Unreleased] - 
 
+## [1.10.62] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / Warmup): overlay «A preparar a loja…» fail-safe absoluto 4s no HTML inline + botão «Entrar mesmo assim» 2s; gate 4s; bootstrap 100% background (IndexedDB não bloqueia UI; runStoreWarmup não reabre overlay).
+- Fix P0 (Web Store / PWA): service worker v3 network-only index.html + force update skipWaiting; cache-bust estáticos ?v=1.10.62.
+- Fix P0 (Web Store / Boot): migrate/reconcile/schema single-flight por pid (env guard + lock); swap atómico do engine evita race que relançava migrate 2× no mesmo processo.
+
 ## [1.10.61] - 2026-07-17
 
 ### Fix
