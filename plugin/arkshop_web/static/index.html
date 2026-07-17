@@ -1463,6 +1463,36 @@
       color: var(--text2);
       margin-bottom: 4px;
     }
+    .market-listing-card__stats {
+      margin-top: 8px;
+      display: grid;
+      gap: 6px;
+    }
+    .market-listing-card__stats--pair {
+      gap: 8px;
+    }
+    .market-listing-card__stats-row {
+      font-size: 11px;
+      line-height: 1.45;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .market-listing-card__stats-row--single {
+      padding: 5px 8px;
+    }
+    .market-listing-card__stats-label {
+      display: block;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    .market-listing-card__stats-values {
+      color: var(--text2);
+      font-size: 11px;
+    }
     .market-listing-card__char-count {
       font-size: 10px;
       color: var(--text2);
@@ -3140,6 +3170,71 @@
       background-size: 100% 100%, 100% 100%;
     }
     #auth-overlay.hidden { display: none; }
+
+    /* ── Store warmup overlay (bloqueia nav até cache/bootstrap) ─────────── */
+    #store-warmup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10050;
+      background: rgba(4,6,12,.94);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #store-warmup-overlay.hidden { display: none; }
+    .store-warmup-card {
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      padding: 36px 28px;
+      background: var(--surface);
+      border: 1px solid rgba(232,120,32,.35);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow), 0 0 48px rgba(200,60,0,.12);
+    }
+    .store-warmup-logo {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      border: 2px solid rgba(232,120,32,.45);
+      box-shadow: 0 0 24px rgba(255,100,16,.35);
+      overflow: hidden;
+      background: #fff;
+    }
+    .store-warmup-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .store-warmup-title {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      letter-spacing: .12em;
+      color: var(--amber);
+      margin-bottom: 6px;
+    }
+    .store-warmup-text {
+      font-size: 14px;
+      color: var(--text2);
+      margin-bottom: 18px;
+      min-height: 1.4em;
+    }
+    .store-warmup-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .store-warmup-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--amber), #ff9040);
+      transition: width .35s ease;
+      box-shadow: 0 0 12px rgba(255,140,32,.45);
+    }
+    .store-warming { pointer-events: none; user-select: none; }
+    body.store-warming-active { overflow: hidden; }
 
     .auth-card {
       width: 100%;
@@ -5868,7 +5963,10 @@
 (function () {
   function bootShellEarly() {
     var t = document.getElementById("sb-text");
-    if (t) t.textContent = "Conectando…";
+    if (t) t.textContent = "A preparar a loja…";
+    var shell = document.getElementById("shell");
+    if (shell) shell.classList.add("store-warming");
+    document.body.classList.add("store-warming-active");
     document.querySelectorAll(".admin-only:not(.page)").forEach(function (el) {
       el.style.display = "none";
     });
@@ -5889,7 +5987,7 @@
     var t = document.getElementById("sb-text");
     if (!t || window.__portalBooted) return;
     var msg = (t.textContent || "").trim();
-    if (msg !== "Inicializando…" && msg !== "Conectando…") return;
+    if (msg !== "Inicializando…" && msg !== "Conectando…" && msg !== "A preparar a loja…") return;
     t.textContent = "JS não iniciou — limpe o cache (Ctrl+F5)";
     var root = document.getElementById("home-root");
     if (root && /Carregando portal/i.test(root.textContent || "")) {
@@ -5905,6 +6003,20 @@
   setTimeout(showJsBootFailure, 6000);
 })();
 </script>
+
+<!-- ── Store warmup overlay ─────────────────────────────────────────────────── -->
+<div id="store-warmup-overlay" aria-live="polite" aria-busy="true">
+  <div class="store-warmup-card">
+    <div class="store-warmup-logo">
+      <img src="/logo.png" alt="" width="88" height="88" />
+    </div>
+    <div class="store-warmup-title">ARKLAND</div>
+    <div class="store-warmup-text" id="store-warmup-text">A preparar a loja…</div>
+    <div class="store-warmup-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="store-warmup-bar" id="store-warmup-bar"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Auth Overlay ──────────────────────────────────────────────────────────── -->
 <div id="auth-overlay" class="hidden">
@@ -6165,7 +6277,7 @@
             </div>
             <button class="btn btn-ghost btn-sm" onclick="openPolicyModal(false)">📜 Política</button>
             <button class="btn btn-ghost btn-sm" onclick="openRegulamentoPage()">📋 Regulamento</button>
-            <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadCatalog({ force: true })">↺ Atualizar</button>
           </div>
         </div>
         <div class="donation-policy-banner" onclick="openPolicyModal(false)" role="button" tabindex="0">
@@ -9491,7 +9603,7 @@ var _bootWatchdog = setTimeout(function () {
   var t = document.getElementById("sb-text");
   if (!t) return;
   var msg = (t.textContent || "").trim();
-  if (msg === "Inicializando…" || msg === "Conectando…" || msg === "Carregando catálogo…") {
+  if (msg === "Inicializando…" || msg === "Conectando…" || msg === "Carregando catálogo…" || msg === "A preparar a loja…") {
     t.textContent = "Portal travado — clique em Tentar novamente";
     var root = document.getElementById("home-root");
     if (root && /Carregando portal/i.test(root.textContent || "")) {
@@ -9904,6 +10016,7 @@ async function acceptRegulamento() {
 
 // Troca de aba: remove .active de todos os .page e aplica só no alvo (uma página visível por vez).
 function nav(el) {
+  if (!_storeWarmupReady) return;
   const page = el.dataset.page;
   if (page === "myarea" && !_auth.authenticated) {
     promptLogin("Minha Área");
@@ -10014,18 +10127,34 @@ async function logout() {
 async function loadAuth() {
   _auth = await fetchJson("/api/auth/me", { timeoutMs: 12000 });
   if (_auth.authenticated) {
-    await loadPlayerKitLimits().catch(() => { _playerKitLimits = {}; });
+    await loadPlayerKitLimits().catch(() => { _playerKitLimits = {}; _playerKitLimitsReady = false; });
   } else {
     _playerKitLimits = {};
+    _playerKitLimitsReady = false;
+  }
+}
+
+function _applyKitLimitsList(kits) {
+  _playerKitLimits = {};
+  if (Array.isArray(kits)) {
+    kits.forEach(k => { if (k && k.kit_id) _playerKitLimits[k.kit_id] = k; });
+    _playerKitLimitsReady = true;
+  } else {
+    _playerKitLimitsReady = false;
   }
 }
 
 async function loadPlayerKitLimits() {
-  if (!_auth.authenticated) { _playerKitLimits = {}; return; }
-  const d = await fetchJson("/api/player/kit-limits", { timeoutMs: 10000 });
-  _playerKitLimits = {};
+  if (!_auth.authenticated) {
+    _playerKitLimits = {};
+    _playerKitLimitsReady = false;
+    return;
+  }
+  const d = await fetchJson("/api/player/kit-limits", { timeoutMs: 15000 });
   if (d.ok && Array.isArray(d.kits)) {
-    d.kits.forEach(k => { if (k.kit_id) _playerKitLimits[k.kit_id] = k; });
+    _applyKitLimitsList(d.kits);
+  } else {
+    _playerKitLimitsReady = false;
   }
 }
 
@@ -10320,6 +10449,11 @@ function _kitLimitInfo(item) {
   if (fromApi) return fromApi;
   const limit = Number(item.defaultAmount || 0);
   if (limit <= 0) return null;
+  // Autenticado sem dados da API: nunca assumir DefaultAmount disponível (evita falso "1 de 1").
+  if (_auth.authenticated) {
+    if (!_playerKitLimitsReady) return { limit, remaining: null, effective_remaining: null, used: null, _loading: true };
+    return { limit, remaining: 0, effective_remaining: 0, used: limit, _exhausted: true };
+  }
   return { limit, remaining: limit, effective_remaining: limit, used: 0 };
 }
 
@@ -10519,6 +10653,7 @@ function formatKey(key) {
 let _catalogItems = [];
 let _catalogKits = [];
 let _playerKitLimits = {};
+let _playerKitLimitsReady = false;
 let _catalogPackages = [];
 let _playerEntitlements = [];
 let _playerTimedPointsTotal = 25;
@@ -11026,13 +11161,18 @@ function _renderProductCard(i, btnLabel) {
   const doc = i._redeemDoc || (typeof RedeemDocs !== "undefined" ? RedeemDocs.buildItemRedeemDoc(i, _redeemDocHelpers()) : null);
   const locked = _auth.authenticated && _licensePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
   const kitLim = _kitLimitInfo(i);
-  const kitExhausted = !!(kitLim && (kitLim.effective_remaining ?? kitLim.remaining ?? 0) <= 0);
+  const kitEff = kitLim ? (kitLim.effective_remaining ?? kitLim.remaining) : null;
+  const kitLoading = !!(kitLim && kitLim._loading);
+  const kitExhausted = !!(kitLim && !kitLoading && (kitEff ?? 0) <= 0);
+  const cardLocked = locked || kitExhausted;
   const buyBtn = !_auth.authenticated
     ? `<button class="btn btn-ghost btn-sm" onclick="promptLogin('resgate')">Login p/ resgatar</button>`
     : locked
       ? `<button class="btn btn-ghost btn-sm" disabled title="Licença necessária">🔒 Licença</button>`
+      : kitLoading
+        ? `<button class="btn btn-ghost btn-sm" disabled title="Carregando limites de resgate…">⏳ …</button>`
       : kitExhausted
-        ? `<button class="btn btn-ghost btn-sm" disabled title="Limite de resgates esgotado">⛔ Esgotado</button>`
+        ? `<button class="btn btn-ghost btn-sm" disabled title="Limite de resgates esgotado">🔒 Esgotado</button>`
         : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
   const docHtml = doc && typeof RedeemDocs !== "undefined" ? RedeemDocs.renderProductDocHtml(doc) : "";
   const adminDesc = String(i.desc || "").trim();
@@ -11059,16 +11199,17 @@ function _renderProductCard(i, btnLabel) {
     metaLine = `${hlHtml}<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>o que inclui</button></div>`;
   }
   if (kitLim && kitLim.limit > 0) {
-    const eff = kitLim.effective_remaining ?? kitLim.remaining ?? 0;
-    metaLine += `<div class="item-card__meta-line" style="color:${eff <= 0 ? "var(--danger)" : "var(--text2)"};">🔁 ${eff} de ${kitLim.limit} resgate(s) restante(s)</div>`;
+    const eff = kitEff;
+    const effLabel = kitLoading ? "…" : String(eff ?? 0);
+    metaLine += `<div class="item-card__meta-line" style="color:${!kitLoading && (eff ?? 0) <= 0 ? "var(--danger)" : "var(--text2)"};">🔁 ${effLabel} de ${kitLim.limit} resgate(s) restante(s)</div>`;
   } else if (i.tier && _isDinoType(i.type) && i.speciesKey) {
     metaLine = `<div class="item-card__meta-line">${escHtml(i.speciesKey)}</div>`;
   }
   const tierOnlyThumb = !!(i.tier && _isDinoType(i.type) && !i.thumbnailUrl);
   return `
-    <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}" title="${escHtml(fullDesc || shortDesc || i.name)}">
+    <div class="item-card ${_catalogTypeClass(i.type)}${cardLocked ? " item-card--locked" : ""}" title="${escHtml(fullDesc || shortDesc || i.name)}">
       <div class="item-card__thumb${tierOnlyThumb ? " item-card__thumb--tier-only" : ""}">
-        ${locked ? `<div class="item-card__icon">🔒</div>` : _catalogThumbHtml(i)}
+        ${cardLocked ? `<div class="item-card__icon">${locked ? "🔒" : "🔒"}</div>` : _catalogThumbHtml(i)}
       </div>
       <div class="item-card__body">
         <div class="item-card__cat">${escHtml(catLabel)}</div>
@@ -11088,19 +11229,455 @@ function _renderProductCard(i, btnLabel) {
 let _catalogLoadAbort = null;
 let _catalogLoadGen = 0;
 
-async function loadCatalog() {
+// ── Store warmup + cache local (localStorage / IndexedDB, SWR) ───────────────
+const STORE_CACHE_META_KEY = "arkland_store_meta_v1";
+const STORE_CACHE_LS_KEY = "arkland_store_payload_v1";
+const STORE_CACHE_IDB_NAME = "arkland-store-cache";
+const STORE_CACHE_IDB_STORE = "payloads";
+const STORE_CACHE_TTL_MS = 30 * 60 * 1000;
+let _storeWarmupReady = false;
+let _storeWarmupRevalidating = false;
+
+function _storeCacheNow() { return Date.now(); }
+
+function _readStoreMeta() {
+  try {
+    const raw = localStorage.getItem(STORE_CACHE_META_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
+function _writeStoreMeta(meta) {
+  try { localStorage.setItem(STORE_CACHE_META_KEY, JSON.stringify(meta)); } catch (_) {}
+}
+
+function _openStoreIdb() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) { resolve(null); return; }
+    const req = indexedDB.open(STORE_CACHE_IDB_NAME, 1);
+    req.onerror = () => resolve(null);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_CACHE_IDB_STORE)) {
+        db.createObjectStore(STORE_CACHE_IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+
+async function _idbGet(key) {
+  const db = await _openStoreIdb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE_CACHE_IDB_STORE, "readonly");
+    const req = tx.objectStore(STORE_CACHE_IDB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function _idbSet(key, value) {
+  const db = await _openStoreIdb();
+  if (!db) return false;
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE_CACHE_IDB_STORE, "readwrite");
+    tx.objectStore(STORE_CACHE_IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
+  });
+}
+
+async function _readBootstrapCache() {
+  const meta = _readStoreMeta();
+  if (!meta || !meta.savedAt) return null;
+  if (_storeCacheNow() - meta.savedAt > STORE_CACHE_TTL_MS) return null;
+  let payload = null;
+  if (meta.storage === "idb") {
+    payload = await _idbGet("bootstrap");
+  } else {
+    try {
+      const raw = localStorage.getItem(meta.lsKey || STORE_CACHE_LS_KEY);
+      payload = raw ? JSON.parse(raw) : null;
+    } catch (_) { payload = null; }
+  }
+  if (!payload || !payload.catalog) return null;
+  return Object.assign({ meta }, payload);
+}
+
+function _bootstrapCacheValid(cached) {
+  if (!cached || !cached.catalog) return false;
+  const savedAt = cached.meta?.savedAt || cached.savedAt || 0;
+  return savedAt > 0 && (_storeCacheNow() - savedAt) <= STORE_CACHE_TTL_MS;
+}
+
+function _bootstrapMinReady() {
+  const hasCatalog = (_catalogItems && _catalogItems.length > 0)
+    || (_catalogKits && _catalogKits.length > 0)
+    || (_catalogPackages && _catalogPackages.length > 0);
+  if (!hasCatalog || _auth == null) return false;
+  if (_auth.authenticated && !_playerKitLimitsReady) return false;
+  return true;
+}
+
+async function _writeBootstrapCache(boot) {
+  const payload = {
+    savedAt: _storeCacheNow(),
+    fingerprint: boot.fingerprint || null,
+    catalog: boot.catalog,
+    me: boot.me,
+    kit_limits: boot.kit_limits,
+    entitlements: boot.entitlements,
+    timed_points_total: boot.timed_points_total,
+  };
+  const meta = {
+    savedAt: payload.savedAt,
+    fingerprint: payload.fingerprint,
+    storage: "ls",
+    lsKey: STORE_CACHE_LS_KEY,
+  };
+  try {
+    const json = JSON.stringify(payload);
+    if (json.length > 900000) {
+      const ok = await _idbSet("bootstrap", payload);
+      if (ok) {
+        meta.storage = "idb";
+        delete meta.lsKey;
+        localStorage.removeItem(STORE_CACHE_LS_KEY);
+      } else {
+        localStorage.setItem(STORE_CACHE_LS_KEY, json);
+      }
+    } else {
+      localStorage.setItem(STORE_CACHE_LS_KEY, json);
+    }
+    _writeStoreMeta(meta);
+  } catch (_) {
+    try {
+      await _idbSet("bootstrap", payload);
+      _writeStoreMeta({ savedAt: payload.savedAt, fingerprint: payload.fingerprint, storage: "idb" });
+    } catch (_) {}
+  }
+}
+
+function _writeStoreCache(catalogData) {
+  _writeBootstrapCache({
+    fingerprint: null,
+    catalog: catalogData,
+    me: _auth,
+    kit_limits: _playerKitLimitsReady ? Object.values(_playerKitLimits) : null,
+    entitlements: _playerEntitlements,
+    timed_points_total: _playerTimedPointsTotal,
+  }).catch(() => {});
+}
+
+function _showWarmupOverlay(show) {
+  const el = document.getElementById("store-warmup-overlay");
+  const shell = document.getElementById("shell");
+  if (el) {
+    el.classList.toggle("hidden", !show);
+    el.setAttribute("aria-busy", show ? "true" : "false");
+  }
+  if (shell) shell.classList.toggle("store-warming", show);
+  document.body.classList.toggle("store-warming-active", show);
+}
+
+function _setWarmupProgress(pct, text) {
+  const bar = document.getElementById("store-warmup-bar");
+  const label = document.getElementById("store-warmup-text");
+  const track = bar?.parentElement;
+  const n = Math.max(0, Math.min(100, Number(pct) || 0));
+  if (bar) bar.style.width = n + "%";
+  if (track) track.setAttribute("aria-valuenow", String(Math.round(n)));
+  if (label && text) label.textContent = text;
+}
+
+function _releaseStoreWarmup() {
+  _storeWarmupReady = true;
+  _setWarmupProgress(100, "Loja pronta");
+  _showWarmupOverlay(false);
+}
+
+async function _applyBootstrapFromCache(cached) {
+  if (cached.me) _auth = cached.me;
+  if (_auth?.authenticated && Array.isArray(cached.kit_limits)) {
+    _applyKitLimitsList(cached.kit_limits);
+  } else if (!_auth?.authenticated) {
+    _playerKitLimits = {};
+    _playerKitLimitsReady = false;
+  }
+  if (cached.catalog) {
+    await applyCatalogPayload(cached.catalog, {
+      entitlements: cached.entitlements,
+      timedPointsTotal: cached.timed_points_total,
+    });
+  }
+  applyRoleUi(true);
+}
+
+async function _applyBootstrapPayload(boot, opts = {}) {
+  if (boot.me) _auth = boot.me;
+  if (boot.kit_limits !== undefined) {
+    if (_auth?.authenticated && Array.isArray(boot.kit_limits)) {
+      _applyKitLimitsList(boot.kit_limits);
+    } else if (!_auth?.authenticated) {
+      _playerKitLimits = {};
+      _playerKitLimitsReady = false;
+    } else {
+      _playerKitLimitsReady = false;
+    }
+  }
+  if (boot.catalog) {
+    await applyCatalogPayload(boot.catalog, {
+      gen: opts.gen,
+      signal: opts.signal,
+      entitlements: boot.entitlements,
+      timedPointsTotal: boot.timed_points_total,
+    });
+  }
+  applyRoleUi(true);
+}
+
+async function runStoreWarmup() {
+  _storeWarmupReady = false;
+  _showWarmupOverlay(true);
+  _setWarmupProgress(8, "A preparar a loja…");
+
+  let cacheReleased = false;
+  try {
+    const cached = await _readBootstrapCache();
+    if (_bootstrapCacheValid(cached)) {
+      _setWarmupProgress(22, "A carregar loja do cache…");
+      await _applyBootstrapFromCache(cached);
+      if (_bootstrapMinReady()) {
+        cacheReleased = true;
+        _setWarmupProgress(55, "A atualizar em segundo plano…");
+        _releaseStoreWarmup();
+      }
+    }
+  } catch (_) {}
+
+  try {
+    if (!cacheReleased) _setWarmupProgress(30, "A sincronizar catálogo…");
+    const boot = await fetchJson("/api/store/bootstrap", { timeoutMs: 15000 });
+    if (boot && boot.ok !== false) {
+      await _applyBootstrapPayload(boot);
+      try { await _writeBootstrapCache(boot); } catch (_) {}
+      if (!cacheReleased) _releaseStoreWarmup();
+      return true;
+    }
+  } catch (e) {
+    if (cacheReleased) {
+      console.warn("store bootstrap revalidate:", e);
+      return true;
+    }
+  }
+
+  if (cacheReleased) return true;
+
+  _setWarmupProgress(45, "A carregar dados…");
+  await loadAuth().catch(() => {
+    _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
+  });
+  applyRoleUi(true);
+  const catalogOk = await loadCatalog().catch(() => false);
+  if (catalogOk && _bootstrapMinReady()) {
+    _releaseStoreWarmup();
+    return true;
+  }
+  if (catalogOk) {
+    _releaseStoreWarmup();
+    return true;
+  }
+  _setWarmupProgress(100, "Loja indisponível — tente recarregar");
+  toast("Não foi possível preparar a loja. Verifique a conexão.", "warning");
+  _releaseStoreWarmup();
+  return false;
+}
+
+// Aplica o payload de catálogo (de /api/catalog, /api/store/bootstrap ou cache
+// local). opts.entitlements/timedPointsTotal evitam um round-trip extra quando
+// o warmup já os trouxe; opts.gen/opts.signal permitem cancelamento cooperativo.
+async function applyCatalogPayload(data, opts = {}) {
+  const { gen = null, signal = null, entitlements = undefined, timedPointsTotal = undefined } = opts;
+  const genStale = () => gen != null && gen !== _catalogLoadGen;
+  if (!data) return false;
+  {
+    if (data.currency) applyCurrency(data.currency);
+    if (data.tier_icon_urls) Object.assign(_catalogTierIcons, data.tier_icon_urls);
+    const shop = data.items || data.ShopItems || data.Items || {};
+    const kits = data.kits || data.Kits || {};
+    const title = document.getElementById("catalog-shop-name");
+    if (title && data.shop_name) title.textContent = displayBrandName(data.shop_name);
+    else if (title) title.textContent = "ARKLAND DONATIONS";
+    const urlEl = document.getElementById("catalog-shop-url");
+    const shopUrl = data.shop_url || data.public_url || "";
+    if (urlEl) {
+      if (shopUrl) {
+        urlEl.style.display = "";
+        urlEl.textContent = shopUrl;
+      } else {
+        urlEl.style.display = "none";
+        urlEl.textContent = "";
+      }
+    }
+
+    _catalogItems = Object.entries(shop).map(([key, v]) => _attachRedeemDoc({
+      key,
+      name:     v.Name || v.name || v.Description || formatKey(key),
+      desc:     v.Description || v.description || "",
+      price:    v.Price ?? v.price ?? 0,
+      type:     _catalogDisplayType(v, key),
+      category: v.display_category || _resolveItemCategory(v, key),
+      displayCategory: v.display_category || _resolveItemCategory(v, key),
+      catalogKind: "item",
+      purchaseType: "shop",
+      permissions: v.Permissions || v.RequiredPermissions || "",
+      permissionsMode: v.PermissionsMode || "any",
+      licenseGrant: v.LicenseGrant || null,
+      thumbnailUrl: v.thumbnail_url || "",
+      searchText: v.search_text || "",
+      tier: v.tier || "",
+      speciesKey: v.species_key || "",
+      blueprint: v.blueprint || "",
+      dinoLevel: Number(v.dino_level ?? ((v.Dinos || [])[0] || {}).Level ?? 1) || 1,
+      licenseDays: v.license_days,
+      licenseGroup: v.license_group || "",
+    }));
+
+    _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
+      key,
+      name:     v.Name || v.name || v.Description || v.description || formatKey(key),
+      desc:     v.kit_description || v.KitDescription || v.Description || v.description || "",
+      price:    v.Price ?? v.price ?? 0,
+      type:     "kit",
+      category: "Kit",
+      displayCategory: v.display_category || "Kit",
+      catalogKind: "kit",
+      purchaseType: "kit",
+      kitItems: v.item_count ?? (v.Items || []).length,
+      itemCount: v.item_count ?? (v.Items || []).length,
+      kitContents: v.kit_contents || [],
+      kitDescription: v.kit_description || v.KitDescription || "",
+      kitSummary: v.kit_summary || {},
+      permissions: v.Permissions || v.RequiredPermissions || "",
+      permissionsMode: v.PermissionsMode || "any",
+      thumbnailUrl: v.thumbnail_url || "",
+      searchText: v.search_text || "",
+      tier: v.tier || "",
+      defaultAmount: Number(v.DefaultAmount ?? v.default_amount ?? 0) || 0,
+    }));
+
+    _catalogPackages = data.point_packages || [];
+    _catalogPixEnabled = !!data.pix_enabled;
+    _catalogCardEnabled = !!data.card_enabled;
+    if (data.exchange_rates && data.exchange_rates.rates) {
+      _exchangeRates = data.exchange_rates.rates;
+    }
+
+    if (genStale()) return false;
+
+    if (_auth.authenticated) {
+      if (entitlements !== undefined) {
+        _playerEntitlements = Array.isArray(entitlements) ? entitlements : [];
+        _playerTimedPointsTotal = timedPointsTotal || 25;
+      } else {
+        try {
+          const ed = await fetchJson("/api/player/entitlements", { timeoutMs: 10000, signal });
+          if (genStale()) return false;
+          if (ed.ok) {
+            _playerEntitlements = ed.entitlements || [];
+            _playerTimedPointsTotal = ed.timed_points_total || 25;
+          }
+        } catch (e) {
+          if (!e?.stale) { /* mantém cache anterior */ }
+        }
+      }
+    } else {
+      _playerEntitlements = [];
+      _playerTimedPointsTotal = 25;
+    }
+
+    const dynamicCats = _catalogItemCategoriesForFilter();
+    const cats = _mergeCatalogCategories(dynamicCats);
+    const catCounts = _catalogCategoryCounts();
+    const sel = document.getElementById("catalog-cat");
+    if (sel) {
+      sel.innerHTML = '<option value="">Todas as categorias</option>'
+        + cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("");
+      sel.value = _catalogActiveCat;
+    }
+    renderCatalogCats(dynamicCats, catCounts);
+    if (_catalogActiveTab === "items") renderCatalogItems();
+    if (_catalogActiveTab === "dinos") renderCatalogDinos();
+    if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
+    if (_catalogActiveTab === "kits") renderCatalogKits();
+    if (_catalogActiveTab === "licenses") renderCatalogLicenses();
+    if (_catalogActiveTab === "available") loadAvailable();
+    if (_catalogActiveTab === "recharge") renderRecharge();
+    updateCatalogPoints();
+    if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(_catalogActiveTab);
+    return true;
+  }
+}
+
+async function loadCatalog(opts) {
+  const force = !!(opts && opts.force);
+  if (!force && (_catalogItems.length > 0 || _catalogKits.length > 0)) {
+    _revalidateCatalogBackground();
+    return true;
+  }
   if (_catalogLoadAbort) {
     try { _catalogLoadAbort.abort(); } catch (_) {}
   }
   const ctrl = new AbortController();
   _catalogLoadAbort = ctrl;
   const gen = ++_catalogLoadGen;
-  const timer = setTimeout(() => ctrl.abort(), 20000);
+  const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
+    const cached = await _readBootstrapCache();
+    if (_bootstrapCacheValid(cached) && cached.catalog && !force) {
+      await applyCatalogPayload(cached.catalog, { gen, signal: ctrl.signal });
+      _revalidateCatalogBackground();
+      return true;
+    }
     const r = await fetch(API + "/api/catalog", { signal: ctrl.signal });
     if (gen !== _catalogLoadGen) return false;
     if (!r.ok) return false;
     const data = await r.json();
+    try { _writeStoreCache(data); } catch (_) {}
+    return await applyCatalogPayload(data, { gen, signal: ctrl.signal });
+  } catch (e) {
+    if (e?.name === "AbortError") return false;
+    console.warn("loadCatalog:", e);
+    return false;
+  } finally {
+    clearTimeout(timer);
+    if (_catalogLoadAbort === ctrl) _catalogLoadAbort = null;
+  }
+}
+
+function _revalidateCatalogBackground() {
+  if (_storeWarmupRevalidating) return;
+  _storeWarmupRevalidating = true;
+  fetchJson("/api/store/bootstrap", { timeoutMs: 15000 })
+    .then(async (boot) => {
+      if (boot && boot.ok !== false) {
+        await _applyBootstrapPayload(boot);
+        await _writeBootstrapCache(boot);
+      }
+    })
+    .catch(() => fetch(API + "/api/catalog")
+      .then(r => r.ok ? r.json() : null)
+      .then((data) => { if (data) { _writeStoreCache(data); applyCatalogPayload(data); } })
+      .catch(() => {}))
+    .finally(() => { _storeWarmupRevalidating = false; });
+}
+
+async function _loadCatalogLegacyUnused() {
+  const gen = _catalogLoadGen;
+  const ctrl = new AbortController();
+  {
+    const data = {};
     if (data.currency) applyCurrency(data.currency);
     if (data.tier_icon_urls) Object.assign(_catalogTierIcons, data.tier_icon_urls);
     const shop = data.items || data.ShopItems || data.Items || {};
@@ -11177,7 +11754,10 @@ async function loadCatalog() {
 
     if (_auth.authenticated) {
       try {
-        const ed = await fetchJson("/api/player/entitlements", { timeoutMs: 10000, signal: ctrl.signal });
+        const [ed, _kl] = await Promise.all([
+          fetchJson("/api/player/entitlements", { timeoutMs: 10000, signal: ctrl.signal }),
+          loadPlayerKitLimits().catch(() => { _playerKitLimitsReady = false; }),
+        ]);
         if (gen !== _catalogLoadGen) return false;
         if (ed.ok) {
           _playerEntitlements = ed.entitlements || [];
@@ -11189,6 +11769,8 @@ async function loadCatalog() {
     } else {
       _playerEntitlements = [];
       _playerTimedPointsTotal = 25;
+      _playerKitLimits = {};
+      _playerKitLimitsReady = false;
     }
 
     const dynamicCats = _catalogItemCategoriesForFilter();
@@ -18228,15 +18810,45 @@ function _marketPairPreviewY(p1, p2) {
   return Math.round(s * 0.6);
 }
 
-function _marketPairMateStatsLine(mate) {
-  if (!mate) return "";
-  const stats = mate.stats || {};
-  const title = mate.display_title || mate.species_display_name || "Parceiro";
-  const g = mate.is_female ? "♀" : "♂";
-  return `<div class="market-listing-card__pair-mate" style="margin-top:6px;font-size:11px;color:var(--text2);">
-    Parceiro: <strong style="color:var(--text);">${escHtml(title)} ${g}</strong>
-    · HP ${stats.health || 0} · Dmg ${stats.melee || 0} · Lvl ${mate.dino_level || "?"}
-    · Mut ${mate.mutations_male || 0}/${mate.mutations_female || 0}
+function _marketCreatureStatLine(l) {
+  if (!l) return "";
+  const stats = l.stats || {};
+  const parts = [
+    `Mut ${l.mutations_male ?? 0}/${l.mutations_female ?? 0}`,
+    `Lvl ${l.dino_level != null && l.dino_level !== "" ? l.dino_level : "?"}`,
+    `HP ${stats.health != null && stats.health !== "" ? stats.health : "?"}`,
+    `Dmg ${stats.melee != null && stats.melee !== "" ? stats.melee : "?"}`,
+  ];
+  if (stats.weight != null && stats.weight !== "" && Number(stats.weight) !== 0) {
+    parts.push(`Peso ${stats.weight}`);
+  }
+  return parts.join(" · ");
+}
+
+function _marketCreatureStatsRow(l, roleLabel) {
+  if (!l) return "";
+  const title = l.display_title || l.species_display_name || "Dino";
+  const g = l.is_female ? "♀" : "♂";
+  const label = roleLabel || (l.is_female ? "Fêmea" : "Macho");
+  return `<div class="market-listing-card__stats-row">
+    <span class="market-listing-card__stats-label">${escHtml(label)} · ${escHtml(title)} ${g}</span>
+    <span class="market-listing-card__stats-values">${escHtml(_marketCreatureStatLine(l))}</span>
+  </div>`;
+}
+
+function _marketListingStatsHtml(l, pairMate, isPair) {
+  if (!isPair || !pairMate) {
+    return `<div class="market-listing-card__stats">
+      <div class="market-listing-card__stats-row market-listing-card__stats-row--single">
+        <span class="market-listing-card__stats-values">${escHtml(_marketCreatureStatLine(l))}</span>
+      </div>
+    </div>`;
+  }
+  const male = l.is_female ? pairMate : l;
+  const female = l.is_female ? l : pairMate;
+  return `<div class="market-listing-card__stats market-listing-card__stats--pair">
+    ${_marketCreatureStatsRow(male, "Macho")}
+    ${_marketCreatureStatsRow(female, "Fêmea")}
   </div>`;
 }
 
@@ -18279,7 +18891,6 @@ function _marketPairPricingHtml(l, pairMate, { liveId = null } = {}) {
 }
 
 function _marketListingCard(l, { showBuy = false, showSellerActions = false, showAdminClassify = false } = {}) {
-  const stats = l.stats || {};
   const gender = l.is_female ? "♀" : "♂";
   const breakdownHtml = _marketBreakdownHtml(l.calculation_breakdown);
   const sug = l.classification_suggestion || null;
@@ -18414,14 +19025,12 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
           ${speciesLine ? `<div class="market-listing-card__species">${escHtml(speciesLine)}</div>` : ""}
           <div class="market-listing-card__chips">${pairChip}${categoryChip}${sugChip}${roleChip}</div>
           ${descHtml}
-          ${isPair ? _marketPairMateStatsLine(pairMate) : ""}
         </div>
         ${statusBadge}
       </div>
       <div style="font-size:13px;">
         ${priceLine}
-        <div style="color:var(--text2);font-size:12px;margin-top:4px;">Mut ${l.mutations_male}/${l.mutations_female} · Lvl ${l.dino_level || "?"}</div>
-        <div style="color:var(--text2);font-size:11px;margin-top:4px;">HP ${stats.health} · Dmg ${stats.melee} · Peso ${stats.weight}</div>
+        ${_marketListingStatsHtml(l, pairMate, isPair)}
         ${breakdownHtml}
       </div>
       ${actions}
@@ -22677,6 +23286,12 @@ let _buyItem = null;
 
 function openBuyModal(item, policyAlreadyAccepted) {
   if (!_auth.authenticated) { toast("Faça login para resgatar.", "warning"); return; }
+  const kitLim = _kitLimitInfo(item);
+  const kitEff = kitLim ? (kitLim.effective_remaining ?? kitLim.remaining) : null;
+  if (kitLim && !kitLim._loading && (kitEff ?? 0) <= 0) {
+    toast("Limite de resgates esgotado para este kit.", "warning");
+    return;
+  }
   if (!policyAlreadyAccepted) {
     try {
       if (!localStorage.getItem(DONATION_POLICY_KEY)) {
@@ -22774,6 +23389,9 @@ async function confirmBuy() {
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
       toast(extractApiError(d, r, "Falha no resgate"), "error");
+      if (d.kit_limit_reached) {
+        loadPlayerKitLimits().catch(() => {}).then(() => renderCatalog()).catch(() => {});
+      }
     }
   } catch(e) {
     toast("Erro de rede: " + e.message, "error");
@@ -24660,32 +25278,27 @@ async function bootPortal() {
   _clearBootWatchdog();
   initArkConnectDelegation();
   handleMpCardReturn();
-  setStatus(false, "Conectando…");
+  setStatus(false, "A preparar a loja…");
   try {
-    // Health em paralelo — não bloqueia catálogo/home (site público funciona sem MariaDB).
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
-    await loadAuth().catch(() => {
-      _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
-    });
-    applyRoleUi(true);
+    const warmupOk = await runStoreWarmup();
     showAuthOverlay(false);
     if (playerNeedsRegulamentoAccept()) {
       showRegulamentoGate();
     }
 
-    setStatus(false, "Carregando catálogo…");
+    setStatus(false, "Carregando portal…");
     const configPromise = _auth.is_admin ? loadConfig() : Promise.resolve(true);
-    const [health, homeOk, catalogOk, configOk] = await Promise.all([
+    const [health, homeOk, configOk] = await Promise.all([
       healthPromise,
       loadHome().catch(() => false),
-      loadCatalog().catch(() => false),
       configPromise.catch(() => false),
     ]);
 
     if (health && health._healthError) {
       toast("Backend lento ou offline — " + health._healthError.message, "warning");
-      if (!homeOk && !catalogOk) {
+      if (!homeOk && !warmupOk) {
         setStatus(false, "Web Store offline — " + health._healthError.message);
         return;
       }
@@ -24725,7 +25338,7 @@ async function bootPortal() {
       }
     }
 
-    if (!catalogOk) {
+    if (!warmupOk) {
       setStatus(
         false,
         homeOk

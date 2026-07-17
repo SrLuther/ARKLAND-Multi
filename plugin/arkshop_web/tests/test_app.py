@@ -2188,6 +2188,62 @@ class TestKitRedemptionLimit:
         assert r.status_code == 403
         assert r.get_json().get("kit_limit_reached") is True
 
+    def test_player_kit_limits_shows_zero_when_exhausted(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_kits(USER_STEAM, {"starter": {"Amount": 0}})
+        _login(client, USER_STEAM)
+        r = client.get("/api/player/kit-limits")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["ok"] is True
+        starter = next(k for k in d["kits"] if k["kit_id"] == "starter")
+        assert starter["limit"] == 3
+        assert starter["remaining"] == 0
+        assert starter["effective_remaining"] == 0
+
+    def test_pending_kit_counts_survive_many_other_orders(self, tmp_path, monkeypatch):
+        """GROUP BY não perde pendentes do kit alvo quando há milhares de outros pedidos."""
+        catalog = tmp_path / "shop.json"
+        kits = {
+            "target_kit": {"Description": "Target", "DefaultAmount": 1, "Price": 0},
+            **{
+                f"filler_{i}": {"Description": f"F {i}", "DefaultAmount": 0, "Price": 0}
+                for i in range(3)
+            },
+        }
+        catalog.write_text(json.dumps({"Kits": kits}), encoding="utf-8")
+        monkeypatch.setattr(_app_module, "_load_settings", lambda: {"config_path": str(catalog)})
+        _app_module._invalidate_shop_config_cache()
+
+        for i in range(520):
+            _create_order_direct(
+                steam_id=USER_STEAM,
+                item_id=f"filler_{i % 3}",
+                item_type="kit",
+                status="PENDENTE",
+                amount=1,
+            )
+        _create_order_direct(
+            steam_id=USER_STEAM,
+            item_id="target_kit",
+            item_type="kit",
+            status="PENDENTE",
+            amount=1,
+        )
+        self._seed_player_kits(USER_STEAM, {"target_kit": {"Amount": 1}})
+
+        db = _app_module._SessionLocal()
+        try:
+            counts = _app_module._pending_kit_order_counts(db, USER_STEAM)
+            assert counts.get("target_kit") == 1
+            limits = _app_module._build_player_kit_limits(db, USER_STEAM)
+            target = next(row for row in limits if row["kit_id"] == "target_kit")
+            assert target["pending_orders"] == 1
+            assert target["effective_remaining"] == 0
+        finally:
+            _app_module._release_db_session(db)
+
     def test_purchase_kit_unlimited_when_default_amount_zero(self, client, monkeypatch, tmp_path):
         config = {
             "Kits": {
@@ -2946,6 +3002,7 @@ class TestAdminPlayersSteamBackfill:
                 sql = str(getattr(stmt, "text", stmt) or stmt)
                 if "item_type = 'kit'" in sql and "PENDENTE" in sql:
                     pending_selects.append(sql)
+                    assert "GROUP BY item_id" in sql
                 return real_execute(stmt, *args, **kwargs)
 
             db.execute = _counting_execute  # type: ignore[method-assign]

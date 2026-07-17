@@ -15,6 +15,9 @@ log = logging.getLogger("arkshop_web.arkbank")
 
 ARKBANK_DONATION_AMBER_PER_REAL = 1000
 
+_ARKBANK_SCHEMA_READY_ENGINES: set[int] = set()
+_ARKBANK_SCHEMA_LOCK = __import__("threading").Lock()
+
 TX_CATALOG_SPEND = "catalog_spend"
 TX_CATALOG_REFUND_CLAWBACK = "catalog_refund_clawback"
 TX_MARKET_PAIR_SHARE = "market_pair_share"
@@ -59,6 +62,18 @@ def _naive_utc(dt: datetime | str | None = None) -> datetime:
 
 
 def ensure_arkbank_schema(engine: Engine) -> None:
+    """Cria tabelas arkbank_* uma vez por engine — nunca DDL em cada request."""
+    eid = id(engine)
+    if eid in _ARKBANK_SCHEMA_READY_ENGINES:
+        return
+    with _ARKBANK_SCHEMA_LOCK:
+        if eid in _ARKBANK_SCHEMA_READY_ENGINES:
+            return
+        _ensure_arkbank_schema_impl(engine)
+        _ARKBANK_SCHEMA_READY_ENGINES.add(eid)
+
+
+def _ensure_arkbank_schema_impl(engine: Engine) -> None:
     """Cria tabelas arkbank_state, arkbank_transactions e arkbank_timed_outbox."""
     is_sqlite = "sqlite" in str(engine.url).lower()
     if is_sqlite:

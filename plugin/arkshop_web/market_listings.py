@@ -887,12 +887,21 @@ def enrich_listing_pair_fields(
     item["pair_checkout_price"] = pricing["checkout_price"]
     item["pair_suggested_sum"] = suggested_sum
     # Breakdown estável para UI (Macho/Fêmea · pedido · sugerido)
+    def _creature_stats_fields(pub: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "dino_level": pub.get("dino_level"),
+            "mutations_male": pub.get("mutations_male"),
+            "mutations_female": pub.get("mutations_female"),
+            "stats": pub.get("stats") or {},
+        }
+
     self_line = {
         "listing_id": int(row.id),
         "is_female": bool(row.is_female),
         "asking_price": asking_self,
         "suggested_value": suggested_self,
         "display_title": item.get("display_title") or item.get("species_display_name"),
+        **_creature_stats_fields(item),
     }
     mate_line = {
         "listing_id": int(mate.id),
@@ -900,6 +909,7 @@ def enrich_listing_pair_fields(
         "asking_price": asking_mate,
         "suggested_value": suggested_mate,
         "display_title": mate_pub.get("display_title") or mate_pub.get("species_display_name"),
+        **_creature_stats_fields(mate_pub),
     }
     male_line = mate_line if self_line["is_female"] else self_line
     female_line = self_line if self_line["is_female"] else mate_line
@@ -2564,6 +2574,7 @@ def list_pending_classification(db: Session, *, limit: int = 100) -> list[dict[s
             species_row=species_by_key.get(sk or ""),
         )
         item["seller_display_name"] = names.get(row.seller_steam_id)
+        enrich_listing_pair_fields(db, item, row, species_by_key=species_by_key)
         out.append(item)
     return out
 
@@ -3300,6 +3311,7 @@ def get_admin_listing_detail(db: Session, listing_id: int) -> dict[str, Any]:
         }
     else:
         item["cryo_preview"] = None
+    enrich_listing_pair_fields(db, item, row)
     return item
 
 

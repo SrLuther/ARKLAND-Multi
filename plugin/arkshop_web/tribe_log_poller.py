@@ -166,7 +166,10 @@ def poll_once(
     *,
     session_factory: Callable[[], Any] | None = None,
 ) -> dict[str, Any]:
-    """Uma passagem de polling: ficheiros locais + remote_agent opcional."""
+    """Uma passagem de polling: ficheiros locais + remote_agent opcional.
+
+    Sessões curtas: NUNCA mantém conexão do pool durante urllib/HTTP remoto.
+    """
     from tribe_service import get_max_file_offset, ingest_tribe_log_lines
 
     if session_factory is None:
@@ -180,7 +183,25 @@ def poll_once(
     if session_factory is None:
         return {"ok": False, "error": "Banco não configurado"}
 
+    def _close_db(db: Any) -> None:
+        try:
+            db.close()
+        except Exception:
+            pass
+        try:
+            if hasattr(session_factory, "remove"):
+                session_factory.remove()
+            else:
+                import app as app_module
+
+                if getattr(app_module, "_SessionLocal", None) is not None:
+                    app_module._SessionLocal.remove()
+        except Exception:
+            pass
+
     summary: dict[str, Any] = {"ok": True, "servers": [], "inserted_total": 0}
+
+    # ── Local files (I/O disco, sessão só para offset + ingest) ──
     db = session_factory()
     try:
         for target in discover_local_tribe_log_targets():
@@ -191,7 +212,6 @@ def poll_once(
             since = get_max_file_offset(db, sid)
             try:
                 lines, new_off = read_tribe_log_since(path, since_offset=since)
-                # Primeira ingestão: não carrega o ficheiro inteiro histórico
                 if since == 0 and lines and len(lines) > 200:
                     lines = lines[-200:]
                 result = {"inserted": 0, "skipped": 0}
@@ -217,80 +237,90 @@ def poll_once(
             except Exception as exc:
                 log.warning("tribe_log poll local %s: %s", sid, exc)
                 summary["servers"].append({"server_id": sid, "error": str(exc)})
-
-        remote_url = os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL", "").strip()
-        remote_token = os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN", "").strip()
-        if remote_url and remote_token:
-            # Lista servidores conhecidos via remote /servers
-            try:
-                req = urllib.request.Request(
-                    remote_url.rstrip("/") + "/servers",
-                    headers={"Authorization": f"Bearer {remote_token}"},
-                )
-                with urllib.request.urlopen(req, timeout=8.0) as resp:
-                    servers_payload = json.loads(resp.read().decode("utf-8"))
-                remote_servers = servers_payload.get("servers") or []
-            except Exception as exc:
-                log.debug("remote /servers: %s", exc)
-                remote_servers = []
-
-            for srv in remote_servers:
-                sid = str(
-                    (srv.get("shop_server_id") if isinstance(srv, dict) else None)
-                    or (srv.get("id") if isinstance(srv, dict) else None)
-                    or (srv.get("name") if isinstance(srv, dict) else None)
-                    or ""
-                ).strip()
-                if not sid:
-                    continue
-                since = get_max_file_offset(db, sid)
-                try:
-                    payload = fetch_remote_tribelog(
-                        base_url=remote_url,
-                        token=remote_token,
-                        server_id=sid,
-                        offset=since,
-                    )
-                    raw_lines = payload.get("lines") or []
-                    new_off = int(payload.get("offset") or since)
-                    result = {"inserted": 0, "skipped": 0}
-                    if raw_lines:
-                        result = ingest_tribe_log_lines(
-                            db,
-                            server_id=sid,
-                            lines=raw_lines,
-                            source="remote_agent",
-                        )
-                    entry = {
-                        "server_id": sid,
-                        "source": "remote_agent",
-                        "since": since,
-                        "new_offset": new_off,
-                        "lines": len(raw_lines),
-                        **result,
-                    }
-                    summary["servers"].append(entry)
-                    summary["inserted_total"] += int(result.get("inserted") or 0)
-                    _last_status["servers"][sid] = entry
-                except Exception as exc:
-                    log.warning("tribe_log poll remote %s: %s", sid, exc)
-                    summary["servers"].append({"server_id": sid, "error": str(exc)})
     finally:
-        try:
-            db.close()
-        except Exception:
-            pass
-        # scoped_session: remove() devolve a conexão ao pool nesta thread.
-        try:
-            if hasattr(session_factory, "remove"):
-                session_factory.remove()
-            else:
-                import app as app_module
+        _close_db(db)
 
-                if getattr(app_module, "_SessionLocal", None) is not None:
-                    app_module._SessionLocal.remove()
-        except Exception:
-            pass
+    remote_url = os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL", "").strip()
+    remote_token = os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN", "").strip()
+    if not (remote_url and remote_token):
+        _last_status["runs"] = int(_last_status.get("runs") or 0) + 1
+        _last_status["last_error"] = None
+        return summary
+
+    # ── Remote HTTP SEM sessão DB ──
+    try:
+        req = urllib.request.Request(
+            remote_url.rstrip("/") + "/servers",
+            headers={"Authorization": f"Bearer {remote_token}"},
+        )
+        with urllib.request.urlopen(req, timeout=8.0) as resp:
+            servers_payload = json.loads(resp.read().decode("utf-8"))
+        remote_servers = servers_payload.get("servers") or []
+    except Exception as exc:
+        log.debug("remote /servers: %s", exc)
+        remote_servers = []
+
+    remote_sids: list[str] = []
+    for srv in remote_servers:
+        sid = str(
+            (srv.get("shop_server_id") if isinstance(srv, dict) else None)
+            or (srv.get("id") if isinstance(srv, dict) else None)
+            or (srv.get("name") if isinstance(srv, dict) else None)
+            or ""
+        ).strip()
+        if sid:
+            remote_sids.append(sid)
+
+    offsets: dict[str, int] = {}
+    if remote_sids:
+        db = session_factory()
+        try:
+            for sid in remote_sids:
+                offsets[sid] = get_max_file_offset(db, sid)
+        finally:
+            _close_db(db)
+
+    pending_ingest: list[tuple[str, int, dict[str, Any]]] = []
+    for sid, since in offsets.items():
+        try:
+            payload = fetch_remote_tribelog(
+                base_url=remote_url,
+                token=remote_token,
+                server_id=sid,
+                offset=since,
+            )
+            pending_ingest.append((sid, since, payload))
+        except Exception as exc:
+            log.warning("tribe_log poll remote %s: %s", sid, exc)
+            summary["servers"].append({"server_id": sid, "error": str(exc)})
+
+    if pending_ingest:
+        db = session_factory()
+        try:
+            for sid, since, payload in pending_ingest:
+                raw_lines = payload.get("lines") or []
+                new_off = int(payload.get("offset") or since)
+                result = {"inserted": 0, "skipped": 0}
+                if raw_lines:
+                    result = ingest_tribe_log_lines(
+                        db,
+                        server_id=sid,
+                        lines=raw_lines,
+                        source="remote_agent",
+                    )
+                entry = {
+                    "server_id": sid,
+                    "source": "remote_agent",
+                    "since": since,
+                    "new_offset": new_off,
+                    "lines": len(raw_lines),
+                    **result,
+                }
+                summary["servers"].append(entry)
+                summary["inserted_total"] += int(result.get("inserted") or 0)
+                _last_status["servers"][sid] = entry
+        finally:
+            _close_db(db)
 
     _last_status["runs"] = int(_last_status.get("runs") or 0) + 1
     _last_status["last_error"] = None

@@ -122,16 +122,31 @@ def _normalize_shop_db_url(shop_url: str) -> str:
     return raw
 
 
+# Singleton por URL — evita criar pool novo a cada sync (pressão no MySQL).
+_PERM_ENGINE_CACHE: dict[str, Engine] = {}
+_SHOP_ENGINE_CACHE: dict[str, Engine] = {}
+_ENGINE_CACHE_LOCK = threading.Lock()
+
+
 def _perm_engine(shop_db_url: str) -> Engine | None:
     url = _parse_shop_db_url(shop_db_url)
     if not url:
         return None
-    return create_engine(
-        url,
-        future=True,
-        pool_pre_ping=True,
-        connect_args={"connect_timeout": 5, "read_timeout": 12, "write_timeout": 12},
-    )
+    with _ENGINE_CACHE_LOCK:
+        cached = _PERM_ENGINE_CACHE.get(url)
+        if cached is not None:
+            return cached
+        eng = create_engine(
+            url,
+            future=True,
+            pool_pre_ping=True,
+            pool_size=1,
+            max_overflow=0,
+            pool_recycle=1800,
+            connect_args={"connect_timeout": 5, "read_timeout": 12, "write_timeout": 12},
+        )
+        _PERM_ENGINE_CACHE[url] = eng
+        return eng
 
 
 def _shop_engine(shop_db_url: str) -> Engine | None:
@@ -142,12 +157,21 @@ def _shop_engine(shop_db_url: str) -> Engine | None:
     parsed = urllib.parse.urlparse(normalized)
     if not parsed.hostname or not parsed.username:
         return None
-    return create_engine(
-        url,
-        future=True,
-        pool_pre_ping=True,
-        connect_args={"connect_timeout": 5, "read_timeout": 12, "write_timeout": 12},
-    )
+    with _ENGINE_CACHE_LOCK:
+        cached = _SHOP_ENGINE_CACHE.get(url)
+        if cached is not None:
+            return cached
+        eng = create_engine(
+            url,
+            future=True,
+            pool_pre_ping=True,
+            pool_size=1,
+            max_overflow=0,
+            pool_recycle=1800,
+            connect_args={"connect_timeout": 5, "read_timeout": 12, "write_timeout": 12},
+        )
+        _SHOP_ENGINE_CACHE[url] = eng
+        return eng
 
 
 def _split_csv_groups(raw: str) -> list[str]:

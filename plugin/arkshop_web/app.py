@@ -49,6 +49,15 @@ from werkzeug.exceptions import HTTPException
 from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
+from db_diagnostics import (
+    attach_engine_listeners,
+    circuit_is_open,
+    circuit_status,
+    clear_request_context,
+    mark_checkout_started,
+    probe_database,
+    set_request_context,
+)
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
 from server_connect import diagnose_server_connect, public_server_connect_view
 
@@ -1043,6 +1052,7 @@ class MarketAuditEvent(Base):
 
 _ENGINE: Any = None
 _SessionLocal: Any = None  # set by _configure_database(); None only before first DB config
+_DB_CONNECT_ARGS: dict[str, Any] = {}
 _STORE_USERS_SCHEMA_READY = False
 _STORE_USERS_SCHEMA_LOCK = threading.Lock()
 _HOT_PATH_INDEXES_READY = False
@@ -1891,7 +1901,7 @@ def _start_db_reconnect_watcher() -> None:
 
 
 def _configure_database(url: str) -> None:
-    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL
+    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS
 
     normalized = (url or "").strip()
     if normalized == _ACTIVE_DATABASE_URL:
@@ -1913,19 +1923,26 @@ def _configure_database(url: str) -> None:
     if not normalized:
         return
 
+    # Timeouts agressivos: pool_timeout + read_timeout no pre_ping de conexão
+    # morta empilhavam ≈29s (12+12) sem query pesada — causa de timeouts com DB vazio.
     connect_args: dict[str, Any] = {}
     if "mysql" in normalized.lower():
-        read_to = int(os.environ.get("ARKSHOP_DB_READ_TIMEOUT", "12") or 12)
-        write_to = int(os.environ.get("ARKSHOP_DB_WRITE_TIMEOUT", "12") or 12)
+        read_to = int(os.environ.get("ARKSHOP_DB_READ_TIMEOUT", "3") or 3)
+        write_to = int(os.environ.get("ARKSHOP_DB_WRITE_TIMEOUT", "5") or 5)
         connect_args = {
-            "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "5") or 5),
-            "read_timeout": max(5, read_to),
-            "write_timeout": max(5, write_to),
+            "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "3") or 3),
+            "read_timeout": max(2, read_to),
+            "write_timeout": max(2, write_to),
+            # Keepalive: evita conexões stale que disparam pre_ping + read_timeout longo.
+            "init_command": (
+                "SET SESSION wait_timeout=600, interactive_timeout=600, net_read_timeout=30"
+            ),
         }
 
     pool_size = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
     max_overflow = max(0, int(os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", "30") or 30))
-    pool_timeout = max(3, int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "12") or 12))
+    pool_timeout = max(2, int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5))
+    pool_recycle = max(60, int(os.environ.get("ARKSHOP_DB_POOL_RECYCLE", "600") or 600))
 
     engine = create_engine(
         normalized,
@@ -1933,10 +1950,11 @@ def _configure_database(url: str) -> None:
         pool_pre_ping=True,
         pool_size=pool_size,
         max_overflow=max_overflow,
-        pool_recycle=1800,
+        pool_recycle=pool_recycle,
         pool_timeout=pool_timeout,
         connect_args=connect_args,
     )
+    attach_engine_listeners(engine)
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
 
     # Registra o DB como "configurado" ANTES de create_all.
@@ -1945,7 +1963,17 @@ def _configure_database(url: str) -> None:
     _ENGINE = engine
     _SessionLocal = session_local
     _ACTIVE_DATABASE_URL = normalized
-    _log("db_configured", **_safe_db_log_fields(normalized))
+    _DB_CONNECT_ARGS = dict(connect_args)
+    _log(
+        "db_configured",
+        **_safe_db_log_fields(normalized),
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_timeout=pool_timeout,
+        pool_recycle=pool_recycle,
+        read_timeout=connect_args.get("read_timeout"),
+        connect_timeout=connect_args.get("connect_timeout"),
+    )
 
     if os.environ.get("ARKSHOP_SYNC_DB_MIGRATE") == "1":
         try:
@@ -2055,26 +2083,34 @@ def _db_ready() -> bool:
 
 def _db_session_factory():
     """Sessão SQLAlchemy atual — usado por market_routes (não capturar _SessionLocal na importação)."""
+    mark_checkout_started()
     return _SessionLocal()
 
 
 def _get_db_session():
     """Get a database session, or None if not ready."""
     if _SessionLocal is not None:
+        mark_checkout_started()
         return _SessionLocal()
     return None
 
 
-def _release_db_session(db: Any | None = None) -> None:
-    """Libera scoped_session fora de request Flask; no request o teardown chama remove()."""
-    if db is None or _SessionLocal is None:
+def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
+    """Devolve conexão ao pool.
+
+    Por omissão só remove fora de request Flask (teardown cuida do fim do request).
+    `force=True` libera MESMO durante request — obrigatório antes de I/O externo
+    (Steam/RCON/HTTP) para não segurar conexão do pool 4–18s e provocar starvation.
+    """
+    if _SessionLocal is None:
         return
-    if has_request_context():
+    if has_request_context() and not force:
         return
-    try:
-        db.close()
-    except Exception:
-        pass
+    if db is not None:
+        try:
+            db.close()
+        except Exception:
+            pass
     try:
         _SessionLocal.remove()
     except Exception:
@@ -2090,6 +2126,19 @@ def _require_db():
             "ok": False,
             "error": "Banco não configurado. Configure as credenciais em Configurações → DB.",
             "db_offline": True,
+        }), 503
+    if circuit_is_open():
+        st = circuit_status()
+        return jsonify({
+            "ok": False,
+            "error": "db_circuit_open",
+            "message": (
+                f"MySQL degradado — circuit breaker aberto "
+                f"({st.get('cooldown_remaining_s')}s restantes). "
+                "Ver GET /api/admin/diagnostics/database."
+            ),
+            "db_offline": True,
+            "circuit": st,
         }), 503
     return None
 
@@ -2129,6 +2178,7 @@ def _start_runtime_workers_once() -> None:
 def _ensure_runtime_initialized_before_request() -> None:
     """Nunca bloqueia em migrate/conexão MySQL — DB sobe em background."""
     path = request.path or ""
+    set_request_context(endpoint=path or request.endpoint)
     if path in _BOOT_SKIP_EXACT or any(path.startswith(p) for p in _BOOT_SKIP_PREFIXES):
         return
     _start_runtime_workers_once()
@@ -2141,8 +2191,11 @@ app.before_request(_ensure_runtime_initialized_before_request)
 @app.teardown_appcontext
 def _teardown_db_session(_exc: BaseException | None = None) -> None:
     """Libera scoped_session por request — evita vazamento de conexões entre threads Flask."""
-    if _SessionLocal is not None:
-        _SessionLocal.remove()
+    try:
+        if _SessionLocal is not None:
+            _SessionLocal.remove()
+    finally:
+        clear_request_context()
 
 
 def _resolve_settings_catalog_path(configured: str = "") -> str:
@@ -2491,14 +2544,18 @@ def _list_admin_players(
             ),
             params,
         ).fetchall()
-        persona_map, persona_meta = _backfill_steam_personas(
-            db, [(str(r[0]), r[2]) for r in rows], return_status=True,
-        )
         steam_ids = [
             _normalize_steam_id64(r[0]) or str(r[0]).strip()
             for r in rows
         ]
         ents_by_sid = _get_player_entitlements_batch(db, [s for s in steam_ids if s])
+        persona_entries = [(str(r[0]), r[2]) for r in rows]
+        # Liberta conexão ANTES da Steam API (até 4s) — evita pool starvation.
+        _release_db_session(db, force=True)
+        db = None
+        persona_map, persona_meta = _backfill_steam_personas(
+            None, persona_entries, return_status=True,
+        )
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = _normalize_steam_id64(r[0]) or str(r[0]).strip()
@@ -2534,7 +2591,8 @@ def _list_admin_players(
         _log_error("list_admin_players", error=str(exc))
         return {"ok": False, "error": str(exc)}
     finally:
-        _release_db_session(db)
+        if db is not None:
+            _release_db_session(db, force=True)
 
 
 def _get_admin_player_detail(
@@ -4607,33 +4665,28 @@ def _player_kit_remaining(db, steam_id: str, kit_id: str, entry: dict[str, Any])
     return get_kit_remaining(stash, resolved, entry)
 
 
-_PENDING_KIT_ORDERS_CAP = max(
-    100, int(os.environ.get("ARKSHOP_PENDING_KIT_ORDERS_CAP", "500") or 500)
-)
-
 
 def _pending_kit_order_counts(db: Any, steam_id: str) -> dict[str, int]:
-    """Uma query: contagem de pedidos kit PENDENTE/ENTREGANDO por item_id resolvido.
+    """Uma query agregada: pedidos kit PENDENTE/ENTREGANDO por item_id resolvido.
 
-    LIMIT rígido — um jogador pesado (griao) pode ter milhares de pedidos de kit;
-    o fetchall sem teto escalava com o volume e segurava o worker. Slots de resgate
-    pendente acima do teto são irrelevantes para o cálculo do restante exibido.
+    GROUP BY evita fetchall sem teto (jogadores com milhares de pedidos) e também
+    corrige regressão do LIMIT/CAP — pendentes fora do cap não podem sumir do restante.
     """
     rows = db.execute(
         text(
-            "SELECT item_id FROM orders "
+            "SELECT item_id, COUNT(*) AS cnt FROM orders "
             "WHERE steam_id = :sid AND item_type = 'kit' "
             "AND status IN ('PENDENTE', 'ENTREGANDO') "
-            "LIMIT :cap"
+            "GROUP BY item_id"
         ),
-        {"sid": str(steam_id), "cap": _PENDING_KIT_ORDERS_CAP},
+        {"sid": str(steam_id)},
     ).fetchall()
     counts: dict[str, int] = {}
     for row in rows:
         oid = _resolve_catalog_item_id("kit", str(row[0] or ""))
         if not oid:
             continue
-        counts[oid] = counts.get(oid, 0) + 1
+        counts[oid] = counts.get(oid, 0) + int(row[1] or 0)
     return counts
 
 
@@ -6856,9 +6909,16 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
 
 
 def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[str, Any]:
+    """Entrega pedido via RCON sem segurar FOR UPDATE / conexão durante I/O externo.
+
+    Fase 1 (curta): claim row + liberta sessão.
+    Fase 2 (sem DB): RCON.
+    Fase 3 (curta): grava resultado.
+    """
     if not _db_ready():
         return {"ok": False, "error": "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}
 
+    # ── Fase 1: claim curto ──────────────────────────────────────────────
     db = _SessionLocal()
     try:
         order = db.query(Order).filter(Order.order_id == order_id).with_for_update().first()
@@ -6884,40 +6944,85 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
                 "delivery_mode": "plugin",
             }
 
-        success, response, error, command = _attempt_delivery(order, server_settings)
-        attempt = OrderAttempt(
+        # Snapshot para RCON fora da transação — NÃO segurar lock durante rede.
+        order_snap = Order(
             order_id=order.order_id,
+            steam_id=order.steam_id,
+            server_id=order.server_id,
+            item_type=order.item_type,
+            item_id=order.item_id,
+            amount=order.amount,
+            status=order.status,
+            retry_count=int(order.retry_count or 0),
+        )
+        # Marca ENTREGANDO e COMMIT imediato → liberta FOR UPDATE antes do RCON.
+        order.status = "ENTREGANDO"
+        order.updated_at = _now()
+        db.commit()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        _release_db_session(db, force=True)
+
+    # ── Fase 2: RCON sem conexão do pool ─────────────────────────────────
+    success, response, error, command = _attempt_delivery(order_snap, server_settings)
+
+    # ── Fase 3: persistir resultado (sessão curta) ───────────────────────
+    db2 = _SessionLocal()
+    try:
+        order2 = db2.query(Order).filter(Order.order_id == order_id).with_for_update().first()
+        if not order2:
+            return {"ok": False, "error": "Pedido não encontrado após entrega"}
+
+        attempt = OrderAttempt(
+            order_id=order2.order_id,
             success=success,
             command=command,
             response=response,
             error=error,
             attempted_at=_now(),
         )
-        db.add(attempt)
+        db2.add(attempt)
 
         if success:
-            order.status = "ENTREGUE"
-            order.last_error = None
+            order2.status = "ENTREGUE"
+            order2.last_error = None
         else:
-            order.retry_count += 1
+            order2.retry_count = int(order2.retry_count or 0) + 1
             max_attempts = int(server_settings.get("retry_max_attempts", 10))
-            order.status = "ERRO" if order.retry_count >= max_attempts else "PENDENTE"
-            order.last_error = error
-        order.updated_at = _now()
-        db.commit()
+            order2.status = "ERRO" if order2.retry_count >= max_attempts else "PENDENTE"
+            order2.last_error = error
+        order2.updated_at = _now()
+        db2.commit()
 
-        _log("order_processed", order_id=order.order_id, status=order.status, retry_count=order.retry_count, success=success)
+        _log(
+            "order_processed",
+            order_id=order2.order_id,
+            status=order2.status,
+            retry_count=order2.retry_count,
+            success=success,
+        )
         return {
             "ok": success,
-            "order_id": order.order_id,
-            "status": order.status,
+            "order_id": order2.order_id,
+            "status": order2.status,
             "command": command,
             "response": response,
             "error": error,
-            "retry_count": order.retry_count,
+            "retry_count": order2.retry_count,
         }
+    except Exception:
+        try:
+            db2.rollback()
+        except Exception:
+            pass
+        raise
     finally:
-        _release_db_session(db)
+        _release_db_session(db2, force=True)
 
 
 # ── Background retry scheduler ────────────────────────────────────────────────
@@ -7448,15 +7553,46 @@ def health_check():
         "db_reachable": _HEALTH_DB_CACHE.get("reachable") if _db_ready() else None,
         "steam_api_configured": _steam_api_key_configured(),
         "version": _get_project_release().get("version", ""),
+        "db_circuit": circuit_status() if _db_ready() else None,
     })
 
 
-@app.route("/api/auth/me", methods=["GET"])
-@limiter.limit("120 per minute; 3000 per hour", override_defaults=True)
-def auth_me():
+@app.route("/api/admin/diagnostics/database", methods=["GET"])
+@admin_required
+@limiter.limit("30 per minute")
+def admin_diagnostics_database():
+    """Probe admin-only — prova connect_ms / pool_wait_ms / query_ms no host.
+
+    Não-destrutivo: SELECT 1, pool stats, fresh connect, slow fingerprints.
+    Com DB vazio, se timeouts persistirem: olhe fresh_connect_ms e pool_wait_*.
+    """
+    if not _db_ready() or _ENGINE is None or _SessionLocal is None:
+        return jsonify({"ok": False, "error": "db_not_configured"}), 503
+    result = probe_database(
+        _ENGINE,
+        _SessionLocal,
+        safe_db_fields=_safe_db_log_fields,
+        active_url=_ACTIVE_DATABASE_URL,
+        connect_args=_DB_CONNECT_ARGS or None,
+    )
+    result["config"] = {
+        "pool_size": int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15),
+        "max_overflow": int(os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", "30") or 30),
+        "pool_timeout": int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5),
+        "pool_recycle": int(os.environ.get("ARKSHOP_DB_POOL_RECYCLE", "600") or 600),
+        "read_timeout": _DB_CONNECT_ARGS.get("read_timeout"),
+        "write_timeout": _DB_CONNECT_ARGS.get("write_timeout"),
+        "connect_timeout": _DB_CONNECT_ARGS.get("connect_timeout"),
+        "http_threads": max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8)),
+    }
+    return jsonify(result)
+
+
+def _build_auth_me_payload() -> dict[str, Any]:
+    """Monta o payload de /api/auth/me (reutilizado pelo bootstrap agregado)."""
     steam_id = _steam_id_from_session()
     if not steam_id:
-        return jsonify({
+        return {
             "authenticated": False,
             "is_admin": False,
             "is_support": False,
@@ -7469,7 +7605,7 @@ def auth_me():
             "needs_regulamento_accept": False,
             "regulamento_version_current": None,
             "regulamento_version_accepted": None,
-        })
+        }
     file_admins = _load_admin_steamids_from_file()
     is_admin = steam_id in file_admins
     if not is_admin and _db_ready():
@@ -7494,7 +7630,13 @@ def auth_me():
         payload.update(_auth_regulamento_fields_offline())
     if not is_admin:
         payload.update(_store_user_blocked_fields(steam_id))
-    return jsonify(payload)
+    return payload
+
+
+@app.route("/api/auth/me", methods=["GET"])
+@limiter.limit("120 per minute; 3000 per hour", override_defaults=True)
+def auth_me():
+    return jsonify(_build_auth_me_payload())
 
 
 # ── Settings routes ───────────────────────────────────────────────────────────
@@ -8699,9 +8841,8 @@ def public_exchange_rates():
 
 # ── Catalog (público, sem autenticação) ───────────────────────────────────────
 
-@app.route("/api/catalog", methods=["GET"])
-def get_catalog():
-    """Retorna catálogo público (itens, kits, pacotes de doação)."""
+def _build_catalog_payload() -> dict:
+    """Monta o catálogo público (itens, kits, pacotes) — reutilizado pelo bootstrap."""
     from ark_species_registry import TIER_ICON_URLS
     from catalog_enrich import CATEGORY_ICONS, enrich_catalog_payload
 
@@ -8764,7 +8905,7 @@ def get_catalog():
         },
     }
 
-    return jsonify({
+    return {
         "items": items,
         "kits": kits,
         "shop_name": shop_name,
@@ -8779,7 +8920,77 @@ def get_catalog():
         "tier_icon_urls": TIER_ICON_URLS,
         "category_icons": CATEGORY_ICONS,
         "catalog_meta": catalog_meta,
+    }
+
+
+def _catalog_fingerprint(catalog: dict) -> str:
+    """Impressão digital barata para invalidar cache local do catálogo."""
+    meta = catalog.get("catalog_meta") or {}
+    basis = "|".join(str(x) for x in (
+        meta.get("items_count"),
+        meta.get("kits_count"),
+        len(catalog.get("point_packages") or []),
+        catalog.get("shop_name"),
+        catalog.get("currency", {}).get("singular") if isinstance(catalog.get("currency"), dict) else None,
+        bool(catalog.get("pix_enabled")),
+        bool(catalog.get("card_enabled")),
+    ))
+    return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
+
+
+@app.route("/api/catalog", methods=["GET"])
+def get_catalog():
+    """Retorna catálogo público (itens, kits, pacotes de doação)."""
+    resp = jsonify(_build_catalog_payload())
+    # Catálogo público muda pouco — permite revalidação curta no browser/CDN.
+    resp.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=120"
+    return resp
+
+
+@app.route("/api/store/bootstrap", methods=["GET"])
+@limiter.limit("60 per minute; 1200 per hour", override_defaults=True)
+def store_bootstrap():
+    """Warmup agregado: catálogo + me + kit_limits + entitlements num único JSON.
+
+    Reduz round-trips no arranque da loja. Como inclui dados da sessão
+    (me/kit_limits), a resposta é privada e nunca é cacheada por SW/CDN.
+    """
+    me = _build_auth_me_payload()
+    catalog = _build_catalog_payload()
+    kit_limits = None
+    entitlements = None
+    timed_points_total = None
+    authenticated = bool(me.get("authenticated"))
+    steam_id = str(me.get("steam_id") or "") if authenticated else ""
+
+    if authenticated and steam_id:
+        try:
+            ents = _get_player_entitlements(steam_id)
+            entitlements = ents
+            timed_points_total = _compute_timed_points_total([e["group"] for e in ents])
+        except Exception as exc:  # noqa: BLE001 — warmup nunca deve falhar por isto
+            _log_error("store_bootstrap.entitlements", steam_id=steam_id, error=str(exc))
+        if _db_ready():
+            db = _SessionLocal()
+            try:
+                kit_limits = _build_player_kit_limits(db, steam_id)
+            except Exception as exc:  # noqa: BLE001
+                _log_error("store_bootstrap.kit_limits", steam_id=steam_id, error=str(exc))
+            finally:
+                _release_db_session(db)
+
+    resp = jsonify({
+        "ok": True,
+        "me": me,
+        "catalog": catalog,
+        "kit_limits": kit_limits,
+        "entitlements": entitlements,
+        "timed_points_total": timed_points_total,
+        "fingerprint": _catalog_fingerprint(catalog),
+        "server_time": _now().isoformat(),
     })
+    resp.headers["Cache-Control"] = "private, no-store, max-age=0"
+    return resp
 
 
 # ── Downloads (público + admin CRUD) ─────────────────────────────────────────
@@ -13166,11 +13377,19 @@ except Exception as _boot_cat_exc:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5177))
-    threads = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "16") or 16))
+    # Default 8: Waitress threads ≤ pool_size evita avalanche de checkout wait.
+    # Override: ARKSHOP_HTTP_THREADS (ainda limitado a pool_size salvo FORCE).
+    pool_size_cfg = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
+    threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8))
+    if os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1":
+        threads = threads_raw
+    else:
+        threads = min(threads_raw, pool_size_cfg)
     log.info(
-        "ArkShop Web Manager em http://127.0.0.1:%d (threads=%s)",
+        "ArkShop Web Manager em http://127.0.0.1:%d (threads=%s pool_size=%s)",
         port,
         threads,
+        pool_size_cfg,
     )
     try:
         # Waitress: pool de workers estável. Werkzeug threaded=True satura sob

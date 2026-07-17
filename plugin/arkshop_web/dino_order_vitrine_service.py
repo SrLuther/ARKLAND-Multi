@@ -41,6 +41,11 @@ _SIZE_ALIASES = {
 _vitrine_file: Path | None = None
 _vanilla_only_fn: Callable[[str], bool] | None = None
 
+# Cache curto de candidatos — evita re-listar catálogo a cada GET/rotate no mesmo segundo.
+_CANDIDATES_TTL_S = 30.0
+_candidates_cache: dict[str, Any] = {"at": 0.0, "rows": None}
+_candidates_lock = __import__("threading").Lock()
+
 
 def configure_dino_order_vitrine(
     *,
@@ -191,8 +196,21 @@ def _size_for_key(species_key: str, fallback: str | None = None) -> str:
         return "medium"
 
 
-def list_candidate_species(db: Any) -> list[dict[str, Any]]:
-    """Espécies ACTIVE vanilla do mercado com size_class — pool da rotação."""
+def list_candidate_species(db: Any, *, force_refresh: bool = False) -> list[dict[str, Any]]:
+    """Espécies ACTIVE vanilla do mercado com size_class — pool da rotação.
+
+    Cache TTL 30s: rotate + GET no mesmo minuto não disparam 2× list_species_public.
+    """
+    now_m = __import__("time").monotonic()
+    with _candidates_lock:
+        cached = _candidates_cache.get("rows")
+        if (
+            not force_refresh
+            and cached is not None
+            and (now_m - float(_candidates_cache.get("at") or 0)) < _CANDIDATES_TTL_S
+        ):
+            return list(cached)
+
     try:
         from market_service import list_species_public
     except Exception as exc:
@@ -246,6 +264,9 @@ def list_candidate_species(db: Any) -> list[dict[str, Any]]:
             by_name[name_key] = entry
     out = list(by_name.values())
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
+    with _candidates_lock:
+        _candidates_cache["at"] = now_m
+        _candidates_cache["rows"] = list(out)
     return out
 
 
@@ -392,6 +413,10 @@ def ensure_vitrine(
     store = load_store()
     now = now or _utcnow()
     if force or _needs_rotation(store, now=now):
+        if force:
+            with _candidates_lock:
+                _candidates_cache["at"] = 0.0
+                _candidates_cache["rows"] = None
         candidates = list_candidate_species(db)
         result = _apply_rotation(
             store,
@@ -401,7 +426,10 @@ def ensure_vitrine(
             now=now,
         )
         store = load_store()
-        payload = get_vitrine_snapshot(db, store=store, now=now)
+        # Reutiliza candidates — evita 2× list_species_public (N+1) no mesmo request.
+        payload = get_vitrine_snapshot(
+            db, store=store, now=now, candidates=candidates,
+        )
         payload["rotation"] = result
         return payload
     return get_vitrine_snapshot(db, store=store, now=now)
@@ -412,10 +440,12 @@ def get_vitrine_snapshot(
     *,
     store: dict[str, Any] | None = None,
     now: datetime | None = None,
+    candidates: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     store = store or load_store()
     now = now or _utcnow()
-    candidates = list_candidate_species(db)
+    if candidates is None:
+        candidates = list_candidate_species(db)
     by_key = {str(c["species_key"]): c for c in candidates}
 
     def _enrich(keys: list[str], *, slot_kind: str) -> list[dict[str, Any]]:

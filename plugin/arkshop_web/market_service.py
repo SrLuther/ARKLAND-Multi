@@ -710,7 +710,9 @@ def sync_catalog_to_db(
 
 
 def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[str, Any]]:
-    from app import MarketSpecies, MarketSpeciesStatMultiplier
+    from collections import defaultdict
+
+    from app import MarketSpecies, MarketSpeciesAlias, MarketSpeciesStatMultiplier
 
     q = db.query(MarketSpecies).order_by(MarketSpecies.display_name)
     if active_only:
@@ -718,31 +720,72 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
     else:
         q = q.filter(MarketSpecies.status != "INACTIVE")
     rows = q.all()
-    rows = [r for r in rows if _species_row_is_commerce_dino(db, r)]
-    labels = stat_labels()
-    global_mults = []
-    if rows:
-        first_id = rows[0].id
-        for m in db.query(MarketSpeciesStatMultiplier).filter(
-            MarketSpeciesStatMultiplier.species_id == first_id,
-            MarketSpeciesStatMultiplier.enabled.is_(True),
-            MarketSpeciesStatMultiplier.multiplier > 0,
+    if not rows:
+        return []
+
+    # Batch aliases — evita N×SELECT em _species_row_is_commerce_dino / linked_variants
+    ids = [r.id for r in rows]
+    aliases_by_sid: dict[int, list[Any]] = defaultdict(list)
+    for a in (
+        db.query(MarketSpeciesAlias)
+        .filter(MarketSpeciesAlias.species_id.in_(ids))
+        .order_by(MarketSpeciesAlias.id)
+        .all()
+    ):
+        aliases_by_sid[int(a.species_id)].append(a)
+
+    filtered: list[Any] = []
+    for r in rows:
+        bp = str(r.blueprint_path or "").strip()
+        if bp and is_cryopodable_dino_blueprint(bp):
+            filtered.append(r)
+            continue
+        alias_rows = aliases_by_sid.get(int(r.id), [])
+        if alias_rows and any(
+            is_cryopodable_dino_blueprint(str(a.blueprint_path or "")) for a in alias_rows
         ):
-            global_mults.append(
-                {"stat_key": m.stat_key, "label": labels.get(m.stat_key, m.stat_key), "multiplier": m.multiplier}
-            )
+            filtered.append(r)
+            continue
+        if not bp and not alias_rows:
+            try:
+                from ark_species_registry import get_registry_entry
+
+                reg = get_registry_entry(r.species_key)
+            except Exception:
+                reg = None
+            if reg:
+                if registry_entry_is_commerce_dino(reg):
+                    filtered.append(r)
+            else:
+                filtered.append(r)
+    rows = filtered
+    if not rows:
+        return []
+
+    ids = [r.id for r in rows]
+    mults_by_sid: dict[int, list[Any]] = defaultdict(list)
+    for m in (
+        db.query(MarketSpeciesStatMultiplier)
+        .filter(MarketSpeciesStatMultiplier.species_id.in_(ids))
+        .all()
+    ):
+        mults_by_sid[int(m.species_id)].append(m)
+
     out = []
     for row in rows:
-        mult_rows = (
-            db.query(MarketSpeciesStatMultiplier)
-            .filter(MarketSpeciesStatMultiplier.species_id == row.id)
-            .all()
-        )
+        mult_rows = mults_by_sid.get(int(row.id), [])
         economy = species_row_to_economy(row, mult_rows)
         item = economy.to_dict()
         item["reference_level"] = row.reference_level
         item["level1_base_value"] = row.root_value
-        item["linked_variants"] = _list_species_aliases(db, row.id)
+        item["linked_variants"] = [
+            {
+                "catalog_item_id": a.catalog_item_id,
+                "blueprint_path": a.blueprint_path,
+                "variant_label": a.variant_label,
+            }
+            for a in aliases_by_sid.get(int(row.id), [])
+        ]
         from ark_species_registry import get_registry_entry, resolve_species_image
 
         item["image_url"] = resolve_species_image(

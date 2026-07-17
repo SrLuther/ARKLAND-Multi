@@ -1,13 +1,15 @@
 /* ARKLAND Web Store — Progressive Web App service worker.
  *
  * Estratégia segura para loja autenticada e dinâmica:
- * - /api/*  → network-only (nunca grava em Cache Storage)
+ * - /api/catalog → stale-while-revalidate (público e não sensível; acelera warmup)
+ * - restante /api/* → network-only (nunca grava em Cache Storage)
  * - HTML/navegação → network-first sem cachear o documento
  * - assets estáticos (js/css/img/fontes) → cache-first com atualização em background
  */
 "use strict";
 
-const CACHE_NAME = "arkland-webstore-static-v1";
+const CACHE_NAME = "arkland-webstore-static-v2";
+const CATALOG_CACHE = "arkland-webstore-catalog-v1";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -17,6 +19,12 @@ const PRECACHE_URLS = [
 
 const STATIC_EXT_RE =
   /\.(?:js|css|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|map)(?:\?|$)/i;
+
+// Apenas o catálogo público pode ser servido do cache (stale-while-revalidate).
+// Nunca /api/store/bootstrap (inclui sessão) nem mutações/admin/redeem.
+function isPublicCatalog(url) {
+  return url.pathname === "/api/catalog";
+}
 
 function isApiRequest(url) {
   return url.pathname === "/api" || url.pathname.startsWith("/api/");
@@ -47,14 +55,13 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  const keep = new Set([CACHE_NAME, CATALOG_CACHE]);
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
         Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
+          keys.filter((key) => !keep.has(key)).map((key) => caches.delete(key))
         )
       )
       .then(() => self.clients.claim())
@@ -73,7 +80,27 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.origin !== self.location.origin) return;
 
-  // Nunca cachear APIs autenticadas / dinâmicas.
+  // Catálogo público: stale-while-revalidate — devolve cache na hora e
+  // atualiza em background. Só respostas OK e sem cookies de sessão.
+  if (isPublicCatalog(url)) {
+    event.respondWith(
+      caches.open(CATALOG_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        const networkPromise = fetch(request)
+          .then((response) => {
+            if (response && response.ok && response.type === "basic") {
+              cache.put(request, response.clone()).catch(() => {});
+            }
+            return response;
+          })
+          .catch(() => cached);
+        return cached || networkPromise;
+      })
+    );
+    return;
+  }
+
+  // Nunca cachear APIs autenticadas / dinâmicas (bootstrap, redeem, admin…).
   if (isApiRequest(url)) {
     event.respondWith(fetch(request));
     return;

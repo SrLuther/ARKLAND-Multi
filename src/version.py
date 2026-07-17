@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.56"
+APP_VERSION: str = "1.10.58"
 BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,31 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.58",
+        "date": "2026-07-17",
+        "changes": [
+            "Feat (Web Store / Warmup): overlay «A preparar a loja…» bloqueia navegação até catálogo + auth/me + limites de kits (se logado); libera cedo com cache local válido (SWR).",
+            "Feat (Web Store / API): GET /api/store/bootstrap — catalog + me + kit_limits + entitlements + fingerprint num round-trip (private, no-store).",
+            "Feat (Web Store / Cache): localStorage + IndexedDB TTL 30min + fingerprint; catálogo do cache → revalidação background; timeout 15s por request.",
+            "Fix (Web Store / PWA): service worker stale-while-revalidate só em /api/catalog; bootstrap/mutações network-only; assets estáticos cache-first.",
+            "Test (Web Store / Warmup): bootstrap anónimo, overlay, cache keys, SW não cacheia bootstrap.",
+        ],
+    },
+    {
+        "version": "1.10.57",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix P0 (Web Store / DB): timeouts com MySQL quase vazio — causa raiz: sessões/conexões seguradas durante Steam/RCON/HTTP + empilhamento pool_timeout+read_timeout no pre_ping (~29s). Sessões libertadas antes de I/O externo; RCON fora de FOR UPDATE; tribe_log_poller sem sessão durante urllib.",
+            "Fix P0 (Web Store / DB): defaults agressivos — ARKSHOP_DB_READ_TIMEOUT=3s, pool_timeout=5s, pool_recycle=600, keepalive wait_timeout; Waitress threads default 8 (cap pool_size).",
+            "Feat (Web Store / Diagnóstico): GET /api/admin/diagnostics/database — ping_pooled_ms, fresh_connect_ms, pool_wait/connect/query/transaction_ms, pool stats, slow fingerprints, hints de starvation. Instrumentação SQLAlchemy global ligada no boot.",
+            "Fix (Web Store / DB): list_species_public batch (fim N+1); vitrine reutiliza candidates + cache TTL 30s; arkbank schema guard por engine; permission_entitlements_sync engines singleton pool_size=1.",
+            "Fix P0 (Web Store / Catálogo): kit com DefaultAmount esgotado mostrava resgates restantes errados — cadeado + botão desabilitado com effective_remaining <= 0; kit-limits GROUP BY; reload junto ao catálogo.",
+            "Feat (Web Store / Warmup): overlay preparar loja + GET /api/store/bootstrap + cache local TTL/fingerprint; SW network-only em bootstrap/mutações.",
+            "Feat (Web Store / Mercado): cards exibem stats da criatura (Mut, Lvl, HP, Dmg, Peso) — individual e casal.",
+            "Test (Web Store): diagnostics pool_wait vs query_ms; kit-limits; bootstrap/PWA; market stats; vitrine rotate.",
+        ],
     },
     {
         "version": "1.10.56",
