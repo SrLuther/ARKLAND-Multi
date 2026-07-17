@@ -1,13 +1,12 @@
 {
-    "version": "1.10.60",
+    "version": "1.10.59",
     "date": "2026-07-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.60/ARKLAND-Multi-Setup-v1.10.60.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.59/ARKLAND-Multi-Setup-v1.10.59.exe",
     "changelog": [
-        "Fix P0 (Web Store / DB): timeouts com MySQL quase vazio — causa raiz: sessões seguradas durante Steam/RCON/HTTP + empilhamento pool_timeout+read_timeout no pre_ping (~29s). Sessões libertadas antes de I/O externo; RCON fora de FOR UPDATE; tribe_log_poller sem sessão durante urllib.",
-        "Fix P0 (Web Store / DB): defaults agressivos — ARKSHOP_DB_READ_TIMEOUT=3s, pool_timeout=5s, pool_recycle=600, keepalive wait_timeout; Waitress threads default 8 (cap pool_size); circuit breaker quando DB degrada.",
-        "Feat (Web Store / Diagnóstico): GET /api/admin/diagnostics/database — ping_pooled_ms, fresh_connect_ms, pool_wait/connect/query/transaction_ms, pool checkedout/overflow, slow fingerprints, hints de starvation. Instrumentação SQLAlchemy ligada no boot.",
-        "Fix (Web Store / DB): list_species_public batch (fim N+1); vitrine candidates cache TTL 30s; arkbank schema guard; permission_entitlements_sync engines singleton pool_size=1.",
-        "Feat (Web Store / Warmup): overlay preparar loja + GET /api/store/bootstrap + cache local (se ainda não activo na build instalada).",
-        "Test (Web Store): diagnostics pool_wait vs query_ms; bootstrap; vitrine rotate."
+        "Feat (Web Store / Warmup): overlay A preparar a loja bloqueia navegacao ate catalogo + auth/me + limites de kits (se logado); libera cedo com cache local valido (SWR).",
+        "Feat (Web Store / API): GET /api/store/bootstrap - catalog + me + kit_limits + entitlements + fingerprint num round-trip (private, no-store).",
+        "Feat (Web Store / Cache): localStorage + IndexedDB TTL 30min + fingerprint; catalogo do cache -> revalidacao background; timeout 15s por request.",
+        "Fix (Web Store / PWA): service worker stale-while-revalidate so em /api/catalog; bootstrap/mutacoes network-only; assets estaticos cache-first.",
+        "Test (Web Store / Warmup): bootstrap anonimo, overlay, cache keys, SW nao cacheia bootstrap."
     ]
 }
