@@ -162,7 +162,15 @@ def _mock_shop_catalog(monkeypatch, tmp_path):
     _app_module._CONFIG_CACHE.clear()
 
 
-def _create_order(*, item_id="sword", item_type="shop", status="PENDENTE", points_spent=100, created_at=None):
+def _create_order(
+    *,
+    item_id="sword",
+    item_type="shop",
+    status="PENDENTE",
+    points_spent=100,
+    created_at=None,
+    original_order_id=None,
+):
     db = _app_module._SessionLocal()
     try:
         ts = created_at or _now()
@@ -175,6 +183,7 @@ def _create_order(*, item_id="sword", item_type="shop", status="PENDENTE", point
             amount=1,
             points_spent=points_spent,
             status=status,
+            original_order_id=original_order_id,
             created_at=ts,
             updated_at=ts,
         )
@@ -278,6 +287,135 @@ class TestPlayerCancelPolicy:
         assert by_id[lic]["is_license"] is True
         assert d["cancel_policy"]["cooldown_hours"] == 24
         assert d["cancel_policy"]["auto_cancel_hours"] == 48
+
+
+class TestSeasonLandCancelPolicy:
+    """Recompensas SeasonLand: sem desistência / auto-cancel / reembolso em Âmbar."""
+
+    def test_blocks_player_cancel_even_after_24h(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        _seed_player_points(USER_STEAM, 10)
+        oid = _create_order(
+            item_id="sword",
+            points_spent=0,
+            created_at=_now() - timedelta(hours=30),
+            original_order_id="sp:season-1:premium:3:item:sword",
+        )
+        _login(client, USER_STEAM)
+        r = client.post(f"/api/player/orders/{oid}/cancel", json={})
+        assert r.status_code == 403
+        d = r.get_json()
+        assert d["ok"] is False
+        assert d["code"] == "season_pass_irrevocable"
+        assert d["is_season_pass"] is True
+        assert _order_status(oid) == "PENDENTE"
+        assert _player_points(USER_STEAM) == 10
+
+    def test_blocks_kit_variant_with_skip_prefix(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        _seed_player_points(USER_STEAM, 5)
+        oid = _create_order(
+            item_id="sword",
+            item_type="kit",
+            points_spent=0,
+            created_at=_now() - timedelta(hours=50),
+            original_order_id="__admin_skip_kit_limit__|sp:season-1:free:4:kit:kit_armas",
+        )
+        _login(client, USER_STEAM)
+        r = client.post(f"/api/player/orders/{oid}/cancel", json={})
+        assert r.status_code == 403
+        assert r.get_json()["code"] == "season_pass_irrevocable"
+        assert _player_points(USER_STEAM) == 5
+
+    def test_available_flags_season_pass(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        sp = _create_order(
+            points_spent=0,
+            created_at=_now() - timedelta(hours=50),
+            original_order_id="sp:s1:premium:2:dino:rex",
+        )
+        normal = _create_order(
+            points_spent=100,
+            created_at=_now() - timedelta(hours=30),
+        )
+        _login(client, USER_STEAM)
+        r = client.get("/api/player/available")
+        d = r.get_json()
+        by_id = {p["order_id"]: p for p in d["pending"]}
+        assert by_id[sp]["can_cancel"] is False
+        assert by_id[sp]["is_season_pass"] is True
+        assert by_id[sp]["cancel_blocked_code"] == "season_pass_irrevocable"
+        assert by_id[normal]["can_cancel"] is True
+        assert by_id[normal]["is_season_pass"] is False
+
+    def test_contest_blocked(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        oid = _create_order(
+            points_spent=0,
+            created_at=_now() - timedelta(hours=2),
+            original_order_id="sp:s1:free:4:item:sword",
+        )
+        _login(client, USER_STEAM)
+        r = client.post(
+            f"/api/player/orders/{oid}/contest",
+            json={"reason": "Quero reembolso do item do SeasonLand agora"},
+        )
+        assert r.status_code == 403
+        assert r.get_json()["code"] == "season_pass_irrevocable"
+
+    def test_admin_refund_blocked_even_with_catalog_price(self, client, monkeypatch, tmp_path):
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        oid = _create_order(
+            item_id="sword",
+            status="PENDENTE",
+            points_spent=0,
+            original_order_id="sp:s1:premium:3:item:sword",
+        )
+        _login(client, ADMIN_STEAM)
+        r = client.post(f"/api/admin/orders/{oid}/refund", json={})
+        assert r.status_code == 403
+        assert r.get_json()["code"] == "season_pass_irrevocable"
+
+    def test_refund_amount_ignores_catalog_price(self, monkeypatch, tmp_path):
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        oid = _create_order(
+            item_id="sword",
+            points_spent=0,
+            original_order_id="sp:s1:premium:3:item:sword",
+        )
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter_by(order_id=oid).one()
+            assert _app_module._order_refund_amount(order, db) == 0
+            assert _app_module._order_desist_refund_amount(order, db) == 0
+        finally:
+            db.close()
+
+    def test_auto_expire_skips_season_pass(self, monkeypatch, tmp_path):
+        _mock_shop_catalog(monkeypatch, tmp_path)
+        _seed_player_points(USER_STEAM, 10)
+        paid = _create_order(points_spent=200, created_at=_now() - timedelta(hours=49))
+        sp = _create_order(
+            points_spent=0,
+            created_at=_now() - timedelta(hours=72),
+            original_order_id="sp:s1:free:4:item:sword",
+        )
+        db = _app_module._SessionLocal()
+        try:
+            result = expire_stale_pending_orders(db)
+        finally:
+            db.close()
+        assert result["processed"] == 1
+        assert result["skipped_season_pass"] >= 1
+        assert result["cancelled"][0]["order_id"] == paid
+        assert result["cancelled"][0]["refunded"] == 160
+        assert _order_status(paid) == "CANCELADO"
+        assert _order_status(sp) == "PENDENTE"
+        assert _player_points(USER_STEAM) == 170
 
 
 class TestAdminLicenseBlocked:

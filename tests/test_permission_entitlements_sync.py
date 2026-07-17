@@ -6,6 +6,7 @@ from src.permission_entitlements_sync import (
     _is_player_perm_irregular,
     _parse_timed_groups,
     _preserved_manual_groups,
+    normalize_entitlement_group,
     reconcile_entitlements_with_permission_db,
     sync_entitlements_to_permission_db,
 )
@@ -56,3 +57,39 @@ def test_sync_entitlements_requires_url():
 def test_parse_timed_groups_roundtrip():
     raw = "0;1792799475;Alfa,"
     assert _parse_timed_groups(raw)["Alfa"] == 1792799475
+
+
+def test_normalize_entitlement_group_legacy_sku():
+    assert normalize_entitlement_group("licenca_delta") == "Delta"
+    assert normalize_entitlement_group("licença_delta") == "Delta"
+    assert normalize_entitlement_group("LICENCA_DELTA_RENOVACAO") == "Delta"
+    assert normalize_entitlement_group("licenca_nuvem") == "keyvault"
+    assert normalize_entitlement_group("Delta") == "Delta"
+    assert normalize_entitlement_group("keyvault") == "keyvault"
+    assert normalize_entitlement_group("Moderacao") == "Moderacao"
+    assert normalize_entitlement_group("GrupoManual") == "GrupoManual"
+
+
+def test_build_target_normalizes_legacy_sku_entitlement():
+    """Entitlement legado `licenca_delta` deve virar timed Delta em ark_permission."""
+    ents = [{"group": "licenca_delta", "expires_at": "2026-12-31T00:00:00+00:00", "permanent": False}]
+    perm, timed = _build_target_from_entitlements(ents)
+    assert "Delta" in timed
+    assert "licenca_delta" not in timed
+    assert "licenca_delta" not in perm
+
+
+def test_is_irregular_detects_raw_sku_in_timed_groups():
+    """TimedPermissionGroups com SKU cru (plugin dá +0) tem de ser reescrito."""
+    ents = [{"group": "licenca_delta", "expires_at": "2026-12-31T00:00:00+00:00", "permanent": False}]
+    _, timed = _build_target_from_entitlements(ents)
+    tpg_raw_sku = "0;1792799475;licenca_delta,"
+    assert _is_player_perm_irregular(ents, "Default,", tpg_raw_sku) is True
+    tpg_ok = f"0;{timed['Delta']};Delta,"
+    assert _is_player_perm_irregular(ents, "Default,", tpg_ok) is False
+
+
+def test_preserved_manual_groups_drops_legacy_sku():
+    assert _preserved_manual_groups(
+        ["Default", "licenca_delta", "VIP", "Alfa"]
+    ) == ["VIP"]

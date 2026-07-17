@@ -2654,3 +2654,57 @@ class TestAdminPlayersSteamBackfill:
         row = next(p for p in d["items"] if USER_STEAM in str(p["steam_id"]))
         assert row["display_name"] == "NickWithSpaceKey"
         assert row["steam_persona"] == "NickWithSpaceKey"
+
+    def test_player_detail_uses_cached_persona_without_api(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="Ciano_STAFF", steam_persona="Ciano_STAFF")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        calls: list[list[str]] = []
+
+        def _fake_fetch(ids, timeout=12.0):
+            calls.append(list(ids))
+            return {}
+
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _fake_fetch)
+        r = client.get(f"/api/admin/players/{USER_STEAM}")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d["player"]["steam_persona"] == "Ciano_STAFF"
+        assert d["player"]["display_name"] == "Ciano_STAFF"
+        assert calls == []
+
+    def test_player_detail_backfills_persona_when_missing(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids, timeout=12.0: {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {},
+        )
+        d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
+        assert d["ok"] is True
+        assert d["player"]["display_name"] == "SteamNickBR"
+        db = _app_module._SessionLocal()
+        try:
+            su = db.get(_app_module.StoreUser, USER_STEAM)
+            assert su.steam_persona == "SteamNickBR"
+        finally:
+            db.close()
+
+    def test_player_detail_survives_steam_fetch_failure(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda _ids, timeout=12.0: {},
+        )
+        r = client.get(f"/api/admin/players/{USER_STEAM}")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d["player"]["steam_persona"] is None
+        assert d["player"]["display_name"] == USER_STEAM

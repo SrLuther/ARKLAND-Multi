@@ -68,6 +68,22 @@ def test_normalize_licenca_sku_to_permission_group():
     assert _app_module._normalize_entitlement_group("licenca_imaterial") == "Imaterial"
 
 
+def test_normalize_legacy_sku_variants_accents_case_whitespace():
+    """Rows legadas com acento/caixa/espaços não podem escapar da normalização (+0 na UI)."""
+    assert _app_module._normalize_entitlement_group("licença_delta") == "Delta"
+    assert _app_module._normalize_entitlement_group("Licenca_Delta") == "Delta"
+    assert _app_module._normalize_entitlement_group("LICENCA_DELTA") == "Delta"
+    assert _app_module._normalize_entitlement_group(" licenca_delta ") == "Delta"
+    assert _app_module._normalize_entitlement_group("licenca_delta\u00a0") == "Delta"
+    assert _app_module._normalize_entitlement_group("Licença Delta") == "Delta"
+    assert _app_module._normalize_entitlement_group("delta") == "Delta"
+    assert _app_module._normalize_entitlement_group("licença_gamma_renovacao") == "Gamma"
+    # keyvault continua sem alias forçado nem bónus.
+    assert _app_module._normalize_entitlement_group("licenca_nuvem") == "keyvault"
+    assert _app_module._timed_points_bonus_for_group("licença_delta") == 5
+    assert _app_module._timed_points_bonus_for_group("keyvault") == 0
+
+
 def test_grant_licenca_delta_sku_stores_canonical_delta():
     db = _app_module._SessionLocal()
     try:
@@ -160,6 +176,72 @@ def test_repair_renames_sku_group_in_db():
     finally:
         _app_module._release_db_session(db)
     assert row[0] == "Exotico"
+
+
+def test_api_entitlements_legacy_sku_row_returns_canonical_delta():
+    """GET /api/player/entitlements com row legada `licenca_delta`:
+    UI recebe Delta + bónus configurado e total inclui o tier (30 = 25 Default + 5 Delta)."""
+    future = (datetime.now(timezone.utc) + timedelta(days=20)).replace(tzinfo=None)
+    db = _app_module._SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO player_entitlements "
+                "(steam_id, group_name, expires, source, notes) "
+                "VALUES (:s, 'licenca_delta', :exp, 'legacy', 'sku')"
+            ),
+            {"s": USER_STEAM, "exp": future},
+        )
+        db.commit()
+    finally:
+        _app_module._release_db_session(db)
+
+    expected_bonus = _app_module._timed_points_groups_amounts().get(
+        "Delta", _app_module.LICENSE_TIMED_BONUS["Delta"]
+    )
+    with _app_module.app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["steam_id"] = USER_STEAM
+        r = client.get("/api/player/entitlements")
+        assert r.status_code == 200
+        d = r.get_json()
+    assert d["ok"] is True
+    groups = {e["group"]: e for e in d["entitlements"]}
+    assert "Delta" in groups
+    assert "licenca_delta" not in groups
+    assert groups["Delta"]["timed_points_bonus"] == expected_bonus
+    default = _app_module._timed_points_groups_amounts().get("Default", 25)
+    assert d["timed_points_total"] == default + expected_bonus
+
+
+def test_repair_renames_accented_legacy_sku_row():
+    """Row legada com acento («licença_delta») também é reparada para Delta."""
+    future = (datetime.now(timezone.utc) + timedelta(days=15)).replace(tzinfo=None)
+    db = _app_module._SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO player_entitlements "
+                "(steam_id, group_name, expires, source, notes) "
+                "VALUES (:s, :grp, :exp, 'legacy', 'sku-acentuado')"
+            ),
+            {"s": USER_STEAM, "grp": "licença_delta", "exp": future},
+        )
+        db.commit()
+    finally:
+        _app_module._release_db_session(db)
+
+    n = _app_module._repair_entitlement_sku_group_names(_app_module._ENGINE)
+    assert n >= 1
+    db = _app_module._SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT group_name FROM player_entitlements WHERE steam_id = :s"),
+            {"s": USER_STEAM},
+        ).fetchone()
+    finally:
+        _app_module._release_db_session(db)
+    assert row[0] == "Delta"
 
 
 def test_all_paid_license_skus_map_to_timed_bonus():

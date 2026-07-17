@@ -5,6 +5,7 @@ import logging
 import re
 import threading
 import time
+import unicodedata
 import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
@@ -45,6 +46,52 @@ _STAFF_ALIASES: dict[str, frozenset[str]] = {
 }
 _RECONCILE_LOCK = threading.Lock()
 _EXPIRY_TOLERANCE_SEC = 300
+# SKU de catálogo `licenca_*` → PermissionGroup canónico (espelho de
+# app._normalize_entitlement_group e ShopEntitlements::NormalizeEntitlementGroup).
+_LICENSE_SKU_TO_GROUP: dict[str, str] = {
+    "delta": "Delta",
+    "gamma": "Gamma",
+    "gama": "Gamma",
+    "beta": "Beta",
+    "alfa": "Alfa",
+    "omega": "Omega",
+    "transcendente": "Transcendente",
+    "etereo": "Etereo",
+    "universal": "Universal",
+    "onipotente": "Onipotente",
+    "surreal": "Surreal",
+    "imaterial": "Imaterial",
+    "exotico": "Exotico",
+    "nuvem": "keyvault",
+}
+
+
+def _fold_group_key(group: str) -> str:
+    """lower + sem acentos + espaços/hífens → underscore («Licença Delta» → licenca_delta)."""
+    folded = unicodedata.normalize("NFKD", str(group or ""))
+    folded = folded.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[\s\-]+", "_", folded.strip().lower())
+
+
+def normalize_entitlement_group(group: str) -> str:
+    """SKU legado `licenca_delta` / aliases → PermissionGroup canónico (`Delta`).
+
+    group_name cru em player_entitlements NUNCA pode chegar a
+    ark_permission.TimedPermissionGroups — o plugin só reconhece o
+    PermissionGroup do TimedPointsReward.Groups (senão o bónus fica +0).
+    """
+    g = str(group or "").strip()
+    if not g:
+        return ""
+    if g in _MANAGED_SYNC_GROUPS or g == "Default":
+        return g
+    suffix = _fold_group_key(g)
+    if suffix.startswith("licenca_"):
+        suffix = suffix[len("licenca_"):]
+        if suffix.endswith("_renovacao"):
+            suffix = suffix[: -len("_renovacao")]
+    mapped = _LICENSE_SKU_TO_GROUP.get(suffix)
+    return mapped or g
 
 
 def _is_valid_steam_id(steam_id: str) -> bool:
@@ -187,9 +234,12 @@ def _staff_present(group: str, actual_groups: list[str]) -> bool:
 
 
 def _preserved_manual_groups(existing_perm: list[str]) -> list[str]:
+    # SKU legado (`licenca_delta`) não é grupo manual — normaliza e descarta.
     return [
         g for g in existing_perm
-        if g != "Default" and g not in _MANAGED_SYNC_GROUPS
+        if g != "Default"
+        and g not in _MANAGED_SYNC_GROUPS
+        and normalize_entitlement_group(g) not in _MANAGED_SYNC_GROUPS
     ]
 
 
@@ -202,7 +252,9 @@ def _dedupe_groups(groups: list[str]) -> list[str]:
 
 
 def _entitlement_row_to_dict(row: Any) -> dict[str, Any]:
-    grp = str(row[1] if len(row) > 1 else row.get("group_name", ""))
+    grp = normalize_entitlement_group(
+        str(row[1] if len(row) > 1 else row.get("group_name", ""))
+    )
     exp_raw = row[2] if len(row) > 2 else row.get("expires")
     permanent = exp_raw is None
     if exp_raw is not None and hasattr(exp_raw, "isoformat"):
@@ -225,7 +277,9 @@ def _build_target_from_entitlements(entitlements: list[dict[str, Any]]) -> tuple
     timed_groups: dict[str, int] = {}
 
     for ent in entitlements or []:
-        group = str(ent.get("group") or ent.get("group_name") or "").strip()
+        group = normalize_entitlement_group(
+            str(ent.get("group") or ent.get("group_name") or "")
+        )
         if not group or group == "Default":
             continue
         permanent = bool(ent.get("permanent")) or ent.get("expires_at") is None and ent.get("expires") is None
@@ -279,6 +333,15 @@ def _is_player_perm_irregular(
 
     for g in actual_timed:
         if g in TIMED_LICENSE_GROUPS and g not in expected_timed:
+            return True
+        # SKU cru (`licenca_delta`) gravado pré-fix: plugin dá +0 — reescrever.
+        if g not in TIMED_LICENSE_GROUPS and normalize_entitlement_group(g) in TIMED_LICENSE_GROUPS:
+            return True
+
+    for g in actual_perm:
+        if g in ("Default",) or g in _MANAGED_SYNC_GROUPS:
+            continue
+        if normalize_entitlement_group(g) in TIMED_LICENSE_GROUPS:
             return True
 
     for g in actual_perm:
@@ -339,7 +402,7 @@ def grant_group_in_permission_db(
     days: int = 30,
 ) -> dict[str, Any]:
     steam_id = str(steam_id or "").strip()
-    group = str(group or "").strip()
+    group = normalize_entitlement_group(str(group or ""))
     if not _is_valid_steam_id(steam_id):
         return {"ok": False, "error": "SteamID64 inválido"}
     if not group:
@@ -355,6 +418,20 @@ def grant_group_in_permission_db(
             perm_groups_raw, timed_raw = _load_player_perm_fields(conn, steam_id)
             perm_groups = _split_csv_groups(perm_groups_raw)
             timed_groups = _parse_timed_groups(timed_raw)
+
+            # Migra entradas SKU legadas (`licenca_delta`) para o canónico —
+            # o plugin ignora-as e o bónus TimedPoints ficaria +0.
+            for g in list(timed_groups):
+                canon = normalize_entitlement_group(g)
+                if canon != g and canon in _MANAGED_SYNC_GROUPS:
+                    exp = timed_groups.pop(g)
+                    timed_groups[canon] = max(int(timed_groups.get(canon, 0) or 0), int(exp))
+            for g in list(perm_groups):
+                canon = normalize_entitlement_group(g)
+                if canon != g and canon in _MANAGED_SYNC_GROUPS:
+                    perm_groups.remove(g)
+                    if canon in STAFF_PERM_GROUPS and canon not in perm_groups:
+                        perm_groups.append(canon)
 
             if group in PAID_LICENSE_GROUPS:
                 # Não remove outros tiers — até 2 concurrents. Cap no grant
@@ -416,7 +493,7 @@ def revoke_group_in_permission_db(
     group: str,
 ) -> dict[str, Any]:
     steam_id = str(steam_id or "").strip()
-    group = str(group or "").strip()
+    group = normalize_entitlement_group(str(group or ""))
     if not _is_valid_steam_id(steam_id):
         return {"ok": False, "error": "SteamID64 inválido"}
     if not group:
@@ -442,6 +519,13 @@ def revoke_group_in_permission_db(
             if group in perm_groups and group != "Default":
                 perm_groups.remove(group)
             timed_groups.pop(group, None)
+            # Alias SKU legado do mesmo grupo (ex.: licenca_delta ao revogar Delta).
+            for g in list(perm_groups):
+                if g != "Default" and normalize_entitlement_group(g) == group:
+                    perm_groups.remove(g)
+            for g in list(timed_groups):
+                if normalize_entitlement_group(g) == group:
+                    timed_groups.pop(g, None)
             for g in list(perm_groups):
                 if g in STAFF_PERM_GROUPS and _staff_equivalent(g, group):
                     perm_groups.remove(g)

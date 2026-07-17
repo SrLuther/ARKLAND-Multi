@@ -7230,7 +7230,7 @@
               </ol>
 
               <h4>Aba «Disponível» — cancelar antes da entrega</h4>
-              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível após 24h da compra. O reembolso de desistência é de <strong>80% do valor pago</strong> (retenção de 20%). Reembolso <strong>integral (100%)</strong> só via <strong>contestação + ticket</strong> com explicação do motivo. Licenças são irrevogáveis. Após entrega in-game, o resgate é definitivo.</p>
+              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível após 24h da compra. O reembolso de desistência é de <strong>80% do valor pago</strong> (retenção de 20%). Reembolso <strong>integral (100%)</strong> só via <strong>contestação + ticket</strong> com explicação do motivo. Licenças e recompensas do SeasonLand são irrevogáveis. Após entrega in-game, o resgate é definitivo.</p>
 
               <div class="tutorial-callout tutorial-callout--warn">
                 <strong>⚠️ Atenção</strong>
@@ -11265,7 +11265,7 @@ async function loadAvailable() {
     const policy = d.cancel_policy || {};
     const cooldownH = policy.cooldown_hours || 24;
     const autoH = policy.auto_cancel_hours || 48;
-    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (reembolso de <strong>80%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 80% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> são irrevogáveis — não dá para desistir nem reembolsar.</p>`;
+    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (reembolso de <strong>80%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 80% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> e recompensas do <strong>SeasonLand</strong> são irrevogáveis — não dá para desistir nem reembolsar em Âmbar.</p>`;
     if (!pending.length) {
       html += `<p class="available-hint">Nenhum resgate pendente no momento.</p>`;
     } else {
@@ -11275,6 +11275,8 @@ async function loadAvailable() {
           cancelBtn = `<button class="btn btn-ghost btn-sm" onclick="cancelPendingOrder('${escHtml(p.order_id)}')">Desistir</button>`;
         } else if (p.is_license) {
           cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:180px;text-align:right;">Licença irrevogável</span>`;
+        } else if (p.is_season_pass || p.cancel_blocked_code === "season_pass_irrevocable") {
+          cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:200px;text-align:right;" title="${escHtml(p.cancel_blocked_reason || "")}">SeasonLand — sem desistência</span>`;
         } else if (p.cancel_blocked_code === "cooldown_24h") {
           cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:200px;text-align:right;" title="${escHtml(p.cancel_blocked_reason || "")}">Desistir após ${cooldownH}h</span>`;
         } else if (p.cancel_blocked_reason) {
@@ -11284,7 +11286,7 @@ async function loadAvailable() {
         <div class="available-card">
           <div>
             <div class="available-card__name">${escHtml(p.name)}</div>
-            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}${p.is_license ? " · Licença" : ""}</div>
+            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}${p.is_license ? " · Licença" : ""}${p.is_season_pass ? " · SeasonLand" : ""}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
             <span style="font-size:12px;color:var(--text2);">Entre no servidor</span>

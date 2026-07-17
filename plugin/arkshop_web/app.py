@@ -2289,7 +2289,13 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         except Exception:
             kit_stash = {}
         kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
-        persona = _refresh_steam_persona(db, steam_id) if su else None
+        # Cache-first (como na lista 1.10.50): Steam API só quando não há persona
+        # em cache, com timeout curto — evita bloquear o detalhe por até 12s.
+        persona = None
+        if su:
+            cached_persona = (str(su.steam_persona).strip() if su.steam_persona else "") or None
+            persona_map = _backfill_steam_personas(db, [(steam_id, cached_persona)])
+            persona = persona_map.get(steam_id) or cached_persona
         display_name = _admin_player_persona_label(steam_id, steam_persona=persona)
         reg_fields = _auth_regulamento_fields(steam_id, db=db)
         return {
@@ -3904,11 +3910,21 @@ def _license_group_from_item_id(item_id: str) -> str:
     return _LICENSE_ID_GROUP_FALLBACK.get(suffix, "")
 
 
+def _fold_entitlement_group_key(group: str) -> str:
+    """lower + sem acentos + espaços/hífens → underscore («Licença Delta» → licenca_delta)."""
+    import unicodedata
+
+    folded = unicodedata.normalize("NFKD", str(group or ""))
+    folded = folded.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[\s\-]+", "_", folded.strip().lower())
+
+
 def _normalize_entitlement_group(group: str) -> str:
     """SKU `licenca_delta` / aliases → PermissionGroup canónico (`Delta`).
 
     `group_name` em player_entitlements deve ser o grupo Permissions/TimedPoints,
-    nunca o ID de catálogo. keyvault e cargos ficam intactos.
+    nunca o ID de catálogo. keyvault e cargos ficam intactos. Rows legadas podem
+    vir com acento/caixa («Licença_Delta») — fold antes do lookup.
     """
     g = str(group or "").strip()
     if not g:
@@ -3920,9 +3936,21 @@ def _normalize_entitlement_group(group: str) -> str:
     from_sku = _license_group_from_item_id(g)
     if from_sku:
         return from_sku
-    mapped = _LICENSE_ID_GROUP_FALLBACK.get(g.lower())
+    key = _fold_entitlement_group_key(g)
+    if key.startswith("licenca_"):
+        suffix = key[len("licenca_"):]
+        if suffix.endswith("_renovacao"):
+            suffix = suffix[: -len("_renovacao")]
+        mapped = _LICENSE_ID_GROUP_FALLBACK.get(suffix)
+        if mapped:
+            return mapped
+    mapped = _LICENSE_ID_GROUP_FALLBACK.get(key)
     if mapped:
         return mapped
+    # Caixa errada do grupo canónico (ex.: «delta», «IMATERIAL»).
+    for canonical in PAID_LICENSE_GROUPS:
+        if key == canonical.lower():
+            return canonical
     return g
 
 
@@ -8812,6 +8840,7 @@ def player_cancel_order(order_id: str):
                 "code": code,
                 "cancel_available_at": policy.get("cancel_available_at"),
                 "is_license": bool(policy.get("is_license")),
+                "is_season_pass": bool(policy.get("is_season_pass")),
             }), status
 
         item_type = str(order.item_type or "shop")
@@ -9145,6 +9174,7 @@ def player_available():
                 "points_spent": int(row.points_spent or 0),
                 "can_cancel": bool(policy["can_cancel"]),
                 "is_license": bool(policy["is_license"]),
+                "is_season_pass": bool(policy.get("is_season_pass")),
                 "cancel_blocked_code": policy.get("cancel_blocked_code"),
                 "cancel_blocked_reason": policy.get("cancel_blocked_reason"),
                 "cancel_available_at": policy.get("cancel_available_at"),
@@ -9866,6 +9896,8 @@ def player_contest(order_id: str):
         order = db.query(Order).filter(Order.order_id == order_id, Order.steam_id == steam_id).first()
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if _is_order_season_pass(order):
+            return _season_pass_cancel_blocked_response()
 
         status_before = order.status
         order.contested = True
@@ -9980,6 +10012,25 @@ def _is_order_license(order: Order) -> bool:
     return False
 
 
+def _season_pass_idem_from_original(original_order_id: str | None) -> str:
+    """Extrai chave idempotente SeasonLand de original_order_id (com ou sem skip kit)."""
+    raw = str(original_order_id or "").strip()
+    if raw.startswith("__admin_skip_kit_limit__|"):
+        raw = raw.split("|", 1)[1].strip()
+    return raw
+
+
+def _is_order_season_pass(order: Order) -> bool:
+    """True para pedidos enfileirados por claim SeasonLand (recompensa, não compra).
+
+    Marcador: original_order_id `sp:{season}:{track}:{level}:…` (kits usam
+    prefixo `__admin_skip_kit_limit__|sp:…`).
+    """
+    return _season_pass_idem_from_original(
+        getattr(order, "original_order_id", None)
+    ).startswith("sp:")
+
+
 def _format_duration_short(delta: timedelta) -> str:
     secs = max(0, int(delta.total_seconds()))
     hours, rem = divmod(secs, 3600)
@@ -9997,8 +10048,10 @@ def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[s
     created = _datetime_as_utc(order.created_at) or now_utc
     age = now_utc - created
     is_license = _is_order_license(order)
+    is_season_pass = _is_order_season_pass(order)
     cooldown = timedelta(hours=_ORDER_CANCEL_COOLDOWN_HOURS)
     cancel_available_at = created + cooldown
+    irrevocable = is_license or is_season_pass
 
     can_cancel = False
     reason_code: str | None = None
@@ -10016,6 +10069,12 @@ def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[s
             "Licenças não podem ser canceladas nem reembolsadas — "
             "a activação é irrevogável."
         )
+    elif is_season_pass:
+        reason_code = "season_pass_irrevocable"
+        reason = (
+            "Recompensas do SeasonLand não podem ser canceladas nem "
+            "reembolsadas em Âmbar."
+        )
     elif age < cooldown:
         reason_code = "cooldown_24h"
         remaining = cooldown - age
@@ -10028,10 +10087,11 @@ def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[s
 
     return {
         "is_license": is_license,
+        "is_season_pass": is_season_pass,
         "can_cancel": can_cancel,
         "cancel_blocked_code": reason_code,
         "cancel_blocked_reason": reason,
-        "cancel_available_at": cancel_available_at.isoformat() if not is_license else None,
+        "cancel_available_at": cancel_available_at.isoformat() if not irrevocable else None,
         "cancel_cooldown_hours": _ORDER_CANCEL_COOLDOWN_HOURS,
         "auto_cancel_hours": _ORDER_AUTO_EXPIRE_HOURS,
         "desist_refund_factor": _ORDER_DESIST_REFUND_FACTOR,
@@ -10050,6 +10110,17 @@ def _license_cancel_blocked_response():
     }), 403
 
 
+def _season_pass_cancel_blocked_response():
+    return jsonify({
+        "ok": False,
+        "error": (
+            "Recompensas do SeasonLand não podem ser canceladas nem "
+            "reembolsadas em Âmbar."
+        ),
+        "code": "season_pass_irrevocable",
+    }), 403
+
+
 def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, Any]:
     """Cancela + reembolsa pedidos PENDENTE (não licença) com idade ≥ 48h. Idempotente."""
     now = _now()
@@ -10064,10 +10135,14 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
 
     cancelled: list[dict[str, Any]] = []
     skipped_license = 0
+    skipped_season_pass = 0
 
     for order in candidates:
         if _is_order_license(order):
             skipped_license += 1
+            continue
+        if _is_order_season_pass(order):
+            skipped_season_pass += 1
             continue
         locked = (
             db.query(Order)
@@ -10079,6 +10154,9 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
             continue
         if _is_order_license(locked):
             skipped_license += 1
+            continue
+        if _is_order_season_pass(locked):
+            skipped_season_pass += 1
             continue
         created = _datetime_as_utc(locked.created_at)
         if created is not None and created > cutoff:
@@ -10167,12 +10245,16 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
     return {
         "processed": len(cancelled),
         "skipped_license": skipped_license,
+        "skipped_season_pass": skipped_season_pass,
         "cancelled": cancelled,
     }
 
 
 def _order_refund_amount(order: Order, db: Any | None = None) -> int:
     """Valor pago em Âmbar (points_spent → catálogo → auditoria). Usado em reembolso admin 100%."""
+    # SeasonLand: recompensa gratuita — nunca usar preço de catálogo como «pago».
+    if _is_order_season_pass(order):
+        return 0
     refund = int(order.points_spent or 0)
     if refund > 0:
         return refund
@@ -10403,6 +10485,7 @@ def admin_list_orders():
                         "retry_count": o.retry_count,
                         "last_error": o.last_error,
                         "is_license": _is_order_license(o),
+                        "is_season_pass": _is_order_season_pass(o),
                         "created_at": o.created_at.isoformat() if o.created_at else None,
                         "updated_at": o.updated_at.isoformat() if o.updated_at else None,
                     }
@@ -10439,6 +10522,8 @@ def admin_refund_order(order_id: str):
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         if _is_order_license(order):
             return _license_cancel_blocked_response()
+        if _is_order_season_pass(order):
+            return _season_pass_cancel_blocked_response()
         if order.status in _ADMIN_TERMINAL_STATUSES:
             return jsonify({
                 "ok": False,

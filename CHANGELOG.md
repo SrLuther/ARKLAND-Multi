@@ -7,6 +7,18 @@
 
 ## [Unreleased] - 
 
+## [1.10.51] - 2026-07-16
+
+### Fix
+
+- Fix (Web Store / SeasonLand): recompensas resgatadas (fila PENDENTE com original_order_id `sp:…`) deixam de ser elegíveis a desistência, contestação, auto-cancel 48h ou reembolso em Âmbar — o fallback para preço de catálogo quando points_spent=0 permitia converter claim grátis em Âmbar.
+- Fix (Web Store / Admin): Gerenciar Jogadores — «Falha ao carregar detalhes» ao abrir um jogador: o detalhe ainda consultava a Steam API de forma síncrona (timeout 12s) mesmo com nick em cache, estourando os 15s do frontend. Detalhe agora usa cache de nick Steam (API só para missing, timeout 4s), como a lista na 1.10.50.
+- Fix (Web Store / Licenças + TimedPoints): «licenca_delta +0» persistia na 1.10.50 — rows legadas com acento/caixa/espaços («licença_delta», «LICENCA_DELTA») escapavam da normalização SKU→PermissionGroup; fold Unicode no lookup (UI, migrate repair, grant). Sync ark_permission (permission_entitlements_sync) também normaliza: reconcile detecta e reescreve TimedPermissionGroups com SKU cru (plugin dava +0 no bónus Delta=5), grant/revoke migram alias legado. keyvault segue +0 por design (só recursos de nuvem).
+
+### Other
+
+- Test (Web Store / Licenças): variantes legadas acentuadas → Delta; endpoint /api/player/entitlements com row `licenca_delta` devolve Delta +5 e total 30; reconcile ark_permission marca SKU cru como irregular.
+
 ## [1.10.50] - 2026-07-16
 
 ### Fix
