@@ -3091,23 +3091,89 @@ class TestAdminPlayersSteamBackfill:
         assert _app_module._HOT_PATH_INDEXES_READY is False
 
     def test_ddl_engine_omits_short_read_timeout(self, monkeypatch):
-        """DDL MySQL não herda read_timeout=12s do pool HTTP."""
+        """DDL MySQL não herda read_timeout=12s do pool HTTP; usa password real."""
         captured: dict[str, Any] = {}
 
         def _fake_create_engine(url, **kwargs):
-            captured["url"] = str(url)
+            captured["url"] = (
+                url.render_as_string(hide_password=False)
+                if hasattr(url, "render_as_string")
+                else str(url)
+            )
+            captured["raw_url"] = url
             captured["connect_args"] = dict(kwargs.get("connect_args") or {})
             return _app_module._ENGINE
 
         monkeypatch.setattr(_app_module, "create_engine", _fake_create_engine)
+        monkeypatch.setattr(
+            _app_module,
+            "_ACTIVE_DATABASE_URL",
+            "mysql+pymysql://arkland:s3%40cr%2Fet@127.0.0.1:3306/arkland_shop?charset=utf8mb4",
+        )
 
         class _FakeEng:
-            url = "mysql+pymysql://u:p@localhost/shop"
+            url = "mysql+pymysql://arkland:***@127.0.0.1:3306/arkland_shop"
 
         out = _app_module._ddl_engine_for(_FakeEng())
         assert out is _app_module._ENGINE
         assert "read_timeout" not in captured["connect_args"]
         assert "write_timeout" not in captured["connect_args"]
+        assert "127.0.0.1" in captured["url"]
+        assert "s3%40cr%2Fet" in captured["url"]
+        assert "***" not in captured["url"].split("@", 1)[0]
+
+    def test_ddl_engine_uses_render_not_masked_str(self, monkeypatch):
+        """P0: str(engine.url) mascara password → 1045; render_as_string(False) corrige."""
+        from sqlalchemy.engine import make_url
+
+        captured: list[str] = []
+
+        def _fake_create_engine(url, **kwargs):
+            captured.append(
+                url.render_as_string(hide_password=False)
+                if hasattr(url, "render_as_string")
+                else str(url)
+            )
+            return object()
+
+        monkeypatch.setattr(_app_module, "create_engine", _fake_create_engine)
+        monkeypatch.setattr(_app_module, "_ACTIVE_DATABASE_URL", "")
+        monkeypatch.setattr(_app_module, "_DB_CONNECT_ARGS", {})
+
+        class _FakeEng:
+            url = make_url("mysql+pymysql://arkland:p%40ss%2Fw%3Ard@127.0.0.1:3306/shop?charset=utf8mb4")
+
+        _app_module._ddl_engine_for(_FakeEng())
+        assert captured
+        assert "p%40ss%2Fw%3Ard" in captured[0]
+        assert "127.0.0.1" in captured[0]
+        assert "***" not in captured[0].split("@", 1)[0]
+
+    def test_hot_path_indexes_backoff_on_auth_failure(self, monkeypatch):
+        """Falha 1045 não spamma retry — agenda backoff."""
+        engine = _app_module._ENGINE
+        assert engine is not None
+        _app_module._HOT_PATH_INDEXES_READY = False
+        _app_module._HOT_PATH_INDEXES_FAIL_STREAK = 0
+        _app_module._HOT_PATH_INDEXES_NEXT_TRY_AT = 0.0
+        _app_module._HOT_PATH_INDEXES_LAST_ERROR = ""
+
+        class _Boom:
+            def connect(self):
+                raise Exception(
+                    '(pymysql.err.OperationalError) (1045, "Access denied for user '
+                    "'arkland'@'localhost' (using password: YES)\")"
+                )
+
+        monkeypatch.setattr(_app_module, "_ddl_engine_for", lambda _e: _Boom())
+        _app_module._ensure_hot_path_indexes(engine)
+        assert _app_module._HOT_PATH_INDEXES_READY is False
+        assert _app_module._HOT_PATH_INDEXES_FAIL_STREAK >= 1
+        assert _app_module._HOT_PATH_INDEXES_NEXT_TRY_AT >= time.time() + 250
+        # Segunda chamada imediata não re-tenta
+        before = _app_module._HOT_PATH_INDEXES_FAIL_STREAK
+        _app_module._ensure_hot_path_indexes(engine)
+        assert _app_module._HOT_PATH_INDEXES_FAIL_STREAK == before
 
     def test_list_admin_players_count_skips_joins_without_q(self, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="CountJoin")

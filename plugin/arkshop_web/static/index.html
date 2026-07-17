@@ -3233,6 +3233,21 @@
       transition: width .35s ease;
       box-shadow: 0 0 12px rgba(255,140,32,.45);
     }
+    .store-warmup-skip {
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--text2);
+      background: transparent;
+      border: 1px solid rgba(232,120,32,.35);
+      border-radius: var(--radius);
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .store-warmup-skip:hover {
+      color: var(--amber);
+      border-color: rgba(232,120,32,.65);
+    }
     .store-warming { pointer-events: none; user-select: none; }
     body.store-warming-active { overflow: hidden; }
 
@@ -6015,6 +6030,9 @@
     <div class="store-warmup-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div class="store-warmup-bar" id="store-warmup-bar"></div>
     </div>
+    <button type="button" class="store-warmup-skip hidden" id="store-warmup-skip" onclick="skipStoreWarmup()">
+      Entrar na loja agora
+    </button>
   </div>
 </div>
 
@@ -10162,7 +10180,9 @@ let _notifPollTimer = null;
 let _notifItems = [];
 let _notifPollBackoffMs = 0;
 let _notifLastListFetch = 0;
-const _NOTIF_POLL_MS = 120000;
+const _NOTIF_POLL_MS = 180000;
+let _notifBadgeLastFetchMs = 0;
+const _NOTIF_BADGE_MIN_MS = 60000;
 
 function _notifErrorMessage(e) {
   if (!e) return "Não foi possível carregar as notificações.";
@@ -10326,13 +10346,20 @@ async function refreshNotifications() {
 
 async function refreshNotificationsBadge() {
   if (!_auth.authenticated) return;
+  const now = Date.now();
+  if ((now - _notifBadgeLastFetchMs) < _NOTIF_BADGE_MIN_MS) return;
   try {
     const d = await fetchJson("/api/notifications/unread-count", { timeoutMs: 10000 });
     if (d.ok) {
       _updateNotifBadge(d.unread_count);
       _notifPollBackoffMs = 0;
+      _notifBadgeLastFetchMs = now;
     }
-  } catch (_) {
+  } catch (e) {
+    if (e?.status === 429) {
+      _notifPollBackoffMs = Math.min(Math.max(_notifPollBackoffMs, _NOTIF_POLL_MS) * 2, 600000);
+      return;
+    }
     _notifPollBackoffMs = Math.min(Math.max(_notifPollBackoffMs, _NOTIF_POLL_MS) * 2, 600000);
   }
 }
@@ -10565,7 +10592,7 @@ function formatPoints(n) {
 let _balanceFetchAbort = null;
 let _balanceFetchPromise = null;
 let _balanceLastFetchMs = 0;
-const _BALANCE_MIN_INTERVAL_MS = 10000;
+const _BALANCE_MIN_INTERVAL_MS = 30000;
 
 async function refreshPlayerBalance({ force = false } = {}) {
   const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance", "mobile-balance"];
@@ -11235,8 +11262,14 @@ const STORE_CACHE_LS_KEY = "arkland_store_payload_v1";
 const STORE_CACHE_IDB_NAME = "arkland-store-cache";
 const STORE_CACHE_IDB_STORE = "payloads";
 const STORE_CACHE_TTL_MS = 30 * 60 * 1000;
+const STORE_WARMUP_GATE_MS = 8000;
+const STORE_WARMUP_SKIP_MS = 3000;
 let _storeWarmupReady = false;
 let _storeWarmupRevalidating = false;
+let _storeWarmupGateTimer = null;
+let _storeWarmupProgressTimer = null;
+let _storeWarmupSkipTimer = null;
+let _storeWarmupBgPromise = null;
 
 function _storeCacheNow() { return Date.now(); }
 
@@ -11391,10 +11424,95 @@ function _setWarmupProgress(pct, text) {
   if (label && text) label.textContent = text;
 }
 
-function _releaseStoreWarmup() {
+function _defaultGuestAuth() {
+  return {
+    authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false,
+    steam_id: null, display_name: null, needs_display_name: false, market_display_name: null,
+    needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null,
+  };
+}
+
+function _clearWarmupTimers() {
+  if (_storeWarmupGateTimer) { clearTimeout(_storeWarmupGateTimer); _storeWarmupGateTimer = null; }
+  if (_storeWarmupProgressTimer) { clearInterval(_storeWarmupProgressTimer); _storeWarmupProgressTimer = null; }
+  if (_storeWarmupSkipTimer) { clearTimeout(_storeWarmupSkipTimer); _storeWarmupSkipTimer = null; }
+}
+
+function _showWarmupSkip(show) {
+  const btn = document.getElementById("store-warmup-skip");
+  if (btn) btn.classList.toggle("hidden", !show);
+}
+
+function _startWarmupProgressStages() {
+  const stages = [
+    { at: 0, pct: 12, text: "A preparar a loja…" },
+    { at: 700, pct: 28, text: "A ligar ao servidor…" },
+    { at: 1600, pct: 44, text: "A sincronizar catálogo…" },
+    { at: 3200, pct: 60, text: "A carregar dados…" },
+    { at: 5200, pct: 76, text: "Quase pronto…" },
+  ];
+  const start = _storeCacheNow();
+  _setWarmupProgress(stages[0].pct, stages[0].text);
+  _storeWarmupProgressTimer = setInterval(() => {
+    if (_storeWarmupReady) return;
+    const elapsed = _storeCacheNow() - start;
+    let stage = stages[0];
+    for (const s of stages) { if (elapsed >= s.at) stage = s; }
+    _setWarmupProgress(stage.pct, stage.text);
+  }, 180);
+}
+
+function _releaseStoreWarmup(msg) {
   _storeWarmupReady = true;
-  _setWarmupProgress(100, "Loja pronta");
+  _clearWarmupTimers();
+  _showWarmupSkip(false);
+  _setWarmupProgress(100, msg || "Loja pronta");
   _showWarmupOverlay(false);
+}
+
+async function _fetchAndApplyBootstrap() {
+  const boot = await fetchJson("/api/store/bootstrap", { timeoutMs: 15000 });
+  if (boot && boot.ok !== false) {
+    await _applyBootstrapPayload(boot);
+    try { await _writeBootstrapCache(boot); } catch (_) {}
+    return true;
+  }
+  return false;
+}
+
+async function _warmupFallbackFetch() {
+  try {
+    await loadAuth();
+  } catch (_) {
+    if (_auth == null) _auth = _defaultGuestAuth();
+  }
+  applyRoleUi(true);
+  return loadCatalog().catch(() => false);
+}
+
+function _ensureWarmupBackground(existingPromise) {
+  if (_storeWarmupBgPromise) return _storeWarmupBgPromise;
+  const base = existingPromise || _fetchAndApplyBootstrap();
+  _storeWarmupBgPromise = base
+    .then((ok) => { if (!ok) return _warmupFallbackFetch(); return true; })
+    .catch((e) => {
+      console.warn("store bootstrap background:", e);
+      return _warmupFallbackFetch();
+    })
+    .finally(() => { _storeWarmupBgPromise = null; });
+  return _storeWarmupBgPromise;
+}
+
+function _releaseStoreWarmupWithBackground(msg, existingPromise) {
+  if (_auth == null) _auth = _defaultGuestAuth();
+  applyRoleUi(true);
+  _releaseStoreWarmup(msg || "A carregar em segundo plano…");
+  _ensureWarmupBackground(existingPromise);
+}
+
+function skipStoreWarmup() {
+  if (_storeWarmupReady) return;
+  _releaseStoreWarmupWithBackground("A entrar na loja…");
 }
 
 async function _applyBootstrapFromCache(cached) {
@@ -11439,59 +11557,62 @@ async function _applyBootstrapPayload(boot, opts = {}) {
 
 async function runStoreWarmup() {
   _storeWarmupReady = false;
+  _storeWarmupBgPromise = null;
+  _clearWarmupTimers();
   _showWarmupOverlay(true);
-  _setWarmupProgress(8, "A preparar a loja…");
+  _showWarmupSkip(false);
+  _startWarmupProgressStages();
 
-  let cacheReleased = false;
+  _storeWarmupSkipTimer = setTimeout(() => {
+    if (!_storeWarmupReady) _showWarmupSkip(true);
+  }, STORE_WARMUP_SKIP_MS);
+
+  const warmupDeadline = _storeCacheNow() + STORE_WARMUP_GATE_MS;
+  const gateMsRemaining = () => Math.max(0, warmupDeadline - _storeCacheNow());
+
+  let gateReleased = false;
+  const releaseGate = (msg) => {
+    if (gateReleased) return;
+    gateReleased = true;
+    _releaseStoreWarmup(msg);
+  };
+
   try {
     const cached = await _readBootstrapCache();
     if (_bootstrapCacheValid(cached)) {
-      _setWarmupProgress(22, "A carregar loja do cache…");
+      _setWarmupProgress(38, "A carregar loja do cache…");
       await _applyBootstrapFromCache(cached);
-      if (_bootstrapMinReady()) {
-        cacheReleased = true;
-        _setWarmupProgress(55, "A atualizar em segundo plano…");
-        _releaseStoreWarmup();
-      }
+      _ensureWarmupBackground(_fetchAndApplyBootstrap());
+      releaseGate("Loja pronta");
+      return true;
     }
   } catch (_) {}
 
-  try {
-    if (!cacheReleased) _setWarmupProgress(30, "A sincronizar catálogo…");
-    const boot = await fetchJson("/api/store/bootstrap", { timeoutMs: 15000 });
-    if (boot && boot.ok !== false) {
-      await _applyBootstrapPayload(boot);
-      try { await _writeBootstrapCache(boot); } catch (_) {}
-      if (!cacheReleased) _releaseStoreWarmup();
-      return true;
-    }
-  } catch (e) {
-    if (cacheReleased) {
-      console.warn("store bootstrap revalidate:", e);
-      return true;
-    }
-  }
-
-  if (cacheReleased) return true;
-
-  _setWarmupProgress(45, "A carregar dados…");
-  await loadAuth().catch(() => {
-    _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
+  const bootstrapPromise = _fetchAndApplyBootstrap();
+  const gateWait = new Promise((resolve) => {
+    _storeWarmupGateTimer = setTimeout(() => resolve("gate"), gateMsRemaining());
   });
-  applyRoleUi(true);
-  const catalogOk = await loadCatalog().catch(() => false);
-  if (catalogOk && _bootstrapMinReady()) {
-    _releaseStoreWarmup();
+
+  const raced = await Promise.race([
+    bootstrapPromise.then((ok) => ({ kind: ok ? "boot-ok" : "boot-fail" })),
+    gateWait.then(() => ({ kind: "gate" })),
+  ]);
+
+  if (raced.kind === "boot-ok" && !_storeWarmupReady) {
+    if (_storeWarmupGateTimer) { clearTimeout(_storeWarmupGateTimer); _storeWarmupGateTimer = null; }
+    releaseGate("Loja pronta");
     return true;
   }
-  if (catalogOk) {
-    _releaseStoreWarmup();
+
+  if (raced.kind === "gate" || _storeWarmupReady) {
+    if (!_storeWarmupReady) _releaseStoreWarmupWithBackground("A carregar em segundo plano…", bootstrapPromise);
     return true;
   }
-  _setWarmupProgress(100, "Loja indisponível — tente recarregar");
-  toast("Não foi possível preparar a loja. Verifique a conexão.", "warning");
-  _releaseStoreWarmup();
-  return false;
+
+  // bootstrap falhou antes do gate — libera já e continua em background (sem bloquear UI)
+  if (_storeWarmupGateTimer) { clearTimeout(_storeWarmupGateTimer); _storeWarmupGateTimer = null; }
+  if (!_storeWarmupReady) _releaseStoreWarmupWithBackground("A carregar em segundo plano…", bootstrapPromise);
+  return true;
 }
 
 // Aplica o payload de catálogo (de /api/catalog, /api/store/bootstrap ou cache
@@ -16465,16 +16586,18 @@ async function ticketsAdminAttend(id) {
       if (d.ok) toast("Ticket em atendimento.", "success");
       else if (d.error) toast(d.error, "warning");
     }
-    await ticketsAdminOpenDetail(id);
+    await ticketsAdminOpenDetail(id, detail);
     loadTicketsAdmin();
   } catch (e) { toast(String(e), "error"); }
 }
 
-async function ticketsAdminOpenDetail(id) {
+async function ticketsAdminOpenDetail(id, cachedDetail) {
   _ticketsAdminSelectedId = id;
   document.getElementById("tickets-admin-detail")?.classList.remove("hidden");
   try {
-    const d = await fetchJson(`/api/admin/tickets/${id}`, { timeoutMs: 15000 });
+    const d = cachedDetail && cachedDetail.ok
+      ? cachedDetail
+      : await fetchJson(`/api/admin/tickets/${id}`, { timeoutMs: 15000 });
     if (!d.ok) { toast(d.error || "Erro", "error"); return; }
     const t = d.ticket;
     document.getElementById("tickets-admin-detail-title").textContent = `#${t.id} — ${t.subject}`;
@@ -23683,7 +23806,7 @@ let _amberMeterValue = 0;
 let _amberMeterLastData = null;
 let _amberMeterTimer = null;
 let _amberMeterBackoffStep = 0;
-const _AMBER_METER_POLL_BASE_MS = 90000;
+const _AMBER_METER_POLL_BASE_MS = 120000;
 const _AMBER_METER_POLL_MAX_MS = 600000;
 
 const _AMBER_CHANNEL_LABELS = {
@@ -23799,7 +23922,7 @@ function _renderAmberMeterStale(message) {
 }
 
 async function loadAmberMeter() {
-  if (_amberMeterTimer) clearTimeout(_amberMeterTimer);
+  if (_amberMeterTimer) return;
   if (!_amberMeterLastData) renderAmberMeterPlaceholder("Carregando estatísticas…");
   async function fetchAndRender() {
     try {

@@ -1317,6 +1317,13 @@ def _launch_webstore_process(shop) -> tuple[bool, str]:
     if getattr(sys, "frozen", False) and resolve_webstore_executable() is None:
         return False, "ARKLAND-WebStore.exe não encontrado na pasta de instalação."
 
+    if _web_process is not None and _web_process.poll() is None:
+        return False, f"Web Store já está em execução (pid {_web_process.pid})."
+
+    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+    if _is_web_running(port):
+        return False, f"Porta {port} já está em uso — outra instância da Web Store pode estar ativa."
+
     _ensure_mariadb_running(timeout=30)
     env = get_shop_subprocess_env(shop)
     cmd, cwd, log_path = build_webstore_launch(shop)

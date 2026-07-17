@@ -53,6 +53,8 @@ def test_index_has_warmup_overlay_and_cache_keys():
     assert "A preparar a loja" in html
     assert "/api/store/bootstrap" in html
     assert "STORE_CACHE_META_KEY" in html
+    assert "STORE_WARMUP_GATE_MS" in html
+    assert "skipStoreWarmup" in html
     assert "indexedDB" in html or "IndexedDB" in html
 
 

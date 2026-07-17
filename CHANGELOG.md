@@ -7,6 +7,19 @@
 
 ## [Unreleased] - 
 
+## [1.10.61] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / DB): hot_path_indexes DDL usava str(engine.url) que mascara password como *** → MySQL 1045; agora create_engine com URL real (_ACTIVE_DATABASE_URL / engine.url); self-heal backoff 30s→300s e cooldown 5min em 1045.
+- Fix P0 (Web Store / Warmup): overlay «A preparar a loja…» gate máx 8s + skip 3s; cache SWR libera já; bootstrap 15s só em background.
+- Fix (Web Store / Poll): /api/player/points 120/min·3000/h + cooldown UI 30s; unread/amber menos agressivos.
+- Fix (Web Store / Boot): instance lock + migrate single-flight; TEK não lança 2ª instância se porta ocupada.
+
+### Other
+
+- Test (Web Store): DDL sem ***; backoff 1045; gate warmup.
+
 ## [1.10.60] - 2026-07-17
 
 ### Feature

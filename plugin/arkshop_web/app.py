@@ -47,6 +47,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import HTTPException
 from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
 from db_diagnostics import (
@@ -1058,6 +1059,10 @@ _STORE_USERS_SCHEMA_LOCK = threading.Lock()
 _HOT_PATH_INDEXES_READY = False
 _HOT_PATH_INDEXES_LOCK = threading.Lock()
 _HOT_PATH_INDEXES_ASYNC_GATE = threading.BoundedSemaphore(1)
+_HOT_PATH_INDEXES_NEXT_TRY_AT = 0.0
+_HOT_PATH_INDEXES_FAIL_STREAK = 0
+_HOT_PATH_INDEXES_LAST_ERROR = ""
+_HOT_PATH_INDEXES_AUTH_COOLDOWN_S = 300.0
 _STEAM_ID_COLLATION_NORMALIZED = False
 _TABLE_EXISTS_CACHE: dict[str, bool] = {}
 
@@ -1066,10 +1071,14 @@ def _reset_schema_runtime_flags() -> None:
     """Limpa caches de schema ao trocar/recriar o engine."""
     global _STORE_USERS_SCHEMA_READY, _HOT_PATH_INDEXES_READY, _STEAM_ID_COLLATION_NORMALIZED
     global _ENTITLEMENTS_SCHEMA_READY
+    global _HOT_PATH_INDEXES_NEXT_TRY_AT, _HOT_PATH_INDEXES_FAIL_STREAK, _HOT_PATH_INDEXES_LAST_ERROR
     _STORE_USERS_SCHEMA_READY = False
     _HOT_PATH_INDEXES_READY = False
     _STEAM_ID_COLLATION_NORMALIZED = False
     _ENTITLEMENTS_SCHEMA_READY = False
+    _HOT_PATH_INDEXES_NEXT_TRY_AT = 0.0
+    _HOT_PATH_INDEXES_FAIL_STREAK = 0
+    _HOT_PATH_INDEXES_LAST_ERROR = ""
     _TABLE_EXISTS_CACHE.clear()
 
 
@@ -1336,23 +1345,54 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
 ]
 
 
-def _ddl_engine_for(engine: Any) -> Any:
-    """Engine dedicado a DDL — sem read_timeout=12s do pool HTTP.
+def _ddl_database_url(engine: Any) -> Any:
+    """URL object com password real — NUNCA str(engine.url) (mascara como ***).
 
-    CREATE INDEX em tabela grande pode demorar minutos; o pool de pedidos herda
-    ARKSHOP_DB_READ_TIMEOUT=12 e abortava a meio, marcando READY à mesma (bug P0).
+    SQLAlchemy 2: str(URL) / repr ocultam a password → create_engine autentica
+    com '***' e MySQL devolve 1045, enquanto o pool principal (URL original) OK.
     """
-    url = str(getattr(engine, "url", "") or "")
-    if "mysql" not in url.lower():
+    active = (_ACTIVE_DATABASE_URL or "").strip()
+    if active and "mysql" in active.lower():
+        return make_url(active)
+    url_obj = getattr(engine, "url", None)
+    if url_obj is not None:
+        try:
+            rendered = url_obj.render_as_string(hide_password=False)
+            if rendered and "mysql" in rendered.lower() and "***" not in rendered.split("@", 1)[0]:
+                return url_obj
+        except Exception:
+            pass
+    return url_obj
+
+
+def _ddl_engine_for(engine: Any) -> Any:
+    """Engine DDL — mesmo host/user/password do pool; sem read_timeout curto HTTP.
+
+    Preferência: reutilizar engine principal quando possível (zero reconstrução URL).
+    """
+    url_obj = getattr(engine, "url", None)
+    if url_obj is None or "mysql" not in str(url_obj).lower():
+        return engine
+    ddl_url = _ddl_database_url(engine)
+    if ddl_url is None:
+        log.warning("hot_path_indexes: sem URL DDL — a reutilizar engine principal")
+        return engine
+    url_s = ddl_url.render_as_string(hide_password=False)
+    if "***" in url_s.split("@", 1)[0]:
+        log.warning(
+            "hot_path_indexes: URL DDL com password mascarada — a reutilizar engine principal"
+        )
         return engine
     connect_args: dict[str, Any] = {
         "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "5") or 5),
-        # PyMySQL: None / 0 = sem limite de leitura no socket (DDL pode demorar).
         "read_timeout": int(os.environ.get("ARKSHOP_DB_DDL_READ_TIMEOUT", "0") or 0) or None,
         "write_timeout": int(os.environ.get("ARKSHOP_DB_DDL_WRITE_TIMEOUT", "0") or 0) or None,
     }
+    for key in ("init_command",):
+        if key in _DB_CONNECT_ARGS:
+            connect_args[key] = _DB_CONNECT_ARGS[key]
     return create_engine(
-        url,
+        ddl_url,
         future=True,
         pool_pre_ping=True,
         pool_size=1,
@@ -1383,23 +1423,58 @@ def _hot_path_indexes_all_present(conn: Any, engine: Any, *, is_mysql: bool) -> 
     return True
 
 
+def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -> None:
+    """Backoff exponencial após falha (auth/permissão/DDL) — evita spam 1×/s."""
+    global _HOT_PATH_INDEXES_NEXT_TRY_AT, _HOT_PATH_INDEXES_FAIL_STREAK, _HOT_PATH_INDEXES_LAST_ERROR
+    _HOT_PATH_INDEXES_FAIL_STREAK = min(12, int(_HOT_PATH_INDEXES_FAIL_STREAK) + 1)
+    err = str(exc or "").strip()
+    is_auth = "1045" in err or "access denied for user" in err.lower()
+    # 30s → 60s → 120s → 240s → 300s. Auth 1045: cooldown fixo 5min.
+    delay = (
+        _HOT_PATH_INDEXES_AUTH_COOLDOWN_S
+        if is_auth
+        else min(300.0, 30.0 * (2 ** max(0, _HOT_PATH_INDEXES_FAIL_STREAK - 1)))
+    )
+    _HOT_PATH_INDEXES_NEXT_TRY_AT = time.time() + delay
+    if err and err != _HOT_PATH_INDEXES_LAST_ERROR:
+        _HOT_PATH_INDEXES_LAST_ERROR = err
+        log.warning(
+            "hot_path_indexes: incompletos — READY NÃO marcado; próximo try em %.0fs (%s)",
+            delay,
+            err[:240],
+        )
+    else:
+        log.debug(
+            "hot_path_indexes: ainda incompletos; backoff %.0fs (streak=%s)",
+            delay,
+            _HOT_PATH_INDEXES_FAIL_STREAK,
+        )
+
+
 def _ensure_hot_path_indexes(engine: Any) -> None:
     """Índices compostos para detalhe/lista admin.
 
     Só marca `_HOT_PATH_INDEXES_READY` quando TODOS os índices estão confirmados.
-    Falha parcial (ex.: read_timeout no CREATE) NÃO marca READY — re-tenta no
-    próximo detalhe/boot (self-heal).
+    Falha parcial (ex.: read_timeout no CREATE) NÃO marca READY — re-tenta com
+    backoff (self-heal). Auth/permissão não degradam UX da loja.
     """
-    global _HOT_PATH_INDEXES_READY
+    global _HOT_PATH_INDEXES_READY, _HOT_PATH_INDEXES_FAIL_STREAK, _HOT_PATH_INDEXES_NEXT_TRY_AT
+    global _HOT_PATH_INDEXES_LAST_ERROR
     if _HOT_PATH_INDEXES_READY or engine is None:
+        return
+    now = time.time()
+    if now < float(_HOT_PATH_INDEXES_NEXT_TRY_AT or 0):
         return
     with _HOT_PATH_INDEXES_LOCK:
         if _HOT_PATH_INDEXES_READY:
             return
-        is_mysql = "mysql" in str(engine.url).lower()
+        if time.time() < float(_HOT_PATH_INDEXES_NEXT_TRY_AT or 0):
+            return
+        is_mysql = "mysql" in str(getattr(engine, "url", "") or "").lower()
         ddl_engine = _ddl_engine_for(engine)
         created = 0
         all_present = False
+        last_exc: BaseException | None = None
         try:
             with ddl_engine.connect() as conn:
                 if _hot_path_indexes_all_present(conn, engine, is_mysql=is_mysql):
@@ -1424,6 +1499,7 @@ def _ensure_hot_path_indexes(engine: Any) -> None:
                                 )
                             created += 1
                         except Exception as exc:
+                            last_exc = exc
                             log.warning(
                                 "hot_path_index %s.%s falhou: %s",
                                 table,
@@ -1437,7 +1513,10 @@ def _ensure_hot_path_indexes(engine: Any) -> None:
                         conn, engine, is_mysql=is_mysql
                     )
         except Exception as exc:
-            log.warning("hot_path_indexes: migrate falhou: %s", exc)
+            last_exc = exc
+            # Log completo só na 1ª falha deste erro; retries vão para backoff/debug.
+            if str(exc) != _HOT_PATH_INDEXES_LAST_ERROR:
+                log.warning("hot_path_indexes: migrate falhou: %s", exc)
             all_present = False
         finally:
             if ddl_engine is not engine:
@@ -1447,10 +1526,11 @@ def _ensure_hot_path_indexes(engine: Any) -> None:
                     pass
         if all_present:
             _HOT_PATH_INDEXES_READY = True
+            _HOT_PATH_INDEXES_FAIL_STREAK = 0
+            _HOT_PATH_INDEXES_NEXT_TRY_AT = 0.0
+            _HOT_PATH_INDEXES_LAST_ERROR = ""
         else:
-            log.warning(
-                "hot_path_indexes: incompletos — READY NÃO marcado; re-tentará"
-            )
+            _hot_path_indexes_schedule_backoff(last_exc or "indexes incomplete")
 
 
 def _start_hot_path_indexes_self_heal(engine: Any, *, reason: str = "") -> bool:
@@ -1458,6 +1538,8 @@ def _start_hot_path_indexes_self_heal(engine: Any, *, reason: str = "") -> bool:
     if _HOT_PATH_INDEXES_READY:
         return True
     if engine is None:
+        return False
+    if time.time() < float(_HOT_PATH_INDEXES_NEXT_TRY_AT or 0):
         return False
     if not _HOT_PATH_INDEXES_ASYNC_GATE.acquire(blocking=False):
         _log(
@@ -1481,6 +1563,10 @@ def _start_hot_path_indexes_self_heal(engine: Any, *, reason: str = "") -> bool:
                 reason=str(reason or "unknown"),
                 error=str(exc),
             )
+            try:
+                _hot_path_indexes_schedule_backoff(exc)
+            except Exception:
+                pass
         finally:
             try:
                 if _SessionLocal is not None:
@@ -1505,6 +1591,8 @@ def _hot_path_indexes_ready_or_schedule(reason: str) -> bool:
     if _HOT_PATH_INDEXES_READY:
         return True
     if _ENGINE is None:
+        return False
+    if time.time() < float(_HOT_PATH_INDEXES_NEXT_TRY_AT or 0):
         return False
     if "mysql" not in str(getattr(_ENGINE, "url", "")).lower():
         try:
@@ -1901,11 +1989,13 @@ def _start_db_reconnect_watcher() -> None:
 
 
 def _configure_database(url: str) -> None:
-    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS
+    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS, _MIGRATE_ASYNC_STARTED
 
     normalized = (url or "").strip()
     if normalized == _ACTIVE_DATABASE_URL:
         return
+
+    _MIGRATE_ASYNC_STARTED = False
 
     # Para o watcher de reconexão da URL anterior (se houver)
     _db_reconnect_stop.set()
@@ -1966,6 +2056,7 @@ def _configure_database(url: str) -> None:
     _DB_CONNECT_ARGS = dict(connect_args)
     _log(
         "db_configured",
+        pid=os.getpid(),
         **_safe_db_log_fields(normalized),
         pool_size=pool_size,
         max_overflow=max_overflow,
@@ -1988,9 +2079,14 @@ def _configure_database(url: str) -> None:
         return
 
     def _migrate_async() -> None:
+        global _MIGRATE_ASYNC_STARTED
+        if _MIGRATE_ASYNC_STARTED:
+            log.debug("DB schema migrate já em curso (pid=%s) — skip", os.getpid())
+            return
+        _MIGRATE_ASYNC_STARTED = True
         try:
             _migrate_schema(engine)
-            log.info("DB schema migrate concluído")
+            log.info("DB schema migrate concluído (pid=%s)", os.getpid())
             _schedule_entitlements_reconcile()
         except Exception as exc:
             log.warning(
@@ -1999,6 +2095,7 @@ def _configure_database(url: str) -> None:
                 exc,
             )
             _start_db_reconnect_watcher()
+            _MIGRATE_ASYNC_STARTED = False
 
     threading.Thread(target=_migrate_async, daemon=True, name="arkshop-db-migrate").start()
 
@@ -2006,6 +2103,8 @@ def _configure_database(url: str) -> None:
 _DB_INIT_LOCK = threading.Lock()
 _DB_INITIALIZED = False
 _DB_BOOT_THREAD: threading.Thread | None = None
+_DB_BOOT_KICKED = False
+_MIGRATE_ASYNC_STARTED = False
 _ENTITLEMENTS_SCHEMA_LOCK = threading.Lock()
 _ENTITLEMENTS_SCHEMA_READY = False
 _ENTITLEMENTS_RECONCILE_STARTED = False
@@ -2023,10 +2122,10 @@ _ADMIN_DB_QUERY_TIMEOUT = 2.0
 
 def _kick_background_db_init() -> None:
     """Inicia configuração do DB em thread — nunca bloqueia respostas HTTP."""
-    global _DB_BOOT_THREAD
+    global _DB_BOOT_THREAD, _DB_BOOT_KICKED
     if _DB_INITIALIZED:
         return
-    if _DB_BOOT_THREAD is not None and _DB_BOOT_THREAD.is_alive():
+    if _DB_BOOT_KICKED and _DB_BOOT_THREAD is not None and _DB_BOOT_THREAD.is_alive():
         return
 
     def _boot() -> None:
@@ -2036,6 +2135,7 @@ def _kick_background_db_init() -> None:
             log.warning("DB background boot failed: %s", exc)
 
     _DB_BOOT_THREAD = threading.Thread(target=_boot, name="arkshop-db-boot", daemon=True)
+    _DB_BOOT_KICKED = True
     _DB_BOOT_THREAD.start()
 
 
@@ -2173,6 +2273,7 @@ def _start_runtime_workers_once() -> None:
         except Exception:
             pass
         _RUNTIME_WORKERS_STARTED = True
+        _log("runtime_workers_started", pid=os.getpid())
 
 
 def _ensure_runtime_initialized_before_request() -> None:
@@ -10103,6 +10204,7 @@ def player_entitlements():
 
 @app.route("/api/player/points", methods=["GET"])
 @login_required
+@limiter.limit("120 per minute; 3000 per hour", override_defaults=True)
 def player_points():
     steam_id = str(_steam_id_from_session())
     if not _db_ready():
@@ -13374,8 +13476,64 @@ try:
 except Exception as _boot_cat_exc:
     log.warning("ensure_webstore_catalog_config no boot: %s", _boot_cat_exc)
 
+log.info("arkshop_web module loaded pid=%s", os.getpid())
+
+_INSTANCE_LOCK_PATH = _DATA_DIR / "webstore_instance.lock"
+
+
+def _pid_is_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+    except Exception:
+        return False
+
+
+def _acquire_webstore_instance_lock() -> bool:
+    """Evita duas instâncias Web Store no mesmo host (dobra pools/migrate/workers)."""
+    pid = os.getpid()
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return True
+    try:
+        if _INSTANCE_LOCK_PATH.is_file():
+            raw = _INSTANCE_LOCK_PATH.read_text(encoding="utf-8").strip()
+            old_pid = int(raw) if raw.isdigit() else 0
+            if old_pid and old_pid != pid and _pid_is_alive(old_pid):
+                log.error(
+                    "Outra instância Web Store já está ativa (pid=%s). Encerrando pid=%s.",
+                    old_pid,
+                    pid,
+                )
+                return False
+        _INSTANCE_LOCK_PATH.write_text(str(pid), encoding="utf-8")
+        return True
+    except Exception as exc:
+        log.warning("instance lock indisponível (%s) — continua", exc)
+        return True
+
+
+def _release_webstore_instance_lock() -> None:
+    try:
+        if _INSTANCE_LOCK_PATH.is_file():
+            raw = _INSTANCE_LOCK_PATH.read_text(encoding="utf-8").strip()
+            if raw == str(os.getpid()):
+                _INSTANCE_LOCK_PATH.unlink(missing_ok=True)
+    except Exception:
+        pass
+
 
 if __name__ == "__main__":
+    import atexit
+
+    if not _acquire_webstore_instance_lock():
+        raise SystemExit(1)
+    atexit.register(_release_webstore_instance_lock)
     port = int(os.environ.get("PORT", 5177))
     # Default 8: Waitress threads ≤ pool_size evita avalanche de checkout wait.
     # Override: ARKSHOP_HTTP_THREADS (ainda limitado a pool_size salvo FORCE).
