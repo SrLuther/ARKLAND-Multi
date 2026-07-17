@@ -2764,6 +2764,11 @@ class TestAdminPlayersSteamBackfill:
             return {"ok": True, "player": {"steam_id": _sid}, "recent_orders": []}
 
         monkeypatch.setattr(_app_module, "_get_admin_player_detail", _slow_detail)
+        monkeypatch.setattr(
+            _app_module,
+            "_get_player_entitlements",
+            lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("should not run")),
+        )
         t0 = time.perf_counter()
         r = client.get(f"/api/admin/players/{USER_STEAM}")
         elapsed = time.perf_counter() - t0
@@ -2776,6 +2781,50 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["steam_id"] == USER_STEAM
         assert d["player"]["steam_persona"] == "Lento"
         assert "license_catalog" in d
+
+    def test_player_detail_missing_indexes_returns_partial_without_blocking(self, client, monkeypatch):
+        """DDL self-heal não pode bloquear o GET crítico do detalhe."""
+        _seed_store_user(USER_STEAM, display_name="DDL", steam_persona="DDL")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setattr(_app_module, "_HOT_PATH_INDEXES_READY", False)
+        starts: list[str] = []
+        monkeypatch.setattr(
+            _app_module,
+            "_hot_path_indexes_ready_or_schedule",
+            lambda reason: starts.append(reason) or False,
+        )
+        monkeypatch.setattr(
+            _app_module,
+            "_get_admin_player_detail",
+            lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("full path blocked")),
+        )
+
+        t0 = time.perf_counter()
+        d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
+        assert time.perf_counter() - t0 < 1.0
+        assert d["ok"] is True
+        assert d["partial"] is True
+        assert d["partial_reason"] == "indexes_not_ready"
+        assert d["hot_path_indexes_ready"] is False
+        assert starts == ["admin_player_detail"]
+
+    def test_player_detail_heavy_endpoint_completes_sections(self, client):
+        _seed_store_user(USER_STEAM, display_name="Heavy", steam_persona="Heavy")
+        _create_order_direct(
+            steam_id=USER_STEAM,
+            item_id="kit_alpha",
+            item_type="kit",
+            status="PENDENTE",
+            points_spent=25,
+        )
+        _create_donation_direct(steam_id=USER_STEAM, points=500)
+        _login(client, ADMIN_STEAM)
+
+        d = client.get(f"/api/admin/players/{USER_STEAM}/heavy").get_json()
+        assert d["ok"] is True
+        assert d.get("partial") is False
+        assert d["recent_orders"][0]["item_id"] == "kit_alpha"
+        assert d["recent_donations"][0]["points"] == 500
 
     def test_player_detail_budget_disabled_runs_inline(self, client, monkeypatch):
         """Budget<=0 devolve o detalhe completo diretamente (sem thread/partial)."""
@@ -2942,19 +2991,16 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(_app_module, "_hot_path_indexes_all_present", _fail_all_present)
         _app_module._ensure_hot_path_indexes(engine)
         assert _app_module._HOT_PATH_INDEXES_READY is False
-        # Self-heal no detalhe: continua a tentar enquanto READY=False.
-        calls = {"n": 0}
-        real = _app_module._ensure_hot_path_indexes
-
-        def _counting(eng):
-            calls["n"] += 1
-            return real(eng)
-
-        monkeypatch.setattr(_app_module, "_ensure_hot_path_indexes", _counting)
-        # Restaura all_present real via ensure real — mas counting wrapper chama real
-        # que ainda tem all_present monkeypatched False.
-        _app_module._get_admin_player_detail(USER_STEAM)
-        assert calls["n"] >= 1
+        # Self-heal no detalhe: agenda DDL async e não bloqueia request.
+        starts: list[str] = []
+        monkeypatch.setattr(
+            _app_module,
+            "_start_hot_path_indexes_self_heal",
+            lambda _eng, reason="": starts.append(reason) or False,
+        )
+        d = _app_module._get_admin_player_detail_budgeted(USER_STEAM)
+        assert d["partial"] is True
+        assert starts == ["admin_player_detail"]
         assert _app_module._HOT_PATH_INDEXES_READY is False
 
     def test_ddl_engine_omits_short_read_timeout(self, monkeypatch):

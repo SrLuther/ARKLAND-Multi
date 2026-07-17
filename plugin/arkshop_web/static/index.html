@@ -23967,6 +23967,7 @@ let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;
 let _playersAdminDetailAbort = null;
+let _playersAdminHeavyAbort = null;
 let _playersAdminListAbort = null;
 
 function _syncPlayersAdminListRowFromDetail() {
@@ -24273,6 +24274,10 @@ function closePlayerAdminPanel() {
   if (panel) { panel.classList.add("hidden"); panel.innerHTML = ""; }
   if (layout) layout.classList.remove("has-panel");
   _playersAdminDetail = null;
+  if (_playersAdminHeavyAbort) {
+    try { _playersAdminHeavyAbort.abort(); } catch (_) {}
+    _playersAdminHeavyAbort = null;
+  }
 }
 
 async function selectPlayerAdmin(steamId, silent) {
@@ -24289,6 +24294,10 @@ async function selectPlayerAdmin(steamId, silent) {
   if (_playersAdminDetailAbort) {
     try { _playersAdminDetailAbort.abort(); } catch (_) {}
   }
+  if (_playersAdminHeavyAbort) {
+    try { _playersAdminHeavyAbort.abort(); } catch (_) {}
+    _playersAdminHeavyAbort = null;
+  }
   const ac = new AbortController();
   _playersAdminDetailAbort = ac;
   try {
@@ -24304,11 +24313,70 @@ async function selectPlayerAdmin(steamId, silent) {
     _playersAdminDetail = d;
     renderPlayerAdminPanel(d);
     _syncPlayersAdminListRowFromDetail();
+    if (d.partial) loadPlayerAdminHeavy(steamId, false, 0);
     if (!silent) requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }));
   } catch (e) {
     if (e?.stale || (_playersAdminSelected !== steamId)) return;
     const msg = e?.data?.error || e?.message || "Falha ao carregar detalhes.";
     panel.innerHTML = `<p style="color:var(--danger);">${escHtml(msg)}</p>`;
+  }
+}
+
+function _mergePlayerAdminHeavy(base, heavy) {
+  const merged = {
+    ...base,
+    ...heavy,
+    partial: !!heavy.partial,
+    partial_reason: heavy.partial_reason,
+    partial_retry_after_ms: heavy.partial_retry_after_ms,
+    hot_path_indexes_ready: heavy.hot_path_indexes_ready,
+    player: {
+      ...(base?.player || {}),
+      ...(heavy?.player || {}),
+    },
+  };
+  if (!Array.isArray(heavy.recent_orders)) merged.recent_orders = base?.recent_orders || [];
+  if (!Array.isArray(heavy.recent_donations)) merged.recent_donations = base?.recent_donations || [];
+  merged.license_catalog = base?.license_catalog || [];
+  merged.staff_role_catalog = base?.staff_role_catalog || [];
+  merged.kit_catalog = base?.kit_catalog || [];
+  return merged;
+}
+
+async function loadPlayerAdminHeavy(steamId, userInitiated, attempt) {
+  if (!_playersAdminSelected || String(_playersAdminSelected) !== String(steamId)) return;
+  if (_playersAdminHeavyAbort) {
+    try { _playersAdminHeavyAbort.abort(); } catch (_) {}
+  }
+  const ac = new AbortController();
+  _playersAdminHeavyAbort = ac;
+  try {
+    if (userInitiated) toast("Completando pedidos, doações e kits…", "info");
+    const d = await fetchJson("/api/admin/players/" + encodeURIComponent(steamId) + "/heavy", {
+      timeoutMs: 15000,
+      signal: ac.signal,
+    });
+    if (_playersAdminSelected !== steamId) return;
+    if (!d.ok) {
+      if (userInitiated) toast(d.error || "Falha ao completar detalhe.", "warning");
+      return;
+    }
+    _playersAdminDetail = _mergePlayerAdminHeavy(_playersAdminDetail || {}, d);
+    renderPlayerAdminPanel(_playersAdminDetail);
+    _syncPlayersAdminListRowFromDetail();
+    if (d.partial && attempt < 4) {
+      const waitMs = Math.max(1500, Math.min(6000, Number(d.partial_retry_after_ms || 2500)));
+      window.setTimeout(() => {
+        if (_playersAdminSelected === steamId) loadPlayerAdminHeavy(steamId, false, attempt + 1);
+      }, waitMs);
+    } else if (!d.partial && userInitiated) {
+      toast("Detalhe completo carregado.", "success");
+    }
+  } catch (e) {
+    if (e?.stale || (_playersAdminSelected !== steamId)) return;
+    if (userInitiated) toast(e?.data?.error || e?.message || "Falha ao completar detalhe.", "warning");
+  } finally {
+    if (_playersAdminHeavyAbort === ac) _playersAdminHeavyAbort = null;
   }
 }
 
@@ -24374,7 +24442,7 @@ function renderPlayerAdminPanel(d) {
     </div>
     ${d.partial ? `<div style="background:rgba(255,180,0,.12);border:1px solid rgba(255,180,0,.35);color:var(--amber);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;">
       ⚠ Detalhe parcial (servidor sob carga). Dados essenciais carregados; pedidos, doações e limites de kits podem estar incompletos.
-      <button class="btn btn-ghost btn-sm" style="margin-left:8px;" type="button" onclick='selectPlayerAdmin(${JSON.stringify(p.steam_id)}, true)'>↻ Recarregar</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px;" type="button" onclick='loadPlayerAdminHeavy(${JSON.stringify(p.steam_id)}, true, 0)'>↻ Recarregar</button>
     </div>` : ""}
     <div style="font-size:22px;font-weight:700;color:var(--amber);margin-bottom:14px;">
       ${Number(p.points || 0).toLocaleString("pt-BR")} Âmbar

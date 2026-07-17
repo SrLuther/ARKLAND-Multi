@@ -1,10 +1,11 @@
 {
-    "version": "1.10.54",
+    "version": "1.10.55",
     "date": "2026-07-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.54/ARKLAND-Multi-Setup-v1.10.54.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.55/ARKLAND-Multi-Setup-v1.10.55.exe",
     "changelog": [
-        "Fix P0 (Web Store / DB): `_ensure_hot_path_indexes` marcava READY=True mesmo quando CREATE INDEX falhava por read_timeout=12s no boot — detalhe admin nunca re-tentava e estourava Timeout 15s (lista OK; ex. griao). READY só com all_present; DDL em engine sem read_timeout curto; self-heal no GET detalhe; budget com cancel+slots para órfãs não segurarem o pool.",
-        "Fix (Web Store / Admin): detalhe combina points+kits numa query; budget 9s devolve resposta parcial (timeout UI 15s mantido) com aviso na UI.",
-        "Test (Web Store / Admin+DB): READY só com índices presentes; DDL omite read_timeout; budget devolve partial quando lento."
+        "Fix P0 (Web Store / Admin): detalhe de jogador não bloqueia mais o worker HTTP em DDL/queries pesadas; se índices hot-path faltarem, o GET essencial responde parcial rápido e agenda self-heal assíncrono.",
+        "Fix (Web Store / Admin): pedidos, doações, entitlements, listings e limites de kits foram movidos para endpoint heavy/lazy com budget próprio; painel completa automaticamente após os índices ficarem prontos e o botão Recarregar tenta só o complemento.",
+        "Fix (Web Store / DB): self-heal de índices hot-path tem single-flight, READY apenas após confirmação e logs explícitos de start/done/failure; MySQL nunca roda DDL longo no request crítico.",
+        "Test (Web Store / Admin+DB): detalhe parcial não executa consultas lentas no fallback; índices ausentes retornam parcial sem chamar full path; endpoint heavy completa pedidos/doações/kits."
     ]
 }

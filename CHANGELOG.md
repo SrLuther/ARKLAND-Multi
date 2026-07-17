@@ -7,6 +7,18 @@
 
 ## [Unreleased] - 
 
+## [1.10.55] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / Admin): detalhe de jogador não bloqueia mais o worker HTTP em DDL/queries pesadas; se índices hot-path faltarem, o GET essencial responde parcial rápido e agenda self-heal assíncrono.
+- Fix (Web Store / Admin): pedidos, doações, entitlements, listings e limites de kits foram movidos para endpoint heavy/lazy com budget próprio; painel completa automaticamente após os índices ficarem prontos e o botão Recarregar tenta só o complemento.
+- Fix (Web Store / DB): self-heal de índices hot-path tem single-flight, READY apenas após confirmação e logs explícitos de start/done/failure; MySQL nunca roda DDL longo no request crítico.
+
+### Other
+
+- Test (Web Store / Admin+DB): detalhe parcial não executa consultas lentas no fallback; índices ausentes retornam parcial sem chamar full path; endpoint heavy completa pedidos/doações/kits.
+
 ## [1.10.54] - 2026-07-17
 
 ### Feature

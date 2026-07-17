@@ -1047,6 +1047,7 @@ _STORE_USERS_SCHEMA_READY = False
 _STORE_USERS_SCHEMA_LOCK = threading.Lock()
 _HOT_PATH_INDEXES_READY = False
 _HOT_PATH_INDEXES_LOCK = threading.Lock()
+_HOT_PATH_INDEXES_ASYNC_GATE = threading.BoundedSemaphore(1)
 _STEAM_ID_COLLATION_NORMALIZED = False
 _TABLE_EXISTS_CACHE: dict[str, bool] = {}
 
@@ -1315,9 +1316,12 @@ def _mysql_index_exists(conn: Any, table: str, index_name: str) -> bool:
 
 
 _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
-    ("orders", "idx_orders_steam_created", "(steam_id, created_at)"),
-    ("orders", "idx_orders_steam_type_status", "(steam_id, item_type, status)"),
-    ("point_payments", "idx_point_payments_steam_created", "(steam_id, created_at)"),
+    ("store_users", "ix_store_users_last_login_at", "(last_login_at)"),
+    ("store_users", "ix_store_users_created_at", "(created_at)"),
+    ("orders", "ix_orders_original_order_id", "(original_order_id)"),
+    ("orders", "ix_orders_steam_created", "(steam_id, created_at)"),
+    ("orders", "ix_orders_steam_type_status", "(steam_id, item_type, status)"),
+    ("point_payments", "ix_point_payments_steam_created", "(steam_id, created_at)"),
     ("market_listings", "idx_market_listings_seller_status", "(seller_steam_id, status)"),
 ]
 
@@ -1437,6 +1441,70 @@ def _ensure_hot_path_indexes(engine: Any) -> None:
             log.warning(
                 "hot_path_indexes: incompletos — READY NÃO marcado; re-tentará"
             )
+
+
+def _start_hot_path_indexes_self_heal(engine: Any, *, reason: str = "") -> bool:
+    """Agenda CREATE/validação dos índices hot-path sem bloquear request HTTP."""
+    if _HOT_PATH_INDEXES_READY:
+        return True
+    if engine is None:
+        return False
+    if not _HOT_PATH_INDEXES_ASYNC_GATE.acquire(blocking=False):
+        _log(
+            "hot_path_indexes_self_heal_already_running",
+            reason=str(reason or "unknown"),
+        )
+        return False
+
+    def _worker() -> None:
+        try:
+            _log("hot_path_indexes_self_heal_start", reason=str(reason or "unknown"))
+            _ensure_hot_path_indexes(engine)
+            _log(
+                "hot_path_indexes_self_heal_done",
+                ready=bool(_HOT_PATH_INDEXES_READY),
+                reason=str(reason or "unknown"),
+            )
+        except Exception as exc:  # pragma: no cover - defensivo
+            _log_error(
+                "hot_path_indexes_self_heal_failed",
+                reason=str(reason or "unknown"),
+                error=str(exc),
+            )
+        finally:
+            try:
+                if _SessionLocal is not None:
+                    _SessionLocal.remove()
+            except Exception:
+                pass
+            try:
+                _HOT_PATH_INDEXES_ASYNC_GATE.release()
+            except Exception:
+                pass
+
+    threading.Thread(
+        target=_worker,
+        name="hot-path-index-self-heal",
+        daemon=True,
+    ).start()
+    return False
+
+
+def _hot_path_indexes_ready_or_schedule(reason: str) -> bool:
+    """True se pronto; em MySQL agenda self-heal sem bloquear o request crítico."""
+    if _HOT_PATH_INDEXES_READY:
+        return True
+    if _ENGINE is None:
+        return False
+    if "mysql" not in str(getattr(_ENGINE, "url", "")).lower():
+        try:
+            _ensure_hot_path_indexes(_ENGINE)
+        except Exception as exc:
+            _log_error("hot_path_indexes_inline_check_failed", reason=reason, error=str(exc))
+    if _HOT_PATH_INDEXES_READY:
+        return True
+    _start_hot_path_indexes_self_heal(_ENGINE, reason=reason)
+    return False
 
 
 def _ensure_store_users_schema(engine: Any) -> None:
@@ -2479,13 +2547,6 @@ def _get_admin_player_detail(
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
         return {"ok": False, "error": "SteamID64 inválido"}
-    # Self-heal: se CREATE INDEX falhou no boot (read_timeout), re-tenta aqui.
-    # Short-circuit imediato quando `_HOT_PATH_INDEXES_READY` já está True.
-    try:
-        if _ENGINE is not None:
-            _ensure_hot_path_indexes(_ENGINE)
-    except Exception as exc:
-        _log_error("ensure_hot_path_indexes_on_detail", error=str(exc))
     if cancel is not None and cancel.is_set():
         return {"ok": False, "error": "cancelled", "cancelled": True}
     t0 = time.perf_counter()
@@ -2622,24 +2683,34 @@ def _get_admin_player_detail(
 # resposta parcial rápida a segurar o worker até o browser desistir (200 órfão →
 # «Falha ao carregar»). Override por env; <=0 desliga o budget.
 _ADMIN_DETAIL_BUDGET_MS = max(0, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BUDGET_MS", "9000") or 0))
+_ADMIN_DETAIL_HEAVY_BUDGET_MS = max(
+    1000,
+    int(os.environ.get("ARKSHOP_ADMIN_DETAIL_HEAVY_BUDGET_MS", "12000") or 12000),
+)
 # Limita threads órfãs do detalhe após budget — cada uma pode segurar 1 conexão do pool
 # até o cancel libertar a sessão entre queries.
 _ADMIN_DETAIL_BG_SLOTS = threading.BoundedSemaphore(
     max(1, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BG_SLOTS", "2") or 2))
 )
+_ADMIN_DETAIL_HEAVY_SLOTS = threading.BoundedSemaphore(
+    max(1, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_HEAVY_SLOTS", "2") or 2))
+)
 
 
-def _admin_player_detail_partial(steam_id: str) -> dict[str, Any]:
+def _admin_player_detail_partial(
+    steam_id: str,
+    *,
+    reason: str = "budget",
+) -> dict[str, Any]:
     """Payload essencial e barato para quando o detalhe completo estoura o budget.
 
-    Só toca em queries indexadas/baratas (PK get + points indexado + entitlements por
-    índice + catálogos em cache). Listas pesadas (orders/donations/listings/kits) ficam
-    vazias e `partial=True` sinaliza ao cliente que faltam secções — melhor do que 15s+.
+    Só toca em queries baratas (PK get + points/kits por steam_id). Qualquer secção que
+    possa esperar índice/scan fica para o endpoint heavy, evitando somar 9s de budget
+    + consultas lentas até bater no abort de 15s do browser.
     """
     steam_id = str(steam_id or "").strip()
     su = None
     points = 0
-    entitlements: list[dict[str, Any]] = []
     persona: str | None = None
     reg_fields = _auth_regulamento_fields_offline()
     if _db_ready():
@@ -2655,10 +2726,6 @@ def _admin_player_detail_partial(steam_id: str) -> dict[str, Any]:
             except Exception:
                 points = 0
             try:
-                entitlements = _get_player_entitlements(steam_id, db=db)
-            except Exception:
-                entitlements = []
-            try:
                 reg_fields = _auth_regulamento_fields(steam_id, db=db)
             except Exception:
                 reg_fields = _auth_regulamento_fields_offline()
@@ -2673,7 +2740,16 @@ def _admin_player_detail_partial(steam_id: str) -> dict[str, Any]:
     return {
         "ok": True,
         "partial": True,
-        "partial_reason": "budget",
+        "partial_reason": str(reason or "budget"),
+        "partial_retry_after_ms": 1500 if _HOT_PATH_INDEXES_READY else 4000,
+        "hot_path_indexes_ready": bool(_HOT_PATH_INDEXES_READY),
+        "partial_sections": [
+            "entitlements",
+            "recent_orders",
+            "recent_donations",
+            "kit_limits",
+            "listings_count",
+        ],
         "player": {
             "steam_id": steam_id,
             "steam_persona": persona,
@@ -2685,8 +2761,8 @@ def _admin_player_detail_partial(steam_id: str) -> dict[str, Any]:
             "last_login_at": _dt_iso(su.last_login_at) if su else None,
             "market_display_name": None,
             "commerce_enabled": False,
-            "entitlements": _filter_license_entitlements(entitlements),
-            "staff_roles": _get_player_staff_roles_from_list(entitlements),
+            "entitlements": [],
+            "staff_roles": [],
             "kit_stash": {},
             "kit_limits": [],
             "listings_count": None,
@@ -2700,6 +2776,238 @@ def _admin_player_detail_partial(steam_id: str) -> dict[str, Any]:
     }
 
 
+def _get_admin_player_detail_heavy(
+    steam_id: str,
+    *,
+    cancel: threading.Event | None = None,
+) -> dict[str, Any]:
+    """Secções pesadas do detalhe admin, chamadas depois do essencial."""
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    steam_id = str(steam_id or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not _hot_path_indexes_ready_or_schedule("admin_player_detail_heavy"):
+        return {
+            "ok": True,
+            "partial": True,
+            "partial_reason": "indexes_not_ready",
+            "partial_retry_after_ms": 4000,
+            "hot_path_indexes_ready": False,
+            "player": {
+                "steam_id": steam_id,
+                "entitlements": [],
+                "staff_roles": [],
+                "kit_stash": {},
+                "kit_limits": [],
+                "listings_count": None,
+            },
+            "recent_orders": [],
+            "recent_donations": [],
+        }
+    if cancel is not None and cancel.is_set():
+        return {"ok": False, "error": "cancelled", "cancelled": True}
+
+    t0 = time.perf_counter()
+    db = _SessionLocal()
+    try:
+        kit_stash: dict[str, Any] = {}
+        try:
+            prow = db.execute(
+                text("SELECT kits FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            if prow is not None:
+                kit_stash = parse_kit_stash(prow[0])
+        except Exception:
+            kit_stash = {}
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
+
+        entitlements = _get_player_entitlements(steam_id, db=db)
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
+
+        orders = (
+            db.query(Order)
+            .filter(Order.steam_id == steam_id)
+            .order_by(Order.created_at.desc())
+            .limit(20)
+            .all()
+        )
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
+
+        donations = (
+            db.query(PointPayment)
+            .filter(PointPayment.steam_id == steam_id)
+            .order_by(PointPayment.created_at.desc())
+            .limit(10)
+            .all()
+        )
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
+
+        listings_count = 0
+        try:
+            listings_count = (
+                db.query(MarketListing)
+                .filter(MarketListing.seller_steam_id == steam_id)
+                .count()
+            )
+        except Exception:
+            listings_count = 0
+        if cancel is not None and cancel.is_set():
+            return {"ok": False, "error": "cancelled", "cancelled": True}
+
+        kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        if elapsed_ms >= 500:
+            _log(
+                "get_admin_player_detail_heavy_slow",
+                steam_id=steam_id,
+                elapsed_ms=elapsed_ms,
+            )
+        return {
+            "ok": True,
+            "partial": False,
+            "hot_path_indexes_ready": True,
+            "player": {
+                "steam_id": steam_id,
+                "entitlements": _filter_license_entitlements(entitlements),
+                "staff_roles": _get_player_staff_roles_from_list(entitlements),
+                "kit_stash": kit_stash,
+                "kit_limits": kit_limits,
+                "listings_count": listings_count,
+            },
+            "recent_orders": [
+                {
+                    "order_id": o.order_id,
+                    "item_type": o.item_type,
+                    "item_id": o.item_id,
+                    "amount": o.amount,
+                    "status": o.status,
+                    "points_spent": o.points_spent,
+                    "created_at": _dt_iso(o.created_at),
+                }
+                for o in orders
+            ],
+            "recent_donations": [
+                {
+                    "payment_id": p.payment_id,
+                    "package_id": p.package_id,
+                    "points": p.points,
+                    "status": p.status,
+                    "credited": p.credited,
+                    "created_at": _dt_iso(p.created_at),
+                }
+                for p in donations
+            ],
+        }
+    except Exception as exc:
+        _log_error("get_admin_player_detail_heavy", steam_id=steam_id, error=str(exc))
+        return {"ok": False, "error": str(exc)}
+    finally:
+        _release_db_session(db)
+
+
+def _get_admin_player_detail_heavy_budgeted(steam_id: str) -> dict[str, Any]:
+    budget_ms = min(_ADMIN_DETAIL_HEAVY_BUDGET_MS, 12500)
+    if budget_ms <= 0:
+        return _get_admin_player_detail_heavy(steam_id)
+    if not _ADMIN_DETAIL_HEAVY_SLOTS.acquire(blocking=False):
+        _log("get_admin_player_detail_heavy_slots_full", steam_id=str(steam_id or "").strip())
+        return {
+            "ok": True,
+            "partial": True,
+            "partial_reason": "heavy_slots_full",
+            "partial_retry_after_ms": 2500,
+            "hot_path_indexes_ready": bool(_HOT_PATH_INDEXES_READY),
+            "player": {
+                "steam_id": str(steam_id or "").strip(),
+                "entitlements": [],
+                "staff_roles": [],
+                "kit_stash": {},
+                "kit_limits": [],
+                "listings_count": None,
+            },
+            "recent_orders": [],
+            "recent_donations": [],
+        }
+
+    box: dict[str, Any] = {}
+    done = threading.Event()
+    cancel = threading.Event()
+
+    def _worker() -> None:
+        try:
+            box["result"] = _get_admin_player_detail_heavy(steam_id, cancel=cancel)
+        except Exception as exc:  # pragma: no cover - defensivo
+            box["error"] = exc
+        finally:
+            done.set()
+            try:
+                if _SessionLocal is not None:
+                    _SessionLocal.remove()
+            except Exception:
+                pass
+            try:
+                _ADMIN_DETAIL_HEAVY_SLOTS.release()
+            except Exception:
+                pass
+
+    threading.Thread(
+        target=_worker, name="admin-player-detail-heavy", daemon=True
+    ).start()
+    if done.wait(budget_ms / 1000.0):
+        if "result" in box:
+            result = box["result"]
+            if isinstance(result, dict) and result.get("cancelled"):
+                return {
+                    "ok": True,
+                    "partial": True,
+                    "partial_reason": "heavy_cancelled",
+                    "partial_retry_after_ms": 2500,
+                    "hot_path_indexes_ready": bool(_HOT_PATH_INDEXES_READY),
+                    "player": {
+                        "steam_id": str(steam_id or "").strip(),
+                        "entitlements": [],
+                        "staff_roles": [],
+                        "kit_stash": {},
+                        "kit_limits": [],
+                        "listings_count": None,
+                    },
+                    "recent_orders": [],
+                    "recent_donations": [],
+                }
+            return result
+        return {"ok": False, "error": str(box.get("error") or "detail_heavy_failed")}
+
+    cancel.set()
+    _log(
+        "get_admin_player_detail_heavy_budget_exceeded",
+        steam_id=str(steam_id or "").strip(),
+        budget_ms=budget_ms,
+    )
+    return {
+        "ok": True,
+        "partial": True,
+        "partial_reason": "heavy_budget",
+        "partial_retry_after_ms": 2500 if _HOT_PATH_INDEXES_READY else 4000,
+        "hot_path_indexes_ready": bool(_HOT_PATH_INDEXES_READY),
+        "player": {
+            "steam_id": str(steam_id or "").strip(),
+            "entitlements": [],
+            "staff_roles": [],
+            "kit_stash": {},
+            "kit_limits": [],
+            "listings_count": None,
+        },
+        "recent_orders": [],
+        "recent_donations": [],
+    }
+
+
 def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
     """Corre o detalhe completo com deadline; se estourar, devolve parcial rápido.
 
@@ -2710,6 +3018,8 @@ def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
     budget_ms = _ADMIN_DETAIL_BUDGET_MS
     if budget_ms <= 0:
         return _get_admin_player_detail(steam_id)
+    if not _hot_path_indexes_ready_or_schedule("admin_player_detail"):
+        return _admin_player_detail_partial(steam_id, reason="indexes_not_ready")
 
     if not _ADMIN_DETAIL_BG_SLOTS.acquire(blocking=False):
         _log(
@@ -11867,6 +12177,16 @@ def admin_players_list():
 @admin_required
 def admin_player_detail(steam_id: str):
     result = _get_admin_player_detail_budgeted(steam_id.strip())
+    if not result.get("ok"):
+        code = 404 if "inválido" in str(result.get("error", "")).lower() else 500
+        return jsonify(result), code
+    return jsonify(result)
+
+
+@app.route("/api/admin/players/<steam_id>/heavy", methods=["GET"])
+@admin_required
+def admin_player_detail_heavy(steam_id: str):
+    result = _get_admin_player_detail_heavy_budgeted(steam_id.strip())
     if not result.get("ok"):
         code = 404 if "inválido" in str(result.get("error", "")).lower() else 500
         return jsonify(result), code
