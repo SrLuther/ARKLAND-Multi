@@ -7,6 +7,19 @@
 
 ## [Unreleased] - 
 
+## [1.10.56] - 2026-07-17
+
+### Fix
+
+- Fix P0 (Web Store / Admin): detalhe de jogador PESADO (ex. griao com milhares de pedidos) deixava de completar — o GET essencial ainda varria orders/point_payments/market_listings e o pending de kits, cujo custo escala com o volume do jogador, estourando o budget → «parcial eterno» / Timeout 15s. Agora o essencial só faz leituras baratas por PK/índice (cartão, pontos, entitlements, kit_stash) e responde <8s SEMPRE, mesmo com 10k+ pedidos; pedidos, doações, listings e limites de kits ficam 100% no endpoint /heavy (lazy).
+- Fix (Web Store / Admin): essencial não é mais bloqueado pela criação de índices hot-path — como já não toca nas tabelas grandes, serve o cartão na hora e apenas agenda o self-heal de índices (usado pelo /heavy).
+- Fix (Web Store / DB): contagem de pedidos de kit pendentes (_pending_kit_order_counts) ganhou LIMIT rígido (ARKSHOP_PENDING_KIT_ORDERS_CAP=500) — fetchall sem teto escalava com jogadores muito ativos e segurava o worker.
+- Fix (Web Store / Admin UI): painel mostra «Carregando pedidos, doações e limites de kits…» (neutro) durante o lazy load normal; o aviso âmbar «servidor sob carga» fica reservado para pressão real de budget/índices. Timeout frontend mantido em 15s.
+
+### Other
+
+- Test (Web Store / Admin): essencial adia secções pesadas (partial_reason='deferred'), nunca varre tabelas grandes nem depende de índices; endpoint /heavy completa pedidos/doações/kits; cap de pending kits.
+
 ## [1.10.55] - 2026-07-17
 
 ### Fix

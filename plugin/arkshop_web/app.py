@@ -2576,38 +2576,13 @@ def _get_admin_player_detail(
         entitlements = _get_player_entitlements(steam_id, db=db)
         if cancel is not None and cancel.is_set():
             return {"ok": False, "error": "cancelled", "cancelled": True}
-        orders = (
-            db.query(Order)
-            .filter(Order.steam_id == steam_id)
-            .order_by(Order.created_at.desc())
-            .limit(20)
-            .all()
-        )
-        if cancel is not None and cancel.is_set():
-            return {"ok": False, "error": "cancelled", "cancelled": True}
-        donations = (
-            db.query(PointPayment)
-            .filter(PointPayment.steam_id == steam_id)
-            .order_by(PointPayment.created_at.desc())
-            .limit(10)
-            .all()
-        )
-        if cancel is not None and cancel.is_set():
-            return {"ok": False, "error": "cancelled", "cancelled": True}
-        listings_count = 0
-        try:
-            listings_count = (
-                db.query(MarketListing)
-                .filter(MarketListing.seller_steam_id == steam_id)
-                .count()
-            )
-        except Exception:
-            pass
-        if cancel is not None and cancel.is_set():
-            return {"ok": False, "error": "cancelled", "cancelled": True}
-        kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
-        # Só DB cache — nunca bloquear detalhe na Steam API (lista já faz backfill;
-        # frontend aborta aos 15s e o 200 órfão aparecia como «Falha ao carregar»).
+        # ESSENCIAL = só leituras baratas por PK/índice (StoreUser PK, players PK,
+        # player_entitlements por unique key, market_profile PK). NUNCA varre as
+        # tabelas grandes orders/point_payments/market_listings nem o pending de
+        # kits — isso escala com o VOLUME do jogador (griao com 10k pedidos) e
+        # estourava o budget → parcial eterno. Pedidos, doações, listings e limites
+        # de kits ficam no endpoint /heavy (lazy). Assim o essencial responde <8s
+        # SEMPRE, mesmo para jogadores pesados, independente dos índices hot-path.
         cached_persona = None
         if su and su.steam_persona:
             cached_persona = str(su.steam_persona).strip() or None
@@ -2619,6 +2594,16 @@ def _get_admin_player_detail(
         # Catálogos vêm de cache em memória (mtime) — sem reparsear 1MB×N mapas.
         result = {
             "ok": True,
+            "partial": True,
+            "partial_reason": "deferred",
+            "partial_retry_after_ms": 0,
+            "hot_path_indexes_ready": bool(_HOT_PATH_INDEXES_READY),
+            "partial_sections": [
+                "recent_orders",
+                "recent_donations",
+                "kit_limits",
+                "listings_count",
+            ],
             "player": {
                 "steam_id": steam_id,
                 "steam_persona": persona if persona and str(persona).strip() != steam_id else None,
@@ -2633,33 +2618,12 @@ def _get_admin_player_detail(
                 "entitlements": _filter_license_entitlements(entitlements),
                 "staff_roles": _get_player_staff_roles_from_list(entitlements),
                 "kit_stash": kit_stash,
-                "kit_limits": kit_limits,
-                "listings_count": listings_count,
+                "kit_limits": [],
+                "listings_count": None,
                 **reg_fields,
             },
-            "recent_orders": [
-                {
-                    "order_id": o.order_id,
-                    "item_type": o.item_type,
-                    "item_id": o.item_id,
-                    "amount": o.amount,
-                    "status": o.status,
-                    "points_spent": o.points_spent,
-                    "created_at": _dt_iso(o.created_at),
-                }
-                for o in orders
-            ],
-            "recent_donations": [
-                {
-                    "payment_id": p.payment_id,
-                    "package_id": p.package_id,
-                    "points": p.points,
-                    "status": p.status,
-                    "credited": p.credited,
-                    "created_at": _dt_iso(p.created_at),
-                }
-                for p in donations
-            ],
+            "recent_orders": [],
+            "recent_donations": [],
             "license_catalog": _catalog_license_options(),
             "staff_role_catalog": _staff_role_catalog(),
             "kit_catalog": _catalog_kit_options(),
@@ -3018,8 +2982,12 @@ def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
     budget_ms = _ADMIN_DETAIL_BUDGET_MS
     if budget_ms <= 0:
         return _get_admin_player_detail(steam_id)
-    if not _hot_path_indexes_ready_or_schedule("admin_player_detail"):
-        return _admin_player_detail_partial(steam_id, reason="indexes_not_ready")
+    # Só AGENDA o self-heal dos índices (necessários ao /heavy) — NÃO bloqueia o
+    # essencial: este caminho já não toca nas tabelas grandes, logo é rápido mesmo
+    # com índices ainda a criar. Antes devolvia o parcial mínimo e o admin ficava
+    # sem o cartão do jogador enquanto o DDL corria.
+    if not _HOT_PATH_INDEXES_READY:
+        _hot_path_indexes_ready_or_schedule("admin_player_detail")
 
     if not _ADMIN_DETAIL_BG_SLOTS.acquire(blocking=False):
         _log(
@@ -4639,15 +4607,26 @@ def _player_kit_remaining(db, steam_id: str, kit_id: str, entry: dict[str, Any])
     return get_kit_remaining(stash, resolved, entry)
 
 
+_PENDING_KIT_ORDERS_CAP = max(
+    100, int(os.environ.get("ARKSHOP_PENDING_KIT_ORDERS_CAP", "500") or 500)
+)
+
+
 def _pending_kit_order_counts(db: Any, steam_id: str) -> dict[str, int]:
-    """Uma query: contagem de pedidos kit PENDENTE/ENTREGANDO por item_id resolvido."""
+    """Uma query: contagem de pedidos kit PENDENTE/ENTREGANDO por item_id resolvido.
+
+    LIMIT rígido — um jogador pesado (griao) pode ter milhares de pedidos de kit;
+    o fetchall sem teto escalava com o volume e segurava o worker. Slots de resgate
+    pendente acima do teto são irrelevantes para o cálculo do restante exibido.
+    """
     rows = db.execute(
         text(
             "SELECT item_id FROM orders "
             "WHERE steam_id = :sid AND item_type = 'kit' "
-            "AND status IN ('PENDENTE', 'ENTREGANDO')"
+            "AND status IN ('PENDENTE', 'ENTREGANDO') "
+            "LIMIT :cap"
         ),
-        {"sid": str(steam_id)},
+        {"sid": str(steam_id), "cap": _PENDING_KIT_ORDERS_CAP},
     ).fetchall()
     counts: dict[str, int] = {}
     for row in rows:

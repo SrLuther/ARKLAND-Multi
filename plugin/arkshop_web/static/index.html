@@ -24440,10 +24440,14 @@ function renderPlayerAdminPanel(d) {
       </div>
       <button class="modal-close" type="button" onclick="closePlayerAdminPanel()" title="Fechar">✕</button>
     </div>
-    ${d.partial ? `<div style="background:rgba(255,180,0,.12);border:1px solid rgba(255,180,0,.35);color:var(--amber);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;">
+    ${d.partial ? (d.partial_reason === "deferred"
+      ? `<div style="background:rgba(0,200,255,.10);border:1px solid rgba(0,200,255,.30);color:var(--cyan);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;">
+      ⏳ Carregando pedidos, doações e limites de kits…
+    </div>`
+      : `<div style="background:rgba(255,180,0,.12);border:1px solid rgba(255,180,0,.35);color:var(--amber);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;">
       ⚠ Detalhe parcial (servidor sob carga). Dados essenciais carregados; pedidos, doações e limites de kits podem estar incompletos.
       <button class="btn btn-ghost btn-sm" style="margin-left:8px;" type="button" onclick='loadPlayerAdminHeavy(${JSON.stringify(p.steam_id)}, true, 0)'>↻ Recarregar</button>
-    </div>` : ""}
+    </div>`) : ""}
     <div style="font-size:22px;font-weight:700;color:var(--amber);margin-bottom:14px;">
       ${Number(p.points || 0).toLocaleString("pt-BR")} Âmbar
     </div>

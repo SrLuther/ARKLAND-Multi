@@ -2740,14 +2740,43 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["steam_persona"] is None
         assert d["player"]["display_name"] == USER_STEAM
 
-    def test_player_detail_budget_returns_full_when_fast(self, client, monkeypatch):
-        """Com o detalhe rápido, a resposta é completa (sem flag partial)."""
+    def test_player_detail_essential_defers_heavy_sections(self, client, monkeypatch):
+        """Essencial devolve o cartão barato + entitlements; pedidos/doações/kits/
+        listings ficam para o /heavy (partial_reason='deferred')."""
         _seed_store_user(USER_STEAM, display_name="Rapido", steam_persona="Rapido")
         _login(client, ADMIN_STEAM)
         d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
         assert d["ok"] is True
-        assert not d.get("partial")
+        assert d.get("partial") is True
+        assert d.get("partial_reason") == "deferred"
         assert d["player"]["steam_persona"] == "Rapido"
+        # Secções pesadas vazias/adiadas no essencial.
+        assert d["recent_orders"] == []
+        assert d["recent_donations"] == []
+        assert d["player"]["kit_limits"] == []
+        assert d["player"]["listings_count"] is None
+        assert set(d["partial_sections"]) == {
+            "recent_orders",
+            "recent_donations",
+            "kit_limits",
+            "listings_count",
+        }
+
+    def test_player_detail_essential_skips_big_tables(self, client, monkeypatch):
+        """O essencial NUNCA varre orders/point_payments/market_listings — mesmo que
+        essas queries falhem, o cartão do jogador pesado carrega <8s."""
+        _seed_store_user(USER_STEAM, display_name="Pesado", steam_persona="Pesado")
+        _login(client, ADMIN_STEAM)
+
+        def _boom(*_a, **_k):
+            raise AssertionError("essencial não pode tocar a tabela grande")
+
+        monkeypatch.setattr(_app_module, "_build_player_kit_limits", _boom)
+        t0 = time.perf_counter()
+        d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
+        assert time.perf_counter() - t0 < 8.0
+        assert d["ok"] is True
+        assert d["player"]["steam_persona"] == "Pesado"
 
     def test_player_detail_budget_returns_partial_when_slow(self, client, monkeypatch):
         """Detalhe lento além do budget → resposta parcial rápida, nunca 15s."""
@@ -2782,8 +2811,9 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["steam_persona"] == "Lento"
         assert "license_catalog" in d
 
-    def test_player_detail_missing_indexes_returns_partial_without_blocking(self, client, monkeypatch):
-        """DDL self-heal não pode bloquear o GET crítico do detalhe."""
+    def test_player_detail_missing_indexes_still_serves_essential(self, client, monkeypatch):
+        """Índices ainda a criar NÃO degradam o essencial (ele já não toca as tabelas
+        grandes): agenda o self-heal para o /heavy e devolve o cartão na hora."""
         _seed_store_user(USER_STEAM, display_name="DDL", steam_persona="DDL")
         _login(client, ADMIN_STEAM)
         monkeypatch.setattr(_app_module, "_HOT_PATH_INDEXES_READY", False)
@@ -2793,19 +2823,16 @@ class TestAdminPlayersSteamBackfill:
             "_hot_path_indexes_ready_or_schedule",
             lambda reason: starts.append(reason) or False,
         )
-        monkeypatch.setattr(
-            _app_module,
-            "_get_admin_player_detail",
-            lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("full path blocked")),
-        )
 
         t0 = time.perf_counter()
         d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
-        assert time.perf_counter() - t0 < 1.0
+        assert time.perf_counter() - t0 < 8.0
         assert d["ok"] is True
         assert d["partial"] is True
-        assert d["partial_reason"] == "indexes_not_ready"
-        assert d["hot_path_indexes_ready"] is False
+        assert d["partial_reason"] == "deferred"
+        # Cartão essencial servido mesmo com índices em falta.
+        assert d["player"]["steam_persona"] == "DDL"
+        # Self-heal agendado para o caminho pesado.
         assert starts == ["admin_player_detail"]
 
     def test_player_detail_heavy_endpoint_completes_sections(self, client):
@@ -2827,13 +2854,16 @@ class TestAdminPlayersSteamBackfill:
         assert d["recent_donations"][0]["points"] == 500
 
     def test_player_detail_budget_disabled_runs_inline(self, client, monkeypatch):
-        """Budget<=0 devolve o detalhe completo diretamente (sem thread/partial)."""
+        """Budget<=0 corre o essencial direto (sem thread); ainda adia as secções
+        pesadas para o /heavy (partial_reason='deferred')."""
         _seed_store_user(USER_STEAM, display_name="Inline", steam_persona="Inline")
         _login(client, ADMIN_STEAM)
         monkeypatch.setattr(_app_module, "_ADMIN_DETAIL_BUDGET_MS", 0)
         d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
         assert d["ok"] is True
-        assert not d.get("partial")
+        assert d.get("partial") is True
+        assert d.get("partial_reason") == "deferred"
+        assert d["player"]["steam_persona"] == "Inline"
 
     def test_auth_me_uses_cached_persona_without_steam_api(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="CachedNick", steam_persona="CachedNick")
