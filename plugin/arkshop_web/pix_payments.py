@@ -231,6 +231,7 @@ def _mp_request(
     payload: dict | None = None,
     *,
     idempotency_key: str | None = None,
+    timeout: float = 30.0,
 ) -> dict[str, Any]:
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -246,7 +247,7 @@ def _mp_request(
         method=method,
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=max(2.0, float(timeout))) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             return json.loads(body) if body else {}
     except urllib.error.HTTPError as exc:
@@ -283,8 +284,15 @@ def create_pix_payment(
     )
 
 
-def fetch_payment(access_token: str, mp_payment_id: str) -> dict[str, Any]:
-    return _mp_request(access_token, "GET", f"/v1/payments/{mp_payment_id}")
+def fetch_payment(
+    access_token: str,
+    mp_payment_id: str,
+    *,
+    timeout: float = 30.0,
+) -> dict[str, Any]:
+    return _mp_request(
+        access_token, "GET", f"/v1/payments/{mp_payment_id}", timeout=timeout,
+    )
 
 
 def extract_pix_data(mp_response: dict[str, Any]) -> tuple[str | None, str | None, str | None]:

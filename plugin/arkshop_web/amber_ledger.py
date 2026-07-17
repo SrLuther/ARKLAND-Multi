@@ -677,7 +677,7 @@ def _ensure_schema_ready(db: Session) -> None:
             _schema_verified_engines.add(engine_id)
         except Exception:
             db.rollback()
-            ensure_amber_schema(engine, run_backfill=True)
+            ensure_amber_schema(engine, run_backfill=False)
             _schema_verified_engines.add(engine_id)
 
 

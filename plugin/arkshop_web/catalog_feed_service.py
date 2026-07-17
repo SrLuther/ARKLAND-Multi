@@ -10,6 +10,7 @@ from typing import Any, Callable
 log = logging.getLogger("arkshop_web.catalog_feed")
 
 _feed_lock = threading.Lock()
+_feed_run_lock = threading.Lock()
 _last_feed_at: datetime | None = None
 _last_feed_result: dict[str, Any] | None = None
 _last_feed_source: str | None = None
@@ -77,6 +78,36 @@ def run_catalog_feed(
     if activate is None:
         activate = _env_flag("MARKET_AUTO_ACTIVATE_SPECIES")
 
+    # Evita feeds concorrentes (boot + save + scheduler) a saturar o pool.
+    if not _feed_run_lock.acquire(blocking=False):
+        return {
+            "ok": False,
+            "error": "catalog_feed já em execução",
+            "source": source,
+            "skipped": True,
+        }
+    try:
+        return _run_catalog_feed_locked(
+            source=source,
+            activate=activate,
+            catalog=catalog,
+            only_missing=only_missing,
+            session_factory=session_factory,
+            read_catalog=read_catalog,
+        )
+    finally:
+        _feed_run_lock.release()
+
+
+def _run_catalog_feed_locked(
+    *,
+    source: str,
+    activate: bool,
+    catalog: dict[str, Any] | None,
+    only_missing: bool,
+    session_factory: Callable[[], Any],
+    read_catalog: Callable[[], dict[str, Any]] | None,
+) -> dict[str, Any]:
     db = session_factory()
     try:
         from market_service import feed_catalog_to_market
@@ -108,7 +139,20 @@ def run_catalog_feed(
         _record_feed_result(source, err)
         return err
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
+        try:
+            if hasattr(session_factory, "remove"):
+                session_factory.remove()
+            else:
+                import app as app_module
+
+                if getattr(app_module, "_SessionLocal", None) is not None:
+                    app_module._SessionLocal.remove()
+        except Exception:
+            pass
 
 
 def _scheduler_worker(interval_minutes: int) -> None:

@@ -1,10 +1,18 @@
 {
-    "version": "1.10.52",
-    "date": "2026-07-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.52/ARKLAND-Multi-Setup-v1.10.52.exe",
+    "version": "1.10.53",
+    "date": "2026-07-17",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.53/ARKLAND-Multi-Setup-v1.10.53.exe",
     "changelog": [
-        "Fix (Web Store / Admin): «Falha ao carregar detalhes» — evidência em webstore.log: GET /api/admin/players/<id> devolvia 200 (sem exception), mas o frontend abortava aos 15s. Sob carga o detalhe demorava dezenas de segundos porque (1) reparseava config.json ~1.1MB em todos os mapas via _read_richest_license_catalog_config a cada clique, (2) abria sessões MySQL extra para points/entitlements, (3) podia chamar Steam mesmo com nick em cache; CrossChat Discord ainda spamava ~2s no processo antigo (230 avisos vs 41 HTTP na janela 18:1x). Fix: detalhe só lê steam_persona do DB (zero Steam), reutiliza 1 sessão DB, cache mtime do catálogo de licenças/kits; UI mostra a mensagem real de timeout e não re-dispara detalhe a cada reload da lista.",
-        "Fix (Web Store): /api/auth/me forçava Steam GetPlayerSummaries (timeout 12s, ignora cache) em toda navegação via _refresh_steam_persona — causa partilhada de fila no Werkzeug threaded. Passa a cache-first (_backfill_steam_personas) como a lista admin.",
-        "Test (Web Store / Admin): detalhe sem Steam API; auth/me cache-first; _catalog_license_options/_catalog_kit_options cacheados por fingerprint mtime."
+        "Fix (Web Store / Admin): detalhe GET /api/admin/players/<id> ainda estourava o timeout 15s do frontend sob carga — causa raiz: N×SELECT idêntico em orders (~40 kits DefaultAmount) via _count_pending_kit_orders + SHOW COLUMNS/inspect em cada lista + JOINs com COLLATE que impediam índices + filesort sem índices hot-path. Timeout UI mantido em 15s; detalhe deve responder em <2s. Pending kits: 1 query + contagem em memória.",
+        "Fix (Web Store / Admin): lista /api/admin/players — COUNT(*) barato só em store_users quando a busca não precisa de players+market; schema store_users e _db_table_exists em flag/cache por processo (fim do SHOW COLUMNS/inspect por request).",
+        "Fix (Web Store / DB): índices hot-path via ensure_schema — store_users(last_login_at, created_at), orders(original_order_id, steam_id+created_at, steam_id+item_type+status), point_payments(steam_id+created_at); setup_db.sql alinhado. JOINs steam_id sem COLLATE após migrate (optimizer usa índice).",
+        "Fix (Web Store / DB): pool MySQL default 15+30 overflow, pool_timeout/read_timeout 12s; overrides ARKSHOP_DB_POOL_SIZE / MAX_OVERFLOW / POOL_TIMEOUT / READ_TIMEOUT / WRITE_TIMEOUT / CONNECT_TIMEOUT.",
+        "Fix (Web Store): /api/player/summary colapsa 6 COUNT(*) + sessão extra de points em 2 agregações + 1 sessão; cache mtime de catalog_id_migration.json e fingerprint de configs (TTL 2s) nos dropdowns do detalhe.",
+        "Fix (Web Store / Concorrência): WSGI prefer Waitress (ARKSHOP_HTTP_THREADS=16) em vez de Flask/Werkzeug threaded=True — sob RCON/DB lentos o threaded enfileirava handlers até timeout no browser.",
+        "Fix (Web Store / Concorrência): sync-all-permissions em background (202 + poll /status); TribeSync liberta sessão MySQL antes do RCON e dispara mapas em paralelo; workers tribe_log/catalog_feed com scoped_session.remove(); tribe_routes idempotente; limiter defaults 600/h (antes 50/h); auth/me+health com override; single-flight admin SteamIDs e catalog_feed; Âmbarômetro sem backfill no hot-path HTTP.",
+        "Fix (Web Store / I/O externo): grant/revoke de licença com rcon_async (fan-out RCON em background); exchange_rates/PIX/Discord/RCON bridge com timeouts e sem I/O síncrono bloqueante nos hot-paths HTTP do jogador.",
+        "Fix (Web Store / Frontend): timeout de detalhe admin mantido em 15s; saldo com cooldown 10s + dedup/abort; catálogo e lista admin com AbortController; Minha Área carrega secções em paralelo (Promise.all); mutações admin sem tempestade list+detail; Âmbarômetro com timeout 12s via fetchJson.",
+        "Test (Web Store / Admin+DB): kit_limits 1 query pending; store_users schema skip; table_exists cache; collation JOIN pós-normalize; hot_path indexes idempotente; COUNT lista sem JOIN desnecessário.",
+        "Test (Web Store / Concorrência+I/O): guards de limiter, sync-all async, tribe_routes idempotente, DB liberada antes de RCON, runtime workers once; RCON fan-out async e timeouts de I/O externo."
     ]
 }

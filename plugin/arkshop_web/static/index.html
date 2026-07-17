@@ -10354,7 +10354,12 @@ function formatPoints(n) {
   return formatAmberAmount(n);
 }
 
-async function refreshPlayerBalance() {
+let _balanceFetchAbort = null;
+let _balanceFetchPromise = null;
+let _balanceLastFetchMs = 0;
+const _BALANCE_MIN_INTERVAL_MS = 10000;
+
+async function refreshPlayerBalance({ force = false } = {}) {
   const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance", "mobile-balance"];
 
   if (!_auth.authenticated) {
@@ -10362,31 +10367,70 @@ async function refreshPlayerBalance() {
     return;
   }
 
-  let pts = null;
-  try {
-    let r = await fetch(API + "/api/player/points");
-    let data = await r.json().catch(() => ({}));
-    if (r.ok && data.ok && data.points != null) {
-      pts = Number(data.points);
-    } else {
-      r = await fetch(API + "/api/player/summary");
-      data = await r.json().catch(() => ({}));
-      if (r.ok && data.ok) pts = data.points != null ? Number(data.points) : 0;
-    }
-    if (pts == null || !Number.isFinite(pts)) {
-      pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
-      return;
-    }
-    window._playerBalance = pts;
-    updateBalanceDisplays(pts);
-    syncAmberUnits(pts);
-  } catch (_) {
-    pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
+  const now = Date.now();
+  if (
+    !force
+    && window._playerBalance != null
+    && Number.isFinite(window._playerBalance)
+    && (now - _balanceLastFetchMs) < _BALANCE_MIN_INTERVAL_MS
+  ) {
+    updateBalanceDisplays(window._playerBalance);
+    syncAmberUnits(window._playerBalance);
+    return;
   }
+  if (_balanceFetchPromise) return _balanceFetchPromise;
+
+  if (_balanceFetchAbort) {
+    try { _balanceFetchAbort.abort(); } catch (_) {}
+  }
+  const ac = new AbortController();
+  _balanceFetchAbort = ac;
+
+  _balanceFetchPromise = (async () => {
+    let pts = null;
+    try {
+      let data;
+      try {
+        data = await fetchJson("/api/player/points", { timeoutMs: 10000, signal: ac.signal });
+        if (data.ok && data.points != null) pts = Number(data.points);
+      } catch (e) {
+        if (e?.stale) return;
+        if (e?.status === 429) {
+          if (window._playerBalance != null && Number.isFinite(window._playerBalance)) {
+            updateBalanceDisplays(window._playerBalance);
+            return;
+          }
+        }
+      }
+      if (pts == null) {
+        data = await fetchJson("/api/player/summary", { timeoutMs: 12000, signal: ac.signal });
+        if (data.ok) pts = data.points != null ? Number(data.points) : 0;
+      }
+      if (pts == null || !Number.isFinite(pts)) {
+        pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
+        return;
+      }
+      window._playerBalance = pts;
+      _balanceLastFetchMs = Date.now();
+      updateBalanceDisplays(pts);
+      syncAmberUnits(pts);
+    } catch (e) {
+      if (e?.stale) return;
+      if (window._playerBalance != null && Number.isFinite(window._playerBalance)) {
+        updateBalanceDisplays(window._playerBalance);
+        return;
+      }
+      pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
+    } finally {
+      if (_balanceFetchAbort === ac) _balanceFetchAbort = null;
+      _balanceFetchPromise = null;
+    }
+  })();
+  return _balanceFetchPromise;
 }
 
 async function updateCatalogPoints() {
-  await refreshPlayerBalance();
+  await refreshPlayerBalance({ force: true });
 }
 
 // ── Utilitário: formata chave interna em nome legível ─────────────────────────
@@ -10967,11 +11011,20 @@ function _renderProductCard(i, btnLabel) {
     </div>`;
 }
 
+let _catalogLoadAbort = null;
+let _catalogLoadGen = 0;
+
 async function loadCatalog() {
+  if (_catalogLoadAbort) {
+    try { _catalogLoadAbort.abort(); } catch (_) {}
+  }
   const ctrl = new AbortController();
+  _catalogLoadAbort = ctrl;
+  const gen = ++_catalogLoadGen;
   const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
     const r = await fetch(API + "/api/catalog", { signal: ctrl.signal });
+    if (gen !== _catalogLoadGen) return false;
     if (!r.ok) return false;
     const data = await r.json();
     if (data.currency) applyCurrency(data.currency);
@@ -11046,15 +11099,19 @@ async function loadCatalog() {
       _exchangeRates = data.exchange_rates.rates;
     }
 
+    if (gen !== _catalogLoadGen) return false;
+
     if (_auth.authenticated) {
       try {
-        const er = await fetch(API + "/api/player/entitlements");
-        const ed = await er.json();
+        const ed = await fetchJson("/api/player/entitlements", { timeoutMs: 10000, signal: ctrl.signal });
+        if (gen !== _catalogLoadGen) return false;
         if (ed.ok) {
           _playerEntitlements = ed.entitlements || [];
           _playerTimedPointsTotal = ed.timed_points_total || 25;
         }
-      } catch (_) {}
+      } catch (e) {
+        if (!e?.stale) { /* mantém cache anterior */ }
+      }
     } else {
       _playerEntitlements = [];
       _playerTimedPointsTotal = 25;
@@ -11081,10 +11138,12 @@ async function loadCatalog() {
     if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(_catalogActiveTab);
     return true;
   } catch (e) {
+    if (e?.name === "AbortError") return false;
     console.warn("loadCatalog:", e);
     return false;
   } finally {
     clearTimeout(timer);
+    if (_catalogLoadAbort === ctrl) _catalogLoadAbort = null;
   }
 }
 
@@ -11685,7 +11744,7 @@ async function pollCardReturnStatus(paymentId, mpId) {
       if (!r.ok || !d.ok) continue;
       if (d.credited) {
         toast("Doação confirmada! Âmbares creditados.", "success");
-        refreshPlayerBalance();
+        refreshPlayerBalance({ force: true });
         try { sessionStorage.removeItem("arkland_card_payment_id"); } catch (_) {}
         return;
       }
@@ -11756,7 +11815,7 @@ async function pollPixStatus(paymentId) {
       line.textContent = "✅ Doação confirmada! Pontos creditados como recompensa.";
       line.style.color = "var(--success)";
       if (d.new_balance != null) window._playerBalance = d.new_balance;
-      refreshPlayerBalance();
+      refreshPlayerBalance({ force: true });
       loadMyArea();
       stopPixPoll();
       _activePixPaymentId = null;
@@ -11870,15 +11929,19 @@ async function loadMyArea() {
     <div class="form-group"><label>Resgates contestados</label><input readonly value="${st.contested ?? 0}" /></div>
   `;
   window._playerBalance = summary.points ?? 0;
-  refreshPlayerBalance();
+  _balanceLastFetchMs = Date.now();
+  updateBalanceDisplays(window._playerBalance);
+  syncAmberUnits(window._playerBalance);
 
-  await loadMyAreaDonations();
-  await loadMyAreaLottery();
-  await loadMyAreaLicenses();
-  await loadMyAreaDinoOrders();
-  await loadMyAreaHistory();
-  await marketProfilePromise;
-  loadMyTribe();
+  await Promise.all([
+    loadMyAreaDonations(),
+    loadMyAreaLottery(),
+    loadMyAreaLicenses(),
+    loadMyAreaDinoOrders(),
+    loadMyAreaHistory(),
+    marketProfilePromise,
+    loadMyTribe(),
+  ]);
 }
 
 async function loadMyAreaMarketProfile() {
@@ -11950,7 +12013,7 @@ async function cancelPendingOrder(orderId) {
     if (d.ok) {
       toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados (80%)`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
-      refreshPlayerBalance();
+      refreshPlayerBalance({ force: true });
       loadMyArea();
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
@@ -13319,7 +13382,7 @@ async function lotteryBuyRandom() {
     if (!d.ok) throw new Error(d.message || d.error);
     toast(`Número ${d.number.value} adquirido!`, "success");
     loadSorteio();
-    refreshPlayerBalance();
+    refreshPlayerBalance({ force: true });
   } catch (e) { toast(String(e), "error"); }
 }
 
@@ -13331,7 +13394,7 @@ async function lotteryReserveFromGrid(num) {
     if (!d.ok) throw new Error(d.message || d.error);
     toast(`Número ${num} reservado!`, "success");
     loadSorteio();
-    refreshPlayerBalance();
+    refreshPlayerBalance({ force: true });
   } catch (e) { toast(String(e), "error"); }
 }
 
@@ -13413,7 +13476,7 @@ async function lotteryChangeFixedNumberPrompt(cost) {
       body: { new_number: n },
     });
     toast(`Número fixo alterado para ${d.fixed_number}.`, "success");
-    refreshPlayerBalance();
+    refreshPlayerBalance({ force: true });
     loadMyAreaLottery();
   } catch (e) { toast(e.message || String(e), "error"); }
 }
@@ -18377,7 +18440,7 @@ async function marketPurchaseListing(listingId) {
     }
     const hrs = d.hours_remaining != null ? Math.ceil(d.hours_remaining) : 24;
     toast(`Comprado! Resgate em até ${hrs}h com /mercado. Saldo: ${d.buyer_balance}`, "success");
-    refreshPlayerBalance();
+    refreshPlayerBalance({ force: true });
     loadMarketBrowse();
   } catch (e) {
     toast(String(e), "error");
@@ -22619,7 +22682,7 @@ async function confirmBuy() {
       closeBuyModal();
       toast(d.user_message || `✅ Resgate solicitado: ${item.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
-      refreshPlayerBalance();
+      refreshPlayerBalance({ force: true });
       // Licença: re-fetch entitlements + kit limits (renovação restaura resgates).
       const isLicense = _isLicenseItem(item) || !!(item.licenseGrant || item.licenseGroup);
       Promise.all([
@@ -23048,15 +23111,7 @@ async function loadAmberMeter() {
   if (!_amberMeterLastData) renderAmberMeterPlaceholder("Carregando estatísticas…");
   async function fetchAndRender() {
     try {
-      const r = await fetch(API + "/api/public/amber-stats");
-      let d = null;
-      try { d = await r.json(); } catch (_) { /* resposta inválida */ }
-      if (r.status === 429) {
-        _amberMeterBackoffStep = Math.min(_amberMeterBackoffStep + 1, 5);
-        _renderAmberMeterStale(_amberMeterRetryMessage());
-        _scheduleAmberMeterPoll(fetchAndRender, true);
-        return;
-      }
+      const d = await fetchJson("/api/public/amber-stats", { timeoutMs: 12000 });
       if (d && d.ok) {
         _amberMeterBackoffStep = 0;
         _amberMeterLastData = d;
@@ -23066,7 +23121,13 @@ async function loadAmberMeter() {
       }
       _renderAmberMeterStale((d && d.error) || "Dados temporariamente indisponíveis");
       _scheduleAmberMeterPoll(fetchAndRender, false);
-    } catch (_) {
+    } catch (e) {
+      if (e?.status === 429) {
+        _amberMeterBackoffStep = Math.min(_amberMeterBackoffStep + 1, 5);
+        _renderAmberMeterStale(_amberMeterRetryMessage());
+        _scheduleAmberMeterPoll(fetchAndRender, true);
+        return;
+      }
       _renderAmberMeterStale("Não foi possível carregar o Âmbarômetro");
       _scheduleAmberMeterPoll(fetchAndRender, true);
     }
@@ -23832,6 +23893,25 @@ let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;
 let _playersAdminDetailAbort = null;
+let _playersAdminListAbort = null;
+
+function _syncPlayersAdminListRowFromDetail() {
+  const d = _playersAdminDetail;
+  const sid = d?.player?.steam_id;
+  if (!sid) return;
+  document.querySelectorAll(".players-admin-table tbody tr").forEach(tr => {
+    const onclick = tr.getAttribute("onclick") || "";
+    if (!onclick.includes(sid)) return;
+    const ptsCell = tr.cells?.[1];
+    if (ptsCell) ptsCell.textContent = Number(d.player.points || 0).toLocaleString("pt-BR");
+  });
+}
+
+async function reloadPlayerAdminAfterMutation() {
+  if (!_playersAdminSelected) return;
+  await selectPlayerAdmin(_playersAdminSelected, true);
+  _syncPlayersAdminListRowFromDetail();
+}
 
 async function loadPlayersAdminLicenseCatalog() {
   try {
@@ -23893,7 +23973,8 @@ function nextPlayersAdminPage() {
 async function syncAllPermissionsAdmin() {
   if (!confirm(
     "Comparar player_entitlements com ark_permission.players e corrigir todas as divergências?\n\n"
-    + "Grupos manuais fora de licenças/cargos da web são preservados."
+    + "Grupos manuais fora de licenças/cargos da web são preservados.\n\n"
+    + "A sincronização corre em background (não bloqueia o site)."
   )) return;
   try {
     const r = await fetch(API + "/api/admin/sync-all-permissions", {
@@ -23906,6 +23987,40 @@ async function syncAllPermissionsAdmin() {
       toast(d.error || "Falha na reconciliação", "error");
       return;
     }
+    if (d.accepted || d.status === "running" || d.already_running) {
+      toast(
+        d.already_running
+          ? "Reconciliação já em curso — a aguardar…"
+          : "Reconciliação iniciada em background…",
+        "info"
+      );
+      for (let i = 0; i < 90; i++) {
+        await new Promise((res) => setTimeout(res, 2000));
+        const sr = await fetch(API + "/api/admin/sync-all-permissions/status");
+        const st = await sr.json();
+        if (!st.running) {
+          if (!st.ok) {
+            toast(st.error || "Falha na reconciliação", "error");
+            return;
+          }
+          const irregular = Number(st.irregular || 0);
+          const synced = Number(st.synced || 0);
+          const errs = (st.errors || []).length;
+          if (synced > 0) {
+            toast(`Permissions sincronizados: ${synced} de ${irregular} irregular(es).`, "success");
+            loadPlayersAdmin(true);
+          } else if (irregular === 0) {
+            toast("Nenhuma divergência encontrada.", "success");
+          } else {
+            toast(`Irregulares: ${irregular}. Corrigidos: ${synced}. Erros: ${errs}.`, "warning");
+          }
+          return;
+        }
+      }
+      toast("Reconciliação ainda a correr — consulte mais tarde.", "warning");
+      return;
+    }
+    // Caminho sync=true (legado)
     const irregular = Number(d.irregular || 0);
     const synced = Number(d.synced || 0);
     const errs = (d.errors || []).length;
@@ -23994,8 +24109,16 @@ async function loadPlayersAdmin(resetPanel) {
   });
   const el = document.getElementById("players-admin-list");
   if (el) el.innerHTML = `<p style="color:var(--text2);padding:12px;">Carregando…</p>`;
+  if (_playersAdminListAbort) {
+    try { _playersAdminListAbort.abort(); } catch (_) {}
+  }
+  const listAc = new AbortController();
+  _playersAdminListAbort = listAc;
   try {
-    const d = await fetchJson("/api/admin/players?" + params.toString());
+    const d = await fetchJson("/api/admin/players?" + params.toString(), {
+      timeoutMs: 15000,
+      signal: listAc.signal,
+    });
     if (!d.ok) {
       if (el) el.innerHTML = `<p style="color:var(--danger);">${escHtml(d.error || "Erro")}</p>`;
       return;
@@ -24062,8 +24185,11 @@ async function loadPlayersAdmin(resetPanel) {
       if (!same) selectPlayerAdmin(_playersAdminSelected, true);
     }
   } catch (e) {
+    if (e?.stale) return;
     const msg = e?.data?.error || e?.message || "Falha ao carregar jogadores.";
     if (el) el.innerHTML = `<p style="color:var(--danger);">${escHtml(msg)}</p>`;
+  } finally {
+    if (_playersAdminListAbort === listAc) _playersAdminListAbort = null;
   }
 }
 
@@ -24103,6 +24229,7 @@ async function selectPlayerAdmin(steamId, silent) {
     }
     _playersAdminDetail = d;
     renderPlayerAdminPanel(d);
+    _syncPlayersAdminListRowFromDetail();
     if (!silent) requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }));
   } catch (e) {
     if (e?.stale || (_playersAdminSelected !== steamId)) return;
@@ -24278,8 +24405,7 @@ async function playerAdminPoints(mode) {
   const d = await r.json();
   if (d.ok) {
     toast(`Saldo: ${Number(d.after).toLocaleString("pt-BR")} Âmbar`, "success");
-    loadPlayersAdmin();
-    selectPlayerAdmin(_playersAdminSelected, true);
+    reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha", "error");
 }
 
@@ -24296,8 +24422,7 @@ async function playerAdminBan(blocked) {
   const d = await r.json();
   if (d.ok) {
     toast(blocked ? "Jogador bloqueado." : "Jogador desbloqueado.", "success");
-    loadPlayersAdmin();
-    selectPlayerAdmin(_playersAdminSelected, true);
+    reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha", "error");
 }
 
@@ -24320,8 +24445,7 @@ async function playerAdminStaffRole(action) {
     } else {
       toast(action === "grant" ? "Cargo aplicado." : "Cargo removido.", "success");
     }
-    loadPlayersAdmin();
-    selectPlayerAdmin(_playersAdminSelected, true);
+    reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha", "error");
 }
 
@@ -24341,8 +24465,7 @@ async function playerAdminLicense(action) {
   const d = await r.json();
   if (d.ok) {
     toast(action === "grant" ? "Licença concedida." : "Licença revogada.", "success");
-    loadPlayersAdmin();
-    selectPlayerAdmin(_playersAdminSelected, true);
+    reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha", "error");
 }
 
@@ -24361,7 +24484,7 @@ async function playerAdminKit(mode) {
   const d = await r.json();
   if (d.ok) {
     toast(mode === "deliver" ? "Kit enfileirado para entrega." : "Kit adicionado ao stash.", "success");
-    selectPlayerAdmin(_playersAdminSelected, true);
+    reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha", "error");
 }
 
@@ -24377,7 +24500,7 @@ async function playerAdminRevokeKitLimit(kitId) {
   const d = await r.json();
   if (d.ok) {
     toast(`Limite resetado — ${d.remaining ?? d.limit ?? "?"} resgate(s) disponíveis.`, "success");
-    selectPlayerAdmin(_playersAdminSelected, true);
+    reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha ao resetar limite", "error");
 }
 

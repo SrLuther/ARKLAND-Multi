@@ -212,7 +212,7 @@ class TestAuth:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {ADMIN_STEAM: "AdminNick"} if ADMIN_STEAM in ids else {},
+            lambda ids, **kw: {ADMIN_STEAM: "AdminNick"} if ADMIN_STEAM in ids else {},
         )
         _seed_store_user(ADMIN_STEAM, display_name="AdminNick", steam_persona="AdminNick")
         _login(client, ADMIN_STEAM)
@@ -226,7 +226,7 @@ class TestAuth:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "SteamPersona"} if USER_STEAM in ids else {},
+            lambda ids, **kw: {USER_STEAM: "SteamPersona"} if USER_STEAM in ids else {},
         )
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
@@ -236,7 +236,7 @@ class TestAuth:
     def test_me_display_name_null_when_unavailable(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         monkeypatch.delenv("STEAM_API_KEY", raising=False)
-        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", lambda _ids: {})
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", lambda _ids, **kw: {})
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
         assert d.get("display_name") is None
@@ -255,7 +255,7 @@ class TestAuth:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "CianoSteam"} if USER_STEAM in ids else {},
+            lambda ids, **kw: {USER_STEAM: "CianoSteam"} if USER_STEAM in ids else {},
         )
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
@@ -270,7 +270,7 @@ class TestAuth:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "CianoSteam"} if USER_STEAM in ids else {},
+            lambda ids, **kw: {USER_STEAM: "CianoSteam"} if USER_STEAM in ids else {},
         )
         _app_module._touch_store_user_login(USER_STEAM)
         db = _app_module._SessionLocal()
@@ -316,7 +316,7 @@ class TestAuth:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "PlayerBR"} if USER_STEAM in ids else {},
+            lambda ids, **kw: {USER_STEAM: "PlayerBR"} if USER_STEAM in ids else {},
         )
         _seed_store_user(USER_STEAM, steam_persona="PlayerBR")
         _login(client, USER_STEAM)
@@ -1110,10 +1110,21 @@ class TestPendingDeliveries:
         self._write_license_catalog(tmp_path, monkeypatch)
         oid = _create_order_direct(item_id="licenca_gamma", status="PENDENTE")
 
-        def has_license(steam_id, group):
-            return steam_id == USER_STEAM and group == "Gamma"
-
-        monkeypatch.setattr(_app_module, "_player_has_license", has_license)
+        # Fulfilled = entitlement deste pedido (source=order_id), não só grupo activo.
+        monkeypatch.setattr(
+            _app_module,
+            "_get_player_entitlements",
+            lambda sid: (
+                [{"group": "Gamma", "source": oid, "expires_at": "2099-01-01T00:00:00+00:00"}]
+                if sid == USER_STEAM
+                else []
+            ),
+        )
+        monkeypatch.setattr(
+            _app_module,
+            "_sync_license_permissions_all_servers",
+            lambda *a, **k: [{"ok": True}],
+        )
 
         r = client.post(
             "/api/pending/claim",
@@ -1134,12 +1145,22 @@ class TestPendingDeliveries:
 
     def test_pending_release_fulfills_already_licensed_order(self, client, tmp_path, monkeypatch):
         self._write_license_catalog(tmp_path, monkeypatch)
-        oid = _create_order_direct(item_id="Gamma", status="ENTREGANDO")
+        oid = _create_order_direct(item_id="licenca_gamma", status="ENTREGANDO")
 
-        def has_license(steam_id, group):
-            return steam_id == USER_STEAM and group == "Gamma"
-
-        monkeypatch.setattr(_app_module, "_player_has_license", has_license)
+        monkeypatch.setattr(
+            _app_module,
+            "_get_player_entitlements",
+            lambda sid: (
+                [{"group": "Gamma", "source": oid, "expires_at": "2099-01-01T00:00:00+00:00"}]
+                if sid == USER_STEAM
+                else []
+            ),
+        )
+        monkeypatch.setattr(
+            _app_module,
+            "_sync_license_permissions_all_servers",
+            lambda *a, **k: [{"ok": True}],
+        )
 
         r = client.post(
             "/api/pending/release",
@@ -1387,12 +1408,21 @@ class TestAdminPlayers:
         assert d["total"] >= 1
 
     def test_steam_id_join_uses_unicode_collation(self):
-        sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
-        assert "COLLATE utf8mb4_unicode_ci" in sql
-        assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
-        assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
-            "a.steam_id = b.steam_id"
-        )
+        prev = _app_module._STEAM_ID_COLLATION_NORMALIZED
+        try:
+            _app_module._STEAM_ID_COLLATION_NORMALIZED = False
+            sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
+            assert "COLLATE utf8mb4_unicode_ci" in sql
+            assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
+            _app_module._STEAM_ID_COLLATION_NORMALIZED = True
+            assert _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True) == (
+                "mp.steam_id = su.steam_id"
+            )
+            assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
+                "a.steam_id = b.steam_id"
+            )
+        finally:
+            _app_module._STEAM_ID_COLLATION_NORMALIZED = prev
 
     def test_steam_id_collation_modify_omits_pk_when_column_is_pk(self):
         sql = _app_module._build_steam_id_collation_modify_sql(
@@ -2504,7 +2534,7 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids: {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {},
+            lambda ids, timeout=12.0: {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {},
         )
         _login(client, USER_STEAM)
         _app_module._touch_store_user_login(USER_STEAM)
@@ -2759,3 +2789,124 @@ class TestAdminPlayersSteamBackfill:
         assert any(e["group"] == "Gamma" for e in first)
         # 2ª chamada de license + kit options não reparseia candidatos.
         assert len(loads) <= 1
+
+    def test_build_player_kit_limits_uses_single_pending_query(self, tmp_path, monkeypatch):
+        """~40 kits com DefaultAmount não podem disparar N×SELECT em orders."""
+        catalog = tmp_path / "shop.json"
+        kits = {
+            f"kit_{i}": {"Description": f"Kit {i}", "DefaultAmount": 1, "Price": 0}
+            for i in range(12)
+        }
+        catalog.write_text(json.dumps({"Kits": kits}), encoding="utf-8")
+        monkeypatch.setattr(_app_module, "_load_settings", lambda: {"config_path": str(catalog)})
+        _app_module._invalidate_shop_config_cache()
+
+        for i in range(3):
+            _create_order_direct(
+                steam_id=USER_STEAM,
+                item_id=f"kit_{i}",
+                item_type="kit",
+                status="PENDENTE",
+                amount=1,
+            )
+
+        db = _app_module._SessionLocal()
+        try:
+            real_execute = db.execute
+            pending_selects = []
+
+            def _counting_execute(stmt, *args, **kwargs):
+                sql = str(getattr(stmt, "text", stmt) or stmt)
+                if "item_type = 'kit'" in sql and "PENDENTE" in sql:
+                    pending_selects.append(sql)
+                return real_execute(stmt, *args, **kwargs)
+
+            db.execute = _counting_execute  # type: ignore[method-assign]
+            limits = _app_module._build_player_kit_limits(db, USER_STEAM)
+            assert len(limits) == 12
+            assert len(pending_selects) == 1
+            by_id = {row["kit_id"]: row for row in limits}
+            assert by_id["kit_0"]["pending_orders"] == 1
+            assert by_id["kit_5"]["pending_orders"] == 0
+        finally:
+            _app_module._release_db_session(db)
+
+    def test_ensure_store_users_schema_skips_after_ready(self, monkeypatch):
+        """Lista admin não deve repetir SHOW COLUMNS / PRAGMA em cada request."""
+        engine = _app_module._ENGINE
+        assert engine is not None
+        _app_module._STORE_USERS_SCHEMA_READY = False
+        _app_module._ensure_store_users_schema(engine)
+        assert _app_module._STORE_USERS_SCHEMA_READY is True
+        calls = {"n": 0}
+        real_connect = engine.connect
+
+        def _counting_connect(*args, **kwargs):
+            calls["n"] += 1
+            return real_connect(*args, **kwargs)
+
+        monkeypatch.setattr(engine, "connect", _counting_connect)
+        _app_module._ensure_store_users_schema(engine)
+        _app_module._ensure_store_users_schema(engine)
+        assert calls["n"] == 0
+
+    def test_db_table_exists_caches_positive(self, monkeypatch):
+        engine = _app_module._ENGINE
+        assert engine is not None
+        _app_module._clear_table_exists_cache()
+        assert _app_module._db_table_exists(engine, "store_users") is True
+        inspect_calls = {"n": 0}
+        import sqlalchemy as sa
+
+        real_inspect = sa.inspect
+
+        def _counting_inspect(bind):
+            inspect_calls["n"] += 1
+            return real_inspect(bind)
+
+        monkeypatch.setattr(sa, "inspect", _counting_inspect)
+        # Re-import path uses sqlalchemy.inspect inside function — patch where used.
+        monkeypatch.setattr(
+            "sqlalchemy.inspect",
+            _counting_inspect,
+        )
+        assert _app_module._db_table_exists(engine, "store_users") is True
+        assert inspect_calls["n"] == 0
+
+    def test_ensure_hot_path_indexes_idempotent(self):
+        engine = _app_module._ENGINE
+        assert engine is not None
+        _app_module._HOT_PATH_INDEXES_READY = False
+        _app_module._ensure_hot_path_indexes(engine)
+        assert _app_module._HOT_PATH_INDEXES_READY is True
+        _app_module._ensure_hot_path_indexes(engine)
+        assert _app_module._HOT_PATH_INDEXES_READY is True
+
+    def test_list_admin_players_count_skips_joins_without_q(self, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="CountJoin")
+        executes: list[str] = []
+        orig_factory = _app_module._SessionLocal
+
+        def _factory():
+            inner = orig_factory()
+            real_execute = inner.execute
+
+            def _cap(stmt, *a, **k):
+                sql = str(getattr(stmt, "text", stmt) or stmt)
+                executes.append(sql)
+                return real_execute(stmt, *a, **k)
+
+            inner.execute = _cap  # type: ignore[method-assign]
+            return inner
+
+        # Preserva scoped_session.remove() para o teardown de fresh_db.
+        _factory.remove = getattr(orig_factory, "remove", lambda: None)  # type: ignore[attr-defined]
+        monkeypatch.setattr(_app_module, "_SessionLocal", _factory)
+        d = _app_module._list_admin_players(q="", sort="last_login", limit=5)
+        assert d["ok"] is True
+        count_sqls = [s for s in executes if "COUNT(*)" in s.upper()]
+        assert count_sqls, "esperava COUNT(*) na listagem"
+        for sql in count_sqls:
+            assert "JOIN players" not in sql
+            assert "market_player_profile" not in sql
+

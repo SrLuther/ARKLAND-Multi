@@ -424,11 +424,12 @@ _AMBER_PLURAL = "Âmbares"
 _AMBER_ICON_URL = "/ambar.png"
 _DEFAULT_PUBLIC_BRAND = "ARKLAND DONATIONS"
 
-# Rate limiter
+# Rate limiter — defaults generosos p/ SPA (várias APIs por navegação).
+# Rotas sensíveis usam @limiter.limit(..., override_defaults=True).
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["6000 per day", "600 per hour"],
     storage_uri="memory://",
 )
 
@@ -566,12 +567,14 @@ class Order(Base):
     amount: Mapped[int] = mapped_column(Integer, default=1)
     points_spent: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
-    original_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    original_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     contested: Mapped[bool] = mapped_column(Boolean, default=False)
     payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
@@ -633,9 +636,11 @@ class StoreUser(Base):
     site_access_blocked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     ban_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     regulamento_accepted_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
     regulamento_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -659,7 +664,9 @@ class PointPayment(Base):
     payer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     payment_method: Mapped[str] = mapped_column(String(16), default="pix", index=True)
     credited: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
@@ -1036,6 +1043,43 @@ class MarketAuditEvent(Base):
 
 _ENGINE: Any = None
 _SessionLocal: Any = None  # set by _configure_database(); None only before first DB config
+_STORE_USERS_SCHEMA_READY = False
+_STORE_USERS_SCHEMA_LOCK = threading.Lock()
+_HOT_PATH_INDEXES_READY = False
+_HOT_PATH_INDEXES_LOCK = threading.Lock()
+_STEAM_ID_COLLATION_NORMALIZED = False
+_TABLE_EXISTS_CACHE: dict[str, bool] = {}
+
+
+def _reset_schema_runtime_flags() -> None:
+    """Limpa caches de schema ao trocar/recriar o engine."""
+    global _STORE_USERS_SCHEMA_READY, _HOT_PATH_INDEXES_READY, _STEAM_ID_COLLATION_NORMALIZED
+    global _ENTITLEMENTS_SCHEMA_READY
+    _STORE_USERS_SCHEMA_READY = False
+    _HOT_PATH_INDEXES_READY = False
+    _STEAM_ID_COLLATION_NORMALIZED = False
+    _ENTITLEMENTS_SCHEMA_READY = False
+    _TABLE_EXISTS_CACHE.clear()
+
+
+def _db_table_exists(engine: Any, table_name: str) -> bool:
+    """Cacheia só positivos — evita inspect.get_table_names() em cada lista admin."""
+    cached = _TABLE_EXISTS_CACHE.get(table_name)
+    if cached is True:
+        return True
+    try:
+        from sqlalchemy import inspect
+
+        exists = table_name in set(inspect(engine).get_table_names())
+        if exists:
+            _TABLE_EXISTS_CACHE[table_name] = True
+        return exists
+    except Exception:
+        return False
+
+
+def _clear_table_exists_cache() -> None:
+    _TABLE_EXISTS_CACHE.clear()
 
 
 def _safe_db_log_fields(url: str) -> dict[str, Any]:
@@ -1109,15 +1153,6 @@ def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
     return _build_database_url_from_settings(settings)
 
 
-def _db_table_exists(engine: Any, table_name: str) -> bool:
-    try:
-        from sqlalchemy import inspect
-
-        return table_name in set(inspect(engine).get_table_names())
-    except Exception:
-        return False
-
-
 _STEAM_ID_COLLATION = "utf8mb4_unicode_ci"
 
 # Colunas steam_id usadas em JOINs/comparações entre tabelas (legado vs SQLAlchemy).
@@ -1148,8 +1183,12 @@ _STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
 
 
 def _steam_id_on_sql(left: str, right: str, *, mysql: bool = True) -> str:
-    """Comparação steam_id segura quando collations divergem (general_ci vs unicode_ci)."""
-    if not mysql:
+    """Comparação steam_id segura quando collations divergem (general_ci vs unicode_ci).
+
+    Após `_ensure_steam_id_collation`, usa igualdade simples para o optimizer
+    conseguir usar índices em JOINs (COLLATE nas duas pontas impede index lookup).
+    """
+    if not mysql or _STEAM_ID_COLLATION_NORMALIZED:
         return f"{left} = {right}"
     coll = _STEAM_ID_COLLATION
     return f"{left} COLLATE {coll} = {right} COLLATE {coll}"
@@ -1259,83 +1298,159 @@ def _ensure_steam_id_collation(engine: Any) -> None:
                 changed,
                 _STEAM_ID_COLLATION,
             )
+    global _STEAM_ID_COLLATION_NORMALIZED
+    _STEAM_ID_COLLATION_NORMALIZED = True
+
+
+def _mysql_index_exists(conn: Any, table: str, index_name: str) -> bool:
+    row = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.statistics "
+            "WHERE table_schema = DATABASE() AND table_name = :tbl "
+            "AND index_name = :idx LIMIT 1"
+        ),
+        {"tbl": table, "idx": index_name},
+    ).fetchone()
+    return row is not None
+
+
+def _ensure_hot_path_indexes(engine: Any) -> None:
+    """Índices compostos para detalhe/lista admin — uma vez por processo (sem DDL no hot path HTTP)."""
+    global _HOT_PATH_INDEXES_READY
+    if _HOT_PATH_INDEXES_READY:
+        return
+    with _HOT_PATH_INDEXES_LOCK:
+        if _HOT_PATH_INDEXES_READY:
+            return
+        # (table, index_name, columns_sql)
+        specs: list[tuple[str, str, str]] = [
+            ("orders", "idx_orders_steam_created", "(steam_id, created_at)"),
+            ("orders", "idx_orders_steam_type_status", "(steam_id, item_type, status)"),
+            ("point_payments", "idx_point_payments_steam_created", "(steam_id, created_at)"),
+            ("market_listings", "idx_market_listings_seller_status", "(seller_steam_id, status)"),
+        ]
+        is_mysql = "mysql" in str(engine.url).lower()
+        created = 0
+        try:
+            with engine.connect() as conn:
+                for table, idx_name, cols in specs:
+                    if not _db_table_exists(engine, table):
+                        continue
+                    try:
+                        if is_mysql:
+                            if _mysql_index_exists(conn, table, idx_name):
+                                continue
+                            conn.execute(
+                                text(f"CREATE INDEX `{idx_name}` ON `{table}` {cols}")
+                            )
+                        else:
+                            conn.execute(
+                                text(
+                                    f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} {cols}"
+                                )
+                            )
+                        created += 1
+                    except Exception as exc:
+                        log.warning(
+                            "hot_path_index %s.%s falhou: %s",
+                            table,
+                            idx_name,
+                            exc,
+                        )
+                if created:
+                    conn.commit()
+                    log.info("hot_path_indexes: %s índice(s) criados", created)
+        except Exception as exc:
+            log.warning("hot_path_indexes: migrate falhou: %s", exc)
+            return
+        _HOT_PATH_INDEXES_READY = True
 
 
 def _ensure_store_users_schema(engine: Any) -> None:
-    """Garante store_users e colunas usadas pelo painel admin de jogadores."""
-    is_mysql = "mysql" in str(engine.url).lower()
-    if not _db_table_exists(engine, "store_users"):
-        Base.metadata.create_all(bind=engine, tables=[StoreUser.__table__])
+    """Garante store_users e colunas — uma vez por processo (lista admin não faz SHOW COLUMNS)."""
+    global _STORE_USERS_SCHEMA_READY
+    if _STORE_USERS_SCHEMA_READY:
         return
-    if not is_mysql:
+    with _STORE_USERS_SCHEMA_LOCK:
+        if _STORE_USERS_SCHEMA_READY:
+            return
+        is_mysql = "mysql" in str(engine.url).lower()
+        if not _db_table_exists(engine, "store_users"):
+            Base.metadata.create_all(bind=engine, tables=[StoreUser.__table__])
+            _TABLE_EXISTS_CACHE["store_users"] = True
+            _STORE_USERS_SCHEMA_READY = True
+            return
+        if not is_mysql:
+            with engine.connect() as conn:
+                cols = {
+                    str(row[1])
+                    for row in conn.execute(text("PRAGMA table_info(store_users)")).fetchall()
+                }
+                if "steam_persona" not in cols:
+                    conn.execute(text("ALTER TABLE store_users ADD COLUMN steam_persona VARCHAR(128)"))
+                if "fixed_lottery_number" not in cols:
+                    conn.execute(text("ALTER TABLE store_users ADD COLUMN fixed_lottery_number INTEGER"))
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_store_users_fixed_lottery_number "
+                            "ON store_users (fixed_lottery_number) WHERE fixed_lottery_number IS NOT NULL"
+                        )
+                    )
+                conn.commit()
+                if "steam_persona" not in cols or "fixed_lottery_number" not in cols:
+                    log.info("store_users: colunas sqlite adicionadas")
+            _STORE_USERS_SCHEMA_READY = True
+            return
         with engine.connect() as conn:
             cols = {
-                str(row[1])
-                for row in conn.execute(text("PRAGMA table_info(store_users)")).fetchall()
+                str(row[0])
+                for row in conn.execute(text("SHOW COLUMNS FROM `store_users`")).fetchall()
             }
+            alters: list[str] = []
+            if "site_access_blocked" not in cols:
+                alters.append(
+                    "ADD COLUMN `site_access_blocked` TINYINT(1) NOT NULL DEFAULT 0"
+                )
+            if "ban_reason" not in cols:
+                alters.append("ADD COLUMN `ban_reason` TEXT NULL")
+            if "last_login_at" not in cols:
+                alters.append("ADD COLUMN `last_login_at` DATETIME NULL")
+            if "display_name" not in cols:
+                alters.append("ADD COLUMN `display_name` VARCHAR(128) NULL")
             if "steam_persona" not in cols:
-                conn.execute(text("ALTER TABLE store_users ADD COLUMN steam_persona VARCHAR(128)"))
+                alters.append("ADD COLUMN `steam_persona` VARCHAR(128) NULL")
+            if "created_at" not in cols:
+                alters.append(
+                    "ADD COLUMN `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                )
+            if "regulamento_accepted_version" not in cols:
+                alters.append("ADD COLUMN `regulamento_accepted_version` VARCHAR(16) NULL")
+            if "regulamento_accepted_at" not in cols:
+                alters.append("ADD COLUMN `regulamento_accepted_at` DATETIME NULL")
             if "fixed_lottery_number" not in cols:
-                conn.execute(text("ALTER TABLE store_users ADD COLUMN fixed_lottery_number INTEGER"))
-                conn.execute(
-                    text(
-                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_store_users_fixed_lottery_number "
-                        "ON store_users (fixed_lottery_number) WHERE fixed_lottery_number IS NOT NULL"
-                    )
-                )
-            conn.commit()
-            if "steam_persona" not in cols or "fixed_lottery_number" not in cols:
-                log.info("store_users: colunas sqlite adicionadas")
-        return
-    with engine.connect() as conn:
-        cols = {
-            str(row[0])
-            for row in conn.execute(text("SHOW COLUMNS FROM `store_users`")).fetchall()
-        }
-        alters: list[str] = []
-        if "site_access_blocked" not in cols:
-            alters.append(
-                "ADD COLUMN `site_access_blocked` TINYINT(1) NOT NULL DEFAULT 0"
-            )
-        if "ban_reason" not in cols:
-            alters.append("ADD COLUMN `ban_reason` TEXT NULL")
-        if "last_login_at" not in cols:
-            alters.append("ADD COLUMN `last_login_at` DATETIME NULL")
-        if "display_name" not in cols:
-            alters.append("ADD COLUMN `display_name` VARCHAR(128) NULL")
-        if "steam_persona" not in cols:
-            alters.append("ADD COLUMN `steam_persona` VARCHAR(128) NULL")
-        if "created_at" not in cols:
-            alters.append(
-                "ADD COLUMN `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
-            )
-        if "regulamento_accepted_version" not in cols:
-            alters.append("ADD COLUMN `regulamento_accepted_version` VARCHAR(16) NULL")
-        if "regulamento_accepted_at" not in cols:
-            alters.append("ADD COLUMN `regulamento_accepted_at` DATETIME NULL")
-        if "fixed_lottery_number" not in cols:
-            alters.append("ADD COLUMN `fixed_lottery_number` SMALLINT NULL")
-        for fragment in alters:
-            conn.execute(text(f"ALTER TABLE `store_users` {fragment}"))
-        if alters:
-            conn.commit()
-            log.info("store_users: colunas do painel admin adicionadas (%s)", len(alters))
-        if "fixed_lottery_number" not in cols:
-            idx_row = conn.execute(
-                text(
-                    "SELECT 1 FROM information_schema.statistics "
-                    "WHERE table_schema = DATABASE() AND table_name = 'store_users' "
-                    "AND index_name = 'uq_store_users_fixed_lottery_number' LIMIT 1"
-                )
-            ).fetchone()
-            if idx_row is None:
-                conn.execute(
-                    text(
-                        "CREATE UNIQUE INDEX uq_store_users_fixed_lottery_number "
-                        "ON store_users (fixed_lottery_number)"
-                    )
-                )
+                alters.append("ADD COLUMN `fixed_lottery_number` SMALLINT NULL")
+            for fragment in alters:
+                conn.execute(text(f"ALTER TABLE `store_users` {fragment}"))
+            if alters:
                 conn.commit()
+                log.info("store_users: colunas do painel admin adicionadas (%s)", len(alters))
+            if "fixed_lottery_number" not in cols:
+                idx_row = conn.execute(
+                    text(
+                        "SELECT 1 FROM information_schema.statistics "
+                        "WHERE table_schema = DATABASE() AND table_name = 'store_users' "
+                        "AND index_name = 'uq_store_users_fixed_lottery_number' LIMIT 1"
+                    )
+                ).fetchone()
+                if idx_row is None:
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX uq_store_users_fixed_lottery_number "
+                            "ON store_users (fixed_lottery_number)"
+                        )
+                    )
+                    conn.commit()
+        _STORE_USERS_SCHEMA_READY = True
 
 
 def _migrate_schema(engine: Any) -> None:
@@ -1365,6 +1480,7 @@ def _migrate_schema(engine: Any) -> None:
         _ENTITLEMENTS_SCHEMA_READY = True
         _ensure_store_users_schema(engine)
         _ensure_steam_id_collation(engine)
+        _ensure_hot_path_indexes(engine)
         _backfill_store_users(engine)
         try:
             from amber_ledger import ensure_amber_schema
@@ -1501,12 +1617,14 @@ def _migrate_schema(engine: Any) -> None:
     _ENTITLEMENTS_SCHEMA_READY = True
     _ensure_store_users_schema(engine)
     _ensure_steam_id_collation(engine)
+    _ensure_hot_path_indexes(engine)
     _backfill_store_users(engine)
     try:
         from market_migrate import ensure_market_schema
 
         ensure_market_schema(engine, bootstrap=True)
         _ensure_steam_id_collation(engine)
+        _ensure_hot_path_indexes(engine)
     except Exception as exc:
         log.warning("Mercado: migrate falhou (será retentado pelo watcher): %s", exc)
     try:
@@ -1632,7 +1750,7 @@ def _start_db_reconnect_watcher() -> None:
 
 
 def _configure_database(url: str) -> None:
-    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _ENTITLEMENTS_SCHEMA_READY
+    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL
 
     normalized = (url or "").strip()
     if normalized == _ACTIVE_DATABASE_URL:
@@ -1649,23 +1767,33 @@ def _configure_database(url: str) -> None:
     _ENGINE = None
     _SessionLocal = None
     _ACTIVE_DATABASE_URL = ""
-    _ENTITLEMENTS_SCHEMA_READY = False
+    _reset_schema_runtime_flags()
 
     if not normalized:
         return
 
     connect_args: dict[str, Any] = {}
     if "mysql" in normalized.lower():
-        connect_args = {"connect_timeout": 5, "read_timeout": 8, "write_timeout": 8}
+        read_to = int(os.environ.get("ARKSHOP_DB_READ_TIMEOUT", "12") or 12)
+        write_to = int(os.environ.get("ARKSHOP_DB_WRITE_TIMEOUT", "12") or 12)
+        connect_args = {
+            "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "5") or 5),
+            "read_timeout": max(5, read_to),
+            "write_timeout": max(5, write_to),
+        }
+
+    pool_size = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
+    max_overflow = max(0, int(os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", "30") or 30))
+    pool_timeout = max(3, int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "12") or 12))
 
     engine = create_engine(
         normalized,
         future=True,
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
         pool_recycle=1800,
-        pool_timeout=8,
+        pool_timeout=pool_timeout,
         connect_args=connect_args,
     )
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
@@ -1829,24 +1957,40 @@ _BOOT_SKIP_EXACT = frozenset({"/", "/favicon.ico"})
 _BOOT_SKIP_PREFIXES = ("/api/health", "/api/auth/me", "/static/", "/logo")
 
 
+_RUNTIME_WORKERS_STARTED = False
+_RUNTIME_WORKERS_LOCK = threading.Lock()
+
+
+def _start_runtime_workers_once() -> None:
+    """Schedulers/pollers — idempotente (evita trabalho repetido em todo request)."""
+    global _RUNTIME_WORKERS_STARTED
+    if _RUNTIME_WORKERS_STARTED:
+        return
+    with _RUNTIME_WORKERS_LOCK:
+        if _RUNTIME_WORKERS_STARTED:
+            return
+        _initialize_scheduler_if_needed()
+        try:
+            from catalog_feed_service import start_catalog_feed_scheduler_if_needed
+
+            start_catalog_feed_scheduler_if_needed()
+        except Exception:
+            pass
+        try:
+            from tribe_log_poller import start_tribe_log_poller_if_needed
+
+            start_tribe_log_poller_if_needed()
+        except Exception:
+            pass
+        _RUNTIME_WORKERS_STARTED = True
+
+
 def _ensure_runtime_initialized_before_request() -> None:
     """Nunca bloqueia em migrate/conexão MySQL — DB sobe em background."""
     path = request.path or ""
     if path in _BOOT_SKIP_EXACT or any(path.startswith(p) for p in _BOOT_SKIP_PREFIXES):
         return
-    _initialize_scheduler_if_needed()
-    try:
-        from catalog_feed_service import start_catalog_feed_scheduler_if_needed
-
-        start_catalog_feed_scheduler_if_needed()
-    except Exception:
-        pass
-    try:
-        from tribe_log_poller import start_tribe_log_poller_if_needed
-
-        start_tribe_log_poller_if_needed()
-    except Exception:
-        pass
+    _start_runtime_workers_once()
     _kick_background_db_init()
 
 
@@ -2156,6 +2300,11 @@ def _list_admin_players(
             if has_market_profile:
                 search_bits.append("mp.market_display_name LIKE :q")
             where += f" AND ({' OR '.join(search_bits)})"
+        market_join_for_search = (
+            f"LEFT JOIN market_player_profile mp ON {_steam_id_on_sql('mp.steam_id', 'su.steam_id', mysql=is_mysql)} "
+            if has_market_profile and q
+            else ""
+        )
         market_join = (
             f"LEFT JOIN market_player_profile mp ON {_steam_id_on_sql('mp.steam_id', 'su.steam_id', mysql=is_mysql)} "
             if has_market_profile
@@ -2173,12 +2322,15 @@ def _list_admin_players(
             "points": points_expr,
             "created_at": "su.created_at",
         }[sort_key]
-        count_sql = (
-            "SELECT COUNT(*) FROM store_users su "
-            f"{market_join}"
-            f"{players_join}"
-            f"{where}"
-        )
+        # COUNT sem JOINs quando a busca não depende de market/players — evita full join+filesort.
+        if q and has_market_profile:
+            count_sql = (
+                "SELECT COUNT(*) FROM store_users su "
+                f"{market_join_for_search}"
+                f"{where}"
+            )
+        else:
+            count_sql = f"SELECT COUNT(*) FROM store_users su {where}"
         total = int(db.execute(text(count_sql), params).scalar() or 0)
         select_cols = (
             "su.steam_id, su.display_name, su.steam_persona, "
@@ -2810,41 +2962,12 @@ def _sync_permissions_all_servers(
             "error": str(exc),
         })
 
-    settings = _load_settings()
-    servers = _load_servers()
     cmd = (
         f"Permissions.Add {steam_id} {group}"
         if grant
         else f"Permissions.Remove {steam_id} {group}"
     )
-    targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
-    for srv in targets:
-        sid = str(srv.get("server_id") or "").strip() if srv else None
-        label = str(srv.get("label") or sid or "padrão") if srv else "padrão"
-        host, port, password, _ = _resolve_rcon_target(sid, settings)
-        if not password:
-            results.append({
-                "server_id": sid or "default",
-                "label": label,
-                "ok": False,
-                "error": "RCON sem senha configurada",
-            })
-            continue
-        try:
-            resp = _rcon_command(host, port, password, cmd, connect_retries=2)
-            results.append({
-                "server_id": sid or "default",
-                "label": label,
-                "ok": True,
-                "response": resp[:120],
-            })
-        except Exception as exc:
-            results.append({
-                "server_id": sid or "default",
-                "label": label,
-                "ok": False,
-                "error": str(exc),
-            })
+    results.extend(_rcon_permission_fanout(cmd))
     return results
 
 
@@ -2885,17 +3008,104 @@ def _entitlement_hours_remaining(
     return max(1, int(fallback_days or 30) * 24)
 
 
+def _rcon_permission_fanout(
+    cmd: str,
+    *,
+    settings: dict[str, Any] | None = None,
+    servers: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Envia comando Permissions.* a todos os mapas em PARALELO (não sequencial).
+
+    Cada mapa é limitado pelo timeout do rcon_command; com N mapas offline o
+    pior caso é ~1×timeout (paralelo) em vez de N×timeout (sequencial).
+    """
+    settings = settings if settings is not None else _load_settings()
+    servers = servers if servers is not None else _load_servers()
+    targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
+
+    def _one(srv: dict[str, Any] | None) -> dict[str, Any]:
+        sid = str(srv.get("server_id") or "").strip() if srv else None
+        label = str(srv.get("label") or sid or "padrão") if srv else "padrão"
+        host, port, password, _ = _resolve_rcon_target(sid, settings)
+        if not password:
+            return {
+                "server_id": sid or "default",
+                "label": label,
+                "ok": False,
+                "error": "RCON sem senha configurada",
+            }
+        try:
+            resp = _rcon_command(host, port, password, cmd, connect_retries=2)
+            return {
+                "server_id": sid or "default",
+                "label": label,
+                "ok": True,
+                "response": resp[:120],
+            }
+        except Exception as exc:
+            return {
+                "server_id": sid or "default",
+                "label": label,
+                "ok": False,
+                "error": str(exc),
+            }
+
+    if len(targets) == 1:
+        return [_one(targets[0])]
+    results: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(
+        max_workers=min(8, len(targets)), thread_name_prefix="perm-fanout",
+    ) as pool:
+        futures = [pool.submit(_one, srv) for srv in targets]
+        for fut in futures:
+            try:
+                results.append(fut.result())
+            except Exception as exc:
+                results.append({"server_id": "?", "label": "?", "ok": False, "error": str(exc)})
+    return results
+
+
+def _rcon_permission_fanout_background(cmd: str, *, context: str = "") -> None:
+    """Fan-out RCON em thread daemon — hot paths (compra/claim) não esperam RCON."""
+    settings = _load_settings()
+    servers = _load_servers()
+
+    def _worker() -> None:
+        try:
+            results = _rcon_permission_fanout(cmd, settings=settings, servers=servers)
+            failed = [r for r in results if not r.get("ok")]
+            if failed:
+                _log(
+                    "license_perm_rcon_fanout_partial",
+                    context=context,
+                    command=cmd,
+                    ok=len(results) - len(failed),
+                    total=len(results),
+                    errors=[f"{r.get('label')}: {r.get('error')}" for r in failed][:6],
+                )
+        except Exception as exc:
+            _log_error("license_perm_rcon_fanout", context=context, command=cmd, error=str(exc))
+
+    threading.Thread(
+        target=_worker, daemon=True, name="arkshop-perm-rcon-fanout",
+    ).start()
+
+
 def _sync_license_permissions_all_servers(
     steam_id: str,
     group: str,
     *,
     grant: bool,
     days: int = 0,
+    rcon_async: bool = False,
 ) -> list[dict[str, Any]]:
     """Sincroniza licença no Permissions (MySQL directo + RCON nos mapas).
 
     Em grant temporário usa horas restantes de player_entitlements (após renovação
     que soma dias) — não só days*24 a partir de agora.
+
+    rcon_async=True (hot paths de jogador): MySQL síncrono (fonte de verdade do
+    plugin), fan-out RCON em background — request não espera mapas offline.
     """
     results: list[dict[str, Any]] = []
     shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
@@ -2943,8 +3153,6 @@ def _sync_license_permissions_all_servers(
             "error": str(exc),
         })
 
-    settings = _load_settings()
-    servers = _load_servers()
     if grant:
         cmd = (
             f"Permissions.Add {steam_id} {group}"
@@ -2953,34 +3161,17 @@ def _sync_license_permissions_all_servers(
         )
     else:
         cmd = f"Permissions.Remove {steam_id} {group}"
-    targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
-    for srv in targets:
-        sid = str(srv.get("server_id") or "").strip() if srv else None
-        label = str(srv.get("label") or sid or "padrão") if srv else "padrão"
-        host, port, password, _ = _resolve_rcon_target(sid, settings)
-        if not password:
-            results.append({
-                "server_id": sid or "default",
-                "label": label,
-                "ok": False,
-                "error": "RCON sem senha configurada",
-            })
-            continue
-        try:
-            resp = _rcon_command(host, port, password, cmd, connect_retries=2)
-            results.append({
-                "server_id": sid or "default",
-                "label": label,
-                "ok": True,
-                "response": resp[:120],
-            })
-        except Exception as exc:
-            results.append({
-                "server_id": sid or "default",
-                "label": label,
-                "ok": False,
-                "error": str(exc),
-            })
+    if rcon_async:
+        _rcon_permission_fanout_background(cmd, context=f"license:{group}:{steam_id}")
+        results.append({
+            "server_id": "rcon",
+            "label": "RCON (mapas)",
+            "ok": True,
+            "response": "fan-out em background",
+            "queued": True,
+        })
+        return results
+    results.extend(_rcon_permission_fanout(cmd))
     return results
 
 
@@ -3150,6 +3341,7 @@ _ADMIN_STEAMIDS_CACHE: dict[str, Any] = {
 }
 _ADMIN_STEAMIDS_CACHE_TTL = 30.0
 _ADMIN_STEAMIDS_DB_BACKOFF = 60.0
+_ADMIN_STEAMIDS_MERGE_LOCK = threading.Lock()
 
 
 def _load_admin_steamids_from_file() -> set[str]:
@@ -3231,14 +3423,26 @@ def _load_admin_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> set[
     ):
         return cached
 
-    ids = _load_admin_steamids_from_file()
-    if _db_ready():
-        ids = _merge_admin_steamids_from_db(ids, timeout=db_timeout)
+    # Single-flight: evita stampede de threads MySQL quando o cache expira sob carga.
+    with _ADMIN_STEAMIDS_MERGE_LOCK:
+        now = time.monotonic()
+        cached = _ADMIN_STEAMIDS_CACHE.get("ids")
+        file_key = _admin_steamids_file_cache_key()
+        if (
+            isinstance(cached, set)
+            and now < float(_ADMIN_STEAMIDS_CACHE.get("expires") or 0)
+            and _ADMIN_STEAMIDS_CACHE.get("file_key") == file_key
+        ):
+            return cached
 
-    _ADMIN_STEAMIDS_CACHE["ids"] = ids
-    _ADMIN_STEAMIDS_CACHE["file_key"] = file_key
-    _ADMIN_STEAMIDS_CACHE["expires"] = now + _ADMIN_STEAMIDS_CACHE_TTL
-    return ids
+        ids = _load_admin_steamids_from_file()
+        if _db_ready():
+            ids = _merge_admin_steamids_from_db(ids, timeout=db_timeout)
+
+        _ADMIN_STEAMIDS_CACHE["ids"] = ids
+        _ADMIN_STEAMIDS_CACHE["file_key"] = file_key
+        _ADMIN_STEAMIDS_CACHE["expires"] = now + _ADMIN_STEAMIDS_CACHE_TTL
+        return ids
 
 
 def _is_admin_steamid(steam_id: str) -> bool:
@@ -3252,6 +3456,7 @@ _SUPPORT_STEAMIDS_CACHE: dict[str, Any] = {
 }
 _SUPPORT_STEAMIDS_CACHE_TTL = 30.0
 _SUPPORT_STEAMIDS_DB_BACKOFF = 60.0
+_SUPPORT_STEAMIDS_MERGE_LOCK = threading.Lock()
 
 
 def _load_support_steamids_from_file() -> set[str]:
@@ -3316,13 +3521,19 @@ def _load_support_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> se
     if isinstance(cached, set) and now < float(_SUPPORT_STEAMIDS_CACHE.get("expires") or 0):
         return cached
 
-    ids = _load_support_steamids_from_file()
-    if _db_ready():
-        ids = _merge_support_steamids_from_db(ids, timeout=db_timeout)
+    with _SUPPORT_STEAMIDS_MERGE_LOCK:
+        now = time.monotonic()
+        cached = _SUPPORT_STEAMIDS_CACHE.get("ids")
+        if isinstance(cached, set) and now < float(_SUPPORT_STEAMIDS_CACHE.get("expires") or 0):
+            return cached
 
-    _SUPPORT_STEAMIDS_CACHE["ids"] = ids
-    _SUPPORT_STEAMIDS_CACHE["expires"] = now + _SUPPORT_STEAMIDS_CACHE_TTL
-    return ids
+        ids = _load_support_steamids_from_file()
+        if _db_ready():
+            ids = _merge_support_steamids_from_db(ids, timeout=db_timeout)
+
+        _SUPPORT_STEAMIDS_CACHE["ids"] = ids
+        _SUPPORT_STEAMIDS_CACHE["expires"] = now + _SUPPORT_STEAMIDS_CACHE_TTL
+        return ids
 
 
 def _invalidate_support_steamids_cache() -> None:
@@ -3721,15 +3932,28 @@ def _catalog_item_map(data: dict[str, Any]) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+_MIGRATION_ALIASES_CACHE: dict[str, Any] = {"mtime": None, "data": {}}
+
+
 def _catalog_id_migration_aliases() -> dict[str, str]:
     """Aliases de IDs antigos da loja (migração L1 por blueprint)."""
     path = Path(__file__).resolve().parents[2] / "tools" / "catalog_id_migration.json"
     if not path.is_file():
         return {}
     try:
+        mtime = path.stat().st_mtime
+        cached = _MIGRATION_ALIASES_CACHE.get("data")
+        if (
+            _MIGRATION_ALIASES_CACHE.get("mtime") == mtime
+            and isinstance(cached, dict)
+        ):
+            return cached
         data = json.loads(path.read_text(encoding="utf-8"))
         raw = data.get("aliases") or {}
-        return {str(k): str(v) for k, v in raw.items() if k and v}
+        aliases = {str(k): str(v) for k, v in raw.items() if k and v}
+        _MIGRATION_ALIASES_CACHE["mtime"] = mtime
+        _MIGRATION_ALIASES_CACHE["data"] = aliases
+        return aliases
     except (OSError, json.JSONDecodeError, TypeError):
         return {}
 
@@ -3788,9 +4012,8 @@ def _player_kit_remaining(db, steam_id: str, kit_id: str, entry: dict[str, Any])
     return get_kit_remaining(stash, resolved, entry)
 
 
-def _count_pending_kit_orders(db, steam_id: str, kit_id: str) -> int:
-    """Pedidos de kit ainda não entregues — reservam slot de resgate."""
-    resolved = _resolve_catalog_item_id("kit", kit_id)
+def _pending_kit_order_counts(db: Any, steam_id: str) -> dict[str, int]:
+    """Uma query: contagem de pedidos kit PENDENTE/ENTREGANDO por item_id resolvido."""
     rows = db.execute(
         text(
             "SELECT item_id FROM orders "
@@ -3799,12 +4022,27 @@ def _count_pending_kit_orders(db, steam_id: str, kit_id: str) -> int:
         ),
         {"sid": str(steam_id)},
     ).fetchall()
-    count = 0
+    counts: dict[str, int] = {}
     for row in rows:
         oid = _resolve_catalog_item_id("kit", str(row[0] or ""))
-        if oid == resolved:
-            count += 1
-    return count
+        if not oid:
+            continue
+        counts[oid] = counts.get(oid, 0) + 1
+    return counts
+
+
+def _count_pending_kit_orders(
+    db: Any,
+    steam_id: str,
+    kit_id: str,
+    *,
+    pending_counts: dict[str, int] | None = None,
+) -> int:
+    """Pedidos de kit ainda não entregues — reservam slot de resgate."""
+    resolved = _resolve_catalog_item_id("kit", kit_id)
+    if pending_counts is not None:
+        return int(pending_counts.get(resolved, 0))
+    return int(_pending_kit_order_counts(db, steam_id).get(resolved, 0))
 
 
 def _effective_kit_remaining(
@@ -3897,6 +4135,8 @@ def _build_player_kit_limits(
     data = _read_shop_config()
     kits = data.get("Kits") or {}
     stash = kit_stash if kit_stash is not None else _load_player_kit_stash(db, steam_id)
+    # Uma query de pending para todos os kits — evita N×SELECT (há ~40 kits com limite).
+    pending_counts = _pending_kit_order_counts(db, steam_id)
     out: list[dict[str, Any]] = []
     for kit_id, entry in kits.items():
         if not isinstance(entry, dict) or not kit_has_limit(entry):
@@ -3906,7 +4146,7 @@ def _build_player_kit_limits(
             stash,
             resolved,
             entry,
-            pending_orders=_count_pending_kit_orders(db, steam_id, resolved),
+            pending_orders=int(pending_counts.get(resolved, 0)),
         )
         out.append({
             "kit_id": resolved,
@@ -5180,6 +5420,7 @@ def _refresh_steam_personas(
     steam_ids: list[str],
     *,
     return_status: bool = False,
+    timeout: float = 12.0,
 ) -> dict[str, str] | tuple[dict[str, str], dict[str, Any]]:
     """Consulta Steam API e persiste — ignora cache DB (lista admin)."""
     valid_ids: list[str] = []
@@ -5196,7 +5437,7 @@ def _refresh_steam_personas(
         _warn_steam_api_key_missing("refresh_steam_personas")
         meta = _admin_steam_persona_meta(valid_ids, {})
         return ({}, meta) if return_status else {}
-    fetched = _fetch_steam_persona_names_batch(valid_ids)
+    fetched = _fetch_steam_persona_names_batch(valid_ids, timeout=timeout)
     meta = _admin_steam_persona_meta(valid_ids, fetched)
     if fetched:
         _persist_steam_personas_isolated(fetched)
@@ -5204,11 +5445,15 @@ def _refresh_steam_personas(
 
 
 def _refresh_steam_persona(db: Any, steam_id: str) -> str | None:
-    """Atualiza steam_persona de um jogador via Steam API (login / auth/me)."""
+    """Atualiza steam_persona de um jogador via Steam API (login).
+
+    Timeout curto (5s): Steam fora do ar não pode segurar o callback de login;
+    em falha cai no nick em cache do DB.
+    """
     norm_sid = _normalize_steam_id64(steam_id)
     if not norm_sid:
         return None
-    persona_map = _refresh_steam_personas(db, [norm_sid])
+    persona_map = _refresh_steam_personas(db, [norm_sid], timeout=5.0)
     if norm_sid in persona_map:
         return persona_map[norm_sid]
     row = db.get(StoreUser, norm_sid) or db.get(StoreUser, steam_id)
@@ -6569,6 +6814,7 @@ def _kick_db_health_ping_if_stale() -> None:
 
 
 @app.route("/api/health", methods=["GET"])
+@limiter.limit("300 per minute; 10000 per hour", override_defaults=True)
 def health_check():
     """Ping leve — zero I/O bloqueante; db_reachable vem de cache em background."""
     if _db_ready():
@@ -6583,6 +6829,7 @@ def health_check():
 
 
 @app.route("/api/auth/me", methods=["GET"])
+@limiter.limit("120 per minute; 3000 per hour", override_defaults=True)
 def auth_me():
     steam_id = _steam_id_from_session()
     if not steam_id:
@@ -8837,6 +9084,7 @@ def player_purchase():
                 str(lic["Group"]),
                 grant=True,
                 days=int(lic.get("Days", 30)),
+                rcon_async=True,
             )
         except Exception as exc:
             _log_error(
@@ -9568,6 +9816,30 @@ def player_card_checkout():
         _release_db_session(db)
 
 
+# Throttle de poll externo ao Mercado Pago por pagamento — o frontend re-polla
+# a cada poucos segundos; sem isto cada poll fazia HTTP síncrono (30s timeout)
+# segurando worker + sessão MySQL durante instabilidade do MP.
+_PIX_MP_POLL_MIN_INTERVAL = 8.0
+_PIX_MP_POLL_TIMEOUT = 8.0
+_PIX_MP_POLL_LAST: dict[str, float] = {}
+_PIX_MP_POLL_LOCK = threading.Lock()
+
+
+def _pix_mp_poll_allowed(payment_id: str) -> bool:
+    """True se já passou o intervalo mínimo desde o último fetch MP deste pagamento."""
+    now = time.monotonic()
+    with _PIX_MP_POLL_LOCK:
+        last = _PIX_MP_POLL_LAST.get(payment_id, 0.0)
+        if now - last < _PIX_MP_POLL_MIN_INTERVAL:
+            return False
+        _PIX_MP_POLL_LAST[payment_id] = now
+        if len(_PIX_MP_POLL_LAST) > 500:
+            cutoff = now - 3600.0
+            for key in [k for k, v in _PIX_MP_POLL_LAST.items() if v < cutoff]:
+                _PIX_MP_POLL_LAST.pop(key, None)
+        return True
+
+
 @app.route("/api/player/pix/<payment_id>/status", methods=["GET"])
 @login_required
 @limiter.limit("20 per minute; 300 per hour", override_defaults=True)
@@ -9606,9 +9878,11 @@ def player_pix_status(payment_id: str):
             token = _get_mp_access_token()
             if not token:
                 poll_error = "Access Token do Mercado Pago não configurado"
-            else:
+            elif _pix_mp_poll_allowed(payment_id):
                 try:
-                    mp_resp = fetch_payment(token, payment.mp_payment_id)
+                    mp_resp = fetch_payment(
+                        token, payment.mp_payment_id, timeout=_PIX_MP_POLL_TIMEOUT,
+                    )
                     mp_status_raw = str(mp_resp.get("status", "") or "")
                     _finalize_pix_payment(db, payment, mp_status_raw)
                     db.commit()
@@ -9754,27 +10028,39 @@ def player_summary():
     steam_id = str(_steam_id_from_session())
     db = _SessionLocal()
     try:
-        total = db.query(Order).filter(Order.steam_id == steam_id).count()
-        delivered = db.query(Order).filter(Order.steam_id == steam_id, Order.status == "ENTREGUE").count()
-        pending = db.query(Order).filter(Order.steam_id == steam_id, Order.status == "PENDENTE").count()
-        contested = db.query(Order).filter(Order.steam_id == steam_id, Order.contested.is_(True)).count()
-        donations_total = db.query(PointPayment).filter(PointPayment.steam_id == steam_id).count()
-        donations_credited = db.query(PointPayment).filter(
-            PointPayment.steam_id == steam_id,
-            PointPayment.credited.is_(True),
-        ).count()
-        balance = _get_player_points(steam_id)
+        # Uma query agregada em vez de 6 COUNT(*) separados (+ sessão extra de points).
+        order_stats = db.execute(
+            text(
+                "SELECT "
+                "COUNT(*) AS total_orders, "
+                "SUM(CASE WHEN status = 'ENTREGUE' THEN 1 ELSE 0 END) AS delivered, "
+                "SUM(CASE WHEN status = 'PENDENTE' THEN 1 ELSE 0 END) AS pending, "
+                "SUM(CASE WHEN contested THEN 1 ELSE 0 END) AS contested "
+                "FROM orders WHERE steam_id = :sid"
+            ),
+            {"sid": steam_id},
+        ).fetchone()
+        donation_stats = db.execute(
+            text(
+                "SELECT "
+                "COUNT(*) AS donations_total, "
+                "SUM(CASE WHEN credited THEN 1 ELSE 0 END) AS donations_credited "
+                "FROM point_payments WHERE steam_id = :sid"
+            ),
+            {"sid": steam_id},
+        ).fetchone()
+        balance = _get_player_points(steam_id, db=db)
         return jsonify({
             "ok": True,
             "steam_id": steam_id,
             "points": balance if balance is not None else 0,
             "stats": {
-                "total_orders": total,
-                "delivered": delivered,
-                "pending": pending,
-                "contested": contested,
-                "donations_total": donations_total,
-                "donations_credited": donations_credited,
+                "total_orders": int(order_stats[0] or 0) if order_stats else 0,
+                "delivered": int(order_stats[1] or 0) if order_stats else 0,
+                "pending": int(order_stats[2] or 0) if order_stats else 0,
+                "contested": int(order_stats[3] or 0) if order_stats else 0,
+                "donations_total": int(donation_stats[0] or 0) if donation_stats else 0,
+                "donations_credited": int(donation_stats[1] or 0) if donation_stats else 0,
             },
         })
     except Exception as exc:
@@ -11333,18 +11619,109 @@ def admin_player_licenses(steam_id: str):
     return jsonify(result), status
 
 
+_SYNC_ALL_PERM_LOCK = threading.Lock()
+_SYNC_ALL_PERM_JOB: dict[str, Any] = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "result": None,
+    "error": None,
+}
+
+
+def _sync_all_permissions_job_snapshot() -> dict[str, Any]:
+    with _SYNC_ALL_PERM_LOCK:
+        return {
+            "ok": True,
+            "running": bool(_SYNC_ALL_PERM_JOB.get("running")),
+            "started_at": _SYNC_ALL_PERM_JOB.get("started_at"),
+            "finished_at": _SYNC_ALL_PERM_JOB.get("finished_at"),
+            "result": _SYNC_ALL_PERM_JOB.get("result"),
+            "error": _SYNC_ALL_PERM_JOB.get("error"),
+        }
+
+
+def _start_sync_all_permissions_job(*, dry_run: bool = False) -> dict[str, Any]:
+    """Reconciliação pesada em background — não segura o worker HTTP."""
+    with _SYNC_ALL_PERM_LOCK:
+        if _SYNC_ALL_PERM_JOB.get("running"):
+            return {
+                "ok": True,
+                "accepted": False,
+                "already_running": True,
+                "status": "running",
+                "running": True,
+                "started_at": _SYNC_ALL_PERM_JOB.get("started_at"),
+                "finished_at": _SYNC_ALL_PERM_JOB.get("finished_at"),
+                "result": _SYNC_ALL_PERM_JOB.get("result"),
+                "error": _SYNC_ALL_PERM_JOB.get("error"),
+            }
+        _SYNC_ALL_PERM_JOB["running"] = True
+        _SYNC_ALL_PERM_JOB["started_at"] = datetime.now(timezone.utc).isoformat()
+        _SYNC_ALL_PERM_JOB["finished_at"] = None
+        _SYNC_ALL_PERM_JOB["result"] = None
+        _SYNC_ALL_PERM_JOB["error"] = None
+        started_at = _SYNC_ALL_PERM_JOB["started_at"]
+
+    def _worker() -> None:
+        try:
+            result = _reconcile_all_entitlements_to_permission_db(dry_run=dry_run)
+            with _SYNC_ALL_PERM_LOCK:
+                _SYNC_ALL_PERM_JOB["result"] = result
+                _SYNC_ALL_PERM_JOB["error"] = None if result.get("ok") else result.get("error")
+        except Exception as exc:
+            with _SYNC_ALL_PERM_LOCK:
+                _SYNC_ALL_PERM_JOB["result"] = {"ok": False, "error": str(exc)}
+                _SYNC_ALL_PERM_JOB["error"] = str(exc)
+        finally:
+            with _SYNC_ALL_PERM_LOCK:
+                _SYNC_ALL_PERM_JOB["running"] = False
+                _SYNC_ALL_PERM_JOB["finished_at"] = datetime.now(timezone.utc).isoformat()
+
+    threading.Thread(
+        target=_worker, daemon=True, name="arkshop-sync-all-permissions",
+    ).start()
+    return {
+        "ok": True,
+        "accepted": True,
+        "status": "running",
+        "dry_run": dry_run,
+        "started_at": started_at,
+    }
+
+
 @app.route("/api/admin/sync-all-permissions", methods=["POST"])
 @admin_required
 @limiter.limit("12 per hour")
 def admin_sync_all_permissions():
-    """Reconcilia player_entitlements ↔ ark_permission para todos os jogadores irregulares."""
+    """Reconcilia player_entitlements ↔ ark_permission (job em background)."""
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
     dry_run = bool(body.get("dry_run"))
-    result = _reconcile_all_entitlements_to_permission_db(dry_run=dry_run)
-    status = 200 if result.get("ok") else 500
-    return jsonify(result), status
+    # sync=true mantém comportamento antigo (bloqueante) p/ scripts/testes.
+    if bool(body.get("sync")):
+        result = _reconcile_all_entitlements_to_permission_db(dry_run=dry_run)
+        status = 200 if result.get("ok") else 500
+        return jsonify(result), status
+    payload = _start_sync_all_permissions_job(dry_run=dry_run)
+    return jsonify(payload), 202 if payload.get("accepted") else 200
+
+
+@app.route("/api/admin/sync-all-permissions/status", methods=["GET"])
+@admin_required
+@limiter.limit("60 per minute")
+def admin_sync_all_permissions_status():
+    snap = _sync_all_permissions_job_snapshot()
+    result = snap.get("result")
+    if isinstance(result, dict) and not snap.get("running"):
+        # Expõe campos do reconcile no topo p/ a UI de poll.
+        out = {**snap, **{k: v for k, v in result.items() if k != "ok"}}
+        out["ok"] = bool(result.get("ok", True)) and not snap.get("error")
+        if snap.get("error") and not result.get("error"):
+            out["error"] = snap["error"]
+        return jsonify(out)
+    return jsonify(snap)
 
 
 @app.route("/api/admin/players/<steam_id>/sync-permissions", methods=["POST"])
@@ -11693,7 +12070,7 @@ def _season_pass_grant_license(
     )
     try:
         _sync_license_permissions_all_servers(
-            str(steam_id), str(group), grant=True, days=int(days),
+            str(steam_id), str(group), grant=True, days=int(days), rcon_async=True,
         )
     except Exception as exc:
         log.warning("Season Pass license permission sync: %s", exc)
@@ -11942,7 +12319,7 @@ def _lottery_deliver_catalog_prize(
 
 def _lottery_sync_license_permissions(steam_id: str, group: str, days: int) -> Any:
     return _sync_license_permissions_all_servers(
-        str(steam_id), str(group), grant=True, days=int(days),
+        str(steam_id), str(group), grant=True, days=int(days), rcon_async=True,
     )
 
 
@@ -12156,9 +12533,33 @@ except Exception as _boot_cat_exc:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5177))
-    log.info("ArkShop Web Manager rodando em http://127.0.0.1:%d", port)
+    threads = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "16") or 16))
+    log.info(
+        "ArkShop Web Manager em http://127.0.0.1:%d (threads=%s)",
+        port,
+        threads,
+    )
     try:
-        app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+        # Waitress: pool de workers estável. Werkzeug threaded=True satura sob
+        # RCON/DB lentos e enfileira handlers até timeout no browser.
+        try:
+            from waitress import serve as _waitress_serve
+
+            log.info("WSGI: waitress (preferred)")
+            _waitress_serve(
+                app,
+                host="0.0.0.0",
+                port=port,
+                threads=threads,
+                channel_timeout=120,
+                ident="ARKLAND-WebStore",
+            )
+        except ImportError:
+            log.warning(
+                "waitress não instalado — fallback Flask threaded "
+                "(pip install waitress recomendado)"
+            )
+            app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
     except OSError as exc:
         # Porta ocupada: se já há loja a responder, não é crash fatal do TEK.
         err = str(exc).lower()

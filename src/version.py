@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.52"
-BUILD_DATE: str = "2026-07-16"
+APP_VERSION: str = "1.10.53"
+BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,30 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.53",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix (Web Store / Admin): detalhe GET /api/admin/players/<id> ainda estourava o timeout 15s do frontend sob carga — causa raiz: N×SELECT idêntico em orders (~40 kits DefaultAmount) via _count_pending_kit_orders + SHOW COLUMNS/inspect em cada lista + JOINs com COLLATE que impediam índices + filesort sem índices hot-path. Timeout UI mantido em 15s; detalhe deve responder em <2s. Pending kits: 1 query + contagem em memória.",
+            "Fix (Web Store / Admin): lista /api/admin/players — COUNT(*) barato só em store_users quando a busca não precisa de players+market; schema store_users e _db_table_exists em flag/cache por processo (fim do SHOW COLUMNS/inspect por request).",
+            "Fix (Web Store / DB): índices hot-path via ensure_schema — store_users(last_login_at, created_at), orders(original_order_id, steam_id+created_at, steam_id+item_type+status), point_payments(steam_id+created_at); setup_db.sql alinhado. JOINs steam_id sem COLLATE após migrate (optimizer usa índice).",
+            "Fix (Web Store / DB): pool MySQL default 15+30 overflow, pool_timeout/read_timeout 12s; overrides ARKSHOP_DB_POOL_SIZE / MAX_OVERFLOW / POOL_TIMEOUT / READ_TIMEOUT / WRITE_TIMEOUT / CONNECT_TIMEOUT.",
+            "Fix (Web Store): /api/player/summary colapsa 6 COUNT(*) + sessão extra de points em 2 agregações + 1 sessão; cache mtime de catalog_id_migration.json e fingerprint de configs (TTL 2s) nos dropdowns do detalhe.",
+            "Fix (Web Store / Concorrência): WSGI prefer Waitress (ARKSHOP_HTTP_THREADS=16) em vez de Flask/Werkzeug threaded=True — sob RCON/DB lentos o threaded enfileirava handlers até timeout no browser.",
+            "Fix (Web Store / Concorrência): sync-all-permissions em background (202 + poll /status); TribeSync liberta sessão MySQL antes do RCON e dispara mapas em paralelo; workers tribe_log/catalog_feed com scoped_session.remove(); tribe_routes idempotente; limiter defaults 600/h (antes 50/h); auth/me+health com override; single-flight admin SteamIDs e catalog_feed; Âmbarômetro sem backfill no hot-path HTTP.",
+            "Fix (Web Store / RCON): compra/claim de licença (loja, SeasonLand, loteria) esperava Permissions.AddTimed via RCON SEQUENCIAL em todos os mapas — com 6 mapas offline até ~108s (6×18s) segurando worker Waitress. MySQL ark_permission continua síncrono (fonte do plugin); fan-out RCON vai para thread background (rcon_async) com log de falhas parciais. Rotas admin mantêm resultado por mapa, agora em PARALELO (~1×timeout, não N×).",
+            "Fix (Web Store / RCON): pool web-rcon 4→12 workers (ARKSHOP_RCON_POOL_WORKERS) e deadline no retry — future.result(timeout) não cancela task em execução; retries órfãos (connect_retries=5, sleeps 2+4+6+8s) viravam zombies saturando o pool e enfileirando todo RCON seguinte. Retry agora checa deadline antes de cada tentativa/sleep.",
+            "Fix (Web Store / Mercado Pago): GET /api/player/pix/<id>/status fazia HTTP síncrono ao MP (timeout 30s) em CADA poll do frontend, segurando worker + sessão MySQL sob instabilidade do MP. Poll externo agora com throttle por pagamento (mín. 8s entre fetches; entre eles responde status do DB) e timeout 8s; webhook mantém 30s.",
+            "Fix (Web Store / Catalogo): cotações BRL→USD/EUR stale-while-revalidate — ao expirar o cache 1h, /api/catalog devolvia só após fetch do frankfurter.app (timeout 10s, thundering herd por hora). Agora serve o valor stale e refaz em background com single-flight; falha re-tenta em 5min; force_refresh segue síncrono.",
+            "Fix (Web Store / Tickets): notificação Discord (HTTP 12s) saiu do request de criar/responder ticket — envia em thread daemon; in-app segue síncrono.",
+            "Fix (Web Store / Login Steam): callback de login usava GetPlayerSummaries com timeout 12s; agora 5s com fallback ao nick em cache do DB.",
+            "Test (Web Store / I/O externo): guards — compra usa rcon_async; fan-out paralelo 6 mapas <1×timeout; deadline corta retries zombie no rcon_bridge; throttle MP por pagamento + timeout 8s propagado; câmbio stale sem bloquear + single-flight; Discord de ticket fora da thread do request.",
+            "Fix (Web Store / I/O externo): grant/revoke de licença com rcon_async (fan-out RCON em background); exchange_rates/PIX/Discord/RCON bridge com timeouts e sem I/O síncrono bloqueante nos hot-paths HTTP do jogador.",
+            "Fix (Web Store / Frontend): timeout de detalhe admin mantido em 15s; saldo com cooldown 10s + dedup/abort; catálogo e lista admin com AbortController; Minha Área carrega secções em paralelo (Promise.all); mutações admin sem tempestade list+detail; Âmbarômetro com timeout 12s via fetchJson.",
+            "Test (Web Store / Admin+DB): kit_limits 1 query pending; store_users schema skip; table_exists cache; collation JOIN pós-normalize; hot_path indexes idempotente; COUNT lista sem JOIN desnecessário.",
+            "Test (Web Store / Concorrência+I/O): guards de limiter, sync-all async, tribe_routes idempotente, DB liberada antes de RCON, runtime workers once; RCON fan-out async e timeouts de I/O externo.",
+        ],
     },
     {
         "version": "1.10.52",

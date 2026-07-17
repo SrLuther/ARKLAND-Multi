@@ -44,6 +44,8 @@ a = Analysis(
         'cryptography.fernet',
         'dotenv',
         'werkzeug',
+        'waitress',
+        'waitress.server',
         'jinja2',
         'cross_chat_discord',
         'cross_chat_routes',

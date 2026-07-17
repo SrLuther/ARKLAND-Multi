@@ -165,7 +165,9 @@ def test_player_purchase_nuvem_syncs_permissions(client, monkeypatch):
     monkeypatch.setattr(
         _app_module,
         "_sync_license_permissions_all_servers",
-        lambda sid, grp, grant, days=0: sync_calls.append((sid, grp, grant, days))
+        lambda sid, grp, grant, days=0, rcon_async=False: sync_calls.append(
+            (sid, grp, grant, days, rcon_async)
+        )
         or [{"server_id": "map1", "label": "Mapa", "ok": True}],
     )
 
@@ -174,4 +176,5 @@ def test_player_purchase_nuvem_syncs_permissions(client, monkeypatch):
         json={"item_id": "licenca_nuvem", "item_type": "shop", "amount": 1},
     )
     assert r.status_code == 200
-    assert sync_calls == [(user_steam, "keyvault", True, 30)]
+    # Hot path de compra: RCON em background (rcon_async=True) — não bloqueia o request.
+    assert sync_calls == [(user_steam, "keyvault", True, 30, True)]

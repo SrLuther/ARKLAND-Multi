@@ -50,6 +50,11 @@ def register_tribe_routes(
     limiter: Any | None = None,
     trigger_tribe_sync_rcon: Callable[[], list[dict[str, Any]]] | None = None,
 ) -> None:
+    # Idempotente: import duplo / reload no mesmo processo não re-registra rotas.
+    if app.view_functions.get("tribe_presence") is not None:
+        log.info("tribe_routes: já registradas — skip")
+        return
+
     from tribe_service import (
         SPLIT_MIN_SALE_AMBER,
         activate_pending_splits,
@@ -164,20 +169,31 @@ def register_tribe_routes(
                 sync_req = request_tribe_sync(db, steam_id)
             except Exception as exc:
                 log.warning("tribe_sync request_tribe_sync failed steam=%s: %s", steam_id, exc)
-                db.close()
+                try:
+                    db.close()
+                except Exception:
+                    pass
                 return _fail(f"Falha ao registar pedido de sync: {exc}", 500)
+
+        # Liberta a sessão MySQL ANTES do RCON (N mapas + latência) — evita esgotar o pool.
+        try:
+            db.close()
+        except Exception:
+            pass
 
         rcon_results: list[dict[str, Any]] = []
         if not skip_rcon and trigger_tribe_sync_rcon is not None:
             try:
                 rcon_results = list(trigger_tribe_sync_rcon() or [])
+                # Espera curta só se algum mapa OK — sem sessão DB aberta.
                 if any(r.get("ok") for r in rcon_results):
                     import time
-                    time.sleep(2.5)
+                    time.sleep(1.0)
             except Exception as exc:
                 log.warning("tribe_sync RCON trigger failed steam=%s: %s", steam_id, exc)
                 rcon_results.append({"ok": False, "error": f"RCON indisponível: {exc}"})
 
+        db = _db()
         try:
             data = sync_owner_maps(db, steam_id)
             if sync_req is not None:

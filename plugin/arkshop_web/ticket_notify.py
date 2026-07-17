@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Callable
 
 from notification_service import create_notification
@@ -232,15 +233,22 @@ def notify_ticket_update(
             except Exception:
                 pass
 
-    try:
-        notify_ticket_discord(
-            _settings_loader(),
-            ticket,
-            event,
-            actor_name=actor_name,
-            note=note,
-            old_value=old_value,
-            new_value=new_value,
-        )
-    except Exception as exc:
-        log.warning("Discord ticket #%s: %s", ticket_id, exc)
+    # Discord em thread daemon: HTTP externo (timeout 12s) não pode segurar o
+    # request de criar/responder ticket. `ticket` já é dict plano (sem sessão DB).
+    def _discord_worker() -> None:
+        try:
+            notify_ticket_discord(
+                _settings_loader(),
+                ticket,
+                event,
+                actor_name=actor_name,
+                note=note,
+                old_value=old_value,
+                new_value=new_value,
+            )
+        except Exception as exc:
+            log.warning("Discord ticket #%s: %s", ticket_id, exc)
+
+    threading.Thread(
+        target=_discord_worker, daemon=True, name="ticket-discord-notify",
+    ).start()

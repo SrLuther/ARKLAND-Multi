@@ -46,7 +46,7 @@ def test_admin_sync_all_permissions(client, monkeypatch):
         },
     )
     monkeypatch.setattr(_app_module, "_require_db", lambda: None)
-    r = client.post("/api/admin/sync-all-permissions", json={})
+    r = client.post("/api/admin/sync-all-permissions", json={"sync": True})
     assert r.status_code == 200
     data = r.get_json()
     assert data["ok"] is True

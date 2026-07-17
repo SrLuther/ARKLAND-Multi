@@ -280,6 +280,17 @@ def poll_once(
             db.close()
         except Exception:
             pass
+        # scoped_session: remove() devolve a conexão ao pool nesta thread.
+        try:
+            if hasattr(session_factory, "remove"):
+                session_factory.remove()
+            else:
+                import app as app_module
+
+                if getattr(app_module, "_SessionLocal", None) is not None:
+                    app_module._SessionLocal.remove()
+        except Exception:
+            pass
 
     _last_status["runs"] = int(_last_status.get("runs") or 0) + 1
     _last_status["last_error"] = None

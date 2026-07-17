@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS store_users (
   created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at        DATETIME     DEFAULT NULL,
   INDEX idx_store_users_display (display_name),
-  INDEX idx_store_users_blocked (site_access_blocked)
+  INDEX idx_store_users_blocked (site_access_blocked),
+  INDEX ix_store_users_last_login_at (last_login_at),
+  INDEX ix_store_users_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Histórico de transações
@@ -128,7 +130,10 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at        DATETIME      DEFAULT NULL,
   UNIQUE KEY ix_orders_order_id (order_id),
   INDEX idx_steam_status (steam_id, status),
-  INDEX idx_server       (server_id)
+  INDEX idx_server       (server_id),
+  INDEX ix_orders_original_order_id (original_order_id),
+  INDEX ix_orders_steam_created (steam_id, created_at),
+  INDEX ix_orders_steam_type_status (steam_id, item_type, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS order_attempts (
