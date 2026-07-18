@@ -208,6 +208,14 @@ def test_warehouse_catalog_has_ten(db):
     assert "element_ore" in keys and "black_pearl" in keys and "sand" in keys
     assert ts.normalize_warehouse_key("rec_pnegra") == "black_pearl"
     assert ts.normalize_warehouse_key("hard_polymer") == "hard_polymer"
+    assert ts.normalize_warehouse_key("absorbent_polymer") == "substrate_absorbent"
+    assert ts.normalize_warehouse_key("substrate_absorbent") == "substrate_absorbent"
+    assert "substrate_absorbent" in ts.TEAM_WAREHOUSE_KEYS
+    assert "absorbent_polymer" not in ts.TEAM_WAREHOUSE_KEYS
+    dust = next(r for r in ts.TEAM_WAREHOUSE_RESOURCES if r["key"] == "element_dust")
+    assert dust["label_pt"] == "Pó de Elemento"
+    sub = next(r for r in ts.TEAM_WAREHOUSE_RESOURCES if r["key"] == "substrate_absorbent")
+    assert "SubstrateAbsorbent" in sub["blueprint"]
     with pytest.raises(ValueError, match="catálogo"):
         ts.normalize_warehouse_key("Paste")
     with pytest.raises(ValueError, match="catálogo"):
@@ -897,3 +905,65 @@ def test_team_lottery_q10_remainder_nonzero(db, lottery_ready, monkeypatch):
     assert tp["per_member"] == 5000
     assert tp["remainder_to_bank"] == 1
     assert ts.get_bank(db, tid)["amber_balance"] == bank0 + 1
+
+
+def _seed_store_user(db, steam_id: str, *, steam_persona: str = "", display_name: str = ""):
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS store_users (
+            steam_id TEXT PRIMARY KEY,
+            steam_persona TEXT,
+            display_name TEXT
+        )
+    """))
+    db.execute(
+        text("""
+            INSERT INTO store_users (steam_id, steam_persona, display_name)
+            VALUES (:s, :p, :d)
+            ON CONFLICT(steam_id) DO UPDATE SET
+              steam_persona = excluded.steam_persona,
+              display_name = excluded.display_name
+        """),
+        {"s": steam_id, "p": steam_persona or None, "d": display_name or None},
+    )
+    db.commit()
+
+
+def test_member_and_ranking_display_names_from_store_users(db):
+    """NOME usa steam_persona; SteamID64 só como fallback / coluna STEAM."""
+    _seed_store_user(db, USER_A, steam_persona="AlphaNick")
+    _seed_store_user(db, USER_B, steam_persona="BravoNick")
+    view = ts.create_team(db, steam_id=USER_A, name="Nicks")
+    tid = view["team"]["id"]
+    # Stored row may still be steam_id historically; API must resolve persona
+    db.execute(
+        text("UPDATE team_members SET display_name = :dn WHERE team_id = :tid AND steam_id = :sid"),
+        {"dn": USER_A, "tid": tid, "sid": USER_A},
+    )
+    db.commit()
+    members = ts.list_members(db, tid, statuses=["ACTIVE"])
+    assert members[0]["steam_id"] == USER_A
+    assert members[0]["display_name"] == "AlphaNick"
+    listing = ts.list_public_teams(db, q="Nicks")
+    row = next(x for x in listing["items"] if x["id"] == tid)
+    assert row["owner_display_name"] == "AlphaNick"
+    assert row["owner_steam_id"] == USER_A
+
+    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    ts.accept_invite(db, steam_id=USER_B, team_id=tid)
+    now = ts._naive()
+    db.execute(
+        text("INSERT INTO player_xp_lifetime (steam_id, xp, updated_at) VALUES (:s, :xp, :now)"),
+        {"s": USER_B, "xp": 9000, "now": now},
+    )
+    db.execute(
+        text("INSERT INTO player_xp_lifetime (steam_id, xp, updated_at) VALUES (:s, :xp, :now)"),
+        {"s": USER_A, "xp": 1000, "now": now},
+    )
+    db.commit()
+    ranks = ts.ranking_players(db, limit=10)
+    assert ranks[0]["steam_id"] == USER_B
+    assert ranks[0]["display_name"] == "BravoNick"
+    assert ranks[1]["display_name"] == "AlphaNick"
+
+    # Sem persona → fallback SteamID
+    assert ts.resolve_member_display_name(db, USER_C) == USER_C

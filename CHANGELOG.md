@@ -10,6 +10,22 @@
 ### Other
 
 - Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.
+- Próximo: bônus Â aditivo da equipe no tick TimedPoints C++ (web já expõe amber_bonus_pct; plugin ainda não lê).
+
+## [1.10.71] - 2026-07-18
+
+### Feature
+
+- Feat (CustomShop v1.10.25): /marco → preview 60s → /confirmar — deposita recursos do catálogo no armazém da equipe (sem reembolso; membership + deposit-resource API).
+- Feat (Web Store / Equipes): GET /api/teams/plugin/membership/<steam_id> (api_key) para o plugin validar membro ACTIVE antes do /marco.
+
+### Fix
+
+- Fix (Equipes / armazém): catálogo — Substrato Absorvente (substrate_absorbent; alias absorbent_polymer) e label «Pó de Elemento».
+
+### Other
+
+- Docs: Modo Equipe §5.5 — /marco in-game marcado como implementado.
 
 ## [1.10.70] - 2026-07-18
 
@@ -17,7 +33,7 @@
 
 - Feat (Web Store / Home): carrossel SeasonLand + Equipes (10s, dots/prev-next); clique → SeasonLand ou lista global Equipes.
 - Feat (Web Store / Equipes): logo ARKLAND Equipes (ig → static 256px) na nav, headers, Minha Área e slide da home.
-- Feat (CustomShop v1.10.24): stub ShopTeams (/marco ainda não registado; API web de depósito pronta).
+- Feat (CustomShop v1.10.24): módulo ShopTeams (preparação /marco; API web de depósito).
 
 ### Fix
 

@@ -92,7 +92,7 @@ ROLE_LABELS_PT = {
 }
 
 # Curated warehouse catalog (~10 rares). shop_key aligns with CustomShop rec_* when present.
-# /marco (C++ TODO) accepts ALL of these into the team warehouse.
+# /marco (CustomShop) accepts ALL of these into the team warehouse.
 TEAM_WAREHOUSE_RESOURCES: tuple[dict[str, Any], ...] = (
     {
         "key": "element_ore",
@@ -123,10 +123,10 @@ TEAM_WAREHOUSE_RESOURCES: tuple[dict[str, Any], ...] = (
         "default_qty": 1000,
     },
     {
-        "key": "absorbent_polymer",
-        "label_pt": "Polímero Absorvente",
+        "key": "substrate_absorbent",
+        "label_pt": "Substrato Absorvente",
         "shop_key": "",
-        "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer_Absorbant.PrimalItemResource_Polymer_Absorbant",
+        "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_SubstrateAbsorbent.PrimalItemResource_SubstrateAbsorbent",
         "default_qty": 150,
     },
     {
@@ -140,7 +140,7 @@ TEAM_WAREHOUSE_RESOURCES: tuple[dict[str, Any], ...] = (
         "key": "deathworm_horn",
         "label_pt": "Chifre de Deathworm",
         "shop_key": "",
-        "blueprint": "/Game/ScorchedEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_DeathWorm.PrimalItemResource_ApexDrop_DeathWorm",
+        "blueprint": "/Game/ScorchedEarth/Dinos/Deathworm/PrimalItemResource_KeratinSpike.PrimalItemResource_KeratinSpike",
         "default_qty": 50,
     },
     {
@@ -159,7 +159,7 @@ TEAM_WAREHOUSE_RESOURCES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "element_dust",
-        "label_pt": "Poeira de Elemento",
+        "label_pt": "Pó de Elemento",
         "shop_key": "",
         "blueprint": "/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_ElementDust.PrimalItemResource_ElementDust",
         "default_qty": 500,
@@ -174,6 +174,9 @@ for _r in TEAM_WAREHOUSE_RESOURCES:
     _WAREHOUSE_ALIASES[_r["key"]] = _r["key"]
     if _r.get("shop_key"):
         _WAREHOUSE_ALIASES[str(_r["shop_key"])] = _r["key"]
+# Legacy catalog key (replaced by substrate_absorbent)
+_WAREHOUSE_ALIASES["absorbent_polymer"] = "substrate_absorbent"
+_WAREHOUSE_ALIASES["polimero_absorvente"] = "substrate_absorbent"
 
 # Permissions: Q14 — Guardian can approve/kick/invite; sorteio+split = Owner only
 _PERMS = {
@@ -210,6 +213,21 @@ def normalize_warehouse_key(resource_key: str) -> str:
             f"Permitidos: {', '.join(sorted(TEAM_WAREHOUSE_KEYS))}."
         )
     return key
+
+
+def _migrate_warehouse_resource_map(resources: dict[str, Any] | None) -> dict[str, int]:
+    """Normalize legacy keys in stored bank/committed maps (e.g. absorbent_polymer)."""
+    out: dict[str, int] = {}
+    for raw_key, raw_qty in (resources or {}).items():
+        try:
+            key = normalize_warehouse_key(str(raw_key))
+        except ValueError:
+            continue
+        qty = int(raw_qty or 0)
+        if qty <= 0:
+            continue
+        out[key] = int(out.get(key) or 0) + qty
+    return out
 
 
 def validate_milestone_resources(resources: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -669,6 +687,63 @@ def _require_enabled() -> None:
         raise PermissionError("Modo Equipe desativado (teams_enabled=false).")
 
 
+def _usable_player_nick(name: str | None, steam_id: str) -> str | None:
+    """Nick de jogador utilizável — rejeita vazio ou cópia do SteamID64."""
+    nick = str(name or "").strip()
+    sid = str(steam_id or "").strip()
+    if not nick or not sid or nick == sid:
+        return None
+    return nick[:128]
+
+
+def _nicks_from_store_users(db: Session, steam_ids: list[str]) -> dict[str, str]:
+    """Resolve nicks via store_users (steam_persona → display_name), como mercado/admin."""
+    unique = list(dict.fromkeys(str(s).strip() for s in steam_ids if str(s or "").strip()))
+    if not unique:
+        return {}
+    out: dict[str, str] = {}
+    try:
+        ph = ", ".join(f":id{i}" for i in range(len(unique)))
+        params = {f"id{i}": sid for i, sid in enumerate(unique)}
+        rows = db.execute(
+            text(
+                f"SELECT steam_id, steam_persona, display_name "
+                f"FROM store_users WHERE steam_id IN ({ph})"
+            ),
+            params,
+        ).fetchall()
+    except Exception:
+        return {}
+    for row in rows:
+        sid = str(row[0])
+        for col in (row[1], row[2]):
+            nick = _usable_player_nick(col, sid)
+            if nick:
+                out[sid] = nick
+                break
+    return out
+
+
+def resolve_member_display_name(
+    db: Session,
+    steam_id: str,
+    stored: str = "",
+    *,
+    nick_cache: dict[str, str] | None = None,
+) -> str:
+    """Nome para UI: store_users nick, senão display_name gravado (se ≠ SteamID), senão SteamID."""
+    sid = str(steam_id or "").strip()
+    if not sid:
+        return ""
+    if nick_cache is not None and sid in nick_cache:
+        return nick_cache[sid]
+    nicks = nick_cache if nick_cache is not None else _nicks_from_store_users(db, [sid])
+    resolved = nicks.get(sid) or _usable_player_nick(stored, sid) or sid
+    if nick_cache is not None:
+        nick_cache[sid] = resolved
+    return resolved
+
+
 def get_active_membership(db: Session, steam_id: str) -> dict[str, Any] | None:
     row = db.execute(
         text("""
@@ -683,11 +758,12 @@ def get_active_membership(db: Session, steam_id: str) -> dict[str, Any] | None:
     ).fetchone()
     if not row:
         return None
+    sid = str(row[2])
     return {
         "member_id": row[0],
         "team_id": row[1],
-        "steam_id": row[2],
-        "display_name": row[3] or "",
+        "steam_id": sid,
+        "display_name": resolve_member_display_name(db, sid, str(row[3] or "")),
         "status": row[4],
         "joined_at": str(row[5]) if row[5] else None,
         "team_name": row[6],
@@ -811,6 +887,8 @@ def list_members(db: Session, team_id: int, *, statuses: list[str] | None = None
             """),
             {"tid": team_id},
         ).fetchall()
+    steam_ids = [str(r[1]) for r in rows]
+    nick_cache = _nicks_from_store_users(db, steam_ids)
     out = []
     for r in rows:
         sid = str(r[1])
@@ -818,7 +896,9 @@ def list_members(db: Session, team_id: int, *, statuses: list[str] | None = None
         out.append({
             "id": int(r[0]),
             "steam_id": sid,
-            "display_name": r[2] or "",
+            "display_name": resolve_member_display_name(
+                db, sid, str(r[2] or ""), nick_cache=nick_cache
+            ),
             "status": r[3],
             "invite_code": r[4],
             "joined_at": str(r[5]) if r[5] else None,
@@ -904,25 +984,31 @@ def list_public_teams(
         """),
         params,
     ).fetchall()
+    owner_ids = [str(_team_row(r, db=db)["owner_steam_id"]) for r in rows]
+    nick_cache = _nicks_from_store_users(db, owner_ids)
     items: list[dict[str, Any]] = []
     for r in rows:
         t = _team_row(r, db=db)
         mc = count_active_members(db, t["id"])
+        owner_sid = str(t["owner_steam_id"])
         owner_dn = db.execute(
             text("""
                 SELECT display_name FROM team_members
                 WHERE team_id = :tid AND steam_id = :sid AND status = 'ACTIVE'
                 LIMIT 1
             """),
-            {"tid": t["id"], "sid": t["owner_steam_id"]},
+            {"tid": t["id"], "sid": owner_sid},
         ).fetchone()
+        stored_dn = str(owner_dn[0] or "") if owner_dn else ""
         accepting = team_accepting_members(t, mc)
         items.append({
             "id": t["id"],
             "name": t["name"],
             "tag": t["tag"],
-            "owner_steam_id": t["owner_steam_id"],
-            "owner_display_name": (owner_dn[0] if owner_dn and owner_dn[0] else "") or t["owner_steam_id"],
+            "owner_steam_id": owner_sid,
+            "owner_display_name": resolve_member_display_name(
+                db, owner_sid, stored_dn, nick_cache=nick_cache
+            ),
             "mural_text": t["mural_text"] or "",
             "member_count": mc,
             "max_members": int(t["max_members"]),
@@ -1009,7 +1095,12 @@ def create_team(
                created_at, updated_at)
             VALUES (:tid, :sid, :dn, 'ACTIVE', :now, :now, :now, :now)
         """),
-        {"tid": team_id, "sid": steam_id, "dn": display_name or steam_id, "now": now},
+        {
+            "tid": team_id,
+            "sid": steam_id,
+            "dn": resolve_member_display_name(db, steam_id, display_name),
+            "now": now,
+        },
     )
     db.execute(
         text("""
@@ -1273,7 +1364,7 @@ def invite_member(
                   display_name = :dn, updated_at = :now, left_at = NULL
                 WHERE id = :id
             """),
-            {"c": code, "dn": display_name or target_steam_id, "now": now, "id": existing[0]},
+            {"c": code, "dn": resolve_member_display_name(db, target_steam_id, display_name), "now": now, "id": existing[0]},
         )
     else:
         db.execute(
@@ -1284,7 +1375,7 @@ def invite_member(
             """),
             {
                 "tid": team_id, "sid": target_steam_id,
-                "dn": display_name or target_steam_id, "c": code, "now": now,
+                "dn": resolve_member_display_name(db, target_steam_id, display_name), "c": code, "now": now,
             },
         )
     db.commit()
@@ -1378,7 +1469,7 @@ def request_join(db: Session, *, team_id: int, steam_id: str, display_name: str 
                 UPDATE team_members SET status = 'PENDING', display_name = :dn, updated_at = :now
                 WHERE id = :id
             """),
-            {"dn": display_name or steam_id, "now": now, "id": existing[0]},
+            {"dn": resolve_member_display_name(db, steam_id, display_name), "now": now, "id": existing[0]},
         )
     else:
         db.execute(
@@ -1387,7 +1478,7 @@ def request_join(db: Session, *, team_id: int, steam_id: str, display_name: str 
                   (team_id, steam_id, display_name, status, created_at, updated_at)
                 VALUES (:tid, :sid, :dn, 'PENDING', :now, :now)
             """),
-            {"tid": team_id, "sid": steam_id, "dn": display_name or steam_id, "now": now},
+            {"tid": team_id, "sid": steam_id, "dn": resolve_member_display_name(db, steam_id, display_name), "now": now},
         )
     db.commit()
     return {"team_id": team_id, "status": "PENDING"}
@@ -1731,11 +1822,17 @@ def get_bank(db: Session, team_id: int) -> dict[str, Any]:
         committed = json.loads(row[2] or "{}") if row[2] is not None else {}
     except Exception:
         committed = {}
+    resources = _migrate_warehouse_resource_map(
+        resources if isinstance(resources, dict) else {}
+    )
+    committed = _migrate_warehouse_resource_map(
+        committed if isinstance(committed, dict) else {}
+    )
     return {
         "team_id": team_id,
         "amber_balance": int(row[0] or 0),
-        "resources": resources if isinstance(resources, dict) else {},
-        "committed": committed if isinstance(committed, dict) else {},
+        "resources": resources,
+        "committed": committed,
         "updated_at": str(row[3]) if row[3] else None,
     }
 
@@ -2504,12 +2601,16 @@ def ranking_players(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
         """),
         {"lim": limit},
     ).fetchall()
+    steam_ids = [str(r[0]) for r in rows]
+    nick_cache = _nicks_from_store_users(db, steam_ids)
     out = []
     for i, r in enumerate(rows, start=1):
-        mem = get_active_membership(db, str(r[0]))
+        sid = str(r[0])
+        mem = get_active_membership(db, sid)
         out.append({
             "rank": i,
-            "steam_id": str(r[0]),
+            "steam_id": sid,
+            "display_name": resolve_member_display_name(db, sid, nick_cache=nick_cache),
             "xp": int(r[1] or 0),
             "updated_at": str(r[2]) if r[2] else None,
             "team_id": mem["team_id"] if mem else None,

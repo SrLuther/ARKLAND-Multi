@@ -893,7 +893,7 @@ void Register() {
         "CustomShopCloudChat", &OnCloudChatMessage);
 
     ShopMarket::RegisterCommands();
-    CustomShop::Teams::RegisterCommands(); // stub /marco — comando ainda nao registado
+    CustomShop::Teams::RegisterCommands(); // /marco → preview → /confirmar
     CustomShop::TribeSync::RegisterChatCommands();
 
     // Admin (RCON ou console in-game)

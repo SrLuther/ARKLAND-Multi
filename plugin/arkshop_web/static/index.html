@@ -25993,7 +25993,9 @@ async function loadMyTeam() {
     const warehouse = bank.resources || bank.warehouse || {};
     const committed = bank.committed || {};
     const accepting = !!(data.accepting_members ?? data.recruiting_open);
-    const ownerLabel = data.owner_display_name || t.owner_steam_id;
+    const ownerLabel = (data.owner_display_name && data.owner_display_name !== t.owner_steam_id)
+      ? data.owner_display_name
+      : (t.owner_steam_id || "—");
     let msHtml = "<em>Aguardando staff publicar o próximo marco.</em>";
     if (ms && ms.milestone) {
       const m = ms.milestone;
@@ -26036,6 +26038,7 @@ async function loadMyTeam() {
       : "<em style=\"color:var(--text2);\">Armazém vazio — deposite via /marco (catálogo de 10 raros).</em>";
     const memberRows = members.map(m => {
       const rl = (m.role_labels || []).join(", ") || "Membro";
+      const memberName = (m.display_name && m.display_name !== m.steam_id) ? m.display_name : (m.steam_id || "—");
       let actions = "";
       if (canManage && m.steam_id !== t.owner_steam_id) {
         actions = `<button class="btn btn-ghost btn-sm" onclick="teamsKick('${escHtml(m.steam_id)}')">Kick</button>`;
@@ -26045,7 +26048,7 @@ async function loadMyTeam() {
         actions += ` <button class="btn btn-ghost btn-sm" onclick="teamsTransfer('${escHtml(m.steam_id)}')">Tornar Owner</button>`;
       }
       return `<tr>
-        <td>${escHtml(m.display_name || m.steam_id)}</td>
+        <td>${escHtml(memberName)}</td>
         <td style="font-family:monospace;font-size:11px;">${escHtml(m.steam_id)}</td>
         <td>${escHtml(rl)}</td>
         <td>${actions}</td>
@@ -26054,11 +26057,14 @@ async function loadMyTeam() {
     const joinHtml = canManage && joinRequests.length
       ? `<div class="card" style="margin-bottom:12px;">
           <div class="card-title">Pedidos pendentes</div>
-          ${joinRequests.map(j => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap;">
-            <span>${escHtml(j.display_name || j.steam_id)} <span style="font-family:monospace;font-size:11px;">${escHtml(j.steam_id)}</span></span>
+          ${joinRequests.map(j => {
+            const jName = (j.display_name && j.display_name !== j.steam_id) ? j.display_name : (j.steam_id || "—");
+            return `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap;">
+            <span>${escHtml(jName)} <span style="font-family:monospace;font-size:11px;">${escHtml(j.steam_id)}</span></span>
             <button class="btn btn-primary btn-sm" onclick="teamsApproveJoin('${escHtml(j.steam_id)}')">Aprovar</button>
             <button class="btn btn-ghost btn-sm" onclick="teamsRejectJoin('${escHtml(j.steam_id)}')">Recusar</button>
-          </div>`).join("")}
+          </div>`;
+          }).join("")}
         </div>`
       : "";
     const ledgerHint = (data.split && data.split.status === "ACTIVE")
@@ -26201,7 +26207,7 @@ async function loadTeamsDirectory() {
         : (t.recruitment_open ? '<span style="color:var(--text2);">Cheia</span>' : '<span style="color:var(--text2);">Fechada</span>');
       return `<tr>
         <td><strong>${escHtml(t.tag ? "[" + t.tag + "] " : "")}${escHtml(t.name)}</strong></td>
-        <td>${escHtml(t.owner_display_name || t.owner_steam_id)}<div style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(t.owner_steam_id)}</div></td>
+        <td>${escHtml((t.owner_display_name && t.owner_display_name !== t.owner_steam_id) ? t.owner_display_name : (t.owner_steam_id || "—"))}<div style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(t.owner_steam_id)}</div></td>
         <td>${t.member_count || 0}/${t.max_members || 5}</td>
         <td>${statusLabel}</td>
         <td style="white-space:nowrap;">
@@ -26526,11 +26532,17 @@ async function loadTeamsRankings() {
     if (pEl) {
       const rows = (pr.ok && pr.data) ? pr.data : [];
       pEl.innerHTML = rows.length
-        ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Steam</th><th>XP</th><th>Equipe</th></tr></thead>
-           <tbody>${rows.map(r => `<tr>
-             <td>${r.rank}</td><td style="font-family:monospace;font-size:11px;">${escHtml(r.steam_id)}</td>
+        ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Nome</th><th>XP</th><th>Equipe</th></tr></thead>
+           <tbody>${rows.map(r => {
+             const nick = (r.display_name && r.display_name !== r.steam_id) ? r.display_name : (r.steam_id || "—");
+             return `<tr>
+             <td>${r.rank}</td>
+             <td title="${escHtml(r.steam_id || "")}">${escHtml(nick)}
+               <div style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(r.steam_id || "")}</div>
+             </td>
              <td>${Number(r.xp||0).toLocaleString("pt-BR")}</td><td>${escHtml(r.team_name || "—")}</td>
-           </tr>`).join("")}</tbody></table>`
+           </tr>`;
+           }).join("")}</tbody></table>`
         : "<p>Sem XP lifetime ainda.</p>";
     }
   } catch (e) {

@@ -8,13 +8,26 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.25] - 2026-07-18
+
+### Feat
+
+- **`/marco` → `/confirmar`**: depósito de recursos do catálogo (10 keys) no armazém da equipe — preview 60s com aviso sem reembolso; consome inventário só após `/confirmar`; `POST /api/teams/bank/deposit-resource` por key (idempotency).
+- **Catálogo**: `substrate_absorbent` (Substrato Absorvente) substitui polímero absorvente; label `element_dust` = «Po de Elemento».
+- **Membership**: `GET /api/teams/plugin/membership/<steam_id>` (api_key) antes de criar pending.
+- **`/confirmar`**: ramo `Teams::HasPendingDeposit` após notas e antes do mercado (não parte Comércio/engramas/notas).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.25) em cada mapa.
+
 ## [1.10.24] - 2026-07-18
 
 ### Feat
 
-- **Modo Equipe (stub)**: módulo `ShopTeams` — catálogo BP↔key, pending `/marco` e API de depósito documentados; `RegisterCommands` chamado no boot mas **`/marco` ainda não registado** (scan inventário TODO).
-- **`/confirmar`**: comentário de ordem de despacho (engramas → notas → marco → mercado); ramo `Teams::HasPendingDeposit` ainda por ligar.
-- **Build**: `build_cl.bat` liga `ShopTeams.obj` (corrigia LNK2019 em RegisterCommands/UnregisterCommands).
+- **Modo Equipe (módulo)**: `ShopTeams` — catálogo BP↔key, pending `/marco` e API de depósito; preparação para registo do comando.
+- **`/confirmar`**: ordem de despacho documentada (engramas → notas → marco → mercado).
+- **Build**: `build_cl.bat` liga `ShopTeams.obj`.
 
 ### Rebuild
 

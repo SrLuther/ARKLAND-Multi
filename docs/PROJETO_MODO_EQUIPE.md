@@ -216,12 +216,12 @@ A staff **não** digita blueprints livres. Existe um catálogo fixo de **10 recu
 | `black_pearl` | Pérola Negra | Shop `rec_pnegra` |
 | `hard_polymer` | Polímero Duro | Shop `rec_polymer` |
 | `sand` | Areia | Shop `rec_sand` |
-| `absorbent_polymer` | Polímero Absorvente | Sem pack na loja — blueprint ARK |
+| `substrate_absorbent` | Substrato Absorvente | Blueprint ARK (`PrimalItemResource_SubstrateAbsorbent`); alias legado `absorbent_polymer` |
 | `silica_pearls` | Pérolas de Sílica | Shop `rec_silicon` |
 | `deathworm_horn` | Chifre de Deathworm | Scorched Earth |
 | `organic_polymer` | Polímero Orgânico | Shop `rec_organicpolymer` |
 | `ammonite_bile` | Bílis de Amonite | Apex / craft |
-| `element_dust` | Poeira de Elemento | Extinction |
+| `element_dust` | Pó de Elemento | Extinction |
 
 Depósitos (`/marco` e API) **só** aceitam estas keys. Qualquer outra key é rejeitada.
 
@@ -262,7 +262,7 @@ O Owner escolhe **como** o banco opera (config na UI):
 
 ### 5.5 Comando `/marco` → `/confirmar` (plugin)
 
-Fluxo in-game (CustomShop). API web pronta (`POST /api/teams/bank/deposit-resource`); C++ em stub de desenho (`ShopTeams`) — **ainda não regista o comando no build**.
+Fluxo in-game (CustomShop). API web: `POST /api/teams/bank/deposit-resource` + `GET /api/teams/plugin/membership/<steam_id>`. Implementado em `ShopTeams` (`/marco` registado; ramo em `CmdConfirmar`).
 
 **Decisão de produto (travada):** `/marco` **não** deposita de imediato. Mostra preview, avisa que **não há reembolso**, e só após `/confirmar` (dentro do TTL) consome inventário e credita o armazém. Objetivo: evitar envios acidentais.
 
@@ -793,7 +793,7 @@ TribeSync pode permanecer só para **logs / painel legado**, se a opção B/C do
 | Item | Estado |
 |------|--------|
 | Sorteio coletivo (2 nº/membro, payout Â, resto→banco, Q9–Q12) | **Feito** — `POST /api/teams/lottery/confirm` + alocação em `lottery_service` (source `TEAM`) |
-| Comando in-game `/marco` → `/confirmar` (CustomShop C++) | **Stub de desenho** (`ShopTeams.h/.cpp`) + spec §5.5 — API pronta. Falta: scan/consumo de inventário, registo de `/marco`, ramo em `CmdConfirmar`. Preview com aviso **sem reembolso**; TTL **60s**; deposit só após confirm → armazém. Commit ao marco: `POST /api/teams/bank/commit-resource` (Owner/Tesoureiro) |
+| Comando in-game `/marco` → `/confirmar` (CustomShop C++) | **Feito** — `ShopTeams` regista `/marco`; preview 60s + aviso sem reembolso; `CmdConfirmar` ramo kind `marco`; consume + `POST /api/teams/bank/deposit-resource`. Membership: `GET /api/teams/plugin/membership/<sid>`. Commit ao marco: `POST /api/teams/bank/commit-resource` (Owner/Tesoureiro) |
 | Aplicar `%` bônus Â da equipe no tick TimedPoints do plugin | Campo calculado na web (`amber_bonus_pct` via marcos); C++ ainda não lê |
 | Convite chat `/equipe.CODE` | Fase 2 |
 | Mural rico / eleição pós-custódia | Futuro |
@@ -803,10 +803,10 @@ TribeSync pode permanecer só para **logs / painel legado**, se a opção B/C do
 ## 19. Próximos passos sugeridos
 
 1. Ativar `teams_enabled` em staging e validar fluxos de fundação/banco/marco.
-2. Implementar `/marco` → preview → `/confirmar` no CustomShop (`ShopTeams` + ramo em `CmdConfirmar`): scan inventário → pending 60s → consumo → `deposit-resource` (aviso sem reembolso no preview).
+2. Validar in-game: `/marco` → preview → `/confirmar` (CustomShop) e crédito no armazém web.
 3. Validar sorteio coletivo em staging (confirmação Owner, join +2, draw com resto→banco, shortfall refund).
 4. Decidir quando desligar UI de split de Tribo de vez (já ignorada com `teams_enabled`).
-
+5. *(Futuro)* Aplicar `%` bônus Â da equipe no tick TimedPoints do plugin C++ (web já expõe `amber_bonus_pct`).
 ---
 
 

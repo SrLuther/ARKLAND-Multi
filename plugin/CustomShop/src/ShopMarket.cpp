@@ -6,6 +6,7 @@
 #include "ShopConfig.h"
 #include "ShopEngrams.h"
 #include "ShopNotes.h"
+#include "ShopTeams.h"
 #include "ShopPoints.h"
 #include "ShopPerms.h"
 #include "HttpClient.h"
@@ -615,7 +616,6 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
     // Ordem de despacho /confirmar (pending por steam_id):
     //   1 engramas → 2 notas → 3 marco (Teams::HasPendingDeposit) → 4 mercado
     // Spec Modo Equipe §5.5.4 — nao misturar kinds; mensagens especificas por ramo.
-    // TODO: if (Teams::HasPendingDeposit(sid)) { ConfirmDeposit(...); return; }
 
     if (Notes::HasPendingUnlock(sid)) {
         int price = 0;
@@ -655,6 +655,33 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         if (price > 0)
             msg += " — " + std::to_string(price) + " ambares debitados.";
         SendMsg(player, FColorList::Green, msg);
+        return;
+    }
+
+    if (Teams::HasPendingDeposit(sid)) {
+        std::vector<Teams::MarcoLine> deposited;
+        const auto result = Teams::ConfirmDeposit(sid, player, &deposited);
+        if (result == Teams::MarcoConfirmResult::Expired) {
+            SendMsg(player, FColorList::Red, Teams::kMsgExpired);
+            return;
+        }
+        if (result == Teams::MarcoConfirmResult::NoTeam) {
+            SendMsg(player, FColorList::Red, Teams::kMsgNoTeam);
+            return;
+        }
+        if (result == Teams::MarcoConfirmResult::InventoryMismatch) {
+            SendMsg(player, FColorList::Red, Teams::kMsgInventoryMismatch);
+            return;
+        }
+        if (result == Teams::MarcoConfirmResult::ApiFailed) {
+            SendMsg(player, FColorList::Red, Teams::kMsgApiFail);
+            return;
+        }
+        if (result != Teams::MarcoConfirmResult::Ok) {
+            SendMsg(player, FColorList::Red, Teams::kMsgNoPending);
+            return;
+        }
+        SendMsg(player, FColorList::Green, Teams::FormatSuccessMessage(deposited));
         return;
     }
 

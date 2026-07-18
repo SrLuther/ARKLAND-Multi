@@ -54,6 +54,7 @@ Admin:
 
 Plugin (api_key):
   POST /api/teams/bank/deposit-resource   (/marco bridge → armazém; só catálogo)
+  GET  /api/teams/plugin/membership/<sid> (/marco membership check; api_key)
 """
 from __future__ import annotations
 
@@ -772,6 +773,31 @@ def register_team_routes(
             ))
         except (ValueError, PermissionError) as exc:
             return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/teams/plugin/membership/<steam_id>", methods=["GET"])
+    @api_key_required(allow_admin_session=False)
+    def teams_plugin_membership(steam_id: str):
+        """Plugin bridge: ACTIVE team membership check for /marco."""
+        if not teams_enabled():
+            return _fail("teams_enabled=false", 403)
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        db = _db()
+        try:
+            sid = str(steam_id or "").strip()
+            mem = get_active_membership(db, sid) if sid else None
+            if not mem:
+                return _ok({"active": False, "steam_id": sid, "team_id": None})
+            return _ok({
+                "active": True,
+                "steam_id": sid,
+                "team_id": int(mem["team_id"]),
+                "role": mem.get("role"),
+            })
         except Exception as exc:
             return _fail(str(exc), 500)
         finally:
