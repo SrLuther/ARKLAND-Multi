@@ -1,14 +1,10 @@
 {
-    "version": "1.10.67",
+    "version": "1.10.68",
     "date": "2026-07-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.67/ARKLAND-Multi-Setup-v1.10.67.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.68/ARKLAND-Multi-Setup-v1.10.68.exe",
     "changelog": [
-        "Fix P0 (Release / Installer): installer leve - WebStore.spec exclui species/icons/generated/raw (~344 MB), demo (~20 MB) e preview (~2 MB); Setup ~70-135 MB (NAO ~427 MB). A v1.10.66 saiu gorda: cancele esse download e use esta 1.10.67.",
-        "Melhoria (Assets): logo/ambar/SeasonLand/paypal-qr e ig/* redimensionados/otimizados (UI ate 512 px; PNGs de 1-3 MB para dezenas-centenas de KB).",
-        "Fix P0 (Web Store / Kit-limits UI): bootstrap parcial ou 503 (partial+kits=[]) ja nao marca limites como prontos - evita cadeados falsos \"esgotado\" em todos os kits.",
-        "Fix P0 (Web Store / Catalogo): applyCatalogPayload/loadCatalog repoem kit_limits+entitlements do cache bootstrap; fetch em background quando parcial.",
-        "Fix (Web Store / Catalogo): catalog_meta usa path resolvido/healed + catalog_empty/catalog_note.",
-        "Fix (Admin / Players): detalhe/heavy libertam sessao MySQL com force=True apos queries.",
-        "Fix (CustomShop v1.10.23): DeliverPending escalonado (evita HangWatcher); GET HTTP>=400 nao engole erro; Shop.Reload tambem atualiza WebApiUrl/Key; aceita ShopItems alem de Items."
+        "Fix P0 (Web Store / Admin): painel Itens/Kits preso em “Carregando config.json…” após bootstrap — applyRoleUi(defer) voltava a chamar setAdminShopLoading depois de loadConfig/renderAll; corrige race e HTML duplicado no fim do index.",
+        "Feat (Web Store / Staff): botão «MODO STAFF» (bolinha verde/vermelha) na sidebar para admin/suporte alternar menu completo vs vista jogador; estado persistido em localStorage por SteamID.",
+        "Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.68."
     ]
 }

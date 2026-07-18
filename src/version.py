@@ -3,17 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.67"
+APP_VERSION: str = "1.10.68"
 BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
-        {
+            {
         "version": "Unreleased",
         "date": "",
         "changes": [
             "Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.",
+        ],
+    },
+    {
+        "version": "1.10.68",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix P0 (Web Store / Admin): painel Itens/Kits preso em “Carregando config.json…” após bootstrap — applyRoleUi(defer) voltava a chamar setAdminShopLoading depois de loadConfig/renderAll; corrige race e HTML duplicado no fim do index.",
+            "Feat (Web Store / Staff): botão «MODO STAFF» (bolinha verde/vermelha) na sidebar para admin/suporte alternar menu completo vs vista jogador; estado persistido em localStorage por SteamID.",
+            "Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.68.",
         ],
     },
     {

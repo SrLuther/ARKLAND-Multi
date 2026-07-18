@@ -120,3 +120,32 @@ def test_index_admin_nav_shows_loading_without_config():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     assert 'else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");' in html
     assert "_updateCatalogStatusBar" in html
+
+
+def test_index_admin_defer_nav_renders_when_config_loaded():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "_ensureAdminConfigPanelsRendered" in html
+    assert html.count("_ensureAdminConfigPanelsRendered();") >= 2
+    defer = html.index("function applyRoleUi(deferAdminNav")
+    block = html[defer : defer + 4200]
+    assert "} else if (_config) {" in block
+    assert "_ensureAdminConfigPanelsRendered();" in block
+
+
+def test_index_html_has_single_document_close():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert html.count("</html>") == 1
+    assert html.rstrip().endswith("</html>")
+    assert html.count('id="notif-list"') == 1
+
+
+def test_index_has_staff_mode_toggle():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert 'id="staff-mode-toggle"' in html
+    assert "MODO STAFF" in html
+    assert "toggleStaffMode" in html
+    assert "_staffMode" in html
+    assert "arkland_staff_mode" in html
+    assert "_isStaffMember" in html
+    assert "staff-mode-dot--off" in html
+    assert "staff-mode-dot--on" in html

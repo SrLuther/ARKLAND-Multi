@@ -1563,16 +1563,16 @@ class TestAdminPlayers:
         prev = _app_module._STEAM_ID_COLLATION_NORMALIZED
         try:
             _app_module._STEAM_ID_COLLATION_NORMALIZED = False
-            sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
-            assert "COLLATE utf8mb4_unicode_ci" in sql
-            assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
+        sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
+        assert "COLLATE utf8mb4_unicode_ci" in sql
+        assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
             _app_module._STEAM_ID_COLLATION_NORMALIZED = True
             assert _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True) == (
                 "mp.steam_id = su.steam_id"
             )
-            assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
-                "a.steam_id = b.steam_id"
-            )
+        assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
+            "a.steam_id = b.steam_id"
+        )
         finally:
             _app_module._STEAM_ID_COLLATION_NORMALIZED = prev
 

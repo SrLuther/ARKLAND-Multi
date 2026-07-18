@@ -11,6 +11,17 @@
 
 - Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.
 
+## [1.10.68] - 2026-07-17
+
+### Feature
+
+- Feat (Web Store / Staff): botão «MODO STAFF» (bolinha verde/vermelha) na sidebar para admin/suporte alternar menu completo vs vista jogador; estado persistido em localStorage por SteamID.
+
+### Fix
+
+- Fix P0 (Web Store / Admin): painel Itens/Kits preso em “Carregando config.json…” após bootstrap — applyRoleUi(defer) voltava a chamar setAdminShopLoading depois de loadConfig/renderAll; corrige race e HTML duplicado no fim do index.
+- Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.68.
+
 ## [1.10.67] - 2026-07-17
 
 ### Improvement

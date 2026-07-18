@@ -318,6 +318,45 @@
       background: rgba(0,200,255,.12);
       border: 1px solid rgba(0,200,255,.25);
     }
+    .staff-mode-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin: 8px 0 4px;
+      padding: 7px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-g);
+      background: var(--surface2);
+      color: var(--text2);
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .staff-mode-toggle:hover {
+      border-color: rgba(232,120,32,.45);
+      color: var(--text);
+      background: rgba(232,120,32,.06);
+    }
+    .staff-mode-toggle--active {
+      border-color: rgba(18,216,124,.35);
+      color: var(--text);
+      background: rgba(18,216,124,.06);
+    }
+    .staff-mode-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
+    }
+    .staff-mode-dot--off { background: var(--danger); color: var(--danger); }
+    .staff-mode-dot--on { background: var(--success); color: var(--success); }
     .auth-balance-pill {
       display: flex;
       align-items: center;
@@ -6214,6 +6253,10 @@
         </div>
       </div>
       <div id="auth-userline"></div>
+      <button type="button" id="staff-mode-toggle" class="staff-mode-toggle hidden" onclick="toggleStaffMode()" aria-pressed="false" title="Alternar menu de staff (admin/suporte)">
+        <span class="staff-mode-dot staff-mode-dot--off" aria-hidden="true"></span>
+        <span class="staff-mode-label">MODO STAFF</span>
+      </button>
       <button id="auth-action-btn" class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
     </div>
 
@@ -9763,6 +9806,9 @@ let _players = [];
 let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
 let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, steam_persona: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
+let _staffMode = false;
+let _staffModeLoadedForSid = null;
+const STAFF_MODE_STORAGE_PREFIX = "arkland_staff_mode";
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
 let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
@@ -9845,6 +9891,12 @@ function setAdminShopLoading(msg) {
   const kitsEl = document.getElementById("kits-list");
   if (shopEl) shopEl.innerHTML = html;
   if (kitsEl) kitsEl.innerHTML = html;
+}
+
+/** Repõe painéis admin (shop/kits/…) quando config.json já está em memória. */
+function _ensureAdminConfigPanelsRendered() {
+  if (!_auth?.is_admin || !_config) return;
+  renderAll();
 }
 
 function applyCurrency(c) {
@@ -10636,6 +10688,85 @@ function _kitLimitInfo(item) {
   return { limit, remaining: limit, effective_remaining: limit, used: 0 };
 }
 
+function _isStaffMember() {
+  return !!(_auth.is_admin || _auth.is_support);
+}
+
+function _staffModeStorageKey() {
+  const sid = (_auth.steam_id || "").trim();
+  return sid ? `${STAFF_MODE_STORAGE_PREFIX}:${sid}` : STAFF_MODE_STORAGE_PREFIX;
+}
+
+function _loadStaffModeFromStorage() {
+  if (!_isStaffMember()) return false;
+  try {
+    return localStorage.getItem(_staffModeStorageKey()) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function _saveStaffModeToStorage(on) {
+  if (!_isStaffMember()) return;
+  try {
+    localStorage.setItem(_staffModeStorageKey(), on ? "1" : "0");
+  } catch (_) {}
+}
+
+function _syncStaffModeFromAuth() {
+  if (!_isStaffMember()) {
+    _staffMode = false;
+    _staffModeLoadedForSid = null;
+    return;
+  }
+  const sid = _auth.steam_id || "";
+  if (_staffModeLoadedForSid !== sid) {
+    _staffMode = _loadStaffModeFromStorage();
+    _staffModeLoadedForSid = sid;
+  }
+}
+
+function _isStaffOnlyPageEl(pageEl) {
+  return !!(pageEl && (pageEl.classList.contains("admin-only") || pageEl.classList.contains("support-staff-only")));
+}
+
+function _getActiveStaffPageEl() {
+  const active = document.querySelector(".page.active");
+  return _isStaffOnlyPageEl(active) ? active : null;
+}
+
+function _navigateToPlayerSafePage() {
+  const homeNav = document.querySelector('.nav-item[data-page="home"]');
+  if (homeNav) nav(homeNav);
+}
+
+function _updateStaffModeToggleUi() {
+  const wrap = document.getElementById("staff-mode-toggle");
+  if (!wrap) return;
+  if (!_isStaffMember()) {
+    wrap.classList.add("hidden");
+    return;
+  }
+  wrap.classList.remove("hidden");
+  const dot = wrap.querySelector(".staff-mode-dot");
+  wrap.classList.toggle("staff-mode-toggle--active", _staffMode);
+  wrap.setAttribute("aria-pressed", _staffMode ? "true" : "false");
+  if (dot) {
+    dot.classList.toggle("staff-mode-dot--on", _staffMode);
+    dot.classList.toggle("staff-mode-dot--off", !_staffMode);
+  }
+}
+
+function toggleStaffMode() {
+  if (!_isStaffMember()) return;
+  _staffMode = !_staffMode;
+  _saveStaffModeToStorage(_staffMode);
+  const onStaffPage = !!_getActiveStaffPageEl();
+  applyRoleUi(true);
+  _updateStaffModeToggleUi();
+  if (!_staffMode && onStaffPage) _navigateToPlayerSafePage();
+}
+
 function renderAuthUserLine() {
   const userLine = document.getElementById("auth-userline");
   if (!userLine) return;
@@ -10688,7 +10819,11 @@ function applyRoleUi(deferAdminNav = false) {
     _stopNotifPolling();
   }
 
-  if (!_auth.is_admin) {
+  _syncStaffModeFromAuth();
+  _updateStaffModeToggleUi();
+  const staffUiActive = _isStaffMember() && _staffMode;
+
+  if (!_auth.is_admin || !staffUiActive) {
     document.body.classList.remove("boot-admin");
     document.querySelectorAll(".admin-only:not(.page)").forEach((el) => {
       el.style.display = "none";
@@ -10711,12 +10846,14 @@ function applyRoleUi(deferAdminNav = false) {
     if (!deferAdminNav) {
       const shopNav = document.querySelector('.nav-item[data-page="shop"]');
       if (shopNav) nav(shopNav);
+    } else if (_config) {
+      _ensureAdminConfigPanelsRendered();
     } else {
       setAdminShopLoading("Carregando config.json…");
     }
   }
 
-  if (_auth.can_manage_tickets && !_auth.is_admin) {
+  if (_auth.can_manage_tickets && !_auth.is_admin && staffUiActive) {
     document.body.classList.add("boot-support");
     document.querySelectorAll(".support-staff-only:not(.page)").forEach((el) => {
       el.style.removeProperty("display");
@@ -10727,11 +10864,15 @@ function applyRoleUi(deferAdminNav = false) {
     }
   } else {
     document.body.classList.remove("boot-support");
-    if (!_auth.is_admin) {
+    if (!_auth.is_admin || !staffUiActive) {
       document.querySelectorAll(".support-staff-only:not(.page)").forEach((el) => {
         el.style.display = "none";
       });
     }
+  }
+
+  if (!staffUiActive && _getActiveStaffPageEl() && !deferAdminNav) {
+    _navigateToPlayerSafePage();
   }
 
   if (_auth.authenticated) refreshPlayerBalance();
@@ -13527,7 +13668,7 @@ async function loadConfig() {
       return false;
     }
     _config = data;
-    renderAll();
+    _ensureAdminConfigPanelsRendered();
     if (data._config_healed) {
       toast(data._config_healed, "warning");
     }
@@ -25886,14 +26027,19 @@ async function bootPortal() {
       toast("MariaDB offline — catálogo público pode funcionar; painel admin limitado.", "warning");
     }
 
-    if (_auth.is_admin) {
+    _syncStaffModeFromAuth();
+    _updateStaffModeToggleUi();
+    const staffUiActive = _isStaffMember() && _staffMode;
+
+    if (_auth.is_admin && staffUiActive) {
       if (configOk) {
         const shopNav = document.querySelector('.nav-item[data-page="shop"]');
         if (shopNav) nav(shopNav);
+        _ensureAdminConfigPanelsRendered();
       } else {
         setAdminShopLoading("Não foi possível carregar config.json — clique em ↺ Recarregar");
       }
-    } else if (_auth.can_manage_tickets) {
+    } else if (_auth.can_manage_tickets && !_auth.is_admin && staffUiActive) {
       const ticketsNav = document.querySelector('.nav-item[data-page="tickets-admin"]');
       if (ticketsNav) nav(ticketsNav);
     } else {
@@ -25929,9 +26075,9 @@ async function bootPortal() {
       );
     } else if (!homeOk) {
       setStatus(true, "Catálogo ok · home com erro");
-    } else if (_auth.is_admin && configOk) {
+    } else if (_auth.is_admin && staffUiActive && configOk) {
       setStatus(true, "Painel admin pronto");
-    } else if (_auth.can_manage_tickets) {
+    } else if (_auth.can_manage_tickets && staffUiActive) {
       setStatus(true, "Painel de suporte pronto");
     } else if (_catalogLoadError && !catalogHasData) {
       setStatus(false, "Catálogo indisponível — " + _catalogLoadError);
@@ -26152,21 +26298,6 @@ document.addEventListener("keydown", (e) => {
     </div>
     <div class="notif-panel__actions">
       <button type="button" id="notif-mark-all-btn" class="notif-panel__mark-all" onclick="markAllNotificationsRead(event)">Marcar todas lidas</button>
-      <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
-    </div>
-  </div>
-  <div id="notif-list" class="notif-panel__list">
-    <div class="notif-empty">
-      <div class="notif-empty__icon">🔔</div>
-      <div class="notif-empty__title">Carregando…</div>
-      <div class="notif-empty__text">Aguarde um instante.</div>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
- todas lidas</button>
       <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
     </div>
   </div>
