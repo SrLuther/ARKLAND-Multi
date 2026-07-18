@@ -193,6 +193,21 @@ $installer = Join-Path $root "installer\ARKLAND-Multi-Setup-v$Version.exe"
 if (-not (Test-Path $installer)) { Write-Fail "Installer nao encontrado apos build: $installer" }
 Write-Ok "Installer: $installer  ($([Math]::Round((Get-Item $installer).Length/1MB,1)) MB)"
 
+# Gate duro: installer gordo (~427 MB) = WebStore.spec sem exclusao raw/demo nao entrou no build
+$installerMb = [Math]::Round((Get-Item $installer).Length / 1MB, 1)
+$webStoreExe = Join-Path $root "dist\ARKLAND-WebStore.exe"
+if (Test-Path $webStoreExe) {
+    $wsMb = [Math]::Round((Get-Item $webStoreExe).Length / 1MB, 1)
+    Write-Ok "WebStore.exe: $wsMb MB"
+    if ($wsMb -gt 80) {
+        Write-Fail "ARKLAND-WebStore.exe com $wsMb MB (esperado ~30-50 MB). Spec sem raw/demo nao entrou - NAO publicar."
+    }
+}
+if ($installerMb -gt 150) {
+    Write-Fail "Installer com $installerMb MB (>150 MB). Ainda gordo como v1.10.66 (~427 MB) - NAO publicar. Corrija ARKLAND-WebStore.spec e rebuild."
+}
+Write-Ok "Size gate OK ($installerMb MB <= 150 MB)"
+
 # ── 7) Git commit + push ──────────────────────────────────────────────────────
 Write-Step 4 7 "Commitando alteracoes..."
 # Redirect stderr→stdout: git CRLF warnings viram NativeCommandError com

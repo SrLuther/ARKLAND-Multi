@@ -1,14 +1,14 @@
 {
-    "version": "1.10.66",
+    "version": "1.10.67",
     "date": "2026-07-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.66/ARKLAND-Multi-Setup-v1.10.66.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.67/ARKLAND-Multi-Setup-v1.10.67.exe",
     "changelog": [
-        "Fix P0 (Admin / Catálogo): GET /api/config — path em falta já não devolve ShopItems/Kits={} em silêncio (UI «Nenhum item cadastrado»); heal a partir da fonte mais completa; erro explícito se ficheiro vazio; meta _items_count/_kits_count/_config_path.",
-        "Fix P0 (Web Store / Bootstrap): /api/store/bootstrap — 1 sessão DB para me+entitlements+kit_limits; sem DDL no path; budget ~2.5s + timing; catálogo primeiro (zero MySQL).",
-        "Fix P0 (Web Store / Kit-limits): pending GROUP BY com MAX_EXECUTION_TIME MySQL; fail-open rápido; log player_kit_limits.",
-        "Fix P0 (Admin / Players): lista sem Steam/DDL no request (já em 1.10.65) — Sleep MySQL 400s+ é pool idle (wait_timeout), não causa do catálogo vazio.",
-        "Fix (Web Store / PWA): SW v4 — HTML/API network-only; /species/icons e thumbs network-only (não Cache Storage); não explica catálogo vazio (correlação temporal); lazy+decoding=async nas thumbs.",
-        "Feat (Web Store / Doação): PayPal QR (se já incluído na build anterior) — doação livre + crédito manual via ticket.",
-        "Test: config empty/heal; SW species icons; bootstrap/kit-limits."
+        "Fix P0 (Release / Installer): installer leve - WebStore.spec exclui species/icons/generated/raw (~344 MB), demo (~20 MB) e preview (~2 MB); Setup ~70-135 MB (NAO ~427 MB). A v1.10.66 saiu gorda: cancele esse download e use esta 1.10.67.",
+        "Melhoria (Assets): logo/ambar/SeasonLand/paypal-qr e ig/* redimensionados/otimizados (UI ate 512 px; PNGs de 1-3 MB para dezenas-centenas de KB).",
+        "Fix P0 (Web Store / Kit-limits UI): bootstrap parcial ou 503 (partial+kits=[]) ja nao marca limites como prontos - evita cadeados falsos \"esgotado\" em todos os kits.",
+        "Fix P0 (Web Store / Catalogo): applyCatalogPayload/loadCatalog repoem kit_limits+entitlements do cache bootstrap; fetch em background quando parcial.",
+        "Fix (Web Store / Catalogo): catalog_meta usa path resolvido/healed + catalog_empty/catalog_note.",
+        "Fix (Admin / Players): detalhe/heavy libertam sessao MySQL com force=True apos queries.",
+        "Fix (CustomShop v1.10.23): DeliverPending escalonado (evita HangWatcher); GET HTTP>=400 nao engole erro; Shop.Reload tambem atualiza WebApiUrl/Key; aceita ShopItems alem de Items."
     ]
 }

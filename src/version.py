@@ -3,26 +3,33 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.66"
+APP_VERSION: str = "1.10.67"
 BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
-    {
+        {
         "version": "Unreleased",
         "date": "",
         "changes": [
             "Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.",
-            "Fix (Release / Installer): ARKLAND-WebStore deixa de embutir species/icons/generated/raw (~344 MB), demo (~20 MB) e preview (~2 MB) — só .webp/SVG de runtime; update volta ~à ordem pré-ícones-originais (~130 MB em vez de ~427 MB).",
-            "Melhoria (Assets): logo/ambar/SeasonLand/paypal-qr e ig/* redimensionados/otimizados (UI usa ≤88 px; PNGs de 1–3 MB → dezenas–centenas de KB).",
-            "Fix P0 (Web Store / Kit-limits UI): bootstrap parcial ou erro 503 (partial+kits=[]) já não marca limites como prontos — evita cadeados falsos «esgotado» em todos os kits.",
-            "Fix P0 (Web Store / Catálogo): applyCatalogPayload/loadCatalog repõem kit_limits+entitlements do cache bootstrap; fetch em background quando parcial.",
-            "Fix (Web Store / Catálogo): catalog_meta usa path resolvido/healed + catalog_empty/catalog_note (não path settings desatualizado).",
-            "Fix (Admin / Players): detalhe/heavy libertam sessão MySQL com force=True após queries.",
         ],
     },
     {
+        "version": "1.10.67",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix P0 (Release / Installer): installer leve - WebStore.spec exclui species/icons/generated/raw (~344 MB), demo (~20 MB) e preview (~2 MB); Setup ~70-135 MB (NAO ~427 MB). A v1.10.66 saiu gorda: cancele esse download e use esta 1.10.67.",
+            "Melhoria (Assets): logo/ambar/SeasonLand/paypal-qr e ig/* redimensionados/otimizados (UI ate 512 px; PNGs de 1-3 MB para dezenas-centenas de KB).",
+            "Fix P0 (Web Store / Kit-limits UI): bootstrap parcial ou 503 (partial+kits=[]) ja nao marca limites como prontos - evita cadeados falsos \"esgotado\" em todos os kits.",
+            "Fix P0 (Web Store / Catalogo): applyCatalogPayload/loadCatalog repoem kit_limits+entitlements do cache bootstrap; fetch em background quando parcial.",
+            "Fix (Web Store / Catalogo): catalog_meta usa path resolvido/healed + catalog_empty/catalog_note.",
+            "Fix (Admin / Players): detalhe/heavy libertam sessao MySQL com force=True apos queries.",
+            "Fix (CustomShop v1.10.23): DeliverPending escalonado (evita HangWatcher); GET HTTP>=400 nao engole erro; Shop.Reload tambem atualiza WebApiUrl/Key; aceita ShopItems alem de Items.",
+        ],
+    },
+{
         "version": "1.10.66",
         "date": "2026-07-17",
         "changes": [

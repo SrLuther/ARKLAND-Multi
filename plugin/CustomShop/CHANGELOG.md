@@ -8,6 +8,18 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.23] - 2026-07-17
+
+### Fix
+
+- **Entrega / HangWatcher**: `PollPendingForOnlinePlayers` agenda no máximo 1 `DeliverPending` por segundo (DelayExecute escalonado) — evita bloquear o game thread com vários jogadores online.
+- **HttpClient GET**: HTTP status >= 400 devolve corpo vazio + warn (antes engolia 4xx como sucesso parcial).
+- **Shop.Reload**: `TryReloadConfigForDelivery` também reconfigura `WebApiUrl`/`WebApiKey` (paridade com Shop.Reload).
+- **Catálogo**: `ShopConfig::Load` aceita `ShopItems` além de `Items` — evita catálogo vazio após sync parcial da web.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.23) em cada mapa.
 ## [1.10.22] - 2026-07-15
 
 ### Fix
