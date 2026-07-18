@@ -34,10 +34,14 @@ from lottery_draw import (
 log = logging.getLogger("arkshop_web.lottery")
 
 CAMPAIGN_STATUSES = frozenset({"DRAFT", "ACTIVE", "DRAWING", "COMPLETED", "CANCELLED"})
-NUMBER_SOURCES = frozenset({"DONATION", "AMBER_RANDOM", "AMBER_RESERVE", "FIXED_REGISTERED"})
+NUMBER_SOURCES = frozenset({
+    "DONATION", "AMBER_RANDOM", "AMBER_RESERVE", "FIXED_REGISTERED", "TEAM",
+})
 LOTTERY_REGULAMENTO_VERSION = "1.5"
 FIXED_NUMBER_CHANGE_COST = 5000
 CONFIRMATION_DEADLINE_HOURS = 2
+TEAM_HOLDER_PREFIX = "team:"
+DEFAULT_TEAM_SHORTFALL_REFUND = 5000
 # Após COMPLETED: próximo sorteio (auto-chain) nasce DRAFT e só vira ACTIVE após esta janela.
 CHAIN_PREP_HOURS = 24
 DONATION_AMBER_PER_REAL = 100  # R$ 1 doado = +100 Âmbares no prêmio total do sorteio
@@ -142,22 +146,38 @@ def normalize_catalog_prizes(raw: Any, *, resolve: bool = True) -> list[dict[str
         except (TypeError, ValueError) as exc:
             raise ValueError("invalid_prize_amount") from exc
         label = str(entry.get("label") or entry.get("display_name") or "").strip()
+        resolved_amber: int | None = None
         if resolve and _resolve_catalog_prize_fn is not None:
             resolved = _resolve_catalog_prize_fn(kind, item_id)
             if not resolved:
                 raise ValueError(f"prize_not_found:{kind}:{item_id}")
             item_id = str(resolved.get("item_id") or item_id)
             label = str(resolved.get("label") or label or item_id)
+            if resolved.get("amber_price") is not None:
+                try:
+                    resolved_amber = max(0, int(resolved["amber_price"]))
+                except (TypeError, ValueError):
+                    resolved_amber = None
         key = (kind, item_id)
         if key in seen:
             continue
         seen.add(key)
-        out.append({
+        item: dict[str, Any] = {
             "kind": kind,
             "item_id": item_id,
             "amount": amount,
             "label": label or item_id,
-        })
+        }
+        for price_key in ("amber_price", "amber_value", "price"):
+            if entry.get(price_key) is not None:
+                try:
+                    item["amber_price"] = max(0, int(entry.get(price_key)))
+                    break
+                except (TypeError, ValueError):
+                    pass
+        if "amber_price" not in item and resolved_amber is not None:
+            item["amber_price"] = resolved_amber
+        out.append(item)
     return out
 
 
@@ -345,6 +365,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
               revoked_at DATETIME NULL,
               revoke_reason VARCHAR(64) NULL,
+              team_id INTEGER NULL,
               UNIQUE(campaign_id, number_value)
             )
             """,
@@ -458,9 +479,11 @@ def ensure_lottery_schema(engine: Engine) -> None:
               assigned_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
               revoked_at DATETIME(3) NULL,
               revoke_reason VARCHAR(64) NULL,
+              team_id BIGINT NULL,
               UNIQUE KEY uq_lot_camp_num (campaign_id, number_value),
               KEY idx_lot_num_camp (campaign_id, steam_id),
-              KEY idx_lot_num_pay (payment_id)
+              KEY idx_lot_num_pay (payment_id),
+              KEY idx_lot_num_team (team_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
             """
@@ -857,6 +880,7 @@ def _migrate_lottery_columns(engine: Engine) -> None:
         "assigned_at": "DATETIME NULL",
         "revoked_at": "DATETIME NULL",
         "revoke_reason": "VARCHAR(64) NULL",
+        "team_id": "INTEGER NULL",
     }
     winner_cols = {
         "catalog_orders_json": "TEXT NULL",
@@ -1070,6 +1094,56 @@ def _pick_random_free(db: Session, campaign_id: int, occupied: set[int] | None =
     return rng.choice(free)
 
 
+def team_holder_steam_id(team_id: int) -> str:
+    """Synthetic steam_id for TEAM-owned lottery numbers (linked to team, not a player)."""
+    return f"{TEAM_HOLDER_PREFIX}{int(team_id)}"
+
+
+def parse_team_id_from_holder(steam_id: str) -> int | None:
+    sid = str(steam_id or "")
+    if not sid.startswith(TEAM_HOLDER_PREFIX):
+        return None
+    try:
+        return int(sid[len(TEAM_HOLDER_PREFIX):])
+    except (TypeError, ValueError):
+        return None
+
+
+def catalog_prizes_amber_value(prizes: list[dict[str, Any]] | None) -> int:
+    """Convert catalog prize list to Âmbares (for team wins — items are never delivered)."""
+    total = 0
+    for prize in prizes or []:
+        if not isinstance(prize, dict):
+            continue
+        amount = max(1, int(prize.get("amount") or 1))
+        explicit = prize.get("amber_value")
+        if explicit is None:
+            explicit = prize.get("amber_price")
+        if explicit is None:
+            explicit = prize.get("price")
+        if explicit is not None:
+            try:
+                total += max(0, int(explicit)) * amount
+                continue
+            except (TypeError, ValueError):
+                pass
+        kind = str(prize.get("kind") or "").strip().lower()
+        item_id = str(prize.get("item_id") or "").strip()
+        if _resolve_catalog_prize_fn and kind and item_id:
+            try:
+                resolved = _resolve_catalog_prize_fn(kind, item_id) or {}
+                price = resolved.get("amber_price")
+                if price is None:
+                    price = resolved.get("price")
+                if price is not None:
+                    total += max(0, int(price)) * amount
+                    continue
+            except Exception as exc:
+                log.warning("catalog_prizes_amber_value resolve failed: %s", exc)
+        total += 0
+    return max(0, int(total))
+
+
 def _insert_number(
     db: Session,
     *,
@@ -1079,8 +1153,10 @@ def _insert_number(
     source: str,
     payment_id: str | None = None,
     amber_cost: int = 0,
+    team_id: int | None = None,
 ) -> None:
     now = _naive(_utcnow())
+    has_team_col = _table_has_column(db, "lottery_numbers", "team_id")
     existing = db.execute(
         text(
             "SELECT id, status FROM lottery_numbers "
@@ -1093,42 +1169,168 @@ def _insert_number(
         if status == "ACTIVE":
             raise ValueError("number_unavailable")
         if status == "REVOKED":
+            if has_team_col:
+                db.execute(
+                    text(
+                        "UPDATE lottery_numbers SET steam_id = :sid, payment_id = :pid, source = :src, "
+                        "amber_cost = :cost, team_id = :tid, status = 'ACTIVE', assigned_at = :now, "
+                        "revoked_at = NULL, revoke_reason = NULL WHERE id = :id"
+                    ),
+                    {
+                        "id": int(existing.id),
+                        "sid": steam_id,
+                        "pid": payment_id,
+                        "src": source,
+                        "cost": amber_cost,
+                        "tid": int(team_id) if team_id is not None else None,
+                        "now": now,
+                    },
+                )
+            else:
+                db.execute(
+                    text(
+                        "UPDATE lottery_numbers SET steam_id = :sid, payment_id = :pid, source = :src, "
+                        "amber_cost = :cost, status = 'ACTIVE', assigned_at = :now, "
+                        "revoked_at = NULL, revoke_reason = NULL WHERE id = :id"
+                    ),
+                    {
+                        "id": int(existing.id),
+                        "sid": steam_id,
+                        "pid": payment_id,
+                        "src": source,
+                        "cost": amber_cost,
+                        "now": now,
+                    },
+                )
+            return
+        raise ValueError("number_unavailable")
+    try:
+        if has_team_col:
             db.execute(
                 text(
-                    "UPDATE lottery_numbers SET steam_id = :sid, payment_id = :pid, source = :src, "
-                    "amber_cost = :cost, status = 'ACTIVE', assigned_at = :now, "
-                    "revoked_at = NULL, revoke_reason = NULL WHERE id = :id"
+                    "INSERT INTO lottery_numbers "
+                    "(campaign_id, steam_id, payment_id, source, number_value, amber_cost, "
+                    "status, assigned_at, team_id) "
+                    "VALUES (:cid, :sid, :pid, :src, :num, :cost, 'ACTIVE', :now, :tid)"
                 ),
                 {
-                    "id": int(existing.id),
+                    "cid": campaign_id,
                     "sid": steam_id,
                     "pid": payment_id,
                     "src": source,
+                    "num": number_value,
+                    "cost": amber_cost,
+                    "now": now,
+                    "tid": int(team_id) if team_id is not None else None,
+                },
+            )
+        else:
+            db.execute(
+                text(
+                    "INSERT INTO lottery_numbers "
+                    "(campaign_id, steam_id, payment_id, source, number_value, amber_cost, status, assigned_at) "
+                    "VALUES (:cid, :sid, :pid, :src, :num, :cost, 'ACTIVE', :now)"
+                ),
+                {
+                    "cid": campaign_id,
+                    "sid": steam_id,
+                    "pid": payment_id,
+                    "src": source,
+                    "num": number_value,
                     "cost": amber_cost,
                     "now": now,
                 },
             )
-            return
-        raise ValueError("number_unavailable")
-    try:
-        db.execute(
-            text(
-                "INSERT INTO lottery_numbers "
-                "(campaign_id, steam_id, payment_id, source, number_value, amber_cost, status, assigned_at) "
-                "VALUES (:cid, :sid, :pid, :src, :num, :cost, 'ACTIVE', :now)"
-            ),
-            {
-                "cid": campaign_id,
-                "sid": steam_id,
-                "pid": payment_id,
-                "src": source,
-                "num": number_value,
-                "cost": amber_cost,
-                "now": now,
-            },
-        )
     except IntegrityError:
         raise ValueError("number_unavailable") from None
+
+
+def allocate_team_numbers(
+    db: Session,
+    *,
+    campaign_id: int,
+    team_id: int,
+    count: int,
+) -> dict[str, Any]:
+    """Assign up to `count` free TEAM numbers. Shortfall is returned (no exception).
+
+    Q12: caller reimburses team bank for each number that could not be allocated.
+    """
+    count = max(0, int(count))
+    if count <= 0:
+        return {"assigned": [], "numbers": [], "requested": 0, "shortfall": 0}
+    if not _is_enabled():
+        raise ValueError("lottery_disabled")
+    cid = int(campaign_id)
+    tid = int(team_id)
+    holder = team_holder_steam_id(tid)
+    occupied = _occupied_numbers(db, cid)
+    assigned: list[int] = []
+    for _ in range(count):
+        if len(occupied) >= 900:
+            break
+        try:
+            n = _pick_random_free(db, cid, occupied)
+        except ValueError:
+            break
+        try:
+            _insert_number(
+                db,
+                campaign_id=cid,
+                steam_id=holder,
+                number_value=n,
+                source="TEAM",
+                team_id=tid,
+            )
+        except ValueError:
+            occupied.add(n)
+            continue
+        occupied.add(n)
+        assigned.append(n)
+    shortfall = count - len(assigned)
+    if assigned:
+        _audit(
+            db,
+            "lottery_team_numbers_assigned",
+            {
+                "team_id": tid,
+                "numbers": assigned,
+                "requested": count,
+                "shortfall": shortfall,
+            },
+            campaign_id=cid,
+        )
+    return {
+        "assigned": assigned,
+        "numbers": assigned,
+        "requested": count,
+        "shortfall": shortfall,
+    }
+
+
+def list_team_numbers(db: Session, *, campaign_id: int, team_id: int) -> list[int]:
+    holder = team_holder_steam_id(int(team_id))
+    has_team_col = _table_has_column(db, "lottery_numbers", "team_id")
+    if has_team_col:
+        rows = db.execute(
+            text(
+                "SELECT number_value FROM lottery_numbers "
+                "WHERE campaign_id = :cid AND status = 'ACTIVE' "
+                "AND (team_id = :tid OR (source = 'TEAM' AND steam_id = :sid)) "
+                "ORDER BY number_value"
+            ),
+            {"cid": int(campaign_id), "tid": int(team_id), "sid": holder},
+        ).fetchall()
+    else:
+        rows = db.execute(
+            text(
+                "SELECT number_value FROM lottery_numbers "
+                "WHERE campaign_id = :cid AND steam_id = :sid AND source = 'TEAM' "
+                "AND status = 'ACTIVE' ORDER BY number_value"
+            ),
+            {"cid": int(campaign_id), "sid": holder},
+        ).fetchall()
+    return [int(r[0]) for r in rows]
 
 
 def _player_balance(db: Session, steam_id: str) -> int:
@@ -1151,6 +1353,20 @@ def _random_purchase_count(db: Session, campaign_id: int, steam_id: str) -> int:
 
 
 def _resolve_display_name(db: Session, steam_id: str) -> str:
+    tid = parse_team_id_from_holder(steam_id)
+    if tid is not None:
+        try:
+            row = db.execute(
+                text("SELECT name, tag FROM teams WHERE id = :id LIMIT 1"),
+                {"id": tid},
+            ).fetchone()
+            if row:
+                name = str(row[0] or f"Equipe #{tid}")
+                tag = str(row[1] or "").strip()
+                return f"[{tag}] {name}" if tag else name
+        except Exception:
+            return f"Equipe #{tid}"
+        return f"Equipe #{tid}"
     try:
         row = db.execute(
             text(
@@ -2226,19 +2442,40 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
         numbers_issued_count=issued,
     )
     prize_total = _prize_total(row)
-    holders = db.execute(
-        text(
-            "SELECT steam_id, number_value FROM lottery_numbers "
-            "WHERE campaign_id = :cid AND status = 'ACTIVE' AND number_value IN :nums"
-        ) if False else text(
-            "SELECT steam_id, number_value FROM lottery_numbers "
-            "WHERE campaign_id = :cid AND status = 'ACTIVE'"
-        ),
-        {"cid": cid},
-    ).fetchall()
-    holder_map = {int(h.number_value): str(h.steam_id) for h in holders}
+    has_team_col = _table_has_column(db, "lottery_numbers", "team_id")
+    if has_team_col:
+        holders = db.execute(
+            text(
+                "SELECT steam_id, number_value, source, team_id FROM lottery_numbers "
+                "WHERE campaign_id = :cid AND status = 'ACTIVE'"
+            ),
+            {"cid": cid},
+        ).fetchall()
+    else:
+        holders = db.execute(
+            text(
+                "SELECT steam_id, number_value, source FROM lottery_numbers "
+                "WHERE campaign_id = :cid AND status = 'ACTIVE'"
+            ),
+            {"cid": cid},
+        ).fetchall()
+    holder_map: dict[int, dict[str, Any]] = {}
+    for h in holders:
+        tid_raw = _row_val(h, "team_id", None) if has_team_col else None
+        parsed_tid = parse_team_id_from_holder(str(h.steam_id))
+        team_id_val = int(tid_raw) if tid_raw is not None else parsed_tid
+        holder_map[int(h.number_value)] = {
+            "steam_id": str(h.steam_id),
+            "source": str(_row_val(h, "source", "") or ""),
+            "team_id": team_id_val,
+        }
     matched_winners = [
-        {"steam_id": holder_map[n], "winning_number": n}
+        {
+            "steam_id": holder_map[n]["steam_id"],
+            "winning_number": n,
+            "source": holder_map[n]["source"],
+            "team_id": holder_map[n]["team_id"],
+        }
         for n in winning if n in holder_map
     ]
     matched_count = len(matched_winners)
@@ -2267,12 +2504,34 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
     draw_id = int(draw_row.id)
     share = int(split["share_per_match"])
     catalog_prizes = _parse_prize_catalog_row(row)
+    catalog_amber = catalog_prizes_amber_value(catalog_prizes)
     pending_license_sync: list[tuple[str, str, int]] = []
+    team_payouts: list[dict[str, Any]] = []
     if _credit_fn and matched_count > 0:
         for mw in matched_winners:
             sid = mw["steam_id"]
             num = mw["winning_number"]
             idem = f"lottery:prize:{cid}:{num}"
+            team_id_win = mw.get("team_id")
+            if team_id_win is None and str(mw.get("source") or "") == "TEAM":
+                team_id_win = parse_team_id_from_holder(str(sid))
+            is_team = str(mw.get("source") or "") == "TEAM" and team_id_win is not None
+            if is_team and team_id_win:
+                payout = _payout_team_lottery_win(
+                    db,
+                    campaign_id=cid,
+                    draw_result_id=draw_id,
+                    team_id=int(team_id_win),
+                    winning_number=num,
+                    share_amber=share,
+                    catalog_amber=catalog_amber,
+                    catalog_prizes=catalog_prizes,
+                    now=now,
+                    idempotency_key=idem,
+                )
+                team_payouts.append(payout)
+                continue
+
             catalog_orders: list[dict[str, Any]] = []
             if catalog_prizes and _deliver_catalog_prize_fn is not None:
                 for prize in catalog_prizes:
@@ -2386,6 +2645,7 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
             "matched_count": matched_count,
             "split": split,
             "prize_catalog": catalog_prizes,
+            "team_payouts": team_payouts,
         },
         campaign_id=cid,
     )
@@ -2398,8 +2658,132 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
         "matched_count": matched_count,
         "split": split,
         "prize_catalog": catalog_prizes,
+        "team_payouts": team_payouts,
         "next_campaign_id": next_id,
         "pending_license_sync": list(pending_license_sync),
+    }
+
+
+def _payout_team_lottery_win(
+    db: Session,
+    *,
+    campaign_id: int,
+    draw_result_id: int,
+    team_id: int,
+    winning_number: int,
+    share_amber: int,
+    catalog_amber: int,
+    catalog_prizes: list[dict[str, Any]],
+    now: datetime,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    """Q10/R5–R7: team win → Â only; catalog→Â; equal split; remainder → team bank."""
+    holder = team_holder_steam_id(team_id)
+    pool = max(0, int(share_amber)) + max(0, int(catalog_amber))
+    members = db.execute(
+        text(
+            "SELECT steam_id FROM team_members "
+            "WHERE team_id = :tid AND status = 'ACTIVE' ORDER BY steam_id"
+        ),
+        {"tid": int(team_id)},
+    ).fetchall()
+    member_ids = [str(r[0]) for r in members]
+    n_members = len(member_ids)
+    if n_members <= 0:
+        per_member = 0
+        remainder = pool
+    else:
+        per_member = pool // n_members
+        remainder = pool % n_members
+
+    catalog_orders = [{
+        "converted_to_amber": True,
+        "amber_from_catalog": int(catalog_amber),
+        "amber_share": int(share_amber),
+        "team_prize_pool": pool,
+        "per_member": per_member,
+        "remainder_to_bank": remainder,
+        "active_members": n_members,
+        "prizes": [
+            {"kind": p.get("kind"), "item_id": p.get("item_id"), "amount": p.get("amount", 1)}
+            for p in (catalog_prizes or [])
+        ],
+    }]
+    has_catalog_col = _table_has_column(db, "lottery_winners", "catalog_orders_json")
+    if has_catalog_col:
+        db.execute(
+            text(
+                "INSERT INTO lottery_winners "
+                "(campaign_id, draw_result_id, steam_id, winning_number, prize_amber, "
+                "share_per_match, credited, credited_at, ledger_idempotency_key, catalog_orders_json) "
+                "VALUES (:cid, :did, :sid, :num, :prize, :share, 0, NULL, :idem, :cat)"
+            ),
+            {
+                "cid": campaign_id, "did": draw_result_id, "sid": holder, "num": winning_number,
+                "prize": pool, "share": share_amber, "idem": idempotency_key,
+                "cat": json.dumps(catalog_orders, ensure_ascii=False),
+            },
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO lottery_winners "
+                "(campaign_id, draw_result_id, steam_id, winning_number, prize_amber, "
+                "share_per_match, credited, credited_at, ledger_idempotency_key) "
+                "VALUES (:cid, :did, :sid, :num, :prize, :share, 0, NULL, :idem)"
+            ),
+            {
+                "cid": campaign_id, "did": draw_result_id, "sid": holder, "num": winning_number,
+                "prize": pool, "share": share_amber, "idem": idempotency_key,
+            },
+        )
+
+    if _credit_fn and per_member > 0:
+        for mid in member_ids:
+            member_idem = f"{idempotency_key}:m:{mid}"
+            _credit_fn(db, mid, per_member)
+            try:
+                from amber_ledger import record_lottery_prize
+
+                record_lottery_prize(
+                    db, campaign_id=campaign_id, steam_id=mid, amount=per_member,
+                    winning_number=winning_number, idempotency_key=member_idem,
+                )
+            except Exception as exc:
+                log.warning("Ledger team lottery member prize: %s", exc)
+
+    if remainder > 0:
+        try:
+            from team_service import credit_team_bank_amber
+
+            credit_team_bank_amber(
+                db,
+                team_id=int(team_id),
+                amount=remainder,
+                entry_type="LOTTERY_PRIZE_REMAINDER",
+                note=f"Resto sorteio campanha {campaign_id} nº {winning_number}",
+                actor_steam_id="",
+                idempotency_key=f"{idempotency_key}:bank",
+                commit=False,
+            )
+        except Exception as exc:
+            log.warning("Team bank remainder credit failed team=%s: %s", team_id, exc)
+
+    db.execute(
+        text(
+            "UPDATE lottery_winners SET credited = 1, credited_at = :now "
+            "WHERE campaign_id = :cid AND winning_number = :num"
+        ),
+        {"now": now, "cid": campaign_id, "num": winning_number},
+    )
+    return {
+        "team_id": int(team_id),
+        "winning_number": int(winning_number),
+        "pool": pool,
+        "per_member": per_member,
+        "remainder_to_bank": remainder,
+        "active_members": n_members,
+        "catalog_amber": int(catalog_amber),
     }
 
 

@@ -992,12 +992,26 @@
     }
 
     /* ── SeasonLand / Season Pass (player) ────────────────────────────────── */
-    .page-title--seasonland {
+    .page-title--seasonland,
+    .page-title--equipes {
       gap: 10px;
     }
-    .page-title--seasonland .sp-title-logo {
+    .page-title--seasonland .sp-title-logo,
+    .page-title--equipes .tm-title-logo {
       width: 28px;
       height: 28px;
+      object-fit: contain;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .card-title--equipes {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title--equipes .tm-title-logo {
+      width: 22px;
+      height: 22px;
       object-fit: contain;
       border-radius: 4px;
       flex-shrink: 0;
@@ -5847,11 +5861,11 @@
       color: var(--amber);
     }
 
-    /* ── Home — SeasonLand (info) ─────────────────────────────────────────── */
+    /* ── Home — SeasonLand / Equipes (feature carousel) ───────────────────── */
     .home-seasonland {
       position: relative;
       margin-bottom: 24px;
-      padding: 26px 28px;
+      padding: 26px 28px 42px;
       border-radius: var(--radius-lg);
       border: 1px solid rgba(232, 120, 32, .4);
       background:
@@ -5865,6 +5879,27 @@
       box-shadow:
         0 20px 56px rgba(0, 0, 0, .5),
         inset 0 1px 0 rgba(255, 200, 120, .1);
+    }
+    .home-seasonland:hover .home-seasonland__nav { opacity: 1; }
+    .home-seasonland__track {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .home-seasonland__slide {
+      display: none;
+      min-width: 0;
+      max-width: 100%;
+      cursor: pointer;
+    }
+    .home-seasonland__slide.is-active {
+      display: block;
+      animation: homeFeatureFade .4s ease;
+    }
+    @keyframes homeFeatureFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
     .home-seasonland__inner {
       position: relative;
@@ -5961,6 +5996,51 @@
       text-underline-offset: 3px;
     }
     .home-seasonland__reg-link:hover { color: var(--amber); }
+    .home-seasonland__nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 3;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(0,0,0,.45);
+      color: #fff;
+      cursor: pointer;
+      opacity: .55;
+      transition: opacity .2s ease, background .2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+    }
+    .home-seasonland__nav:hover { background: rgba(232,120,32,.55); opacity: 1; }
+    .home-seasonland__nav--prev { left: 10px; }
+    .home-seasonland__nav--next { right: 10px; }
+    .home-seasonland__dots {
+      position: absolute;
+      left: 0; right: 0; bottom: 12px;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      gap: 7px;
+    }
+    .home-seasonland__dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.35);
+      background: rgba(255,255,255,.15);
+      padding: 0;
+      cursor: pointer;
+    }
+    .home-seasonland__dot.is-active {
+      background: var(--amber);
+      border-color: var(--amber);
+      box-shadow: 0 0 8px rgba(232,120,32,.55);
+    }
 
     @media (max-width: 768px) {
       .home-hero { grid-template-columns: minmax(0, 1fr); padding: 28px 16px; }
@@ -5974,13 +6054,16 @@
       .home-commerce__flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .home-commerce__flow-step:not(:last-child)::after { display: none; }
       .home-commerce__footer { flex-direction: column; align-items: flex-start; }
-      .home-seasonland { padding: 20px 14px; max-width: 100%; box-sizing: border-box; }
+      .home-seasonland { padding: 20px 14px 40px; max-width: 100%; box-sizing: border-box; }
       .home-seasonland__inner { grid-template-columns: minmax(0, 1fr); text-align: center; }
       .home-seasonland__brand { margin: 0 auto; }
       .home-seasonland__logo { width: 72px; height: 72px; max-width: 100%; }
       .home-seasonland__lead,
       .home-seasonland__points { margin-left: auto; margin-right: auto; text-align: left; max-width: 100%; }
       .home-seasonland__actions { justify-content: center; }
+      .home-seasonland__nav { width: 30px; height: 30px; }
+      .home-seasonland__nav--prev { left: 6px; }
+      .home-seasonland__nav--next { right: 6px; }
       .home-section { padding: 18px 14px; }
       .home-maps-showcase { padding: 20px 14px 16px; max-width: 100%; box-sizing: border-box; }
       .home-carousel { min-height: 140px; }
@@ -5999,7 +6082,7 @@
       .home-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .home-section { padding: 14px 12px; }
       .home-maps-showcase { padding: 16px 12px 14px; }
-      .home-seasonland { padding: 16px 12px; }
+      .home-seasonland { padding: 16px 12px 38px; }
       .home-cta { padding: 24px 14px; }
       .home-carousel__nav { width: 30px; height: 30px; }
       .home-carousel__nav--prev { left: 6px; }
@@ -6322,10 +6405,10 @@
       <span class="nav-icon">👥</span> Gerenciar Jogadores
     </div>
     <div class="nav-item admin-only" data-page="tribe-admin" onclick="nav(this)">
-      <span class="nav-icon">🏰</span> Tribos
+      <span class="nav-icon">🏰</span> Tribos (legado)
     </div>
     <div class="nav-item admin-only" data-page="teams-admin" onclick="nav(this)">
-      <span class="nav-icon">🛡️</span> Equipes
+      <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Equipes
     </div>
     <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
       <span class="nav-icon">📋</span> Auditoria
@@ -6390,11 +6473,14 @@
     <div class="nav-item" data-page="myarea" onclick="nav(this)">
       <span class="nav-icon">👤</span> Minha Área
     </div>
-    <div class="nav-item" data-page="teams" onclick="nav(this)" id="nav-teams" style="display:none;">
-      <span class="nav-icon">🛡️</span> Minha Equipe
+    <div class="nav-item" data-page="teams" onclick="nav(this)" id="nav-teams">
+      <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Minha Equipe
     </div>
-    <div class="nav-item" data-page="teams-rankings" onclick="nav(this)" id="nav-teams-rankings" style="display:none;">
-      <span class="nav-icon">🏆</span> Ranking Equipes
+    <div class="nav-item" data-page="teams-directory" onclick="nav(this)" id="nav-teams-directory">
+      <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Equipes
+    </div>
+    <div class="nav-item" data-page="teams-rankings" onclick="nav(this)" id="nav-teams-rankings">
+      <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Ranking Equipes
     </div>
 
   </aside>
@@ -7375,22 +7461,26 @@
               <label><input id="s-lottery-enabled" type="checkbox" /> Ativar Sorteio de Doações (lottery_enabled)</label>
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
-              🛡️ Modo Equipe — casa social web (fundação, banco, marcos, rankings). Coexiste com Área de Tribo.
+              🛡️ Modo Equipe — casa social da web (fundação, banco, marcos, rankings). Tribos deixaram de aparecer para jogadores.
             </div>
             <div class="form-group" style="grid-column:1/-1;">
-              <label><input id="s-teams-enabled" type="checkbox" /> Ativar Modo Equipe (teams_enabled)</label>
+              <label><input id="s-teams-enabled" type="checkbox" checked /> Ativar Modo Equipe (teams_enabled — padrão ligado)</label>
             </div>
             <div class="form-group">
-              <label for="s-teams-max-members">Máx. membros padrão (teams_max_members)</label>
-              <input id="s-teams-max-members" type="number" min="2" max="100" value="10" />
+              <label for="s-teams-max-members">Máx. membros base (teams_max_members)</label>
+              <input id="s-teams-max-members" type="number" min="2" max="100" value="5" />
             </div>
             <div class="form-group">
-              <label for="s-teams-amber-bonus-pp">Bônus Â p.p./marco (teams_amber_bonus_pp)</label>
+              <label for="s-teams-amber-bonus-pp">Bônus Â default pp/marco se vazio (teams_amber_bonus_pp)</label>
               <input id="s-teams-amber-bonus-pp" type="number" min="0" max="20" value="2" />
             </div>
             <div class="form-group">
               <label for="s-teams-amber-bonus-cap">Teto bônus Â % (teams_amber_bonus_cap)</label>
               <input id="s-teams-amber-bonus-cap" type="number" min="0" max="100" value="20" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-lottery-shortfall">Reembolso Â/nº em falta (teams_lottery_shortfall_refund)</label>
+              <input id="s-teams-lottery-shortfall" type="number" min="0" step="100" value="5000" />
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               🧬 Dino Lab — entregas admin de dinos customizados (cores, compensações). Requer plugin <code>CustomDinoDeliver.dll</code> nos mapas.
@@ -8455,20 +8545,23 @@
           </div>
           <div id="myarea-dino-orders" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
-        <!-- MINHA TRIBO — Área de Tribo ARKLAND (MVP) -->
-        <div class="card" id="myarea-tribe-card">
+        <!-- MINHA TRIBO — oculto: produto social = Equipes (backend tribo mantido legado) -->
+        <div class="card" id="myarea-tribe-card" style="display:none !important;" aria-hidden="true" hidden>
           <div class="card-header">
-            <div class="card-title">🏰 Minha Tribo</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadMyTribe()">↺ Recarregar</button>
+            <div class="card-title">🏰 Minha Tribo (legado)</div>
           </div>
-          <div id="myarea-tribe-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
+          <div id="myarea-tribe-root" style="color:var(--text2);font-size:13px;"></div>
         </div>
-        <div class="card" id="myarea-teams-card" style="display:none;">
+        <div class="card" id="myarea-teams-card">
           <div class="card-header">
-            <div class="card-title">🛡️ Minha Equipe</div>
-            <button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Abrir página →</button>
+            <div class="card-title card-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="22" height="22" /> Minha Equipe</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" onclick="goToPage('teams-directory')">Lista global →</button>
+              <button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Página completa →</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadMyTeam()">↺</button>
+            </div>
           </div>
-          <div id="myarea-teams-teaser" style="color:var(--text2);font-size:13px;">Carregando…</div>
+          <div id="myarea-teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
 
         <div class="card">
@@ -9302,24 +9395,49 @@
       <!-- PAGE: Minha Equipe (Modo Equipe) -->
       <div id="page-teams" class="page">
         <div id="topbar">
-          <div class="page-title">🛡️ Minha Equipe</div>
+          <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Minha Equipe</div>
           <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="goToPage('teams-directory')">🌐 Lista de equipes</button>
             <button class="btn btn-ghost" onclick="loadMyTeam()">↺ Recarregar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:12px;">
           <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.5;">
-            Equipe do portal <strong>≠</strong> tribo do ARK. Fundação, membros, banco e marcos vivem na web.
-            Área de Tribo continua disponível em Minha Área.
+            Equipe do portal é a casa social na web (independente da tribo in-game).
+            Fundação, membros, banco, marcos e split de mercado vivem aqui.
           </p>
         </div>
         <div id="teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
       </div>
 
+      <!-- PAGE: Diretório global de Equipes -->
+      <div id="page-teams-directory" class="page">
+        <div id="topbar">
+          <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Equipes</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadTeamsDirectory()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:12px;">
+          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;line-height:1.5;">
+            Lista pública de equipes ACTIVE. Pedidos de união só aparecem se a equipe aceita recrutamento e ainda tem vagas.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="form-group" style="margin:0;flex:1;min-width:200px;">
+              <label for="tm-dir-q">Buscar</label>
+              <input id="tm-dir-q" type="text" placeholder="Nome, tag ou SteamID do owner" onkeydown="if(event.key==='Enter')loadTeamsDirectory()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadTeamsDirectory()">Filtrar</button>
+            <button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Minha Equipe →</button>
+          </div>
+        </div>
+        <div id="teams-directory-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
+      </div>
+
       <!-- PAGE: Ranking Equipes (público) -->
       <div id="page-teams-rankings" class="page">
         <div id="topbar">
-          <div class="page-title">🏆 Rankings — Equipes &amp; Jogadores</div>
+          <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Rankings — Equipes &amp; Jogadores</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadTeamsRankings()">↺ Recarregar</button>
           </div>
@@ -9337,7 +9455,7 @@
       <!-- PAGE: Equipes admin -->
       <div id="page-teams-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Equipes — Admin</div>
+          <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Equipes — Admin</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadTeamsAdmin()">↺ Recarregar</button>
           </div>
@@ -9354,6 +9472,7 @@
             <div class="form-group"><label>Âmbares</label><input id="tm-ms-amber" type="number" min="0" value="5000" /></div>
             <div class="form-group"><label>XP conjunto</label><input id="tm-ms-xp" type="number" min="0" value="2500" /></div>
             <div class="form-group"><label>max_members unlock</label><input id="tm-ms-mmu" type="number" min="0" placeholder="opcional" /></div>
+            <div class="form-group"><label>Bônus Â pp ao concluir (amber_bonus_pp)</label><input id="tm-ms-amber-bonus-pp" type="number" min="0" max="50" value="2" /></div>
             <div class="form-group" style="align-self:end;">
               <button class="btn btn-ghost btn-sm" type="button" onclick="teamsAdminFillDefaults()">Sugerir qty (defaults)</button>
               <button class="btn btn-primary btn-sm" onclick="teamsAdminSaveMilestone()">Salvar rascunho</button>
@@ -9866,17 +9985,31 @@
 <!-- ── Toast container ──────────────────────────────────────────────────────── -->
 <div id="toast-container"></div>
 
-<!-- ── Modal: Minha Tribo (regulamento / split) ─────────────────────────────── -->
+<!-- ── Modal: Minha Tribo (legado — não usado no fluxo jogador) ─────────────── -->
 <div id="modal-tribe" class="modal-backdrop hidden">
   <div class="modal" style="max-width:640px;">
     <div class="modal-header">
-      <div class="modal-title" id="modal-tribe-title">Tribo</div>
+      <div class="modal-title" id="modal-tribe-title">Tribo (legado)</div>
       <button class="modal-close" onclick="closeModal('modal-tribe')">✕</button>
     </div>
     <div id="modal-tribe-body" style="padding:4px 0 8px;"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-tribe')">Cancelar</button>
       <button class="btn btn-success" id="modal-tribe-save-btn" onclick="_tribeModalConfirm()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Regulamento da Equipe (diretório) ─────────────────────────────── -->
+<div id="modal-team-regs" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-team-regs-title">Regulamento da Equipe</div>
+      <button class="modal-close" onclick="closeModal('modal-team-regs')">✕</button>
+    </div>
+    <div id="modal-team-regs-body" style="padding:4px 0 8px;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text2);"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-team-regs')">Fechar</button>
     </div>
   </div>
 </div>
@@ -10383,6 +10516,7 @@ function nav(el) {
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "tribe-admin") loadTribeAdmin();
   if (page === "teams") loadMyTeam();
+  if (page === "teams-directory") loadTeamsDirectory();
   if (page === "teams-rankings") loadTeamsRankings();
   if (page === "teams-admin") loadTeamsAdmin();
   if (page === "polls-admin") loadPollsAdmin();
@@ -13383,9 +13517,8 @@ async function loadMyArea() {
     loadMyAreaDinoOrders(),
     loadMyAreaHistory(),
     marketProfilePromise,
-    loadMyTribe(),
     ensureTeamsNavFromApi().then(() => {
-      if (_teamsEnabledCache) return loadMyTeam();
+      if (_teamsEnabledCache !== false) return loadMyTeam();
     }).catch(() => {}),
   ]);
 }
@@ -14743,6 +14876,7 @@ function _lotterySourceBadge(src) {
   if (src === "DONATION") return "🎁";
   if (src === "AMBER_RESERVE") return "⭐";
   if (src === "FIXED_REGISTERED") return "🎯";
+  if (src === "TEAM") return "👥";
   return "🪙";
 }
 
@@ -18842,11 +18976,10 @@ function _renderTribeRegulamento(data, isOwner, mapData) {
 }
 
 function _renderTribeSplit(data, isOwner, mapData) {
-  if (_teamsEnabledCache) {
+  if (_teamsEnabledCache !== false) {
     return `<div style="padding:12px;background:var(--bg2);border-radius:6px;font-size:13px;line-height:1.6;color:var(--text2);">
-      <strong style="color:var(--text);">Divisão de ganhos migrada para Equipes</strong><br>
-      Com o Modo Equipe ativo (<code>teams_enabled</code>), o split de mercado da tribo
-      <strong>não se aplica</strong> a novos anúncios. Configure a repartição em
+      <strong style="color:var(--text);">Divisão de ganhos é da Equipe</strong><br>
+      O split de mercado da tribo in-game <strong>não se aplica</strong>. Configure a repartição em
       <button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Minha Equipe → Split</button>.
     </div>`;
   }
@@ -23281,14 +23414,16 @@ async function loadSettings() {
     const lotEl = document.getElementById("s-lottery-enabled");
     if (lotEl) lotEl.checked = !!s.lottery_enabled;
     const teamsEl = document.getElementById("s-teams-enabled");
-    if (teamsEl) teamsEl.checked = !!s.teams_enabled;
+    if (teamsEl) teamsEl.checked = s.teams_enabled !== false;
     const tmMax = document.getElementById("s-teams-max-members");
-    if (tmMax) tmMax.value = String(parseInt(s.teams_max_members ?? "10", 10) || 10);
+    if (tmMax) tmMax.value = String(parseInt(s.teams_max_members ?? "5", 10) || 5);
     const tmPp = document.getElementById("s-teams-amber-bonus-pp");
     if (tmPp) tmPp.value = String(parseInt(s.teams_amber_bonus_pp ?? "2", 10) || 2);
     const tmCap = document.getElementById("s-teams-amber-bonus-cap");
     if (tmCap) tmCap.value = String(parseInt(s.teams_amber_bonus_cap ?? "20", 10) || 20);
-    refreshTeamsNavVisibility(!!s.teams_enabled);
+    const tmSf = document.getElementById("s-teams-lottery-shortfall");
+    if (tmSf) tmSf.value = String(parseInt(s.teams_lottery_shortfall_refund ?? "5000", 10) || 5000);
+    refreshTeamsNavVisibility(s.teams_enabled !== false);
     const dlEl = document.getElementById("s-custom-dino-enabled");
     if (dlEl) dlEl.checked = !!s.custom_dino_enabled;
     const dlSe = document.getElementById("s-custom-dino-spawn-exact");
@@ -23345,10 +23480,11 @@ async function saveSettings() {
     db_user:     document.getElementById("s-db-user").value,
     db_password: document.getElementById("s-db-password").value,
     lottery_enabled: !!document.getElementById("s-lottery-enabled")?.checked,
-    teams_enabled: !!document.getElementById("s-teams-enabled")?.checked,
-    teams_max_members: parseInt(document.getElementById("s-teams-max-members")?.value || "10", 10) || 10,
+    teams_enabled: document.getElementById("s-teams-enabled") ? !!document.getElementById("s-teams-enabled").checked : true,
+    teams_max_members: parseInt(document.getElementById("s-teams-max-members")?.value || "5", 10) || 5,
     teams_amber_bonus_pp: parseInt(document.getElementById("s-teams-amber-bonus-pp")?.value || "2", 10) || 2,
     teams_amber_bonus_cap: parseInt(document.getElementById("s-teams-amber-bonus-cap")?.value || "20", 10) || 20,
+    teams_lottery_shortfall_refund: parseInt(document.getElementById("s-teams-lottery-shortfall")?.value || "5000", 10) || 5000,
     custom_dino_enabled: !!document.getElementById("s-custom-dino-enabled")?.checked,
     custom_dino_spawn_exact: !!document.getElementById("s-custom-dino-spawn-exact")?.checked,
     custom_dino_level_max: parseInt(document.getElementById("s-custom-dino-level-max")?.value || "0", 10) || 0,
@@ -24680,35 +24816,137 @@ async function loadAmberMeter() {
   await fetchAndRender();
 }
 
+let _homeFeatureCarouselTimer = null;
+let _homeFeatureCarouselIndex = 0;
+let _homeFeatureCarouselPaused = false;
+
+function _stopHomeFeatureCarousel() {
+  if (_homeFeatureCarouselTimer) {
+    clearInterval(_homeFeatureCarouselTimer);
+    _homeFeatureCarouselTimer = null;
+  }
+}
+
+function _homeFeatureCarouselGo(delta) {
+  const root = document.getElementById("home-feature-carousel");
+  if (!root) return;
+  const slides = root.querySelectorAll(".home-seasonland__slide");
+  const dots = root.querySelectorAll(".home-seasonland__dot");
+  if (!slides.length) return;
+  slides[_homeFeatureCarouselIndex]?.classList.remove("is-active");
+  dots[_homeFeatureCarouselIndex]?.classList.remove("is-active");
+  _homeFeatureCarouselIndex = (_homeFeatureCarouselIndex + delta + slides.length) % slides.length;
+  slides[_homeFeatureCarouselIndex]?.classList.add("is-active");
+  dots[_homeFeatureCarouselIndex]?.classList.add("is-active");
+}
+
+function _homeFeatureCarouselSet(idx) {
+  const root = document.getElementById("home-feature-carousel");
+  if (!root) return;
+  const slides = root.querySelectorAll(".home-seasonland__slide");
+  if (!slides.length) return;
+  const target = ((idx % slides.length) + slides.length) % slides.length;
+  const delta = target - _homeFeatureCarouselIndex;
+  if (delta) _homeFeatureCarouselGo(delta);
+}
+
+function _homeFeatureCarouselNavigate(page) {
+  if (page) goToPage(page);
+}
+
+function _startHomeFeatureCarousel() {
+  _stopHomeFeatureCarousel();
+  _homeFeatureCarouselIndex = 0;
+  _homeFeatureCarouselPaused = false;
+  const root = document.getElementById("home-feature-carousel");
+  if (!root) return;
+  const slides = root.querySelectorAll(".home-seasonland__slide");
+  if (slides.length < 2) return;
+  root.addEventListener("mouseenter", () => { _homeFeatureCarouselPaused = true; });
+  root.addEventListener("mouseleave", () => { _homeFeatureCarouselPaused = false; });
+  _homeFeatureCarouselTimer = setInterval(() => {
+    if (!_homeFeatureCarouselPaused) _homeFeatureCarouselGo(1);
+  }, 10000);
+}
+
 function renderHomeSeasonLandSection() {
   const currency = escHtml(CURRENCY.singular || "Âmbar");
   return `
-    <section class="home-seasonland" aria-labelledby="home-seasonland-title">
-      <div class="home-seasonland__inner">
-        <div class="home-seasonland__brand">
-          <img class="home-seasonland__logo" src="/SeasonLand_Logo.png" alt="SeasonLand" width="88" height="88" />
-          <span class="home-seasonland__eyebrow">Season Pass</span>
-        </div>
-        <div>
-          <h2 class="home-seasonland__title" id="home-seasonland-title">SeasonLand</h2>
-          <p class="home-seasonland__lead">
-            A temporada do cluster: um passe pessoal com tracks <strong>Free</strong> e <strong>Premium</strong>,
-            progresso por XP e recompensas para resgatar na Web Store.
-          </p>
-          <ul class="home-seasonland__points">
-            <li><strong>TimedPoints → XP:</strong> o ${currency} de cada tick conta como XP do Pass.</li>
-            <li><strong>30 dias</strong> por season, nomeada pelo tier (Delta, Gamma, Beta…).</li>
-            <li><strong>Premium</strong> compra-se só com ${currency}, dentro do SeasonLand.</li>
-          </ul>
-          <div class="home-seasonland__actions">
-            <button type="button" class="btn btn-primary" onclick="goToPage('season-pass')">
-              Abrir SeasonLand →
-            </button>
-            <a class="home-seasonland__reg-link" href="/regulamento_season_pass.html" target="_blank" rel="noopener">
-              Regulamento do Season Pass
-            </a>
+    <section class="home-seasonland" id="home-feature-carousel" aria-roledescription="carousel" aria-label="Destaques SeasonLand e Equipes">
+      <div class="home-seasonland__track">
+        <article class="home-seasonland__slide is-active" data-page="season-pass"
+          onclick="_homeFeatureCarouselNavigate('season-pass')"
+          onkeydown="if(event.key==='Enter')_homeFeatureCarouselNavigate('season-pass')"
+          role="group" aria-roledescription="slide" aria-label="1 de 2: SeasonLand" tabindex="0">
+          <div class="home-seasonland__inner">
+            <div class="home-seasonland__brand">
+              <img class="home-seasonland__logo" src="/SeasonLand_Logo.png" alt="SeasonLand" width="88" height="88" />
+              <span class="home-seasonland__eyebrow">Season Pass</span>
+            </div>
+            <div>
+              <h2 class="home-seasonland__title" id="home-seasonland-title">SeasonLand</h2>
+              <p class="home-seasonland__lead">
+                A temporada do cluster: um passe pessoal com tracks <strong>Free</strong> e <strong>Premium</strong>,
+                progresso por XP e recompensas para resgatar na Web Store.
+              </p>
+              <ul class="home-seasonland__points">
+                <li><strong>TimedPoints → XP:</strong> o ${currency} de cada tick conta como XP do Pass.</li>
+                <li><strong>30 dias</strong> por season, nomeada pelo tier (Delta, Gamma, Beta…).</li>
+                <li><strong>Premium</strong> compra-se só com ${currency}, dentro do SeasonLand.</li>
+              </ul>
+              <div class="home-seasonland__actions">
+                <button type="button" class="btn btn-primary" onclick="event.stopPropagation();goToPage('season-pass')">
+                  Abrir SeasonLand →
+                </button>
+                <a class="home-seasonland__reg-link" href="/regulamento_season_pass.html" target="_blank" rel="noopener"
+                  onclick="event.stopPropagation()">
+                  Regulamento do Season Pass
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
+        </article>
+        <article class="home-seasonland__slide" data-page="teams-directory"
+          onclick="_homeFeatureCarouselNavigate('teams-directory')"
+          onkeydown="if(event.key==='Enter')_homeFeatureCarouselNavigate('teams-directory')"
+          role="group" aria-roledescription="slide" aria-label="2 de 2: Equipes" tabindex="0">
+          <div class="home-seasonland__inner">
+            <div class="home-seasonland__brand">
+              <img class="home-seasonland__logo" src="/ArkLnd_Equipes.png" alt="ARKLAND Equipes" width="88" height="88" />
+              <span class="home-seasonland__eyebrow">Modo Equipe</span>
+            </div>
+            <div>
+              <h2 class="home-seasonland__title">Equipes</h2>
+              <p class="home-seasonland__lead">
+                A casa social do portal: funda uma equipe, recruta membros, partilha banco e marcos,
+                e compete no ranking — independente da tribo in-game.
+              </p>
+              <ul class="home-seasonland__points">
+                <li><strong>Fundação e membros</strong> na Web Store, com papéis e banco de Âmbar.</li>
+                <li><strong>Marcos</strong> cooperativos com XP conjunto e bônus de Âmbar.</li>
+                <li><strong>Lista global</strong> e rankings públicos de equipes e jogadores.</li>
+              </ul>
+              <div class="home-seasonland__actions">
+                <button type="button" class="btn btn-primary" onclick="event.stopPropagation();goToPage('teams-directory')">
+                  Ver equipes →
+                </button>
+                <button type="button" class="btn btn-ghost" onclick="event.stopPropagation();goToPage('teams')">
+                  Minha Equipe →
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+      <button type="button" class="home-seasonland__nav home-seasonland__nav--prev" aria-label="Anterior"
+        onclick="event.stopPropagation();_homeFeatureCarouselGo(-1)">‹</button>
+      <button type="button" class="home-seasonland__nav home-seasonland__nav--next" aria-label="Próximo"
+        onclick="event.stopPropagation();_homeFeatureCarouselGo(1)">›</button>
+      <div class="home-seasonland__dots" role="tablist">
+        <button type="button" class="home-seasonland__dot is-active" aria-label="SeasonLand"
+          onclick="event.stopPropagation();_homeFeatureCarouselSet(0)"></button>
+        <button type="button" class="home-seasonland__dot" aria-label="Equipes"
+          onclick="event.stopPropagation();_homeFeatureCarouselSet(1)"></button>
       </div>
     </section>`;
 }
@@ -25201,6 +25439,7 @@ function renderHomePage(d) {
     ? carouselEl.querySelectorAll(".home-carousel__slide").length
     : 0;
   _startHomeCarousel(slideCount);
+  _startHomeFeatureCarousel();
   loadHomeLotteryTeaser();
 }
 
@@ -25648,52 +25887,77 @@ async function saveTribeAdminLimits() {
 }
 
 // ── Modo Equipe ─────────────────────────────────────────────
-let _teamsEnabledCache = null;
+let _teamsEnabledCache = true;
 
 function refreshTeamsNavVisibility(enabled) {
-  _teamsEnabledCache = !!enabled;
-  const show = enabled ? "" : "none";
-  const n1 = document.getElementById("nav-teams");
-  const n2 = document.getElementById("nav-teams-rankings");
-  if (n1) n1.style.display = show;
-  if (n2) n2.style.display = show;
+  _teamsEnabledCache = enabled !== false;
+  const show = _teamsEnabledCache ? "" : "none";
+  ["nav-teams", "nav-teams-rankings", "nav-teams-directory"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show;
+  });
   const card = document.getElementById("myarea-teams-card");
-  if (card) card.style.display = enabled ? "" : "none";
+  if (card) card.style.display = _teamsEnabledCache ? "" : "none";
+}
+
+function _teamsFillRoots(html) {
+  const myPage = document.getElementById("page-myarea");
+  const teamsPage = document.getElementById("page-teams");
+  const myActive = myPage && myPage.classList.contains("active");
+  const teamsActive = teamsPage && teamsPage.classList.contains("active");
+  const root = document.getElementById("teams-root");
+  const myRoot = document.getElementById("myarea-teams-root");
+  if (teamsActive && root) { root.innerHTML = html; return; }
+  if (myActive && myRoot) { myRoot.innerHTML = html; return; }
+  if (root) root.innerHTML = html;
+  else if (myRoot) myRoot.innerHTML = html;
 }
 
 async function ensureTeamsNavFromApi() {
   try {
     const d = await fetchJson("/api/teams/status");
-    if (d.ok && d.data) refreshTeamsNavVisibility(!!d.data.enabled);
-  } catch (_) {}
+    if (d.ok && d.data) refreshTeamsNavVisibility(d.data.enabled !== false);
+  } catch (_) {
+    refreshTeamsNavVisibility(true);
+  }
 }
 
 async function loadMyTeam() {
   const root = document.getElementById("teams-root");
+  const myRoot = document.getElementById("myarea-teams-root");
   if (root) root.innerHTML = "Carregando…";
+  if (myRoot) myRoot.innerHTML = "Carregando…";
   await ensureTeamsNavFromApi();
   if (!_auth.authenticated) {
-    if (root) root.innerHTML = `<p>Faça login para gerir a sua equipe.</p>`;
+    _teamsFillRoots(`<p>Faça login para gerir a sua equipe.</p>
+      <button class="btn btn-ghost btn-sm" onclick="goToPage('teams-directory')">Ver lista de equipes →</button>`);
     return;
   }
   try {
     const d = await fetchJson("/api/teams/my");
     if (!d.ok) {
-      if (root) root.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`;
+      _teamsFillRoots(`<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`);
       return;
     }
     const data = d.data || {};
     if (data.enabled === false && !data.team) {
-      if (root) root.innerHTML = `<p>Modo Equipe desativado. Staff: ative <code>teams_enabled</code> em Configurações.</p>`;
+      _teamsFillRoots(`<p>Modo Equipe desativado. Staff: ative <code>teams_enabled</code> em Configurações.</p>`);
       return;
     }
-    const teaser = document.getElementById("myarea-teams-teaser");
     if (!data.team) {
       const pending = data.pending || [];
       let html = `
-        <div class="card">
+        <div style="margin-bottom:12px;">
+          <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.5;">
+            Ainda não faz parte de uma equipe. Funde a sua ou peça união na lista global.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <button class="btn btn-primary btn-sm" onclick="goToPage('teams-directory')">🌐 Ver equipes / solicitar união</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:12px;">
           <div class="card-title">Fundar equipe</div>
-          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">Gratuito. 1 equipe ativa por jogador.</p>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">Gratuito. 1 equipe ativa por jogador. Cap inicial: 5 membros (sobe com marcos).</p>
           <div class="form-grid">
             <div class="form-group"><label>Nome</label><input id="tm-create-name" type="text" maxlength="32" placeholder="Lobos do Norte" /></div>
             <div class="form-group"><label>Tag (opcional)</label><input id="tm-create-tag" type="text" maxlength="5" placeholder="ARK" /></div>
@@ -25704,28 +25968,32 @@ async function loadMyTeam() {
           <button class="btn btn-primary" style="margin-top:10px;" onclick="teamsCreate()">Fundar equipe</button>
         </div>`;
       if (pending.length) {
-        html += `<div class="card" style="margin-top:12px;"><div class="card-title">Convites / pedidos</div>
-          ${pending.map(p => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;">
+        html += `<div class="card" style="margin-top:12px;"><div class="card-title">Convites / pedidos seus</div>
+          ${pending.map(p => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap;">
             <span>${escHtml(p.team_name)} (${escHtml(p.status)})</span>
             ${p.status === "INVITED" ? `<button class="btn btn-primary btn-sm" onclick="teamsAcceptInvite(${p.team_id},'${escHtml(p.invite_code || "")}')">Aceitar</button>
-            <button class="btn btn-ghost btn-sm" onclick="teamsDeclineInvite(${p.team_id})">Recusar</button>` : ""}
+            <button class="btn btn-ghost btn-sm" onclick="teamsDeclineInvite(${p.team_id})">Recusar</button>` : "<em style=\"font-size:12px;\">Aguardando aprovação</em>"}
           </div>`).join("")}
         </div>`;
       }
-      if (root) root.innerHTML = html;
-      if (teaser) teaser.textContent = "Sem equipe — funde ou aceite um convite.";
+      _teamsFillRoots(html);
       return;
     }
     const t = data.team;
     const members = data.members || [];
+    const joinRequests = data.join_requests || [];
     const bank = data.bank || {};
     const ms = data.milestone;
     const roles = data.viewer_roles || [];
+    const pxp = data.player_xp || {};
     const isOwner = roles.includes("OWNER");
     const canManage = isOwner || roles.includes("GUARDIAN") || roles.includes("HERALD");
     const canCommit = isOwner || roles.includes("TREASURER");
+    const canMural = isOwner || roles.includes("AMBASSADOR") || roles.includes("ARCHIVIST");
     const warehouse = bank.resources || bank.warehouse || {};
     const committed = bank.committed || {};
+    const accepting = !!(data.accepting_members ?? data.recruiting_open);
+    const ownerLabel = data.owner_display_name || t.owner_steam_id;
     let msHtml = "<em>Aguardando staff publicar o próximo marco.</em>";
     if (ms && ms.milestone) {
       const m = ms.milestone;
@@ -25783,23 +26051,41 @@ async function loadMyTeam() {
         <td>${actions}</td>
       </tr>`;
     }).join("");
+    const joinHtml = canManage && joinRequests.length
+      ? `<div class="card" style="margin-bottom:12px;">
+          <div class="card-title">Pedidos pendentes</div>
+          ${joinRequests.map(j => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap;">
+            <span>${escHtml(j.display_name || j.steam_id)} <span style="font-family:monospace;font-size:11px;">${escHtml(j.steam_id)}</span></span>
+            <button class="btn btn-primary btn-sm" onclick="teamsApproveJoin('${escHtml(j.steam_id)}')">Aprovar</button>
+            <button class="btn btn-ghost btn-sm" onclick="teamsRejectJoin('${escHtml(j.steam_id)}')">Recusar</button>
+          </div>`).join("")}
+        </div>`
+      : "";
     const ledgerHint = (data.split && data.split.status === "ACTIVE")
       ? `Split ACTIVE (${data.split.sender_pct || 60}% vendedor)`
       : "Sem split ACTIVE";
-    if (root) root.innerHTML = `
+    const html = `
       <div class="card" style="margin-bottom:12px;">
         <div class="card-header">
           <div class="card-title">${escHtml(t.tag ? "[" + t.tag + "] " : "")}${escHtml(t.name)}</div>
           <span style="font-size:12px;color:var(--text2);">Marco ${t.milestone_index} · Honra ${Number(t.team_honor ?? t.team_xp_lifetime ?? 0).toLocaleString("pt-BR")} XP · bônus Â +${t.amber_bonus_pct || 0}%</span>
         </div>
-        <div style="font-size:12px;color:var(--text2);">Membros ${members.length}/${t.max_members} · Owner ${escHtml(t.owner_steam_id)} · ${t.recruitment_open ? "Pedidos abertos" : "Pedidos fechados"}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6;">
+          Membros <strong>${members.length}/${t.max_members}</strong>
+          · Owner <strong>${escHtml(ownerLabel)}</strong>
+          <span style="font-family:monospace;font-size:11px;">(${escHtml(t.owner_steam_id)})</span>
+          · ${t.recruitment_open ? (accepting ? "Aceitando pedidos" : "Pedidos abertos (cheia)") : "Pedidos fechados"}
+          · Seu XP lifetime: ${Number(pxp.xp || 0).toLocaleString("pt-BR")}
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
           ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsRename()">Renomear</button>` : ""}
           ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="teamsInvite()">Convidar SteamID</button>` : ""}
           ${isOwner || roles.includes("GUARDIAN") || roles.includes("AMBASSADOR") ? `<button class="btn btn-ghost btn-sm" onclick="teamsToggleRecruitment(${t.recruitment_open ? "false" : "true"})">${t.recruitment_open ? "Fechar pedidos" : "Abrir pedidos"}</button>` : ""}
+          <button class="btn btn-ghost btn-sm" onclick="goToPage('teams-directory')">Lista global</button>
           <button class="btn btn-ghost btn-sm" onclick="teamsLeave()">Sair</button>
         </div>
       </div>
+      ${joinHtml}
       ${isOwner ? `<div class="card" style="margin-bottom:12px;">
         <div class="card-title">Configurações (Owner)</div>
         <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">
@@ -25822,6 +26108,12 @@ async function loadMyTeam() {
         <tbody>${memberRows || "<tr><td colspan=4>Nenhum</td></tr>"}</tbody></table>
       </div>
       <div class="card" style="margin-bottom:12px;">
+        <div class="card-header"><div class="card-title">Regulamento / Mural</div></div>
+        <div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-bottom:8px;">${escHtml(t.mural_text || "— sem regulamento ainda —")}</div>
+        ${canMural ? `<textarea id="tm-mural" rows="4" style="width:100%;" placeholder="Regras da equipe…">${escHtml(t.mural_text || "")}</textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveMural()">Salvar mural</button>` : ""}
+      </div>
+      <div class="card" style="margin-bottom:12px;">
         <div class="card-header"><div class="card-title">Banco &amp; Armazém</div>
           <button class="btn btn-primary btn-sm" onclick="teamsDonateAmber()">Doar Âmbares</button>
         </div>
@@ -25837,23 +26129,154 @@ async function loadMyTeam() {
         ${msHtml}
       </div>
       <div class="card" style="margin-bottom:12px;">
-        <div class="card-header"><div class="card-title">Split de mercado</div>
+        <div class="card-header"><div class="card-title">Split de mercado (equipe)</div>
           ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsEnableSplit()">Ativar 60/40</button>
           <button class="btn btn-ghost btn-sm" onclick="teamsDisableSplit()">Desativar</button>` : ""}
           <button class="btn btn-ghost btn-sm" onclick="teamsSplitOpt('optin')">Opt-in</button>
           <button class="btn btn-ghost btn-sm" onclick="teamsSplitOpt('optout')">Opt-out</button>
         </div>
-        <div style="font-size:12px;color:var(--text2);">${escHtml(ledgerHint)} — com Modo Equipe ativo, substitui o split de tribo.</div>
+        <div style="font-size:12px;color:var(--text2);">${escHtml(ledgerHint)} — split de tribo não se aplica na web.</div>
       </div>
       <div class="card">
         <div class="card-title">Sorteio coletivo</div>
-        <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Stub v1.1 — confirmação Owner (2 nº/membro).</p>
-        ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsLotteryConfirm()">Confirmar participação (stub)</button>` : ""}
+        ${(() => {
+          const lot = data.lottery || {};
+          const nums = lot.numbers || [];
+          const camp = lot.campaign;
+          let body = "";
+          if (!lot.enabled) {
+            body = `<p style="font-size:12px;color:var(--text2);margin:0;">Sorteio desabilitado no momento.</p>`;
+          } else if (!camp) {
+            body = `<p style="font-size:12px;color:var(--text2);margin:0;">Nenhuma campanha ACTIVE. Quando houver, o Owner confirma a participação da equipe (2 números por membro).</p>`;
+          } else if (lot.confirmed) {
+            body = `<p style="font-size:12px;margin:0 0 8px;">Campanha <strong>${escHtml(camp.title || ("#" + camp.id))}</strong> — confirmada.</p>
+              <p style="font-size:12px;margin:0 0 6px;">Números da equipe (${nums.length}): <strong>${nums.length ? nums.join(", ") : "—"}</strong></p>
+              ${lot.shortfall_refunded ? `<p style="font-size:12px;color:var(--amber);margin:0;">Reembolso Q12: ${Number(lot.shortfall_refunded).toLocaleString("pt-BR")} Âmbares ao banco (grade insuficiente).</p>` : ""}
+              <p style="font-size:11px;color:var(--text2);margin:8px 0 0;">Novos membros após a confirmação recebem +2 números automaticamente. Kick/saída: números ficam na equipe.</p>`;
+          } else {
+            body = `<p style="font-size:12px;margin:0 0 8px;">Campanha <strong>${escHtml(camp.title || ("#" + camp.id))}</strong>${camp.draw_at_display ? " · sorteio " + escHtml(camp.draw_at_display) : ""}.</p>
+              <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Owner confirma 1×: 2 números aleatórios por membro ACTIVE. Números individuais do jogador continuam em paralelo.</p>
+              ${isOwner ? (lot.can_confirm
+                ? `<button class="btn btn-primary btn-sm" onclick="teamsLotteryConfirm()">Confirmar participação da equipe</button>`
+                : `<p style="color:var(--warning);font-size:12px;margin:0;">Prazo de confirmação encerrado (2h antes do sorteio).</p>`)
+                : `<p style="font-size:12px;color:var(--text2);margin:0;">Aguardando o Owner confirmar.</p>`}`;
+          }
+          return body;
+        })()}
       </div>`;
-    if (teaser) teaser.textContent = `${t.name} · ${members.length}/${t.max_members} · Marco ${t.milestone_index}`;
+    _teamsFillRoots(html);
+  } catch (e) {
+    _teamsFillRoots(`<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`);
+  }
+}
+
+async function loadTeamsDirectory() {
+  const root = document.getElementById("teams-directory-root");
+  if (root) root.innerHTML = "Carregando…";
+  await ensureTeamsNavFromApi();
+  if (_teamsEnabledCache === false) {
+    if (root) root.innerHTML = `<p>Modo Equipe desativado.</p>`;
+    return;
+  }
+  const q = document.getElementById("tm-dir-q")?.value?.trim() || "";
+  try {
+    const d = await fetchJson(`/api/teams/public?limit=100&q=${encodeURIComponent(q)}`);
+    if (!d.ok) {
+      if (root) root.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    const data = d.data || {};
+    const items = data.items || [];
+    const viewerHasTeam = !!data.viewer_has_team;
+    if (!items.length) {
+      if (root) root.innerHTML = `<p>Nenhuma equipe encontrada.${q ? " Tente outro filtro." : ""}</p>
+        <button class="btn btn-primary btn-sm" onclick="goToPage('teams')">Fundar equipe →</button>`;
+      return;
+    }
+    const rows = items.map((t) => {
+      const accepting = !!(t.accepting_members ?? t.recruiting_open);
+      const canRequest = accepting && _auth.authenticated && !viewerHasTeam;
+      const statusLabel = accepting
+        ? '<span style="color:var(--success);">Aceitando</span>'
+        : (t.recruitment_open ? '<span style="color:var(--text2);">Cheia</span>' : '<span style="color:var(--text2);">Fechada</span>');
+      return `<tr>
+        <td><strong>${escHtml(t.tag ? "[" + t.tag + "] " : "")}${escHtml(t.name)}</strong></td>
+        <td>${escHtml(t.owner_display_name || t.owner_steam_id)}<div style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(t.owner_steam_id)}</div></td>
+        <td>${t.member_count || 0}/${t.max_members || 5}</td>
+        <td>${statusLabel}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick='teamsViewRegulamento(${t.id}, ${JSON.stringify(String(t.name || ""))}, ${JSON.stringify(String(t.mural_text || ""))})'>Regulamento</button>
+          ${canRequest ? `<button class="btn btn-primary btn-sm" onclick="teamsRequestJoin(${t.id})">Solicitar união</button>` : ""}
+        </td>
+      </tr>`;
+    }).join("");
+    if (root) root.innerHTML = `
+      <div class="card">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">${items.length} de ${data.total || items.length} equipes</div>
+        <div style="overflow-x:auto;">
+          <table class="pkg-admin-table">
+            <thead><tr><th>Equipe</th><th>Owner</th><th>Membros</th><th>Recrutamento</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
   } catch (e) {
     if (root) root.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
   }
+}
+
+function teamsViewRegulamento(teamId, name, mural) {
+  const title = document.getElementById("modal-team-regs-title");
+  const body = document.getElementById("modal-team-regs-body");
+  if (title) title.textContent = "Regulamento — " + (name || ("#" + teamId));
+  if (body) body.textContent = (mural && String(mural).trim()) ? String(mural) : "Esta equipe ainda não publicou um regulamento.";
+  if (typeof openModal === "function") openModal("modal-team-regs");
+  else {
+    const m = document.getElementById("modal-team-regs");
+    if (m) m.classList.remove("hidden");
+  }
+}
+
+async function teamsRequestJoin(teamId) {
+  if (!_auth.authenticated) { promptLogin("solicitar união a uma equipe"); return; }
+  try {
+    const d = await fetchJson("/api/teams/join/request", {
+      method: "POST",
+      body: { team_id: teamId },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Pedido enviado — aguarde aprovação do owner.");
+    loadTeamsDirectory();
+    loadMyTeam();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsApproveJoin(steamId) {
+  try {
+    const d = await fetchJson("/api/teams/join/approve", { method: "POST", body: { steam_id: steamId } });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Pedido aprovado");
+    loadMyTeam();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsRejectJoin(steamId) {
+  try {
+    const d = await fetchJson("/api/teams/join/reject", { method: "POST", body: { steam_id: steamId } });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Pedido recusado");
+    loadMyTeam();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsSaveMural() {
+  const mural_text = document.getElementById("tm-mural")?.value || "";
+  try {
+    const d = await fetchJson("/api/teams/mural", { method: "POST", body: { mural_text } });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Mural salvo");
+    loadMyTeam();
+  } catch (e) { toast(String(e.message || e), "error"); }
 }
 
 async function teamsCreate() {
@@ -26069,13 +26492,15 @@ async function teamsSplitOpt(mode) {
 }
 
 async function teamsLotteryConfirm() {
-  const campaign_id = parseInt(prompt("ID da campanha de sorteio:") || "0", 10);
+  if (!confirm("Confirmar participação da equipe no sorteio ativo? Serão atribuídos 2 números por membro ACTIVE.")) return;
   try {
     const d = await fetchJson("/api/teams/lottery/confirm", {
-      method: "POST", body: { campaign_id },
+      method: "POST", body: {},
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    toast(d.data?.message || "Stub OK");
+    const msg = d.data?.message || "Participação confirmada";
+    toast(msg, d.data?.shortfall_refunded ? "warning" : "success");
+    loadMyTeam();
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -26184,7 +26609,7 @@ async function loadTeamsAdmin() {
       msEl.innerHTML = rows.length
         ? rows.map(m => {
             const res = (m.resources || []).map(r => `${r.label_pt || r.key}×${r.quantity}`).join(", ") || "—";
-            return `#${m.milestone_index} ${escHtml(m.title)} · ${m.status} · Â${m.amber_required} · XP${m.xp_required}<br><span style="opacity:.8;">${escHtml(res)}</span>`;
+            return `#${m.milestone_index} ${escHtml(m.title)} · ${m.status} · Â${m.amber_required} · XP${m.xp_required} · bônus +${m.amber_bonus_pp ?? 0}pp<br><span style="opacity:.8;">${escHtml(res)}</span>`;
           }).join("<br><br>")
         : "Nenhum marco.";
     }
@@ -26223,6 +26648,7 @@ async function teamsAdminSaveMilestone() {
         title: document.getElementById("tm-ms-title")?.value || "",
         amber_required: parseInt(document.getElementById("tm-ms-amber")?.value || "0", 10),
         xp_required: parseInt(document.getElementById("tm-ms-xp")?.value || "0", 10),
+        amber_bonus_pp: parseInt(document.getElementById("tm-ms-amber-bonus-pp")?.value || "2", 10),
         resources,
         max_members_unlock: mmuRaw ? parseInt(mmuRaw, 10) : null,
         status: "DRAFT",

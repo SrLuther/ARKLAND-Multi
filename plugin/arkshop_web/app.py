@@ -8355,6 +8355,7 @@ def save_settings():
         "teams_max_members",
         "teams_amber_bonus_pp",
         "teams_amber_bonus_cap",
+        "teams_lottery_shortfall_refund",
         "custom_dino_enabled",
         "custom_dino_require_ticket",
         "custom_dino_ground_fallback",
@@ -13949,6 +13950,7 @@ def _lottery_resolve_catalog_prize(kind: str, item_id: str) -> dict[str, Any] | 
             "kind": "kit",
             "item_id": resolved,
             "label": str(entry.get("Description") or entry.get("Name") or resolved),
+            "amber_price": max(0, int(entry.get("Price", 0) or 0)),
         }
     if kind == "license":
         resolved = _resolve_catalog_item_id("shop", item_id)
@@ -13958,12 +13960,21 @@ def _lottery_resolve_catalog_prize(kind: str, item_id: str) -> dict[str, Any] | 
         lic = _get_license_grant(entry, resolved)
         if not lic:
             return None
+        group = str(lic.get("group") or lic.get("Group") or "")
+        amber_price = max(0, int(entry.get("Price", 0) or 0))
+        if amber_price <= 0 and group:
+            try:
+                from season_pass_service import license_catalog_amber
+                amber_price = license_catalog_amber(group)
+            except Exception:
+                amber_price = 0
         return {
             "kind": "license",
             "item_id": resolved,
             "label": str(entry.get("Description") or entry.get("Name") or resolved),
-            "group": str(lic.get("Group") or ""),
+            "group": group,
             "days": int(lic.get("Days", 30) or 30),
+            "amber_price": amber_price,
         }
     return None
 
@@ -14279,7 +14290,7 @@ register_tribe_routes(
     trigger_tribe_sync_rcon=_trigger_tribe_sync_rcon_all,
 )
 
-# ── Modo Equipe (coexiste com Tribo; flag teams_enabled) ───
+# ── Modo Equipe (substitui Tribo na UI jogador; flag teams_enabled, default on) ───
 from team_routes import register_team_routes
 from team_service import configure_team_service
 

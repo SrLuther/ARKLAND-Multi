@@ -2,12 +2,24 @@
 
 Feature flag: settings.teams_enabled.
 Q1: when teams_enabled, market split uses Equipe only (tribe split ignored).
+Q2: max 1 ACTIVE team membership per player.
 Q3: team XP is lifetime/cumulative; marco thresholds sum incremental xp_required.
 Q4: manual kick immediate; optional Owner auto-kick by inactivity.
+Q5: first foundation free; subsequent creates cost FOUNDING_FEE_AMBER (default 2500).
+Q6: Owner can transfer ownership without staff.
+Q7: team amber bonus % is ADDITIVE with TimedPoints license AND unlocked via milestones
+    (staff sets amber_bonus_pp per marco; soft-capped by teams_amber_bonus_cap).
+Q9: kick/leave after lottery confirm — team numbers STAY with the team.
+Q10: prize division remainder → team bank (amber).
+Q11: individual + team numbers allowed in same campaign.
+Q12: shortfall refund teams_lottery_shortfall_refund (default 5000) Â per missing number.
+Q13: max MAX_SPECIAL_ROLES (2) special roles per member (OWNER excluded from cap).
+Q14: lottery confirm + split config = Owner only (Guardian cannot).
+Q16: milestone trail cursor per team (milestone_index).
 
 Tables: teams, team_members, team_roles, team_bank, team_bank_ledger,
 team_milestones, team_milestone_progress, team_xp_events, player_xp_lifetime,
-team_splits, team_split_members.
+team_splits, team_split_members, team_lottery_confirmations.
 """
 from __future__ import annotations
 
@@ -28,9 +40,16 @@ log = logging.getLogger("arkshop_web.team")
 TEAM_NAME_MIN = 3
 TEAM_NAME_MAX = 32
 TEAM_TAG_MAX = 5
-DEFAULT_MAX_MEMBERS = 10
-DEFAULT_AMBER_BONUS_PP = 2  # +2 p.p. per completed milestone
+DEFAULT_MAX_MEMBERS = 5  # base product cap; marcos podem subir via max_members_unlock
+DEFAULT_AMBER_BONUS_PP = 2  # default amber_bonus_pp when marco field empty
 DEFAULT_AMBER_BONUS_CAP = 20
+# Q5: first foundation free; every subsequent create (after prior founder history) costs this
+FOUNDING_FEE_AMBER = 2500
+# Q12: Â refunded to team bank per lottery number that could not be allocated
+LOTTERY_SHORTFALL_REFUND_AMBER = 5000
+LOTTERY_NUMBERS_PER_MEMBER = 2
+# Q13: special flavor roles (not OWNER) — max 2 per member (incl. owner)
+MAX_SPECIAL_ROLES = 2
 SPLIT_MIN_SALE_AMBER = 1_000
 SPLIT_GAP_MIN_PP = 10
 SPLIT_DEFAULT_SENDER_PCT = 60
@@ -48,7 +67,7 @@ MEMBER_STATUSES = frozenset({
 })
 MILESTONE_STATUSES = frozenset({"DRAFT", "ACTIVE", "COMPLETED", "RETIRED"})
 
-# Flavor role keys (Q15). OWNER is unique; others may stack (Q13).
+# Flavor role keys (Q15). OWNER is unique (permission); special roles max 2 (Q13).
 ROLE_OWNER = "OWNER"
 ROLE_GUARDIAN = "GUARDIAN"          # Guardião
 ROLE_HERALD = "HERALD"              # Arauto
@@ -259,19 +278,35 @@ def _load_settings() -> dict[str, Any]:
 
 
 def teams_enabled(settings: dict[str, Any] | None = None) -> bool:
+    """Product default: Equipes on when the key is absent (Tribos saíram da web)."""
     s = settings if settings is not None else _load_settings()
+    if "teams_enabled" not in s:
+        return True
     return bool(s.get("teams_enabled"))
 
 
 def default_max_members(settings: dict[str, Any] | None = None) -> int:
     s = settings if settings is not None else _load_settings()
     try:
-        return max(2, int(s.get("teams_max_members") or DEFAULT_MAX_MEMBERS))
+        raw = s.get("teams_max_members")
+        if raw is None or raw == "":
+            return DEFAULT_MAX_MEMBERS
+        return max(2, int(raw))
     except (TypeError, ValueError):
         return DEFAULT_MAX_MEMBERS
 
 
+def team_accepting_members(team: dict[str, Any], member_count: int) -> bool:
+    """Recruiting gate for directory / join: flag open AND seats available."""
+    try:
+        max_m = int(team.get("max_members") or DEFAULT_MAX_MEMBERS)
+    except (TypeError, ValueError):
+        max_m = DEFAULT_MAX_MEMBERS
+    return bool(team.get("recruitment_open")) and int(member_count) < max_m
+
+
 def amber_bonus_pp_per_milestone(settings: dict[str, Any] | None = None) -> int:
+    """Default pp when a marco's amber_bonus_pp field is empty (Q7)."""
     s = settings if settings is not None else _load_settings()
     try:
         return max(0, int(s.get("teams_amber_bonus_pp") or DEFAULT_AMBER_BONUS_PP))
@@ -287,11 +322,105 @@ def amber_bonus_cap(settings: dict[str, Any] | None = None) -> int:
         return DEFAULT_AMBER_BONUS_CAP
 
 
-def team_amber_bonus_pct(milestone_index: int, settings: dict[str, Any] | None = None) -> int:
-    """Additive % bonus from completed milestones (Q7). Soft-capped."""
-    pp = amber_bonus_pp_per_milestone(settings)
+def lottery_shortfall_refund_amber(settings: dict[str, Any] | None = None) -> int:
+    """Q12: Â per missing team lottery number reimbursed to team bank."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_lottery_shortfall_refund")
+        if raw is None or raw == "":
+            return LOTTERY_SHORTFALL_REFUND_AMBER
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return LOTTERY_SHORTFALL_REFUND_AMBER
+
+
+def sum_milestone_amber_bonus_pp(
+    db: Session,
+    up_to_milestone_index: int,
+    settings: dict[str, Any] | None = None,
+) -> int:
+    """Sum amber_bonus_pp for marcos 1..N (Q7 — bonus unlocked via milestone trail)."""
+    idx = int(up_to_milestone_index)
+    if idx <= 0:
+        return 0
+    default_pp = amber_bonus_pp_per_milestone(settings)
+    try:
+        rows = db.execute(
+            text("""
+                SELECT milestone_index, amber_bonus_pp FROM team_milestones
+                WHERE milestone_index >= 1 AND milestone_index <= :i
+                  AND status IN ('ACTIVE', 'COMPLETED', 'RETIRED')
+                ORDER BY milestone_index
+            """),
+            {"i": idx},
+        ).fetchall()
+    except Exception:
+        # Column may be missing on very old DBs mid-migrate — fall back to flat formula
+        return idx * default_pp
+    by_idx = {int(r[0]): r[1] for r in rows}
+    total = 0
+    for i in range(1, idx + 1):
+        if i not in by_idx:
+            # Missing definition for a completed cursor step — use default
+            total += default_pp
+            continue
+        raw = by_idx[i]
+        if raw is None:
+            total += default_pp
+        else:
+            try:
+                total += max(0, int(raw))
+            except (TypeError, ValueError):
+                total += default_pp
+    return total
+
+
+def team_amber_bonus_pct(
+    milestone_index: int,
+    settings: dict[str, Any] | None = None,
+    *,
+    db: Session | None = None,
+) -> int:
+    """Team amber bonus % (Q7): ADDITIVE with TimedPoints license; unlocked via marcos.
+
+    With db: sum of each marco's amber_bonus_pp for 1..milestone_index (default pp if empty).
+    Without db: legacy flat formula milestone_index * teams_amber_bonus_pp.
+    Soft-capped via teams_amber_bonus_cap. C++ TimedPoints may apply later; web exposes %.
+    """
     cap = amber_bonus_cap(settings)
+    if db is not None:
+        pp_sum = sum_milestone_amber_bonus_pp(db, int(milestone_index), settings)
+        return min(cap, max(0, pp_sum))
+    pp = amber_bonus_pp_per_milestone(settings)
     return min(cap, max(0, int(milestone_index)) * pp)
+
+
+def founding_fee_amber(settings: dict[str, Any] | None = None) -> int:
+    """Âmbares charged on create when player already founded before (Q5)."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_founding_fee")
+        if raw is None or raw == "":
+            return FOUNDING_FEE_AMBER
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return FOUNDING_FEE_AMBER
+
+
+def count_teams_founded(db: Session, steam_id: str) -> int:
+    """How many teams this steam_id has ever founded (any status)."""
+    row = db.execute(
+        text("SELECT COUNT(*) FROM teams WHERE founder_steam_id = :sid"),
+        {"sid": str(steam_id).strip()},
+    ).fetchone()
+    return int(row[0] or 0) if row else 0
+
+
+def founding_fee_for_player(db: Session, steam_id: str, settings: dict[str, Any] | None = None) -> int:
+    """0 on first-ever create; FOUNDING_FEE (default 2500) if count_teams_founded >= 1."""
+    if count_teams_founded(db, steam_id) >= 1:
+        return founding_fee_amber(settings)
+    return 0
 
 
 # ── Schema ───────────────────────────────────────────────────
@@ -393,6 +522,7 @@ def ensure_team_schema(engine: Engine) -> None:
           xp_required     INTEGER NOT NULL DEFAULT 0,
           resources_json  TEXT NOT NULL,
           max_members_unlock INTEGER,
+          amber_bonus_pp  INTEGER,
           status          VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
           created_at      {now_col} NOT NULL,
           updated_at      {now_col} NOT NULL,
@@ -457,6 +587,18 @@ def ensure_team_schema(engine: Engine) -> None:
           UNIQUE {"(split_id, steam_id)" if is_sqlite else "KEY uq_team_split_m (split_id, steam_id)"}
         ){eng}
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS team_lottery_confirmations (
+          campaign_id INTEGER NOT NULL,
+          team_id INTEGER NOT NULL,
+          confirmed_by VARCHAR(32) NOT NULL,
+          confirmed_at {now_col} NOT NULL,
+          numbers_requested INTEGER NOT NULL DEFAULT 0,
+          numbers_assigned INTEGER NOT NULL DEFAULT 0,
+          shortfall_refunded INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (campaign_id, team_id)
+        ){eng}
+        """,
     ]
 
     with engine.connect() as conn:
@@ -485,6 +627,7 @@ def ensure_team_schema(engine: Engine) -> None:
             f"INTEGER NOT NULL DEFAULT {DEFAULT_AUTO_KICK_HOURS}",
         )
         _add_col_if_missing(conn, is_sqlite, "team_members", "last_activity_at", now_col)
+        _add_col_if_missing(conn, is_sqlite, "team_milestones", "amber_bonus_pp", "INTEGER")
         conn.commit()
     log.info("team_schema: tables verified/created")
 
@@ -606,16 +749,17 @@ def get_team(db: Session, team_id: int) -> dict[str, Any] | None:
     ).fetchone()
     if not row:
         return None
-    return _team_row(row)
+    return _team_row(row, db=db)
 
 
-def _team_row(row: Any) -> dict[str, Any]:
+def _team_row(row: Any, *, db: Session | None = None) -> dict[str, Any]:
     lifetime = int(row[9] or 0)
     auto_kick = bool(row[17]) if len(row) > 17 else False
     try:
         auto_hours = int(row[18]) if len(row) > 18 and row[18] is not None else DEFAULT_AUTO_KICK_HOURS
     except (TypeError, ValueError):
         auto_hours = DEFAULT_AUTO_KICK_HOURS
+    mi = int(row[7] or 0)
     return {
         "id": int(row[0]),
         "name": row[1],
@@ -624,7 +768,7 @@ def _team_row(row: Any) -> dict[str, Any]:
         "owner_steam_id": row[4],
         "status": row[5],
         "max_members": int(row[6] or DEFAULT_MAX_MEMBERS),
-        "milestone_index": int(row[7] or 0),
+        "milestone_index": mi,
         "team_xp": int(row[8] or 0),
         "team_xp_lifetime": lifetime,
         "team_honor": lifetime,
@@ -637,7 +781,7 @@ def _team_row(row: Any) -> dict[str, Any]:
         "updated_at": str(row[16]) if row[16] else None,
         "auto_kick_inactive": auto_kick,
         "auto_kick_inactive_hours": max(AUTO_KICK_HOURS_MIN, min(AUTO_KICK_HOURS_MAX, auto_hours)),
-        "amber_bonus_pct": team_amber_bonus_pct(int(row[7] or 0)),
+        "amber_bonus_pct": team_amber_bonus_pct(mi, db=db),
     }
 
 
@@ -691,6 +835,7 @@ def team_public_view(db: Session, team_id: int, *, viewer_steam_id: str | None =
     if not team:
         raise ValueError("Equipe não encontrada.")
     members = list_members(db, team_id, statuses=["ACTIVE"])
+    member_count = len(members)
     bank = get_bank(db, team_id)
     ms = get_current_milestone_for_team(db, team)
     progress = milestone_progress_view(db, team, ms) if ms else None
@@ -699,10 +844,17 @@ def team_public_view(db: Session, team_id: int, *, viewer_steam_id: str | None =
         mem = get_active_membership(db, viewer_steam_id)
         if mem and mem["team_id"] == team_id:
             viewer_roles = _member_roles(db, team_id, viewer_steam_id)
+    accepting = team_accepting_members(team, member_count)
+    owner_row = next((m for m in members if m["steam_id"] == team["owner_steam_id"]), None)
     return {
         "team": team,
         "members": members,
-        "member_count": len(members),
+        "member_count": member_count,
+        "max_members": int(team["max_members"]),
+        "recruitment_open": bool(team["recruitment_open"]),
+        "accepting_members": accepting,
+        "recruiting_open": accepting,  # alias for directory UI
+        "owner_display_name": (owner_row or {}).get("display_name") or team["owner_steam_id"],
         "bank": {
             "amber_balance": bank["amber_balance"],
             "resources": bank["resources"],
@@ -712,7 +864,76 @@ def team_public_view(db: Session, team_id: int, *, viewer_steam_id: str | None =
         "milestone": progress,
         "viewer_roles": viewer_roles,
         "split": get_active_team_split(db, team_id),
+        "lottery": get_team_lottery_status(db, team_id),
     }
+
+
+def list_public_teams(
+    db: Session,
+    *,
+    q: str = "",
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Directory of ACTIVE founded teams for the global Equipes page."""
+    limit = max(1, min(200, int(limit)))
+    offset = max(0, int(offset))
+    q = str(q or "").strip()
+    params: dict[str, Any] = {"lim": limit, "off": offset}
+    where = "status = 'ACTIVE'"
+    if q:
+        where += (
+            " AND (name LIKE :q OR name_norm LIKE :qn OR tag LIKE :qt"
+            " OR owner_steam_id LIKE :qs OR founder_steam_id LIKE :qs)"
+        )
+        params["q"] = f"%{q}%"
+        params["qn"] = f"%{_norm_name(q)}%"
+        params["qt"] = f"%{q.upper()}%"
+        params["qs"] = f"%{q}%"
+    total_row = db.execute(
+        text(f"SELECT COUNT(*) FROM teams WHERE {where}"),
+        {k: v for k, v in params.items() if k not in ("lim", "off")},
+    ).fetchone()
+    total = int(total_row[0] or 0) if total_row else 0
+    rows = db.execute(
+        text(f"""
+            SELECT {_TEAM_COLS}
+            FROM teams WHERE {where}
+            ORDER BY name ASC
+            LIMIT :lim OFFSET :off
+        """),
+        params,
+    ).fetchall()
+    items: list[dict[str, Any]] = []
+    for r in rows:
+        t = _team_row(r, db=db)
+        mc = count_active_members(db, t["id"])
+        owner_dn = db.execute(
+            text("""
+                SELECT display_name FROM team_members
+                WHERE team_id = :tid AND steam_id = :sid AND status = 'ACTIVE'
+                LIMIT 1
+            """),
+            {"tid": t["id"], "sid": t["owner_steam_id"]},
+        ).fetchone()
+        accepting = team_accepting_members(t, mc)
+        items.append({
+            "id": t["id"],
+            "name": t["name"],
+            "tag": t["tag"],
+            "owner_steam_id": t["owner_steam_id"],
+            "owner_display_name": (owner_dn[0] if owner_dn and owner_dn[0] else "") or t["owner_steam_id"],
+            "mural_text": t["mural_text"] or "",
+            "member_count": mc,
+            "max_members": int(t["max_members"]),
+            "recruitment_open": bool(t["recruitment_open"]),
+            "accepting_members": accepting,
+            "recruiting_open": accepting,
+            "milestone_index": t["milestone_index"],
+            "team_honor": t["team_honor"],
+            "status": t["status"],
+        })
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 # ── Create / rename / lifecycle ──────────────────────────────
@@ -742,6 +963,22 @@ def create_team(
     ).fetchone()
     if existing:
         raise ValueError("Já existe uma equipe com este nome.")
+
+    # Q5: first foundation free; subsequent creates cost FOUNDING_FEE_AMBER
+    fee = founding_fee_for_player(db, steam_id)
+    if fee > 0:
+        if not _subtract_points_tx:
+            raise RuntimeError("team_service subtract_points_tx not wired")
+        try:
+            _subtract_points_tx(db, steam_id, fee)
+        except ValueError as exc:
+            msg = str(exc)
+            if "insufficient" in msg.lower() or "saldo" in msg.lower():
+                raise ValueError(
+                    f"Saldo insuficiente para fundar novamente "
+                    f"(custo: {fee} Âmbares após a 1ª fundação)."
+                ) from exc
+            raise
 
     db.execute(
         text("""
@@ -789,7 +1026,9 @@ def create_team(
         {"tid": team_id, "now": now},
     )
     db.commit()
-    return team_public_view(db, team_id, viewer_steam_id=steam_id)
+    view = team_public_view(db, team_id, viewer_steam_id=steam_id)
+    view["founding_fee_charged"] = fee
+    return view
 
 
 def rename_team(db: Session, *, team_id: int, actor_steam_id: str, name: str) -> dict[str, Any]:
@@ -825,6 +1064,31 @@ def set_recruitment_open(db: Session, *, team_id: int, actor_steam_id: str, open
     db.execute(
         text("UPDATE teams SET recruitment_open = :o, updated_at = :now WHERE id = :id"),
         {"o": 1 if open_ else 0, "now": now, "id": team_id},
+    )
+    db.commit()
+    return get_team(db, team_id) or {}
+
+
+def update_mural(
+    db: Session,
+    *,
+    team_id: int,
+    actor_steam_id: str,
+    mural_text: str,
+) -> dict[str, Any]:
+    """Owner / Embaixador / Arquivista — regulamento / mural da equipe."""
+    _require_enabled()
+    _assert_can(db, team_id, actor_steam_id, "mural")
+    team = get_team(db, team_id)
+    if not team or team["status"] != "ACTIVE":
+        raise ValueError("Equipe indisponível.")
+    text_val = str(mural_text or "").strip()
+    if len(text_val) > 8000:
+        raise ValueError("Regulamento/mural demasiado longo (máx. 8000 caracteres).")
+    now = _naive()
+    db.execute(
+        text("UPDATE teams SET mural_text = :m, updated_at = :now WHERE id = :id"),
+        {"m": text_val, "now": now, "id": team_id},
     )
     db.commit()
     return get_team(db, team_id) or {}
@@ -1067,8 +1331,9 @@ def accept_invite(db: Session, *, steam_id: str, invite_code: str | None = None,
         """),
         {"now": now, "id": row[0]},
     )
+    # R3: +2 lottery numbers if team already confirmed for active campaign (Q12 refund if short)
+    maybe_allocate_lottery_on_member_join(db, int(row[1]))
     db.commit()
-    # TODO(v1.1): auto +2 lottery numbers if team confirmed for active campaign
     return team_public_view(db, int(row[1]), viewer_steam_id=steam_id)
 
 
@@ -1150,6 +1415,7 @@ def approve_join(db: Session, *, team_id: int, actor_steam_id: str, target_steam
     )
     if not res.rowcount:
         raise ValueError("Pedido não encontrado.")
+    maybe_allocate_lottery_on_member_join(db, team_id)
     db.commit()
     return team_public_view(db, team_id, viewer_steam_id=actor_steam_id)
 
@@ -1236,7 +1502,7 @@ def kick_member(
         text("DELETE FROM team_roles WHERE team_id = :tid AND steam_id = :sid"),
         {"tid": team_id, "sid": target_steam_id},
     )
-    # Q9: lottery numbers stay with team (no-op until lottery wired)
+    # Q9: lottery numbers stay with team (no revoke on kick/leave)
     if staff and target_steam_id == team["owner_steam_id"]:
         # Staff kick of owner → leave ownership vacant until transfer (custody)
         db.execute(
@@ -1279,6 +1545,13 @@ def assign_role(
     actor_roles = set(_member_roles(db, team_id, actor_steam_id))
     if ROLE_OWNER not in actor_roles and role_key == ROLE_GUARDIAN:
         raise PermissionError("Só o Owner pode atribuir Guardião.")
+    # Q13: max MAX_SPECIAL_ROLES special roles (OWNER does not count toward the cap)
+    current_special = [r for r in _member_roles(db, team_id, target_steam_id) if r in ASSIGNABLE_ROLES]
+    if role_key not in current_special and len(current_special) >= MAX_SPECIAL_ROLES:
+        raise ValueError(
+            f"Máximo de {MAX_SPECIAL_ROLES} papéis especiais por membro "
+            f"(já tem: {', '.join(current_special)})."
+        )
     now = _naive()
     exists = db.execute(
         text("""
@@ -1417,7 +1690,7 @@ def staff_list_teams(db: Session, *, q: str = "", limit: int = 100) -> list[dict
         ).fetchall()
     out = []
     for r in rows:
-        t = _team_row(r)
+        t = _team_row(r, db=db)
         t["member_count"] = count_active_members(db, t["id"])
         out.append(t)
     return out
@@ -1725,7 +1998,8 @@ def list_milestones(db: Session, *, include_draft: bool = False) -> list[dict[st
         rows = db.execute(
             text("""
                 SELECT id, milestone_index, title, description, amber_required, xp_required,
-                       resources_json, max_members_unlock, status, created_at, updated_at
+                       resources_json, max_members_unlock, status, created_at, updated_at,
+                       amber_bonus_pp
                 FROM team_milestones ORDER BY milestone_index
             """)
         ).fetchall()
@@ -1733,7 +2007,8 @@ def list_milestones(db: Session, *, include_draft: bool = False) -> list[dict[st
         rows = db.execute(
             text("""
                 SELECT id, milestone_index, title, description, amber_required, xp_required,
-                       resources_json, max_members_unlock, status, created_at, updated_at
+                       resources_json, max_members_unlock, status, created_at, updated_at,
+                       amber_bonus_pp
                 FROM team_milestones
                 WHERE status IN ('ACTIVE', 'COMPLETED')
                 ORDER BY milestone_index
@@ -1761,6 +2036,12 @@ def _ms_row(r: Any) -> dict[str, Any]:
             "quantity": int(req.get("quantity") or 0),
             "label_pt": req.get("label_pt") or (meta["label_pt"] if meta else key),
         })
+    amber_pp = None
+    if len(r) > 11 and r[11] is not None:
+        try:
+            amber_pp = max(0, int(r[11]))
+        except (TypeError, ValueError):
+            amber_pp = None
     return {
         "id": int(r[0]),
         "milestone_index": int(r[1]),
@@ -1773,6 +2054,8 @@ def _ms_row(r: Any) -> dict[str, Any]:
         "status": r[8],
         "created_at": str(r[9]) if r[9] else None,
         "updated_at": str(r[10]) if r[10] else None,
+        "amber_bonus_pp": amber_pp if amber_pp is not None else amber_bonus_pp_per_milestone(),
+        "amber_bonus_pp_explicit": amber_pp,
     }
 
 
@@ -1786,6 +2069,7 @@ def upsert_milestone(
     xp_required: int = 0,
     resources: list[dict[str, Any]] | None = None,
     max_members_unlock: int | None = None,
+    amber_bonus_pp: int | None = None,
     status: str = "DRAFT",
 ) -> dict[str, Any]:
     milestone_index = int(milestone_index)
@@ -1800,6 +2084,10 @@ def upsert_milestone(
         text("SELECT id FROM team_milestones WHERE milestone_index = :i"),
         {"i": milestone_index},
     ).fetchone()
+    if amber_bonus_pp is None:
+        pp_val = amber_bonus_pp_per_milestone()
+    else:
+        pp_val = max(0, int(amber_bonus_pp))
     params = {
         "i": milestone_index,
         "title": str(title or f"Marco {milestone_index}")[:128],
@@ -1808,6 +2096,7 @@ def upsert_milestone(
         "xp": max(0, int(xp_required)),
         "rj": json.dumps(resources, ensure_ascii=False),
         "mmu": max_members_unlock,
+        "abpp": pp_val,
         "st": status,
         "now": now,
     }
@@ -1816,7 +2105,7 @@ def upsert_milestone(
             text("""
                 UPDATE team_milestones SET title=:title, description=:desc,
                   amber_required=:amber, xp_required=:xp, resources_json=:rj,
-                  max_members_unlock=:mmu, status=:st, updated_at=:now
+                  max_members_unlock=:mmu, amber_bonus_pp=:abpp, status=:st, updated_at=:now
                 WHERE milestone_index=:i
             """),
             params,
@@ -1826,8 +2115,8 @@ def upsert_milestone(
             text("""
                 INSERT INTO team_milestones
                   (milestone_index, title, description, amber_required, xp_required,
-                   resources_json, max_members_unlock, status, created_at, updated_at)
-                VALUES (:i, :title, :desc, :amber, :xp, :rj, :mmu, :st, :now, :now)
+                   resources_json, max_members_unlock, amber_bonus_pp, status, created_at, updated_at)
+                VALUES (:i, :title, :desc, :amber, :xp, :rj, :mmu, :abpp, :st, :now, :now)
             """),
             params,
         )
@@ -1835,7 +2124,8 @@ def upsert_milestone(
     row = db.execute(
         text("""
             SELECT id, milestone_index, title, description, amber_required, xp_required,
-                   resources_json, max_members_unlock, status, created_at, updated_at
+                   resources_json, max_members_unlock, status, created_at, updated_at,
+                   amber_bonus_pp
             FROM team_milestones WHERE milestone_index = :i
         """),
         {"i": milestone_index},
@@ -1863,6 +2153,7 @@ def _ms_as_kwargs(db: Session, milestone_index: int) -> dict[str, Any]:
         "xp_required": ms["xp_required"],
         "resources": ms["resources"],
         "max_members_unlock": ms["max_members_unlock"],
+        "amber_bonus_pp": ms.get("amber_bonus_pp_explicit", ms.get("amber_bonus_pp")),
         "status": ms["status"],
     }
 
@@ -1873,7 +2164,8 @@ def get_current_milestone_for_team(db: Session, team: dict[str, Any]) -> dict[st
     row = db.execute(
         text("""
             SELECT id, milestone_index, title, description, amber_required, xp_required,
-                   resources_json, max_members_unlock, status, created_at, updated_at
+                   resources_json, max_members_unlock, status, created_at, updated_at,
+                   amber_bonus_pp
             FROM team_milestones
             WHERE milestone_index = :i AND status = 'ACTIVE'
             LIMIT 1
@@ -2196,7 +2488,7 @@ def ranking_teams(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
     ).fetchall()
     out = []
     for i, r in enumerate(rows, start=1):
-        t = _team_row(r)
+        t = _team_row(r, db=db)
         t["rank"] = i
         t["member_count"] = count_active_members(db, t["id"])
         out.append(t)
@@ -2478,29 +2770,325 @@ def get_team_split_snapshot_for_listing(
     }
 
 
-# ── Lottery stubs (v1.1) ─────────────────────────────────────
+def credit_team_bank_amber(
+    db: Session,
+    *,
+    team_id: int,
+    amount: int,
+    entry_type: str,
+    note: str = "",
+    actor_steam_id: str = "",
+    idempotency_key: str | None = None,
+    commit: bool = True,
+) -> dict[str, Any]:
+    """Credit Âmbares to team bank (no player debit). Used for Q10 remainder / Q12 refund."""
+    amount = int(amount)
+    if amount <= 0:
+        bank = get_bank(db, team_id)
+        return {"credited": 0, "bank": bank}
+    if idempotency_key:
+        prev = db.execute(
+            text("SELECT id FROM team_bank_ledger WHERE idempotency_key = :k LIMIT 1"),
+            {"k": str(idempotency_key)[:128]},
+        ).fetchone()
+        if prev:
+            return {"duplicate": True, "bank": get_bank(db, team_id)}
+    bank = get_bank(db, team_id)
+    new_bal = int(bank["amber_balance"]) + amount
+    now = _naive()
+    db.execute(
+        text("UPDATE team_bank SET amber_balance = :b, updated_at = :now WHERE team_id = :tid"),
+        {"b": new_bal, "now": now, "tid": int(team_id)},
+    )
+    db.execute(
+        text("""
+            INSERT INTO team_bank_ledger
+              (team_id, entry_type, asset_kind, asset_key, amount, balance_after,
+               actor_steam_id, idempotency_key, note, created_at)
+            VALUES
+              (:tid, :etype, 'amber', 'amber', :amt, :bal,
+               :actor, :idem, :note, :now)
+        """),
+        {
+            "tid": int(team_id),
+            "etype": str(entry_type or "CREDIT_AMBER")[:64],
+            "amt": amount,
+            "bal": new_bal,
+            "actor": str(actor_steam_id or ""),
+            "idem": (str(idempotency_key)[:128] if idempotency_key else None),
+            "note": (note or "")[:255],
+            "now": now,
+        },
+    )
+    if commit:
+        db.commit()
+    return {"credited": amount, "bank": get_bank(db, team_id)}
 
-def lottery_confirm_stub(db: Session, *, team_id: int, actor_steam_id: str, campaign_id: int) -> dict[str, Any]:
-    """Stub: Owner confirms team lottery participation. Full wiring TODO v1.1."""
+
+def get_team_lottery_status(db: Session, team_id: int) -> dict[str, Any]:
+    """Status of team lottery participation for the active campaign (for UI)."""
+    out: dict[str, Any] = {
+        "enabled": False,
+        "campaign": None,
+        "confirmed": False,
+        "numbers": [],
+        "numbers_count": 0,
+        "can_confirm": False,
+        "confirmation_deadline_ok": False,
+        "shortfall_refund_per_number": lottery_shortfall_refund_amber(),
+        "last_refund_notice": None,
+    }
+    try:
+        from lottery_service import (
+            _confirmation_deadline_ok,
+            _is_enabled,
+            get_active_campaign,
+            list_team_numbers,
+            _campaign_public_dict,
+        )
+    except Exception:
+        return out
+    if not _is_enabled():
+        return out
+    out["enabled"] = True
+    campaign = get_active_campaign(db)
+    if not campaign or str(campaign.status) != "ACTIVE":
+        return out
+    cid = int(campaign.id)
+    out["campaign"] = {
+        "id": cid,
+        "title": str(getattr(campaign, "title", "") or ""),
+        "draw_at_display": (_campaign_public_dict(campaign, db=db) or {}).get("draw_at_display"),
+    }
+    deadline_ok = _confirmation_deadline_ok(campaign)
+    out["confirmation_deadline_ok"] = deadline_ok
+    conf = db.execute(
+        text(
+            "SELECT confirmed_at, numbers_requested, numbers_assigned, shortfall_refunded, confirmed_by "
+            "FROM team_lottery_confirmations WHERE campaign_id = :cid AND team_id = :tid"
+        ),
+        {"cid": cid, "tid": int(team_id)},
+    ).fetchone()
+    if conf:
+        out["confirmed"] = True
+        out["numbers_requested"] = int(conf[1] or 0)
+        out["numbers_assigned"] = int(conf[2] or 0)
+        out["shortfall_refunded"] = int(conf[3] or 0)
+        out["confirmed_by"] = str(conf[4] or "")
+        if int(conf[3] or 0) > 0:
+            out["last_refund_notice"] = (
+                f"Reembolso de {int(conf[3])} Âmbares ao banco da equipe "
+                f"(números em falta na grade)."
+            )
+    else:
+        out["can_confirm"] = deadline_ok
+    try:
+        nums = list_team_numbers(db, campaign_id=cid, team_id=int(team_id))
+    except Exception:
+        nums = []
+    out["numbers"] = nums
+    out["numbers_count"] = len(nums)
+    return out
+
+
+def _refund_lottery_shortfall(
+    db: Session,
+    *,
+    team_id: int,
+    shortfall: int,
+    campaign_id: int,
+    actor_steam_id: str = "",
+    reason: str = "confirm",
+) -> int:
+    """Q12: credit team bank for each number that could not be allocated."""
+    shortfall = max(0, int(shortfall))
+    if shortfall <= 0:
+        return 0
+    per = lottery_shortfall_refund_amber()
+    total = shortfall * per
+    if total <= 0:
+        return 0
+    credit_team_bank_amber(
+        db,
+        team_id=int(team_id),
+        amount=total,
+        entry_type="LOTTERY_SHORTFALL_REFUND",
+        note=f"Q12 reembolso {shortfall} nº × {per} Â (campanha {campaign_id}, {reason})",
+        actor_steam_id=actor_steam_id,
+        idempotency_key=f"team_lot_shortfall:{campaign_id}:{team_id}:{reason}:{shortfall}",
+        commit=False,
+    )
+    return total
+
+
+def maybe_allocate_lottery_on_member_join(db: Session, team_id: int) -> dict[str, Any] | None:
+    """R3: after team confirmed for active campaign, new member → +2 numbers (or Q12 refund)."""
+    try:
+        from lottery_service import (
+            _is_enabled,
+            allocate_team_numbers,
+            get_active_campaign,
+        )
+    except Exception:
+        return None
+    if not teams_enabled() or not _is_enabled():
+        return None
+    campaign = get_active_campaign(db)
+    if not campaign or str(campaign.status) != "ACTIVE":
+        return None
+    cid = int(campaign.id)
+    conf = db.execute(
+        text(
+            "SELECT 1 FROM team_lottery_confirmations "
+            "WHERE campaign_id = :cid AND team_id = :tid"
+        ),
+        {"cid": cid, "tid": int(team_id)},
+    ).fetchone()
+    if not conf:
+        return None
+    result = allocate_team_numbers(
+        db, campaign_id=cid, team_id=int(team_id), count=LOTTERY_NUMBERS_PER_MEMBER,
+    )
+    refunded = _refund_lottery_shortfall(
+        db,
+        team_id=int(team_id),
+        shortfall=int(result.get("shortfall") or 0),
+        campaign_id=cid,
+        reason=f"join:{len(result.get('numbers') or [])}",
+    )
+    if refunded:
+        db.execute(
+            text("""
+                UPDATE team_lottery_confirmations
+                SET numbers_assigned = numbers_assigned + :a,
+                    shortfall_refunded = shortfall_refunded + :r
+                WHERE campaign_id = :cid AND team_id = :tid
+            """),
+            {
+                "a": len(result.get("numbers") or []),
+                "r": refunded,
+                "cid": cid,
+                "tid": int(team_id),
+            },
+        )
+    else:
+        db.execute(
+            text("""
+                UPDATE team_lottery_confirmations
+                SET numbers_assigned = numbers_assigned + :a
+                WHERE campaign_id = :cid AND team_id = :tid
+            """),
+            {"a": len(result.get("numbers") or []), "cid": cid, "tid": int(team_id)},
+        )
+    return {**result, "shortfall_refunded": refunded, "campaign_id": cid}
+
+
+def confirm_team_lottery(
+    db: Session,
+    *,
+    team_id: int,
+    actor_steam_id: str,
+    campaign_id: int | None = None,
+) -> dict[str, Any]:
+    """Owner confirms team lottery participation once per campaign (R1–R2, Q12)."""
     _require_enabled()
     _assert_can(db, team_id, actor_steam_id, "lottery_confirm")
-    n = count_active_members(db, team_id)
+    from lottery_service import (
+        _confirmation_deadline_ok,
+        _is_enabled,
+        allocate_team_numbers,
+        get_active_campaign,
+        list_team_numbers,
+        _fetch_campaign_row,
+    )
+
+    if not _is_enabled():
+        raise ValueError("Sorteio desabilitado.")
+    if campaign_id:
+        campaign = _fetch_campaign_row(db, int(campaign_id))
+        if not campaign or str(campaign.status) != "ACTIVE":
+            raise ValueError("Campanha de sorteio não está ACTIVE.")
+    else:
+        campaign = get_active_campaign(db)
+        if not campaign or str(campaign.status) != "ACTIVE":
+            raise ValueError("Nenhuma campanha de sorteio ACTIVE.")
+    cid = int(campaign.id)
+    if not _confirmation_deadline_ok(campaign):
+        raise ValueError(
+            "O prazo para confirmar participação encerrou (2 horas antes do sorteio)."
+        )
+    existing = db.execute(
+        text(
+            "SELECT 1 FROM team_lottery_confirmations "
+            "WHERE campaign_id = :cid AND team_id = :tid"
+        ),
+        {"cid": cid, "tid": int(team_id)},
+    ).fetchone()
+    if existing:
+        raise ValueError("Equipe já confirmada nesta campanha.")
+
+    n_members = count_active_members(db, team_id)
+    requested = n_members * LOTTERY_NUMBERS_PER_MEMBER
+    alloc = allocate_team_numbers(
+        db, campaign_id=cid, team_id=int(team_id), count=requested,
+    )
+    shortfall = int(alloc.get("shortfall") or 0)
+    refunded = _refund_lottery_shortfall(
+        db,
+        team_id=int(team_id),
+        shortfall=shortfall,
+        campaign_id=cid,
+        actor_steam_id=str(actor_steam_id),
+        reason="confirm",
+    )
+    now = _naive()
+    db.execute(
+        text("""
+            INSERT INTO team_lottery_confirmations
+              (campaign_id, team_id, confirmed_by, confirmed_at,
+               numbers_requested, numbers_assigned, shortfall_refunded)
+            VALUES (:cid, :tid, :by, :now, :req, :asn, :ref)
+        """),
+        {
+            "cid": cid,
+            "tid": int(team_id),
+            "by": str(actor_steam_id),
+            "now": now,
+            "req": requested,
+            "asn": len(alloc.get("numbers") or []),
+            "ref": refunded,
+        },
+    )
+    db.commit()
+    nums = list_team_numbers(db, campaign_id=cid, team_id=int(team_id))
     return {
         "ok": True,
-        "stub": True,
-        "team_id": team_id,
-        "campaign_id": int(campaign_id),
-        "numbers_planned": n * 2,
+        "team_id": int(team_id),
+        "campaign_id": cid,
+        "members": n_members,
+        "numbers_requested": requested,
+        "numbers_assigned": len(nums),
+        "numbers": nums,
+        "shortfall": shortfall,
+        "shortfall_refunded": refunded,
+        "shortfall_refund_per_number": lottery_shortfall_refund_amber(),
         "message": (
-            "TODO v1.1: gerar 2 números/membro na campanha; "
-            "kick/leave mantém números na equipe (Q9); "
-            "resto do prêmio → banco da equipe (Q10)."
+            f"Participação confirmada: {len(nums)}/{requested} números."
+            + (
+                f" Reembolso de {refunded} Âmbares ao banco (grade insuficiente)."
+                if refunded
+                else ""
+            )
         ),
     }
 
 
+# Keep alias so old imports don't break during transition
+lottery_confirm_stub = confirm_team_lottery
+
+
 def my_team_or_invites(db: Session, steam_id: str) -> dict[str, Any]:
-    """Aggregate for Minha Equipe page."""
+    """Aggregate for Minha Equipe / Minha Área."""
     mem = get_active_membership(db, steam_id)
     invites = db.execute(
         text("""
@@ -2523,15 +3111,22 @@ def my_team_or_invites(db: Session, steam_id: str) -> dict[str, Any]:
         for r in invites
     ]
     if mem:
-        touch_member_activity(db, team_id=int(mem["team_id"]), steam_id=steam_id, commit=True)
-        view = team_public_view(db, int(mem["team_id"]), viewer_steam_id=steam_id)
+        tid = int(mem["team_id"])
+        touch_member_activity(db, team_id=tid, steam_id=steam_id, commit=True)
+        view = team_public_view(db, tid, viewer_steam_id=steam_id)
         view["pending"] = pending_in
         view["player_xp"] = my_player_rank(db, steam_id)
+        roles = view.get("viewer_roles") or []
+        if any(r in roles for r in (ROLE_OWNER, ROLE_GUARDIAN, ROLE_HERALD)):
+            view["join_requests"] = list_members(db, tid, statuses=["PENDING"])
+        else:
+            view["join_requests"] = []
         return view
     return {
         "team": None,
         "members": [],
         "pending": pending_in,
+        "join_requests": [],
         "player_xp": my_player_rank(db, steam_id),
         "enabled": teams_enabled(),
     }

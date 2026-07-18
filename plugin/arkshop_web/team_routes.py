@@ -4,6 +4,7 @@ Registrar via register_team_routes(app, ...) no app.py.
 
 Player (login_required):
   GET  /api/teams/status
+  GET  /api/teams/public
   GET  /api/teams/my
   POST /api/teams/create
   POST /api/teams/rename
@@ -21,6 +22,7 @@ Player (login_required):
   POST /api/teams/transfer
   POST /api/teams/recruitment
   POST /api/teams/settings
+  POST /api/teams/mural
   POST /api/teams/bank/donate
   GET  /api/teams/bank
   GET  /api/teams/bank/ledger
@@ -32,7 +34,8 @@ Player (login_required):
   POST /api/teams/split/optin
   POST /api/teams/split/optout
   POST /api/teams/split/disable
-  POST /api/teams/lottery/confirm   (stub v1.1)
+  POST /api/teams/lottery/confirm
+  GET  /api/teams/lottery
   GET  /api/teams/rankings/teams
   GET  /api/teams/rankings/players
   GET  /api/teams/<id>
@@ -100,7 +103,9 @@ def register_team_routes(
         leave_team,
         list_members,
         list_milestones,
-        lottery_confirm_stub,
+        list_public_teams,
+        confirm_team_lottery,
+        get_team_lottery_status,
         milestone_progress_view,
         my_player_rank,
         my_team_or_invites,
@@ -121,6 +126,7 @@ def register_team_routes(
         teams_enabled,
         transfer_ownership,
         try_complete_milestone,
+        update_mural,
         update_team_settings,
         upsert_milestone,
         warehouse_catalog,
@@ -153,8 +159,26 @@ def register_team_routes(
 
     @app.route("/api/teams/status", methods=["GET"])
     def teams_status():
+        from team_service import (
+            DEFAULT_AMBER_BONUS_CAP,
+            DEFAULT_AMBER_BONUS_PP,
+            FOUNDING_FEE_AMBER,
+            LOTTERY_SHORTFALL_REFUND_AMBER,
+            MAX_SPECIAL_ROLES,
+            default_max_members,
+            founding_fee_amber,
+        )
         return _ok({
             "enabled": teams_enabled(),
+            "max_members_default": default_max_members(),
+            "founding_fee": founding_fee_amber(),
+            "founding_fee_default": FOUNDING_FEE_AMBER,
+            "founding_first_free": True,
+            "max_special_roles": MAX_SPECIAL_ROLES,
+            "amber_bonus_mode": "additive",  # Q7: stacks additively; unlocked via marcos
+            "amber_bonus_pp_default": DEFAULT_AMBER_BONUS_PP,
+            "amber_bonus_cap_default": DEFAULT_AMBER_BONUS_CAP,
+            "lottery_shortfall_refund_default": LOTTERY_SHORTFALL_REFUND_AMBER,
             "roles": {
                 "OWNER": "Proprietário",
                 "GUARDIAN": "Guardião",
@@ -166,6 +190,33 @@ def register_team_routes(
             },
             "warehouse_catalog": warehouse_catalog(),
         })
+
+    @app.route("/api/teams/public", methods=["GET"])
+    def teams_public_list():
+        """Global directory of ACTIVE teams (authenticated or public)."""
+        blocked = _gate_enabled()
+        if blocked:
+            return blocked
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        db = _db()
+        try:
+            q = (request.args.get("q") or "").strip()
+            limit = int(request.args.get("limit") or 100)
+            offset = int(request.args.get("offset") or 0)
+            data = list_public_teams(db, q=q, limit=limit, offset=offset)
+            sid = _sid()
+            viewer_has_team = False
+            if sid:
+                viewer_has_team = get_active_membership(db, sid) is not None
+            data["viewer_has_team"] = viewer_has_team
+            data["viewer_steam_id"] = sid
+            return _ok(data)
+        except Exception as exc:
+            log.warning("teams/public: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
 
     @app.route("/api/teams/rankings/teams", methods=["GET"])
     def teams_ranking_teams():
@@ -599,6 +650,30 @@ def register_team_routes(
         finally:
             db.close()
 
+    @app.route("/api/teams/mural", methods=["POST"])
+    @login_required
+    def teams_mural():
+        blocked = _gate_enabled()
+        if blocked:
+            return blocked
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        sid = _sid()
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            tid = _team_id_from_body_or_membership(db, sid, body)
+            return _ok(update_mural(
+                db,
+                team_id=tid,
+                actor_steam_id=sid,
+                mural_text=str(body.get("mural_text") or body.get("regulamento") or ""),
+            ))
+        except (ValueError, PermissionError) as exc:
+            return _fail(str(exc))
+        finally:
+            db.close()
+
     @app.route("/api/teams/bank", methods=["GET"])
     @login_required
     def teams_bank_get():
@@ -670,7 +745,11 @@ def register_team_routes(
     @app.route("/api/teams/bank/deposit-resource", methods=["POST"])
     @api_key_required(allow_admin_session=False)
     def teams_bank_deposit_resource():
-        """Plugin bridge for /marco — credits WAREHOUSE (catalog keys only). C++ TODO."""
+        """Plugin bridge for /marco→/confirmar — credits WAREHOUSE (catalog only).
+
+        C++: scan on /marco (preview + no-refund warning, TTL 60s), consume+POST
+        only after /confirmar. See docs/PROJETO_MODO_EQUIPE.md §5.5 and ShopTeams.
+        """
         if not teams_enabled():
             return _fail("teams_enabled=false", 403)
         if not db_ready():
@@ -890,12 +969,34 @@ def register_team_routes(
             mem = get_active_membership(db, sid)
             if not mem:
                 return _fail("Não está em nenhuma equipe.")
-            return _ok(lottery_confirm_stub(
+            raw_cid = body.get("campaign_id")
+            campaign_id = int(raw_cid) if raw_cid not in (None, "", 0, "0") else None
+            return _ok(confirm_team_lottery(
                 db,
                 team_id=int(mem["team_id"]),
                 actor_steam_id=sid,
-                campaign_id=int(body.get("campaign_id") or 0),
+                campaign_id=campaign_id,
             ))
+        except (ValueError, PermissionError) as exc:
+            return _fail(str(exc))
+        finally:
+            db.close()
+
+    @app.route("/api/teams/lottery", methods=["GET"])
+    @login_required
+    def teams_lottery_status():
+        blocked = _gate_enabled()
+        if blocked:
+            return blocked
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        sid = _sid()
+        db = _db()
+        try:
+            mem = get_active_membership(db, sid)
+            if not mem:
+                return _fail("Não está em nenhuma equipe.")
+            return _ok(get_team_lottery_status(db, int(mem["team_id"])))
         except (ValueError, PermissionError) as exc:
             return _fail(str(exc))
         finally:
@@ -1048,6 +1149,11 @@ def register_team_routes(
                 xp_required=int(body.get("xp_required") or 0),
                 resources=body.get("resources") or [],
                 max_members_unlock=body.get("max_members_unlock"),
+                amber_bonus_pp=(
+                    int(body["amber_bonus_pp"])
+                    if body.get("amber_bonus_pp") is not None and body.get("amber_bonus_pp") != ""
+                    else None
+                ),
                 status=str(body.get("status") or "DRAFT"),
             ))
         except (ValueError, PermissionError) as exc:

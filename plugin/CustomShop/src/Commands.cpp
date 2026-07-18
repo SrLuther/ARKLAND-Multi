@@ -7,6 +7,7 @@
 #include "ShopStore.h"
 #include "ShopVip.h"
 #include "ShopCloudInventory.h"
+#include "ShopTeams.h"
 #include "HttpClient.h"
 #include "ShopMarket.h"
 #include "TimedPoints.h"
@@ -892,6 +893,7 @@ void Register() {
         "CustomShopCloudChat", &OnCloudChatMessage);
 
     ShopMarket::RegisterCommands();
+    CustomShop::Teams::RegisterCommands(); // stub /marco — comando ainda nao registado
     CustomShop::TribeSync::RegisterChatCommands();
 
     // Admin (RCON ou console in-game)
@@ -926,6 +928,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/nuvem");
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ShopMarket::UnregisterCommands();
+    CustomShop::Teams::UnregisterCommands();
     CustomShop::TribeSync::UnregisterChatCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveChatCommand("/engramas");

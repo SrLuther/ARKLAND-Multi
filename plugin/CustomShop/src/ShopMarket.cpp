@@ -612,6 +612,11 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         return;
     }
 
+    // Ordem de despacho /confirmar (pending por steam_id):
+    //   1 engramas → 2 notas → 3 marco (Teams::HasPendingDeposit) → 4 mercado
+    // Spec Modo Equipe §5.5.4 — nao misturar kinds; mensagens especificas por ramo.
+    // TODO: if (Teams::HasPendingDeposit(sid)) { ConfirmDeposit(...); return; }
+
     if (Notes::HasPendingUnlock(sid)) {
         int price = 0;
         int balance = 0;

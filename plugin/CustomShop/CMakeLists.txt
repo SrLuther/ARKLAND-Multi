@@ -40,6 +40,7 @@ set(SOURCES
     src/ShopMarket.cpp
     src/ShopEngrams.cpp
     src/ShopNotes.cpp
+    src/ShopTeams.cpp
     src/ShopDebug.cpp
     src/ShopTribeSync.cpp
     src/ShopCrossChat.cpp

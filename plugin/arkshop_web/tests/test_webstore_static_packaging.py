@@ -20,6 +20,8 @@ def test_webstore_static_excludes_pipeline_icon_dirs():
     assert _would_package("species/icons/generated/rex.webp")
     assert _would_package("ambar.png")
     assert _would_package("logo.png")
+    assert _would_package("SeasonLand_Logo.png")
+    assert _would_package("ArkLnd_Equipes.png")
 
 
 def test_generated_webp_exist_without_needing_raw_at_runtime():

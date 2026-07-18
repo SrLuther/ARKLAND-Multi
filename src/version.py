@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.69"
+APP_VERSION: str = "1.10.70"
 BUILD_DATE: str = "2026-07-18"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -14,6 +14,16 @@ CHANGELOG: list[dict] = [
         "date": "",
         "changes": [
             "Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.",
+        ],
+    },
+    {
+        "version": "1.10.70",
+        "date": "2026-07-18",
+        "changes": [
+            "Feat (Web Store / Home): carrossel SeasonLand + Equipes (10s, dots/prev-next); clique → SeasonLand ou lista global Equipes.",
+            "Feat (Web Store / Equipes): logo ARKLAND Equipes (ig → static 256px) na nav, headers, Minha Área e slide da home.",
+            "Feat (CustomShop v1.10.24): stub ShopTeams (/marco ainda não registado; API web de depósito pronta).",
+            "Fix (Web Store / PWA): cache-bust estáticos ?v=1.10.70.",
         ],
     },
     {
