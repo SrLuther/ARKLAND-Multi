@@ -34,6 +34,7 @@ from market_service import (
     sync_registry_overlay_to_db,
     update_species_display_name,
     _list_species_aliases,
+    _filter_commerce_dino_rows,
     _species_row_is_commerce_dino,
 )
 
@@ -178,7 +179,7 @@ def register_market_routes(
                 q = q.filter(MarketSpecies.status == status)
             else:
                 q = q.filter(MarketSpecies.status != "INACTIVE")
-            rows = [r for r in q.all() if _species_row_is_commerce_dino(db, r)]
+            rows, alias_map = _filter_commerce_dino_rows(db, q.all())
             items = list_species_public(db, active_only=False)
             by_key = {i["species_key"]: i for i in items}
             catalog = read_shop_config()
@@ -193,7 +194,7 @@ def register_market_routes(
                 data["status"] = row.status
                 data["catalog_item_id"] = row.catalog_item_id
                 data["shop_catalog_name"] = shop_catalog_display_name(catalog, row.catalog_item_id)
-                data["linked_variants"] = _list_species_aliases(db, row.id)
+                data["linked_variants"] = alias_map.get(int(row.id), [])
                 out.append(data)
             return jsonify({"ok": True, "species": out, "tier_legend": load_tier_legend()})
         finally:

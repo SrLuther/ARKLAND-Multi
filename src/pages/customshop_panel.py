@@ -1379,7 +1379,7 @@ def _ensure_mariadb_running(timeout: int = 45) -> bool:
 
     # Tenta iniciar o servidor MariaDB portable
     try:
-        from src.pages.db_local_server import DbLocalServer
+        from .db_local_server import DbLocalServer
         srv = DbLocalServer()
         if not srv.is_installed():
             # MariaDB não está instalado — a loja usará SQLite
@@ -1504,6 +1504,16 @@ def stop_webstore() -> None:
             )
         except Exception:
             pass
+
+
+def shutdown_shop_services() -> None:
+    """Encerra Web Store e MariaDB portable gerenciados pelo TEK (quit/update)."""
+    stop_webstore()
+    try:
+        from .db_local_server import DbLocalServer
+        DbLocalServer().stop()
+    except Exception:
+        pass
 
 
 def _build_webstore_tab(
@@ -1944,14 +1954,7 @@ def _build_webstore_tab(
         threading.Thread(target=_worker, daemon=True).start()
 
     def _stop_web() -> None:
-        global _web_process
-        if _web_process and _web_process.poll() is None:
-            _web_process.terminate()
-            try:
-                _web_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                _web_process.kill()
-        _web_process = None
+        stop_webstore()
         parent.after(300, _refresh_status)
 
     btn_start = ctk.CTkButton(btn_row, text="▶  Iniciar Web Store",

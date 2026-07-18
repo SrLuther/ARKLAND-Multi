@@ -4,11 +4,14 @@
  * - /api/catalog → stale-while-revalidate (público e não sensível; acelera warmup)
  * - restante /api/* → network-only (nunca grava em Cache Storage)
  * - HTML/navegação → network-only (no-store; nunca cachear index.html)
- * - assets estáticos (js/css/img/fontes) → cache-first com atualização em background
+ * - ícones PWA pequenos → cache-first (precache)
+ * - /species/icons/* e thumbs grandes → network-only (não competir com APIs
+ *   no arranque nem encher Cache Storage; lazy no DOM)
+ * - outros assets estáticos (js/css/fontes) → cache-first com atualização em background
  */
 "use strict";
 
-const CACHE_NAME = "arkland-webstore-static-v3";
+const CACHE_NAME = "arkland-webstore-static-v4";
 const CATALOG_CACHE = "arkland-webstore-catalog-v1";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
@@ -38,14 +41,27 @@ function isNavigationOrHtml(request, url) {
   return path === "/" || path.endsWith(".html") || path === "/index.html";
 }
 
+function isHeavyImageAsset(url) {
+  // Ícones de espécie / thumbs de catálogo — dezenas/centenas de webp.
+  // Não cachear: evita I/O do SW no warmup e pressão no disco/bandwidth.
+  const p = url.pathname;
+  return (
+    p.startsWith("/species/icons/") ||
+    p.startsWith("/media/") ||
+    /thumbnail|thumb_|\/thumbs?\//i.test(p)
+  );
+}
+
 function isStaticAsset(url) {
   if (url.pathname === "/service-worker.js") return false;
   if (url.pathname === "/manifest.webmanifest") return true;
+  if (isHeavyImageAsset(url)) return false;
   return STATIC_EXT_RE.test(url.pathname);
 }
 
 self.addEventListener("install", (event) => {
   // Force update imediato — não esperar tabs antigas fecharem.
+  // Precache só ícones PWA pequenos — NUNCA species/icons nem index.html.
   event.waitUntil(
     caches
       .open(CACHE_NAME)
@@ -128,6 +144,12 @@ self.addEventListener("fetch", (event) => {
         )
       )
     );
+    return;
+  }
+
+  // Imagens pesadas (espécies/thumbs): network-only — não entram no Cache Storage.
+  if (isHeavyImageAsset(url)) {
+    event.respondWith(fetch(request));
     return;
   }
 

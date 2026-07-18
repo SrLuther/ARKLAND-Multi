@@ -287,3 +287,105 @@ def test_ticket_discord_notify_runs_off_request_thread(monkeypatch):
     assert done.wait(timeout=5), "notify Discord não foi disparado"
     assert called_from and called_from[0] != threading.main_thread().name
     assert called_from[0].startswith("ticket-discord-notify")
+
+
+# ── Steam login: persona fetch sem segurar sessão web ────────────────────────
+
+def test_touch_store_user_login_releases_db_before_steam(monkeypatch):
+    session_state = {"open": False}
+
+    class _FakeDb:
+        def get(self, *_a, **_k):
+            return None
+
+        def add(self, _row):
+            pass
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            session_state["open"] = False
+
+    def _session_factory():
+        session_state["open"] = True
+        return _FakeDb()
+
+    closed_before_steam = {"ok": False}
+
+    def _slow_steam_refresh(_db, ids, **kw):
+        closed_before_steam["ok"] = not session_state["open"]
+        time.sleep(0.05)
+        return {USER_STEAM: "NickSteam"} if USER_STEAM in ids else {}
+
+    monkeypatch.setattr(_app_module, "_db_ready", lambda: True)
+    monkeypatch.setattr(_app_module, "_steam_api_key_configured", lambda: True)
+    monkeypatch.setattr(_app_module, "_SessionLocal", _session_factory)
+    monkeypatch.setattr(_app_module, "_refresh_steam_personas", _slow_steam_refresh)
+    monkeypatch.setattr(_app_module, "_release_db_session", lambda db, force=False: db.close())
+    monkeypatch.setattr(
+        "lottery_service.ensure_fixed_lottery_number",
+        lambda *_a, **_k: None,
+    )
+
+    _app_module._touch_store_user_login(USER_STEAM)
+    assert closed_before_steam["ok"] is True
+
+
+# ── Plugin claim: sync Permissions após libertar sessão ────────────────────
+
+def test_claim_pending_deferred_perm_sync_runs_after_db_release(monkeypatch):
+    session_state = {"open": False}
+    sync_during_db: list[bool] = []
+
+    class _FakeDb:
+        def query(self, *_a, **_k):
+            return self
+
+        def filter(self, *_a, **_k):
+            return self
+
+        def order_by(self, *_a, **_k):
+            return self
+
+        def all(self):
+            return []
+
+        def execute(self, *_a, **_k):
+            return type("R", (), {"rowcount": 0})()
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            session_state["open"] = False
+
+    def _session_factory():
+        session_state["open"] = True
+        return _FakeDb()
+
+    def _capture_flush(specs):
+        sync_during_db.append(session_state["open"])
+
+    monkeypatch.setenv("ARKSHOP_API_KEY", "test-io-guard-key")
+    monkeypatch.setattr(_app_module, "_ARKSHOP_API_KEY", "test-io-guard-key")
+    monkeypatch.setattr(_app_module, "_get_db_session", _session_factory)
+    monkeypatch.setattr(_app_module, "_require_db", lambda: None)
+    monkeypatch.setattr(_app_module, "_flush_deferred_license_perm_syncs", _capture_flush)
+    monkeypatch.setattr(_app_module, "_release_db_session", lambda db, force=False: db.close())
+
+    client = _app_module.app.test_client()
+    resp = client.post(
+        "/api/pending/claim",
+        json={"steam_id": USER_STEAM, "order_ids": []},
+        headers={"X-API-Key": "test-io-guard-key"},
+    )
+    assert resp.status_code == 200
+
+    assert sync_during_db == [False]

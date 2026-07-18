@@ -48,6 +48,9 @@ def register_poll_routes(
                 db, viewer_steam_id=sid, include_closed=include_closed,
             )
             return jsonify({"ok": True, "polls": polls})
+        except Exception as exc:
+            db.rollback()
+            return jsonify({"ok": False, "error": "Falha ao carregar votações"}), 503
         finally:
             db.close()
 
@@ -109,6 +112,9 @@ def register_poll_routes(
         try:
             polls = list_polls_admin(db)
             return jsonify({"ok": True, "polls": polls})
+        except Exception:
+            db.rollback()
+            return jsonify({"ok": False, "error": "Falha ao carregar votações"}), 503
         finally:
             db.close()
 

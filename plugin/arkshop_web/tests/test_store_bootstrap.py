@@ -66,6 +66,57 @@ def test_service_worker_does_not_cache_bootstrap(client):
     assert "/api/store/bootstrap" in body
     assert "isPublicCatalog" in body
     assert "store/bootstrap" in body.lower() or "bootstrap" in body
-    assert "arkland-webstore-static-v3" in body
+    assert "arkland-webstore-static-v4" in body
     assert "no-store" in body
     assert "skipWaiting" in body
+    assert "isHeavyImageAsset" in body
+    assert "/species/icons/" in body
+
+
+def test_index_admin_config_load_does_not_false_empty():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "if (!_config) return;" in html
+    assert "admin-config-loading" in html
+    assert 'timeoutMs: 12000' in html
+    assert "data._config_path_missing" in html or "_config_path_missing" in html
+
+
+def test_index_kit_limits_respects_partial_empty():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "d.partial && !d.kits.length" in html
+    assert "_ensureKitLimitsLoaded" in html
+
+
+def test_index_load_catalog_passes_cached_kit_limits():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "kitLimits: cached.kit_limits" in html
+
+
+def test_index_catalog_thumbs_are_lazy():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert 'loading="lazy"' in html
+    assert 'decoding="async"' in html
+    assert "runStoreWarmup" in html
+    assert "timeoutMs: 15000" in html
+
+
+def test_index_nav_syncs_warmup_ready_flags():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "_syncStoreWarmupReady" in html
+    assert "window.__warmupForceReleased" in html
+    assert "if (!_syncStoreWarmupReady()) return;" in html
+
+
+def test_index_catalog_distinguishes_load_error_from_empty():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "_catalogLoadError" in html
+    assert "_catalogPanelIdleHtml" in html
+    assert "Catálogo indisponível" in html
+    assert "loadCatalog({force:true})" in html
+    assert "_catalogLoading" in html
+
+
+def test_index_admin_nav_shows_loading_without_config():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert 'else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");' in html
+    assert "_updateCatalogStatusBar" in html

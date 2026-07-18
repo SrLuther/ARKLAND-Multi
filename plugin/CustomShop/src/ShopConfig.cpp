@@ -25,7 +25,14 @@ void ShopConfig::Load() {
             std::string("config.json parse error: ") + e.what());
     }
 
-    items_         = config_.value("Items",             nlohmann::json::object());
+    // Web pode gravar "ShopItems"; plugin legado usa "Items". Aceitar ambos evita
+    // catálogo vazio após sync parcial ou cópia manual do config da web.
+    if (config_.contains("Items"))
+        items_ = config_.at("Items");
+    else if (config_.contains("ShopItems"))
+        items_ = config_.at("ShopItems");
+    else
+        items_ = nlohmann::json::object();
     kits_          = config_.value("Kits",              nlohmann::json::object());
     settings_      = config_.value("Settings",          nlohmann::json::object());
     db_cfg_        = config_.value("Database",          nlohmann::json::object());

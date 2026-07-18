@@ -274,6 +274,11 @@ class ARKServerManagerApp(ctk.CTk):
         backup = getattr(self, "_backup_manager", None)
         if backup is not None:
             backup.shutdown()
+        try:
+            from .pages.customshop_panel import shutdown_shop_services
+            shutdown_shop_services()
+        except Exception:
+            pass
         self._perf_running = False
         self.config_manager.save()
         self.destroy()

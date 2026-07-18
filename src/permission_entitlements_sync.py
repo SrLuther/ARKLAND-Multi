@@ -507,8 +507,6 @@ def grant_group_in_permission_db(
     except Exception as exc:
         log.warning("grant_group_in_permission_db %s %s: %s", steam_id, group, exc)
         return {"ok": False, "error": str(exc)}
-    finally:
-        engine.dispose()
 
 
 def revoke_group_in_permission_db(
@@ -571,8 +569,6 @@ def revoke_group_in_permission_db(
     except Exception as exc:
         log.warning("revoke_group_in_permission_db %s %s: %s", steam_id, group, exc)
         return {"ok": False, "error": str(exc)}
-    finally:
-        engine.dispose()
 
 
 def sync_entitlements_to_permission_db(
@@ -620,8 +616,6 @@ def sync_entitlements_to_permission_db(
     except Exception as exc:
         log.warning("sync_entitlements_to_permission_db %s: %s", steam_id, exc)
         return {"ok": False, "error": str(exc)}
-    finally:
-        engine.dispose()
 
 
 def _fetch_active_entitlements_by_steam(shop_engine: Engine) -> dict[str, list[dict[str, Any]]]:
@@ -725,6 +719,3 @@ def reconcile_entitlements_with_permission_db(
         except Exception as exc:
             log.warning("reconcile_entitlements_with_permission_db: %s", exc)
             return {"ok": False, "error": str(exc)}
-        finally:
-            shop_eng.dispose()
-            perm_eng.dispose()

@@ -415,7 +415,44 @@ def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
     assert "new_from_web" in (disk.get("Items") or {})
 
 
-def test_ensure_webstore_skips_when_webstore_newer(tmp_path, monkeypatch):
+def test_ensure_webstore_skips_when_webstore_newer_and_complete(tmp_path, monkeypatch):
+    """WEBSTORE mais recente e tão completo quanto o mestre — não sobrescrever."""
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
+    webstore.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
+    master.write_text(
+        json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {}}),
+        encoding="utf-8",
+    )
+    dest = webstore / "config.json"
+    items = {f"x{i}": {} for i in range(50)}
+    items["web_edit"] = {}
+    dest.write_text(json.dumps({"Items": items, "Kits": {}}), encoding="utf-8")
+    import os
+    import time
+
+    time.sleep(0.05)
+    os.utime(dest, None)
+
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+
+    result = ensure_webstore_catalog_config(master)
+    assert result.resolve() == master.resolve()
+    data = json.loads(dest.read_text(encoding="utf-8"))
+    assert "web_edit" in (data.get("Items") or {})
+
+
+def test_ensure_webstore_overwrites_when_newer_but_incomplete(tmp_path, monkeypatch):
+    """WEBSTORE mais recente mas truncado — mestre prevalece (não confiar só em mtime)."""
     from src.arkland_environment import EnvironmentPaths
 
     root = tmp_path / "ARKLAND SERVER"
@@ -442,10 +479,10 @@ def test_ensure_webstore_skips_when_webstore_newer(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
-    result = ensure_webstore_catalog_config(master)
-    assert result.resolve() == master.resolve()
+    ensure_webstore_catalog_config(master)
     data = json.loads(dest.read_text(encoding="utf-8"))
-    assert "web_edit" in (data.get("Items") or {})
+    assert "web_edit" not in (data.get("Items") or {})
+    assert len(data.get("Items") or {}) == 50
 
 
 def test_reconcile_catalog_merges_timed_points_without_item_change(tmp_path, monkeypatch):

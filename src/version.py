@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.64"
+APP_VERSION: str = "1.10.66"
 BUILD_DATE: str = "2026-07-17"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,7 +12,40 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "",
-        "changes": [],
+        "changes": [
+            "Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.",
+            "Fix (Release / Installer): ARKLAND-WebStore deixa de embutir species/icons/generated/raw (~344 MB), demo (~20 MB) e preview (~2 MB) — só .webp/SVG de runtime; update volta ~à ordem pré-ícones-originais (~130 MB em vez de ~427 MB).",
+            "Melhoria (Assets): logo/ambar/SeasonLand/paypal-qr e ig/* redimensionados/otimizados (UI usa ≤88 px; PNGs de 1–3 MB → dezenas–centenas de KB).",
+            "Fix P0 (Web Store / Kit-limits UI): bootstrap parcial ou erro 503 (partial+kits=[]) já não marca limites como prontos — evita cadeados falsos «esgotado» em todos os kits.",
+            "Fix P0 (Web Store / Catálogo): applyCatalogPayload/loadCatalog repõem kit_limits+entitlements do cache bootstrap; fetch em background quando parcial.",
+            "Fix (Web Store / Catálogo): catalog_meta usa path resolvido/healed + catalog_empty/catalog_note (não path settings desatualizado).",
+            "Fix (Admin / Players): detalhe/heavy libertam sessão MySQL com force=True após queries.",
+        ],
+    },
+    {
+        "version": "1.10.66",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix P0 (Admin / Catálogo): GET /api/config — path em falta já não devolve ShopItems/Kits={} em silêncio (UI «Nenhum item cadastrado»); heal a partir da fonte mais completa; erro explícito se ficheiro vazio; meta _items_count/_kits_count/_config_path.",
+            "Fix P0 (Web Store / Bootstrap): /api/store/bootstrap — 1 sessão DB para me+entitlements+kit_limits; sem DDL no path; budget ~2.5s + timing; catálogo primeiro (zero MySQL).",
+            "Fix P0 (Web Store / Kit-limits): pending GROUP BY com MAX_EXECUTION_TIME MySQL; fail-open rápido; log player_kit_limits.",
+            "Fix P0 (Admin / Players): lista sem Steam/DDL no request (já em 1.10.65) — Sleep MySQL 400s+ é pool idle (wait_timeout), não causa do catálogo vazio.",
+            "Fix (Web Store / PWA): SW v4 — HTML/API network-only; /species/icons e thumbs network-only (não Cache Storage); não explica catálogo vazio (correlação temporal); lazy+decoding=async nas thumbs.",
+            "Feat (Web Store / Doação): PayPal QR (se já incluído na build anterior) — doação livre + crédito manual via ticket.",
+            "Test: config empty/heal; SW species icons; bootstrap/kit-limits.",
+        ],
+    },
+    {
+        "version": "1.10.65",
+        "date": "2026-07-17",
+        "changes": [
+            "Fix P0 (Admin / Players): GET /api/admin/players — zero Steam/DDL/inspect no request; COUNT barato; página default sem JOINs; entitlements batch; log get_admin_players_list com elapsed_ms sempre.",
+            "Fix P0 (Web Store / Auth): /api/auth/me e bootstrap usam só cache DB para nick Steam; backfill em background.",
+            "Feat (Web Store / Doação): PayPal QR — doação livre; modal com QR; crédito manual via ticket.",
+            "Feat (Admin): paypal_enabled, paypal_instructions e paypal_qr_path em Configurações.",
+            "Test (Web Store): Steam lento não bloqueia lista admin; PayPal asset estático.",
+            "Fix (Web Store / PWA): cache-bust estáticos ?v=__WEB_BUILD__.",
+        ],
     },
     {
         "version": "1.10.64",

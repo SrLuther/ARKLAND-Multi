@@ -92,7 +92,34 @@ std::string HttpGet(const std::string& url) {
 
     std::string result;
     if (WinHttpSendRequest(hRequest, nullptr, 0, nullptr, 0, 0, 0)) {
-        WinHttpReceiveResponse(hRequest, nullptr);
+        if (!WinHttpReceiveResponse(hRequest, nullptr)) {
+            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(hConnect);
+            return "";
+        }
+        DWORD status_code = 0;
+        DWORD status_size = sizeof(status_code);
+        if (WinHttpQueryHeaders(
+                hRequest,
+                WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                WINHTTP_HEADER_NAME_BY_INDEX,
+                &status_code,
+                &status_size,
+                WINHTTP_NO_HEADER_INDEX)) {
+            if (status_code >= 400) {
+                Log::GetLog()->warn(
+                    "HttpClient: GET HTTP {} path_host={}", status_code, host);
+                CustomShop::Debug::Fields hf;
+                hf.extra = {{"http_status", static_cast<int>(status_code)},
+                            {"host", host}};
+                CustomShop::Debug::Warn(
+                    "Http", hf,
+                    "GET HTTP " + std::to_string(status_code));
+                WinHttpCloseHandle(hRequest);
+                WinHttpCloseHandle(hConnect);
+                return "";
+            }
+        }
         DWORD bytes_avail = 0, bytes_read = 0;
         char buf[4096];
         while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
@@ -104,6 +131,10 @@ std::string HttpGet(const std::string& url) {
                 } else break;
             }
         }
+    } else {
+        CustomShop::Debug::Fields hf;
+        hf.extra = {{"host", host}, {"timeout_ms_send", kHttpSendMs}};
+        CustomShop::Debug::Warn("Http", hf, "GET WinHttpSendRequest failed / timeout");
     }
 
     WinHttpCloseHandle(hRequest);
@@ -254,6 +285,10 @@ bool TryParseApiJson(const std::string& body, nlohmann::json& out, const char* c
 bool TryReloadConfigForDelivery() {
     try {
         CustomShop::ShopConfig::Get().Load();
+        // Paridade Shop.Reload: URL/chave da web também mudam no config.json.
+        CustomShop::HttpClient::Configure(
+            CustomShop::ShopConfig::Get().WebApiUrl(),
+            CustomShop::ShopConfig::Get().WebApiKey());
         Log::GetLog()->info("HttpClient: config reloaded before retrying delivery");
         return true;
     } catch (const std::exception& e) {

@@ -82,7 +82,13 @@ def set_request_context(*, endpoint: str | None = None, request_id: str | None =
 
 
 def clear_request_context() -> None:
-    for attr in ("endpoint", "request_id", "pool_wait_recorded", "checkout_started"):
+    for attr in (
+        "endpoint",
+        "request_id",
+        "pool_wait_recorded",
+        "checkout_started",
+        "db_wait_total_ms",
+    ):
         try:
             delattr(_ctx, attr)
         except AttributeError:
@@ -95,6 +101,31 @@ def get_request_id() -> str:
 
 def get_endpoint() -> str:
     return str(getattr(_ctx, "endpoint", "") or "")
+
+
+def get_request_db_wait_ms() -> float:
+    return float(getattr(_ctx, "db_wait_total_ms", 0.0) or 0.0)
+
+
+def _accumulate_request_pool_wait(ms: float) -> None:
+    if ms <= 0:
+        return
+    _ctx.db_wait_total_ms = float(getattr(_ctx, "db_wait_total_ms", 0.0) or 0.0) + ms
+    try:
+        from request_diagnostics import add_db_wait_ms
+
+        add_db_wait_ms(ms)
+    except Exception:
+        pass
+
+
+def _emit_request_event(event_type: str, *, level: str = "info", **fields: Any) -> None:
+    try:
+        from request_diagnostics import record_event
+
+        record_event(event_type, level=level, **fields)
+    except Exception:
+        pass
 
 
 def sql_fingerprint(statement: str) -> str:
@@ -144,7 +175,16 @@ def record_transaction_ms(ms: float, *, outcome: str = "commit") -> None:
         _txn_count += 1
         if ms >= SLOW_CRITICAL_MS:
             _txn_long_count += 1
-            log.warning("long_transaction %.0fms outcome=%s ep=%s", ms, outcome, get_endpoint() or "?")
+            ep = get_endpoint() or "?"
+            log.warning("long_transaction %.0fms outcome=%s ep=%s", ms, outcome, ep)
+            _emit_request_event(
+                "long_transaction",
+                level="warning",
+                duration_ms=round(ms, 2),
+                outcome=outcome,
+                endpoint=ep,
+                request_id=get_request_id(),
+            )
 
 
 def record_query(
@@ -284,10 +324,23 @@ def attach_engine_listeners(engine: Engine) -> None:
             connection_record.info["was_new_connect"] = True
         # Tempo de espera no checkout (desde que a thread pediu conexão)
         wait_started = getattr(_ctx, "checkout_started", None)
-        if wait_started is not None and not getattr(_ctx, "pool_wait_recorded", False):
+        if wait_started is not None:
             wait_ms = (time.perf_counter() - wait_started) * 1000.0
             record_pool_wait_ms(wait_ms)
-            _ctx.pool_wait_recorded = True
+            _accumulate_request_pool_wait(wait_ms)
+            _ctx.checkout_started = None
+            pool_timeout_ms = max(
+                2000.0,
+                float(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5) * 1000.0 * 0.85,
+            )
+            if wait_ms >= pool_timeout_ms:
+                _emit_request_event(
+                    "pool_wait_high",
+                    level="warning",
+                    pool_wait_ms=round(wait_ms, 2),
+                    endpoint=get_endpoint() or "?",
+                    request_id=get_request_id(),
+                )
 
     @event.listens_for(pool, "checkin")
     def _pool_checkin(dbapi_conn: Any, connection_record: Any) -> None:
@@ -325,7 +378,16 @@ def attach_engine_listeners(engine: Engine) -> None:
 def mark_checkout_started() -> None:
     """Chamar imediatamente antes de obter sessão/conexão do pool."""
     _ctx.checkout_started = time.perf_counter()
-    _ctx.pool_wait_recorded = False
+
+
+def record_pool_timeout(*, endpoint: str = "", error: str = "") -> None:
+    _emit_request_event(
+        "pool_timeout",
+        level="error",
+        endpoint=endpoint or get_endpoint() or "?",
+        request_id=get_request_id(),
+        error=(error or "pool checkout timeout")[:200],
+    )
 
 
 def _pool_stats(engine: Engine) -> dict[str, Any]:
@@ -443,6 +505,13 @@ def probe_database(
     connect_args: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Probe não-destrutivo: ping pooled, connect novo, versão MySQL, pool stats."""
+    try:
+        from request_diagnostics import diagnostics_snapshot as _req_diag
+
+        request_diag = _req_diag()
+    except Exception:
+        request_diag = {}
+
     result: dict[str, Any] = {
         "ok": True,
         "probed_at": _now_iso(),
@@ -451,6 +520,7 @@ def probe_database(
         "slow_fingerprints": top_slow_fingerprints(10),
         "recent_slow_queries": recent_slow_queries(15),
         "recent_errors": recent_errors(10),
+        "requests": request_diag,
         "waitress_threads_configured": max(
             4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8)
         ),

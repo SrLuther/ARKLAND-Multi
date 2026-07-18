@@ -99,7 +99,7 @@
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", function () {
       navigator.serviceWorker
-        .register("/service-worker.js?v=1.10.64", { scope: "/" })
+        .register("/service-worker.js?v=1.10.66", { scope: "/" })
         .then(function (reg) {
           // Force update: activa SW novo de imediato (index.html fail-safe).
           if (reg.waiting) {

@@ -27,11 +27,21 @@ constexpr int kTribeSyncPollSeconds = 180;
 constexpr int kTribeSyncRequestPollSeconds = 15;
 
 void PollPendingForOnlinePlayers() {
+    // Um DeliverPending por tick — N×(claim+deliver+release) no mesmo callback
+    // bloqueava o game thread (HangWatcher) com vários jogadores online.
     const auto& pcs =
         ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
+    int scheduled = 0;
     for (TWeakObjectPtr<APlayerController> wpc : pcs) {
         auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
-        if (sc) CustomShop::HttpClient::DeliverPending(sc);
+        if (!sc) continue;
+        AShooterPlayerController* raw = sc;
+        const int delay_sec = scheduled;
+        ++scheduled;
+        API::Timer::Get().DelayExecute([raw]() {
+            if (!raw) return;
+            CustomShop::HttpClient::DeliverPending(raw);
+        }, delay_sec);
     }
 }
 

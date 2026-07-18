@@ -2392,18 +2392,6 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
     next_id = None
     if int(row.auto_chain_enabled or 0) and _is_enabled():
         next_id = _create_chained_campaign(db, row, rollover_out)
-    # Sync Permissions fora do caminho crítico — best-effort após flush
-    if pending_license_sync and _sync_license_permissions_fn is not None:
-        seen_sync: set[tuple[str, str]] = set()
-        for sid, group, days in pending_license_sync:
-            key = (sid, group)
-            if key in seen_sync:
-                continue
-            seen_sync.add(key)
-            try:
-                _sync_license_permissions_fn(sid, group, days)
-            except Exception as exc:
-                log.warning("Lottery license permissions sync %s/%s: %s", sid, group, exc)
     return {
         "campaign_id": cid,
         "winning_numbers": winning,
@@ -2411,6 +2399,7 @@ def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
         "split": split,
         "prize_catalog": catalog_prizes,
         "next_campaign_id": next_id,
+        "pending_license_sync": list(pending_license_sync),
     }
 
 
@@ -2571,8 +2560,20 @@ def process_due_draws(db: Session) -> int:
                 if not locked or str(locked.status) != "ACTIVE":
                     continue
             job_id = f"draw-{cid}-{_utcnow().strftime('%Y%m%d%H%M%S')}"
-            run_draw(db, cid, job_id=job_id)
+            result = run_draw(db, cid, job_id=job_id)
             db.commit()
+            pending = result.get("pending_license_sync") or []
+            if pending and _sync_license_permissions_fn is not None:
+                seen_sync: set[tuple[str, str]] = set()
+                for sid, group, days in pending:
+                    key = (sid, group)
+                    if key in seen_sync:
+                        continue
+                    seen_sync.add(key)
+                    try:
+                        _sync_license_permissions_fn(sid, group, days)
+                    except Exception as exc:
+                        log.warning("Lottery license permissions sync %s/%s: %s", sid, group, exc)
             processed += 1
         except Exception as exc:
             db.rollback()

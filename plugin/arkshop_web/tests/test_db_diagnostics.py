@@ -110,6 +110,43 @@ def test_probe_database_sqlite(tmp_path):
     assert "pool" in result
     assert "aggregates" in result
     assert isinstance(result.get("diagnosis_hints"), list)
+    assert "requests" in result
+    assert "recent_slow_requests" in result["requests"]
+
+
+def test_request_db_wait_accumulates_on_checkout(tmp_path):
+    import request_diagnostics as rd
+
+    rd.reset_for_tests()
+    diag.set_request_context(endpoint="/api/test", request_id="pw2")
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'pw2.db'}",
+        future=True,
+        pool_size=1,
+        max_overflow=0,
+    )
+    diag.attach_engine_listeners(engine)
+    Session = sessionmaker(bind=engine, future=True)
+
+    diag.mark_checkout_started()
+    db = Session()
+    try:
+        db.execute(text("SELECT 1"))
+    finally:
+        db.close()
+    assert diag.get_request_db_wait_ms() >= 0
+    rd.reset_for_tests()
+
+
+def test_record_pool_timeout_emits_event():
+    import request_diagnostics as rd
+
+    rd.reset_for_tests()
+    diag.set_request_context(endpoint="/api/orders", request_id="to1")
+    diag.record_pool_timeout(error="QueuePool limit reached")
+    counters = rd.event_counters()
+    assert counters.get("pool_timeout") == 1
+    rd.reset_for_tests()
 
 
 def test_circuit_opens_after_errors():

@@ -2268,6 +2268,33 @@
       border-radius: var(--radius);
       border: 1px solid var(--border);
     }
+    .paypal-donation-block {
+      margin-bottom: 20px;
+      padding: 16px 18px;
+      border: 1px solid rgba(0,112,186,.35);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(0,112,186,.08), rgba(0,48,135,.06));
+    }
+    .paypal-donation-block__title {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .paypal-donation-block__text {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+    .paypal-modal-instructions {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      margin: 0 0 14px;
+      text-align: left;
+    }
     .pix-copy-box {
       width: 100%;
       min-height: 72px;
@@ -3437,7 +3464,8 @@
 
     /* Buy / PIX modal */
     #buy-modal,
-    #pix-modal {
+    #pix-modal,
+    #paypal-modal {
       display: none;
       position: fixed;
       inset: 0;
@@ -3818,11 +3846,13 @@
       }
 
       #pix-modal,
+      #paypal-modal,
       #buy-modal {
         padding: 10px !important;
         align-items: flex-end !important;
       }
       #pix-modal .buy-modal-inner,
+      #paypal-modal .buy-modal-inner,
       #buy-modal .buy-modal-inner {
         max-width: 100% !important;
         width: 100%;
@@ -6497,6 +6527,13 @@
           <p class="available-hint" id="recharge-hint">
             Selecione um pacote e escolha PIX (Brasil) ou cartão (internacional). Valores em R$ com estimativa em USD/EUR.
           </p>
+          <div id="catalog-paypal-block" class="paypal-donation-block" style="display:none;">
+            <div class="paypal-donation-block__title">💙 Doação via PayPal (valor livre)</div>
+            <div class="paypal-donation-block__text">
+              Pague o valor que desejar escaneando o QR PayPal. Após o pagamento, abra um ticket com comprovante, SteamID e valor — um admin creditará Âmbares manualmente.
+            </div>
+            <button type="button" class="btn btn-primary" id="catalog-paypal-btn" onclick="openPayPalDonationModal()">Doar via PayPal</button>
+          </div>
           <div id="catalog-recharge-grid" class="recharge-grid"></div>
           <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doações indisponíveis no momento.</p>
         </div>
@@ -7260,6 +7297,21 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label>Token Mercado Pago (Access Token)</label>
               <input id="s-mp-token" type="password" placeholder="(deixe vazio para não alterar)" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              💙 Doação PayPal (QR + ticket manual) — sem webhook; admin credita Âmbares após comprovante.
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-paypal-enabled" type="checkbox" /> Ativar doação PayPal (paypal_enabled)</label>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label for="s-paypal-qr-path">URL/caminho do QR PayPal</label>
+              <input id="s-paypal-qr-path" type="text" placeholder="/paypal-qr.jpeg" />
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">Padrão: asset em <code>/paypal-qr.jpeg</code> (bundled). Pode ser URL externa https://…</div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label for="s-paypal-instructions">Instruções PayPal (modal do jogador)</label>
+              <textarea id="s-paypal-instructions" rows="6" placeholder="Texto exibido no modal após escanear o QR…"></textarea>
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               💚 Pacotes de doação: gerencie em <strong>Loja → Doações (PIX / Cartão)</strong> (mais fácil que JSON).
@@ -9679,9 +9731,9 @@
   </div>
 </div>
 
-<script src="ark_color_ids.js?v=1.10.64" defer></script>
-<script src="redeem_docs.js?v=1.10.64" defer></script>
-<script src="pwa-install.js?v=1.10.64" defer></script>
+<script src="ark_color_ids.js?v=__WEB_BUILD__" defer></script>
+<script src="redeem_docs.js?v=__WEB_BUILD__" defer></script>
+<script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -9787,10 +9839,12 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
 }
 
 function setAdminShopLoading(msg) {
-  const el = document.getElementById("shop-list");
-  if (el) {
-    el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2);">${escHtml(msg || "Carregando itens…")}</div>`;
-  }
+  const text = msg || "Carregando itens…";
+  const html = `<div class="admin-config-loading" style="text-align:center;padding:48px 20px;color:var(--text2);">${escHtml(text)}</div>`;
+  const shopEl = document.getElementById("shop-list");
+  const kitsEl = document.getElementById("kits-list");
+  if (shopEl) shopEl.innerHTML = html;
+  if (kitsEl) kitsEl.innerHTML = html;
 }
 
 function applyCurrency(c) {
@@ -10099,9 +10153,16 @@ async function acceptRegulamento() {
   }
 }
 
+function _syncStoreWarmupReady() {
+  if (!_storeWarmupReady && (window.__storeWarmupReady || window.__warmupForceReleased)) {
+    _storeWarmupReady = true;
+  }
+  return _storeWarmupReady;
+}
+
 // Troca de aba: remove .active de todos os .page e aplica só no alvo (uma página visível por vez).
 function nav(el) {
-  if (!_storeWarmupReady) return;
+  if (!_syncStoreWarmupReady()) return;
   const page = el.dataset.page;
   if (page === "myarea" && !_auth.authenticated) {
     promptLogin("Minha Área");
@@ -10139,7 +10200,15 @@ function nav(el) {
   if (page === "midias") loadMidias();
   if (page === "sugestoes" && _auth.authenticated) loadSugestoes();
   if (page === "catalog") loadCatalog();
-  if (page === "shop") { loadShopMarketStatus(); renderShop(); }
+  if (page === "shop") {
+    loadShopMarketStatus();
+    if (_config) renderShop();
+    else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");
+  }
+  if (page === "kits") {
+    if (_config) renderKits();
+    else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");
+  }
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
   if (page === "market-economy-admin") loadMarketEconomyAdmin();
@@ -10237,10 +10306,26 @@ async function loadPlayerKitLimits() {
   }
   const d = await fetchJson("/api/player/kit-limits", { timeoutMs: 15000 });
   if (d.ok && Array.isArray(d.kits)) {
-    _applyKitLimitsList(d.kits);
+    // Fail-open backend (partial_reason=error, kits=[]) não pode marcar ready —
+    // senão todos os kits limitados aparecem esgotados (remaining=0).
+    if (d.partial && !d.kits.length) {
+      _playerKitLimitsReady = false;
+    } else {
+      _applyKitLimitsList(d.kits);
+    }
   } else {
     _playerKitLimitsReady = false;
   }
+}
+
+function _ensureKitLimitsLoaded() {
+  if (!_auth?.authenticated || _playerKitLimitsReady) return;
+  loadPlayerKitLimits()
+    .then(() => {
+      if (_catalogActiveTab === "kits" || _catalogActiveTab === "available") renderCatalog();
+      updateCatalogPoints();
+    })
+    .catch(() => { _playerKitLimitsReady = false; });
 }
 
 let _notifPollTimer = null;
@@ -10746,6 +10831,9 @@ function formatKey(key) {
 // ── Catálogo (visível a todos) ────────────────────────────────────────────────
 let _catalogItems = [];
 let _catalogKits = [];
+let _catalogLoaded = false;
+let _catalogLoading = false;
+let _catalogLoadError = null;
 let _playerKitLimits = {};
 let _playerKitLimitsReady = false;
 let _catalogPackages = [];
@@ -10753,6 +10841,9 @@ let _playerEntitlements = [];
 let _playerTimedPointsTotal = 25;
 let _catalogPixEnabled = false;
 let _catalogCardEnabled = false;
+let _catalogPaypalEnabled = false;
+let _catalogPaypalQrUrl = "/paypal-qr.jpeg";
+let _catalogPaypalInstructions = "";
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
 let _catalogSearchTimers = {};
@@ -10760,6 +10851,7 @@ let _catalogTierIcons = {};
 let _pixPollTimer = null;
 let _pixPollDelayMs = 5000;
 let _pixPollPaymentId = null;
+let _pixAbandonPollNotified = false;
 let _activePixPaymentId = null;
 let _pendingPixPackageId = null;
 let _pendingRedeemItem = null;
@@ -10768,6 +10860,7 @@ let _cardPayerFields = null;
 let _exchangeRates = null;
 let _pixCheckoutPackageId = null;
 let _paymentCheckoutMethod = "pix";
+let _pendingPayPalDonation = false;
 const DONATION_POLICY_KEY = "arkland_donation_policy_v1";
 const PAYER_PROFILE_KEY = "arkland_payer_profile_v1";
 
@@ -10782,6 +10875,7 @@ function closePolicyModal(clearPending = true) {
   if (clearPending) {
     _pendingPixPackageId = null;
     _pendingRedeemItem = null;
+    _pendingPayPalDonation = false;
   }
 }
 
@@ -10800,6 +10894,11 @@ function acceptDonationPolicy() {
     const item = _pendingRedeemItem;
     _pendingRedeemItem = null;
     openBuyModal(item, true);
+    return;
+  }
+  if (_pendingPayPalDonation) {
+    _pendingPayPalDonation = false;
+    openPayPalDonationModal(true);
   }
 }
 
@@ -11074,6 +11173,46 @@ function _catalogEmptyStateHtml(tab, search, cat) {
     <div class="catalog-empty-state__suggestions">${sugHtml}</div>`;
 }
 
+function _catalogHasAnyData() {
+  return _catalogItems.length > 0 || _catalogKits.length > 0;
+}
+
+function _catalogPanelIdleHtml(tab, search, cat) {
+  if (_catalogLoading && !_catalogHasAnyData()) {
+    return `<div class="catalog-empty-state__title">A carregar catálogo…</div>
+      <p class="catalog-empty-state__hint">Aguarde ou recarregue se demorar mais de 15 segundos.</p>`;
+  }
+  if (_catalogLoadError && !_catalogHasAnyData()) {
+    return `<div class="catalog-empty-state__title">Catálogo indisponível</div>
+      <p class="catalog-empty-state__hint">${escHtml(_catalogLoadError)}</p>
+      <div class="catalog-empty-state__suggestions">
+        <button type="button" class="catalog-empty-suggestion" onclick="loadCatalog({force:true})">↺ Tentar novamente</button>
+      </div>`;
+  }
+  return _catalogEmptyStateHtml(tab, search, cat);
+}
+
+function _renderActiveCatalogTab() {
+  if (!document.getElementById("page-catalog")?.classList.contains("active")) return;
+  if (_catalogActiveTab === "items") renderCatalogItems();
+  else if (_catalogActiveTab === "dinos") renderCatalogDinos();
+  else if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
+  else if (_catalogActiveTab === "kits") renderCatalogKits();
+  else if (_catalogActiveTab === "licenses") renderCatalogLicenses();
+}
+
+function _updateCatalogStatusBar() {
+  const catalogHasData = _catalogHasAnyData();
+  if (_catalogLoadError && !catalogHasData) {
+    setStatus(false, "Catálogo indisponível — " + _catalogLoadError);
+    return;
+  }
+  const sbText = document.getElementById("sb-text")?.textContent || "";
+  if (catalogHasData && /carregar catálogo|catálogo indisponível/i.test(sbText)) {
+    setStatus(true, "Loja online");
+  }
+}
+
 function _handleCatalogEmptyAction(action) {
   if (action === "clear-search") {
     ["catalog-search", "catalog-dinos-search", "catalog-dinos200-search", "catalog-kits-search", "catalog-licenses-search"].forEach(id => {
@@ -11122,7 +11261,7 @@ function _catalogThumbHtml(item) {
     const onError = tierFallback
       ? `this.onerror=null;this.src='${escHtml(tierFallback)}';`
       : `this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex');`;
-    return `<img src="${escHtml(url)}" alt="" loading="lazy" width="56" height="56" onerror="${onError}" />
+    return `<img src="${escHtml(url)}" alt="" loading="lazy" decoding="async" width="56" height="56" onerror="${onError}" />
       <div class="item-card__icon" style="display:none;">${_catalogTypeIcon(item.type)}</div>${tierBadge}`;
   }
   if (item.tier && _isDinoType(item.type)) {
@@ -11587,7 +11726,12 @@ async function _warmupFallbackFetch() {
     if (_auth == null) _auth = _defaultGuestAuth();
   }
   applyRoleUi(true);
-  return loadCatalog().catch(() => false);
+  const ok = await loadCatalog().catch(() => false);
+  if (!ok && !_catalogHasAnyData() && !_catalogLoadError) {
+    _catalogLoadError = "Catálogo indisponível";
+  }
+  _updateCatalogStatusBar();
+  return ok;
 }
 
 function _ensureWarmupBackground(existingPromise) {
@@ -11599,7 +11743,10 @@ function _ensureWarmupBackground(existingPromise) {
       console.warn("store bootstrap background:", e);
       return _warmupFallbackFetch();
     })
-    .finally(() => { _storeWarmupBgPromise = null; });
+    .finally(() => {
+      _storeWarmupBgPromise = null;
+      _updateCatalogStatusBar();
+    });
   return _storeWarmupBgPromise;
 }
 
@@ -11644,6 +11791,9 @@ async function _applyBootstrapPayload(boot, opts = {}) {
     } else {
       _playerKitLimitsReady = false;
     }
+  }
+  if (_auth?.authenticated && !_playerKitLimitsReady) {
+    _ensureKitLimitsLoaded();
   }
   if (boot.catalog) {
     await applyCatalogPayload(boot.catalog, {
@@ -11720,7 +11870,13 @@ async function runStoreWarmup() {
 // local). opts.entitlements/timedPointsTotal evitam um round-trip extra quando
 // o warmup já os trouxe; opts.gen/opts.signal permitem cancelamento cooperativo.
 async function applyCatalogPayload(data, opts = {}) {
-  const { gen = null, signal = null, entitlements = undefined, timedPointsTotal = undefined } = opts;
+  const {
+    gen = null,
+    signal = null,
+    entitlements = undefined,
+    timedPointsTotal = undefined,
+    kitLimits = undefined,
+  } = opts;
   const genStale = () => gen != null && gen !== _catalogLoadGen;
   if (!data) return false;
   {
@@ -11792,13 +11948,26 @@ async function applyCatalogPayload(data, opts = {}) {
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
     _catalogCardEnabled = !!data.card_enabled;
+    _catalogPaypalEnabled = !!data.paypal_enabled;
+    _catalogPaypalQrUrl = data.paypal_qr_url || "/paypal-qr.jpeg";
+    _catalogPaypalInstructions = data.paypal_instructions || "";
     if (data.exchange_rates && data.exchange_rates.rates) {
       _exchangeRates = data.exchange_rates.rates;
     }
 
     if (genStale()) return false;
 
+    const catMeta = data.catalog_meta;
+    if (catMeta?.catalog_empty && catMeta?.catalog_note) {
+      console.warn("Catálogo vazio:", catMeta.catalog_note);
+    }
+
     if (_auth.authenticated) {
+      if (kitLimits !== undefined) {
+        if (Array.isArray(kitLimits)) _applyKitLimitsList(kitLimits);
+      } else if (!_playerKitLimitsReady) {
+        _ensureKitLimitsLoaded();
+      }
       if (entitlements !== undefined) {
         _playerEntitlements = Array.isArray(entitlements) ? entitlements : [];
         _playerTimedPointsTotal = timedPointsTotal || 25;
@@ -11838,6 +12007,8 @@ async function applyCatalogPayload(data, opts = {}) {
     if (_catalogActiveTab === "recharge") renderRecharge();
     updateCatalogPoints();
     if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(_catalogActiveTab);
+    _catalogLoaded = true;
+    _catalogLoadError = null;
     return true;
   }
 }
@@ -11851,6 +12022,9 @@ async function loadCatalog(opts) {
   if (_catalogLoadAbort) {
     try { _catalogLoadAbort.abort(); } catch (_) {}
   }
+  _catalogLoadError = null;
+  _catalogLoading = true;
+  _renderActiveCatalogTab();
   const ctrl = new AbortController();
   _catalogLoadAbort = ctrl;
   const gen = ++_catalogLoadGen;
@@ -11858,23 +12032,47 @@ async function loadCatalog(opts) {
   try {
     const cached = await _readBootstrapCache();
     if (_bootstrapCacheValid(cached) && cached.catalog && !force) {
-      await applyCatalogPayload(cached.catalog, { gen, signal: ctrl.signal });
+      await applyCatalogPayload(cached.catalog, {
+        gen,
+        signal: ctrl.signal,
+        entitlements: cached.entitlements,
+        timedPointsTotal: cached.timed_points_total,
+        kitLimits: cached.kit_limits,
+      });
       _revalidateCatalogBackground();
       return true;
     }
     const r = await fetch(API + "/api/catalog", { signal: ctrl.signal });
     if (gen !== _catalogLoadGen) return false;
-    if (!r.ok) return false;
+    if (!r.ok) {
+      if (!_catalogHasAnyData()) {
+        _catalogLoadError = "Catálogo indisponível (HTTP " + r.status + ")";
+      }
+      return false;
+    }
     const data = await r.json();
     try { _writeStoreCache(data); } catch (_) {}
-    return await applyCatalogPayload(data, { gen, signal: ctrl.signal });
+    const ok = await applyCatalogPayload(data, { gen, signal: ctrl.signal });
+    if (!ok && !_catalogHasAnyData()) _catalogLoadError = "Catálogo indisponível";
+    return ok;
   } catch (e) {
+    if (gen !== _catalogLoadGen) return false;
+    if (!_catalogHasAnyData()) {
+      if (e?.name === "AbortError") {
+        _catalogLoadError = "Timeout (15s) ao carregar catálogo";
+      } else {
+        _catalogLoadError = e.message || "Falha ao carregar catálogo";
+      }
+    }
     if (e?.name === "AbortError") return false;
     console.warn("loadCatalog:", e);
     return false;
   } finally {
     clearTimeout(timer);
     if (_catalogLoadAbort === ctrl) _catalogLoadAbort = null;
+    _catalogLoading = false;
+    _renderActiveCatalogTab();
+    _updateCatalogStatusBar();
   }
 }
 
@@ -11968,6 +12166,9 @@ async function _loadCatalogLegacyUnused() {
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
     _catalogCardEnabled = !!data.card_enabled;
+    _catalogPaypalEnabled = !!data.paypal_enabled;
+    _catalogPaypalQrUrl = data.paypal_qr_url || "/paypal-qr.jpeg";
+    _catalogPaypalInstructions = data.paypal_instructions || "";
     if (data.exchange_rates && data.exchange_rates.rates) {
       _exchangeRates = data.exchange_rates.rates;
     }
@@ -12039,7 +12240,7 @@ function renderCatalogItems() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.innerHTML = _catalogEmptyStateHtml("items", search, cat);
+      empty.innerHTML = _catalogPanelIdleHtml("items", search, cat);
     }
     if (countEl) countEl.style.display = "none";
     return;
@@ -12070,7 +12271,7 @@ function renderCatalogDinos() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.innerHTML = _catalogEmptyStateHtml("dinos", search, "");
+      empty.innerHTML = _catalogPanelIdleHtml("dinos", search, "");
     }
     if (countEl) countEl.style.display = "none";
     return;
@@ -12101,7 +12302,7 @@ function renderCatalogDinos200() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.innerHTML = _catalogEmptyStateHtml("dinos200", search, "");
+      empty.innerHTML = _catalogPanelIdleHtml("dinos200", search, "");
     }
     if (countEl) countEl.style.display = "none";
     return;
@@ -12128,7 +12329,7 @@ function renderCatalogKits() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.innerHTML = _catalogEmptyStateHtml("kits", search, "");
+      empty.innerHTML = _catalogPanelIdleHtml("kits", search, "");
     }
     if (countEl) countEl.style.display = "none";
     return;
@@ -12158,7 +12359,7 @@ function renderCatalogLicenses() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.innerHTML = _catalogEmptyStateHtml("licenses", search, "");
+      empty.innerHTML = _catalogPanelIdleHtml("licenses", search, "");
     }
     if (countEl) countEl.style.display = "none";
     return;
@@ -12267,31 +12468,52 @@ function renderRecharge() {
   const grid = document.getElementById("catalog-recharge-grid");
   const empty = document.getElementById("catalog-recharge-empty");
   const hint = document.getElementById("recharge-hint");
+  const paypalBlock = document.getElementById("catalog-paypal-block");
   if (!grid) return;
 
   if (_auth.authenticated) refreshPlayerBalance();
 
-  if (!_catalogPixEnabled && !_catalogCardEnabled) {
+  if (paypalBlock) {
+    paypalBlock.style.display = _catalogPaypalEnabled ? "" : "none";
+  }
+
+  const mpEnabled = _catalogPixEnabled || _catalogCardEnabled;
+  if (!mpEnabled && !_catalogPaypalEnabled) {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.textContent = "Doações ainda não estão ativas. O administrador precisa configurar o Mercado Pago em Doações (PIX / Cartão).";
+      empty.textContent = "Doações indisponíveis no momento. O administrador pode ativar Mercado Pago (PIX/cartão) ou PayPal.";
     }
     if (hint) hint.textContent = "";
     return;
   }
+
+  if (!mpEnabled) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "none";
+    if (hint) {
+      hint.textContent = "Use PayPal abaixo para doar qualquer valor. Após pagar, abra um ticket para crédito de Âmbares.";
+    }
+    return;
+  }
+
   if (empty) empty.style.display = "none";
   const payHints = [];
   if (_catalogPixEnabled) payHints.push("PIX");
   if (_catalogCardEnabled) payHints.push("cartão");
-  if (hint) hint.textContent = `Selecione um pacote e escolha ${payHints.join(" ou ")}.`;
+  if (hint) {
+    const mpLine = payHints.length ? `Selecione um pacote e escolha ${payHints.join(" ou ")}.` : "";
+    const paypalLine = _catalogPaypalEnabled ? " PayPal (valor livre) disponível acima." : "";
+    hint.textContent = mpLine + paypalLine;
+  }
 
   const pkgs = _catalogPackages || [];
   if (!pkgs.length) {
     grid.innerHTML = "";
     if (empty) {
-      empty.style.display = "";
-      empty.textContent = "Nenhum pacote disponível no momento. Peça ao admin para configurar em Loja → Doações (PIX / Cartão).";
+      empty.style.display = _catalogPaypalEnabled ? "none" : "";
+      empty.textContent = "Nenhum pacote Mercado Pago no momento. Peça ao admin para configurar em Loja → Doações (PIX / Cartão)."
+        + (_catalogPaypalEnabled ? "" : "");
     }
     return;
   }
@@ -12325,6 +12547,7 @@ function stopPixPoll() {
   if (_pixPollTimer) { clearTimeout(_pixPollTimer); _pixPollTimer = null; }
   _pixPollPaymentId = null;
   _pixPollDelayMs = 5000;
+  _pixAbandonPollNotified = false;
 }
 
 function schedulePixPoll(paymentId, delayMs) {
@@ -12336,13 +12559,74 @@ function schedulePixPoll(paymentId, delayMs) {
 
 function closePixModal() {
   const pid = _activePixPaymentId || _pixPollPaymentId;
-  stopPixPoll();
   document.getElementById("pix-modal").style.display = "none";
+  _activePixPaymentId = null;
+  // Mantém poll em background — jogador pode pagar após fechar o modal.
   if (pid && _auth.authenticated) {
     fetch(API + "/api/player/pix/" + encodeURIComponent(pid) + "/abandon", { method: "POST" })
       .catch(() => {});
   }
-  _activePixPaymentId = null;
+}
+
+function openPayPalDonationModal(policyAlreadyAccepted) {
+  if (!_catalogPaypalEnabled) { toast("Doação PayPal indisponível.", "warning"); return; }
+  if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
+  if (!guardDisplayName("doar via PayPal")) return;
+  if (!policyAlreadyAccepted) {
+    try {
+      if (!localStorage.getItem(DONATION_POLICY_KEY)) {
+        _pendingPayPalDonation = true;
+        openPolicyModal(true);
+        return;
+      }
+    } catch (_) {
+      _pendingPayPalDonation = true;
+      openPolicyModal(true);
+      return;
+    }
+  }
+  const qrUrl = escHtml(_catalogPaypalQrUrl || "/paypal-qr.jpeg");
+  const instructions = escHtml(_catalogPaypalInstructions || (
+    "Doação livre via PayPal.\n\nApós pagar, abra um ticket (Doação) com comprovante, SteamID e valor doado."
+  ));
+  const body = document.getElementById("paypal-modal-body");
+  if (body) {
+    body.innerHTML = `
+      <img class="pix-modal-qr" src="${qrUrl}" alt="QR Code PayPal — Luciano Costa" />
+      <p class="paypal-modal-instructions">${instructions.replace(/\n/g, "<br>")}</p>
+      <p style="font-size:12px;color:var(--text2);text-align:center;margin:0;line-height:1.5;">
+        Doação definitiva — sem reembolso. Crédito de Âmbares é manual após validação do comprovante.
+      </p>`;
+  }
+  document.getElementById("paypal-modal").style.display = "flex";
+}
+
+function closePayPalModal() {
+  document.getElementById("paypal-modal").style.display = "none";
+}
+
+function openPayPalDonationTicket() {
+  closePayPalModal();
+  if (!_auth.authenticated) { promptLogin("abrir ticket"); return; }
+  goToPage("tickets");
+  setTimeout(() => {
+    ticketsSwitchTab("new");
+    const cat = document.getElementById("tickets-new-category");
+    const subj = document.getElementById("tickets-new-subject");
+    const msg = document.getElementById("tickets-new-body");
+    if (cat) cat.value = "doacao";
+    if (subj) subj.value = "Crédito Âmbar — doação PayPal";
+    if (msg) {
+      msg.value = [
+        "Solicito crédito de Âmbares referente a doação via PayPal.",
+        "",
+        `SteamID: ${_auth.steam_id || ""}`,
+        "Valor doado: ",
+        "",
+        "Anexo: comprovante/print do pagamento PayPal.",
+      ].join("\n");
+    }
+  }, 250);
 }
 
 function _loadPayerProfile() {
@@ -12659,52 +12943,89 @@ async function pollPixStatus(paymentId) {
   try {
     const r = await fetch(API + "/api/player/pix/" + encodeURIComponent(paymentId) + "/status");
     const line = document.getElementById("pix-status-line");
-    if (!line) return;
+    const modalHidden = !document.getElementById("pix-modal") || document.getElementById("pix-modal").style.display === "none";
 
     if (r.status === 429) {
       const nextDelay = Math.min(_pixPollDelayMs * 2, 30000);
-      line.textContent = "⏳ Aguardando confirmação da doação… (consultando mais devagar)";
-      line.style.color = "var(--amber)";
+      if (line) {
+        line.textContent = "⏳ Aguardando confirmação da doação… (consultando mais devagar)";
+        line.style.color = "var(--amber)";
+      }
       schedulePixPoll(paymentId, nextDelay);
       return;
     }
 
     const d = await r.json();
     if (!r.ok || !d.ok) {
-      line.textContent = "⚠️ " + (d.error || "Erro ao consultar status (" + r.status + ")");
-      line.style.color = "var(--danger)";
+      if (line) {
+        line.textContent = "⚠️ " + (d.error || "Erro ao consultar status (" + r.status + ")");
+        line.style.color = "var(--danger)";
+      }
       schedulePixPoll(paymentId, 10000);
       return;
     }
     if (d.poll_error) {
-      line.textContent = "⚠️ Mercado Pago: " + d.poll_error;
-      line.style.color = "var(--danger)";
+      if (line) {
+        line.textContent = "⚠️ Mercado Pago: " + d.poll_error;
+        line.style.color = "var(--danger)";
+      }
       schedulePixPoll(paymentId, 10000);
       return;
     }
     if (d.status === "APROVADO" && d.credited) {
-      line.textContent = "✅ Doação confirmada! Pontos creditados como recompensa.";
-      line.style.color = "var(--success)";
+      if (line) {
+        line.textContent = "✅ Doação confirmada! Pontos creditados como recompensa.";
+        line.style.color = "var(--success)";
+      }
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance({ force: true });
       loadMyArea();
       stopPixPoll();
       _activePixPaymentId = null;
-      toast("Pontos creditados — use-os para resgatar itens no catálogo.", "success");
+      toast(modalHidden ? "Doação PIX confirmada — Âmbares creditados!" : "Pontos creditados — use-os para resgatar itens no catálogo.", "success");
     } else if (d.status === "APROVADO" && !d.credited) {
-      line.textContent = "⚠️ Pagamento aprovado, mas falha ao creditar Âmbares no banco. Contate o admin.";
-      line.style.color = "var(--danger)";
+      if (line) {
+        line.textContent = "⚠️ Pagamento aprovado, mas falha ao creditar Âmbares no banco. Contate o admin.";
+        line.style.color = "var(--danger)";
+      } else {
+        toast("Pagamento aprovado, mas falha ao creditar Âmbares. Contate o admin.", "error");
+      }
       stopPixPoll();
       _activePixPaymentId = null;
-    } else if (d.status === "RECUSADO" || d.status === "EXPIRADO" || d.status === "ABANDONADO") {
-      line.textContent = "❌ Doação " + d.status.toLowerCase();
-      line.style.color = "var(--danger)";
+    } else if (d.status === "RECUSADO" || d.status === "EXPIRADO" || d.status === "ESTORNADO") {
+      if (line) {
+        line.textContent = "❌ Doação " + d.status.toLowerCase();
+        line.style.color = "var(--danger)";
+      } else {
+        toast("Doação PIX " + (d.status || "recusada").toLowerCase() + ".", "warning");
+      }
+      stopPixPoll();
+      _activePixPaymentId = null;
+    } else if (d.status === "ABANDONADO" && !d.credited) {
+      if (line) {
+        line.textContent = modalHidden
+          ? "⏳ Aguardando confirmação da doação…"
+          : "⏳ Aguardando confirmação da doação (modal fechado)…";
+        line.style.color = "var(--amber)";
+      }
+      if (modalHidden && !_pixAbandonPollNotified) {
+        _pixAbandonPollNotified = true;
+        toast("Doação PIX em andamento — avisaremos quando os Âmbares forem creditados.", "info");
+      }
+      schedulePixPoll(paymentId, 5000);
+    } else if (d.status === "ABANDONADO") {
+      if (line) {
+        line.textContent = "❌ Doação abandonada";
+        line.style.color = "var(--danger)";
+      }
       stopPixPoll();
       _activePixPaymentId = null;
     } else {
       const mpHint = d.mp_status ? " (MP: " + d.mp_status + ")" : "";
-      line.textContent = "Aguardando confirmação da doação…" + mpHint;
-      line.style.color = "var(--amber)";
+      if (line) {
+        line.textContent = "Aguardando confirmação da doação…" + mpHint;
+        line.style.color = "var(--amber)";
+      }
       schedulePixPoll(paymentId, 5000);
     }
   } catch (e) {
@@ -13184,20 +13505,44 @@ function isSteamId64(value) {
 async function loadConfig() {
   if (!_auth.is_admin) return true;
   setStatus(false, "Carregando config.json…");
+  setAdminShopLoading("Carregando config.json…");
   try {
-    const data = await fetchJson("/api/config", { timeoutMs: 20000 });
-    if (data.error) {
-      setStatus(false, "Erro: " + data.error);
-      toast(data.error, "error");
+    // Timeout 12s (não 20): admin_required é ficheiro+cache; se hang for pool MySQL, falha rápido.
+    const data = await fetchJson("/api/config", { timeoutMs: 12000 });
+    const itemsN = Object.keys(data.ShopItems || data.Items || {}).length;
+    const kitsN = Object.keys(data.Kits || {}).length;
+    if (data.error || data._config_path_missing || (itemsN + kitsN === 0)) {
+      const pathHint = data._config_path || data._config_path_missing || "";
+      const msg = data.error
+        || (pathHint
+          ? `config.json vazio ou em falta: ${pathHint}`
+          : "config.json sem itens/kits — verifique Configurações → caminho do catálogo");
+      setStatus(false, "Erro: " + msg);
+      toast(msg, "error");
+      setAdminShopLoading(msg + " — clique em ↺ Recarregar");
+      const kitsEl = document.getElementById("kits-list");
+      if (kitsEl) {
+        kitsEl.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${escHtml(msg)}</p></div>`;
+      }
       return false;
     }
     _config = data;
     renderAll();
-    setStatus(true, "config.json carregado");
+    if (data._config_healed) {
+      toast(data._config_healed, "warning");
+    }
+    setStatus(true, `config.json: ${itemsN} itens · ${kitsN} kits`);
     return true;
   } catch(e) {
-    setStatus(false, "Falha no config.json: " + e.message);
-    toast("Falha ao carregar config.json: " + e.message, "error");
+    const data = e.data || {};
+    const msg = data.error || e.message || "erro desconhecido";
+    setStatus(false, "Falha no config.json: " + msg);
+    toast("Falha ao carregar config.json: " + msg, "error");
+    setAdminShopLoading("Falha ao carregar config.json: " + msg + " — clique em ↺ Recarregar");
+    const kitsEl = document.getElementById("kits-list");
+    if (kitsEl) {
+      kitsEl.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${escHtml(msg)}</p></div>`;
+    }
     return false;
   }
 }
@@ -13302,6 +13647,8 @@ function _shopItemMatchesSearch(key, item, search) {
 
 function renderShop() {
   const el = document.getElementById("shop-list");
+  if (!el) return;
+  if (!_config) return;
   const items = _config?.ShopItems || {};
   const keys = Object.keys(items);
   const search = (document.getElementById("shop-admin-search")?.value || "").trim();
@@ -13360,6 +13707,8 @@ function renderShop() {
 
 function renderKits() {
   const el = document.getElementById("kits-list");
+  if (!el) return;
+  if (!_config) return;
   const kits = _config?.Kits || {};
   const keys = Object.keys(kits);
   if (!keys.length) {
@@ -21000,14 +21349,17 @@ let _homeCarouselPaused = false;
 
 async function loadAdminHomeCards() {
   if (!_auth.is_admin) return;
+  const el = document.getElementById("admin-home-cards-list");
+  if (el) el.innerHTML = `<div style="color:var(--text2);padding:16px;">Carregando cards…</div>`;
   try {
-    const r = await fetch(API + "/api/admin/home-cards");
-    const d = await r.json();
-    if (!d.ok) { toast(d.error || "Falha ao carregar cards", "error"); return; }
+    const d = await fetchJson("/api/admin/home-cards", { timeoutMs: 12000 });
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar cards");
     _homeCardsAdmin = d.cards || [];
     renderAdminHomeCards(d);
   } catch (e) {
-    toast("Erro ao carregar mural: " + e.message, "error");
+    const msg = escHtml(String(e));
+    if (el) el.innerHTML = `<div style="color:var(--danger);padding:16px;">${msg}</div>`;
+    toast("Erro ao carregar mural: " + String(e), "error");
   }
 }
 
@@ -22678,6 +23030,12 @@ async function loadSettings() {
     if (doBeta) doBeta.value = String(s.dino_order_beta ?? "0.35");
     const doAuto = document.getElementById("s-dino-order-auto-approve");
     if (doAuto) doAuto.value = String(s.dino_order_auto_approve_max ?? "200000");
+    const ppOn = document.getElementById("s-paypal-enabled");
+    if (ppOn) ppOn.checked = !!s.paypal_enabled;
+    const ppQr = document.getElementById("s-paypal-qr-path");
+    if (ppQr) ppQr.value = s.paypal_qr_path || "/paypal-qr.jpeg";
+    const ppInstr = document.getElementById("s-paypal-instructions");
+    if (ppInstr) ppInstr.value = s.paypal_instructions || "";
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -22722,6 +23080,9 @@ async function saveSettings() {
     dino_order_enabled: !!document.getElementById("s-dino-order-enabled")?.checked,
     dino_order_beta: parseFloat(document.getElementById("s-dino-order-beta")?.value || "0.35") || 0.35,
     dino_order_auto_approve_max: parseInt(document.getElementById("s-dino-order-auto-approve")?.value || "200000", 10) || 200000,
+    paypal_enabled: !!document.getElementById("s-paypal-enabled")?.checked,
+    paypal_qr_path: (document.getElementById("s-paypal-qr-path")?.value || "/paypal-qr.jpeg").trim(),
+    paypal_instructions: (document.getElementById("s-paypal-instructions")?.value || "").trim(),
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;
@@ -24328,6 +24689,7 @@ function renderHomePage(d) {
   const st = d.stats || {};
   const auth = _auth.authenticated;
   const pixOn = !!d.pix_enabled;
+  const paypalOn = !!d.paypal_enabled;
   const fmtBrlHome = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",");
 
   const seasonal = d.seasonal_events || {};
@@ -24394,7 +24756,8 @@ function renderHomePage(d) {
   const authActions = auth
     ? `<button class="btn btn-primary" onclick="goToPage('catalog')">📦 Explorar catálogo</button>
        <button class="btn btn-ghost" onclick="goToPage('myarea')">👤 Minha área</button>
-       ${pixOn ? `<button class="btn btn-success" onclick="goToPage('catalog');setTimeout(()=>setCatalogTab('recharge'),200)">💚 Doar via PIX</button>` : ""}`
+       ${pixOn ? `<button class="btn btn-success" onclick="goToPage('catalog');setTimeout(()=>setCatalogTab('recharge'),200)">💚 Doar via PIX</button>` : ""}
+       ${paypalOn ? `<button class="btn btn-primary" onclick="goToPage('catalog');setTimeout(()=>{setCatalogTab('recharge');setTimeout(openPayPalDonationModal,300);},200)">💙 Doar via PayPal</button>` : ""}`
     : `<button class="btn btn-primary" onclick="goToPage('catalog')">📦 Ver catálogo (público)</button>
        <button class="btn btn-ghost" onclick="loginWithSteam()">Entrar com Steam</button>`;
 
@@ -25524,9 +25887,10 @@ async function bootPortal() {
     }
 
     if (_auth.is_admin) {
-      const shopNav = document.querySelector('.nav-item[data-page="shop"]');
-      if (shopNav) nav(shopNav);
-      if (!configOk) {
+      if (configOk) {
+        const shopNav = document.querySelector('.nav-item[data-page="shop"]');
+        if (shopNav) nav(shopNav);
+      } else {
         setAdminShopLoading("Não foi possível carregar config.json — clique em ↺ Recarregar");
       }
     } else if (_auth.can_manage_tickets) {
@@ -25555,6 +25919,7 @@ async function bootPortal() {
       }
     }
 
+    const catalogHasData = _catalogItems.length > 0 || _catalogKits.length > 0;
     if (!warmupOk) {
       setStatus(
         false,
@@ -25568,6 +25933,10 @@ async function bootPortal() {
       setStatus(true, "Painel admin pronto");
     } else if (_auth.can_manage_tickets) {
       setStatus(true, "Painel de suporte pronto");
+    } else if (_catalogLoadError && !catalogHasData) {
+      setStatus(false, "Catálogo indisponível — " + _catalogLoadError);
+    } else if (!catalogHasData && !_catalogLoaded) {
+      setStatus(false, "A carregar catálogo…");
     } else {
       setStatus(true, "Loja online");
     }
@@ -25719,6 +26088,18 @@ document.addEventListener("keydown", (e) => {
   </div>
 </div>
 
+<!-- ── Modal PayPal (QR + ticket manual) ─────────────────────────────────────── -->
+<div id="paypal-modal">
+  <div class="buy-modal-inner">
+    <div class="buy-modal-title">💙 Doação via PayPal</div>
+    <div id="paypal-modal-body" class="buy-modal-body"></div>
+    <div class="buy-modal-footer">
+      <button class="btn btn-ghost" onclick="closePayPalModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="openPayPalDonationTicket()">🎫 Abrir ticket</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal de Resgate ───────────────────────────────────────────────────────── -->
 <div id="buy-modal">
   <div class="buy-modal-inner">
@@ -25771,6 +26152,21 @@ document.addEventListener("keydown", (e) => {
     </div>
     <div class="notif-panel__actions">
       <button type="button" id="notif-mark-all-btn" class="notif-panel__mark-all" onclick="markAllNotificationsRead(event)">Marcar todas lidas</button>
+      <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
+    </div>
+  </div>
+  <div id="notif-list" class="notif-panel__list">
+    <div class="notif-empty">
+      <div class="notif-empty__icon">🔔</div>
+      <div class="notif-empty__title">Carregando…</div>
+      <div class="notif-empty__text">Aguarde um instante.</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+ todas lidas</button>
       <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
     </div>
   </div>

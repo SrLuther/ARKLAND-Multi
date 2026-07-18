@@ -91,3 +91,29 @@ def test_patch_species_display_name_http(tmp_path, monkeypatch):
     assert data["ok"] is True
     assert data["display_name"] == "Rex"
     assert "shop_catalog_name" in data
+
+
+def test_filter_commerce_dino_rows_batch_aliases(db_session):
+    """_filter_commerce_dino_rows carrega aliases num único SELECT."""
+    sync_catalog_to_db(db_session, SAMPLE_CATALOG)
+    from app import MarketSpecies
+
+    rows = db_session.query(MarketSpecies).filter(MarketSpecies.status != "INACTIVE").all()
+    assert rows
+
+    alias_queries = {"n": 0}
+    real_query = db_session.query
+
+    def _counting_query(*args, **kwargs):
+        q = real_query(*args, **kwargs)
+        if args and getattr(args[0], "__name__", "") == "MarketSpeciesAlias":
+            alias_queries["n"] += 1
+        return q
+
+    db_session.query = _counting_query  # type: ignore[method-assign]
+    from market_service import _filter_commerce_dino_rows
+
+    filtered, alias_map = _filter_commerce_dino_rows(db_session, rows)
+    assert filtered
+    assert alias_queries["n"] == 1
+    assert isinstance(alias_map, dict)

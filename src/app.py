@@ -3830,8 +3830,8 @@ class ARKServerManagerApp(ctk.CTk):
         if not info:
             return
         try:
-            from .pages.customshop_panel import stop_webstore
-            stop_webstore()
+            from .pages.customshop_panel import shutdown_shop_services
+            shutdown_shop_services()
         except Exception:
             pass
         self._install_update_btn.configure(state="disabled", text="⏳  Iniciando agente...")
@@ -4017,6 +4017,11 @@ class ARKServerManagerApp(ctk.CTk):
                 client.disconnect()
             except Exception:
                 pass
+        try:
+            from .pages.customshop_panel import shutdown_shop_services
+            shutdown_shop_services()
+        except Exception:
+            pass
         self.config_manager.save()
         self.destroy()
 

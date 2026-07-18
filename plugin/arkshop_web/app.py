@@ -57,7 +57,15 @@ from db_diagnostics import (
     clear_request_context,
     mark_checkout_started,
     probe_database,
+    record_pool_timeout,
     set_request_context,
+)
+from request_diagnostics import (
+    begin_request,
+    finish_request,
+    record_event,
+    set_request_actor,
+    set_request_error,
 )
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
 from server_connect import diagnose_server_connect, public_server_connect_view
@@ -101,6 +109,8 @@ from src.shop_integration import (  # noqa: E402
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
 
+_LOG_LEVEL = (os.environ.get("ARKSHOP_LOG_LEVEL", "INFO") or "INFO").upper()
+
 logging.config.dictConfig({
     "version": 1,
     "disable_existing_loggers": False,
@@ -121,7 +131,12 @@ logging.config.dictConfig({
             "formatter": "plain",
         },
     },
-    "root": {"level": "INFO", "handlers": ["console"]},
+    "root": {"level": _LOG_LEVEL, "handlers": ["console"]},
+    "loggers": {
+        "arkshop": {"level": _LOG_LEVEL},
+        "arkshop_web.request": {"level": _LOG_LEVEL},
+        "arkshop_web.db_diagnostics": {"level": _LOG_LEVEL},
+    },
 })
 
 log = logging.getLogger("arkshop")
@@ -305,7 +320,7 @@ try:
 except Exception as _catalog_boot_exc:
     log.warning("Catálogo mestre indisponível no boot: %s", _catalog_boot_exc)
     _DEFAULT_CONFIG_PATH = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip() or str(
-        webstore_data_dir() / "config.json"
+        canonical_master_catalog_path()
     )
 _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
@@ -1083,18 +1098,17 @@ def _reset_schema_runtime_flags() -> None:
 
 
 def _db_table_exists(engine: Any, table_name: str) -> bool:
-    """Cacheia só positivos — evita inspect.get_table_names() em cada lista admin."""
-    cached = _TABLE_EXISTS_CACHE.get(table_name)
-    if cached is True:
-        return True
+    """Cacheia positivo e negativo — miss negativo sem cache re-inspeta o schema a cada request."""
+    if table_name in _TABLE_EXISTS_CACHE:
+        return bool(_TABLE_EXISTS_CACHE[table_name])
     try:
         from sqlalchemy import inspect
 
         exists = table_name in set(inspect(engine).get_table_names())
-        if exists:
-            _TABLE_EXISTS_CACHE[table_name] = True
-        return exists
+        _TABLE_EXISTS_CACHE[table_name] = bool(exists)
+        return bool(exists)
     except Exception:
+        # Não cacheia falha transitória — próximo request pode retentar.
         return False
 
 
@@ -2238,14 +2252,24 @@ def _db_ready() -> bool:
 def _db_session_factory():
     """Sessão SQLAlchemy atual — usado por market_routes (não capturar _SessionLocal na importação)."""
     mark_checkout_started()
-    return _SessionLocal()
+    try:
+        return _SessionLocal()
+    except Exception as exc:
+        if exc.__class__.__name__ == "TimeoutError" or "QueuePool limit" in str(exc):
+            record_pool_timeout(endpoint=request.path if has_request_context() else "", error=str(exc))
+        raise
 
 
 def _get_db_session():
     """Get a database session, or None if not ready."""
     if _SessionLocal is not None:
         mark_checkout_started()
-        return _SessionLocal()
+        try:
+            return _SessionLocal()
+        except Exception as exc:
+            if exc.__class__.__name__ == "TimeoutError" or "QueuePool limit" in str(exc):
+                record_pool_timeout(endpoint=request.path if has_request_context() else "", error=str(exc))
+            raise
     return None
 
 
@@ -2333,7 +2357,14 @@ def _start_runtime_workers_once() -> None:
 def _ensure_runtime_initialized_before_request() -> None:
     """Nunca bloqueia em migrate/conexão MySQL — DB sobe em background."""
     path = request.path or ""
-    set_request_context(endpoint=path or request.endpoint)
+    rid = set_request_context(endpoint=path or request.endpoint)
+    steam_id = _steam_id_from_session()
+    begin_request(
+        request_id=rid,
+        route=path,
+        method=request.method,
+        steam_id=steam_id,
+    )
     if path in _BOOT_SKIP_EXACT or any(path.startswith(p) for p in _BOOT_SKIP_PREFIXES):
         return
     _start_runtime_workers_once()
@@ -2341,6 +2372,44 @@ def _ensure_runtime_initialized_before_request() -> None:
 
 
 app.before_request(_ensure_runtime_initialized_before_request)
+
+
+@app.after_request
+def _log_request_diagnostics(response: Any) -> Any:
+    """Log estruturado por request + detecção de falhas JSON em /api/*."""
+    path = request.path or ""
+    try:
+        if steam_id := _steam_id_from_session():
+            set_request_actor(steam_id=steam_id)
+        if path.startswith("/api/") and response.status_code < 500:
+            body = (response.get_data(as_text=True) or "").strip()
+            if body.startswith("{"):
+                try:
+                    parsed = json.loads(body)
+                    if isinstance(parsed, dict) and parsed.get("ok") is False:
+                        err = (
+                            parsed.get("error")
+                            or parsed.get("message")
+                            or parsed.get("detail")
+                            or "api_ok_false"
+                        )
+                        set_request_error(api_error=str(err)[:300])
+                        if path.startswith("/api/store/bootstrap") or path.startswith("/api/config"):
+                            record_event(
+                                "api_failure",
+                                level="warning",
+                                route=path,
+                                error=str(err)[:200],
+                                status=response.status_code,
+                            )
+                except Exception:
+                    pass
+        entry = finish_request(status_code=response.status_code)
+        if entry and entry.get("request_id"):
+            response.headers["X-Request-Id"] = str(entry["request_id"])
+    except Exception:
+        pass
+    return response
 
 
 @app.teardown_appcontext
@@ -2381,6 +2450,9 @@ def _load_settings() -> Dict[str, Any]:
         "mp_access_token": "",
         "steam_api_key": "",
         "mp_sandbox": False,
+        "paypal_enabled": False,
+        "paypal_instructions": DEFAULT_PAYPAL_INSTRUCTIONS,
+        "paypal_qr_path": DEFAULT_PAYPAL_QR_PATH,
     }
     if _STATE_FILE.exists():
         try:
@@ -2503,10 +2575,15 @@ def _touch_store_user_login(steam_id: str) -> None:
     """Registra ou atualiza conta web no login Steam — sempre sobrescreve steam_persona."""
     if not _db_ready() or not _is_valid_steamid64(steam_id):
         return
+    norm_sid = _normalize_steam_id64(steam_id) or steam_id
+    if _steam_api_key_configured():
+        try:
+            _refresh_steam_personas(None, [norm_sid], timeout=5.0)
+        except Exception as exc:
+            log.warning("steam persona no login %s: %s", steam_id, exc)
     db = _SessionLocal()
     try:
         now = _now()
-        _refresh_steam_persona(db, steam_id)
         row = db.get(StoreUser, steam_id)
         if row is None:
             row = StoreUser(steam_id=steam_id, last_login_at=now)
@@ -2590,10 +2667,12 @@ def _is_player_site_blocked(steam_id: str) -> bool:
         _release_db_session(db)
 
 
-def _store_user_blocked_fields(steam_id: str) -> dict[str, Any]:
-    if not _db_ready():
+def _store_user_blocked_fields(steam_id: str, *, db: Any | None = None) -> dict[str, Any]:
+    if not _db_ready() and db is None:
         return {"site_access_blocked": False, "ban_reason": None}
-    db = _SessionLocal()
+    owns_session = db is None
+    if owns_session:
+        db = _SessionLocal()
     try:
         row = db.get(StoreUser, str(steam_id))
         if not row:
@@ -2603,7 +2682,8 @@ def _store_user_blocked_fields(steam_id: str) -> dict[str, Any]:
             "ban_reason": row.ban_reason,
         }
     finally:
-        _release_db_session(db)
+        if owns_session:
+            _release_db_session(db)
 
 
 def _dt_iso(value: Any) -> str | None:
@@ -2622,6 +2702,11 @@ def _list_admin_players(
     offset: int = 0,
     limit: int = 50,
 ) -> dict[str, Any]:
+    """Lista admin completa (nome, âmbar, status, licenças, cargos, login).
+
+    Path HTTP: só SQL (store_users + LEFT JOIN players + entitlements batch).
+    Fora do path: Steam API, DDL/self-heal, RCON — backfill de nick em background.
+    """
     if not _db_ready():
         return {"ok": False, "error": "Banco não configurado"}
     limit = max(1, min(200, int(limit)))
@@ -2629,13 +2714,14 @@ def _list_admin_players(
     q = (q or "").strip()
     sort_key = sort if sort in ("last_login", "display_name", "points", "created_at") else "last_login"
     sort_dir = "ASC" if str(order).lower() == "asc" else "DESC"
+    t0 = time.perf_counter()
+    timing: dict[str, int] = {}
     db = _SessionLocal()
     try:
         bind = db.get_bind()
-        _ensure_store_users_schema(bind)
+        # Sem DDL/self-heal aqui. Cache de existência (sem re-inspect a cada request).
         is_mysql = _is_mysql_engine(bind)
         has_market_profile = _db_table_exists(bind, "market_player_profile")
-        has_players = _db_table_exists(bind, "players")
         params: dict[str, Any] = {"lim": limit, "off": offset}
         where = "WHERE 1=1"
         if q:
@@ -2644,6 +2730,7 @@ def _list_admin_players(
             search_bits = [
                 "su.steam_id LIKE :q",
                 "su.display_name LIKE :q",
+                "su.steam_persona LIKE :q",
                 "su.steam_id = :qexact",
             ]
             if has_market_profile:
@@ -2654,44 +2741,32 @@ def _list_admin_players(
             if has_market_profile and q
             else ""
         )
-        market_join = (
-            f"LEFT JOIN market_player_profile mp ON {_steam_id_on_sql('mp.steam_id', 'su.steam_id', mysql=is_mysql)} "
-            if has_market_profile
-            else ""
-        )
         players_join = (
             f"LEFT JOIN players p ON {_steam_id_on_sql('p.steam_id', 'su.steam_id', mysql=is_mysql)} "
-            if has_players
-            else ""
         )
-        points_expr = "COALESCE(p.points, 0)" if has_players else "0"
+        points_expr = "COALESCE(p.points, 0)"
         sort_col = {
             "last_login": "su.last_login_at",
-            "display_name": "COALESCE(su.display_name, su.steam_id)",
+            "display_name": "COALESCE(su.steam_persona, su.display_name, su.steam_id)",
             "points": points_expr,
             "created_at": "su.created_at",
         }[sort_key]
-        # COUNT sem JOINs quando a busca não depende de market/players — evita full join+filesort.
+        t_count = time.perf_counter()
         if q and has_market_profile:
             count_sql = (
-                "SELECT COUNT(*) FROM store_users su "
-                f"{market_join_for_search}"
-                f"{where}"
+                f"SELECT COUNT(*) FROM store_users su {market_join_for_search}{where}"
             )
         else:
             count_sql = f"SELECT COUNT(*) FROM store_users su {where}"
         total = int(db.execute(text(count_sql), params).scalar() or 0)
-        select_cols = (
-            "su.steam_id, su.display_name, su.steam_persona, "
-            + ("mp.market_display_name, " if has_market_profile else "NULL AS market_display_name, ")
-            + f"{points_expr}, su.site_access_blocked, su.ban_reason, "
-            "su.created_at, su.last_login_at "
-        )
+        timing["count_ms"] = int((time.perf_counter() - t_count) * 1000)
+        t_rows = time.perf_counter()
         rows = db.execute(
             text(
-                f"SELECT {select_cols}"
+                "SELECT su.steam_id, su.display_name, su.steam_persona, "
+                f"{points_expr}, su.site_access_blocked, su.ban_reason, "
+                "su.created_at, su.last_login_at "
                 "FROM store_users su "
-                f"{market_join}"
                 f"{players_join}"
                 f"{where} "
                 f"ORDER BY {sort_col} {sort_dir}, su.steam_id ASC "
@@ -2699,26 +2774,31 @@ def _list_admin_players(
             ),
             params,
         ).fetchall()
+        timing["rows_ms"] = int((time.perf_counter() - t_rows) * 1000)
         steam_ids = [
             _normalize_steam_id64(r[0]) or str(r[0]).strip()
             for r in rows
         ]
-        ents_by_sid = _get_player_entitlements_batch(db, [s for s in steam_ids if s])
-        persona_entries = [(str(r[0]), r[2]) for r in rows]
-        # Liberta conexão ANTES da Steam API (até 4s) — evita pool starvation.
-        _release_db_session(db, force=True)
-        db = None
-        persona_map, persona_meta = _backfill_steam_personas(
-            None, persona_entries, return_status=True,
+        t_ents = time.perf_counter()
+        ents_by_sid = _get_player_entitlements_batch(
+            db, [s for s in steam_ids if s], allow_ddl=False,
         )
+        timing["ents_ms"] = int((time.perf_counter() - t_ents) * 1000)
+        missing_persona: list[str] = []
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = _normalize_steam_id64(r[0]) or str(r[0]).strip()
+            store_name = (str(r[1]).strip() if r[1] else "") or None
+            if store_name == sid:
+                store_name = None
             cached_persona = (str(r[2]).strip() if r[2] else "") or None
             if cached_persona == sid:
                 cached_persona = None
-            persona = persona_map.get(sid) or cached_persona
-            label = _admin_player_persona_label(sid, steam_persona=persona)
+            persona = cached_persona
+            if not persona:
+                missing_persona.append(sid)
+            # Cache miss de nick → SteamID placeholder; linha do jogador SEMPRE presente.
+            label = persona or store_name or sid
             ents = ents_by_sid.get(sid) or []
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
@@ -2726,28 +2806,47 @@ def _list_admin_players(
                 "steam_id": sid,
                 "steam_persona": persona if persona and str(persona).strip() != sid else None,
                 "display_name": label,
-                "points": int(r[4] or 0),
-                "site_access_blocked": bool(r[5]),
-                "ban_reason": r[6],
-                "created_at": _dt_iso(r[7]),
-                "last_login_at": _dt_iso(r[8]),
+                "points": int(r[3] or 0),
+                "site_access_blocked": bool(r[4]),
+                "ban_reason": r[5],
+                "created_at": _dt_iso(r[6]),
+                "last_login_at": _dt_iso(r[7]),
                 "licenses": license_groups,
                 "staff_roles": staff_roles,
             })
+        if missing_persona:
+            _schedule_steam_persona_backfill(missing_persona)
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        timing["total_ms"] = elapsed_ms
+        _log(
+            "get_admin_players_list",
+            elapsed_ms=elapsed_ms,
+            **timing,
+            total=total,
+            page=len(items),
+            q_len=len(q),
+            sort=sort_key,
+        )
         return {
             "ok": True,
             "items": items,
             "total": total,
             "offset": offset,
             "limit": limit,
-            **persona_meta,
+            "steam_api_configured": _steam_api_key_configured(),
+            "steam_persona_warning": (
+                _STEAM_PERSONA_ADMIN_WARNING
+                if missing_persona and not _steam_api_key_configured()
+                else None
+            ),
+            "timing": timing,
         }
     except Exception as exc:
-        _log_error("list_admin_players", error=str(exc))
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        _log_error("get_admin_players_list", error=str(exc), elapsed_ms=elapsed_ms)
         return {"ok": False, "error": str(exc)}
     finally:
-        if db is not None:
-            _release_db_session(db, force=True)
+        _release_db_session(db, force=True)
 
 
 def _get_admin_player_detail(
@@ -2853,7 +2952,7 @@ def _get_admin_player_detail(
         _log_error("get_admin_player_detail", steam_id=steam_id, error=str(exc))
         return {"ok": False, "error": str(exc)}
     finally:
-        _release_db_session(db)
+        _release_db_session(db, force=True)
 
 
 # Budget curto do detalhe admin — o frontend aborta aos 15s. Preferimos SEMPRE uma
@@ -2863,6 +2962,13 @@ _ADMIN_DETAIL_BUDGET_MS = max(0, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BUDGET
 _ADMIN_DETAIL_HEAVY_BUDGET_MS = max(
     1000,
     int(os.environ.get("ARKSHOP_ADMIN_DETAIL_HEAVY_BUDGET_MS", "12000") or 12000),
+)
+# Bootstrap / kit-limits: alvo <2–3s. Frontend mantém timeout 15s — nunca aumentar.
+_STORE_BOOTSTRAP_BUDGET_MS = max(
+    0, int(os.environ.get("ARKSHOP_STORE_BOOTSTRAP_BUDGET_MS", "2500") or 0)
+)
+_KIT_LIMITS_BUDGET_MS = max(
+    0, int(os.environ.get("ARKSHOP_KIT_LIMITS_BUDGET_MS", "2500") or 0)
 )
 # Limita threads órfãs do detalhe após budget — cada uma pode segurar 1 conexão do pool
 # até o cancel libertar a sessão entre queries.
@@ -3085,7 +3191,7 @@ def _get_admin_player_detail_heavy(
         _log_error("get_admin_player_detail_heavy", steam_id=steam_id, error=str(exc))
         return {"ok": False, "error": str(exc)}
     finally:
-        _release_db_session(db)
+        _release_db_session(db, force=True)
 
 
 def _get_admin_player_detail_heavy_budgeted(steam_id: str) -> dict[str, Any]:
@@ -3983,6 +4089,34 @@ def _sync_license_permissions_all_servers(
     return results
 
 
+def _license_perm_sync_spec(steam_id: str, group: str, days: int) -> dict[str, Any]:
+    return {
+        "steam_id": str(steam_id),
+        "group": str(group),
+        "days": int(days or 30),
+    }
+
+
+def _flush_deferred_license_perm_syncs(specs: list[dict[str, Any]]) -> None:
+    """Sync ark_permission + RCON fora de sessão web — evita pool starvation."""
+    for spec in specs:
+        try:
+            _sync_license_permissions_all_servers(
+                spec["steam_id"],
+                spec["group"],
+                grant=True,
+                days=int(spec.get("days") or 30),
+                rcon_async=True,
+            )
+        except Exception as exc:
+            _log_error(
+                "deferred_license_perm_sync",
+                steam_id=spec.get("steam_id"),
+                group=spec.get("group"),
+                error=str(exc),
+            )
+
+
 def _admin_player_staff_role(
     steam_id: str,
     *,
@@ -4575,39 +4709,144 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
 
 
 _CONFIG_CACHE: dict[str, Any] = {"path": "", "mtime": 0.0, "data": {}}
+_RESOLVED_CATALOG_CACHE: dict[str, Any] = {
+    "preferred": "",
+    "preferred_mtime": 0.0,
+    "resolved_path": "",
+    "data": {},
+    "note": None,
+}
+_HEAL_RICHEST_CACHE: dict[str, Any] = {"expires": 0.0, "path": ""}
+_TIMED_POINTS_AMOUNTS_CACHE: dict[str, Any] = {"fingerprint": "", "amounts": None}
 
 
 def _invalidate_shop_config_cache() -> None:
     _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
+    _RESOLVED_CATALOG_CACHE.update({
+        "preferred": "",
+        "preferred_mtime": 0.0,
+        "resolved_path": "",
+        "data": {},
+        "note": None,
+    })
+    _HEAL_RICHEST_CACHE.update({"expires": 0.0, "path": ""})
     _RICHEST_LICENSE_CONFIG_CACHE.update({"fingerprint": "", "data": None})
     _LICENSE_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
     _KIT_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
+    _TIMED_POINTS_AMOUNTS_CACHE.update({"fingerprint": "", "amounts": None})
+
+
+def _cache_shop_config_file(path: Path, data: dict[str, Any]) -> None:
+    try:
+        path_key = str(path.resolve())
+        mtime = path.stat().st_mtime if path.is_file() else 0.0
+    except OSError:
+        path_key = str(path)
+        mtime = 0.0
+    _CONFIG_CACHE.update({"path": path_key, "mtime": mtime, "data": data})
+
+
+def _resolve_shop_catalog(
+    *,
+    persist_healed_path: bool = False,
+) -> tuple[Path, dict[str, Any], str | None]:
+    """Resolve catálogo mestre (path + JSON) com cache e heal quando o path falta."""
+    s = _load_settings()
+    preferred = Path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH))
+    pref_key = str(preferred)
+    try:
+        pref_mtime = preferred.stat().st_mtime if preferred.is_file() else 0.0
+    except OSError:
+        pref_mtime = 0.0
+
+    cache = _RESOLVED_CATALOG_CACHE
+    if (
+        cache.get("preferred") == pref_key
+        and cache.get("preferred_mtime") == pref_mtime
+        and isinstance(cache.get("data"), dict)
+    ):
+        resolved = Path(str(cache.get("resolved_path") or preferred))
+        return resolved, dict(cache["data"]), cache.get("note")
+
+    note: str | None = None
+    resolved = preferred
+    data: dict[str, Any] = {}
+
+    if preferred.is_file():
+        data = _read_json_file(preferred)
+        items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data)))
+        if items_n + kits_n > 0:
+            _cache_shop_config_file(preferred, data)
+            cache.update({
+                "preferred": pref_key,
+                "preferred_mtime": pref_mtime,
+                "resolved_path": pref_key,
+                "data": data,
+                "note": None,
+            })
+            return preferred, data, None
+        note = (
+            f"config.json sem itens/kits em {preferred}. "
+            "Verifique Configurações → caminho do catálogo ou restaure o mestre CustomShop."
+        )
+        record_event(
+            "catalog_empty",
+            level="warning",
+            config_path=str(preferred),
+            items_count=items_n,
+            kits_count=kits_n,
+            note=note[:200],
+        )
+    else:
+        record_event(
+            "config_path_missing",
+            level="warning",
+            config_path=str(preferred),
+        )
+        resolved, data, note = _heal_empty_shop_config_path(preferred)
+        if note and "recuperado" in note.lower():
+            items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data or {})))
+            record_event(
+                "config_path_healed",
+                level="info",
+                config_path=str(resolved),
+                items_count=items_n,
+                kits_count=kits_n,
+                note=note[:200],
+            )
+        elif note:
+            record_event(
+                "catalog_load_failure",
+                level="warning",
+                config_path=str(resolved),
+                note=note[:200],
+            )
+        if persist_healed_path and note and resolved.is_file():
+            resolved_key = str(resolved)
+            if resolved_key != pref_key:
+                try:
+                    s["config_path"] = resolved_key
+                    _save_settings(s)
+                    _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
+                    _HEAL_RICHEST_CACHE.update({"expires": 0.0, "path": ""})
+                except Exception as exc:
+                    _log_error("heal_shop_config_persist", error=str(exc))
+
+    if data:
+        _cache_shop_config_file(resolved, data)
+    cache.update({
+        "preferred": pref_key,
+        "preferred_mtime": pref_mtime,
+        "resolved_path": str(resolved),
+        "data": data,
+        "note": note,
+    })
+    return resolved, data, note
 
 
 def _read_shop_config() -> dict[str, Any]:
-    s = _load_settings()
-    path = Path(s.get("config_path", _DEFAULT_CONFIG_PATH))
-    if not path.exists():
-        return {}
-    try:
-        mtime = path.stat().st_mtime
-        path_key = str(path.resolve())
-        if (
-            _CONFIG_CACHE.get("path") == path_key
-            and _CONFIG_CACHE.get("mtime") == mtime
-            and isinstance(_CONFIG_CACHE.get("data"), dict)
-        ):
-            return _CONFIG_CACHE["data"]
-        text_body = path.read_text(encoding="utf-8-sig")
-        try:
-            data = json.loads(text_body)
-        except json.JSONDecodeError:
-            cleaned = re.sub(r"//[^\n]*", "", text_body)
-            data = json.loads(cleaned)
-        _CONFIG_CACHE.update({"path": path_key, "mtime": mtime, "data": data})
-        return data
-    except Exception:
-        return {}
+    _, data, _ = _resolve_shop_catalog(persist_healed_path=False)
+    return data
 
 
 PAID_LICENSE_GROUPS = frozenset({
@@ -4766,6 +5005,16 @@ def _catalog_id_migration_aliases() -> dict[str, str]:
         return {}
 
 
+def _resolve_kit_id_in_catalog(kit_id: str, kits: dict[str, Any]) -> str:
+    """Alias de kit no catálogo já carregado — sem reler ficheiro."""
+    if kit_id in kits:
+        return kit_id
+    lower = kit_id.lower()
+    if lower in kits:
+        return lower
+    return kit_id
+
+
 def _resolve_catalog_item_id(item_type: str, item_id: str) -> str:
     """Resolve aliases (ex.: Gamma → licenca_gamma) para o ID canônico no config."""
     item_id = str(item_id or "").strip()
@@ -4821,24 +5070,54 @@ def _player_kit_remaining(db, steam_id: str, kit_id: str, entry: dict[str, Any])
 
 
 
-def _pending_kit_order_counts(db: Any, steam_id: str) -> dict[str, int]:
+def _pending_kit_order_counts(
+    db: Any,
+    steam_id: str,
+    *,
+    kits_catalog: dict[str, Any] | None = None,
+) -> dict[str, int]:
     """Uma query agregada: pedidos kit PENDENTE/ENTREGANDO por item_id resolvido.
 
     GROUP BY evita fetchall sem teto (jogadores com milhares de pedidos) e também
     corrige regressão do LIMIT/CAP — pendentes fora do cap não podem sumir do restante.
+    MySQL: MAX_EXECUTION_TIME evita scan de 2+ minutos se o índice hot-path faltar.
     """
-    rows = db.execute(
-        text(
-            "SELECT item_id, COUNT(*) AS cnt FROM orders "
-            "WHERE steam_id = :sid AND item_type = 'kit' "
-            "AND status IN ('PENDENTE', 'ENTREGANDO') "
-            "GROUP BY item_id"
-        ),
-        {"sid": str(steam_id)},
-    ).fetchall()
+    is_mysql = _is_mysql_engine(db)
+    # 2.5s — alinhado ao budget do bootstrap/kit-limits; melhor falhar rápido que
+    # segurar o worker até o abort de 15s do browser.
+    max_ms = max(500, int(os.environ.get("ARKSHOP_KIT_PENDING_MAX_MS", "2500") or 2500))
+    hint = f"/*+ MAX_EXECUTION_TIME({max_ms}) */ " if is_mysql else ""
+    try:
+        rows = db.execute(
+            text(
+                f"SELECT {hint}item_id, COUNT(*) AS cnt FROM orders "
+                "WHERE steam_id = :sid AND item_type = 'kit' "
+                "AND status IN ('PENDENTE', 'ENTREGANDO') "
+                "GROUP BY item_id"
+            ),
+            {"sid": str(steam_id)},
+        ).fetchall()
+    except Exception as exc:
+        # Timeout / lock / tabela em falta — não derruba bootstrap.
+        _log_error("pending_kit_order_counts", steam_id=str(steam_id), error=str(exc))
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        _hot_path_indexes_ready_or_schedule("kit_pending_counts")
+        return {}
     counts: dict[str, int] = {}
+    migration = _catalog_id_migration_aliases()
+    kits = kits_catalog if kits_catalog is not None else (_read_shop_config().get("Kits") or {})
     for row in rows:
-        oid = _resolve_catalog_item_id("kit", str(row[0] or ""))
+        raw_id = str(row[0] or "")
+        oid = raw_id
+        if raw_id in migration:
+            oid = migration[raw_id]
+        elif raw_id.lower() in migration:
+            oid = migration[raw_id.lower()]
+        else:
+            oid = _resolve_kit_id_in_catalog(raw_id, kits)
         if not oid:
             continue
         counts[oid] = counts.get(oid, 0) + int(row[1] or 0)
@@ -4944,23 +5223,35 @@ def _build_player_kit_limits(
     steam_id: str,
     *,
     kit_stash: dict[str, Any] | None = None,
+    shop_config: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Lista kits com DefaultAmount > 0 e contagem usada/limite."""
-    data = _read_shop_config()
+    """Lista kits com DefaultAmount > 0 e contagem usada/limite.
+
+    Path quente: 1× SELECT players.kits + 1× GROUP BY orders (sem N+1, sem DDL).
+    `shop_config` opcional — evita I/O de catálogo enquanto a sessão DB está aberta.
+    """
+    data = shop_config if shop_config is not None else _read_shop_config()
     kits = data.get("Kits") or {}
     stash = kit_stash if kit_stash is not None else _load_player_kit_stash(db, steam_id)
     # Uma query de pending para todos os kits — evita N×SELECT (há ~40 kits com limite).
-    pending_counts = _pending_kit_order_counts(db, steam_id)
+    pending_counts = _pending_kit_order_counts(db, steam_id, kits_catalog=kits)
     out: list[dict[str, Any]] = []
     for kit_id, entry in kits.items():
         if not isinstance(entry, dict) or not kit_has_limit(entry):
             continue
-        resolved = _resolve_catalog_item_id("kit", kit_id)
+        # Chave do catálogo já é canónica — resolve só aliases em pending_counts.
+        resolved = str(kit_id)
+        pending = int(pending_counts.get(resolved, 0))
+        if pending == 0:
+            alt = _resolve_kit_id_in_catalog(str(kit_id), kits)
+            if alt != resolved:
+                pending = int(pending_counts.get(alt, 0))
+                resolved = alt
         status = kit_limit_status(
             stash,
             resolved,
             entry,
-            pending_orders=int(pending_counts.get(resolved, 0)),
+            pending_orders=pending,
         )
         out.append({
             "kit_id": resolved,
@@ -5085,10 +5376,16 @@ def _normalize_entitlement_group(group: str) -> str:
 
 def _timed_points_groups_amounts() -> dict[str, int]:
     """Amount por grupo a partir de TimedPointsReward.Groups (fonte de verdade do plugin)."""
+    cache = _RESOLVED_CATALOG_CACHE
+    fingerprint = f"{cache.get('preferred', '')}:{cache.get('preferred_mtime', 0.0)}"
+    tp_cache = _TIMED_POINTS_AMOUNTS_CACHE
+    if tp_cache.get("fingerprint") == fingerprint and isinstance(tp_cache.get("amounts"), dict):
+        return dict(tp_cache["amounts"])
     data = _read_shop_config()
     raw = (data.get("TimedPointsReward") or {}).get("Groups") or {}
     out: dict[str, int] = {}
     if not isinstance(raw, dict):
+        tp_cache.update({"fingerprint": fingerprint, "amounts": out})
         return out
     for key, val in raw.items():
         if not isinstance(val, dict):
@@ -5097,17 +5394,22 @@ def _timed_points_groups_amounts() -> dict[str, int]:
             out[str(key)] = int(val.get("Amount", 0) or 0)
         except (TypeError, ValueError):
             out[str(key)] = 0
+    tp_cache.update({"fingerprint": fingerprint, "amounts": out})
     return out
 
 
-def _timed_points_bonus_for_group(group: str) -> int:
+def _timed_points_bonus_for_group(
+    group: str,
+    *,
+    amounts: dict[str, int] | None = None,
+) -> int:
     """Bónus Â/ciclo do grupo (SKU normalizado). keyvault sem TimedPoints → 0."""
     canonical = _normalize_entitlement_group(group)
     if not canonical:
         return 0
-    amounts = _timed_points_groups_amounts()
-    if canonical in amounts:
-        return max(0, int(amounts[canonical]))
+    lookup = amounts if amounts is not None else _timed_points_groups_amounts()
+    if canonical in lookup:
+        return max(0, int(lookup[canonical]))
     return max(0, int(LICENSE_TIMED_BONUS.get(canonical, 0) or 0))
 
 
@@ -5322,6 +5624,25 @@ def _ensure_entitlements_schema(conn: Any) -> None:
         _ENTITLEMENTS_SCHEMA_READY = True
 
 
+def _entitlements_query_allowed(db: Any) -> bool:
+    """Hot path: flag False durante migrate async NÃO implica tabela ausente."""
+    global _ENTITLEMENTS_SCHEMA_READY
+    if _ENTITLEMENTS_SCHEMA_READY:
+        return True
+    try:
+        bind = db.get_bind() if db is not None else _ENGINE
+    except Exception:
+        bind = _ENGINE
+    if bind is None:
+        return False
+    if _db_table_exists(bind, "player_entitlements"):
+        with _ENTITLEMENTS_SCHEMA_LOCK:
+            if _db_table_exists(bind, "player_entitlements"):
+                _ENTITLEMENTS_SCHEMA_READY = True
+        return True
+    return False
+
+
 def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
     """Tiers pagos com entitlement activo (expires NULL ou futuro)."""
     _ensure_entitlements_schema(db)
@@ -5440,14 +5761,20 @@ def _apply_entitlement_grant_tx(
     return _reset_dependent_kit_limits_tx(db, steam_id, group)
 
 
-def _entitlement_rows_to_list(rows: list[Any], *, group_idx: int = 0) -> list[dict[str, Any]]:
+def _entitlement_rows_to_list(
+    rows: list[Any],
+    *,
+    group_idx: int = 0,
+    timed_amounts: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
     """Dedup por grupo canónico (legado com SKU `licenca_*` + tier correcto)."""
+    amounts = timed_amounts if timed_amounts is not None else _timed_points_groups_amounts()
     by_group: dict[str, dict[str, Any]] = {}
     for row in rows:
         grp = _normalize_entitlement_group(str(row[group_idx]))
         if not grp:
             continue
-        bonus = _timed_points_bonus_for_group(grp)
+        bonus = _timed_points_bonus_for_group(grp, amounts=amounts)
         exp_raw = row[group_idx + 1]
         if exp_raw is not None and hasattr(exp_raw, "isoformat"):
             exp_iso = exp_raw.isoformat()
@@ -5476,14 +5803,23 @@ def _entitlement_rows_to_list(rows: list[Any], *, group_idx: int = 0) -> list[di
     return list(by_group.values())
 
 
-def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[str, Any]]:
+def _get_player_entitlements(
+    steam_id: str,
+    db: Any | None = None,
+    *,
+    allow_ddl: bool = True,
+) -> list[dict[str, Any]]:
     if not _db_ready():
         return []
     owns_session = db is None
     if owns_session:
         db = _SessionLocal()
     try:
-        _ensure_entitlements_schema(db)
+        if allow_ddl:
+            _ensure_entitlements_schema(db)
+        elif not _entitlements_query_allowed(db):
+            # Tabela ainda não existe — bootstrap/self-heal em curso.
+            return []
         expires_clause = (
             "(expires IS NULL OR expires > NOW())"
             if _is_mysql_engine(db)
@@ -5510,6 +5846,8 @@ def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[
 def _get_player_entitlements_batch(
     db: Any,
     steam_ids: list[str],
+    *,
+    allow_ddl: bool = True,
 ) -> dict[str, list[dict[str, Any]]]:
     """Entitlements activos para vários SteamIDs numa única query (lista admin)."""
     out: dict[str, list[dict[str, Any]]] = {}
@@ -5524,7 +5862,10 @@ def _get_player_entitlements_batch(
     if not norm_ids:
         return out
     try:
-        _ensure_entitlements_schema(db)
+        if allow_ddl:
+            _ensure_entitlements_schema(db)
+        elif not _entitlements_query_allowed(db):
+            return out
         expires_clause = (
             "(expires IS NULL OR expires > NOW())"
             if _is_mysql_engine(db)
@@ -5551,12 +5892,15 @@ def _get_player_entitlements_batch(
             if sid not in by_sid:
                 by_sid[sid] = []
             by_sid[sid].append(row)
+        timed_amounts = _timed_points_groups_amounts()
         for sid, sid_rows in by_sid.items():
-            out[sid] = _entitlement_rows_to_list(sid_rows, group_idx=1)
+            out[sid] = _entitlement_rows_to_list(
+                sid_rows, group_idx=1, timed_amounts=timed_amounts,
+            )
         return out
     except Exception as exc:
         _log_error("get_player_entitlements_batch", error=str(exc), count=len(norm_ids))
-        return {sid: _get_player_entitlements(sid, db=db) for sid in norm_ids}
+        return out
 
 
 def _compute_timed_points_total(groups: list[str]) -> int:
@@ -5568,7 +5912,7 @@ def _compute_timed_points_total(groups: list[str]) -> int:
         g = _normalize_entitlement_group(str(raw))
         if not g or g == "Default":
             continue
-        bonus = _timed_points_bonus_for_group(g)
+        bonus = _timed_points_bonus_for_group(g, amounts=amounts)
         if g in PAID_LICENSE_GROUPS:
             if bonus > best_paid:
                 best_paid = bonus
@@ -5713,7 +6057,13 @@ def _order_license_already_fulfilled(order: Order) -> bool:
     return False
 
 
-def _finalize_license_order_if_fulfilled(db, order: Order, *, reason: str) -> bool:
+def _finalize_license_order_if_fulfilled(
+    db,
+    order: Order,
+    *,
+    reason: str,
+    deferred_perm_syncs: list[dict[str, Any]] | None = None,
+) -> bool:
     """Marca ENTREGUE quando o entitlement deste pedido já existe; re-sync Permissions."""
     if not _order_license_already_fulfilled(order):
         return False
@@ -5738,30 +6088,35 @@ def _finalize_license_order_if_fulfilled(db, order: Order, *, reason: str) -> bo
         reason=reason,
     )
     if group:
-        try:
-            days_hint = 30
-            entry = _catalog_entry(
-                "kit" if str(order.item_type or "") == "kit" else "shop",
-                str(order.item_id or ""),
-            )
-            if entry:
-                lic = _get_license_grant(entry, str(order.item_id or ""))
-                if lic:
-                    days_hint = int(lic.get("Days", 30) or 30)
-            _sync_license_permissions_all_servers(
-                str(order.steam_id),
-                group,
-                grant=True,
-                days=days_hint,
-            )
-        except Exception as exc:
-            _log_error(
-                "finalize_license_perm_resync",
-                order_id=order.order_id,
-                steam_id=str(order.steam_id),
-                group=group,
-                error=str(exc),
-            )
+        days_hint = 30
+        entry = _catalog_entry(
+            "kit" if str(order.item_type or "") == "kit" else "shop",
+            str(order.item_id or ""),
+        )
+        if entry:
+            lic = _get_license_grant(entry, str(order.item_id or ""))
+            if lic:
+                days_hint = int(lic.get("Days", 30) or 30)
+        spec = _license_perm_sync_spec(str(order.steam_id), group, days_hint)
+        if deferred_perm_syncs is not None:
+            deferred_perm_syncs.append(spec)
+        else:
+            try:
+                _sync_license_permissions_all_servers(
+                    spec["steam_id"],
+                    spec["group"],
+                    grant=True,
+                    days=spec["days"],
+                    rcon_async=True,
+                )
+            except Exception as exc:
+                _log_error(
+                    "finalize_license_perm_resync",
+                    order_id=order.order_id,
+                    steam_id=str(order.steam_id),
+                    group=group,
+                    error=str(exc),
+                )
     return True
 
 
@@ -5961,6 +6316,18 @@ def _package_label(package_id: str) -> str:
     return pid
 
 
+DEFAULT_PAYPAL_QR_PATH = "/paypal-qr.jpeg"
+DEFAULT_PAYPAL_INSTRUCTIONS = (
+    "Doação livre via PayPal — escolha o valor que desejar.\n\n"
+    "Após pagar, abra um ticket (categoria «Doação») informando:\n"
+    "• Comprovante ou print do pagamento\n"
+    "• Seu SteamID\n"
+    "• Valor doado\n\n"
+    "Um administrador creditará Âmbares manualmente (R$ 1 = 1.000 Âmbares). "
+    "Doação definitiva — sem reembolso."
+)
+
+
 def _get_mp_access_token() -> str:
     """Token MP: settings.json (admin UI) tem prioridade sobre env (evita env vazio/stale)."""
     settings_token = str(_load_settings().get("mp_access_token", "")).strip()
@@ -5972,6 +6339,25 @@ def _get_mp_access_token() -> str:
 
 def _pix_enabled() -> bool:
     return bool(_get_mp_access_token())
+
+
+def _paypal_enabled() -> bool:
+    return bool(_load_settings().get("paypal_enabled"))
+
+
+def _paypal_qr_url() -> str:
+    s = _load_settings()
+    path = str(s.get("paypal_qr_path") or DEFAULT_PAYPAL_QR_PATH).strip() or DEFAULT_PAYPAL_QR_PATH
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return path
+
+
+def _paypal_instructions() -> str:
+    raw = str(_load_settings().get("paypal_instructions") or "").strip()
+    return raw or DEFAULT_PAYPAL_INSTRUCTIONS
 
 
 def _mp_sandbox() -> bool:
@@ -6262,23 +6648,75 @@ def _refresh_steam_personas(
     return (fetched, meta) if return_status else fetched
 
 
-def _refresh_steam_persona(db: Any, steam_id: str) -> str | None:
+def _refresh_steam_persona(steam_id: str, *, db: Any | None = None) -> str | None:
     """Atualiza steam_persona de um jogador via Steam API (login).
 
     Timeout curto (5s): Steam fora do ar não pode segurar o callback de login;
-    em falha cai no nick em cache do DB.
+    em falha cai no nick em cache do DB. I/O Steam NUNCA com sessão web aberta.
     """
     norm_sid = _normalize_steam_id64(steam_id)
     if not norm_sid:
         return None
-    persona_map = _refresh_steam_personas(db, [norm_sid], timeout=5.0)
+    persona_map = _refresh_steam_personas(None, [norm_sid], timeout=5.0)
     if norm_sid in persona_map:
         return persona_map[norm_sid]
-    row = db.get(StoreUser, norm_sid) or db.get(StoreUser, steam_id)
-    if row and (row.steam_persona or "").strip():
-        p = str(row.steam_persona).strip()
-        return p if p != steam_id else None
+    owns_session = db is None and _db_ready()
+    if owns_session:
+        db = _SessionLocal()
+    try:
+        if db is not None:
+            row = db.get(StoreUser, norm_sid) or db.get(StoreUser, steam_id)
+            if row and (row.steam_persona or "").strip():
+                p = str(row.steam_persona).strip()
+                return p if p != steam_id else None
+    finally:
+        if owns_session:
+            _release_db_session(db)
     return None
+
+
+_STEAM_PERSONA_BG_LOCK = threading.Lock()
+_STEAM_PERSONA_BG_PENDING: set[str] = set()
+_STEAM_PERSONA_BG_RUNNING = False
+
+
+def _schedule_steam_persona_backfill(steam_ids: list[str]) -> None:
+    """Fila refresh Steam em background — nunca bloqueia HTTP (lista/auth/bootstrap)."""
+    global _STEAM_PERSONA_BG_RUNNING
+    if not steam_ids or not _steam_api_key_configured() or not _db_ready():
+        return
+    with _STEAM_PERSONA_BG_LOCK:
+        for raw in steam_ids:
+            sid = _normalize_steam_id64(raw)
+            if sid:
+                _STEAM_PERSONA_BG_PENDING.add(sid)
+        if _STEAM_PERSONA_BG_RUNNING or not _STEAM_PERSONA_BG_PENDING:
+            return
+        _STEAM_PERSONA_BG_RUNNING = True
+
+    def _worker() -> None:
+        global _STEAM_PERSONA_BG_RUNNING
+        try:
+            while True:
+                with _STEAM_PERSONA_BG_LOCK:
+                    batch = list(_STEAM_PERSONA_BG_PENDING)
+                    _STEAM_PERSONA_BG_PENDING.clear()
+                if not batch:
+                    break
+                try:
+                    _refresh_steam_personas(None, batch, timeout=8.0)
+                except Exception as exc:
+                    log.warning("steam persona bg backfill falhou: %s", exc)
+        finally:
+            with _STEAM_PERSONA_BG_LOCK:
+                _STEAM_PERSONA_BG_RUNNING = bool(_STEAM_PERSONA_BG_PENDING)
+                restart = _STEAM_PERSONA_BG_RUNNING
+            if restart:
+                threading.Thread(
+                    target=_worker, name="steam-persona-bg", daemon=True,
+                ).start()
+
+    threading.Thread(target=_worker, name="steam-persona-bg", daemon=True).start()
 
 
 def _backfill_steam_personas(
@@ -6345,35 +6783,22 @@ def _steam_persona_label(steam_id: str, persona: str | None) -> str | None:
 
 def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | None:
     """Nick Steam para header — apenas steam_persona, nunca market_display_name."""
-    if _db_ready():
+    if enrich:
+        persona = _refresh_steam_persona(steam_id)
+        label = _steam_persona_label(steam_id, persona)
+        if label:
+            return label
+    elif _db_ready():
         db = _SessionLocal()
         try:
-            if enrich:
-                persona = _refresh_steam_persona(db, steam_id)
-            else:
-                row = db.get(StoreUser, steam_id)
-                persona = (row.steam_persona if row else None)
+            row = db.get(StoreUser, steam_id)
+            persona = row.steam_persona if row else None
             label = _steam_persona_label(steam_id, persona)
             if label:
                 return label
         finally:
             _release_db_session(db)
-
-    if not enrich:
-        return None
-
-    persona = _fetch_steam_persona_name(steam_id)
-    if not persona:
-        return None
-    if _db_ready():
-        db = _SessionLocal()
-        try:
-            _persist_steam_personas(db, {steam_id: persona})
-        except Exception:
-            db.rollback()
-        finally:
-            _release_db_session(db)
-    return persona[:128]
+    return None
 
 
 # ── Auth decorators ───────────────────────────────────────────────────────────
@@ -6433,20 +6858,26 @@ def _safe_market_profile(db: Any, steam_id: str) -> Any | None:
         return None
 
 
-def _auth_display_name_fields(steam_id: str, is_admin: bool) -> dict[str, Any]:
-    """Campos de /api/auth/me — nick Steam cache-first (sem forçar API a cada navegação)."""
+def _auth_display_name_fields(
+    steam_id: str,
+    is_admin: bool,
+    *,
+    db: Any | None = None,
+) -> dict[str, Any]:
+    """Campos de /api/auth/me — só cache DB; Steam API em background (não bloqueia bootstrap)."""
     persona: str | None = None
-    if _db_ready():
+    owns_session = db is None and _db_ready()
+    if owns_session:
         db = _SessionLocal()
-        try:
+    try:
+        if db is not None:
             row = db.get(StoreUser, steam_id)
             cached = (row.steam_persona if row else None)
-            persona_map = _backfill_steam_personas(db, [(steam_id, cached)])
-            persona = _steam_persona_label(
-                steam_id,
-                persona_map.get(steam_id) or cached,
-            )
-        finally:
+            persona = _steam_persona_label(steam_id, cached)
+            if not persona:
+                _schedule_steam_persona_backfill([steam_id])
+    finally:
+        if owns_session:
             _release_db_session(db)
     return {
         "steam_persona": persona,
@@ -7375,6 +7806,7 @@ def claim_pending_orders():
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
     claimed: list[dict[str, Any]] = []
+    deferred_perm_syncs: list[dict[str, Any]] = []
     try:
         targets = (
             [str(x).strip() for x in raw_ids if str(x).strip()]
@@ -7393,7 +7825,8 @@ def claim_pending_orders():
         now = _now()
         for order in pending:
             if _finalize_license_order_if_fulfilled(
-                db, order, reason="claim_skip_already_licensed"
+                db, order, reason="claim_skip_already_licensed",
+                deferred_perm_syncs=deferred_perm_syncs,
             ):
                 continue
             updated = db.execute(
@@ -7416,13 +7849,16 @@ def claim_pending_orders():
                 "skip_kit_limit": str(order.original_order_id or "").startswith("__admin_skip_kit_limit__"),
             })
         db.commit()
-        return _pending_items_json(claimed)
+        response = _pending_items_json(claimed)
     except Exception as exc:
         db.rollback()
         _log_error("claim_pending_orders", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        _release_db_session(db)
+        _release_db_session(db, force=True)
+
+    _flush_deferred_license_perm_syncs(deferred_perm_syncs)
+    return response
 
 
 @app.route("/api/pending/release", methods=["POST"])
@@ -7443,6 +7879,7 @@ def release_pending_orders():
         return jsonify({"ok": False, "error": "Database not available"}), 500
     released: list[str] = []
     fulfilled: list[str] = []
+    deferred_perm_syncs: list[dict[str, Any]] = []
     try:
         now = _now()
         for raw_id in raw_ids:
@@ -7457,7 +7894,8 @@ def release_pending_orders():
             if not order:
                 continue
             if _finalize_license_order_if_fulfilled(
-                db, order, reason="release_skip_already_licensed"
+                db, order, reason="release_skip_already_licensed",
+                deferred_perm_syncs=deferred_perm_syncs,
             ):
                 fulfilled.append(order_id)
                 continue
@@ -7471,13 +7909,16 @@ def release_pending_orders():
             if int(getattr(updated, "rowcount", 0) or 0) > 0:
                 released.append(order_id)
         db.commit()
-        return jsonify({"ok": True, "released": released, "fulfilled": fulfilled})
+        payload = {"ok": True, "released": released, "fulfilled": fulfilled}
     except Exception as exc:
         db.rollback()
         _log_error("release_pending_orders", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        _release_db_session(db)
+        _release_db_session(db, force=True)
+
+    _flush_deferred_license_perm_syncs(deferred_perm_syncs)
+    return jsonify(payload)
 
 
 @app.route("/api/pending/delivered", methods=["POST"])
@@ -7760,8 +8201,12 @@ def admin_diagnostics_database():
     return jsonify(result)
 
 
-def _build_auth_me_payload() -> dict[str, Any]:
-    """Monta o payload de /api/auth/me (reutilizado pelo bootstrap agregado)."""
+def _build_auth_me_payload(*, db: Any | None = None) -> dict[str, Any]:
+    """Monta o payload de /api/auth/me (reutilizado pelo bootstrap agregado).
+
+    Com `db` partilhado (bootstrap): 1 sessão para persona + regulamento + ban.
+    Sem `db`: abre sessões próprias (path /api/auth/me isolado).
+    """
     steam_id = _steam_id_from_session()
     if not steam_id:
         return {
@@ -7780,9 +8225,26 @@ def _build_auth_me_payload() -> dict[str, Any]:
         }
     file_admins = _load_admin_steamids_from_file()
     is_admin = steam_id in file_admins
+    # Timeout curto — cache de admins costuma bater; não segurar bootstrap 1.5s+.
+    admin_db_timeout = 0.4 if db is not None else 1.5
     if not is_admin and _db_ready():
-        is_admin = steam_id in _load_admin_steamids(db_timeout=1.5)
-    is_support = False if is_admin else steam_id in _load_support_steamids(db_timeout=1.5)
+        if db is not None:
+            # Bootstrap: reutiliza a sessão partilhada — evita 2.º checkout do pool.
+            try:
+                is_admin = db.get(ShopAdmin, steam_id) is not None
+            except Exception:
+                is_admin = False
+        else:
+            is_admin = steam_id in _load_admin_steamids(db_timeout=admin_db_timeout)
+    if is_admin:
+        is_support = False
+    elif db is not None and _db_ready():
+        try:
+            is_support = db.get(ShopSupport, steam_id) is not None
+        except Exception:
+            is_support = False
+    else:
+        is_support = steam_id in _load_support_steamids(db_timeout=admin_db_timeout)
     can_manage_tickets = is_admin or is_support
     payload: dict[str, Any] = {
         "authenticated": True,
@@ -7791,17 +8253,20 @@ def _build_auth_me_payload() -> dict[str, Any]:
         "can_manage_tickets": can_manage_tickets,
         "steam_id": steam_id,
     }
-    payload.update(_auth_display_name_fields(steam_id, is_admin))
-    if _db_ready():
+    owns_session = db is None and _db_ready()
+    if owns_session:
         db = _SessionLocal()
-        try:
+    try:
+        payload.update(_auth_display_name_fields(steam_id, is_admin, db=db))
+        if db is not None:
             payload.update(_auth_regulamento_fields(steam_id, db=db))
-        finally:
+        else:
+            payload.update(_auth_regulamento_fields_offline())
+        if not is_admin:
+            payload.update(_store_user_blocked_fields(steam_id, db=db if db is not None else None))
+    finally:
+        if owns_session:
             _release_db_session(db)
-    else:
-        payload.update(_auth_regulamento_fields_offline())
-    if not is_admin:
-        payload.update(_store_user_blocked_fields(steam_id))
     return payload
 
 
@@ -7825,6 +8290,9 @@ def get_settings():
     safe["ticket_discord_token_set"] = bool(s.get("ticket_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
     safe["card_enabled"] = _payments_enabled()
+    safe["paypal_enabled"] = _paypal_enabled()
+    safe["paypal_qr_url"] = _paypal_qr_url()
+    safe["paypal_instructions"] = _paypal_instructions()
     safe["mp_sandbox"] = _mp_sandbox()
     safe["point_packages"] = _load_point_packages()
     safe["db_configured"] = _db_ready()
@@ -7870,6 +8338,9 @@ def save_settings():
         "dino_order_kappa",
         "dino_order_absolute_max",
         "dino_order_auto_approve_max",
+        "paypal_enabled",
+        "paypal_instructions",
+        "paypal_qr_path",
     ):
         if key in body:
             s[key] = body[key]
@@ -8257,26 +8728,133 @@ def _write_config_all_targets(body: dict[str, Any], settings: dict[str, Any]) ->
     return written, errors
 
 
+def _catalog_shop_counts(data: dict[str, Any]) -> tuple[int, int]:
+    items = data.get("ShopItems") or data.get("Items") or {}
+    if not isinstance(items, dict):
+        items = {}
+    kits = data.get("Kits") or {}
+    if not isinstance(kits, dict):
+        kits = {}
+    return len(items), len(kits)
+
+
+def _heal_empty_shop_config_path(preferred: Path) -> tuple[Path, dict[str, Any] | None, str | None]:
+    """Recupera catálogo quando o path configurado falta (não quando está vazio de propósito).
+
+    Bug admin «Nenhum item cadastrado»: GET /api/config devolvia ShopItems/Kits={}
+    com 200 se o ficheiro não existia — UI tratava como catálogo válido vazio.
+    """
+    from src.shop_integration import (
+        _collect_catalog_search_paths,
+        _pick_richest_catalog_path,
+        catalog_entry_total,
+        load_plugin_config,
+        resolve_persistent_catalog_path,
+    )
+
+    if preferred.is_file():
+        data = _read_json_file(preferred)
+        items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data)))
+        if items_n + kits_n > 0:
+            return preferred, data, None
+        # Ficheiro existe mas sem itens/kits — não sobrescrever; aviso explícito.
+        return preferred, data, (
+            f"config.json sem itens/kits em {preferred}. "
+            "Verifique Configurações → caminho do catálogo ou restaure o mestre CustomShop."
+        )
+
+    # Path em falta → resolve/migra a partir de candidatos (mapas, AppData, plugin).
+    note: str | None = None
+    try:
+        healed = Path(resolve_persistent_catalog_path(str(preferred) if preferred else ""))
+    except Exception as exc:
+        _log_error("heal_shop_config_resolve", path=str(preferred), error=str(exc))
+        healed = preferred
+
+    if healed.is_file():
+        data = _read_json_file(healed)
+        items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data)))
+        if items_n + kits_n > 0:
+            note = f"Catálogo recuperado de {healed}"
+            return healed, data, note
+
+    now = time.monotonic()
+    richest: Path | None = None
+    cached_richest = str(_HEAL_RICHEST_CACHE.get("path") or "").strip()
+    if cached_richest and now < float(_HEAL_RICHEST_CACHE.get("expires") or 0):
+        candidate = Path(cached_richest)
+        if candidate.is_file():
+            richest = candidate
+    if richest is None:
+        try:
+            richest = _pick_richest_catalog_path(_collect_catalog_search_paths())
+        except Exception:
+            richest = None
+        _HEAL_RICHEST_CACHE["path"] = str(richest) if richest else ""
+        _HEAL_RICHEST_CACHE["expires"] = now + 120.0
+    if richest is not None and richest.is_file():
+        try:
+            total = catalog_entry_total(load_plugin_config(richest))
+        except Exception:
+            total = 0
+        if total > 0:
+            note = f"Catálogo recuperado da fonte mais completa ({richest})"
+            try:
+                preferred.parent.mkdir(parents=True, exist_ok=True)
+                import shutil
+
+                shutil.copy2(richest, preferred)
+                return preferred, _read_json_file(preferred), note
+            except OSError:
+                return richest, _read_json_file(richest), note
+
+    return preferred, {}, (
+        f"config.json em falta: {preferred}. "
+        "Defina o caminho em Configurações → config_path."
+    )
+
+
 @app.route("/api/config", methods=["GET"])
 @admin_required
 def get_config():
-    s = _load_settings()
-    path = Path(s["config_path"])
-    if not path.exists():
-        # Retorna estrutura vazia para o frontend inicializar corretamente
-        return jsonify({"ShopItems": {}, "Kits": {}, "_config_path_missing": str(path)})
+    """Config admin (itens/kits) — ficheiro JSON, zero MySQL no path.
+
+    Nunca devolve ShopItems/Kits vazios em silêncio quando existe fonte recuperável.
+    """
+    t0 = time.perf_counter()
     try:
-        text_body = path.read_text(encoding="utf-8-sig")
-        try:
-            data = json.loads(text_body)
-        except json.JSONDecodeError:
-            cleaned = re.sub(r"//[^\n]*", "", text_body)
-            data = json.loads(cleaned)
-        # Normaliza Items -> ShopItems para o frontend web
-        data = _normalize_config_to_web(data)
+        healed_path, raw, note = _resolve_shop_catalog(persist_healed_path=True)
+        data = _normalize_config_to_web(dict(raw or {}))
+        items_n, kits_n = _catalog_shop_counts(data)
+
+        data["_config_path"] = str(healed_path)
+        data["_config_exists"] = healed_path.is_file()
+        data["_items_count"] = items_n
+        data["_kits_count"] = kits_n
+        if items_n + kits_n == 0:
+            data["_config_path_missing"] = str(healed_path)
+            data["ok"] = False
+            data["error"] = (
+                note
+                or f"config.json sem itens/kits em {healed_path}. "
+                "Defina o caminho em Configurações → config_path."
+            )
+            _log(
+                "get_config_empty",
+                path=str(healed_path),
+                note=note,
+            )
+            # 200 + error: UI lê a mensagem; não fingir catálogo vazio «válido».
+            return jsonify(data)
+        if note:
+            data["_config_healed"] = note
+            _log("get_config_healed", path=str(healed_path), note=note, items=items_n, kits=kits_n)
+        data["ok"] = True
+        data["_timing_ms"] = int((time.perf_counter() - t0) * 1000)
         return jsonify(data)
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        _log_error("get_config", error=str(exc))
+        return jsonify({"error": str(exc), "ShopItems": {}, "Kits": {}}), 500
 
 
 @app.route("/api/config", methods=["POST"])
@@ -8814,6 +9392,7 @@ def _amber_lore_block(settings_block: dict[str, Any]) -> dict[str, Any]:
 @app.route("/api/public/home", methods=["GET"])
 def public_home():
     """Dados públicos para a página inicial (sem autenticação)."""
+    _kick_background_db_init()
     data = _read_shop_config()
     settings_block = data.get("Settings") or {}
     shop_name = _public_brand_name(
@@ -8870,6 +9449,9 @@ def public_home():
         "amber_lore": _amber_lore_block(settings_block),
         "pix_enabled": _pix_enabled(),
         "card_enabled": _payments_enabled(),
+        "paypal_enabled": _paypal_enabled(),
+        "paypal_qr_url": _paypal_qr_url(),
+        "paypal_instructions": _paypal_instructions(),
         "starting_points": int(settings_block.get("StartingPoints") or 0),
         "servers": servers,
         "stats": stats,
@@ -8917,14 +9499,13 @@ def public_home():
         },
         "featured_maps": _load_featured_maps_public(),
         "featured_maps_section": _featured_maps_section_meta(),
-        "home_notice": _public_home_notice(),
-        "home_cards": _public_home_cards(),
+        **_public_home_mural(),
     })
 
 
-def _public_home_notice() -> dict[str, Any]:
-    """Aviso do mural da home (degrada sem DB)."""
-    empty = {
+def _public_home_mural() -> dict[str, Any]:
+    """Mural da home (aviso legado + cards) numa única sessão DB — evita empty-state falso."""
+    empty_notice: dict[str, Any] = {
         "title": "",
         "body": "",
         "updated_at": None,
@@ -8932,31 +9513,34 @@ def _public_home_notice() -> dict[str, Any]:
         "has_content": False,
     }
     if not _db_ready():
-        return empty
+        return {
+            "home_notice": empty_notice,
+            "home_cards": [],
+            "home_mural_degraded": True,
+            "home_mural_message": "Carrossel indisponível — banco ainda inicializando.",
+        }
     db = _SessionLocal()
     try:
-        from home_notice_service import get_home_notice
+        from home_notice_service import get_home_notice, list_home_cards
 
-        return get_home_notice(db)
+        return {
+            "home_notice": get_home_notice(db),
+            "home_cards": list_home_cards(db, active_only=True),
+            "home_mural_degraded": False,
+            "home_mural_message": None,
+        }
     except Exception as exc:
-        _log_error("public_home_notice", error=str(exc))
-        return empty
-    finally:
-        _release_db_session(db)
-
-
-def _public_home_cards() -> list[dict[str, Any]]:
-    """Cards ativos do carrossel da home (degrada sem DB)."""
-    if not _db_ready():
-        return []
-    db = _SessionLocal()
-    try:
-        from home_notice_service import list_home_cards
-
-        return list_home_cards(db, active_only=True)
-    except Exception as exc:
-        _log_error("public_home_cards", error=str(exc))
-        return []
+        _log_error("public_home_mural", error=str(exc))
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {
+            "home_notice": empty_notice,
+            "home_cards": [],
+            "home_mural_degraded": True,
+            "home_mural_message": "Não foi possível carregar o mural agora.",
+        }
     finally:
         _release_db_session(db)
 
@@ -9019,8 +9603,8 @@ def _build_catalog_payload() -> dict:
     from catalog_enrich import CATEGORY_ICONS, enrich_catalog_payload
 
     s = _load_settings()
-    config_path = Path(s.get("config_path", _DEFAULT_CONFIG_PATH))
-    data = _read_shop_config()
+    resolved_path, data, catalog_note = _resolve_shop_catalog(persist_healed_path=False)
+    config_path = resolved_path
     items = data.get("Items") or data.get("ShopItems") or {}
     kits = data.get("Kits") or {}
     items, kits = enrich_catalog_payload(items, kits)
@@ -9063,11 +9647,15 @@ def _build_catalog_payload() -> dict:
     except Exception:
         pass
 
+    items_n = len(items) if isinstance(items, dict) else 0
+    kits_n = len(kits) if isinstance(kits, dict) else 0
     catalog_meta = {
         "config_path": str(config_path.resolve()) if config_path.exists() else str(config_path),
         "config_exists": config_path.is_file(),
-        "items_count": len(items) if isinstance(items, dict) else 0,
-        "kits_count": len(kits) if isinstance(kits, dict) else 0,
+        "items_count": items_n,
+        "kits_count": kits_n,
+        "catalog_empty": items_n + kits_n == 0,
+        "catalog_note": catalog_note,
         "placeholder_kits_detected": placeholder_kits_detected,
         "vip_sample": {
             "vip_bronze": {"price": _kit_price("vip_bronze"), "permissions": _kit_perms("vip_bronze")},
@@ -9085,6 +9673,9 @@ def _build_catalog_payload() -> dict:
         "currency": _public_currency(),
         "pix_enabled": _pix_enabled(),
         "card_enabled": _payments_enabled(),
+        "paypal_enabled": _paypal_enabled(),
+        "paypal_qr_url": _paypal_qr_url(),
+        "paypal_instructions": _paypal_instructions(),
         "mp_sandbox": _mp_sandbox(),
         "public_url": public_url,
         "shop_url": public_url,
@@ -9106,6 +9697,7 @@ def _catalog_fingerprint(catalog: dict) -> str:
         catalog.get("currency", {}).get("singular") if isinstance(catalog.get("currency"), dict) else None,
         bool(catalog.get("pix_enabled")),
         bool(catalog.get("card_enabled")),
+        bool(catalog.get("paypal_enabled")),
     ))
     return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
 
@@ -9124,34 +9716,99 @@ def get_catalog():
 def store_bootstrap():
     """Warmup agregado: catálogo + me + kit_limits + entitlements num único JSON.
 
-    Reduz round-trips no arranque da loja. Como inclui dados da sessão
-    (me/kit_limits), a resposta é privada e nunca é cacheada por SW/CDN.
+    Path quente:
+    - catálogo primeiro (zero DB / zero I/O externo bloqueante)
+    - 1 sessão DB para me + entitlements + kit_limits (sem DDL, sem Steam API)
+    - budget ~2.5s → devolve parcial em vez de long_transaction 24–170s
     """
-    me = _build_auth_me_payload()
+    t0 = time.perf_counter()
+    timing: dict[str, int] = {}
+    partial = False
+    partial_sections: list[str] = []
+
+    t_cat = time.perf_counter()
     catalog = _build_catalog_payload()
+    timing["catalog_ms"] = int((time.perf_counter() - t_cat) * 1000)
+
     kit_limits = None
     entitlements = None
     timed_points_total = None
-    authenticated = bool(me.get("authenticated"))
-    steam_id = str(me.get("steam_id") or "") if authenticated else ""
+    steam_id = str(_steam_id_from_session() or "")
+    me: dict[str, Any]
 
-    if authenticated and steam_id:
+    if not steam_id:
+        me = _build_auth_me_payload()
+    elif not _db_ready():
+        me = _build_auth_me_payload()
+    else:
+        # Self-heal de índices em background — nunca no path HTTP.
+        _hot_path_indexes_ready_or_schedule("store_bootstrap")
+        db = _SessionLocal()
         try:
-            ents = _get_player_entitlements(steam_id)
-            entitlements = ents
-            timed_points_total = _compute_timed_points_total([e["group"] for e in ents])
-        except Exception as exc:  # noqa: BLE001 — warmup nunca deve falhar por isto
-            _log_error("store_bootstrap.entitlements", steam_id=steam_id, error=str(exc))
-        if _db_ready():
-            db = _SessionLocal()
-            try:
-                kit_limits = _build_player_kit_limits(db, steam_id)
-            except Exception as exc:  # noqa: BLE001
-                _log_error("store_bootstrap.kit_limits", steam_id=steam_id, error=str(exc))
-            finally:
-                _release_db_session(db)
+            t_me = time.perf_counter()
+            me = _build_auth_me_payload(db=db)
+            timing["me_ms"] = int((time.perf_counter() - t_me) * 1000)
 
-    resp = jsonify({
+            budget = _STORE_BOOTSTRAP_BUDGET_MS
+            elapsed_so_far = int((time.perf_counter() - t0) * 1000)
+            skip_heavy = bool(budget > 0 and elapsed_so_far >= max(800, int(budget * 0.7)))
+
+            if skip_heavy:
+                partial = True
+                partial_sections.extend(["entitlements", "kit_limits"])
+            else:
+                t_ent = time.perf_counter()
+                try:
+                    ents = _get_player_entitlements(steam_id, db=db, allow_ddl=False)
+                    entitlements = ents
+                    timed_points_total = _compute_timed_points_total(
+                        [e["group"] for e in ents]
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _log_error(
+                        "store_bootstrap.entitlements",
+                        steam_id=steam_id,
+                        error=str(exc),
+                    )
+                    partial = True
+                    partial_sections.append("entitlements")
+                timing["ents_ms"] = int((time.perf_counter() - t_ent) * 1000)
+
+                elapsed_so_far = int((time.perf_counter() - t0) * 1000)
+                if budget > 0 and elapsed_so_far >= budget:
+                    partial = True
+                    partial_sections.append("kit_limits")
+                else:
+                    t_kit = time.perf_counter()
+                    try:
+                        kit_limits = _build_player_kit_limits(db, steam_id)
+                    except Exception as exc:  # noqa: BLE001
+                        _log_error(
+                            "store_bootstrap.kit_limits",
+                            steam_id=steam_id,
+                            error=str(exc),
+                        )
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+                        partial = True
+                        partial_sections.append("kit_limits")
+                    timing["kit_ms"] = int((time.perf_counter() - t_kit) * 1000)
+        finally:
+            _release_db_session(db, force=True)
+
+    timing["total_ms"] = int((time.perf_counter() - t0) * 1000)
+    _log(
+        "store_bootstrap",
+        elapsed_ms=timing["total_ms"],
+        **timing,
+        authenticated=bool(me.get("authenticated")),
+        partial=partial,
+        partial_sections=partial_sections,
+    )
+
+    body: dict[str, Any] = {
         "ok": True,
         "me": me,
         "catalog": catalog,
@@ -9160,7 +9817,12 @@ def store_bootstrap():
         "timed_points_total": timed_points_total,
         "fingerprint": _catalog_fingerprint(catalog),
         "server_time": _now().isoformat(),
-    })
+        "timing": timing,
+    }
+    if partial:
+        body["partial"] = True
+        body["partial_sections"] = partial_sections
+    resp = jsonify(body)
     resp.headers["Cache-Control"] = "private, no-store, max-age=0"
     return resp
 
@@ -9184,39 +9846,20 @@ def _get_project_release() -> dict:
 
 def _load_downloads() -> list:
     """Retorna links de utilidades cadastrados manualmente no config.json."""
-    s = _load_settings()
-    path = Path(s["config_path"])
-    if not path.exists():
+    data = _read_catalog_data()
+    if not data:
         return []
-    try:
-        text = path.read_text(encoding="utf-8-sig")
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            cleaned = re.sub(r"//[^\n]*", "", text)
-            data = json.loads(cleaned)
-        return [d for d in (data.get("Downloads") or []) if not d.get("_auto")]
-    except Exception:
-        return []
+    return [d for d in (data.get("Downloads") or []) if not d.get("_auto")]
 
 
 def _save_downloads(downloads: list) -> None:
-    """Persiste a lista de downloads no config.json."""
-    s = _load_settings()
-    path = Path(s["config_path"])
-    if not path.exists():
+    """Persiste a lista de downloads no catálogo mestre (com sync aos mapas)."""
+    data = _read_catalog_data()
+    if not data:
         return
-    try:
-        text = path.read_text(encoding="utf-8-sig")
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            cleaned = re.sub(r"//[^\n]*", "", text)
-            data = json.loads(cleaned)
-        data["Downloads"] = downloads
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    except Exception as exc:
-        log.error("Erro ao salvar downloads: %s", exc)
+    data["Downloads"] = downloads
+    if not _write_catalog_data(data):
+        log.error("Erro ao salvar downloads no catálogo mestre")
 
 
 _DEFAULT_FEATURED_MAPS_INTRO = (
@@ -9355,33 +9998,33 @@ def _default_featured_maps() -> list[dict[str, Any]]:
 
 
 def _read_catalog_data() -> dict[str, Any]:
-    s = _load_settings()
-    path = Path(s.get("config_path") or "")
-    if not path.is_file():
-        return {}
-    try:
-        text = path.read_text(encoding="utf-8-sig")
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            cleaned = re.sub(r"//[^\n]*", "", text)
-            return json.loads(cleaned)
-    except Exception:
-        return {}
+    """Lê catálogo via _resolve_shop_catalog — alinhado ao admin/loja pública."""
+    _, data, _ = _resolve_shop_catalog(persist_healed_path=False)
+    return dict(data or {})
 
 
 def _write_catalog_data(data: dict[str, Any]) -> bool:
+    """Grava catálogo no mestre canónico e destinos CustomShop (servers.json)."""
     s = _load_settings()
-    path = Path(s.get("config_path") or "")
-    if not path.is_file():
+    written, errors = _write_config_all_targets(data, s)
+    _invalidate_shop_config_cache()
+    if not written:
+        if errors:
+            log.error("Erro ao salvar config catálogo: %s", errors[0].get("error"))
         return False
     try:
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        _invalidate_shop_config_cache()
-        return True
-    except Exception as exc:
-        log.error("Erro ao salvar config catálogo: %s", exc)
-        return False
+        from src.shop_integration import push_catalog_to_webstore
+
+        master_written = next(
+            (w["path"] for w in written if "mestre" in w.get("label", "").lower()),
+            _resolve_settings_catalog_path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH)),
+        )
+        push_catalog_to_webstore(master_written)
+    except Exception:
+        pass
+    if errors:
+        log.warning("Catálogo gravado parcialmente: %s", errors)
+    return True
 
 
 def _load_featured_maps_raw() -> list[dict[str, Any]]:
@@ -10828,8 +11471,19 @@ def player_card_checkout():
 # segurando worker + sessão MySQL durante instabilidade do MP.
 _PIX_MP_POLL_MIN_INTERVAL = 8.0
 _PIX_MP_POLL_TIMEOUT = 8.0
+_MP_WEBHOOK_FETCH_TIMEOUT = 8.0
+_PIX_TERMINAL_STATUSES = frozenset({"RECUSADO", "EXPIRADO", "ESTORNADO"})
 _PIX_MP_POLL_LAST: dict[str, float] = {}
 _PIX_MP_POLL_LOCK = threading.Lock()
+
+
+def _payment_needs_mp_poll(payment: PointPayment) -> bool:
+    """True se vale consultar o MP — inclui ABANDONADO (jogador pode ter pago após fechar o modal)."""
+    if payment.credited or payment.status == "APROVADO":
+        return False
+    if payment.status in _PIX_TERMINAL_STATUSES:
+        return False
+    return bool(payment.mp_payment_id)
 
 
 def _pix_mp_poll_allowed(payment_id: str) -> bool:
@@ -10854,6 +11508,8 @@ def player_pix_status(payment_id: str):
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
+    mp_id_hint = str(request.args.get("mp_id", "")).strip()
+
     db = _SessionLocal()
     try:
         payment = db.query(PointPayment).filter(
@@ -10863,17 +11519,44 @@ def player_pix_status(payment_id: str):
         if not payment:
             return jsonify({"ok": False, "error": "Doação não encontrada"}), 404
 
-        mp_id_hint = str(request.args.get("mp_id", "")).strip()
         if mp_id_hint and not payment.mp_payment_id:
             payment.mp_payment_id = mp_id_hint
             payment.updated_at = _now()
             db.commit()
 
-        poll_error = None
-        mp_status_raw = None
-        if payment.credited:
-            pass
-        elif payment.status == "APROVADO":
+        needs_retry_credit = not payment.credited and payment.status == "APROVADO"
+        needs_mp_poll = _payment_needs_mp_poll(payment)
+        mp_payment_id = payment.mp_payment_id
+        already_credited = bool(payment.credited)
+    finally:
+        _release_db_session(db, force=True)
+
+    poll_error = None
+    mp_status_raw = None
+    if needs_mp_poll and not already_credited:
+        token = _get_mp_access_token()
+        if not token:
+            poll_error = "Access Token do Mercado Pago não configurado"
+        elif _pix_mp_poll_allowed(payment_id):
+            try:
+                mp_resp = fetch_payment(
+                    token, str(mp_payment_id), timeout=_PIX_MP_POLL_TIMEOUT,
+                )
+                mp_status_raw = str(mp_resp.get("status", "") or "")
+            except PixPaymentError as exc:
+                poll_error = str(exc)
+                _log_error("pix_status_poll", payment_id=payment_id, error=poll_error)
+
+    db = _SessionLocal()
+    try:
+        payment = db.query(PointPayment).filter(
+            PointPayment.payment_id == payment_id,
+            PointPayment.steam_id == steam_id,
+        ).first()
+        if not payment:
+            return jsonify({"ok": False, "error": "Doação não encontrada"}), 404
+
+        if needs_retry_credit:
             try:
                 _finalize_pix_payment(db, payment, "approved")
                 db.commit()
@@ -10881,22 +11564,16 @@ def player_pix_status(payment_id: str):
                 db.rollback()
                 poll_error = str(exc)
                 _log_error("pix_status_retry_credit", payment_id=payment_id, error=poll_error)
-        elif payment.status not in ("RECUSADO", "EXPIRADO", "ESTORNADO", "ABANDONADO") and payment.mp_payment_id:
-            token = _get_mp_access_token()
-            if not token:
-                poll_error = "Access Token do Mercado Pago não configurado"
-            elif _pix_mp_poll_allowed(payment_id):
-                try:
-                    mp_resp = fetch_payment(
-                        token, payment.mp_payment_id, timeout=_PIX_MP_POLL_TIMEOUT,
-                    )
-                    mp_status_raw = str(mp_resp.get("status", "") or "")
-                    _finalize_pix_payment(db, payment, mp_status_raw)
-                    db.commit()
-                except PixPaymentError as exc:
-                    poll_error = str(exc)
-                    _log_error("pix_status_poll", payment_id=payment_id, error=poll_error)
+        elif mp_status_raw is not None:
+            try:
+                _finalize_pix_payment(db, payment, mp_status_raw)
+                db.commit()
+            except Exception as exc:
+                db.rollback()
+                poll_error = str(exc)
+                _log_error("pix_status_finalize", payment_id=payment_id, error=poll_error)
 
+        db.refresh(payment)
         resp_status = payment.status
         resp_credited = payment.credited
         resp_points = payment.points
@@ -10986,8 +11663,9 @@ def payments_webhook():
         return jsonify({"ok": False, "error": "Pagamentos não configurados"}), 503
 
     try:
-        mp_resp = fetch_payment(token, mp_id)
+        mp_resp = fetch_payment(token, mp_id, timeout=_MP_WEBHOOK_FETCH_TIMEOUT)
     except PixPaymentError as exc:
+        log.warning("webhook fetch_payment falhou mp_id=%s: %s", mp_id, exc)
         return jsonify({"ok": False, "error": str(exc)}), 502
 
     external_ref = str(mp_resp.get("external_reference") or "").strip()
@@ -12169,15 +12847,14 @@ def admin_repair_order_license(order_id: str):
         return err
     admin_id = str(_steam_id_from_session())
     db = _SessionLocal()
+    repaired = False
+    entitlements: list[dict[str, Any]] = []
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         repaired = _ensure_license_entitlement_for_order(order, reason="admin_repair")
         entitlements = _get_player_entitlements(str(order.steam_id))
-        perm_sync = _sync_player_entitlements_to_permission_db(
-            str(order.steam_id), entitlements,
-        )
         _audit_event(
             "admin_repair_license",
             actor_type="admin",
@@ -12189,15 +12866,19 @@ def admin_repair_order_license(order_id: str):
             message="Licença reparada no banco" if repaired else "Nada a reparar ou item sem LicenseGrant",
             repaired=repaired,
         )
-        return jsonify({
-            "ok": True,
-            "repaired": repaired,
-            "entitlements": entitlements,
-            "permissions_sync": perm_sync,
-            "timed_points_total": _compute_timed_points_total([e["group"] for e in entitlements]),
-        })
     finally:
         _release_db_session(db)
+
+    perm_sync = _sync_player_entitlements_to_permission_db(
+        str(order.steam_id), entitlements,
+    )
+    return jsonify({
+        "ok": True,
+        "repaired": repaired,
+        "entitlements": entitlements,
+        "permissions_sync": perm_sync,
+        "timed_points_total": _compute_timed_points_total([e["group"] for e in entitlements]),
+    })
 
 
 @app.route("/api/admin/orders/<order_id>/reprocess", methods=["POST"])
@@ -12784,12 +13465,47 @@ def player_kit_limits():
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
+    t0 = time.perf_counter()
+    _hot_path_indexes_ready_or_schedule("player_kit_limits")
+    shop_config = _read_shop_config()
     db = _SessionLocal()
     try:
-        limits = _build_player_kit_limits(db, steam_id)
+        limits = _build_player_kit_limits(db, steam_id, shop_config=shop_config)
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        _log(
+            "player_kit_limits",
+            elapsed_ms=elapsed_ms,
+            steam_id=steam_id,
+            kits=len(limits),
+        )
+        body: dict[str, Any] = {"ok": True, "kits": limits, "elapsed_ms": elapsed_ms}
+        budget = _KIT_LIMITS_BUDGET_MS
+        if budget > 0 and elapsed_ms > budget:
+            body["partial"] = True
+            body["partial_reason"] = "slow_query"
+        return jsonify(body)
+    except Exception as exc:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        _log_error(
+            "player_kit_limits",
+            steam_id=steam_id,
+            error=str(exc),
+            elapsed_ms=elapsed_ms,
+        )
+        return jsonify({
+            "ok": False,
+            "error": "Não foi possível carregar limites de kits. Tente novamente.",
+            "kits": [],
+            "partial": True,
+            "partial_reason": "error",
+            "elapsed_ms": elapsed_ms,
+        }), 503
     finally:
-        _release_db_session(db)
-    return jsonify({"ok": True, "kits": limits})
+        _release_db_session(db, force=True)
 
 
 @app.route("/api/admin/players/<steam_id>/kits", methods=["POST"])
@@ -13076,7 +13792,7 @@ def _season_pass_grant_license(
     days: int,
     *,
     source: str = "",
-) -> None:
+) -> dict[str, Any]:
     _apply_entitlement_grant_tx(
         db,
         str(steam_id),
@@ -13085,6 +13801,10 @@ def _season_pass_grant_license(
         source=source or "season_pass",
         notes="season_pass_claim",
     )
+    return _license_perm_sync_spec(str(steam_id), str(group), int(days))
+
+
+def _season_pass_sync_license_permissions(steam_id: str, group: str, days: int) -> None:
     try:
         _sync_license_permissions_all_servers(
             str(steam_id), str(group), grant=True, days=int(days), rcon_async=True,
@@ -13138,6 +13858,7 @@ configure_season_pass_engine(
     credit_arkbank_premium=_season_pass_credit_arkbank,
     queue_catalog_order=_season_pass_queue_catalog_order,
     grant_license=_season_pass_grant_license,
+    sync_license_permissions=_season_pass_sync_license_permissions,
     get_entitlements=_get_player_entitlements,
     license_catalog_price=_season_pass_license_catalog_price,
 )
@@ -13550,6 +14271,42 @@ try:
         ensure_webstore_catalog_config(_boot_master)
 except Exception as _boot_cat_exc:
     log.warning("ensure_webstore_catalog_config no boot: %s", _boot_cat_exc)
+
+
+def _log_boot_snapshot() -> None:
+    """Uma linha no boot: config_path, contagens, pool, threads."""
+    try:
+        s = _load_settings()
+        resolved, data, note = _resolve_shop_catalog(persist_healed_path=False)
+        norm = _normalize_config_to_web(dict(data or {}))
+        items_n, kits_n = _catalog_shop_counts(norm)
+        pool_size = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
+        threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8))
+        if os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1":
+            threads = threads_raw
+        else:
+            threads = min(threads_raw, pool_size)
+        _log(
+            "boot_snapshot",
+            pid=os.getpid(),
+            config_path=str(resolved),
+            config_exists=resolved.is_file(),
+            items_count=items_n,
+            kits_count=kits_n,
+            pool_size=pool_size,
+            http_threads=threads,
+            log_level=_LOG_LEVEL,
+            log_requests=os.environ.get("ARKSHOP_LOG_REQUESTS", "slow"),
+            catalog_note=(note or "")[:200] or None,
+        )
+    except Exception as exc:
+        log.warning("boot_snapshot indisponível: %s", exc)
+
+
+try:
+    _log_boot_snapshot()
+except Exception:
+    pass
 
 log.info("arkshop_web module loaded pid=%s", os.getpid())
 

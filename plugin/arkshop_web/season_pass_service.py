@@ -816,6 +816,7 @@ def _deliver_grants(
     grants: list[dict[str, Any]],
     license_choice: str | None,
     entitlements: list[dict[str, Any]],
+    deferred_perm_syncs: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     add_pts: Callable = _cbs.get("add_points_tx")
     queue_order: Callable = _cbs.get("queue_catalog_order")
@@ -882,7 +883,9 @@ def _deliver_grants(
                         "não é possível activar um terceiro tier. "
                         "Escolhe license_choice='amber'."
                     )
-                grant_lic(db, steam_id, group, days, source=f"sp:{season_id}:{track}:{level}")
+                spec = grant_lic(db, steam_id, group, days, source=f"sp:{season_id}:{track}:{level}")
+                if spec and deferred_perm_syncs is not None:
+                    deferred_perm_syncs.append(spec)
                 results.append({
                     "type": "license",
                     "id": group,
@@ -955,6 +958,7 @@ def claim_reward(
     get_ents: Callable | None = _cbs.get("get_entitlements")
     ents = list(get_ents(steam_id, db) if get_ents else [])
 
+    pending_perm_syncs: list[dict[str, Any]] = []
     delivery = _deliver_grants(
         db,
         steam_id=steam_id,
@@ -964,6 +968,7 @@ def claim_reward(
         grants=grants,
         license_choice=license_choice,
         entitlements=ents,
+        deferred_perm_syncs=pending_perm_syncs,
     )
 
     claimed = set(prog["claimed"])
@@ -1001,6 +1006,13 @@ def claim_reward(
         log.warning("season_pass claim audit queue: %s", exc)
 
     db.commit()
+    sync_fn: Callable | None = _cbs.get("sync_license_permissions")
+    if sync_fn:
+        for spec in pending_perm_syncs:
+            try:
+                sync_fn(spec["steam_id"], spec["group"], spec["days"])
+            except Exception as exc:
+                log.warning("season_pass deferred perm sync: %s", exc)
     msg = _claim_message(delivery)
     return {
         "ok": True,

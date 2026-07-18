@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -207,6 +209,24 @@ def _fetch_options(db: Session, poll_id: int) -> list[Any]:
     )
 
 
+def _fetch_options_bulk(db: Session, poll_ids: list[int]) -> dict[int, list[Any]]:
+    if not poll_ids:
+        return {}
+    placeholders = ", ".join(f":p{i}" for i in range(len(poll_ids)))
+    params = {f"p{i}": int(pid) for i, pid in enumerate(poll_ids)}
+    rows = db.execute(
+        text(
+            f"SELECT * FROM community_poll_options WHERE poll_id IN ({placeholders}) "
+            "ORDER BY poll_id ASC, sort_order ASC, id ASC"
+        ),
+        params,
+    ).fetchall()
+    out: dict[int, list[Any]] = {}
+    for row in rows:
+        out.setdefault(int(row.poll_id), []).append(row)
+    return out
+
+
 def _vote_counts(db: Session, poll_id: int) -> dict[int, int]:
     rows = db.execute(
         text(
@@ -216,6 +236,68 @@ def _vote_counts(db: Session, poll_id: int) -> dict[int, int]:
         {"pid": poll_id},
     ).fetchall()
     return {int(r.option_id): int(r.c) for r in rows}
+
+
+def _vote_counts_bulk(db: Session, poll_ids: list[int]) -> dict[int, dict[int, int]]:
+    if not poll_ids:
+        return {}
+    placeholders = ", ".join(f":p{i}" for i in range(len(poll_ids)))
+    params = {f"p{i}": int(pid) for i, pid in enumerate(poll_ids)}
+    rows = db.execute(
+        text(
+            f"SELECT poll_id, option_id, COUNT(*) AS c FROM community_poll_votes "
+            f"WHERE poll_id IN ({placeholders}) GROUP BY poll_id, option_id"
+        ),
+        params,
+    ).fetchall()
+    out: dict[int, dict[int, int]] = {}
+    for row in rows:
+        pid = int(row.poll_id)
+        out.setdefault(pid, {})[int(row.option_id)] = int(row.c)
+    return out
+
+
+def _user_voted_option_ids_bulk(
+    db: Session,
+    poll_ids: list[int],
+    steam_id: str,
+) -> dict[int, list[int]]:
+    if not poll_ids or not steam_id:
+        return {}
+    placeholders = ", ".join(f":p{i}" for i in range(len(poll_ids)))
+    params = {f"p{i}": int(pid) for i, pid in enumerate(poll_ids)}
+    params["sid"] = steam_id
+    rows = db.execute(
+        text(
+            f"SELECT poll_id, option_id FROM community_poll_votes "
+            f"WHERE poll_id IN ({placeholders}) AND steam_id = :sid"
+        ),
+        params,
+    ).fetchall()
+    out: dict[int, list[int]] = {}
+    for row in rows:
+        out.setdefault(int(row.poll_id), []).append(int(row.option_id))
+    return out
+
+
+_EXPIRE_POLLS_LOCK = threading.Lock()
+_EXPIRE_POLLS_LAST_RUN = 0.0
+_EXPIRE_POLLS_INTERVAL_SEC = 45.0
+
+
+def maybe_process_expired_polls(db: Session) -> int:
+    """Encerra votações vencidas no máx. a cada ~45s — evita hold DB em cada GET /api/polls."""
+    global _EXPIRE_POLLS_LAST_RUN
+    now = time.monotonic()
+    if now - _EXPIRE_POLLS_LAST_RUN < _EXPIRE_POLLS_INTERVAL_SEC:
+        return 0
+    with _EXPIRE_POLLS_LOCK:
+        now = time.monotonic()
+        if now - _EXPIRE_POLLS_LAST_RUN < _EXPIRE_POLLS_INTERVAL_SEC:
+            return 0
+        closed = process_expired_polls(db)
+        _EXPIRE_POLLS_LAST_RUN = time.monotonic()
+        return closed
 
 
 def _total_voters(db: Session, poll_id: int) -> int:
@@ -411,7 +493,7 @@ def list_polls_public(
     include_closed: bool = True,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    process_expired_polls(db)
+    maybe_process_expired_polls(db)
     statuses = ("ACTIVE",)
     if include_closed:
         statuses = ("ACTIVE", "CLOSED")
@@ -425,18 +507,22 @@ def list_polls_public(
         ),
         params,
     ).fetchall()
+    poll_ids = [int(row.id) for row in rows]
+    options_by_poll = _fetch_options_bulk(db, poll_ids)
+    counts_by_poll = _vote_counts_bulk(db, poll_ids)
+    viewer_by_poll = (
+        _user_voted_option_ids_bulk(db, poll_ids, viewer_steam_id)
+        if viewer_steam_id
+        else {}
+    )
     out: list[dict[str, Any]] = []
     for row in rows:
         pid = int(row.id)
-        options = _fetch_options(db, pid)
-        counts = _vote_counts(db, pid)
+        options = options_by_poll.get(pid, [])
+        counts = counts_by_poll.get(pid, {})
         total_votes = sum(counts.values())
         stats = _build_option_stats(options, counts, total_votes)
-        viewer_votes = (
-            _user_voted_option_ids(db, pid, viewer_steam_id)
-            if viewer_steam_id
-            else None
-        )
+        viewer_votes = viewer_by_poll.get(pid) if viewer_steam_id else None
         out.append(
             _poll_to_dict(
                 row,
@@ -449,18 +535,21 @@ def list_polls_public(
 
 
 def list_polls_admin(db: Session, limit: int = 100) -> list[dict[str, Any]]:
-    process_expired_polls(db)
+    maybe_process_expired_polls(db)
     rows = db.execute(
         text(
             "SELECT * FROM community_polls ORDER BY id DESC LIMIT :lim"
         ),
         {"lim": limit},
     ).fetchall()
+    poll_ids = [int(row.id) for row in rows]
+    options_by_poll = _fetch_options_bulk(db, poll_ids)
+    counts_by_poll = _vote_counts_bulk(db, poll_ids)
     out: list[dict[str, Any]] = []
     for row in rows:
         pid = int(row.id)
-        options = _fetch_options(db, pid)
-        counts = _vote_counts(db, pid)
+        options = options_by_poll.get(pid, [])
+        counts = counts_by_poll.get(pid, {})
         total_votes = sum(counts.values())
         stats = _build_option_stats(options, counts, total_votes)
         out.append(_poll_to_dict(row, options_stats=stats))

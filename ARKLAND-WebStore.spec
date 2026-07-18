@@ -6,6 +6,29 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 _project_root = Path(SPEC).parent.resolve()
 
+# Artefactos de pipeline de icones — nao servidos em producao (runtime usa .webp).
+# raw/ ~344 MB, demo/ ~20 MB, preview/ ~2 MB — origem da inchacao ~500 MB do installer.
+_STATIC_EXCLUDE_PREFIXES = (
+    'species/icons/generated/raw/',
+    'species/icons/generated/preview/',
+    'species/icons/demo/',
+)
+
+
+def _collect_webstore_static_datas() -> list[tuple[str, str]]:
+    static_root = _project_root / 'plugin' / 'arkshop_web' / 'static'
+    datas: list[tuple[str, str]] = []
+    for path in static_root.rglob('*'):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(static_root).as_posix()
+        if any(rel.startswith(prefix) for prefix in _STATIC_EXCLUDE_PREFIXES):
+            continue
+        dest_dir = Path('static') / path.relative_to(static_root).parent
+        datas.append((str(path), str(dest_dir)))
+    return datas
+
+
 flask_datas, flask_binaries, flask_hiddenimports = collect_all('flask')
 cors_datas, cors_binaries, cors_hiddenimports = collect_all('flask_cors')
 limiter_datas, limiter_binaries, limiter_hiddenimports = collect_all('flask_limiter')
@@ -18,7 +41,7 @@ a = Analysis(
     pathex=[str(_project_root)],
     binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries + discord_binaries,
     datas=[
-        ('plugin/arkshop_web/static', 'static'),
+        *_collect_webstore_static_datas(),
         ('plugin/arkshop_web/data', 'data'),
         ('plugin/CustomShop/configs/config.json', 'CustomShop/configs'),
         ('version.json', '.'),

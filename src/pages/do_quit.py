@@ -39,5 +39,10 @@ def do_quit(app: "ARKServerManagerApp") -> None:
             client.disconnect()
         except Exception:
             pass
+    try:
+        from .customshop_panel import shutdown_shop_services
+        shutdown_shop_services()
+    except Exception:
+        pass
     app.config_manager.save()
     app.destroy()

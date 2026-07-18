@@ -792,16 +792,23 @@ def ensure_webstore_catalog_config(source: Path | str) -> Path:
             src,
         )
     if dest.is_file() and not should_copy:
+        dest_total = catalog_entry_total(load_plugin_config(dest))
         dest_mtime = _path_mtime(dest)
         src_mtime = _path_mtime(src)
-        if dest_mtime > src_mtime + 0.001:
-            return resolve_persistent_catalog_path(src)
-        dest_total = catalog_entry_total(load_plugin_config(dest))
         if src_total > dest_total + 5:
             should_copy = True
             logger.info(
                 "WEBSTORE cache desatualizado (%d vs mestre %d) — recopiando de %s",
                 dest_total, src_total, src,
+            )
+        elif dest_mtime > src_mtime + 0.001 and dest_total >= src_total:
+            # WEBSTORE mais recente e pelo menos tão completo — manter cache local.
+            pass
+        elif dest_total < src_total:
+            should_copy = True
+            logger.warning(
+                "WEBSTORE incompleto (%d vs mestre %d) — recopiando apesar de mtime",
+                dest_total, src_total,
             )
 
     if should_copy:

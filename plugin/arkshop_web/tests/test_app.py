@@ -360,7 +360,71 @@ class TestPointPackages:
             "_resolve_settings_catalog_path",
             lambda configured="": str(config_path),
         )
-        _app_module._CONFIG_CACHE.clear()
+        _app_module._invalidate_shop_config_cache()
+
+    def test_get_config_empty_file_returns_error_not_silent_empty(self, client, tmp_path, monkeypatch):
+        """Admin «Nenhum item cadastrado» — path existe mas sem Items/Kits → error explícito."""
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(json.dumps({"Settings": {}, "Items": {}, "Kits": {}}), encoding="utf-8")
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+        monkeypatch.setattr(
+            _app_module,
+            "_heal_empty_shop_config_path",
+            lambda preferred: (preferred, {"Settings": {}, "Items": {}, "Kits": {}}, f"vazio: {preferred}"),
+        )
+        _login(client, ADMIN_STEAM)
+        r = client.get("/api/config")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d.get("ok") is False
+        assert d.get("error")
+        assert d.get("_items_count") == 0
+        assert d.get("_kits_count") == 0
+
+    def test_get_config_missing_path_heals_from_source(self, client, tmp_path, monkeypatch):
+        missing = tmp_path / "missing_config.json"
+        rich = tmp_path / "rich_config.json"
+        rich.write_text(
+            json.dumps({
+                "Items": {"sword": {"Price": 10, "Description": "Espada"}},
+                "Kits": {"starter": {"Price": 0, "Description": "Kit", "DefaultAmount": 1}},
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(missing))
+        self._use_isolated_catalog(monkeypatch, missing)
+
+        def _fake_heal(preferred):
+            return rich, json.loads(rich.read_text(encoding="utf-8")), f"recuperado de {rich}"
+
+        monkeypatch.setattr(_app_module, "_heal_empty_shop_config_path", _fake_heal)
+        _login(client, ADMIN_STEAM)
+        r = client.get("/api/config")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d.get("ok") is True
+        assert "sword" in (d.get("ShopItems") or {})
+        assert "starter" in (d.get("Kits") or {})
+        assert d.get("_config_healed")
+
+    def test_read_shop_config_uses_healed_source(self, client, tmp_path, monkeypatch):
+        missing = tmp_path / "missing_config.json"
+        rich = tmp_path / "rich_config.json"
+        rich.write_text(
+            json.dumps({"Items": {"a": {"Price": 1}}, "Kits": {"k": {"Price": 0}}}),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(missing))
+        self._use_isolated_catalog(monkeypatch, missing)
+        monkeypatch.setattr(
+            _app_module,
+            "_heal_empty_shop_config_path",
+            lambda preferred: (rich, json.loads(rich.read_text(encoding="utf-8")), "healed"),
+        )
+        data = _app_module._read_shop_config()
+        assert "a" in (data.get("Items") or {})
+        assert "k" in (data.get("Kits") or {})
 
     def test_save_point_packages_persists_to_catalog(self, client, tmp_path, monkeypatch):
         config_path = tmp_path / "shop_config.json"
@@ -549,6 +613,92 @@ class TestPointPackages:
         saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
         assert saved_cfg["Settings"]["NotasCommandPrice"] == 4200
         assert saved_cfg["Settings"]["NotasCommandEnabled"] is False
+
+
+class TestCatalogPathAlignment:
+    """Admin/featured-maps/downloads devem usar o mesmo resolve/heal que /api/config."""
+
+    def _use_isolated_catalog(self, monkeypatch, config_path):
+        monkeypatch.setattr(
+            _app_module,
+            "_resolve_settings_catalog_path",
+            lambda configured="": str(config_path),
+        )
+        _app_module._invalidate_shop_config_cache()
+
+    def test_read_catalog_data_heals_missing_settings_path(self, tmp_path, monkeypatch):
+        missing = tmp_path / "missing_config.json"
+        rich = tmp_path / "rich_config.json"
+        rich.write_text(
+            json.dumps({
+                "Items": {"sword": {"Price": 10}},
+                "Kits": {},
+                "FeaturedMaps": [{"id": "ragnarok", "name": "Ragnarok", "enabled": True}],
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(missing))
+        self._use_isolated_catalog(monkeypatch, missing)
+        monkeypatch.setattr(
+            _app_module,
+            "_heal_empty_shop_config_path",
+            lambda preferred: (rich, json.loads(rich.read_text(encoding="utf-8")), "healed"),
+        )
+
+        data = _app_module._read_catalog_data()
+        assert "sword" in (data.get("Items") or {})
+        maps = _app_module._load_featured_maps_raw()
+        assert any(m.get("id") == "ragnarok" for m in maps)
+
+    def test_write_featured_maps_persists_to_master(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(
+            json.dumps({
+                "Settings": {"ShopName": "Test"},
+                "Items": {"keep": {"Price": 1}},
+                "Kits": {},
+                "FeaturedMaps": [],
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            "/api/featured-maps",
+            json={"name": "Aberration", "mod_map": True, "enabled": True},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        saved = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved["Items"]["keep"]["Price"] == 1
+        assert any(m.get("name") == "Aberration" for m in saved.get("FeaturedMaps") or [])
+
+    def test_build_catalog_payload_uses_resolved_path(self, tmp_path, monkeypatch):
+        missing = tmp_path / "missing_config.json"
+        rich = tmp_path / "rich_config.json"
+        rich.write_text(
+            json.dumps({
+                "Items": {"sword": {"Price": 10, "Description": "Espada"}},
+                "Kits": {"starter": {"Price": 0, "Description": "Kit"}},
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(missing))
+        self._use_isolated_catalog(monkeypatch, missing)
+        monkeypatch.setattr(
+            _app_module,
+            "_heal_empty_shop_config_path",
+            lambda preferred: (rich, json.loads(rich.read_text(encoding="utf-8")), f"healed:{rich}"),
+        )
+        payload = _app_module._build_catalog_payload()
+        meta = payload.get("catalog_meta") or {}
+        assert meta.get("items_count", 0) >= 1
+        assert meta.get("catalog_empty") is False
+        assert str(rich) in str(meta.get("config_path") or "")
+        assert meta.get("catalog_note")
 
 
 # ── Player summary & history ──────────────────────────────────────────────────
@@ -2101,6 +2251,54 @@ class TestCardCheckout:
         finally:
             db.close()
 
+    def test_status_polls_mp_for_abandoned_pix_payment(self, client, tmp_path, monkeypatch):
+        """ABANDONADO não deve bloquear reconciliação — jogador pode pagar após fechar o modal."""
+        self._enable_mp(tmp_path, monkeypatch)
+        _login(client, USER_STEAM)
+        payment_id = str(uuid.uuid4())
+        db = _app_module._SessionLocal()
+        try:
+            db.add(
+                _app_module.PointPayment(
+                    payment_id=payment_id,
+                    mp_payment_id="mp_abandoned_pix",
+                    steam_id=USER_STEAM,
+                    package_id="p500",
+                    amount_brl=5.0,
+                    points=500,
+                    status="ABANDONADO",
+                    credited=False,
+                    payment_method="pix",
+                    created_at=_now(),
+                    updated_at=_now(),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        mp_resp = {"id": "mp_abandoned_pix", "status": "approved", "external_reference": payment_id}
+        with patch.object(_app_module, "fetch_payment", return_value=mp_resp) as fetch_mock, \
+             patch.object(_app_module, "_pix_mp_poll_allowed", return_value=True), \
+             patch.object(_app_module, "_add_player_points_tx", return_value=500) as credit_mock:
+            r = client.get(f"/api/player/pix/{payment_id}/status")
+        d = r.get_json()
+        assert d["ok"] is True, d.get("error")
+        assert d["credited"] is True
+        assert d["status"] == "APROVADO"
+        fetch_mock.assert_called_once()
+        credit_mock.assert_called_once()
+
+        db = _app_module._SessionLocal()
+        try:
+            row = db.query(_app_module.PointPayment).filter(
+                _app_module.PointPayment.payment_id == payment_id
+            ).first()
+            assert row.credited is True
+            assert row.status == "APROVADO"
+        finally:
+            db.close()
+
 
 class TestKitRedemptionLimit:
     def _mock_kit_catalog(self, monkeypatch, tmp_path):
@@ -2201,6 +2399,24 @@ class TestKitRedemptionLimit:
         assert starter["limit"] == 3
         assert starter["remaining"] == 0
         assert starter["effective_remaining"] == 0
+
+    def test_player_kit_limits_error_returns_partial_not_empty_success(self, client, monkeypatch, tmp_path):
+        """Fail-open não deve marcar limites prontos quando a API falha (kits=[])."""
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        _login(client, USER_STEAM)
+        monkeypatch.setattr(
+            _app_module,
+            "_build_player_kit_limits",
+            lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("db timeout sim")),
+        )
+        r = client.get("/api/player/kit-limits")
+        d = r.get_json()
+        assert r.status_code == 503
+        assert d.get("ok") is False
+        assert d.get("partial") is True
+        assert d.get("partial_reason") == "error"
+        assert d.get("kits") == []
 
     def test_pending_kit_counts_survive_many_other_orders(self, tmp_path, monkeypatch):
         """GROUP BY não perde pendentes do kit alvo quando há milhares de outros pedidos."""
@@ -2659,25 +2875,51 @@ class TestAdminPlayersSteamBackfill:
         assert calls == []
         assert d.get("steam_persona_warning") in (None, "")
 
-    def test_list_players_backfills_steam_persona(self, client, monkeypatch):
-        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+    def test_list_players_uses_cached_persona_without_sync(self, client, monkeypatch):
+        """Lista NÃO chama Steam no request — só cache; backfill é background."""
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        sync_calls: list[list[str]] = []
+        scheduled: list[list[str]] = []
+
+        def _fake_fetch(ids, timeout=12.0):
+            sync_calls.append(list(ids))
+            return {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {}
+
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _fake_fetch)
         monkeypatch.setattr(
             _app_module,
-            "_fetch_steam_persona_names_batch",
-            lambda ids, timeout=12.0: {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {},
+            "_schedule_steam_persona_backfill",
+            lambda ids: scheduled.append(list(ids)),
         )
         d = client.get("/api/admin/players").get_json()
         row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
-        assert row["display_name"] == "SteamNickBR"
-        db = _app_module._SessionLocal()
-        try:
-            su = db.get(_app_module.StoreUser, USER_STEAM)
-            assert su.steam_persona == "SteamNickBR"
-            assert su.display_name == "SteamNickBR"
-        finally:
-            db.close()
+        assert row["display_name"] == USER_STEAM
+        assert sync_calls == []
+        assert scheduled and USER_STEAM in scheduled[0]
+        assert d.get("timing") is not None
+
+    def test_list_players_slow_steam_does_not_block(self, client, monkeypatch):
+        """Steam lento (15s+) não pode estourar o timeout do frontend na lista."""
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+
+        def _slow_fetch(ids, timeout=12.0):
+            time.sleep(20)
+            return {USER_STEAM: "TooLate"} if USER_STEAM in ids else {}
+
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _slow_fetch)
+        # Não agenda bg real — só prova que o path HTTP não chama fetch.
+        monkeypatch.setattr(_app_module, "_schedule_steam_persona_backfill", lambda _ids: None)
+        t0 = time.perf_counter()
+        d = client.get("/api/admin/players").get_json()
+        elapsed = time.perf_counter() - t0
+        assert d["ok"] is True
+        assert elapsed < 5.0
+        row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
+        assert row["display_name"] == USER_STEAM
 
     def test_list_players_without_steam_api_keeps_steamid(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
@@ -2689,18 +2931,15 @@ class TestAdminPlayersSteamBackfill:
         assert d.get("steam_api_configured") is False
         assert d.get("steam_persona_warning")
 
-    def test_list_players_reports_steam_fetch_failure(self, client, monkeypatch):
+    def test_list_players_missing_persona_no_sync_warning_when_api_configured(self, client, monkeypatch):
+        """Com API key, lista não espera fetch — sem warning de falha síncrona."""
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
-        monkeypatch.setattr(
-            _app_module,
-            "_fetch_steam_persona_names_batch",
-            lambda _ids, timeout=12.0: {},
-        )
+        monkeypatch.setattr(_app_module, "_schedule_steam_persona_backfill", lambda _ids: None)
         d = client.get("/api/admin/players").get_json()
         assert d.get("steam_api_configured") is True
-        assert d.get("steam_persona_warning")
+        assert d.get("steam_persona_warning") in (None, "")
         row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
         assert row["display_name"] == USER_STEAM
 
@@ -2719,29 +2958,21 @@ class TestAdminPlayersSteamBackfill:
         result = _app_module._refresh_steam_personas(None, [USER_STEAM])
         assert result == {USER_STEAM: "NickBR"}
 
-    def test_admin_list_persona_lookup_normalizes_steam_id(self, client, monkeypatch):
-        db = _app_module._SessionLocal()
-        try:
-            row = _app_module.StoreUser(
-                steam_id=f" {USER_STEAM} ",
-                display_name=USER_STEAM,
-                last_login_at=_now(),
-            )
-            db.add(row)
-            db.commit()
-        finally:
-            db.close()
+    def test_admin_list_persona_uses_db_cache_normalized_id(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="NickCached")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        calls: list[list[str]] = []
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids, timeout=12.0: {USER_STEAM: "NickWithSpaceKey"} if USER_STEAM in ids else {},
+            lambda ids, timeout=12.0: calls.append(list(ids)) or {},
         )
         d = client.get("/api/admin/players").get_json()
         row = next(p for p in d["items"] if USER_STEAM in str(p["steam_id"]))
-        assert row["display_name"] == "NickWithSpaceKey"
-        assert row["steam_persona"] == "NickWithSpaceKey"
+        assert row["display_name"] == "NickCached"
+        assert row["steam_persona"] == "NickCached"
+        assert calls == []
 
     def test_player_detail_uses_cached_persona_without_api(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="Ciano_STAFF", steam_persona="Ciano_STAFF")
@@ -3012,6 +3243,134 @@ class TestAdminPlayersSteamBackfill:
             by_id = {row["kit_id"]: row for row in limits}
             assert by_id["kit_0"]["pending_orders"] == 1
             assert by_id["kit_5"]["pending_orders"] == 0
+        finally:
+            _app_module._release_db_session(db)
+
+    def test_store_bootstrap_uses_single_session_no_ddl(self, client, monkeypatch, tmp_path):
+        """Bootstrap autenticado: entitlements sem DDL; timing + kit_limits presentes."""
+        catalog = tmp_path / "shop.json"
+        catalog.write_text(
+            json.dumps({
+                "Kits": {
+                    "starter": {"Description": "Starter", "DefaultAmount": 1, "Price": 0},
+                },
+                "Items": {},
+            }),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(_app_module, "_load_settings", lambda: {"config_path": str(catalog)})
+        _app_module._invalidate_shop_config_cache()
+        _seed_store_user(USER_STEAM, display_name="Boot", steam_persona="Boot")
+        _login(client, USER_STEAM)
+
+        ensure_calls: list[str] = []
+
+        def _no_ddl(conn):
+            ensure_calls.append("ddl")
+
+        monkeypatch.setattr(_app_module, "_ensure_entitlements_schema", _no_ddl)
+        _app_module._ENTITLEMENTS_SCHEMA_READY = True
+
+        t0 = time.perf_counter()
+        r = client.get("/api/store/bootstrap")
+        elapsed = time.perf_counter() - t0
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d["me"]["authenticated"] is True
+        assert isinstance(d.get("kit_limits"), list)
+        assert "timing" in d
+        assert ensure_calls == []
+        assert elapsed < 3.0
+
+    def test_entitlements_hot_path_queries_when_table_exists(self, monkeypatch):
+        """Migrate async: flag False mas tabela existente → bootstrap NÃO devolve []."""
+        _app_module._ENTITLEMENTS_SCHEMA_READY = False
+        _app_module._clear_table_exists_cache()
+        db = _app_module._SessionLocal()
+        try:
+            db.execute(
+                _app_module.text(
+                    "INSERT OR IGNORE INTO player_entitlements "
+                    "(steam_id, group_name, expires, source) "
+                    "VALUES (:sid, :grp, NULL, 'test')"
+                ),
+                {"sid": USER_STEAM, "grp": "Delta"},
+            )
+            db.commit()
+            ents = _app_module._get_player_entitlements(
+                USER_STEAM, db=db, allow_ddl=False,
+            )
+            assert any(e["group"] == "Delta" for e in ents)
+            assert _app_module._ENTITLEMENTS_SCHEMA_READY is True
+        finally:
+            _app_module._release_db_session(db)
+
+    def test_player_kit_limits_db_error_returns_503(self, client, monkeypatch):
+        _login(client, USER_STEAM)
+        monkeypatch.setattr(
+            _app_module,
+            "_build_player_kit_limits",
+            lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("db timeout")),
+        )
+        r = client.get("/api/player/kit-limits")
+        d = r.get_json()
+        assert r.status_code == 503
+        assert d["ok"] is False
+        assert d["partial_reason"] == "error"
+        assert d["kits"] == []
+
+    def test_bootstrap_auth_me_reuses_shared_db_for_admin_check(self, client, monkeypatch):
+        """Bootstrap com sessão partilhada não deve abrir 2.º checkout para ShopAdmin."""
+        _seed_store_user(USER_STEAM, display_name="AdminBoot", steam_persona="AdminBoot")
+        _login(client, USER_STEAM)
+        db = _app_module._SessionLocal()
+        try:
+            db.merge(_app_module.ShopAdmin(steam_id=USER_STEAM))
+            db.commit()
+        finally:
+            _app_module._release_db_session(db)
+
+        merge_calls: list[float] = []
+
+        def _no_extra_merge(*_a, **kwargs):
+            merge_calls.append(kwargs.get("timeout", -1))
+            return set()
+
+        monkeypatch.setattr(_app_module, "_merge_admin_steamids_from_db", _no_extra_merge)
+        monkeypatch.setattr(_app_module, "_ENTITLEMENTS_SCHEMA_READY", True)
+        d = client.get("/api/store/bootstrap").get_json()
+        assert d["ok"] is True
+        assert d["me"]["is_admin"] is True
+        assert merge_calls == []
+
+    def test_build_player_kit_limits_accepts_preloaded_config(self, tmp_path, monkeypatch):
+        """shop_config evita _read_shop_config enquanto a sessão DB está aberta."""
+        catalog = tmp_path / "shop.json"
+        catalog.write_text(
+            json.dumps({
+                "Kits": {
+                    "starter": {"Description": "Starter", "DefaultAmount": 1, "Price": 0},
+                },
+            }),
+            encoding="utf-8",
+        )
+        preloaded = json.loads(catalog.read_text(encoding="utf-8"))
+        read_during_session: list[str] = []
+
+        def _boom_read():
+            read_during_session.append("read")
+            raise AssertionError("catálogo não deve ser relido com shop_config")
+
+        monkeypatch.setattr(_app_module, "_read_shop_config", _boom_read)
+        db = _app_module._SessionLocal()
+        try:
+            limits = _app_module._build_player_kit_limits(
+                db, USER_STEAM, shop_config=preloaded,
+            )
+            assert len(limits) == 1
+            assert limits[0]["kit_id"] == "starter"
+            assert read_during_session == []
         finally:
             _app_module._release_db_session(db)
 

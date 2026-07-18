@@ -174,3 +174,47 @@ def test_grant_third_paid_tier_rejected(monkeypatch):
     )
     assert res["ok"] is False
     assert "2 licenças" in res["error"]
+
+
+def test_perm_engine_singleton_not_disposed_after_grant(monkeypatch):
+    """engine.dispose() no finally invalidava o pool em cache — 2.º sync falhava."""
+    from unittest.mock import MagicMock
+
+    import src.permission_entitlements_sync as sync_mod
+
+    dispose_calls: list[str] = []
+
+    class FakeConn:
+        def execute(self, statement, params=None):
+            sql = str(statement)
+            if "SELECT Id FROM players" in sql:
+                return MagicMock(fetchone=lambda: (1,))
+            if "SELECT PermissionGroups" in sql:
+                return MagicMock(fetchone=lambda: ("Default,", ""))
+            if "UPDATE players SET" in sql:
+                return MagicMock()
+            return MagicMock(fetchone=lambda: None)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class FakeEngine:
+        def begin(self):
+            return FakeConn()
+
+        def dispose(self):
+            dispose_calls.append("perm")
+
+    fake = FakeEngine()
+    sync_mod._PERM_ENGINE_CACHE.clear()
+    monkeypatch.setattr(sync_mod, "_perm_engine", lambda _url: fake)
+
+    url = "mysql+pymysql://u:p@localhost/arkland_shop"
+    res1 = grant_group_in_permission_db(url, "76561199333584164", "Alfa", days=30)
+    res2 = grant_group_in_permission_db(url, "76561199333584164", "Alfa", days=30)
+    assert res1["ok"] is True
+    assert res2["ok"] is True
+    assert dispose_calls == []
