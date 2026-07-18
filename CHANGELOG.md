@@ -11,6 +11,17 @@
 
 - Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.
 
+## [1.10.69] - 2026-07-18
+
+### Feature
+
+- Feat (Web Store / Modo Equipe): decisões Q1/Q3/Q4 — split de mercado SUBSTITUI tribo quando teams_enabled; XP de equipe lifetime cumulativo (limiar = soma incremental dos marcos; honra = lifetime); kick manual imediato + auto-kick por inatividade configurável pelo Owner.
+- Feat (Web Store / Equipes): settings auto_kick_inactive + horas; job process_team_inactive_kicks no scheduler; heartbeat last_activity_at via Minha Equipe / doações / depósitos / XP.
+
+### Fix
+
+- Fix (Web Store / PWA): cache-bust estáticos ?v=1.10.69.
+
 ## [1.10.68] - 2026-07-17
 
 ### Feature

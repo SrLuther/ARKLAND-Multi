@@ -1778,6 +1778,12 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("Área de Tribo (sqlite dev): migrate falhou: %s", exc)
         try:
+            from team_service import ensure_team_schema
+
+            ensure_team_schema(engine)
+        except Exception as exc:
+            log.warning("Modo Equipe (sqlite dev): migrate falhou: %s", exc)
+        try:
             from itensalfa_licenses_migrate import ensure_itensalfa_licenses_schema
 
             ensure_itensalfa_licenses_schema(engine)
@@ -1952,6 +1958,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_tribe_schema(engine)
     except Exception as exc:
         log.warning("Área de Tribo: migrate falhou: %s", exc)
+    try:
+        from team_service import ensure_team_schema
+
+        ensure_team_schema(engine)
+    except Exception as exc:
+        log.warning("Modo Equipe: migrate falhou: %s", exc)
     try:
         from itensalfa_licenses_migrate import ensure_itensalfa_licenses_schema
 
@@ -7679,6 +7691,22 @@ def _retry_worker() -> None:
         except Exception as exc:
             _log_error("arkbank_timed_outbox_worker", error=str(exc))
 
+        try:
+            from team_service import process_team_inactive_kicks, teams_enabled
+
+            if teams_enabled():
+                tdb = _SessionLocal()
+                try:
+                    result = process_team_inactive_kicks(tdb)
+                    if result.get("processed"):
+                        _log("team_inactive_kicks", **{
+                            k: v for k, v in result.items() if k != "kicked"
+                        })
+                finally:
+                    _release_db_session(tdb)
+        except Exception as exc:
+            _log_error("team_inactive_kicks_worker", error=str(exc))
+
         if _delivery_mode() != "rcon":
             continue
         db = _SessionLocal()
@@ -8323,6 +8351,10 @@ def save_settings():
         "public_ip",
         "join_host",
         "lottery_enabled",
+        "teams_enabled",
+        "teams_max_members",
+        "teams_amber_bonus_pp",
+        "teams_amber_bonus_cap",
         "custom_dino_enabled",
         "custom_dino_require_ticket",
         "custom_dino_ground_fallback",
@@ -14245,6 +14277,26 @@ register_tribe_routes(
     is_admin_steamid=_is_admin_steamid,
     limiter=limiter,
     trigger_tribe_sync_rcon=_trigger_tribe_sync_rcon_all,
+)
+
+# ── Modo Equipe (coexiste com Tribo; flag teams_enabled) ───
+from team_routes import register_team_routes
+from team_service import configure_team_service
+
+configure_team_service(
+    settings_fn=_load_settings,
+    subtract_points_tx=_subtract_player_points_tx,
+)
+register_team_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    api_key_required=api_key_required,
+    steam_id_from_session=_steam_id_from_session,
+    is_admin_steamid=_is_admin_steamid,
+    limiter=limiter,
 )
 
 from plugin_debug_routes import register_plugin_debug_routes

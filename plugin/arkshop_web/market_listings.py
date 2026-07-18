@@ -1144,33 +1144,67 @@ def set_listing_price(
             mate_row.status = "ACTIVE"
             mate_row.updated_at = _now()
         row.status = "ACTIVE"
-        # Opt-in por jogador: se o vendedor aceitou a partilha da tribo, congela snapshot
+        # Opt-in: Q1 — when teams_enabled, only team split (tribe split ignored).
         try:
-            from tribe_service import (
-                find_tribe_owner_id_for_seller,
-                get_split_snapshot_for_listing,
-            )
-            oid = find_tribe_owner_id_for_seller(db, seller_steam_id)
             snap = None
-            if oid is not None:
-                snap = get_split_snapshot_for_listing(
-                    db,
-                    oid,
-                    split_price,
-                    seller_steam_id=seller_steam_id,
+            team_split_id = None
+            teams_on = False
+            try:
+                from team_service import get_team_split_snapshot_for_listing, teams_enabled
+                teams_on = bool(teams_enabled())
+                if teams_on:
+                    snap = get_team_split_snapshot_for_listing(
+                        db,
+                        seller_steam_id=seller_steam_id,
+                        price=split_price,
+                    )
+                    if snap:
+                        team_split_id = int(snap["split_id"])
+            except Exception as _team_split_exc:
+                log.debug("team split snapshot skip listing=%s: %s", row.id, _team_split_exc)
+            if not snap and not teams_on:
+                from tribe_service import (
+                    find_tribe_owner_id_for_seller,
+                    get_split_snapshot_for_listing,
                 )
+                oid = find_tribe_owner_id_for_seller(db, seller_steam_id)
+                if oid is not None:
+                    snap = get_split_snapshot_for_listing(
+                        db,
+                        oid,
+                        split_price,
+                        seller_steam_id=seller_steam_id,
+                    )
             if snap:
-                row.tribe_split_id = int(snap["split_id"])
+                if team_split_id is not None:
+                    if hasattr(row, "team_split_id"):
+                        row.team_split_id = team_split_id
+                    row.tribe_split_id = None
+                else:
+                    row.tribe_split_id = int(snap["split_id"])
+                    if hasattr(row, "team_split_id"):
+                        row.team_split_id = None
                 row.split_snapshot = _json_dumps(snap)
                 if mate_row is not None:
-                    mate_row.tribe_split_id = int(snap["split_id"])
+                    if team_split_id is not None:
+                        if hasattr(mate_row, "team_split_id"):
+                            mate_row.team_split_id = team_split_id
+                        mate_row.tribe_split_id = None
+                    else:
+                        mate_row.tribe_split_id = int(snap["split_id"])
+                        if hasattr(mate_row, "team_split_id"):
+                            mate_row.team_split_id = None
                     mate_row.split_snapshot = _json_dumps(snap)
             else:
                 row.tribe_split_id = None
                 row.split_snapshot = None
+                if hasattr(row, "team_split_id"):
+                    row.team_split_id = None
                 if mate_row is not None:
                     mate_row.tribe_split_id = None
                     mate_row.split_snapshot = None
+                    if hasattr(mate_row, "team_split_id"):
+                        mate_row.team_split_id = None
         except Exception as _split_exc:
             log.warning(
                 "Split snapshot na ativação falhou listing=%s: %s",

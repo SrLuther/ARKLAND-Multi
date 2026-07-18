@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.68"
-BUILD_DATE: str = "2026-07-17"
+APP_VERSION: str = "1.10.69"
+BUILD_DATE: str = "2026-07-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -14,6 +14,15 @@ CHANGELOG: list[dict] = [
         "date": "",
         "changes": [
             "Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.",
+        ],
+    },
+    {
+        "version": "1.10.69",
+        "date": "2026-07-18",
+        "changes": [
+            "Feat (Web Store / Modo Equipe): decisões Q1/Q3/Q4 — split de mercado SUBSTITUI tribo quando teams_enabled; XP de equipe lifetime cumulativo (limiar = soma incremental dos marcos; honra = lifetime); kick manual imediato + auto-kick por inatividade configurável pelo Owner.",
+            "Feat (Web Store / Equipes): settings auto_kick_inactive + horas; job process_team_inactive_kicks no scheduler; heartbeat last_activity_at via Minha Equipe / doações / depósitos / XP.",
+            "Fix (Web Store / PWA): cache-bust estáticos ?v=1.10.69.",
         ],
     },
     {

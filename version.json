@@ -1,10 +1,10 @@
 {
-    "version": "1.10.68",
-    "date": "2026-07-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.68/ARKLAND-Multi-Setup-v1.10.68.exe",
+    "version": "1.10.69",
+    "date": "2026-07-18",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.69/ARKLAND-Multi-Setup-v1.10.69.exe",
     "changelog": [
-        "Fix P0 (Web Store / Admin): painel Itens/Kits preso em “Carregando config.json…” após bootstrap — applyRoleUi(defer) voltava a chamar setAdminShopLoading depois de loadConfig/renderAll; corrige race e HTML duplicado no fim do index.",
-        "Feat (Web Store / Staff): botão «MODO STAFF» (bolinha verde/vermelha) na sidebar para admin/suporte alternar menu completo vs vista jogador; estado persistido em localStorage por SteamID.",
-        "Fix P0 (Web Store / PWA): cache-bust estáticos ?v=1.10.68."
+        "Feat (Web Store / Modo Equipe): decisões Q1/Q3/Q4 — split de mercado SUBSTITUI tribo quando teams_enabled; XP de equipe lifetime cumulativo (limiar = soma incremental dos marcos; honra = lifetime); kick manual imediato + auto-kick por inatividade configurável pelo Owner.",
+        "Feat (Web Store / Equipes): settings auto_kick_inactive + horas; job process_team_inactive_kicks no scheduler; heartbeat last_activity_at via Minha Equipe / doações / depósitos / XP.",
+        "Fix (Web Store / PWA): cache-bust estáticos ?v=1.10.69."
     ]
 }

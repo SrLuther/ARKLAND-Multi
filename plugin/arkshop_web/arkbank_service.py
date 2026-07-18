@@ -755,6 +755,23 @@ def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any
                 steam_id,
                 exc,
             )
+        try:
+            from team_service import add_team_timed_xp
+
+            add_team_timed_xp(
+                db,
+                steam_id=steam_id,
+                amount=amount,
+                map_id=map_id,
+                cycle_key=cycle_key,
+                commit=False,
+            )
+        except Exception as exc:
+            log.warning(
+                "team XP from timed outbox failed sid=%s: %s",
+                steam_id,
+                exc,
+            )
         now = _naive_utc()
         db.execute(
             text("UPDATE arkbank_timed_outbox SET processed_at = :now WHERE id = :id"),
