@@ -311,11 +311,30 @@ class ARKServerManagerApp(ctk.CTk):
 
                     if status != ASM_STATUS_RUNNING:
                         setattr(self, rich_key, {
-                            "players": "—", "uptime": "—", "ram": "—", "version": "—"
+                            "players": "—", "uptime": "—", "ram": "—", "version": "—",
+                            "pid": "—", "proc": "—",
                         })
                         continue
 
-                    data: dict = {"players": "—", "uptime": "—", "ram": "—", "version": "—"}
+                    data: dict = {
+                        "players": "—", "uptime": "—", "ram": "—", "version": "—",
+                        "pid": "—", "proc": "—",
+                    }
+
+                    # Só mostra PID/path se o processo for verificado sob install_dir
+                    from .asm_engine.asm_server_manager import _pid_safe_to_kill
+                    _pid = inst.pid if inst else None
+                    if not (_pid and _pid_safe_to_kill(srv, int(_pid))):
+                        try:
+                            self.asm_server_manager._reconcile_ghosts([srv])
+                        except Exception:
+                            pass
+                        setattr(self, rich_key, data)
+                        continue
+
+                    data["pid"] = str(_pid)
+                    hint = inst.process_hint() if inst else ""
+                    data["proc"] = hint or "—"
 
                     # Uptime: desde reconexão/start do processo
                     uptime_attr = f"_asm_uptime_start_{srv.id}"
@@ -431,7 +450,7 @@ class ARKServerManagerApp(ctk.CTk):
         elif new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
             setattr(self, f"_asm_uptime_start_{server_id}", None)
             rich_key = f"_asm_rich_status_{server_id}"
-            setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
+            setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—", "pid": "—", "proc": "—"})
             # Não limpar pending a meio de restart — senão SetDay falha nos outros mapas.
             if not self.asm_server_manager.is_force_day_restarting(server_id):
                 self.asm_server_manager.clear_force_day_pending(server_id)

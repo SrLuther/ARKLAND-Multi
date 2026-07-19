@@ -12,6 +12,16 @@
 - Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.
 - Próximo: bônus Â aditivo da equipe no tick TimedPoints C++ (web já expõe amber_bonus_pct; plugin ainda não lê).
 
+## [1.10.72] - 2026-07-18
+
+### Fix
+
+- Fix P0 (TEK / Reconnect): após reboot, last_pid/portas/título já não anexam Amissa (ou outro mapa) a ShooterGameServer de outro install_dir — exige path sob o install_dir do servidor (ex. \MAPAS\AM\).
+- Fix P0 (TEK / Parar): taskkill /F /T só corre se o PID for ShooterGameServer verificado sob o install_dir; ghost/PID reciclado → limpa estado sem matar (evita tela preta/reboot ao Parar PID errado).
+- Fix (TEK / Ghost): RUNNING com PID vivo alheio (sem Shooter no Task Manager) → reconcile/monitor limpa para PARADO.
+- Fix (TEK / Título): pasta curta AM/BR/CI já não casa substring em títulos tipo Steam.
+- Fix (TEK / Launch): ServerMap curto (ex. Amissa) + ActiveMods[0] workshop → CLI /Game/Mods/{id}/Amissa quando a pasta do mod existe.
+
 ## [1.10.71] - 2026-07-18
 
 ### Feature

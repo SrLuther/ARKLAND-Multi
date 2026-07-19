@@ -730,11 +730,16 @@ def _update_card_rich_labels(app: "ARKServerManagerApp") -> None:
             ("Uptime", rich_data.get("uptime", "—")),
             ("Memória", rich_data.get("ram", "—")),
             ("Versão", rich_data.get("version", "—")),
+            ("PID", rich_data.get("pid", "—")),
+            ("Processo", rich_data.get("proc", "—")),
         )
         for hint, val in mapping:
             lbl = refs.get(hint)
             if lbl and lbl.winfo_exists():
-                icon = {"Jogadores": "👥", "Uptime": "🕐", "Memória": "💾", "Versão": "📋"}[hint]
+                icon = {
+                    "Jogadores": "👥", "Uptime": "🕐", "Memória": "💾",
+                    "Versão": "📋", "PID": "#", "Processo": "📁",
+                }[hint]
                 lbl.configure(text=f"{icon}  {val}", text_color=val_tc, font=val_font)
 
 

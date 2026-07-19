@@ -1,6 +1,8 @@
 """Reconnect TEK — baseline v1.10.36 + adjunct; fixture grounded em `.bug` real."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from src.asm_engine.asm_server_config import (
     AsmServerConfig,
     ASM_STATUS_CRASHED,
@@ -15,7 +17,10 @@ from src.asm_engine.asm_server_manager import (
     _cmdline_matches_server,
     _normalize_install_dir,
     _parse_netstat_line,
+    _path_belongs_to_install,
+    _pid_safe_to_kill,
     _process_matches_cfg,
+    _window_title_matches,
 )
 
 
@@ -97,10 +102,14 @@ def test_bound_ports_adjunct_matches_bug_ports():
 
 
 def test_scan_bug_six_empty_exe_cmdline_via_ports(monkeypatch):
-    """Modo de falha real `.bug`: 6 Shooter com exe+cmdline vazios → adjunct portas = 6/6."""
+    """exe vazio no process_iter → QueryFullProcessImageName devolve path por mapa."""
     import src.asm_engine.asm_server_manager as mgr
 
     servers = _bug_servers()
+    path_by_pid = {
+        row[5]: str(Path(row[1]) / "ShooterGame" / "Binaries" / "Win64" / "ShooterGameServer.exe")
+        for row in _BUG_MAPS
+    }
 
     class _P:
         def __init__(self, pid: int) -> None:
@@ -139,7 +148,7 @@ def test_scan_bug_six_empty_exe_cmdline_via_ports(monkeypatch):
                 return 1.0
 
             def exe(self) -> str:
-                return ""
+                return path_by_pid.get(self.pid, "")
 
             def cmdline(self) -> list:
                 return []
@@ -156,6 +165,13 @@ def test_scan_bug_six_empty_exe_cmdline_via_ports(monkeypatch):
     monkeypatch.setattr(mgr, "_psutil", _Fake)
     monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: port_index)
     monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(
+        mgr,
+        "_query_full_process_image_name",
+        lambda pid: path_by_pid.get(int(pid), "").replace("\\", "/").lower(),
+    )
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
 
     m = AsmServerManager()
     n = m.scan_running_servers(servers)
@@ -279,14 +295,15 @@ def test_scan_reconnects_like_v11036_via_exe(monkeypatch):
 
     cfg = _cfg(id="map-a")
     events: list[tuple[str, str]] = []
+    exe_path = r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
 
     class _IterProc:
         info = {
             "pid": 4242,
             "name": "ShooterGameServer.exe",
-            "exe": r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe",
+            "exe": exe_path,
             "cmdline": [
-                r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe",
+                exe_path,
                 "TheIsland?listen?Port=7777?QueryPort=27015",
             ],
             "create_time": 100.0,
@@ -305,6 +322,18 @@ def test_scan_reconnects_like_v11036_via_exe(monkeypatch):
 
             def status(self) -> str:
                 return "running"
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def exe(self) -> str:
+                return exe_path
+
+            def cmdline(self) -> list:
+                return [exe_path, "TheIsland?listen?Port=7777?QueryPort=27015"]
+
+            def create_time(self) -> float:
+                return 100.0
 
         @staticmethod
         def process_iter(attrs):  # noqa: ARG001
@@ -333,6 +362,7 @@ def test_scan_port_fallback_when_process_iter_empty(monkeypatch):
     import src.asm_engine.asm_server_manager as mgr
 
     cfg = _cfg(id="map-a")
+    exe_path = r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
 
     class _FakePsutil:
         NoSuchProcess = type("NoSuchProcess", (Exception,), {})
@@ -376,6 +406,12 @@ def test_scan_port_fallback_when_process_iter_empty(monkeypatch):
         lambda _ports=None: {7777: {5555}, 27015: {5555}, 27020: {5555}},
     )
     monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(
+        mgr, "_query_full_process_image_name",
+        lambda pid: exe_path.replace("\\", "/").lower() if int(pid) == 5555 else "",
+    )
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
 
     mgr_obj = AsmServerManager()
     n = mgr_obj.scan_running_servers([cfg])
@@ -403,6 +439,7 @@ def test_scan_two_maps_shared_install_via_ports(monkeypatch):
         query_port=27016,
         rcon_port=27021,
     )
+    exe = r"D:\ARK\cluster\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
 
     class _FakePsutil:
         NoSuchProcess = type("NoSuchProcess", (Exception,), {})
@@ -424,10 +461,12 @@ def test_scan_two_maps_shared_install_via_ports(monkeypatch):
                 return 1.0
 
             def exe(self) -> str:
-                return ""
+                return exe
 
             def cmdline(self) -> list:
-                return []
+                if self.pid == 1001:
+                    return [exe, "TheIsland?listen?Port=7777?QueryPort=27015"]
+                return [exe, "Ragnarok?listen?Port=7778?QueryPort=27016"]
 
         @staticmethod
         def process_iter(attrs):  # noqa: ARG001
@@ -452,12 +491,96 @@ def test_scan_two_maps_shared_install_via_ports(monkeypatch):
         },
     )
     monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
 
     mgr_obj = AsmServerManager()
     n = mgr_obj.scan_running_servers([island, rag])
     assert n == 2
     assert mgr_obj.get_instance("a").pid == 1001
     assert mgr_obj.get_instance("b").pid == 1002
+
+
+def test_ci_process_does_not_attach_amissa(monkeypatch):
+    """Um Shooter sob MAPAS\\CI — Amissa fica offline; Crystal online."""
+    import src.asm_engine.asm_server_manager as mgr
+
+    ci = _cfg(
+        id="crystal",
+        name="Crystal",
+        install_dir=r"C:\ARKLANDSERVER\MAPAS\CI",
+        server_port=7796,
+        query_port=27103,
+        rcon_port=32403,
+    )
+    am = _cfg(
+        id="amissa",
+        name="Amissa",
+        install_dir=r"C:\ARKLANDSERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+        rcon_port=32405,
+    )
+    ci_exe = r"C:\ARKLANDSERVER\MAPAS\CI\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+
+    class _FakePsutil:
+        NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def is_running(self) -> bool:
+                return True
+
+            def status(self) -> str:
+                return "running"
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def create_time(self) -> float:
+                return 1.0
+
+            def exe(self) -> str:
+                return ci_exe
+
+            def cmdline(self) -> list:
+                return [ci_exe, "CrystalIsles?Port=7796"]
+
+        @staticmethod
+        def process_iter(attrs):  # noqa: ARG001
+            class _Info:
+                info = {
+                    "pid": 8888,
+                    "name": "ShooterGameServer.exe",
+                    "exe": ci_exe,
+                    "cmdline": [ci_exe, "CrystalIsles?Port=7796"],
+                    "create_time": 1.0,
+                }
+
+            return [_Info()]
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
+    monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {"amissa": 8888, "crystal": 8888})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+
+    m = AsmServerManager()
+    n = m.scan_running_servers([ci, am])
+    assert n == 1
+    assert m.get_instance("crystal").pid == 8888
+    assert m.get_instance("crystal").status == ASM_STATUS_RUNNING
+    assert m.count_running([am]) == 0
+    assert m.get_instance("amissa").status == ASM_STATUS_STOPPED
 
 
 def test_parse_netstat_udp_tcp_and_ipv6():
@@ -572,6 +695,8 @@ def test_status_callback_under_scan_does_not_deadlock(monkeypatch):
 
     import src.asm_engine.asm_server_manager as mgr
 
+    exe_path = r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+
     class _FakePsutil:
         NoSuchProcess = type("NoSuchProcess", (Exception,), {})
 
@@ -592,7 +717,7 @@ def test_status_callback_under_scan_does_not_deadlock(monkeypatch):
                 return 1.0
 
             def exe(self) -> str:
-                return r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+                return exe_path
 
             def cmdline(self) -> list:
                 return ["ShooterGameServer.exe", "TheIsland?Port=7777?QueryPort=27015"]
@@ -603,7 +728,7 @@ def test_status_callback_under_scan_does_not_deadlock(monkeypatch):
                 info = {
                     "pid": 4242,
                     "name": "ShooterGameServer.exe",
-                    "exe": r"D:\ARK\TheIsland\ShooterGame\Binaries\Win64\ShooterGameServer.exe",
+                    "exe": exe_path,
                     "cmdline": ["ShooterGameServer.exe", "TheIsland?Port=7777?QueryPort=27015"],
                     "create_time": 1.0,
                 }
@@ -682,3 +807,397 @@ def test_status_callback_under_scan_does_not_deadlock(monkeypatch):
     assert done2.wait(timeout=5.0), "ghost reconcile deadlocked"
     assert m.count_running([cfg]) == 0
     assert m.get_instance("lock-test").status == ASM_STATUS_STOPPED
+
+
+def test_path_belongs_rejects_other_map():
+    am = _cfg(
+        id="am",
+        name="Amissa",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+        rcon_port=32405,
+    )
+    other = r"c:/arkland server/mapas/br/shootergame/binaries/win64/shootergameserver.exe"
+    own = r"c:/arkland server/mapas/am/shootergame/binaries/win64/shootergameserver.exe"
+    assert _path_belongs_to_install(am, other, "") is False
+    assert _path_belongs_to_install(am, own, "") is True
+    assert _path_belongs_to_install(am, "", "") is None
+
+
+def test_window_title_short_folder_am_not_steam():
+    am = _cfg(name="Amissa", install_dir=r"C:\ARKLAND SERVER\MAPAS\AM")
+    assert not _window_title_matches("Steam", am)
+    assert not _window_title_matches("TeamViewer", am)
+    assert _window_title_matches("Amissa", am)
+
+
+def test_wrong_map_exe_not_matched_by_ports_alone():
+    am = _cfg(
+        id="am",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+        rcon_port=32405,
+    )
+    br_exe = r"c:/arkland server/mapas/br/shootergame/binaries/win64/shootergameserver.exe"
+    # Mesmo com portas de Amissa no bound set, path de BR rejeita
+    assert not _process_matches_cfg(
+        am, br_exe, "", {}, bound_ports={7800, 27105, 32405}
+    )
+
+
+def test_last_pid_recycle_wrong_map_not_reattached(monkeypatch):
+    """Pós-reboot: last_pid aponta para Shooter de OUTRO mapa → não anexa Amissa."""
+    import src.asm_engine.asm_server_manager as mgr
+
+    am = _cfg(
+        id="amissa",
+        name="Amissa",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+        rcon_port=32405,
+    )
+    br_exe = r"C:\ARKLAND SERVER\MAPAS\BR\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+
+    class _FakePsutil:
+        NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def is_running(self) -> bool:
+                return True
+
+            def status(self) -> str:
+                return "running"
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def create_time(self) -> float:
+                return 1.0
+
+            def exe(self) -> str:
+                return br_exe
+
+            def cmdline(self) -> list:
+                return [br_exe, "Brighamia?Port=7790"]
+
+        @staticmethod
+        def process_iter(attrs):  # noqa: ARG001
+            class _Info:
+                info = {
+                    "pid": 7180,
+                    "name": "ShooterGameServer.exe",
+                    "exe": br_exe,
+                    "cmdline": [br_exe, "Brighamia?Port=7790"],
+                    "create_time": 1.0,
+                }
+
+            return [_Info()]
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
+    monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {"amissa": 7180})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+
+    m = AsmServerManager()
+    n = m.scan_running_servers([am])
+    assert n == 0
+    assert m.count_running([am]) == 0
+
+
+def test_pid_safe_to_kill_requires_install_dir(monkeypatch):
+    import src.asm_engine.asm_server_manager as mgr
+
+    am = _cfg(install_dir=r"C:\ARKLAND SERVER\MAPAS\AM", server_port=7800, query_port=27105)
+    br_exe = r"C:\ARKLAND SERVER\MAPAS\BR\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+    am_exe = r"C:\ARKLAND SERVER\MAPAS\AM\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+
+    class _FakePsutil:
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+                self._exe = br_exe if pid == 100 else am_exe
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def exe(self) -> str:
+                return self._exe
+
+            def cmdline(self) -> list:
+                return [self._exe]
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
+
+    assert not _pid_safe_to_kill(am, 100)  # BR path
+    assert _pid_safe_to_kill(am, 200)  # AM path
+    assert not _pid_safe_to_kill(am, 4)  # System
+
+
+def test_stop_ghost_wrong_pid_clears_without_taskkill(monkeypatch):
+    """Parar com PID errado (ex. DWM/outro mapa): limpa estado, zero taskkill."""
+    import src.asm_engine.asm_server_manager as mgr
+
+    am = _cfg(
+        id="amissa",
+        name="Amissa",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+    )
+    calls: list[list] = []
+
+    class _FakeProc:
+        pid = 999
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            raise AssertionError("terminate não deve ser chamado")
+
+        def kill(self):
+            raise AssertionError("kill não deve ser chamado")
+
+        def wait(self, timeout=None):  # noqa: ARG002
+            raise AssertionError("wait não deve ser chamado")
+
+    class _FakePsutil:
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def name(self) -> str:
+                return "dwm.exe"
+
+            def exe(self) -> str:
+                return r"C:\Windows\System32\dwm.exe"
+
+            def cmdline(self) -> list:
+                return []
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    def _fake_run(cmd, **kwargs):  # noqa: ARG001
+        calls.append(list(cmd))
+        raise AssertionError(f"taskkill não deve rodar: {cmd}")
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {"amissa": 999})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr.subprocess, "run", _fake_run)
+
+    m = AsmServerManager()
+    m.register_servers([am])
+    inst = m.get_instance("amissa")
+    assert inst is not None
+    inst.status = ASM_STATUS_RUNNING
+    inst._proc = _FakeProc()
+
+    done = {"ok": None, "msg": ""}
+
+    def _on_done(ok, msg):
+        done["ok"] = ok
+        done["msg"] = msg
+
+    m._stop_worker(inst, _on_done)
+    assert done["ok"] is True
+    assert "não verificado" in done["msg"].lower() or "limpeza" in done["msg"].lower()
+    assert inst.status == ASM_STATUS_STOPPED
+    assert inst._proc is None
+    assert calls == []
+
+
+def test_stop_verified_am_path_does_taskkill(monkeypatch):
+    import src.asm_engine.asm_server_manager as mgr
+
+    am = _cfg(
+        id="amissa",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+        rcon_enabled=False,
+    )
+    am_exe = r"C:\ARKLAND SERVER\MAPAS\AM\ShooterGame\Binaries\Win64\ShooterGameServer.exe"
+    calls: list[list] = []
+
+    class _FakeProc:
+        pid = 7180
+        _alive = True
+
+        def poll(self):
+            return None if self._alive else 0
+
+        def terminate(self):
+            self._alive = False
+
+        def kill(self):
+            self._alive = False
+
+        def wait(self, timeout=None):  # noqa: ARG002
+            self._alive = False
+            return 0
+
+    class _FakePsutil:
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def name(self) -> str:
+                return "ShooterGameServer.exe"
+
+            def exe(self) -> str:
+                return am_exe
+
+            def cmdline(self) -> list:
+                return [am_exe]
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    def _fake_run(cmd, **kwargs):  # noqa: ARG001
+        calls.append(list(cmd))
+
+        class _R:
+            returncode = 0
+
+        return _R()
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr.subprocess, "run", _fake_run)
+    monkeypatch.setattr(mgr.time, "sleep", lambda _s: None)
+
+    m = AsmServerManager()
+    m.register_servers([am])
+    inst = m.get_instance("amissa")
+    assert inst is not None
+    inst.status = ASM_STATUS_RUNNING
+    inst._proc = _FakeProc()
+
+    done = {"ok": None}
+
+    m._stop_worker(inst, lambda ok, msg: done.update(ok=ok))
+    assert done["ok"] is True
+    assert any(c[:3] == ["taskkill", "/F", "/T"] and "7180" in c for c in calls)
+    assert inst.status == ASM_STATUS_STOPPED
+
+
+def test_reconcile_clears_alive_wrong_pid_ghost(monkeypatch):
+    """ONLINE com PID vivo que NÃO é Shooter do install_dir → STOPPED sem kill."""
+    import src.asm_engine.asm_server_manager as mgr
+
+    am = _cfg(
+        id="amissa",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        server_port=7800,
+        query_port=27105,
+    )
+
+    class _Alien:
+        pid = 4242
+
+        def poll(self):
+            return None  # ainda "vivo"
+
+    class _FakePsutil:
+        NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+
+        class Process:
+            def __init__(self, pid: int) -> None:
+                self.pid = pid
+
+            def name(self) -> str:
+                return "notepad.exe"
+
+            def exe(self) -> str:
+                return r"C:\Windows\System32\notepad.exe"
+
+            def cmdline(self) -> list:
+                return []
+
+        @staticmethod
+        def process_iter(attrs):  # noqa: ARG001
+            return []
+
+        @staticmethod
+        def net_connections(kind="inet"):  # noqa: ARG001
+            return []
+
+    monkeypatch.setattr(mgr, "_PSUTIL_OK", True)
+    monkeypatch.setattr(mgr, "_psutil", _FakePsutil)
+    monkeypatch.setattr(mgr, "_build_listening_port_index", lambda _ports=None: {})
+    monkeypatch.setattr(mgr, "_windows_titles_by_pid", lambda: {})
+    monkeypatch.setattr(mgr, "_load_last_pids", lambda: {"amissa": 4242})
+    monkeypatch.setattr(mgr, "_save_last_pids", lambda _d: None)
+    monkeypatch.setattr(mgr, "_query_full_process_image_name", lambda _pid: "")
+
+    m = AsmServerManager()
+    m.register_servers([am])
+    inst = m.get_instance("amissa")
+    assert inst is not None
+    inst.status = ASM_STATUS_RUNNING
+    inst._proc = _Alien()
+
+    n = m.scan_running_servers([am])
+    assert n == 0
+    assert m.count_running([am]) == 0
+    assert m.get_instance("amissa").status == ASM_STATUS_STOPPED
+    assert m.get_instance("amissa")._proc is None
+
+
+def test_launch_url_expands_bare_amissa_with_active_mod(tmp_path):
+    from src.asm_engine.asm_ini_manager import _launch_url_params
+
+    mods = tmp_path / "ShooterGame" / "Content" / "Mods" / "1383342563"
+    mods.mkdir(parents=True)
+    cfg = _cfg(
+        server_map="Amissa",
+        install_dir=str(tmp_path),
+        active_mods=["1383342563", "999"],
+        server_port=7800,
+        query_port=27105,
+    )
+    url = "".join(_launch_url_params(cfg))
+    assert url.startswith("/Game/Mods/1383342563/Amissa?listen")
+    assert "?Port=7800" in url
+
+
+def test_launch_url_keeps_canonical_mod_path():
+    from src.asm_engine.asm_ini_manager import _launch_url_params
+
+    cfg = _cfg(
+        server_map="/Game/Mods/1383342563/Amissa",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AM",
+        active_mods=["1383342563"],
+    )
+    url = "".join(_launch_url_params(cfg))
+    # map_cli_name extrai o segmento final; bare+ActiveMods só expande ServerMap curto
+    assert "Amissa?listen" in url or url.startswith("/Game/Mods/1383342563/Amissa")

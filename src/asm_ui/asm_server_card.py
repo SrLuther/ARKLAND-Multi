@@ -357,6 +357,12 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     uptime_txt  = rich_data.get("uptime", "—")
     ram_txt     = rich_data.get("ram", "—")
     ver_txt     = rich_data.get("version", "—")
+    pid_txt     = rich_data.get("pid", "—")
+    proc_txt    = rich_data.get("proc", "—")
+    if is_running and (not pid_txt or pid_txt == "—"):
+        _p = inst.pid if inst else None
+        pid_txt = str(_p) if _p else "—"
+        proc_txt = (inst.process_hint() if inst else "") or "—"
 
     _val_tc = accent if is_running else t_sec
     _val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
@@ -367,6 +373,8 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
         ("🕐", uptime_txt, "Uptime"),
         ("💾", ram_txt, "Memória"),
         ("📋", ver_txt, "Versão"),
+        ("#", pid_txt, "PID"),
+        ("📁", proc_txt, "Processo"),
     ):
         chip = ctk.CTkFrame(rich_r, fg_color="transparent")
         chip.pack(side="left", padx=(12, 16), pady=10)

@@ -215,10 +215,161 @@ def _window_title_matches(title: str, cfg: "AsmServerConfig") -> bool:
         c = (candidate or "").strip().lower()
         if not c:
             continue
-        # Pasta curta (BR/CI/AL) ou nome do mapa ≥2
-        if len(c) >= 2 and (t == c or c in t or (len(c) >= 3 and t in c)):
+        # Pasta curta (AM/BR/CI): só igualdade — "am" ⊂ "steam" gerava falso positivo
+        if len(c) <= 2:
+            if t == c:
+                return True
+            continue
+        if t == c or c in t or (len(c) >= 3 and t in c):
             return True
     return False
+
+
+def _expected_shooter_exe(cfg: "AsmServerConfig") -> str:
+    """Caminho canónico: ``install_dir\\ShooterGame\\Binaries\\Win64\\ShooterGameServer.exe``."""
+    install = (getattr(cfg, "install_dir", "") or "").strip()
+    if not install:
+        return ""
+    exe_name = (getattr(cfg, "server_exe", "") or "ShooterGameServer.exe").strip()
+    if not exe_name.lower().endswith(".exe"):
+        exe_name = f"{exe_name}.exe"
+    return _normalize_install_dir(
+        str(Path(install) / "ShooterGame" / "Binaries" / "Win64" / exe_name)
+    )
+
+
+def _path_belongs_to_install(
+    cfg: "AsmServerConfig",
+    exe: str,
+    cmdline: str = "",
+) -> Optional[bool]:
+    """Verifica se o processo pertence ao ``install_dir`` do mapa.
+
+    Prefere o exe canónico Win64\\ShooterGameServer.exe sob install_dir.
+
+    Returns:
+      True  — exe (ou cmdline) sob install_dir / path canónico
+      False — exe conhecido e NÃO está sob install_dir (outro mapa / helper)
+      None  — impossível verificar (sem install_dir, ou exe vazio)
+    """
+    install_norm = _normalize_install_dir(getattr(cfg, "install_dir", "") or "")
+    if not install_norm:
+        return None
+    exe_l = _slash_fold(exe)
+    cmd_l = _slash_fold(cmdline)
+    expected = _expected_shooter_exe(cfg)
+    if expected and (exe_l == expected or exe_l.endswith(expected.split("/")[-1]) and install_norm in exe_l):
+        if install_norm in exe_l:
+            return True
+    if install_norm in exe_l or install_norm in cmd_l:
+        # Exige parecer Shooter quando o path é só a pasta do mapa
+        if exe_l and not _looks_like_shooter("", exe_l, cmd_l):
+            return False
+        return True
+    # Só rejeita com certeza quando o caminho do EXE é legível e aponta para fora.
+    if exe_l:
+        return False
+    return None
+
+
+def _clear_last_pid(server_id: str) -> None:
+    try:
+        last = _load_last_pids()
+        if server_id in last:
+            del last[server_id]
+            _save_last_pids(last)
+    except Exception:
+        pass
+
+
+# PIDs / imagens que NUNCA podem receber taskkill (tela preta / reboot)
+_PROTECTED_PIDS = frozenset({0, 4})
+_PROTECTED_IMAGES = frozenset({
+    "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe",
+    "smss.exe", "dwm.exe", "explorer.exe", "fontdrvhost.exe", "sihost.exe",
+    "taskhostw.exe", "system", "registry", "secure system", "memory compression",
+})
+
+
+def _inspect_pid(pid: int) -> Dict[str, str]:
+    """Melhor esforço: name/exe/cmdline de um PID (psutil + QueryFullProcessImageName)."""
+    info = {"name": "", "exe": "", "cmdline": ""}
+    if pid <= 0:
+        return info
+    if _PSUTIL_OK and _psutil is not None:
+        try:
+            raw = _psutil.Process(pid)
+            try:
+                info["name"] = (raw.name() or "").lower()
+            except Exception:
+                pass
+            try:
+                info["exe"] = _slash_fold(raw.exe() or "")
+            except Exception:
+                pass
+            try:
+                info["cmdline"] = _slash_fold(" ".join(raw.cmdline() or []))
+            except Exception:
+                pass
+        except Exception:
+            pass
+    if not info["exe"]:
+        img = _query_full_process_image_name(pid)
+        if img:
+            info["exe"] = img
+    return info
+
+
+def _looks_like_shooter(name: str, exe: str, cmdline: str = "") -> bool:
+    blob = f"{name} {exe} {cmdline}".lower()
+    return "shootergameserver" in blob
+
+
+def _is_protected_process(pid: int, name: str, exe: str) -> bool:
+    if pid in _PROTECTED_PIDS or pid < 10:
+        return True
+    n = (name or "").lower().strip()
+    try:
+        base = Path(exe).name.lower() if exe else ""
+    except Exception:
+        base = ""
+    return n in _PROTECTED_IMAGES or base in _PROTECTED_IMAGES
+
+
+def _pid_safe_to_kill(cfg: "AsmServerConfig", pid: int) -> bool:
+    """True só se o PID for ShooterGameServer sob o install_dir deste mapa.
+
+    Com install_dir configurado: exige path sob essa pasta (sem fallback de portas).
+    Ghost / PID reciclado / outro mapa → False (Parar só limpa estado).
+    """
+    if not pid or pid <= 0:
+        return False
+    info = _inspect_pid(pid)
+    name, exe, cmdline = info["name"], info["exe"], info["cmdline"]
+    if _is_protected_process(pid, name, exe):
+        return False
+    if not _looks_like_shooter(name, exe, cmdline):
+        return False
+    install_norm = _normalize_install_dir(getattr(cfg, "install_dir", "") or "")
+    belongs = _path_belongs_to_install(cfg, exe, cmdline)
+    if install_norm:
+        return belongs is True
+    # Sem install_dir: só nome Shooter + portas (legado)
+    if belongs is False:
+        return False
+    if belongs is True:
+        return True
+    if not _PSUTIL_OK or _psutil is None:
+        return False
+    try:
+        ports = _cfg_identity_ports(cfg)
+        if not ports:
+            return False
+        idx = _build_listening_port_index(set(ports))
+        bound = _ports_for_pid(idx, pid)
+        return _bound_ports_match_cfg(cfg, bound)
+    except Exception:
+        return False
 
 
 def _query_full_process_image_name(pid: int) -> str:
@@ -323,6 +474,10 @@ def _process_matches_cfg(
     install_hit = bool(install_norm) and (
         install_norm in exe_l or install_norm in cmd_l
     )
+    # Caminho conhecido de OUTRO mapa: nunca casar só por porta/título
+    belongs = _path_belongs_to_install(cfg, exe, cmdline)
+    if belongs is False:
+        return False
     port_hit = _cmdline_matches_server(cmd_l, cfg)
     # Adjunct: só entra se clássico (cmdline port) falhou
     if not port_hit and bound_ports:
@@ -498,6 +653,7 @@ class AsmServerInstance:
         self.listing_detail: str = ""
         self.a2s_players: Optional[int] = None
         self.a2s_max_players: Optional[int] = None
+        self.attached_exe: str = ""  # path verificado sob install_dir (UI PID/path)
 
     # ── Status helpers ──────────────────────────────────────────────────────
 
@@ -508,6 +664,21 @@ class AsmServerInstance:
     @property
     def pid(self) -> Optional[int]:
         return self._proc.pid if self._proc else None
+
+    def process_hint(self) -> str:
+        """Texto curto do exe anexado p/ o card (ex. ...\\MAPAS\\AM\\...\\ShooterGameServer.exe)."""
+        exe = (self.attached_exe or "").replace("/", "\\")
+        if not exe:
+            return ""
+        upper = exe.upper()
+        marker = "MAPAS\\"
+        idx = upper.find(marker)
+        if idx >= 0:
+            return "..." + exe[idx:]
+        parts = exe.split("\\")
+        if len(parts) >= 3:
+            return "...\\" + "\\".join(parts[-3:])
+        return exe
 
 
 class AsmServerManager:
@@ -650,7 +821,9 @@ class AsmServerManager:
         inst._proc = None
         inst.status = ASM_STATUS_STOPPED
         inst.uptime_start = None
+        inst.attached_exe = ""
         self._stop_steam_watcher(cfg.id)
+        _clear_last_pid(cfg.id)
         if reason:
             try:
                 self._on_log(
@@ -663,19 +836,25 @@ class AsmServerManager:
             self._notify_status(cfg.id, ASM_STATUS_STOPPED)
 
     def _reconcile_ghosts(self, servers: List[AsmServerConfig]) -> int:
-        """RUNNING sem processo vivo → STOPPED. Retorna quantos limpou."""
+        """RUNNING/STARTING sem Shooter próprio sob install_dir → STOPPED."""
         cleared_ids: List[str] = []
         for cfg in servers:
             inst = self._instances.get(cfg.id)
-            if not inst or inst.status != ASM_STATUS_RUNNING:
+            if not inst or inst.status not in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
                 continue
             proc = inst._proc
             dead = proc is None or proc.poll() is not None
-            if dead:
+            pid = int(proc.pid) if proc is not None and getattr(proc, "pid", None) else 0
+            owned = (not dead) and bool(pid) and _pid_safe_to_kill(cfg, pid)
+            if dead or not owned:
+                reason = (
+                    "poll morto / sem PID"
+                    if dead
+                    else f"PID {pid} não é Shooter sob install_dir"
+                )
                 with self._lock:
-                    if inst.status == ASM_STATUS_RUNNING:
-                        # notify=False: _on_status → clear_force_day_pending precisa do lock
-                        self._mark_stopped(cfg, "poll morto / sem PID", notify=False)
+                    if inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
+                        self._mark_stopped(cfg, reason, notify=False)
                         cleared_ids.append(cfg.id)
         for sid in cleared_ids:
             self._notify_status(sid, ASM_STATUS_STOPPED)
@@ -694,18 +873,32 @@ class AsmServerManager:
 
         Com notify=False o caller DEVE emitir RUNNING fora do lock (evita deadlock
         com clear_force_day_pending / force_day no callback de status).
+        Recusa PIDs que não pertençam ao install_dir (anti ghost / PID recycle).
         """
         if not _PSUTIL_OK or _psutil is None:
+            return False
+        if not _pid_safe_to_kill(cfg, pid):
+            # Reaproveita a mesma regra do Stop: sem path do mapa = não anexa
+            try:
+                self._on_log(
+                    f"Reconnect [{cfg.name or cfg.id}]: PID {pid} rejeitado "
+                    f"(não é ShooterGameServer sob install_dir)",
+                    "warning",
+                )
+            except Exception:
+                pass
             return False
         inst = self._instances.get(cfg.id)
         if not inst or inst.status != ASM_STATUS_STOPPED:
             return False
         try:
             raw = _psutil.Process(pid)
+            info = _inspect_pid(pid)
             inst._proc = _PsutilProcessWrapper(raw)
             inst.cfg = cfg
             inst.status = ASM_STATUS_RUNNING
             inst.uptime_start = float(create_time or time.time())
+            inst.attached_exe = info.get("exe") or _expected_shooter_exe(cfg)
             self._start_monitor(inst)
             self._start_steam_watcher(inst)
             try:
@@ -755,7 +948,6 @@ class AsmServerManager:
         for cfg in servers:
             interesting.update(_cfg_identity_ports(cfg))
         port_index = _build_listening_port_index(interesting or None)
-        titles = _windows_titles_by_pid()
         last_pids = _load_last_pids()
 
         # Inventário de processos (Shooter + PIDs que escutam portas dos mapas)
@@ -842,6 +1034,20 @@ class AsmServerManager:
             if pid <= 0 or pid in claimed:
                 return
             info = _ensure_pid(pid)
+            exe = info.get("exe") or ""
+            cmdline = info.get("cmdline") or ""
+            name = info.get("name") or ""
+            if _is_protected_process(int(pid), name, exe):
+                return
+            belongs = _path_belongs_to_install(cfg, exe, cmdline)
+            install_norm = _normalize_install_dir(cfg.install_dir)
+            # Com install_dir: SÓ anexa se path sob essa pasta (nunca nome/porta/título sozinhos)
+            if install_norm and belongs is not True:
+                return
+            if belongs is False:
+                return
+            if not _looks_like_shooter(name, exe, cmdline):
+                return
             ct = info.get("create_time")
             prev = best.get(cfg.id)
             if prev is None or score > prev[0]:
@@ -856,7 +1062,20 @@ class AsmServerManager:
             shared = bool(install_norm) and install_counts.get(install_norm, 0) > 1
             miss: List[str] = []
 
-            # 1) PORTAS (primary .bug)
+            # 1) PATH no exe (primário — um mapa = um install_dir)
+            for pid, info in proc_info.items():
+                exe = info.get("exe") or ""
+                cmdline = info.get("cmdline") or ""
+                if exe and install_norm and install_norm in exe:
+                    if (not shared) or _cmdline_matches_server(cmdline, cfg) or _bound_ports_match_cfg(
+                        cfg, _ports_for_pid(port_index, int(pid))
+                    ):
+                        _offer(cfg, int(pid), _STRAT_EXE, "exe+install_dir")
+                if cmdline and install_norm and install_norm in cmdline:
+                    if (not shared) or _cmdline_matches_server(cmdline, cfg):
+                        _offer(cfg, int(pid), _STRAT_CMDLINE, "cmdline+install_dir")
+
+            # 2) Portas — só se _offer confirmar path (QueryFullProcessImageName)
             votes: Counter = Counter()
             for port in cfg_ports:
                 for pid in port_index.get(port, ()):
@@ -871,54 +1090,22 @@ class AsmServerManager:
             else:
                 miss.append("ports-empty")
 
-            # 2/3/4) exe (incl. QueryFullProcessImageName) / cmdline / título
-            for pid, info in proc_info.items():
-                exe = info.get("exe") or ""
-                cmdline = info.get("cmdline") or ""
-                name = info.get("name") or ""
-                looks = "shootergameserver" in f"{name} {exe} {cmdline}"
-                bound = _ports_for_pid(port_index, int(pid))
-
-                if exe and install_norm and install_norm in exe:
-                    if (not shared) or _cmdline_matches_server(cmdline, cfg) or _bound_ports_match_cfg(cfg, bound):
-                        _offer(cfg, int(pid), _STRAT_EXE, "exe+install_dir")
-
-                if cmdline:
-                    if install_norm and install_norm in cmdline and (
-                        (not shared) or _cmdline_matches_server(cmdline, cfg)
-                    ):
-                        _offer(cfg, int(pid), _STRAT_CMDLINE, "cmdline+install_dir")
-                    elif _cmdline_matches_server(cmdline, cfg):
-                        _offer(cfg, int(pid), _STRAT_CMDLINE, "cmdline+port")
-
-                title = titles.get(int(pid), "")
-                if title and _window_title_matches(title, cfg):
-                    if looks or _bound_ports_match_cfg(cfg, bound):
-                        _offer(cfg, int(pid), _STRAT_TITLE, "window_title")
-
-            # 5) last-known PID
+            # 3) last-known PID — só se path ainda for deste install_dir
             cached = int(last_pids.get(cfg.id, 0) or 0)
             if cached and cached not in claimed:
                 info = _ensure_pid(cached)
-                bound = _ports_for_pid(port_index, cached)
-                name = info.get("name") or ""
-                exe = info.get("exe") or ""
-                looks = "shootergameserver" in f"{name} {exe}"
-                if looks or _bound_ports_match_cfg(cfg, bound):
+                belongs = _path_belongs_to_install(
+                    cfg, info.get("exe") or "", info.get("cmdline") or ""
+                )
+                if belongs is True:
                     _offer(cfg, cached, _STRAT_LAST_PID, "last_pid")
                 else:
                     miss.append(f"last_pid={cached}-invalid")
 
-            # títulos também por PIDs fora do inventário shooter
-            for pid, title in titles.items():
-                if _window_title_matches(title, cfg):
-                    bound = _ports_for_pid(port_index, int(pid))
-                    _offer(cfg, int(pid), _STRAT_TITLE, "window_title")
-
             if cfg.id not in best:
                 try:
                     self._on_log(
-                        f"Reconnect [{cfg.name or cfg.id}] FALHOU: {', '.join(miss) or 'sem candidatos'}",
+                        f"Reconnect [{cfg.name or cfg.id}] FALHOU: {', '.join(miss) or 'sem path sob install_dir'}",
                         "warning",
                     )
                 except Exception:
@@ -981,19 +1168,26 @@ class AsmServerManager:
         with self._lock:
             inst = self._instances.setdefault(cfg.id, AsmServerInstance(cfg))
             if inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
-                # #region agent log
-                try:
-                    from .._agent_debug_log import agent_dbg
-                    agent_dbg("E", "asm_server_manager.py:start:already_running", "early return already running", {
-                        "name": cfg.name, "status": inst.status,
-                    })
-                except Exception:
-                    pass
-                # #endregion
-                if on_done:
-                    on_done(False, "Servidor já em execução")
-                return
+                pid = inst.pid
+                owned = bool(pid) and _pid_safe_to_kill(cfg, int(pid))
+                if not owned:
+                    # Ghost ONLINE/STARTING — limpa e permite Start real
+                    self._mark_stopped(cfg, "ghost antes do Start", notify=False)
+                else:
+                    if on_done:
+                        on_done(False, "Servidor já em execução")
+                    return
             inst.cfg = cfg
+
+        if inst.status == ASM_STATUS_STOPPED:
+            # notifica UI se limpamos ghost (fora do lock)
+            pass
+        # Re-notifica STOPPED se vínhamos de ghost (dashboard precisa Offline)
+        if inst.status == ASM_STATUS_STOPPED and inst._proc is None:
+            try:
+                self._notify_status(cfg.id, ASM_STATUS_STOPPED)
+            except Exception:
+                pass
 
         # Grava INI antes de reconectar — nome da sessão e demais configs no disco
         try:
@@ -1167,6 +1361,15 @@ class AsmServerManager:
 
             inst.status = ASM_STATUS_RUNNING
             inst.uptime_start = time.time()
+            try:
+                _pid = proc.pid if proc is not None else None
+                if _pid:
+                    _info = _inspect_pid(int(_pid))
+                    inst.attached_exe = _info.get("exe") or _expected_shooter_exe(cfg)
+                else:
+                    inst.attached_exe = _expected_shooter_exe(cfg)
+            except Exception:
+                inst.attached_exe = _expected_shooter_exe(cfg)
             if self._on_status:
                 self._on_status(cfg.id, ASM_STATUS_RUNNING)
             if on_done:
@@ -1208,45 +1411,74 @@ class AsmServerManager:
 
     def _stop_worker(self, inst: AsmServerInstance,
                      on_done: Optional[Callable[[bool, str], None]]) -> None:
+        """Para o servidor. NUNCA mata PID sem verificar install_dir + ShooterGameServer.
+
+        Ghost / PID reciclado (ex.: pós-reboot): só limpa estado — sem taskkill.
+        taskkill /F /T em PID errado pode derrubar DWM/sessão (tela preta).
+        """
+        killed = False
         try:
-            # Tenta RCON saveworld + doexit antes de matar
-            self._rcon_shutdown(inst.cfg)
-            time.sleep(5)
-
             proc = inst._proc
-            pid  = proc.pid if proc is not None else None
+            pid = proc.pid if proc is not None else None
+            safe = bool(pid) and _pid_safe_to_kill(inst.cfg, int(pid))
 
-            # taskkill /F /T encerra toda a árvore (filho criado por cmd.exe start)
-            if pid:
+            if safe:
+                # RCON só se o processo é realmente o mapa
+                self._rcon_shutdown(inst.cfg)
+                time.sleep(5)
                 try:
                     subprocess.run(
                         ["taskkill", "/F", "/T", "/PID", str(pid)],
                         capture_output=True,
                         timeout=15,
                     )
+                    killed = True
                 except Exception:
                     pass
-
-            if proc and proc.poll() is None:
-                proc.terminate()
+                if proc and proc.poll() is None:
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=10)
+                    except Exception:
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                    killed = True
+            else:
+                # Ghost ONLINE ou PID de outro processo — limpa UI sem TerminateProcess
                 try:
-                    proc.wait(timeout=10)
+                    self._on_log(
+                        f"Parar [{inst.cfg.name or inst.cfg.id}]: PID {pid} "
+                        f"NÃO verificado sob install_dir — só limpeza de estado "
+                        f"(sem taskkill)",
+                        "warning",
+                    )
                 except Exception:
-                    proc.kill()
+                    pass
 
             inst.status = ASM_STATUS_STOPPED
             inst._proc = None
             inst.uptime_start = None
+            inst.attached_exe = ""
             self._stop_steam_watcher(inst.cfg.id)
+            _clear_last_pid(inst.cfg.id)
             if self._on_status:
                 self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
             if on_done:
-                on_done(True, "Servidor parado")
+                msg = (
+                    "Servidor parado"
+                    if killed
+                    else "Estado limpo (processo não verificado — nenhum kill)"
+                )
+                on_done(True, msg)
         except Exception as exc:
             inst.status = ASM_STATUS_STOPPED
             inst._proc = None
             inst.uptime_start = None
+            inst.attached_exe = ""
             self._stop_steam_watcher(inst.cfg.id)
+            _clear_last_pid(inst.cfg.id)
             if self._on_status:
                 self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
             if on_done:
@@ -1282,6 +1514,8 @@ class AsmServerManager:
             proc = inst._proc
             if proc is None:
                 break
+            if inst.status not in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
+                break
             rc = proc.poll()
             if rc is not None:
                 with inst._lock:
@@ -1290,8 +1524,30 @@ class AsmServerManager:
                         inst._proc = None
                         inst.uptime_start = None
                         self._stop_steam_watcher(inst.cfg.id)
+                        _clear_last_pid(inst.cfg.id)
                         if self._on_status:
                             self._on_status(inst.cfg.id, ASM_STATUS_CRASHED)
+                break
+            # PID vivo mas não é o Shooter deste mapa → limpa ghost (não CRASHED)
+            pid = int(getattr(proc, "pid", 0) or 0)
+            if pid and inst.status == ASM_STATUS_RUNNING and not _pid_safe_to_kill(inst.cfg, pid):
+                with inst._lock:
+                    if inst.status == ASM_STATUS_RUNNING:
+                        inst.status = ASM_STATUS_STOPPED
+                        inst._proc = None
+                        inst.uptime_start = None
+                        self._stop_steam_watcher(inst.cfg.id)
+                        _clear_last_pid(inst.cfg.id)
+                        try:
+                            self._on_log(
+                                f"Monitor [{inst.cfg.name or inst.cfg.id}]: "
+                                f"PID {pid} inválido sob install_dir → STOPPED",
+                                "warning",
+                            )
+                        except Exception:
+                            pass
+                        if self._on_status:
+                            self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
                 break
 
     def _start_steam_watcher(self, inst: AsmServerInstance) -> None:
