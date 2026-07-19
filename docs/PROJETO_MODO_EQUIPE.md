@@ -572,7 +572,7 @@ UI pública: `#/equipes` ou secção no portal — top N, posição da minha equ
 | R1 | Owner **confirma participação da equipe** na campanha ativa (1× por campanha) |
 | R2 | Cada membro ACTIVE gera **2 números aleatórios** vinculados à **equipe** (não ao jogador individual desses slots) |
 | R3 | Novos membros após a confirmação: **+2 números automáticos** — **sem** reconfirmação do Owner |
-| R4 | **Q9:** Kick/saída após confirmação — números **permanecem** na equipe (não são queimados nem transferidos ao jogador) |
+| R4 | **Q9:** Após confirmação, política `teams_lottery_post_confirm_policy` (default **`freeze`**): bloqueia kick/entrada até o draw; saída perde N números (`teams_lottery_numbers_per_member`, default 2). Alternativas: `forfeit_on_depart` (kick/saída devolvem N ao pool) e `legacy_keep` (números ficam; kick permitido — Q9 antigo) |
 | R5 | Se a equipe for contemplada (um dos números da equipe sai): prêmio **só em Âmbares** |
 | R6 | Itens de catálogo no sorteio: valor integral convertido em Â + somado ao pote da equipe contemplada |
 | R7 | Total Â do prêmio da equipe ÷ número de membros ACTIVE no momento do draw → crédito igual |
@@ -747,7 +747,7 @@ TribeSync pode permanecer só para **logs / painel legado**, se a opção B/C do
 | Q6 | Transferência voluntária de Owner? | Sim / Só staff | **Sim** (+ staff) |
 | Q7 | Bônus Â × licença TimedPoints | Aditivo / Mult / Exclusivo | **Aditivo** + bônus é **recompensa de marco** (`amber_bonus_pp` por marco; default `teams_amber_bonus_pp`; cap `teams_amber_bonus_cap`) |
 | Q8 | Migração automática do split antigo? | Sim / Reset | **Reset limpo** (sem auto-migração) |
-| Q9 | Números sorteio após kick | Ficam / Queimam | **Ficam na equipe** |
+| Q9 | Números sorteio após kick | Ficam / Queimam / Congelar | **`freeze` (padrão)** — roster congelado até o draw; saída perde N nº; `forfeit_on_depart` / `legacy_keep` via `teams_lottery_post_confirm_policy` |
 | Q10 | Resto da divisão do prêmio | Owner / Banco / Burn | **Banco da equipe** (Âmbares) |
 | Q11 | Números individuais + equipe | Sim / Não | **Sim** (paralelo na mesma campanha) |
 | Q12 | Estratégia anti-esgotamento da grade | Soft cap / pool / reembolso | **Sempre activo:** alocar o possível + reembolso `teams_lottery_shortfall_refund` (5000 Â/número em falta) |
@@ -763,7 +763,7 @@ TribeSync pode permanecer só para **logs / painel legado**, se a opção B/C do
 ### Como ativar
 
 1. Por omissão o Modo Equipe está **ligado** (`teams_enabled` ausente ⇒ true). Staff pode desligar em Configurações.
-2. Default `teams_max_members` = **5**. Opcional: `teams_amber_bonus_pp` (default pp por marco se o campo do marco estiver vazio), `teams_amber_bonus_cap`, `teams_founding_fee` (2500), `teams_lottery_shortfall_refund` (5000).
+2. Default `teams_max_members` = **5**. Opcional: `teams_amber_bonus_pp` (default pp por marco se o campo do marco estiver vazio), `teams_amber_bonus_cap`, `teams_founding_fee` (2500), `teams_lottery_shortfall_refund` (5000), `teams_lottery_numbers_per_member` (2), `teams_lottery_post_confirm_policy` (`freeze`).
 3. Publicar marcos em **Admin → Equipes** (com `max_members_unlock` e `amber_bonus_pp` por marco).
 4. Jogadores veem **Minha Equipe**, **Equipes** (lista global) e **Ranking Equipes** no menu — sem Tribo.
 

@@ -9,7 +9,9 @@ Q5: first foundation free; subsequent creates cost FOUNDING_FEE_AMBER (default 2
 Q6: Owner can transfer ownership without staff.
 Q7: team amber bonus % is ADDITIVE with TimedPoints license AND unlocked via milestones
     (staff sets amber_bonus_pp per marco; soft-capped by teams_amber_bonus_cap).
-Q9: kick/leave after lottery confirm — team numbers STAY with the team.
+Q9: post-confirm lottery roster policy via teams_lottery_post_confirm_policy
+    (default freeze: block kick/join until draw; leave forfeits N numbers;
+     forfeit_on_depart: kick/leave revoke N; legacy_keep: old Q9 stay-on-team).
 Q10: prize division remainder → team bank (amber).
 Q11: individual + team numbers allowed in same campaign.
 Q12: shortfall refund teams_lottery_shortfall_refund (default 5000) Â per missing number.
@@ -53,14 +55,37 @@ FOUNDING_FEE_AMBER = 2500
 # Q12: Â refunded to team bank per lottery number that could not be allocated
 LOTTERY_SHORTFALL_REFUND_AMBER = 5000
 LOTTERY_NUMBERS_PER_MEMBER = 2
+# Q9: post-confirm policy (settings.teams_lottery_post_confirm_policy)
+LOTTERY_POST_CONFIRM_FREEZE = "freeze"
+LOTTERY_POST_CONFIRM_FORFEIT = "forfeit_on_depart"
+LOTTERY_POST_CONFIRM_LEGACY = "legacy_keep"
+DEFAULT_LOTTERY_POST_CONFIRM_POLICY = LOTTERY_POST_CONFIRM_FREEZE
+LOTTERY_POST_CONFIRM_POLICIES = frozenset({
+    LOTTERY_POST_CONFIRM_FREEZE,
+    LOTTERY_POST_CONFIRM_FORFEIT,
+    LOTTERY_POST_CONFIRM_LEGACY,
+})
+LOTTERY_NUMBERS_PER_MEMBER_MIN = 1
+LOTTERY_NUMBERS_PER_MEMBER_MAX = 6
 # Q13: special flavor roles (not OWNER) — max 2 per member (incl. owner)
-MAX_SPECIAL_ROLES = 2
+MAX_SPECIAL_ROLES = 2  # default; override via teams_max_special_roles
+MAX_SPECIAL_ROLES_MIN = 1
+MAX_SPECIAL_ROLES_MAX = 6
 SPLIT_MIN_SALE_AMBER = 1_000
 SPLIT_GAP_MIN_PP = 10
-SPLIT_DEFAULT_SENDER_PCT = 60
+SPLIT_DEFAULT_SENDER_PCT = 60  # default; override via teams_market_split_sender_pct
 SPLIT_DEFAULT_POOL_PCT = 40
 INVITE_CODE_LEN = 8
-RENAME_COOLDOWN_DAYS = 7
+RENAME_COOLDOWN_DAYS = 7  # legacy; prefer teams_rename_cooldown_hours (default 168h)
+DEFAULT_RENAME_COOLDOWN_HOURS = 168  # 7 days
+DEFAULT_RENAME_COST_AMBER = 0
+DEFAULT_MARCO_PREVIEW_TTL_SEC = 60
+MARCO_PREVIEW_TTL_MIN = 15
+MARCO_PREVIEW_TTL_MAX = 600
+DEFAULT_WAREHOUSE_CAP = 10_000
+DEFAULT_RANKING_PRIZE_1 = 50_000
+DEFAULT_RANKING_PRIZE_2 = 25_000
+DEFAULT_RANKING_PRIZE_3 = 10_000
 DEFAULT_AUTO_KICK_INACTIVE = False
 DEFAULT_AUTO_KICK_HOURS = 168  # 7 days
 AUTO_KICK_HOURS_MIN = 24
@@ -306,6 +331,7 @@ def default_milestone_resource_suggestions() -> list[dict[str, Any]]:
 
 _settings_fn: Callable[[], dict[str, Any]] | None = None
 _subtract_points_tx: Callable[[Session, str, int], int] | None = None
+_add_points_tx: Callable[[Session, str, int], int] | None = None
 _audit_event: Callable[..., None] | None = None
 
 
@@ -313,13 +339,16 @@ def configure_team_service(
     *,
     settings_fn: Callable[[], dict[str, Any]] | None = None,
     subtract_points_tx: Callable[[Session, str, int], int] | None = None,
+    add_points_tx: Callable[[Session, str, int], int] | None = None,
     audit_event: Callable[..., None] | None = None,
 ) -> None:
-    global _settings_fn, _subtract_points_tx, _audit_event
+    global _settings_fn, _subtract_points_tx, _add_points_tx, _audit_event
     if settings_fn is not None:
         _settings_fn = settings_fn
     if subtract_points_tx is not None:
         _subtract_points_tx = subtract_points_tx
+    if add_points_tx is not None:
+        _add_points_tx = add_points_tx
     if audit_event is not None:
         _audit_event = audit_event
 
@@ -399,6 +428,112 @@ def lottery_shortfall_refund_amber(settings: dict[str, Any] | None = None) -> in
         return max(0, int(raw))
     except (TypeError, ValueError):
         return LOTTERY_SHORTFALL_REFUND_AMBER
+
+
+def lottery_post_confirm_policy(settings: dict[str, Any] | None = None) -> str:
+    """Q9: freeze | forfeit_on_depart | legacy_keep (default freeze)."""
+    s = settings if settings is not None else _load_settings()
+    raw = str(s.get("teams_lottery_post_confirm_policy") or "").strip().lower()
+    if raw in LOTTERY_POST_CONFIRM_POLICIES:
+        return raw
+    return DEFAULT_LOTTERY_POST_CONFIRM_POLICY
+
+
+def open_lottery_confirmation(
+    db: Session,
+    team_id: int,
+) -> dict[str, Any] | None:
+    """Active/DRAWING campaign confirmation for this team, if any."""
+    try:
+        row = db.execute(
+            text("""
+                SELECT c.campaign_id, c.numbers_assigned, c.numbers_requested,
+                       lc.status AS campaign_status
+                FROM team_lottery_confirmations c
+                JOIN lottery_campaigns lc ON lc.id = c.campaign_id
+                WHERE c.team_id = :tid AND lc.status IN ('ACTIVE', 'DRAWING')
+                ORDER BY c.campaign_id DESC
+                LIMIT 1
+            """),
+            {"tid": int(team_id)},
+        ).fetchone()
+    except Exception:
+        # lottery tables may be absent in some unit fixtures
+        return None
+    if not row:
+        return None
+    return {
+        "campaign_id": int(row[0]),
+        "numbers_assigned": int(row[1] or 0),
+        "numbers_requested": int(row[2] or 0),
+        "campaign_status": str(row[3] or ""),
+    }
+
+
+def _assert_roster_unlocked_for_lottery(db: Session, team_id: int, *, action: str) -> None:
+    """Under freeze policy, block kick/join that would change roster after confirm."""
+    if lottery_post_confirm_policy() != LOTTERY_POST_CONFIRM_FREEZE:
+        return
+    conf = open_lottery_confirmation(db, team_id)
+    if not conf:
+        return
+    if action in ("kick", "auto_kick"):
+        raise ValueError(
+            "Roster congelado após confirmação do sorteio até o draw "
+            "(política teams_lottery_post_confirm_policy=freeze)."
+        )
+    if action in ("join", "accept_invite", "approve_join"):
+        raise ValueError(
+            "Não é possível alterar o roster após confirmação do sorteio "
+            "até o draw (política freeze)."
+        )
+
+
+def _forfeit_team_lottery_numbers_on_depart(
+    db: Session,
+    *,
+    team_id: int,
+    reason: str,
+) -> dict[str, Any] | None:
+    """Revoke N TEAM numbers back to pool when policy requires forfeit on depart."""
+    policy = lottery_post_confirm_policy()
+    if policy == LOTTERY_POST_CONFIRM_LEGACY:
+        return None
+    if policy == LOTTERY_POST_CONFIRM_FREEZE and reason.startswith("kick"):
+        # freeze blocks kick before we get here; defensive no-op
+        return None
+    conf = open_lottery_confirmation(db, team_id)
+    if not conf:
+        return None
+    n = lottery_numbers_per_member()
+    try:
+        from lottery_service import revoke_team_numbers
+    except Exception:
+        return None
+    result = revoke_team_numbers(
+        db,
+        campaign_id=int(conf["campaign_id"]),
+        team_id=int(team_id),
+        count=n,
+        reason=reason[:64],
+    )
+    revoked_count = int(result.get("revoked_count") or 0)
+    if revoked_count:
+        db.execute(
+            text("""
+                UPDATE team_lottery_confirmations
+                SET numbers_assigned = CASE
+                    WHEN numbers_assigned >= :n THEN numbers_assigned - :n
+                    ELSE 0 END
+                WHERE campaign_id = :cid AND team_id = :tid
+            """),
+            {
+                "n": revoked_count,
+                "cid": int(conf["campaign_id"]),
+                "tid": int(team_id),
+            },
+        )
+    return result
 
 
 def sum_milestone_amber_bonus_pp(
@@ -488,6 +623,205 @@ def founding_fee_for_player(db: Session, steam_id: str, settings: dict[str, Any]
     if count_teams_founded(db, steam_id) >= 1:
         return founding_fee_amber(settings)
     return 0
+
+
+def lottery_numbers_per_member(settings: dict[str, Any] | None = None) -> int:
+    """Numbers allocated per ACTIVE member on lottery confirm / late join."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_lottery_numbers_per_member")
+        if raw is None or raw == "":
+            return LOTTERY_NUMBERS_PER_MEMBER
+        return max(
+            LOTTERY_NUMBERS_PER_MEMBER_MIN,
+            min(LOTTERY_NUMBERS_PER_MEMBER_MAX, int(raw)),
+        )
+    except (TypeError, ValueError):
+        return LOTTERY_NUMBERS_PER_MEMBER
+
+
+def max_special_roles(settings: dict[str, Any] | None = None) -> int:
+    """Q13: max assignable special roles per member (OWNER excluded)."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_max_special_roles")
+        if raw is None or raw == "":
+            return MAX_SPECIAL_ROLES
+        return max(MAX_SPECIAL_ROLES_MIN, min(MAX_SPECIAL_ROLES_MAX, int(raw)))
+    except (TypeError, ValueError):
+        return MAX_SPECIAL_ROLES
+
+
+def marco_preview_ttl_sec(settings: dict[str, Any] | None = None) -> int:
+    """TTL for in-game /marco preview → /confirmar (plugin reads via membership)."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_marco_preview_ttl_sec")
+        if raw is None or raw == "":
+            return DEFAULT_MARCO_PREVIEW_TTL_SEC
+        return max(MARCO_PREVIEW_TTL_MIN, min(MARCO_PREVIEW_TTL_MAX, int(raw)))
+    except (TypeError, ValueError):
+        return DEFAULT_MARCO_PREVIEW_TTL_SEC
+
+
+def rename_cooldown_hours(settings: dict[str, Any] | None = None) -> int:
+    """Hours between team renames (anti-smurf). 0 disables cooldown."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_rename_cooldown_hours")
+        if raw is None or raw == "":
+            # Legacy days key fallback
+            legacy = s.get("teams_rename_cooldown_days")
+            if legacy is not None and legacy != "":
+                return max(0, int(legacy) * 24)
+            return DEFAULT_RENAME_COOLDOWN_HOURS
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_RENAME_COOLDOWN_HOURS
+
+
+def rename_cost_amber(settings: dict[str, Any] | None = None) -> int:
+    """Optional Â cost charged to Owner wallet on rename (0 = free)."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_rename_cost_amber")
+        if raw is None or raw == "":
+            return DEFAULT_RENAME_COST_AMBER
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_RENAME_COST_AMBER
+
+
+def market_split_sender_pct(settings: dict[str, Any] | None = None) -> int:
+    """Default seller % when Owner creates/updates team market split (pool = 100 − sender)."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_market_split_sender_pct")
+        if raw is None or raw == "":
+            # Alias: teams_market_split_owner_pct
+            raw = s.get("teams_market_split_owner_pct")
+        if raw is None or raw == "":
+            return SPLIT_DEFAULT_SENDER_PCT
+        pct = int(raw)
+        return max(1, min(99, pct))
+    except (TypeError, ValueError):
+        return SPLIT_DEFAULT_SENDER_PCT
+
+
+def market_split_pool_pct(settings: dict[str, Any] | None = None) -> int:
+    return 100 - market_split_sender_pct(settings)
+
+
+def warehouse_cap_default(settings: dict[str, Any] | None = None) -> int:
+    """Default per-resource warehouse cap when no per-key override."""
+    s = settings if settings is not None else _load_settings()
+    try:
+        raw = s.get("teams_warehouse_cap_default")
+        if raw is None or raw == "":
+            return DEFAULT_WAREHOUSE_CAP
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_WAREHOUSE_CAP
+
+
+def warehouse_base_caps(settings: dict[str, Any] | None = None) -> dict[str, int]:
+    """Per-resource base caps from settings (default + optional overrides dict)."""
+    s = settings if settings is not None else _load_settings()
+    base = warehouse_cap_default(s)
+    caps = {str(r["key"]): base for r in TEAM_WAREHOUSE_RESOURCES}
+    overrides = s.get("teams_warehouse_caps")
+    if isinstance(overrides, str) and overrides.strip():
+        try:
+            overrides = json.loads(overrides)
+        except Exception:
+            overrides = None
+    if isinstance(overrides, dict):
+        for k, v in overrides.items():
+            try:
+                key = normalize_warehouse_key(str(k))
+            except ValueError:
+                continue
+            try:
+                caps[key] = max(0, int(v))
+            except (TypeError, ValueError):
+                continue
+    # Individual teams_warehouse_cap_<key> settings
+    for r in TEAM_WAREHOUSE_RESOURCES:
+        key = str(r["key"])
+        raw = s.get(f"teams_warehouse_cap_{key}")
+        if raw is None or raw == "":
+            continue
+        try:
+            caps[key] = max(0, int(raw))
+        except (TypeError, ValueError):
+            continue
+    return caps
+
+
+def warehouse_cap_unlock_floor(db: Session, milestone_index: int) -> int | None:
+    """Max warehouse_cap_unlock among completed marcos 1..milestone_index (absolute floor)."""
+    idx = int(milestone_index or 0)
+    if idx <= 0:
+        return None
+    try:
+        row = db.execute(
+            text("""
+                SELECT MAX(warehouse_cap_unlock) FROM team_milestones
+                WHERE milestone_index >= 1 AND milestone_index <= :i
+                  AND warehouse_cap_unlock IS NOT NULL
+                  AND status IN ('ACTIVE', 'COMPLETED', 'RETIRED')
+            """),
+            {"i": idx},
+        ).fetchone()
+    except Exception:
+        return None
+    if not row or row[0] is None:
+        return None
+    try:
+        return max(0, int(row[0]))
+    except (TypeError, ValueError):
+        return None
+
+
+def warehouse_caps_for_team(
+    db: Session | None,
+    team: dict[str, Any] | None = None,
+    settings: dict[str, Any] | None = None,
+) -> dict[str, int]:
+    """Effective per-resource caps: base settings raised by milestone warehouse_cap_unlock floor."""
+    caps = warehouse_base_caps(settings)
+    floor: int | None = None
+    if db is not None and team is not None:
+        floor = warehouse_cap_unlock_floor(db, int(team.get("milestone_index") or 0))
+    if floor is not None and floor > 0:
+        for k in list(caps.keys()):
+            caps[k] = max(int(caps[k]), floor)
+    return caps
+
+
+def ranking_prizes_enabled(settings: dict[str, Any] | None = None) -> bool:
+    s = settings if settings is not None else _load_settings()
+    return bool(s.get("teams_ranking_prizes_enabled"))
+
+
+def ranking_prize_amounts(settings: dict[str, Any] | None = None) -> dict[str, int]:
+    """Top-3 amber prizes for teams/players ranking payouts."""
+    s = settings if settings is not None else _load_settings()
+
+    def _one(key: str, default: int) -> int:
+        try:
+            raw = s.get(key)
+            if raw is None or raw == "":
+                return default
+            return max(0, int(raw))
+        except (TypeError, ValueError):
+            return default
+
+    return {
+        "1": _one("teams_ranking_prize_1", DEFAULT_RANKING_PRIZE_1),
+        "2": _one("teams_ranking_prize_2", DEFAULT_RANKING_PRIZE_2),
+        "3": _one("teams_ranking_prize_3", DEFAULT_RANKING_PRIZE_3),
+    }
 
 
 # ── Schema ───────────────────────────────────────────────────
@@ -589,6 +923,7 @@ def ensure_team_schema(engine: Engine) -> None:
           xp_required     INTEGER NOT NULL DEFAULT 0,
           resources_json  TEXT NOT NULL,
           max_members_unlock INTEGER,
+          warehouse_cap_unlock INTEGER,
           amber_bonus_pp  INTEGER,
           status          VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
           created_at      {now_col} NOT NULL,
@@ -666,6 +1001,20 @@ def ensure_team_schema(engine: Engine) -> None:
           PRIMARY KEY (campaign_id, team_id)
         ){eng}
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS team_ranking_prize_payouts (
+          id              {pk},
+          kind            VARCHAR(16) NOT NULL,
+          period_key      VARCHAR(64) NOT NULL,
+          rank_pos        INTEGER NOT NULL,
+          team_id         INTEGER,
+          steam_id        VARCHAR(32) NOT NULL DEFAULT '',
+          amount          INTEGER NOT NULL DEFAULT 0,
+          paid_by         VARCHAR(32) NOT NULL DEFAULT '',
+          paid_at         {now_col} NOT NULL,
+          UNIQUE {"(kind, period_key, rank_pos)" if is_sqlite else "KEY uq_team_rank_prize (kind, period_key, rank_pos)"}
+        ){eng}
+        """,
     ]
 
     with engine.connect() as conn:
@@ -695,6 +1044,7 @@ def ensure_team_schema(engine: Engine) -> None:
         )
         _add_col_if_missing(conn, is_sqlite, "team_members", "last_activity_at", now_col)
         _add_col_if_missing(conn, is_sqlite, "team_milestones", "amber_bonus_pp", "INTEGER")
+        _add_col_if_missing(conn, is_sqlite, "team_milestones", "warehouse_cap_unlock", "INTEGER")
         _add_col_if_missing(conn, is_sqlite, "teams", "ranking_blocked", f"{tiny} NOT NULL DEFAULT 0")
         _add_col_if_missing(conn, is_sqlite, "teams", "ranking_blocked_at", now_col)
         _add_col_if_missing(conn, is_sqlite, "teams", "ranking_blocked_by", "VARCHAR(32)")
@@ -988,6 +1338,7 @@ def team_public_view(db: Session, team_id: int, *, viewer_steam_id: str | None =
             viewer_roles = _member_roles(db, team_id, viewer_steam_id)
     accepting = team_accepting_members(team, member_count)
     owner_row = next((m for m in members if m["steam_id"] == team["owner_steam_id"]), None)
+    wh_caps = warehouse_caps_for_team(db, team)
     return {
         "team": team,
         "members": members,
@@ -1002,7 +1353,9 @@ def team_public_view(db: Session, team_id: int, *, viewer_steam_id: str | None =
             "resources": bank["resources"],
             "committed": bank.get("committed") or {},
             "warehouse": bank["resources"],
+            "warehouse_caps": wh_caps,
         },
+        "warehouse_caps": wh_caps,
         "milestone": progress,
         "viewer_roles": viewer_roles,
         "split": get_active_team_split(db, team_id),
@@ -1190,6 +1543,39 @@ def rename_team(db: Session, *, team_id: int, actor_steam_id: str, name: str) ->
     team = get_team(db, team_id)
     if not team or team["status"] != "ACTIVE":
         raise ValueError("Equipe indisponível.")
+    cooldown_h = rename_cooldown_hours()
+    if cooldown_h > 0 and team.get("renamed_at"):
+        try:
+            raw = team["renamed_at"]
+            if isinstance(raw, datetime):
+                last = raw if raw.tzinfo is None else raw.replace(tzinfo=None)
+            else:
+                last = datetime.fromisoformat(str(raw).replace("Z", ""))
+                if last.tzinfo is not None:
+                    last = last.replace(tzinfo=None)
+            elapsed = _naive() - last
+            need = timedelta(hours=cooldown_h)
+            if elapsed < need:
+                left = need - elapsed
+                hours_left = max(1, int(left.total_seconds() // 3600) or 1)
+                raise ValueError(
+                    f"Rename em cooldown: aguarde ~{hours_left}h "
+                    f"(intervalo {cooldown_h}h)."
+                )
+        except ValueError:
+            raise
+        except Exception:
+            pass
+    cost = rename_cost_amber()
+    if cost > 0:
+        if not _subtract_points_tx:
+            raise RuntimeError("team_service subtract_points_tx not wired")
+        try:
+            _subtract_points_tx(db, str(actor_steam_id), cost)
+        except Exception as exc:
+            raise ValueError(
+                f"Saldo insuficiente para rename ({cost} Âmbares)."
+            ) from exc
     name = validate_team_name(name)
     name_norm = _norm_name(name)
     clash = db.execute(
@@ -1207,7 +1593,10 @@ def rename_team(db: Session, *, team_id: int, actor_steam_id: str, name: str) ->
         {"name": name, "nn": name_norm, "now": now, "id": team_id},
     )
     db.commit()
-    return get_team(db, team_id) or {}
+    out = get_team(db, team_id) or {}
+    if cost > 0:
+        out["rename_cost_charged"] = cost
+    return out
 
 
 def set_recruitment_open(db: Session, *, team_id: int, actor_steam_id: str, open_: bool) -> dict[str, Any]:
@@ -1476,6 +1865,7 @@ def accept_invite(db: Session, *, steam_id: str, invite_code: str | None = None,
         raise ValueError("Equipe indisponível.")
     if count_active_members(db, int(row[1])) >= int(team["max_members"]):
         raise ValueError("Equipe cheia.")
+    _assert_roster_unlocked_for_lottery(db, int(row[1]), action="accept_invite")
     now = _naive()
     db.execute(
         text("""
@@ -1484,7 +1874,7 @@ def accept_invite(db: Session, *, steam_id: str, invite_code: str | None = None,
         """),
         {"now": now, "id": row[0]},
     )
-    # R3: +2 lottery numbers if team already confirmed for active campaign (Q12 refund if short)
+    # R3: +N lottery numbers if team already confirmed for active campaign (Q12 refund if short)
     maybe_allocate_lottery_on_member_join(db, int(row[1]))
     db.commit()
     return team_public_view(db, int(row[1]), viewer_steam_id=steam_id)
@@ -1554,6 +1944,7 @@ def approve_join(db: Session, *, team_id: int, actor_steam_id: str, target_steam
         raise ValueError("Equipe indisponível.")
     if count_active_members(db, team_id) >= int(team["max_members"]):
         raise ValueError("Equipe cheia.")
+    _assert_roster_unlocked_for_lottery(db, team_id, action="approve_join")
     target_steam_id = str(target_steam_id).strip()
     if get_active_membership(db, target_steam_id):
         raise ValueError("Jogador já está em outra equipe.")
@@ -1601,6 +1992,9 @@ def leave_team(db: Session, *, steam_id: str) -> dict[str, Any]:
         active = count_active_members(db, team_id)
         if active > 1:
             raise ValueError("Owner deve transferir a propriedade antes de sair.")
+    forfeit = _forfeit_team_lottery_numbers_on_depart(
+        db, team_id=team_id, reason="leave",
+    )
     now = _naive()
     db.execute(
         text("""
@@ -1619,7 +2013,10 @@ def leave_team(db: Session, *, steam_id: str) -> dict[str, Any]:
             {"now": now, "id": team_id},
         )
     db.commit()
-    return {"ok": True, "team_id": team_id}
+    out: dict[str, Any] = {"ok": True, "team_id": team_id}
+    if forfeit:
+        out["lottery_forfeit"] = forfeit
+    return out
 
 
 def kick_member(
@@ -1641,6 +2038,10 @@ def kick_member(
             raise PermissionError("Não é possível kickar o Owner.")
         if target_steam_id == str(actor_steam_id):
             raise ValueError("Use leave para sair.")
+    _assert_roster_unlocked_for_lottery(db, team_id, action="kick")
+    forfeit = _forfeit_team_lottery_numbers_on_depart(
+        db, team_id=team_id, reason="kick",
+    )
     now = _naive()
     res = db.execute(
         text("""
@@ -1655,7 +2056,6 @@ def kick_member(
         text("DELETE FROM team_roles WHERE team_id = :tid AND steam_id = :sid"),
         {"tid": team_id, "sid": target_steam_id},
     )
-    # Q9: lottery numbers stay with team (no revoke on kick/leave)
     if staff and target_steam_id == team["owner_steam_id"]:
         # Staff kick of owner → leave ownership vacant until transfer (custody)
         db.execute(
@@ -1667,7 +2067,10 @@ def kick_member(
             {"tid": team_id, "rk": ROLE_OWNER},
         )
     db.commit()
-    return {"ok": True, "team_id": team_id, "kicked": target_steam_id}
+    out: dict[str, Any] = {"ok": True, "team_id": team_id, "kicked": target_steam_id}
+    if forfeit:
+        out["lottery_forfeit"] = forfeit
+    return out
 
 
 def assign_role(
@@ -1698,11 +2101,12 @@ def assign_role(
     actor_roles = set(_member_roles(db, team_id, actor_steam_id))
     if ROLE_OWNER not in actor_roles and role_key == ROLE_GUARDIAN:
         raise PermissionError("Só o Owner pode atribuir Guardião.")
-    # Q13: max MAX_SPECIAL_ROLES special roles (OWNER does not count toward the cap)
+    # Q13: max special roles (OWNER does not count toward the cap)
+    cap = max_special_roles()
     current_special = [r for r in _member_roles(db, team_id, target_steam_id) if r in ASSIGNABLE_ROLES]
-    if role_key not in current_special and len(current_special) >= MAX_SPECIAL_ROLES:
+    if role_key not in current_special and len(current_special) >= cap:
         raise ValueError(
-            f"Máximo de {MAX_SPECIAL_ROLES} papéis especiais por membro "
+            f"Máximo de {cap} papéis especiais por membro "
             f"(já tem: {', '.join(current_special)})."
         )
     now = _naive()
@@ -2148,7 +2552,16 @@ def deposit_resource(
 
     bank = get_bank(db, team_id)
     resources = dict(bank["resources"])
-    resources[resource_key] = int(resources.get(resource_key) or 0) + amount
+    have = int(resources.get(resource_key) or 0)
+    team = get_team(db, team_id) or {}
+    caps = warehouse_caps_for_team(db, team)
+    cap = int(caps.get(resource_key) or 0)
+    if cap > 0 and have + amount > cap:
+        raise ValueError(
+            f"Armazém cheio para {label}: {have}/{cap} "
+            f"(depósito de {amount} excederia o teto)."
+        )
+    resources[resource_key] = have + amount
     now = _naive()
     db.execute(
         text("UPDATE team_bank SET resources_json = :rj, updated_at = :now WHERE team_id = :tid"),
@@ -2172,11 +2585,14 @@ def deposit_resource(
     )
     touch_member_activity(db, team_id=team_id, steam_id=str(steam_id))
     db.commit()
+    bank_out = get_bank(db, team_id)
     return {
         "deposited": amount,
         "resource_key": resource_key,
         "label_pt": label,
-        "bank": get_bank(db, team_id),
+        "bank": bank_out,
+        "warehouse_caps": warehouse_caps_for_team(db, team),
+        "cap": cap if cap > 0 else None,
     }
 
 
@@ -2286,7 +2702,7 @@ def list_milestones(db: Session, *, include_draft: bool = False) -> list[dict[st
             text("""
                 SELECT id, milestone_index, title, description, amber_required, xp_required,
                        resources_json, max_members_unlock, status, created_at, updated_at,
-                       amber_bonus_pp
+                       amber_bonus_pp, warehouse_cap_unlock
                 FROM team_milestones ORDER BY milestone_index
             """)
         ).fetchall()
@@ -2295,7 +2711,7 @@ def list_milestones(db: Session, *, include_draft: bool = False) -> list[dict[st
             text("""
                 SELECT id, milestone_index, title, description, amber_required, xp_required,
                        resources_json, max_members_unlock, status, created_at, updated_at,
-                       amber_bonus_pp
+                       amber_bonus_pp, warehouse_cap_unlock
                 FROM team_milestones
                 WHERE status IN ('ACTIVE', 'COMPLETED')
                 ORDER BY milestone_index
@@ -2330,6 +2746,12 @@ def _ms_row(r: Any) -> dict[str, Any]:
             amber_pp = max(0, int(r[11]))
         except (TypeError, ValueError):
             amber_pp = None
+    wh_unlock = None
+    if len(r) > 12 and r[12] is not None:
+        try:
+            wh_unlock = max(0, int(r[12]))
+        except (TypeError, ValueError):
+            wh_unlock = None
     return {
         "id": int(r[0]),
         "milestone_index": int(r[1]),
@@ -2344,6 +2766,7 @@ def _ms_row(r: Any) -> dict[str, Any]:
         "updated_at": str(r[10]) if r[10] else None,
         "amber_bonus_pp": amber_pp if amber_pp is not None else amber_bonus_pp_per_milestone(),
         "amber_bonus_pp_explicit": amber_pp,
+        "warehouse_cap_unlock": wh_unlock,
     }
 
 
@@ -2357,6 +2780,7 @@ def upsert_milestone(
     xp_required: int = 0,
     resources: list[dict[str, Any]] | None = None,
     max_members_unlock: int | None = None,
+    warehouse_cap_unlock: int | None = None,
     amber_bonus_pp: int | None = None,
     status: str = "DRAFT",
 ) -> dict[str, Any]:
@@ -2376,6 +2800,12 @@ def upsert_milestone(
         pp_val = amber_bonus_pp_per_milestone()
     else:
         pp_val = max(0, int(amber_bonus_pp))
+    wh_unlock = None
+    if warehouse_cap_unlock is not None and warehouse_cap_unlock != "":
+        try:
+            wh_unlock = max(0, int(warehouse_cap_unlock))
+        except (TypeError, ValueError):
+            wh_unlock = None
     params = {
         "i": milestone_index,
         "title": str(title or f"Marco {milestone_index}")[:128],
@@ -2384,6 +2814,7 @@ def upsert_milestone(
         "xp": max(0, int(xp_required)),
         "rj": json.dumps(resources, ensure_ascii=False),
         "mmu": max_members_unlock,
+        "wcu": wh_unlock,
         "abpp": pp_val,
         "st": status,
         "now": now,
@@ -2393,7 +2824,8 @@ def upsert_milestone(
             text("""
                 UPDATE team_milestones SET title=:title, description=:desc,
                   amber_required=:amber, xp_required=:xp, resources_json=:rj,
-                  max_members_unlock=:mmu, amber_bonus_pp=:abpp, status=:st, updated_at=:now
+                  max_members_unlock=:mmu, warehouse_cap_unlock=:wcu,
+                  amber_bonus_pp=:abpp, status=:st, updated_at=:now
                 WHERE milestone_index=:i
             """),
             params,
@@ -2403,8 +2835,9 @@ def upsert_milestone(
             text("""
                 INSERT INTO team_milestones
                   (milestone_index, title, description, amber_required, xp_required,
-                   resources_json, max_members_unlock, amber_bonus_pp, status, created_at, updated_at)
-                VALUES (:i, :title, :desc, :amber, :xp, :rj, :mmu, :abpp, :st, :now, :now)
+                   resources_json, max_members_unlock, warehouse_cap_unlock,
+                   amber_bonus_pp, status, created_at, updated_at)
+                VALUES (:i, :title, :desc, :amber, :xp, :rj, :mmu, :wcu, :abpp, :st, :now, :now)
             """),
             params,
         )
@@ -2413,7 +2846,7 @@ def upsert_milestone(
         text("""
             SELECT id, milestone_index, title, description, amber_required, xp_required,
                    resources_json, max_members_unlock, status, created_at, updated_at,
-                   amber_bonus_pp
+                   amber_bonus_pp, warehouse_cap_unlock
             FROM team_milestones WHERE milestone_index = :i
         """),
         {"i": milestone_index},
@@ -2441,6 +2874,7 @@ def _ms_as_kwargs(db: Session, milestone_index: int) -> dict[str, Any]:
         "xp_required": ms["xp_required"],
         "resources": ms["resources"],
         "max_members_unlock": ms["max_members_unlock"],
+        "warehouse_cap_unlock": ms.get("warehouse_cap_unlock"),
         "amber_bonus_pp": ms.get("amber_bonus_pp_explicit", ms.get("amber_bonus_pp")),
         "status": ms["status"],
     }
@@ -2453,7 +2887,7 @@ def get_current_milestone_for_team(db: Session, team: dict[str, Any]) -> dict[st
         text("""
             SELECT id, milestone_index, title, description, amber_required, xp_required,
                    resources_json, max_members_unlock, status, created_at, updated_at,
-                   amber_bonus_pp
+                   amber_bonus_pp, warehouse_cap_unlock
             FROM team_milestones
             WHERE milestone_index = :i AND status = 'ACTIVE'
             LIMIT 1
@@ -3053,10 +3487,12 @@ def create_or_update_team_split(
     *,
     team_id: int,
     actor_steam_id: str,
-    sender_pct: int = SPLIT_DEFAULT_SENDER_PCT,
+    sender_pct: int | None = None,
 ) -> dict[str, Any]:
     _require_enabled()
     _assert_can(db, team_id, actor_steam_id, "split_config")
+    if sender_pct is None:
+        sender_pct = market_split_sender_pct()
     sender_pct = int(sender_pct)
     pool_pct = 100 - sender_pct
     if sender_pct <= 0 or pool_pct <= 0:
@@ -3393,7 +3829,7 @@ def _refund_lottery_shortfall(
 
 
 def maybe_allocate_lottery_on_member_join(db: Session, team_id: int) -> dict[str, Any] | None:
-    """R3: after team confirmed for active campaign, new member → +2 numbers (or Q12 refund)."""
+    """R3: after team confirmed for active campaign, new member → +N numbers (or Q12 refund)."""
     try:
         from lottery_service import (
             _is_enabled,
@@ -3404,6 +3840,11 @@ def maybe_allocate_lottery_on_member_join(db: Session, team_id: int) -> dict[str
         return None
     if not teams_enabled() or not _is_enabled():
         return None
+    # freeze blocks join before this; skip allocate if somehow called under freeze
+    if lottery_post_confirm_policy() == LOTTERY_POST_CONFIRM_FREEZE:
+        conf_open = open_lottery_confirmation(db, team_id)
+        if conf_open:
+            return None
     campaign = get_active_campaign(db)
     if not campaign or str(campaign.status) != "ACTIVE":
         return None
@@ -3417,8 +3858,9 @@ def maybe_allocate_lottery_on_member_join(db: Session, team_id: int) -> dict[str
     ).fetchone()
     if not conf:
         return None
+    per = lottery_numbers_per_member()
     result = allocate_team_numbers(
-        db, campaign_id=cid, team_id=int(team_id), count=LOTTERY_NUMBERS_PER_MEMBER,
+        db, campaign_id=cid, team_id=int(team_id), count=per,
     )
     refunded = _refund_lottery_shortfall(
         db,
@@ -3499,7 +3941,8 @@ def confirm_team_lottery(
         raise ValueError("Equipe já confirmada nesta campanha.")
 
     n_members = count_active_members(db, team_id)
-    requested = n_members * LOTTERY_NUMBERS_PER_MEMBER
+    per = lottery_numbers_per_member()
+    requested = n_members * per
     alloc = allocate_team_numbers(
         db, campaign_id=cid, team_id=int(team_id), count=requested,
     )
@@ -3543,6 +3986,8 @@ def confirm_team_lottery(
         "shortfall": shortfall,
         "shortfall_refunded": refunded,
         "shortfall_refund_per_number": lottery_shortfall_refund_amber(),
+        "numbers_per_member": per,
+        "post_confirm_policy": lottery_post_confirm_policy(),
         "message": (
             f"Participação confirmada: {len(nums)}/{requested} números."
             + (

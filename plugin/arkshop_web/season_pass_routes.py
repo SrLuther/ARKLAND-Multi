@@ -1,6 +1,7 @@
 """Rotas HTTP — Season Pass (calendário, XP, Premium, claims)."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Callable
 
 from flask import Flask, jsonify, request
@@ -30,6 +31,8 @@ def _track_nodes(
     claimed: set[tuple[str, int]],
     claims_open: bool,
     entitlements: list[dict[str, Any]] | None = None,
+    season_id: str | None = None,
+    orders_by_idem: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     levels = (
         list(cfg.get("free_levels") or spcfg._FREE_LEVELS)
@@ -37,6 +40,8 @@ def _track_nodes(
         else list(range(1, 31))
     )
     ents = entitlements or []
+    sid = str(season_id or cfg.get("season_id") or "")
+    orders = orders_by_idem or {}
     out: list[dict[str, Any]] = []
     for lv in levels:
         lv = int(lv)
@@ -71,19 +76,45 @@ def _track_nodes(
             block_reason = "Sem recompensa configurada."
         elif not grants_ok:
             block_reason = summary.get("note") or "SKU pendente — IDs em falta."
+
+        delivery_state = None
+        claimed_status = None
+        in_game_delivered = False
+        queued_for_shop = False
+        grant_rows = annotated
+        if is_claimed and sid:
+            grant_rows, delivery_state = sps.annotate_claimed_grants(
+                grants,
+                season_id=sid,
+                track=kind,
+                level=lv,
+                orders_by_idem=orders,
+            )
+            claimed_status = delivery_state
+            in_game_delivered = delivery_state == "delivered"
+            queued_for_shop = delivery_state in ("queued", "partial", "delivering", "failed")
+        elif is_claimed:
+            # Sem season/orders: não mentir — claimed ≠ entregue in-game.
+            claimed_status = "claimed"
+            in_game_delivered = False
+            delivery_state = "unknown"
+
         out.append({
             "level": lv,
             "track": kind,
             "label": label,
             "reward_hint": label,
-            "grants": annotated,
+            "grants": grant_rows,
             "delivery": summary,
             "locked": not unlocked,
             "reachable": reachable,
             "claimable": claimable,
             "claimed": is_claimed,
-            "claimed_status": "delivered" if is_claimed else None,
-            "in_game_delivered": is_claimed,
+            "claimed_status": claimed_status,
+            "delivery_state": delivery_state,
+            # Deprecated: prefer delivery_state / queued_for_shop.
+            "in_game_delivered": in_game_delivered,
+            "queued_for_shop": queued_for_shop,
             "license_choice_may_apply": needs_choice,
             "license_amber_alternative": (
                 int(choice_info["amber_alternative"]) if choice_info else None
@@ -111,21 +142,26 @@ def _player_payload(
     premium = False
     claimed: set[tuple[str, int]] = set()
     entitlements: list[dict[str, Any]] = []
-    if steam_id and season.get("id") and db is not None:
+    orders_by_idem: dict[str, dict[str, Any]] = {}
+    season_id = str(season.get("id") or "")
+    if steam_id and season_id and db is not None:
         try:
             sps.ensure_season_pass_schema(db.get_bind())
-            prog = sps.get_progress(db, steam_id, season["id"])
+            prog = sps.get_progress(db, steam_id, season_id)
             xp = int(prog["xp"])
             premium = bool(prog["premium"])
             claimed = sps.player_claimed_pairs(prog)
             get_ents = sps._cbs.get("get_entitlements")
             if get_ents:
                 entitlements = list(get_ents(steam_id, db) or [])
+            orders_by_idem = sps.load_sp_catalog_orders(
+                db, steam_id, season_id=season_id
+            )
         except Exception:
             pass
-    elif steam_id and season.get("id"):
+    elif steam_id and season_id:
         # Fallback audit file se DB offline
-        claimed = spcfg.player_claimed_set(steam_id, season["id"])
+        claimed = spcfg.player_claimed_set(steam_id, season_id)
 
     progress = spcfg.level_from_xp(xp, list(cfg.get("xp_thresholds") or []))
     level = int(progress["level"])
@@ -161,8 +197,8 @@ def _player_payload(
             ),
             "claim_note": (
                 "Resgate manual. Âmbar na hora; kits/itens/dinos → fila PENDENTE "
-                "(/shop online); licenças → entitlement. Catch-up: ao comprar "
-                "Premium no nível N podes resgatar Premium 1…N."
+                "(/shop online força a entrega agora); licenças → entitlement. "
+                "Catch-up: ao comprar Premium no nível N podes resgatar Premium 1…N."
             ),
         },
         "tracks": {
@@ -174,6 +210,8 @@ def _player_payload(
                 claimed=claimed,
                 claims_open=claims_open,
                 entitlements=entitlements,
+                season_id=season_id,
+                orders_by_idem=orders_by_idem,
             ),
             "premium": _track_nodes(
                 cfg,
@@ -183,6 +221,8 @@ def _player_payload(
                 claimed=claimed,
                 claims_open=claims_open,
                 entitlements=entitlements,
+                season_id=season_id,
+                orders_by_idem=orders_by_idem,
             ),
             "rules": {
                 "free_levels": list(cfg.get("free_levels") or []),
@@ -216,7 +256,8 @@ def _player_payload(
             "claim": (
                 "Resgate manual. Após o fim dos 30 dias ainda podes resgatar "
                 "até o admin iniciar a próxima season; depois o que ficar é perdido. "
-                "SKU pendente some quando o ID de catálogo for preenchido."
+                "SKU pendente some quando o ID de catálogo for preenchido. "
+                "/shop no servidor força a entrega da fila agora."
             ),
             "premium_scope": "Premium só em Âmbar, só em SeasonLand, só a season actual.",
             "regulamento": "Ver Regulamento Season Pass (unclaimed, calendário, licença 30 dias).",
@@ -510,6 +551,7 @@ def register_season_pass_routes(
                 confirm=confirm,
                 reason=reason,
                 admin_steam_id=str(steam_id_from_session() or "") or None,
+                missing_only=bool(body.get("missing_only")),
             )
             return jsonify(result)
         except ValueError as exc:
@@ -523,6 +565,94 @@ def register_season_pass_routes(
             return jsonify({"ok": False, "error": msg}), code
         except Exception as exc:
             db.rollback()
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        finally:
+            _close(db)
+
+    @app.route("/api/admin/season-pass/sku-health", methods=["GET"])
+    @admin_required
+    @_limit("60 per hour")
+    def admin_season_pass_sku_health():
+        """Staff: SKUs SeasonLand vs catálogo shop (sku_pending / sku_missing)."""
+        cfg = spcfg.load_config()
+        result = sps.check_season_pass_sku_sync(cfg)
+        return jsonify({"ok": True, **result})
+
+    @app.route("/api/admin/season-pass/orders", methods=["GET"])
+    @admin_required
+    @_limit("120 per hour")
+    def admin_season_pass_orders():
+        """Ops: fila de entrega SeasonLand (sp:% / skip-kit|sp:%)."""
+        if not db_ready() or not session_factory:
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        status = str(request.args.get("status", "")).strip() or None
+        steam_id = str(request.args.get("steam_id", "") or request.args.get("q", "")).strip() or None
+        track = str(request.args.get("track", "")).strip().lower() or None
+        level_raw = str(request.args.get("level", "")).strip()
+        level: int | None = None
+        if level_raw:
+            try:
+                level = int(level_raw)
+            except ValueError:
+                return jsonify({"ok": False, "error": "level inválido"}), 400
+        date_from = None
+        date_to = None
+        df = str(request.args.get("date_from", "")).strip()
+        dt = str(request.args.get("date_to", "")).strip()
+        if df:
+            try:
+                date_from = datetime.fromisoformat(df.replace("Z", "+00:00"))
+                if date_from.tzinfo is not None:
+                    date_from = date_from.replace(tzinfo=None)
+            except ValueError:
+                return jsonify({"ok": False, "error": "date_from inválido"}), 400
+        if dt:
+            try:
+                date_to = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                if date_to.tzinfo is not None:
+                    date_to = date_to.replace(tzinfo=None)
+                if len(dt) <= 10:
+                    date_to = date_to.replace(
+                        hour=23, minute=59, second=59, microsecond=999999
+                    )
+            except ValueError:
+                return jsonify({"ok": False, "error": "date_to inválido"}), 400
+        try:
+            limit = max(1, min(200, int(request.args.get("limit", 50))))
+            offset = max(0, int(request.args.get("offset", 0)))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "limit/offset inválidos"}), 400
+        db = session_factory()
+        try:
+            return jsonify(
+                sps.list_season_pass_orders(
+                    db,
+                    status=status,
+                    steam_id=steam_id,
+                    track=track,
+                    level=level,
+                    date_from=date_from,
+                    date_to=date_to,
+                    limit=limit,
+                    offset=offset,
+                )
+            )
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        finally:
+            _close(db)
+
+    @app.route("/api/admin/season-pass/delivery-metrics", methods=["GET"])
+    @admin_required
+    @_limit("60 per hour")
+    def admin_season_pass_delivery_metrics():
+        """Ops: fila SeasonLand (sp:%) — contagens/idade + top fail reasons."""
+        if not db_ready() or not session_factory:
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            return jsonify(sps.season_pass_delivery_metrics(db))
+        except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500
         finally:
             _close(db)

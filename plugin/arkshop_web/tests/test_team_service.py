@@ -915,7 +915,29 @@ def test_team_lottery_confirm_allocates_two_per_member(db, lottery_ready):
     assert int(mine[0]) == 1
 
 
+def _team_lottery_settings(**extra):
+    base = {
+        "teams_enabled": True,
+        "teams_max_members": 5,
+        "teams_amber_bonus_pp": 2,
+        "teams_amber_bonus_cap": 20,
+        "teams_lottery_post_confirm_policy": "freeze",
+    }
+    base.update(extra)
+    return base
+
+
+def _set_team_lottery_policy(policy: str, **extra):
+    ts.configure_team_service(
+        settings_fn=lambda: _team_lottery_settings(
+            teams_lottery_post_confirm_policy=policy, **extra,
+        ),
+    )
+
+
 def test_team_lottery_q9_numbers_stay_on_kick(db, lottery_ready):
+    """legacy_keep: old Q9 — numbers stay on team after kick."""
+    _set_team_lottery_policy("legacy_keep")
     ls = lottery_ready
     cid = _make_active_campaign(db, ls)
     ts.create_team(db, steam_id=USER_A, name="KickLot")
@@ -930,7 +952,72 @@ def test_team_lottery_q9_numbers_stay_on_kick(db, lottery_ready):
     assert sorted(after) == nums_before
 
 
+def test_team_lottery_freeze_blocks_kick_after_confirm(db, lottery_ready):
+    _set_team_lottery_policy("freeze")
+    ls = lottery_ready
+    cid = _make_active_campaign(db, ls)
+    ts.create_team(db, steam_id=USER_A, name="FreezeKick")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    ts.accept_invite(db, steam_id=USER_B, team_id=tid)
+    ts.confirm_team_lottery(db, team_id=tid, actor_steam_id=USER_A, campaign_id=cid)
+    with pytest.raises(ValueError, match="congelado|freeze"):
+        ts.kick_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 4
+
+
+def test_team_lottery_freeze_blocks_join_after_confirm(db, lottery_ready):
+    _set_team_lottery_policy("freeze")
+    ls = lottery_ready
+    cid = _make_active_campaign(db, ls)
+    ts.create_team(db, steam_id=USER_A, name="FreezeJoin")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.confirm_team_lottery(db, team_id=tid, actor_steam_id=USER_A, campaign_id=cid)
+    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    with pytest.raises(ValueError, match="roster|freeze|confirmação"):
+        ts.accept_invite(db, steam_id=USER_B, team_id=tid)
+    assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 2
+
+
+def test_team_lottery_freeze_leave_forfeits_n_numbers(db, lottery_ready):
+    _set_team_lottery_policy("freeze")
+    ls = lottery_ready
+    cid = _make_active_campaign(db, ls)
+    ts.create_team(db, steam_id=USER_A, name="FreezeLeave")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    ts.accept_invite(db, steam_id=USER_B, team_id=tid)
+    ts.confirm_team_lottery(db, team_id=tid, actor_steam_id=USER_A, campaign_id=cid)
+    assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 4
+
+    out = ts.leave_team(db, steam_id=USER_B)
+    assert out["ok"] is True
+    after = ls.list_team_numbers(db, campaign_id=cid, team_id=tid)
+    assert len(after) == 2
+    assert int(out.get("lottery_forfeit", {}).get("revoked_count") or 0) == 2
+
+
+def test_team_lottery_forfeit_on_depart_kick_reduces_n(db, lottery_ready):
+    _set_team_lottery_policy("forfeit_on_depart")
+    ls = lottery_ready
+    cid = _make_active_campaign(db, ls)
+    ts.create_team(db, steam_id=USER_A, name="ForfeitKick")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    ts.accept_invite(db, steam_id=USER_B, team_id=tid)
+    ts.confirm_team_lottery(db, team_id=tid, actor_steam_id=USER_A, campaign_id=cid)
+    assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 4
+
+    out = ts.kick_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    assert out["ok"] is True
+    after = ls.list_team_numbers(db, campaign_id=cid, team_id=tid)
+    assert len(after) == 2
+    assert int(out.get("lottery_forfeit", {}).get("revoked_count") or 0) == 2
+
+
 def test_team_lottery_join_after_confirm_allocates_two(db, lottery_ready):
+    # Join after confirm only allowed outside freeze (legacy or forfeit_on_depart)
+    _set_team_lottery_policy("forfeit_on_depart")
     ls = lottery_ready
     cid = _make_active_campaign(db, ls)
     ts.create_team(db, steam_id=USER_A, name="JoinLot")
@@ -1105,3 +1192,99 @@ def test_member_and_ranking_display_names_from_store_users(db):
 
     # Sem persona → fallback SteamID
     assert ts.resolve_member_display_name(db, USER_C) == USER_C
+
+
+def test_teams_settings_readers_defaults_and_clamps():
+    assert ts.founding_fee_amber({}) == 2500
+    assert ts.founding_fee_amber({"teams_founding_fee": 1000}) == 1000
+    assert ts.lottery_numbers_per_member({}) == 2
+    assert ts.lottery_numbers_per_member({"teams_lottery_numbers_per_member": 4}) == 4
+    assert ts.lottery_numbers_per_member({"teams_lottery_numbers_per_member": 99}) == 6
+    assert ts.lottery_numbers_per_member({"teams_lottery_numbers_per_member": 0}) == 1
+    assert ts.max_special_roles({}) == 2
+    assert ts.max_special_roles({"teams_max_special_roles": 3}) == 3
+    assert ts.marco_preview_ttl_sec({}) == 60
+    assert ts.marco_preview_ttl_sec({"teams_marco_preview_ttl_sec": 10}) == 15
+    assert ts.marco_preview_ttl_sec({"teams_marco_preview_ttl_sec": 120}) == 120
+    assert ts.rename_cooldown_hours({}) == 168
+    assert ts.rename_cost_amber({}) == 0
+    assert ts.market_split_sender_pct({}) == 60
+    assert ts.market_split_pool_pct({"teams_market_split_sender_pct": 70}) == 30
+    assert ts.warehouse_cap_default({}) == 10_000
+    caps = ts.warehouse_base_caps({
+        "teams_warehouse_cap_default": 100,
+        "teams_warehouse_caps": {"element_ore": 50},
+    })
+    assert caps["element_ore"] == 50
+    assert caps["black_pearl"] == 100
+
+
+def test_deposit_rejects_over_warehouse_cap(db, monkeypatch):
+    def _settings():
+        return {
+            "teams_enabled": True,
+            "teams_warehouse_cap_default": 100,
+        }
+
+    def _subtract(db_sess, steam_id, amount):
+        row = db_sess.execute(
+            text("SELECT points FROM players WHERE steam_id = :s"),
+            {"s": steam_id},
+        ).fetchone()
+        if not row or int(row[0]) < amount:
+            raise ValueError("insufficient_balance")
+        new = int(row[0]) - amount
+        db_sess.execute(
+            text("UPDATE players SET points = :p WHERE steam_id = :s"),
+            {"p": new, "s": steam_id},
+        )
+        return new
+
+    ts.configure_team_service(settings_fn=_settings, subtract_points_tx=_subtract)
+    monkeypatch.setattr(ts, "teams_enabled", lambda settings=None: True)
+    ts.create_team(db, steam_id=USER_A, name="CapWh")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.deposit_resource(
+        db, team_id=tid, steam_id=USER_A, resource_key="element_ore", amount=80, idempotency_key="cap1",
+    )
+    with pytest.raises(ValueError, match="Armazém cheio|teto"):
+        ts.deposit_resource(
+            db, team_id=tid, steam_id=USER_A, resource_key="element_ore", amount=30, idempotency_key="cap2",
+        )
+    view = ts.team_public_view(db, tid, viewer_steam_id=USER_A)
+    assert view["warehouse_caps"]["element_ore"] == 100
+    assert view["bank"]["warehouse_caps"]["element_ore"] == 100
+
+
+def test_lottery_numbers_per_member_used_on_confirm(db, lottery_ready, monkeypatch):
+    ls = lottery_ready
+
+    def _settings():
+        return {
+            "teams_enabled": True,
+            "teams_lottery_numbers_per_member": 3,
+        }
+
+    def _subtract(db_sess, steam_id, amount):
+        row = db_sess.execute(
+            text("SELECT points FROM players WHERE steam_id = :s"),
+            {"s": steam_id},
+        ).fetchone()
+        if not row or int(row[0]) < amount:
+            raise ValueError("insufficient_balance")
+        new = int(row[0]) - amount
+        db_sess.execute(
+            text("UPDATE players SET points = :p WHERE steam_id = :s"),
+            {"p": new, "s": steam_id},
+        )
+        return new
+
+    ts.configure_team_service(settings_fn=_settings, subtract_points_tx=_subtract)
+    monkeypatch.setattr(ts, "teams_enabled", lambda settings=None: True)
+    cid = _make_active_campaign(db, ls, prize_base=1000, catalog=[])
+    ts.create_team(db, steam_id=USER_A, name="LotNums")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    conf = ts.confirm_team_lottery(db, team_id=tid, actor_steam_id=USER_A, campaign_id=cid)
+    assert conf["numbers_requested"] == 3
+    assert conf["members"] == 1
+    assert len(conf["numbers"]) == 3

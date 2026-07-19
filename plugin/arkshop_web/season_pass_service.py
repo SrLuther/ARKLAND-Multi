@@ -37,6 +37,7 @@ _PAID_LICENSE_GROUPS = frozenset(_TIER_RANK.keys())
 MAX_ACTIVE_PAID_LICENSE_TIERS = 2
 
 _cbs: dict[str, Any] = {}
+_ADMIN_SKIP_PREFIX = "__admin_skip_kit_limit__|"
 
 
 def configure_engine(**kwargs: Any) -> None:
@@ -46,6 +47,10 @@ def configure_engine(**kwargs: Any) -> None:
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _sp_idem_key(season_id: str, track: str, level: int, gtype: str, gid: str) -> str:
+    return f"sp:{season_id}:{track}:{level}:{gtype}:{gid}"
 
 
 def _naive_utc(dt: datetime | str | None = None) -> datetime:
@@ -787,11 +792,410 @@ def _claim_message(delivery: list[dict[str, Any]]) -> str:
             )
         elif d.get("pending_order"):
             parts.append(
-                f"{dtype} «{d.get('id')}» na fila da loja — entra online e usa /shop"
+                f"{dtype} «{d.get('id')}» na fila — entra online e usa /shop "
+                "para forçar a entrega agora"
             )
         elif d.get("delivered"):
             parts.append(f"{dtype} entregue")
     return " · ".join(parts) if parts else "Recompensa resgatada."
+
+
+_ORDER_TO_DELIVERY_STATE = {
+    "PENDENTE": "queued",
+    "ENTREGANDO": "delivering",
+    "ENTREGUE": "delivered",
+    "ERRO": "failed",
+    "FALHA": "failed",
+    "CANCELADO": "failed",
+}
+
+
+def order_status_to_delivery_state(status: str | None) -> str:
+    return _ORDER_TO_DELIVERY_STATE.get(str(status or "").upper(), "queued")
+
+
+def resolve_node_delivery_state(
+    *,
+    has_settled_sync: bool,
+    catalog_statuses: list[str],
+) -> str:
+    """Agrega estado real do nó claimed (Â/licença síncronos vs fila catálogo)."""
+    if not catalog_statuses:
+        return "delivered"
+    norms = [str(s or "").upper() for s in catalog_statuses]
+    if all(s == "ENTREGUE" for s in norms):
+        return "delivered"
+    if any(s in ("ERRO", "FALHA") for s in norms):
+        if has_settled_sync or any(s == "ENTREGUE" for s in norms):
+            return "partial"
+        return "failed"
+    if any(s == "ENTREGANDO" for s in norms):
+        return "delivering"
+    if any(s in ("PENDENTE", "MISSING") for s in norms):
+        return "partial" if has_settled_sync else "queued"
+    return "queued"
+
+
+def load_sp_catalog_orders(
+    db: Session,
+    steam_id: str,
+    *,
+    season_id: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Indexa pedidos SeasonLand por chave sp:… (sem prefixo skip-kit)."""
+    rows = db.execute(
+        text(
+            "SELECT order_id, status, original_order_id, item_type, item_id, amount, "
+            "last_error, retry_count, updated_at "
+            "FROM orders WHERE steam_id = :sid AND ("
+            "original_order_id LIKE 'sp:%' OR "
+            "original_order_id LIKE '__admin_skip_kit_limit__|sp:%')"
+        ),
+        {"sid": str(steam_id)},
+    ).fetchall()
+    out: dict[str, dict[str, Any]] = {}
+    prefix = f"sp:{season_id}:" if season_id else None
+    for row in rows:
+        raw_orig = str(row[2] or "")
+        idem = raw_orig
+        if idem.startswith(_ADMIN_SKIP_PREFIX):
+            idem = idem[len(_ADMIN_SKIP_PREFIX):]
+        if prefix and not idem.startswith(prefix):
+            continue
+        out[idem] = {
+            "order_id": str(row[0]),
+            "status": str(row[1] or ""),
+            "original_order_id": raw_orig,
+            "item_type": str(row[3] or ""),
+            "item_id": str(row[4] or ""),
+            "amount": int(row[5] or 0),
+            "last_error": row[6],
+            "retry_count": int(row[7] or 0),
+            "updated_at": row[8],
+            "delivery_state": order_status_to_delivery_state(str(row[1] or "")),
+        }
+    return out
+
+
+def annotate_claimed_grants(
+    grants: list[dict[str, Any]],
+    *,
+    season_id: str,
+    track: str,
+    level: int,
+    orders_by_idem: dict[str, dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    """Anota grants claimed com estado real (Â settled vs catálogo na fila)."""
+    orders = orders_by_idem or {}
+    annotated = spcfg.annotate_grants(grants)
+    catalog_statuses: list[str] = []
+    has_settled = False
+    out: list[dict[str, Any]] = []
+    for g in annotated:
+        gtype = str(g.get("type") or "")
+        row = dict(g)
+        if gtype in ("amber", "license"):
+            row["settled"] = True
+            row["delivery_state"] = "delivered"
+            has_settled = True
+        elif gtype in ("kit", "item", "dino"):
+            gid = str(g.get("id") or "").strip()
+            idem = _sp_idem_key(season_id, track, level, gtype, gid)
+            ord_row = orders.get(idem)
+            if ord_row:
+                st = str(ord_row.get("status") or "")
+                catalog_statuses.append(st)
+                row["settled"] = st == "ENTREGUE"
+                row["delivery_state"] = order_status_to_delivery_state(st)
+                row["order_id"] = ord_row.get("order_id")
+                row["order_status"] = st
+                row["last_error"] = ord_row.get("last_error")
+                row["pending_order"] = st in ("PENDENTE", "ENTREGANDO", "ERRO")
+            else:
+                catalog_statuses.append("MISSING")
+                row["settled"] = False
+                row["delivery_state"] = "queued"
+                row["order_status"] = None
+                row["pending_order"] = True
+                row["missing_order"] = True
+        out.append(row)
+    state = resolve_node_delivery_state(
+        has_settled_sync=has_settled,
+        catalog_statuses=catalog_statuses,
+    )
+    return out, state
+
+
+def check_season_pass_sku_sync(
+    cfg: dict[str, Any] | None = None,
+    *,
+    catalog_lookup: Callable[[str, str], Any] | None = None,
+) -> dict[str, Any]:
+    """Verifica se SKUs kit/item/dino do SeasonLand existem no catálogo shop.
+
+    catalog_lookup(item_type, item_id) → truthy se existe.
+    Sem callback: só reporta sku_pending (id vazio) vs ready (id preenchido).
+    """
+    cfg = cfg or spcfg.load_config()
+    lookup = catalog_lookup or _cbs.get("catalog_entry_exists")
+    missing: list[dict[str, Any]] = []
+    pending: list[dict[str, Any]] = []
+    ok_count = 0
+    for track_key, track_name in (
+        ("free_rewards", "free"),
+        ("premium_rewards", "premium"),
+    ):
+        for lv_str, grants in (cfg.get(track_key) or {}).items():
+            for g in spcfg.annotate_grants(list(grants or [])):
+                gtype = str(g.get("type") or "")
+                if gtype not in ("kit", "item", "dino"):
+                    continue
+                if not g.get("grant_ready"):
+                    pending.append({
+                        "track": track_name,
+                        "level": int(lv_str),
+                        "type": gtype,
+                        "id": g.get("id"),
+                        "label": g.get("label"),
+                        "issue": "sku_pending",
+                    })
+                    continue
+                gid = str(g.get("id") or "").strip()
+                item_type = "kit" if gtype == "kit" else "shop"
+                if lookup:
+                    try:
+                        exists = bool(lookup(item_type, gid))
+                    except Exception:
+                        exists = False
+                    if not exists:
+                        missing.append({
+                            "track": track_name,
+                            "level": int(lv_str),
+                            "type": gtype,
+                            "id": gid,
+                            "label": g.get("label"),
+                            "issue": "sku_missing",
+                        })
+                        continue
+                ok_count += 1
+    return {
+        "ok": not missing and not pending,
+        "ready_count": ok_count,
+        "sku_pending": pending,
+        "sku_missing": missing,
+        "pending_count": len(pending),
+        "missing_count": len(missing),
+        "block_claims": bool(missing or pending),
+        "warn": bool(missing or pending),
+    }
+
+
+def parse_season_pass_idem(original_order_id: str | None) -> dict[str, Any] | None:
+    """Parseia `sp:{season}:{track}:{level}:{gtype}:{gid}` (com ou sem skip-kit)."""
+    raw = str(original_order_id or "").strip()
+    idem = raw
+    if idem.startswith(_ADMIN_SKIP_PREFIX):
+        idem = idem[len(_ADMIN_SKIP_PREFIX) :]
+    if not idem.startswith("sp:"):
+        return None
+    parts = idem.split(":")
+    level: int | str | None = None
+    if len(parts) > 3:
+        try:
+            level = int(parts[3])
+        except ValueError:
+            level = parts[3]
+    return {
+        "idem": idem,
+        "original_order_id": raw,
+        "season_id": parts[1] if len(parts) > 1 else None,
+        "track": parts[2] if len(parts) > 2 else None,
+        "level": level,
+        "grant_type": parts[4] if len(parts) > 4 else None,
+        "grant_id": ":".join(parts[5:]) if len(parts) > 5 else None,
+    }
+
+
+def list_season_pass_orders(
+    db: Session,
+    *,
+    status: str | None = None,
+    steam_id: str | None = None,
+    track: str | None = None,
+    level: int | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Lista pedidos SeasonLand (original_order_id sp:… / skip-kit|sp:…)."""
+    where = [
+        "("
+        "original_order_id LIKE 'sp:%' OR "
+        "original_order_id LIKE '__admin_skip_kit_limit__|sp:%'"
+        ")"
+    ]
+    params: dict[str, Any] = {}
+    st = str(status or "").strip().upper()
+    if st:
+        where.append("status = :status")
+        params["status"] = st
+    sid = str(steam_id or "").strip()
+    if sid:
+        where.append("steam_id LIKE :steam")
+        params["steam"] = f"{sid}%"
+    tr = str(track or "").strip().lower()
+    if tr and level is not None:
+        where.append(
+            "(original_order_id LIKE :tl OR original_order_id LIKE :tl_skip)"
+        )
+        params["tl"] = f"sp:%:{tr}:{int(level)}:%"
+        params["tl_skip"] = f"__admin_skip_kit_limit__|sp:%:{tr}:{int(level)}:%"
+    elif tr:
+        where.append(
+            "(original_order_id LIKE :tr OR original_order_id LIKE :tr_skip)"
+        )
+        params["tr"] = f"sp:%:{tr}:%"
+        params["tr_skip"] = f"__admin_skip_kit_limit__|sp:%:{tr}:%"
+    elif level is not None:
+        lv = int(level)
+        where.append(
+            "("
+            "original_order_id LIKE :lv_free OR original_order_id LIKE :lv_prem OR "
+            "original_order_id LIKE :lv_free_skip OR original_order_id LIKE :lv_prem_skip"
+            ")"
+        )
+        params["lv_free"] = f"sp:%:free:{lv}:%"
+        params["lv_prem"] = f"sp:%:premium:{lv}:%"
+        params["lv_free_skip"] = f"__admin_skip_kit_limit__|sp:%:free:{lv}:%"
+        params["lv_prem_skip"] = f"__admin_skip_kit_limit__|sp:%:premium:{lv}:%"
+    if date_from is not None:
+        where.append("created_at >= :date_from")
+        params["date_from"] = date_from
+    if date_to is not None:
+        where.append("created_at <= :date_to")
+        params["date_to"] = date_to
+
+    where_sql = " AND ".join(where)
+    total = int(
+        db.execute(
+            text(f"SELECT COUNT(*) FROM orders WHERE {where_sql}"),
+            params,
+        ).scalar()
+        or 0
+    )
+    lim = max(1, min(200, int(limit)))
+    off = max(0, int(offset))
+    params_page = {**params, "lim": lim, "off": off}
+    rows = db.execute(
+        text(
+            "SELECT order_id, steam_id, server_id, item_type, item_id, amount, status, "
+            "points_spent, contested, retry_count, last_error, original_order_id, "
+            "created_at, updated_at "
+            f"FROM orders WHERE {where_sql} "
+            "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+        ),
+        params_page,
+    ).fetchall()
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        orig = str(row[11] or "") if row[11] is not None else None
+        parsed = parse_season_pass_idem(orig)
+        created = row[12]
+        updated = row[13]
+        items.append(
+            {
+                "order_id": str(row[0]),
+                "steam_id": str(row[1] or ""),
+                "server_id": str(row[2] or ""),
+                "item_type": str(row[3] or ""),
+                "item_id": str(row[4] or ""),
+                "amount": int(row[5] or 0),
+                "status": str(row[6] or ""),
+                "points_spent": int(row[7] or 0),
+                "contested": bool(row[8]),
+                "retry_count": int(row[9] or 0),
+                "last_error": row[10],
+                "original_order_id": orig,
+                "is_season_pass": True,
+                "is_license": False,
+                "season_id": (parsed or {}).get("season_id"),
+                "track": (parsed or {}).get("track"),
+                "level": (parsed or {}).get("level"),
+                "grant_type": (parsed or {}).get("grant_type"),
+                "grant_id": (parsed or {}).get("grant_id"),
+                "created_at": created.isoformat() if hasattr(created, "isoformat") else (
+                    str(created) if created else None
+                ),
+                "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else (
+                    str(updated) if updated else None
+                ),
+            }
+        )
+    return {"ok": True, "total": total, "items": items}
+
+
+def season_pass_delivery_metrics(db: Session) -> dict[str, Any]:
+    """Ops: contagens/idade de PENDENTE/ENTREGANDO SeasonLand (sp:%) + top fail reasons."""
+    now = _utcnow().replace(tzinfo=None)
+    rows = db.execute(
+        text(
+            "SELECT status, COUNT(*) AS cnt, MIN(updated_at) AS oldest "
+            "FROM orders WHERE ("
+            "original_order_id LIKE 'sp:%' OR "
+            "original_order_id LIKE '__admin_skip_kit_limit__|sp:%') "
+            "AND status IN ('PENDENTE', 'ENTREGANDO', 'ERRO') "
+            "GROUP BY status"
+        )
+    ).fetchall()
+    by_status: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        st = str(row[0] or "")
+        oldest = row[2]
+        age_min = None
+        if oldest is not None:
+            try:
+                if isinstance(oldest, str):
+                    oldest_dt = datetime.fromisoformat(oldest.replace("Z", "+00:00"))
+                    if oldest_dt.tzinfo:
+                        oldest_dt = oldest_dt.replace(tzinfo=None)
+                else:
+                    oldest_dt = oldest
+                    if getattr(oldest_dt, "tzinfo", None):
+                        oldest_dt = oldest_dt.replace(tzinfo=None)
+                age_min = max(0, int((now - oldest_dt).total_seconds() // 60))
+            except Exception:
+                age_min = None
+        by_status[st] = {
+            "count": int(row[1] or 0),
+            "oldest_updated_at": (
+                oldest.isoformat() if hasattr(oldest, "isoformat") else str(oldest or "")
+            ),
+            "oldest_age_minutes": age_min,
+        }
+
+    fail_rows = db.execute(
+        text(
+            "SELECT last_error, COUNT(*) AS cnt FROM orders WHERE ("
+            "original_order_id LIKE 'sp:%' OR "
+            "original_order_id LIKE '__admin_skip_kit_limit__|sp:%') "
+            "AND status IN ('PENDENTE', 'ENTREGANDO', 'ERRO') "
+            "AND last_error IS NOT NULL AND last_error != '' "
+            "GROUP BY last_error ORDER BY cnt DESC LIMIT 10"
+        )
+    ).fetchall()
+    top_fails = [
+        {"fail_reason": str(r[0] or ""), "count": int(r[1] or 0)}
+        for r in fail_rows
+    ]
+    return {
+        "ok": True,
+        "by_status": by_status,
+        "pending": int((by_status.get("PENDENTE") or {}).get("count") or 0),
+        "entregando": int((by_status.get("ENTREGANDO") or {}).get("count") or 0),
+        "erro": int((by_status.get("ERRO") or {}).get("count") or 0),
+        "top_fail_reasons": top_fails,
+    }
 
 
 def _emit_audit(event_type: str, **kwargs: Any) -> None:
@@ -1103,6 +1507,18 @@ def claim_reward(
                 pass
     # kit/item/dino = fila PENDENTE; só Â/licença são síncronos no web.
     has_queued = any(bool(d.get("pending_order")) for d in delivery)
+    has_settled = any(
+        str(d.get("type") or "") in ("amber", "license") and d.get("delivered")
+        for d in delivery
+    )
+    catalog_statuses = [
+        "PENDENTE" for d in delivery
+        if str(d.get("type") or "") in ("kit", "item", "dino") and d.get("pending_order")
+    ]
+    delivery_state = resolve_node_delivery_state(
+        has_settled_sync=has_settled,
+        catalog_statuses=catalog_statuses,
+    )
     summary = _delivery_audit_summary(delivery)
     order_ids = list(summary.get("order_ids") or [])
     amber_amt = int(summary.get("amber_amount") or 0)
@@ -1127,14 +1543,17 @@ def claim_reward(
         order_ids=order_ids or None,
         new_balance=points_after,
         queued_for_shop=has_queued,
+        delivery_state=delivery_state,
     )
     return {
         "ok": True,
         "track": track,
         "level": level,
         "season_id": season_id,
+        # Deprecated for "already in inventory" — prefer delivery_state / queued_for_shop.
         "in_game_delivered": not has_queued,
         "queued_for_shop": has_queued,
+        "delivery_state": delivery_state,
         "delivery": delivery,
         "message": msg,
         "new_balance": points_after,
@@ -1142,7 +1561,6 @@ def claim_reward(
     }
 
 
-_ADMIN_SKIP_PREFIX = "__admin_skip_kit_limit__|"
 _CATALOG_RESEND_STATUSES = frozenset({"ENTREGUE", "ERRO"})
 
 
@@ -1174,10 +1592,6 @@ def parse_resend_parts(
     if not out:
         raise ValueError("Indica parts: amber e/ou catalog")
     return out
-
-
-def _sp_idem_key(season_id: str, track: str, level: int, gtype: str, gid: str) -> str:
-    return f"sp:{season_id}:{track}:{level}:{gtype}:{gid}"
 
 
 def _find_catalog_order(
@@ -1242,11 +1656,14 @@ def admin_resend_reward(
     confirm: bool = False,
     reason: str | None = None,
     admin_steam_id: str | None = None,
+    missing_only: bool = False,
 ) -> dict[str, Any]:
     """Reenvio admin de recompensas SeasonLand (Â e/ou fila kit/item/dino).
 
     Não altera claimed — só re-credita Â e/ou reabre/cria pedidos PENDENTE.
     Reenvio de Â exige confirm=True (re-grant intencional).
+    missing_only=True: só cria/reabre catálogo em falta ou ERRO (não mexe ENTREGUE;
+    ignora amber — tipicamente parts=["catalog"]).
     """
     want = parse_resend_parts(
         parts=list(parts) if isinstance(parts, (set, frozenset)) else parts
@@ -1297,27 +1714,34 @@ def admin_resend_reward(
     points_after: int | None = None
 
     if "amber" in want:
-        amber_grants = [g for g in annotated if str(g.get("type") or "") == "amber"]
-        if not amber_grants:
+        if missing_only:
             actions.append({
                 "part": "amber",
                 "action": "skipped",
-                "reason": "no_amber_grant",
+                "reason": "missing_only_skips_amber",
             })
         else:
-            for g in amber_grants:
-                qty = int(g.get("qty") or 0)
-                if qty <= 0:
-                    raise ValueError(f"Grant Â inválido em {track} L{level}")
-                bal = add_pts(db, steam_id, qty)
-                points_after = int(bal)
+            amber_grants = [g for g in annotated if str(g.get("type") or "") == "amber"]
+            if not amber_grants:
                 actions.append({
                     "part": "amber",
-                    "type": "amber",
-                    "action": "regranted",
-                    "qty": qty,
-                    "points_after": bal,
+                    "action": "skipped",
+                    "reason": "no_amber_grant",
                 })
+            else:
+                for g in amber_grants:
+                    qty = int(g.get("qty") or 0)
+                    if qty <= 0:
+                        raise ValueError(f"Grant Â inválido em {track} L{level}")
+                    bal = add_pts(db, steam_id, qty)
+                    points_after = int(bal)
+                    actions.append({
+                        "part": "amber",
+                        "type": "amber",
+                        "action": "regranted",
+                        "qty": qty,
+                        "points_after": bal,
+                    })
 
     if "catalog" in want:
         catalog_grants = [
@@ -1357,6 +1781,17 @@ def admin_resend_reward(
                             "type": gtype,
                             "id": gid,
                             "action": "already_pending",
+                            "order_id": oid,
+                            "status_before": status,
+                            "original_order_id": existing["original_order_id"],
+                        })
+                    elif status == "ENTREGUE" and missing_only:
+                        actions.append({
+                            "part": "catalog",
+                            "type": gtype,
+                            "id": gid,
+                            "action": "skipped",
+                            "reason": "already_delivered",
                             "order_id": oid,
                             "status_before": status,
                             "original_order_id": existing["original_order_id"],
@@ -1456,6 +1891,7 @@ def admin_resend_reward(
         order_ids=order_ids or None,
         confirm=bool(confirm),
         regrant=bool("amber" in want),
+        missing_only=bool(missing_only),
         claimed_unchanged=True,
         new_balance=points_after,
     )
@@ -1472,6 +1908,7 @@ def admin_resend_reward(
         "new_balance": points_after,
         "points_after": points_after,
         "claimed_unchanged": True,
+        "missing_only": bool(missing_only),
     }
 
 

@@ -8,6 +8,26 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.28] - 2026-07-19
+
+### Feat
+
+- **/marco TTL configurável**: lê `marco_preview_ttl_sec` de `GET /api/teams/plugin/membership/<sid>` (setting web `teams_marco_preview_ttl_sec`, default 60s, clamp 15–600).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.28) em cada mapa.
+
+## [1.10.27] - 2026-07-19
+
+### Feat
+
+- **Pending release**: envia `errors[{order_id, fail_reason}]` em `POST /api/pending/release` para a Web Store marcar `last_error` e, após N falhas idênticas, `ERRO` (em vez de reabrir PENDENTE forever).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.27) em cada mapa.
+
 ## [1.10.26] - 2026-07-19
 
 ### Feat

@@ -127,20 +127,35 @@ std::vector<MarcoLine> ScanWarehouseInventory(AShooterPlayerController* controll
     return lines;
 }
 
-bool PlayerHasActiveTeam(const std::string& steam_id) {
-    if (steam_id.empty()) return false;
+struct MembershipInfo {
+    bool active = false;
+    int marco_preview_ttl_sec = kMarcoConfirmTtlSeconds;
+};
+
+MembershipInfo FetchMembership(const std::string& steam_id) {
+    MembershipInfo info;
+    if (steam_id.empty()) return info;
     const std::string resp =
         HttpClient::Get("/api/teams/plugin/membership/" + steam_id);
-    if (resp.empty()) return false;
+    if (resp.empty()) return info;
     try {
         const auto json = nlohmann::json::parse(resp);
-        if (!json.value("ok", false)) return false;
-        if (json.contains("data") && json["data"].is_object())
-            return json["data"].value("active", false);
-        return json.value("active", false);
+        if (!json.value("ok", false)) return info;
+        const nlohmann::json& data =
+            (json.contains("data") && json["data"].is_object()) ? json["data"] : json;
+        info.active = data.value("active", false);
+        int ttl = data.value("marco_preview_ttl_sec", kMarcoConfirmTtlSeconds);
+        if (ttl < 15) ttl = 15;
+        if (ttl > 600) ttl = 600;
+        info.marco_preview_ttl_sec = ttl;
     } catch (...) {
-        return false;
+        return info;
     }
+    return info;
+}
+
+bool PlayerHasActiveTeam(const std::string& steam_id) {
+    return FetchMembership(steam_id).active;
 }
 
 bool ConsumeWarehouseItems(AShooterPlayerController* controller,
@@ -247,13 +262,14 @@ void CmdMarco(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
 
 } // anonymous namespace
 
-std::string FormatPreviewMessage(const std::vector<MarcoLine>& lines) {
+std::string FormatPreviewMessage(const std::vector<MarcoLine>& lines, int ttl_sec) {
+    if (ttl_sec < 15) ttl_sec = kMarcoConfirmTtlSeconds;
     std::ostringstream oss;
     oss << "[+Equipe] Voce esta prestes a alimentar o armazem com:"
         << FormatBulletList(lines)
         << "\n" << kMsgNoRefundWarning
         << "\nDigite /confirmar para enviar (expira em "
-        << kMarcoConfirmTtlSeconds << "s).";
+        << ttl_sec << "s).";
     return oss.str();
 }
 
@@ -287,10 +303,14 @@ bool RequestDepositPreview(AShooterPlayerController* controller) {
     const std::string sid = Bridge::GetSteamId(controller);
     if (sid.empty()) return false;
 
-    if (!PlayerHasActiveTeam(sid)) {
+    const MembershipInfo mem = FetchMembership(sid);
+    if (!mem.active) {
         SendEquipeMsg(controller, kMsgNoTeam);
         return false;
     }
+    const int ttl = mem.marco_preview_ttl_sec > 0
+                        ? mem.marco_preview_ttl_sec
+                        : kMarcoConfirmTtlSeconds;
 
     auto lines = ScanWarehouseInventory(controller);
     if (lines.empty()) {
@@ -300,7 +320,7 @@ bool RequestDepositPreview(AShooterPlayerController* controller) {
 
     PendingMarco pending;
     pending.expires = std::chrono::steady_clock::now()
-                      + std::chrono::seconds(kMarcoConfirmTtlSeconds);
+                      + std::chrono::seconds(ttl);
     pending.lines = lines;
     pending.session_id = MakeSessionId(sid);
 
@@ -309,10 +329,10 @@ bool RequestDepositPreview(AShooterPlayerController* controller) {
         g_marco_pending[sid] = pending;
     }
 
-    SendEquipeMsg(controller, FormatPreviewMessage(lines));
+    SendEquipeMsg(controller, FormatPreviewMessage(lines, ttl));
     Log::GetLog()->info(
-        "ShopTeams: /marco preview steam={} lines={} session={}",
-        sid, lines.size(), pending.session_id);
+        "ShopTeams: /marco preview steam={} lines={} session={} ttl={}s",
+        sid, lines.size(), pending.session_id, ttl);
     return true;
 }
 

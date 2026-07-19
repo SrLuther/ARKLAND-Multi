@@ -49,7 +49,8 @@ inline constexpr const char* kMsgInventoryMismatch =
 inline constexpr const char* kMsgNoRefundWarning =
     "Atencao: nao ha reembolso de depositos de recursos.";
 
-std::string FormatPreviewMessage(const std::vector<MarcoLine>& lines);
+std::string FormatPreviewMessage(const std::vector<MarcoLine>& lines,
+                                 int ttl_sec = kMarcoConfirmTtlSeconds);
 std::string FormatSuccessMessage(const std::vector<MarcoLine>& lines);
 
 bool HasPendingDeposit(const std::string& steam_id);

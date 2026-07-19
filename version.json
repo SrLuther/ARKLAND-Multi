@@ -1,13 +1,14 @@
 {
-    "version": "1.10.75",
+    "version": "1.10.76",
     "date": "2026-07-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.75/ARKLAND-Multi-Setup-v1.10.75.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.76/ARKLAND-Multi-Setup-v1.10.76.exe",
     "changelog": [
-        "Feat (Web Store / Equipes): admin ASSUMIR equipe (POST /api/admin/teams/assume) — reativa ACTIVE em qualquer status (esp. DISBANDED/SUSPENDED), define OWNER ACTIVE (admin ou steam_id do body); rejeita se alvo já está noutra equipe (Q2); audit team_admin_assume; botão Assumir no painel admin (evita zombie pós-REATIVAR).",
-        "Test (Web Store / Equipes): assume DISBANDED solo-left, rejeição Q2, SUSPENDED, reclaim owner.",
-        "Feat (Web Store / SeasonLand): claims e compra Premium gravam em Auditoria (audit_events) — season_pass_claim, season_pass_claim_failed, season_pass_premium_purchase; filtro «SeasonLand» no painel admin.",
-        "Feat (Web Store / SeasonLand): admin reenvio de recompensas claimed — POST /api/admin/season-pass/resend (Â só / item|kit|dino só / ambos); Â = re-grant com confirm; catálogo = ENTREGUE|ERRO→PENDENTE ou cria pedido sp:…; audit season_pass_admin_resend; UI admin Reenviar Â/item/tudo.",
-        "Test (Web Store / SeasonLand): resend amber-only, catalog ENTREGUE→PENDENTE, catalog missing→create, both.",
-        "Feat (Web Store / Equipes): UI do marco atual deixa explícito o que completa entrega (+% Â TimedPoints, cap de membros, descrição) e separa requisitos (Â / XP / recursos a depositar); lista admin da trilha com linha «entrega»."
+        "Feat (Web Store / SeasonLand): recovery stale ENTREGANDO shop/kit (sp:) — config shop_stale_entregando_minutes; auto → PENDENTE + last_error + audit shop_stale_entregando_recovered (espelha custom_dino).",
+        "Feat (Web Store / CustomShop 1.10.27): release com fail_reason; após N falhas idênticas (shop_identical_fail_max, default 5) → ERRO + audit staff (não reabre PENDENTE forever).",
+        "Feat (Web Store / SeasonLand): delivery_state real (queued/delivering/delivered/failed/partial) nas tracks e Minha Área/Disponível; toast claim enfileirado (warning); /shop = forçar entrega agora; in_game_delivered deprecated.",
+        "Feat (Web Store / SeasonLand): estado parcial Â OK + item pendente; admin resend missing_only (só catálogo em falta/ERRO); GET /api/admin/season-pass/sku-health + delivery-metrics (ops painel).",
+        "Test (Web Store / SeasonLand): 10 testes Phase A/B — stale shop/kit, ERRO após N, flags queued, available status, partial, sku sync, metrics, reclaim missing.",
+        "Fix (Equipes / armazém): ícones element_ore ↔ element_dust (Minério / Pó) estavam invertidos.",
+        "Feat (Web Store / Equipes): armazém e «Aplicar ao marco» em grelha com ícone — qty (ou qty/cap se API tiver warehouse_caps) e aplicado/necessário + APLICAR."
     ]
 }

@@ -1333,6 +1333,77 @@ def list_team_numbers(db: Session, *, campaign_id: int, team_id: int) -> list[in
     return [int(r[0]) for r in rows]
 
 
+def revoke_team_numbers(
+    db: Session,
+    *,
+    campaign_id: int,
+    team_id: int,
+    count: int,
+    reason: str = "depart",
+) -> dict[str, Any]:
+    """Revoke up to `count` ACTIVE TEAM numbers, returning them to the pool (REVOKED).
+
+    Used by teams lottery post-confirm policies (freeze leave / forfeit_on_depart).
+    """
+    count = max(0, int(count))
+    if count <= 0:
+        return {"revoked": [], "requested": 0, "revoked_count": 0}
+    cid = int(campaign_id)
+    tid = int(team_id)
+    holder = team_holder_steam_id(tid)
+    has_team_col = _table_has_column(db, "lottery_numbers", "team_id")
+    if has_team_col:
+        rows = db.execute(
+            text(
+                "SELECT id, number_value FROM lottery_numbers "
+                "WHERE campaign_id = :cid AND status = 'ACTIVE' "
+                "AND (team_id = :tid OR (source = 'TEAM' AND steam_id = :sid)) "
+                "ORDER BY number_value DESC LIMIT :lim"
+            ),
+            {"cid": cid, "tid": tid, "sid": holder, "lim": count},
+        ).fetchall()
+    else:
+        rows = db.execute(
+            text(
+                "SELECT id, number_value FROM lottery_numbers "
+                "WHERE campaign_id = :cid AND steam_id = :sid AND source = 'TEAM' "
+                "AND status = 'ACTIVE' ORDER BY number_value DESC LIMIT :lim"
+            ),
+            {"cid": cid, "sid": holder, "lim": count},
+        ).fetchall()
+    if not rows:
+        return {"revoked": [], "requested": count, "revoked_count": 0}
+    now = _naive(_utcnow())
+    reason_s = str(reason or "depart")[:64]
+    revoked: list[int] = []
+    for row in rows:
+        db.execute(
+            text(
+                "UPDATE lottery_numbers SET status = 'REVOKED', revoked_at = :now, "
+                "revoke_reason = :r WHERE id = :id AND status = 'ACTIVE'"
+            ),
+            {"now": now, "r": reason_s, "id": int(row[0])},
+        )
+        revoked.append(int(row[1]))
+    if revoked:
+        _audit(
+            db,
+            "lottery_team_numbers_revoked",
+            {
+                "team_id": tid,
+                "numbers": revoked,
+                "requested": count,
+                "reason": reason_s,
+            },
+            campaign_id=cid,
+        )
+    return {
+        "revoked": revoked,
+        "requested": count,
+        "revoked_count": len(revoked),
+    }
+
+
 def _player_balance(db: Session, steam_id: str) -> int:
     row = db.execute(
         text("SELECT points FROM players WHERE steam_id = :sid"),

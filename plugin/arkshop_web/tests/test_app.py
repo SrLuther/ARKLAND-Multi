@@ -1609,6 +1609,165 @@ class TestAdminPlayers:
         assert _app_module._is_multiple_primary_key_error(_Err()) is True
         assert _app_module._is_multiple_primary_key_error(ValueError("other")) is False
 
+
+class TestAdminCatalogDeliver:
+    """Admin Gerenciar Jogadores — entrega de todo o catálogo resgatável."""
+
+    def _mock_full_catalog(self, monkeypatch, tmp_path):
+        config = {
+            "Items": {
+                "metal_ingot": {
+                    "Type": "item",
+                    "Description": "Lingote de Metal",
+                    "Price": 10,
+                    "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
+                    "Quantity": 100,
+                },
+                "rex_l1": {
+                    "Type": "dino",
+                    "Description": "Rex L1",
+                    "Price": 500,
+                    "Dinos": [{"Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP", "Level": 1}],
+                },
+                "rex_l200": {
+                    "Type": "dino",
+                    "Description": "Rex L200",
+                    "Price": 2000,
+                    "Dinos": [{"Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP", "Level": 200}],
+                },
+                "licenca_gamma": {
+                    "Type": "license",
+                    "Description": "Licença Gamma",
+                    "LicenseGrant": {"Group": "Gamma", "Days": 30},
+                },
+            },
+            "Kits": {
+                "starter": {
+                    "Price": 0,
+                    "Description": "Kit Inicial",
+                    "Items": [{"Blueprint": "/Game/Test/Item", "Quantity": 1}],
+                },
+            },
+        }
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        monkeypatch.setattr(
+            _app_module,
+            "_load_settings",
+            lambda: {
+                "config_path": str(config_path),
+                "server_id": "default",
+                "delivery_mode": "plugin",
+            },
+        )
+        _app_module._CONFIG_CACHE.clear()
+        _app_module._KIT_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
+        _app_module._SHOP_DELIVER_OPTIONS_CACHE.update({"fingerprint": "", "data": None})
+        _app_module._LICENSE_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
+
+    def _assert_order_pendente(self, order_id: str, *, item_type: str, item_id: str):
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(
+                _app_module.Order.order_id == order_id
+            ).first()
+            assert order is not None
+            assert order.status == "PENDENTE"
+            assert order.item_type == item_type
+            assert order.item_id == item_id
+            assert str(order.original_order_id or "").startswith("__admin_skip_kit_limit__")
+        finally:
+            db.close()
+
+    def test_detail_includes_deliver_catalog(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        d = client.get(f"/api/admin/players/{USER_STEAM}").get_json()
+        assert d["ok"] is True
+        cat = d.get("deliver_catalog") or {}
+        assert any(i["item_id"] == "metal_ingot" for i in cat.get("items") or [])
+        assert any(i["item_id"] == "rex_l1" for i in cat.get("dinos") or [])
+        assert any(i["item_id"] == "rex_l200" for i in cat.get("dinos200") or [])
+        assert any(i["item_id"] == "starter" for i in cat.get("kits") or [])
+        # Licenças ficam no bloco separado — não no seletor de entrega.
+        assert not any(i["item_id"] == "licenca_gamma" for i in cat.get("items") or [])
+
+    def test_admin_deliver_shop_item(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "items", "item_id": "metal_ingot", "amount": 2, "reason": "suporte"},
+        )
+        d = r.get_json()
+        assert r.status_code == 200, d
+        assert d["ok"] is True
+        assert d.get("queued") is True or d.get("status") == "PENDENTE"
+        self._assert_order_pendente(d["order_id"], item_type="shop", item_id="metal_ingot")
+
+    def test_admin_deliver_dino_l1(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "dinos", "item_id": "rex_l1", "amount": 1, "reason": "comp"},
+        )
+        d = r.get_json()
+        assert r.status_code == 200, d
+        assert d["ok"] is True
+        self._assert_order_pendente(d["order_id"], item_type="shop", item_id="rex_l1")
+
+    def test_admin_deliver_dino200(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "dinos200", "item_id": "rex_l200", "amount": 1},
+        )
+        d = r.get_json()
+        assert r.status_code == 200, d
+        assert d["ok"] is True
+        self._assert_order_pendente(d["order_id"], item_type="shop", item_id="rex_l200")
+
+    def test_admin_deliver_kit(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "kits", "item_id": "starter", "amount": 1, "reason": "kit suporte"},
+        )
+        d = r.get_json()
+        assert r.status_code == 200, d
+        assert d["ok"] is True
+        self._assert_order_pendente(d["order_id"], item_type="kit", item_id="starter")
+
+    def test_admin_deliver_rejects_license_via_items(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "items", "item_id": "licenca_gamma", "amount": 1},
+        )
+        assert r.status_code == 400
+        assert r.get_json()["ok"] is False
+
+    def test_admin_deliver_requires_admin(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, USER_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "items", "item_id": "metal_ingot", "amount": 1},
+        )
+        assert r.status_code == 403
+
+
 class TestAdminPoints:
     def test_add_and_get_points(self, client):
         _login(client, ADMIN_STEAM)

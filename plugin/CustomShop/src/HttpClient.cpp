@@ -456,6 +456,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
             {"ok", ok},
             {"trigger", "auto"},
             {"details", detail},
+            {"fail_reason", ok ? "" : fail_reason},
         });
 
         if (ok) {
@@ -485,9 +486,21 @@ bool DeliverPending(AShooterPlayerController* controller) {
     }
 
     if (!failed_ids.empty()) {
+        // Build errors[] from failed deliveries (fail_reason on each entry).
+        nlohmann::json errors = nlohmann::json::array();
+        for (const auto& d : deliveries) {
+            if (!d.value("ok", true)) {
+                const std::string fr = d.value("fail_reason", "");
+                errors.push_back({
+                    {"order_id", d.value("order_id", "")},
+                    {"fail_reason", fr.empty() ? "delivery_failed" : fr},
+                });
+            }
+        }
         nlohmann::json release_body = {
             {"steam_id", steam_id},
             {"order_ids", failed_ids},
+            {"errors", errors},
         };
         const std::string release_url = g_web_url + "/api/pending/release";
         std::string release_resp = HttpPostJson(release_url, release_body.dump());

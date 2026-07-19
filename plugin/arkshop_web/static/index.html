@@ -1024,6 +1024,10 @@
       vertical-align: middle;
       image-rendering: auto;
     }
+    .tm-res-icon--lg {
+      width: 48px;
+      height: 48px;
+    }
     .tm-res-row {
       display: flex;
       flex-wrap: wrap;
@@ -1035,6 +1039,62 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+    }
+    .tm-res-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .tm-res-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 6px;
+      padding: 12px 8px 10px;
+      text-align: center;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .tm-res-cell.is-ok {
+      border-color: var(--success, #12d87c);
+    }
+    .tm-res-cell__name {
+      font-size: 11px;
+      line-height: 1.25;
+      color: var(--text2);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tm-res-cell__qty {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .tm-res-cell__qty strong {
+      color: var(--amber);
+      font-weight: 700;
+    }
+    .tm-res-cell .btn {
+      width: 100%;
+      margin-top: 2px;
+      letter-spacing: .04em;
+    }
+    @media (max-width: 520px) {
+      .tm-res-grid {
+        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+        gap: 8px;
+      }
+      .tm-res-icon--lg {
+        width: 40px;
+        height: 40px;
+      }
     }
     .sp-hero-brand {
       display: flex;
@@ -1188,6 +1248,9 @@
     .sp-grant-badge.is-pending { background:rgba(245,158,11,.15); color:var(--warning); }
     .sp-grant-badge.is-queued { background:rgba(59,130,246,.15); color:#60a5fa; }
     .sp-grant-badge.is-ready { background:rgba(34,197,94,.12); color:var(--success); }
+    .sp-grant-badge.is-failed { background:rgba(239,68,68,.15); color:var(--danger); }
+    .sp-grant-badge.is-partial { background:rgba(245,158,11,.18); color:var(--warning); }
+    .sp-grant-badge.is-delivering { background:rgba(59,130,246,.18); color:#93c5fd; }
     .sp-admin-panel {
       margin-top:20px; padding:16px; border:1px solid rgba(245,158,11,.35);
       border-radius:10px; background:rgba(245,158,11,.04);
@@ -1594,6 +1657,7 @@
     .badge-kit         { background: rgba(251,191,36,.12);  color: #fbbf24;        border: 1px solid rgba(251,191,36,.2); }
     .badge-reemitido   { background: rgba(148,163,184,.12); color: #94a3b8;        border: 1px solid rgba(148,163,184,.2); }
     .badge-reembolsado { background: rgba(232,160,32,.12);  color: var(--amber);   border: 1px solid rgba(232,160,32,.2); }
+    .badge-seasonland  { background: rgba(232,160,32,.14);  color: var(--amber);   border: 1px solid rgba(232,160,32,.28); }
     .badge-success       { background: rgba(18,216,124,.12);  color: var(--success); border: 1px solid rgba(18,216,124,.2); }
     .badge-danger        { background: rgba(240,64,80,.12);   color: var(--danger);  border: 1px solid rgba(240,64,80,.2); }
     .badge-warning       { background: rgba(232,120,32,.12);   color: var(--amber);   border: 1px solid rgba(232,120,32,.2); }
@@ -6436,6 +6500,9 @@
     <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
       <span class="nav-icon">📋</span> Auditoria
     </div>
+    <div class="nav-item admin-only" data-page="seasonland-ops" onclick="nav(this)">
+      <span class="nav-icon nav-icon--img"><img src="/SeasonLand_Logo.png" alt="" width="18" height="18" /></span> SeasonLand — Ops
+    </div>
     <div class="nav-item admin-only" data-page="plugin-debug" onclick="nav(this)">
       <span class="nav-icon">🐛</span> Debug Plugins
     </div>
@@ -7524,6 +7591,69 @@
             <div class="form-group">
               <label for="s-teams-lottery-shortfall">Reembolso Â/nº em falta (teams_lottery_shortfall_refund)</label>
               <input id="s-teams-lottery-shortfall" type="number" min="0" step="100" value="5000" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label for="s-teams-lottery-post-confirm">Política pós-confirmação do sorteio (teams_lottery_post_confirm_policy)</label>
+              <select id="s-teams-lottery-post-confirm">
+                <option value="freeze" selected>Congelar roster (padrão) — bloqueia kick/entrada até o draw; saída perde N números</option>
+                <option value="forfeit_on_depart">Perder números ao sair/kick — kick e entrada permitidos; N números voltam ao pool</option>
+                <option value="legacy_keep">Legado Q9 — números ficam na equipe; kick permitido</option>
+              </select>
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">
+                N = <code>teams_lottery_numbers_per_member</code> (ou 2). Anti-abuso de kick após confirmar participação.
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="s-teams-founding-fee">Taxa 2ª+ fundação Â (teams_founding_fee)</label>
+              <input id="s-teams-founding-fee" type="number" min="0" step="100" value="2500" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-lottery-nums">Nº sorteio / membro (teams_lottery_numbers_per_member)</label>
+              <input id="s-teams-lottery-nums" type="number" min="1" max="6" value="2" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-wh-cap">Teto armazém default / recurso (teams_warehouse_cap_default)</label>
+              <input id="s-teams-wh-cap" type="number" min="0" step="100" value="10000" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-marco-ttl">TTL preview /marco s (teams_marco_preview_ttl_sec)</label>
+              <input id="s-teams-marco-ttl" type="number" min="15" max="600" value="60" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-max-roles">Máx. papéis especiais (teams_max_special_roles)</label>
+              <input id="s-teams-max-roles" type="number" min="1" max="6" value="2" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-rename-cd">Cooldownoldown rename h (teams_rename_cooldown_hours)</label>
+              <input id="s-teams-rename-cd" type="number" min="0" max="8760" value="168" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-rename-cost">Custo rename Â (teams_rename_cost_amber, 0=grátis)</label>
+              <input id="s-teams-rename-cost" type="number" min="0" step="100" value="0" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-split-sender">Split mercado vendedor % (teams_market_split_sender_pct)</label>
+              <input id="s-teams-split-sender" type="number" min="1" max="99" value="60" />
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">Pool restante = 100 − vendedor (default 60/40).</div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-teams-rank-prizes" type="checkbox" /> Ativar prémios ranking (teams_ranking_prizes_enabled)</label>
+            </div>
+            <div class="form-group">
+              <label for="s-teams-rank-p1">Prémio 1º Â (teams_ranking_prize_1)</label>
+              <input id="s-teams-rank-p1" type="number" min="0" step="1000" value="50000" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-rank-p2">Prémio 2º Â (teams_ranking_prize_2)</label>
+              <input id="s-teams-rank-p2" type="number" min="0" step="1000" value="25000" />
+            </div>
+            <div class="form-group">
+              <label for="s-teams-rank-p3">Prémio 3º Â (teams_ranking_prize_3)</label>
+              <input id="s-teams-rank-p3" type="number" min="0" step="1000" value="10000" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;padding:8px 10px;background:var(--surface2);border-radius:var(--radius);font-size:12px;color:var(--text2);">
+              Prémios: pagar em <strong>Admin → Equipes</strong> («Pagar prémios ranking»). Equipas → banco; jogadores → carteira.
+              Caps por recurso: JSON opcional <code>teams_warehouse_caps</code> (ex. <code>{"element_ore":5000}</code>).
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               🧬 Dino Lab — entregas admin de dinos customizados (cores, compensações). Requer plugin <code>CustomDinoDeliver.dll</code> nos mapas.
@@ -9218,7 +9348,7 @@
       <div id="page-players-admin" class="page admin-only">
         <div id="topbar">
           <div class="page-title">👥 Gerenciar Jogadores</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças, cargos MOD/STAFF e kits.</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças, cargos MOD/STAFF e entrega do catálogo (itens, dinos, kits).</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="syncAllPermissionsAdmin()">🔄 Sync Permissions</button>
             <button class="btn btn-ghost" onclick="loadPlayersAdmin(true)">↺ Recarregar</button>
@@ -9262,7 +9392,7 @@
       <div id="page-audit" class="page admin-only">
         <div id="topbar">
           <div class="page-title">Auditoria</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Resgates do catálogo, eventos do sistema e log completo de doações (PIX e cartão).</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Resgates do catálogo, eventos do sistema e log completo de doações (PIX e cartão). SeasonLand: use <button type="button" class="btn btn-ghost btn-sm" style="vertical-align:baseline;padding:2px 8px;" onclick="goToPage('seasonland-ops')">SeasonLand — Ops</button>.</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadAudit();loadPixAudit();">↺ Recarregar</button>
           </div>
@@ -9363,7 +9493,14 @@
           </div>
         </div>
         <div class="card" style="margin-top:16px;">
-          <div class="card-title">Pedidos (admin)</div>
+          <div class="card-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;">
+            <span>Pedidos (admin)</span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage('seasonland-ops')">SeasonLand Ops →</button>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.45;">
+            Resgates da loja. Pedidos SeasonLand ficam ocultos por omissão —
+            use <strong>SeasonLand — Ops</strong> para claims e fila <code>sp:</code>.
+          </p>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;">
             <div class="form-group" style="margin:0;min-width:180px;">
               <label>SteamID / Pedido</label>
@@ -9391,6 +9528,10 @@
               <label>Até</label>
               <input id="admin-orders-filter-to" type="date" onchange="resetAdminOrdersPage()" />
             </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;padding-bottom:6px;">
+              <input type="checkbox" id="admin-orders-include-sp" onchange="resetAdminOrdersPage()" />
+              Incluir SeasonLand
+            </label>
             <button class="btn btn-primary btn-sm" onclick="resetAdminOrdersPage()">Filtrar</button>
           </div>
           <div class="card-title" style="font-size:13px;margin-bottom:8px;">
@@ -9400,6 +9541,136 @@
           <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
             <button class="btn btn-ghost btn-sm" onclick="prevAdminOrdersPage()">◀ Anterior</button>
             <button class="btn btn-ghost btn-sm" onclick="nextAdminOrdersPage()">Próxima ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: SeasonLand — Ops (admin) -->
+      <div id="page-seasonland-ops" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title page-title--seasonland">
+            <img class="sp-title-logo" src="/SeasonLand_Logo.png" alt="" width="28" height="28" />
+            SeasonLand — Ops
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">
+            Auditoria de claims, fila de entrega <code>sp:</code> e reenvio de recompensas.
+            Config do passe continua em <strong>SeasonLand</strong> (painel admin).
+          </p>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="goToPage('season-pass')">Config SeasonLand</button>
+            <button class="btn btn-ghost" onclick="loadSeasonlandOps()">↺ Recarregar</button>
+          </div>
+        </div>
+
+        <div id="sl-ops-metrics" style="margin-bottom:16px;"></div>
+
+        <div class="card" style="margin-bottom:16px;padding:12px 14px;">
+          <div class="card-title" style="margin-bottom:6px;">Reenviar recompensa</div>
+          <p style="margin:0 0 10px;font-size:12px;color:var(--text2);line-height:1.45;">
+            Para nós <strong>já resgatados</strong> (ex.: Â chegou mas kit/item/dino sumiu).
+            Não desmarca claimed. Â = re-grant; item = reabre fila PENDENTE ou cria pedido em falta.
+          </p>
+          <div class="form-grid" style="margin-bottom:10px;">
+            <div class="form-group">
+              <label>Steam ID do jogador</label>
+              <input id="sp-resend-steam" type="text" placeholder="7656119…" />
+            </div>
+            <div class="form-group">
+              <label>Track</label>
+              <select id="sp-resend-track">
+                <option value="premium">premium</option>
+                <option value="free">free</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nível</label>
+              <input id="sp-resend-level" type="number" min="1" max="30" value="1" />
+            </div>
+            <div class="form-group">
+              <label>Season ID (opcional)</label>
+              <input id="sp-resend-season" type="text" placeholder="actual" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassAdminResend(['amber'])">Reenviar Â</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassAdminResend(['catalog'])">Reenviar item</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="seasonPassAdminResend(['amber','catalog'])">Reenviar tudo</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Filtros — fila e claims</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;min-width:160px;">
+              <label>SteamID</label>
+              <input id="sl-ops-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter')resetSeasonlandOps()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:130px;">
+              <label>Status (fila)</label>
+              <select id="sl-ops-filter-status" onchange="resetSeasonlandOpsOrders()">
+                <option value="">Todos</option>
+                <option value="PENDENTE">PENDENTE</option>
+                <option value="ENTREGANDO">ENTREGANDO</option>
+                <option value="ENTREGUE">ENTREGUE</option>
+                <option value="ERRO">ERRO</option>
+                <option value="CANCELADO">CANCELADO</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:110px;">
+              <label>Track</label>
+              <select id="sl-ops-filter-track" onchange="resetSeasonlandOpsOrders()">
+                <option value="">Todas</option>
+                <option value="premium">premium</option>
+                <option value="free">free</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:90px;">
+              <label>Nível</label>
+              <input id="sl-ops-filter-level" type="number" min="1" max="30" placeholder="—" onkeydown="if(event.key==='Enter')resetSeasonlandOpsOrders()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:130px;">
+              <label>De</label>
+              <input id="sl-ops-filter-from" type="date" onchange="resetSeasonlandOps()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:130px;">
+              <label>Até</label>
+              <input id="sl-ops-filter-to" type="date" onchange="resetSeasonlandOps()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:160px;">
+              <label>Tipo de claim</label>
+              <select id="sl-ops-filter-event" onchange="resetSeasonlandOpsAudit()">
+                <option value="season_pass">SeasonLand (todos)</option>
+                <option value="season_pass_claim">Claim</option>
+                <option value="season_pass_claim_failed">Claim falhou</option>
+                <option value="season_pass_premium_purchase">Compra Premium</option>
+                <option value="season_pass_admin_resend">Reenvio admin</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="resetSeasonlandOps()">Filtrar</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">
+            Fila de entrega
+            <span id="sl-ops-orders-page-info" style="font-weight:400;color:var(--text2);font-size:12px;"></span>
+          </div>
+          <div id="sl-ops-orders-list"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="prevSeasonlandOpsOrders()">◀ Anterior</button>
+            <button class="btn btn-ghost btn-sm" onclick="nextSeasonlandOpsOrders()">Próxima ▶</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            Claims / eventos
+            <span id="sl-ops-audit-page-info" style="font-weight:400;color:var(--text2);font-size:12px;"></span>
+          </div>
+          <div id="sl-ops-audit-list"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="prevSeasonlandOpsAudit()">◀ Anterior</button>
+            <button class="btn btn-ghost btn-sm" onclick="nextSeasonlandOpsAudit()">Próxima ▶</button>
           </div>
         </div>
       </div>
@@ -9548,6 +9819,7 @@
             <div class="form-group"><label>Âmbares</label><input id="tm-ms-amber" type="number" min="0" value="5000" /></div>
             <div class="form-group"><label>XP conjunto</label><input id="tm-ms-xp" type="number" min="0" value="2500" /></div>
             <div class="form-group"><label>Cap membros ao concluir (max_members unlock)</label><input id="tm-ms-mmu" type="number" min="0" placeholder="opcional" /></div>
+            <div class="form-group"><label>Teto armazém ao concluir (warehouse_cap unlock)</label><input id="tm-ms-wcu" type="number" min="0" placeholder="opcional — piso absoluto / recurso" /></div>
             <div class="form-group"><label>+% Â TimedPoints ao concluir (amber_bonus_pp)</label><input id="tm-ms-amber-bonus-pp" type="number" min="0" max="50" value="2" /></div>
             <div class="form-group" style="align-self:end;">
               <button class="btn btn-ghost btn-sm" type="button" onclick="teamsAdminFillDefaults()">Sugerir qty (defaults)</button>
@@ -9557,6 +9829,16 @@
           </div>
           <div id="tm-ms-catalog" style="margin-top:12px;font-size:12px;color:var(--text2);">Carregando catálogo…</div>
           <div id="teams-admin-milestones" style="margin-top:12px;color:var(--text2);font-size:12px;"></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Prémios de ranking</div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">
+            Requer <code>teams_ranking_prizes_enabled</code> em Configurações. Paga top 1–3 (Â) — equipas no banco da equipe; jogadores na carteira. Idempotente por dia (UTC) a menos que force.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <button class="btn btn-primary btn-sm" type="button" onclick="teamsAdminPayRankingPrizes('teams')">Pagar prémios — Equipas</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="teamsAdminPayRankingPrizes('players')">Pagar prémios — Jogadores</button>
+          </div>
         </div>
         <div class="card">
           <div class="card-header">
@@ -10588,6 +10870,7 @@ function nav(el) {
   if (page === "admin-home-notice") loadAdminHomeCards();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
+  if (page === "seasonland-ops") loadSeasonlandOps();
   if (page === "plugin-debug") loadPluginDebug();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "tribe-admin") loadTribeAdmin();
@@ -12874,7 +13157,7 @@ async function loadAvailable() {
     const policy = d.cancel_policy || {};
     const cooldownH = policy.cooldown_hours || 24;
     const autoH = policy.auto_cancel_hours || 48;
-    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Desistência (reembolso de <strong>80%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 80% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> e recompensas do <strong>SeasonLand</strong> são irrevogáveis — não dá para desistir nem reembolsar em Âmbar.</p>`;
+    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para <strong>forçar a entrega agora</strong>. Desistência (reembolso de <strong>80%</strong>) só após <strong>${cooldownH}h</strong> da compra; sem resgate em <strong>${autoH}h</strong> o pedido é cancelado e reembolsado a 80% automaticamente. Reembolso 100% só com <strong>contestação + ticket</strong>. <strong>Licenças</strong> e recompensas do <strong>SeasonLand</strong> são irrevogáveis — não dá para desistir nem reembolsar em Âmbar.</p>`;
     if (!pending.length) {
       html += `<p class="available-hint">Nenhum resgate pendente no momento.</p>`;
     } else {
@@ -12891,6 +13174,15 @@ async function loadAvailable() {
         } else if (p.cancel_blocked_reason) {
           cancelBtn = `<span style="font-size:11px;color:var(--text2);max-width:200px;text-align:right;">${escHtml(p.cancel_blocked_reason)}</span>`;
         }
+        const dState = p.delivery_state || "";
+        const stateHint = dState === "delivering"
+          ? "A entregar…"
+          : dState === "failed"
+            ? "Falha — staff / /shop"
+            : "Entre no servidor · /shop";
+        const errHint = p.last_error
+          ? `<div style="font-size:11px;color:var(--danger);max-width:220px;text-align:right;" title="${escHtml(p.last_error)}">${escHtml(String(p.last_error).slice(0, 80))}</div>`
+          : "";
         return `
         <div class="available-card">
           <div>
@@ -12898,7 +13190,8 @@ async function loadAvailable() {
             <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}${p.is_license ? " · Licença" : ""}${p.is_season_pass ? " · SeasonLand" : ""}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-            <span style="font-size:12px;color:var(--text2);">Entre no servidor</span>
+            <span style="font-size:12px;color:var(--text2);">${escHtml(stateHint)}</span>
+            ${errHint}
             ${cancelBtn}
           </div>
         </div>`;
@@ -13718,6 +14011,7 @@ function statusBadge(status) {
   const s = (status || "").toUpperCase();
   if (s === "ENTREGUE")  return `<span class="badge badge-item">${s}</span>`;
   if (s === "PENDENTE")  return `<span class="badge badge-beacon">${s}</span>`;
+  if (s === "ENTREGANDO") return `<span class="badge badge-beacon">ENTREGANDO</span>`;
   if (s === "CANCELADO") return `<span class="badge badge-experience">${s}</span>`;
   if (s === "CONTESTADO")return `<span class="badge badge-command">${s}</span>`;
   if (s === "ERRO")      return `<span class="badge badge-experience">${s}</span>`;
@@ -15764,9 +16058,22 @@ function _spTrackNodesHtml(nodes, lockedTrack) {
     const delivery = n.delivery || {};
     const skuPend = Number(delivery.grants_sku_pending || 0);
     const ready = Number(delivery.grants_ready || 0);
+    const dState = String(n.delivery_state || n.claimed_status || "");
     let badge = "";
     if (n.claimed) {
-      badge = `<span class="sp-grant-badge is-ready">Resgatado</span>`;
+      if (dState === "delivered") {
+        badge = `<span class="sp-grant-badge is-ready">Entregue</span>`;
+      } else if (dState === "partial") {
+        badge = `<span class="sp-grant-badge is-partial" title="Â/licença OK · item ainda na fila /shop">Â OK · item pendente</span>`;
+      } else if (dState === "delivering") {
+        badge = `<span class="sp-grant-badge is-delivering">A entregar…</span>`;
+      } else if (dState === "failed") {
+        badge = `<span class="sp-grant-badge is-failed">Falha na entrega</span>`;
+      } else if (dState === "queued" || n.queued_for_shop) {
+        badge = `<span class="sp-grant-badge is-queued" title="Na fila — usa /shop no servidor para forçar agora">Na fila /shop</span>`;
+      } else {
+        badge = `<span class="sp-grant-badge is-queued">Resgatado</span>`;
+      }
     } else if (skuPend > 0) {
       badge = `<span class="sp-grant-badge is-pending" title="${escHtml(n.block_reason || delivery.note || "")}">SKU pendente</span>`;
     } else if (n.claimable) {
@@ -15826,7 +16133,15 @@ async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
       updateBalanceDisplays(window._playerBalance);
       syncAmberUnits(window._playerBalance);
     }
-    toast(d.message || "Recompensa resgatada.", "success");
+    // Catálogo → fila: aviso honesto (não fingir sucesso in-game).
+    if (d.queued_for_shop || d.delivery_state === "queued" || d.delivery_state === "partial") {
+      toast(
+        d.message || "Resgate enfileirado — entra no servidor e usa /shop para forçar a entrega agora.",
+        "warning"
+      );
+    } else {
+      toast(d.message || "Recompensa resgatada.", "success");
+    }
     refreshPlayerBalance({ force: true });
     loadSeasonPass();
   } catch (e) {
@@ -16030,7 +16345,7 @@ async function seasonPassAdminResend(parts) {
   } else if (wantAmber) {
     confirmMsg += "\n\nIsto é um RE-GRANT de Âmbar (credita de novo). Confirma?";
   } else {
-    confirmMsg += "\n\nReabre fila /shop (ENTREGUE/ERRO → PENDENTE) ou cria pedido em falta. Sem novo débito.";
+    confirmMsg += "\n\nSó o que falta: cria/reabre ERRO ou em falta → PENDENTE. Não reenvia ENTREGUE nem Â.";
   }
   if (!confirm(confirmMsg)) return;
   const body = {
@@ -16040,11 +16355,15 @@ async function seasonPassAdminResend(parts) {
     parts: parts || ["catalog"],
     confirm: true,
   };
+  if (!wantAmber) body.missing_only = true;
   if (seasonId) body.season_id = seasonId;
   try {
     const d = await fetchJson("/api/admin/season-pass/resend", { method: "POST", body });
     if (!d.ok) throw new Error(d.error || "Falha ao reenviar");
     toast(d.message || "Reenvio OK.", "success");
+    if (document.getElementById("page-seasonland-ops")?.classList.contains("active")) {
+      loadSeasonlandOps();
+    }
   } catch (e) {
     toast(String(e.message || e), "error");
   }
@@ -16093,6 +16412,14 @@ async function loadSeasonPassAdmin() {
         ? "Season encerrada · janela de resgate — jogadores ainda podem claimar até «Iniciar próxima season» (depois unclaimed perdido)."
         : "Season activa — XP TimedPoints a correr. No fim dos 30 dias passa a janela de resgate; a próxima só começa com «Iniciar próxima season».");
     root.innerHTML = `
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(0,0,0,.15);border-left:3px solid var(--amber);">
+        <div class="card-title" style="margin-bottom:6px;">Ops · fila e claims</div>
+        <p style="margin:0 0 10px;font-size:13px;color:var(--text2);line-height:1.45;">
+          Claims, fila <code>sp:</code>, métricas de entrega e reenvio de recompensas vivem em
+          <strong>SeasonLand — Ops</strong> (nav admin) — não misturados com Pedidos da loja.
+        </p>
+        <button type="button" class="btn btn-primary btn-sm" onclick="goToPage('seasonland-ops')">Abrir SeasonLand — Ops →</button>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
         <div>
           <div style="font-family:Cinzel,serif;font-weight:700;color:var(--text);">Admin — Config SeasonLand</div>
@@ -16111,39 +16438,6 @@ async function loadSeasonPassAdmin() {
           Início: ${escHtml(season.starts_at || "—")} · Fim: ${escHtml(season.ends_at || "—")}
         </div>
         <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.45;">${escHtml(calendarHint)}</div>
-      </div>
-      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(0,0,0,.15);">
-        <div class="card-title" style="margin-bottom:6px;">Reenviar recompensa (ops)</div>
-        <p style="margin:0 0 10px;font-size:12px;color:var(--text2);line-height:1.45;">
-          Para nós <strong>já resgatados</strong> (ex.: Â chegou mas kit/item/dino sumiu).
-          Não desmarca claimed. Â = re-grant (credita de novo); item = reabre fila PENDENTE ou cria pedido em falta.
-        </p>
-        <div class="form-grid" style="margin-bottom:10px;">
-          <div class="form-group">
-            <label>Steam ID do jogador</label>
-            <input id="sp-resend-steam" type="text" placeholder="7656119…" />
-          </div>
-          <div class="form-group">
-            <label>Track</label>
-            <select id="sp-resend-track">
-              <option value="premium">premium</option>
-              <option value="free">free</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Nível</label>
-            <input id="sp-resend-level" type="number" min="1" max="30" value="1" />
-          </div>
-          <div class="form-group">
-            <label>Season ID (opcional)</label>
-            <input id="sp-resend-season" type="text" placeholder="${escHtml(season.id || "actual")}" />
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassAdminResend(['amber'])">Reenviar Â</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassAdminResend(['catalog'])">Reenviar item</button>
-          <button type="button" class="btn btn-primary btn-sm" onclick="seasonPassAdminResend(['amber','catalog'])">Reenviar tudo</button>
-        </div>
       </div>
       <div class="form-grid" style="margin-bottom:14px;">
         <div class="form-group">
@@ -23775,6 +24069,35 @@ async function loadSettings() {
     if (tmCap) tmCap.value = String(parseInt(s.teams_amber_bonus_cap ?? "20", 10) || 20);
     const tmSf = document.getElementById("s-teams-lottery-shortfall");
     if (tmSf) tmSf.value = String(parseInt(s.teams_lottery_shortfall_refund ?? "5000", 10) || 5000);
+    const tmPol = document.getElementById("s-teams-lottery-post-confirm");
+    if (tmPol) {
+      const pol = String(s.teams_lottery_post_confirm_policy || "freeze").toLowerCase();
+      tmPol.value = ["freeze", "forfeit_on_depart", "legacy_keep"].includes(pol) ? pol : "freeze";
+    }
+    const tmFee = document.getElementById("s-teams-founding-fee");
+    if (tmFee) tmFee.value = String(parseInt(s.teams_founding_fee ?? "2500", 10) || 0);
+    const tmNums = document.getElementById("s-teams-lottery-nums");
+    if (tmNums) tmNums.value = String(parseInt(s.teams_lottery_numbers_per_member ?? "2", 10) || 2);
+    const tmWh = document.getElementById("s-teams-wh-cap");
+    if (tmWh) tmWh.value = String(parseInt(s.teams_warehouse_cap_default ?? "10000", 10) || 10000);
+    const tmTtl = document.getElementById("s-teams-marco-ttl");
+    if (tmTtl) tmTtl.value = String(parseInt(s.teams_marco_preview_ttl_sec ?? "60", 10) || 60);
+    const tmRoles = document.getElementById("s-teams-max-roles");
+    if (tmRoles) tmRoles.value = String(parseInt(s.teams_max_special_roles ?? "2", 10) || 2);
+    const tmRcd = document.getElementById("s-teams-rename-cd");
+    if (tmRcd) tmRcd.value = String(parseInt(s.teams_rename_cooldown_hours ?? "168", 10) || 0);
+    const tmRcost = document.getElementById("s-teams-rename-cost");
+    if (tmRcost) tmRcost.value = String(parseInt(s.teams_rename_cost_amber ?? "0", 10) || 0);
+    const tmSplit = document.getElementById("s-teams-split-sender");
+    if (tmSplit) tmSplit.value = String(parseInt(s.teams_market_split_sender_pct ?? "60", 10) || 60);
+    const tmRp = document.getElementById("s-teams-rank-prizes");
+    if (tmRp) tmRp.checked = !!s.teams_ranking_prizes_enabled;
+    const tmP1 = document.getElementById("s-teams-rank-p1");
+    if (tmP1) tmP1.value = String(parseInt(s.teams_ranking_prize_1 ?? "50000", 10) || 0);
+    const tmP2 = document.getElementById("s-teams-rank-p2");
+    if (tmP2) tmP2.value = String(parseInt(s.teams_ranking_prize_2 ?? "25000", 10) || 0);
+    const tmP3 = document.getElementById("s-teams-rank-p3");
+    if (tmP3) tmP3.value = String(parseInt(s.teams_ranking_prize_3 ?? "10000", 10) || 0);
     refreshTeamsNavVisibility(s.teams_enabled !== false);
     const dlEl = document.getElementById("s-custom-dino-enabled");
     if (dlEl) dlEl.checked = !!s.custom_dino_enabled;
@@ -23843,6 +24166,19 @@ async function saveSettings() {
     teams_amber_bonus_pp: parseInt(document.getElementById("s-teams-amber-bonus-pp")?.value || "2", 10) || 2,
     teams_amber_bonus_cap: parseInt(document.getElementById("s-teams-amber-bonus-cap")?.value || "20", 10) || 20,
     teams_lottery_shortfall_refund: parseInt(document.getElementById("s-teams-lottery-shortfall")?.value || "5000", 10) || 5000,
+    teams_lottery_post_confirm_policy: (document.getElementById("s-teams-lottery-post-confirm")?.value || "freeze"),
+    teams_founding_fee: parseInt(document.getElementById("s-teams-founding-fee")?.value || "2500", 10) || 0,
+    teams_lottery_numbers_per_member: Math.max(1, Math.min(6, parseInt(document.getElementById("s-teams-lottery-nums")?.value || "2", 10) || 2)),
+    teams_warehouse_cap_default: parseInt(document.getElementById("s-teams-wh-cap")?.value || "10000", 10) || 0,
+    teams_marco_preview_ttl_sec: Math.max(15, Math.min(600, parseInt(document.getElementById("s-teams-marco-ttl")?.value || "60", 10) || 60)),
+    teams_max_special_roles: Math.max(1, Math.min(6, parseInt(document.getElementById("s-teams-max-roles")?.value || "2", 10) || 2)),
+    teams_rename_cooldown_hours: parseInt(document.getElementById("s-teams-rename-cd")?.value || "168", 10) || 0,
+    teams_rename_cost_amber: parseInt(document.getElementById("s-teams-rename-cost")?.value || "0", 10) || 0,
+    teams_market_split_sender_pct: Math.max(1, Math.min(99, parseInt(document.getElementById("s-teams-split-sender")?.value || "60", 10) || 60)),
+    teams_ranking_prizes_enabled: !!document.getElementById("s-teams-rank-prizes")?.checked,
+    teams_ranking_prize_1: parseInt(document.getElementById("s-teams-rank-p1")?.value || "50000", 10) || 0,
+    teams_ranking_prize_2: parseInt(document.getElementById("s-teams-rank-p2")?.value || "25000", 10) || 0,
+    teams_ranking_prize_3: parseInt(document.getElementById("s-teams-rank-p3")?.value || "10000", 10) || 0,
     custom_dino_enabled: !!document.getElementById("s-custom-dino-enabled")?.checked,
     custom_dino_spawn_exact: !!document.getElementById("s-custom-dino-spawn-exact")?.checked,
     custom_dino_level_max: parseInt(document.getElementById("s-custom-dino-level-max")?.value || "0", 10) || 0,
@@ -25922,11 +26258,13 @@ async function loadAdminOrders() {
   const status = document.getElementById("admin-orders-filter-status")?.value || "";
   const dateFrom = document.getElementById("admin-orders-filter-from")?.value || "";
   const dateTo = document.getElementById("admin-orders-filter-to")?.value || "";
+  const includeSp = !!document.getElementById("admin-orders-include-sp")?.checked;
   let url = `${API}/api/admin/orders?limit=${_adminOrdersPage.limit}&offset=${_adminOrdersPage.offset}&sort=created_at&order=desc`;
   if (q) url += `&q=${encodeURIComponent(q)}`;
   if (status) url += `&status=${encodeURIComponent(status)}`;
   if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
   if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
+  if (includeSp) url += `&include_season_pass=1`;
   el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
   try {
     const r = await fetch(url);
@@ -25938,7 +26276,10 @@ async function loadAdminOrders() {
     const info = document.getElementById("admin-orders-page-info");
     if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_adminOrdersPage.total} pedidos)`;
     const items = d.items || [];
-    if (!items.length) { el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido encontrado.</div>`; return; }
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido encontrado.${!includeSp ? ' <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage(\'seasonland-ops\')">Ver no SeasonLand Ops →</button>' : ""}</div>`;
+      return;
+    }
     el.innerHTML = `
       <table class="tbl">
         <thead><tr>
@@ -25947,7 +26288,7 @@ async function loadAdminOrders() {
         <tbody>
           ${items.map(o => `
             <tr>
-              <td><code>${escHtml(o.order_id.substring(0,8))}…</code></td>
+              <td><code>${escHtml(o.order_id.substring(0,8))}…</code>${o.is_season_pass ? ` <span class="badge badge-seasonland">SeasonLand</span>` : ""}</td>
               <td style="font-size:10px;">${escHtml(o.steam_id)}</td>
               <td>${escHtml(o.item_type)}:${escHtml(o.item_id)}</td>
               <td>${statusBadge(o.status)}</td>
@@ -25956,9 +26297,9 @@ async function loadAdminOrders() {
                 <div class="order-admin-actions">
                   <button class="btn btn-ghost btn-sm" title="Ver detalhes e histórico" onclick="viewAdminOrderDetails('${o.order_id}')">Detalhes</button>
                   <button class="btn btn-primary btn-sm" title="Reenviar para fila /shop (sem novo débito)" onclick="adminResendOrder('${o.order_id}')">Reenviar</button>
-                  ${o.is_license ? `<span style="font-size:11px;color:var(--text2);" title="Licenças não podem ser canceladas nem reembolsadas">Licença irrevogável</span>` : `
+                  ${o.is_season_pass ? `<span style="font-size:11px;color:var(--text2);" title="Recompensas SeasonLand — irrevogáveis">SeasonLand</span>` : (o.is_license ? `<span style="font-size:11px;color:var(--text2);" title="Licenças não podem ser canceladas nem reembolsadas">Licença irrevogável</span>` : `
                   <button class="btn btn-success btn-sm" title="Reembolsar Âmbar ao jogador" onclick="adminRefundOrder('${o.order_id}')">Reembolsar</button>
-                  <button class="btn btn-danger btn-sm" title="Cancelar sem reembolso" onclick="adminCancelOrder('${o.order_id}')">Cancelar</button>`}
+                  <button class="btn btn-danger btn-sm" title="Cancelar sem reembolso" onclick="adminCancelOrder('${o.order_id}')">Cancelar</button>`)}
                 </div>
               </td>
             </tr>
@@ -26000,6 +26341,9 @@ async function adminResendOrder(orderId) {
     toast("Pedido reenviado — aguardando resgate no jogo.", "success");
     loadAdminOrders();
     loadAudit();
+    if (document.getElementById("page-seasonland-ops")?.classList.contains("active")) {
+      loadSeasonlandOpsOrders();
+    }
   } else toast(d.error || "Falha ao reenviar", "error");
 }
 
@@ -26033,12 +26377,219 @@ async function viewAdminTimeline(orderId) {
   return viewAdminOrderDetails(orderId);
 }
 
+// ── SeasonLand — Ops (admin) ──────────────────────────────────────────────────
+let _slOpsOrdersPage = { limit: 50, offset: 0, total: 0 };
+let _slOpsAuditPage = { limit: 50, offset: 0, total: 0 };
+
+function resetSeasonlandOps() {
+  _slOpsOrdersPage.offset = 0;
+  _slOpsAuditPage.offset = 0;
+  loadSeasonlandOps();
+}
+function resetSeasonlandOpsOrders() { _slOpsOrdersPage.offset = 0; loadSeasonlandOpsOrders(); }
+function resetSeasonlandOpsAudit() { _slOpsAuditPage.offset = 0; loadSeasonlandOpsAudit(); }
+function prevSeasonlandOpsOrders() {
+  _slOpsOrdersPage.offset = Math.max(0, _slOpsOrdersPage.offset - _slOpsOrdersPage.limit);
+  loadSeasonlandOpsOrders();
+}
+function nextSeasonlandOpsOrders() {
+  if (_slOpsOrdersPage.offset + _slOpsOrdersPage.limit < _slOpsOrdersPage.total) {
+    _slOpsOrdersPage.offset += _slOpsOrdersPage.limit;
+    loadSeasonlandOpsOrders();
+  }
+}
+function prevSeasonlandOpsAudit() {
+  _slOpsAuditPage.offset = Math.max(0, _slOpsAuditPage.offset - _slOpsAuditPage.limit);
+  loadSeasonlandOpsAudit();
+}
+function nextSeasonlandOpsAudit() {
+  if (_slOpsAuditPage.offset + _slOpsAuditPage.limit < _slOpsAuditPage.total) {
+    _slOpsAuditPage.offset += _slOpsAuditPage.limit;
+    loadSeasonlandOpsAudit();
+  }
+}
+
+async function loadSeasonlandOps() {
+  if (!_auth.is_admin) return;
+  await Promise.all([
+    loadSeasonlandOpsMetrics(),
+    loadSeasonlandOpsOrders(),
+    loadSeasonlandOpsAudit(),
+  ]);
+}
+
+async function loadSeasonlandOpsMetrics() {
+  const el = document.getElementById("sl-ops-metrics");
+  if (!el) return;
+  try {
+    const [metrics, skuHealth] = await Promise.all([
+      fetchJson("/api/admin/season-pass/delivery-metrics").catch(() => null),
+      fetchJson("/api/admin/season-pass/sku-health").catch(() => null),
+    ]);
+    let html = "";
+    if (metrics && metrics.ok) {
+      const fails = (metrics.top_fail_reasons || []).slice(0, 5).map((f) =>
+        `<li><code>${escHtml(f.fail_reason)}</code> ×${Number(f.count || 0)}</li>`
+      ).join("") || "<li style=\"opacity:.7\">Sem falhas registadas</li>";
+      const ageP = (metrics.by_status?.PENDENTE?.oldest_age_minutes != null)
+        ? ` · mais antigo ${metrics.by_status.PENDENTE.oldest_age_minutes} min` : "";
+      const ageE = (metrics.by_status?.ENTREGANDO?.oldest_age_minutes != null)
+        ? ` · mais antigo ${metrics.by_status.ENTREGANDO.oldest_age_minutes} min` : "";
+      html += `<div class="card" style="margin-bottom:12px;padding:12px 14px;">
+        <div class="card-title" style="margin-bottom:6px;">Fila activa <span class="badge badge-seasonland">SeasonLand</span></div>
+        <p style="margin:0 0 6px;font-size:13px;color:var(--text2);">
+          PENDENTE: <strong>${Number(metrics.pending || 0)}</strong>${ageP}
+          · ENTREGANDO: <strong>${Number(metrics.entregando || 0)}</strong>${ageE}
+          · ERRO: <strong>${Number(metrics.erro || 0)}</strong>
+        </p>
+        <div style="font-size:12px;color:var(--text2);">Top fail reasons:<ul style="margin:4px 0 0;padding-left:18px;">${fails}</ul></div>
+      </div>`;
+    }
+    if (skuHealth) {
+      const miss = Number(skuHealth.missing_count || 0);
+      const pend = Number(skuHealth.pending_count || 0);
+      const warnColor = (miss || pend) ? "var(--warning)" : "var(--success)";
+      html += `<div class="card" style="margin-bottom:12px;padding:12px 14px;border-left:3px solid ${warnColor};">
+        <div class="card-title" style="margin-bottom:6px;">SKU sync (SeasonLand ↔ catálogo)</div>
+        <p style="margin:0;font-size:13px;color:var(--text2);">
+          Ready: <strong>${Number(skuHealth.ready_count || 0)}</strong>
+          · sku_pending: <strong>${pend}</strong>
+          · sku_missing: <strong>${miss}</strong>
+          ${(miss || pend) ? " — <span style=\"color:var(--warning);\">preencher IDs / sync config</span>" : " — OK"}
+        </p>
+      </div>`;
+    }
+    el.innerHTML = html || `<div style="color:var(--text2);font-size:12px;">Sem métricas.</div>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function loadSeasonlandOpsOrders() {
+  const el = document.getElementById("sl-ops-orders-list");
+  if (!el) return;
+  const steam = document.getElementById("sl-ops-filter-steam")?.value?.trim() || "";
+  const status = document.getElementById("sl-ops-filter-status")?.value || "";
+  const track = document.getElementById("sl-ops-filter-track")?.value || "";
+  const level = document.getElementById("sl-ops-filter-level")?.value || "";
+  const dateFrom = document.getElementById("sl-ops-filter-from")?.value || "";
+  const dateTo = document.getElementById("sl-ops-filter-to")?.value || "";
+  let url = `${API}/api/admin/season-pass/orders?limit=${_slOpsOrdersPage.limit}&offset=${_slOpsOrdersPage.offset}`;
+  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+  if (track) url += `&track=${encodeURIComponent(track)}`;
+  if (level) url += `&level=${encodeURIComponent(level)}`;
+  if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
+  if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    _slOpsOrdersPage.total = d.total || 0;
+    const pageNum = Math.floor(_slOpsOrdersPage.offset / _slOpsOrdersPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_slOpsOrdersPage.total / _slOpsOrdersPage.limit));
+    const info = document.getElementById("sl-ops-orders-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_slOpsOrdersPage.total})`;
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido SeasonLand na fila.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <table class="tbl">
+        <thead><tr>
+          <th>Pedido</th><th>Jogador</th><th>Track / Nível</th><th>Item</th><th>Status</th><th>Criado</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(o => {
+            const trackLv = (o.track || o.level != null)
+              ? `${escHtml(o.track || "—")} L${escHtml(String(o.level ?? "—"))}`
+              : "—";
+            const grant = o.grant_type
+              ? `${escHtml(o.grant_type)}${o.grant_id ? ":" + escHtml(o.grant_id) : ""}`
+              : `${escHtml(o.item_type)}:${escHtml(o.item_id)}`;
+            return `<tr>
+              <td><code>${escHtml(String(o.order_id).substring(0,8))}…</code>
+                <span class="badge badge-seasonland">SeasonLand</span></td>
+              <td style="font-size:10px;">${escHtml(o.steam_id)}</td>
+              <td style="font-size:12px;">${trackLv}</td>
+              <td style="font-size:11px;">${grant} ×${Number(o.amount || 1)}</td>
+              <td>${statusBadge(o.status)}${o.last_error ? `<div style="font-size:10px;color:var(--danger);max-width:180px;" title="${escHtml(o.last_error)}">${escHtml(String(o.last_error).slice(0, 48))}${String(o.last_error).length > 48 ? "…" : ""}</div>` : ""}</td>
+              <td style="font-size:11px;">${fmtDate(o.created_at)}</td>
+              <td>
+                <div class="order-admin-actions">
+                  <button class="btn btn-ghost btn-sm" onclick="viewAdminOrderDetails('${escHtml(o.order_id)}')">Detalhes</button>
+                  <button class="btn btn-primary btn-sm" onclick="adminResendOrder('${escHtml(o.order_id)}')">REENVIAR</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function loadSeasonlandOpsAudit() {
+  const el = document.getElementById("sl-ops-audit-list");
+  if (!el) return;
+  const steam = document.getElementById("sl-ops-filter-steam")?.value?.trim() || "";
+  const eventType = document.getElementById("sl-ops-filter-event")?.value || "season_pass";
+  let url = `${API}/api/admin/audit?limit=${_slOpsAuditPage.limit}&offset=${_slOpsAuditPage.offset}&event_type=${encodeURIComponent(eventType)}`;
+  if (steam) {
+    if (typeof isSteamId64 === "function" && isSteamId64(steam)) url += `&steam_id=${encodeURIComponent(steam)}`;
+    else url += `&order_id=${encodeURIComponent(steam)}`;
+  }
+  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    _slOpsAuditPage.total = d.total || 0;
+    const pageNum = Math.floor(_slOpsAuditPage.offset / _slOpsAuditPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_slOpsAuditPage.total / _slOpsAuditPage.limit));
+    const info = document.getElementById("sl-ops-audit-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_slOpsAuditPage.total})`;
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2)">Nenhum evento SeasonLand.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <table class="tbl">
+        <thead><tr>
+          <th>Data</th><th>Tipo</th><th>Sev.</th><th>Ator</th><th>Alvo</th><th>Pedido</th><th>Resumo</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${items.map(e => `
+            <tr>
+              <td style="font-size:11px;">${fmtDate(e.created_at)}</td>
+              <td><code style="font-size:10px;">${escHtml(e.event_type)}</code>
+                <span class="badge badge-seasonland">SeasonLand</span></td>
+              <td>${escHtml(e.severity || "")}</td>
+              <td style="font-size:10px;">${escHtml((e.actor_steam_id || e.actor_type || "").substring(0,12))}</td>
+              <td style="font-size:10px;">${escHtml((e.target_steam_id || "").substring(0,12))}</td>
+              <td><code style="font-size:10px;">${e.order_id ? escHtml(e.order_id.substring(0,8)) + "…" : "—"}</code></td>
+              <td style="font-size:11px;">${escHtml(e.message || e.item_id || "")}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick="viewAuditDetail(${e.id})">🔍</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+  }
+}
+
 // ── Admin: Gerenciar Jogadores ───────────────────────────────────────────────
 
 let _playersAdminPage = { offset: 0, limit: 40, total: 0 };
 let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;
+let _playersAdminDeliverCatalog = null;
 let _playersAdminDetailAbort = null;
 let _playersAdminHeavyAbort = null;
 let _playersAdminListAbort = null;
@@ -26383,29 +26934,43 @@ async function loadMyTeam() {
           Honra da equipe: ${Number(ms.team_honor ?? lifetime).toLocaleString("pt-BR")} XP
           · progresso no marco: ${Math.max(0, lifetime - prev)} / ${Number(m.xp_required || 0)}
         </div>
-        <div style="margin-top:8px;font-size:12px;"><strong>Recursos a depositar</strong> (aplicado ao marco vs exigido)</div>
-        <div style="margin-top:4px;">${(ms.resources || []).map(r => {
-          const label = r.label_pt || r.key;
-          const meta = teamsResMeta(r.key, catalog) || r;
-          return `<div class="tm-res-row">
-            <span class="tm-res-label">${teamsResIcon(meta, label)} ${escHtml(label)}: <strong>${r.committed ?? r.have}</strong>/${r.required} ${r.ok ? "✓" : ""}
-              <span style="color:var(--text2);">(armazém ${r.warehouse ?? 0})</span></span>
-            ${canCommit && (r.warehouse || 0) > 0 ? `<button class="btn btn-ghost btn-sm" onclick="teamsCommitResource('${escHtml(r.key)}',${Math.max(1, Math.min(r.warehouse||0, Math.max(0, r.required - (r.committed||r.have||0)) || (r.warehouse||0)))})">Aplicar ao marco</button>` : ""}
-          </div>`;
-        }).join("") || "<em style=\"color:var(--text2);\">Sem recursos neste marco</em>"}</div>
+        <div style="margin-top:8px;font-size:12px;"><strong>Aplicar ao marco</strong> — aplicado / necessário</div>
+        ${(ms.resources || []).length
+          ? `<div class="tm-res-grid">${(ms.resources || []).map(r => {
+              const label = r.label_pt || r.key;
+              const meta = teamsResMeta(r.key, catalog) || r;
+              const committed = Number(r.committed ?? r.have ?? 0);
+              const required = Number(r.required || 0);
+              const whHave = Number(r.warehouse || 0);
+              const needLeft = Math.max(0, required - committed);
+              const suggest = Math.max(1, Math.min(whHave, needLeft || whHave));
+              const applyBtn = canCommit && whHave > 0
+                ? `<button type="button" class="btn btn-ghost btn-sm" title="Armazém: ${whHave.toLocaleString("pt-BR")}" onclick="teamsCommitResource('${escHtml(r.key)}',${suggest})">APLICAR</button>`
+                : (canCommit ? `<button type="button" class="btn btn-ghost btn-sm" disabled title="Sem stock no armazém">APLICAR</button>` : "");
+              return `<div class="tm-res-cell${r.ok ? " is-ok" : ""}" title="${escHtml(label)} · armazém ${whHave.toLocaleString("pt-BR")}">
+                ${teamsResIcon(meta, label, "tm-res-icon--lg")}
+                <span class="tm-res-cell__name">${escHtml(label)}${r.ok ? " ✓" : ""}</span>
+                <span class="tm-res-cell__qty"><strong>${committed.toLocaleString("pt-BR")}</strong> / ${required.toLocaleString("pt-BR")}</span>
+                ${applyBtn}
+              </div>`;
+            }).join("")}</div>`
+          : "<em style=\"color:var(--text2);\">Sem recursos neste marco</em>"}
         ${ms.can_complete ? `<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsCompleteMilestone()">Concluir marco</button>` : ""}`;
     }
+    const whCaps = bank.warehouse_caps || data.warehouse_caps || {};
     const whEntries = Object.entries(warehouse).filter(([, q]) => Number(q) > 0);
     const whHtml = whEntries.length
-      ? whEntries.map(([k, q]) => {
+      ? `<div class="tm-res-grid">${whEntries.map(([k, q]) => {
           const tip = (ms && ms.resources || []).find(r => r.key === k);
           const meta = tip || teamsResMeta(k, catalog) || {};
           const label = tip?.label_pt || meta.label_pt || k;
-          return `<div class="tm-res-row">
-            <span class="tm-res-label">${teamsResIcon(meta, label)} ${escHtml(label)}: <strong>${Number(q).toLocaleString("pt-BR")}</strong></span>
-            ${canCommit && tip ? `<button class="btn btn-ghost btn-sm" onclick="teamsCommitResource('${escHtml(k)}')">Aplicar ao marco</button>` : ""}
+          const capRaw = whCaps[k] ?? meta.warehouse_cap ?? meta.cap;
+          return `<div class="tm-res-cell" title="${escHtml(label)}">
+            ${teamsResIcon(meta, label, "tm-res-icon--lg")}
+            <span class="tm-res-cell__name">${escHtml(label)}</span>
+            <span class="tm-res-cell__qty">${teamsWarehouseQtyLabel(q, capRaw)}</span>
           </div>`;
-        }).join("")
+        }).join("")}</div>`
       : "<em style=\"color:var(--text2);\">Armazém vazio — deposite via /marco (catálogo de 10 raros).</em>";
     const memberRows = members.map(m => {
       const rl = (m.role_labels || []).join(", ") || "Membro";
@@ -26998,13 +27563,26 @@ async function teamsRankBlockPlayer(blocked) {
 let _teamsWarehouseCatalog = [];
 let _teamsWarehouseDefaults = [];
 
-function teamsResIcon(rOrUrl, label) {
+function teamsResIcon(rOrUrl, label, extraClass) {
   const url = typeof rOrUrl === "string"
     ? rOrUrl
     : (rOrUrl && (rOrUrl.icon_url || rOrUrl.iconUrl)) || "";
   if (!url) return "";
   const alt = escHtml(label || (rOrUrl && rOrUrl.label_pt) || "");
-  return `<img class="tm-res-icon" src="${escHtml(url)}" alt="${alt}" width="22" height="22" loading="lazy" />`;
+  const cls = "tm-res-icon" + (extraClass ? " " + extraClass : "");
+  const lg = extraClass && String(extraClass).includes("lg");
+  const wh = lg ? 48 : 22;
+  return `<img class="${cls}" src="${escHtml(url)}" alt="${alt}" width="${wh}" height="${wh}" loading="lazy" />`;
+}
+
+/** qty + optional warehouse_cap (API). Sem cap → só quantidade; cap null explícito → qty / ∞. */
+function teamsWarehouseQtyLabel(qty, cap) {
+  const q = Number(qty || 0).toLocaleString("pt-BR");
+  if (cap === undefined) return `<strong>${q}</strong>`;
+  if (cap === null || cap === "") return `<strong>${q}</strong> / ∞`;
+  const n = Number(cap);
+  if (!Number.isFinite(n) || n < 0) return `<strong>${q}</strong> / ∞`;
+  return `<strong>${q}</strong> / ${n.toLocaleString("pt-BR")}`;
 }
 
 /** Copy of what completing the current/next marco unlocks (from milestone config). */
@@ -27020,6 +27598,10 @@ function teamsMilestoneDeliverablesHtml(m, opts) {
     if (cur != null && mmu > cur) parts.push(`+${mmu - cur} membros (cap → ${mmu})`);
     else if (cur != null && mmu <= cur) parts.push(`cap de membros já ≥ ${mmu}`);
     else parts.push(`cap de membros → ${mmu}`);
+  }
+  const wcuRaw = m.warehouse_cap_unlock;
+  if (wcuRaw != null && wcuRaw !== "" && Number(wcuRaw) > 0) {
+    parts.push(`teto armazém ≥ ${Number(wcuRaw).toLocaleString("pt-BR")}`);
   }
   const desc = String(m.description || "").trim();
   if (!parts.length && !desc) {
@@ -27043,6 +27625,9 @@ function teamsMilestoneDeliverablesSummary(m) {
   if (pp > 0) bits.push(`+${pp}% Â`);
   if (m.max_members_unlock != null && Number(m.max_members_unlock) > 0) {
     bits.push(`cap membros ${Number(m.max_members_unlock)}`);
+  }
+  if (m.warehouse_cap_unlock != null && Number(m.warehouse_cap_unlock) > 0) {
+    bits.push(`cap armazém ${Number(m.warehouse_cap_unlock)}`);
   }
   return bits.length ? `entrega: ${bits.join(", ")}` : "entrega: —";
 }
@@ -27160,6 +27745,7 @@ async function loadTeamsAdmin() {
 async function teamsAdminSaveMilestone() {
   const resources = teamsAdminCollectResources();
   const mmuRaw = document.getElementById("tm-ms-mmu")?.value;
+  const wcuRaw = document.getElementById("tm-ms-wcu")?.value;
   try {
     const d = await fetchJson("/api/admin/teams/milestones", {
       method: "POST",
@@ -27171,12 +27757,28 @@ async function teamsAdminSaveMilestone() {
         amber_bonus_pp: parseInt(document.getElementById("tm-ms-amber-bonus-pp")?.value || "2", 10),
         resources,
         max_members_unlock: mmuRaw ? parseInt(mmuRaw, 10) : null,
+        warehouse_cap_unlock: wcuRaw ? parseInt(wcuRaw, 10) : null,
         status: "DRAFT",
       },
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Marco salvo");
     loadTeamsAdmin();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsAdminPayRankingPrizes(kind) {
+  const label = kind === "players" ? "jogadores" : "equipas";
+  if (!confirm(`Pagar prémios top-1/2/3 do ranking de ${label} (valores em Configurações)?`)) return;
+  try {
+    const d = await fetchJson("/api/admin/teams/ranking-prizes/pay", {
+      method: "POST",
+      body: { kind: kind || "teams" },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    const paid = (d.data && d.data.paid) || [];
+    const skipped = (d.data && d.data.skipped) || [];
+    toast(`Prémios ${label}: ${paid.length} pagos, ${skipped.length} ignorados`);
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27358,6 +27960,7 @@ function closePlayerAdminPanel() {
   if (panel) { panel.classList.add("hidden"); panel.innerHTML = ""; }
   if (layout) layout.classList.remove("has-panel");
   _playersAdminDetail = null;
+  _playersAdminDeliverCatalog = null;
   if (_playersAdminHeavyAbort) {
     try { _playersAdminHeavyAbort.abort(); } catch (_) {}
     _playersAdminHeavyAbort = null;
@@ -27424,6 +28027,7 @@ function _mergePlayerAdminHeavy(base, heavy) {
   merged.license_catalog = base?.license_catalog || [];
   merged.staff_role_catalog = base?.staff_role_catalog || [];
   merged.kit_catalog = base?.kit_catalog || [];
+  merged.deliver_catalog = base?.deliver_catalog || heavy?.deliver_catalog || null;
   return merged;
 }
 
@@ -27480,9 +28084,12 @@ function renderPlayerAdminPanel(d) {
   const staffChips = (p.staff_roles || []).map(e =>
     `<span class="license-chip" style="border-color:rgba(0,200,255,.35);color:var(--cyan);" title="permanente">${escHtml(e.group === "Moderacao" ? "MOD" : e.group)}</span>`
   ).join("") || `<span style="color:var(--text2);font-size:12px;">Nenhum</span>`;
-  const kitOpts = (d.kit_catalog || []).map(k =>
-    `<option value="${escHtml(k.kit_id)}">${escHtml(k.label)}</option>`
-  ).join("");
+  const deliverCatalog = d.deliver_catalog || {
+    items: [],
+    dinos: [],
+    dinos200: [],
+    kits: (d.kit_catalog || []).map(k => ({ item_id: k.kit_id, label: k.label, price: k.price })),
+  };
   const entChips = (p.entitlements || []).map(e =>
     `<span class="license-chip" title="${escHtml(e.expires_at || 'permanente')}">${escHtml(e.group)}</span>`
   ).join("") || `<span style="color:var(--text2);font-size:12px;">Nenhuma</span>`;
@@ -27597,19 +28204,32 @@ function renderPlayerAdminPanel(d) {
       </div>
     </div>
     <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
-      <div style="font-weight:600;margin-bottom:8px;">Kit</div>
+      <div style="font-weight:600;margin-bottom:8px;">Entregar do catálogo</div>
+      <p style="font-size:11px;color:var(--text2);margin:0 0 10px;">Cria pedido PENDENTE (como resgate) — jogador recebe via /shop ou entrega automática. Licenças: use o bloco acima.</p>
       <div class="form-group" style="margin-bottom:8px;">
-        <select id="pa-kit-id">${kitOpts}</select>
+        <label style="font-size:11px;color:var(--text2);">Categoria</label>
+        <select id="pa-deliver-category" onchange="playerAdminDeliverCategoryChanged()">
+          <option value="items">📦 Itens</option>
+          <option value="dinos">🦕 Dinos</option>
+          <option value="dinos200">🦖 Dinos 200</option>
+          <option value="kits">🎁 Kits</option>
+        </select>
       </div>
       <div class="form-group" style="margin-bottom:8px;">
-        <input id="pa-kit-amount" type="number" min="1" value="1" />
+        <input id="pa-deliver-search" type="search" placeholder="Buscar SKU ou nome…" autocomplete="off" oninput="playerAdminFilterDeliverSkus()" />
       </div>
       <div class="form-group" style="margin-bottom:8px;">
-        <input id="pa-kit-reason" type="text" placeholder="Motivo" />
+        <select id="pa-deliver-id"></select>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-deliver-amount" type="number" min="1" value="1" aria-label="Quantidade" />
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-deliver-reason" type="text" placeholder="Motivo" />
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn btn-success btn-sm" onclick="playerAdminKit('deliver')">🚚 Entregar</button>
-        <button class="btn btn-ghost btn-sm" onclick="playerAdminKit('stash')">📦 Stash</button>
+        <button class="btn btn-success btn-sm" onclick="playerAdminCatalogDeliver()">🚚 Entregar</button>
+        <button id="pa-deliver-stash-btn" class="btn btn-ghost btn-sm" style="display:none;" onclick="playerAdminKit('stash')">📦 Stash (kit)</button>
       </div>
     </div>
     ${kitLimitsBlock}
@@ -27621,7 +28241,9 @@ function renderPlayerAdminPanel(d) {
     <div style="font-size:11px;color:var(--text2);">
       Listings mercado: ${Number(p.listings_count||0)} · Cadastro: ${p.created_at ? new Date(p.created_at).toLocaleString("pt-BR") : "—"}
     </div>`;
+  _playersAdminDeliverCatalog = deliverCatalog;
   _syncPlayerAdminLicenseDays();
+  playerAdminDeliverCategoryChanged();
 }
 
 async function playerAdminPoints(mode) {
@@ -27703,21 +28325,96 @@ async function playerAdminLicense(action) {
   } else toast(d.error || "Falha", "error");
 }
 
-async function playerAdminKit(mode) {
+function _playerAdminDeliverSkusForCategory(category) {
+  const cat = String(category || "items");
+  const catalog = _playersAdminDeliverCatalog || _playersAdminDetail?.deliver_catalog || {};
+  const list = catalog[cat] || [];
+  return Array.isArray(list) ? list : [];
+}
+
+function playerAdminDeliverCategoryChanged() {
+  const cat = document.getElementById("pa-deliver-category")?.value || "items";
+  const searchEl = document.getElementById("pa-deliver-search");
+  if (searchEl) searchEl.value = "";
+  const stashBtn = document.getElementById("pa-deliver-stash-btn");
+  if (stashBtn) stashBtn.style.display = cat === "kits" ? "" : "none";
+  playerAdminFilterDeliverSkus();
+}
+
+function playerAdminFilterDeliverSkus() {
+  const cat = document.getElementById("pa-deliver-category")?.value || "items";
+  const q = (document.getElementById("pa-deliver-search")?.value || "").trim().toLowerCase();
+  const sel = document.getElementById("pa-deliver-id");
+  if (!sel) return;
+  const prev = sel.value;
+  const rows = _playerAdminDeliverSkusForCategory(cat).filter((row) => {
+    if (!q) return true;
+    const hay = `${row.item_id || ""} ${row.label || ""}`.toLowerCase();
+    return hay.includes(q);
+  });
+  if (!rows.length) {
+    sel.innerHTML = `<option value="">Nenhum SKU nesta categoria</option>`;
+    return;
+  }
+  sel.innerHTML = rows.map((row) =>
+    `<option value="${escHtml(row.item_id)}">${escHtml(row.label || row.item_id)} (${escHtml(row.item_id)})</option>`
+  ).join("");
+  if (prev && rows.some((r) => r.item_id === prev)) sel.value = prev;
+}
+
+async function playerAdminCatalogDeliver() {
   if (!_playersAdminSelected) return;
-  const kit_id = document.getElementById("pa-kit-id")?.value || "";
-  const amount = parseInt(document.getElementById("pa-kit-amount")?.value || "1", 10);
-  const reason = document.getElementById("pa-kit-reason")?.value?.trim() || "";
-  if (!kit_id) { toast("Selecione um kit", "error"); return; }
-  if (!confirm(mode === "deliver" ? `Entregar kit ${kit_id}?` : `Adicionar ${amount}x ${kit_id} ao stash?`)) return;
-  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/kits", {
+  const category = document.getElementById("pa-deliver-category")?.value || "items";
+  const item_id = document.getElementById("pa-deliver-id")?.value || "";
+  const amount = parseInt(document.getElementById("pa-deliver-amount")?.value || "1", 10);
+  const reason = document.getElementById("pa-deliver-reason")?.value?.trim() || "";
+  if (!item_id) { toast("Selecione um SKU", "error"); return; }
+  const catLabel = ({ items: "item", dinos: "dino", dinos200: "dino 200", kits: "kit" })[category] || category;
+  if (!confirm(`Entregar ${catLabel} «${item_id}» ×${amount}?`)) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/deliver", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode, kit_id, amount, reason }),
+    body: JSON.stringify({ category, item_id, amount, reason }),
   });
   const d = await r.json();
   if (d.ok) {
-    toast(mode === "deliver" ? "Kit enfileirado para entrega." : "Kit adicionado ao stash.", "success");
+    toast("Enfileirado para entrega (PENDENTE). Jogador pode usar /shop.", "success");
+    reloadPlayerAdminAfterMutation();
+  } else toast(d.error || "Falha", "error");
+}
+
+async function playerAdminKit(mode) {
+  if (!_playersAdminSelected) return;
+  // Stash ainda usa o endpoint /kits; entrega preferencialmente via /deliver.
+  const kit_id = document.getElementById("pa-deliver-id")?.value
+    || document.getElementById("pa-kit-id")?.value
+    || "";
+  const amount = parseInt(
+    document.getElementById("pa-deliver-amount")?.value
+      || document.getElementById("pa-kit-amount")?.value
+      || "1",
+    10,
+  );
+  const reason = (
+    document.getElementById("pa-deliver-reason")?.value
+    || document.getElementById("pa-kit-reason")?.value
+    || ""
+  ).trim();
+  if (!kit_id) { toast("Selecione um kit", "error"); return; }
+  if (mode === "deliver") {
+    const catEl = document.getElementById("pa-deliver-category");
+    if (catEl) catEl.value = "kits";
+    return playerAdminCatalogDeliver();
+  }
+  if (!confirm(`Adicionar ${amount}x ${kit_id} ao stash?`)) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/kits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "stash", kit_id, amount, reason }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast("Kit adicionado ao stash.", "success");
     reloadPlayerAdminAfterMutation();
   } else toast(d.error || "Falha", "error");
 }

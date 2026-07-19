@@ -171,11 +171,30 @@ def register_team_routes(
         from team_service import (
             DEFAULT_AMBER_BONUS_CAP,
             DEFAULT_AMBER_BONUS_PP,
+            DEFAULT_MARCO_PREVIEW_TTL_SEC,
+            DEFAULT_RANKING_PRIZE_1,
+            DEFAULT_RANKING_PRIZE_2,
+            DEFAULT_RANKING_PRIZE_3,
+            DEFAULT_RENAME_COOLDOWN_HOURS,
+            DEFAULT_RENAME_COST_AMBER,
+            DEFAULT_WAREHOUSE_CAP,
             FOUNDING_FEE_AMBER,
+            LOTTERY_NUMBERS_PER_MEMBER,
             LOTTERY_SHORTFALL_REFUND_AMBER,
             MAX_SPECIAL_ROLES,
+            SPLIT_DEFAULT_SENDER_PCT,
             default_max_members,
             founding_fee_amber,
+            lottery_numbers_per_member,
+            marco_preview_ttl_sec,
+            market_split_pool_pct,
+            market_split_sender_pct,
+            max_special_roles,
+            ranking_prize_amounts,
+            ranking_prizes_enabled,
+            rename_cooldown_hours,
+            rename_cost_amber,
+            warehouse_cap_default,
         )
         return _ok({
             "enabled": teams_enabled(),
@@ -183,7 +202,28 @@ def register_team_routes(
             "founding_fee": founding_fee_amber(),
             "founding_fee_default": FOUNDING_FEE_AMBER,
             "founding_first_free": True,
-            "max_special_roles": MAX_SPECIAL_ROLES,
+            "max_special_roles": max_special_roles(),
+            "max_special_roles_default": MAX_SPECIAL_ROLES,
+            "lottery_numbers_per_member": lottery_numbers_per_member(),
+            "lottery_numbers_per_member_default": LOTTERY_NUMBERS_PER_MEMBER,
+            "marco_preview_ttl_sec": marco_preview_ttl_sec(),
+            "marco_preview_ttl_sec_default": DEFAULT_MARCO_PREVIEW_TTL_SEC,
+            "rename_cooldown_hours": rename_cooldown_hours(),
+            "rename_cooldown_hours_default": DEFAULT_RENAME_COOLDOWN_HOURS,
+            "rename_cost_amber": rename_cost_amber(),
+            "rename_cost_amber_default": DEFAULT_RENAME_COST_AMBER,
+            "market_split_sender_pct": market_split_sender_pct(),
+            "market_split_pool_pct": market_split_pool_pct(),
+            "market_split_sender_pct_default": SPLIT_DEFAULT_SENDER_PCT,
+            "warehouse_cap_default": warehouse_cap_default(),
+            "warehouse_cap_default_value": DEFAULT_WAREHOUSE_CAP,
+            "ranking_prizes_enabled": ranking_prizes_enabled(),
+            "ranking_prizes": ranking_prize_amounts(),
+            "ranking_prize_defaults": {
+                "1": DEFAULT_RANKING_PRIZE_1,
+                "2": DEFAULT_RANKING_PRIZE_2,
+                "3": DEFAULT_RANKING_PRIZE_3,
+            },
             "amber_bonus_mode": "additive",  # Q7: stacks additively; unlocked via marcos
             "amber_bonus_pp_default": DEFAULT_AMBER_BONUS_PP,
             "amber_bonus_cap_default": DEFAULT_AMBER_BONUS_CAP,
@@ -810,9 +850,10 @@ def register_team_routes(
             return _fail("DB não disponível", 503)
         db = _db()
         try:
-            from team_service import get_team, team_amber_bonus_pct
+            from team_service import get_team, marco_preview_ttl_sec, team_amber_bonus_pct
             sid = str(steam_id or "").strip()
             mem = get_active_membership(db, sid) if sid else None
+            ttl = marco_preview_ttl_sec()
             if not mem:
                 return _ok({
                     "active": False,
@@ -820,6 +861,7 @@ def register_team_routes(
                     "team_id": None,
                     "amber_bonus_pct": 0,
                     "amber_bonus_mode": "additive",
+                    "marco_preview_ttl_sec": ttl,
                 })
             tid = int(mem["team_id"])
             team = get_team(db, tid) or {}
@@ -832,6 +874,7 @@ def register_team_routes(
                 "role": mem.get("role"),
                 "amber_bonus_pct": pct,
                 "amber_bonus_mode": "additive",
+                "marco_preview_ttl_sec": ttl,
             })
         except Exception as exc:
             return _fail(str(exc), 500)
@@ -1271,6 +1314,7 @@ def register_team_routes(
                 xp_required=int(body.get("xp_required") or 0),
                 resources=body.get("resources") or [],
                 max_members_unlock=body.get("max_members_unlock"),
+                warehouse_cap_unlock=body.get("warehouse_cap_unlock"),
                 amber_bonus_pp=(
                     int(body["amber_bonus_pp"])
                     if body.get("amber_bonus_pp") is not None and body.get("amber_bonus_pp") != ""
@@ -1280,6 +1324,30 @@ def register_team_routes(
             ))
         except (ValueError, PermissionError) as exc:
             return _fail(str(exc))
+        finally:
+            db.close()
+
+    @app.route("/api/admin/teams/ranking-prizes/pay", methods=["POST"])
+    @admin_required
+    def admin_teams_ranking_prizes_pay():
+        """Staff: pagar prémios top-1/2/3 do ranking (equipas ou jogadores)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            from team_service import pay_ranking_prizes
+            return _ok(pay_ranking_prizes(
+                db,
+                kind=str(body.get("kind") or "teams"),
+                period_key=body.get("period_key"),
+                actor_steam_id=str(_sid() or ""),
+                force=bool(body.get("force")),
+            ))
+        except (ValueError, PermissionError, RuntimeError) as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
         finally:
             db.close()
 

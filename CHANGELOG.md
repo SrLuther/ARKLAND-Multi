@@ -5,6 +5,38 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased] - 2026-07-19
+
+### Feature
+
+- Feat (Web Store / Equipes): política anti-abuso do sorteio teams_lottery_post_confirm_policy (padrão freeze) — após confirmar, bloqueia kick/entrada até o draw; saída perde N números (teams_lottery_numbers_per_member); forfeit_on_depart / legacy_keep; UI Admin Configurações.
+- Feat (Web Store / Admin): Gerenciar Jogadores — entrega do catálogo completo (Itens, Dinos, Dinos 200, Kits) via seletor + busca + qty/motivo → pedido PENDENTE (mesmo fluxo do kit); POST /api/admin/players/<id>/deliver; audit admin_player_item_deliver / admin_player_dino_deliver / admin_player_kit_deliver; licenças continuam no bloco Conceder/Revogar.
+- Feat (Web Store / SeasonLand): área admin dedicada «SeasonLand — Ops» (nav) — claims/eventos season_pass_*, fila sp:/skip-kit|sp:, filtros steam/status/track/level/data, badge SeasonLand, REENVIAR + resend Â/item; GET /api/admin/season-pass/orders; Pedidos oculta SeasonLand por omissão (toggle Incluir SeasonLand + link Ops).
+
+### Other
+
+- Test (Web Store / Equipes): freeze bloqueia kick/join; leave forfeit; forfeit_on_depart no kick; legacy_keep Q9.
+- Test (Web Store / Admin): entrega admin item + dino L1 + dino200 + kit; rejeita licença via /deliver; deliver_catalog no detalhe do jogador.
+- Test (Web Store / SeasonLand): list ops orders + Pedidos hide/include SP.
+
+## [1.10.76] - 2026-07-19
+
+### Feature
+
+- Feat (Web Store / SeasonLand): recovery stale ENTREGANDO shop/kit (sp:) — config shop_stale_entregando_minutes; auto → PENDENTE + last_error + audit shop_stale_entregando_recovered (espelha custom_dino).
+- Feat (Web Store / CustomShop 1.10.27): release com fail_reason; após N falhas idênticas (shop_identical_fail_max, default 5) → ERRO + audit staff (não reabre PENDENTE forever).
+- Feat (Web Store / SeasonLand): delivery_state real (queued/delivering/delivered/failed/partial) nas tracks e Minha Área/Disponível; toast claim enfileirado (warning); /shop = forçar entrega agora; in_game_delivered deprecated.
+- Feat (Web Store / SeasonLand): estado parcial Â OK + item pendente; admin resend missing_only (só catálogo em falta/ERRO); GET /api/admin/season-pass/sku-health + delivery-metrics (ops painel).
+- Feat (Web Store / Equipes): armazém e «Aplicar ao marco» em grelha com ícone — qty (ou qty/cap se API tiver warehouse_caps) e aplicado/necessário + APLICAR.
+
+### Fix
+
+- Fix (Equipes / armazém): ícones element_ore ↔ element_dust (Minério / Pó) estavam invertidos.
+
+### Other
+
+- Test (Web Store / SeasonLand): 10 testes Phase A/B — stale shop/kit, ERRO após N, flags queued, available status, partial, sku sync, metrics, reclaim missing.
+
 ## [1.10.75] - 2026-07-19
 
 ### Feature

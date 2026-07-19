@@ -47,7 +47,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import HTTPException
-from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, create_engine, text
+from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, and_, create_engine, or_, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
@@ -2489,6 +2489,10 @@ def _load_settings() -> Dict[str, Any]:
         "delivery_mode": "plugin",
         "server_id": "default",
         "retry_max_attempts": 10,
+        # Shop/kit (plugin): minutos para reabrir ENTREGANDO preso (0 = off).
+        "shop_stale_entregando_minutes": 5,
+        # Após N releases com o mesmo fail_reason → ERRO (não reabrir forever).
+        "shop_identical_fail_max": 5,
         "database_url": "",
         "db_host": "",
         "db_port": 3306,
@@ -2505,6 +2509,7 @@ def _load_settings() -> Dict[str, Any]:
         "boleto_mp_enabled": False,
         "boleto_manual_enabled": False,
         "boleto_manual_instructions": DEFAULT_BOLETO_MANUAL_INSTRUCTIONS,
+        "teams_lottery_post_confirm_policy": "freeze",
     }
     if _STATE_FILE.exists():
         try:
@@ -2991,6 +2996,7 @@ def _get_admin_player_detail(
             "license_catalog": _catalog_license_options(),
             "staff_role_catalog": _staff_role_catalog(),
             "kit_catalog": _catalog_kit_options(),
+            "deliver_catalog": _admin_deliver_catalog_payload(),
         }
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         if elapsed_ms >= 500:
@@ -3108,6 +3114,7 @@ def _admin_player_detail_partial(
         "license_catalog": _catalog_license_options(),
         "staff_role_catalog": _staff_role_catalog(),
         "kit_catalog": _catalog_kit_options(),
+        "deliver_catalog": _admin_deliver_catalog_payload(),
     }
 
 
@@ -3400,6 +3407,7 @@ def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
                 "license_catalog": _catalog_license_options(),
                 "staff_role_catalog": _staff_role_catalog(),
                 "kit_catalog": _catalog_kit_options(),
+                "deliver_catalog": _admin_deliver_catalog_payload(),
             }
 
     box: dict[str, Any] = {}
@@ -3479,6 +3487,7 @@ def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
         "license_catalog": _catalog_license_options(),
         "staff_role_catalog": _staff_role_catalog(),
         "kit_catalog": _catalog_kit_options(),
+        "deliver_catalog": _admin_deliver_catalog_payload(),
     }
 
 
@@ -3557,6 +3566,7 @@ def _count_catalog_license_items(data: dict[str, Any]) -> int:
 _RICHEST_LICENSE_CONFIG_CACHE: dict[str, Any] = {"fingerprint": "", "data": None}
 _LICENSE_OPTIONS_CACHE: dict[str, Any] = {"fingerprint": "", "items": None}
 _KIT_OPTIONS_CACHE: dict[str, Any] = {"fingerprint": "", "items": None}
+_SHOP_DELIVER_OPTIONS_CACHE: dict[str, Any] = {"fingerprint": "", "data": None}
 
 
 def _catalog_files_fingerprint() -> str:
@@ -3675,6 +3685,95 @@ def _catalog_kit_options() -> list[dict[str, Any]]:
     _KIT_OPTIONS_CACHE["fingerprint"] = fingerprint
     _KIT_OPTIONS_CACHE["items"] = out
     return out
+
+
+def _catalog_entry_dino_level(entry: dict[str, Any]) -> int:
+    """Nível do dino no catálogo (Dinos[0].Level ou dino_level enriquecido)."""
+    if not isinstance(entry, dict):
+        return 1
+    raw = entry.get("dino_level")
+    if raw is not None:
+        try:
+            n = int(raw or 1)
+            return n if n > 0 else 1
+        except (TypeError, ValueError):
+            pass
+    dinos = entry.get("Dinos") or []
+    if isinstance(dinos, list) and dinos and isinstance(dinos[0], dict):
+        try:
+            n = int(dinos[0].get("Level") or 1)
+            return n if n > 0 else 1
+        except (TypeError, ValueError):
+            return 1
+    return 1
+
+
+def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
+    """SKUs resgatáveis do catálogo Items, alinhados às abas Itens / Dinos / Dinos 200."""
+    fingerprint = _catalog_files_fingerprint()
+    cached = _SHOP_DELIVER_OPTIONS_CACHE.get("data")
+    if (
+        fingerprint
+        and _SHOP_DELIVER_OPTIONS_CACHE.get("fingerprint") == fingerprint
+        and isinstance(cached, dict)
+    ):
+        return cached
+    items_map = _catalog_item_map(_read_shop_config())
+    items_out: list[dict[str, Any]] = []
+    dinos_out: list[dict[str, Any]] = []
+    dinos200_out: list[dict[str, Any]] = []
+    for key, entry in items_map.items():
+        if not isinstance(entry, dict):
+            continue
+        if _is_catalog_license_item(entry, key):
+            continue
+        label = str(entry.get("Description") or entry.get("Name") or key).strip() or key
+        price = int(entry.get("Price", 0) or 0)
+        typ = str(entry.get("Type") or "item").lower()
+        row: dict[str, Any] = {
+            "item_id": key,
+            "label": label,
+            "price": price,
+            "type": typ,
+        }
+        if typ == "dino":
+            level = _catalog_entry_dino_level(entry)
+            row["dino_level"] = level
+            if level == 200:
+                dinos200_out.append(row)
+            else:
+                if level != 1:
+                    row["label"] = f"{label} (Nv.{level})"
+                dinos_out.append(row)
+        else:
+            items_out.append(row)
+    items_out.sort(key=lambda x: x["label"].lower())
+    dinos_out.sort(key=lambda x: x["label"].lower())
+    dinos200_out.sort(key=lambda x: x["label"].lower())
+    result = {"items": items_out, "dinos": dinos_out, "dinos200": dinos200_out}
+    _SHOP_DELIVER_OPTIONS_CACHE["fingerprint"] = fingerprint
+    _SHOP_DELIVER_OPTIONS_CACHE["data"] = result
+    return result
+
+
+def _admin_deliver_catalog_payload() -> dict[str, Any]:
+    """Payload único para o seletor admin: itens, dinos, dinos200 e kits."""
+    shop = _catalog_shop_deliver_options()
+    kits = [
+        {
+            "item_id": k["kit_id"],
+            "label": k["label"],
+            "price": int(k.get("price") or 0),
+            "type": "kit",
+        }
+        for k in _catalog_kit_options()
+    ]
+    return {
+        "items": list(shop.get("items") or []),
+        "dinos": list(shop.get("dinos") or []),
+        "dinos200": list(shop.get("dinos200") or []),
+        "kits": kits,
+    }
 
 
 def _subtract_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
@@ -4328,6 +4427,96 @@ def _admin_player_kit(
     return {"ok": False, "error": f"Modo inválido: {mode}"}
 
 
+def _admin_player_catalog_deliver(
+    steam_id: str,
+    *,
+    category: str,
+    item_id: str,
+    amount: int = 1,
+    reason: str = "",
+) -> dict[str, Any]:
+    """Enfileira entrega admin de qualquer SKU resgatável (itens, dinos, dinos200, kits)."""
+    steam_id = str(steam_id or "").strip()
+    item_id = str(item_id or "").strip()
+    amount = max(1, int(amount or 1))
+    category = str(category or "").strip().lower()
+    reason = str(reason or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not item_id:
+        return {"ok": False, "error": "item_id obrigatório"}
+
+    if category in ("kit", "kits"):
+        return _admin_player_kit(
+            steam_id, mode="deliver", kit_id=item_id, amount=amount, reason=reason,
+        )
+
+    cat_aliases = {
+        "item": "items",
+        "dino": "dinos",
+        "dinos_200": "dinos200",
+        "dino200": "dinos200",
+    }
+    category = cat_aliases.get(category, category)
+    if category not in ("items", "dinos", "dinos200"):
+        return {"ok": False, "error": f"Categoria inválida: {category}"}
+
+    entry = _catalog_entry("shop", item_id)
+    if not entry:
+        return {"ok": False, "error": f"SKU «{item_id}» não encontrado no catálogo"}
+
+    typ = str(entry.get("Type") or "item").lower()
+    if category in ("dinos", "dinos200"):
+        if typ != "dino":
+            return {"ok": False, "error": f"«{item_id}» não é um dino do catálogo"}
+        level = _catalog_entry_dino_level(entry)
+        if category == "dinos200" and level != 200:
+            return {
+                "ok": False,
+                "error": f"«{item_id}» não é Dino 200 (nível {level})",
+            }
+        if category == "dinos" and level == 200:
+            return {"ok": False, "error": "Use a categoria Dinos 200 para este SKU"}
+    else:
+        if typ == "dino":
+            return {"ok": False, "error": "Use a categoria Dinos / Dinos 200"}
+        if _is_catalog_license_item(entry, item_id):
+            return {
+                "ok": False,
+                "error": "Use o bloco Licença para conceder/revogar licenças",
+            }
+
+    admin_sid = str(_steam_id_from_session() or "")
+    resolved = _resolve_catalog_item_id("shop", item_id)
+    order, error = _create_order(
+        steam_id, "shop", resolved, amount, admin_skip_kit_limit=True,
+    )
+    if error:
+        return {"ok": False, "error": error}
+    assert order is not None
+    result = _process_order_delivery(order.order_id)
+    audit_type = (
+        "admin_player_dino_deliver" if typ == "dino" else "admin_player_item_deliver"
+    )
+    _audit_event(
+        audit_type,
+        actor_type="admin",
+        actor_steam_id=admin_sid,
+        target_steam_id=steam_id,
+        order_id=order.order_id,
+        item_type="shop",
+        item_id=order.item_id,
+        amount=amount,
+        message=reason or f"Entrega admin {category} {order.item_id}",
+        delivery_ok=bool(result.get("ok")),
+        category=category,
+    )
+    result["order_id"] = order.order_id
+    result["category"] = category
+    result["item_id"] = order.item_id
+    return result
+
+
 _ADMIN_STEAMIDS_CACHE: dict[str, Any] = {
     "ids": None,
     "expires": 0.0,
@@ -4785,6 +4974,7 @@ def _invalidate_shop_config_cache() -> None:
     _RICHEST_LICENSE_CONFIG_CACHE.update({"fingerprint": "", "data": None})
     _LICENSE_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
     _KIT_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
+    _SHOP_DELIVER_OPTIONS_CACHE.update({"fingerprint": "", "data": None})
     _TIMED_POINTS_AMOUNTS_CACHE.update({"fingerprint": "", "amounts": None})
 
 
@@ -7880,6 +8070,117 @@ def get_pending_deliveries(steam_id: str):
         _release_db_session(db)
 
 
+SHOP_STALE_ENTREGANDO_MINUTES_DEFAULT = 5
+SHOP_IDENTICAL_FAIL_MAX_DEFAULT = 5
+_STALE_ENTREGANDO_ERR = (
+    "Recuperado automaticamente: entrega anterior expirou (timeout ENTREGANDO)"
+)
+
+
+def get_shop_stale_entregando_minutes() -> int:
+    """Minutos antes de reabrir shop/kit ENTREGANDO presos (0 = desabilitado)."""
+    raw = _load_settings().get(
+        "shop_stale_entregando_minutes", SHOP_STALE_ENTREGANDO_MINUTES_DEFAULT
+    )
+    try:
+        return max(0, int(raw if raw is not None else SHOP_STALE_ENTREGANDO_MINUTES_DEFAULT))
+    except (TypeError, ValueError):
+        return SHOP_STALE_ENTREGANDO_MINUTES_DEFAULT
+
+
+def get_shop_identical_fail_max() -> int:
+    """Após N releases com o mesmo fail_reason → ERRO (0 = nunca)."""
+    raw = _load_settings().get(
+        "shop_identical_fail_max", SHOP_IDENTICAL_FAIL_MAX_DEFAULT
+    )
+    try:
+        return max(0, int(raw if raw is not None else SHOP_IDENTICAL_FAIL_MAX_DEFAULT))
+    except (TypeError, ValueError):
+        return SHOP_IDENTICAL_FAIL_MAX_DEFAULT
+
+
+def recover_stale_entregando_shop_orders(
+    db: Any,
+    steam_id: str,
+    *,
+    minutes: int | None = None,
+) -> int:
+    """Reabre pedidos shop/kit (incl. SeasonLand sp:) ENTREGANDO cujo claim expirou.
+
+    Espelha custom_dino: ENTREGANDO → PENDENTE + last_error + retry_count++ + audit.
+    Não toca item_type=custom_dino (rota própria).
+    """
+    stale_minutes = (
+        get_shop_stale_entregando_minutes() if minutes is None else max(0, int(minutes))
+    )
+    if stale_minutes <= 0:
+        return 0
+    cutoff = (_now() - timedelta(minutes=stale_minutes))
+    if getattr(cutoff, "tzinfo", None) is not None:
+        cutoff = cutoff.replace(tzinfo=None)
+    now = _now()
+    if getattr(now, "tzinfo", None) is not None:
+        now_naive = now.replace(tzinfo=None)
+    else:
+        now_naive = now
+
+    # Fetch ids for audit before update (SQLite/MySQL rowcount ok; audit needs detail).
+    stale_rows = db.execute(
+        text(
+            "SELECT order_id, item_type, item_id, original_order_id FROM orders "
+            "WHERE steam_id = :sid AND status = 'ENTREGANDO' "
+            "AND item_type != 'custom_dino' AND updated_at < :cutoff"
+        ),
+        {"sid": str(steam_id), "cutoff": cutoff},
+    ).fetchall()
+    if not stale_rows:
+        return 0
+
+    result = db.execute(
+        text(
+            "UPDATE orders SET status = 'PENDENTE', updated_at = :now, "
+            "last_error = :err, retry_count = retry_count + 1 "
+            "WHERE steam_id = :sid AND status = 'ENTREGANDO' "
+            "AND item_type != 'custom_dino' AND updated_at < :cutoff"
+        ),
+        {
+            "now": now_naive if isinstance(now_naive, datetime) else now,
+            "cutoff": cutoff,
+            "sid": str(steam_id),
+            "err": _STALE_ENTREGANDO_ERR,
+        },
+    )
+    recovered = int(getattr(result, "rowcount", 0) or 0)
+    if recovered <= 0:
+        return 0
+
+    _log(
+        "shop_stale_entregando_recovered",
+        severity="warning",
+        steam_id=steam_id,
+        recovered=recovered,
+        minutes=stale_minutes,
+    )
+    for row in stale_rows:
+        oid = str(row[0] or "")
+        _audit_event(
+            "shop_stale_entregando_recovered",
+            severity="warning",
+            source="web",
+            actor_type="system",
+            target_steam_id=str(steam_id),
+            order_id=oid or None,
+            item_type=str(row[1] or "") or None,
+            item_id=str(row[2] or "") or None,
+            status_before="ENTREGANDO",
+            status_after="PENDENTE",
+            message=_STALE_ENTREGANDO_ERR,
+            original_order_id=str(row[3] or "") or None,
+            stale_minutes=stale_minutes,
+        )
+    return recovered
+
+
 @app.route("/api/pending/claim", methods=["POST"])
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
@@ -7899,6 +8200,7 @@ def claim_pending_orders():
     claimed: list[dict[str, Any]] = []
     deferred_perm_syncs: list[dict[str, Any]] = []
     try:
+        recover_stale_entregando_shop_orders(db, steam_id)
         targets = (
             [str(x).strip() for x in raw_ids if str(x).strip()]
             if isinstance(raw_ids, list) and raw_ids
@@ -7956,7 +8258,10 @@ def claim_pending_orders():
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
 def release_pending_orders():
-    """Reabre pedidos ENTREGANDO após falha na entrega pelo plugin."""
+    """Reabre pedidos ENTREGANDO após falha na entrega pelo plugin.
+
+    Body opcional: errors=[{order_id, fail_reason}] — após N falhas idênticas → ERRO.
+    """
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
@@ -7965,12 +8270,25 @@ def release_pending_orders():
     if not steam_id or not isinstance(raw_ids, list) or not raw_ids:
         return jsonify({"ok": False, "error": "steam_id e order_ids são obrigatórios"}), 400
 
+    fail_by_oid: dict[str, str] = {}
+    raw_errors = body.get("errors") or []
+    if isinstance(raw_errors, list):
+        for ent in raw_errors:
+            if not isinstance(ent, dict):
+                continue
+            oid = str(ent.get("order_id") or "").strip()
+            reason = str(ent.get("fail_reason") or ent.get("error") or "").strip()
+            if oid and reason:
+                fail_by_oid[oid] = reason
+
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
     released: list[str] = []
+    errored: list[str] = []
     fulfilled: list[str] = []
     deferred_perm_syncs: list[dict[str, Any]] = []
+    fail_max = get_shop_identical_fail_max()
     try:
         now = _now()
         for raw_id in raw_ids:
@@ -7990,17 +8308,80 @@ def release_pending_orders():
             ):
                 fulfilled.append(order_id)
                 continue
+
+            fail_reason = fail_by_oid.get(order_id) or "delivery_failed"
+            prev_err = str(order.last_error or "").strip()
+            if prev_err == fail_reason:
+                new_retry = int(order.retry_count or 0) + 1
+            else:
+                new_retry = 1
+
+            to_erro = bool(fail_max > 0 and new_retry >= fail_max)
+            new_status = "ERRO" if to_erro else "PENDENTE"
             updated = db.execute(
                 text(
-                    "UPDATE orders SET status = 'PENDENTE', updated_at = :now "
+                    "UPDATE orders SET status = :st, updated_at = :now, "
+                    "last_error = :err, retry_count = :rc "
                     "WHERE order_id = :oid AND steam_id = :sid AND status = 'ENTREGANDO'"
                 ),
-                {"now": now, "oid": order_id, "sid": steam_id},
+                {
+                    "st": new_status,
+                    "now": now,
+                    "err": fail_reason,
+                    "rc": new_retry,
+                    "oid": order_id,
+                    "sid": steam_id,
+                },
             )
-            if int(getattr(updated, "rowcount", 0) or 0) > 0:
+            if int(getattr(updated, "rowcount", 0) or 0) <= 0:
+                continue
+            if to_erro:
+                errored.append(order_id)
+                _audit_event(
+                    "shop_delivery_erro_after_identical_fails",
+                    severity="error",
+                    source="plugin",
+                    actor_type="plugin",
+                    target_steam_id=steam_id,
+                    order_id=order_id,
+                    item_type=order.item_type,
+                    item_id=order.item_id,
+                    status_before="ENTREGANDO",
+                    status_after="ERRO",
+                    message=(
+                        f"Pedido em ERRO após {new_retry} falhas idênticas "
+                        f"({fail_reason}) — staff: reenviar ou corrigir SKU"
+                    ),
+                    fail_reason=fail_reason,
+                    retry_count=new_retry,
+                    identical_fail_max=fail_max,
+                    original_order_id=str(order.original_order_id or "") or None,
+                )
+            else:
                 released.append(order_id)
+                _audit_event(
+                    "shop_delivery_released",
+                    severity="warning",
+                    source="plugin",
+                    actor_type="plugin",
+                    target_steam_id=steam_id,
+                    order_id=order_id,
+                    item_type=order.item_type,
+                    item_id=order.item_id,
+                    status_before="ENTREGANDO",
+                    status_after="PENDENTE",
+                    message=f"Release após falha: {fail_reason}",
+                    fail_reason=fail_reason,
+                    retry_count=new_retry,
+                    original_order_id=str(order.original_order_id or "") or None,
+                )
         db.commit()
-        payload = {"ok": True, "released": released, "fulfilled": fulfilled}
+        payload = {
+            "ok": True,
+            "released": released,
+            "errored": errored,
+            "fulfilled": fulfilled,
+        }
     except Exception as exc:
         db.rollback()
         _log_error("release_pending_orders", steam_id=steam_id, error=str(exc))
@@ -8408,6 +8789,8 @@ def save_settings():
         "delivery_mode",
         "server_id",
         "retry_max_attempts",
+        "shop_stale_entregando_minutes",
+        "shop_identical_fail_max",
         "database_url",
         "db_host",
         "db_port",
@@ -8423,6 +8806,20 @@ def save_settings():
         "teams_amber_bonus_pp",
         "teams_amber_bonus_cap",
         "teams_lottery_shortfall_refund",
+        "teams_lottery_post_confirm_policy",
+        "teams_founding_fee",
+        "teams_lottery_numbers_per_member",
+        "teams_warehouse_cap_default",
+        "teams_warehouse_caps",
+        "teams_marco_preview_ttl_sec",
+        "teams_max_special_roles",
+        "teams_rename_cooldown_hours",
+        "teams_rename_cost_amber",
+        "teams_market_split_sender_pct",
+        "teams_ranking_prizes_enabled",
+        "teams_ranking_prize_1",
+        "teams_ranking_prize_2",
+        "teams_ranking_prize_3",
         "custom_dino_enabled",
         "custom_dino_require_ticket",
         "custom_dino_ground_fallback",
@@ -11244,7 +11641,11 @@ def player_available():
     try:
         pending_rows = (
             db.query(Order)
-            .filter(Order.steam_id == steam_id, Order.status == "PENDENTE")
+            .filter(
+                Order.steam_id == steam_id,
+                Order.status.in_(("PENDENTE", "ENTREGANDO", "ERRO")),
+                Order.item_type != "custom_dino",
+            )
             .order_by(Order.created_at.desc())
             .limit(100)
             .all()
@@ -11253,14 +11654,23 @@ def player_available():
         for row in pending_rows:
             meta = _describe_catalog_entry(row.item_type, row.item_id)
             policy = _order_cancel_policy(row)
+            st = str(row.status or "PENDENTE").upper()
+            delivery_state = {
+                "PENDENTE": "queued",
+                "ENTREGANDO": "delivering",
+                "ERRO": "failed",
+            }.get(st, "queued")
             pending.append({
                 "order_id": row.order_id,
                 "item_type": row.item_type,
                 "item_id": row.item_id,
                 "amount": row.amount,
                 "status": row.status,
+                "delivery_state": delivery_state,
+                "last_error": row.last_error,
+                "retry_count": int(row.retry_count or 0),
                 "points_spent": int(row.points_spent or 0),
-                "can_cancel": bool(policy["can_cancel"]),
+                "can_cancel": bool(policy["can_cancel"]) and st == "PENDENTE",
                 "is_license": bool(policy["is_license"]),
                 "is_season_pass": bool(policy.get("is_season_pass")),
                 "cancel_blocked_code": policy.get("cancel_blocked_code"),
@@ -12292,6 +12702,28 @@ def _season_pass_idem_from_original(original_order_id: str | None) -> str:
     return raw
 
 
+def _season_pass_original_order_clause():
+    """Filtro SQLAlchemy: pedidos SeasonLand (sp:… ou skip-kit|sp:…)."""
+    return or_(
+        Order.original_order_id.like("sp:%"),
+        Order.original_order_id.like("__admin_skip_kit_limit__|sp:%"),
+    )
+
+
+def _exclude_season_pass_orders_clause():
+    """Exclui SeasonLand sem dropar pedidos com original_order_id NULL.
+
+    Em SQL, ``NOT (NULL LIKE …)`` é NULL — por isso o ``IS NULL`` explícito.
+    """
+    return or_(
+        Order.original_order_id.is_(None),
+        and_(
+            ~Order.original_order_id.like("sp:%"),
+            ~Order.original_order_id.like("__admin_skip_kit_limit__|sp:%"),
+        ),
+    )
+
+
 def _is_order_season_pass(order: Order) -> bool:
     """True para pedidos enfileirados por claim SeasonLand (recompensa, não compra).
 
@@ -12701,11 +13133,23 @@ def admin_list_orders():
     order_dir = str(request.args.get("order", "desc")).strip().lower()
     date_from = str(request.args.get("date_from", "")).strip()
     date_to = str(request.args.get("date_to", "")).strip()
+    # SeasonLand fica fora de Pedidos por omissão — ver /api/admin/season-pass/orders.
+    include_sp = str(request.args.get("include_season_pass", "0")).strip().lower() in (
+        "1", "true", "yes", "on",
+    )
+    season_only = str(request.args.get("season_pass_only", "0")).strip().lower() in (
+        "1", "true", "yes", "on",
+    )
     limit = max(1, min(200, int(request.args.get("limit", 50))))
     offset = max(0, int(request.args.get("offset", 0)))
     db = _SessionLocal()
     try:
         query = db.query(Order)
+        sp_clause = _season_pass_original_order_clause()
+        if season_only:
+            query = query.filter(sp_clause)
+        elif not include_sp:
+            query = query.filter(_exclude_season_pass_orders_clause())
         if status:
             query = query.filter(Order.status == status)
         if q_text:
@@ -12743,6 +13187,8 @@ def admin_list_orders():
             {
                 "ok": True,
                 "total": total,
+                "include_season_pass": bool(include_sp or season_only),
+                "season_pass_only": bool(season_only),
                 "items": [
                     {
                         "order_id": o.order_id,
@@ -12756,6 +13202,7 @@ def admin_list_orders():
                         "contested": bool(o.contested),
                         "retry_count": o.retry_count,
                         "last_error": o.last_error,
+                        "original_order_id": o.original_order_id,
                         "is_license": _is_order_license(o),
                         "is_season_pass": _is_order_season_pass(o),
                         "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -13746,6 +14193,23 @@ def admin_player_kits(steam_id: str):
     return jsonify(result), status
 
 
+@app.route("/api/admin/players/<steam_id>/deliver", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_player_catalog_deliver(steam_id: str):
+    """Entrega admin de qualquer SKU do catálogo (itens, dinos, dinos200, kits)."""
+    body = request.get_json(force=True, silent=True) or {}
+    result = _admin_player_catalog_deliver(
+        steam_id.strip(),
+        category=str(body.get("category") or body.get("catalog_tab") or "").strip(),
+        item_id=str(body.get("item_id") or body.get("kit_id") or "").strip(),
+        amount=int(body.get("amount", 1) or 1),
+        reason=str(body.get("reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
 # ── Admin admins routes ───────────────────────────────────────────────────────
 
 @app.route("/api/admin/admins", methods=["GET"])
@@ -14112,6 +14576,9 @@ configure_season_pass_engine(
     get_entitlements=_get_player_entitlements,
     license_catalog_price=_season_pass_license_catalog_price,
     audit_event=_audit_event,
+    catalog_entry_exists=lambda item_type, item_id: bool(
+        _catalog_entry(str(item_type or "shop"), str(item_id or ""))
+    ),
 )
 register_season_pass_routes(
     app,
@@ -14515,6 +14982,7 @@ from team_service import configure_team_service
 configure_team_service(
     settings_fn=_load_settings,
     subtract_points_tx=_subtract_player_points_tx,
+    add_points_tx=_add_player_points_tx,
     audit_event=_audit_event,
 )
 register_team_routes(
