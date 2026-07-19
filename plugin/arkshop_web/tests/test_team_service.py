@@ -206,6 +206,8 @@ def test_warehouse_catalog_has_ten(db):
     assert len(cat) == 10
     keys = {r["key"] for r in cat}
     assert "element_ore" in keys and "black_pearl" in keys and "sand" in keys
+    assert all(r.get("icon_url") for r in cat)
+    assert cat[0]["icon_url"].startswith("/catalog/resources/team/")
     assert ts.normalize_warehouse_key("rec_pnegra") == "black_pearl"
     assert ts.normalize_warehouse_key("hard_polymer") == "hard_polymer"
     assert ts.normalize_warehouse_key("absorbent_polymer") == "substrate_absorbent"

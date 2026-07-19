@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.72"
-BUILD_DATE: str = "2026-07-18"
+APP_VERSION: str = "1.10.73"
+BUILD_DATE: str = "2026-07-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -15,6 +15,14 @@ CHANGELOG: list[dict] = [
         "changes": [
             "Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.",
             "Próximo: bônus Â aditivo da equipe no tick TimedPoints C++ (web já expõe amber_bonus_pct; plugin ainda não lê).",
+        ],
+    },
+    {
+        "version": "1.10.73",
+        "date": "2026-07-18",
+        "changes": [
+            "Feat (Web Store / Equipes): ícones dos 10 recursos do armazém (team/*.png) no marco, armazém e picker admin; API icon_url no catálogo.",
+            "Fix (TEK / Card): Process no chip do servidor — grade 2×3 e path curto (...\\Win64\\ShooterGameServer.exe) para caber e ser legível.",
         ],
     },
     {

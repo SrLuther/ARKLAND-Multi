@@ -725,13 +725,17 @@ def _update_card_rich_labels(app: "ARKServerManagerApp") -> None:
         val_tc = accent if is_running else t_sec
         val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
 
+        proc_val = rich_data.get("proc", "—")
+        if proc_val and proc_val != "—" and len(proc_val) > 32:
+            proc_val = "…" + proc_val[-31:]
+
         mapping = (
             ("Jogadores", rich_data.get("players", "—")),
             ("Uptime", rich_data.get("uptime", "—")),
             ("Memória", rich_data.get("ram", "—")),
             ("Versão", rich_data.get("version", "—")),
             ("PID", rich_data.get("pid", "—")),
-            ("Processo", rich_data.get("proc", "—")),
+            ("Processo", proc_val),
         )
         for hint, val in mapping:
             lbl = refs.get(hint)

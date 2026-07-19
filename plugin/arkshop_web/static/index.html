@@ -1016,6 +1016,26 @@
       border-radius: 4px;
       flex-shrink: 0;
     }
+    .tm-res-icon {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      flex-shrink: 0;
+      vertical-align: middle;
+      image-rendering: auto;
+    }
+    .tm-res-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 4px 0;
+    }
+    .tm-res-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
     .sp-hero-brand {
       display: flex;
       align-items: center;
@@ -25996,6 +26016,9 @@ async function loadMyTeam() {
     const ownerLabel = (data.owner_display_name && data.owner_display_name !== t.owner_steam_id)
       ? data.owner_display_name
       : (t.owner_steam_id || "—");
+    const catalog = data.warehouse_catalog || [];
+    if (catalog.length) _teamsWarehouseCatalog = catalog;
+
     let msHtml = "<em>Aguardando staff publicar o próximo marco.</em>";
     if (ms && ms.milestone) {
       const m = ms.milestone;
@@ -26017,8 +26040,9 @@ async function loadMyTeam() {
         <div style="margin-top:8px;font-size:12px;"><strong>Aplicado ao marco</strong> (committed vs exigido)</div>
         <div style="margin-top:4px;">${(ms.resources || []).map(r => {
           const label = r.label_pt || r.key;
-          return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0;">
-            <span>${escHtml(label)}: <strong>${r.committed ?? r.have}</strong>/${r.required} ${r.ok ? "✓" : ""}
+          const meta = teamsResMeta(r.key, catalog) || r;
+          return `<div class="tm-res-row">
+            <span class="tm-res-label">${teamsResIcon(meta, label)} ${escHtml(label)}: <strong>${r.committed ?? r.have}</strong>/${r.required} ${r.ok ? "✓" : ""}
               <span style="color:var(--text2);">(armazém ${r.warehouse ?? 0})</span></span>
             ${canCommit && (r.warehouse || 0) > 0 ? `<button class="btn btn-ghost btn-sm" onclick="teamsCommitResource('${escHtml(r.key)}',${Math.max(1, Math.min(r.warehouse||0, Math.max(0, r.required - (r.committed||r.have||0)) || (r.warehouse||0)))})">Aplicar ao marco</button>` : ""}
           </div>`;
@@ -26029,9 +26053,10 @@ async function loadMyTeam() {
     const whHtml = whEntries.length
       ? whEntries.map(([k, q]) => {
           const tip = (ms && ms.resources || []).find(r => r.key === k);
-          const label = tip?.label_pt || k;
-          return `<div style="display:flex;gap:8px;align-items:center;margin:3px 0;">
-            <span>${escHtml(label)}: <strong>${Number(q).toLocaleString("pt-BR")}</strong></span>
+          const meta = tip || teamsResMeta(k, catalog) || {};
+          const label = tip?.label_pt || meta.label_pt || k;
+          return `<div class="tm-res-row">
+            <span class="tm-res-label">${teamsResIcon(meta, label)} ${escHtml(label)}: <strong>${Number(q).toLocaleString("pt-BR")}</strong></span>
             ${canCommit && tip ? `<button class="btn btn-ghost btn-sm" onclick="teamsCommitResource('${escHtml(k)}')">Aplicar ao marco</button>` : ""}
           </div>`;
         }).join("")
@@ -26553,6 +26578,20 @@ async function loadTeamsRankings() {
 let _teamsWarehouseCatalog = [];
 let _teamsWarehouseDefaults = [];
 
+function teamsResIcon(rOrUrl, label) {
+  const url = typeof rOrUrl === "string"
+    ? rOrUrl
+    : (rOrUrl && (rOrUrl.icon_url || rOrUrl.iconUrl)) || "";
+  if (!url) return "";
+  const alt = escHtml(label || (rOrUrl && rOrUrl.label_pt) || "");
+  return `<img class="tm-res-icon" src="${escHtml(url)}" alt="${alt}" width="22" height="22" loading="lazy" />`;
+}
+
+function teamsResMeta(key, catalog) {
+  const list = catalog || _teamsWarehouseCatalog || [];
+  return list.find(r => r.key === key) || null;
+}
+
 function teamsAdminRenderCatalog(catalog, defaults) {
   const el = document.getElementById("tm-ms-catalog");
   if (!el) return;
@@ -26568,8 +26607,12 @@ function teamsAdminRenderCatalog(catalog, defaults) {
     ${_teamsWarehouseCatalog.map(r => {
       const defQ = defMap[r.key] != null ? defMap[r.key] : (r.default_qty || 0);
       return `<label style="display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--border, #333);border-radius:6px;">
-        <span><input type="checkbox" class="tm-ms-res-check" data-key="${escHtml(r.key)}" /> ${escHtml(r.label_pt)}
-          <code style="font-size:10px;opacity:.7;">${escHtml(r.key)}</code></span>
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <input type="checkbox" class="tm-ms-res-check" data-key="${escHtml(r.key)}" />
+          ${teamsResIcon(r)}
+          ${escHtml(r.label_pt)}
+          <code style="font-size:10px;opacity:.7;">${escHtml(r.key)}</code>
+        </span>
         <input type="number" class="tm-ms-res-qty" data-key="${escHtml(r.key)}" min="0" value="${defQ}" style="max-width:120px;" />
       </label>`;
     }).join("")}

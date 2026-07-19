@@ -368,23 +368,35 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     _val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
     _hint_font = ctk.CTkFont(family="Segoe UI", size=10)
 
-    for icon, val, hint in (
+    def _short_proc(txt: str, max_len: int = 32) -> str:
+        """Encurta path do exe para caber no chip (mantém o final)."""
+        if not txt or txt == "—" or len(txt) <= max_len:
+            return txt
+        return "…" + txt[-(max_len - 1):]
+
+    proc_display = _short_proc(proc_txt)
+
+    # 2×3: evita o chip Processo ser empurrado para fora do card
+    rich_r.grid_columnconfigure((0, 1, 2), weight=1)
+    for i, (icon, val, hint) in enumerate((
         ("👥", players_txt, "Jogadores"),
         ("🕐", uptime_txt, "Uptime"),
         ("💾", ram_txt, "Memória"),
         ("📋", ver_txt, "Versão"),
         ("#", pid_txt, "PID"),
-        ("📁", proc_txt, "Processo"),
-    ):
+        ("📁", proc_display, "Processo"),
+    )):
         chip = ctk.CTkFrame(rich_r, fg_color="transparent")
-        chip.pack(side="left", padx=(12, 16), pady=10)
+        chip.grid(row=i // 3, column=i % 3, sticky="ew", padx=10, pady=8)
         ctk.CTkLabel(
             chip, text=f"{icon}  {val}",
             font=_val_font, text_color=_val_tc,
-        ).pack(anchor="w")
+            anchor="w",
+        ).pack(anchor="w", fill="x")
         ctk.CTkLabel(
             chip, text=hint,
             font=_hint_font, text_color=t_mut,
+            anchor="w",
         ).pack(anchor="w", pady=(2, 0))
 
     # ── SEPARADOR ─────────────────────────────────────────────────────────────

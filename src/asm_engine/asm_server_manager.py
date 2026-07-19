@@ -666,19 +666,17 @@ class AsmServerInstance:
         return self._proc.pid if self._proc else None
 
     def process_hint(self) -> str:
-        """Texto curto do exe anexado p/ o card (ex. ...\\MAPAS\\AM\\...\\ShooterGameServer.exe)."""
+        """Texto curto do exe anexado p/ o card (ex. ...\\Win64\\ShooterGameServer.exe)."""
         exe = (self.attached_exe or "").replace("/", "\\")
         if not exe:
             return ""
-        upper = exe.upper()
-        marker = "MAPAS\\"
-        idx = upper.find(marker)
-        if idx >= 0:
-            return "..." + exe[idx:]
-        parts = exe.split("\\")
-        if len(parts) >= 3:
-            return "...\\" + "\\".join(parts[-3:])
-        return exe
+        parts = [p for p in exe.split("\\") if p]
+        if not parts:
+            return ""
+        # Só últimos segmentos — path completo não cabe no chip do card
+        if len(parts) >= 2:
+            return "...\\" + "\\".join(parts[-2:])
+        return parts[-1]
 
 
 class AsmServerManager:

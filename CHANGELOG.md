@@ -12,6 +12,16 @@
 - Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.
 - Próximo: bônus Â aditivo da equipe no tick TimedPoints C++ (web já expõe amber_bonus_pct; plugin ainda não lê).
 
+## [1.10.73] - 2026-07-18
+
+### Feature
+
+- Feat (Web Store / Equipes): ícones dos 10 recursos do armazém (team/*.png) no marco, armazém e picker admin; API icon_url no catálogo.
+
+### Fix
+
+- Fix (TEK / Card): Process no chip do servidor — grade 2×3 e path curto (...\Win64\ShooterGameServer.exe) para caber e ser legível.
+
 ## [1.10.72] - 2026-07-18
 
 ### Fix

@@ -1,12 +1,9 @@
 {
-    "version": "1.10.72",
-    "date": "2026-07-18",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.72/ARKLAND-Multi-Setup-v1.10.72.exe",
+    "version": "1.10.73",
+    "date": "2026-07-19",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.73/ARKLAND-Multi-Setup-v1.10.73.exe",
     "changelog": [
-        "Fix P0 (TEK / Reconnect): após reboot, last_pid/portas/título já não anexam Amissa (ou outro mapa) a ShooterGameServer de outro install_dir — exige path sob o install_dir do servidor (ex. \\MAPAS\\AM\\).",
-        "Fix P0 (TEK / Parar): taskkill /F /T só corre se o PID for ShooterGameServer verificado sob o install_dir; ghost/PID reciclado → limpa estado sem matar (evita tela preta/reboot ao Parar PID errado).",
-        "Fix (TEK / Ghost): RUNNING com PID vivo alheio (sem Shooter no Task Manager) → reconcile/monitor limpa para PARADO.",
-        "Fix (TEK / Título): pasta curta AM/BR/CI já não casa substring em títulos tipo Steam.",
-        "Fix (TEK / Launch): ServerMap curto (ex. Amissa) + ActiveMods[0] workshop → CLI /Game/Mods/{id}/Amissa quando a pasta do mod existe."
+        "Feat (Web Store / Equipes): ícones dos 10 recursos do armazém (team/*.png) no marco, armazém e picker admin; API icon_url no catálogo.",
+        "Fix (TEK / Card): Process no chip do servidor — grade 2×3 e path curto (...\\Win64\\ShooterGameServer.exe) para caber e ser legível."
     ]
 }

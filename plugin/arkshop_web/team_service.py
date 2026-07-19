@@ -28,6 +28,8 @@ import logging
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Callable
 
 from sqlalchemy import text
@@ -35,6 +37,9 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("arkshop_web.team")
+
+_WEB_DIR = Path(__file__).resolve().parent
+_TEAM_ICON_DIR = _WEB_DIR / "static" / "catalog" / "resources" / "team"
 
 # ── Constants ────────────────────────────────────────────────
 TEAM_NAME_MIN = 3
@@ -196,9 +201,39 @@ _PERMS = {
 }
 
 
+@lru_cache(maxsize=1)
+def _team_icon_files() -> frozenset[str]:
+    if not _TEAM_ICON_DIR.is_dir():
+        return frozenset()
+    return frozenset(p.stem for p in _TEAM_ICON_DIR.glob("*.png"))
+
+
+def warehouse_icon_url(resource_key: str) -> str | None:
+    """URL do ícone do armazém (team/*.png) ou fallback da loja via shop_key."""
+    key = str(resource_key or "").strip()
+    if not key:
+        return None
+    if key in _team_icon_files():
+        return f"/catalog/resources/team/{key}.png"
+    meta = _WAREHOUSE_BY_KEY.get(key)
+    shop_key = (meta or {}).get("shop_key") or ""
+    if shop_key:
+        try:
+            from resource_icon_registry import resolve_resource_icon
+            return resolve_resource_icon(str(shop_key))
+        except Exception:
+            return None
+    return None
+
+
 def warehouse_catalog() -> list[dict[str, Any]]:
     """Public/admin view of the fixed rare-resource catalog."""
-    return [dict(r) for r in TEAM_WAREHOUSE_RESOURCES]
+    out: list[dict[str, Any]] = []
+    for r in TEAM_WAREHOUSE_RESOURCES:
+        row = dict(r)
+        row["icon_url"] = warehouse_icon_url(str(r["key"]))
+        out.append(row)
+    return out
 
 
 def normalize_warehouse_key(resource_key: str) -> str:
@@ -248,14 +283,24 @@ def validate_milestone_resources(resources: list[dict[str, Any]] | None) -> list
         if qty == 0:
             continue
         meta = _WAREHOUSE_BY_KEY[key]
-        out.append({"key": key, "quantity": qty, "label_pt": meta["label_pt"]})
+        out.append({
+            "key": key,
+            "quantity": qty,
+            "label_pt": meta["label_pt"],
+            "icon_url": warehouse_icon_url(key),
+        })
     return out
 
 
 def default_milestone_resource_suggestions() -> list[dict[str, Any]]:
     """Optional system defaults for admin milestone editor."""
     return [
-        {"key": r["key"], "quantity": int(r["default_qty"]), "label_pt": r["label_pt"]}
+        {
+            "key": r["key"],
+            "quantity": int(r["default_qty"]),
+            "label_pt": r["label_pt"],
+            "icon_url": warehouse_icon_url(str(r["key"])),
+        }
         for r in TEAM_WAREHOUSE_RESOURCES
     ]
 
@@ -2132,6 +2177,7 @@ def _ms_row(r: Any) -> dict[str, Any]:
             "key": key,
             "quantity": int(req.get("quantity") or 0),
             "label_pt": req.get("label_pt") or (meta["label_pt"] if meta else key),
+            "icon_url": req.get("icon_url") or warehouse_icon_url(key),
         })
     amber_pp = None
     if len(r) > 11 and r[11] is not None:
@@ -2312,6 +2358,7 @@ def milestone_progress_view(
         resource_bars.append({
             "key": key,
             "label_pt": label,
+            "icon_url": req.get("icon_url") or warehouse_icon_url(key),
             "required": need,
             "have": have_committed,
             "committed": have_committed,
@@ -3222,6 +3269,7 @@ def my_team_or_invites(db: Session, steam_id: str) -> dict[str, Any]:
             view["join_requests"] = list_members(db, tid, statuses=["PENDING"])
         else:
             view["join_requests"] = []
+        view["warehouse_catalog"] = warehouse_catalog()
         return view
     return {
         "team": None,
@@ -3230,6 +3278,7 @@ def my_team_or_invites(db: Session, steam_id: str) -> dict[str, Any]:
         "join_requests": [],
         "player_xp": my_player_rank(db, steam_id),
         "enabled": teams_enabled(),
+        "warehouse_catalog": warehouse_catalog(),
     }
 
 
