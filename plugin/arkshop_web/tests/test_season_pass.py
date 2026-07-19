@@ -377,6 +377,9 @@ def test_claim_amber_free(sp_db):
     assert result["in_game_delivered"] is True
     after = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
     assert after - before == 500
+    # UI usa new_balance/points_after para refrescar a pílula sem esperar cooldown.
+    assert result["new_balance"] == after
+    assert result["points_after"] == after
 
 
 def test_preview_inactive_not_fake_active(client):
@@ -695,35 +698,195 @@ def test_sku_pending_blocks_before_side_effects(sp_db):
 
 
 def test_claim_kit_item_dino_queue(sp_db):
+    """Claim kit/item/dino com season_id longo (formato prod) — fila PENDENTE."""
     db, _ = sp_db
+    from app import Order
+
+    max_len = int(Order.original_order_id.type.length or 0)
+    long_season = "season-delta-20240715032535"
     now = datetime(2026, 7, 14, tzinfo=timezone.utc)
     sps.start_season(now=now)
-    sid = spcfg.load_config()["season_id"]
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(4), premium=True, claimed=set())
-    db.commit()
     with spcfg._lock:
         cfg = spcfg.load_config()
+        cfg["season_id"] = long_season
         cfg["premium_rewards"]["3"] = [
             {"type": "kit", "id": "kit_test_sp", "qty": 1, "label": "Kit test"},
             {"type": "item", "id": "cryopod", "qty": 2, "label": "Cryo"},
             {"type": "dino", "id": "dino_spino", "qty": 1, "label": "Spino"},
         ]
         spcfg.save_config(cfg)
-    # Need level 3
-    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(3), premium=True, claimed=set())
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=long_season, xp=_xp_at(3), premium=True, claimed=set()
+    )
     db.commit()
     result = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=3)
     assert result["ok"] is True
+    # Fila ≠ entrega in-game — flag não pode mentir ao staff/UI.
+    assert result["in_game_delivered"] is False
+    assert result["queued_for_shop"] is True
     types = {d["type"] for d in result["delivery"]}
     assert types == {"kit", "item", "dino"}
     assert all(d.get("pending_order") for d in result["delivery"])
-    rows = db.execute(text("SELECT item_type, item_id, amount, status FROM orders ORDER BY id")).fetchall()
+    rows = db.execute(
+        text("SELECT item_type, item_id, amount, status, original_order_id FROM orders ORDER BY id")
+    ).fetchall()
     assert len(rows) == 3
     assert {r[0] for r in rows} == {"kit", "shop"}
     assert all(r[3] == "PENDENTE" for r in rows)
+    for orig in (str(r[4]) for r in rows):
+        assert long_season in orig
+        assert len(orig) <= max_len, orig
     # Idempotent re-queue via same original key should not duplicate after already claimed
     with pytest.raises(ValueError, match="Já resgatado"):
         sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=3)
+
+
+def test_claim_long_season_id_kit_dino_no_data_error(sp_db):
+    """Prod: season-delta-… + kit skip prefix > VARCHAR(64) → DataError 1406."""
+    db, _ = sp_db
+    from app import Order
+
+    max_len = int(Order.original_order_id.type.length or 0)
+    assert max_len >= 191
+
+    long_season = "season-delta-20240715032535"
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+
+    def queue_prod_shape(db_, *, steam_id, item_type, item_id, amount, original_order_id):
+        # Espelha _season_pass_queue_catalog_order: kits guardam skip prefix.
+        stored = (
+            f"__admin_skip_kit_limit__|{original_order_id}"
+            if item_type == "kit"
+            else str(original_order_id)
+        )
+        if len(stored) > max_len:
+            raise Exception(
+                '(pymysql.err.DataError) (1406, "Data too long for column '
+                "'original_order_id' at row 1\")"
+            )
+        assert len(stored) > 64, stored  # teria falhado no schema antigo
+        oid = f"ord-{abs(hash(stored)) % 10_000_000}"
+        db_.execute(
+            text(
+                "INSERT INTO orders (order_id, steam_id, server_id, item_type, item_id, amount, "
+                "points_spent, status, original_order_id, created_at, updated_at) "
+                "VALUES (:oid,:sid,'default',:it,:iid,:amt,0,'PENDENTE',:orig,'now','now')"
+            ),
+            {
+                "oid": oid,
+                "sid": steam_id,
+                "it": item_type,
+                "iid": item_id,
+                "amt": amount,
+                "orig": stored,
+            },
+        )
+        return oid
+
+    sps.configure_engine(
+        subtract_points_tx=sps._cbs["subtract_points_tx"],
+        add_points_tx=sps._cbs["add_points_tx"],
+        credit_arkbank_premium=sps._cbs["credit_arkbank_premium"],
+        queue_catalog_order=queue_prod_shape,
+        grant_license=sps._cbs["grant_license"],
+        get_entitlements=sps._cbs.get("get_entitlements") or (lambda sid, db=None: []),
+        license_catalog_price=sps._cbs.get("license_catalog_price") or (lambda g: 5000),
+    )
+
+    with spcfg._lock:
+        cfg = spcfg.load_config()
+        cfg["season_id"] = long_season
+        cfg["premium_rewards"]["8"] = [
+            {
+                "type": "dino",
+                "id": "sb_crystal_ember_l200",
+                "qty": 1,
+                "label": "Crystal Ember",
+            }
+        ]
+        cfg["premium_rewards"]["10"] = [
+            {
+                "type": "kit",
+                "id": "noglin_pack10",
+                "qty": 1,
+                "label": "Noglin pack",
+            }
+        ]
+        spcfg.save_config(cfg)
+
+    sps._upsert_progress(
+        db,
+        steam_id=USER_STEAM,
+        season_id=long_season,
+        xp=_xp_at(10),
+        premium=True,
+        claimed=set(),
+    )
+    db.commit()
+
+    dino = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=8)
+    assert dino["ok"] is True
+    kit = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=10)
+    assert kit["ok"] is True
+
+    origs = [
+        str(r[0])
+        for r in db.execute(text("SELECT original_order_id FROM orders ORDER BY id")).fetchall()
+    ]
+    assert len(origs) == 2
+    assert origs[0] == (
+        f"sp:{long_season}:premium:8:dino:sb_crystal_ember_l200"
+    )
+    assert origs[1] == (
+        f"__admin_skip_kit_limit__|sp:{long_season}:premium:10:kit:noglin_pack10"
+    )
+    assert all(len(o) > 64 for o in origs)
+    assert all(len(o) <= max_len for o in origs)
+    prog = sps.get_progress(db, USER_STEAM, long_season)
+    assert "premium:8" in prog["claimed"]
+    assert "premium:10" in prog["claimed"]
+
+
+def test_claim_queue_failure_does_not_mark_claimed(sp_db):
+    """INSERT na fila falhou → claim NÃO fica marcado (evita estado parcial)."""
+    db, _ = sp_db
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+
+    def queue_boom(*_a, **_k):
+        raise Exception(
+            '(pymysql.err.DataError) (1406, "Data too long for column '
+            "'original_order_id' at row 1\")"
+        )
+
+    sps.configure_engine(
+        subtract_points_tx=sps._cbs["subtract_points_tx"],
+        add_points_tx=sps._cbs["add_points_tx"],
+        credit_arkbank_premium=sps._cbs["credit_arkbank_premium"],
+        queue_catalog_order=queue_boom,
+        grant_license=sps._cbs["grant_license"],
+        get_entitlements=sps._cbs.get("get_entitlements") or (lambda sid, db=None: []),
+        license_catalog_price=sps._cbs.get("license_catalog_price") or (lambda g: 5000),
+    )
+    with spcfg._lock:
+        cfg = spcfg.load_config()
+        cfg["premium_rewards"]["3"] = [
+            {"type": "dino", "id": "sb_crystal_ember_l200", "qty": 1, "label": "X"},
+        ]
+        spcfg.save_config(cfg)
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(3), premium=True, claimed=set()
+    )
+    db.commit()
+    with pytest.raises(Exception, match="Data too long"):
+        sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=3)
+    db.rollback()
+    prog = sps.get_progress(db, USER_STEAM, sid)
+    assert "premium:3" not in prog["claimed"]
+    n = db.execute(text("SELECT COUNT(*) FROM orders")).scalar()
+    assert int(n or 0) == 0
 
 
 def test_premium_catchup_unlocks_1_to_n(sp_db):

@@ -3538,7 +3538,8 @@
     /* Buy / PIX modal */
     #buy-modal,
     #pix-modal,
-    #paypal-modal {
+    #paypal-modal,
+    #boleto-manual-modal {
       display: none;
       position: fixed;
       inset: 0;
@@ -3920,12 +3921,14 @@
 
       #pix-modal,
       #paypal-modal,
+      #boleto-manual-modal,
       #buy-modal {
         padding: 10px !important;
         align-items: flex-end !important;
       }
       #pix-modal .buy-modal-inner,
       #paypal-modal .buy-modal-inner,
+      #boleto-manual-modal .buy-modal-inner,
       #buy-modal .buy-modal-inner {
         max-width: 100% !important;
         width: 100%;
@@ -6678,7 +6681,7 @@
             </p>
             <div class="recharge-steps">
               <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de Âmbares (valor da doação)</div>
-              <div class="recharge-step"><strong>2. DOE</strong>PIX (QR/copia e cola) ou cartão de crédito no Mercado Pago</div>
+              <div class="recharge-step"><strong>2. DOE</strong>PIX, cartão, boleto (Mercado Pago) ou PayPal/boleto manual</div>
               <div class="recharge-step"><strong>3. RESGATE</strong>Pontos creditados para resgatar itens no catálogo</div>
             </div>
           </div>
@@ -6691,6 +6694,13 @@
               Pague o valor que desejar escaneando o QR PayPal. Após o pagamento, abra um ticket com comprovante, SteamID e valor — um admin creditará Âmbares manualmente.
             </div>
             <button type="button" class="btn btn-primary" id="catalog-paypal-btn" onclick="openPayPalDonationModal()">Doar via PayPal</button>
+          </div>
+          <div id="catalog-boleto-manual-block" class="paypal-donation-block" style="display:none;">
+            <div class="paypal-donation-block__title">🧾 Doação via boleto (manual)</div>
+            <div class="paypal-donation-block__text" id="catalog-boleto-manual-text">
+              Pague o boleto/transferência conforme as instruções. Após a compensação, abra um ticket com comprovante — um admin creditará Âmbares.
+            </div>
+            <button type="button" class="btn btn-primary" id="catalog-boleto-manual-btn" onclick="openBoletoManualModal()">Ver instruções / abrir ticket</button>
           </div>
           <div id="catalog-recharge-grid" class="recharge-grid"></div>
           <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doações indisponíveis no momento.</p>
@@ -7470,6 +7480,19 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label for="s-paypal-instructions">Instruções PayPal (modal do jogador)</label>
               <textarea id="s-paypal-instructions" rows="6" placeholder="Texto exibido no modal após escanear o QR…"></textarea>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              🧾 Boleto — Mercado Pago (Checkout Pro) e/ou instruções manuais + ticket.
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-boleto-mp-enabled" type="checkbox" /> Ativar boleto via Mercado Pago (boleto_mp_enabled)</label>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-boleto-manual-enabled" type="checkbox" /> Ativar boleto manual / instruções (boleto_manual_enabled)</label>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label for="s-boleto-manual-instructions">Instruções boleto manual</label>
+              <textarea id="s-boleto-manual-instructions" rows="6" placeholder="Dados bancários e passos para o jogador…"></textarea>
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               💚 Pacotes de doação: gerencie em <strong>Loja → Doações (PIX / Cartão)</strong> (mais fácil que JSON).
@@ -9462,13 +9485,41 @@
             <button class="btn btn-ghost" onclick="loadTeamsRankings()">↺ Recarregar</button>
           </div>
         </div>
+        <div class="card" id="teams-rank-admin-tools" style="margin-bottom:16px;display:none;">
+          <div class="card-title">Staff — bloquear no ranking</div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">
+            Equipes/jogadores bloqueados não entram no Top até a staff restaurar. Continuar ACTIVE (equipe) e mantêm XP.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+              <label>ID da equipe</label>
+              <input id="tm-rank-block-team-id" type="number" min="1" placeholder="ex. 12" style="width:120px;" />
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeam(true)">Excluir equipe</button>
+            <button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeam(false)">Restaurar equipe</button>
+            <div class="form-group" style="margin:0;">
+              <label>SteamID64 jogador</label>
+              <input id="tm-rank-block-steam" type="text" placeholder="7656119…" style="width:180px;" />
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="teamsRankBlockPlayer(true)">Excluir jogador</button>
+            <button class="btn btn-ghost btn-sm" onclick="teamsRankBlockPlayer(false)">Restaurar jogador</button>
+          </div>
+        </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-header"><div class="card-title">Top Equipes</div></div>
           <div id="teams-rank-teams" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
-        <div class="card">
+        <div class="card" style="margin-bottom:16px;">
           <div class="card-header"><div class="card-title">Top Jogadores (XP lifetime)</div></div>
           <div id="teams-rank-players" style="color:var(--text2);font-size:13px;">Carregando…</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header"><div class="card-title">Equipes fora do ranking</div></div>
+          <div id="teams-rank-blocked-teams" style="color:var(--text2);font-size:13px;">Carregando…</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Jogadores fora do ranking</div></div>
+          <div id="teams-rank-blocked-players" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
       </div>
 
@@ -11249,6 +11300,9 @@ let _catalogCardEnabled = false;
 let _catalogPaypalEnabled = false;
 let _catalogPaypalQrUrl = "/paypal-qr.jpeg";
 let _catalogPaypalInstructions = "";
+let _catalogBoletoMpEnabled = false;
+let _catalogBoletoManualEnabled = false;
+let _catalogBoletoManualInstructions = "";
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
 let _catalogSearchTimers = {};
@@ -11266,6 +11320,7 @@ let _exchangeRates = null;
 let _pixCheckoutPackageId = null;
 let _paymentCheckoutMethod = "pix";
 let _pendingPayPalDonation = false;
+let _pendingBoletoManual = false;
 const DONATION_POLICY_KEY = "arkland_donation_policy_v1";
 const PAYER_PROFILE_KEY = "arkland_payer_profile_v1";
 
@@ -11281,6 +11336,7 @@ function closePolicyModal(clearPending = true) {
     _pendingPixPackageId = null;
     _pendingRedeemItem = null;
     _pendingPayPalDonation = false;
+    _pendingBoletoManual = false;
   }
 }
 
@@ -11289,9 +11345,10 @@ function acceptDonationPolicy() {
   closePolicyModal(false);
   if (_pendingPixPackageId) {
     const pkg = _pendingPixPackageId;
-    const method = _paymentCheckoutMethod === "card" ? "card" : "pix";
+    const method = _paymentCheckoutMethod;
     _pendingPixPackageId = null;
     if (method === "card") startCardCheckout(pkg, true);
+    else if (method === "boleto") startBoletoCheckout(pkg, true);
     else startPixCheckout(pkg, true);
     return;
   }
@@ -11304,6 +11361,11 @@ function acceptDonationPolicy() {
   if (_pendingPayPalDonation) {
     _pendingPayPalDonation = false;
     openPayPalDonationModal(true);
+    return;
+  }
+  if (_pendingBoletoManual) {
+    _pendingBoletoManual = false;
+    openBoletoManualModal(true);
   }
 }
 
@@ -12356,6 +12418,9 @@ async function applyCatalogPayload(data, opts = {}) {
     _catalogPaypalEnabled = !!data.paypal_enabled;
     _catalogPaypalQrUrl = data.paypal_qr_url || "/paypal-qr.jpeg";
     _catalogPaypalInstructions = data.paypal_instructions || "";
+    _catalogBoletoMpEnabled = !!data.boleto_mp_enabled;
+    _catalogBoletoManualEnabled = !!data.boleto_manual_enabled;
+    _catalogBoletoManualInstructions = data.boleto_manual_instructions || "";
     if (data.exchange_rates && data.exchange_rates.rates) {
       _exchangeRates = data.exchange_rates.rates;
     }
@@ -12574,6 +12639,9 @@ async function _loadCatalogLegacyUnused() {
     _catalogPaypalEnabled = !!data.paypal_enabled;
     _catalogPaypalQrUrl = data.paypal_qr_url || "/paypal-qr.jpeg";
     _catalogPaypalInstructions = data.paypal_instructions || "";
+    _catalogBoletoMpEnabled = !!data.boleto_mp_enabled;
+    _catalogBoletoManualEnabled = !!data.boleto_manual_enabled;
+    _catalogBoletoManualInstructions = data.boleto_manual_instructions || "";
     if (data.exchange_rates && data.exchange_rates.rates) {
       _exchangeRates = data.exchange_rates.rates;
     }
@@ -12874,6 +12942,7 @@ function renderRecharge() {
   const empty = document.getElementById("catalog-recharge-empty");
   const hint = document.getElementById("recharge-hint");
   const paypalBlock = document.getElementById("catalog-paypal-block");
+  const boletoManualBlock = document.getElementById("catalog-boleto-manual-block");
   if (!grid) return;
 
   if (_auth.authenticated) refreshPlayerBalance();
@@ -12881,13 +12950,22 @@ function renderRecharge() {
   if (paypalBlock) {
     paypalBlock.style.display = _catalogPaypalEnabled ? "" : "none";
   }
+  if (boletoManualBlock) {
+    boletoManualBlock.style.display = _catalogBoletoManualEnabled ? "" : "none";
+    const boletoTxt = document.getElementById("catalog-boleto-manual-text");
+    if (boletoTxt && _catalogBoletoManualInstructions) {
+      boletoTxt.textContent = _catalogBoletoManualInstructions.split("\n")[0]
+        || "Pague o boleto/transferência conforme as instruções. Após a compensação, abra um ticket com comprovante — um admin creditará Âmbares.";
+    }
+  }
 
-  const mpEnabled = _catalogPixEnabled || _catalogCardEnabled;
-  if (!mpEnabled && !_catalogPaypalEnabled) {
+  const mpEnabled = _catalogPixEnabled || _catalogCardEnabled || _catalogBoletoMpEnabled;
+  const anyAlt = _catalogPaypalEnabled || _catalogBoletoManualEnabled;
+  if (!mpEnabled && !anyAlt) {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.textContent = "Doações indisponíveis no momento. O administrador pode ativar Mercado Pago (PIX/cartão) ou PayPal.";
+      empty.textContent = "Doações indisponíveis no momento. O administrador pode ativar Mercado Pago (PIX/cartão/boleto), PayPal ou boleto manual.";
     }
     if (hint) hint.textContent = "";
     return;
@@ -12897,7 +12975,7 @@ function renderRecharge() {
     grid.innerHTML = "";
     if (empty) empty.style.display = "none";
     if (hint) {
-      hint.textContent = "Use PayPal abaixo para doar qualquer valor. Após pagar, abra um ticket para crédito de Âmbares.";
+      hint.textContent = "Use PayPal ou boleto manual abaixo para doar. Após pagar, abra um ticket para crédito de Âmbares.";
     }
     return;
   }
@@ -12906,19 +12984,21 @@ function renderRecharge() {
   const payHints = [];
   if (_catalogPixEnabled) payHints.push("PIX");
   if (_catalogCardEnabled) payHints.push("cartão");
+  if (_catalogBoletoMpEnabled) payHints.push("boleto");
   if (hint) {
     const mpLine = payHints.length ? `Selecione um pacote e escolha ${payHints.join(" ou ")}.` : "";
     const paypalLine = _catalogPaypalEnabled ? " PayPal (valor livre) disponível acima." : "";
-    hint.textContent = mpLine + paypalLine;
+    const boletoLine = _catalogBoletoManualEnabled ? " Boleto manual disponível acima." : "";
+    hint.textContent = mpLine + paypalLine + boletoLine;
   }
 
   const pkgs = _catalogPackages || [];
   if (!pkgs.length) {
     grid.innerHTML = "";
     if (empty) {
-      empty.style.display = _catalogPaypalEnabled ? "none" : "";
+      empty.style.display = anyAlt ? "none" : "";
       empty.textContent = "Nenhum pacote Mercado Pago no momento. Peça ao admin para configurar em Loja → Doações (PIX / Cartão)."
-        + (_catalogPaypalEnabled ? "" : "");
+        + (anyAlt ? "" : "");
     }
     return;
   }
@@ -12934,6 +13014,7 @@ function renderRecharge() {
       : `<div class="recharge-card__actions">
           ${_catalogPixEnabled ? `<button class="btn btn-success" style="width:100%;" onclick="startPixCheckout('${pid}')">Doar via PIX</button>` : ""}
           ${_catalogCardEnabled ? `<button class="btn btn-ghost" style="width:100%;" onclick="startCardCheckout('${pid}')">Cartão de crédito</button>` : ""}
+          ${_catalogBoletoMpEnabled ? `<button class="btn btn-ghost" style="width:100%;" onclick="startBoletoCheckout('${pid}')">Boleto bancário</button>` : ""}
         </div>`;
     return `
     <div class="recharge-card">
@@ -13034,6 +13115,66 @@ function openPayPalDonationTicket() {
   }, 250);
 }
 
+function openBoletoManualModal(policyAlreadyAccepted) {
+  if (!_catalogBoletoManualEnabled) { toast("Doação por boleto manual indisponível.", "warning"); return; }
+  if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
+  if (!guardDisplayName("doar via boleto")) return;
+  if (!policyAlreadyAccepted) {
+    try {
+      if (!localStorage.getItem(DONATION_POLICY_KEY)) {
+        _pendingBoletoManual = true;
+        openPolicyModal(true);
+        return;
+      }
+    } catch (_) {
+      _pendingBoletoManual = true;
+      openPolicyModal(true);
+      return;
+    }
+  }
+  const instructions = escHtml(_catalogBoletoManualInstructions || (
+    "Doação via boleto bancário.\n\nApós pagar, abra um ticket (Doação) com comprovante, SteamID e valor doado."
+  ));
+  const body = document.getElementById("boleto-manual-modal-body");
+  if (body) {
+    body.innerHTML = `
+      <p class="paypal-modal-instructions">${instructions.replace(/\n/g, "<br>")}</p>
+      <p style="font-size:12px;color:var(--text2);text-align:center;margin:0;line-height:1.5;">
+        Compensação de boleto pode levar 1–3 dias úteis. Doação definitiva — sem reembolso. Crédito de Âmbares é manual após validação.
+      </p>`;
+  }
+  document.getElementById("boleto-manual-modal").style.display = "flex";
+}
+
+function closeBoletoManualModal() {
+  document.getElementById("boleto-manual-modal").style.display = "none";
+}
+
+function openBoletoManualDonationTicket() {
+  closeBoletoManualModal();
+  if (!_auth.authenticated) { promptLogin("abrir ticket"); return; }
+  goToPage("tickets");
+  setTimeout(() => {
+    ticketsSwitchTab("new");
+    const cat = document.getElementById("tickets-new-category");
+    const subj = document.getElementById("tickets-new-subject");
+    const msg = document.getElementById("tickets-new-body");
+    if (cat) cat.value = "doacao";
+    if (subj) subj.value = "Crédito Âmbar — doação boleto";
+    if (msg) {
+      msg.value = [
+        "Solicito crédito de Âmbares referente a doação via boleto/transferência.",
+        "",
+        `SteamID: ${_auth.steam_id || ""}`,
+        "Valor doado: ",
+        "Data do pagamento: ",
+        "",
+        "Anexo: comprovante do boleto ou transferência.",
+      ].join("\n");
+    }
+  }, 250);
+}
+
 function _loadPayerProfile() {
   try {
     const raw = localStorage.getItem(PAYER_PROFILE_KEY);
@@ -13110,19 +13251,28 @@ function closePixPayerModal() {
 }
 
 function _updatePayerModalForMethod(method) {
-  const isCard = method === "card";
   const title = document.querySelector("#pix-payer-modal .modal-title");
   const intro = document.querySelector("#pix-payer-modal .payer-form-intro");
   const btn = document.getElementById("pix-payer-submit-btn");
-  if (title) title.textContent = isCard ? "💳 Dados para doação com cartão (Mercado Pago)" : "💚 Dados para doação PIX (Mercado Pago)";
-  if (intro) intro.innerHTML = isCard
-    ? "Pagamento internacional: use cartão de crédito. Informe <strong>e-mail e nome</strong> — CPF ou passaporte é <strong>opcional</strong>. Dados repassados ao Mercado Pago."
-    : "PIX disponível apenas no Brasil. Informe e-mail, nome, <strong>CPF e telefone celular</strong> — exigidos pelo Mercado Pago para gerar o código PIX.";
-  if (btn) btn.textContent = isCard ? "Continuar para cartão" : "Continuar para PIX";
+  if (method === "card") {
+    if (title) title.textContent = "💳 Dados para doação com cartão (Mercado Pago)";
+    if (intro) intro.innerHTML = "Pagamento internacional: use cartão de crédito. Informe <strong>e-mail e nome</strong> — CPF ou passaporte é <strong>opcional</strong>. Dados repassados ao Mercado Pago.";
+    if (btn) btn.textContent = "Continuar para cartão";
+  } else if (method === "boleto") {
+    if (title) title.textContent = "🧾 Dados para doação com boleto (Mercado Pago)";
+    if (intro) intro.innerHTML = "Boleto bancário (Brasil). Informe e-mail, nome, <strong>CPF e telefone celular</strong> — exigidos pelo Mercado Pago para emitir o boleto.";
+    if (btn) btn.textContent = "Continuar para boleto";
+  } else {
+    if (title) title.textContent = "💚 Dados para doação PIX (Mercado Pago)";
+    if (intro) intro.innerHTML = "PIX disponível apenas no Brasil. Informe e-mail, nome, <strong>CPF e telefone celular</strong> — exigidos pelo Mercado Pago para gerar o código PIX.";
+    if (btn) btn.textContent = "Continuar para PIX";
+  }
 }
 
 async function openPixPayerModal(packageId, method) {
-  _paymentCheckoutMethod = method === "card" ? "card" : "pix";
+  if (method === "card") _paymentCheckoutMethod = "card";
+  else if (method === "boleto") _paymentCheckoutMethod = "boleto";
+  else _paymentCheckoutMethod = "pix";
   _pixCheckoutPackageId = packageId;
   _updatePayerModalForMethod(_paymentCheckoutMethod);
   const fields = _paymentCheckoutMethod === "card"
@@ -13168,6 +13318,10 @@ async function submitPixPayerForm() {
   if (!_pixCheckoutPackageId) return;
   if (_paymentCheckoutMethod === "card") {
     await submitCardPayerForm();
+    return;
+  }
+  if (_paymentCheckoutMethod === "boleto") {
+    await submitBoletoPayerForm();
     return;
   }
   if (!guardDisplayName("doar via PIX")) return;
@@ -13235,18 +13389,54 @@ async function submitCardPayerForm() {
   }
 }
 
+async function submitBoletoPayerForm() {
+  if (!_pixCheckoutPackageId) return;
+  if (!guardDisplayName("doar via boleto")) return;
+  const btn = document.getElementById("pix-payer-submit-btn");
+  let payer;
+  try {
+    payer = _collectPayerFromForm();
+  } catch (e) {
+    toast(e.message || "Preencha os campos obrigatórios.", "warning");
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = "Abrindo boleto…";
+  try {
+    const d = await fetchJson("/api/player/boleto/checkout", {
+      method: "POST",
+      body: { package_id: _pixCheckoutPackageId, payer },
+    });
+    _savePayerProfile(payer);
+    closePixPayerModal();
+    try { sessionStorage.setItem("arkland_boleto_payment_id", d.payment_id || ""); } catch (_) {}
+    window.location.href = d.checkout_url;
+  } catch (e) {
+    toast(e.message || "Erro de rede ao iniciar boleto", "error");
+    if (e.data?.field) {
+      const el = document.getElementById("payer-" + e.data.field);
+      if (el) el.focus();
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Continuar para boleto";
+  }
+}
+
 async function startPixCheckout(packageId, policyAlreadyAccepted) {
   if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
   if (!policyAlreadyAccepted) {
     try {
       if (!localStorage.getItem(DONATION_POLICY_KEY)) {
         _pendingPixPackageId = packageId;
+        _paymentCheckoutMethod = "pix";
         openPolicyModal(true);
         return;
       }
     } catch (_) {
       openPolicyModal(true);
       _pendingPixPackageId = packageId;
+      _paymentCheckoutMethod = "pix";
       return;
     }
   }
@@ -13274,6 +13464,27 @@ async function startCardCheckout(packageId, policyAlreadyAccepted) {
   await openPixPayerModal(packageId, "card");
 }
 
+async function startBoletoCheckout(packageId, policyAlreadyAccepted) {
+  if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
+  if (!_catalogBoletoMpEnabled) { toast("Pagamento com boleto indisponível.", "warning"); return; }
+  if (!policyAlreadyAccepted) {
+    try {
+      if (!localStorage.getItem(DONATION_POLICY_KEY)) {
+        _pendingPixPackageId = packageId;
+        _paymentCheckoutMethod = "boleto";
+        openPolicyModal(true);
+        return;
+      }
+    } catch (_) {
+      openPolicyModal(true);
+      _pendingPixPackageId = packageId;
+      _paymentCheckoutMethod = "boleto";
+      return;
+    }
+  }
+  await openPixPayerModal(packageId, "boleto");
+}
+
 function handleMpCardReturn() {
   const params = new URLSearchParams(window.location.search);
   const mpReturn = params.get("mp_card_return");
@@ -13291,6 +13502,26 @@ function handleMpCardReturn() {
     if (paymentId) pollCardReturnStatus(paymentId, mpId);
   } else if (mpReturn === "failure") {
     toast("Pagamento com cartão não concluído. Tente novamente ou use PIX.", "warning");
+  }
+}
+
+function handleMpBoletoReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const mpReturn = params.get("mp_boleto_return");
+  if (!mpReturn) return;
+  const extRef = params.get("external_reference") || "";
+  const mpId = params.get("payment_id") || "";
+  let paymentId = extRef;
+  try {
+    if (!paymentId) paymentId = sessionStorage.getItem("arkland_boleto_payment_id") || "";
+  } catch (_) {}
+  history.replaceState({}, "", window.location.pathname + window.location.hash);
+  setCatalogTab("recharge");
+  if (mpReturn === "success" || mpReturn === "pending") {
+    toast("Boleto gerado — Âmbares serão creditados após a compensação (1–3 dias úteis).", "success");
+    if (paymentId) pollCardReturnStatus(paymentId, mpId);
+  } else if (mpReturn === "failure") {
+    toast("Boleto não concluído. Tente novamente ou use PIX.", "warning");
   }
 }
 
@@ -15554,7 +15785,13 @@ async function seasonPassBuyPremium() {
   try {
     const d = await fetchJson("/api/season-pass/premium", { method: "POST", body: {} });
     if (!d.ok) throw new Error(d.error || "Compra indisponível");
+    if (d.points_after != null || d.new_balance != null) {
+      window._playerBalance = Number(d.points_after ?? d.new_balance);
+      updateBalanceDisplays(window._playerBalance);
+      syncAmberUnits(window._playerBalance);
+    }
     toast(d.message || "Premium adquirido.", "success");
+    refreshPlayerBalance({ force: true });
     loadSeasonPass();
   } catch (e) {
     toast(String(e.message || e), "error");
@@ -15571,7 +15808,21 @@ async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
       body,
     });
     if (!d.ok) throw new Error(d.error || "Claim falhou");
+    // Claim Â credita players.points no commit — sem force o cooldown de 30s
+    // deixava a pílula de saldo stale (toast «Â creditados» vs saldo antigo).
+    let bal = d.new_balance ?? d.points_after;
+    if (bal == null && Array.isArray(d.delivery)) {
+      for (const row of d.delivery) {
+        if (row && row.points_after != null) bal = row.points_after;
+      }
+    }
+    if (bal != null && Number.isFinite(Number(bal))) {
+      window._playerBalance = Number(bal);
+      updateBalanceDisplays(window._playerBalance);
+      syncAmberUnits(window._playerBalance);
+    }
     toast(d.message || "Recompensa resgatada.", "success");
+    refreshPlayerBalance({ force: true });
     loadSeasonPass();
   } catch (e) {
     const msg = String(e.message || e);
@@ -15589,6 +15840,14 @@ async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
     }
     if (msg.includes("sku_pending")) {
       toast("SKU ainda em falta — resgate bloqueado até preencherem o ID no catálogo.", "error");
+      loadSeasonPass();
+      return;
+    }
+    if (msg.includes("sku_missing")) {
+      toast(
+        "ID do catálogo inválido ou desactualizado — o resgate foi bloqueado (nada entregue). Contate um admin.",
+        "error",
+      );
       loadSeasonPass();
       return;
     }
@@ -23462,6 +23721,12 @@ async function loadSettings() {
     if (ppQr) ppQr.value = s.paypal_qr_path || "/paypal-qr.jpeg";
     const ppInstr = document.getElementById("s-paypal-instructions");
     if (ppInstr) ppInstr.value = s.paypal_instructions || "";
+    const boletoMp = document.getElementById("s-boleto-mp-enabled");
+    if (boletoMp) boletoMp.checked = !!s.boleto_mp_enabled;
+    const boletoMan = document.getElementById("s-boleto-manual-enabled");
+    if (boletoMan) boletoMan.checked = !!s.boleto_manual_enabled;
+    const boletoInstr = document.getElementById("s-boleto-manual-instructions");
+    if (boletoInstr) boletoInstr.value = s.boleto_manual_instructions || "";
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -23514,6 +23779,9 @@ async function saveSettings() {
     paypal_enabled: !!document.getElementById("s-paypal-enabled")?.checked,
     paypal_qr_path: (document.getElementById("s-paypal-qr-path")?.value || "/paypal-qr.jpeg").trim(),
     paypal_instructions: (document.getElementById("s-paypal-instructions")?.value || "").trim(),
+    boleto_mp_enabled: !!document.getElementById("s-boleto-mp-enabled")?.checked,
+    boleto_manual_enabled: !!document.getElementById("s-boleto-manual-enabled")?.checked,
+    boleto_manual_instructions: (document.getElementById("s-boleto-manual-instructions")?.value || "").trim(),
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;
@@ -26539,26 +26807,32 @@ async function loadTeamsRankings() {
   await ensureTeamsNavFromApi();
   const tEl = document.getElementById("teams-rank-teams");
   const pEl = document.getElementById("teams-rank-players");
+  const btEl = document.getElementById("teams-rank-blocked-teams");
+  const bpEl = document.getElementById("teams-rank-blocked-players");
+  const adminTools = document.getElementById("teams-rank-admin-tools");
+  const isAdmin = !!(_auth && _auth.is_admin);
+  if (adminTools) adminTools.style.display = isAdmin ? "" : "none";
   try {
-    const [tr, pr] = await Promise.all([
-      fetchJson("/api/teams/rankings/teams?limit=50"),
-      fetchJson("/api/teams/rankings/players?limit=50"),
-    ]);
+    const d = await fetchJson("/api/teams/rankings?limit=50");
+    const data = (d.ok && d.data) ? d.data : {};
+    const rows = data.teams || [];
+    const prow = data.players || [];
+    const blockedT = data.blocked_teams || [];
+    const blockedP = data.blocked_players || [];
     if (tEl) {
-      const rows = (tr.ok && tr.data) ? tr.data : [];
       tEl.innerHTML = rows.length
-        ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Equipe</th><th>Marco</th><th>XP lifetime</th><th>Membros</th></tr></thead>
+        ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Equipe</th><th>Marco</th><th>XP lifetime</th><th>Membros</th>${isAdmin ? "<th></th>" : ""}</tr></thead>
            <tbody>${rows.map(r => `<tr>
-             <td>${r.rank}</td><td>${escHtml(r.name)}</td><td>${r.milestone_index}</td>
+             <td>${r.rank}</td><td>${escHtml(r.name)} <span style="opacity:.6;font-size:11px;">#${r.id}</span></td><td>${r.milestone_index}</td>
              <td>${Number(r.team_xp_lifetime||0).toLocaleString("pt-BR")}</td><td>${r.member_count||0}/${r.max_members||0}</td>
+             ${isAdmin ? `<td><button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeamId(${r.id},true)">Excluir</button></td>` : ""}
            </tr>`).join("")}</tbody></table>`
-        : "<p>Nenhuma equipe ainda.</p>";
+        : "<p>Nenhuma equipe no ranking.</p>";
     }
     if (pEl) {
-      const rows = (pr.ok && pr.data) ? pr.data : [];
-      pEl.innerHTML = rows.length
-        ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Nome</th><th>XP</th><th>Equipe</th></tr></thead>
-           <tbody>${rows.map(r => {
+      pEl.innerHTML = prow.length
+        ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Nome</th><th>XP</th><th>Equipe</th>${isAdmin ? "<th></th>" : ""}</tr></thead>
+           <tbody>${prow.map(r => {
              const nick = (r.display_name && r.display_name !== r.steam_id) ? r.display_name : (r.steam_id || "—");
              return `<tr>
              <td>${r.rank}</td>
@@ -26566,13 +26840,81 @@ async function loadTeamsRankings() {
                <div style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(r.steam_id || "")}</div>
              </td>
              <td>${Number(r.xp||0).toLocaleString("pt-BR")}</td><td>${escHtml(r.team_name || "—")}</td>
+             ${isAdmin ? `<td><button class="btn btn-ghost btn-sm" onclick="teamsRankBlockPlayerSid('${escHtml(r.steam_id)}',true)">Excluir</button></td>` : ""}
            </tr>`;
            }).join("")}</tbody></table>`
-        : "<p>Sem XP lifetime ainda.</p>";
+        : "<p>Sem XP lifetime no ranking.</p>";
+    }
+    if (btEl) {
+      btEl.innerHTML = blockedT.length
+        ? `<table class="pkg-admin-table"><thead><tr><th>Equipe</th><th>Status</th><th>Marco</th><th>XP lifetime</th><th>Membros</th>${isAdmin ? "<th></th>" : ""}</tr></thead>
+           <tbody>${blockedT.map(r => `<tr>
+             <td>${escHtml(r.name)} <span style="opacity:.6;font-size:11px;">#${r.id}</span></td>
+             <td>${escHtml(r.status || "")}</td><td>${r.milestone_index}</td>
+             <td>${Number(r.team_xp_lifetime||0).toLocaleString("pt-BR")}</td><td>${r.member_count||0}/${r.max_members||0}</td>
+             ${isAdmin ? `<td><button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeamId(${r.id},false)">Restaurar</button></td>` : ""}
+           </tr>`).join("")}</tbody></table>`
+        : "<p style=\"color:var(--text2);\">Nenhuma equipe excluída.</p>";
+    }
+    if (bpEl) {
+      bpEl.innerHTML = blockedP.length
+        ? `<table class="pkg-admin-table"><thead><tr><th>Nome</th><th>XP</th><th>Equipe</th>${isAdmin ? "<th></th>" : ""}</tr></thead>
+           <tbody>${blockedP.map(r => {
+             const nick = (r.display_name && r.display_name !== r.steam_id) ? r.display_name : (r.steam_id || "—");
+             return `<tr>
+             <td title="${escHtml(r.steam_id || "")}">${escHtml(nick)}
+               <div style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(r.steam_id || "")}</div>
+             </td>
+             <td>${Number(r.xp||0).toLocaleString("pt-BR")}</td><td>${escHtml(r.team_name || "—")}</td>
+             ${isAdmin ? `<td><button class="btn btn-ghost btn-sm" onclick="teamsRankBlockPlayerSid('${escHtml(r.steam_id)}',false)">Restaurar</button></td>` : ""}
+           </tr>`;
+           }).join("")}</tbody></table>`
+        : "<p style=\"color:var(--text2);\">Nenhum jogador excluído.</p>";
     }
   } catch (e) {
     if (tEl) tEl.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
   }
+}
+
+async function teamsRankBlockTeamId(teamId, blocked) {
+  try {
+    const d = await fetchJson("/api/admin/teams/ranking-block", {
+      method: "POST", body: { team_id: teamId, blocked: !!blocked },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(blocked ? "Equipe fora do ranking" : "Equipe restaurada no ranking");
+    if (document.getElementById("page-teams-rankings")?.classList.contains("active")) {
+      loadTeamsRankings();
+    }
+    if (document.getElementById("page-teams-admin")?.classList.contains("active")) {
+      loadTeamsAdmin();
+    }
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsRankBlockTeam(blocked) {
+  const el = document.getElementById("tm-rank-block-team-id");
+  const id = parseInt(el?.value || "0", 10);
+  if (!id) { toast("Informe o ID da equipe", "error"); return; }
+  await teamsRankBlockTeamId(id, blocked);
+}
+
+async function teamsRankBlockPlayerSid(steamId, blocked) {
+  try {
+    const d = await fetchJson("/api/admin/teams/player-ranking-block", {
+      method: "POST", body: { steam_id: steamId, blocked: !!blocked },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(blocked ? "Jogador fora do ranking" : "Jogador restaurado no ranking");
+    loadTeamsRankings();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsRankBlockPlayer(blocked) {
+  const el = document.getElementById("tm-rank-block-steam");
+  const sid = (el?.value || "").trim();
+  if (!sid) { toast("Informe o SteamID64", "error"); return; }
+  await teamsRankBlockPlayerSid(sid, blocked);
 }
 
 let _teamsWarehouseCatalog = [];
@@ -26681,6 +27023,7 @@ async function loadTeamsAdmin() {
             <td>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminSuspend(${t.id},true)">Suspender</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminSuspend(${t.id},false)">Reativar</button>
+              <button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeamId(${t.id},${t.ranking_blocked ? "false" : "true"})">${t.ranking_blocked ? "Voltar ao ranking" : "Fora do ranking"}</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminTransfer(${t.id})">Transferir</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminKick(${t.id})">Kick</button>
             </td>
@@ -27250,6 +27593,7 @@ async function bootPortal() {
   _clearBootWatchdog();
   initArkConnectDelegation();
   handleMpCardReturn();
+  handleMpBoletoReturn();
   setStatus(false, "A preparar a loja…");
   try {
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
@@ -27493,6 +27837,18 @@ document.addEventListener("keydown", (e) => {
     <div class="buy-modal-footer">
       <button class="btn btn-ghost" onclick="closePayPalModal()">Fechar</button>
       <button class="btn btn-primary" onclick="openPayPalDonationTicket()">🎫 Abrir ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal boleto manual (instruções + ticket) ─────────────────────────────── -->
+<div id="boleto-manual-modal">
+  <div class="buy-modal-inner">
+    <div class="buy-modal-title">🧾 Doação via boleto (manual)</div>
+    <div id="boleto-manual-modal-body" class="buy-modal-body"></div>
+    <div class="buy-modal-footer">
+      <button class="btn btn-ghost" onclick="closeBoletoManualModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="openBoletoManualDonationTicket()">🎫 Abrir ticket</button>
     </div>
   </div>
 </div>

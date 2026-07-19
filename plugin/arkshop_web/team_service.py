@@ -691,6 +691,14 @@ def ensure_team_schema(engine: Engine) -> None:
         )
         _add_col_if_missing(conn, is_sqlite, "team_members", "last_activity_at", now_col)
         _add_col_if_missing(conn, is_sqlite, "team_milestones", "amber_bonus_pp", "INTEGER")
+        _add_col_if_missing(conn, is_sqlite, "teams", "ranking_blocked", f"{tiny} NOT NULL DEFAULT 0")
+        _add_col_if_missing(conn, is_sqlite, "teams", "ranking_blocked_at", now_col)
+        _add_col_if_missing(conn, is_sqlite, "teams", "ranking_blocked_by", "VARCHAR(32)")
+        _add_col_if_missing(
+            conn, is_sqlite, "player_xp_lifetime", "ranking_blocked", f"{tiny} NOT NULL DEFAULT 0",
+        )
+        _add_col_if_missing(conn, is_sqlite, "player_xp_lifetime", "ranking_blocked_at", now_col)
+        _add_col_if_missing(conn, is_sqlite, "player_xp_lifetime", "ranking_blocked_by", "VARCHAR(32)")
         conn.commit()
     log.info("team_schema: tables verified/created")
 
@@ -859,7 +867,8 @@ _TEAM_COLS = """
             max_members, milestone_index, team_xp, team_xp_lifetime,
             bank_mode, recruitment_open, represents_tribe, mural_text,
             renamed_at, created_at, updated_at,
-            auto_kick_inactive, auto_kick_inactive_hours
+            auto_kick_inactive, auto_kick_inactive_hours,
+            ranking_blocked, ranking_blocked_at, ranking_blocked_by
 """
 
 
@@ -881,6 +890,7 @@ def _team_row(row: Any, *, db: Session | None = None) -> dict[str, Any]:
     except (TypeError, ValueError):
         auto_hours = DEFAULT_AUTO_KICK_HOURS
     mi = int(row[7] or 0)
+    ranking_blocked = bool(row[19]) if len(row) > 19 else False
     return {
         "id": int(row[0]),
         "name": row[1],
@@ -903,6 +913,9 @@ def _team_row(row: Any, *, db: Session | None = None) -> dict[str, Any]:
         "auto_kick_inactive": auto_kick,
         "auto_kick_inactive_hours": max(AUTO_KICK_HOURS_MIN, min(AUTO_KICK_HOURS_MAX, auto_hours)),
         "amber_bonus_pct": team_amber_bonus_pct(mi, db=db),
+        "ranking_blocked": ranking_blocked,
+        "ranking_blocked_at": str(row[20]) if len(row) > 20 and row[20] else None,
+        "ranking_blocked_by": (str(row[21]) if len(row) > 21 and row[21] else "") or "",
     }
 
 
@@ -2619,12 +2632,107 @@ def add_team_timed_xp(
 
 # ── Rankings ─────────────────────────────────────────────────
 
+def set_team_ranking_block(
+    db: Session,
+    *,
+    team_id: int,
+    blocked: bool,
+    actor_steam_id: str = "",
+) -> dict[str, Any]:
+    """Staff: exclude/include team from public rankings (does not suspend)."""
+    _require_enabled()
+    team = get_team(db, team_id)
+    if not team:
+        raise ValueError("Equipe não encontrada.")
+    now = _naive()
+    flag = 1 if blocked else 0
+    actor = str(actor_steam_id or "").strip()
+    if blocked:
+        db.execute(
+            text("""
+                UPDATE teams SET ranking_blocked = :f, ranking_blocked_at = :now,
+                                 ranking_blocked_by = :by, updated_at = :now
+                WHERE id = :id
+            """),
+            {"f": flag, "now": now, "by": actor, "id": int(team_id)},
+        )
+    else:
+        db.execute(
+            text("""
+                UPDATE teams SET ranking_blocked = 0, ranking_blocked_at = NULL,
+                                 ranking_blocked_by = '', updated_at = :now
+                WHERE id = :id
+            """),
+            {"now": now, "id": int(team_id)},
+        )
+    db.commit()
+    return get_team(db, team_id) or {}
+
+
+def set_player_ranking_block(
+    db: Session,
+    *,
+    steam_id: str,
+    blocked: bool,
+    actor_steam_id: str = "",
+) -> dict[str, Any]:
+    """Staff: exclude/include player from XP lifetime rankings."""
+    _require_enabled()
+    sid = str(steam_id or "").strip()
+    if not sid:
+        raise ValueError("steam_id obrigatório.")
+    now = _naive()
+    actor = str(actor_steam_id or "").strip()
+    row = db.execute(
+        text("SELECT xp, ranking_blocked FROM player_xp_lifetime WHERE steam_id = :sid"),
+        {"sid": sid},
+    ).fetchone()
+    if not row:
+        db.execute(
+            text("""
+                INSERT INTO player_xp_lifetime
+                    (steam_id, xp, updated_at, ranking_blocked, ranking_blocked_at, ranking_blocked_by)
+                VALUES (:sid, 0, :now, :f, :at, :by)
+            """),
+            {
+                "sid": sid,
+                "now": now,
+                "f": 1 if blocked else 0,
+                "at": now if blocked else None,
+                "by": actor if blocked else "",
+            },
+        )
+    elif blocked:
+        db.execute(
+            text("""
+                UPDATE player_xp_lifetime
+                SET ranking_blocked = 1, ranking_blocked_at = :now, ranking_blocked_by = :by,
+                    updated_at = :now
+                WHERE steam_id = :sid
+            """),
+            {"now": now, "by": actor, "sid": sid},
+        )
+    else:
+        db.execute(
+            text("""
+                UPDATE player_xp_lifetime
+                SET ranking_blocked = 0, ranking_blocked_at = NULL, ranking_blocked_by = '',
+                    updated_at = :now
+                WHERE steam_id = :sid
+            """),
+            {"now": now, "sid": sid},
+        )
+    db.commit()
+    return my_player_rank(db, sid)
+
+
 def ranking_teams(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
     limit = max(1, min(200, int(limit)))
     rows = db.execute(
         text(f"""
             SELECT {_TEAM_COLS}
-            FROM teams WHERE status = 'ACTIVE'
+            FROM teams
+            WHERE status = 'ACTIVE' AND COALESCE(ranking_blocked, 0) = 0
             ORDER BY milestone_index DESC, team_xp_lifetime DESC, created_at ASC
             LIMIT :lim
         """),
@@ -2639,11 +2747,32 @@ def ranking_teams(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
     return out
 
 
+def ranking_blocked_teams(db: Session, *, limit: int = 100) -> list[dict[str, Any]]:
+    limit = max(1, min(200, int(limit)))
+    rows = db.execute(
+        text(f"""
+            SELECT {_TEAM_COLS}
+            FROM teams
+            WHERE COALESCE(ranking_blocked, 0) = 1
+            ORDER BY team_xp_lifetime DESC, name ASC
+            LIMIT :lim
+        """),
+        {"lim": limit},
+    ).fetchall()
+    out = []
+    for r in rows:
+        t = _team_row(r, db=db)
+        t["member_count"] = count_active_members(db, t["id"])
+        out.append(t)
+    return out
+
+
 def ranking_players(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
     limit = max(1, min(200, int(limit)))
     rows = db.execute(
         text("""
             SELECT steam_id, xp, updated_at FROM player_xp_lifetime
+            WHERE COALESCE(ranking_blocked, 0) = 0
             ORDER BY xp DESC, steam_id ASC LIMIT :lim
         """),
         {"lim": limit},
@@ -2662,22 +2791,84 @@ def ranking_players(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
             "updated_at": str(r[2]) if r[2] else None,
             "team_id": mem["team_id"] if mem else None,
             "team_name": mem["team_name"] if mem else None,
+            "ranking_blocked": False,
         })
     return out
 
 
+def ranking_blocked_players(db: Session, *, limit: int = 100) -> list[dict[str, Any]]:
+    limit = max(1, min(200, int(limit)))
+    rows = db.execute(
+        text("""
+            SELECT steam_id, xp, updated_at, ranking_blocked_at, ranking_blocked_by
+            FROM player_xp_lifetime
+            WHERE COALESCE(ranking_blocked, 0) = 1
+            ORDER BY xp DESC, steam_id ASC LIMIT :lim
+        """),
+        {"lim": limit},
+    ).fetchall()
+    steam_ids = [str(r[0]) for r in rows]
+    nick_cache = _nicks_from_store_users(db, steam_ids)
+    out = []
+    for r in rows:
+        sid = str(r[0])
+        mem = get_active_membership(db, sid)
+        out.append({
+            "steam_id": sid,
+            "display_name": resolve_member_display_name(db, sid, nick_cache=nick_cache),
+            "xp": int(r[1] or 0),
+            "updated_at": str(r[2]) if r[2] else None,
+            "ranking_blocked": True,
+            "ranking_blocked_at": str(r[3]) if r[3] else None,
+            "ranking_blocked_by": (str(r[4]) if r[4] else "") or "",
+            "team_id": mem["team_id"] if mem else None,
+            "team_name": mem["team_name"] if mem else None,
+        })
+    return out
+
+
+def rankings_bundle(db: Session, *, limit: int = 50) -> dict[str, Any]:
+    """Public rankings + blocked lists for the Rankings page."""
+    lim = max(1, min(200, int(limit)))
+    return {
+        "teams": ranking_teams(db, limit=lim),
+        "players": ranking_players(db, limit=lim),
+        "blocked_teams": ranking_blocked_teams(db, limit=lim),
+        "blocked_players": ranking_blocked_players(db, limit=lim),
+    }
+
+
 def my_player_rank(db: Session, steam_id: str) -> dict[str, Any]:
     row = db.execute(
-        text("SELECT xp FROM player_xp_lifetime WHERE steam_id = :sid"),
+        text("""
+            SELECT xp, COALESCE(ranking_blocked, 0)
+            FROM player_xp_lifetime WHERE steam_id = :sid
+        """),
         {"sid": str(steam_id)},
     ).fetchone()
     xp = int(row[0] or 0) if row else 0
+    blocked = bool(row[1]) if row else False
+    if blocked:
+        return {
+            "steam_id": str(steam_id),
+            "xp": xp,
+            "rank": None,
+            "ranking_blocked": True,
+        }
     above = db.execute(
-        text("SELECT COUNT(*) FROM player_xp_lifetime WHERE xp > :xp"),
+        text("""
+            SELECT COUNT(*) FROM player_xp_lifetime
+            WHERE COALESCE(ranking_blocked, 0) = 0 AND xp > :xp
+        """),
         {"xp": xp},
     ).fetchone()
     rank = int(above[0] or 0) + 1 if xp > 0 or row else None
-    return {"steam_id": str(steam_id), "xp": xp, "rank": rank}
+    return {
+        "steam_id": str(steam_id),
+        "xp": xp,
+        "rank": rank,
+        "ranking_blocked": False,
+    }
 
 
 # ── Team market split (Q1: replaces tribe split when teams_enabled) ─

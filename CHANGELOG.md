@@ -5,12 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased] - 
+## [1.10.74] - 2026-07-19
+
+### Feature
+
+- Feat (Web Store / Doações): boleto via Mercado Pago (Checkout Pro) + boleto manual (instruções + ticket «Doação»); toggles boleto_mp_enabled / boleto_manual_enabled.
+- Feat (CustomShop 1.10.26 / TimedPoints): bônus Â aditivo da equipe (amber_bonus_pct) no tick — cache membership TTL≥Interval; award_final = award×(100+pct)/100.
+- Feat (Web Store / Equipes): bloqueio de ranking (equipes/jogadores) sem suspender — staff exclui do Top; XP/Honra preservados; secções «fora do ranking» na UI.
+
+### Fix
+
+- Fix P0 (Web Store / SeasonLand): claim kit/dino com season_id longo — orders.original_order_id VARCHAR(64)→255 (migrate no boot); evita DataError 1406 e toast SQL no RESGATAR.
 
 ### Other
 
-- Próximo: doação via boleto (manual ou Mercado Pago) — não implementado nesta release.
-- Próximo: bônus Â aditivo da equipe no tick TimedPoints C++ (web já expõe amber_bonus_pct; plugin ainda não lê).
+- Test (Web Store): SCHEMA_CONTRACTS — asserts len(ID)≤Column.type.length (SQLite ignora VARCHAR); fixtures SeasonLand longas + prefixo __admin_skip_kit_limit__|.
 
 ## [1.10.73] - 2026-07-18
 

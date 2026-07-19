@@ -388,7 +388,7 @@ def register_season_pass_routes(
             code = 400
             if "Premium" in msg and "bloqueada" in msg:
                 code = 403
-            elif msg.startswith("sku_pending"):
+            elif msg.startswith("sku_pending") or msg.startswith("sku_missing"):
                 code = 409
             payload: dict[str, Any] = {
                 "ok": False,

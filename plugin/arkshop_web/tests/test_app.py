@@ -1563,16 +1563,16 @@ class TestAdminPlayers:
         prev = _app_module._STEAM_ID_COLLATION_NORMALIZED
         try:
             _app_module._STEAM_ID_COLLATION_NORMALIZED = False
-        sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
-        assert "COLLATE utf8mb4_unicode_ci" in sql
-        assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
+            sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
+            assert "COLLATE utf8mb4_unicode_ci" in sql
+            assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
             _app_module._STEAM_ID_COLLATION_NORMALIZED = True
             assert _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True) == (
                 "mp.steam_id = su.steam_id"
             )
-        assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
-            "a.steam_id = b.steam_id"
-        )
+            assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
+                "a.steam_id = b.steam_id"
+            )
         finally:
             _app_module._STEAM_ID_COLLATION_NORMALIZED = prev
 
@@ -2299,6 +2299,144 @@ class TestCardCheckout:
         finally:
             db.close()
 
+
+
+
+class TestBoletoCheckout:
+    def _enable_boleto_mp(self, tmp_path, monkeypatch):
+        _write_settings(
+            tmp_path,
+            mp_access_token="TEST_MP_TOKEN",
+            mp_sandbox=True,
+            boleto_mp_enabled=True,
+        )
+        monkeypatch.setattr(_app_module, "_get_mp_access_token", lambda: "TEST_MP_TOKEN")
+        monkeypatch.setattr(_app_module, "_mp_sandbox", lambda: True)
+        monkeypatch.setattr(
+            _app_module,
+            "_auth_display_name_fields",
+            lambda _sid, is_admin: {
+                "market_display_name": "TestPlayer",
+                "needs_display_name": False,
+            },
+        )
+
+    def test_boleto_checkout_requires_auth(self, client):
+        r = client.post("/api/player/boleto/checkout", json={"package_id": "p10000"})
+        assert r.status_code == 401
+
+    def test_boleto_checkout_creates_preference(self, client, tmp_path, monkeypatch):
+        self._enable_boleto_mp(tmp_path, monkeypatch)
+        _login(client, USER_STEAM)
+        fake_pref = {
+            "id": "pref_boleto",
+            "sandbox_init_point": "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_boleto",
+        }
+        with patch.object(_app_module, "create_boleto_checkout_preference", return_value=fake_pref), \
+             patch.object(_app_module, "extract_checkout_url", return_value=fake_pref["sandbox_init_point"]):
+            r = client.post(
+                "/api/player/boleto/checkout",
+                json={
+                    "package_id": "p10000",
+                    "payer": {
+                        "email": "player@example.com",
+                        "full_name": "João Silva",
+                        "cpf": "529.982.247-25",
+                        "phone": "(11) 98765-4321",
+                    },
+                },
+            )
+        d = r.get_json()
+        assert r.status_code == 200, d
+        assert d["ok"] is True
+        assert d["checkout_url"].startswith("https://sandbox.mercadopago")
+        assert d["points"] == 10000
+
+        db = _app_module._SessionLocal()
+        try:
+            row = db.query(_app_module.PointPayment).filter(
+                _app_module.PointPayment.payment_id == d["payment_id"]
+            ).first()
+            assert row is not None
+            assert row.status == "PENDENTE"
+            assert row.credited is False
+            assert row.payment_method == "boleto"
+        finally:
+            db.close()
+
+    def test_boleto_checkout_disabled_without_flag(self, client, tmp_path, monkeypatch):
+        _write_settings(tmp_path, mp_access_token="TEST_MP_TOKEN", boleto_mp_enabled=False)
+        monkeypatch.setattr(_app_module, "_get_mp_access_token", lambda: "TEST_MP_TOKEN")
+        monkeypatch.setattr(
+            _app_module,
+            "_auth_display_name_fields",
+            lambda _sid, is_admin: {
+                "market_display_name": "TestPlayer",
+                "needs_display_name": False,
+            },
+        )
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/player/boleto/checkout",
+            json={
+                "package_id": "p10000",
+                "payer": {
+                    "email": "player@example.com",
+                    "full_name": "João Silva",
+                    "cpf": "529.982.247-25",
+                    "phone": "11987654321",
+                },
+            },
+        )
+        assert r.status_code == 503
+
+    def test_webhook_credits_boleto_payment(self, client, tmp_path, monkeypatch):
+        self._enable_boleto_mp(tmp_path, monkeypatch)
+        payment_id = str(uuid.uuid4())
+        db = _app_module._SessionLocal()
+        try:
+            db.add(
+                _app_module.PointPayment(
+                    payment_id=payment_id,
+                    mp_payment_id=None,
+                    steam_id=USER_STEAM,
+                    package_id="p500",
+                    amount_brl=5.0,
+                    points=500,
+                    status="PENDENTE",
+                    credited=False,
+                    payment_method="boleto",
+                    created_at=_now(),
+                    updated_at=_now(),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        mp_resp = {
+            "id": "mp_boleto_11",
+            "status": "approved",
+            "external_reference": payment_id,
+            "payment_method_id": "bolbradesco",
+        }
+        with patch.object(_app_module, "fetch_payment", return_value=mp_resp), \
+             patch.object(_app_module, "_add_player_points_tx", return_value=500) as credit_mock:
+            r = client.post("/api/payments/webhook", json={"data": {"id": "mp_boleto_11"}})
+        d = r.get_json()
+        assert d["ok"] is True, d.get("error")
+        credit_mock.assert_called_once()
+
+        db = _app_module._SessionLocal()
+        try:
+            row = db.query(_app_module.PointPayment).filter(
+                _app_module.PointPayment.payment_id == payment_id
+            ).first()
+            assert row.credited is True
+            assert row.status == "APROVADO"
+            assert row.payment_method == "boleto"
+        finally:
+            db.close()
 
 class TestKitRedemptionLimit:
     def _mock_kit_catalog(self, monkeypatch, tmp_path):

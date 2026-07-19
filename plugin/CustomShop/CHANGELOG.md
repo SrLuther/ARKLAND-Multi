@@ -8,6 +8,17 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.26] - 2026-07-19
+
+### Feat
+
+- **TimedPoints / Equipes (Q7)**: aplica `amber_bonus_pct` aditivo no tick — `award * (100+pct)/100` após stack de licenças; lê `GET /api/teams/plugin/membership/<sid>` com cache TTL = Interval; falha HTTP → pct 0 (não bloqueia Â base).
+- Outbox ARKBANK / XP de equipe usam o amount já com bônus.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.26) em cada mapa.
+
 ## [1.10.25] - 2026-07-18
 
 ### Feat

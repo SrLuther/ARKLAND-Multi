@@ -480,6 +480,56 @@ def test_ranking_teams(db):
     assert rows[0]["rank"] == 1
 
 
+def test_ranking_block_team_and_player(db):
+    ts.create_team(db, steam_id=USER_A, name="TopDogs")
+    ts.create_team(db, steam_id=USER_B, name="SecondPack")
+    tid_a = ts.get_active_membership(db, USER_A)["team_id"]
+    tid_b = ts.get_active_membership(db, USER_B)["team_id"]
+
+    # Give A more XP so A is #1
+    ts.add_team_timed_xp(db, steam_id=USER_A, amount=100, map_id="m", cycle_key="c1", commit=True)
+    ts.add_team_timed_xp(db, steam_id=USER_B, amount=40, map_id="m", cycle_key="c2", commit=True)
+
+    ranks = ts.ranking_teams(db, limit=10)
+    assert ranks[0]["id"] == tid_a
+    assert ranks[0]["rank"] == 1
+    assert ranks[1]["id"] == tid_b
+
+    ts.set_team_ranking_block(db, team_id=tid_a, blocked=True, actor_steam_id="staff")
+    ranks2 = ts.ranking_teams(db, limit=10)
+    assert all(r["id"] != tid_a for r in ranks2)
+    assert ranks2[0]["id"] == tid_b
+    assert ranks2[0]["rank"] == 1
+    blocked_t = ts.ranking_blocked_teams(db)
+    assert any(t["id"] == tid_a for t in blocked_t)
+
+    bundle = ts.rankings_bundle(db, limit=10)
+    assert any(t["id"] == tid_b for t in bundle["teams"])
+    assert any(t["id"] == tid_a for t in bundle["blocked_teams"])
+
+    # Player block
+    pr = ts.ranking_players(db, limit=20)
+    assert any(p["steam_id"] == USER_A for p in pr)
+    ts.set_player_ranking_block(db, steam_id=USER_A, blocked=True, actor_steam_id="staff")
+    pr2 = ts.ranking_players(db, limit=20)
+    assert all(p["steam_id"] != USER_A for p in pr2)
+    blocked_p = ts.ranking_blocked_players(db)
+    assert any(p["steam_id"] == USER_A for p in blocked_p)
+    me = ts.my_player_rank(db, USER_A)
+    assert me["ranking_blocked"] is True
+    assert me["rank"] is None
+    assert me["xp"] >= 100
+
+    ts.set_player_ranking_block(db, steam_id=USER_A, blocked=False)
+    ts.set_team_ranking_block(db, team_id=tid_a, blocked=False)
+    ranks3 = ts.ranking_teams(db, limit=10)
+    assert ranks3[0]["id"] == tid_a
+    assert ranks3[0]["rank"] == 1
+    me2 = ts.my_player_rank(db, USER_A)
+    assert me2["ranking_blocked"] is False
+    assert me2["rank"] is not None
+
+
 def test_team_split_snapshot(db):
     ts.create_team(db, steam_id=USER_A, name="SplitTeam")
     tid = ts.get_active_membership(db, USER_A)["team_id"]
@@ -603,6 +653,13 @@ def test_amber_bonus_via_milestones_q7(db):
         resources=[], amber_bonus_pp=50, status="ACTIVE",
     )
     assert ts.team_amber_bonus_pct(3, db=db) == 20
+    # get_team exposes amber_bonus_pct for plugin/UI (TimedPoints membership)
+    ts.create_team(db, steam_id=USER_A, name="BonusTeam")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    db.execute(text("UPDATE teams SET milestone_index = 2 WHERE id = :id"), {"id": tid})
+    db.commit()
+    team = ts.get_team(db, tid)
+    assert team["amber_bonus_pct"] == 7
 
 
 def test_milestone_cursor_per_team(db):

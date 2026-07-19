@@ -1,9 +1,12 @@
 {
-    "version": "1.10.73",
+    "version": "1.10.74",
     "date": "2026-07-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.73/ARKLAND-Multi-Setup-v1.10.73.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.74/ARKLAND-Multi-Setup-v1.10.74.exe",
     "changelog": [
-        "Feat (Web Store / Equipes): ícones dos 10 recursos do armazém (team/*.png) no marco, armazém e picker admin; API icon_url no catálogo.",
-        "Fix (TEK / Card): Process no chip do servidor — grade 2×3 e path curto (...\\Win64\\ShooterGameServer.exe) para caber e ser legível."
+        "Fix P0 (Web Store / SeasonLand): claim kit/dino com season_id longo — orders.original_order_id VARCHAR(64)→255 (migrate no boot); evita DataError 1406 e toast SQL no RESGATAR.",
+        "Feat (Web Store / Doações): boleto via Mercado Pago (Checkout Pro) + boleto manual (instruções + ticket «Doação»); toggles boleto_mp_enabled / boleto_manual_enabled.",
+        "Feat (CustomShop 1.10.26 / TimedPoints): bônus Â aditivo da equipe (amber_bonus_pct) no tick — cache membership TTL≥Interval; award_final = award×(100+pct)/100.",
+        "Feat (Web Store / Equipes): bloqueio de ranking (equipes/jogadores) sem suspender — staff exclui do Top; XP/Honra preservados; secções «fora do ranking» na UI.",
+        "Test (Web Store): SCHEMA_CONTRACTS — asserts len(ID)≤Column.type.length (SQLite ignora VARCHAR); fixtures SeasonLand longas + prefixo __admin_skip_kit_limit__|."
     ]
 }

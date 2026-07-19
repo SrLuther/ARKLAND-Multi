@@ -186,3 +186,60 @@ def test_create_card_checkout_preference_omits_identification_when_absent(monkey
         },
     )
     assert "identification" not in captured["payload"]["payer"]
+
+
+def test_create_boleto_checkout_preference_excludes_non_ticket(monkeypatch):
+    from pix_payments import create_boleto_checkout_preference
+
+    captured: dict = {}
+
+    def fake_mp(access_token, method, path, payload=None, *, idempotency_key=None):
+        captured["payload"] = payload
+        return {"init_point": "https://mp.test/boleto"}
+
+    monkeypatch.setattr("pix_payments._mp_request", fake_mp)
+    create_boleto_checkout_preference(
+        "token",
+        amount_brl=10.0,
+        description="Doação boleto",
+        external_reference="ref-boleto",
+        payer={
+            "email": "a@b.com",
+            "first_name": "A",
+            "last_name": "B",
+            "identification": {"type": "CPF", "number": "52998224725"},
+            "phone": {"area_code": "11", "number": "987654321"},
+        },
+        back_urls={
+            "success": "https://arkland.com.br/?mp_boleto_return=success",
+            "failure": "https://arkland.com.br/?mp_boleto_return=failure",
+            "pending": "https://arkland.com.br/?mp_boleto_return=pending",
+        },
+    )
+    excluded = {e["id"] for e in captured["payload"]["payment_methods"]["excluded_payment_types"]}
+    assert "ticket" not in excluded
+    assert "credit_card" in excluded
+    assert "debit_card" in excluded
+    assert "bank_transfer" in excluded
+    assert captured["payload"]["payment_methods"]["default_payment_method_id"] == "bolbradesco"
+    assert captured["payload"]["auto_return"] == "approved"
+    assert captured["payload"]["payer"]["identification"]["type"] == "CPF"
+
+
+def test_create_boleto_checkout_preference_requires_identification():
+    from pix_payments import PayerValidationError, create_boleto_checkout_preference
+
+    with pytest.raises(PayerValidationError) as exc:
+        create_boleto_checkout_preference(
+            "token",
+            amount_brl=5.0,
+            description="test",
+            external_reference="ref",
+            payer={"email": "a@b.com", "first_name": "A", "last_name": "B"},
+            back_urls={
+                "success": "https://arkland.com.br/?mp_boleto_return=success",
+                "failure": "https://arkland.com.br/?mp_boleto_return=failure",
+                "pending": "https://arkland.com.br/?mp_boleto_return=pending",
+            },
+        )
+    assert exc.value.field == "identification"

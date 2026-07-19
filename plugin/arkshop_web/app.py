@@ -30,6 +30,7 @@ from pix_payments import (
     PIX_PAYER_FORM,
     PayerValidationError,
     PixPaymentError,
+    create_boleto_checkout_preference,
     create_card_checkout_preference,
     create_pix_payment,
     extract_checkout_url,
@@ -592,7 +593,9 @@ class Order(Base):
     amount: Mapped[int] = mapped_column(Integer, default=1)
     points_spent: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
-    original_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # SeasonLand kits: `__admin_skip_kit_limit__|sp:{season}:{track}:{level}:…`
+    # (prod IDs ~67–84 chars; 64 estourou — DataError 1406).
+    original_order_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     contested: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -1706,6 +1709,39 @@ def _ensure_store_users_schema(engine: Any) -> None:
         _STORE_USERS_SCHEMA_READY = True
 
 
+_ORDERS_ORIGINAL_ORDER_ID_WIDTH = 255
+
+
+def _ensure_orders_original_order_id_width(conn: Any) -> None:
+    """Alarga orders.original_order_id para IDs SeasonLand + prefixo skip-kit.
+
+    Prod: sp:season-delta-…:dino:… (~67) e __admin_skip_kit_limit__|sp:…:kit:… (~84)
+    estouavam VARCHAR(64) → DataError 1406 no claim.
+    """
+    row = conn.execute(
+        text("SHOW COLUMNS FROM `orders` LIKE 'original_order_id'")
+    ).fetchone()
+    if row is None:
+        return
+    col_type = str(row[1] or "").lower()
+    m = re.match(r"varchar\((\d+)\)", col_type)
+    if m and int(m.group(1)) >= _ORDERS_ORIGINAL_ORDER_ID_WIDTH:
+        return
+    null_sql = "NULL" if str(row[2] or "").upper() == "YES" else "NOT NULL"
+    log.warning(
+        "Migrando orders — original_order_id %s → VARCHAR(%s)",
+        col_type or "?",
+        _ORDERS_ORIGINAL_ORDER_ID_WIDTH,
+    )
+    conn.execute(
+        text(
+            f"ALTER TABLE `orders` MODIFY `original_order_id` "
+            f"VARCHAR({_ORDERS_ORIGINAL_ORDER_ID_WIDTH}) {null_sql}"
+        )
+    )
+    conn.commit()
+
+
 def _migrate_schema(engine: Any) -> None:
     """Alinha schema MySQL com os modelos SQLAlchemy (incl. setup_db.sql legado)."""
     global _ENTITLEMENTS_SCHEMA_READY
@@ -1870,6 +1906,7 @@ def _migrate_schema(engine: Any) -> None:
                     "ALTER TABLE `orders` ADD COLUMN `payload_json` TEXT NULL"
                 ))
                 conn.commit()
+            _ensure_orders_original_order_id_width(conn)
         conn.execute(text(_entitlements_ddl_mysql()))
         conn.commit()
     Base.metadata.create_all(bind=engine)
@@ -2465,6 +2502,9 @@ def _load_settings() -> Dict[str, Any]:
         "paypal_enabled": False,
         "paypal_instructions": DEFAULT_PAYPAL_INSTRUCTIONS,
         "paypal_qr_path": DEFAULT_PAYPAL_QR_PATH,
+        "boleto_mp_enabled": False,
+        "boleto_manual_enabled": False,
+        "boleto_manual_instructions": DEFAULT_BOLETO_MANUAL_INSTRUCTIONS,
     }
     if _STATE_FILE.exists():
         try:
@@ -6338,6 +6378,16 @@ DEFAULT_PAYPAL_INSTRUCTIONS = (
     "Um administrador creditará Âmbares manualmente (R$ 1 = 1.000 Âmbares). "
     "Doação definitiva — sem reembolso."
 )
+DEFAULT_BOLETO_MANUAL_INSTRUCTIONS = (
+    "Doação via boleto bancário (depósito manual).\n\n"
+    "Use os dados bancários / PIX da conta informada pela staff abaixo (ou no ticket).\n"
+    "Após pagar o boleto ou transferência, abra um ticket (categoria «Doação») com:\n"
+    "• Comprovante do pagamento\n"
+    "• Seu SteamID\n"
+    "• Valor doado\n\n"
+    "Um administrador creditará Âmbares manualmente (R$ 1 = 1.000 Âmbares). "
+    "Doação definitiva — sem reembolso. Compensação de boleto pode levar 1–3 dias úteis."
+)
 
 
 def _get_mp_access_token() -> str:
@@ -6370,6 +6420,19 @@ def _paypal_qr_url() -> str:
 def _paypal_instructions() -> str:
     raw = str(_load_settings().get("paypal_instructions") or "").strip()
     return raw or DEFAULT_PAYPAL_INSTRUCTIONS
+
+
+def _boleto_mp_enabled() -> bool:
+    return bool(_get_mp_access_token()) and bool(_load_settings().get("boleto_mp_enabled"))
+
+
+def _boleto_manual_enabled() -> bool:
+    return bool(_load_settings().get("boleto_manual_enabled"))
+
+
+def _boleto_manual_instructions() -> str:
+    raw = str(_load_settings().get("boleto_manual_instructions") or "").strip()
+    return raw or DEFAULT_BOLETO_MANUAL_INSTRUCTIONS
 
 
 def _mp_sandbox() -> bool:
@@ -8321,6 +8384,10 @@ def get_settings():
     safe["paypal_enabled"] = _paypal_enabled()
     safe["paypal_qr_url"] = _paypal_qr_url()
     safe["paypal_instructions"] = _paypal_instructions()
+    safe["boleto_mp_enabled"] = bool(s.get("boleto_mp_enabled"))
+    safe["boleto_manual_enabled"] = _boleto_manual_enabled()
+    safe["boleto_manual_instructions"] = _boleto_manual_instructions()
+    safe["boleto_mp_available"] = _boleto_mp_enabled()
     safe["mp_sandbox"] = _mp_sandbox()
     safe["point_packages"] = _load_point_packages()
     safe["db_configured"] = _db_ready()
@@ -8374,6 +8441,9 @@ def save_settings():
         "paypal_enabled",
         "paypal_instructions",
         "paypal_qr_path",
+        "boleto_mp_enabled",
+        "boleto_manual_enabled",
+        "boleto_manual_instructions",
     ):
         if key in body:
             s[key] = body[key]
@@ -9485,6 +9555,9 @@ def public_home():
         "paypal_enabled": _paypal_enabled(),
         "paypal_qr_url": _paypal_qr_url(),
         "paypal_instructions": _paypal_instructions(),
+        "boleto_mp_enabled": _boleto_mp_enabled(),
+        "boleto_manual_enabled": _boleto_manual_enabled(),
+        "boleto_manual_instructions": _boleto_manual_instructions(),
         "starting_points": int(settings_block.get("StartingPoints") or 0),
         "servers": servers,
         "stats": stats,
@@ -9709,6 +9782,9 @@ def _build_catalog_payload() -> dict:
         "paypal_enabled": _paypal_enabled(),
         "paypal_qr_url": _paypal_qr_url(),
         "paypal_instructions": _paypal_instructions(),
+        "boleto_mp_enabled": _boleto_mp_enabled(),
+        "boleto_manual_enabled": _boleto_manual_enabled(),
+        "boleto_manual_instructions": _boleto_manual_instructions(),
         "mp_sandbox": _mp_sandbox(),
         "public_url": public_url,
         "shop_url": public_url,
@@ -10993,9 +11069,9 @@ def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
 
 
 def _resolve_payment_method(row: PointPayment) -> str:
-    """Retorna 'pix' ou 'card' — usa coluna persistida ou infere por dados legados."""
+    """Retorna 'pix', 'card' ou 'boleto' — usa coluna persistida ou infere por dados legados."""
     pm = str(row.payment_method or "").strip().lower()
-    if pm in ("pix", "card"):
+    if pm in ("pix", "card", "boleto"):
         return pm
     try:
         if getattr(row, 'pix_copy_paste', None) or getattr(row, 'pix_qr_base64', None):
@@ -11482,6 +11558,117 @@ def player_card_checkout():
             payment_method="card",
         )
         _log("card_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id)
+        return jsonify({
+            "ok": True,
+            "payment_id": payment_id,
+            "status": "PENDENTE",
+            "points": points,
+            "amount_brl": price_brl,
+            "label": label,
+            "checkout_url": checkout_url,
+            "sandbox": bool(_mp_sandbox()),
+        })
+    except Exception as exc:
+        db.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/player/boleto/checkout", methods=["POST"])
+@login_required
+@limiter.limit("5 per minute; 20 per hour")
+def player_boleto_checkout():
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    if (dn_err := _guard_player_commerce(steam_id)) is not None:
+        return dn_err
+    if not _boleto_mp_enabled():
+        return jsonify({"ok": False, "error": "Doação por boleto não configurada (indisponível)"}), 503
+
+    body = request.get_json(force=True, silent=True) or {}
+    package_id = str(body.get("package_id", "")).strip()
+    package, pkg_err = _resolve_point_package(package_id)
+    if pkg_err:
+        return jsonify({"ok": False, "error": pkg_err}), 400
+
+    try:
+        # Mesmos campos do PIX (CPF obrigatório) — Checkout Pro boleto exige documento.
+        payer = normalize_pix_payer_input(body.get("payer"))
+    except PayerValidationError as exc:
+        return jsonify({"ok": False, "error": str(exc), "field": exc.field}), 400
+
+    points = int(package.get("points", 0) or 0)
+    price_brl = float(package.get("price_brl", 0) or 0)
+    payment_id = str(uuid.uuid4())
+    label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
+    description = f"Doação ARKLAND — {label} ({steam_id})"
+    base = _shop_public_base_url()
+    back_urls = {
+        "success": f"{base}/?mp_boleto_return=success",
+        "failure": f"{base}/?mp_boleto_return=failure",
+        "pending": f"{base}/?mp_boleto_return=pending",
+    }
+
+    try:
+        mp_resp = create_boleto_checkout_preference(
+            _get_mp_access_token(),
+            amount_brl=price_brl,
+            description=description,
+            external_reference=payment_id,
+            payer=payer,
+            back_urls=back_urls,
+        )
+    except PixPaymentError as exc:
+        _audit_event(
+            "boleto_checkout_failed",
+            severity="error",
+            actor_steam_id=steam_id,
+            item_id=package_id,
+            amount=points,
+            message=f"Mercado Pago recusou checkout boleto: {exc}",
+            amount_brl=price_brl,
+            package_label=label,
+            error=str(exc),
+        )
+        return jsonify({"ok": False, "error": f"Mercado Pago: {exc}"}), 502
+
+    checkout_url = extract_checkout_url(mp_resp, sandbox=_mp_sandbox())
+    if not checkout_url:
+        return jsonify({"ok": False, "error": "Resposta de checkout inválida do Mercado Pago"}), 502
+
+    db = _SessionLocal()
+    try:
+        row = PointPayment(
+            payment_id=payment_id,
+            mp_payment_id=None,
+            steam_id=steam_id,
+            package_id=package_id,
+            amount_brl=price_brl,
+            points=points,
+            status="PENDENTE",
+            payer_email=payer.get("email"),
+            payment_method="boleto",
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        db.add(row)
+        db.commit()
+        _audit_event(
+            "boleto_checkout_created",
+            actor_steam_id=steam_id,
+            order_id=payment_id,
+            item_id=package_id,
+            amount=points,
+            status_after=row.status,
+            message=f"Tentativa boleto — {label} — R$ {price_brl:.2f}",
+            amount_brl=price_brl,
+            payer_email=payer.get("email"),
+            package_label=label,
+            payment_method="boleto",
+        )
+        _log("boleto_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id)
         return jsonify({
             "ok": True,
             "payment_id": payment_id,
@@ -13796,6 +13983,15 @@ def _season_pass_queue_catalog_order(
     if existing:
         return str(existing[0])
     resolved = _resolve_catalog_item_id(item_type, item_id)
+    # Bloqueia claim com SKU fantasma: toast OK + /shop GiveItem fail.
+    entry = _catalog_entry(item_type or "shop", resolved)
+    if not entry:
+        kind = "kit" if item_type == "kit" else "item/dino"
+        raise ValueError(
+            f"sku_missing: {kind} «{item_id}» (resolvido «{resolved}») "
+            "não existe no catálogo web — preenche o ID correcto no admin "
+            "SeasonLand ou sincroniza o config.json."
+        )
     order_id = str(uuid.uuid4())
     now = _now()
     server_id = str(_load_settings().get("server_id", "default"))

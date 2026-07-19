@@ -617,6 +617,7 @@ def buy_premium(db: Session, steam_id: str) -> dict[str, Any]:
         "premium": True,
         "price_amber": price,
         "points_after": new_bal,
+        "new_balance": new_bal,
         "season_id": season_id,
         "catchup_to_level": catchup_to,
         "catchup_note": (
@@ -997,8 +998,9 @@ def claim_reward(
             data, steam_id=steam_id, season_id=season_id, track=track, level=level
         )
         if row:
-            row["status"] = "delivered"
-            row["in_game_delivered"] = True
+            queued = any(bool(d.get("pending_order")) for d in delivery)
+            row["status"] = "queued" if queued else "delivered"
+            row["in_game_delivered"] = not queued
             row["delivery_result"] = delivery
             with spcfg._lock:
                 spcfg._save_claims_unlocked(data)
@@ -1014,14 +1016,27 @@ def claim_reward(
             except Exception as exc:
                 log.warning("season_pass deferred perm sync: %s", exc)
     msg = _claim_message(delivery)
+    # Saldo pós-claim (último delivery com points_after) — UI precisa refrescar pílula.
+    points_after: int | None = None
+    for d in delivery:
+        if d.get("points_after") is not None:
+            try:
+                points_after = int(d["points_after"])
+            except (TypeError, ValueError):
+                pass
+    # kit/item/dino = fila PENDENTE; só Â/licença são síncronos no web.
+    has_queued = any(bool(d.get("pending_order")) for d in delivery)
     return {
         "ok": True,
         "track": track,
         "level": level,
         "season_id": season_id,
-        "in_game_delivered": True,
+        "in_game_delivered": not has_queued,
+        "queued_for_shop": has_queued,
         "delivery": delivery,
         "message": msg,
+        "new_balance": points_after,
+        "points_after": points_after,
     }
 
 

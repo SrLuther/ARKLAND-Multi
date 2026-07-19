@@ -374,6 +374,65 @@ def create_card_checkout_preference(
     return _mp_request(access_token, "POST", "/checkout/preferences", payload)
 
 
+def create_boleto_checkout_preference(
+    access_token: str,
+    *,
+    amount_brl: float,
+    description: str,
+    external_reference: str,
+    payer: dict[str, Any],
+    back_urls: dict[str, str],
+) -> dict[str, Any]:
+    """Checkout Pro — só boleto (ticket). Cartão/PIX excluídos nesta preference."""
+    if not payer or not payer.get("email"):
+        raise PayerValidationError("Dados do pagador são obrigatórios.", field="email")
+    if not payer.get("identification"):
+        raise PayerValidationError("CPF/CNPJ é obrigatório para boleto.", field="identification")
+    success_url = str(back_urls.get("success") or "").strip()[:512]
+    failure_url = str(back_urls.get("failure") or "").strip()[:512]
+    pending_url = str(back_urls.get("pending") or "").strip()[:512]
+    if not success_url:
+        raise PixPaymentError("URL de retorno (success) não configurada — defina public_url em settings")
+    payload: dict[str, Any] = {
+        "items": [
+            {
+                "title": description[:256],
+                "quantity": 1,
+                "unit_price": round(float(amount_brl), 2),
+                "currency_id": "BRL",
+            }
+        ],
+        "payer": {
+            "email": payer.get("email"),
+            "name": payer.get("first_name"),
+            "surname": payer.get("last_name"),
+            "identification": payer.get("identification"),
+        },
+        "external_reference": external_reference[:256],
+        "back_urls": {
+            "success": success_url,
+            "failure": failure_url,
+            "pending": pending_url,
+        },
+        "statement_descriptor": "ARKLAND",
+        "payment_methods": {
+            "excluded_payment_types": [
+                {"id": "credit_card"},
+                {"id": "debit_card"},
+                {"id": "bank_transfer"},
+                {"id": "atm"},
+                {"id": "digital_currency"},
+            ],
+            "default_payment_method_id": "bolbradesco",
+        },
+    }
+    if success_url.startswith("https://"):
+        payload["auto_return"] = "approved"
+    if payer.get("phone"):
+        payload["payer"]["phone"] = payer["phone"]
+    return _mp_request(access_token, "POST", "/checkout/preferences", payload)
+
+
 def extract_checkout_url(mp_response: dict[str, Any], *, sandbox: bool = False) -> str | None:
     """URL de redirecionamento do Checkout Pro (produção ou sandbox)."""
     if sandbox:

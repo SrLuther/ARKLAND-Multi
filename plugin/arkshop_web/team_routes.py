@@ -36,8 +36,11 @@ Player (login_required):
   POST /api/teams/split/disable
   POST /api/teams/lottery/confirm
   GET  /api/teams/lottery
+  GET  /api/teams/rankings
   GET  /api/teams/rankings/teams
   GET  /api/teams/rankings/players
+  POST /api/admin/teams/ranking-block
+  POST /api/admin/teams/player-ranking-block
   GET  /api/teams/<id>
 
 Admin:
@@ -113,6 +116,9 @@ def register_team_routes(
         publish_milestone,
         ranking_players,
         ranking_teams,
+        rankings_bundle,
+        set_player_ranking_block,
+        set_team_ranking_block,
         reject_join,
         remove_role,
         rename_team,
@@ -215,6 +221,20 @@ def register_team_routes(
             return _ok(data)
         except Exception as exc:
             log.warning("teams/public: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/teams/rankings", methods=["GET"])
+    def teams_rankings_bundle():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        db = _db()
+        try:
+            limit = int(request.args.get("limit") or 50)
+            return _ok(rankings_bundle(db, limit=limit))
+        except Exception as exc:
+            log.warning("teams rankings: %s", exc)
             return _fail(str(exc), 500)
         finally:
             db.close()
@@ -781,22 +801,35 @@ def register_team_routes(
     @app.route("/api/teams/plugin/membership/<steam_id>", methods=["GET"])
     @api_key_required(allow_admin_session=False)
     def teams_plugin_membership(steam_id: str):
-        """Plugin bridge: ACTIVE team membership check for /marco."""
+        """Plugin bridge: ACTIVE team membership + amber_bonus_pct for TimedPoints."""
         if not teams_enabled():
             return _fail("teams_enabled=false", 403)
         if not db_ready():
             return _fail("DB não disponível", 503)
         db = _db()
         try:
+            from team_service import get_team, team_amber_bonus_pct
             sid = str(steam_id or "").strip()
             mem = get_active_membership(db, sid) if sid else None
             if not mem:
-                return _ok({"active": False, "steam_id": sid, "team_id": None})
+                return _ok({
+                    "active": False,
+                    "steam_id": sid,
+                    "team_id": None,
+                    "amber_bonus_pct": 0,
+                    "amber_bonus_mode": "additive",
+                })
+            tid = int(mem["team_id"])
+            team = get_team(db, tid) or {}
+            mi = int(team.get("milestone_index") or 0)
+            pct = int(team_amber_bonus_pct(mi, db=db))
             return _ok({
                 "active": True,
                 "steam_id": sid,
-                "team_id": int(mem["team_id"]),
+                "team_id": tid,
                 "role": mem.get("role"),
+                "amber_bonus_pct": pct,
+                "amber_bonus_mode": "additive",
             })
         except Exception as exc:
             return _fail(str(exc), 500)
@@ -1111,6 +1144,44 @@ def register_team_routes(
                 db,
                 team_id=int(body.get("team_id")),
                 suspend=bool(body.get("suspend", True)),
+            ))
+        except (ValueError, PermissionError) as exc:
+            return _fail(str(exc))
+        finally:
+            db.close()
+
+    @app.route("/api/admin/teams/ranking-block", methods=["POST"])
+    @admin_required
+    def admin_teams_ranking_block():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            return _ok(set_team_ranking_block(
+                db,
+                team_id=int(body.get("team_id")),
+                blocked=bool(body.get("blocked", True)),
+                actor_steam_id=_sid() or "",
+            ))
+        except (ValueError, PermissionError) as exc:
+            return _fail(str(exc))
+        finally:
+            db.close()
+
+    @app.route("/api/admin/teams/player-ranking-block", methods=["POST"])
+    @admin_required
+    def admin_player_ranking_block():
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            return _ok(set_player_ranking_block(
+                db,
+                steam_id=str(body.get("steam_id") or ""),
+                blocked=bool(body.get("blocked", True)),
+                actor_steam_id=_sid() or "",
             ))
         except (ValueError, PermissionError) as exc:
             return _fail(str(exc))

@@ -6,14 +6,68 @@
 #include "ShopPerms.h"
 #include "ShopVip.h"
 #include "ShopEntitlements.h"
+#include "HttpClient.h"
 
 #include <Timer.h>
+#include <algorithm>
 #include <chrono>
+#include <mutex>
 #include <sstream>
+#include <unordered_map>
 
 namespace {
 
 bool g_timer_scheduled = false;
+
+struct TeamBonusCacheEntry {
+    int pct = 0;
+    std::chrono::steady_clock::time_point expires{};
+};
+
+std::mutex g_team_bonus_mu;
+std::unordered_map<std::string, TeamBonusCacheEntry> g_team_bonus_cache;
+
+int FetchTeamAmberBonusPct(const std::string& steam_id) {
+    if (steam_id.empty()) return 0;
+    const auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lock(g_team_bonus_mu);
+        const auto it = g_team_bonus_cache.find(steam_id);
+        if (it != g_team_bonus_cache.end() && now < it->second.expires)
+            return it->second.pct;
+    }
+
+    int pct = 0;
+    const std::string resp =
+        CustomShop::HttpClient::Get("/api/teams/plugin/membership/" + steam_id);
+    if (!resp.empty()) {
+        try {
+            const auto json = nlohmann::json::parse(resp);
+            nlohmann::json data = json;
+            if (json.contains("data") && json["data"].is_object())
+                data = json["data"];
+            if (data.value("active", false))
+                pct = std::max(0, data.value("amber_bonus_pct", 0));
+        } catch (...) {
+            pct = 0;
+        }
+    }
+
+    const auto& cfg = CustomShop::ShopConfig::Get().TimedPointsReward();
+    const int interval_min = std::max(1, cfg.value("Interval", 30));
+    const auto ttl = std::chrono::seconds(interval_min * 60);
+    {
+        std::lock_guard<std::mutex> lock(g_team_bonus_mu);
+        g_team_bonus_cache[steam_id] = TeamBonusCacheEntry{pct, now + ttl};
+    }
+    return pct;
+}
+
+int ApplyTeamAmberBonus(int award, int pct) {
+    if (award <= 0 || pct <= 0) return award;
+    // Q7 additive: award * (100 + pct) / 100
+    return (award * (100 + pct)) / 100;
+}
 
 std::string TimedMapId() {
     const auto& settings = CustomShop::ShopConfig::Get().Settings();
@@ -262,11 +316,15 @@ void Tick() {
         if (stack) total += best_paid;
         else total = best;
 
-        const int award = total;
+        int award = total;
         if (award <= 0) {
             ++skipped_zero;
             continue;
         }
+
+        const int team_pct = FetchTeamAmberBonusPct(sid);
+        const int base_award = award;
+        award = ApplyTeamAmberBonus(award, team_pct);
 
         if (CustomShop::ShopPoints::Get().AddPoints(sid, award)) {
             const int balance =
@@ -274,8 +332,14 @@ void Tick() {
             NotifyTimedReward(sc, award, balance);
             EnqueueArkbankTimedOutbox(sid, award, map_id, cycle_key);
             ++awarded;
-            Log::GetLog()->info(
-                "TimedPoints: {} +{} pts (balance={})", sid, award, balance);
+            if (team_pct > 0 && award != base_award) {
+                Log::GetLog()->info(
+                    "TimedPoints: {} +{} pts (base={}, team_bonus=+{}%, balance={})",
+                    sid, award, base_award, team_pct, balance);
+            } else {
+                Log::GetLog()->info(
+                    "TimedPoints: {} +{} pts (balance={})", sid, award, balance);
+            }
         } else {
             ++failed_db;
             Log::GetLog()->warn(

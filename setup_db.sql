@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS orders (
   retry_count       INT           NOT NULL DEFAULT 0,
   last_error        TEXT          DEFAULT NULL,
   contested         TINYINT(1)    NOT NULL DEFAULT 0,
-  original_order_id VARCHAR(64)   DEFAULT NULL,
+  original_order_id VARCHAR(255)  DEFAULT NULL,
   created_at        DATETIME      DEFAULT NULL,
   updated_at        DATETIME      DEFAULT NULL,
   UNIQUE KEY ix_orders_order_id (order_id),
