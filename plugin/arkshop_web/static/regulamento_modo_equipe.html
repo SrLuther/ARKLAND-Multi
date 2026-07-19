@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equipes — Regras do Modo Equipe ARKLAND</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #060402;
+      --surface:    #0d0a06;
+      --surface2:   #131008;
+      --surface3:   #1c1710;
+      --border:     #2c2014;
+      --border-g:   #3e2e1a;
+      --amber:      #e87820;
+      --amber-dim:  rgba(232,120,32,.14);
+      --fire:       #ff6010;
+      --tek:        #00c8ff;
+      --success:    #12d87c;
+      --danger:     #e83030;
+      --text:       #d4c8a8;
+      --text2:      #7a6848;
+      --text3:      #3e2e18;
+      --radius:     8px;
+      --radius-lg:  14px;
+      --shadow:     0 10px 50px rgba(0,0,0,.8);
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 59px,
+          rgba(60,36,12,.18) 59px,
+          rgba(60,36,12,.18) 60px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 79px,
+          rgba(60,36,12,.12) 79px,
+          rgba(60,36,12,.12) 80px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 280px;
+      background: radial-gradient(ellipse 80% 60% at 50% 120%,
+        rgba(255,96,16,.07) 0%,
+        rgba(232,120,32,.04) 40%,
+        transparent 70%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    .doc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .doc-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .doc-brand img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 12px rgba(232,120,32,.35));
+    }
+
+    .doc-brand-text { min-width: 0; }
+
+    .doc-brand-eyebrow {
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 600;
+    }
+
+    .doc-brand-title {
+      font-family: 'Cinzel', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .doc-brand-sub {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+
+    .doc-back {
+      color: var(--amber);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 8px 12px;
+      border: 1px solid var(--border-g);
+      border-radius: var(--radius);
+      background: var(--amber-dim);
+    }
+    .doc-back:hover { border-color: var(--amber); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 16px 20px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .regulamento-body {
+      padding: 20px 22px 28px;
+      color: var(--text);
+    }
+
+    .regulamento-body h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 18px;
+      margin: 0 0 12px;
+      color: var(--amber);
+    }
+
+    .regulamento-body h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      margin: 22px 0 8px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    .regulamento-body h4 {
+      font-size: 13px;
+      margin: 14px 0 6px;
+      color: var(--amber);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .regulamento-body p, .regulamento-body li {
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .regulamento-body .lede {
+      color: var(--text2);
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .regulamento-body ul, .regulamento-body ol {
+      margin: 0 0 10px 1.2em;
+    }
+
+    .regulamento-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px;
+      font-size: 13px;
+    }
+
+    .regulamento-body th, .regulamento-body td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .regulamento-body th {
+      background: var(--surface3);
+      color: var(--amber);
+      font-weight: 600;
+    }
+
+    .regulamento-body strong { color: #f0e6d0; }
+
+    .note {
+      margin: 12px 0;
+      padding: 10px 12px;
+      background: var(--amber-dim);
+      border-left: 3px solid var(--amber);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text2);
+      font-size: 13px;
+    }
+
+    @media (max-width: 560px) {
+      .wrap { padding: 18px 14px 36px; }
+      .doc-brand img { width: 44px; height: 44px; }
+      .doc-brand-title { font-size: 16px; }
+      .regulamento-body { padding: 14px 14px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="doc-header">
+      <div class="doc-brand">
+        <img src="/ArkLnd_Equipes.png" alt="ARKLAND Equipes" width="56" height="56" />
+        <div class="doc-brand-text">
+          <div class="doc-brand-eyebrow">Modo Equipe</div>
+          <div class="doc-brand-title">Regras do Modo Equipe</div>
+          <div class="doc-brand-sub">Regulamento de sistema · Web Store</div>
+        </div>
+      </div>
+      <a class="doc-back" href="/">← Voltar à loja</a>
+    </header>
+
+    <article class="card">
+      <div class="card-header">
+        <div class="card-title">Regras do Modo Equipe — ARKLAND</div>
+        <span class="card-meta">v1.0 · 19 de julho de 2026</span>
+      </div>
+      <div class="regulamento-body">
+        <p class="lede"><em>Valores abaixo são os <strong>padrões do produto</strong>; a staff pode alterar vários em Configurações (indicado como “por omissão”). O mural interno de cada equipe é complementar e não substitui estas regras. Texto completo: <code>docs/REGULAMENTO_MODO_EQUIPE.md</code> · servidor §8.14.</em></p>
+
+        <h3>1. O que é</h3>
+        <ul>
+          <li>A <strong>Equipe</strong> é a casa social da Web Store (fundação, membros, banco, marcos, split, rankings).</li>
+          <li>É <strong>independente</strong> da tribo in-game.</li>
+          <li>Por omissão o Modo Equipe está <strong>ligado</strong>; a staff pode desligar.</li>
+        </ul>
+
+        <h3>2. Filiação</h3>
+        <table>
+          <thead><tr><th>Regra</th><th>Padrão</th></tr></thead>
+          <tbody>
+            <tr><td>Equipes ACTIVE por jogador</td><td><strong>1</strong></td></tr>
+            <tr><td>Sair</td><td>Sim — doações/depósitos <strong>não</strong> reembolsados</td></tr>
+            <tr><td>Kick manual</td><td><strong>Imediato</strong> (Owner nunca kickado por outro membro)</td></tr>
+            <tr><td>Auto-kick inatividade</td><td>Por omissão <strong>desligado</strong>; Owner pode ligar (24–720 h; típico 168 h). Owner nunca é auto-expulsado.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>3. Fundação, nome e saída do Owner</h3>
+        <ul>
+          <li><strong>1ª fundação</strong> de sempre: <strong>grátis</strong>.</li>
+          <li>Fundar de novo (já foste fundador): <strong>2500 Â</strong> por omissão (staff pode alterar).</li>
+          <li>Nome: único, 3–32 caracteres; rename com cooldown <strong>168 h</strong> e custo <strong>0 Â</strong> por omissão.</li>
+          <li>Owner com outros membros: tem de <strong>transferir</strong> antes de sair.</li>
+          <li>Owner solo sai → equipe <strong>DISBANDED</strong>. Staff: <strong>REATIVAR</strong> só muda status; <strong>ASSUMIR</strong> restaura Owner usável.</li>
+        </ul>
+
+        <h3>4. Capacidade e papéis</h3>
+        <ul>
+          <li>Cap base: <strong>5</strong> membros; marcos podem subir o teto; staff pode forçar por equipe.</li>
+          <li>Máx. <strong>2</strong> papéis especiais por membro (Owner fora do teto), por omissão.</li>
+          <li>Só o <strong>Owner</strong> confirma sorteio da equipe e configura split de mercado.</li>
+        </ul>
+
+        <h3>5. Banco, armazém e /marco</h3>
+        <ul>
+          <li>Doações de Â ao banco: <strong>sem reembolso</strong>. Sem saque para carteira pessoal no produto actual.</li>
+          <li>Armazém: só o catálogo de 10 recursos; teto por omissão <strong>10 000</strong> por recurso (staff/marcos podem alterar).</li>
+          <li><code>/marco</code> → preview (aviso sem reembolso) → <code>/confirmar</code> dentro de <strong>60 s</strong> por omissão. Depósito confirmado é definitivo.</li>
+        </ul>
+
+        <h3>6. Marcos e bônus Â</h3>
+        <ul>
+          <li>XP da equipe é <strong>lifetime</strong> (não zera ao concluir marco).</li>
+          <li>Bônus Â TimedPoints da equipe: <strong>aditivo</strong>; por omissão +<strong>2</strong> pp/marco se o campo estiver vazio; teto <strong>20%</strong>.</li>
+        </ul>
+
+        <h3>7. Split do mercado</h3>
+        <ul>
+          <li>Com Modo Equipe ligado, split usa a <strong>Equipe</strong> (não a tribo).</li>
+          <li>Padrão: <strong>60%</strong> vendedor / <strong>40%</strong> pool; venda mínima <strong>1000 Â</strong>. Encomendas fora do split.</li>
+        </ul>
+
+        <h3>8. Sorteio da equipe</h3>
+        <ul>
+          <li>Owner confirma 1× por campanha; <strong>N = 2</strong> números por membro ACTIVE (por omissão).</li>
+          <li>Shortfall: reembolso ao banco de <strong>5000 Â</strong> por número em falta.</li>
+          <li>Política pós-confirmação por omissão: <strong>freeze</strong> — sem kick/entrada até ao draw; <strong>sair perde N números</strong>. Alternativas staff: <code>forfeit_on_depart</code> / <code>legacy_keep</code>.</li>
+        </ul>
+
+        <h3>9. Rankings</h3>
+        <ul>
+          <li>Staff pode excluir equipes/jogadores do Top sem suspender (mantêm XP).</li>
+          <li>Prémios top 1–3: por omissão <strong>desligados</strong>; se activos, referência 50k / 25k / 10k Â (equipas → banco; jogadores → carteira).</li>
+        </ul>
+
+        <h3>10. Conduta e exclusões</h3>
+        <ul>
+          <li>Nomes/tags/murais ofensivos ou que imitem a staff: proibidos. Abuso segue o regulamento do servidor.</li>
+          <li><strong>Não</strong> cobre: presente/ajuda entre equipes (não existe), sync com tribo in-game, saque do banco.</li>
+        </ul>
+
+        <div class="note">
+          Instalações já em produção: se o texto do regulamento oficial (§8.14) for actualizado via bump de versão, os jogadores reaceitam na Web Store.
+          Este ficheiro HTML estático (<code>/regulamento_modo_equipe.html</code>) é servido directamente — não há seed em DB; basta deploy do static.
+        </div>
+      </div>
+    </article>
+  </div>
+</body>
+</html>

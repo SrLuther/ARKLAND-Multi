@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.76"
+APP_VERSION: str = "1.10.77"
 BUILD_DATE: str = "2026-07-19"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,7 +12,27 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "2026-07-19",
+        "changes": [],
+    },
+    {
+        "version": "1.10.77",
+        "date": "2026-07-19",
         "changes": [
+            "Fix (Equipes / armazém): ícones element_ore ↔ element_dust — retry "
+            "(1.10.76 ainda errado por cache PWA); ?v=hash + SW network-only em team/*.png.",
+            "Docs (Web Store / Equipes): Regras do Modo Equipe — "
+            "docs/REGULAMENTO_MODO_EQUIPE.md + /regulamento_modo_equipe.html; "
+            "defaults do sistema (membros, taxa fundação, sorteio freeze, /marco, "
+            "armazém, split, ranking, etc.) explícitos como regras; §8.14 no "
+            "regulamento oficial v1.4.",
+            "Feat (Web Store / Equipes): settings Admin — teams_founding_fee, "
+            "teams_lottery_numbers_per_member, teams_warehouse_cap_default (+ caps JSON), "
+            "teams_marco_preview_ttl_sec, teams_max_special_roles, "
+            "teams_rename_cooldown_hours / teams_rename_cost_amber, "
+            "teams_market_split_sender_pct, prémios ranking (enable + top-1/2/3 + payout manual).",
+            "Feat (CustomShop 1.10.28): /marco TTL lido de membership.marco_preview_ttl_sec.",
+            "Test (Web Store / Equipes): readers de settings; rejeita depósito over-cap; "
+            "lottery numbers_per_member na confirmação.",
             "Feat (Web Store / Equipes): política anti-abuso do sorteio "
             "teams_lottery_post_confirm_policy (padrão freeze) — após confirmar, "
             "bloqueia kick/entrada até o draw; saída perde N números "

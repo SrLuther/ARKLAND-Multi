@@ -3,8 +3,8 @@
 | Campo | Valor |
 |-------|-------|
 | **Documento** | Regulamento do Servidor e Ecossistema Digital ARKLAND |
-| **Versão** | 1.3 |
-| **Última atualização** | 14 de julho de 2026 |
+| **Versão** | 1.4 |
+| **Última atualização** | 19 de julho de 2026 |
 | **Aplicável a** | Servidores PvE do cluster ARKLAND (ARK: Survival Evolved) e plataforma web associada |
 | **Idioma** | Português (Brasil) |
 
@@ -36,7 +36,9 @@ O ecossistema ARKLAND inclui servidores de jogo **PvE** (Player versus Environme
 12. [Alterações deste regulamento](#12-alterações-deste-regulamento)
 13. [Contato e canais oficiais](#13-contato-e-canais-oficiais)
 
-> **Season Pass:** regras jogador-facing em detalhe — [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) e [§8.13](#813-season-pass).
+**Season Pass:** regras jogador-facing em detalhe — [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) e [§8.13](#813-season-pass).
+
+**Modo Equipe:** regras de sistema (defaults explícitos) — [`docs/REGULAMENTO_MODO_EQUIPE.md`](REGULAMENTO_MODO_EQUIPE.md) e [§8.14](#814-modo-equipe).
 
 ---
 
@@ -51,6 +53,7 @@ O **ARKLAND** é um cluster privado de servidores **PvE** de ARK: Survival Evolv
 - **Mercado P2P de dinos** — comércio entre jogadores exclusivamente em **Âmbares**;
 - **Encomenda de Dinos** — serviço pago sob demanda (vitrine + cotação) na Web Store;
 - **Season Pass** — progresso pessoal por temporada (XP = Timed Points; Premium em Âmbar) — [§8.13](#813-season-pass);
+- **Modo Equipe** — casa social da Web Store (fundação, banco, marcos, rankings) — [§8.14](#814-modo-equipe);
 - **Inventário na Nuvem** — cofre cluster-wide via comandos in-game;
 - **Sistema de tickets** — suporte, denúncias e recursos formais;
 - **Notificações in-app** — avisos sobre pedidos, mercado, tickets e eventos.
@@ -558,6 +561,25 @@ Progresso pessoal por temporada na Web Store (área **SeasonLand**). Texto compl
 
 Abuso ligado ao Season Pass segue [Seção 9](#9-sistema-de-punições).
 
+### 8.14 Modo Equipe
+
+Casa social da Web Store (**Minha Equipe** / **Equipes** / **Ranking**), independente da tribo in-game. Texto completo jogador-facing (defaults do sistema como regras): [`docs/REGULAMENTO_MODO_EQUIPE.md`](REGULAMENTO_MODO_EQUIPE.md) e página `/regulamento_modo_equipe.html`. Resumo normativo (valores **por omissão**; a staff pode alterar nas Configurações):
+
+| Tema | Regra |
+|------|--------|
+| **Filiação** | **1** equipe ACTIVE por jogador. Kick manual **imediato**. Auto-kick inatividade **desligado** por omissão (Owner pode ligar; Owner nunca auto-kick). |
+| **Fundação** | **1ª grátis**; 2ª+ **2500 Â**. Rename: cooldown **168 h**, custo **0 Â** por omissão. |
+| **Owner solo sai** | Equipe → **DISBANDED**. Staff: **ASSUMIR** restaura Owner; **REATIVAR** só muda status. |
+| **Membros** | Cap base **5**; marcos podem subir. Máx. **2** papéis especiais/membro. |
+| **Banco / armazém** | Doações sem reembolso; sem saque pessoal. Cap armazém **10 000**/recurso por omissão. |
+| **`/marco`** | Preview → `/confirmar` (TTL **60 s**); depósitos **sem reembolso**. |
+| **Bônus Â** | +**2** pp/marco se vazio; teto **20%** (aditivo à licença TimedPoints). |
+| **Split mercado** | **60%** vendedor / **40%** pool; mín. venda **1000 Â**. |
+| **Sorteio** | **N = 2** nº/membro; shortfall **5000 Â**/nº em falta ao banco. Pós-confirmação **freeze**: sem kick/entrada até o draw; saída perde N nº. Staff pode mudar a política. |
+| **Ranking** | Staff pode excluir do Top sem suspender. Prémios top 1–3 **desligados** por omissão (ref. 50k/25k/10k se activos). |
+
+Abuso ligado ao Modo Equipe segue [Seção 9](#9-sistema-de-punições).
+
 ---
 
 ## 9. Sistema de punições
@@ -737,6 +759,7 @@ A administração **não atende** pedidos de suporte por mensagem privada em red
 | **Casal (mercado)** | Anúncio vinculado macho + fêmea da mesma espécie; checkout a 60% da soma dos pedidos |
 | **Encomenda de Dino** | Serviço pago sob demanda (vitrine + cotação α/β) — §8.12 |
 | **Season Pass** | Progresso pessoal por temporada (XP = Timed Points); Premium em Âmbar — §8.13 · `REGULAMENTO_SEASON_PASS.md` |
+| **Modo Equipe** | Casa social da Web Store (banco, marcos, rankings) — §8.14 · `REGULAMENTO_MODO_EQUIPE.md` |
 | **Sorteio** | Promoção contínua `#/sorteio` — prêmio em Âmbares; vendas em casal contribuem 40% de `S` ao pote |
 | **Timed Points** | Recompensa periódica de Âmbares por tempo online |
 | **Web Store** | Plataforma web ARKLAND Donations |
@@ -752,4 +775,4 @@ No painel **Broadcasts** do ARKLAND Server Manager (TEK), a administração pode
 
 *ARKLAND — Comunidade PvE ARK: Survival Evolved. Jogue limpo, respeite a comunidade, use tickets com provas.*
 
-**Fim do Regulamento — Versão 1.3**
+**Fim do Regulamento — Versão 1.4**

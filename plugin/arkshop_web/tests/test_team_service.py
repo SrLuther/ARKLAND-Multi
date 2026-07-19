@@ -287,14 +287,22 @@ def test_warehouse_catalog_has_ten(db):
     assert "element_ore" in keys and "black_pearl" in keys and "sand" in keys
     assert all(r.get("icon_url") for r in cat)
     assert cat[0]["icon_url"].startswith("/catalog/resources/team/")
+    assert "?v=" in cat[0]["icon_url"]
     assert ts.normalize_warehouse_key("rec_pnegra") == "black_pearl"
     assert ts.normalize_warehouse_key("hard_polymer") == "hard_polymer"
     assert ts.normalize_warehouse_key("absorbent_polymer") == "substrate_absorbent"
     assert ts.normalize_warehouse_key("substrate_absorbent") == "substrate_absorbent"
     assert "substrate_absorbent" in ts.TEAM_WAREHOUSE_KEYS
     assert "absorbent_polymer" not in ts.TEAM_WAREHOUSE_KEYS
+    ore = next(r for r in ts.TEAM_WAREHOUSE_RESOURCES if r["key"] == "element_ore")
+    assert ore["label_pt"] == "Minério de Elemento"
     dust = next(r for r in ts.TEAM_WAREHOUSE_RESOURCES if r["key"] == "element_dust")
     assert dust["label_pt"] == "Pó de Elemento"
+    ore_url = ts.warehouse_icon_url("element_ore") or ""
+    dust_url = ts.warehouse_icon_url("element_dust") or ""
+    assert ore_url.startswith("/catalog/resources/team/element_ore.png?v=")
+    assert dust_url.startswith("/catalog/resources/team/element_dust.png?v=")
+    assert ore_url != dust_url
     sub = next(r for r in ts.TEAM_WAREHOUSE_RESOURCES if r["key"] == "substrate_absorbent")
     assert "SubstrateAbsorbent" in sub["blueprint"]
     with pytest.raises(ValueError, match="catálogo"):

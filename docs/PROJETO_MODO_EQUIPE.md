@@ -3,11 +3,11 @@
 | Campo | Valor |
 |-------|-------|
 | **Status** | 🟢 Produto web: só Equipes (Tribos ocultas ao jogador) |
-| **Versão** | 0.7 (`/marco` → preview → `/confirmar`; sem reembolso de depósitos) |
-| **Data** | 18 de julho de 2026 |
+| **Versão** | 0.8 (regulamento jogador-facing com defaults explícitos) |
+| **Data** | 19 de julho de 2026 |
 | **Escopo** | Sistema **web-first** de Equipes: fundação, recrutamento, banco, marcos, XP, rankings, sorteio e papéis |
-| **Fora de escopo (nesta fase)** | Sincronização obrigatória com tribo in-game (TribeID), guerras, aliança entre equipes, recompensas individuais de ranking (futuro) |
-| **Documentos relacionados** | [`PROJETO_AREA_TRIBO.md`](PROJETO_AREA_TRIBO.md) *(legado)*, [`TRIBO_REPARTICAO_MERCADO.md`](TRIBO_REPARTICAO_MERCADO.md), [`REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md), [`SORTEIO_DOACOES_SPEC.md`](SORTEIO_DOACOES_SPEC.md), [`ECONOMIA_ARKLAND.md`](ECONOMIA_ARKLAND.md) |
+| **Fora de escopo (nesta fase)** | Sincronização obrigatória com tribo in-game (TribeID), guerras, aliança entre equipes, presente/ajuda entre equipes |
+| **Documentos relacionados** | [`REGULAMENTO_MODO_EQUIPE.md`](REGULAMENTO_MODO_EQUIPE.md) *(jogador-facing)*, [`PROJETO_AREA_TRIBO.md`](PROJETO_AREA_TRIBO.md) *(legado)*, [`TRIBO_REPARTICAO_MERCADO.md`](TRIBO_REPARTICAO_MERCADO.md), [`REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md), [`SORTEIO_DOACOES_SPEC.md`](SORTEIO_DOACOES_SPEC.md), [`ECONOMIA_ARKLAND.md`](ECONOMIA_ARKLAND.md) |
 
 ---
 
@@ -26,6 +26,16 @@ Substituir a lógica atual centrada em **presença in-game / TribeSync / Princip
 | Sorteio só individual | Equipe pode participar com **2 números por membro** |
 
 > **Princípio:** a equipe **pode** coincidir com a tribo do jogo, mas **não precisa**. É uma organização social/econômica do portal — não um espelho do engine.
+
+### 0.1 Regulamento jogador-facing (defaults = regras)
+
+Tudo o que for **padrão do sistema** está escrito como regra em:
+
+- [`docs/REGULAMENTO_MODO_EQUIPE.md`](REGULAMENTO_MODO_EQUIPE.md)
+- Página na loja: `/regulamento_modo_equipe.html`
+- Resumo normativo no regulamento oficial: **§8.14** (`docs/REGULAMENTO_SERVIDOR.md` v1.4)
+
+O mural interno de cada equipe (texto editável) é **complementar** — não substitui as regras de sistema.
 
 ---
 
@@ -763,8 +773,14 @@ TribeSync pode permanecer só para **logs / painel legado**, se a opção B/C do
 ### Como ativar
 
 1. Por omissão o Modo Equipe está **ligado** (`teams_enabled` ausente ⇒ true). Staff pode desligar em Configurações.
-2. Default `teams_max_members` = **5**. Opcional: `teams_amber_bonus_pp` (default pp por marco se o campo do marco estiver vazio), `teams_amber_bonus_cap`, `teams_founding_fee` (2500), `teams_lottery_shortfall_refund` (5000), `teams_lottery_numbers_per_member` (2), `teams_lottery_post_confirm_policy` (`freeze`).
-3. Publicar marcos em **Admin → Equipes** (com `max_members_unlock` e `amber_bonus_pp` por marco).
+2. Default `teams_max_members` = **5**. Settings Admin (Configurar Paths → Modo Equipe):
+   - `teams_founding_fee` (2500), `teams_lottery_numbers_per_member` (2, clamp 1–6)
+   - `teams_warehouse_cap_default` (10000) + opcional `teams_warehouse_caps` JSON
+   - `teams_marco_preview_ttl_sec` (60), `teams_max_special_roles` (2)
+   - `teams_rename_cooldown_hours` (168), `teams_rename_cost_amber` (0)
+   - `teams_market_split_sender_pct` (60), prémios ranking (`teams_ranking_prizes_*`)
+   - Também: `teams_amber_bonus_pp`, `teams_amber_bonus_cap`, `teams_lottery_shortfall_refund` (5000)
+3. Publicar marcos em **Admin → Equipes** (com `max_members_unlock`, `warehouse_cap_unlock` e `amber_bonus_pp` por marco).
 4. Jogadores veem **Minha Equipe**, **Equipes** (lista global) e **Ranking Equipes** no menu — sem Tribo.
 
 ### Módulos

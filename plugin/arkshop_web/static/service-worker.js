@@ -11,7 +11,7 @@
  */
 "use strict";
 
-const CACHE_NAME = "arkland-webstore-static-v4";
+const CACHE_NAME = "arkland-webstore-static-v5";
 const CATALOG_CACHE = "arkland-webstore-catalog-v1";
 const PRECACHE_URLS = [
   "/manifest.webmanifest",
@@ -44,9 +44,11 @@ function isNavigationOrHtml(request, url) {
 function isHeavyImageAsset(url) {
   // Ícones de espécie / thumbs de catálogo — dezenas/centenas de webp.
   // Não cachear: evita I/O do SW no warmup e pressão no disco/bandwidth.
+  // team/*.png — network-only (conteúdo pode trocar com o mesmo path; ?v= + sem SW stale).
   const p = url.pathname;
   return (
     p.startsWith("/species/icons/") ||
+    p.startsWith("/catalog/resources/team/") ||
     p.startsWith("/media/") ||
     /thumbnail|thumb_|\/thumbs?\//i.test(p)
   );

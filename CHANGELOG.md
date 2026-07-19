@@ -7,14 +7,24 @@
 
 ## [Unreleased] - 2026-07-19
 
+## [1.10.77] - 2026-07-19
+
 ### Feature
 
+- Feat (Web Store / Equipes): settings Admin — teams_founding_fee, teams_lottery_numbers_per_member, teams_warehouse_cap_default (+ caps JSON), teams_marco_preview_ttl_sec, teams_max_special_roles, teams_rename_cooldown_hours / teams_rename_cost_amber, teams_market_split_sender_pct, prémios ranking (enable + top-1/2/3 + payout manual).
+- Feat (CustomShop 1.10.28): /marco TTL lido de membership.marco_preview_ttl_sec.
 - Feat (Web Store / Equipes): política anti-abuso do sorteio teams_lottery_post_confirm_policy (padrão freeze) — após confirmar, bloqueia kick/entrada até o draw; saída perde N números (teams_lottery_numbers_per_member); forfeit_on_depart / legacy_keep; UI Admin Configurações.
 - Feat (Web Store / Admin): Gerenciar Jogadores — entrega do catálogo completo (Itens, Dinos, Dinos 200, Kits) via seletor + busca + qty/motivo → pedido PENDENTE (mesmo fluxo do kit); POST /api/admin/players/<id>/deliver; audit admin_player_item_deliver / admin_player_dino_deliver / admin_player_kit_deliver; licenças continuam no bloco Conceder/Revogar.
 - Feat (Web Store / SeasonLand): área admin dedicada «SeasonLand — Ops» (nav) — claims/eventos season_pass_*, fila sp:/skip-kit|sp:, filtros steam/status/track/level/data, badge SeasonLand, REENVIAR + resend Â/item; GET /api/admin/season-pass/orders; Pedidos oculta SeasonLand por omissão (toggle Incluir SeasonLand + link Ops).
 
+### Fix
+
+- Fix (Equipes / armazém): ícones element_ore ↔ element_dust — retry (1.10.76 ainda errado por cache PWA); ?v=hash + SW network-only em team/*.png.
+
 ### Other
 
+- Docs (Web Store / Equipes): Regras do Modo Equipe — docs/REGULAMENTO_MODO_EQUIPE.md + /regulamento_modo_equipe.html; defaults do sistema (membros, taxa fundação, sorteio freeze, /marco, armazém, split, ranking, etc.) explícitos como regras; §8.14 no regulamento oficial v1.4.
+- Test (Web Store / Equipes): readers de settings; rejeita depósito over-cap; lottery numbers_per_member na confirmação.
 - Test (Web Store / Equipes): freeze bloqueia kick/join; leave forfeit; forfeit_on_depart no kick; legacy_keep Q9.
 - Test (Web Store / Admin): entrega admin item + dino L1 + dino200 + kit; rejeita licença via /deliver; deliver_catalog no detalhe do jogador.
 - Test (Web Store / SeasonLand): list ops orders + Pedidos hide/include SP.

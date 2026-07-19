@@ -25,6 +25,7 @@ team_splits, team_split_members, team_lottery_confirmations.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import secrets
@@ -233,13 +234,23 @@ def _team_icon_files() -> frozenset[str]:
     return frozenset(p.stem for p in _TEAM_ICON_DIR.glob("*.png"))
 
 
+@lru_cache(maxsize=32)
+def _team_icon_cache_bust(key: str) -> str:
+    """Hash curto do PNG — força refresh após swap de conteúdo (PWA cache-first)."""
+    path = _TEAM_ICON_DIR / f"{key}.png"
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+    except OSError:
+        return "0"
+
+
 def warehouse_icon_url(resource_key: str) -> str | None:
     """URL do ícone do armazém (team/*.png) ou fallback da loja via shop_key."""
     key = str(resource_key or "").strip()
     if not key:
         return None
     if key in _team_icon_files():
-        return f"/catalog/resources/team/{key}.png"
+        return f"/catalog/resources/team/{key}.png?v={_team_icon_cache_bust(key)}"
     meta = _WAREHOUSE_BY_KEY.get(key)
     shop_key = (meta or {}).get("shop_key") or ""
     if shop_key:
@@ -2738,7 +2749,8 @@ def _ms_row(r: Any) -> dict[str, Any]:
             "key": key,
             "quantity": int(req.get("quantity") or 0),
             "label_pt": req.get("label_pt") or (meta["label_pt"] if meta else key),
-            "icon_url": req.get("icon_url") or warehouse_icon_url(key),
+            # Sempre URL viva (?v=hash) — não reutilizar icon_url persistido no JSON do marco
+            "icon_url": warehouse_icon_url(key) or req.get("icon_url"),
         })
     amber_pp = None
     if len(r) > 11 and r[11] is not None:
@@ -2937,7 +2949,7 @@ def milestone_progress_view(
         resource_bars.append({
             "key": key,
             "label_pt": label,
-            "icon_url": req.get("icon_url") or warehouse_icon_url(key),
+            "icon_url": warehouse_icon_url(key) or req.get("icon_url"),
             "required": need,
             "have": have_committed,
             "committed": have_committed,
@@ -3401,6 +3413,137 @@ def rankings_bundle(db: Session, *, limit: int = 50) -> dict[str, Any]:
         "players": ranking_players(db, limit=lim),
         "blocked_teams": ranking_blocked_teams(db, limit=lim),
         "blocked_players": ranking_blocked_players(db, limit=lim),
+        "prizes": {
+            "enabled": ranking_prizes_enabled(),
+            "amounts": ranking_prize_amounts(),
+        },
+    }
+
+
+def pay_ranking_prizes(
+    db: Session,
+    *,
+    kind: str = "teams",
+    period_key: str | None = None,
+    actor_steam_id: str = "",
+    force: bool = False,
+) -> dict[str, Any]:
+    """Manual staff payout of top-1/2/3 ranking amber prizes.
+
+    kind: 'teams' → credit team bank; 'players' → credit player wallet.
+    Idempotent per (kind, period_key, rank_pos) unless force=True.
+    """
+    if not ranking_prizes_enabled():
+        raise ValueError("Prémios de ranking desativados (teams_ranking_prizes_enabled).")
+    kind = str(kind or "teams").strip().lower()
+    if kind not in ("teams", "players"):
+        raise ValueError("kind deve ser 'teams' ou 'players'.")
+    period = str(period_key or _naive().strftime("%Y-%m-%d")).strip()[:64]
+    if not period:
+        raise ValueError("period_key inválido.")
+    amounts = ranking_prize_amounts()
+    paid: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    now = _naive()
+
+    if kind == "teams":
+        board = ranking_teams(db, limit=3)
+    else:
+        board = ranking_players(db, limit=3)
+
+    for pos in (1, 2, 3):
+        amt = int(amounts.get(str(pos)) or 0)
+        if amt <= 0:
+            skipped.append({"rank": pos, "reason": "prize_zero"})
+            continue
+        if pos > len(board):
+            skipped.append({"rank": pos, "reason": "no_entry"})
+            continue
+        entry = board[pos - 1]
+        if not force:
+            prev = db.execute(
+                text("""
+                    SELECT id FROM team_ranking_prize_payouts
+                    WHERE kind = :k AND period_key = :p AND rank_pos = :r
+                    LIMIT 1
+                """),
+                {"k": kind, "p": period, "r": pos},
+            ).fetchone()
+            if prev:
+                skipped.append({"rank": pos, "reason": "already_paid", "payout_id": int(prev[0])})
+                continue
+
+        if kind == "teams":
+            tid = int(entry["id"])
+            credit_team_bank_amber(
+                db,
+                team_id=tid,
+                amount=amt,
+                entry_type="RANKING_PRIZE",
+                note=f"Prémio ranking equipes #{pos} ({period})",
+                actor_steam_id=str(actor_steam_id or "staff"),
+                idempotency_key=f"rank_prize:teams:{period}:{pos}",
+                commit=False,
+            )
+            steam_id = str(entry.get("owner_steam_id") or "")
+            team_id = tid
+        else:
+            if not _add_points_tx:
+                raise RuntimeError("team_service add_points_tx not wired")
+            steam_id = str(entry["steam_id"])
+            _add_points_tx(db, steam_id, amt)
+            team_id = None
+
+        if force:
+            db.execute(
+                text("""
+                    DELETE FROM team_ranking_prize_payouts
+                    WHERE kind = :k AND period_key = :p AND rank_pos = :r
+                """),
+                {"k": kind, "p": period, "r": pos},
+            )
+        db.execute(
+            text("""
+                INSERT INTO team_ranking_prize_payouts
+                  (kind, period_key, rank_pos, team_id, steam_id, amount, paid_by, paid_at)
+                VALUES (:k, :p, :r, :tid, :sid, :amt, :by, :now)
+            """),
+            {
+                "k": kind, "p": period, "r": pos,
+                "tid": team_id, "sid": steam_id or "",
+                "amt": amt, "by": str(actor_steam_id or "staff"), "now": now,
+            },
+        )
+        paid.append({
+            "rank": pos,
+            "amount": amt,
+            "team_id": team_id,
+            "steam_id": steam_id,
+            "name": entry.get("name") or entry.get("display_name") or "",
+        })
+
+    db.commit()
+    if _audit_event:
+        try:
+            _audit_event(
+                "team_ranking_prizes_paid",
+                actor_type="admin",
+                actor_steam_id=str(actor_steam_id or "staff"),
+                message=f"Ranking prizes {kind} {period}",
+                kind=kind,
+                period_key=period,
+                paid=paid,
+                skipped=skipped,
+            )
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "kind": kind,
+        "period_key": period,
+        "paid": paid,
+        "skipped": skipped,
+        "amounts": amounts,
     }
 
 
@@ -3758,7 +3901,10 @@ def get_team_lottery_status(db: Session, team_id: int) -> dict[str, Any]:
     if not _is_enabled():
         return out
     out["enabled"] = True
-    campaign = get_active_campaign(db)
+    try:
+        campaign = get_active_campaign(db)
+    except Exception:
+        return out
     if not campaign or str(campaign.status) != "ACTIVE":
         return out
     cid = int(campaign.id)
@@ -3845,7 +3991,10 @@ def maybe_allocate_lottery_on_member_join(db: Session, team_id: int) -> dict[str
         conf_open = open_lottery_confirmation(db, team_id)
         if conf_open:
             return None
-    campaign = get_active_campaign(db)
+    try:
+        campaign = get_active_campaign(db)
+    except Exception:
+        return None
     if not campaign or str(campaign.status) != "ACTIVE":
         return None
     cid = int(campaign.id)
