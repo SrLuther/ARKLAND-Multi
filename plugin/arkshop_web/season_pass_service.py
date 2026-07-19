@@ -611,7 +611,7 @@ def buy_premium(db: Session, steam_id: str) -> dict[str, Any]:
     progress = spcfg.level_from_xp(int(prog["xp"]), list(cfg.get("xp_thresholds") or []))
     catchup_to = int(progress["level"])
     db.commit()
-    return {
+    result = {
         "ok": True,
         "already_owned": False,
         "premium": True,
@@ -631,6 +631,21 @@ def buy_premium(db: Session, steam_id: str) -> dict[str, Any]:
             "duplicate": ark.get("duplicate"),
         },
     }
+    _emit_audit(
+        "season_pass_premium_purchase",
+        severity="info",
+        actor_type="player",
+        actor_steam_id=str(steam_id),
+        target_steam_id=str(steam_id),
+        amount=int(price),
+        status_after="premium",
+        message=f"Season Pass Premium — {_fmt_amber(price)} Â (season {season_id})",
+        season_id=season_id,
+        new_balance=new_bal,
+        catchup_to_level=catchup_to,
+        arkbank_balance_after=ark.get("balance_after"),
+    )
+    return result
 
 
 def tier_rank(group: str) -> int:
@@ -778,6 +793,47 @@ def _claim_message(delivery: list[dict[str, Any]]) -> str:
             parts.append(f"{dtype} entregue")
     return " · ".join(parts) if parts else "Recompensa resgatada."
 
+
+def _emit_audit(event_type: str, **kwargs: Any) -> None:
+    """Espelha em audit_events via callback injectado (app._audit_event)."""
+    fn: Callable | None = _cbs.get("audit_event")
+    if not fn:
+        return
+    try:
+        fn(event_type, **kwargs)
+    except Exception as exc:
+        log.warning("season_pass audit_event failed (%s): %s", event_type, exc)
+
+
+def _delivery_audit_summary(delivery: list[dict[str, Any]]) -> dict[str, Any]:
+    amber_amount = 0
+    item_ids: list[str] = []
+    licenses: list[dict[str, Any]] = []
+    order_ids: list[str] = []
+    for d in delivery:
+        dtype = str(d.get("type") or "")
+        if dtype == "amber":
+            amber_amount += int(d.get("qty") or 0)
+        elif dtype == "license" and d.get("choice") == "amber":
+            amber_amount += int(d.get("amber") or 0)
+        elif dtype == "license":
+            licenses.append({
+                "id": str(d.get("id") or ""),
+                "days": int(d.get("days") or 0),
+            })
+        elif dtype in ("kit", "item", "dino"):
+            gid = str(d.get("id") or "").strip()
+            if gid:
+                item_ids.append(gid)
+            oid = str(d.get("order_id") or "").strip()
+            if oid:
+                order_ids.append(oid)
+    return {
+        "amber_amount": amber_amount,
+        "item_ids": item_ids,
+        "licenses": licenses,
+        "order_ids": order_ids,
+    }
 
 def license_choice_needed(
     entitlements: list[dict[str, Any]],
@@ -960,54 +1016,75 @@ def claim_reward(
     ents = list(get_ents(steam_id, db) if get_ents else [])
 
     pending_perm_syncs: list[dict[str, Any]] = []
-    delivery = _deliver_grants(
-        db,
-        steam_id=steam_id,
-        season_id=season_id,
-        track=track,
-        level=level,
-        grants=grants,
-        license_choice=license_choice,
-        entitlements=ents,
-        deferred_perm_syncs=pending_perm_syncs,
-    )
-
-    claimed = set(prog["claimed"])
-    claimed.add(claimed_key(track, level))
-    _upsert_progress(
-        db,
-        steam_id=steam_id,
-        season_id=season_id,
-        xp=int(prog["xp"]),
-        premium=bool(prog["premium"]),
-        claimed=claimed,
-    )
-
-    # Audit mirror na claim queue JSON (histórico)
     try:
-        spcfg.enqueue_claim(
+        delivery = _deliver_grants(
+            db,
             steam_id=steam_id,
             season_id=season_id,
-            tier=str(cfg.get("current_tier") or "Delta"),
             track=track,
             level=level,
             grants=grants,
+            license_choice=license_choice,
+            entitlements=ents,
+            deferred_perm_syncs=pending_perm_syncs,
         )
-        data = spcfg.load_claims()
-        row = spcfg.find_claim(
-            data, steam_id=steam_id, season_id=season_id, track=track, level=level
-        )
-        if row:
-            queued = any(bool(d.get("pending_order")) for d in delivery)
-            row["status"] = "queued" if queued else "delivered"
-            row["in_game_delivered"] = not queued
-            row["delivery_result"] = delivery
-            with spcfg._lock:
-                spcfg._save_claims_unlocked(data)
-    except Exception as exc:
-        log.warning("season_pass claim audit queue: %s", exc)
 
-    db.commit()
+        claimed = set(prog["claimed"])
+        claimed.add(claimed_key(track, level))
+        _upsert_progress(
+            db,
+            steam_id=steam_id,
+            season_id=season_id,
+            xp=int(prog["xp"]),
+            premium=bool(prog["premium"]),
+            claimed=claimed,
+        )
+
+        # Audit mirror na claim queue JSON (histórico)
+        try:
+            spcfg.enqueue_claim(
+                steam_id=steam_id,
+                season_id=season_id,
+                tier=str(cfg.get("current_tier") or "Delta"),
+                track=track,
+                level=level,
+                grants=grants,
+            )
+            data = spcfg.load_claims()
+            row = spcfg.find_claim(
+                data, steam_id=steam_id, season_id=season_id, track=track, level=level
+            )
+            if row:
+                queued = any(bool(d.get("pending_order")) for d in delivery)
+                row["status"] = "queued" if queued else "delivered"
+                row["in_game_delivered"] = not queued
+                row["delivery_result"] = delivery
+                with spcfg._lock:
+                    spcfg._save_claims_unlocked(data)
+        except Exception as exc:
+            log.warning("season_pass claim audit queue: %s", exc)
+
+        db.commit()
+    except ValueError:
+        raise
+    except Exception as exc:
+        _emit_audit(
+            "season_pass_claim_failed",
+            severity="error",
+            actor_type="player",
+            actor_steam_id=str(steam_id),
+            target_steam_id=str(steam_id),
+            item_type=str(track),
+            item_id=f"{track}:{level}",
+            message=f"SeasonLand claim falhou — {track} L{level}: {exc}",
+            season_id=season_id,
+            track=track,
+            level=level,
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        raise
+
     sync_fn: Callable | None = _cbs.get("sync_license_permissions")
     if sync_fn:
         for spec in pending_perm_syncs:
@@ -1026,6 +1103,31 @@ def claim_reward(
                 pass
     # kit/item/dino = fila PENDENTE; só Â/licença são síncronos no web.
     has_queued = any(bool(d.get("pending_order")) for d in delivery)
+    summary = _delivery_audit_summary(delivery)
+    order_ids = list(summary.get("order_ids") or [])
+    amber_amt = int(summary.get("amber_amount") or 0)
+    _emit_audit(
+        "season_pass_claim",
+        severity="info",
+        actor_type="player",
+        actor_steam_id=str(steam_id),
+        target_steam_id=str(steam_id),
+        order_id=order_ids[0] if len(order_ids) == 1 else None,
+        item_type=str(track),
+        item_id=f"{track}:{level}",
+        amount=amber_amt if amber_amt > 0 else None,
+        status_after="queued" if has_queued else "delivered",
+        message=f"SeasonLand claim {track} L{level} — {msg}",
+        season_id=season_id,
+        track=track,
+        level=level,
+        amber_amount=amber_amt if amber_amt > 0 else None,
+        item_ids=summary.get("item_ids") or None,
+        licenses=summary.get("licenses") or None,
+        order_ids=order_ids or None,
+        new_balance=points_after,
+        queued_for_shop=has_queued,
+    )
     return {
         "ok": True,
         "track": track,
@@ -1037,6 +1139,339 @@ def claim_reward(
         "message": msg,
         "new_balance": points_after,
         "points_after": points_after,
+    }
+
+
+_ADMIN_SKIP_PREFIX = "__admin_skip_kit_limit__|"
+_CATALOG_RESEND_STATUSES = frozenset({"ENTREGUE", "ERRO"})
+
+
+def parse_resend_parts(
+    *,
+    parts: Any = None,
+    amber: Any = None,
+    catalog: Any = None,
+) -> set[str]:
+    """Aceita parts=["amber","catalog"] e/ou flags amber/catalog."""
+    out: set[str] = set()
+    if parts is not None:
+        if isinstance(parts, str):
+            seq: list[Any] = [parts]
+        elif isinstance(parts, (list, tuple, set)):
+            seq = list(parts)
+        else:
+            raise ValueError('parts inválido — use ["amber"], ["catalog"] ou ambos')
+        for p in seq:
+            key = str(p or "").strip().lower()
+            if key in ("amber", "catalog"):
+                out.add(key)
+            elif key:
+                raise ValueError(f"part desconhecida: {key} (amber|catalog)")
+    if amber:
+        out.add("amber")
+    if catalog:
+        out.add("catalog")
+    if not out:
+        raise ValueError("Indica parts: amber e/ou catalog")
+    return out
+
+
+def _sp_idem_key(season_id: str, track: str, level: int, gtype: str, gid: str) -> str:
+    return f"sp:{season_id}:{track}:{level}:{gtype}:{gid}"
+
+
+def _find_catalog_order(
+    db: Session, steam_id: str, idem: str
+) -> dict[str, Any] | None:
+    skip = f"{_ADMIN_SKIP_PREFIX}{idem}"
+    row = db.execute(
+        text(
+            "SELECT order_id, status, original_order_id, item_type, item_id, amount "
+            "FROM orders WHERE steam_id = :sid "
+            "AND (original_order_id = :a OR original_order_id = :b) "
+            "ORDER BY id DESC LIMIT 1"
+        ),
+        {"sid": str(steam_id), "a": idem, "b": skip},
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "order_id": str(row[0]),
+        "status": str(row[1] or ""),
+        "original_order_id": str(row[2] or ""),
+        "item_type": str(row[3] or ""),
+        "item_id": str(row[4] or ""),
+        "amount": int(row[5] or 0),
+    }
+
+
+def _reset_order_to_pending(db: Session, order_id: str) -> None:
+    """Reabre pedido como PENDENTE (callback app = admin_resend; fallback SQL)."""
+    fn: Callable | None = _cbs.get("reset_order_to_pending")
+    if fn:
+        fn(db, order_id)
+        return
+    now = _utcnow().isoformat()
+    try:
+        db.execute(
+            text(
+                "UPDATE orders SET status = 'PENDENTE', last_error = NULL, "
+                "retry_count = 0, contested = 0, updated_at = :now "
+                "WHERE order_id = :oid"
+            ),
+            {"oid": order_id, "now": now},
+        )
+    except Exception:
+        db.execute(
+            text(
+                "UPDATE orders SET status = 'PENDENTE', updated_at = :now "
+                "WHERE order_id = :oid"
+            ),
+            {"oid": order_id, "now": now},
+        )
+
+
+def admin_resend_reward(
+    db: Session,
+    *,
+    steam_id: str,
+    track: str,
+    level: int,
+    parts: set[str] | list[str] | tuple[str, ...],
+    season_id: str | None = None,
+    confirm: bool = False,
+    reason: str | None = None,
+    admin_steam_id: str | None = None,
+) -> dict[str, Any]:
+    """Reenvio admin de recompensas SeasonLand (Â e/ou fila kit/item/dino).
+
+    Não altera claimed — só re-credita Â e/ou reabre/cria pedidos PENDENTE.
+    Reenvio de Â exige confirm=True (re-grant intencional).
+    """
+    want = parse_resend_parts(
+        parts=list(parts) if isinstance(parts, (set, frozenset)) else parts
+    )
+    track = str(track or "").strip().lower()
+    if track not in ("free", "premium"):
+        raise ValueError("track deve ser free|premium")
+    try:
+        level = int(level)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("level inválido") from exc
+    steam_id = str(steam_id or "").strip()
+    if not steam_id:
+        raise ValueError("steam_id obrigatório")
+
+    if "amber" in want and not confirm:
+        raise ValueError(
+            "confirm_required: reenvio de Âmbar é re-grant (credita de novo a partir "
+            "da config). Envia confirm=true para confirmar."
+        )
+
+    cfg = spcfg.load_config()
+    sid = str(season_id or cfg.get("season_id") or "").strip()
+    if not sid:
+        raise ValueError("Season ainda não foi iniciada (ou season_id em falta).")
+
+    ensure_season_pass_schema(db.get_bind())
+    prog = get_progress(db, steam_id, sid)
+    key = claimed_key(track, level)
+    if key not in set(prog["claimed"]):
+        raise ValueError(
+            f"Nó {track} L{level} ainda não foi resgatado — não há o que reenviar."
+        )
+
+    grants = spcfg.rewards_for(cfg, track, level)
+    if not grants:
+        raise ValueError("Sem rewards na config para este nó.")
+
+    annotated = spcfg.annotate_grants(grants)
+    add_pts: Callable | None = _cbs.get("add_points_tx")
+    queue_order: Callable | None = _cbs.get("queue_catalog_order")
+    if "amber" in want and not add_pts:
+        raise RuntimeError("season_pass_engine_not_wired")
+    if "catalog" in want and not queue_order:
+        raise RuntimeError("season_pass_engine_not_wired")
+
+    actions: list[dict[str, Any]] = []
+    points_after: int | None = None
+
+    if "amber" in want:
+        amber_grants = [g for g in annotated if str(g.get("type") or "") == "amber"]
+        if not amber_grants:
+            actions.append({
+                "part": "amber",
+                "action": "skipped",
+                "reason": "no_amber_grant",
+            })
+        else:
+            for g in amber_grants:
+                qty = int(g.get("qty") or 0)
+                if qty <= 0:
+                    raise ValueError(f"Grant Â inválido em {track} L{level}")
+                bal = add_pts(db, steam_id, qty)
+                points_after = int(bal)
+                actions.append({
+                    "part": "amber",
+                    "type": "amber",
+                    "action": "regranted",
+                    "qty": qty,
+                    "points_after": bal,
+                })
+
+    if "catalog" in want:
+        catalog_grants = [
+            g for g in annotated
+            if str(g.get("type") or "") in ("kit", "item", "dino")
+        ]
+        if not catalog_grants:
+            actions.append({
+                "part": "catalog",
+                "action": "skipped",
+                "reason": "no_catalog_grant",
+            })
+        else:
+            pending_sku = [g for g in catalog_grants if not g.get("grant_ready")]
+            if pending_sku:
+                bits = [
+                    str(g.get("type") or "?")
+                    + (f" ({g.get('label')})" if g.get("label") else "")
+                    for g in pending_sku
+                ]
+                raise ValueError(
+                    f"sku_pending: {track} L{level} ainda sem ID "
+                    f"({', '.join(bits)}) — não é possível reenviar."
+                )
+            for g in catalog_grants:
+                gtype = str(g.get("type") or "")
+                gid = str(g.get("id") or "").strip()
+                qty = max(1, int(g.get("qty") or 1))
+                idem = _sp_idem_key(sid, track, level, gtype, gid)
+                existing = _find_catalog_order(db, steam_id, idem)
+                if existing:
+                    status = str(existing["status"] or "")
+                    oid = existing["order_id"]
+                    if status == "PENDENTE":
+                        actions.append({
+                            "part": "catalog",
+                            "type": gtype,
+                            "id": gid,
+                            "action": "already_pending",
+                            "order_id": oid,
+                            "status_before": status,
+                            "original_order_id": existing["original_order_id"],
+                        })
+                    elif status in _CATALOG_RESEND_STATUSES:
+                        _reset_order_to_pending(db, oid)
+                        actions.append({
+                            "part": "catalog",
+                            "type": gtype,
+                            "id": gid,
+                            "action": "reset_pending",
+                            "order_id": oid,
+                            "status_before": status,
+                            "status_after": "PENDENTE",
+                            "original_order_id": existing["original_order_id"],
+                        })
+                    else:
+                        actions.append({
+                            "part": "catalog",
+                            "type": gtype,
+                            "id": gid,
+                            "action": "skipped",
+                            "reason": f"status_{status}",
+                            "order_id": oid,
+                            "status_before": status,
+                            "original_order_id": existing["original_order_id"],
+                        })
+                else:
+                    item_type = "kit" if gtype == "kit" else "shop"
+                    order_id = queue_order(
+                        db,
+                        steam_id=steam_id,
+                        item_type=item_type,
+                        item_id=gid,
+                        amount=qty,
+                        original_order_id=idem,
+                    )
+                    actions.append({
+                        "part": "catalog",
+                        "type": gtype,
+                        "id": gid,
+                        "action": "created",
+                        "order_id": order_id,
+                        "status_after": "PENDENTE",
+                        "original_order_id": idem,
+                    })
+
+    # Claimed permanece intacto — só reenvio de entrega.
+    db.commit()
+
+    amber_qty = sum(
+        int(a.get("qty") or 0)
+        for a in actions
+        if a.get("action") == "regranted" and a.get("type") == "amber"
+    )
+    catalog_done = [
+        a for a in actions
+        if a.get("part") == "catalog" and a.get("action") in ("reset_pending", "created")
+    ]
+    msg_bits: list[str] = []
+    if amber_qty:
+        msg_bits.append(f"{_fmt_amber(amber_qty)} Â re-creditados (re-grant)")
+    for a in catalog_done:
+        act = "reaberto" if a.get("action") == "reset_pending" else "criado"
+        msg_bits.append(f"{a.get('type')} «{a.get('id')}» {act} → PENDENTE")
+    if not msg_bits:
+        skipped = [a for a in actions if a.get("action") in ("skipped", "already_pending")]
+        if skipped:
+            msg_bits.append("Nada novo a reenviar (já PENDENTE ou sem grants nesse part)")
+        else:
+            msg_bits.append("Reenvio sem alterações")
+    msg = " · ".join(msg_bits)
+
+    order_ids = [
+        str(a["order_id"])
+        for a in actions
+        if a.get("order_id") and a.get("action") in ("reset_pending", "created", "already_pending")
+    ]
+    _emit_audit(
+        "season_pass_admin_resend",
+        severity="info",
+        actor_type="admin",
+        actor_steam_id=str(admin_steam_id or "") or None,
+        target_steam_id=str(steam_id),
+        order_id=order_ids[0] if len(order_ids) == 1 else None,
+        item_type=str(track),
+        item_id=f"{track}:{level}",
+        amount=amber_qty if amber_qty > 0 else None,
+        message=f"Admin reenvio SeasonLand {track} L{level} — {msg}",
+        reason=reason,
+        season_id=sid,
+        track=track,
+        level=level,
+        parts=sorted(want),
+        amber_amount=amber_qty if amber_qty > 0 else None,
+        actions=actions,
+        order_ids=order_ids or None,
+        confirm=bool(confirm),
+        regrant=bool("amber" in want),
+        claimed_unchanged=True,
+        new_balance=points_after,
+    )
+
+    return {
+        "ok": True,
+        "steam_id": steam_id,
+        "season_id": sid,
+        "track": track,
+        "level": level,
+        "parts": sorted(want),
+        "actions": actions,
+        "message": msg,
+        "new_balance": points_after,
+        "points_after": points_after,
+        "claimed_unchanged": True,
     }
 
 

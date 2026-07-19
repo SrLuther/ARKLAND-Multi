@@ -3,12 +3,35 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.74"
+APP_VERSION: str = "1.10.75"
 BUILD_DATE: str = "2026-07-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.75",
+        "date": "2026-07-19",
+        "changes": [
+            "Feat (Web Store / Equipes): admin ASSUMIR equipe (POST /api/admin/teams/assume) — "
+            "reativa ACTIVE em qualquer status (esp. DISBANDED/SUSPENDED), define OWNER ACTIVE "
+            "(admin ou steam_id do body); rejeita se alvo já está noutra equipe (Q2); "
+            "audit team_admin_assume; botão Assumir no painel admin (evita zombie pós-REATIVAR).",
+            "Test (Web Store / Equipes): assume DISBANDED solo-left, rejeição Q2, SUSPENDED, reclaim owner.",
+            "Feat (Web Store / SeasonLand): claims e compra Premium gravam em Auditoria "
+            "(audit_events) — season_pass_claim, season_pass_claim_failed, "
+            "season_pass_premium_purchase; filtro «SeasonLand» no painel admin.",
+            "Feat (Web Store / SeasonLand): admin reenvio de recompensas claimed — "
+            "POST /api/admin/season-pass/resend (Â só / item|kit|dino só / ambos); "
+            "Â = re-grant com confirm; catálogo = ENTREGUE|ERRO→PENDENTE ou cria pedido sp:…; "
+            "audit season_pass_admin_resend; UI admin Reenviar Â/item/tudo.",
+            "Test (Web Store / SeasonLand): resend amber-only, catalog ENTREGUE→PENDENTE, "
+            "catalog missing→create, both.",
+            "Feat (Web Store / Equipes): UI do marco atual deixa explícito o que completa entrega "
+            "(+% Â TimedPoints, cap de membros, descrição) e separa requisitos "
+            "(Â / XP / recursos a depositar); lista admin da trilha com linha «entrega».",
+        ],
+    },
     {
         "version": "1.10.74",
         "date": "2026-07-19",

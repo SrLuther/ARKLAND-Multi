@@ -124,6 +124,12 @@ def sp_db(tmp_path):
         )
         return oid
 
+    def reset_pending(db_, order_id):
+        db_.execute(
+            text("UPDATE orders SET status='PENDENTE', updated_at='now' WHERE order_id=:oid"),
+            {"oid": order_id},
+        )
+
     granted = []
 
     def grant_lic(db_, sid, group, days, *, source=""):
@@ -136,6 +142,7 @@ def sp_db(tmp_path):
         add_points_tx=add,
         credit_arkbank_premium=lambda db_, **kw: credit_season_pass_premium(db_, **kw),
         queue_catalog_order=queue,
+        reset_order_to_pending=reset_pending,
         grant_license=grant_lic,
         get_entitlements=lambda sid, db=None: [],
         license_catalog_price=lambda g: 5000,
@@ -935,3 +942,297 @@ def test_claimable_false_when_sku_pending_in_payload():
     assert n1["claimable"] is False
     assert n1["delivery"]["grants_sku_pending"] >= 1
     assert "SKU" in (n1.get("block_reason") or "")
+
+
+def _mark_claimed(db, steam_id: str, season_id: str, track: str, level: int, *, xp: int, premium: bool):
+    prog = sps.get_progress(db, steam_id, season_id)
+    claimed = set(prog["claimed"])
+    claimed.add(sps.claimed_key(track, level))
+    sps._upsert_progress(
+        db,
+        steam_id=steam_id,
+        season_id=season_id,
+        xp=xp,
+        premium=premium,
+        claimed=claimed,
+    )
+    db.commit()
+
+
+def test_admin_resend_amber_only(sp_db):
+    db, _ = sp_db
+    audits: list[tuple] = []
+    sps.configure_engine(audit_event=lambda et, **kw: audits.append((et, kw)))
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(4), premium=False, claimed=set()
+    )
+    db.commit()
+    sps.claim_reward(db, steam_id=USER_STEAM, track="free", level=4)
+    before = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
+    with pytest.raises(ValueError, match="confirm_required"):
+        sps.admin_resend_reward(
+            db, steam_id=USER_STEAM, track="free", level=4, parts=["amber"], confirm=False
+        )
+    result = sps.admin_resend_reward(
+        db,
+        steam_id=USER_STEAM,
+        track="free",
+        level=4,
+        parts=["amber"],
+        confirm=True,
+        admin_steam_id=ADMIN_STEAM,
+        reason="felipe-like amber missing",
+    )
+    assert result["ok"] is True
+    assert result["claimed_unchanged"] is True
+    after = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
+    assert after - before == 500
+    acts = [a for a in result["actions"] if a.get("action") == "regranted"]
+    assert len(acts) == 1 and acts[0]["qty"] == 500
+    # Ainda claimed
+    prog = sps.get_progress(db, USER_STEAM, sid)
+    assert sps.claimed_key("free", 4) in prog["claimed"]
+    assert any(et == "season_pass_admin_resend" for et, _ in audits)
+
+
+def test_admin_resend_catalog_entregue_to_pending(sp_db):
+    db, _ = sp_db
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    with spcfg._lock:
+        cfg = spcfg.load_config()
+        cfg["premium_rewards"]["3"] = [
+            {"type": "kit", "id": "kit_test_sp", "qty": 1, "label": "Kit"},
+            {"type": "item", "id": "cryopod", "qty": 2, "label": "Cryo"},
+        ]
+        spcfg.save_config(cfg)
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(3), premium=True, claimed=set()
+    )
+    db.commit()
+    claim = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=3)
+    assert claim["ok"] is True
+    db.execute(text("UPDATE orders SET status='ENTREGUE'"))
+    db.commit()
+    result = sps.admin_resend_reward(
+        db,
+        steam_id=USER_STEAM,
+        track="premium",
+        level=3,
+        parts=["catalog"],
+        confirm=False,
+        admin_steam_id=ADMIN_STEAM,
+    )
+    assert result["ok"] is True
+    resets = [a for a in result["actions"] if a.get("action") == "reset_pending"]
+    assert len(resets) == 2
+    assert all(a.get("status_before") == "ENTREGUE" for a in resets)
+    rows = db.execute(text("SELECT status FROM orders")).fetchall()
+    assert all(r[0] == "PENDENTE" for r in rows)
+    prog = sps.get_progress(db, USER_STEAM, sid)
+    assert sps.claimed_key("premium", 3) in prog["claimed"]
+
+
+def test_admin_resend_catalog_missing_creates_order(sp_db):
+    db, _ = sp_db
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    with spcfg._lock:
+        cfg = spcfg.load_config()
+        cfg["premium_rewards"]["5"] = [
+            {"type": "dino", "id": "dino_spino", "qty": 1, "label": "Spino"},
+        ]
+        spcfg.save_config(cfg)
+    # Claimed sem pedido (caso Felipe: claim marcado, fila sumiu)
+    _mark_claimed(db, USER_STEAM, sid, "premium", 5, xp=_xp_at(5), premium=True)
+    assert db.execute(text("SELECT COUNT(*) FROM orders")).scalar() == 0
+    result = sps.admin_resend_reward(
+        db,
+        steam_id=USER_STEAM,
+        track="premium",
+        level=5,
+        parts=["catalog"],
+        admin_steam_id=ADMIN_STEAM,
+    )
+    assert result["ok"] is True
+    created = [a for a in result["actions"] if a.get("action") == "created"]
+    assert len(created) == 1
+    assert created[0]["type"] == "dino"
+    row = db.execute(
+        text("SELECT status, original_order_id FROM orders WHERE order_id=:oid"),
+        {"oid": created[0]["order_id"]},
+    ).fetchone()
+    assert row[0] == "PENDENTE"
+    assert row[1] == f"sp:{sid}:premium:5:dino:dino_spino"
+    prog = sps.get_progress(db, USER_STEAM, sid)
+    assert sps.claimed_key("premium", 5) in prog["claimed"]
+
+
+def test_admin_resend_both_amber_and_catalog(sp_db):
+    db, _ = sp_db
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    with spcfg._lock:
+        cfg = spcfg.load_config()
+        cfg["premium_rewards"]["7"] = [
+            {"type": "amber", "qty": 250, "label": "250 Â"},
+            {"type": "item", "id": "cryopod", "qty": 1, "label": "Cryo"},
+        ]
+        spcfg.save_config(cfg)
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(7), premium=True, claimed=set()
+    )
+    db.commit()
+    sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=7)
+    db.execute(text("UPDATE orders SET status='ERRO'"))
+    db.commit()
+    before = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
+    result = sps.admin_resend_reward(
+        db,
+        steam_id=USER_STEAM,
+        track="premium",
+        level=7,
+        parts=["amber", "catalog"],
+        confirm=True,
+        admin_steam_id=ADMIN_STEAM,
+    )
+    assert result["ok"] is True
+    after = int(db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar())
+    assert after - before == 250
+    assert any(a.get("action") == "regranted" for a in result["actions"])
+    assert any(a.get("action") == "reset_pending" and a.get("status_before") == "ERRO" for a in result["actions"])
+    assert db.execute(text("SELECT status FROM orders")).scalar() == "PENDENTE"
+    prog = sps.get_progress(db, USER_STEAM, sid)
+    assert sps.claimed_key("premium", 7) in prog["claimed"]
+
+
+def test_audit_free_amber_claim(sp_db):
+    db, _ = sp_db
+    audits: list[dict] = []
+    sps.configure_engine(audit_event=lambda et, **kw: audits.append({"event_type": et, **kw}))
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    sps._upsert_progress(db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(4), premium=False, claimed=set())
+    db.commit()
+    result = sps.claim_reward(db, steam_id=USER_STEAM, track="free", level=4)
+    assert result["ok"] is True
+    claim_audits = [a for a in audits if a["event_type"] == "season_pass_claim"]
+    assert len(claim_audits) == 1
+    ev = claim_audits[0]
+    assert ev["actor_steam_id"] == USER_STEAM
+    assert ev["target_steam_id"] == USER_STEAM
+    assert ev["track"] == "free"
+    assert ev["level"] == 4
+    assert ev["season_id"] == sid
+    assert ev["amber_amount"] == 500
+    assert ev["amount"] == 500
+    assert ev["new_balance"] == result["new_balance"]
+    assert ev["item_id"] == "free:4"
+    assert "500" in (ev.get("message") or "")
+
+
+def test_audit_premium_kit_dino_claim(sp_db):
+    db, _ = sp_db
+    audits: list[dict] = []
+    sps.configure_engine(audit_event=lambda et, **kw: audits.append({"event_type": et, **kw}))
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    cfg = spcfg.load_config()
+    cfg["premium_rewards"]["8"] = [
+        {"type": "dino", "id": "sb_crystal_ember_l200", "qty": 1, "label": "Crystal Ember"},
+    ]
+    cfg["premium_rewards"]["10"] = [
+        {"type": "kit", "id": "noglin_pack10", "qty": 1, "label": "Noglin pack"},
+    ]
+    spcfg.save_config(cfg)
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(10), premium=True, claimed=set(),
+    )
+    db.commit()
+
+    dino = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=8)
+    kit = sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=10)
+    assert dino["ok"] and kit["ok"]
+
+    claim_audits = [a for a in audits if a["event_type"] == "season_pass_claim"]
+    assert len(claim_audits) == 2
+    dino_ev = next(a for a in claim_audits if a["level"] == 8)
+    kit_ev = next(a for a in claim_audits if a["level"] == 10)
+    assert dino_ev["item_ids"] == ["sb_crystal_ember_l200"]
+    assert kit_ev["item_ids"] == ["noglin_pack10"]
+    assert dino_ev["order_ids"] and kit_ev["order_ids"]
+    assert dino_ev["status_after"] == "queued"
+    assert kit_ev["status_after"] == "queued"
+    assert dino_ev["order_id"] == dino_ev["order_ids"][0]
+
+
+def test_audit_premium_purchase(sp_db):
+    db, _ = sp_db
+    audits: list[dict] = []
+    sps.configure_engine(audit_event=lambda et, **kw: audits.append({"event_type": et, **kw}))
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    result = sps.buy_premium(db, USER_STEAM)
+    assert result["ok"] is True and not result.get("already_owned")
+    purch = [a for a in audits if a["event_type"] == "season_pass_premium_purchase"]
+    assert len(purch) == 1
+    ev = purch[0]
+    assert ev["amount"] == 15_000
+    assert ev["actor_steam_id"] == USER_STEAM
+    assert ev["new_balance"] == result["new_balance"]
+    assert ev["status_after"] == "premium"
+    # already_owned não gera segundo evento
+    again = sps.buy_premium(db, USER_STEAM)
+    assert again["already_owned"] is True
+    assert len([a for a in audits if a["event_type"] == "season_pass_premium_purchase"]) == 1
+
+
+def test_audit_claim_failed_on_delivery_error(sp_db):
+    db, _ = sp_db
+    audits: list[dict] = []
+    sps.configure_engine(audit_event=lambda et, **kw: audits.append({"event_type": et, **kw}))
+    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
+    sps.start_season(now=now)
+    sid = spcfg.load_config()["season_id"]
+    cfg = spcfg.load_config()
+    cfg["premium_rewards"]["8"] = [
+        {"type": "dino", "id": "sb_fail_dino", "qty": 1, "label": "Boom"},
+    ]
+    spcfg.save_config(cfg)
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(8), premium=True, claimed=set(),
+    )
+    db.commit()
+
+    def boom_queue(*_a, **_k):
+        raise RuntimeError("(pymysql.err.DataError) (1406, \"Data too long for column\")")
+
+    sps.configure_engine(queue_catalog_order=boom_queue)
+    with pytest.raises(RuntimeError, match="1406"):
+        sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=8)
+    failed = [a for a in audits if a["event_type"] == "season_pass_claim_failed"]
+    assert len(failed) == 1
+    ev = failed[0]
+    assert ev["severity"] == "error"
+    assert ev["track"] == "premium"
+    assert ev["level"] == 8
+    assert "1406" in (ev.get("error") or "")
+    assert "1406" in (ev.get("message") or "")
+    # ValueError de elegibilidade NÃO gera claim_failed
+    audits.clear()
+    db.rollback()
+    sps._upsert_progress(
+        db, steam_id=USER_STEAM, season_id=sid, xp=0, premium=False, claimed=set(),
+    )
+    db.commit()
+    with pytest.raises(ValueError, match="ainda não atingido"):
+        sps.claim_reward(db, steam_id=USER_STEAM, track="free", level=4)
+    assert not any(a["event_type"] == "season_pass_claim_failed" for a in audits)

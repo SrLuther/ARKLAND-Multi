@@ -463,6 +463,70 @@ def register_season_pass_routes(
             },
         })
 
+    @app.route("/api/admin/season-pass/resend", methods=["POST"])
+    @admin_required
+    @_limit("30 per hour")
+    def admin_season_pass_resend():
+        """Reenvia Â e/ou fila kit/item/dino de um nó já claimed (ops / Felipe-like).
+
+        Body: steam_id, track, level, season_id? (default=actual),
+        parts=["amber"|"catalog"|ambos] ou flags amber/catalog,
+        confirm=true obrigatório se amber (re-grant).
+        """
+        if not db_ready() or not session_factory:
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(force=True, silent=True) or {}
+        steam_id = str(body.get("steam_id") or "").strip()
+        track = str(body.get("track") or "").strip().lower()
+        season_id = body.get("season_id")
+        if season_id is not None:
+            season_id = str(season_id).strip() or None
+        reason = str(body.get("reason") or "").strip() or None
+        confirm = bool(body.get("confirm"))
+        try:
+            level = int(body.get("level"))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "level inválido"}), 400
+        try:
+            parts = sps.parse_resend_parts(
+                parts=body.get("parts"),
+                amber=body.get("amber"),
+                catalog=body.get("catalog"),
+            )
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        if not steam_id:
+            return jsonify({"ok": False, "error": "steam_id obrigatório"}), 400
+
+        db = session_factory()
+        try:
+            result = sps.admin_resend_reward(
+                db,
+                steam_id=steam_id,
+                track=track,
+                level=level,
+                parts=parts,
+                season_id=season_id,
+                confirm=confirm,
+                reason=reason,
+                admin_steam_id=str(steam_id_from_session() or "") or None,
+            )
+            return jsonify(result)
+        except ValueError as exc:
+            db.rollback()
+            msg = str(exc)
+            code = 400
+            if msg.startswith("confirm_required"):
+                code = 409
+            elif msg.startswith("sku_pending"):
+                code = 409
+            return jsonify({"ok": False, "error": msg}), code
+        except Exception as exc:
+            db.rollback()
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        finally:
+            _close(db)
+
     @app.route("/api/admin/season-pass/config", methods=["PUT"])
     @admin_required
     @_limit("60 per hour")

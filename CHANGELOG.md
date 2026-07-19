@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.75] - 2026-07-19
+
+### Feature
+
+- Feat (Web Store / Equipes): admin ASSUMIR equipe (POST /api/admin/teams/assume) — reativa ACTIVE em qualquer status (esp. DISBANDED/SUSPENDED), define OWNER ACTIVE (admin ou steam_id do body); rejeita se alvo já está noutra equipe (Q2); audit team_admin_assume; botão Assumir no painel admin (evita zombie pós-REATIVAR).
+- Feat (Web Store / SeasonLand): claims e compra Premium gravam em Auditoria (audit_events) — season_pass_claim, season_pass_claim_failed, season_pass_premium_purchase; filtro «SeasonLand» no painel admin.
+- Feat (Web Store / SeasonLand): admin reenvio de recompensas claimed — POST /api/admin/season-pass/resend (Â só / item|kit|dino só / ambos); Â = re-grant com confirm; catálogo = ENTREGUE|ERRO→PENDENTE ou cria pedido sp:…; audit season_pass_admin_resend; UI admin Reenviar Â/item/tudo.
+- Feat (Web Store / Equipes): UI do marco atual deixa explícito o que completa entrega (+% Â TimedPoints, cap de membros, descrição) e separa requisitos (Â / XP / recursos a depositar); lista admin da trilha com linha «entrega».
+
+### Other
+
+- Test (Web Store / Equipes): assume DISBANDED solo-left, rejeição Q2, SUSPENDED, reclaim owner.
+- Test (Web Store / SeasonLand): resend amber-only, catalog ENTREGUE→PENDENTE, catalog missing→create, both.
+
 ## [1.10.74] - 2026-07-19
 
 ### Feature

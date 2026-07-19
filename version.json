@@ -1,12 +1,13 @@
 {
-    "version": "1.10.74",
+    "version": "1.10.75",
     "date": "2026-07-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.74/ARKLAND-Multi-Setup-v1.10.74.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.75/ARKLAND-Multi-Setup-v1.10.75.exe",
     "changelog": [
-        "Fix P0 (Web Store / SeasonLand): claim kit/dino com season_id longo — orders.original_order_id VARCHAR(64)→255 (migrate no boot); evita DataError 1406 e toast SQL no RESGATAR.",
-        "Feat (Web Store / Doações): boleto via Mercado Pago (Checkout Pro) + boleto manual (instruções + ticket «Doação»); toggles boleto_mp_enabled / boleto_manual_enabled.",
-        "Feat (CustomShop 1.10.26 / TimedPoints): bônus Â aditivo da equipe (amber_bonus_pct) no tick — cache membership TTL≥Interval; award_final = award×(100+pct)/100.",
-        "Feat (Web Store / Equipes): bloqueio de ranking (equipes/jogadores) sem suspender — staff exclui do Top; XP/Honra preservados; secções «fora do ranking» na UI.",
-        "Test (Web Store): SCHEMA_CONTRACTS — asserts len(ID)≤Column.type.length (SQLite ignora VARCHAR); fixtures SeasonLand longas + prefixo __admin_skip_kit_limit__|."
+        "Feat (Web Store / Equipes): admin ASSUMIR equipe (POST /api/admin/teams/assume) — reativa ACTIVE em qualquer status (esp. DISBANDED/SUSPENDED), define OWNER ACTIVE (admin ou steam_id do body); rejeita se alvo já está noutra equipe (Q2); audit team_admin_assume; botão Assumir no painel admin (evita zombie pós-REATIVAR).",
+        "Test (Web Store / Equipes): assume DISBANDED solo-left, rejeição Q2, SUSPENDED, reclaim owner.",
+        "Feat (Web Store / SeasonLand): claims e compra Premium gravam em Auditoria (audit_events) — season_pass_claim, season_pass_claim_failed, season_pass_premium_purchase; filtro «SeasonLand» no painel admin.",
+        "Feat (Web Store / SeasonLand): admin reenvio de recompensas claimed — POST /api/admin/season-pass/resend (Â só / item|kit|dino só / ambos); Â = re-grant com confirm; catálogo = ENTREGUE|ERRO→PENDENTE ou cria pedido sp:…; audit season_pass_admin_resend; UI admin Reenviar Â/item/tudo.",
+        "Test (Web Store / SeasonLand): resend amber-only, catalog ENTREGUE→PENDENTE, catalog missing→create, both.",
+        "Feat (Web Store / Equipes): UI do marco atual deixa explícito o que completa entrega (+% Â TimedPoints, cap de membros, descrição) e separa requisitos (Â / XP / recursos a depositar); lista admin da trilha com linha «entrega»."
     ]
 }

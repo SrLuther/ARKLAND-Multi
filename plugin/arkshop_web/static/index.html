@@ -9327,6 +9327,11 @@
                 <option value="pix_checkout_failed">PIX — falha checkout</option>
                 <option value="pix_status_updated">PIX — mudança de status</option>
                 <option value="pix_credit_failed">PIX — falha ao creditar</option>
+                <option value="season_pass">SeasonLand (todos)</option>
+                <option value="season_pass_claim">SeasonLand — claim</option>
+                <option value="season_pass_claim_failed">SeasonLand — claim falhou</option>
+                <option value="season_pass_premium_purchase">SeasonLand — compra Premium</option>
+                <option value="season_pass_admin_resend">SeasonLand — reenvio admin</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;min-width:120px;">
@@ -9542,8 +9547,8 @@
             <div class="form-group"><label>Título</label><input id="tm-ms-title" type="text" placeholder="Marco 1" /></div>
             <div class="form-group"><label>Âmbares</label><input id="tm-ms-amber" type="number" min="0" value="5000" /></div>
             <div class="form-group"><label>XP conjunto</label><input id="tm-ms-xp" type="number" min="0" value="2500" /></div>
-            <div class="form-group"><label>max_members unlock</label><input id="tm-ms-mmu" type="number" min="0" placeholder="opcional" /></div>
-            <div class="form-group"><label>Bônus Â pp ao concluir (amber_bonus_pp)</label><input id="tm-ms-amber-bonus-pp" type="number" min="0" max="50" value="2" /></div>
+            <div class="form-group"><label>Cap membros ao concluir (max_members unlock)</label><input id="tm-ms-mmu" type="number" min="0" placeholder="opcional" /></div>
+            <div class="form-group"><label>+% Â TimedPoints ao concluir (amber_bonus_pp)</label><input id="tm-ms-amber-bonus-pp" type="number" min="0" max="50" value="2" /></div>
             <div class="form-group" style="align-self:end;">
               <button class="btn btn-ghost btn-sm" type="button" onclick="teamsAdminFillDefaults()">Sugerir qty (defaults)</button>
               <button class="btn btn-primary btn-sm" onclick="teamsAdminSaveMilestone()">Salvar rascunho</button>
@@ -16010,6 +16015,41 @@ function _spCollectGrants(track, level) {
   return out;
 }
 
+async function seasonPassAdminResend(parts) {
+  if (!_auth.is_admin) return;
+  const steamId = (document.getElementById("sp-resend-steam")?.value || "").trim();
+  const track = (document.getElementById("sp-resend-track")?.value || "premium").trim();
+  const level = parseInt(document.getElementById("sp-resend-level")?.value || "0", 10);
+  const seasonId = (document.getElementById("sp-resend-season")?.value || "").trim();
+  if (!steamId) { toast("Indica o Steam ID do jogador.", "error"); return; }
+  if (!level || level < 1) { toast("Nível inválido.", "error"); return; }
+  const wantAmber = Array.isArray(parts) && parts.includes("amber");
+  let confirmMsg = `Reenviar SeasonLand ${track} L${level} para ${steamId}?`;
+  if (wantAmber && Array.isArray(parts) && parts.includes("catalog")) {
+    confirmMsg += "\n\n• Âmbar: RE-GRANT (credita de novo a partir da config)\n• Kit/item/dino: reabre ENTREGUE/ERRO → PENDENTE ou cria pedido em falta\n• Claimed NÃO é desmarcado";
+  } else if (wantAmber) {
+    confirmMsg += "\n\nIsto é um RE-GRANT de Âmbar (credita de novo). Confirma?";
+  } else {
+    confirmMsg += "\n\nReabre fila /shop (ENTREGUE/ERRO → PENDENTE) ou cria pedido em falta. Sem novo débito.";
+  }
+  if (!confirm(confirmMsg)) return;
+  const body = {
+    steam_id: steamId,
+    track,
+    level,
+    parts: parts || ["catalog"],
+    confirm: true,
+  };
+  if (seasonId) body.season_id = seasonId;
+  try {
+    const d = await fetchJson("/api/admin/season-pass/resend", { method: "POST", body });
+    if (!d.ok) throw new Error(d.error || "Falha ao reenviar");
+    toast(d.message || "Reenvio OK.", "success");
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
+}
+
 async function loadSeasonPassAdmin() {
   const root = document.getElementById("season-pass-admin");
   if (!root) return;
@@ -16071,6 +16111,39 @@ async function loadSeasonPassAdmin() {
           Início: ${escHtml(season.starts_at || "—")} · Fim: ${escHtml(season.ends_at || "—")}
         </div>
         <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.45;">${escHtml(calendarHint)}</div>
+      </div>
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(0,0,0,.15);">
+        <div class="card-title" style="margin-bottom:6px;">Reenviar recompensa (ops)</div>
+        <p style="margin:0 0 10px;font-size:12px;color:var(--text2);line-height:1.45;">
+          Para nós <strong>já resgatados</strong> (ex.: Â chegou mas kit/item/dino sumiu).
+          Não desmarca claimed. Â = re-grant (credita de novo); item = reabre fila PENDENTE ou cria pedido em falta.
+        </p>
+        <div class="form-grid" style="margin-bottom:10px;">
+          <div class="form-group">
+            <label>Steam ID do jogador</label>
+            <input id="sp-resend-steam" type="text" placeholder="7656119…" />
+          </div>
+          <div class="form-group">
+            <label>Track</label>
+            <select id="sp-resend-track">
+              <option value="premium">premium</option>
+              <option value="free">free</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nível</label>
+            <input id="sp-resend-level" type="number" min="1" max="30" value="1" />
+          </div>
+          <div class="form-group">
+            <label>Season ID (opcional)</label>
+            <input id="sp-resend-season" type="text" placeholder="${escHtml(season.id || "actual")}" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassAdminResend(['amber'])">Reenviar Â</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="seasonPassAdminResend(['catalog'])">Reenviar item</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="seasonPassAdminResend(['amber','catalog'])">Reenviar tudo</button>
+        </div>
       </div>
       <div class="form-grid" style="margin-bottom:14px;">
         <div class="form-group">
@@ -26294,10 +26367,15 @@ async function loadMyTeam() {
       const thresh = ms.xp_threshold_cumulative ?? m.xp_required ?? 0;
       const prev = ms.xp_threshold_previous ?? 0;
       const pct = thresh > 0 ? Math.min(100, Math.round((lifetime / thresh) * 100)) : 0;
+      const deliverHtml = teamsMilestoneDeliverablesHtml(m, { currentMaxMembers: t.max_members });
+      const reqAmber = Number(m.amber_required || 0);
       msHtml = `<strong>${escHtml(m.title || ("Marco " + m.milestone_index))}</strong>
-        · Â ${ms.amber_balance}/${m.amber_required} ${ms.amber_ok ? "✓" : ""}
-        · XP lifetime ${Number(lifetime).toLocaleString("pt-BR")} / limiar ${Number(thresh).toLocaleString("pt-BR")}
-          (+${Number(m.xp_required || 0).toLocaleString("pt-BR")} neste marco) ${ms.xp_ok ? "✓" : ""}
+        ${deliverHtml}
+        <div style="margin-top:10px;font-size:12px;color:var(--text2);">
+          <strong style="color:var(--text);">Para concluir</strong> — Â ${ms.amber_balance}/${reqAmber} ${ms.amber_ok ? "✓" : ""}
+          · XP lifetime ${Number(lifetime).toLocaleString("pt-BR")} / limiar ${Number(thresh).toLocaleString("pt-BR")}
+            (+${Number(m.xp_required || 0).toLocaleString("pt-BR")} neste marco) ${ms.xp_ok ? "✓" : ""}
+        </div>
         <div style="margin-top:8px;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">
           <div style="height:100%;width:${pct}%;background:var(--amber);"></div>
         </div>
@@ -26305,7 +26383,7 @@ async function loadMyTeam() {
           Honra da equipe: ${Number(ms.team_honor ?? lifetime).toLocaleString("pt-BR")} XP
           · progresso no marco: ${Math.max(0, lifetime - prev)} / ${Number(m.xp_required || 0)}
         </div>
-        <div style="margin-top:8px;font-size:12px;"><strong>Aplicado ao marco</strong> (committed vs exigido)</div>
+        <div style="margin-top:8px;font-size:12px;"><strong>Recursos a depositar</strong> (aplicado ao marco vs exigido)</div>
         <div style="margin-top:4px;">${(ms.resources || []).map(r => {
           const label = r.label_pt || r.key;
           const meta = teamsResMeta(r.key, catalog) || r;
@@ -26314,7 +26392,7 @@ async function loadMyTeam() {
               <span style="color:var(--text2);">(armazém ${r.warehouse ?? 0})</span></span>
             ${canCommit && (r.warehouse || 0) > 0 ? `<button class="btn btn-ghost btn-sm" onclick="teamsCommitResource('${escHtml(r.key)}',${Math.max(1, Math.min(r.warehouse||0, Math.max(0, r.required - (r.committed||r.have||0)) || (r.warehouse||0)))})">Aplicar ao marco</button>` : ""}
           </div>`;
-        }).join("") || "Sem recursos neste marco"}</div>
+        }).join("") || "<em style=\"color:var(--text2);\">Sem recursos neste marco</em>"}</div>
         ${ms.can_complete ? `<button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsCompleteMilestone()">Concluir marco</button>` : ""}`;
     }
     const whEntries = Object.entries(warehouse).filter(([, q]) => Number(q) > 0);
@@ -26929,6 +27007,46 @@ function teamsResIcon(rOrUrl, label) {
   return `<img class="tm-res-icon" src="${escHtml(url)}" alt="${alt}" width="22" height="22" loading="lazy" />`;
 }
 
+/** Copy of what completing the current/next marco unlocks (from milestone config). */
+function teamsMilestoneDeliverablesHtml(m, opts) {
+  if (!m) return "";
+  const parts = [];
+  const pp = Number(m.amber_bonus_pp || 0);
+  if (pp > 0) parts.push(`+${pp}% Â (TimedPoints)`);
+  const mmuRaw = m.max_members_unlock;
+  if (mmuRaw != null && mmuRaw !== "" && Number(mmuRaw) > 0) {
+    const mmu = Number(mmuRaw);
+    const cur = opts && opts.currentMaxMembers != null ? Number(opts.currentMaxMembers) : null;
+    if (cur != null && mmu > cur) parts.push(`+${mmu - cur} membros (cap → ${mmu})`);
+    else if (cur != null && mmu <= cur) parts.push(`cap de membros já ≥ ${mmu}`);
+    else parts.push(`cap de membros → ${mmu}`);
+  }
+  const desc = String(m.description || "").trim();
+  if (!parts.length && !desc) {
+    return `<div class="tm-ms-deliver" style="margin-top:8px;padding:8px 10px;background:var(--bg2);border-radius:6px;font-size:12px;line-height:1.5;color:var(--text2);">
+      Ao completar este marco: sem bônus Â nem aumento de membros configurados.
+    </div>`;
+  }
+  const lead = parts.length
+    ? `Ao completar este marco: ${parts.join(", ")}.`
+    : "Ao completar este marco:";
+  return `<div class="tm-ms-deliver" style="margin-top:8px;padding:8px 10px;background:var(--bg2);border-radius:6px;font-size:12px;line-height:1.5;">
+    <strong>${escHtml(lead)}</strong>
+    ${desc ? `<div style="margin-top:4px;color:var(--text2);">${escHtml(desc)}</div>` : ""}
+  </div>`;
+}
+
+function teamsMilestoneDeliverablesSummary(m) {
+  if (!m) return "";
+  const bits = [];
+  const pp = Number(m.amber_bonus_pp || 0);
+  if (pp > 0) bits.push(`+${pp}% Â`);
+  if (m.max_members_unlock != null && Number(m.max_members_unlock) > 0) {
+    bits.push(`cap membros ${Number(m.max_members_unlock)}`);
+  }
+  return bits.length ? `entrega: ${bits.join(", ")}` : "entrega: —";
+}
+
 function teamsResMeta(key, catalog) {
   const list = catalog || _teamsWarehouseCatalog || [];
   return list.find(r => r.key === key) || null;
@@ -27006,7 +27124,10 @@ async function loadTeamsAdmin() {
       msEl.innerHTML = rows.length
         ? rows.map(m => {
             const res = (m.resources || []).map(r => `${r.label_pt || r.key}×${r.quantity}`).join(", ") || "—";
-            return `#${m.milestone_index} ${escHtml(m.title)} · ${m.status} · Â${m.amber_required} · XP${m.xp_required} · bônus +${m.amber_bonus_pp ?? 0}pp<br><span style="opacity:.8;">${escHtml(res)}</span>`;
+            const deliver = teamsMilestoneDeliverablesSummary(m);
+            return `#${m.milestone_index} ${escHtml(m.title)} · ${m.status} · exige Â${m.amber_required} · XP${m.xp_required}<br>`
+              + `<span style="opacity:.9;">${escHtml(deliver)}</span><br>`
+              + `<span style="opacity:.8;">recursos: ${escHtml(res)}</span>`;
           }).join("<br><br>")
         : "Nenhum marco.";
     }
@@ -27023,6 +27144,7 @@ async function loadTeamsAdmin() {
             <td>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminSuspend(${t.id},true)">Suspender</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminSuspend(${t.id},false)">Reativar</button>
+              <button class="btn btn-ghost btn-sm" onclick="teamsAdminAssume(${t.id})">Assumir</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeamId(${t.id},${t.ranking_blocked ? "false" : "true"})">${t.ranking_blocked ? "Voltar ao ranking" : "Fora do ranking"}</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminTransfer(${t.id})">Transferir</button>
               <button class="btn btn-ghost btn-sm" onclick="teamsAdminKick(${t.id})">Kick</button>
@@ -27077,6 +27199,35 @@ async function teamsAdminSuspend(teamId, suspend) {
       method: "POST", body: { team_id: teamId, suspend },
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    loadTeamsAdmin();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function teamsAdminAssume(teamId) {
+  const custom = prompt(
+    "ASSUMIR equipe #" + teamId + "\n\n" +
+    "Reativa a equipe (ACTIVE) e define o SteamID como OWNER ACTIVE.\n\n" +
+    "Deixe vazio para assumir com o SEU SteamID (admin).\n" +
+    "Ou informe o SteamID64 do jogador a restaurar como Owner:"
+  );
+  if (custom === null) return;
+  const steam_id = String(custom || "").trim();
+  const who = steam_id || "seu SteamID (admin da sessão)";
+  if (!confirm(
+    "Confirmar ASSUMIR equipe #" + teamId + "?\n\n" +
+    "• status → ACTIVE (mesmo se DISBANDED / SUSPENDED)\n" +
+    "• Owner ACTIVE = " + who + "\n" +
+    "• membership OWNER ACTIVE (reativa LEFT se existir)\n\n" +
+    "Nota: REATIVAR só muda o status — ASSUMIR restaura ownership usável."
+  )) return;
+  try {
+    const body = { team_id: teamId };
+    if (steam_id) body.steam_id = steam_id;
+    const d = await fetchJson("/api/admin/teams/assume", {
+      method: "POST", body,
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Equipe assumida / ownership restaurado");
     loadTeamsAdmin();
   } catch (e) { toast(String(e.message || e), "error"); }
 }

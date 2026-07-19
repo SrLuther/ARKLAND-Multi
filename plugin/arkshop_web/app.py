@@ -13346,6 +13346,8 @@ def admin_list_audit():
         if event_type:
             if event_type == "pix":
                 query = query.filter(AuditEvent.event_type.like("pix_%"))
+            elif event_type == "season_pass":
+                query = query.filter(AuditEvent.event_type.like("season_pass_%"))
             else:
                 query = query.filter(AuditEvent.event_type == event_type)
         if severity:
@@ -14014,6 +14016,24 @@ def _season_pass_queue_catalog_order(
     return order_id
 
 
+def _season_pass_reset_order_to_pending(db: Any, order_id: str) -> None:
+    """Espelha admin_resend_order — reabre fila /shop sem novo débito."""
+    order = (
+        db.query(Order)
+        .filter(Order.order_id == str(order_id))
+        .with_for_update()
+        .first()
+    )
+    if not order:
+        raise ValueError(f"Pedido não encontrado: {order_id}")
+    _close_order_disputes(db, str(order_id))
+    order.status = "PENDENTE"
+    order.contested = False
+    order.last_error = None
+    order.retry_count = 0
+    order.updated_at = _now()
+
+
 def _season_pass_grant_license(
     db: Any,
     steam_id: str,
@@ -14086,10 +14106,12 @@ configure_season_pass_engine(
     add_points_tx=_add_player_points_tx,
     credit_arkbank_premium=_season_pass_credit_arkbank,
     queue_catalog_order=_season_pass_queue_catalog_order,
+    reset_order_to_pending=_season_pass_reset_order_to_pending,
     grant_license=_season_pass_grant_license,
     sync_license_permissions=_season_pass_sync_license_permissions,
     get_entitlements=_get_player_entitlements,
     license_catalog_price=_season_pass_license_catalog_price,
+    audit_event=_audit_event,
 )
 register_season_pass_routes(
     app,
@@ -14493,6 +14515,7 @@ from team_service import configure_team_service
 configure_team_service(
     settings_fn=_load_settings,
     subtract_points_tx=_subtract_player_points_tx,
+    audit_event=_audit_event,
 )
 register_team_routes(
     app,

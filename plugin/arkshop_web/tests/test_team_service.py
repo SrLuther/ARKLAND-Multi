@@ -189,6 +189,85 @@ def test_transfer_ownership(db):
     assert team["owner_steam_id"] == USER_B
 
 
+def test_assume_team_disbanded_solo_left(db):
+    """DISBANDED (owner saiu solo) → ASSUMIR por admin → ACTIVE + membership OWNER."""
+    ADMIN = "76561198000000999"
+    audits: list[dict] = []
+    ts.configure_team_service(
+        audit_event=lambda et, **kw: audits.append({"event_type": et, **kw}),
+    )
+    ts.create_team(db, steam_id=USER_A, name="Zumbi")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.leave_team(db, steam_id=USER_A)
+    assert ts.get_team(db, tid)["status"] == "DISBANDED"
+    assert ts.get_active_membership(db, USER_A) is None
+
+    out = ts.assume_team(db, team_id=tid, actor_steam_id=ADMIN)
+    team = ts.get_team(db, tid)
+    assert team["status"] == "ACTIVE"
+    assert team["owner_steam_id"] == ADMIN
+    assert out["new_owner"] == ADMIN
+    assert out["status_before"] == "DISBANDED"
+    mem = ts.get_active_membership(db, ADMIN)
+    assert mem is not None
+    assert int(mem["team_id"]) == tid
+    assert "OWNER" in ts._member_roles(db, tid, ADMIN)
+    assert any(a["event_type"] == "team_admin_assume" for a in audits)
+
+
+def test_assume_team_rejects_other_active_membership(db):
+    """ASSUMIR falha se o alvo já é ACTIVE noutra equipe (Q2)."""
+    ADMIN = "76561198000000999"
+    ts.create_team(db, steam_id=USER_A, name="Alpha")
+    tid_a = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.leave_team(db, steam_id=USER_A)
+    assert ts.get_team(db, tid_a)["status"] == "DISBANDED"
+
+    ts.create_team(db, steam_id=USER_B, name="Beta")
+    with pytest.raises(ValueError, match="outra equipe"):
+        ts.assume_team(db, team_id=tid_a, actor_steam_id=ADMIN, steam_id=USER_B)
+    assert ts.get_team(db, tid_a)["status"] == "DISBANDED"
+
+
+def test_assume_team_suspended(db):
+    """SUSPENDED também pode ser ASSUMIDA (reativa + OWNER)."""
+    ADMIN = "76561198000000999"
+    ts.create_team(db, steam_id=USER_A, name="Pausada")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.suspend_team(db, team_id=tid, suspend=True)
+    assert ts.get_team(db, tid)["status"] == "SUSPENDED"
+
+    # Admin assume (não o owner atual) — owner USER_A fica membro mas perde OWNER
+    out = ts.assume_team(db, team_id=tid, actor_steam_id=ADMIN)
+    team = ts.get_team(db, tid)
+    assert team["status"] == "ACTIVE"
+    assert team["owner_steam_id"] == ADMIN
+    assert out["old_owner"] == USER_A
+    assert "OWNER" in ts._member_roles(db, tid, ADMIN)
+    assert "OWNER" not in ts._member_roles(db, tid, USER_A)
+    # USER_A ainda ACTIVE nesta equipe
+    row = db.execute(
+        text("SELECT status FROM team_members WHERE team_id = :t AND steam_id = :s"),
+        {"t": tid, "s": USER_A},
+    ).fetchone()
+    assert row and row[0] == "ACTIVE"
+
+
+def test_assume_team_restore_original_owner(db):
+    """Body steam_id restaura o jogador original como Owner pós-DISBAND."""
+    ADMIN = "76561198000000999"
+    ts.create_team(db, steam_id=USER_A, name="Reclaim")
+    tid = ts.get_active_membership(db, USER_A)["team_id"]
+    ts.leave_team(db, steam_id=USER_A)
+    out = ts.assume_team(db, team_id=tid, actor_steam_id=ADMIN, steam_id=USER_A)
+    assert out["new_owner"] == USER_A
+    assert ts.get_team(db, tid)["status"] == "ACTIVE"
+    assert ts.get_team(db, tid)["owner_steam_id"] == USER_A
+    mem = ts.get_active_membership(db, USER_A)
+    assert mem and int(mem["team_id"]) == tid
+    assert "OWNER" in ts._member_roles(db, tid, USER_A)
+
+
 def test_donate_amber_and_ledger(db):
     ts.create_team(db, steam_id=USER_A, name="Cofre")
     tid = ts.get_active_membership(db, USER_A)["team_id"]

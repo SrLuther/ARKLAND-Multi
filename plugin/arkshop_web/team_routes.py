@@ -48,6 +48,7 @@ Admin:
   POST /api/admin/teams/kick
   POST /api/admin/teams/transfer
   POST /api/admin/teams/suspend
+  POST /api/admin/teams/assume
   POST /api/admin/teams/max-members
   GET  /api/admin/teams/warehouse-catalog
   GET  /api/admin/teams/milestones
@@ -89,6 +90,7 @@ def register_team_routes(
         accept_invite,
         approve_join,
         assign_role,
+        assume_team,
         commit_warehouse_to_milestone,
         create_or_update_team_split,
         create_team,
@@ -1144,6 +1146,29 @@ def register_team_routes(
                 db,
                 team_id=int(body.get("team_id")),
                 suspend=bool(body.get("suspend", True)),
+            ))
+        except (ValueError, PermissionError) as exc:
+            return _fail(str(exc))
+        finally:
+            db.close()
+
+    @app.route("/api/admin/teams/assume", methods=["POST"])
+    @admin_required
+    def admin_teams_assume():
+        """ASSUMIR: reativa equipe + OWNER ACTIVE (admin ou steam_id do body)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        sid = _sid() or ""
+        raw_target = body.get("steam_id")
+        target = str(raw_target).strip() if raw_target is not None else ""
+        db = _db()
+        try:
+            return _ok(assume_team(
+                db,
+                team_id=int(body.get("team_id")),
+                actor_steam_id=sid,
+                steam_id=target or None,
             ))
         except (ValueError, PermissionError) as exc:
             return _fail(str(exc))

@@ -306,18 +306,22 @@ def default_milestone_resource_suggestions() -> list[dict[str, Any]]:
 
 _settings_fn: Callable[[], dict[str, Any]] | None = None
 _subtract_points_tx: Callable[[Session, str, int], int] | None = None
+_audit_event: Callable[..., None] | None = None
 
 
 def configure_team_service(
     *,
     settings_fn: Callable[[], dict[str, Any]] | None = None,
     subtract_points_tx: Callable[[Session, str, int], int] | None = None,
+    audit_event: Callable[..., None] | None = None,
 ) -> None:
-    global _settings_fn, _subtract_points_tx
+    global _settings_fn, _subtract_points_tx, _audit_event
     if settings_fn is not None:
         _settings_fn = settings_fn
     if subtract_points_tx is not None:
         _subtract_points_tx = subtract_points_tx
+    if audit_event is not None:
+        _audit_event = audit_event
 
 
 def _utcnow() -> datetime:
@@ -1814,6 +1818,134 @@ def suspend_team(db: Session, *, team_id: int, suspend: bool = True) -> dict[str
     )
     db.commit()
     return get_team(db, team_id) or {}
+
+
+def assume_team(
+    db: Session,
+    *,
+    team_id: int,
+    actor_steam_id: str,
+    steam_id: str | None = None,
+) -> dict[str, Any]:
+    """Staff ASSUMIR: reativa equipe (qualquer status) e define OWNER ACTIVE.
+
+    Sem ``steam_id`` no body → admin da sessão assume. Com ``steam_id`` →
+    restaura esse jogador como Owner (ex. reclaim pós-DISBAND).
+
+    Q2: rejeita se o alvo já tem membership ACTIVE noutra equipe
+    (exceto se já for membro ACTIVE desta).
+    """
+    _require_enabled()
+    team = get_team(db, int(team_id))
+    if not team:
+        raise ValueError("Equipe não encontrada.")
+
+    actor = str(actor_steam_id or "").strip()
+    target = str(steam_id or "").strip() or actor
+    if not target:
+        raise ValueError("steam_id obrigatório (informe no body ou use sessão admin com SteamID).")
+
+    other = db.execute(
+        text("""
+            SELECT team_id FROM team_members
+            WHERE steam_id = :sid AND status = 'ACTIVE' AND team_id != :tid
+            LIMIT 1
+        """),
+        {"sid": target, "tid": int(team_id)},
+    ).fetchone()
+    if other:
+        raise ValueError(
+            f"Jogador já pertence a outra equipe (id {int(other[0])}). "
+            "Saia ou remova dessa equipe antes de ASSUMIR."
+        )
+
+    now = _naive()
+    old_status = str(team["status"] or "")
+    old_owner = str(team["owner_steam_id"] or "")
+
+    db.execute(
+        text("""
+            UPDATE teams SET status = 'ACTIVE', owner_steam_id = :o, updated_at = :now
+            WHERE id = :id
+        """),
+        {"o": target, "now": now, "id": int(team_id)},
+    )
+
+    existing = db.execute(
+        text("SELECT id, status FROM team_members WHERE team_id = :tid AND steam_id = :sid"),
+        {"tid": int(team_id), "sid": target},
+    ).fetchone()
+    dn = resolve_member_display_name(db, target, "")
+    if existing:
+        db.execute(
+            text("""
+                UPDATE team_members SET status = 'ACTIVE', display_name = :dn,
+                  joined_at = COALESCE(joined_at, :now), last_activity_at = :now,
+                  left_at = NULL, updated_at = :now, invite_code = NULL
+                WHERE id = :id
+            """),
+            {"dn": dn, "now": now, "id": int(existing[0])},
+        )
+    else:
+        db.execute(
+            text("""
+                INSERT INTO team_members
+                  (team_id, steam_id, display_name, status, joined_at, last_activity_at,
+                   created_at, updated_at)
+                VALUES (:tid, :sid, :dn, 'ACTIVE', :now, :now, :now, :now)
+            """),
+            {"tid": int(team_id), "sid": target, "dn": dn, "now": now},
+        )
+
+    db.execute(
+        text("DELETE FROM team_roles WHERE team_id = :tid AND role_key = :rk"),
+        {"tid": int(team_id), "rk": ROLE_OWNER},
+    )
+    db.execute(
+        text("""
+            INSERT INTO team_roles (team_id, steam_id, role_key, assigned_at, assigned_by)
+            VALUES (:tid, :sid, :rk, :now, :by)
+        """),
+        {
+            "tid": int(team_id),
+            "sid": target,
+            "rk": ROLE_OWNER,
+            "now": now,
+            "by": actor or target,
+        },
+    )
+    db.commit()
+
+    if _audit_event:
+        try:
+            _audit_event(
+                "team_admin_assume",
+                severity="info",
+                source="web",
+                actor_type="admin",
+                actor_steam_id=actor or None,
+                target_steam_id=target,
+                status_before=old_status,
+                status_after="ACTIVE",
+                message=f"ASSUMIR equipe #{int(team_id)}",
+                team_id=int(team_id),
+                old_owner=old_owner,
+                new_owner=target,
+            )
+        except Exception as exc:
+            log.warning("team_admin_assume audit failed: %s", exc)
+
+    updated = get_team(db, int(team_id)) or {}
+    return {
+        "ok": True,
+        "team_id": int(team_id),
+        "status_before": old_status,
+        "status_after": "ACTIVE",
+        "old_owner": old_owner,
+        "new_owner": target,
+        "assumed_by": actor,
+        "team": updated,
+    }
 
 
 def staff_list_teams(db: Session, *, q: str = "", limit: int = 100) -> list[dict[str, Any]]:
