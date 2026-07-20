@@ -20,8 +20,13 @@ PLUGIN_DIRS: dict[str, Path] = {
     "customshop": ROOT / "plugin" / "CustomShop",
     "customdino": ROOT / "plugin" / "CustomDinoDeliver",
     "customdinodeliver": ROOT / "plugin" / "CustomDinoDeliver",
+    "arkplayer": ROOT / "plugin" / "ArkPlayer",
 }
-ALL_PLUGINS = (ROOT / "plugin" / "CustomShop", ROOT / "plugin" / "CustomDinoDeliver")
+ALL_PLUGINS = (
+    ROOT / "plugin" / "CustomShop",
+    ROOT / "plugin" / "CustomDinoDeliver",
+    ROOT / "plugin" / "ArkPlayer",
+)
 
 _SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 

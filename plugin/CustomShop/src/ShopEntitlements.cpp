@@ -16,6 +16,54 @@ std::string ToLowerAsciiLocal(std::string value) {
     return value;
 }
 
+/** Fold UTF-8 PT accents + espaços/hífens → chave ASCII (espelha web `_fold_entitlement_group_key`).
+ *  «Licença_Delta» / «licença_delta» → «licenca_delta» — sem isto TimedPoints dá +0 no Delta. */
+std::string FoldEntitlementKey(const std::string& group) {
+    std::string out;
+    out.reserve(group.size());
+    auto push_lower = [&](char ch) {
+        if (ch == ' ' || ch == '-')
+            ch = '_';
+        out.push_back(static_cast<char>(
+            std::tolower(static_cast<unsigned char>(ch))));
+    };
+    for (size_t i = 0; i < group.size();) {
+        const unsigned char c = static_cast<unsigned char>(group[i]);
+        if (c < 0x80) {
+            push_lower(static_cast<char>(c));
+            ++i;
+            continue;
+        }
+        if ((c & 0xE0) == 0xC0 && i + 1 < group.size()) {
+            const unsigned cp =
+                ((c & 0x1F) << 6)
+                | (static_cast<unsigned char>(group[i + 1]) & 0x3F);
+            i += 2;
+            if (cp >= 0xC0 && cp <= 0xC5) { push_lower('a'); continue; }
+            if (cp == 0xC7) { push_lower('c'); continue; }
+            if (cp >= 0xC8 && cp <= 0xCB) { push_lower('e'); continue; }
+            if (cp >= 0xCC && cp <= 0xCF) { push_lower('i'); continue; }
+            if (cp == 0xD1) { push_lower('n'); continue; }
+            if (cp >= 0xD2 && cp <= 0xD6) { push_lower('o'); continue; }
+            if (cp >= 0xD9 && cp <= 0xDC) { push_lower('u'); continue; }
+            if (cp == 0xDD) { push_lower('y'); continue; }
+            if (cp >= 0xE0 && cp <= 0xE5) { push_lower('a'); continue; }
+            if (cp == 0xE7) { push_lower('c'); continue; }  // ç
+            if (cp >= 0xE8 && cp <= 0xEB) { push_lower('e'); continue; }
+            if (cp >= 0xEC && cp <= 0xEF) { push_lower('i'); continue; }
+            if (cp == 0xF1) { push_lower('n'); continue; }
+            if (cp >= 0xF2 && cp <= 0xF6) { push_lower('o'); continue; }
+            if (cp >= 0xF9 && cp <= 0xFC) { push_lower('u'); continue; }
+            if (cp == 0xFD || cp == 0xFF) { push_lower('y'); continue; }
+            continue;
+        }
+        if ((c & 0xF0) == 0xE0 && i + 2 < group.size()) { i += 3; continue; }
+        if ((c & 0xF8) == 0xF0 && i + 3 < group.size()) { i += 4; continue; }
+        ++i;
+    }
+    return out;
+}
+
 /** SKU `licenca_delta` / alias → PermissionGroup canónico (`Delta`). */
 std::string NormalizeEntitlementGroup(const std::string& group) {
     if (group.empty()) return group;
@@ -28,8 +76,8 @@ std::string NormalizeEntitlementGroup(const std::string& group) {
     }
     if (group == "Mod" || group == "MOD") return "Moderacao";
 
-    const std::string lower = ToLowerAsciiLocal(group);
-    std::string suffix = lower;
+    // Fold acentos/caixa («licença_delta», «Licenca Delta») antes do lookup SKU.
+    std::string suffix = FoldEntitlementKey(group);
     if (suffix.rfind("licenca_", 0) == 0) {
         suffix = suffix.substr(8);
         static const char kRenov[] = "_renovacao";
@@ -53,6 +101,10 @@ std::string NormalizeEntitlementGroup(const std::string& group) {
     if (suffix == "imaterial") return "Imaterial";
     if (suffix == "exotico") return "Exotico";
     if (suffix == "nuvem") return "keyvault";
+    // Caixa errada do canónico («delta», «IMATERIAL»).
+    for (const char* g : CustomShop::kPaidLicenseGroups) {
+        if (suffix == ToLowerAsciiLocal(g)) return g;
+    }
     return group;
 }
 
@@ -184,7 +236,16 @@ void ShopEntitlements::SyncPlayerOnJoin(const std::string& steam_id) {
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(res))) {
         if (!row[0] || !row[0][0]) continue;
-        const std::string group = row[0];
+        const std::string raw_group = row[0];
+        // Nunca syncar SKU cru (`licenca_delta` / `licença_delta`) — TimedPoints
+        // só reconhece PermissionGroup canónico (`Delta`).
+        const std::string group = NormalizeEntitlementGroup(raw_group);
+        if (group.empty()) continue;
+        if (group != raw_group) {
+            Log::GetLog()->info(
+                "ShopEntitlements: SyncPlayerOnJoin normalized '{}' → '{}' for {}",
+                raw_group, group, steam_id);
+        }
         const int hours_left = row[1] ? std::atoi(row[1]) : -1;
 
         if (hours_left < 0) {
@@ -375,6 +436,14 @@ bool ShopEntitlements::HasActive(const std::string& steam_id, const std::string&
     if (query_group(canonical)) return true;
     // Legado: group_name gravado como SKU `licenca_delta` em vez de `Delta`.
     if (!sku.empty() && query_group(sku)) return true;
+
+    // Legado acentuado / variantes («licença_delta», «Licenca Delta»): qualquer
+    // row activa cujo fold normalize para o canónico conta como activa.
+    // Sem isto TimedPoints ignora Delta e só credita Default (+25).
+    for (const auto& raw : GetActiveGroups(steam_id)) {
+        if (NormalizeEntitlementGroup(raw) == canonical)
+            return true;
+    }
     return false;
 }
 

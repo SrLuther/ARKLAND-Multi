@@ -8,6 +8,26 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.31] - 2026-07-20
+
+### Fix
+
+- **TimedPoints / StackRewards**: com `StackRewards=true` (default) soma o `Amount` de **todos** os grupos activos (Default + staff/keyvault + todos os tiers pagos). Com `StackRewards=false` fica só o maior Amount. Ex.: Default 25 + Alfa 75 + Delta 5 = **105**/tick.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.31) em cada mapa.
+
+## [1.10.30] - 2026-07-20
+
+### Fix
+
+- **TimedPoints / Delta +0**: `NormalizeEntitlementGroup` faz fold de acentos UTF-8 (ex. `licença_delta` → `Delta`); `SyncPlayerOnJoin` sincroniza só o PermissionGroup canónico (nunca SKU cru); `HasActive` faz fallback por rows activas normalizadas — corrige bónus Delta (+5) que ficava a 0 com rows legadas.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.30) em cada mapa.
+
 ## [1.10.29] - 2026-07-19
 
 ### Feat

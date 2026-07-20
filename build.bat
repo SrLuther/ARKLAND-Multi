@@ -100,8 +100,9 @@ if errorlevel 1 (
 echo.
 
 if "%SKIP_PLUGIN_BUILD%"=="1" (
-    echo [1b/4] SKIP_PLUGIN_BUILD=1 — pulando compile CustomShop / CustomDinoDeliver ^(DLL existente^).
+    echo [1b/4] SKIP_PLUGIN_BUILD=1 — pulando compile CustomShop / CustomDinoDeliver / ArkPlayer ^(DLL existente^).
     echo [1c/4] SKIP_PLUGIN_BUILD=1 — ok.
+    echo [1d/4] SKIP_PLUGIN_BUILD=1 — ok.
     echo.
     goto :after_plugin_builds
 )
@@ -135,6 +136,22 @@ if exist "%~dp0plugin\CustomDinoDeliver\build_cl.bat" (
     )
 ) else (
     echo [AVISO] plugin\CustomDinoDeliver\build_cl.bat nao encontrado — pulando compile do plugin.
+)
+echo.
+
+echo [1d/4] Compilando ArkPlayer.dll...
+if exist "%~dp0plugin\ArkPlayer\build_cl.bat" (
+    pushd "%~dp0plugin\ArkPlayer"
+    call build_cl.bat
+    set AP_BUILD=!errorlevel!
+    popd
+    if !AP_BUILD! neq 0 (
+        echo [AVISO] build ArkPlayer falhou — usando DLL existente em plugin\ArkPlayer\bin\
+    ) else (
+        echo       ArkPlayer.dll atualizado em plugin\ArkPlayer\bin\
+    )
+) else (
+    echo [AVISO] plugin\ArkPlayer\build_cl.bat nao encontrado — pulando compile do plugin.
 )
 echo.
 

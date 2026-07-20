@@ -358,7 +358,7 @@ O ARKLAND utiliza o sistema de **licenças por tier** (não utiliza nomenclatura
 - Licenças são **pessoais e intransferíveis**;
 - Podes ter **várias licenças de tier distintas** activas ao mesmo tempo (ex. Gamma + Alfa + Beta), cada uma com a sua data de expiração;
 - Comprar/renovar o **mesmo** tier de novo **só prolonga** a validade em **+30 dias** (a partir do maior entre agora e o fim actual);
-- Acesso a kits/itens: basta **qualquer** das licenças activas satisfazer o requisito; para bónus Timed Points por tier, **vence o maior** entre os tiers pagos (o Default e cargos staff/MOD continuam a somar);
+- Acesso a kits/itens: basta **qualquer** das licenças activas satisfazer o requisito; para bónus Timed Points, **todas** as licenças activas **somam** com o Default (e cargos staff/MOD, se tiverem Amount);
 - A **Licença Nuvem** (`keyvault`) é independente das licenças de tier;
 - Kits e itens podem exigir licença activa (cadeado no catálogo);
 - A **Licença Nuvem** habilita Inventário na Nuvem e envio ao mercado P2P;

@@ -31,6 +31,21 @@ Reutiliza o SDK em `plugin/CustomShop/ArkServerAPI`. Saída: `bin/ArkPlayer.dll`
 
 Requisitos: Visual Studio C++ (x64), Windows SDK, `ArkApi.lib`.
 
+## Instalação (TEK / Manager) — recomendado
+
+### Por servidor
+
+1. Abra o servidor no **ARKLAND Server Manager**.
+2. Aba **Plugins**.
+3. Card **ArkPlayer** → **Instalar** (copia DLL + PluginInfo + config padrão do app).
+4. Remova `ArkApi\Plugins\PlayerUtilities\` se ainda existir.
+5. Reinicie o servidor (ou `ArkPlayer.Reload` via RCON após editar config).
+
+### Todos os servidores
+
+Em **CustomShop / Loja** → secção servidores → botão **Instalar ArkPlayer**
+(mesmo fluxo de CustomShop / Dino Lab).
+
 ## Instalação (manual)
 
 1. **Remover** `ArkApi\Plugins\PlayerUtilities\` (DLL + config antigos) em cada mapa.
@@ -41,10 +56,6 @@ Requisitos: Visual Studio C++ (x64), Windows SDK, `ArkApi.lib`.
    - `config.json`
 4. Reiniciar o servidor (ou hot-reload ArkApi se suportado).
 5. Console/RCON: `ArkPlayer.Reload` após editar config.
-
-## TEK / plugins tab
-
-Não há botão TEK dedicado ainda (CustomShop/Dino Lab têm fluxo próprio). Instalação manual conforme acima.
 
 ## Init seguro
 

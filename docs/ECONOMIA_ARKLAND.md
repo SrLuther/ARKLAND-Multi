@@ -437,7 +437,7 @@ Assumindo 2h de jogo por dia (4 blocos de 30min):
 
 - Ao renovar uma licença, kits associados têm seus limites de resgate resetados automaticamente (`_reset_dependent_kit_limits_tx`)
 - Tiers pagos distintos **ilimitados** em `player_entitlements`; renovar o mesmo SKU soma +30 dias
-- Timed Points: entre tiers pagos **vence o maior** bónus; Default e staff/MOD **empilham**
+- Timed Points: com `StackRewards` (default), **todas** as licenças activas **somam** o Amount com Default/staff/MOD; com `StackRewards=false`, só o maior Amount
 - `PAID_LICENSE_GROUPS` = Delta…Exotico — licenças pagas com controlo em `player_entitlements` (Nuvem/`keyvault` à parte)
 - Admin pode conceder/revogar licenças via painel web (`_admin_player_license`)
 

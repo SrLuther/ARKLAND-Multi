@@ -6498,21 +6498,20 @@ def _get_player_entitlements_batch(
 
 
 def _compute_timed_points_total(groups: list[str]) -> int:
-    """Default + bónus não-pagos empilham; entre tiers pagos vence o maior bónus."""
+    """Soma Amount de todos os grupos activos (igual a StackRewards=true no C++).
+
+    Default + staff/MOD + keyvault (se Amount>0) + todos os tiers pagos.
+    Ex.: Alfa+Delta → 25+75+5 = 105. StackRewards=false no plugin usa só o
+    maior absoluto — a UI da loja reflecte o modo stack (default de produção).
+    """
     amounts = _timed_points_groups_amounts()
     total = int(amounts.get("Default", LICENSE_TIMED_BONUS.get("Default", 25)) or 25)
-    best_paid = 0
     for raw in groups:
         g = _normalize_entitlement_group(str(raw))
         if not g or g == "Default":
             continue
-        bonus = _timed_points_bonus_for_group(g, amounts=amounts)
-        if g in PAID_LICENSE_GROUPS:
-            if bonus > best_paid:
-                best_paid = bonus
-        else:
-            total += bonus
-    return total + best_paid
+        total += _timed_points_bonus_for_group(g, amounts=amounts)
+    return total
 
 
 def _schedule_entitlements_reconcile() -> None:

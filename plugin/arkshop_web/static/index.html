@@ -14424,13 +14424,16 @@ async function loadMyAreaLicenses() {
       return;
     }
     host.innerHTML = `
-      <p style="margin:0 0 12px;font-size:12px;color:var(--amber);">Total online: <strong>${d.timed_points_total || 25}</strong> Âmbar a cada 30 min (Default + licenças ativas)</p>
+      <p style="margin:0 0 12px;font-size:12px;color:var(--amber);">Total online: <strong>${d.timed_points_total || 25}</strong> Âmbar a cada 30 min (Default + todas as licenças/cargos activos <strong>somam</strong>)</p>
       <table class="tbl"><thead><tr><th>Licença</th><th>Bônus / 30 min</th><th>Validade</th></tr></thead><tbody>
-      ${ents.map(e => `<tr>
+      ${ents.map(e => {
+          const bonus = Number(e.timed_points_bonus) || 0;
+          return `<tr>
         <td><strong>${escHtml(e.group)}</strong></td>
-        <td>+${e.timed_points_bonus || 0}</td>
+        <td>+${bonus}</td>
         <td>${e.permanent ? "Permanente" : escHtml(e.expires_at || "—")}</td>
-      </tr>`).join("")}
+      </tr>`;
+        }).join("")}
       </tbody></table>`;
   } catch (e) {
     host.innerHTML = `<span style="color:var(--danger);">Erro: ${escHtml(e.message)}</span>`;

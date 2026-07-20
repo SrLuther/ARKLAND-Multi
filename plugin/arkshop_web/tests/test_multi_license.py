@@ -57,7 +57,9 @@ def fresh_db(tmp_path, monkeypatch):
     finally:
         _app_module._release_db_session(db)
     _app_module._ENTITLEMENTS_SCHEMA_READY = True
+    _app_module._invalidate_entitlements_cache()
     yield
+    _app_module._invalidate_entitlements_cache()
 
 
 def _expires_in(days: int) -> datetime:
@@ -169,18 +171,23 @@ def test_keyvault_does_not_count_toward_paid_cap():
     assert {e["group"] for e in ents} == {"Gamma", "Alfa", "keyvault"}
 
 
-def test_timed_points_highest_paid_wins():
-    # Default 25 + max(Gamma 25, Alfa 75) = 100 (não 25+25+75)
-    assert _app_module._compute_timed_points_total(["Gamma", "Alfa"]) == 100
+def test_timed_points_all_licenses_sum():
+    # StackRewards=true: Default + todos os bónus activos somam
+    # Default 25 + Gamma 25 + Alfa 75 = 125
+    assert _app_module._compute_timed_points_total(["Gamma", "Alfa"]) == 125
     assert _app_module._compute_timed_points_total(["Gamma"]) == 50
     assert _app_module._compute_timed_points_total([]) == 25
-    # 3+ pagos: só o maior conta; Default/staff continuam aditivos
+    # Felipe: Alfa + Delta (+ keyvault 0) = 25 + 75 + 5 = 105
+    assert _app_module._compute_timed_points_total(
+        ["Alfa", "Delta", "keyvault"],
+    ) == 105
+    # 3+ pagos: todos somam
     assert _app_module._compute_timed_points_total(
         ["Gamma", "Beta", "Alfa"],
-    ) == 100  # 25 + max(25, 50, 75)
+    ) == 175  # 25 + 25 + 50 + 75
     assert _app_module._compute_timed_points_total(
         ["Gamma", "Beta", "Alfa", "STAFF"],
-    ) == 1100  # 25 + 75 + 1000
+    ) == 1175  # 25 + 25 + 50 + 75 + 1000
 
 
 def test_can_accept_helpers():

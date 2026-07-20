@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.80"
+APP_VERSION: str = "1.10.81"
 BUILD_DATE: str = "2026-07-20"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,7 +12,16 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "",
+        "changes": [],
+    },
+    {
+        "version": "1.10.81",
+        "date": "2026-07-20",
         "changes": [
+            "Fix (DB Manager): tabelas Dados/Estrutura/SQL com stretch=False "
+            "+ largura por conteúdo — scrollbar horizontal deixa de ficar "
+            "inactiva (colunas cortadas à direita); Shift+roda para scroll X; "
+            "reserva altura da barra H ao ajustar linhas.",
             "Feat (TEK / Plugins): instalação integrada do ArkPlayer "
             "(DLL + PluginInfo + config) — aba Plugins por servidor e "
             "botão «Instalar ArkPlayer» no painel Loja (paridade com "
@@ -31,6 +40,15 @@ CHANGELOG: list[dict] = [
             "ix_orders_status_created.",
             "Test (Web Store / Entregas): "
             "test_pending_delivery_optimizations.",
+            "Fix (CustomShop 1.10.30 / TimedPoints): fold UTF-8 em "
+            "NormalizeEntitlementGroup + SyncPlayerOnJoin canónico + "
+            "HasActive fallback — rows legadas «licença_delta» deixam de "
+            "dar +0 no bónus Delta (+5); recompilar DLL nos mapas.",
+            "Fix (Web Store + CustomShop 1.10.31 / TimedPoints): "
+            "_compute_timed_points_total e StackRewards=true somam Amount "
+            "de todas as licenças activas (Default+Alfa+Delta=105); "
+            "false = só o maior; Minha Área / regulamento deixam de dizer "
+            "«vence o maior» / «não soma».",
         ],
     },
     {

@@ -14,6 +14,14 @@ _PLUGINS = _WIN64 / "ArkApi" / "Plugins"
 OFFICIAL_PLUGINS: dict[str, dict[str, str]] = {
     "CustomShop": {"folder": "CustomShop", "dll": "CustomShop.dll"},
     "CustomDinoDeliver": {"folder": "CustomDinoDeliver", "dll": "CustomDinoDeliver.dll"},
+    "ArkPlayer": {"folder": "ArkPlayer", "dll": "ArkPlayer.dll"},
+}
+
+# Slug da pasta PluginInfo no bundle PyInstaller (plugins/<slug>/PluginInfo.json)
+_BUNDLE_INFO_SLUGS: dict[str, str] = {
+    "CustomShop": "customshop",
+    "CustomDinoDeliver": "customdino",
+    "ArkPlayer": "arkplayer",
 }
 
 PluginVersionStatus = Literal["missing", "match", "outdated", "newer", "unknown", "not_installed"]
@@ -129,7 +137,7 @@ def bundled_plugin_info_path(plugin_name: str) -> Path | None:
     if plugin_name not in OFFICIAL_PLUGINS:
         return None
 
-    slug = "customshop" if plugin_name == "CustomShop" else "customdino"
+    slug = _BUNDLE_INFO_SLUGS.get(plugin_name, plugin_name.lower())
 
     if getattr(sys, "frozen", False):
         meipass = Path(sys._MEIPASS)  # type: ignore[attr-defined]

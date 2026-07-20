@@ -14,6 +14,11 @@ from ..plugin_versions import (
     expected_plugin_version,
     get_installed_plugin_version,
 )
+from ..shop_integration import (
+    install_arkplayer_to_server,
+    install_customdino_to_server,
+    install_customshop_to_server,
+)
 from ..ui_constants import (
     _CARD_BG,
     _GREEN_DARK, _GREEN_HOVER,
@@ -29,8 +34,8 @@ _WIN64   = Path("ShooterGame") / "Binaries" / "Win64"
 _ARKAPI  = _WIN64 / "ArkApi"
 _PLUGINS = _ARKAPI / "Plugins"
 
-# Plugins ARKLAND com versão sincronizada ao app
-_ARKLAND_PLUGINS = frozenset({"CustomShop", "CustomDinoDeliver"})
+# Plugins ARKLAND com versão sincronizada ao app (instalação embutida)
+_ARKLAND_PLUGINS = frozenset({"CustomShop", "CustomDinoDeliver", "ArkPlayer"})
 
 # ── Definição dos plugins oficiais ───────────────────────────────────────────
 _OFFICIAL_PLUGINS = [
@@ -93,6 +98,18 @@ _OFFICIAL_PLUGINS = [
                       "Requer Dino Lab habilitado na Web Store.",
         "url":        "",
         "detect":     lambda d: (d / _PLUGINS / "CustomDinoDeliver" / "CustomDinoDeliver.dll").is_file(),
+        "install_to": lambda d: d / _PLUGINS,
+    },
+    {
+        "name":       "ArkPlayer",
+        "version":    expected_plugin_version("ArkPlayer"),
+        "author":     "ARKLAND",
+        "tag":        "Plugin — comandos jogador",
+        "tag_color":  "#3a2d5a",
+        "desc":       "Comandos de jogador: /mindwipe, /missao, /loot, /nome, /kill.\n"
+                      "Substitui PlayerUtilities (MVP). Requer Permissions.dll.",
+        "url":        "",
+        "detect":     lambda d: (d / _PLUGINS / "ArkPlayer" / "ArkPlayer.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
 ]
@@ -238,6 +255,60 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
             )
             return
 
+        # Plugins ARKLAND: instalação embutida (DLL do app) — sem ZIP externo
+        if plug["name"] in _ARKLAND_PLUGINS:
+            name = plug["name"]
+            if not messagebox.askyesno(
+                f"Instalar {name}",
+                f"Copiar {name} (DLL + PluginInfo + config padrão se ausente)\n"
+                f"para este servidor?\n\n"
+                f"{srv.install_dir}\n\n"
+                "config.json existente não será sobrescrito.",
+                parent=app,
+            ):
+                return
+
+            def _run_bundled() -> None:
+                try:
+                    if name == "CustomShop":
+                        shop = getattr(
+                            getattr(app, "config_manager", None), "config", None
+                        )
+                        shop_cfg = getattr(shop, "shop", None) if shop else None
+                        copied, notes = install_customshop_to_server(
+                            srv.install_dir, overwrite_dlls=True, shop=shop_cfg,
+                        )
+                    elif name == "CustomDinoDeliver":
+                        copied, notes = install_customdino_to_server(
+                            srv.install_dir, overwrite_dlls=True,
+                        )
+                    else:
+                        copied, notes = install_arkplayer_to_server(
+                            srv.install_dir, overwrite_dlls=True,
+                        )
+                    if not copied and notes:
+                        raise RuntimeError("; ".join(notes))
+                    detail = ", ".join(copied[:6])
+                    if notes:
+                        detail += "\n\nAvisos:\n" + "\n".join(notes[:4])
+                    app.after(0, lambda: (
+                        messagebox.showinfo(
+                            "Instalação concluída",
+                            f"{name} instalado.\n\n{detail}",
+                            parent=app,
+                        ),
+                        _refresh_all(),
+                    ))
+                except Exception as exc:
+                    app.after(0, lambda e=exc: messagebox.showerror(
+                        "Erro na instalação",
+                        f"Não foi possível instalar {name}:\n{e}",
+                        parent=app,
+                    ))
+
+            threading.Thread(target=_run_bundled, daemon=True).start()
+            return
+
         path = filedialog.askopenfilename(
             title=f"Selecionar arquivo — {plug['name']}",
             filetypes=[
@@ -352,13 +423,21 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
             command=lambda p=plug: _do_install(p),
         ).pack(side="right", padx=(4, 4))
 
-        ctk.CTkButton(
-            bot,
-            text="🌐 Download",
-            width=100, height=28,
-            fg_color=_BLUE, hover_color=_BLUE_HOVER,
-            command=lambda url=plug["url"]: webbrowser.open(url),
-        ).pack(side="right", padx=(0, 0))
+        if plug["url"]:
+            ctk.CTkButton(
+                bot,
+                text="🌐 Download",
+                width=100, height=28,
+                fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                command=lambda url=plug["url"]: webbrowser.open(url),
+            ).pack(side="right", padx=(0, 0))
+        elif plug["name"] in _ARKLAND_PLUGINS:
+            ctk.CTkLabel(
+                bot,
+                text="Embutido no app",
+                font=ctk.CTkFont(size=10),
+                text_color="gray45",
+            ).pack(side="right", padx=(0, 8))
 
     # Atualiza status logo após construção
     app.after(150, _refresh_all)

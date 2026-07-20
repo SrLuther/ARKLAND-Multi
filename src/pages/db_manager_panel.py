@@ -275,11 +275,15 @@ def _bind_treeview_fill_rows(
     *,
     row_px: int = 26,
     min_rows: int = 12,
+    reserve_hscroll: bool = False,
 ) -> None:
     """Treeview usa height em linhas, não pixels — ajusta ao redimensionar o host."""
+    # Reserva faixa da scrollbar horizontal para não empurrá-la para fora do host.
+    hscroll_px = 16 if reserve_hscroll else 0
+
     def _resize(_event: tk.Event | None = None) -> None:
         try:
-            h = host.winfo_height()
+            h = host.winfo_height() - hscroll_px
             if h < row_px * 2:
                 return
             rows = max(min_rows, (h - 4) // row_px)
@@ -291,6 +295,78 @@ def _bind_treeview_fill_rows(
     host.bind("<Configure>", _resize, add="+")
     host.after(80, _resize)
     host.after(400, _resize)
+
+
+def _treeview_measure_text(text: str) -> int:
+    """Largura aproximada em px para dimensionar colunas do Treeview."""
+    s = text if isinstance(text, str) else str(text if text is not None else "")
+    try:
+        import tkinter.font as tkfont
+
+        return int(tkfont.nametofont("TkDefaultFont").measure(s))
+    except Exception:
+        return max(0, len(s) * 8)
+
+
+def _configure_treeview_columns(
+    tv: ttk.Treeview,
+    cols: list[str],
+    rows: list[dict] | None = None,
+    *,
+    fixed_widths: dict[str, int] | None = None,
+    max_width: int = 480,
+    min_width: int = 72,
+    sample_rows: int = 40,
+) -> None:
+    """Define colunas com stretch=False para a scrollbar horizontal funcionar.
+
+    Com stretch=True (padrão ttk), as colunas encolhem ao viewport e o texto
+    fica cortado sem activar xview — exactamente o bug do DB Manager.
+    """
+    sample = (rows or [])[: max(0, sample_rows)]
+    for c in cols:
+        if fixed_widths and c in fixed_widths:
+            width = int(fixed_widths[c])
+        else:
+            width = _treeview_measure_text(str(c)) + 28
+            for row in sample:
+                cell = row.get(c) if isinstance(row, dict) else None
+                # Usa o mesmo formato exibido na grelha (já trunca células longas).
+                disp = _cell_display(cell)
+                width = max(width, _treeview_measure_text(disp) + 24)
+            width = max(min_width, min(max_width, width))
+        tv.heading(c, text=c, anchor="w")
+        tv.column(
+            c,
+            width=width,
+            minwidth=min(min_width, 48),
+            stretch=False,
+            anchor="w",
+        )
+
+
+def _bind_treeview_shift_scroll(tv: ttk.Treeview) -> None:
+    """Shift+roda do rato → scroll horizontal (útil em tabelas largas)."""
+
+    def _on_shift_wheel(event: tk.Event) -> str | None:
+        try:
+            delta = int(getattr(event, "delta", 0) or 0)
+            if delta:
+                tv.xview_scroll(int(-1 * (delta / 120)), "units")
+            else:
+                # X11: Button-4/5
+                num = int(getattr(event, "num", 0) or 0)
+                if num == 4:
+                    tv.xview_scroll(-3, "units")
+                elif num == 5:
+                    tv.xview_scroll(3, "units")
+            return "break"
+        except tk.TclError:
+            return None
+
+    tv.bind("<Shift-MouseWheel>", _on_shift_wheel, add="+")
+    tv.bind("<Shift-Button-4>", _on_shift_wheel, add="+")
+    tv.bind("<Shift-Button-5>", _on_shift_wheel, add="+")
 
 
 def _is_local_db_host(host: str) -> bool:
@@ -1515,8 +1591,11 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         _data_tree = ttk.Treeview(data_table_host, style="Data.Treeview",
                                   show="headings", selectmode="browse", height=28)
         _data_tree.grid(row=0, column=0, sticky="nsew")
-        _bind_treeview_fill_rows(_data_tree, data_table_host, min_rows=24)
-    
+        _bind_treeview_fill_rows(
+            _data_tree, data_table_host, min_rows=24, reserve_hscroll=True,
+        )
+        _bind_treeview_shift_scroll(_data_tree)
+
         _data_vscroll = _db_scrollbar(data_table_host, "vertical",
                                         _data_tree.yview, theme)
         _data_vscroll.grid(row=0, column=1, sticky="ns")
@@ -1531,7 +1610,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         struct_frame.grid_rowconfigure(0, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 120)
         struct_frame.grid_columnconfigure(0, weight=1)
 
-        struct_host = _ttk_tree_host(struct_frame, card_bg)
+        struct_host = _ttk_tree_host(struct_frame, card_bg, horizontal_scroll=True)
         struct_host.grid(row=0, column=0, sticky="nsew")
 
         _struct_tree = ttk.Treeview(struct_host, style="Struct.Treeview",
@@ -1547,15 +1626,26 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             ("extra",   "Extra",   100),
             ("comment", "Comentário", 180),
         ]:
-            _struct_tree.heading(col_id, text=col_lbl)
-            _struct_tree.column(col_id, width=col_w, minwidth=40)
+            _struct_tree.heading(col_id, text=col_lbl, anchor="w")
+            _struct_tree.column(
+                col_id, width=col_w, minwidth=40, stretch=False, anchor="w",
+            )
         _struct_tree.grid(row=0, column=0, sticky="nsew")
-        _bind_treeview_fill_rows(_struct_tree, struct_host, min_rows=24)
+        _bind_treeview_fill_rows(
+            _struct_tree, struct_host, min_rows=24, reserve_hscroll=True,
+        )
+        _bind_treeview_shift_scroll(_struct_tree)
 
-        struct_vscroll = _db_scrollbar(struct_frame, "vertical",
+        struct_vscroll = _db_scrollbar(struct_host, "vertical",
                                        _struct_tree.yview, theme)
         struct_vscroll.grid(row=0, column=1, sticky="ns")
-        _struct_tree.configure(yscrollcommand=struct_vscroll.set)
+        struct_hscroll = _db_scrollbar(struct_host, "horizontal",
+                                       _struct_tree.xview, theme)
+        struct_hscroll.grid(row=1, column=0, sticky="ew")
+        _struct_tree.configure(
+            yscrollcommand=struct_vscroll.set,
+            xscrollcommand=struct_hscroll.set,
+        )
     
         # ── Tab SQL ────────────────────────────────────────────────────────────
         sql_frame = _tab_frames["sql"]
@@ -1641,7 +1731,10 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         _sql_result_tree = ttk.Treeview(sql_result_host, style="Data.Treeview",
                                         show="headings", selectmode="browse", height=28)
         _sql_result_tree.grid(row=0, column=0, sticky="nsew")
-        _bind_treeview_fill_rows(_sql_result_tree, sql_result_host, min_rows=20)
+        _bind_treeview_fill_rows(
+            _sql_result_tree, sql_result_host, min_rows=20, reserve_hscroll=True,
+        )
+        _bind_treeview_shift_scroll(_sql_result_tree)
         sql_rv = _db_scrollbar(sql_result_host, "vertical",
                                _sql_result_tree.yview, theme)
         sql_rv.grid(row=0, column=1, sticky="ns")
@@ -2059,9 +2152,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 return
             cols = list(rows[0].keys())
             tv.configure(columns=cols)
-            for c in cols:
-                tv.heading(c, text=c)
-                tv.column(c, width=max(80, min(300, len(c) * 9)), minwidth=40)
+            _configure_treeview_columns(tv, cols, rows)
             values_list = [
                 [_cell_display(v) for v in row.values()]
                 for row in rows

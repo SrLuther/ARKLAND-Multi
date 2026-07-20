@@ -27,10 +27,12 @@ def test_plugin_version_files_aligned() -> None:
 
 
 def test_bundled_versions_match_plugin_version_txt() -> None:
-    assert get_bundled_plugin_version("CustomShop") == "1.10.7"
-    assert get_bundled_plugin_version("CustomDinoDeliver") == "1.10.11"
-    assert expected_plugin_version("CustomShop") == "1.10.7"
-    assert expected_plugin_version("CustomDinoDeliver") == "1.10.11"
+    assert get_bundled_plugin_version("CustomShop") == expected_plugin_version("CustomShop")
+    assert get_bundled_plugin_version("CustomDinoDeliver") == expected_plugin_version(
+        "CustomDinoDeliver"
+    )
+    assert get_bundled_plugin_version("ArkPlayer") == expected_plugin_version("ArkPlayer")
+    assert expected_plugin_version("ArkPlayer") == "1.0.0"
 
 
 def test_changelog_versions_parser(tmp_path: Path) -> None:

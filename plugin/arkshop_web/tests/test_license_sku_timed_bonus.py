@@ -139,12 +139,14 @@ def test_ui_bonus_for_legacy_sku_row_shows_delta_amount():
 
 
 def test_timed_total_with_sku_delta_and_imaterial():
-    # Default 25 + Moderacao 500 + max(Delta 5, Imaterial 180) = 705
+    # StackRewards=true: Default 25 + Moderacao 500 + Imaterial 180 + Delta 5 = 710
     assert _app_module._compute_timed_points_total(
         ["Moderacao", "keyvault", "Imaterial", "licenca_delta"]
-    ) == 705
+    ) == 710
     # Só Delta + Default = 30
     assert _app_module._compute_timed_points_total(["licenca_delta"]) == 30
+    # Felipe Alfa+Delta: 25 + 75 + 5 = 105
+    assert _app_module._compute_timed_points_total(["Alfa", "Delta"]) == 105
 
 
 def test_repair_renames_sku_group_in_db():

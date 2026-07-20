@@ -7,10 +7,18 @@
 
 ## [Unreleased] - 
 
+## [1.10.81] - 2026-07-20
+
 ### Feature
 
 - Feat (TEK / Plugins): instalação integrada do ArkPlayer (DLL + PluginInfo + config) — aba Plugins por servidor e botão «Instalar ArkPlayer» no painel Loja (paridade com CustomShop/Dino Lab); empacotado no build/PyInstaller.
 - Feat (Web Store / Entregas): POST /api/pending/batch — status em lote por steam_ids (opt-in; CustomShop C++ ainda claim-only).
+
+### Fix
+
+- Fix (DB Manager): tabelas Dados/Estrutura/SQL com stretch=False + largura por conteúdo — scrollbar horizontal deixa de ficar inactiva (colunas cortadas à direita); Shift+roda para scroll X; reserva altura da barra H ao ajustar linhas.
+- Fix (CustomShop 1.10.30 / TimedPoints): fold UTF-8 em NormalizeEntitlementGroup + SyncPlayerOnJoin canónico + HasActive fallback — rows legadas «licença_delta» deixam de dar +0 no bónus Delta (+5); recompilar DLL nos mapas.
+- Fix (Web Store + CustomShop 1.10.31 / TimedPoints): _compute_timed_points_total e StackRewards=true somam Amount de todas as licenças activas (Default+Alfa+Delta=105); false = só o maior; Minha Área / regulamento deixam de dizer «vence o maior» / «não soma».
 
 ### Other
 

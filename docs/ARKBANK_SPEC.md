@@ -864,7 +864,7 @@ Lidas de `TimedPointsReward` em `plugin/CustomShop/configs/config.json` (bin esp
 | --------- | -------------- | ----- |
 | `Interval` | **30 minutos** | config atual |
 | Award base (sem licença) | **25 Â / tick** (`Groups.Default.Amount`) | config atual |
-| Stack de licenças | `StackRewards: true` — bónus de grupo soma ao Default (ex. Alfa: 25+75 = **100 Â/tick**) | config + copy das licenças |
+| Stack de licenças | `StackRewards: true` — **todos** os Amounts de grupos activos somam (ex. Default+Alfa+Delta: 25+75+5 = **105 Â/tick**); `false` = só o maior | config + copy das licenças |
 
 **Ritmo alvo “5 h/dia” (baseline sem licença) — locked para pacing Free:**
 
