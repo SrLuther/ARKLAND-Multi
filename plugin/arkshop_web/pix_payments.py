@@ -1,8 +1,11 @@
 """Integração Mercado Pago (PIX e cartão) para doações de pontos."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -440,3 +443,70 @@ def extract_checkout_url(mp_response: dict[str, Any], *, sandbox: bool = False) 
     else:
         url = mp_response.get("init_point") or mp_response.get("sandbox_init_point")
     return str(url).strip() if url else None
+
+
+class WebhookSignatureError(Exception):
+    """Assinatura x-signature do Mercado Pago inválida ou expirada."""
+
+
+def _parse_mp_x_signature(header: str | None) -> tuple[str | None, str | None]:
+    if not header:
+        return None, None
+    ts = v1 = None
+    for part in str(header).split(","):
+        part = part.strip()
+        if part.startswith("ts="):
+            ts = part[3:].strip()
+        elif part.startswith("v1="):
+            v1 = part[3:].strip()
+    return ts, v1
+
+
+def build_mp_webhook_manifest(
+    data_id: str | None,
+    x_request_id: str | None,
+    ts: str | None,
+) -> str:
+    """Template oficial MP: pares omitidos se ausentes na notificação."""
+    parts: list[str] = []
+    if data_id:
+        parts.append(f"id:{str(data_id).lower()};")
+    if x_request_id:
+        parts.append(f"request-id:{x_request_id};")
+    if ts:
+        parts.append(f"ts:{ts};")
+    return "".join(parts)
+
+
+def verify_mp_webhook_signature(
+    x_signature: str | None,
+    x_request_id: str | None,
+    data_id: str | None,
+    secret: str,
+    *,
+    max_age_sec: int = 600,
+) -> None:
+    """Valida HMAC-SHA256 hex do header x-signature (docs MP Webhooks)."""
+    secret = (secret or "").strip()
+    if not secret:
+        return
+    ts, v1 = _parse_mp_x_signature(x_signature)
+    if not v1:
+        raise WebhookSignatureError("missing v1 in x-signature")
+    manifest = build_mp_webhook_manifest(data_id, x_request_id, ts)
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        manifest.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, v1):
+        raise WebhookSignatureError("signature mismatch")
+    if ts and max_age_sec > 0:
+        try:
+            ts_val = int(ts)
+            if ts_val > 10_000_000_000:
+                ts_val //= 1000
+            if abs(time.time() - ts_val) > max_age_sec:
+                raise WebhookSignatureError("timestamp too old")
+        except ValueError as exc:
+            raise WebhookSignatureError("invalid ts") from exc

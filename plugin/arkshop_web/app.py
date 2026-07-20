@@ -30,6 +30,7 @@ from pix_payments import (
     PIX_PAYER_FORM,
     PayerValidationError,
     PixPaymentError,
+    WebhookSignatureError,
     create_boleto_checkout_preference,
     create_card_checkout_preference,
     create_pix_payment,
@@ -40,6 +41,7 @@ from pix_payments import (
     normalize_card_payer_input,
     normalize_pix_payer_input,
     parse_mp_error_message,
+    verify_mp_webhook_signature,
 )
 from exchange_rates import estimate_foreign, get_exchange_rates
 from flask import Flask, has_request_context, jsonify, make_response, redirect, request, send_from_directory, session
@@ -435,7 +437,7 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "ticket_discord_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token")
 
 _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
     {"id": "p10000", "label": "10.000 Âmbares", "points": 10000, "price_brl": 5.0, "note": "Primeiro passo — ideal para conhecer a loja"},
@@ -547,22 +549,47 @@ def _decrypt_value(ciphertext: str) -> str:
 _used_idempotency_keys: dict[str, datetime] = {}
 _IDEMPOTENCY_EXPIRE_SECONDS = 3600
 
+try:
+    import idempotency_store as _idempotency_store
+
+    _idempotency_store.configure(_DATA_DIR / "idempotency_keys.sqlite")
+    _IDEMPOTENCY_PERSIST = True
+except Exception as _idem_cfg_exc:
+    _IDEMPOTENCY_PERSIST = False
+    log.warning("idempotency_store indisponível — memória only: %s", _idem_cfg_exc)
+
 
 def _check_idempotency(key: str) -> bool:
-    """Returns True if this is the FIRST time this key is seen (not a duplicate).
-    Returns False if the key was already used within the last hour."""
+    """Returns True if this is the FIRST time this key is seen (not a duplicate)."""
     if not key:
-        return True  # no key provided — allow (no idempotency protection)
+        return True
+    if _IDEMPOTENCY_PERSIST:
+        try:
+            return _idempotency_store.claim(key, ttl_sec=_IDEMPOTENCY_EXPIRE_SECONDS)
+        except Exception:
+            pass
     now = _now()
-    # Clean expired keys
-    expired = [k for k, ts in _used_idempotency_keys.items()
-               if (now - ts).total_seconds() > _IDEMPOTENCY_EXPIRE_SECONDS]
+    expired = [
+        k for k, ts in _used_idempotency_keys.items()
+        if (now - ts).total_seconds() > _IDEMPOTENCY_EXPIRE_SECONDS
+    ]
     for k in expired:
         _used_idempotency_keys.pop(k, None)
     if key in _used_idempotency_keys:
         return False
     _used_idempotency_keys[key] = now
     return True
+
+
+def _release_idempotency_key(key: str) -> None:
+    if not key:
+        return
+    if _IDEMPOTENCY_PERSIST:
+        try:
+            _idempotency_store.release(key)
+        except Exception:
+            pass
+    _used_idempotency_keys.pop(key, None)
 
 
 # ── API Key auth ────────────────────────────────────────────────────────────
@@ -593,6 +620,40 @@ def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
         return decorated_function
     return decorator
+
+
+def _warn_missing_arkshop_api_key_on_boot() -> None:
+    """Produção exige ARKSHOP_API_KEY — CustomShop não autentica sem ela."""
+    if os.environ.get("ARKSHOP_SKIP_DB_BOOT") == "1":
+        return
+    if _ARKSHOP_API_KEY:
+        return
+    env = (
+        os.environ.get("ARKSHOP_ENV", "")
+        or os.environ.get("FLASK_ENV", "")
+        or os.environ.get("ENV", "")
+    ).strip().lower()
+    is_prod = env in ("prod", "production")
+    require = is_prod or os.environ.get("ARKSHOP_REQUIRE_API_KEY", "").strip() in (
+        "1", "true", "yes",
+    )
+    msg = (
+        "ARKSHOP_API_KEY não definida — rotas internas /api/pending/* "
+        "rejeitam o CustomShop (401)."
+    )
+    if require:
+        log.error(msg)
+        if os.environ.get("ARKSHOP_API_KEY_FAIL_BOOT", "").strip() in ("1", "true", "yes"):
+            raise RuntimeError(msg)
+    else:
+        log.warning(msg)
+
+
+# Pool dedicado a operações admin pesadas (sync-all, catalog-feed async).
+_ADMIN_HEAVY_EXECUTOR = ThreadPoolExecutor(
+    max_workers=max(1, min(4, int(os.environ.get("ARKSHOP_ADMIN_WORKERS", "2") or 2))),
+    thread_name_prefix="arkshop-admin-heavy",
+)
 
 
 # ── ORM ───────────────────────────────────────────────────────────────────────
@@ -1382,6 +1443,7 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
     ("orders", "ix_orders_original_order_id", "(original_order_id)"),
     ("orders", "ix_orders_steam_created", "(steam_id, created_at)"),
     ("orders", "ix_orders_steam_type_status", "(steam_id, item_type, status)"),
+    ("orders", "ix_orders_status_created", "(status, created_at)"),
     ("point_payments", "ix_point_payments_steam_created", "(steam_id, created_at)"),
     ("market_listings", "idx_market_listings_seller_status", "(seller_steam_id, status)"),
 ]
@@ -2553,6 +2615,7 @@ def _load_settings() -> Dict[str, Any]:
         "db_password": "",
         "point_packages": _DEFAULT_POINT_PACKAGES,
         "mp_access_token": "",
+        "mp_webhook_secret": "",
         "steam_api_key": "",
         "mp_sandbox": False,
         "paypal_enabled": False,
@@ -5045,6 +5108,64 @@ _PUBLIC_CATALOG_CACHE: dict[str, Any] = {
     "built_at": 0.0,
 }
 
+# Métricas leves p/ /api/admin/metrics (observabilidade).
+_PUBLIC_CACHE_METRICS_LOCK = threading.Lock()
+_PUBLIC_CACHE_METRICS: dict[str, int] = {
+    "home_hits": 0,
+    "home_misses": 0,
+    "catalog_hits": 0,
+    "catalog_misses": 0,
+    "etag_304": 0,
+}
+
+_ENTITLEMENTS_CACHE_TTL_SEC = float(
+    os.environ.get("ARKSHOP_ENTITLEMENTS_CACHE_TTL_SEC", "30") or 30
+)
+_ENTITLEMENTS_CACHE_LOCK = threading.Lock()
+_ENTITLEMENTS_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+
+
+def _record_public_cache_metric(key: str, *, delta: int = 1) -> None:
+    with _PUBLIC_CACHE_METRICS_LOCK:
+        _PUBLIC_CACHE_METRICS[key] = int(_PUBLIC_CACHE_METRICS.get(key, 0)) + delta
+
+
+def _invalidate_entitlements_cache(steam_id: str | None = None) -> None:
+    with _ENTITLEMENTS_CACHE_LOCK:
+        if steam_id:
+            _ENTITLEMENTS_CACHE.pop(str(steam_id), None)
+        else:
+            _ENTITLEMENTS_CACHE.clear()
+
+
+def _public_payload_etag(payload: dict[str, Any], fingerprint: str) -> str:
+    basis = json.dumps(payload, sort_keys=True, default=str) + "|" + str(fingerprint)
+    return hashlib.sha256(basis.encode("utf-8")).hexdigest()[:16]
+
+
+def _respond_public_cached_json(
+    payload: dict[str, Any],
+    *,
+    fingerprint: str,
+    cache_control: str,
+    cache_header: str,
+    cache_status: str,
+) -> Any:
+    etag = _public_payload_etag(payload, fingerprint)
+    inm = (request.headers.get("If-None-Match") or "").strip().strip('"')
+    if inm and inm == etag:
+        _record_public_cache_metric("etag_304")
+        resp = make_response("", 304)
+        resp.headers["ETag"] = f'"{etag}"'
+        resp.headers["Cache-Control"] = cache_control
+        resp.headers[cache_header] = cache_status
+        return resp
+    resp = jsonify(payload)
+    resp.headers["ETag"] = f'"{etag}"'
+    resp.headers["Cache-Control"] = cache_control
+    resp.headers[cache_header] = cache_status
+    return resp
+
 
 def _invalidate_public_home_cache() -> None:
     with _PUBLIC_HOME_CACHE_LOCK:
@@ -6159,6 +6280,32 @@ def _get_player_entitlements(
     db: Any | None = None,
     *,
     allow_ddl: bool = True,
+    use_cache: bool = True,
+) -> list[dict[str, Any]]:
+    sid = str(steam_id)
+    if use_cache and _ENTITLEMENTS_CACHE_TTL_SEC > 0:
+        now_mono = time.monotonic()
+        with _ENTITLEMENTS_CACHE_LOCK:
+            entry = _ENTITLEMENTS_CACHE.get(sid)
+            if entry and now_mono < float(entry[0]):
+                return list(entry[1])
+    result = _get_player_entitlements_uncached(
+        sid, db=db, allow_ddl=allow_ddl,
+    )
+    if use_cache and _ENTITLEMENTS_CACHE_TTL_SEC > 0:
+        with _ENTITLEMENTS_CACHE_LOCK:
+            _ENTITLEMENTS_CACHE[sid] = (
+                time.monotonic() + _ENTITLEMENTS_CACHE_TTL_SEC,
+                list(result),
+            )
+    return result
+
+
+def _get_player_entitlements_uncached(
+    steam_id: str,
+    db: Any | None = None,
+    *,
+    allow_ddl: bool = True,
 ) -> list[dict[str, Any]]:
     if not _db_ready():
         return []
@@ -6533,6 +6680,7 @@ def _grant_player_entitlement(
             db, steam_id, group, days, source=source, notes=notes,
         )
         db.commit()
+        _invalidate_entitlements_cache(str(steam_id))
     except Exception:
         db.rollback()
         raise
@@ -6566,6 +6714,7 @@ def _revoke_player_entitlement_by_group(
                 {"sid": str(steam_id), "grp": name},
             )
         db.commit()
+        _invalidate_entitlements_cache(str(steam_id))
     except Exception:
         db.rollback()
         raise
@@ -6696,6 +6845,15 @@ def _get_mp_access_token() -> str:
     if settings_token:
         return settings_token
     return env_token
+
+
+def _get_mp_webhook_secret() -> str:
+    """Secret HMAC do webhook MP — painel MP > Webhooks > Revelar assinatura."""
+    settings_secret = str(_load_settings().get("mp_webhook_secret", "")).strip()
+    env_secret = os.environ.get("MP_WEBHOOK_SECRET", "").strip()
+    if settings_secret:
+        return settings_secret
+    return env_secret
 
 
 def _pix_enabled() -> bool:
@@ -8227,16 +8385,17 @@ def get_pending_deliveries(steam_id: str):
             "item_type": o.item_type,
             "skip_kit_limit": str(o.original_order_id or "").startswith("__admin_skip_kit_limit__"),
         } for o in orders]
-        _audit_event(
-            "pending_polled",
-            source="plugin",
-            actor_type="plugin",
-            target_steam_id=steam_id,
-            message=f"Plugin consultou {len(items)} pedido(s) pendente(s)",
-            persist=True,
-            pending_count=len(items),
-            order_ids=[i["order_id"] for i in items],
-        )
+        if items:
+            _audit_event(
+                "pending_polled",
+                source="plugin",
+                actor_type="plugin",
+                target_steam_id=steam_id,
+                message=f"Plugin consultou {len(items)} pedido(s) pendente(s)",
+                persist=True,
+                pending_count=len(items),
+                order_ids=[i["order_id"] for i in items],
+            )
         return _pending_items_json(items)
     except Exception as exc:
         _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
@@ -8938,10 +9097,11 @@ def auth_me():
 @admin_required
 def get_settings():
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "ticket_discord_token")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
+    safe["mp_webhook_secret_set"] = bool(_get_mp_webhook_secret())
     safe["steam_api_key_set"] = bool(_get_steam_api_key())
     safe["ticket_discord_token_set"] = bool(s.get("ticket_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
@@ -9039,6 +9199,8 @@ def save_settings():
         s["db_password"] = body["db_password"]
     if "mp_access_token" in body and body["mp_access_token"] != "":
         s["mp_access_token"] = body["mp_access_token"]
+    if "mp_webhook_secret" in body and body["mp_webhook_secret"] != "":
+        s["mp_webhook_secret"] = body["mp_webhook_secret"]
     if "steam_api_key" in body and body["steam_api_key"] != "":
         s["steam_api_key"] = body["steam_api_key"]
     point_packages_sync_errors: list[dict[str, str]] = []
@@ -10084,6 +10246,10 @@ def public_home():
     t0 = time.perf_counter()
     payload, cache_status = _get_cached_public_home_payload()
     duration_ms = int((time.perf_counter() - t0) * 1000)
+    if cache_status == "HIT":
+        _record_public_cache_metric("home_hits")
+    else:
+        _record_public_cache_metric("home_misses")
     _log(
         "public_home",
         duration_ms=duration_ms,
@@ -10091,12 +10257,16 @@ def public_home():
         cache_status=cache_status,
         built_ms=_PUBLIC_HOME_CACHE.get("built_ms") or 0,
     )
-    resp = jsonify(payload)
-    resp.headers["Cache-Control"] = (
-        f"public, max-age={int(_PUBLIC_HOME_CACHE_TTL_SEC)}, stale-while-revalidate=120"
+    fp = _public_home_sources_fingerprint()
+    return _respond_public_cached_json(
+        payload,
+        fingerprint=fp,
+        cache_control=(
+            f"public, max-age={int(_PUBLIC_HOME_CACHE_TTL_SEC)}, stale-while-revalidate=120"
+        ),
+        cache_header="X-Home-Cache",
+        cache_status=cache_status,
     )
-    resp.headers["X-Home-Cache"] = cache_status
-    return resp
 
 
 def _public_home_sources_fingerprint() -> str:
@@ -10661,6 +10831,10 @@ def get_catalog():
     t0 = time.perf_counter()
     catalog, cache_status = _get_cached_catalog_payload()
     duration_ms = int((time.perf_counter() - t0) * 1000)
+    if cache_status == "HIT":
+        _record_public_cache_metric("catalog_hits")
+    else:
+        _record_public_cache_metric("catalog_misses")
     _log(
         "get_catalog",
         duration_ms=duration_ms,
@@ -10668,13 +10842,16 @@ def get_catalog():
         cache_status=cache_status,
         built_ms=_PUBLIC_CATALOG_CACHE.get("built_ms") or 0,
     )
-    resp = jsonify(catalog)
-    # Catálogo público muda pouco — permite revalidação curta no browser/CDN.
-    resp.headers["Cache-Control"] = (
-        f"public, max-age={int(_PUBLIC_CATALOG_CACHE_TTL_SEC)}, stale-while-revalidate=120"
+    fp = _public_catalog_sources_fingerprint()
+    return _respond_public_cached_json(
+        catalog,
+        fingerprint=fp,
+        cache_control=(
+            f"public, max-age={int(_PUBLIC_CATALOG_CACHE_TTL_SEC)}, stale-while-revalidate=120"
+        ),
+        cache_header="X-Catalog-Cache",
+        cache_status=cache_status,
     )
-    resp.headers["X-Catalog-Cache"] = cache_status
-    return resp
 
 
 @app.route("/api/store/bootstrap", methods=["GET"])
@@ -11499,7 +11676,7 @@ def player_purchase():
     entry = _catalog_entry("kit" if item_type == "kit" else "shop", item_id)
     if not entry:
         if idempotency_key:
-            _used_idempotency_keys.pop(idempotency_key, None)
+            _release_idempotency_key(idempotency_key)
         resolved = _resolve_catalog_item_id(item_type, item_id)
         hint = f" (tentou também '{resolved}')" if resolved != item_id else ""
         return jsonify({"ok": False, "error": f"Item não encontrado no catálogo{hint}"}), 404
@@ -11507,7 +11684,7 @@ def player_purchase():
     lic = _get_license_grant(entry, item_id)
     if str(entry.get("Type", "")).strip().lower() == "license" and not lic:
         if idempotency_key:
-            _used_idempotency_keys.pop(idempotency_key, None)
+            _release_idempotency_key(idempotency_key)
         return jsonify({
             "ok": False,
             "error": "Item de licença mal configurado (sem LicenseGrant no catálogo). Contate um admin.",
@@ -11515,13 +11692,13 @@ def player_purchase():
 
     if lic and (lic.get("AdminOnly") or lic.get("Redeemable") is False):
         if idempotency_key:
-            _used_idempotency_keys.pop(idempotency_key, None)
+            _release_idempotency_key(idempotency_key)
         return jsonify({"ok": False, "error": "Esta licença não pode ser resgatada na loja"}), 403
 
     can_buy, missing = _check_entry_permissions(str(steam_id), entry)
     if not can_buy:
         if idempotency_key:
-            _used_idempotency_keys.pop(idempotency_key, None)
+            _release_idempotency_key(idempotency_key)
         need = ", ".join(missing)
         return jsonify({
             "ok": False,
@@ -11538,7 +11715,7 @@ def player_purchase():
             _release_db_session(db_limit)
         if remaining <= 0:
             if idempotency_key:
-                _used_idempotency_keys.pop(idempotency_key, None)
+                _release_idempotency_key(idempotency_key)
             return jsonify({
                 "ok": False,
                 "error": (
@@ -11555,7 +11732,7 @@ def player_purchase():
         balance = _get_player_points(str(steam_id))
         if balance is not None and balance < price:
             if idempotency_key:
-                _used_idempotency_keys.pop(idempotency_key, None)
+                _release_idempotency_key(idempotency_key)
             return jsonify({
                 "ok": False,
                 "error": f"Saldo insuficiente ({balance} pts, necessário {price} pts)",
@@ -11564,7 +11741,7 @@ def player_purchase():
     order, error = _create_order(str(steam_id), item_type, item_id, amount, points_spent=price)
     if error:
         if idempotency_key:
-            _used_idempotency_keys.pop(idempotency_key, None)
+            _release_idempotency_key(idempotency_key)
         return jsonify({"ok": False, "error": error}), 400
     assert order is not None
 
@@ -11608,7 +11785,7 @@ def player_purchase():
                 finally:
                     _release_db_session(cancel_db)
                 if idempotency_key:
-                    _used_idempotency_keys.pop(idempotency_key, None)
+                    _release_idempotency_key(idempotency_key)
                 return jsonify({
                     "ok": False,
                     "error": f"Saldo insuficiente ({balance_now} pts, necessário {price} pts)",
@@ -11664,7 +11841,7 @@ def player_purchase():
 
     if purchase_db_error:
         if idempotency_key:
-            _used_idempotency_keys.pop(idempotency_key, None)
+            _release_idempotency_key(idempotency_key)
         return jsonify({
             "ok": False,
             "error": (
@@ -12721,6 +12898,26 @@ def payments_webhook():
     if request.method == "GET":
         # Validação de URL no painel MP ou IPN legado (?topic=payment&id=)
         return jsonify({"ok": True}), 200
+    webhook_secret = _get_mp_webhook_secret()
+    if webhook_secret:
+        data_id = (
+            request.args.get("data.id")
+            or request.args.get("id")
+            or ""
+        ).strip()
+        if not data_id:
+            body_preview = request.get_json(force=True, silent=True) or {}
+            data_id = str(body_preview.get("data", {}).get("id") or body_preview.get("id") or "").strip()
+        try:
+            verify_mp_webhook_signature(
+                request.headers.get("x-signature"),
+                request.headers.get("x-request-id"),
+                data_id or None,
+                webhook_secret,
+            )
+        except WebhookSignatureError as exc:
+            log.warning("webhook MP assinatura inválida: %s", exc)
+            return jsonify({"ok": False, "error": "Invalid webhook signature"}), 401
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
@@ -12832,6 +13029,126 @@ def player_summary():
         _release_db_session(db)
 
 
+@app.route("/api/player/myarea", methods=["GET"])
+@login_required
+@limiter.limit("30 per minute; 300 per hour", override_defaults=True)
+def player_myarea():
+    """Agregado Minha Área — summary + 1ª página histórico/doações (menos fan-out HTTP)."""
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    limit = max(1, min(100, int(request.args.get("limit", 20))))
+    status_filter = str(request.args.get("status", "")).strip().upper()
+    db = _SessionLocal()
+    try:
+        order_stats = db.execute(
+            text(
+                "SELECT COUNT(*) AS total_orders, "
+                "SUM(CASE WHEN status = 'ENTREGUE' THEN 1 ELSE 0 END) AS delivered, "
+                "SUM(CASE WHEN status = 'PENDENTE' THEN 1 ELSE 0 END) AS pending, "
+                "SUM(CASE WHEN contested THEN 1 ELSE 0 END) AS contested "
+                "FROM orders WHERE steam_id = :sid"
+            ),
+            {"sid": steam_id},
+        ).fetchone()
+        donation_stats = db.execute(
+            text(
+                "SELECT COUNT(*) AS donations_total, "
+                "SUM(CASE WHEN credited THEN 1 ELSE 0 END) AS donations_credited "
+                "FROM point_payments WHERE steam_id = :sid"
+            ),
+            {"sid": steam_id},
+        ).fetchone()
+        balance = _get_player_points(steam_id, db=db)
+        summary = {
+            "ok": True,
+            "steam_id": steam_id,
+            "points": balance if balance is not None else 0,
+            "stats": {
+                "total_orders": int(order_stats[0] or 0) if order_stats else 0,
+                "delivered": int(order_stats[1] or 0) if order_stats else 0,
+                "pending": int(order_stats[2] or 0) if order_stats else 0,
+                "contested": int(order_stats[3] or 0) if order_stats else 0,
+                "donations_total": int(donation_stats[0] or 0) if donation_stats else 0,
+                "donations_credited": int(donation_stats[1] or 0) if donation_stats else 0,
+            },
+        }
+
+        hist_params: dict[str, Any] = {"sid": steam_id, "lim": limit, "off": 0}
+        status_sql = ""
+        if status_filter:
+            status_sql = " AND status = :status"
+            hist_params["status"] = status_filter
+        hist_rows = db.execute(
+            text(
+                "SELECT order_id, steam_id, server_id, item_type, item_id, amount, status, "
+                "retry_count, last_error, contested, created_at, updated_at, "
+                "COUNT(*) OVER() AS _total "
+                f"FROM orders WHERE steam_id = :sid{status_sql} "
+                "ORDER BY created_at DESC LIMIT :lim OFFSET 0"
+            ),
+            hist_params,
+        ).fetchall()
+        don_rows = db.execute(
+            text(
+                "SELECT payment_id, package_id, amount_brl, points, status, credited, "
+                "payment_method, created_at, updated_at, "
+                "COUNT(*) OVER() AS _total "
+                "FROM point_payments WHERE steam_id = :sid "
+                "ORDER BY created_at DESC LIMIT :lim OFFSET 0"
+            ),
+            {"sid": steam_id, "lim": limit},
+        ).fetchall()
+
+        return jsonify({
+            "ok": True,
+            "summary": summary,
+            "history": {
+                "total": int(hist_rows[0]._total or 0) if hist_rows else 0,
+                "items": [
+                    {
+                        "order_id": r.order_id,
+                        "steam_id": r.steam_id,
+                        "server_id": r.server_id,
+                        "item_type": r.item_type,
+                        "item_id": r.item_id,
+                        "amount": r.amount,
+                        "status": r.status,
+                        "retry_count": r.retry_count,
+                        "last_error": r.last_error,
+                        "contested": r.contested,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                    }
+                    for r in hist_rows
+                ],
+            },
+            "donations": {
+                "total": int(don_rows[0]._total or 0) if don_rows else 0,
+                "items": [
+                    {
+                        "payment_id": r.payment_id,
+                        "package_id": r.package_id,
+                        "package_label": _package_label(r.package_id),
+                        "amount_brl": r.amount_brl,
+                        "points": r.points,
+                        "status": r.status,
+                        "credited": r.credited,
+                        "payment_method": str(getattr(r, "payment_method", "") or "pix").lower(),
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                        "credited_at": r.updated_at.isoformat() if r.credited and r.updated_at else None,
+                    }
+                    for r in don_rows
+                ],
+            },
+        })
+    except Exception as exc:
+        _log_error("player_myarea", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
+
+
 @app.route("/api/player/history", methods=["GET"])
 @login_required
 def player_history():
@@ -12843,11 +13160,26 @@ def player_history():
     status_filter = str(request.args.get("status", "")).strip().upper()
     db = _SessionLocal()
     try:
-        q = db.query(Order).filter(Order.steam_id == steam_id)
+        params: dict[str, Any] = {
+            "sid": steam_id,
+            "lim": limit,
+            "off": offset,
+        }
+        status_sql = ""
         if status_filter:
-            q = q.filter(Order.status == status_filter)
-        total = q.count()
-        rows = q.order_by(Order.created_at.desc()).offset(offset).limit(limit).all()
+            status_sql = " AND status = :status"
+            params["status"] = status_filter
+        rows = db.execute(
+            text(
+                "SELECT order_id, steam_id, server_id, item_type, item_id, amount, status, "
+                "retry_count, last_error, contested, created_at, updated_at, "
+                "COUNT(*) OVER() AS _total "
+                f"FROM orders WHERE steam_id = :sid{status_sql} "
+                "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+            ),
+            params,
+        ).fetchall()
+        total = int(rows[0]._total or 0) if rows else 0
         return jsonify(
             {
                 "ok": True,
@@ -12889,9 +13221,17 @@ def player_donations():
     offset = max(0, int(request.args.get("offset", 0)))
     db = _SessionLocal()
     try:
-        q = db.query(PointPayment).filter(PointPayment.steam_id == steam_id)
-        total = q.count()
-        rows = q.order_by(PointPayment.created_at.desc()).offset(offset).limit(limit).all()
+        rows = db.execute(
+            text(
+                "SELECT payment_id, package_id, amount_brl, points, status, credited, "
+                "payment_method, created_at, updated_at, "
+                "COUNT(*) OVER() AS _total "
+                "FROM point_payments WHERE steam_id = :sid "
+                "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+            ),
+            {"sid": steam_id, "lim": limit, "off": offset},
+        ).fetchall()
+        total = int(rows[0]._total or 0) if rows else 0
         return jsonify({
             "ok": True,
             "total": total,
@@ -12904,7 +13244,7 @@ def player_donations():
                     "points": r.points,
                     "status": r.status,
                     "credited": r.credited,
-                    "payment_method": _resolve_payment_method(r),
+                    "payment_method": str(getattr(r, "payment_method", "") or "pix").lower(),
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "credited_at": r.updated_at.isoformat() if r.credited and r.updated_at else None,
                 }
@@ -14487,9 +14827,7 @@ def _start_sync_all_permissions_job(*, dry_run: bool = False) -> dict[str, Any]:
                 _SYNC_ALL_PERM_JOB["running"] = False
                 _SYNC_ALL_PERM_JOB["finished_at"] = datetime.now(timezone.utc).isoformat()
 
-    threading.Thread(
-        target=_worker, daemon=True, name="arkshop-sync-all-permissions",
-    ).start()
+    _ADMIN_HEAVY_EXECUTOR.submit(_worker)
     return {
         "ok": True,
         "accepted": True,
@@ -14497,6 +14835,46 @@ def _start_sync_all_permissions_job(*, dry_run: bool = False) -> dict[str, Any]:
         "dry_run": dry_run,
         "started_at": started_at,
     }
+
+
+@app.route("/api/admin/metrics", methods=["GET"])
+@admin_required
+@limiter.limit("30 per minute", override_defaults=True)
+def admin_metrics():
+    """Observabilidade: pool DB, cache público, queries lentas (Prometheus-friendly JSON)."""
+    from db_diagnostics import aggregate_stats, recent_slow_queries, top_slow_fingerprints
+
+    agg = aggregate_stats()
+    with _PUBLIC_CACHE_METRICS_LOCK:
+        cache_m = dict(_PUBLIC_CACHE_METRICS)
+    home_total = cache_m.get("home_hits", 0) + cache_m.get("home_misses", 0)
+    cat_total = cache_m.get("catalog_hits", 0) + cache_m.get("catalog_misses", 0)
+    pool_info: dict[str, Any] = {}
+    try:
+        if _ENGINE is not None:
+            from db_diagnostics import _pool_stats
+
+            pool_info = _pool_stats(_ENGINE)
+    except Exception:
+        pool_info = {}
+    entitlements_cached = 0
+    with _ENTITLEMENTS_CACHE_LOCK:
+        entitlements_cached = len(_ENTITLEMENTS_CACHE)
+    return jsonify({
+        "ok": True,
+        "cache": {
+            **cache_m,
+            "home_hit_ratio": round(cache_m.get("home_hits", 0) / home_total, 4) if home_total else None,
+            "catalog_hit_ratio": round(cache_m.get("catalog_hits", 0) / cat_total, 4) if cat_total else None,
+            "entitlements_entries": entitlements_cached,
+            "entitlements_ttl_sec": _ENTITLEMENTS_CACHE_TTL_SEC,
+        },
+        "db": agg,
+        "pool": pool_info,
+        "slow_queries_recent": recent_slow_queries(10),
+        "slow_fingerprints_top": top_slow_fingerprints(8),
+        "idempotency_persist": _IDEMPOTENCY_PERSIST,
+    })
 
 
 @app.route("/api/admin/sync-all-permissions", methods=["POST"])
@@ -15504,6 +15882,13 @@ def _log_boot_snapshot() -> None:
     except Exception as exc:
         log.warning("boot_snapshot indisponível: %s", exc)
 
+
+try:
+    _warn_missing_arkshop_api_key_on_boot()
+except RuntimeError:
+    raise
+except Exception as _api_key_boot_exc:
+    log.warning("boot api_key check failed: %s", _api_key_boot_exc)
 
 try:
     _log_boot_snapshot()

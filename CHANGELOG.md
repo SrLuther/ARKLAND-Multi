@@ -5,6 +5,40 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.80] - 2026-07-20
+
+### Feature
+
+- Feat (Web Store / Minha Área): GET /api/player/myarea agregado (summary + 1ª página histórico/doações); frontend usa bundle inicial.
+- Feat (Web Store / Admin): sync-all-permissions e catalog-feed 202 + worker pool arkshop-admin-heavy.
+- Feat (Web Store): idempotency keys persistentes SQLite (idempotency_keys.sqlite).
+- Feat (Web Store / Observabilidade): GET /api/admin/metrics — pool, cache hit ratio, slow queries.
+
+### Fix
+
+- Fix CRÍTICO (Web Store / Cache): bootstrap localStorage/IndexedDB isolado por steam_id — evita vazamento me/kit_limits/entitlements entre contas; logout limpa cache; purge chaves legacy v1.
+- Fix (Web Store / PIX): polling PIX e carrosséis pausam com document.hidden — reduz XHR em background.
+- Fix (Web Store / Tribe): remove time.sleep(1) pós-RCON em POST /api/tribe/sync — liberta worker Waitress.
+- Fix (Web Store / Audit): pending_polled só persiste quando há itens na fila — reduz writes MySQL (sem alterar entrega).
+- Fix CRÍTICO (Web Store / Mercado Pago): validação HMAC x-signature no webhook quando MP_WEBHOOK_SECRET configurado.
+- Fix (Web Store / Boot): warn/fail se ARKSHOP_API_KEY ausente em produção (ARKSHOP_REQUIRE_API_KEY / ARKSHOP_API_KEY_FAIL_BOOT).
+- Fix (Web Store / Saldo): débito players.points atómico WHERE points >= price (defer optimistic lock version).
+
+### Other
+
+- Perf (Web Store / DB): índice hot-path ix_orders_status_created (status, created_at).
+- Other: .gitignore servers.json e configs CustomShop locais; templates servers.json.example e config.json.example.
+- Other: CrossChat template PollIntervalSeconds 2→5s em docs/config.json.
+- Perf (Web Store / API): COUNT(*) OVER() em /api/player/history e /api/player/donations — uma query por endpoint.
+- Perf (Web Store / PIX): poll frontend backoff inicial 8s (alinhado ao throttle MP backend).
+- Perf (Web Store / Cache): ETag + If-None-Match em /api/catalog e /api/public/home → 304.
+- Perf (Web Store / Mercado): expire_stale_claims removido de listagens (só scheduler + entrega).
+- Perf (Web Store / Entitlements): cache in-memory TTL 30s por jogador; invalidação em grant/revoke.
+- Perf (Web Store / Âmbarômetro): TTL in-memory 60→120s (ARKSHOP_AMBER_STATS_CACHE_TTL_SEC).
+- Perf (Web Store / Catálogo): paginação DOM itens 48 cards/página.
+- Other: script k6 smoke tools/k6/webstore_smoke.js + docs/load_test_k6.md.
+- Test (Web Store): test_audit_optimizations, test_mp_webhook_signature; test_pwa service-worker v5.
+
 ## [1.10.79] - 2026-07-19
 
 ### Feature

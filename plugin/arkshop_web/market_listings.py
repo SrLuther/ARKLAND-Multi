@@ -1565,7 +1565,6 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
 def get_pending_claims(db: Session, steam_id: str) -> list[dict[str, Any]]:
     from app import MarketClaim, MarketCryopodVault, MarketListing
 
-    expire_stale_claims(db)
     now = _now()
     rows = (
         db.query(MarketClaim, MarketListing, MarketCryopodVault)
@@ -2058,7 +2057,6 @@ def expire_stale_claims(db: Session, *, batch_size: int = 50) -> dict[str, Any]:
 def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, Any]]:
     from app import MarketClaim, MarketListing
 
-    expire_stale_claims(db)
     rows = (
         db.query(MarketListing)
         .filter(
@@ -2803,7 +2801,6 @@ def _sale_delivery_status(listing: Any | None, claim: Any | None) -> str:
 def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dict[str, Any]:
     from app import MarketClaim, MarketListing, MarketPlayerProfile, MarketTransaction
 
-    expire_stale_claims(db)
     sales = (
         db.query(MarketTransaction)
         .filter(MarketTransaction.seller_steam_id == steam_id)

@@ -1,0 +1,11 @@
+[
+  {
+    "server_id": "mapa_exemplo",
+    "label": "Mapa Exemplo",
+    "rcon_host": "127.0.0.1",
+    "rcon_port": 27020,
+    "rcon_password": "COLOQUE_SUA_SENHA_RCON",
+    "delivery_mode": "plugin",
+    "machine_label": ""
+  }
+]

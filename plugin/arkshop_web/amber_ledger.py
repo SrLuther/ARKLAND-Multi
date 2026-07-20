@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -22,7 +23,7 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger("arkshop_web.amber_ledger")
 
-_PUBLIC_STATS_TTL = 60.0
+_PUBLIC_STATS_TTL = float(os.environ.get("ARKSHOP_AMBER_STATS_CACHE_TTL_SEC", "120") or 120)
 _public_stats_lock = threading.Lock()
 _public_stats_cache: dict[str, Any] = {"data": None, "expires": 0.0}
 _schema_verified_engines: set[int] = set()

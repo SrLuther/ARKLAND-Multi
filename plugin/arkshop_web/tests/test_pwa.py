@@ -68,7 +68,7 @@ def test_index_links_manifest_and_pwa_script():
 def test_pwa_service_worker_skips_species_icons(client):
     """Imagens de espécie não entram no Cache Storage (agravante, não causa SQL)."""
     body = client.get("/service-worker.js").get_data(as_text=True)
-    assert "arkland-webstore-static-v4" in body
+    assert "arkland-webstore-static-v5" in body
     assert "isHeavyImageAsset" in body
     assert "/species/icons/" in body
     assert "PRECACHE_URLS" in body or "/icons/icon-192.png" in body

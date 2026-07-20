@@ -52,7 +52,7 @@ def test_index_has_warmup_overlay_and_cache_keys():
     assert "store-warmup-overlay" in html
     assert "A preparar a loja" in html
     assert "/api/store/bootstrap" in html
-    assert "STORE_CACHE_META_KEY" in html
+    assert "STORE_CACHE_VERSION" in html or "_storeCacheMetaKey" in html
     assert "STORE_WARMUP_GATE_MS" in html
     assert "skipStoreWarmup" in html
     assert "FORCE_MS" in html or "__earlyForceReleaseWarmup" in html
@@ -197,6 +197,21 @@ def test_index_html_has_single_document_close():
     assert html.count("</html>") == 1
     assert html.rstrip().endswith("</html>")
     assert html.count('id="notif-list"') == 1
+
+
+def test_index_bootstrap_cache_scoped_by_steam_id():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "_storeCacheScope" in html
+    assert "_bootstrapCacheOwnerValid" in html
+    assert "_clearStoreBootstrapCache" in html
+    assert "_purgeLegacyStoreCacheKeys" in html
+
+
+def test_index_pauses_pix_poll_when_hidden():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "_pageIsVisible" in html
+    assert "visibilitychange" in html
+    assert "_pixPollPaused" in html
 
 
 def test_index_has_staff_mode_toggle():

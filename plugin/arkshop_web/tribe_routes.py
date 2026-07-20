@@ -187,8 +187,7 @@ def register_tribe_routes(
                 rcon_results = list(trigger_tribe_sync_rcon() or [])
                 # Espera curta só se algum mapa OK — sem sessão DB aberta.
                 if any(r.get("ok") for r in rcon_results):
-                    import time
-                    time.sleep(1.0)
+                    pass  # backfill imediato — sem sleep (liberta worker Waitress)
             except Exception as exc:
                 log.warning("tribe_sync RCON trigger failed steam=%s: %s", steam_id, exc)
                 rcon_results.append({"ok": False, "error": f"RCON indisponível: {exc}"})

@@ -256,26 +256,57 @@ def register_market_routes(
         if activate is not None:
             activate = bool(activate)
         only_missing = bool(body.get("only_missing", False))
-        result = run_catalog_feed(
-            source="admin",
-            activate=activate,
-            catalog=read_shop_config(),
-            only_missing=only_missing,
-            session_factory=session_factory,
-            read_catalog=read_shop_config,
-        )
-        if not result.get("ok", True):
-            return jsonify(result), 500
-        audit_event(
-            "MARKET_CATALOG_FEED",
-            source="admin",
-            actor_type="admin",
-            created=result.get("created"),
-            updated=result.get("updated"),
-            merged=result.get("merged"),
-            skipped_duplicate=result.get("skipped_duplicate"),
-        )
-        return jsonify(result)
+        if bool(body.get("sync")):
+            result = run_catalog_feed(
+                source="admin",
+                activate=activate,
+                catalog=read_shop_config(),
+                only_missing=only_missing,
+                session_factory=session_factory,
+                read_catalog=read_shop_config,
+            )
+            if not result.get("ok", True):
+                return jsonify(result), 500
+            audit_event(
+                "MARKET_CATALOG_FEED",
+                source="admin",
+                actor_type="admin",
+                created=result.get("created"),
+                updated=result.get("updated"),
+                merged=result.get("merged"),
+                skipped_duplicate=result.get("skipped_duplicate"),
+            )
+            return jsonify(result)
+
+        import app as app_module
+
+        def _bg_feed() -> None:
+            res = run_catalog_feed(
+                source="admin",
+                activate=activate,
+                catalog=read_shop_config(),
+                only_missing=only_missing,
+                session_factory=session_factory,
+                read_catalog=read_shop_config,
+            )
+            if res.get("ok", True):
+                audit_event(
+                    "MARKET_CATALOG_FEED",
+                    source="admin",
+                    actor_type="admin",
+                    created=res.get("created"),
+                    updated=res.get("updated"),
+                    merged=res.get("merged"),
+                    skipped_duplicate=res.get("skipped_duplicate"),
+                )
+
+        app_module._ADMIN_HEAVY_EXECUTOR.submit(_bg_feed)
+        return jsonify({
+            "ok": True,
+            "accepted": True,
+            "status": "running",
+            "message": "Feed de catálogo iniciado em background — consulte /status",
+        }), 202
 
     @app.route("/api/market/admin/catalog-feed/status", methods=["GET"])
     @admin_required

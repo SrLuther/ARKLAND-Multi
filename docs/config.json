@@ -6,7 +6,7 @@
     "GlobalChatOnly": true,
     "IgnoreCommands": true,
     "MaxMessageLength": 200,
-    "PollIntervalSeconds": 2,
+    "PollIntervalSeconds": 5,
     "RateLimitSeconds": 2,
     "UseWebApi": true,
     "_comment": "Chat entre mapas do cluster (captura automatica). ServerId unico por mapa — definido ao sincronizar."

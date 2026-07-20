@@ -70,7 +70,14 @@ node_modules
 # Web Store — dados locais (nunca versionar)
 **/webstore.log
 plugin/arkshop_web/admin_steamids.json
+plugin/arkshop_web/servers.json
 **/settings.json
+
+# CustomShop / plugins — credenciais locais (WebApiKey, RCON, etc.)
+plugin/CustomShop/configs/config.json
+plugin/CustomShop/bin/config.json
+plugin/CustomDinoDeliver/configs/config.json
+plugin/CustomDinoDeliver/bin/config.json
 
 # Pontos/grupos legacy de jogadores (dados sensíveis)
 plugin/CustomShop/configs/jogadores_pontos_grupos.csv

@@ -1,0 +1,12 @@
+{
+  "WebsiteUrl": "https://sua-loja.exemplo",
+  "WebApiUrl": "https://sua-loja.exemplo",
+  "WebApiKey": "GERAR_CHAVE_FORTE_32_CHARS_MIN",
+  "ServerId": "MAPAS",
+  "CrossChat": {
+    "Enabled": false,
+    "ServerId": "MAPAS",
+    "Command": "/c",
+    "UseWebApi": true
+  }
+}

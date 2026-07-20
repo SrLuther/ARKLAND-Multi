@@ -11001,6 +11001,7 @@ function loginWithSteam() {
 
 async function logout() {
   await fetch(API + "/api/auth/logout", { method: "POST" });
+  await _clearStoreBootstrapCache();
   window.location.reload();
 }
 
@@ -11308,6 +11309,7 @@ async function markAllNotificationsRead(ev) {
 function _scheduleNotifPolling() {
   if (_notifPollTimer) clearTimeout(_notifPollTimer);
   if (!_auth.authenticated) return;
+  if (!_pageIsVisible()) return;
   const delay = _notifPollBackoffMs || _NOTIF_POLL_MS;
   _notifPollTimer = setTimeout(async () => {
     await refreshNotificationsBadge();
@@ -11669,7 +11671,7 @@ let _catalogActiveTab = "items";
 let _catalogSearchTimers = {};
 let _catalogTierIcons = {};
 let _pixPollTimer = null;
-let _pixPollDelayMs = 5000;
+let _pixPollDelayMs = 8000;
 let _pixPollPaymentId = null;
 let _pixAbandonPollNotified = false;
 let _activePixPaymentId = null;
@@ -12291,10 +12293,60 @@ let _catalogLoadAbort = null;
 let _catalogLoadGen = 0;
 
 // ── Store warmup + cache local (localStorage / IndexedDB, SWR) ───────────────
-const STORE_CACHE_META_KEY = "arkland_store_meta_v1";
-const STORE_CACHE_LS_KEY = "arkland_store_payload_v1";
+const STORE_CACHE_VERSION = "v2";
+const STORE_CACHE_LEGACY_META_KEY = "arkland_store_meta_v1";
+const STORE_CACHE_LEGACY_LS_KEY = "arkland_store_payload_v1";
 const STORE_CACHE_IDB_NAME = "arkland-store-cache";
 const STORE_CACHE_IDB_STORE = "payloads";
+
+function _storeCacheScope() {
+  const sid = (_auth && _auth.steam_id) || "";
+  return sid ? String(sid) : "anon";
+}
+
+function _storeCacheMetaKey() {
+  return `arkland_store_meta_${STORE_CACHE_VERSION}:${_storeCacheScope()}`;
+}
+
+function _storeCacheLsKey() {
+  return `arkland_store_payload_${STORE_CACHE_VERSION}:${_storeCacheScope()}`;
+}
+
+function _storeCacheIdbKey() {
+  return `bootstrap:${_storeCacheScope()}`;
+}
+
+function _purgeLegacyStoreCacheKeys() {
+  try {
+    localStorage.removeItem(STORE_CACHE_LEGACY_META_KEY);
+    localStorage.removeItem(STORE_CACHE_LEGACY_LS_KEY);
+  } catch (_) {}
+}
+
+async function _clearStoreBootstrapCache() {
+  _purgeLegacyStoreCacheKeys();
+  try { localStorage.removeItem(_storeCacheMetaKey()); } catch (_) {}
+  try { localStorage.removeItem(_storeCacheLsKey()); } catch (_) {}
+  try {
+    const db = await _openStoreIdb();
+    if (db) {
+      await new Promise((resolve) => {
+        const tx = db.transaction(STORE_CACHE_IDB_STORE, "readwrite");
+        tx.objectStore(STORE_CACHE_IDB_STORE).delete(_storeCacheIdbKey());
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    }
+  } catch (_) {}
+}
+
+function _bootstrapCacheOwnerValid(cached) {
+  if (!cached) return false;
+  const cachedSid = cached.me && cached.me.steam_id ? String(cached.me.steam_id) : null;
+  const currentSid = _auth && _auth.authenticated && _auth.steam_id ? String(_auth.steam_id) : null;
+  if (currentSid) return cachedSid === currentSid;
+  return !cachedSid;
+}
 const STORE_CACHE_TTL_MS = 30 * 60 * 1000;
 const STORE_WARMUP_GATE_MS = 4000;
 const STORE_WARMUP_SKIP_MS = 2000;
@@ -12349,13 +12401,13 @@ function _navShouldFetch(key, ttlMs, force) {
 
 function _readStoreMeta() {
   try {
-    const raw = localStorage.getItem(STORE_CACHE_META_KEY);
+    const raw = localStorage.getItem(_storeCacheMetaKey());
     return raw ? JSON.parse(raw) : null;
   } catch (_) { return null; }
 }
 
 function _writeStoreMeta(meta) {
-  try { localStorage.setItem(STORE_CACHE_META_KEY, JSON.stringify(meta)); } catch (_) {}
+  try { localStorage.setItem(_storeCacheMetaKey(), JSON.stringify(meta)); } catch (_) {}
 }
 
 function _openStoreIdb() {
@@ -12401,19 +12453,22 @@ async function _readBootstrapCache() {
   if (_storeCacheNow() - meta.savedAt > STORE_CACHE_TTL_MS) return null;
   let payload = null;
   if (meta.storage === "idb") {
-    payload = await _idbGet("bootstrap");
+    payload = await _idbGet(meta.idbKey || _storeCacheIdbKey());
   } else {
     try {
-      const raw = localStorage.getItem(meta.lsKey || STORE_CACHE_LS_KEY);
+      const raw = localStorage.getItem(meta.lsKey || _storeCacheLsKey());
       payload = raw ? JSON.parse(raw) : null;
     } catch (_) { payload = null; }
   }
   if (!payload || !payload.catalog) return null;
-  return Object.assign({ meta }, payload);
+  const merged = Object.assign({ meta }, payload);
+  if (!_bootstrapCacheOwnerValid(merged)) return null;
+  return merged;
 }
 
 function _bootstrapCacheValid(cached) {
   if (!cached || !cached.catalog) return false;
+  if (!_bootstrapCacheOwnerValid(cached)) return false;
   const savedAt = cached.meta?.savedAt || cached.savedAt || 0;
   return savedAt > 0 && (_storeCacheNow() - savedAt) <= STORE_CACHE_TTL_MS;
 }
@@ -12437,31 +12492,40 @@ async function _writeBootstrapCache(boot) {
     entitlements: boot.entitlements,
     timed_points_total: boot.timed_points_total,
   };
+  const idbKey = _storeCacheIdbKey();
   const meta = {
     savedAt: payload.savedAt,
     fingerprint: payload.fingerprint,
     storage: "ls",
-    lsKey: STORE_CACHE_LS_KEY,
+    lsKey: _storeCacheLsKey(),
+    idbKey,
+    scope: _storeCacheScope(),
   };
   try {
     const json = JSON.stringify(payload);
     if (json.length > 900000) {
-      const ok = await _idbSet("bootstrap", payload);
+      const ok = await _idbSet(idbKey, payload);
       if (ok) {
         meta.storage = "idb";
         delete meta.lsKey;
-        localStorage.removeItem(STORE_CACHE_LS_KEY);
+        localStorage.removeItem(_storeCacheLsKey());
       } else {
-        localStorage.setItem(STORE_CACHE_LS_KEY, json);
+        localStorage.setItem(_storeCacheLsKey(), json);
       }
     } else {
-      localStorage.setItem(STORE_CACHE_LS_KEY, json);
+      localStorage.setItem(_storeCacheLsKey(), json);
     }
     _writeStoreMeta(meta);
   } catch (_) {
     try {
-      await _idbSet("bootstrap", payload);
-      _writeStoreMeta({ savedAt: payload.savedAt, fingerprint: payload.fingerprint, storage: "idb" });
+      await _idbSet(idbKey, payload);
+      _writeStoreMeta({
+        savedAt: payload.savedAt,
+        fingerprint: payload.fingerprint,
+        storage: "idb",
+        idbKey,
+        scope: _storeCacheScope(),
+      });
     } catch (_) {}
   }
 }
@@ -12675,6 +12739,7 @@ async function _applyBootstrapPayload(boot, opts = {}) {
 }
 
 async function runStoreWarmup() {
+  _purgeLegacyStoreCacheKeys();
   // Fail-safe inline já liberou → só bootstrap em background, nunca rebloquear UI.
   if (window.__warmupForceReleased || window.__storeWarmupReady) {
     _storeWarmupReady = true;
@@ -13116,6 +13181,42 @@ async function _loadCatalogLegacyUnused() {
   }
 }
 
+const CATALOG_DOM_PAGE_SIZE = 48;
+const _catalogDomPage = { items: 0, dinos: 0, dinos200: 0, kits: 0, licenses: 0 };
+
+function _catalogPageSlice(list, tab) {
+  const pages = Math.max(1, Math.ceil(list.length / CATALOG_DOM_PAGE_SIZE));
+  let page = _catalogDomPage[tab] || 0;
+  if (page >= pages) page = pages - 1;
+  _catalogDomPage[tab] = page;
+  const start = page * CATALOG_DOM_PAGE_SIZE;
+  return {
+    slice: list.slice(start, start + CATALOG_DOM_PAGE_SIZE),
+    page,
+    pages,
+    total: list.length,
+  };
+}
+
+function _catalogPagerHtml(tab, page, pages, total) {
+  if (pages <= 1) return "";
+  return `<div class="catalog-pager" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0 4px;">
+    <button type="button" class="btn btn-ghost btn-sm" ${page <= 0 ? "disabled" : ""} onclick="_catalogDomPagePrev('${tab}')">← Anterior</button>
+    <span style="font-size:12px;color:var(--text2);">${page + 1} / ${pages} (${total})</span>
+    <button type="button" class="btn btn-ghost btn-sm" ${page >= pages - 1 ? "disabled" : ""} onclick="_catalogDomPageNext('${tab}')">Próxima →</button>
+  </div>`;
+}
+
+function _catalogDomPagePrev(tab) {
+  _catalogDomPage[tab] = Math.max(0, (_catalogDomPage[tab] || 0) - 1);
+  renderCatalog();
+}
+
+function _catalogDomPageNext(tab) {
+  _catalogDomPage[tab] = (_catalogDomPage[tab] || 0) + 1;
+  renderCatalog();
+}
+
 function renderCatalogItems() {
   const search = (document.getElementById("catalog-search")?.value || "").trim();
   const cat    = _catalogActiveCat || document.getElementById("catalog-cat")?.value || "";
@@ -13143,11 +13244,14 @@ function renderCatalogItems() {
     return;
   }
   if (empty) empty.style.display = "none";
+  const { slice, page, pages, total } = _catalogPageSlice(filtered, "items");
   if (countEl) {
     countEl.style.display = "";
-    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "itens");
+    countEl.innerHTML = _catalogResultCountHtml(total, "itens")
+      + (pages > 1 ? ` · página ${page + 1}/${pages}` : "");
   }
-  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
+  grid.innerHTML = slice.map(i => _renderProductCard(i, "Resgatar")).join("")
+    + _catalogPagerHtml("items", page, pages, total);
 }
 
 function renderCatalogDinos() {
@@ -13469,14 +13573,51 @@ function renderRecharge() {
 function stopPixPoll() {
   if (_pixPollTimer) { clearTimeout(_pixPollTimer); _pixPollTimer = null; }
   _pixPollPaymentId = null;
-  _pixPollDelayMs = 5000;
+  _pixPollDelayMs = 8000;
   _pixAbandonPollNotified = false;
 }
 
+function _pageIsVisible() {
+  return typeof document === "undefined" || !document.hidden;
+}
+
+let _pixPollPaused = false;
+let _visibilityHookInstalled = false;
+
+function _installVisibilityPollingHook() {
+  if (_visibilityHookInstalled) return;
+  _visibilityHookInstalled = true;
+  document.addEventListener("visibilitychange", () => {
+    if (_pageIsVisible()) {
+      if (_pixPollPaused && _pixPollPaymentId) {
+        _pixPollPaused = false;
+        schedulePixPoll(_pixPollPaymentId, Math.min(_pixPollDelayMs, 2000));
+      }
+      if (_auth.authenticated) _scheduleNotifPolling();
+    } else {
+      if (_pixPollTimer) {
+        clearTimeout(_pixPollTimer);
+        _pixPollTimer = null;
+        _pixPollPaused = !!_pixPollPaymentId;
+      }
+      if (_notifPollTimer) {
+        clearTimeout(_notifPollTimer);
+        _notifPollTimer = null;
+      }
+    }
+  });
+}
+
 function schedulePixPoll(paymentId, delayMs) {
+  _installVisibilityPollingHook();
   if (_pixPollTimer) clearTimeout(_pixPollTimer);
   _pixPollPaymentId = paymentId;
   _pixPollDelayMs = delayMs;
+  if (!_pageIsVisible()) {
+    _pixPollPaused = true;
+    return;
+  }
+  _pixPollPaused = false;
   _pixPollTimer = setTimeout(() => pollPixStatus(paymentId), delayMs);
 }
 
@@ -14013,6 +14154,10 @@ function showPixModal(data) {
 }
 
 async function pollPixStatus(paymentId) {
+  if (!_pageIsVisible()) {
+    _pixPollPaused = true;
+    return;
+  }
   try {
     const r = await fetch(API + "/api/player/pix/" + encodeURIComponent(paymentId) + "/status");
     const line = document.getElementById("pix-status-line");
@@ -14168,14 +14313,21 @@ async function loadMyArea(opts) {
   }
   document.getElementById("myarea-profile").textContent = `SteamID autenticado: ${_auth.steam_id}`;
 
-  const summaryResPromise = fetch(API + "/api/player/summary", { credentials: "same-origin" });
+  const statusFilter = document.getElementById("myarea-status-filter")?.value || "";
   const marketProfilePromise = loadMyAreaMarketProfile();
+  const myareaUrl = API + "/api/player/myarea?limit=20"
+    + (statusFilter ? "&status=" + encodeURIComponent(statusFilter) : "");
 
-  const summaryRes = await summaryResPromise;
-  const summary = await summaryRes.json().catch(() => ({}));
-  if (!summaryRes.ok || !summary.ok) {
-    const isOffline = summary.db_offline || summaryRes.status === 503;
-    const errMsg = summary.error || "Falha ao carregar resumo";
+  let bundle;
+  try {
+    const res = await fetch(myareaUrl, { credentials: "same-origin" });
+    bundle = await res.json().catch(() => ({}));
+    if (!res.ok || !bundle.ok) {
+      throw new Error(bundle.error || "Falha ao carregar Minha Área");
+    }
+  } catch (e) {
+    const errMsg = e.message || "Falha ao carregar resumo";
+    const isOffline = String(errMsg).includes("offline") || String(errMsg).includes("iniciando");
     document.getElementById("myarea-summary").innerHTML = isOffline
       ? `<div style="grid-column:1/-1;text-align:center;padding:20px 0;">
            <div style="font-size:28px;margin-bottom:8px">⏳</div>
@@ -14183,12 +14335,14 @@ async function loadMyArea(opts) {
            <div style="color:var(--text2);font-size:12px;margin-bottom:16px">O servidor MariaDB está subindo. Aguarde alguns segundos.</div>
            <button class="btn btn-ghost" onclick="setTimeout(() => loadMyArea({ force: true }), 3000)">↺ Tentar novamente</button>
          </div>`
-      : `<div style="color:var(--danger);grid-column:1/-1">${errMsg}</div>`;
+      : `<div style="color:var(--danger);grid-column:1/-1">${escHtml(errMsg)}</div>`;
     document.getElementById("myarea-history").innerHTML = "";
     document.getElementById("myarea-donations").innerHTML = "";
     await marketProfilePromise;
     return;
   }
+
+  const summary = bundle.summary || {};
   const st = summary.stats || {};
   const pts = summary.points != null ? summary.points : "—";
   document.getElementById("myarea-summary").innerHTML = `
@@ -14204,12 +14358,17 @@ async function loadMyArea(opts) {
   updateBalanceDisplays(window._playerBalance);
   syncAmberUnits(window._playerBalance);
 
+  if (bundle.donations) {
+    _renderMyAreaDonationsPayload(bundle.donations);
+  }
+  if (bundle.history) {
+    _renderMyAreaHistoryPayload(bundle.history);
+  }
+
   await Promise.all([
-    loadMyAreaDonations(),
     loadMyAreaLottery(),
     loadMyAreaLicenses(),
     loadMyAreaDinoOrders(),
-    loadMyAreaHistory(),
     marketProfilePromise,
     ensureTeamsNavFromApi().then(() => {
       if (_teamsEnabledCache !== false) return loadMyTeam({ force: true });
@@ -14298,33 +14457,17 @@ async function cancelPendingOrder(orderId) {
   }
 }
 
-async function loadMyAreaDonations() {
-  const q = `?limit=${_myDonationsPage.limit}&offset=${_myDonationsPage.offset}`;
-  let r, d;
-  try {
-    r = await fetch(API + "/api/player/donations" + q);
-    d = await r.json();
-  } catch (e) {
-    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--danger)">Erro de rede ao carregar doações: ${e.message}</div>`;
-    return;
-  }
-  if (!d.ok) {
-    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar doações"}</div>`;
-    return;
-  }
+function _renderMyAreaDonationsPayload(d) {
   _myDonationsPage.total = d.total || 0;
   const items = d.items || [];
-
   const pageNum = Math.floor(_myDonationsPage.offset / _myDonationsPage.limit) + 1;
   const totalPages = Math.max(1, Math.ceil(_myDonationsPage.total / _myDonationsPage.limit));
   const pageInfo = document.getElementById("myarea-donations-page-info");
   if (pageInfo) pageInfo.textContent = `Pág. ${pageNum} / ${totalPages} (${_myDonationsPage.total} doações)`;
-
   if (!items.length) {
     document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--text2)">Nenhuma doação registrada.</div>`;
     return;
   }
-
   document.getElementById("myarea-donations").innerHTML = `
     <table class="tbl">
       <thead>
@@ -14353,6 +14496,23 @@ async function loadMyAreaDonations() {
   `;
 }
 
+async function loadMyAreaDonations() {
+  const q = `?limit=${_myDonationsPage.limit}&offset=${_myDonationsPage.offset}`;
+  let r, d;
+  try {
+    r = await fetch(API + "/api/player/donations" + q);
+    d = await r.json();
+  } catch (e) {
+    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--danger)">Erro de rede ao carregar doações: ${e.message}</div>`;
+    return;
+  }
+  if (!d.ok) {
+    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar doações"}</div>`;
+    return;
+  }
+  _renderMyAreaDonationsPayload(d);
+}
+
 function prevMyDonationsPage() {
   _myDonationsPage.offset = Math.max(0, _myDonationsPage.offset - _myDonationsPage.limit);
   loadMyAreaDonations();
@@ -14365,34 +14525,17 @@ function nextMyDonationsPage() {
   loadMyAreaDonations();
 }
 
-async function loadMyAreaHistory() {
-  const statusFilter = document.getElementById("myarea-status-filter")?.value || "";
-  const q = `?limit=${_myAreaPage.limit}&offset=${_myAreaPage.offset}` + (statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : "");
-  let r, d;
-  try {
-    r = await fetch(API + "/api/player/history" + q);
-    d = await r.json();
-  } catch(e) {
-    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">Erro de rede ao carregar histórico: ${e.message}</div>`;
-    return;
-  }
-  if (!d.ok) {
-    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar histórico"}</div>`;
-    return;
-  }
+function _renderMyAreaHistoryPayload(d) {
   _myAreaPage.total = d.total || 0;
   const items = d.items || [];
-
   const pageNum = Math.floor(_myAreaPage.offset / _myAreaPage.limit) + 1;
   const totalPages = Math.max(1, Math.ceil(_myAreaPage.total / _myAreaPage.limit));
   const pageInfo = document.getElementById("myarea-page-info");
   if (pageInfo) pageInfo.textContent = `Pág. ${pageNum} / ${totalPages} (${_myAreaPage.total} pedidos)`;
-
   if (!items.length) {
     document.getElementById("myarea-history").innerHTML = `<div style="color:var(--text2)">Nenhum resgate registrado.</div>`;
     return;
   }
-
   document.getElementById("myarea-history").innerHTML = `
     <table class="tbl">
       <thead>
@@ -14420,6 +14563,24 @@ async function loadMyAreaHistory() {
       </tbody>
     </table>
   `;
+}
+
+async function loadMyAreaHistory() {
+  const statusFilter = document.getElementById("myarea-status-filter")?.value || "";
+  const q = `?limit=${_myAreaPage.limit}&offset=${_myAreaPage.offset}` + (statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : "");
+  let r, d;
+  try {
+    r = await fetch(API + "/api/player/history" + q);
+    d = await r.json();
+  } catch(e) {
+    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">Erro de rede ao carregar histórico: ${e.message}</div>`;
+    return;
+  }
+  if (!d.ok) {
+    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar histórico"}</div>`;
+    return;
+  }
+  _renderMyAreaHistoryPayload(d);
 }
 
 function resetMyAreaPage() {
@@ -22885,7 +23046,7 @@ function _startHomeCarousel(count) {
   root.addEventListener("mouseenter", () => { _homeCarouselPaused = true; });
   root.addEventListener("mouseleave", () => { _homeCarouselPaused = false; });
   _homeCarouselTimer = setInterval(() => {
-    if (!_homeCarouselPaused) _homeCarouselGo(1);
+    if (!_homeCarouselPaused && _pageIsVisible()) _homeCarouselGo(1);
   }, 5000);
 }
 
@@ -25775,7 +25936,7 @@ function _startHomeFeatureCarousel() {
   root.addEventListener("mouseenter", () => { _homeFeatureCarouselPaused = true; });
   root.addEventListener("mouseleave", () => { _homeFeatureCarouselPaused = false; });
   _homeFeatureCarouselTimer = setInterval(() => {
-    if (!_homeFeatureCarouselPaused) _homeFeatureCarouselGo(1);
+    if (!_homeFeatureCarouselPaused && _pageIsVisible()) _homeFeatureCarouselGo(1);
   }, 10000);
 }
 
