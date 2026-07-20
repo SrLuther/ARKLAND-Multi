@@ -19256,13 +19256,27 @@ function dinoLabVitrinePresetChange() {
   if (preset === "7" || preset === "15") input.value = preset;
 }
 
+let _dinoLabVitrineCandidatesQ = "";
+let _dinoLabVitrineCandidatesTimer = null;
+
+function dinoLabVitrineFilterCandidates() {
+  const q = document.getElementById("dl-vitrine-perm-q")?.value || "";
+  clearTimeout(_dinoLabVitrineCandidatesTimer);
+  _dinoLabVitrineCandidatesTimer = setTimeout(() => {
+    _dinoLabVitrineCandidatesQ = q.trim();
+    loadDinoLabVitrineAdmin();
+  }, 250);
+}
+
 async function loadDinoLabVitrineAdmin() {
   const rotatingEl = document.getElementById("dl-vitrine-rotating");
   const permEl = document.getElementById("dl-vitrine-permanents");
   const countdown = document.getElementById("dl-vitrine-countdown");
   const hint = document.getElementById("dl-vitrine-fallback-hint");
+  const permHint = document.getElementById("dl-vitrine-perm-hint");
   try {
-    const d = await fetchJson("/api/admin/dino-order/vitrine");
+    const q = encodeURIComponent(_dinoLabVitrineCandidatesQ || "");
+    const d = await fetchJson(`/api/admin/dino-order/vitrine?candidates_limit=100&candidates_offset=0&q=${q}`);
     if (!d.ok) throw new Error(d.message || d.error || "Falha");
     const v = d.vitrine || {};
     _dinoLabVitrine = v;
@@ -19297,6 +19311,14 @@ async function loadDinoLabVitrineAdmin() {
             `<option value="${escHtml(c.species_key)}">${escHtml(c.display_name || c.species_key)} (${_dinoLabVitrineSizeLabel(c.size_class)})</option>`
           ).join("")
         : '<option value="">— sem espécies —</option>';
+    }
+    if (permHint) {
+      const total = Number(v.candidates_total || 0);
+      const shown = (v.candidates || []).length;
+      const more = v.candidates_has_more ? " · refine a busca para ver mais" : "";
+      permHint.textContent = total
+        ? `Mostrando ${shown} de ${total}${more}`
+        : "Nenhuma espécie candidata";
     }
   } catch (e) {
     if (rotatingEl) rotatingEl.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;

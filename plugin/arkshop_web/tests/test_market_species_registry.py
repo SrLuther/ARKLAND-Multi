@@ -127,6 +127,20 @@ def test_lookup_abyss_reaper_male_abyssal():
     assert hit["tier"] == "S+"
 
 
+def test_get_registry_entry_is_indexed():
+    """Lookup por key deve ser O(1) via índice — não scan linear da lista."""
+    from ark_species_registry import _registry_by_species_key, get_registry_entry, load_registry
+
+    _registry_by_species_key.cache_clear()
+    idx = _registry_by_species_key()
+    assert len(idx) >= 1
+    # Mesma entrada que load_registry
+    sample = (load_registry().get("species") or [])[0]
+    sk = str(sample.get("species_key") or "")
+    assert get_registry_entry(sk) is idx[sk.lower()]
+    assert get_registry_entry("___missing_species___") is None
+
+
 def test_tier_icon_url_fallback():
     assert tier_icon_url("S+").endswith("tier-s-plus.svg")
     assert tier_icon_url("A").endswith("tier-a.svg")

@@ -21,6 +21,7 @@ from dino_order_vitrine_service import (
     is_species_on_vitrine,
     load_store,
     normalize_size_class,
+    page_candidates,
     save_store,
     set_permanent_species,
     set_rotation_days,
@@ -127,7 +128,7 @@ def test_force_rotate_resets_timer(monkeypatch):
 
     monkeypatch.setattr(
         "dino_order_vitrine_service.list_candidate_species",
-        lambda db: candidates,
+        lambda db, force_refresh=False: candidates,
     )
 
     set_rotation_days(15)
@@ -149,7 +150,7 @@ def test_auto_rotate_when_expired(monkeypatch):
     candidates = _pool_full()
     monkeypatch.setattr(
         "dino_order_vitrine_service.list_candidate_species",
-        lambda db: candidates,
+        lambda db, force_refresh=False: candidates,
     )
 
     now = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
@@ -173,7 +174,7 @@ def test_is_species_on_vitrine_union(monkeypatch):
     candidates = _pool_full()
     monkeypatch.setattr(
         "dino_order_vitrine_service.list_candidate_species",
-        lambda db: candidates,
+        lambda db, force_refresh=False: candidates,
     )
     set_permanent_species(["large_9"])
     snap = force_rotate(_FakeDb(), rng=random.Random(5), now=datetime.now(timezone.utc))
@@ -193,7 +194,7 @@ def test_orderable_keys_hot_path_skips_full_catalog(monkeypatch):
 
     calls = {"n": 0}
 
-    def _boom(db):
+    def _boom(db, force_refresh=False):
         calls["n"] += 1
         raise AssertionError("list_candidate_species não deve ser chamado no hot path")
 
@@ -212,3 +213,80 @@ def test_orderable_keys_hot_path_skips_full_catalog(monkeypatch):
     assert "r0" in keys and "p0" in keys
     assert is_species_on_vitrine("r0", _FakeDb()) is True
     assert calls["n"] == 0
+
+
+def test_page_candidates_filter_and_limit():
+    pool = [_cand(f"large_{i}", "large") for i in range(30)]
+    page, total, more = page_candidates(pool, q="large_1", limit=5, offset=0)
+    assert total == 11  # large_1, large_10..large_19
+    assert len(page) == 5
+    assert more is True
+    page2, total2, more2 = page_candidates(pool, q="large_1", limit=5, offset=5)
+    assert total2 == 11
+    assert len(page2) == 5
+    assert more2 is True
+    page3, _, more3 = page_candidates(pool, q="large_1", limit=5, offset=10)
+    assert len(page3) == 1
+    assert more3 is False
+
+
+def test_snapshot_paginates_candidates(monkeypatch):
+    class _FakeDb:
+        pass
+
+    pool = _pool_full()
+    monkeypatch.setattr(
+        "dino_order_vitrine_service.list_candidate_species",
+        lambda db, force_refresh=False: list(pool),
+    )
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+    store = load_store()
+    store["rotating_species_keys"] = [c["species_key"] for c in pool[:10]]
+    store["permanent_species_keys"] = []
+    store["rotation_ends_at"] = (now + timedelta(days=7)).isoformat()
+    save_store(store)
+
+    from dino_order_vitrine_service import get_vitrine_snapshot
+
+    snap = get_vitrine_snapshot(
+        _FakeDb(),
+        store=store,
+        now=now,
+        candidates_limit=5,
+        candidates_offset=0,
+        use_cache=False,
+    )
+    assert snap["candidates_total"] == len(pool)
+    assert len(snap["candidates"]) == 5
+    assert snap["candidates_has_more"] is True
+    assert len(snap["rotating"]) == 10
+    # Imagens só nos slots, não no pool paginado
+    assert all("image_url" in c for c in snap["rotating"])
+
+
+def test_list_candidate_uses_lightweight_loader(monkeypatch):
+    """Pool de candidatos vem do loader leve — não de list_species_public."""
+    from dino_order_vitrine_service import invalidate_vitrine_caches, list_candidate_species
+
+    calls = {"n": 0}
+
+    def _fake_light(db):
+        calls["n"] += 1
+        return [_cand("rex", "large")]
+
+    def _boom(*a, **k):
+        raise AssertionError("list_species_public não deve ser usado na vitrine")
+
+    monkeypatch.setattr(
+        "dino_order_vitrine_service._load_candidates_lightweight",
+        _fake_light,
+    )
+    monkeypatch.setattr("market_service.list_species_public", _boom, raising=False)
+    invalidate_vitrine_caches()
+    out = list_candidate_species(object(), force_refresh=True)
+    assert calls["n"] == 1
+    assert out[0]["species_key"] == "rex"
+    # 2º call no TTL usa cache
+    out2 = list_candidate_species(object(), force_refresh=False)
+    assert calls["n"] == 1
+    assert out2[0]["species_key"] == "rex"

@@ -12,7 +12,17 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "",
-        "changes": [],
+        "changes": [
+            "Fix (Web Store / Admin Dino Lab): GET /api/admin/dino-order/vitrine "
+            "deixava de responder em 15s — causa: list_candidate_species → "
+            "list_species_public (multipliers + economia completa + imagens + "
+            "get_registry_entry O(n) por espécie) e payload com todo o catálogo. "
+            "Agora: query leve (load_only, sem multipliers/imagens), índice O(1) "
+            "no registry, imagens só nos ≤15 slots, cache TTL 30s, candidatos "
+            "paginados (q/limit/offset, default 100) + filtro no select admin.",
+            "Test (Web Store / Vitrine): page_candidates; snapshot paginado; "
+            "loader leve; get_registry_entry indexado.",
+        ],
     },
     {
         "version": "1.10.84",
