@@ -1145,6 +1145,16 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     manual_entry = ctk.CTkEntry(manual_f, textvariable=map_var, width=280,
                                 placeholder_text="TheIsland  ou  /Game/Mods/123456/funny_map")
     manual_entry.pack(side="left")
+    _attach_modified_badge(
+        sf, map_var, "server_map",
+        getattr(_DEFAULT_SRV, "server_map", "TheIsland"),
+        6,
+    )
+
+    def _sync_map_label(*_):
+        map_lbl.configure(text=_map_display_name(map_var.get()))
+
+    map_var.trace_add("write", _sync_map_label)
 
     _str_entry(sf, None, "total_conversion_mod_id", srv, vars_ref, 7, accent)
 

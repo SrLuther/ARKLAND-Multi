@@ -1190,6 +1190,60 @@ def test_launch_url_expands_bare_amissa_with_active_mod(tmp_path):
     assert "?Port=7800" in url
 
 
+def test_launch_url_keeps_vanilla_crystal_isles_despite_active_mods(tmp_path):
+    """Regressão P0: CrystalIsles + ActiveMods[0]=S+/stack NÃO vira /Game/Mods/.../CrystalIsles."""
+    from src.asm_engine.asm_ini_manager import _launch_url_params
+
+    # Pasta do primeiro mod existe (como no cluster real) — bug antigo expandia mesmo assim
+    (tmp_path / "ShooterGame" / "Content" / "Mods" / "2307661303").mkdir(parents=True)
+    cfg = _cfg(
+        server_map="CrystalIsles",
+        install_dir=str(tmp_path),
+        active_mods=["2307661303", "3488684103"],
+        max_players=70,
+        server_port=7796,
+        query_port=27103,
+    )
+    url = "".join(_launch_url_params(cfg))
+    assert url.startswith("CrystalIsles?listen"), url
+    assert "/Game/Mods/" not in url.split("?")[0]
+    assert "?MaxPlayers=70" in url
+
+
+def test_launch_url_keeps_vanilla_gen2_despite_active_mods(tmp_path):
+    from src.asm_engine.asm_ini_manager import _launch_url_params
+
+    (tmp_path / "ShooterGame" / "Content" / "Mods" / "2307661303").mkdir(parents=True)
+    cfg = _cfg(
+        server_map="Gen2",
+        install_dir=str(tmp_path),
+        active_mods=["2307661303"],
+        max_players=30,
+    )
+    url = "".join(_launch_url_params(cfg))
+    assert url.startswith("Gen2?listen"), url
+    assert "?MaxPlayers=30" in url
+
+
+def test_should_expand_requires_mod_map_name_match(tmp_path):
+    from src.asm_engine.asm_mod_copy import write_mod_file
+    from src.asm_engine.asm_mod_utils import should_expand_bare_map_with_active_mod
+
+    mods_root = tmp_path / "ShooterGame" / "Content" / "Mods"
+    mid = "1383342563"
+    (mods_root / mid).mkdir(parents=True)
+    # .mod declara outro mapa — não expandir "Amissa"
+    write_mod_file(
+        mods_root / f"{mid}.mod",
+        mid,
+        {},
+        ["OtherMap"],
+    )
+    assert not should_expand_bare_map_with_active_mod(
+        "Amissa", mid, str(tmp_path),
+    )
+
+
 def test_launch_url_keeps_canonical_mod_path():
     from src.asm_engine.asm_ini_manager import _launch_url_params
 

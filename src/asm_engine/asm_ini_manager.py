@@ -1037,24 +1037,23 @@ def read_ini_from_paths(
 
 def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
     """Parâmetros ?key=value concatenados ao mapa (estilo ASM/UE)."""
-    from .asm_mod_utils import get_map_mod_id, map_cli_name, normalize_server_map_path
+    from .asm_mod_utils import (
+        map_cli_name,
+        normalize_server_map_path,
+        should_expand_bare_map_with_active_mod,
+    )
 
     raw_map = (cfg.server_map or "").strip()
     map_token = map_cli_name(raw_map, cfg.install_dir or "")
-    # ServerMap curto ("Amissa") + ActiveMods[0]=workshop map → path canónico ASE
-    if raw_map and "/" not in raw_map and not get_map_mod_id(raw_map):
-        mods = list(cfg.active_mods or [])
-        mid = str(mods[0]).strip() if mods else ""
-        if mid.isdigit() and map_token:
-            install = (cfg.install_dir or "").strip()
-            mod_ok = True
-            if install:
-                mod_dir = (
-                    Path(install) / "ShooterGame" / "Content" / "Mods" / mid
-                )
-                mod_ok = mod_dir.is_dir()
-            if mod_ok:
-                map_token = normalize_server_map_path(mid, map_token)
+    # ServerMap curto de MOD ("Amissa") + ActiveMods[0]=workshop map → path canónico.
+    # NÃO aplicar a vanilla/DLC (CrystalIsles, Gen2, …): ActiveMods[0] costuma ser
+    # S+/stack e gerava /Game/Mods/{id}/CrystalIsles — servidor falhava ou ignorava config.
+    mods = list(cfg.active_mods or [])
+    mid = str(mods[0]).strip() if mods else ""
+    if should_expand_bare_map_with_active_mod(
+        raw_map, mid, cfg.install_dir or "",
+    ):
+        map_token = normalize_server_map_path(mid, map_token)
 
     params = [
         map_token,

@@ -42,6 +42,20 @@ def _coerce_int(val: Any, default: int = 0) -> int:
         return default
 
 
+def _reuse_or_make_string_var(
+    vars_ref: dict, field: str, fallback: str,
+) -> tk.StringVar:
+    """Reutiliza StringVar já criada (ex.: Administração) — evita «Todas as opções»
+    sobrescrever edits não salvos com valores antigos de ``srv``.
+    """
+    existing = vars_ref.get(field)
+    if isinstance(existing, tk.StringVar):
+        return existing
+    var = tk.StringVar(value=fallback)
+    vars_ref[field] = var
+    return var
+
+
 STAT_NAMES = [
     ("❤", "Vida"),
     ("⚡", "Stamina"),
@@ -325,8 +339,7 @@ def add_float_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) 
 
     raw_val = getattr(ctx.srv, field, 1.0)
     val = _coerce_float(raw_val, 1.0)
-    var = tk.StringVar(value=str(val))
-    ctx.vars_ref[field] = var
+    var = _reuse_or_make_string_var(ctx.vars_ref, field, str(val))
 
     entry = ctk.CTkEntry(ctrl, textvariable=var, width=90, height=30)
     entry.grid(row=0, column=0, sticky="w")
@@ -402,8 +415,7 @@ def add_int_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) ->
 
     raw_val = getattr(ctx.srv, field, 0)
     val = _coerce_int(raw_val, 0)
-    var = tk.StringVar(value=str(val))
-    ctx.vars_ref[field] = var
+    var = _reuse_or_make_string_var(ctx.vars_ref, field, str(val))
 
     ctk.CTkEntry(ctrl, textvariable=var, width=120, height=30).grid(row=0, column=0, sticky="w")
 
@@ -423,8 +435,12 @@ def add_int_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) ->
 def add_bool_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int, col: int = 0) -> None:
     meta = get_field_meta(field)
     val = bool(getattr(ctx.srv, field, False))
-    var = tk.BooleanVar(value=val)
-    ctx.vars_ref[field] = var
+    existing = ctx.vars_ref.get(field)
+    if isinstance(existing, tk.BooleanVar):
+        var = existing
+    else:
+        var = tk.BooleanVar(value=val)
+        ctx.vars_ref[field] = var
 
     frame = ctk.CTkFrame(card, fg_color="transparent")
     frame.grid(row=_logical_row_to_grid(row), column=col, padx=12, pady=6, sticky="ew")
@@ -500,8 +516,7 @@ def add_combo_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) 
     if display not in COMBO_FIELD_VALUES.get(field, []):
         display = COMBO_FIELD_VALUES[field][0] if field in COMBO_FIELD_VALUES else display
 
-    var = tk.StringVar(value=display)
-    ctx.vars_ref[field] = var
+    var = _reuse_or_make_string_var(ctx.vars_ref, field, display)
 
     ctk.CTkComboBox(
         ctrl, variable=var,
@@ -510,7 +525,13 @@ def add_combo_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) 
         dropdown_font=ctk.CTkFont(size=12),
     ).grid(row=0, column=0, sticky="ew")
 
-    default_display = id_to_label.get(str(raw_val), COMBO_FIELD_VALUES[field][0])
+    default_id = ""
+    try:
+        from ..asm_engine.asm_server_config import AsmServerConfig as _ASC
+        default_id = str(getattr(_ASC(), field, "") or "")
+    except Exception:
+        default_id = ""
+    default_display = id_to_label.get(default_id, COMBO_FIELD_VALUES[field][0])
     badge = ctk.CTkLabel(ctrl, text="●", text_color="#fbbf24", width=16)
     reset_btn = ctk.CTkButton(
         ctrl, text="↺", width=28, height=28,
@@ -541,8 +562,7 @@ def add_str_field(
     ctrl.grid_columnconfigure(0, weight=1)
 
     val = getattr(ctx.srv, field, "")
-    var = tk.StringVar(value=str(val))
-    ctx.vars_ref[field] = var
+    var = _reuse_or_make_string_var(ctx.vars_ref, field, str(val))
 
     ctk.CTkEntry(
         ctrl, textvariable=var,

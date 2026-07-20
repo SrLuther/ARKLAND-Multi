@@ -8,6 +8,32 @@ from pathlib import Path
 
 from .asm_server_config import AsmServerConfig
 
+# Mapas oficiais ASE (vanilla + DLC). Nomes curtos na CLI — NÃO expandir para
+# /Game/Mods/{ActiveMods[0]}/… (ActiveMods[0] costuma ser S+/stack, não mapa).
+VANILLA_ARK_MAP_NAMES: frozenset[str] = frozenset({
+    "theisland",
+    "thecenter",
+    "scorchedearth_p",
+    "ragnarok",
+    "aberration_p",
+    "extinction",
+    "valguero_p",
+    "genesis",
+    "crystalisles",
+    "gen2",
+    "lostisland",
+    "fjordur",
+    "olympus",  # raro / legado
+})
+
+
+def is_vanilla_ark_map(server_map: str) -> bool:
+    """True se o token de mapa (ou último segmento) é mapa oficial ASE."""
+    name = get_map_name_from_path(server_map) or (server_map or "").strip()
+    if not name:
+        return False
+    return name.strip().lower() in VANILLA_ARK_MAP_NAMES
+
 
 def get_map_mod_id(server_map: str) -> str:
     """Extrai workshop ID de ServerMap no formato /Game/Mods/{id}/{mapName}."""
@@ -99,6 +125,40 @@ def map_cli_name(server_map: str, install_dir: str = "") -> str:
 def normalize_server_map_path(mod_id: str, map_name: str) -> str:
     """Formato canônico ASM para mapas mod."""
     return f"/Game/Mods/{mod_id}/{map_name}"
+
+
+def should_expand_bare_map_with_active_mod(
+    server_map: str,
+    mod_id: str,
+    install_dir: str = "",
+) -> bool:
+    """ServerMap curto + ActiveMods[0] → /Game/Mods/{id}/{map}?
+
+    Só para mapas **mod** (Amissa, Alps, …). Vanilla/DLC (CrystalIsles, Gen2, …)
+    nunca expandem — ActiveMods[0] em clusters reais é tipicamente S+/stack.
+    Se existir ``{modId}.mod``, exige que o nome do mapa conste no ficheiro.
+    """
+    raw = (server_map or "").strip()
+    if not raw or "/" in raw or get_map_mod_id(raw):
+        return False
+    mid = (mod_id or "").strip()
+    if not mid.isdigit():
+        return False
+    map_token = map_cli_name(raw, install_dir)
+    if not map_token or is_vanilla_ark_map(map_token) or is_vanilla_ark_map(raw):
+        return False
+    install = (install_dir or "").strip()
+    if install:
+        mod_dir = Path(install) / "ShooterGame" / "Content" / "Mods" / mid
+        if not mod_dir.is_dir():
+            return False
+        from_dot = read_map_name_from_dot_mod(install, mid)
+        if from_dot:
+            return from_dot.strip().lower() == map_token.strip().lower()
+        # Pasta existe sem .mod legível — permite expand (paridade testes / mods novos)
+        return True
+    # Sem install_dir: só expansível se não for vanilla (já filtrado)
+    return True
 
 
 def collect_mod_ids_for_install(cfg: AsmServerConfig) -> list[str]:

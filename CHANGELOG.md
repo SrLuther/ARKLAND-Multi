@@ -7,6 +7,19 @@
 
 ## [Unreleased] - 
 
+### Improvement
+
+- Melhoria (TEK / UI): badge ●/↺ no campo Mapa (vanilla ou mod).
+
+### Fix
+
+- Fix P0 (TEK / Launch): mapas vanilla/DLC (CrystalIsles, Gen2, TheIsland, …) com ActiveMods já não expandem para /Game/Mods/{ActiveMods[0]}/MapName — o 1.10.72 fazia isso para Amissa e quebrava Crystal/Gen2 (ActiveMods[0]=S+/stack); CLI volta a CrystalIsles?listen… e MaxPlayers da config.
+- Fix (TEK / Painel): «Todas as opções» deixa de sobrescrever StringVars da Administração (mapa, slots, portas…) — edits não salvos já não revertiam ao valor antigo do perfil.
+
+### Other
+
+- Test (TEK / Launch): regressão CrystalIsles/Gen2 + ActiveMods; expansão Amissa só quando o .mod declara o mapa.
+
 ## [1.10.83] - 2026-07-20
 
 ### Fix
