@@ -173,7 +173,7 @@ def register_custom_dino_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         page = int(request.args.get("page") or 1)
-        page_size = int(request.args.get("page_size") or 25)
+        page_size = int(request.args.get("page_size") or 10)
         status = request.args.get("status")
         steam_id = request.args.get("steam_id")
         # Histórico unificado: inclui encomendas por padrão (badge origem).

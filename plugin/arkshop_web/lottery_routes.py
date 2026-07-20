@@ -145,7 +145,7 @@ def register_lottery_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         page = int(request.args.get("page") or 1)
-        page_size = int(request.args.get("page_size") or 50)
+        page_size = int(request.args.get("page_size") or 10)
         search = request.args.get("search_number")
         search_num = int(search) if search and str(search).isdigit() else None
         db = session_factory()

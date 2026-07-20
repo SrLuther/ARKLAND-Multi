@@ -836,7 +836,7 @@ def list_player_orders(
     steam_id: str,
     *,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = 10,
 ) -> dict[str, Any]:
     page = max(1, page)
     page_size = max(1, min(50, page_size))
@@ -857,10 +857,12 @@ def list_player_orders(
         text(f"SELECT * FROM orders WHERE {where} ORDER BY created_at DESC LIMIT :lim OFFSET :off"),
         params,
     ).fetchall()
+    pages = max(1, (total + page_size - 1) // page_size) if total else 1
     return {
         "page": page,
         "page_size": page_size,
         "total": total,
+        "pages": pages,
         "orders": [_order_to_player_dict(r) for r in rows],
     }
 

@@ -38,7 +38,7 @@ def register_suggestion_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session())
-        limit = int(request.args.get("limit") or 50)
+        limit = int(request.args.get("limit") or 10)
         offset = int(request.args.get("offset") or 0)
         db = session_factory()
         try:
@@ -105,7 +105,7 @@ def register_suggestion_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         status = (request.args.get("status") or "").strip() or None
         q = (request.args.get("q") or "").strip()
-        limit = int(request.args.get("limit") or 50)
+        limit = int(request.args.get("limit") or 10)
         offset = int(request.args.get("offset") or 0)
         db = session_factory()
         try:

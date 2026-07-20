@@ -66,7 +66,8 @@ def register_plugin_debug_routes(
                 category=request.args.get("category") or None,
                 level=request.args.get("level") or None,
                 steam_id=request.args.get("steam_id") or None,
-                limit=int(request.args.get("limit") or 100),
+                limit=int(request.args.get("limit") or 10),
+                offset=int(request.args.get("offset") or 0),
                 since_id=(
                     int(request.args["since_id"])
                     if request.args.get("since_id")

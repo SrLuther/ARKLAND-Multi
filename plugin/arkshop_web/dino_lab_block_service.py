@@ -728,11 +728,11 @@ def search_blocked_ids(
     date_from: str | None = None,
     date_to: str | None = None,
     page: int = 1,
-    per_page: int = 50,
+    per_page: int = 10,
 ) -> dict[str, Any]:
     """Lista IDs bloqueados com filtros e paginação."""
     page = max(1, int(page or 1))
-    per_page = max(1, min(int(per_page or 50), 200))
+    per_page = max(1, min(int(per_page or 10), 200))
     offset = (page - 1) * per_page
 
     clauses: list[str] = []

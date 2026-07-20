@@ -7,6 +7,8 @@
 
 ## [Unreleased] - 
 
+## [1.10.83] - 2026-07-20
+
 ### Fix
 
 - Fix (TEK / Eventos Globais): rates temporários (XP, Taming, Harvest, Breeding) voltam a aparecer — o card ActiveEvent ocupava o viewport inteiro e escondia a secção; agora há abas «Rates temporários» e «Evento ARK oficial» (-ActiveEvent= intacto).
@@ -17,7 +19,7 @@
 ### Other
 
 - Test (TEK): deploy ArkPlayer preserva config existente e resolve template do bundle.
-- Perf (Web Store / UI): padroniza listagens paginadas a 10 por página (Pedidos, PIX/Audit, SeasonLand Ops, Players, Market admin+browse, Minha Área, tickets, Dino Lab block/custom-dino, ARKBANK, lottery participants, dino-order).
+- Perf (Web Store / UI): padroniza listagens paginadas a 10 por página; Anterior/Próxima só actualiza o container da tabela (beginTablePageFetch + abort); Pedidos, PIX/Audit, SeasonLand Ops, Players, Market browse/admin, Minha Área, tickets player/admin, Dino Lab history/block, ARKBANK extrato, sugestões, plugin-debug, dino-order.
 - Test (Web Store / Admin Pedidos): hot path sem total; has_more; include_total=1; default limit=10.
 
 ## [1.10.82] - 2026-07-20

@@ -1068,7 +1068,7 @@ def list_custom_dino_orders_admin(
     db: Session,
     *,
     page: int = 1,
-    page_size: int = 25,
+    page_size: int = 10,
     status: str | None = None,
     steam_id: str | None = None,
     exclude_player_orders: bool = False,
@@ -1096,10 +1096,12 @@ def list_custom_dino_orders_admin(
     nicks = _batch_store_user_nicks(
         db, [str(_row_val(r, "steam_id", "") or "") for r in rows],
     )
+    pages = max(1, (total + page_size - 1) // page_size) if total else 1
     return {
         "page": page,
         "page_size": page_size,
         "total": total,
+        "pages": pages,
         "orders": [
             order_to_admin_dict(
                 r,

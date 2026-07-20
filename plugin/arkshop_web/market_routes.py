@@ -691,7 +691,7 @@ def register_market_routes(
     def market_admin_list_listings():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        limit = min(200, max(1, int(request.args.get("limit") or 50)))
+        limit = min(200, max(1, int(request.args.get("limit") or 10)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
@@ -984,7 +984,7 @@ def register_market_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         species_key = (request.args.get("species_key") or "").strip() or None
         seller = (request.args.get("seller_steam_id") or "").strip() or None
-        limit = min(100, max(1, int(request.args.get("limit") or 50)))
+        limit = min(100, max(1, int(request.args.get("limit") or 10)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
@@ -1169,7 +1169,7 @@ def register_market_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session() or "")
-        limit = min(100, max(1, int(request.args.get("limit") or 50)))
+        limit = min(100, max(1, int(request.args.get("limit") or 10)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
@@ -1336,7 +1336,7 @@ def register_market_routes(
         date_to = (request.args.get("date_to") or "").strip() or None
         q = (request.args.get("q") or "").strip() or None
         steam_id_mode = (request.args.get("steam_id_mode") or "any").strip()
-        limit = min(200, max(1, int(request.args.get("limit") or 50)))
+        limit = min(200, max(1, int(request.args.get("limit") or 10)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:

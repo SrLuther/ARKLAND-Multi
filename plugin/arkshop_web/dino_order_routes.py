@@ -483,7 +483,7 @@ def register_dino_order_routes(
         if err:
             return err
         page = int(request.args.get("page", 1) or 1)
-        page_size = int(request.args.get("page_size", 20) or 20)
+        page_size = int(request.args.get("page_size", 10) or 10)
         db = session_factory()
         try:
             data = list_player_orders(db, str(steam_id), page=page, page_size=page_size)
@@ -500,7 +500,7 @@ def register_dino_order_routes(
         if err:
             return err
         page = int(request.args.get("page", 1) or 1)
-        page_size = int(request.args.get("page_size", 25) or 25)
+        page_size = int(request.args.get("page_size", 10) or 10)
         status = request.args.get("status")
         db = session_factory()
         try:
@@ -524,7 +524,7 @@ def register_dino_order_routes(
         if err:
             return err
         page = int(request.args.get("page", 1) or 1)
-        page_size = int(request.args.get("page_size", 25) or 25)
+        page_size = int(request.args.get("page_size", 10) or 10)
         status = request.args.get("status")
         db = session_factory()
         try:

@@ -1820,14 +1820,28 @@ class TestAdminOrdersList:
         r = client.get("/api/admin/orders")
         assert r.status_code in (401, 403)
 
-    def test_admin_orders_list_with_total(self, client):
+    def test_admin_orders_list_default_skips_total(self, client):
+        """Hot path: sem COUNT(*) — total null, has_more via LIMIT+1."""
         _login(client, ADMIN_STEAM)
         _create_order_direct(status="ENTREGUE")
         _create_order_direct(status="PENDENTE")
         r = client.get("/api/admin/orders")
         d = r.get_json()
         assert d.get("ok") is True
-        assert "total" in d
+        assert d.get("total") is None
+        assert "has_more" in d
+        assert d.get("limit") == 10
+        assert "items" in d
+        assert len(d["items"]) >= 2
+
+    def test_admin_orders_list_with_total(self, client):
+        _login(client, ADMIN_STEAM)
+        _create_order_direct(status="ENTREGUE")
+        _create_order_direct(status="PENDENTE")
+        r = client.get("/api/admin/orders?include_total=1")
+        d = r.get_json()
+        assert d.get("ok") is True
+        assert d["total"] is not None
         assert d["total"] >= 2
         assert "items" in d
 
@@ -1838,13 +1852,17 @@ class TestAdminOrdersList:
         r = client.get("/api/admin/orders?limit=2&offset=0")
         d = r.get_json()
         assert d["ok"] is True
-        assert d["total"] >= 5
+        assert d.get("total") is None
+        assert d.get("has_more") is True
         assert len(d["items"]) == 2
 
         r2 = client.get("/api/admin/orders?limit=2&offset=2")
         d2 = r2.get_json()
         assert len(d2["items"]) == 2
         assert d2["items"][0]["order_id"] != d["items"][0]["order_id"]
+
+        rt = client.get("/api/admin/orders?limit=2&offset=0&include_total=1")
+        assert rt.get_json()["total"] >= 5
 
     def test_admin_orders_filter_by_steam_id(self, client):
         _login(client, ADMIN_STEAM)

@@ -618,7 +618,7 @@ def register_season_pass_routes(
             except ValueError:
                 return jsonify({"ok": False, "error": "date_to inválido"}), 400
         try:
-            limit = max(1, min(200, int(request.args.get("limit", 50))))
+            limit = max(1, min(200, int(request.args.get("limit", 10))))
             offset = max(0, int(request.args.get("offset", 0)))
         except (TypeError, ValueError):
             return jsonify({"ok": False, "error": "limit/offset inválidos"}), 400

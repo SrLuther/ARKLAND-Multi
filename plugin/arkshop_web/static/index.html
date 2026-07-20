@@ -6826,6 +6826,9 @@
             <input id="market-browse-search" type="text" placeholder="🔍 Buscar dino ou vendedor…" oninput="renderMarketBrowse()" />
             <input id="market-browse-seller" type="text" placeholder="SteamID vitrine (opcional)…" style="max-width:220px;" onkeydown="if(event.key==='Enter')loadMarketVitrine()" />
             <button class="btn btn-ghost btn-sm" onclick="loadMarketVitrine()">🏪 Vitrine</button>
+            <span id="market-browse-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button class="btn btn-ghost btn-sm" onclick="prevMarketBrowsePage()">◀</button>
+            <button class="btn btn-ghost btn-sm" onclick="nextMarketBrowsePage()">▶</button>
           </div>
           <div id="market-browse-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
           <p id="market-browse-empty" style="display:none;color:var(--text2);text-align:center;padding:48px;">Nenhum anúncio ativo.</p>
@@ -7212,7 +7215,7 @@
               <option value="normal">Normal</option>
               <option value="urgente">Urgente</option>
             </select>
-            <button class="btn btn-ghost" onclick="loadTicketsAdmin()">🔄 Atualizar</button>
+            <button class="btn btn-ghost" onclick="resetTicketsAdminPage()">🔄 Atualizar</button>
           </div>
         </div>
         <div class="card admin-only" style="margin-bottom:16px;" id="support-staff-roster-card">
@@ -7257,7 +7260,13 @@
           </p>
         </div>
         <div class="card" style="margin-bottom:16px;">
-          <div id="tickets-admin-queue" style="color:var(--text2);padding:12px;">Carregando fila…</div>
+          <!-- tickets queue -->
+        <div id="tickets-admin-queue" style="color:var(--text2);padding:12px;">Carregando fila…</div>
+        </div>
+        <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin:8px 0 16px;flex-wrap:wrap;">
+          <span id="tickets-admin-page-info" style="font-size:12px;color:var(--text2);"></span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="prevTicketsAdminPage()">◀ Anterior</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="nextTicketsAdminPage()">Próxima ▶</button>
         </div>
         <div id="tickets-admin-detail" class="hidden">
           <div class="card">
@@ -8414,6 +8423,11 @@
         </div>
         <div id="tickets-panel-list" class="tickets-panel">
           <div id="tickets-list" style="color:var(--text2);">Carregando…</div>
+          <div id="tickets-list-pager" class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span id="tickets-list-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="prevTicketsPlayerPage()">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="nextTicketsPlayerPage()">Próxima ▶</button>
+          </div>
         </div>
         <div id="tickets-panel-new" class="tickets-panel hidden">
           <div class="card">
@@ -8637,7 +8651,12 @@
         </div>
         <div class="card">
           <div class="card-header"><div class="card-title">Minhas sugestões</div></div>
-          <div id="sugestoes-list" style="color:var(--text2);">Carregando…</div>
+          <div id="sugestoes-list-pager" class="table-pager" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <span id="sugestoes-list-page-info" style="font-size:12px;color:var(--text2);"></span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="prevSugestoesPage()">◀ Anterior</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="nextSugestoesPage()">Próxima ▶</button>
+        </div>
+        <div id="sugestoes-list" style="color:var(--text2);">Carregando…</div>
         </div>
       </div>
 
@@ -8717,6 +8736,11 @@
             <button class="btn btn-ghost btn-sm" onclick="goToPage('market');setMarketTab('encomenda')">Nova encomenda →</button>
           </div>
           <div id="myarea-dino-orders" style="color:var(--text2);font-size:13px;">Carregando…</div>
+          <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span id="myarea-dino-orders-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="prevMyAreaDinoOrdersPage()">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="nextMyAreaDinoOrdersPage()">Próxima ▶</button>
+          </div>
         </div>
         <!-- MINHA TRIBO — oculto: produto social = Equipes (backend tribo mantido legado) -->
         <div class="card" id="myarea-tribe-card" style="display:none !important;" aria-hidden="true" hidden>
@@ -8892,6 +8916,11 @@
         <div class="card" style="padding:14px;">
           <div class="card-title" style="margin-bottom:10px;">Extrato recente</div>
           <div id="arkbank-tx-list" style="color:var(--text2);">Carregando…</div>
+          <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span id="arkbank-tx-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="prevArkbankTxPage()">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="nextArkbankTxPage()">Próxima ▶</button>
+          </div>
         </div>
       </div>
 
@@ -9044,6 +9073,11 @@
         </div>
         <div id="dinolab-panel-history" class="catalog-panel">
           <div id="dinolab-history-list" style="color:var(--text2);">Carregando…</div>
+          <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span id="dinolab-history-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="prevDinoLabHistoryPage()">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="nextDinoLabHistoryPage()">Próxima ▶</button>
+          </div>
         </div>
         <div id="dinolab-panel-encomenda" class="catalog-panel">
           <div class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
@@ -9265,7 +9299,12 @@
         </div>
         <div id="sugg-admin-stats" class="card" style="margin-bottom:16px;font-size:12px;color:var(--text2);"></div>
         <div class="card">
-          <div id="sugg-admin-list" style="color:var(--text2);">Carregando…</div>
+          <div id="sugg-admin-pager" class="table-pager" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <span id="sugg-admin-page-info" style="font-size:12px;color:var(--text2);"></span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="prevSugestoesAdminPage()">◀ Anterior</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="nextSugestoesAdminPage()">Próxima ▶</button>
+        </div>
+        <div id="sugg-admin-list" style="color:var(--text2);">Carregando…</div>
         </div>
         <div id="sugg-admin-detail" class="card hidden" style="margin-top:16px;">
           <div class="card-header">
@@ -9910,6 +9949,11 @@
         <div class="card">
           <div class="card-title">Últimos eventos</div>
           <div id="plugin-debug-list" style="font-size:12px;color:var(--text2);">Carregando…</div>
+          <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span id="plugin-debug-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="prevPluginDebugPage()">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="nextPluginDebugPage()">Próxima ▶</button>
+          </div>
         </div>
       </div>
 
@@ -10409,8 +10453,8 @@ let _auth = { authenticated: false, is_admin: false, is_support: false, can_mana
 let _staffMode = false;
 let _staffModeLoadedForSid = null;
 const STAFF_MODE_STORAGE_PREFIX = "arkland_staff_mode";
-let _myAreaPage = { offset: 0, limit: 20, total: 0 };
-let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
+let _myAreaPage = { offset: 0, limit: 10, total: 0 };
+let _myDonationsPage = { offset: 0, limit: 10, total: 0 };
 
 const API = "";  // mesmo origin
 
@@ -10472,6 +10516,70 @@ async function readFetchJson(r) {
     throw err;
   }
 }
+
+
+/** Paginação de tabelas: só actualiza o container da lista (nunca nav/boot/reload). */
+const _TABLE_PAGE_ABORTERS = Object.create(null);
+const TABLE_PAGE_SIZE = 10;
+
+function beginTablePageFetch(key) {
+  const prev = _TABLE_PAGE_ABORTERS[key];
+  if (prev) {
+    try { prev.abort(); } catch (_) {}
+  }
+  const ctrl = new AbortController();
+  _TABLE_PAGE_ABORTERS[key] = ctrl;
+  return ctrl;
+}
+
+function isStaleTableAbort(err) {
+  return !!(err && (err.stale || err.name === "AbortError"));
+}
+
+function setTableLoading(el, msg) {
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--text2);padding:8px 0;">${escHtml(msg || "Carregando…")}</div>`;
+}
+
+function setTablePageInfo(elOrId, { offset = 0, limit = TABLE_PAGE_SIZE, total = null, hasMore = false, count = 0 } = {}) {
+  const el = typeof elOrId === "string" ? document.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  const lim = Math.max(1, Number(limit) || TABLE_PAGE_SIZE);
+  const pageNum = Math.floor(Math.max(0, Number(offset) || 0) / lim) + 1;
+  if (total != null && total !== "" && !Number.isNaN(Number(total))) {
+    const totalPages = Math.max(1, Math.ceil(Number(total) / lim));
+    el.textContent = `Pág. ${pageNum}/${totalPages} (${total})`;
+  } else if (hasMore) {
+    el.textContent = `Pág. ${pageNum} · ${count} nesta página · há mais →`;
+  } else {
+    el.textContent = `Pág. ${pageNum} · ${count}`;
+  }
+}
+
+function tablePagerHtml(infoId, prevFn, nextFn) {
+  return `<div class="table-pager" style="display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap;">
+    <span id="${infoId}" style="font-size:12px;color:var(--text2);"></span>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="${prevFn}()">◀ Anterior</button>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="${nextFn}()">Próxima ▶</button>
+  </div>`;
+}
+
+function stepTablePage(state, dir) {
+  const lim = state.limit || TABLE_PAGE_SIZE;
+  if (dir < 0) {
+    state.offset = Math.max(0, (state.offset || 0) - lim);
+    if (state.page != null) state.page = Math.max(1, (state.page || 1) - 1);
+    return true;
+  }
+  if (state.hasMore || (state.total != null && (state.offset || 0) + lim < state.total)
+      || (state.pages != null && (state.page || 1) < state.pages)) {
+    state.offset = (state.offset || 0) + lim;
+    if (state.page != null) state.page = (state.page || 1) + 1;
+    return true;
+  }
+  return false;
+}
+
 
 async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null, signal = null, retries = 1 } = {}) {
   const runOnce = async () => {
@@ -14315,7 +14423,7 @@ async function loadMyArea(opts) {
 
   const statusFilter = document.getElementById("myarea-status-filter")?.value || "";
   const marketProfilePromise = loadMyAreaMarketProfile();
-  const myareaUrl = API + "/api/player/myarea?limit=20"
+  const myareaUrl = API + "/api/player/myarea?limit=10"
     + (statusFilter ? "&status=" + encodeURIComponent(statusFilter) : "");
 
   let bundle;
@@ -15782,7 +15890,7 @@ async function loadSorteio(opts) {
       const c = cur.campaign;
       const [grid, parts] = await Promise.all([
         fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`),
-        fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=20`),
+        fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=10`),
       ]);
       const auth = _auth.authenticated;
       const actions = auth ? `
@@ -17059,13 +17167,8 @@ async function loadArkbankAdmin() {
   const balEl = document.getElementById("arkbank-balance");
   const healthEl = document.getElementById("arkbank-health");
   const deltaEl = document.getElementById("arkbank-delta");
-  const txRoot = document.getElementById("arkbank-tx-list");
-  if (txRoot) txRoot.textContent = "Carregando…";
   try {
-    const [sum, txs] = await Promise.all([
-      fetchJson("/api/admin/arkbank?days=7"),
-      fetchJson("/api/admin/arkbank/transactions?limit=50"),
-    ]);
+    const sum = await fetchJson("/api/admin/arkbank?days=7");
     if (!sum.ok) throw new Error(sum.error || "Falha ao carregar saldo");
     const bal = Number(sum.balance || 0);
     if (balEl) {
@@ -17097,35 +17200,61 @@ async function loadArkbankAdmin() {
       const keys = Object.keys(by);
       byRoot.innerHTML = keys.length
         ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${keys.map(k => {
-            const t = by[k].total || 0;
+            const tv = by[k].total || 0;
             const label = _ARKBANK_TX_LABELS[k] || k;
-            const col = t < 0 ? "var(--amber)" : "#3ecf8e";
-            return `<span class="badge" style="background:rgba(255,255,255,.04);">${escHtml(label)}: <span style="color:${col}">${_formatAmberAmountPt(t)}</span> ×${by[k].count || 0}</span>`;
+            const col = tv < 0 ? "var(--amber)" : "#3ecf8e";
+            return `<span class="badge" style="background:rgba(255,255,255,.04);">${escHtml(label)}: <span style="color:${col}">${_formatAmberAmountPt(tv)}</span> ×${by[k].count || 0}</span>`;
           }).join("")}</div>`
         : "<span>Sem movimentos nos últimos 7 dias.</span>";
     }
-    if (txRoot) {
-      const list = (txs.ok && txs.transactions) ? txs.transactions : [];
-      txRoot.innerHTML = list.length
-        ? `<div class="table-scroll"><table class="data-table"><thead><tr>
-            <th>Quando</th><th>Tipo</th><th>Valor</th><th>Saldo após</th><th>Steam</th><th>Ref</th>
-          </tr></thead><tbody>${list.map(t => {
-            const amt = Number(t.amount || 0);
-            const col = amt < 0 ? "var(--amber)" : "#3ecf8e";
-            const label = _ARKBANK_TX_LABELS[t.tx_type] || t.tx_type;
-            return `<tr>
-              <td style="white-space:nowrap;font-size:12px;">${escHtml(String(t.created_at || "").replace("T", " ").slice(0, 19))}</td>
-              <td>${escHtml(label)}</td>
-              <td style="color:${col};font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(amt)}</td>
-              <td style="font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(t.balance_after)}</td>
-              <td style="font-size:11px;">${escHtml(t.steam_id || "—")}</td>
-              <td style="font-size:11px;">${escHtml([t.ref_table, t.ref_id].filter(Boolean).join(" ") || (t.map_id || "—"))}</td>
-            </tr>`;
-          }).join("")}</tbody></table></div>`
-        : "<p>Nenhuma transação ainda.</p>";
-    }
   } catch (e) {
-    if (txRoot) txRoot.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+    if (balEl) balEl.textContent = "—";
+    toast(String(e), "error");
+  }
+  _arkbankTxPage.offset = 0;
+  loadArkbankTxPage();
+}
+
+function prevArkbankTxPage() { if (stepTablePage(_arkbankTxPage, -1)) loadArkbankTxPage(); }
+function nextArkbankTxPage() { if (stepTablePage(_arkbankTxPage, 1)) loadArkbankTxPage(); }
+
+async function loadArkbankTxPage() {
+  const txRoot = document.getElementById("arkbank-tx-list");
+  if (!txRoot) return;
+  setTableLoading(txRoot);
+  const ctrl = beginTablePageFetch("arkbank-tx");
+  try {
+    const lim = _arkbankTxPage.limit;
+    const txs = await fetchJson(
+      `/api/admin/arkbank/transactions?limit=${lim + 1}&offset=${_arkbankTxPage.offset}`,
+      { signal: ctrl.signal, retries: 0 },
+    );
+    const list = (txs.ok && txs.transactions) ? txs.transactions : [];
+    _arkbankTxPage.hasMore = list.length > lim;
+    const page = list.slice(0, lim);
+    setTablePageInfo("arkbank-tx-page-info", {
+      offset: _arkbankTxPage.offset, limit: lim, hasMore: _arkbankTxPage.hasMore, count: page.length,
+    });
+    txRoot.innerHTML = page.length
+      ? `<div class="table-scroll"><table class="data-table"><thead><tr>
+          <th>Quando</th><th>Tipo</th><th>Valor</th><th>Saldo após</th><th>Steam</th><th>Ref</th>
+        </tr></thead><tbody>${page.map(row => {
+          const amt = Number(row.amount || 0);
+          const col = amt < 0 ? "var(--amber)" : "#3ecf8e";
+          const label = _ARKBANK_TX_LABELS[row.tx_type] || row.tx_type;
+          return `<tr>
+            <td style="white-space:nowrap;font-size:12px;">${escHtml(String(row.created_at || "").replace("T", " ").slice(0, 19))}</td>
+            <td>${escHtml(label)}</td>
+            <td style="color:${col};font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(amt)}</td>
+            <td style="font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(row.balance_after)}</td>
+            <td style="font-size:11px;">${escHtml(row.steam_id || "—")}</td>
+            <td style="font-size:11px;">${escHtml([row.ref_table, row.ref_id].filter(Boolean).join(" ") || (row.map_id || "—"))}</td>
+          </tr>`;
+        }).join("")}</tbody></table></div>`
+      : "<p>Nenhuma transação ainda.</p>";
+  } catch (e) {
+    if (isStaleTableAbort(e)) return;
+    txRoot.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
 }
 
@@ -17242,7 +17371,7 @@ function setDinoLabTab(tab) {
   if (tab === "block") loadDinoLabBlockList();
 }
 
-let _dinoLabBlockPage = { page: 1, per_page: 50, total: 0, pages: 1 };
+let _dinoLabBlockPage = { page: 1, per_page: 10, total: 0, pages: 1 };
 
 function resetDinoLabBlockPage() {
   _dinoLabBlockPage.page = 1;
@@ -17592,14 +17721,36 @@ async function viewDinoLabOrderDetails(orderId) {
   }
 }
 
+function prevDinoLabHistoryPage() {
+  if (_dinoLabHistoryPage.page > 1) { _dinoLabHistoryPage.page -= 1; loadDinoLabHistory(); }
+}
+function nextDinoLabHistoryPage() {
+  if (_dinoLabHistoryPage.page < (_dinoLabHistoryPage.pages || 1)) {
+    _dinoLabHistoryPage.page += 1; loadDinoLabHistory();
+  }
+}
+
 async function loadDinoLabHistory() {
   const root = document.getElementById("dinolab-history-list");
   if (!root) return;
-  root.textContent = "Carregando…";
+  setTableLoading(root);
+  const ctrl = beginTablePageFetch("dinolab-history");
   try {
-    const d = await fetchJson("/api/admin/custom-dino/orders?page_size=50&include_encomenda=1");
+    const d = await fetchJson(
+      `/api/admin/custom-dino/orders?page=${_dinoLabHistoryPage.page}&page_size=${_dinoLabHistoryPage.page_size}&include_encomenda=1`,
+      { signal: ctrl.signal, retries: 0 },
+    );
     if (!d.ok) throw new Error(d.error);
     const orders = d.orders || [];
+    _dinoLabHistoryPage.total = d.total || 0;
+    _dinoLabHistoryPage.pages = d.pages || Math.max(1, Math.ceil(_dinoLabHistoryPage.total / _dinoLabHistoryPage.page_size));
+    _dinoLabHistoryPage.page = d.page || _dinoLabHistoryPage.page;
+    setTablePageInfo("dinolab-history-page-info", {
+      offset: (_dinoLabHistoryPage.page - 1) * _dinoLabHistoryPage.page_size,
+      limit: _dinoLabHistoryPage.page_size,
+      total: _dinoLabHistoryPage.total,
+      count: orders.length,
+    });
     root.innerHTML = orders.length ? `
       <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">
         Entregas admin e encomendas (badge «Encomenda»). Auto-entrega in-game mantida.
@@ -17625,6 +17776,7 @@ async function loadDinoLabHistory() {
         </table>
       </div>` : "<p>Nenhuma entrega registrada.</p>";
   } catch (e) {
+    if (isStaleTableAbort(e)) return;
     root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
 }
@@ -17741,30 +17893,31 @@ async function loadSugestoesPublicStats() {
   }
 }
 
-async function loadSugestoes() {
-  if (!_auth.authenticated) {
-    promptLogin("Sugestões");
-    return;
-  }
-  _suggToggleExtraFields();
-  const catSel = document.getElementById("sugg-new-category");
-  if (catSel && !catSel.dataset.bound) {
-    catSel.dataset.bound = "1";
-    catSel.addEventListener("change", _suggToggleExtraFields);
-  }
-  loadSugestoesPublicStats();
+function prevSugestoesPage() { if (stepTablePage(_sugestoesPage, -1)) loadSugestoesListOnly(); }
+function nextSugestoesPage() { if (stepTablePage(_sugestoesPage, 1)) loadSugestoesListOnly(); }
+
+async function loadSugestoesListOnly() {
   const root = document.getElementById("sugestoes-list");
-  if (!root) return;
-  root.innerHTML = "Carregando…";
+  if (!root || !_auth.authenticated) return;
+  setTableLoading(root);
+  const ctrl = beginTablePageFetch("sugestoes-mine");
   try {
-    const d = await fetchJson("/api/suggestions/mine");
+    const d = await fetchJson(
+      `/api/suggestions/mine?limit=${_sugestoesPage.limit}&offset=${_sugestoesPage.offset}`,
+      { signal: ctrl.signal, retries: 0 },
+    );
     if (!d.ok) throw new Error(d.error || "Falha ao carregar");
     const hint = document.getElementById("sugg-remaining-hint");
-    if (hint) {
+    if (hint && _sugestoesPage.offset === 0) {
       const rem = d.remaining_today;
       hint.textContent = rem != null ? `${rem} envio(s) restante(s) hoje` : "";
     }
     const items = d.items || [];
+    _sugestoesPage.total = d.total || 0;
+    setTablePageInfo("sugestoes-list-page-info", {
+      offset: _sugestoesPage.offset, limit: _sugestoesPage.limit,
+      total: _sugestoesPage.total, count: items.length,
+    });
     if (!items.length) {
       root.innerHTML = "<p>Nenhuma sugestão enviada ainda.</p>";
       return;
@@ -17786,8 +17939,25 @@ async function loadSugestoes() {
       </div>`;
     }).join("");
   } catch (e) {
+    if (isStaleTableAbort(e)) return;
     root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
+}
+
+async function loadSugestoes() {
+  if (!_auth.authenticated) {
+    promptLogin("Sugestões");
+    return;
+  }
+  _suggToggleExtraFields();
+  const catSel = document.getElementById("sugg-new-category");
+  if (catSel && !catSel.dataset.bound) {
+    catSel.dataset.bound = "1";
+    catSel.addEventListener("change", _suggToggleExtraFields);
+  }
+  loadSugestoesPublicStats();
+  _sugestoesPage.offset = 0;
+  await loadSugestoesListOnly();
 }
 
 async function submitSugestao() {
@@ -17826,31 +17996,45 @@ async function submitSugestao() {
   }
 }
 
+function prevSugestoesAdminPage() { if (stepTablePage(_sugestoesAdminPage, -1)) loadSugestoesAdmin(); }
+function nextSugestoesAdminPage() { if (stepTablePage(_sugestoesAdminPage, 1)) loadSugestoesAdmin(); }
+
 async function loadSugestoesAdmin() {
   const root = document.getElementById("sugg-admin-list");
   if (!root) return;
   document.getElementById("sugg-admin-detail")?.classList.add("hidden");
   root.classList.remove("hidden");
-  root.innerHTML = "Carregando…";
+  setTableLoading(root);
   const status = document.getElementById("sugg-admin-filter-status")?.value || "";
   const q = document.getElementById("sugg-admin-search")?.value?.trim() || "";
+  const ctrl = beginTablePageFetch("sugestoes-admin");
   try {
-    const [listD, statsD] = await Promise.all([
-      fetchJson(`/api/admin/suggestions?status=${encodeURIComponent(status)}&q=${encodeURIComponent(q)}`),
-      fetchJson("/api/public/suggestions/stats"),
-    ]);
+    const listD = await fetchJson(
+      `/api/admin/suggestions?status=${encodeURIComponent(status)}&q=${encodeURIComponent(q)}&limit=${_sugestoesAdminPage.limit}&offset=${_sugestoesAdminPage.offset}`,
+      { signal: ctrl.signal, retries: 0 },
+    );
     if (!listD.ok) throw new Error(listD.error || "Falha");
-    const statsEl = document.getElementById("sugg-admin-stats");
-    if (statsEl && statsD.ok && statsD.stats) {
-      const st = statsD.stats;
-      statsEl.innerHTML =
-        `<strong>Resumo:</strong> ${st.total || 0} total · ` +
-        `${st.by_status?.pending || 0} pendentes · ` +
-        `${st.by_status?.em_analise || 0} em análise · ` +
-        `${st.by_status?.aprovada || 0} aprovadas · ` +
-        `${st.by_status?.implementada || 0} implementadas`;
+    if (_sugestoesAdminPage.offset === 0) {
+      try {
+        const statsD = await fetchJson("/api/public/suggestions/stats");
+        const statsEl = document.getElementById("sugg-admin-stats");
+        if (statsEl && statsD.ok && statsD.stats) {
+          const st = statsD.stats;
+          statsEl.innerHTML =
+            `<strong>Resumo:</strong> ${st.total || 0} total · ` +
+            `${st.by_status?.pending || 0} pendentes · ` +
+            `${st.by_status?.em_analise || 0} em análise · ` +
+            `${st.by_status?.aprovada || 0} aprovadas · ` +
+            `${st.by_status?.implementada || 0} implementadas`;
+        }
+      } catch (_) {}
     }
     const items = listD.items || [];
+    _sugestoesAdminPage.total = listD.total || 0;
+    setTablePageInfo("sugg-admin-page-info", {
+      offset: _sugestoesAdminPage.offset, limit: _sugestoesAdminPage.limit,
+      total: _sugestoesAdminPage.total, count: items.length,
+    });
     if (!items.length) {
       root.innerHTML = "<p>Nenhuma sugestão encontrada.</p>";
       return;
@@ -17871,6 +18055,7 @@ async function loadSugestoesAdmin() {
     </table></div>`;
     window._suggAdminCache = items;
   } catch (e) {
+    if (isStaleTableAbort(e)) return;
     root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
 }
@@ -18105,6 +18290,7 @@ async function midiasAdminDelete(id) {
 }
 
 function ticketsSwitchTab(tab) {
+  _ticketsPlayerPage.offset = 0;
   _ticketsTab = tab;
   document.querySelectorAll(".tickets-tab-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.ticketsTab === tab);
@@ -18115,6 +18301,9 @@ function ticketsSwitchTab(tab) {
   if (tab === "open" || tab === "closed") loadTicketsPlayer();
 }
 
+function prevTicketsPlayerPage() { if (stepTablePage(_ticketsPlayerPage, -1)) loadTicketsPlayer(); }
+function nextTicketsPlayerPage() { if (stepTablePage(_ticketsPlayerPage, 1)) loadTicketsPlayer(); }
+
 async function loadTicketsPlayer() {
   if (!_auth.authenticated) {
     document.getElementById("tickets-list").innerHTML = `<div style="color:var(--text2);">Faça login com Steam.</div>`;
@@ -18122,21 +18311,33 @@ async function loadTicketsPlayer() {
   }
   const status = _ticketsTab === "closed" ? "encerrados" : "abertos";
   const el = document.getElementById("tickets-list");
-  el.innerHTML = `<div style="color:var(--text2);">Carregando…</div>`;
+  setTableLoading(el, "Carregando…");
+  const ctrl = beginTablePageFetch("tickets-player");
   try {
-    const d = await fetchJson(`/api/tickets?tab=${encodeURIComponent(status)}`, { timeoutMs: 15000 });
+    const d = await fetchJson(
+      `/api/tickets?tab=${encodeURIComponent(status)}&limit=${_ticketsPlayerPage.limit}&offset=${_ticketsPlayerPage.offset}`,
+      { timeoutMs: 15000, signal: ctrl.signal, retries: 0 },
+    );
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
     _ticketsPlayerList = d.items || [];
     _ticketsMeta = d;
+    _ticketsPlayerPage.total = d.total || 0;
+    _ticketsPlayerPage.hasMore = (_ticketsPlayerPage.offset + _ticketsPlayerPage.limit) < _ticketsPlayerPage.total;
+    setTablePageInfo("tickets-list-page-info", {
+      offset: _ticketsPlayerPage.offset, limit: _ticketsPlayerPage.limit,
+      total: _ticketsPlayerPage.total, count: _ticketsPlayerList.length,
+    });
     const prof = document.getElementById("tickets-player-profile");
-    if (prof) {
+    if (prof && _ticketsPlayerPage.offset === 0) {
       prof.innerHTML = `Steam: <strong>${escHtml(d.player_name || _auth.steam_id)}</strong> · <code>${escHtml(_auth.steam_id)}</code>`;
     }
-    const link = d.discord_link || {};
-    const du = document.getElementById("tickets-discord-username");
-    const di = document.getElementById("tickets-discord-id");
-    if (du && link.discord_username) du.value = link.discord_username;
-    if (di && link.discord_user_id) di.value = link.discord_user_id;
+    if (_ticketsPlayerPage.offset === 0) {
+      const link = d.discord_link || {};
+      const du = document.getElementById("tickets-discord-username");
+      const di = document.getElementById("tickets-discord-id");
+      if (du && link.discord_username) du.value = link.discord_username;
+      if (di && link.discord_user_id) di.value = link.discord_user_id;
+    }
     if (!_ticketsPlayerList.length) {
       const emptyMsg = status === "encerrados"
         ? "Nenhum ticket encerrado. Tickets resolvidos pelo suporte aparecem aqui."
@@ -18145,17 +18346,18 @@ async function loadTicketsPlayer() {
       return;
     }
     el.innerHTML = `<table class="tbl"><thead><tr><th>#</th><th>Assunto</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Atualizado</th><th></th></tr></thead><tbody>
-      ${_ticketsPlayerList.map(t => `<tr>
-        <td>${t.id}</td>
-        <td>${escHtml(t.subject)}</td>
-        <td>${_ticketCategoryBadge(t.category)}</td>
-        <td>${_ticketPriorityBadge(t.priority)}</td>
-        <td>${_ticketStatusBadge(t.status)}</td>
-        <td style="font-size:12px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
-        <td><button class="btn btn-ghost btn-sm" onclick="ticketsOpenDetail(${t.id})">Abrir</button></td>
+      ${_ticketsPlayerList.map(tk => `<tr>
+        <td>${tk.id}</td>
+        <td>${escHtml(tk.subject)}</td>
+        <td>${_ticketCategoryBadge(tk.category)}</td>
+        <td>${_ticketPriorityBadge(tk.priority)}</td>
+        <td>${_ticketStatusBadge(tk.status)}</td>
+        <td style="font-size:12px;color:var(--text2);">${escHtml(tk.updated_at || "")}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="ticketsOpenDetail(${tk.id})">Abrir</button></td>
       </tr>`).join("")}
     </tbody></table>`;
   } catch (e) {
+    if (isStaleTableAbort(e)) return;
     el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
 }
@@ -18344,6 +18546,10 @@ async function saveTicketsDiscord() {
   } catch (e) { toast(String(e), "error"); }
 }
 
+function resetTicketsAdminPage() { _ticketsAdminPage.offset = 0; loadTicketsAdmin(); }
+function prevTicketsAdminPage() { if (stepTablePage(_ticketsAdminPage, -1)) loadTicketsAdmin(); }
+function nextTicketsAdminPage() { if (stepTablePage(_ticketsAdminPage, 1)) loadTicketsAdmin(); }
+
 async function loadTicketsAdmin() {
   if (!_auth.can_manage_tickets) return;
   const filter = document.getElementById("tickets-admin-filter-status")?.value || "";
@@ -18351,17 +18557,25 @@ async function loadTicketsAdmin() {
   const priority = document.getElementById("tickets-admin-filter-priority")?.value || "";
   const q = (document.getElementById("tickets-admin-search")?.value || "").trim();
   const el = document.getElementById("tickets-admin-queue");
-  el.innerHTML = `<div style="color:var(--text2);">Carregando fila…</div>`;
+  if (!el) return;
+  setTableLoading(el, "Carregando fila…");
+  const ctrl = beginTablePageFetch("tickets-admin");
   try {
-    let url = `/api/admin/tickets?limit=50`;
+    let url = `/api/admin/tickets?limit=${_ticketsAdminPage.limit}&offset=${_ticketsAdminPage.offset}`;
     if (filter) url += `&status=${encodeURIComponent(filter)}`;
     if (category) url += `&category=${encodeURIComponent(category)}`;
     if (priority) url += `&priority=${encodeURIComponent(priority)}`;
     if (q) url += `&q=${encodeURIComponent(q)}`;
-    const d = await fetchJson(url, { timeoutMs: 15000 });
+    const d = await fetchJson(url, { timeoutMs: 15000, signal: ctrl.signal, retries: 0 });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
     _ticketsMeta = d;
+    _ticketsAdminPage.total = d.total || 0;
+    _ticketsAdminPage.hasMore = (_ticketsAdminPage.offset + _ticketsAdminPage.limit) < _ticketsAdminPage.total;
     _populateTicketAdminCategoryFilter(d);
+    setTablePageInfo("tickets-admin-page-info", {
+      offset: _ticketsAdminPage.offset, limit: _ticketsAdminPage.limit,
+      total: _ticketsAdminPage.total, count: (d.items || []).length,
+    });
     const items = d.items || [];
     if (!items.length) {
       el.innerHTML = `<div style="color:var(--text2);padding:16px;text-align:center;">Nenhum ticket na fila com os filtros atuais.</div>`;
@@ -18384,9 +18598,9 @@ async function loadTicketsAdmin() {
       <td style="font-size:11px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
       <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminAttend(${t.id})">${btnLabel}</button></td>
     </tr>`;
-    }).join("")}</tbody></table>
-    <div style="font-size:12px;color:var(--text2);margin-top:8px;">Total: ${d.total}</div>`;
+    }).join("")}</tbody></table>`;
   } catch (e) {
+    if (isStaleTableAbort(e)) return;
     el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
 }
@@ -18621,12 +18835,13 @@ async function loadDownloads(opts) {
 let _marketTable = null;
 let _marketTierLegend = {};
 let _marketBrowse = [];
+let _marketBrowsePage = { limit: 10, offset: 0, hasMore: false };
 let _marketMyListings = [];
 let _marketAdminSpecies = [];
 let _marketAuditEvents = [];
-let _marketAuditPage = { limit: 50, offset: 0, total: 0 };
+let _marketAuditPage = { limit: 10, offset: 0, total: 0 };
 let _marketAdminListings = [];
-let _marketListingsPage = { limit: 50, offset: 0, total: 0 };
+let _marketListingsPage = { limit: 10, offset: 0, total: 0 };
 let _marketListingsSelected = new Set();
 let _shopMarketStatus = {};
 let _marketTab = "table";
@@ -19406,16 +19621,44 @@ async function encomendaCheckout() {
   }
 }
 
+function prevMyAreaDinoOrdersPage() {
+  if (_myAreaDinoOrdersPage.page > 1) { _myAreaDinoOrdersPage.page -= 1; loadMyAreaDinoOrders(); }
+}
+function nextMyAreaDinoOrdersPage() {
+  if (_myAreaDinoOrdersPage.hasMore || _myAreaDinoOrdersPage.page < (_myAreaDinoOrdersPage.pages || 1)) {
+    _myAreaDinoOrdersPage.page += 1; loadMyAreaDinoOrders();
+  }
+}
+
 async function loadMyAreaDinoOrders() {
   const host = document.getElementById("myarea-dino-orders");
   if (!host || !_auth.authenticated) return;
+  setTableLoading(host);
+  const ctrl = beginTablePageFetch("myarea-dino-orders");
   try {
-    const d = await fetchJson("/api/player/dino-order/orders?page_size=10");
+    const d = await fetchJson(
+      `/api/player/dino-order/orders?page=${_myAreaDinoOrdersPage.page}&page_size=${_myAreaDinoOrdersPage.page_size}`,
+      { signal: ctrl.signal, retries: 0 },
+    );
     if (!d.ok) {
       host.textContent = d.error || "Indisponível";
       return;
     }
     const orders = d.orders || [];
+    _myAreaDinoOrdersPage.total = d.total != null ? d.total : null;
+    _myAreaDinoOrdersPage.pages = d.pages || (d.total != null
+      ? Math.max(1, Math.ceil(d.total / _myAreaDinoOrdersPage.page_size)) : 1);
+    _myAreaDinoOrdersPage.hasMore = !!d.has_more || (
+      _myAreaDinoOrdersPage.total != null
+      && _myAreaDinoOrdersPage.page * _myAreaDinoOrdersPage.page_size < _myAreaDinoOrdersPage.total
+    ) || orders.length >= _myAreaDinoOrdersPage.page_size;
+    setTablePageInfo("myarea-dino-orders-page-info", {
+      offset: (_myAreaDinoOrdersPage.page - 1) * _myAreaDinoOrdersPage.page_size,
+      limit: _myAreaDinoOrdersPage.page_size,
+      total: _myAreaDinoOrdersPage.total,
+      hasMore: _myAreaDinoOrdersPage.hasMore,
+      count: orders.length,
+    });
     if (!orders.length) {
       host.innerHTML = "<p>Nenhuma encomenda ainda.</p>";
       return;
@@ -19432,6 +19675,7 @@ async function loadMyAreaDinoOrders() {
     </tr>`;
     }).join("")}</tbody></table></div>`;
   } catch (e) {
+    if (isStaleTableAbort(e)) return;
     host.textContent = "Erro ao carregar encomendas.";
   }
 }
@@ -20999,12 +21243,33 @@ async function loadMarketBrowse() {
   if (!grid) return;
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text2);">Carregando…</div>';
   try {
-    const r = await fetch(API + "/api/market/listings?limit=100");
+    const lim = _marketBrowsePage.limit;
+    const r = await fetch(API + `/api/market/listings?limit=${lim + 1}&offset=${_marketBrowsePage.offset}`);
     const d = await r.json();
-    _marketBrowse = d.listings || [];
+    const rows = d.listings || [];
+    _marketBrowsePage.hasMore = rows.length > lim;
+    _marketBrowse = rows.slice(0, lim);
     renderMarketBrowse();
+    const info = document.getElementById("market-browse-page-info");
+    if (info) {
+      const pageNum = Math.floor(_marketBrowsePage.offset / lim) + 1;
+      info.textContent = _marketBrowsePage.hasMore
+        ? `Pág. ${pageNum} · ${_marketBrowse.length} anúncios · há mais →`
+        : `Pág. ${pageNum} · ${_marketBrowse.length} anúncio(s)`;
+    }
   } catch (e) {
     grid.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+function prevMarketBrowsePage() {
+  _marketBrowsePage.offset = Math.max(0, _marketBrowsePage.offset - _marketBrowsePage.limit);
+  loadMarketBrowse();
+}
+function nextMarketBrowsePage() {
+  if (_marketBrowsePage.hasMore) {
+    _marketBrowsePage.offset += _marketBrowsePage.limit;
+    loadMarketBrowse();
   }
 }
 
@@ -25436,7 +25701,7 @@ async function confirmBuy() {
 
 
 // ── Auditoria PIX (admin) ─────────────────────────────────────────────────────
-let _pixAuditPage = { limit: 50, offset: 0, total: 0 };
+let _pixAuditPage = { limit: 10, offset: 0, total: 0 };
 
 function resetPixAuditPage() { _pixAuditPage.offset = 0; loadPixAudit(); }
 function prevPixAuditPage() { _pixAuditPage.offset = Math.max(0, _pixAuditPage.offset - _pixAuditPage.limit); loadPixAudit(); }
@@ -25519,7 +25784,7 @@ async function loadPixAudit() {
 }
 
 // ── Auditoria (admin) ─────────────────────────────────────────────────────────
-let _auditPage = { limit: 50, offset: 0, total: 0 };
+let _auditPage = { limit: 10, offset: 0, total: 0 };
 
 function resetAuditPage() { _auditPage.offset = 0; loadAudit(); }
 function prevAuditPage() { _auditPage.offset = Math.max(0, _auditPage.offset - _auditPage.limit); loadAudit(); }
@@ -25585,6 +25850,9 @@ async function loadAudit() {
   }
 }
 
+function prevPluginDebugPage() { if (stepTablePage(_pluginDebugPage, -1)) loadPluginDebug(); }
+function nextPluginDebugPage() { if (stepTablePage(_pluginDebugPage, 1)) loadPluginDebug(); }
+
 async function loadPluginDebug() {
   const el = document.getElementById("plugin-debug-list");
   if (!el) return;
@@ -25592,20 +25860,26 @@ async function loadPluginDebug() {
   const category = document.getElementById("pd-filter-category")?.value || "";
   const level = document.getElementById("pd-filter-level")?.value || "";
   const steam = document.getElementById("pd-filter-steam")?.value.trim() || "";
-  let url = `${API}/api/admin/plugin-debug/events?limit=150`;
-  if (plugin) url += `&plugin=${encodeURIComponent(plugin)}`;
-  if (category) url += `&category=${encodeURIComponent(category)}`;
-  if (level) url += `&level=${encodeURIComponent(level)}`;
-  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  let path = `/api/admin/plugin-debug/events?limit=${_pluginDebugPage.limit + 1}&offset=${_pluginDebugPage.offset}`;
+  if (plugin) path += `&plugin=${encodeURIComponent(plugin)}`;
+  if (category) path += `&category=${encodeURIComponent(category)}`;
+  if (level) path += `&level=${encodeURIComponent(level)}`;
+  if (steam) path += `&steam_id=${encodeURIComponent(steam)}`;
+  setTableLoading(el);
+  const ctrl = beginTablePageFetch("plugin-debug");
   try {
-    const r = await fetch(url);
-    const d = await r.json();
+    const d = await fetchJson(path, { signal: ctrl.signal, retries: 0 });
     if (!d.ok) {
       el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`;
       return;
     }
-    const events = (d.data && d.data.events) || [];
+    const raw = (d.data && d.data.events) || d.events || [];
+    _pluginDebugPage.hasMore = raw.length > _pluginDebugPage.limit;
+    const events = raw.slice(0, _pluginDebugPage.limit);
+    setTablePageInfo("plugin-debug-page-info", {
+      offset: _pluginDebugPage.offset, limit: _pluginDebugPage.limit,
+      hasMore: _pluginDebugPage.hasMore, count: events.length,
+    });
     if (!events.length) {
       el.innerHTML = `<div style="color:var(--text2)">Sem eventos. Em produção, WARN/ERROR de TribeSync/Http/License gravam aqui mesmo com Debug.Enabled=false. TRACE detalhado exige ficheiro JSONL no mapa.</div>`;
       return;
@@ -25630,6 +25904,7 @@ async function loadPluginDebug() {
         </tbody>
       </table>`;
   } catch (err) {
+    if (isStaleTableAbort(err)) return;
     el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
   }
 }
@@ -26618,7 +26893,19 @@ async function viewAuditDetail(id) {
   document.getElementById("modal-audit-detail").classList.remove("hidden");
 }
 
-let _adminOrdersPage = { limit: 50, offset: 0, total: 0 };
+let _ticketsAdminPage = { limit: 10, offset: 0, total: 0, hasMore: false };
+let _ticketsPlayerPage = { limit: 10, offset: 0, total: 0, hasMore: false };
+let _arkbankTxPage = { limit: 10, offset: 0, hasMore: false };
+let _dinoLabHistoryPage = { page: 1, page_size: 10, total: 0, pages: 1 };
+let _myAreaDinoOrdersPage = { page: 1, page_size: 10, total: 0, pages: 1, hasMore: false };
+let _sugestoesPage = { limit: 10, offset: 0, total: 0 };
+let _sugestoesAdminPage = { limit: 10, offset: 0, total: 0 };
+let _pluginDebugPage = { limit: 10, offset: 0, hasMore: false };
+let _lotteryPartsPage = { page: 1, page_size: 10, total: 0, campaignId: null };
+let _lotteryReportPartsPage = { offset: 0, limit: 10, rows: [] };
+let _marketHistorySalesPage = { limit: 10, offset: 0, hasMore: false };
+let _marketHistoryPurchasesPage = { limit: 10, offset: 0, hasMore: false };
+let _adminOrdersPage = { limit: 10, offset: 0, total: null, hasMore: false };
 
 function resetAdminOrdersPage() { _adminOrdersPage.offset = 0; loadAdminOrders(); }
 function prevAdminOrdersPage() {
@@ -26626,7 +26913,8 @@ function prevAdminOrdersPage() {
   loadAdminOrders();
 }
 function nextAdminOrdersPage() {
-  if (_adminOrdersPage.offset + _adminOrdersPage.limit < _adminOrdersPage.total) {
+  // has_more (LIMIT+1) — não depende de COUNT exacto de toda a tabela
+  if (_adminOrdersPage.hasMore) {
     _adminOrdersPage.offset += _adminOrdersPage.limit;
     loadAdminOrders();
   }
@@ -26640,23 +26928,33 @@ async function loadAdminOrders() {
   const dateFrom = document.getElementById("admin-orders-filter-from")?.value || "";
   const dateTo = document.getElementById("admin-orders-filter-to")?.value || "";
   const includeSp = !!document.getElementById("admin-orders-include-sp")?.checked;
-  let url = `${API}/api/admin/orders?limit=${_adminOrdersPage.limit}&offset=${_adminOrdersPage.offset}&sort=created_at&order=desc`;
-  if (q) url += `&q=${encodeURIComponent(q)}`;
-  if (status) url += `&status=${encodeURIComponent(status)}`;
-  if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
-  if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
-  if (includeSp) url += `&include_season_pass=1`;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  // Só 1 página; sem include_total (COUNT em toda orders era o gargalo).
+  let path = `/api/admin/orders?limit=${_adminOrdersPage.limit}&offset=${_adminOrdersPage.offset}&sort=created_at&order=desc`;
+  if (q) path += `&q=${encodeURIComponent(q)}`;
+  if (status) path += `&status=${encodeURIComponent(status)}`;
+  if (dateFrom) path += `&date_from=${encodeURIComponent(dateFrom)}`;
+  if (dateTo) path += `&date_to=${encodeURIComponent(dateTo)}`;
+  if (includeSp) path += `&include_season_pass=1`;
+  setTableLoading(el);
+  const ctrl = beginTablePageFetch("admin-orders");
   try {
-    const r = await fetch(url);
-    const d = await r.json();
+    const d = await fetchJson(path, { timeoutMs: 15000, retries: 0, signal: ctrl.signal });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
-    _adminOrdersPage.total = d.total || 0;
-    const pageNum = Math.floor(_adminOrdersPage.offset / _adminOrdersPage.limit) + 1;
-    const totalPages = Math.max(1, Math.ceil(_adminOrdersPage.total / _adminOrdersPage.limit));
-    const info = document.getElementById("admin-orders-page-info");
-    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_adminOrdersPage.total} pedidos)`;
     const items = d.items || [];
+    _adminOrdersPage.hasMore = !!d.has_more;
+    _adminOrdersPage.total = (d.total != null && d.total !== "") ? Number(d.total) : null;
+    const pageNum = Math.floor(_adminOrdersPage.offset / _adminOrdersPage.limit) + 1;
+    const info = document.getElementById("admin-orders-page-info");
+    if (info) {
+      if (_adminOrdersPage.total != null && !Number.isNaN(_adminOrdersPage.total)) {
+        const totalPages = Math.max(1, Math.ceil(_adminOrdersPage.total / _adminOrdersPage.limit));
+        info.textContent = `Pág. ${pageNum}/${totalPages} (${_adminOrdersPage.total} pedidos)`;
+      } else {
+        info.textContent = _adminOrdersPage.hasMore
+          ? `Pág. ${pageNum} · ${items.length} nesta página · há mais →`
+          : `Pág. ${pageNum} · ${items.length} pedido(s)`;
+      }
+    }
     if (!items.length) {
       el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido encontrado.${!includeSp ? ' <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage(\'seasonland-ops\')">Ver no SeasonLand Ops →</button>' : ""}</div>`;
       return;
@@ -26688,7 +26986,12 @@ async function loadAdminOrders() {
         </tbody>
       </table>`;
   } catch (err) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+    if (isStaleTableAbort(err)) return;
+    const raw = String((err && err.message) || "");
+    const msg = /timeout/i.test(raw)
+      ? "Timeout ao carregar pedidos (15s). Tente filtrar por SteamID ou data."
+      : (raw || "Erro ao carregar");
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(msg)}</div>`;
   }
 }
 
@@ -26759,8 +27062,8 @@ async function viewAdminTimeline(orderId) {
 }
 
 // ── SeasonLand — Ops (admin) ──────────────────────────────────────────────────
-let _slOpsOrdersPage = { limit: 50, offset: 0, total: 0 };
-let _slOpsAuditPage = { limit: 50, offset: 0, total: 0 };
+let _slOpsOrdersPage = { limit: 10, offset: 0, total: 0 };
+let _slOpsAuditPage = { limit: 10, offset: 0, total: 0 };
 
 function resetSeasonlandOps() {
   _slOpsOrdersPage.offset = 0;
@@ -26966,7 +27269,7 @@ async function loadSeasonlandOpsAudit() {
 
 // ── Admin: Gerenciar Jogadores ───────────────────────────────────────────────
 
-let _playersAdminPage = { offset: 0, limit: 40, total: 0 };
+let _playersAdminPage = { offset: 0, limit: 10, total: 0 };
 let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;

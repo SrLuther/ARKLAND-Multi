@@ -1,9 +1,9 @@
 {
   "FullName": "ArkPlayer",
   "Description": "Comandos de jogador ARKLAND (mindwipe, missao, loot, nome, kill) — substitui PlayerUtilities MVP",
-  "Version": 1.0,
+  "Version": 1.01,
   "MinApiVersion": 3.54,
-  "VersionLabel": "1.0.0",
+  "VersionLabel": "1.0.1",
   "Dependencies": [
     "Permissions"
   ]

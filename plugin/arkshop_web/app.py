@@ -13318,7 +13318,7 @@ def player_myarea():
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    limit = max(1, min(100, int(request.args.get("limit", 20))))
+    limit = max(1, min(100, int(request.args.get("limit", 10))))
     status_filter = str(request.args.get("status", "")).strip().upper()
     db = _SessionLocal()
     try:
@@ -13436,7 +13436,7 @@ def player_history():
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    limit = max(1, min(100, int(request.args.get("limit", 20))))
+    limit = max(1, min(100, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
     status_filter = str(request.args.get("status", "")).strip().upper()
     db = _SessionLocal()
@@ -13498,7 +13498,7 @@ def player_donations():
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    limit = max(1, min(100, int(request.args.get("limit", 20))))
+    limit = max(1, min(100, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
     db = _SessionLocal()
     try:
@@ -14188,6 +14188,17 @@ def admin_retry_pending():
 @app.route("/api/admin/orders", methods=["GET"])
 @admin_required
 def admin_list_orders():
+    """Lista admin paginada — 1 página só (LIMIT), sem COUNT(*) no hot path.
+
+    Causa raiz do «Carregando…» longo: ``query.count()`` + exclusão SeasonLand
+    (``NOT LIKE 'sp:%'``) forçava full scan de *toda* a tabela ``orders`` (incl.
+    milhares de claims SP) antes de devolver 25–50 linhas. O frontend já pedia
+    ``limit``/``offset``, mas o COUNT tornava a 1.ª página O(N).
+
+    Agora: ``load_only`` (sem ``payload_json``), ``LIMIT+1`` → ``has_more``,
+    ``total`` só com ``include_total=1`` (ou SteamID completo, barato via índice);
+    default ``limit=10``.
+    """
     if (err := _require_db()) is not None:
         return err
     status = str(request.args.get("status", "")).strip().upper()
@@ -14203,11 +14214,37 @@ def admin_list_orders():
     season_only = str(request.args.get("season_pass_only", "0")).strip().lower() in (
         "1", "true", "yes", "on",
     )
-    limit = max(1, min(200, int(request.args.get("limit", 50))))
+    include_total_arg = str(request.args.get("include_total", "")).strip().lower()
+    limit = max(1, min(100, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
+    # SteamID completo → COUNT barato (ix steam_id); senão COUNT é opt-in.
+    q_is_full_steam = bool(q_text.isdigit() and len(q_text) >= 17)
+    if include_total_arg in ("1", "true", "yes", "on"):
+        want_total = True
+    elif include_total_arg in ("0", "false", "no", "off"):
+        want_total = False
+    else:
+        want_total = q_is_full_steam
     db = _SessionLocal()
     try:
-        query = db.query(Order)
+        query = db.query(Order).options(
+            load_only(
+                Order.order_id,
+                Order.steam_id,
+                Order.server_id,
+                Order.item_type,
+                Order.item_id,
+                Order.amount,
+                Order.points_spent,
+                Order.status,
+                Order.contested,
+                Order.retry_count,
+                Order.last_error,
+                Order.original_order_id,
+                Order.created_at,
+                Order.updated_at,
+            )
+        )
         sp_clause = _season_pass_original_order_clause()
         if season_only:
             query = query.filter(sp_clause)
@@ -14244,12 +14281,21 @@ def admin_list_orders():
                 pass
         sort_col = Order.created_at if sort == "created_at" else Order.created_at
         order_by = sort_col.asc() if order_dir == "asc" else sort_col.desc()
-        total = query.count()
-        rows = query.order_by(order_by).offset(offset).limit(limit).all()
+        # LIMIT+1 → has_more sem COUNT(*) (MySQL pode parar cedo no índice created_at).
+        rows = query.order_by(order_by).offset(offset).limit(limit + 1).all()
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        total: int | None = None
+        if want_total:
+            # ``query`` sem order/limit (cada .order_by/.limit devolve Query nova).
+            total = int(query.count())
         return jsonify(
             {
                 "ok": True,
                 "total": total,
+                "has_more": has_more,
+                "limit": limit,
+                "offset": offset,
                 "include_season_pass": bool(include_sp or season_only),
                 "season_pass_only": bool(season_only),
                 "items": [
@@ -14271,7 +14317,7 @@ def admin_list_orders():
                         "created_at": o.created_at.isoformat() if o.created_at else None,
                         "updated_at": o.updated_at.isoformat() if o.updated_at else None,
                     }
-                    for o in rows
+                    for o in page_rows
                 ],
             }
         )
@@ -14769,7 +14815,7 @@ def admin_pix_audit():
     steam_id = str(request.args.get("steam_id", "")).strip()
     payment_id = str(request.args.get("payment_id", "")).strip()
     q = str(request.args.get("q", "")).strip().lower()
-    limit = max(1, min(200, int(request.args.get("limit", 50))))
+    limit = max(1, min(200, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
 
     db = _SessionLocal()
@@ -14850,7 +14896,7 @@ def admin_list_audit():
     order_id = str(request.args.get("order_id", "")).strip()
     admin_steam_id = str(request.args.get("admin_steam_id", "")).strip()
     q = str(request.args.get("q", "")).strip().lower()
-    limit = max(1, min(200, int(request.args.get("limit", 50))))
+    limit = max(1, min(200, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
 
     db = _SessionLocal()
@@ -14944,9 +14990,9 @@ def admin_players_list():
     order = str(request.args.get("order") or "desc").strip()
     try:
         offset = int(request.args.get("offset", 0) or 0)
-        limit = int(request.args.get("limit", 50) or 50)
+        limit = int(request.args.get("limit", 10) or 10)
     except (TypeError, ValueError):
-        offset, limit = 0, 50
+        offset, limit = 0, 10
     result = _list_admin_players(q=q, sort=sort, order=order, offset=offset, limit=limit)
     status = 200 if result.get("ok") else 500
     return jsonify(result), status
@@ -15933,7 +15979,7 @@ def admin_arkbank_transactions():
     """Extrato recente do ARKBANK."""
     if (err := _require_db()) is not None:
         return err
-    limit = request.args.get("limit", 50, type=int) or 50
+    limit = request.args.get("limit", 10, type=int) or 10
     offset = request.args.get("offset", 0, type=int) or 0
     tx_type = (request.args.get("tx_type") or "").strip() or None
     db = _SessionLocal()

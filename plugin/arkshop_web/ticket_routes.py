@@ -109,7 +109,7 @@ def register_ticket_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session())
         status = (request.args.get("tab") or request.args.get("status") or "").strip() or None
-        limit = int(request.args.get("limit") or 50)
+        limit = int(request.args.get("limit") or 10)
         offset = int(request.args.get("offset") or 0)
         db = session_factory()
         try:
@@ -346,7 +346,7 @@ def register_ticket_routes(
         category = (request.args.get("category") or "").strip().lower() or None
         priority = (request.args.get("priority") or "").strip().lower() or None
         q = (request.args.get("q") or "").strip()
-        limit = int(request.args.get("limit") or 50)
+        limit = int(request.args.get("limit") or 10)
         offset = int(request.args.get("offset") or 0)
         db = session_factory()
         try:

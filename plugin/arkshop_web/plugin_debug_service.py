@@ -100,12 +100,14 @@ def list_events(
     category: str | None = None,
     level: str | None = None,
     steam_id: str | None = None,
-    limit: int = 100,
+    limit: int = 10,
+    offset: int = 0,
     since_id: int | None = None,
 ) -> list[dict[str, Any]]:
-    limit = max(1, min(int(limit or 100), 500))
+    limit = max(1, min(int(limit or 10), 500))
+    offset = max(0, int(offset or 0))
     clauses = ["1=1"]
-    params: dict[str, Any] = {"lim": limit}
+    params: dict[str, Any] = {"lim": limit, "off": offset}
     if plugin:
         clauses.append("plugin = :plugin")
         params["plugin"] = plugin[:32]
@@ -126,7 +128,7 @@ def list_events(
         "SELECT id, created_at, plugin, plugin_version, level, category, "
         "server_id, steam_id, order_id, correlation_id, message, fields_json "
         f"FROM arkland_plugin_debug WHERE {' AND '.join(clauses)} "
-        "ORDER BY id DESC LIMIT :lim"
+        "ORDER BY id DESC LIMIT :lim OFFSET :off"
     )
     rows = session.execute(text(sql), params).mappings().all()
     out: list[dict[str, Any]] = []

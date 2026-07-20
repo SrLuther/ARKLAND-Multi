@@ -1019,7 +1019,7 @@ def list_season_pass_orders(
     level: int | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
-    limit: int = 50,
+    limit: int = 10,
     offset: int = 0,
 ) -> dict[str, Any]:
     """Lista pedidos SeasonLand (original_order_id sp:… / skip-kit|sp:…)."""
