@@ -1,11 +1,9 @@
 {
-    "version": "1.10.84",
+    "version": "1.10.85",
     "date": "2026-07-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.84/ARKLAND-Multi-Setup-v1.10.84.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.85/ARKLAND-Multi-Setup-v1.10.85.exe",
     "changelog": [
-        "Fix P0 (TEK / Launch): mapas vanilla/DLC (CrystalIsles, Gen2, TheIsland, …) com ActiveMods já não expandem para /Game/Mods/{ActiveMods[0]}/MapName — o 1.10.72 fazia isso para Amissa e quebrava Crystal/Gen2 (ActiveMods[0]=S+/stack); CLI volta a CrystalIsles?listen… e MaxPlayers da config.",
-        "Fix (TEK / Painel): «Todas as opções» deixa de sobrescrever StringVars da Administração (mapa, slots, portas…) — edits não salvos já não revertiam ao valor antigo do perfil.",
-        "Melhoria (TEK / UI): badge ●/↺ no campo Mapa (vanilla ou mod).",
-        "Test (TEK / Launch): regressão CrystalIsles/Gen2 + ActiveMods; expansão Amissa só quando o .mod declara o mapa."
+        "Fix (Web Store / Admin Dino Lab): GET /api/admin/dino-order/vitrine deixava de responder em 15s — causa: list_candidate_species → list_species_public (multipliers + economia completa + imagens + get_registry_entry O(n) por espécie) e payload com todo o catálogo. Agora: query leve (load_only, sem multipliers/imagens), índice O(1) no registry, imagens só nos ≤15 slots, cache TTL 30s, candidatos paginados (q/limit/offset, default 100) + filtro no select admin.",
+        "Test (Web Store / Vitrine): page_candidates; snapshot paginado; loader leve; get_registry_entry indexado."
     ]
 }
