@@ -35186,6 +35186,10 @@
       "Type": "dino",
       "MarketInclude": true,
       "Name": "Giganotosaurus Rockwell (Giga R) Nível 200"
+    },
+    "wood": {
+      "Type": "item",
+      "Description": "Wood"
     }
   },
   "Downloads": [
