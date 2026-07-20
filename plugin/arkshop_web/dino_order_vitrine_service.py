@@ -1,4 +1,4 @@
-"""Vitrine rotativa de encomenda — 10 slots por porte + até 5 permanentes."""
+"""Vitrine rotativa de encomenda — 15 slots por porte + até 5 permanentes."""
 from __future__ import annotations
 
 import json
@@ -11,18 +11,18 @@ from typing import Any, Callable
 log = logging.getLogger("arkshop_web.dino_order_vitrine")
 
 _DATA_VERSION = 1
-ROTATING_SLOTS = 10
+ROTATING_SLOTS = 15
 MAX_PERMANENT = 5
 DEFAULT_ROTATION_DAYS = 7
 MIN_ROTATION_DAYS = 1
 MAX_ROTATION_DAYS = 90
 ROTATION_PRESETS = (7, 15)
 
-# Mix alvo: 6 grande + 2 médio + 2 pequeno
+# Mix alvo: 9 grande + 3 médio + 3 pequeno (proporcional ao antigo 6+2+2)
 TARGET_MIX: tuple[tuple[str, int], ...] = (
-    ("large", 6),
-    ("medium", 2),
-    ("small", 2),
+    ("large", 9),
+    ("medium", 3),
+    ("small", 3),
 )
 SIZE_ORDER = ("large", "medium", "small")
 _SIZE_ALIASES = {
@@ -436,7 +436,7 @@ def draw_rotating_species(
     rng: random.Random | None = None,
     slots: int = ROTATING_SLOTS,
 ) -> tuple[list[str], dict[str, Any]]:
-    """Sorteia `slots` espécies com mix 6+2+2.
+    """Sorteia `slots` espécies com mix 9+3+3.
 
     Fallback: se um porte não tiver candidatos suficientes, preenche o restante
     a partir dos outros portes (large → medium → small → qualquer restante).

@@ -7,6 +7,12 @@
 
 ## [Unreleased] - 
 
+### Feature
+
+- Feat (Web Store / Encomenda): vitrine em grade 5×3 (15 slots rotativos; mix 9 grande + 3 médio + 3 pequeno) + até 5 permanentes.
+
+## [1.10.85] - 2026-07-20
+
 ### Fix
 
 - Fix (Web Store / Admin Dino Lab): GET /api/admin/dino-order/vitrine deixava de responder em 15s — causa: list_candidate_species → list_species_public (multipliers + economia completa + imagens + get_registry_entry O(n) por espécie) e payload com todo o catálogo. Agora: query leve (load_only, sem multipliers/imagens), índice O(1) no registry, imagens só nos ≤15 slots, cache TTL 30s, candidatos paginados (q/limit/offset, default 100) + filtro no select admin.

@@ -230,7 +230,7 @@ def _is_species_in_gallery(species_key: str, db: Session | None = None) -> bool:
 
 
 def list_gallery_species(db: Session) -> list[dict[str, Any]]:
-    """Espécies da vitrine de encomenda (10 rotativos + ≤5 permanentes)."""
+    """Espécies da vitrine de encomenda (15 rotativos + ≤5 permanentes)."""
     if not is_dino_order_enabled():
         return []
     try:

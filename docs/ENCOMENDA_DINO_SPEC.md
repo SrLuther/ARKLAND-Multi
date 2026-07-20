@@ -445,8 +445,8 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 
 | Item | Detalhe |
 |------|---------|
-| **Catálogo encomendável** | União de **10 slots rotativos** + até **5 permanentes** (admin) |
-| **Mix de porte** | Alvo **6 large + 2 medium + 2 small** (`size_class` dos defaults). Se o pool de um porte for curto, preenche com outros portes (**fallback**) |
+| **Catálogo encomendável** | União de **15 slots rotativos** + até **5 permanentes** (admin) |
+| **Mix de porte** | Alvo **9 large + 3 medium + 3 small** (`size_class` dos defaults). Se o pool de um porte for curto, preenche com outros portes (**fallback**) |
 | **Ciclo** | Admin define só a **duração em dias** (presets 7/15 ou custom 1–90). Ao expirar, auto-sorteio + novo timer (sem admin online). **Rodar agora** força novo sorteio e reinicia o prazo |
 | **Armazenamento** | JSON `data/dino_order_vitrine.json` |
 | **Admin** | Dino Lab → aba **Vitrine** |

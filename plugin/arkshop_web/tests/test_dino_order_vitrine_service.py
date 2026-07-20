@@ -47,7 +47,7 @@ def _cand(key: str, size: str) -> dict:
 
 def _pool_full() -> list[dict]:
     out = []
-    for i in range(10):
+    for i in range(12):
         out.append(_cand(f"large_{i}", "large"))
     for i in range(8):
         out.append(_cand(f"medium_{i}", "medium"))
@@ -65,13 +65,13 @@ def test_normalize_size_class_aliases():
     assert normalize_size_class(None) == "medium"
 
 
-def test_draw_mix_6_2_2():
+def test_draw_mix_9_3_3():
     keys, meta = draw_rotating_species(_pool_full(), rng=random.Random(42))
     assert len(keys) == ROTATING_SLOTS
     assert len(set(keys)) == ROTATING_SLOTS
-    assert meta["actual_mix"]["large"] == 6
-    assert meta["actual_mix"]["medium"] == 2
-    assert meta["actual_mix"]["small"] == 2
+    assert meta["actual_mix"]["large"] == 9
+    assert meta["actual_mix"]["medium"] == 3
+    assert meta["actual_mix"]["small"] == 3
     assert meta["fallback_used"] is False
 
 
@@ -85,7 +85,7 @@ def test_draw_excludes_permanents():
 
 
 def test_draw_fallback_when_size_pool_short():
-    pool = [_cand(f"medium_{i}", "medium") for i in range(12)]
+    pool = [_cand(f"medium_{i}", "medium") for i in range(18)]
     keys, meta = draw_rotating_species(pool, rng=random.Random(1))
     assert len(keys) == ROTATING_SLOTS
     assert meta["fallback_used"] is True
@@ -109,7 +109,7 @@ def test_permanent_cap_5():
 
 def test_permanents_removed_from_rotating():
     store = load_store()
-    store["rotating_species_keys"] = [f"r{i}" for i in range(10)]
+    store["rotating_species_keys"] = [f"r{i}" for i in range(ROTATING_SLOTS)]
     store["permanent_species_keys"] = []
     save_store(store)
     result = set_permanent_species(["r0", "r1"])
@@ -157,7 +157,7 @@ def test_auto_rotate_when_expired(monkeypatch):
     force_rotate(_FakeDb(), rng=random.Random(3), now=now)
     store = load_store()
     store["rotation_ends_at"] = (now + timedelta(days=7)).isoformat()
-    store["rotating_species_keys"] = [f"old_{i}" for i in range(10)]
+    store["rotating_species_keys"] = [f"old_{i}" for i in range(ROTATING_SLOTS)]
     save_store(store)
 
     after = now + timedelta(days=8)
@@ -202,7 +202,7 @@ def test_orderable_keys_hot_path_skips_full_catalog(monkeypatch):
 
     now = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
     store = load_store()
-    store["rotating_species_keys"] = [f"r{i}" for i in range(10)]
+    store["rotating_species_keys"] = [f"r{i}" for i in range(ROTATING_SLOTS)]
     store["permanent_species_keys"] = ["p0"]
     # Longe no futuro em relação a _utcnow() — evita auto-rotação no hot path
     store["rotation_ends_at"] = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
@@ -241,7 +241,7 @@ def test_snapshot_paginates_candidates(monkeypatch):
     )
     now = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
     store = load_store()
-    store["rotating_species_keys"] = [c["species_key"] for c in pool[:10]]
+    store["rotating_species_keys"] = [c["species_key"] for c in pool[:ROTATING_SLOTS]]
     store["permanent_species_keys"] = []
     store["rotation_ends_at"] = (now + timedelta(days=7)).isoformat()
     save_store(store)
@@ -259,7 +259,7 @@ def test_snapshot_paginates_candidates(monkeypatch):
     assert snap["candidates_total"] == len(pool)
     assert len(snap["candidates"]) == 5
     assert snap["candidates_has_more"] is True
-    assert len(snap["rotating"]) == 10
+    assert len(snap["rotating"]) == ROTATING_SLOTS
     # Imagens só nos slots, não no pool paginado
     assert all("image_url" in c for c in snap["rotating"])
 

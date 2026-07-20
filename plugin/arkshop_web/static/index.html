@@ -5627,10 +5627,10 @@
       color: var(--text);
     }
     .encomenda-rule-callout strong { color: var(--amber); display: block; margin-bottom: 4px; }
-    /* Vitrine encomenda: 3×5 no desktop (até 15 slots) */
+    /* Vitrine encomenda: 5×3 no desktop (15 slots rotativos + permanentes) */
     #encomenda-gallery.encomenda-vitrine-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 14px;
       align-items: stretch;
     }
@@ -9099,7 +9099,7 @@
             <div class="card-title">Vitrine de encomenda</div>
             <p style="font-size:12px;color:var(--text2);margin:8px 0 0;line-height:1.55;">
               O catálogo jogador (Comércio → Encomenda) lista apenas as espécies desta vitrine:
-              <strong>10 rotativas</strong> (mix 6 grande + 2 médio + 2 pequeno) e até <strong>5 permanentes</strong>.
+              <strong>15 rotativas</strong> (mix 9 grande + 3 médio + 3 pequeno) e até <strong>5 permanentes</strong>.
               Ao acabar o período, o sistema sorteia de novo automaticamente. Permanentes ficam fora do sorteio.
               Se o pool de um porte for curto, o restante é preenchido com outros portes (fallback).
             </p>
@@ -9127,7 +9127,7 @@
             <div id="dl-vitrine-fallback-hint" class="hidden" style="margin-top:10px;font-size:12px;color:var(--amber);"></div>
           </div>
           <div class="card" style="margin-bottom:16px;">
-            <div class="card-title" style="font-size:13px;">Slots rotativos (10)</div>
+            <div class="card-title" style="font-size:13px;">Slots rotativos (15)</div>
             <div id="dl-vitrine-rotating" style="margin-top:10px;color:var(--text2);">Carregando…</div>
           </div>
           <div class="card" style="margin-bottom:16px;">
@@ -19294,7 +19294,7 @@ async function loadDinoLabVitrineAdmin() {
     }
     if (hint) {
       if (v.last_rotation_fallback) {
-        hint.textContent = "Última rotação usou fallback de porte (pool insuficiente para 6+2+2).";
+        hint.textContent = "Última rotação usou fallback de porte (pool insuficiente para 9+3+3).";
         hint.classList.remove("hidden");
       } else {
         hint.classList.add("hidden");
@@ -19342,7 +19342,7 @@ async function dinoLabVitrineSaveDays() {
 }
 
 async function dinoLabVitrineRotateNow() {
-  if (!confirm("Sortear novas 10 espécies e reiniciar o prazo do ciclo?")) return;
+  if (!confirm("Sortear novas 15 espécies e reiniciar o prazo do ciclo?")) return;
   try {
     const d = await fetchJson("/api/admin/dino-order/vitrine/rotate", {
       method: "POST",
