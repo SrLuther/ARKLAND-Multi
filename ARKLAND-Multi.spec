@@ -24,6 +24,7 @@ a = Analysis(
         ('plugin/CustomDinoDeliver/bin/PluginInfo.json', 'plugins/customdino'),
         ('plugin/ArkPlayer/bin/ArkPlayer.dll',         'plugins'),
         ('plugin/ArkPlayer/bin/PluginInfo.json',       'plugins/arkplayer'),
+        ('plugin/ArkPlayer/configs/config.json',       'plugins/arkplayer'),
         ('plugin/Permissions/configs/config.json',   'Permissions/configs'),
         ('config/mapas_cross_chat_ids.json',         'config'),
     ] + ctk_datas + pil_datas + tray_datas,

@@ -10,6 +10,21 @@ BUILD_DATE: str = "2026-07-20"
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
     {
+        "version": "Unreleased",
+        "date": "",
+        "changes": [
+            "Fix (TEK / ArkPlayer): instalação passa a copiar config.json "
+            "padrão quando o destino ainda não tem (não sobrescreve); "
+            "PyInstaller empacota plugins/arkplayer/config.json — o EXE "
+            "anterior só copiava DLL+PluginInfo e o plugin falhava com "
+            "«Cannot open config».",
+            "Fix (ArkPlayer C++): config.json ausente → warning + defaults "
+            "embutidos em vez de critical fail no init.",
+            "Test (TEK): deploy ArkPlayer preserva config existente e "
+            "resolve template do bundle.",
+        ],
+    },
+    {
         "version": "1.10.82",
         "date": "2026-07-20",
         "changes": [

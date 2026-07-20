@@ -1,0 +1,103 @@
+{
+  "ArkPlayer": {
+    "EverythingIsFREE": false,
+    "SenderNameInChat": "ARKLAND SERVER",
+    "GroupPermission": {
+      "Stacking": false,
+      "Default": {
+        "Priority": 99,
+        "PlayerCharacterWipeEnabled": true,
+        "PlayerCharacterWipePrice": 5,
+        "PlayerCharacterWipeRequireMindwipe": false,
+        "PlayerCompleteMissionEnabled": true,
+        "PlayerCompleteMissionPrice": 30,
+        "PlayerGetDeathBagsEnabled": true,
+        "PlayerGetDeathBagsPrice": 5,
+        "PlayerGetDeathBagsRangeFoundations": 15,
+        "PlayerRenameEnabled": true,
+        "PlayerRenamePrice": 50,
+        "PlayerRenameBlacklist": [],
+        "PlayerSuicideEnabled": true,
+        "PlayerSuicidePrice": 5,
+        "PlayerSuicideKnockedOut": false,
+        "PlayerSuicideHandCuffs": false,
+        "PlayerSuicideSitting": false,
+        "PlayerSuicideRiding": false,
+        "PlayerSuicidePicked": false,
+        "PlayerSuicideGrappled": false,
+        "PlayerSuicideMindControl": false
+      },
+      "Staff": {
+        "Priority": 10,
+        "PlayerSuicideEnabled": true,
+        "PlayerSuicidePrice": 1,
+        "PlayerCharacterWipeEnabled": true,
+        "PlayerCharacterWipePrice": 0,
+        "PlayerCompleteMissionEnabled": true,
+        "PlayerCompleteMissionPrice": 1,
+        "PlayerGetDeathBagsEnabled": true,
+        "PlayerGetDeathBagsPrice": 0,
+        "PlayerRenameEnabled": true,
+        "PlayerRenamePrice": 5
+      }
+    },
+    "PlayerCharacterWipe": {
+      "Enabled": true,
+      "Description": " - Reseta seus pontos de atributo, mas não seus engramas",
+      "ChatCommand": "/mindwipe",
+      "CommandCooldownInSeconds": 10
+    },
+    "PlayerCompleteMission": {
+      "Enabled": true,
+      "Description": " - Completa a missão de Genesis que você está realizando",
+      "ChatCommand": "/missao",
+      "CommandCooldownInSeconds": 10,
+      "MasterBlacklist": [""]
+    },
+    "PlayerGetDeathBags": {
+      "Enabled": true,
+      "Description": " - Recupera seu inventário do seu corpo morto",
+      "ChatCommand": "/loot"
+    },
+    "PlayerRename": {
+      "Enabled": true,
+      "Description": " - Renomeia o seu personagem",
+      "ChatCommand": "/nome",
+      "CommandCooldownInSeconds": 10,
+      "MasterBlacklist": []
+    },
+    "PlayerSuicide": {
+      "Enabled": true,
+      "Description": " - Suicida o seu personagem",
+      "ChatCommand": "/kill",
+      "CommandCooldownInSeconds": 0
+    },
+    "Messages": {
+      "CommandCooldown": "Você não pode usar este comando tão rapidamente, tente novamente em breve",
+      "CommandPurchased": "Comando comprado por {} pontos",
+      "InvalidName": "Este nome não é válido",
+      "NoPermission": "Você não tem permissão para usar este comando",
+      "NoPoints": "Você não tem pontos suficientes ({} necessários)",
+      "NotEnabled": "Esta função não está habilitada no servidor",
+      "PlayerCharacterWipe": "Redistribua seus pontos",
+      "PlayerCharacterWipeNoMindwipe": "Você precisa de pelo menos 1 mindwipe no inventário para usar este comando",
+      "PlayerCompleteMission": "Missão concluída",
+      "PlayerCompleteMissionBlacklisted": "Você não pode usar este comando nesta missão",
+      "PlayerCompleteMissionWrongMap": "Você precisa estar em Genesis 1 ou 2 para usar este comando",
+      "PlayerGetDeathBags": "Bag(s) de morte recuperada(s)",
+      "PlayerGetDeathBagsNone": "Nenhuma bag de morte encontrada.",
+      "PlayerRename": "Renomeado com sucesso",
+      "PlayerSuicide": "Você morreu",
+      "PlayerSuicideDead": "Você não pode usar este comando porque já está morto",
+      "PlayerSuicideGrappled": "Você não pode usar este comando enquanto está preso por outro jogador",
+      "PlayerSuicideHandcuffs": "Você não pode usar este comando enquanto está algemado",
+      "PlayerSuicideKO": "Você não pode usar este comando enquanto está inconsciente",
+      "PlayerSuicideMindControl": "Você não pode usar este comando enquanto está sob controle mental de um Noglin",
+      "PlayerSuicidePicked": "Você não pode usar este comando enquanto está sendo carregado por um dino",
+      "PlayerSuicideRiding": "Você não pode usar este comando enquanto está montado em um dino",
+      "PlayerSuicideSitting": "Você não pode usar este comando enquanto está sentado",
+      "SenderNameInChat": "ARKLAND SERVER",
+      "PointsUnavailable": "Sistema de pontos indisponível (ArkShop/CustomShop). Comando cancelado."
+    }
+  }
+}

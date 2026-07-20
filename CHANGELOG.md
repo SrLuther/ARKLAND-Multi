@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased] - 
+
+### Fix
+
+- Fix (TEK / ArkPlayer): instalação passa a copiar config.json padrão quando o destino ainda não tem (não sobrescreve); PyInstaller empacota plugins/arkplayer/config.json — o EXE anterior só copiava DLL+PluginInfo e o plugin falhava com «Cannot open config».
+- Fix (ArkPlayer C++): config.json ausente → warning + defaults embutidos em vez de critical fail no init.
+
+### Other
+
+- Test (TEK): deploy ArkPlayer preserva config existente e resolve template do bundle.
+
 ## [1.10.82] - 2026-07-20
 
 ### Fix

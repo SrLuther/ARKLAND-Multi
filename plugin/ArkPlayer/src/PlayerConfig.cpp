@@ -63,18 +63,25 @@ void PlayerConfig::Load() {
     const std::string path =
         ArkApi::Tools::GetCurrentDir() + "/ArkApi/Plugins/ArkPlayer/config.json";
 
+    nlohmann::json full = nlohmann::json::object();
     std::ifstream file(path);
-    if (!file.is_open())
-        throw std::runtime_error("Cannot open config: " + path);
-
-    nlohmann::json full;
-    try {
-        file >> full;
-    } catch (const nlohmann::json::exception& e) {
-        throw std::runtime_error(std::string("config.json parse error: ") + e.what());
+    if (!file.is_open()) {
+        // Instalador TEK deve copiar config.json; sem ficheiro usamos defaults
+        // embutidos (ParseGroup/ParseCmdMeta) para o plugin não ficar morto.
+        Log::GetLog()->warn(
+            "ArkPlayer: config.json ausente — defaults embutidos (crie {} e use ArkPlayer.Reload)",
+            path);
+    } else {
+        try {
+            file >> full;
+        } catch (const nlohmann::json::exception& e) {
+            throw std::runtime_error(std::string("config.json parse error: ") + e.what());
+        }
     }
 
     root_ = full.contains("ArkPlayer") ? full["ArkPlayer"] : full;
+    if (!root_.is_object())
+        root_ = nlohmann::json::object();
     everything_free_ = JsonBool(root_, "EverythingIsFREE", false);
     sender_name_ = JsonStr(root_, "SenderNameInChat", "ARKLAND SERVER");
 

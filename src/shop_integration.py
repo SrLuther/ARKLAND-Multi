@@ -1996,6 +1996,30 @@ def bundled_arkplayer_files() -> Dict[str, Path]:
     return found
 
 
+def _default_arkplayer_config_template() -> Path:
+    """Template config.json do ArkPlayer (PyInstaller bundle ou repo).
+
+    Não sobrescreve config existente no servidor — só resolve a origem do
+    ficheiro padrão a copiar quando o destino ainda não tem config.json.
+    """
+    if getattr(sys, "frozen", False):
+        meipass = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        for candidate in (
+            meipass / "plugins" / "arkplayer" / "config.json",
+            meipass / "plugins" / "config.json",
+        ):
+            if candidate.is_file():
+                return candidate
+    for candidate in (
+        _DEFAULT_ARKPLAYER_CONFIG,
+        _PROJECT_ROOT / "plugin" / "ArkPlayer" / "config.json",
+        _DEV_ARKPLAYER_BIN_DIR / "config.json",
+    ):
+        if candidate.is_file():
+            return candidate
+    return _DEFAULT_ARKPLAYER_CONFIG
+
+
 def is_arkplayer_installed(install_dir: str) -> bool:
     if not install_dir or not install_dir.strip():
         return False
@@ -2062,7 +2086,7 @@ def install_arkplayer_to_server(
     *,
     overwrite_dlls: bool = True,
 ) -> Tuple[List[str], List[str]]:
-    """Copia ArkPlayer.dll + PluginInfo/config padrão."""
+    """Copia ArkPlayer.dll + PluginInfo/config padrão (sem sobrescrever config)."""
     ok: List[str] = []
     notes: List[str] = []
 
@@ -2084,17 +2108,22 @@ def install_arkplayer_to_server(
     dest = arkplayer_plugin_dir(install_dir)
 
     cfg_dest = dest / "config.json"
-    if not cfg_dest.is_file():
-        template = (
-            _DEFAULT_ARKPLAYER_CONFIG
-            if _DEFAULT_ARKPLAYER_CONFIG.is_file()
-            else _DEV_ARKPLAYER_BIN_DIR / "config.json"
-        )
+    if cfg_dest.is_file():
+        ok.append("config.json (já presente)")
+    else:
+        template = _default_arkplayer_config_template()
         if template.is_file():
-            shutil.copy2(template, cfg_dest)
-            ok.append("config.json (padrão)")
+            try:
+                shutil.copy2(template, cfg_dest)
+                ok.append("config.json (padrão)")
+            except OSError as exc:
+                notes.append(f"config.json não copiado: {exc}")
         else:
-            notes.append("config.json padrão não encontrado no app")
+            notes.append(
+                "config.json padrão não encontrado no app — "
+                "copie plugin/ArkPlayer/configs/config.json para "
+                "ArkApi/Plugins/ArkPlayer/config.json"
+            )
 
     # Aviso se PlayerUtilities antigo ainda estiver presente
     pu_dll = (

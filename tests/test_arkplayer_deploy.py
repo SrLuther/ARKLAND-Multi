@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from src.plugin_versions import read_plugin_info_version
@@ -50,6 +51,41 @@ def test_install_arkplayer_copies_config_and_info(tmp_path: Path) -> None:
     assert (plugin / "ArkPlayer.dll").is_file()
     assert (plugin / "config.json").is_file()
     assert read_plugin_info_version(plugin / "PluginInfo.json") == "1.0.0"
+    data = json.loads((plugin / "config.json").read_text(encoding="utf-8"))
+    assert "ArkPlayer" in data
+    assert "PlayerCharacterWipe" in data["ArkPlayer"]
+
+
+def test_install_arkplayer_does_not_overwrite_existing_config(tmp_path: Path) -> None:
+    install_dir = tmp_path / "server"
+    install_dir.mkdir()
+    plugin = install_dir / "ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkPlayer"
+    plugin.mkdir(parents=True)
+    custom = {"ArkPlayer": {"SenderNameInChat": "CUSTOM_KEEP"}}
+    (plugin / "config.json").write_text(
+        json.dumps(custom), encoding="utf-8",
+    )
+
+    ok, notes = install_arkplayer_to_server(str(install_dir), overwrite_dlls=True)
+    assert "config.json (já presente)" in ok
+    assert "config.json (padrão)" not in ok
+    kept = json.loads((plugin / "config.json").read_text(encoding="utf-8"))
+    assert kept["ArkPlayer"]["SenderNameInChat"] == "CUSTOM_KEEP"
+
+
+def test_default_arkplayer_config_template_from_bundle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from src.shop_integration import _default_arkplayer_config_template
+
+    bundled = tmp_path / "meipass" / "plugins" / "arkplayer" / "config.json"
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text('{"ArkPlayer":{}}', encoding="utf-8")
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "meipass"), raising=False)
+
+    assert _default_arkplayer_config_template() == bundled
 
 
 def test_install_arkplayer_warns_on_playerutilities(tmp_path: Path) -> None:
