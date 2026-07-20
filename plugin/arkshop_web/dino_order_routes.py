@@ -35,6 +35,8 @@ from dino_order_showcase_service import (
     update_showcase,
 )
 from dino_order_vitrine_service import (
+    DEFAULT_CANDIDATES_LIMIT,
+    MAX_CANDIDATES_LIMIT,
     MAX_PERMANENT,
     ROTATING_SLOTS,
     ROTATION_PRESETS,
@@ -175,9 +177,27 @@ def register_dino_order_routes(
         err = _require_db()
         if err:
             return err
+        q = str(request.args.get("q") or request.args.get("candidates_q") or "").strip()
+        try:
+            limit = int(request.args.get("candidates_limit") or DEFAULT_CANDIDATES_LIMIT)
+        except (TypeError, ValueError):
+            limit = DEFAULT_CANDIDATES_LIMIT
+        limit = max(1, min(MAX_CANDIDATES_LIMIT, limit))
+        try:
+            offset = max(0, int(request.args.get("candidates_offset") or 0))
+        except (TypeError, ValueError):
+            offset = 0
+        include_raw = str(request.args.get("include_candidates") or "1").strip().lower()
+        include_candidates = include_raw not in ("0", "false", "no")
         db = session_factory()
         try:
-            snap = ensure_vitrine(db)
+            snap = ensure_vitrine(
+                db,
+                candidates_q=q,
+                candidates_limit=limit,
+                candidates_offset=offset,
+                include_candidates=include_candidates,
+            )
             return jsonify({
                 "ok": True,
                 "vitrine": snap,

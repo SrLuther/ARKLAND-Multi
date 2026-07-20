@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.83"
+APP_VERSION: str = "1.10.84"
 BUILD_DATE: str = "2026-07-20"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,6 +12,11 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "",
+        "changes": [],
+    },
+    {
+        "version": "1.10.84",
+        "date": "2026-07-20",
         "changes": [
             "Fix P0 (TEK / Launch): mapas vanilla/DLC (CrystalIsles, Gen2, "
             "TheIsland, …) com ActiveMods já não expandem para "

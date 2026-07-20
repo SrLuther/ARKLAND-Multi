@@ -9135,7 +9135,9 @@
             <div class="form-grid" style="margin-top:10px;">
               <div class="form-group">
                 <label>Adicionar espécie</label>
+                <input id="dl-vitrine-perm-q" type="search" placeholder="Filtrar espécie…" style="margin-bottom:6px;" oninput="dinoLabVitrineFilterCandidates()" />
                 <select id="dl-vitrine-perm-species"></select>
+                <p id="dl-vitrine-perm-hint" style="font-size:11px;color:var(--text3);margin:4px 0 0;"></p>
               </div>
               <div class="form-group" style="align-self:end;">
                 <button class="btn btn-ghost btn-sm" type="button" onclick="dinoLabVitrineAddPermanent()">Adicionar</button>

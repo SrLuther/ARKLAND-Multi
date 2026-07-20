@@ -46,6 +46,14 @@ _CANDIDATES_TTL_S = 30.0
 _candidates_cache: dict[str, Any] = {"at": 0.0, "rows": None}
 _candidates_lock = __import__("threading").Lock()
 
+# Snapshot admin (slots + meta); candidates paginados à parte. TTL curto — dados mudam pouco.
+_SNAPSHOT_TTL_S = 30.0
+_snapshot_cache: dict[str, Any] = {"at": 0.0, "sig": None, "payload": None}
+_SNAPSHOT_LOCK = __import__("threading").Lock()
+
+DEFAULT_CANDIDATES_LIMIT = 100
+MAX_CANDIDATES_LIMIT = 500
+
 
 def configure_dino_order_vitrine(
     *,
@@ -55,6 +63,18 @@ def configure_dino_order_vitrine(
     global _vitrine_file, _vanilla_only_fn
     _vitrine_file = vitrine_file
     _vanilla_only_fn = vanilla_only_fn
+    invalidate_vitrine_caches()
+
+
+def invalidate_vitrine_caches() -> None:
+    """Invalida caches de candidatos e snapshot (rotate / permanentes / settings)."""
+    with _candidates_lock:
+        _candidates_cache["at"] = 0.0
+        _candidates_cache["rows"] = None
+    with _SNAPSHOT_LOCK:
+        _snapshot_cache["at"] = 0.0
+        _snapshot_cache["sig"] = None
+        _snapshot_cache["payload"] = None
 
 
 def _utcnow() -> datetime:
@@ -196,61 +216,117 @@ def _size_for_key(species_key: str, fallback: str | None = None) -> str:
         return "medium"
 
 
-def list_candidate_species(db: Any, *, force_refresh: bool = False) -> list[dict[str, Any]]:
-    """Espécies ACTIVE vanilla do mercado com size_class — pool da rotação.
+def _is_vanilla_cached(species_key: str, defaults: dict[str, Any] | None) -> bool:
+    if _vanilla_only_fn is not None:
+        try:
+            return bool(_vanilla_only_fn(species_key))
+        except Exception:
+            return True
+    if defaults is not None:
+        defn = defaults.get(species_key) or {}
+        return str(defn.get("mod_source") or "vanilla") == "vanilla"
+    return _is_vanilla(species_key)
 
-    Cache TTL 30s: rotate + GET no mesmo minuto não disparam 2× list_species_public.
+
+def _load_candidates_lightweight(db: Any) -> list[dict[str, Any]]:
+    """Pool vanilla ACTIVE — sem multipliers, economia completa nem imagens.
+
+    O admin só precisa de key/name/size para o <select>; rotate usa o mesmo pool.
     """
-    now_m = __import__("time").monotonic()
-    with _candidates_lock:
-        cached = _candidates_cache.get("rows")
-        if (
-            not force_refresh
-            and cached is not None
-            and (now_m - float(_candidates_cache.get("at") or 0)) < _CANDIDATES_TTL_S
-        ):
-            return list(cached)
-
     try:
-        from market_service import list_species_public
+        from app import MarketSpecies
+        from market_service import _filter_commerce_dino_rows
     except Exception as exc:
-        log.warning("vitrine candidates: %s", exc)
+        log.warning("vitrine candidates import: %s", exc)
         return []
 
-    rows = list_species_public(db, active_only=True)
+    try:
+        from sqlalchemy.orm import load_only
+
+        rows = (
+            db.query(MarketSpecies)
+            .options(
+                load_only(
+                    MarketSpecies.id,
+                    MarketSpecies.species_key,
+                    MarketSpecies.display_name,
+                    MarketSpecies.root_value,
+                    MarketSpecies.tier,
+                    MarketSpecies.blueprint_path,
+                    MarketSpecies.status,
+                )
+            )
+            .filter(MarketSpecies.status == "ACTIVE")
+            .order_by(MarketSpecies.display_name)
+            .all()
+        )
+    except Exception:
+        try:
+            rows = (
+                db.query(MarketSpecies)
+                .filter(MarketSpecies.status == "ACTIVE")
+                .order_by(MarketSpecies.display_name)
+                .all()
+            )
+        except Exception as exc:
+            log.warning("vitrine candidates query: %s", exc)
+            return []
+
+    try:
+        rows, _aliases = _filter_commerce_dino_rows(db, rows)
+    except Exception as exc:
+        log.warning("vitrine candidates filter: %s", exc)
+        return []
+
+    defaults: dict[str, Any] | None = None
+    try:
+        from market_economy import load_default_species_map
+
+        defaults = load_default_species_map()
+    except Exception:
+        defaults = None
+
     try:
         from market_economy import friendly_species_display_name
     except Exception:
         friendly_species_display_name = None  # type: ignore[assignment]
+
     shop_catalog = None
     if friendly_species_display_name is not None:
         try:
-            from app import _read_shop_config
+            from app import _peek_shop_config
 
-            shop_catalog = _read_shop_config()
+            shop_catalog = _peek_shop_config()
         except Exception:
-            shop_catalog = None
-    # Dedup por display_name (mesma regra da galeria)
+            try:
+                from app import _read_shop_config
+
+                shop_catalog = _read_shop_config()
+            except Exception:
+                shop_catalog = None
+
     by_name: dict[str, dict[str, Any]] = {}
     for item in rows:
-        sk = str(item.get("species_key") or "").strip()
-        if not sk or not _is_vanilla(sk):
+        sk = str(getattr(item, "species_key", "") or "").strip()
+        if not sk or not _is_vanilla_cached(sk, defaults):
             continue
-        size = normalize_size_class(item.get("size_class") or _size_for_key(sk))
+        defn = (defaults or {}).get(sk) or {}
+        size = normalize_size_class(defn.get("size_class") or _size_for_key(sk))
+        raw_name = getattr(item, "display_name", None) or sk
         if friendly_species_display_name is not None:
             display_name = friendly_species_display_name(
-                sk, fallback=item.get("display_name"), catalog=shop_catalog
+                sk, fallback=raw_name, catalog=shop_catalog
             )
         else:
-            display_name = item.get("display_name") or sk
+            display_name = raw_name
         name_key = str(display_name or sk).strip().lower()
         entry = {
             "species_key": sk,
             "display_name": display_name or sk,
             "size_class": size,
-            "tier": item.get("tier") or "",
-            "root_value": int(item.get("root_value") or 0),
-            "image_url": item.get("image_url") or "",
+            "tier": str(getattr(item, "tier", None) or defn.get("tier") or ""),
+            "root_value": int(getattr(item, "root_value", None) or defn.get("root_value") or 0),
+            "image_url": "",
         }
         prev = by_name.get(name_key)
         if prev is None:
@@ -264,9 +340,92 @@ def list_candidate_species(db: Any, *, force_refresh: bool = False) -> list[dict
             by_name[name_key] = entry
     out = list(by_name.values())
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
+    return out
+
+
+def list_candidate_species(db: Any, *, force_refresh: bool = False) -> list[dict[str, Any]]:
+    """Espécies ACTIVE vanilla do mercado com size_class — pool da rotação.
+
+    Cache TTL 30s. Não usa list_species_public (multipliers + imagens = lento).
+    """
+    now_m = __import__("time").monotonic()
+    with _candidates_lock:
+        cached = _candidates_cache.get("rows")
+        if (
+            not force_refresh
+            and cached is not None
+            and (now_m - float(_candidates_cache.get("at") or 0)) < _CANDIDATES_TTL_S
+        ):
+            return list(cached)
+
+    out = _load_candidates_lightweight(db)
     with _candidates_lock:
         _candidates_cache["at"] = now_m
         _candidates_cache["rows"] = list(out)
+    return out
+
+
+def page_candidates(
+    candidates: list[dict[str, Any]],
+    *,
+    q: str = "",
+    limit: int | None = DEFAULT_CANDIDATES_LIMIT,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Filtra/pagina candidatos para o select admin."""
+    filtered = candidates
+    needle = str(q or "").strip().lower()
+    if needle:
+        filtered = [
+            c
+            for c in candidates
+            if needle in str(c.get("display_name") or "").lower()
+            or needle in str(c.get("species_key") or "").lower()
+        ]
+    total = len(filtered)
+    try:
+        lim = int(limit) if limit is not None else DEFAULT_CANDIDATES_LIMIT
+    except (TypeError, ValueError):
+        lim = DEFAULT_CANDIDATES_LIMIT
+    lim = max(1, min(MAX_CANDIDATES_LIMIT, lim))
+    try:
+        off = max(0, int(offset or 0))
+    except (TypeError, ValueError):
+        off = 0
+    page = filtered[off : off + lim]
+    has_more = (off + len(page)) < total
+    return page, total, has_more
+
+
+def _store_signature(store: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        store.get("rotation_days"),
+        store.get("rotation_ends_at"),
+        store.get("last_rotation_at"),
+        tuple(store.get("rotating_species_keys") or []),
+        tuple(store.get("permanent_species_keys") or []),
+        bool(store.get("last_rotation_fallback")),
+    )
+
+
+def _attach_slot_images(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Resolve imagens só para os ~15 slots (não para o pool inteiro)."""
+    try:
+        from ark_species_registry import resolve_species_image_for_key
+    except Exception:
+        return entries
+    out: list[dict[str, Any]] = []
+    for entry in entries:
+        row = dict(entry)
+        if not str(row.get("image_url") or "").strip():
+            try:
+                row["image_url"] = resolve_species_image_for_key(
+                    str(row.get("species_key") or ""),
+                    tier=str(row.get("tier") or "") or None,
+                )
+            except Exception:
+                row["image_url"] = ""
+        out.append(row)
     return out
 
 
@@ -383,6 +542,7 @@ def _apply_rotation(
     store["last_rotation_fallback"] = bool(meta.get("fallback_used"))
     _append_history(store, reason=reason, keys=keys, meta=meta)
     save_store(store)
+    invalidate_vitrine_caches()
     return {
         "rotated": True,
         "reason": reason,
@@ -408,16 +568,18 @@ def ensure_vitrine(
     reason: str = "auto",
     rng: random.Random | None = None,
     now: datetime | None = None,
+    candidates_q: str = "",
+    candidates_limit: int | None = DEFAULT_CANDIDATES_LIMIT,
+    candidates_offset: int = 0,
+    include_candidates: bool = True,
 ) -> dict[str, Any]:
     """Garante vitrine válida; auto-roda se expirada ou incompleta."""
     store = load_store()
     now = now or _utcnow()
     if force or _needs_rotation(store, now=now):
         if force:
-            with _candidates_lock:
-                _candidates_cache["at"] = 0.0
-                _candidates_cache["rows"] = None
-        candidates = list_candidate_species(db)
+            invalidate_vitrine_caches()
+        candidates = list_candidate_species(db, force_refresh=force)
         result = _apply_rotation(
             store,
             candidates,
@@ -426,13 +588,29 @@ def ensure_vitrine(
             now=now,
         )
         store = load_store()
-        # Reutiliza candidates — evita 2× list_species_public (N+1) no mesmo request.
+        # Reutiliza candidates — evita 2× listagem no mesmo request.
         payload = get_vitrine_snapshot(
-            db, store=store, now=now, candidates=candidates,
+            db,
+            store=store,
+            now=now,
+            candidates=candidates,
+            candidates_q=candidates_q,
+            candidates_limit=candidates_limit,
+            candidates_offset=candidates_offset,
+            include_candidates=include_candidates,
+            use_cache=False,
         )
         payload["rotation"] = result
         return payload
-    return get_vitrine_snapshot(db, store=store, now=now)
+    return get_vitrine_snapshot(
+        db,
+        store=store,
+        now=now,
+        candidates_q=candidates_q,
+        candidates_limit=candidates_limit,
+        candidates_offset=candidates_offset,
+        include_candidates=include_candidates,
+    )
 
 
 def get_vitrine_snapshot(
@@ -441,9 +619,39 @@ def get_vitrine_snapshot(
     store: dict[str, Any] | None = None,
     now: datetime | None = None,
     candidates: list[dict[str, Any]] | None = None,
+    candidates_q: str = "",
+    candidates_limit: int | None = DEFAULT_CANDIDATES_LIMIT,
+    candidates_offset: int = 0,
+    include_candidates: bool = True,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
     store = store or load_store()
     now = now or _utcnow()
+    sig = _store_signature(store)
+    page_key = (
+        sig,
+        bool(include_candidates),
+        str(candidates_q or ""),
+        int(candidates_limit if candidates_limit is not None else DEFAULT_CANDIDATES_LIMIT),
+        int(candidates_offset or 0),
+    )
+
+    if use_cache and candidates is None:
+        now_m = __import__("time").monotonic()
+        with _SNAPSHOT_LOCK:
+            cached = _snapshot_cache.get("payload")
+            if (
+                cached is not None
+                and _snapshot_cache.get("sig") == page_key
+                and (now_m - float(_snapshot_cache.get("at") or 0)) < _SNAPSHOT_TTL_S
+            ):
+                payload = dict(cached)
+                ends = _parse_iso(payload.get("rotation_ends_at"))
+                payload["seconds_remaining"] = (
+                    max(0, int((ends - now).total_seconds())) if ends is not None else None
+                )
+                return payload
+
     if candidates is None:
         candidates = list_candidate_species(db)
     by_key = {str(c["species_key"]): c for c in candidates}
@@ -468,7 +676,7 @@ def get_vitrine_snapshot(
                     "image_url": "",
                 }
             out.append({**base, "slot_kind": slot_kind})
-        return out
+        return _attach_slot_images(out)
 
     rotating_keys = _normalize_key_list(store.get("rotating_species_keys"), max_len=ROTATING_SLOTS)
     permanent_keys = _normalize_key_list(store.get("permanent_species_keys"), max_len=MAX_PERMANENT)
@@ -478,7 +686,20 @@ def get_vitrine_snapshot(
         seconds_left = max(0, int((ends - now).total_seconds()))
 
     orderable = list(dict.fromkeys([*rotating_keys, *permanent_keys]))
-    return {
+    cand_page: list[dict[str, Any]] = []
+    cand_total = 0
+    cand_more = False
+    if include_candidates:
+        cand_page, cand_total, cand_more = page_candidates(
+            candidates,
+            q=candidates_q,
+            limit=candidates_limit,
+            offset=candidates_offset,
+        )
+    else:
+        cand_total = len(candidates)
+
+    payload = {
         "rotation_days": _clamp_days(store.get("rotation_days")),
         "rotation_presets": list(ROTATION_PRESETS),
         "rotation_ends_at": store.get("rotation_ends_at"),
@@ -494,9 +715,28 @@ def get_vitrine_snapshot(
         "max_rotating": ROTATING_SLOTS,
         "max_permanent": MAX_PERMANENT,
         "target_mix": {s: n for s, n in TARGET_MIX},
-        "candidates": candidates,
+        "candidates": cand_page,
+        "candidates_total": cand_total,
+        "candidates_offset": int(candidates_offset or 0),
+        "candidates_limit": int(
+            candidates_limit if candidates_limit is not None else DEFAULT_CANDIDATES_LIMIT
+        ),
+        "candidates_has_more": cand_more,
+        "candidates_q": str(candidates_q or ""),
         "history": list(store.get("history") or [])[-10:],
     }
+
+    if use_cache:
+        now_m = __import__("time").monotonic()
+        with _SNAPSHOT_LOCK:
+            _snapshot_cache["at"] = now_m
+            _snapshot_cache["sig"] = page_key
+            # Sem seconds_remaining volátil — recomputa no hit
+            cached_body = dict(payload)
+            cached_body.pop("seconds_remaining", None)
+            _snapshot_cache["payload"] = cached_body
+
+    return payload
 
 
 def set_rotation_days(days: int) -> dict[str, Any]:
@@ -504,6 +744,7 @@ def set_rotation_days(days: int) -> dict[str, Any]:
     store = load_store()
     store["rotation_days"] = _clamp_days(days)
     save_store(store)
+    invalidate_vitrine_caches()
     return {
         "rotation_days": store["rotation_days"],
         "rotation_ends_at": store.get("rotation_ends_at"),
@@ -522,6 +763,7 @@ def set_permanent_species(species_keys: list[str] | Any) -> dict[str, Any]:
     store["permanent_species_keys"] = permanents
     store["rotating_species_keys"] = rotating
     save_store(store)
+    invalidate_vitrine_caches()
     return {
         "permanent_species_keys": permanents,
         "rotating_species_keys": rotating,
@@ -553,6 +795,7 @@ def remove_permanent_species(species_key: str) -> dict[str, Any]:
     ]
     store["permanent_species_keys"] = permanents
     save_store(store)
+    invalidate_vitrine_caches()
     return {"permanent_species_keys": permanents, "removed": key}
 
 

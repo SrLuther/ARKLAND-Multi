@@ -338,15 +338,23 @@ def load_registry_overlay_raw() -> list[dict[str, Any]]:
         return []
 
 
+@lru_cache(maxsize=1)
+def _registry_by_species_key() -> dict[str, dict[str, Any]]:
+    """Índice O(1) species_key → entrada (evita scan linear em list_species_public)."""
+    out: dict[str, dict[str, Any]] = {}
+    for entry in load_registry().get("species") or []:
+        sk = str(entry.get("species_key") or "").strip().lower()
+        if sk and sk not in out:
+            out[sk] = entry
+    return out
+
+
 def get_registry_entry(species_key: str | None) -> dict[str, Any] | None:
     """Entrada completa do registro por species_key."""
     sk = (species_key or "").strip().lower()
     if not sk:
         return None
-    for entry in load_registry().get("species") or []:
-        if str(entry.get("species_key") or "").lower() == sk:
-            return entry
-    return None
+    return _registry_by_species_key().get(sk)
 
 
 def is_cryopodable_dino_blueprint(bp: str | None) -> bool:
@@ -526,10 +534,9 @@ def lookup_species(
 
     if species_key:
         sk = species_key.strip().lower()
-        for entry in load_registry().get("species") or []:
-            if str(entry.get("species_key") or "").lower() == sk:
-                candidates.append(("high", entry))
-                break
+        entry = _registry_by_species_key().get(sk)
+        if entry is not None:
+            candidates.append(("high", entry))
 
     if blueprint:
         nb = normalize_blueprint_extended(blueprint)

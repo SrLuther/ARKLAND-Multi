@@ -1,14 +1,11 @@
 {
-    "version": "1.10.83",
+    "version": "1.10.84",
     "date": "2026-07-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.83/ARKLAND-Multi-Setup-v1.10.83.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.84/ARKLAND-Multi-Setup-v1.10.84.exe",
     "changelog": [
-        "Fix (TEK / Eventos Globais): rates temporários (XP, Taming, Harvest, Breeding) voltam a aparecer — o card ActiveEvent ocupava o viewport inteiro e escondia a secção; agora há abas «Rates temporários» e «Evento ARK oficial» (-ActiveEvent= intacto).",
-        "Fix (TEK / ArkPlayer): instalação passa a copiar config.json padrão quando o destino ainda não tem (não sobrescreve); PyInstaller empacota plugins/arkplayer/config.json — o EXE anterior só copiava DLL+PluginInfo e o plugin falhava com «Cannot open config».",
-        "Fix (ArkPlayer C++): config.json ausente → warning + defaults embutidos em vez de critical fail no init.",
-        "Test (TEK): deploy ArkPlayer preserva config existente e resolve template do bundle.",
-        "Fix (Web Store / Admin Pedidos): «Carregando…» longo — causa raiz: COUNT(*) + exclusão SeasonLand (NOT LIKE sp:) em toda a tabela orders antes de devolver 1 página; frontend já paginava mas o COUNT era O(N). Agora LIMIT+1→has_more, load_only (sem payload_json), total só com include_total=1 (ou SteamID completo); UI timeout 15s + prev/next sem total; default 10/página.",
-        "Perf (Web Store / UI): padroniza listagens paginadas a 10 por página; Anterior/Próxima só actualiza o container da tabela (beginTablePageFetch + abort); Pedidos, PIX/Audit, SeasonLand Ops, Players, Market browse/admin, Minha Área, tickets player/admin, Dino Lab history/block, ARKBANK extrato, sugestões, plugin-debug, dino-order.",
-        "Test (Web Store / Admin Pedidos): hot path sem total; has_more; include_total=1; default limit=10."
+        "Fix P0 (TEK / Launch): mapas vanilla/DLC (CrystalIsles, Gen2, TheIsland, …) com ActiveMods já não expandem para /Game/Mods/{ActiveMods[0]}/MapName — o 1.10.72 fazia isso para Amissa e quebrava Crystal/Gen2 (ActiveMods[0]=S+/stack); CLI volta a CrystalIsles?listen… e MaxPlayers da config.",
+        "Fix (TEK / Painel): «Todas as opções» deixa de sobrescrever StringVars da Administração (mapa, slots, portas…) — edits não salvos já não revertiam ao valor antigo do perfil.",
+        "Melhoria (TEK / UI): badge ●/↺ no campo Mapa (vanilla ou mod).",
+        "Test (TEK / Launch): regressão CrystalIsles/Gen2 + ActiveMods; expansão Amissa só quando o .mod declara o mapa."
     ]
 }

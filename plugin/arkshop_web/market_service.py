@@ -785,6 +785,8 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
     ):
         mults_by_sid[int(m.species_id)].append(m)
 
+    from ark_species_registry import get_registry_entry, resolve_species_image
+
     out = []
     for row in rows:
         mult_rows = mults_by_sid.get(int(row.id), [])
@@ -793,8 +795,6 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
         item["reference_level"] = row.reference_level
         item["level1_base_value"] = row.root_value
         item["linked_variants"] = aliases_by_sid.get(int(row.id), [])
-        from ark_species_registry import get_registry_entry, resolve_species_image
-
         item["image_url"] = resolve_species_image(
             get_registry_entry(row.species_key),
             tier=row.tier,

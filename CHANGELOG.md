@@ -7,6 +7,8 @@
 
 ## [Unreleased] - 
 
+## [1.10.84] - 2026-07-20
+
 ### Improvement
 
 - Melhoria (TEK / UI): badge ●/↺ no campo Mapa (vanilla ou mod).
