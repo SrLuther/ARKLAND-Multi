@@ -34,7 +34,7 @@ def open_create_buff_dialog(
     if not entries:
         messagebox.showwarning(
             "Sem Servidores",
-            "Adicione ao menos um servidor (TEK ou legado) antes de criar um evento sazonal.",
+            "Adicione ao menos um servidor (TEK ou legado) antes de criar um rate temporário.",
             parent=app,
         )
         return
@@ -42,10 +42,10 @@ def open_create_buff_dialog(
     servers = entries  # BuffServerEntry list — usa .id e .label
 
     is_editing = event is not None
-    dlg_title  = "✏️  Editar Evento" if is_editing else "⚡  Novo Evento Sazonal"
+    dlg_title  = "✏️  Editar rate temporário" if is_editing else "⚡  Novo rate temporário"
 
     dlg = ctk.CTkToplevel(app)
-    dlg.title("Editar Evento" if is_editing else "Novo Evento Sazonal")
+    dlg.title("Editar rate" if is_editing else "Novo rate temporário")
     dlg.geometry("820x820")
     dlg.resizable(True, True)
     dlg.grab_set()

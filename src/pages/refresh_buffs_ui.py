@@ -42,9 +42,9 @@ def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
 
     row_idx = 0
 
-    # ── Evento Ativo ──────────────────────────────────────────────────────
+    # ── Rate Ativo ────────────────────────────────────────────────────────
     ctk.CTkLabel(
-        body, text="EVENTO ATIVO",
+        body, text="RATE ATIVO",
         font=ctk.CTkFont(size=12, weight="bold"), text_color="#88d4a0",
     ).grid(row=row_idx, column=0, padx=20, pady=(16, 4), sticky="w")
     row_idx += 1
@@ -69,14 +69,14 @@ def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
         none_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
         none_card.grid(row=row_idx, column=0, padx=20, pady=(0, 8), sticky="ew")
         ctk.CTkLabel(
-            none_card, text="Nenhum evento sazonal ativo no momento.",
+            none_card, text="Nenhum rate temporário ativo neste servidor.",
             text_color="gray50", font=ctk.CTkFont(size=12),
         ).pack(padx=20, pady=18)
     row_idx += 1
 
-    # ── Eventos Agendados ─────────────────────────────────────────────────
+    # ── Rates Agendados ───────────────────────────────────────────────────
     ctk.CTkLabel(
-        body, text="EVENTOS AGENDADOS",
+        body, text="RATES AGENDADOS",
         font=ctk.CTkFont(size=12, weight="bold"), text_color="#88d4a0",
     ).grid(row=row_idx, column=0, padx=20, pady=(12, 4), sticky="w")
     row_idx += 1
@@ -89,7 +89,7 @@ def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
     else:
         empty = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
         empty.grid(row=row_idx, column=0, padx=20, pady=(0, 4), sticky="ew")
-        ctk.CTkLabel(empty, text="Nenhum evento agendado.",
+        ctk.CTkLabel(empty, text="Nenhum rate agendado.",
                      text_color="gray50").pack(padx=20, pady=12)
         row_idx += 1
 

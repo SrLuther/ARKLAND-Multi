@@ -369,9 +369,9 @@ def _cancel_scheduled_event(app: Any, event_id: str) -> None:
 
 
 def build_global_active_event_section(app: "ARKServerManagerApp", parent) -> None:
-    """Card fixo no topo do painel Eventos Globais."""
+    """Card ActiveEvent (aba «Evento ARK oficial» em Eventos Globais)."""
     card = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
-    card.grid(sticky="ew", padx=20, pady=(0, 8))
+    card.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 8))
     card.grid_columnconfigure(1, weight=1)
 
     ctk.CTkLabel(

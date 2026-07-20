@@ -2,15 +2,28 @@ from __future__ import annotations
 import tkinter as tk
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
-from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _BLUE, _BLUE_HOVER, _CARD_BG, _BG
+from ..ui_constants import (
+    _GREEN_DARK, _GREEN_HOVER, _BLUE, _BLUE_HOVER,
+    _CARD_BG, _BG, _SIDEBAR_BG,
+)
 from ..buff_server_bridge import list_buff_servers
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
+_TAB_RATES = "Rates temporários"
+_TAB_ARK = "Evento ARK oficial"
+
+
 def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> None:
+    """Painel Eventos Globais: rates (buff) e ActiveEvent em abas distintas.
+
+    Antes, ActiveEvent ficava empilhado acima dos rates e ocupava o viewport
+    inteiro — a secção de XP/Doma/Farm deixava de aparecer. Abas garantem
+    coexistência sem esconder nenhum dos dois.
+    """
     parent.grid_columnconfigure(0, weight=1)
-    parent.grid_rowconfigure(4, weight=1)
+    parent.grid_rowconfigure(1, weight=1)
 
     # ── Cabeçalho (row 0) ───────────────────────────────────────────────
     hdr = ctk.CTkFrame(parent, fg_color="transparent")
@@ -23,7 +36,7 @@ def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> Non
     ).grid(row=0, column=0, sticky="w")
     ctk.CTkLabel(
         hdr,
-        text="Eventos oficiais ARK (Páscoa, Halloween…) e rates temporários por servidor.",
+        text="Rates temporários (XP, Doma, Farm…) e eventos oficiais ARK (Páscoa, Halloween…).",
         text_color="gray60",
     ).grid(row=1, column=0, sticky="w", pady=(0, 4))
 
@@ -41,24 +54,35 @@ def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> Non
         command=app._open_presets_manager,
     ).pack(side="left")
 
-    # ── Evento ARK oficial — todos ou selecionados (row 1) ───────────────
-    from .global_active_event import build_global_active_event_section
-
-    global_evt = ctk.CTkFrame(parent, fg_color="transparent")
-    global_evt.grid(row=1, column=0, sticky="ew")
-    global_evt.grid_columnconfigure(0, weight=1)
-    build_global_active_event_section(app, global_evt)
-
-    ctk.CTkLabel(
+    # ── Abas: Rates | ActiveEvent (row 1) ────────────────────────────────
+    tabs = ctk.CTkTabview(
         parent,
-        text="RATES TEMPORÁRIOS (POR SERVIDOR)",
-        font=ctk.CTkFont(size=12, weight="bold"),
-        text_color="#88d4a0",
-    ).grid(row=2, column=0, padx=20, pady=(8, 4), sticky="w")
+        fg_color=_BG,
+        segmented_button_fg_color=_SIDEBAR_BG,
+        segmented_button_selected_color=_GREEN_DARK,
+        segmented_button_selected_hover_color=_GREEN_HOVER,
+        segmented_button_unselected_color=_SIDEBAR_BG,
+        segmented_button_unselected_hover_color=_CARD_BG,
+    )
+    tabs.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 8))
+    tabs.add(_TAB_RATES)
+    tabs.add(_TAB_ARK)
+    app._buffs_tabview = tabs
 
-    # ── Seletor de servidor (row 3) ─────────────────────────────────────
+    _build_rates_tab(app, tabs.tab(_TAB_RATES))
+    _build_ark_event_tab(app, tabs.tab(_TAB_ARK))
+
+    # Rates primeiro — era o conteúdo original e sumiu sob o card ActiveEvent
+    tabs.set(_TAB_RATES)
+
+
+def _build_rates_tab(app: "ARKServerManagerApp", parent) -> None:
+    """Lista ativa/agendada/presets/histórico de rates por servidor."""
+    parent.grid_columnconfigure(0, weight=1)
+    parent.grid_rowconfigure(1, weight=1)
+
     sel_bar = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
-    sel_bar.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 4))
+    sel_bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
     sel_bar.grid_columnconfigure(1, weight=1)
 
     ctk.CTkLabel(
@@ -81,9 +105,28 @@ def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> Non
         app._buffs_server_var.set(labels[0])
     srv_combo.grid(row=0, column=1, padx=(0, 16), pady=10, sticky="w")
 
-    # ── Body scrollável (row 4, reconstruído no refresh) ────────────────
+    ctk.CTkLabel(
+        sel_bar,
+        text="XP · Taming · Harvest · Breeding — agende ou aplique como antes",
+        text_color="gray50",
+        font=ctk.CTkFont(size=11),
+    ).grid(row=0, column=2, padx=(0, 16), pady=10, sticky="e")
+
     body = ctk.CTkScrollableFrame(parent, fg_color=_BG)
-    body.grid(row=4, column=0, sticky="nsew", padx=0, pady=(4, 0))
+    body.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 0))
     body.grid_columnconfigure(0, weight=1)
     app._buffs_body_frame = body
 
+
+def _build_ark_event_tab(app: "ARKServerManagerApp", parent) -> None:
+    """ActiveEvent (-ActiveEvent=) — aplicação/agendamento global."""
+    parent.grid_columnconfigure(0, weight=1)
+    parent.grid_rowconfigure(0, weight=1)
+
+    scroll = ctk.CTkScrollableFrame(parent, fg_color=_BG)
+    scroll.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+    scroll.grid_columnconfigure(0, weight=1)
+
+    from .global_active_event import build_global_active_event_section
+
+    build_global_active_event_section(app, scroll)

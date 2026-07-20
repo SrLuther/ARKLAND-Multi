@@ -9,12 +9,16 @@
 
 ### Fix
 
+- Fix (TEK / Eventos Globais): rates temporários (XP, Taming, Harvest, Breeding) voltam a aparecer — o card ActiveEvent ocupava o viewport inteiro e escondia a secção; agora há abas «Rates temporários» e «Evento ARK oficial» (-ActiveEvent= intacto).
 - Fix (TEK / ArkPlayer): instalação passa a copiar config.json padrão quando o destino ainda não tem (não sobrescreve); PyInstaller empacota plugins/arkplayer/config.json — o EXE anterior só copiava DLL+PluginInfo e o plugin falhava com «Cannot open config».
 - Fix (ArkPlayer C++): config.json ausente → warning + defaults embutidos em vez de critical fail no init.
+- Fix (Web Store / Admin Pedidos): «Carregando…» longo — causa raiz: COUNT(*) + exclusão SeasonLand (NOT LIKE sp:) em toda a tabela orders antes de devolver 1 página; frontend já paginava mas o COUNT era O(N). Agora LIMIT+1→has_more, load_only (sem payload_json), total só com include_total=1 (ou SteamID completo); UI timeout 15s + prev/next sem total; default 10/página.
 
 ### Other
 
 - Test (TEK): deploy ArkPlayer preserva config existente e resolve template do bundle.
+- Perf (Web Store / UI): padroniza listagens paginadas a 10 por página (Pedidos, PIX/Audit, SeasonLand Ops, Players, Market admin+browse, Minha Área, tickets, Dino Lab block/custom-dino, ARKBANK, lottery participants, dino-order).
+- Test (Web Store / Admin Pedidos): hot path sem total; has_more; include_total=1; default limit=10.
 
 ## [1.10.82] - 2026-07-20
 
