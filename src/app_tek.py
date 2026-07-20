@@ -1530,24 +1530,73 @@ class ARKServerManagerApp(ctk.CTk):
         _th.Thread(target=_worker, daemon=True).start()
 
     def _asm_do_scheduled_restart(self, srv: AsmServerConfig) -> None:
-        """Envia aviso RCON com countdown e reinicia o servidor."""
+        """Avisa via RCON, espera restart_countdown_minutes e reinicia."""
         import threading as _th  # noqa: PLC0415
 
+        from .pages.asm_scheduled_restart import run_restart_countdown  # noqa: PLC0415
+
+        sid = srv.id
+        inflight = getattr(self, "_asm_restart_countdown_inflight", None)
+        if inflight is None:
+            inflight = set()
+            self._asm_restart_countdown_inflight = inflight
+        if sid in inflight:
+            return
+        inflight.add(sid)
+
         def _worker():
-            countdown = max(1, getattr(srv, "restart_countdown_minutes", 15))
-            host = srv.server_ip or "127.0.0.1"
-            if srv.rcon_enabled and srv.admin_password:
-                try:
-                    from .rcon_client import RconClient  # noqa: PLC0415
-                    rc = RconClient(host, srv.rcon_port, srv.admin_password)
-                    rc.connect()
-                    rc.send_command_safe(
-                        f"broadcast [ARKLAND] Servidor reiniciará em {countdown} minuto(s)."
+            try:
+                minutes = max(1, int(getattr(srv, "restart_countdown_minutes", 15) or 15))
+                total_sec = minutes * 60
+                host = srv.server_ip or "127.0.0.1"
+
+                def _broadcast(message: str) -> None:
+                    if not (srv.rcon_enabled and srv.admin_password):
+                        return
+                    try:
+                        from .rcon_client import RconClient  # noqa: PLC0415
+                        rc = RconClient(host, srv.rcon_port, srv.admin_password)
+                        rc.connect()
+                        rc.send_command_safe(f"broadcast {message}")
+                        rc.disconnect()
+                    except Exception:
+                        pass
+
+                def _should_abort() -> bool:
+                    # Cancela se o servidor já parou durante a espera
+                    try:
+                        from .asm_engine.asm_server_config import ASM_STATUS_RUNNING
+                        st = self.asm_server_manager.get_status(sid)
+                        return st != ASM_STATUS_RUNNING
+                    except Exception:
+                        return False
+
+                if hasattr(self, "_global_log"):
+                    self.after(
+                        0,
+                        lambda: self._global_log(
+                            f"[Reinício] {srv.name}: countdown de {minutes} min iniciado.",
+                            "info",
+                        ),
                     )
-                    rc.disconnect()
-                except Exception:
-                    pass
-            self.after(0, lambda: self._asm_restart_server(srv))
+
+                ok = run_restart_countdown(
+                    total_seconds=total_sec,
+                    broadcast=_broadcast,
+                    should_abort=_should_abort,
+                )
+                if ok:
+                    self.after(0, lambda: self._asm_restart_server(srv))
+                elif hasattr(self, "_global_log"):
+                    self.after(
+                        0,
+                        lambda: self._global_log(
+                            f"[Reinício] {srv.name}: countdown cancelado (servidor não está running).",
+                            "warning",
+                        ),
+                    )
+            finally:
+                inflight.discard(sid)
 
         _th.Thread(target=_worker, daemon=True).start()
 

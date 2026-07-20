@@ -1,4 +1,4 @@
-"""Diálogo para agendar desligamento de servidores TEK (multi-select + segundos)."""
+"""Diálogo para agendar desligamento de servidores TEK (multi-select + minutos/segundos)."""
 from __future__ import annotations
 
 import tkinter as tk
@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING, Iterable
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..asm_engine.asm_server_config import ASM_STATUS_RUNNING
+from ..pages.asm_scheduled_shutdown import total_seconds_from_parts
 from ..ui_constants import get_theme
 
 if TYPE_CHECKING:
     from ..app_tek import ARKServerManagerApp
 
-# Presets em segundos
+# Presets em segundos (rótulos amigáveis no botão)
 _PRESETS_SEC = (30, 60, 120, 300, 600, 900)
 
 
@@ -50,7 +51,7 @@ def open_shutdown_schedule_dialog(
 
     dlg = ctk.CTkToplevel(app)
     dlg.title("TEK — Agendar desligamento")
-    dlg.geometry("520x560")
+    dlg.geometry("520x600")
     dlg.resizable(False, False)
     dlg.grab_set()
     dlg.configure(fg_color=bg)
@@ -134,25 +135,36 @@ def open_shutdown_schedule_dialog(
 
     _sync_mark_all()
 
-    # ── Tempo (segundos) ──────────────────────────────────────────────────────
+    # ── Tempo (minutos + segundos) ─────────────────────────────────────────────
     time_card = ctk.CTkFrame(dlg, fg_color=card_bg, corner_radius=8)
     time_card.pack(fill="x", padx=20, pady=(0, 8))
 
     ctk.CTkLabel(
-        time_card, text="Tempo até desligar (segundos)",
+        time_card, text="Tempo até desligar",
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=t_sec,
     ).pack(anchor="w", padx=12, pady=(10, 6))
 
-    preset_var = tk.IntVar(value=60)
-    custom_var = tk.StringVar(value="")
+    # Default: 5 minutos (antes o campo «personalizado» em segundos fazia
+    # operadores digitarem 5/15 e o servidor cair em 5–15 segundos).
+    minutes_var = tk.StringVar(value="5")
+    seconds_var = tk.StringVar(value="0")
+    preset_total_var = tk.IntVar(value=300)
+    use_preset = tk.BooleanVar(value=True)
 
     row = ctk.CTkFrame(time_card, fg_color="transparent")
     row.pack(fill="x", padx=8, pady=(0, 6))
 
+    def _apply_total_to_fields(total: int) -> None:
+        total = max(1, int(total))
+        mins, secs = divmod(total, 60)
+        minutes_var.set(str(mins))
+        seconds_var.set(str(secs))
+        preset_total_var.set(total)
+        use_preset.set(True)
+
     def _pick_preset(sec: int) -> None:
-        preset_var.set(sec)
-        custom_var.set("")
+        _apply_total_to_fields(sec)
 
     for sec in _PRESETS_SEC:
         label = f"{sec}s" if sec < 60 else f"{sec // 60}m"
@@ -166,23 +178,55 @@ def open_shutdown_schedule_dialog(
         ).pack(side="left", padx=3)
 
     custom_f = ctk.CTkFrame(time_card, fg_color="transparent")
-    custom_f.pack(fill="x", padx=12, pady=(0, 12))
+    custom_f.pack(fill="x", padx=12, pady=(0, 4))
 
     ctk.CTkLabel(
-        custom_f, text="Personalizado (s):",
+        custom_f, text="Minutos:",
         font=ctk.CTkFont(size=11), text_color=t_mut,
-    ).pack(side="left", padx=(0, 8))
-
-    custom_entry = ctk.CTkEntry(
-        custom_f, width=100, textvariable=custom_var, placeholder_text="ex: 90",
+    ).pack(side="left", padx=(0, 6))
+    minutes_entry = ctk.CTkEntry(
+        custom_f, width=64, textvariable=minutes_var, placeholder_text="5",
     )
-    custom_entry.pack(side="left")
+    minutes_entry.pack(side="left")
 
-    def _on_custom_change(*_) -> None:
-        if custom_var.get().strip():
-            preset_var.set(0)
+    ctk.CTkLabel(
+        custom_f, text="Segundos:",
+        font=ctk.CTkFont(size=11), text_color=t_mut,
+    ).pack(side="left", padx=(12, 6))
+    seconds_entry = ctk.CTkEntry(
+        custom_f, width=64, textvariable=seconds_var, placeholder_text="0",
+    )
+    seconds_entry.pack(side="left")
 
-    custom_var.trace_add("write", _on_custom_change)
+    preview_var = tk.StringVar(value="")
+
+    def _refresh_preview(*_a) -> None:
+        use_preset.set(False)
+        try:
+            m = int((minutes_var.get() or "0").strip() or "0")
+            s = int((seconds_var.get() or "0").strip() or "0")
+        except ValueError:
+            preview_var.set("Valores inválidos")
+            return
+        if m < 0 or s < 0 or s > 59:
+            preview_var.set("Segundos devem ser 0–59")
+            return
+        total = total_seconds_from_parts(m, s)
+        if total < 1:
+            preview_var.set("Informe ao menos 1 segundo")
+            return
+        from ..pages.asm_scheduled_shutdown import format_remaining_human
+        preview_var.set(f"Total: {format_remaining_human(total)} ({total}s)")
+
+    minutes_var.trace_add("write", _refresh_preview)
+    seconds_var.trace_add("write", _refresh_preview)
+    _refresh_preview()
+    use_preset.set(True)
+
+    ctk.CTkLabel(
+        time_card, textvariable=preview_var,
+        font=ctk.CTkFont(size=11), text_color=t_mut,
+    ).pack(anchor="w", padx=12, pady=(0, 10))
 
     err_var = tk.StringVar(value="")
     ctk.CTkLabel(
@@ -194,21 +238,33 @@ def open_shutdown_schedule_dialog(
     btns = ctk.CTkFrame(dlg, fg_color="transparent")
     btns.pack(fill="x", padx=20, pady=(4, 16))
 
+    def _resolve_seconds() -> int | None:
+        if use_preset.get() and preset_total_var.get() >= 1:
+            return int(preset_total_var.get())
+        try:
+            m = int((minutes_var.get() or "0").strip() or "0")
+            s = int((seconds_var.get() or "0").strip() or "0")
+        except ValueError:
+            err_var.set("Informe minutos e segundos numéricos.")
+            return None
+        if m < 0 or s < 0:
+            err_var.set("Tempo não pode ser negativo.")
+            return None
+        if s > 59:
+            err_var.set("Segundos devem estar entre 0 e 59.")
+            return None
+        total = total_seconds_from_parts(m, s)
+        if total < 1:
+            err_var.set("Informe ao menos 1 segundo (ex.: 0 min + 30 s).")
+            return None
+        return total
+
     def _confirm() -> None:
         from ..pages.asm_scheduled_shutdown import schedule_shutdown_many
 
-        raw = custom_var.get().strip()
-        if raw:
-            try:
-                seconds = int(raw)
-            except ValueError:
-                err_var.set("Segundos inválidos.")
-                return
-        else:
-            seconds = int(preset_var.get())
-            if seconds < 1:
-                err_var.set("Escolha um tempo ou informe os segundos.")
-                return
+        seconds = _resolve_seconds()
+        if seconds is None:
+            return
 
         selected = [sid for sid, var in server_vars.items() if var.get()]
         if not selected:

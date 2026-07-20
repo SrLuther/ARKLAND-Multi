@@ -3,16 +3,28 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.81"
+APP_VERSION: str = "1.10.82"
 BUILD_DATE: str = "2026-07-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
     {
-        "version": "Unreleased",
-        "date": "",
-        "changes": [],
+        "version": "1.10.82",
+        "date": "2026-07-20",
+        "changes": [
+            "Fix (TEK / Desligamento programado): diálogo voltou a pedir "
+            "minutos + segundos (preview do total) — digitar «5» deixava de "
+            "significar 5s e passa a 5 min; o timer wall-clock já respeitava "
+            "o deadline, mas a unidade do campo personalizado induzia "
+            "desligamento precoce.",
+            "Fix (TEK / Reinício programado): `_asm_do_scheduled_restart` "
+            "respeita `restart_countdown_minutes` (espera real + avisos RCON "
+            "em milestones) em vez de anunciar N min e reiniciar no "
+            "`after(0)`; guarda once-per-day no scheduler.",
+            "Test (TEK): countdown de reinício e conversão min+s do diálogo "
+            "de desligamento programado.",
+        ],
     },
     {
         "version": "1.10.81",

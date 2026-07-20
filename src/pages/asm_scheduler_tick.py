@@ -44,7 +44,20 @@ def _process_server_scheduled_tasks(app, srv, now, now_hhmm: str) -> None:
         if now.weekday() in _auto_restart_days_list(srv):
             status = app.asm_server_manager.get_status(srv.id)
             if status not in (ASM_STATUS_STOPPED, "stopping"):
-                app._asm_do_scheduled_restart(srv)
+                # Evita disparar várias vezes no mesmo HH:MM (tick ~60s pode
+                # coincidir duas vezes no mesmo minuto em deriva).
+                fired = getattr(app, "_asm_auto_restart_fired", None)
+                if fired is None:
+                    fired = {}
+                    app._asm_auto_restart_fired = fired
+                today = now.strftime("%Y-%m-%d")
+                fire_key = f"{srv.id}::{now_hhmm}::{today}"
+                if fired.get(fire_key) != today:
+                    fired[fire_key] = today
+                    # Limpa chaves antigas
+                    for k in [k for k, v in fired.items() if v != today]:
+                        del fired[k]
+                    app._asm_do_scheduled_restart(srv)
 
     if srv.enable_auto_update_check and srv.auto_update_check_minutes > 0:
         last_attr = f"_last_update_check_{srv.id}"

@@ -24,6 +24,11 @@ def warning_milestones_seconds(total_seconds: int) -> list[int]:
     return [m for m in _WARN_LADDER_SEC if 0 < m < total]
 
 
+def total_seconds_from_parts(minutes: int, seconds: int) -> int:
+    """Converte minutos + segundos no total usado pelo agendador."""
+    return max(0, int(minutes)) * 60 + max(0, int(seconds))
+
+
 def format_shutdown_countdown(seconds: int) -> str:
     """Formata restante como H:MM:SS / M:SS para o card do dashboard."""
     secs = max(0, int(seconds))

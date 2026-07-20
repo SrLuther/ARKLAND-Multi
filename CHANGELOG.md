@@ -5,7 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased] - 
+## [1.10.82] - 2026-07-20
+
+### Fix
+
+- Fix (TEK / Desligamento programado): diálogo voltou a pedir minutos + segundos (preview do total) — digitar «5» deixava de significar 5s e passa a 5 min; o timer wall-clock já respeitava o deadline, mas a unidade do campo personalizado induzia desligamento precoce.
+- Fix (TEK / Reinício programado): `_asm_do_scheduled_restart` respeita `restart_countdown_minutes` (espera real + avisos RCON em milestones) em vez de anunciar N min e reiniciar no `after(0)`; guarda once-per-day no scheduler.
+
+### Other
+
+- Test (TEK): countdown de reinício e conversão min+s do diálogo de desligamento programado.
 
 ## [1.10.81] - 2026-07-20
 
