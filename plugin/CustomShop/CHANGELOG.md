@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.29] - 2026-07-19
+
+### Feat
+
+- **Licenças**: remove o limite de 2 tiers pagos activos distintos — jogador pode ter todos os tiers em simultâneo; renovar o mesmo group continua a empilhar +N dias; `keyvault` permanece independente.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.29) em cada mapa.
+
 ## [1.10.28] - 2026-07-19
 
 ### Feat

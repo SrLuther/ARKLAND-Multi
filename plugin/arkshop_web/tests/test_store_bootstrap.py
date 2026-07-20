@@ -66,12 +66,56 @@ def test_service_worker_does_not_cache_bootstrap(client):
     assert "/api/store/bootstrap" in body
     assert "isPublicCatalog" in body
     assert "store/bootstrap" in body.lower() or "bootstrap" in body
-    assert "arkland-webstore-static-v4" in body
+    assert "arkland-webstore-static-v5" in body
     assert "no-store" in body
     assert "skipWaiting" in body
     assert "isHeavyImageAsset" in body
     assert "/species/icons/" in body
 
+
+def test_index_load_home_ignores_stale_abort():
+    """Abort de loadHome concorrente (boot/nav) não deve renderizar modal de falha."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "_homeLoadGen" in html
+    assert "_homeLoadAbort" in html
+    idx = html.index("async function loadHome(opts)")
+    block = html[idx : idx + 1800]
+    assert 'e?.name === "AbortError"' in block
+    assert "if (!timedOut) return false" in block
+    assert "if (gen !== _homeLoadGen) return false" in block
+    assert "Timeout (20s) ao carregar a home" in block
+
+
+def test_index_nav_page_ttl_cache():
+    """Navegação SPA não deve refetch bootstrap/catalog a cada clique se TTL fresco."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "NAV_PAGE_TTL_MS" in html
+    assert "_navShouldFetch" in html
+    assert "_navPageMark" in html
+    assert "catalog_revalidate" in html
+    # Revalidate usa /api/catalog (não bootstrap completo).
+    assert "function _revalidateCatalogBackground()" in html
+    idx = html.index("function _revalidateCatalogBackground()")
+    block = html[idx : idx + 900]
+    assert "/api/catalog" in block
+    assert "/api/store/bootstrap" not in block
+    # Boot não pré-carrega settings/players/servers/myarea.
+    boot_idx = html.index("async function bootPortal()")
+    boot_end = html.index("\nbootPortal();", boot_idx)
+    boot = html[boot_idx:boot_end]
+    assert "loadSettings()" not in boot
+    assert "loadPlayers()" not in boot
+    assert "loadMyArea(" not in boot
+    assert "ensureTeamsNavFromApi" in boot
+    # Admin pages carregam on-demand na nav.
+    assert 'if (page === "settings" && _auth.is_admin) loadSettings();' in html
+    assert 'if (page === "servers" && _auth.is_admin) loadServers();' in html
+    assert 'if (page === "rcon" && _auth.is_admin) loadPlayers();' in html
+    # Saldo na nav não força refresh a cada applyCatalog.
+    assert "async function updateCatalogPoints()" in html
+    upd = html[html.index("async function updateCatalogPoints()") : html.index("async function updateCatalogPoints()") + 200]
+    assert "force: true" not in upd
+    assert "await refreshPlayerBalance();" in upd
 
 def test_index_admin_config_load_does_not_false_empty():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -118,7 +162,8 @@ def test_index_catalog_distinguishes_load_error_from_empty():
 
 def test_index_admin_nav_shows_loading_without_config():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
-    assert 'else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");' in html
+    assert 'setAdminShopLoading("Carregando config.json…");' in html
+    assert "loadConfig();" in html
     assert "_updateCatalogStatusBar" in html
 
 

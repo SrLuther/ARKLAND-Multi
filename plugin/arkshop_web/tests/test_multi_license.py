@@ -1,4 +1,4 @@
-"""Até 2 tiers pagos distintos + stack +30d no mesmo SKU."""
+"""Tiers pagos distintos ilimitados + stack +30d no mesmo SKU."""
 from __future__ import annotations
 
 import json
@@ -83,7 +83,7 @@ def test_two_distinct_paid_tiers_coexist():
     assert "Alfa" in groups
 
 
-def test_third_distinct_tier_rejected():
+def test_third_distinct_tier_accepted():
     db = _app_module._SessionLocal()
     try:
         _app_module._apply_entitlement_grant_tx(
@@ -92,17 +92,18 @@ def test_third_distinct_tier_rejected():
         _app_module._apply_entitlement_grant_tx(
             db, USER_STEAM, "Alfa", 30, source="t2", notes="a",
         )
+        _app_module._apply_entitlement_grant_tx(
+            db, USER_STEAM, "Beta", 30, source="t3", notes="b",
+        )
+        _app_module._apply_entitlement_grant_tx(
+            db, USER_STEAM, "Delta", 30, source="t4", notes="d",
+        )
         db.commit()
-        with pytest.raises(ValueError, match="2 licenças"):
-            _app_module._apply_entitlement_grant_tx(
-                db, USER_STEAM, "Beta", 30, source="t3", notes="b",
-            )
-        db.rollback()
     finally:
         _app_module._release_db_session(db)
 
     ents = _app_module._get_player_entitlements(USER_STEAM)
-    assert {e["group"] for e in ents} == {"Gamma", "Alfa"}
+    assert {e["group"] for e in ents} == {"Gamma", "Alfa", "Beta", "Delta"}
 
 
 def test_same_tier_renewal_stacks_without_extra_slot():
@@ -173,6 +174,13 @@ def test_timed_points_highest_paid_wins():
     assert _app_module._compute_timed_points_total(["Gamma", "Alfa"]) == 100
     assert _app_module._compute_timed_points_total(["Gamma"]) == 50
     assert _app_module._compute_timed_points_total([]) == 25
+    # 3+ pagos: só o maior conta; Default/staff continuam aditivos
+    assert _app_module._compute_timed_points_total(
+        ["Gamma", "Beta", "Alfa"],
+    ) == 100  # 25 + max(25, 50, 75)
+    assert _app_module._compute_timed_points_total(
+        ["Gamma", "Beta", "Alfa", "STAFF"],
+    ) == 1100  # 25 + 75 + 1000
 
 
 def test_can_accept_helpers():
@@ -186,7 +194,7 @@ def test_can_accept_helpers():
         ok_renew, _ = _app_module._can_accept_paid_license_tx(db, USER_STEAM, "Gamma")
         assert ok_renew is True
         ok_third, err = _app_module._can_accept_paid_license_tx(db, USER_STEAM, "Beta")
-        assert ok_third is False
-        assert "2 licenças" in err
+        assert ok_third is True
+        assert err == ""
     finally:
         _app_module._release_db_session(db)

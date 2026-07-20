@@ -1124,7 +1124,7 @@ Resumo normativo (obrigatório incluir **unclaimed**):
 2. **XP:** jogar online em **qualquer mapa** — cada Âmbar recebido por TimedPoints sobe o Pass XP na **mesma** quantidade, até ao **nível 30**. Depois disso, os Âmbares do tick **continuam**, mas o XP do Pass **não sobe mais**.
 3. **Premium:** compra **apenas com Âmbar** na área SeasonLand (sem PIX/cartão). Vale **só** a season actual. Resgates são **sempre manuais**; comprar a meio desbloqueia catch-up das caixas já desbloqueadas.
 4. **Recompensas não resgatadas:** no fim dos 30 dias **não** se perdem de imediato. Ainda podes resgatar **até a administração abrir a próxima season**. Quando a próxima season começa, o resgate da season anterior **fecha** e o que não foi resgatado **é perdido**.
-5. **Licença (ex. Delta 30 dias no Premium L29):** duração normal de catálogo (**30 dias**). Máx. **2 tiers pagos distintos** activos; renovar o mesmo tier empilha **+30 dias**. Se já tiveres tier **superior**, ou os **2 slots** ocupados e o grant seria um 3.º, no resgate **escolhes** a licença do Pass **ou** o valor de catálogo em Âmbar.
+5. **Licença (ex. Delta 30 dias no Premium L29):** duração normal de catálogo (**30 dias**). Tiers pagos distintos **ilimitados**; renovar o mesmo tier empilha **+30 dias**. Se já tiveres tier **superior**, no resgate **escolhes** a licença do Pass **ou** o valor de catálogo em Âmbar.
 6. **Meta colectiva:** ao completar, a administração **marca uma data** de evento para a maioria poder participar — **não** é um evento automático no instante em que a barra enche.
 
 ### 15.12 Checklist ops — SeasonLand readiness (jul/2026)

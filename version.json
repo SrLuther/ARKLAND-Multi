@@ -1,18 +1,16 @@
 {
-    "version": "1.10.77",
+    "version": "1.10.78",
     "date": "2026-07-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.77/ARKLAND-Multi-Setup-v1.10.77.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.78/ARKLAND-Multi-Setup-v1.10.78.exe",
     "changelog": [
-        "Fix (Equipes / armazém): ícones element_ore ↔ element_dust — retry (1.10.76 ainda errado por cache PWA); ?v=hash + SW network-only em team/*.png.",
-        "Docs (Web Store / Equipes): Regras do Modo Equipe — docs/REGULAMENTO_MODO_EQUIPE.md + /regulamento_modo_equipe.html; defaults do sistema (membros, taxa fundação, sorteio freeze, /marco, armazém, split, ranking, etc.) explícitos como regras; §8.14 no regulamento oficial v1.4.",
-        "Feat (Web Store / Equipes): settings Admin — teams_founding_fee, teams_lottery_numbers_per_member, teams_warehouse_cap_default (+ caps JSON), teams_marco_preview_ttl_sec, teams_max_special_roles, teams_rename_cooldown_hours / teams_rename_cost_amber, teams_market_split_sender_pct, prémios ranking (enable + top-1/2/3 + payout manual).",
-        "Feat (CustomShop 1.10.28): /marco TTL lido de membership.marco_preview_ttl_sec.",
-        "Test (Web Store / Equipes): readers de settings; rejeita depósito over-cap; lottery numbers_per_member na confirmação.",
-        "Feat (Web Store / Equipes): política anti-abuso do sorteio teams_lottery_post_confirm_policy (padrão freeze) — após confirmar, bloqueia kick/entrada até o draw; saída perde N números (teams_lottery_numbers_per_member); forfeit_on_depart / legacy_keep; UI Admin Configurações.",
-        "Test (Web Store / Equipes): freeze bloqueia kick/join; leave forfeit; forfeit_on_depart no kick; legacy_keep Q9.",
-        "Feat (Web Store / Admin): Gerenciar Jogadores — entrega do catálogo completo (Itens, Dinos, Dinos 200, Kits) via seletor + busca + qty/motivo → pedido PENDENTE (mesmo fluxo do kit); POST /api/admin/players/<id>/deliver; audit admin_player_item_deliver / admin_player_dino_deliver / admin_player_kit_deliver; licenças continuam no bloco Conceder/Revogar.",
-        "Test (Web Store / Admin): entrega admin item + dino L1 + dino200 + kit; rejeita licença via /deliver; deliver_catalog no detalhe do jogador.",
-        "Feat (Web Store / SeasonLand): área admin dedicada «SeasonLand — Ops» (nav) — claims/eventos season_pass_*, fila sp:/skip-kit|sp:, filtros steam/status/track/level/data, badge SeasonLand, REENVIAR + resend Â/item; GET /api/admin/season-pass/orders; Pedidos oculta SeasonLand por omissão (toggle Incluir SeasonLand + link Ops).",
-        "Test (Web Store / SeasonLand): list ops orders + Pedidos hide/include SP."
+        "Feat (Web Store + CustomShop 1.10.29 / Licenças): remove o limite de 2 tiers pagos activos — jogador pode resgatar/manter todos os tiers distintos; mesmo SKU continua a empilhar +30d; keyvault independente. TimedPoints: entre pagos vence o maior; Default/staff empilham.",
+        "Feat (Season Pass): escolha licença↔Â só por tier superior (já não bloqueia por slots cheios).",
+        "Docs: REGULAMENTO §8.5 / Season Pass / ECONOMIA / ARKBANK — sem teto de 2 licenças.",
+        "Test: multi-license aceita 3+ tiers; season_pass sem slots_full; perm sync mantém todos os pagos.",
+        "Perf (Web Store / Nav): TTL cache por página (home/catálogo/season/sorteio/midias/polls/myarea/equipes) — troca de aba instantânea sem refetch se fresco; botões ↺ forçam reload.",
+        "Perf (Web Store / Catalogo): revalidate em background usa só /api/catalog (TTL 5min) em vez de /api/store/bootstrap completo a cada visita ao Catálogo; saldo sem force em cada apply.",
+        "Perf (Web Store / Boot): não pré-carrega Minha Área nem settings/players/servers; config.json só no boot com modo staff activo (senão ao abrir shop/kits); admin pages on-demand na nav.",
+        "Perf (Web Store / Sorteio): number-grid + participants em paralelo; regulamento meta+content em paralelo.",
+        "Test (Web Store / Nav): TTL cache, revalidate sem bootstrap, SW v5."
     ]
 }

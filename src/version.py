@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.77"
+APP_VERSION: str = "1.10.78"
 BUILD_DATE: str = "2026-07-19"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,7 +12,46 @@ CHANGELOG: list[dict] = [
     {
         "version": "Unreleased",
         "date": "2026-07-19",
-        "changes": [],
+        "changes": [
+            "Feat (ArkPlayer): novo plugin ArkApi MVP — /mindwipe, /missao, "
+            "/loot, /nome, /kill; substitui PlayerUtilities; install manual em "
+            "ArkApi\\Plugins\\ArkPlayer\\ (ver plugin/ArkPlayer/README.md).",
+            "Fix P0 (Web Store / Home): AbortError de loadHome concorrente "
+            "(boot+nav/warmup) já não mostra «Não foi possível carregar a "
+            "home» / «signal is aborted without reason»; gen+abort stale "
+            "silencioso; timeout 20s com mensagem clara.",
+        ],
+    },
+    {
+        "version": "1.10.78",
+        "date": "2026-07-19",
+        "changes": [
+            "Feat (Web Store + CustomShop 1.10.29 / Licenças): remove o limite "
+            "de 2 tiers pagos activos — jogador pode resgatar/manter todos os "
+            "tiers distintos; mesmo SKU continua a empilhar +30d; keyvault "
+            "independente. TimedPoints: entre pagos vence o maior; Default/"
+            "staff empilham.",
+            "Feat (Season Pass): escolha licença↔Â só por tier superior (já "
+            "não bloqueia por slots cheios).",
+            "Docs: REGULAMENTO §8.5 / Season Pass / ECONOMIA / ARKBANK — "
+            "sem teto de 2 licenças.",
+            "Docs: backlog pesquisa GitHub topic arksurvivalevolved "
+            "(docs/PESQUISA_ARK_GITHUB.md).",
+            "Test: multi-license aceita 3+ tiers; season_pass sem slots_full; "
+            "perm sync mantém todos os pagos.",
+            "Perf (Web Store / Nav): TTL cache por página (home/catálogo/season/"
+            "sorteio/midias/polls/myarea/equipes) — troca de aba instantânea sem "
+            "refetch se fresco; botões ↺ forçam reload.",
+            "Perf (Web Store / Catalogo): revalidate em background usa só "
+            "/api/catalog (TTL 5min) em vez de /api/store/bootstrap completo a "
+            "cada visita ao Catálogo; saldo sem force em cada apply.",
+            "Perf (Web Store / Boot): não pré-carrega Minha Área nem "
+            "settings/players/servers; config.json só no boot com modo staff "
+            "activo (senão ao abrir shop/kits); admin pages on-demand na nav.",
+            "Perf (Web Store / Sorteio): number-grid + participants em paralelo; "
+            "regulamento meta+content em paralelo.",
+            "Test (Web Store / Nav): TTL cache, revalidate sem bootstrap, SW v5.",
+        ],
     },
     {
         "version": "1.10.77",

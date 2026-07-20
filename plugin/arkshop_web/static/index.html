@@ -7722,7 +7722,7 @@
         <div id="topbar">
           <div class="page-title">Utilidades</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadDownloads()">↺ Atualizar</button>
+            <button class="btn btn-ghost" onclick="loadDownloads({ force: true })">↺ Atualizar</button>
           </div>
         </div>
         <div id="downloads-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
@@ -8504,7 +8504,7 @@
         <div id="topbar">
           <div class="page-title">Mídias</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadMidias()">↺ Atualizar</button>
+            <button class="btn btn-ghost" onclick="loadMidias({ force: true })">↺ Atualizar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:16px;">
@@ -8527,7 +8527,7 @@
         <div id="topbar">
           <div class="page-title">Votações da Comunidade</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadPolls()">↺ Atualizar</button>
+            <button class="btn btn-ghost" onclick="loadPolls({ force: true })">↺ Atualizar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:16px;">
@@ -8545,7 +8545,7 @@
           <div class="page-title">🎲 Sorteio de Doações</div>
           <div class="topbar-actions">
             <button class="btn btn-primary btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button>
-            <button class="btn btn-ghost" onclick="loadSorteio()">↺ Atualizar</button>
+            <button class="btn btn-ghost" onclick="loadSorteio({ force: true })">↺ Atualizar</button>
           </div>
         </div>
         <div id="sorteio-root" style="color:var(--text2);">Carregando…</div>
@@ -8556,7 +8556,7 @@
         <div id="topbar">
           <div class="page-title page-title--seasonland"><img class="sp-title-logo" src="/SeasonLand_Logo.png" alt="" width="28" height="28" /> SeasonLand</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadSeasonPass()">↺ Atualizar</button>
+            <button class="btn btn-ghost" onclick="loadSeasonPass({ force: true })">↺ Atualizar</button>
           </div>
         </div>
         <div id="season-pass-root" style="color:var(--text2);">Carregando…</div>
@@ -8656,7 +8656,7 @@
               <option value="REEMITIDO">Reemitido</option>
               <option value="REEMBOLSADO">Reembolsado</option>
             </select>
-            <button class="btn btn-ghost" onclick="loadMyArea()">↺ Recarregar</button>
+            <button class="btn btn-ghost" onclick="loadMyArea({ force: true })">↺ Recarregar</button>
           </div>
         </div>
         <div class="card">
@@ -8731,7 +8731,7 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-ghost btn-sm" onclick="goToPage('teams-directory')">Lista global →</button>
               <button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Página completa →</button>
-              <button class="btn btn-ghost btn-sm" onclick="loadMyTeam()">↺</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadMyTeam({ force: true })">↺</button>
             </div>
           </div>
           <div id="myarea-teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
@@ -9717,7 +9717,7 @@
           <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Minha Equipe</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="goToPage('teams-directory')">🌐 Lista de equipes</button>
-            <button class="btn btn-ghost" onclick="loadMyTeam()">↺ Recarregar</button>
+            <button class="btn btn-ghost" onclick="loadMyTeam({ force: true })">↺ Recarregar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:12px;">
@@ -9735,7 +9735,7 @@
         <div id="topbar">
           <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Equipes</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadTeamsDirectory()">↺ Recarregar</button>
+            <button class="btn btn-ghost" onclick="loadTeamsDirectory({ force: true })">↺ Recarregar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:12px;">
@@ -9746,9 +9746,9 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
             <div class="form-group" style="margin:0;flex:1;min-width:200px;">
               <label for="tm-dir-q">Buscar</label>
-              <input id="tm-dir-q" type="text" placeholder="Nome, tag ou SteamID do owner" onkeydown="if(event.key==='Enter')loadTeamsDirectory()" />
+              <input id="tm-dir-q" type="text" placeholder="Nome, tag ou SteamID do owner" onkeydown="if(event.key==='Enter')loadTeamsDirectory({ force: true })" />
             </div>
-            <button class="btn btn-primary btn-sm" onclick="loadTeamsDirectory()">Filtrar</button>
+            <button class="btn btn-primary btn-sm" onclick="loadTeamsDirectory({ force: true })">Filtrar</button>
             <button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Minha Equipe →</button>
           </div>
         </div>
@@ -9760,7 +9760,7 @@
         <div id="topbar">
           <div class="page-title page-title--equipes"><img class="tm-title-logo" src="/ArkLnd_Equipes.png" alt="" width="28" height="28" /> Rankings — Equipes &amp; Jogadores</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadTeamsRankings()">↺ Recarregar</button>
+            <button class="btn btn-ghost" onclick="loadTeamsRankings({ force: true })">↺ Recarregar</button>
           </div>
         </div>
         <div class="card" id="teams-rank-admin-tools" style="margin-bottom:16px;display:none;">
@@ -10713,8 +10713,10 @@ async function loadRegulamentoContent(targetId) {
   if (!el) return;
   el.innerHTML = '<p style="color:var(--text2);">Carregando regulamento…</p>';
   try {
-    const meta = await fetchJson("/api/regulamento/meta");
-    const content = await fetchJson("/api/regulamento/content");
+    const [meta, content] = await Promise.all([
+      fetchJson("/api/regulamento/meta"),
+      fetchJson("/api/regulamento/content"),
+    ]);
     const verEl = document.getElementById("regulamento-page-version");
     if (verEl) {
       verEl.textContent = `Versão ${meta.version || content.version || "1.0"} · ${meta.updated_at || ""}`;
@@ -10842,6 +10844,7 @@ function nav(el) {
   const pageEl = document.getElementById("page-" + page);
   if (pageEl) pageEl.classList.add("active");
   if (isMobileNav()) closeSidebar();
+  // Troca de página é síncrona (DOM já montado). Loads abaixo são TTL/cache — não bloqueiam paint.
   if (page === "home") loadHome();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
@@ -10855,11 +10858,17 @@ function nav(el) {
   if (page === "shop") {
     loadShopMarketStatus();
     if (_config) renderShop();
-    else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");
+    else if (_auth.is_admin) {
+      setAdminShopLoading("Carregando config.json…");
+      loadConfig();
+    }
   }
   if (page === "kits") {
     if (_config) renderKits();
-    else if (_auth.is_admin) setAdminShopLoading("Carregando config.json…");
+    else if (_auth.is_admin) {
+      setAdminShopLoading("Carregando config.json…");
+      loadConfig();
+    }
   }
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
@@ -10867,6 +10876,9 @@ function nav(el) {
   if (page === "downloads") loadDownloads();
   if (page === "tutoriais") initTutoriaisPage();
   if (page === "regulamento") loadRegulamentoPage();
+  if (page === "settings" && _auth.is_admin) loadSettings();
+  if (page === "servers" && _auth.is_admin) loadServers();
+  if (page === "rcon" && _auth.is_admin) loadPlayers();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "admin-home-notice") loadAdminHomeCards();
@@ -11455,6 +11467,7 @@ function applyRoleUi(deferAdminNav = false) {
       _ensureAdminConfigPanelsRendered();
     } else {
       setAdminShopLoading("Carregando config.json…");
+      loadConfig();
     }
   }
 
@@ -11563,7 +11576,8 @@ async function refreshPlayerBalance({ force = false } = {}) {
 }
 
 async function updateCatalogPoints() {
-  await refreshPlayerBalance({ force: true });
+  // Sem force: respeita _BALANCE_MIN_INTERVAL_MS (evita XHR em cada revalidate/nav).
+  await refreshPlayerBalance();
 }
 
 // ── Utilitário: formata chave interna em nome legível ─────────────────────────
@@ -12227,14 +12241,54 @@ const STORE_CACHE_IDB_STORE = "payloads";
 const STORE_CACHE_TTL_MS = 30 * 60 * 1000;
 const STORE_WARMUP_GATE_MS = 4000;
 const STORE_WARMUP_SKIP_MS = 2000;
+/** TTL por página — evita refetch completo em cada clique da nav (SPA show/hide). */
+const NAV_PAGE_TTL_MS = {
+  home: 120000,
+  downloads: 300000,
+  midias: 120000,
+  polls: 60000,
+  sorteio: 45000,
+  "season-pass": 60000,
+  myarea: 45000,
+  teams: 60000,
+  "teams-directory": 90000,
+  "teams-rankings": 90000,
+  "teams-status": 300000,
+  catalog_revalidate: 300000,
+};
 let _storeWarmupReady = Boolean(window.__storeWarmupReady);
 let _storeWarmupRevalidating = false;
 let _storeWarmupGateTimer = null;
 let _storeWarmupProgressTimer = null;
 let _storeWarmupSkipTimer = null;
 let _storeWarmupBgPromise = null;
+let _navPageFetchedAt = Object.create(null);
+let _catalogLastRevalidateMs = 0;
 
 function _storeCacheNow() { return Date.now(); }
+
+function _navPageFresh(key, ttlMs) {
+  const t = _navPageFetchedAt[key];
+  return t != null && (_storeCacheNow() - t) < (ttlMs || 0);
+}
+
+function _navPageMark(key) {
+  _navPageFetchedAt[key] = _storeCacheNow();
+}
+
+function _navPageInvalidate(key) {
+  if (key == null) {
+    _navPageFetchedAt = Object.create(null);
+    return;
+  }
+  delete _navPageFetchedAt[key];
+}
+
+/** true = precisa ir à rede; false = cache de nav ainda fresco. */
+function _navShouldFetch(key, ttlMs, force) {
+  if (force) return true;
+  return !_navPageFresh(key, ttlMs);
+}
 
 function _readStoreMeta() {
   try {
@@ -12838,18 +12892,23 @@ async function loadCatalog(opts) {
 
 function _revalidateCatalogBackground() {
   if (_storeWarmupRevalidating) return;
+  const ttl = NAV_PAGE_TTL_MS.catalog_revalidate || 300000;
+  if (_catalogLastRevalidateMs && (_storeCacheNow() - _catalogLastRevalidateMs) < ttl) return;
   _storeWarmupRevalidating = true;
-  fetchJson("/api/store/bootstrap", { timeoutMs: 15000 })
-    .then(async (boot) => {
-      if (boot && boot.ok !== false) {
-        await _applyBootstrapPayload(boot);
-        await _writeBootstrapCache(boot);
-      }
+  _catalogLastRevalidateMs = _storeCacheNow();
+  // Só /api/catalog (público, SW SWR) — não refetch bootstrap completo a cada nav.
+  fetch(API + "/api/catalog")
+    .then(r => r.ok ? r.json() : null)
+    .then((data) => {
+      if (!data) return;
+      try { _writeStoreCache(data); } catch (_) {}
+      return applyCatalogPayload(data, {
+        entitlements: _playerEntitlements,
+        timedPointsTotal: _playerTimedPointsTotal,
+        kitLimits: _playerKitLimitsReady ? Object.values(_playerKitLimits) : undefined,
+      });
     })
-    .catch(() => fetch(API + "/api/catalog")
-      .then(r => r.ok ? r.json() : null)
-      .then((data) => { if (data) { _writeStoreCache(data); applyCatalogPayload(data); } })
-      .catch(() => {}))
+    .catch(() => {})
     .finally(() => { _storeWarmupRevalidating = false; });
 }
 
@@ -13915,7 +13974,7 @@ async function pollPixStatus(paymentId) {
       }
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance({ force: true });
-      loadMyArea();
+      loadMyArea({ force: true });
       stopPixPoll();
       _activePixPaymentId = null;
       toast(modalHidden ? "Doação PIX confirmada — Âmbares creditados!" : "Pontos creditados — use-os para resgatar itens no catálogo.", "success");
@@ -14022,8 +14081,13 @@ function statusBadge(status) {
   return `<span class="badge">${s || "-"}</span>`;
 }
 
-async function loadMyArea() {
+async function loadMyArea(opts) {
   if (!_auth.authenticated) return;
+  const force = !!(opts && opts.force);
+  if (!_navShouldFetch("myarea", NAV_PAGE_TTL_MS.myarea, force)) {
+    const sum = document.getElementById("myarea-summary");
+    if (sum && sum.children.length > 0) return;
+  }
   document.getElementById("myarea-profile").textContent = `SteamID autenticado: ${_auth.steam_id}`;
 
   const summaryResPromise = fetch(API + "/api/player/summary", { credentials: "same-origin" });
@@ -14039,7 +14103,7 @@ async function loadMyArea() {
            <div style="font-size:28px;margin-bottom:8px">⏳</div>
            <div style="color:var(--amber);font-weight:600;margin-bottom:12px">Banco de dados iniciando…</div>
            <div style="color:var(--text2);font-size:12px;margin-bottom:16px">O servidor MariaDB está subindo. Aguarde alguns segundos.</div>
-           <button class="btn btn-ghost" onclick="setTimeout(loadMyArea, 3000)">↺ Tentar novamente</button>
+           <button class="btn btn-ghost" onclick="setTimeout(() => loadMyArea({ force: true }), 3000)">↺ Tentar novamente</button>
          </div>`
       : `<div style="color:var(--danger);grid-column:1/-1">${errMsg}</div>`;
     document.getElementById("myarea-history").innerHTML = "";
@@ -14070,9 +14134,10 @@ async function loadMyArea() {
     loadMyAreaHistory(),
     marketProfilePromise,
     ensureTeamsNavFromApi().then(() => {
-      if (_teamsEnabledCache !== false) return loadMyTeam();
+      if (_teamsEnabledCache !== false) return loadMyTeam({ force: true });
     }).catch(() => {}),
   ]);
+  _navPageMark("myarea");
 }
 
 async function loadMyAreaMarketProfile() {
@@ -14145,7 +14210,7 @@ async function cancelPendingOrder(orderId) {
       toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados (80%)`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance({ force: true });
-      loadMyArea();
+      loadMyArea({ force: true });
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
       toast(d.error || "Não foi possível cancelar", "error");
@@ -15151,16 +15216,23 @@ function _renderPollsFromCache() {
     }).join("");
 }
 
-async function loadPolls() {
+async function loadPolls(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("polls-list");
   if (!root) return;
-  root.innerHTML = "Carregando…";
+  if (!_navShouldFetch("polls", NAV_PAGE_TTL_MS.polls, force) && _pollsCache && _pollsCache.length >= 0 && root.dataset.loaded === "1") {
+    return;
+  }
+  if (root.dataset.loaded !== "1") root.innerHTML = "Carregando…";
   try {
     const d = await fetchJson("/api/polls");
     if (!d.ok) throw new Error(d.error || "Falha ao carregar");
     _pollsCache = d.polls || [];
     _renderPollsFromCache();
+    root.dataset.loaded = "1";
+    _navPageMark("polls");
   } catch (e) {
+    root.dataset.loaded = "";
     root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
 }
@@ -15179,8 +15251,8 @@ async function submitPollVote(pollId) {
       ? `Voto registrado! +${d.poll.reward_amber} ${CURRENCY.plural} creditados.`
       : "Voto registrado!", "success");
     delete _pollVoteSelection[pollId];
-    if (_auth.authenticated) refreshPlayerBalance();
-    loadPolls();
+    if (_auth.authenticated) refreshPlayerBalance({ force: true });
+    loadPolls({ force: true });
   } catch (e) {
     toast(String(e), "error");
   }
@@ -15322,7 +15394,7 @@ function backFromLotteryRegulamento() {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.getElementById("page-sorteio")?.classList.add("active");
   try { history.replaceState({}, "", window.location.pathname + "#/sorteio"); } catch (_) {}
-  loadSorteio();
+  loadSorteio({ force: true });
 }
 
 function _formatCountdown(secs) {
@@ -15441,10 +15513,14 @@ function renderLotteryGrid(cells, onCellClick) {
   }).join("")}</div></div>`;
 }
 
-async function loadSorteio() {
+async function loadSorteio(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("sorteio-root");
   if (!root) return;
-  root.textContent = "Carregando…";
+  if (!_navShouldFetch("sorteio", NAV_PAGE_TTL_MS.sorteio, force) && root.dataset.loaded === "1") {
+    return;
+  }
+  if (root.dataset.loaded !== "1" || force) root.textContent = "Carregando…";
   try {
     const cur = await fetchJson("/api/public/lottery/current");
     _lotteryCurrent = cur.campaign;
@@ -15452,6 +15528,8 @@ async function loadSorteio() {
     const upcoming = cur.upcoming || null;
     if (!cur.enabled) {
       root.innerHTML = `<div class="card"><p>O sorteio está desabilitado no momento. Quando ativo, você poderá participar por doação ou compra com Âmbares.</p>${_lotteryRegulamentoBanner("Leia o regulamento completo antes de participar.")}</div>`;
+      root.dataset.loaded = "1";
+      _navPageMark("sorteio");
       return;
     }
     let mainHtml = "";
@@ -15460,8 +15538,10 @@ async function loadSorteio() {
     }
     if (cur.campaign) {
       const c = cur.campaign;
-      const grid = await fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`);
-      const parts = await fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=20`);
+      const [grid, parts] = await Promise.all([
+        fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`),
+        fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=20`),
+      ]);
       const auth = _auth.authenticated;
       const actions = auth ? `
         <button class="btn btn-primary btn-sm" onclick="lotteryBuyRandom()">Comprar aleatório (${c.amber_random_price} Âmbares)</button>
@@ -15529,8 +15609,11 @@ async function loadSorteio() {
       }
     } catch (_) {}
     root.innerHTML = mainHtml;
+    root.dataset.loaded = "1";
+    _navPageMark("sorteio");
     _lotteryMaybeShowResultModal(last);
   } catch (e) {
+    root.dataset.loaded = "";
     root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
 }
@@ -15541,7 +15624,7 @@ async function lotteryBuyRandom() {
     const d = await fetchJson("/api/player/lottery/buy-random", { method: "POST" });
     if (!d.ok) throw new Error(d.message || d.error);
     toast(`Número ${d.number.value} adquirido!`, "success");
-    loadSorteio();
+    loadSorteio({ force: true });
     refreshPlayerBalance({ force: true });
   } catch (e) { toast(String(e), "error"); }
 }
@@ -15553,7 +15636,7 @@ async function lotteryReserveFromGrid(num) {
     const d = await fetchJson(`/api/player/lottery/reserve/${num}`, { method: "POST" });
     if (!d.ok) throw new Error(d.message || d.error);
     toast(`Número ${num} reservado!`, "success");
-    loadSorteio();
+    loadSorteio({ force: true });
     refreshPlayerBalance({ force: true });
   } catch (e) { toast(String(e), "error"); }
 }
@@ -16106,7 +16189,7 @@ async function seasonPassBuyPremium() {
     }
     toast(d.message || "Premium adquirido.", "success");
     refreshPlayerBalance({ force: true });
-    loadSeasonPass();
+    loadSeasonPass({ force: true });
   } catch (e) {
     toast(String(e.message || e), "error");
   }
@@ -16145,7 +16228,7 @@ async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
       toast(d.message || "Recompensa resgatada.", "success");
     }
     refreshPlayerBalance({ force: true });
-    loadSeasonPass();
+    loadSeasonPass({ force: true });
   } catch (e) {
     const msg = String(e.message || e);
     if (msg.includes("license_choice") || msg.includes("tier superior")) {
@@ -16162,7 +16245,7 @@ async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
     }
     if (msg.includes("sku_pending")) {
       toast("SKU ainda em falta — resgate bloqueado até preencherem o ID no catálogo.", "error");
-      loadSeasonPass();
+      loadSeasonPass({ force: true });
       return;
     }
     if (msg.includes("sku_missing")) {
@@ -16170,7 +16253,7 @@ async function seasonPassClaim(track, level, licenseChoice, amberAlt) {
         "ID do catálogo inválido ou desactualizado — o resgate foi bloqueado (nada entregue). Contate um admin.",
         "error",
       );
-      loadSeasonPass();
+      loadSeasonPass({ force: true });
       return;
     }
     toast(msg, "error");
@@ -16190,7 +16273,7 @@ async function seasonPassAdminStart(next) {
     });
     if (!d.ok) throw new Error(d.error || "Falha");
     toast(d.message || "Season actualizada.", "success");
-    loadSeasonPass();
+    loadSeasonPass({ force: true });
   } catch (e) {
     toast(String(e.message || e), "error");
   }
@@ -16533,16 +16616,21 @@ async function saveSeasonPassAdmin() {
     if (!d.ok) throw new Error(d.error || "Falha ao guardar");
     toast("Config Season Pass guardada.", "success");
     _spAdminCfg = d.config;
-    loadSeasonPass();
+    loadSeasonPass({ force: true });
   } catch (e) {
     toast(String(e.message || e), "error");
   }
 }
 
-async function loadSeasonPass() {
+async function loadSeasonPass(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("season-pass-root");
   if (!root) return;
-  root.innerHTML = `<p style="color:var(--text2);">Carregando…</p>`;
+  if (!_navShouldFetch("season-pass", NAV_PAGE_TTL_MS["season-pass"], force) && root.dataset.loaded === "1") {
+    return;
+  }
+  const keepUi = root.dataset.loaded === "1" && !force;
+  if (!keepUi) root.innerHTML = `<p style="color:var(--text2);">Carregando…</p>`;
   try {
     const endpoint = _auth.authenticated ? "/api/season-pass/me" : "/api/season-pass/preview";
     const d = await fetchJson(endpoint);
@@ -16695,12 +16783,15 @@ async function loadSeasonPass() {
         ${notes.regulamento ? `<br>${escHtml(notes.regulamento)}` : ""}
       </div>
     `;
+    root.dataset.loaded = "1";
+    _navPageMark("season-pass");
     if (_auth.is_admin) loadSeasonPassAdmin();
     else {
       const adm = document.getElementById("season-pass-admin");
       if (adm) { adm.style.display = "none"; adm.innerHTML = ""; }
     }
   } catch (e) {
+    root.dataset.loaded = "";
     root.innerHTML = `<div class="card"><p style="color:var(--danger);margin:0;">${escHtml(String(e.message || e))}</p></div>`;
   }
 }
@@ -17632,16 +17723,25 @@ function renderMidiasGrid() {
   }).join("");
 }
 
-async function loadMidias() {
+async function loadMidias(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("midias-grid");
-  if (root) root.innerHTML = "Carregando…";
+  if (!_navShouldFetch("midias", NAV_PAGE_TTL_MS.midias, force) && Array.isArray(_midiasCache) && root?.dataset.loaded === "1") {
+    return;
+  }
+  if (root && root.dataset.loaded !== "1") root.innerHTML = "Carregando…";
   try {
     const d = await fetchJson("/api/public/media");
     if (!d.ok) throw new Error(d.error || "Falha ao carregar");
     _midiasCache = d.videos || [];
     renderMidiasGrid();
+    if (root) root.dataset.loaded = "1";
+    _navPageMark("midias");
   } catch (e) {
-    if (root) root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+    if (root) {
+      root.dataset.loaded = "";
+      root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+    }
   }
 }
 
@@ -18263,12 +18363,15 @@ function _dlIcon(icon) {
   return _dlIcons[icon] || _dlIcons.link;
 }
 
-async function loadDownloads() {
+async function loadDownloads(opts) {
+  const force = !!(opts && opts.force);
+  if (!_navShouldFetch("downloads", NAV_PAGE_TTL_MS.downloads, force)) return;
   try {
     const r = await fetch(API + "/api/downloads");
     const d = await r.json();
     _downloads = d.downloads || [];
     renderDownloads();
+    _navPageMark("downloads");
   } catch(e) { console.warn("loadDownloads:", e); }
 }
 
@@ -25073,7 +25176,7 @@ async function confirmBuy() {
             }).catch(() => {})
           : Promise.resolve(),
       ]).then(() => renderCatalog()).catch(() => renderCatalog());
-      loadMyArea();
+      loadMyArea({ force: true });
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
       toast(extractApiError(d, r, "Falha no resgate"), "error");
@@ -25336,14 +25439,34 @@ function renderAmberLoreSection(lore) {
     </div>`;
 }
 
-async function loadHome() {
+let _homeLoadGen = 0;
+let _homeLoadAbort = null;
+
+async function loadHome(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("home-root");
   if (!root) return false;
+  if (!_navShouldFetch("home", NAV_PAGE_TTL_MS.home, force) && root.children.length > 0) {
+    return true;
+  }
+  // Abort fetch anterior (boot + applyRoleUi/nav podem disparar loadHome em paralelo).
+  // AbortError de gen antigo NÃO deve mostrar "Não foi possível carregar a home".
+  if (_homeLoadAbort) {
+    try { _homeLoadAbort.abort(); } catch (_) {}
+  }
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20000);
+  _homeLoadAbort = ctrl;
+  const gen = ++_homeLoadGen;
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, 20000);
   try {
     const r = await fetch(API + "/api/public/home", { signal: ctrl.signal });
+    if (gen !== _homeLoadGen) return false;
     const d = await r.json();
+    if (gen !== _homeLoadGen) return false;
     if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao carregar");
     if (d.currency) applyCurrency(d.currency);
     if (d.exchange_rates && d.exchange_rates.rates) {
@@ -25351,19 +25474,29 @@ async function loadHome() {
     }
     renderHomePage(d);
     loadAmberMeter();
+    _navPageMark("home");
     return true;
   } catch (e) {
+    if (gen !== _homeLoadGen) return false;
+    if (e?.name === "AbortError") {
+      // Abort intencional (nova loadHome) — silencioso. Só timeout é falha real.
+      if (!timedOut) return false;
+    }
+    const errMsg = (e?.name === "AbortError" && timedOut)
+      ? "Timeout (20s) ao carregar a home"
+      : (e.message || "API indisponível");
     root.innerHTML = `
       <div class="home-section" style="text-align:center;padding:40px;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
         <div class="home-section__title" style="justify-content:center;">Não foi possível carregar a home</div>
-        <p style="color:var(--danger);margin:16px 0;">${escHtml(e.message || "API indisponível")}</p>
+        <p style="color:var(--danger);margin:16px 0;">${escHtml(errMsg)}</p>
         <p style="color:var(--text2);margin:0 0 16px;font-size:13px;">Verifique se a Web Store está rodando no TEK e se o banco MySQL responde.</p>
         <button class="btn btn-primary" onclick="goToPage('catalog')">Tentar catálogo</button>
       </div>`;
     return false;
   } finally {
     clearTimeout(timer);
+    if (_homeLoadAbort === ctrl) _homeLoadAbort = null;
   }
 }
 
@@ -26825,26 +26958,44 @@ function _teamsFillRoots(html) {
   const teamsActive = teamsPage && teamsPage.classList.contains("active");
   const root = document.getElementById("teams-root");
   const myRoot = document.getElementById("myarea-teams-root");
-  if (teamsActive && root) { root.innerHTML = html; return; }
-  if (myActive && myRoot) { myRoot.innerHTML = html; return; }
-  if (root) root.innerHTML = html;
-  else if (myRoot) myRoot.innerHTML = html;
+  if (teamsActive && root) {
+    root.innerHTML = html;
+    root.dataset.loaded = "1";
+    _navPageMark("teams");
+    return;
+  }
+  if (myActive && myRoot) {
+    myRoot.innerHTML = html;
+    myRoot.dataset.loaded = "1";
+    _navPageMark("teams");
+    return;
+  }
+  if (root) { root.innerHTML = html; root.dataset.loaded = "1"; }
+  else if (myRoot) { myRoot.innerHTML = html; myRoot.dataset.loaded = "1"; }
+  _navPageMark("teams");
 }
 
 async function ensureTeamsNavFromApi() {
+  if (!_navShouldFetch("teams-status", NAV_PAGE_TTL_MS["teams-status"], false)) return;
   try {
     const d = await fetchJson("/api/teams/status");
     if (d.ok && d.data) refreshTeamsNavVisibility(d.data.enabled !== false);
+    _navPageMark("teams-status");
   } catch (_) {
     refreshTeamsNavVisibility(true);
+    _navPageMark("teams-status");
   }
 }
 
-async function loadMyTeam() {
+async function loadMyTeam(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("teams-root");
   const myRoot = document.getElementById("myarea-teams-root");
-  if (root) root.innerHTML = "Carregando…";
-  if (myRoot) myRoot.innerHTML = "Carregando…";
+  if (!_navShouldFetch("teams", NAV_PAGE_TTL_MS.teams, force)) {
+    if ((root && root.dataset.loaded === "1") || (myRoot && myRoot.dataset.loaded === "1")) return;
+  }
+  if (root && root.dataset.loaded !== "1") root.innerHTML = "Carregando…";
+  if (myRoot && myRoot.dataset.loaded !== "1") myRoot.innerHTML = "Carregando…";
   await ensureTeamsNavFromApi();
   if (!_auth.authenticated) {
     _teamsFillRoots(`<p>Faça login para gerir a sua equipe.</p>
@@ -27118,9 +27269,13 @@ async function loadMyTeam() {
   }
 }
 
-async function loadTeamsDirectory() {
+async function loadTeamsDirectory(opts) {
+  const force = !!(opts && opts.force);
   const root = document.getElementById("teams-directory-root");
-  if (root) root.innerHTML = "Carregando…";
+  if (!_navShouldFetch("teams-directory", NAV_PAGE_TTL_MS["teams-directory"], force) && root?.dataset.loaded === "1") {
+    return;
+  }
+  if (root && (root.dataset.loaded !== "1" || force)) root.innerHTML = "Carregando…";
   await ensureTeamsNavFromApi();
   if (_teamsEnabledCache === false) {
     if (root) root.innerHTML = `<p>Modo Equipe desativado.</p>`;
@@ -27168,8 +27323,13 @@ async function loadTeamsDirectory() {
           </table>
         </div>
       </div>`;
+    if (root) root.dataset.loaded = "1";
+    _navPageMark("teams-directory");
   } catch (e) {
-    if (root) root.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+    if (root) {
+      root.dataset.loaded = "";
+      root.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+    }
   }
 }
 
@@ -27194,8 +27354,8 @@ async function teamsRequestJoin(teamId) {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Pedido enviado — aguarde aprovação do owner.");
-    loadTeamsDirectory();
-    loadMyTeam();
+    loadTeamsDirectory({ force: true });
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27204,7 +27364,7 @@ async function teamsApproveJoin(steamId) {
     const d = await fetchJson("/api/teams/join/approve", { method: "POST", body: { steam_id: steamId } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Pedido aprovado");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27213,7 +27373,7 @@ async function teamsRejectJoin(steamId) {
     const d = await fetchJson("/api/teams/join/reject", { method: "POST", body: { steam_id: steamId } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Pedido recusado");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27223,7 +27383,7 @@ async function teamsSaveMural() {
     const d = await fetchJson("/api/teams/mural", { method: "POST", body: { mural_text } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Mural salvo");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27238,7 +27398,7 @@ async function teamsCreate() {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Equipe fundada!");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27250,7 +27410,7 @@ async function teamsAcceptInvite(teamId, code) {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Entrou na equipe!");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27258,7 +27418,7 @@ async function teamsDeclineInvite(teamId) {
   try {
     const d = await fetchJson("/api/teams/invite/decline", { method: "POST", body: { team_id: teamId } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27269,7 +27429,7 @@ async function teamsInvite() {
     const d = await fetchJson("/api/teams/invite", { method: "POST", body: { steam_id: steam_id.trim() } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Convite enviado. Código: " + (d.data?.invite_code || ""));
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27279,7 +27439,7 @@ async function teamsKick(steamId) {
     const d = await fetchJson("/api/teams/kick", { method: "POST", body: { steam_id: steamId } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Membro removido");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27292,7 +27452,7 @@ async function teamsAssignRole(steamId) {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Papel atribuído");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27302,7 +27462,7 @@ async function teamsTransfer(steamId) {
     const d = await fetchJson("/api/teams/transfer", { method: "POST", body: { steam_id: steamId } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Ownership transferido");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27313,7 +27473,7 @@ async function teamsRename() {
     const d = await fetchJson("/api/teams/rename", { method: "POST", body: { name } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Renomeada");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27323,7 +27483,7 @@ async function teamsLeave() {
     const d = await fetchJson("/api/teams/leave", { method: "POST", body: {} });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Saiu da equipe");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27331,7 +27491,7 @@ async function teamsToggleRecruitment(open) {
   try {
     const d = await fetchJson("/api/teams/recruitment", { method: "POST", body: { open: !!open } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27346,7 +27506,7 @@ async function teamsSaveSettings() {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Configurações salvas");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27363,7 +27523,7 @@ async function teamsDonateAmber() {
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Doação registada");
     refreshPlayerBalance();
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27386,7 +27546,7 @@ async function teamsCommitResource(resourceKey, suggested) {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Aplicado ao marco");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27408,7 +27568,7 @@ async function teamsCompleteMilestone() {
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     if (d.data?.completed) toast("Marco concluído!");
     else toast("Ainda faltam requisitos", "error");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27417,7 +27577,7 @@ async function teamsEnableSplit() {
     const d = await fetchJson("/api/teams/split", { method: "POST", body: { sender_pct: 60 } });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Split da equipe ativo");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27426,7 +27586,7 @@ async function teamsDisableSplit() {
     const d = await fetchJson("/api/teams/split/disable", { method: "POST", body: {} });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Split desativado");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27435,7 +27595,7 @@ async function teamsSplitOpt(mode) {
     const d = await fetchJson("/api/teams/split/" + mode, { method: "POST", body: {} });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast(mode === "optin" ? "Opt-in OK" : "Opt-out OK");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -27448,13 +27608,17 @@ async function teamsLotteryConfirm() {
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     const msg = d.data?.message || "Participação confirmada";
     toast(msg, d.data?.shortfall_refunded ? "warning" : "success");
-    loadMyTeam();
+    loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
-async function loadTeamsRankings() {
-  await ensureTeamsNavFromApi();
+async function loadTeamsRankings(opts) {
+  const force = !!(opts && opts.force);
   const tEl = document.getElementById("teams-rank-teams");
+  if (!_navShouldFetch("teams-rankings", NAV_PAGE_TTL_MS["teams-rankings"], force) && tEl?.dataset.loaded === "1") {
+    return;
+  }
+  await ensureTeamsNavFromApi();
   const pEl = document.getElementById("teams-rank-players");
   const btEl = document.getElementById("teams-rank-blocked-teams");
   const bpEl = document.getElementById("teams-rank-blocked-players");
@@ -27477,7 +27641,9 @@ async function loadTeamsRankings() {
              ${isAdmin ? `<td><button class="btn btn-ghost btn-sm" onclick="teamsRankBlockTeamId(${r.id},true)">Excluir</button></td>` : ""}
            </tr>`).join("")}</tbody></table>`
         : "<p>Nenhuma equipe no ranking.</p>";
+      tEl.dataset.loaded = "1";
     }
+    _navPageMark("teams-rankings");
     if (pEl) {
       pEl.innerHTML = prow.length
         ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Nome</th><th>XP</th><th>Equipe</th>${isAdmin ? "<th></th>" : ""}</tr></thead>
@@ -27533,7 +27699,7 @@ async function teamsRankBlockTeamId(teamId, blocked) {
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast(blocked ? "Equipe fora do ranking" : "Equipe restaurada no ranking");
     if (document.getElementById("page-teams-rankings")?.classList.contains("active")) {
-      loadTeamsRankings();
+      loadTeamsRankings({ force: true });
     }
     if (document.getElementById("page-teams-admin")?.classList.contains("active")) {
       loadTeamsAdmin();
@@ -27555,7 +27721,7 @@ async function teamsRankBlockPlayerSid(steamId, blocked) {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast(blocked ? "Jogador fora do ranking" : "Jogador restaurado no ranking");
-    loadTeamsRankings();
+    loadTeamsRankings({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -28459,7 +28625,10 @@ async function bootPortal() {
     }
 
     setStatus(false, "Carregando portal…");
-    const configPromise = _auth.is_admin ? loadConfig() : Promise.resolve(true);
+    _syncStaffModeFromAuth();
+    const staffUiBoot = _isStaffMember() && _staffMode;
+    // config.json (~1MB) só no boot se modo staff activo; senão ao abrir shop/kits.
+    const configPromise = (_auth.is_admin && staffUiBoot) ? loadConfig() : Promise.resolve(true);
     const [health, homeOk, configOk] = await Promise.all([
       healthPromise,
       loadHome().catch(() => false),
@@ -28476,9 +28645,8 @@ async function bootPortal() {
       toast("MariaDB offline — catálogo público pode funcionar; painel admin limitado.", "warning");
     }
 
-    _syncStaffModeFromAuth();
     _updateStaffModeToggleUi();
-    const staffUiActive = _isStaffMember() && _staffMode;
+    const staffUiActive = staffUiBoot;
 
     if (_auth.is_admin && staffUiActive) {
       if (configOk) {
@@ -28536,11 +28704,8 @@ async function bootPortal() {
       setStatus(true, "Loja online");
     }
 
-    const tail = [loadDownloads(), ensureTeamsNavFromApi().catch(() => {})];
-    if (_auth.authenticated) tail.push(loadMyArea().catch(() => {}));
-    if (_auth.is_admin) {
-      tail.push(Promise.allSettled([loadSettings(), loadPlayers(), loadServers()]));
-    }
+    const tail = [ensureTeamsNavFromApi().catch(() => {})];
+    // Admin settings/players/servers e Minha Área só ao abrir a página (não no boot).
     await Promise.all(tail);
   } catch (e) {
     setStatus(false, "Falha ao iniciar: " + (e.message || e));

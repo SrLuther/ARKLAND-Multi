@@ -460,47 +460,40 @@ def test_player_has_higher_license():
     ) is True
 
 
-def test_player_can_accept_license_slots():
+def test_player_can_accept_license_unlimited_tiers():
     assert sps.player_can_accept_license([], "Delta") is True
     assert sps.player_can_accept_license([{"group": "Delta"}], "Gamma") is True
     assert sps.player_can_accept_license(
         [{"group": "Delta"}, {"group": "Gamma"}], "Alfa",
-    ) is False
+    ) is True
+    assert sps.player_can_accept_license(
+        [{"group": "Delta"}, {"group": "Gamma"}, {"group": "Beta"}], "Alfa",
+    ) is True
     assert sps.player_can_accept_license(
         [{"group": "Delta"}, {"group": "Gamma"}], "Delta",
     ) is True
 
 
-def test_slots_full_license_choice_amber(sp_db):
-    db, granted = sp_db
-    now = datetime(2026, 7, 14, tzinfo=timezone.utc)
-    sps.start_season(now=now)
-    sid = spcfg.load_config()["season_id"]
-    sps._upsert_progress(
-        db, steam_id=USER_STEAM, season_id=sid, xp=_xp_at(29), premium=True, claimed=set(),
+def test_third_tier_no_slots_full_choice():
+    """Slots cheios deixam de forçar escolha; só tier superior exige licença↔Â."""
+    alfa_grant = [{
+        "type": "license",
+        "id": "Alfa",
+        "days": 30,
+        "label": "Licença Alfa",
+    }]
+    assert sps.license_choice_needed(
+        [{"group": "Delta"}, {"group": "Gamma"}], alfa_grant,
+    ) is None
+    assert sps.license_choice_needed(
+        [{"group": "Delta"}, {"group": "Gamma"}, {"group": "Beta"}], alfa_grant,
+    ) is None
+    needed = sps.license_choice_needed(
+        [{"group": "Alfa"}],
+        [{"type": "license", "id": "Delta", "days": 30, "label": "Delta"}],
     )
-    db.commit()
-    sps.configure_engine(
-        get_entitlements=lambda sid, db=None: [
-            {"group": "Gamma"},
-            {"group": "Beta"},
-        ],
-    )
-    with pytest.raises(ValueError, match="2 licenças|license_choice"):
-        sps.claim_reward(db, steam_id=USER_STEAM, track="premium", level=29)
-    db.rollback()
-    before = int(
-        db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar()
-    )
-    result = sps.claim_reward(
-        db, steam_id=USER_STEAM, track="premium", level=29, license_choice="amber",
-    )
-    assert result["ok"] is True
-    after = int(
-        db.execute(text("SELECT points FROM players WHERE steam_id=:s"), {"s": USER_STEAM}).scalar()
-    )
-    assert after - before == 5000
-    assert granted == []
+    assert needed is not None
+    assert needed["reason"] == "higher_tier"
 
 
 def test_higher_license_choice_amber(sp_db):

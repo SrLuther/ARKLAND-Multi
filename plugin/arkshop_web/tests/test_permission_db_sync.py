@@ -121,7 +121,7 @@ def test_build_target_keeps_two_paid_tiers():
     assert "Alfa" in timed
 
 
-def test_build_target_caps_three_paid_to_two_longest():
+def test_build_target_keeps_all_paid_tiers():
     ents = [
         {"group": "Delta", "expires_at": "2026-08-01T00:00:00+00:00", "permanent": False},
         {"group": "Gamma", "expires_at": "2026-10-01T00:00:00+00:00", "permanent": False},
@@ -130,15 +130,16 @@ def test_build_target_caps_three_paid_to_two_longest():
     _perm, timed = _build_target_from_entitlements(ents)
     assert "Alfa" in timed
     assert "Gamma" in timed
-    assert "Delta" not in timed
+    assert "Delta" in timed
 
 
-def test_grant_third_paid_tier_rejected(monkeypatch):
+def test_grant_third_paid_tier_accepted(monkeypatch):
     import time
     from unittest.mock import MagicMock
 
     now = int(time.time())
     tpg = f"0;{now + 86400};Gamma,0;{now + 172800};Alfa,"
+    updates: list[dict] = []
 
     class FakeConn:
         def execute(self, statement, params=None):
@@ -147,6 +148,9 @@ def test_grant_third_paid_tier_rejected(monkeypatch):
                 return MagicMock(fetchone=lambda: (1,))
             if "SELECT PermissionGroups" in sql:
                 return MagicMock(fetchone=lambda: ("Default,", tpg))
+            if "UPDATE players SET" in sql:
+                updates.append(dict(params or {}))
+                return MagicMock()
             return MagicMock(fetchone=lambda: None)
 
         def __enter__(self):
@@ -172,8 +176,12 @@ def test_grant_third_paid_tier_rejected(monkeypatch):
         "Beta",
         days=30,
     )
-    assert res["ok"] is False
-    assert "2 licenças" in res["error"]
+    assert res["ok"] is True
+    assert res["group"] == "Beta"
+    assert updates
+    assert "Beta" in str(updates[0].get("tpg") or "")
+    assert "Gamma" in str(updates[0].get("tpg") or "")
+    assert "Alfa" in str(updates[0].get("tpg") or "")
 
 
 def test_perm_engine_singleton_not_disposed_after_grant(monkeypatch):

@@ -64,60 +64,6 @@ std::string PaidSkuAlias(const std::string& group) {
     return {};
 }
 
-bool IsPaidTier(const std::string& group) {
-    for (const char* g : CustomShop::kPaidLicenseGroups) {
-        if (group == g) return true;
-    }
-    return false;
-}
-
-std::string PaidGroupsInList() {
-    std::string in_list;
-    for (const char* g : CustomShop::kPaidLicenseGroups) {
-        if (!in_list.empty()) in_list += ",";
-        in_list += "'";
-        in_list += g;
-        in_list += "'";
-    }
-    return in_list;
-}
-
-/** Conta tiers pagos activos distintos; se exclude_group estiver activo, não o conta
- *  (para saber quantos *outros* slots estão ocupados ao tentar um novo tier). */
-int CountActivePaidLicenses(MYSQL* db, const std::string& steam_escaped,
-                            const std::string& exclude_group_escaped = "") {
-    if (!db) return 0;
-    std::string sql =
-        "SELECT COUNT(*) FROM player_entitlements WHERE steam_id = '"
-        + steam_escaped + "' AND group_name IN (" + PaidGroupsInList() + ") "
-        "AND (expires IS NULL OR expires > NOW())";
-    if (!exclude_group_escaped.empty()) {
-        sql += " AND group_name != '" + exclude_group_escaped + "'";
-    }
-    if (mysql_query(db, sql.c_str()) != 0) return 0;
-    MYSQL_RES* res = mysql_store_result(db);
-    if (!res) return 0;
-    MYSQL_ROW row = mysql_fetch_row(res);
-    int count = (row && row[0]) ? std::atoi(row[0]) : 0;
-    mysql_free_result(res);
-    return count;
-}
-
-bool HasActivePaidGroup(MYSQL* db, const std::string& steam_escaped,
-                        const std::string& group_escaped) {
-    if (!db) return false;
-    const std::string sql =
-        "SELECT 1 FROM player_entitlements WHERE steam_id = '"
-        + steam_escaped + "' AND group_name = '" + group_escaped + "' "
-        "AND (expires IS NULL OR expires > NOW()) LIMIT 1";
-    if (mysql_query(db, sql.c_str()) != 0) return false;
-    MYSQL_RES* res = mysql_store_result(db);
-    if (!res) return false;
-    const bool found = mysql_fetch_row(res) != nullptr;
-    mysql_free_result(res);
-    return found;
-}
-
 std::vector<std::string> ParsePermissionsList(const std::string& perms_str) {
     std::vector<std::string> out;
     std::stringstream ss(perms_str);
@@ -288,26 +234,6 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
         static_cast<unsigned long>(source.size()));
     mysql_real_escape_string(db_, buf_notes, notes.c_str(),
         static_cast<unsigned long>(notes.size()));
-
-    if (IsPaidTier(normalized)) {
-        const bool renewing = HasActivePaidGroup(db_, buf_id, buf_grp);
-        if (!renewing) {
-            const int others = CountActivePaidLicenses(db_, buf_id, buf_grp);
-            if (others >= CustomShop::kMaxActivePaidLicenseTiers) {
-                Log::GetLog()->warn(
-                    "ShopEntitlements::Grant blocked: {} already has {} paid tiers "
-                    "(max {}); cannot activate '{}'",
-                    steam_id, others, CustomShop::kMaxActivePaidLicenseTiers,
-                    normalized);
-                CustomShop::Debug::Fields f;
-                f.steam_id = steam_id;
-                f.extra = {{"group", normalized}, {"days", days},
-                           {"reason", "license_slots_full"}};
-                CustomShop::Debug::Error("License", f, "Grant blocked: max 2 paid tiers");
-                return false;
-            }
-        }
-    }
 
     std::string sql;
     if (days <= 0) {

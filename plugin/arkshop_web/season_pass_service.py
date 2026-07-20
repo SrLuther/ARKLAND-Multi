@@ -34,7 +34,6 @@ _TIER_RANK = {
     "Exotico": 12,
 }
 _PAID_LICENSE_GROUPS = frozenset(_TIER_RANK.keys())
-MAX_ACTIVE_PAID_LICENSE_TIERS = 2
 
 _cbs: dict[str, Any] = {}
 _ADMIN_SKIP_PREFIX = "__admin_skip_kit_limit__|"
@@ -681,14 +680,9 @@ def active_paid_license_groups(entitlements: list[dict[str, Any]]) -> set[str]:
 def player_can_accept_license(
     entitlements: list[dict[str, Any]], grant_group: str,
 ) -> bool:
-    """Mesmo tier → renovação/stack OK; tier novo só com < 2 slots activos."""
-    group = str(grant_group or "").strip()
-    if group not in _PAID_LICENSE_GROUPS:
-        return True
-    active = active_paid_license_groups(entitlements)
-    if group in active:
-        return True
-    return len(active) < MAX_ACTIVE_PAID_LICENSE_TIERS
+    """Tiers distintos ilimitados; renovação/stack do mesmo tier sempre OK."""
+    _ = (entitlements, grant_group)
+    return True
 
 
 def license_catalog_amber(group: str) -> int:
@@ -1243,26 +1237,19 @@ def license_choice_needed(
     entitlements: list[dict[str, Any]],
     grants: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
-    """Se algum grant license exige escolha licença↔Â, devolve detalhes.
-
-    Motivos: já tem tier superior, ou já tem 2 tiers distintos e o grant
-    seria um 3.º (máx. 2 licenças pagas activas).
-    """
+    """Se algum grant license exige escolha licença↔Â (já tem tier superior)."""
     for g in spcfg.annotate_grants(grants):
         if str(g.get("type") or "") != "license" or not g.get("grant_ready"):
             continue
         group = str(g.get("id") or "").strip()
         if not group:
             continue
-        higher = player_has_higher_license(entitlements, group)
-        slots_ok = player_can_accept_license(entitlements, group)
-        if higher or not slots_ok:
-            reason = "higher_tier" if higher else "slots_full"
+        if player_has_higher_license(entitlements, group):
             return {
                 "group": group,
                 "days": int(g.get("days") or 0),
                 "amber_alternative": license_catalog_amber(group),
-                "reason": reason,
+                "reason": "higher_tier",
             }
     return None
 
@@ -1294,13 +1281,6 @@ def _deliver_grants(
         choice = (license_choice or "").strip().lower()
         if choice not in ("license", "amber"):
             amt = int(choice_info["amber_alternative"])
-            reason = str(choice_info.get("reason") or "")
-            if reason == "slots_full":
-                raise ValueError(
-                    "Já tens 2 licenças de tier distintas activas. Escolhe "
-                    f"license_choice='amber' (valor de catálogo: {_fmt_amber(amt)} Â) "
-                    "ou 'license' só se fores renovar o mesmo tier."
-                )
             raise ValueError(
                 "Já tens licença de tier superior. Escolhe license_choice="
                 f"'license' ou 'amber' (valor de catálogo: {_fmt_amber(amt)} Â)."
@@ -1338,12 +1318,6 @@ def _deliver_grants(
                     "points_after": bal,
                 })
             else:
-                if not player_can_accept_license(entitlements, group):
-                    raise ValueError(
-                        "Já tens 2 licenças de tier distintas activas — "
-                        "não é possível activar um terceiro tier. "
-                        "Escolhe license_choice='amber'."
-                    )
                 spec = grant_lic(db, steam_id, group, days, source=f"sp:{season_id}:{track}:{level}")
                 if spec and deferred_perm_syncs is not None:
                     deferred_perm_syncs.append(spec)

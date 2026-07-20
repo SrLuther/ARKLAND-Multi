@@ -5105,13 +5105,8 @@ PAID_LICENSE_GROUPS = frozenset({
     "Imaterial",
     "Exotico",
 })
-# Até 2 tiers pagos distintos activos; renovar o mesmo SKU só empilha +N dias.
-MAX_ACTIVE_PAID_LICENSE_TIERS = 2
-LICENSE_SLOTS_FULL_MSG = (
-    "Já tens 2 licenças de tier distintas activas. "
-    "Renova uma existente (+30 dias no mesmo tier) ou espera expirar uma "
-    "antes de activar um terceiro tier."
-)
+# Sem limite de tiers pagos distintos activos; renovar o mesmo SKU só empilha +N dias.
+# keyvault (Nuvem) continua independente e fora de PAID_LICENSE_GROUPS.
 LICENSE_TIMED_BONUS = {
     "Default": 25,
     "Delta": 5,
@@ -5914,16 +5909,7 @@ def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
 def _can_accept_paid_license_tx(
     db: Any, steam_id: str, group: str,
 ) -> tuple[bool, str]:
-    """Mesmo tier → renovação OK; tier novo só se slots activos < máx. 2."""
-    group = _normalize_entitlement_group(str(group))
-    if group not in PAID_LICENSE_GROUPS:
-        return True, ""
-    active = _active_paid_license_groups_tx(db, steam_id)
-    if group in active:
-        return True, ""
-    if len(active) >= MAX_ACTIVE_PAID_LICENSE_TIERS:
-        owned = ", ".join(sorted(active))
-        return False, f"{LICENSE_SLOTS_FULL_MSG} (activas: {owned})"
+    """Sempre aceita: tiers distintos ilimitados; mesmo tier → renovação/stack."""
     return True, ""
 
 
@@ -11045,26 +11031,6 @@ def player_purchase():
             _used_idempotency_keys.pop(idempotency_key, None)
         return jsonify({"ok": False, "error": "Esta licença não pode ser resgatada na loja"}), 403
 
-    if lic and lic.get("Redeemable", True):
-        grant_group = str(lic.get("Group") or "").strip()
-        if grant_group in PAID_LICENSE_GROUPS:
-            slot_db = _SessionLocal()
-            try:
-                ok_slot, slot_err = _can_accept_paid_license_tx(
-                    slot_db, str(steam_id), grant_group,
-                )
-            finally:
-                _release_db_session(slot_db)
-            if not ok_slot:
-                if idempotency_key:
-                    _used_idempotency_keys.pop(idempotency_key, None)
-                return jsonify({
-                    "ok": False,
-                    "error": slot_err,
-                    "license_slots_full": True,
-                    "max_paid_license_tiers": MAX_ACTIVE_PAID_LICENSE_TIERS,
-                }), 409
-
     can_buy, missing = _check_entry_permissions(str(steam_id), entry)
     if not can_buy:
         if idempotency_key:
@@ -11212,17 +11178,6 @@ def player_purchase():
     if purchase_db_error:
         if idempotency_key:
             _used_idempotency_keys.pop(idempotency_key, None)
-        slots_full = (
-            "2 licenças de tier" in purchase_db_error
-            or "terceiro tier" in purchase_db_error
-        )
-        if slots_full:
-            return jsonify({
-                "ok": False,
-                "error": purchase_db_error,
-                "license_slots_full": True,
-                "max_paid_license_tiers": MAX_ACTIVE_PAID_LICENSE_TIERS,
-            }), 409
         return jsonify({
             "ok": False,
             "error": (
