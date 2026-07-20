@@ -10,6 +10,30 @@ BUILD_DATE: str = "2026-07-20"
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
     {
+        "version": "Unreleased",
+        "date": "",
+        "changes": [
+            "Feat (TEK / Plugins): instalação integrada do ArkPlayer "
+            "(DLL + PluginInfo + config) — aba Plugins por servidor e "
+            "botão «Instalar ArkPlayer» no painel Loja (paridade com "
+            "CustomShop/Dino Lab); empacotado no build/PyInstaller.",
+            "Perf (Web Store / Entregas): cache curto de fila vazia por "
+            "steam_id (TTL 8s, ARKSHOP_PENDING_EMPTY_CACHE_TTL_SEC) em "
+            "GET/claim pending — reduz DB quando não há pedidos; invalida "
+            "ao criar/reabrir Order PENDENTE.",
+            "Perf (Web Store / Entregas): GET /api/pending load_only + "
+            "snapshot TTL 3s (ARKSHOP_PENDING_GET_CACHE_TTL_SEC); header "
+            "X-Pending-Cache.",
+            "Feat (Web Store / Entregas): POST /api/pending/batch — status "
+            "em lote por steam_ids (opt-in; CustomShop C++ ainda claim-only).",
+            "Perf (Web Store / Entregas): recover_stale_entregando fast-path "
+            "SELECT 1 LIMIT 1; scheduler RCON documenta uso de "
+            "ix_orders_status_created.",
+            "Test (Web Store / Entregas): "
+            "test_pending_delivery_optimizations.",
+        ],
+    },
+    {
         "version": "1.10.80",
         "date": "2026-07-20",
         "changes": [

@@ -55,6 +55,9 @@ def test_pending_polled_skips_audit_when_empty(client, monkeypatch):
         def filter(self, *a, **k):
             return self
 
+        def options(self, *a, **k):
+            return self
+
         def all(self):
             return []
 

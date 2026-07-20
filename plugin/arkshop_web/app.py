@@ -51,7 +51,7 @@ from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import HTTPException
 from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, and_, create_engine, or_, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, load_only, mapped_column, scoped_session, sessionmaker
 
 from db_diagnostics import (
     attach_engine_listeners,
@@ -5116,6 +5116,8 @@ _PUBLIC_CACHE_METRICS: dict[str, int] = {
     "catalog_hits": 0,
     "catalog_misses": 0,
     "etag_304": 0,
+    "pending_empty_hits": 0,
+    "pending_get_hits": 0,
 }
 
 _ENTITLEMENTS_CACHE_TTL_SEC = float(
@@ -5123,6 +5125,22 @@ _ENTITLEMENTS_CACHE_TTL_SEC = float(
 )
 _ENTITLEMENTS_CACHE_LOCK = threading.Lock()
 _ENTITLEMENTS_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+
+# Fila de entregas (plugin): cache curto de fila vazia + snapshot GET.
+# Invalidar ao criar Order PENDENTE (e ao reabrir PENDENTE). Multi-worker:
+# TTL baixo mitiga stale entre processos (mesmo padrão dos outros caches).
+_PENDING_EMPTY_CACHE_TTL_SEC = float(
+    os.environ.get("ARKSHOP_PENDING_EMPTY_CACHE_TTL_SEC", "8") or 8
+)
+_PENDING_GET_CACHE_TTL_SEC = float(
+    os.environ.get("ARKSHOP_PENDING_GET_CACHE_TTL_SEC", "3") or 3
+)
+_PENDING_CACHE_LOCK = threading.Lock()
+# steam_id -> expires_mono (fila vazia confirmada)
+_PENDING_EMPTY_CACHE: dict[str, float] = {}
+# steam_id -> (expires_mono, items) — só GET; claim nunca usa snapshot
+_PENDING_GET_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+_PENDING_BATCH_MAX_STEAM_IDS = 64
 
 
 def _record_public_cache_metric(key: str, *, delta: int = 1) -> None:
@@ -5136,6 +5154,84 @@ def _invalidate_entitlements_cache(steam_id: str | None = None) -> None:
             _ENTITLEMENTS_CACHE.pop(str(steam_id), None)
         else:
             _ENTITLEMENTS_CACHE.clear()
+
+
+def _invalidate_pending_delivery_cache(steam_id: str | None = None) -> None:
+    """Invalida cache de fila vazia / GET pending (criar ou reabrir PENDENTE)."""
+    with _PENDING_CACHE_LOCK:
+        if steam_id:
+            sid = str(steam_id)
+            _PENDING_EMPTY_CACHE.pop(sid, None)
+            _PENDING_GET_CACHE.pop(sid, None)
+        else:
+            _PENDING_EMPTY_CACHE.clear()
+            _PENDING_GET_CACHE.clear()
+
+
+def _pending_empty_cache_hit(steam_id: str) -> bool:
+    if _PENDING_EMPTY_CACHE_TTL_SEC <= 0:
+        return False
+    sid = str(steam_id)
+    now = time.monotonic()
+    with _PENDING_CACHE_LOCK:
+        exp = _PENDING_EMPTY_CACHE.get(sid)
+        if exp is None:
+            return False
+        if exp <= now:
+            _PENDING_EMPTY_CACHE.pop(sid, None)
+            return False
+        return True
+
+
+def _mark_pending_empty_cached(steam_id: str) -> None:
+    if _PENDING_EMPTY_CACHE_TTL_SEC <= 0:
+        return
+    sid = str(steam_id)
+    exp = time.monotonic() + _PENDING_EMPTY_CACHE_TTL_SEC
+    with _PENDING_CACHE_LOCK:
+        _PENDING_EMPTY_CACHE[sid] = exp
+        _PENDING_GET_CACHE.pop(sid, None)
+
+
+def _pending_get_cache_get(steam_id: str) -> list[dict[str, Any]] | None:
+    if _PENDING_GET_CACHE_TTL_SEC <= 0:
+        return None
+    sid = str(steam_id)
+    now = time.monotonic()
+    with _PENDING_CACHE_LOCK:
+        entry = _PENDING_GET_CACHE.get(sid)
+        if not entry:
+            return None
+        exp, items = entry
+        if exp <= now:
+            _PENDING_GET_CACHE.pop(sid, None)
+            return None
+        return [dict(x) for x in items]
+
+
+def _pending_get_cache_set(steam_id: str, items: list[dict[str, Any]]) -> None:
+    if _PENDING_GET_CACHE_TTL_SEC <= 0 or not items:
+        return
+    sid = str(steam_id)
+    exp = time.monotonic() + _PENDING_GET_CACHE_TTL_SEC
+    with _PENDING_CACHE_LOCK:
+        _PENDING_GET_CACHE[sid] = (exp, [dict(x) for x in items])
+        _PENDING_EMPTY_CACHE.pop(sid, None)
+
+
+def _order_to_pending_item(order: Any) -> dict[str, Any]:
+    item_type = str(getattr(order, "item_type", None) or "shop")
+    item_id = str(getattr(order, "item_id", None) or "")
+    return {
+        "order_id": getattr(order, "order_id", None),
+        "item_id": _resolve_catalog_item_id(item_type, item_id),
+        "catalog_item_id": getattr(order, "item_id", None),
+        "amount": getattr(order, "amount", 1),
+        "item_type": item_type,
+        "skip_kit_limit": str(
+            getattr(order, "original_order_id", None) or ""
+        ).startswith("__admin_skip_kit_limit__"),
+    }
 
 
 def _public_payload_etag(payload: dict[str, Any], fingerprint: str) -> str:
@@ -8030,6 +8126,7 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
         db.add(order)
         db.commit()
         db.refresh(order)
+        _invalidate_pending_delivery_cache(steam_id)
         _log("order_created", order_id=order.order_id, steam_id=steam_id, item_id=item_id, amount=amount, server_id=order.server_id)
         return order, None
     finally:
@@ -8307,6 +8404,7 @@ def _retry_worker() -> None:
                 _release_db_session(db)
 
             if order_ids:
+                # Usa ix_orders_status_created (status, created_at) — PENDENTE + ORDER BY created_at.
                 _log("scheduler_retry_batch", count=len(order_ids))
                 for oid in order_ids:
                     if _scheduler_stop.is_set() or _scheduler_pool_busy():
@@ -8365,40 +8463,75 @@ def _api_pending_never_empty_body(response: Any) -> Any:
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
 def get_pending_deliveries(steam_id: str):
-    """Fetch pending orders for a player (called by CustomShop plugin)."""
+    """Fetch pending orders for a player (legado / ops).
+
+    CustomShop 1.10+ usa só POST /api/pending/claim (sem GET prévio).
+    Cache: fila vazia TTL ~8s; snapshot GET com itens TTL ~3s.
+    """
     if (err := _require_db()) is not None:
         return err
+    sid = str(steam_id or "").strip()
+    if not sid or not _is_valid_steamid64(sid):
+        return jsonify({"ok": False, "error": "steam_id inválido"}), 400
+
+    if _pending_empty_cache_hit(sid):
+        _record_public_cache_metric("pending_empty_hits")
+        resp = _pending_items_json([])
+        resp.headers["X-Pending-Cache"] = "EMPTY"
+        return resp
+
+    cached_items = _pending_get_cache_get(sid)
+    if cached_items is not None:
+        _record_public_cache_metric("pending_get_hits")
+        resp = _pending_items_json(cached_items)
+        resp.headers["X-Pending-Cache"] = "HIT"
+        return resp
+
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
     try:
-        orders = db.query(Order).filter(
-            Order.steam_id == steam_id,
-            Order.status.in_(("PENDENTE", "ENTREGANDO")),
-            Order.item_type != "custom_dino",
-        ).all()
-        items = [{
-            "order_id": o.order_id,
-            "item_id": _resolve_catalog_item_id(o.item_type or "shop", o.item_id),
-            "catalog_item_id": o.item_id,
-            "amount": o.amount,
-            "item_type": o.item_type,
-            "skip_kit_limit": str(o.original_order_id or "").startswith("__admin_skip_kit_limit__"),
-        } for o in orders]
+        # Colunas mínimas — plugin/ops só precisam destes campos.
+        orders = (
+            db.query(Order)
+            .options(
+                load_only(
+                    Order.order_id,
+                    Order.item_id,
+                    Order.amount,
+                    Order.item_type,
+                    Order.original_order_id,
+                    Order.status,
+                    Order.steam_id,
+                )
+            )
+            .filter(
+                Order.steam_id == sid,
+                Order.status.in_(("PENDENTE", "ENTREGANDO")),
+                Order.item_type != "custom_dino",
+            )
+            .all()
+        )
+        items = [_order_to_pending_item(o) for o in orders]
         if items:
+            _pending_get_cache_set(sid, items)
             _audit_event(
                 "pending_polled",
                 source="plugin",
                 actor_type="plugin",
-                target_steam_id=steam_id,
+                target_steam_id=sid,
                 message=f"Plugin consultou {len(items)} pedido(s) pendente(s)",
                 persist=True,
                 pending_count=len(items),
                 order_ids=[i["order_id"] for i in items],
             )
-        return _pending_items_json(items)
+        else:
+            _mark_pending_empty_cached(sid)
+        resp = _pending_items_json(items)
+        resp.headers["X-Pending-Cache"] = "MISS"
+        return resp
     except Exception as exc:
-        _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
+        _log_error("get_pending_deliveries", steam_id=sid, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         _release_db_session(db)
@@ -8443,6 +8576,7 @@ def recover_stale_entregando_shop_orders(
 
     Espelha custom_dino: ENTREGANDO → PENDENTE + last_error + retry_count++ + audit.
     Não toca item_type=custom_dino (rota própria).
+    Fast-path: SELECT 1 LIMIT 1 antes do SELECT completo + UPDATE.
     """
     stale_minutes = (
         get_shop_stale_entregando_minutes() if minutes is None else max(0, int(minutes))
@@ -8458,6 +8592,19 @@ def recover_stale_entregando_shop_orders(
     else:
         now_naive = now
 
+    sid = str(steam_id)
+    # Fast-path: maioria dos polls não tem ENTREGANDO stale.
+    has_stale = db.execute(
+        text(
+            "SELECT 1 FROM orders "
+            "WHERE steam_id = :sid AND status = 'ENTREGANDO' "
+            "AND item_type != 'custom_dino' AND updated_at < :cutoff LIMIT 1"
+        ),
+        {"sid": sid, "cutoff": cutoff},
+    ).fetchone()
+    if not has_stale:
+        return 0
+
     # Fetch ids for audit before update (SQLite/MySQL rowcount ok; audit needs detail).
     stale_rows = db.execute(
         text(
@@ -8465,7 +8612,7 @@ def recover_stale_entregando_shop_orders(
             "WHERE steam_id = :sid AND status = 'ENTREGANDO' "
             "AND item_type != 'custom_dino' AND updated_at < :cutoff"
         ),
-        {"sid": str(steam_id), "cutoff": cutoff},
+        {"sid": sid, "cutoff": cutoff},
     ).fetchall()
     if not stale_rows:
         return 0
@@ -8480,7 +8627,7 @@ def recover_stale_entregando_shop_orders(
         {
             "now": now_naive if isinstance(now_naive, datetime) else now,
             "cutoff": cutoff,
-            "sid": str(steam_id),
+            "sid": sid,
             "err": _STALE_ENTREGANDO_ERR,
         },
     )
@@ -8488,6 +8635,7 @@ def recover_stale_entregando_shop_orders(
     if recovered <= 0:
         return 0
 
+    _invalidate_pending_delivery_cache(sid)
     _log(
         "shop_stale_entregando_recovered",
         severity="warning",
@@ -8502,7 +8650,7 @@ def recover_stale_entregando_shop_orders(
             severity="warning",
             source="web",
             actor_type="system",
-            target_steam_id=str(steam_id),
+            target_steam_id=sid,
             order_id=oid or None,
             item_type=str(row[1] or "") or None,
             item_id=str(row[2] or "") or None,
@@ -8519,7 +8667,11 @@ def recover_stale_entregando_shop_orders(
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
 def claim_pending_orders():
-    """Reserva pedidos PENDENTE para entrega atômica (evita duplicar AddTimed)."""
+    """Reserva pedidos PENDENTE para entrega atômica (evita duplicar AddTimed).
+
+    Hot path do CustomShop (claim-only, sem GET prévio). Cache de fila vazia
+    evita DB+recover quando o jogador não tem pedidos (TTL curto).
+    """
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
@@ -8528,6 +8680,18 @@ def claim_pending_orders():
     if not steam_id or not _is_valid_steamid64(steam_id):
         return jsonify({"ok": False, "error": "steam_id inválido"}), 400
 
+    # order_ids explícitos: nunca short-circuit (claim pontual).
+    targets_pre = (
+        [str(x).strip() for x in raw_ids if str(x).strip()]
+        if isinstance(raw_ids, list) and raw_ids
+        else None
+    )
+    if not targets_pre and _pending_empty_cache_hit(steam_id):
+        _record_public_cache_metric("pending_empty_hits")
+        resp = _pending_items_json([])
+        resp.headers["X-Pending-Cache"] = "EMPTY"
+        return resp
+
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
@@ -8535,12 +8699,19 @@ def claim_pending_orders():
     deferred_perm_syncs: list[dict[str, Any]] = []
     try:
         recover_stale_entregando_shop_orders(db, steam_id)
-        targets = (
-            [str(x).strip() for x in raw_ids if str(x).strip()]
-            if isinstance(raw_ids, list) and raw_ids
-            else None
-        )
-        q = db.query(Order).filter(
+        targets = targets_pre
+        q = db.query(Order).options(
+            load_only(
+                Order.order_id,
+                Order.item_id,
+                Order.amount,
+                Order.item_type,
+                Order.original_order_id,
+                Order.status,
+                Order.steam_id,
+                Order.created_at,
+            )
+        ).filter(
             Order.steam_id == steam_id,
             Order.status == "PENDENTE",
             Order.item_type != "custom_dino",
@@ -8565,18 +8736,14 @@ def claim_pending_orders():
             )
             if int(getattr(updated, "rowcount", 0) or 0) <= 0:
                 continue
-            item_type = str(order.item_type or "shop")
-            resolved_id = _resolve_catalog_item_id(item_type, str(order.item_id or ""))
-            claimed.append({
-                "order_id": order.order_id,
-                "item_id": resolved_id,
-                "catalog_item_id": order.item_id,
-                "amount": order.amount,
-                "item_type": item_type,
-                "skip_kit_limit": str(order.original_order_id or "").startswith("__admin_skip_kit_limit__"),
-            })
+            claimed.append(_order_to_pending_item(order))
         db.commit()
+        if claimed:
+            _invalidate_pending_delivery_cache(steam_id)
+        else:
+            _mark_pending_empty_cached(steam_id)
         response = _pending_items_json(claimed)
+        response.headers["X-Pending-Cache"] = "MISS"
     except Exception as exc:
         db.rollback()
         _log_error("claim_pending_orders", steam_id=steam_id, error=str(exc))
@@ -8586,6 +8753,120 @@ def claim_pending_orders():
 
     _flush_deferred_license_perm_syncs(deferred_perm_syncs)
     return response
+
+
+@app.route("/api/pending/batch", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("30 per minute")
+def pending_batch_status():
+    """Consulta em lote: quais steam_ids têm fila (status, sem claim).
+
+    Pensado para reduzir O(N) polls quando o plugin (C++) passar a enviar
+    a lista de online duma vez. CustomShop actual continua claim-only por
+    jogador — este endpoint é opt-in / forward-compatible.
+
+    Body: {steam_ids: [...], include_items?: bool}
+    """
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    raw_ids = body.get("steam_ids") or []
+    include_items = bool(body.get("include_items"))
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({"ok": False, "error": "steam_ids é obrigatório"}), 400
+
+    steam_ids: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_ids:
+        sid = str(raw or "").strip()
+        if not sid or sid in seen or not _is_valid_steamid64(sid):
+            continue
+        seen.add(sid)
+        steam_ids.append(sid)
+        if len(steam_ids) >= _PENDING_BATCH_MAX_STEAM_IDS:
+            break
+    if not steam_ids:
+        return jsonify({"ok": False, "error": "nenhum steam_id válido"}), 400
+
+    results: dict[str, Any] = {}
+    need_db: list[str] = []
+    for sid in steam_ids:
+        if _pending_empty_cache_hit(sid):
+            _record_public_cache_metric("pending_empty_hits")
+            entry: dict[str, Any] = {"count": 0, "empty": True}
+            if include_items:
+                entry["items"] = []
+            results[sid] = entry
+        else:
+            need_db.append(sid)
+
+    if not need_db:
+        return jsonify({
+            "ok": True,
+            "results": results,
+            "note": (
+                "batch status only — claim continua em POST /api/pending/claim; "
+                "plugin C++ precisa de mudança para usar batch no poll online"
+            ),
+        })
+
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    try:
+        rows = (
+            db.query(Order)
+            .options(
+                load_only(
+                    Order.order_id,
+                    Order.item_id,
+                    Order.amount,
+                    Order.item_type,
+                    Order.original_order_id,
+                    Order.status,
+                    Order.steam_id,
+                )
+            )
+            .filter(
+                Order.steam_id.in_(need_db),
+                Order.status.in_(("PENDENTE", "ENTREGANDO")),
+                Order.item_type != "custom_dino",
+            )
+            .all()
+        )
+        by_sid: dict[str, list[dict[str, Any]]] = {s: [] for s in need_db}
+        for order in rows:
+            by_sid.setdefault(str(order.steam_id), []).append(
+                _order_to_pending_item(order)
+            )
+        for sid in need_db:
+            items = by_sid.get(sid) or []
+            if items:
+                if include_items:
+                    _pending_get_cache_set(sid, items)
+                entry = {"count": len(items), "empty": False}
+                if include_items:
+                    entry["items"] = items
+                results[sid] = entry
+            else:
+                _mark_pending_empty_cached(sid)
+                entry = {"count": 0, "empty": True}
+                if include_items:
+                    entry["items"] = []
+                results[sid] = entry
+        return jsonify({
+            "ok": True,
+            "results": results,
+            "note": (
+                "batch status only — claim continua em POST /api/pending/claim; "
+                "plugin C++ precisa de mudança para usar batch no poll online"
+            ),
+        })
+    except Exception as exc:
+        _log_error("pending_batch_status", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
 
 
 @app.route("/api/pending/release", methods=["POST"])
@@ -8693,6 +8974,7 @@ def release_pending_orders():
                 )
             else:
                 released.append(order_id)
+                _invalidate_pending_delivery_cache(steam_id)
                 _audit_event(
                     "shop_delivery_released",
                     severity="warning",
@@ -14170,6 +14452,7 @@ def admin_resend_order(order_id: str):
         order.retry_count = 0
         order.updated_at = _now()
         db.commit()
+        _invalidate_pending_delivery_cache(player_steam)
     except Exception as exc:
         db.rollback()
         _log_error("admin_resend_order", order_id=order_id, admin=admin_id, error=str(exc))
@@ -14353,6 +14636,7 @@ def admin_reprocess_order(order_id: str):
         order.last_error = None
         order.updated_at = _now()
         db.commit()
+        _invalidate_pending_delivery_cache(str(player_steam))
     finally:
         _release_db_session(db)
 
@@ -14421,6 +14705,7 @@ def admin_reissue_order(order_id: str):
         db.commit()
         db.refresh(new_order)
         new_order_id = new_order.order_id
+        _invalidate_pending_delivery_cache(str(original.steam_id))
 
         _audit_event(
             "admin_reissue",
@@ -14860,6 +15145,11 @@ def admin_metrics():
     entitlements_cached = 0
     with _ENTITLEMENTS_CACHE_LOCK:
         entitlements_cached = len(_ENTITLEMENTS_CACHE)
+    pending_empty_cached = 0
+    pending_get_cached = 0
+    with _PENDING_CACHE_LOCK:
+        pending_empty_cached = len(_PENDING_EMPTY_CACHE)
+        pending_get_cached = len(_PENDING_GET_CACHE)
     return jsonify({
         "ok": True,
         "cache": {
@@ -14868,6 +15158,10 @@ def admin_metrics():
             "catalog_hit_ratio": round(cache_m.get("catalog_hits", 0) / cat_total, 4) if cat_total else None,
             "entitlements_entries": entitlements_cached,
             "entitlements_ttl_sec": _ENTITLEMENTS_CACHE_TTL_SEC,
+            "pending_empty_entries": pending_empty_cached,
+            "pending_empty_ttl_sec": _PENDING_EMPTY_CACHE_TTL_SEC,
+            "pending_get_entries": pending_get_cached,
+            "pending_get_ttl_sec": _PENDING_GET_CACHE_TTL_SEC,
         },
         "db": agg,
         "pool": pool_info,
@@ -15297,6 +15591,7 @@ def _season_pass_queue_catalog_order(
     )
     db.add(order)
     db.flush()
+    _invalidate_pending_delivery_cache(str(steam_id))
     return order_id
 
 
@@ -15316,6 +15611,7 @@ def _season_pass_reset_order_to_pending(db: Any, order_id: str) -> None:
     order.last_error = None
     order.retry_count = 0
     order.updated_at = _now()
+    _invalidate_pending_delivery_cache(str(order.steam_id))
 
 
 def _season_pass_grant_license(
@@ -15592,6 +15888,7 @@ def _lottery_deliver_catalog_prize(
         )
         result["license_group"] = group
         result["license_days"] = days
+    _invalidate_pending_delivery_cache(str(steam_id))
     _log(
         "lottery_catalog_prize_queued",
         order_id=order_id,
