@@ -245,3 +245,30 @@ def test_catalog_feed_skips_when_busy(monkeypatch):
         assert out.get("skipped") is True
     finally:
         _feed_run_lock.release()
+
+
+def test_scheduler_tick_skips_when_busy():
+    assert _app_module._SCHEDULER_TICK_LOCK.acquire(blocking=False)
+    try:
+        assert not _app_module._SCHEDULER_TICK_LOCK.acquire(blocking=False)
+    finally:
+        _app_module._SCHEDULER_TICK_LOCK.release()
+
+
+def test_scheduler_pool_busy_threshold(monkeypatch):
+    class _FakePool:
+        def checkedout(self):
+            return 12
+
+        def size(self):
+            return 10
+
+        _max_overflow = 5
+
+    class _FakeEngine:
+        pool = _FakePool()
+
+    monkeypatch.setattr(_app_module, "_ENGINE", _FakeEngine())
+    assert _app_module._scheduler_pool_busy(threshold=0.7) is True
+    monkeypatch.setattr(_FakePool, "checkedout", lambda self: 1)
+    assert _app_module._scheduler_pool_busy(threshold=0.7) is False

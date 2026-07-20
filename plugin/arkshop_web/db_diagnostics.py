@@ -522,7 +522,7 @@ def probe_database(
         "recent_errors": recent_errors(10),
         "requests": request_diag,
         "waitress_threads_configured": max(
-            4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8)
+            4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32)
         ),
     }
 

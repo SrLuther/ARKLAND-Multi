@@ -708,8 +708,16 @@ def enqueue_timed_outbox(
         return {"enqueued": False, "duplicate": True}
 
 
-def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any]:
-    """Consome outbox pendente, debita ARKBANK e credita Season Pass XP."""
+def process_timed_outbox(
+    db: Session,
+    *,
+    batch_size: int = 200,
+    commit_every: int = 20,
+) -> dict[str, Any]:
+    """Consome outbox pendente, debita ARKBANK e credita Season Pass XP.
+
+    commit_every encurta a transação (evita long_transaction com batch grande).
+    """
     rows = db.execute(
         text(
             "SELECT id, steam_id, amount, map_id, cycle_key FROM arkbank_timed_outbox "
@@ -720,6 +728,7 @@ def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any
     processed = 0
     duplicates = 0
     xp_applied = 0
+    chunk = max(1, int(commit_every))
     for row in rows:
         oid = int(row[0])
         steam_id = str(row[1])
@@ -778,7 +787,9 @@ def process_timed_outbox(db: Session, *, batch_size: int = 200) -> dict[str, Any
             {"now": now, "id": oid},
         )
         processed += 1
-    if processed:
+        if processed % chunk == 0:
+            db.commit()
+    if processed % chunk:
         db.commit()
     return {"processed": processed, "duplicates": duplicates, "season_pass_xp": xp_applied}
 

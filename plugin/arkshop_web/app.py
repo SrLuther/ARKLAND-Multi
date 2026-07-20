@@ -347,6 +347,11 @@ _ACTIVE_DATABASE_URL = ""
 
 _RETRY_INTERVAL_SECONDS = int(os.environ.get("ARKSHOP_RETRY_INTERVAL", "60"))
 _RETRY_BATCH_SIZE = int(os.environ.get("ARKSHOP_RETRY_BATCH", "20"))
+# Manutenção do scheduler: batches menores + pausa entre jobs sob carga MySQL.
+_SCHEDULER_MAINT_BATCH = max(1, int(os.environ.get("ARKSHOP_SCHEDULER_MAINT_BATCH", "15") or 15))
+_SCHEDULER_OUTBOX_BATCH = max(1, int(os.environ.get("ARKSHOP_SCHEDULER_OUTBOX_BATCH", "40") or 40))
+_SCHEDULER_JOB_PAUSE_SEC = float(os.environ.get("ARKSHOP_SCHEDULER_JOB_PAUSE", "0.5") or "0.5")
+_SCHEDULER_TICK_LOCK = threading.Lock()
 
 # ── Security ─────────────────────────────────────────────────────────────────
 
@@ -475,6 +480,21 @@ def _api_http_exception_handler(exc: HTTPException):
     elif exc.code == 404:
         msg = "Endpoint não encontrado. Atualize a loja web se o erro persistir."
     return jsonify({"ok": False, "error": str(msg)}), exc.code
+
+
+@app.errorhandler(Exception)
+def _api_unhandled_exception_handler(exc: Exception):
+    """500 em /api/* como JSON — sob saturação o browser recebia HTML e o catálogo quebrava."""
+    if isinstance(exc, HTTPException):
+        return _api_http_exception_handler(exc)
+    if not _is_api_request():
+        raise exc
+    log.exception("api_unhandled path=%s", getattr(request, "path", "?"))
+    return jsonify({
+        "ok": False,
+        "error": "Erro interno temporário. Tente novamente em instantes.",
+        "degraded": True,
+    }), 500
 
 
 # Encryption key for sensitive settings (RCON passwords etc.)
@@ -1068,6 +1088,11 @@ class MarketAuditEvent(Base):
 
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
+# Pool >= Waitress threads (ARKSHOP_HTTP_THREADS default 32). Sem isso, 32 workers
+# competem por 15 conexões → QueuePool timeout → threads bloqueadas → fila HTTP.
+_DEFAULT_DB_POOL_SIZE = 32
+_DEFAULT_DB_MAX_OVERFLOW = 32  # headroom: workers bg + burst (total até 64)
+_DEFAULT_DB_POOL_RECYCLE = 280  # < MySQL wait_timeout=600 — evita stale no recycle
 
 _ENGINE: Any = None
 _SessionLocal: Any = None  # set by _configure_database(); None only before first DB config
@@ -2116,10 +2141,25 @@ def _configure_database_locked(normalized: str) -> None:
             ),
         }
 
-    pool_size = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
-    max_overflow = max(0, int(os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", "30") or 30))
+    pool_size = max(
+        5,
+        int(os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE)) or _DEFAULT_DB_POOL_SIZE),
+    )
+    max_overflow = max(
+        0,
+        int(
+            os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", str(_DEFAULT_DB_MAX_OVERFLOW))
+            or _DEFAULT_DB_MAX_OVERFLOW
+        ),
+    )
     pool_timeout = max(2, int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5))
-    pool_recycle = max(60, int(os.environ.get("ARKSHOP_DB_POOL_RECYCLE", "600") or 600))
+    pool_recycle = max(
+        60,
+        int(
+            os.environ.get("ARKSHOP_DB_POOL_RECYCLE", str(_DEFAULT_DB_POOL_RECYCLE))
+            or _DEFAULT_DB_POOL_RECYCLE
+        ),
+    )
 
     engine = create_engine(
         normalized,
@@ -2334,6 +2374,11 @@ def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
     if has_request_context() and not force:
         return
     if db is not None:
+        if force:
+            try:
+                db.rollback()
+            except Exception:
+                pass
         try:
             db.close()
         except Exception:
@@ -2466,6 +2511,13 @@ def _teardown_db_session(_exc: BaseException | None = None) -> None:
     """Libera scoped_session por request — evita vazamento de conexões entre threads Flask."""
     try:
         if _SessionLocal is not None:
+            if _exc is not None:
+                try:
+                    has_sess = getattr(_SessionLocal.registry, "has", None)
+                    if callable(has_sess) and has_sess():
+                        _SessionLocal.rollback()
+                except Exception:
+                    pass
             _SessionLocal.remove()
     finally:
         clear_request_context()
@@ -4960,6 +5012,63 @@ _RESOLVED_CATALOG_CACHE: dict[str, Any] = {
 _HEAL_RICHEST_CACHE: dict[str, Any] = {"expires": 0.0, "path": ""}
 _TIMED_POINTS_AMOUNTS_CACHE: dict[str, Any] = {"fingerprint": "", "amounts": None}
 
+# Home pública: payload partilhado (sem PII) — evita 50s+ sob fila Waitress.
+# CRÍTICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
+_PUBLIC_HOME_CACHE_TTL_SEC = float(os.environ.get("ARKSHOP_HOME_CACHE_TTL_SEC", "45") or 45)
+_PUBLIC_HOME_STALE_MAX_SEC = float(os.environ.get("ARKSHOP_HOME_STALE_MAX_SEC", "300") or 300)
+_PUBLIC_HOME_CACHE_LOCK = threading.Lock()
+_PUBLIC_HOME_BUILD_SLOTS = threading.BoundedSemaphore(1)
+_PUBLIC_HOME_READY = threading.Event()
+_PUBLIC_HOME_CACHE: dict[str, Any] = {
+    "expires": 0.0,
+    "fingerprint": "",
+    "payload": None,
+    "built_ms": 0,
+    "built_at": 0.0,
+}
+
+# Catálogo público (/api/catalog + parte partilhada do bootstrap) — enrich O(n) caro.
+_PUBLIC_CATALOG_CACHE_TTL_SEC = float(
+    os.environ.get("ARKSHOP_CATALOG_CACHE_TTL_SEC", "45") or 45
+)
+_PUBLIC_CATALOG_STALE_MAX_SEC = float(
+    os.environ.get("ARKSHOP_CATALOG_STALE_MAX_SEC", "180") or 180
+)
+_PUBLIC_CATALOG_CACHE_LOCK = threading.Lock()
+_PUBLIC_CATALOG_BUILD_SLOTS = threading.BoundedSemaphore(1)
+_PUBLIC_CATALOG_READY = threading.Event()
+_PUBLIC_CATALOG_CACHE: dict[str, Any] = {
+    "expires": 0.0,
+    "fingerprint": "",
+    "payload": None,
+    "built_ms": 0,
+    "built_at": 0.0,
+}
+
+
+def _invalidate_public_home_cache() -> None:
+    with _PUBLIC_HOME_CACHE_LOCK:
+        _PUBLIC_HOME_CACHE.update({
+            "expires": 0.0,
+            "fingerprint": "",
+            "payload": None,
+            "built_ms": 0,
+            "built_at": 0.0,
+        })
+    _PUBLIC_HOME_READY.clear()
+
+
+def _invalidate_public_catalog_cache() -> None:
+    with _PUBLIC_CATALOG_CACHE_LOCK:
+        _PUBLIC_CATALOG_CACHE.update({
+            "expires": 0.0,
+            "fingerprint": "",
+            "payload": None,
+            "built_ms": 0,
+            "built_at": 0.0,
+        })
+    _PUBLIC_CATALOG_READY.clear()
+
 
 def _invalidate_shop_config_cache() -> None:
     _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
@@ -4976,6 +5085,8 @@ def _invalidate_shop_config_cache() -> None:
     _KIT_OPTIONS_CACHE.update({"fingerprint": "", "items": None})
     _SHOP_DELIVER_OPTIONS_CACHE.update({"fingerprint": "", "data": None})
     _TIMED_POINTS_AMOUNTS_CACHE.update({"fingerprint": "", "amounts": None})
+    _invalidate_public_home_cache()
+    _invalidate_public_catalog_cache()
 
 
 def _cache_shop_config_file(path: Path, data: dict[str, Any]) -> None:
@@ -4991,8 +5102,13 @@ def _cache_shop_config_file(path: Path, data: dict[str, Any]) -> None:
 def _resolve_shop_catalog(
     *,
     persist_healed_path: bool = False,
+    copy: bool = True,
 ) -> tuple[Path, dict[str, Any], str | None]:
-    """Resolve catálogo mestre (path + JSON) com cache e heal quando o path falta."""
+    """Resolve catálogo mestre (path + JSON) com cache e heal quando o path falta.
+
+    `copy=False` devolve a referência em cache (só leitura) — evita shallow-copy O(n)
+    em paths quentes como /api/public/home.
+    """
     s = _load_settings()
     preferred = Path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH))
     pref_key = str(preferred)
@@ -5008,7 +5124,8 @@ def _resolve_shop_catalog(
         and isinstance(cache.get("data"), dict)
     ):
         resolved = Path(str(cache.get("resolved_path") or preferred))
-        return resolved, dict(cache["data"]), cache.get("note")
+        data = cache["data"]
+        return resolved, (dict(data) if copy else data), cache.get("note")
 
     note: str | None = None
     resolved = preferred
@@ -5083,12 +5200,18 @@ def _resolve_shop_catalog(
         "data": data,
         "note": note,
     })
-    return resolved, data, note
+    return resolved, (dict(data) if copy and data else data), note
 
 
 def _read_shop_config() -> dict[str, Any]:
     _, data, _ = _resolve_shop_catalog(persist_healed_path=False)
     return data
+
+
+def _peek_shop_config() -> dict[str, Any]:
+    """Catálogo em cache para leitura — sem shallow-copy do JSON completo."""
+    _, data, _ = _resolve_shop_catalog(persist_healed_path=False, copy=False)
+    return data if isinstance(data, dict) else {}
 
 
 PAID_LICENSE_GROUPS = frozenset({
@@ -6659,15 +6782,21 @@ def _build_base_url() -> str:
 
 # ── Servers registry ──────────────────────────────────────────────────────────
 
-def _load_servers() -> list[Dict[str, Any]]:
+def _load_servers(*, decrypt_secrets: bool = True) -> list[Dict[str, Any]]:
+    """Carrega servers.json. Home pública usa decrypt_secrets=False (sem Fernet)."""
     if not _SERVERS_FILE.exists():
         return []
     try:
         data = json.loads(_SERVERS_FILE.read_text(encoding="utf-8"))
         if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict) and "rcon_password" in item and isinstance(item["rcon_password"], str):
-                    item["rcon_password"] = _decrypt_value(item["rcon_password"])
+            if decrypt_secrets:
+                for item in data:
+                    if (
+                        isinstance(item, dict)
+                        and "rcon_password" in item
+                        and isinstance(item["rcon_password"], str)
+                    ):
+                        item["rcon_password"] = _decrypt_value(item["rcon_password"])
             return data
     except Exception:
         pass
@@ -7872,101 +8001,161 @@ _scheduler_thread: threading.Thread | None = None
 _scheduler_stop = threading.Event()
 
 
+def _scheduler_pool_busy(*, threshold: float = 0.7) -> bool:
+    """True se o pool MySQL está sob pressão — jobs de manutenção devem ceder."""
+    if _ENGINE is None:
+        return False
+    try:
+        pool = _ENGINE.pool
+        checked = int(pool.checkedout() or 0)
+        size = int(pool.size() or 0)
+        max_ov = int(getattr(pool, "_max_overflow", 0) or 0)
+        capacity = max(1, size + max(0, max_ov))
+        return checked >= max(1, int(capacity * threshold))
+    except Exception:
+        return False
+
+
+def _scheduler_job_pause() -> None:
+    pause = _SCHEDULER_JOB_PAUSE_SEC
+    if pause > 0:
+        _scheduler_stop.wait(pause)
+
+
 def _retry_worker() -> None:
-    _log("scheduler_started", interval_seconds=_RETRY_INTERVAL_SECONDS, batch_size=_RETRY_BATCH_SIZE)
+    _log(
+        "scheduler_started",
+        interval_seconds=_RETRY_INTERVAL_SECONDS,
+        batch_size=_RETRY_BATCH_SIZE,
+        maint_batch=_SCHEDULER_MAINT_BATCH,
+        outbox_batch=_SCHEDULER_OUTBOX_BATCH,
+    )
     while not _scheduler_stop.wait(_RETRY_INTERVAL_SECONDS):
         if not _db_ready():
             continue
-
+        # Skip-if-busy: tick anterior ainda a correr (long_transaction / fila).
+        if not _SCHEDULER_TICK_LOCK.acquire(blocking=False):
+            _log("scheduler_tick_skipped", reason="busy")
+            continue
         try:
-            from market_listings import expire_stale_claims
+            if _scheduler_pool_busy():
+                _log("scheduler_tick_skipped", reason="pool_busy")
+                continue
 
-            mdb = _SessionLocal()
             try:
-                result = expire_stale_claims(mdb)
-                if result.get("processed"):
-                    _log("market_claims_expired", **result)
-            finally:
-                _release_db_session(mdb)
-        except Exception as exc:
-            _log_error("market_claims_expire_worker", error=str(exc))
+                from market_listings import expire_stale_claims
 
-        try:
-            odb = _SessionLocal()
-            try:
-                result = expire_stale_pending_orders(odb)
-                if result.get("processed"):
-                    _log("shop_orders_auto_cancelled", **{
-                        k: v for k, v in result.items() if k != "cancelled"
-                    })
-            finally:
-                _release_db_session(odb)
-        except Exception as exc:
-            _log_error("shop_orders_auto_cancel_worker", error=str(exc))
-
-        try:
-            from lottery_service import process_due_draws
-
-            ldb = _SessionLocal()
-            try:
-                n = process_due_draws(ldb)
-                if n:
-                    _log("lottery_draws_processed", count=n)
-            finally:
-                _release_db_session(ldb)
-        except Exception as exc:
-            _log_error("lottery_draw_worker", error=str(exc))
-
-        try:
-            from arkbank_service import process_timed_outbox
-
-            adb = _SessionLocal()
-            try:
-                result = process_timed_outbox(adb)
-                if result.get("processed"):
-                    _log("arkbank_timed_outbox_processed", **result)
-            finally:
-                _release_db_session(adb)
-        except Exception as exc:
-            _log_error("arkbank_timed_outbox_worker", error=str(exc))
-
-        try:
-            from team_service import process_team_inactive_kicks, teams_enabled
-
-            if teams_enabled():
-                tdb = _SessionLocal()
+                mdb = _SessionLocal()
                 try:
-                    result = process_team_inactive_kicks(tdb)
+                    result = expire_stale_claims(mdb, batch_size=_SCHEDULER_MAINT_BATCH)
                     if result.get("processed"):
-                        _log("team_inactive_kicks", **{
-                            k: v for k, v in result.items() if k != "kicked"
+                        _log("market_claims_expired", **result)
+                finally:
+                    _release_db_session(mdb)
+            except Exception as exc:
+                _log_error("market_claims_expire_worker", error=str(exc))
+
+            _scheduler_job_pause()
+            if _scheduler_stop.is_set() or _scheduler_pool_busy():
+                continue
+
+            try:
+                odb = _SessionLocal()
+                try:
+                    result = expire_stale_pending_orders(
+                        odb, batch_size=_SCHEDULER_MAINT_BATCH
+                    )
+                    if result.get("processed"):
+                        _log("shop_orders_auto_cancelled", **{
+                            k: v for k, v in result.items() if k != "cancelled"
                         })
                 finally:
-                    _release_db_session(tdb)
-        except Exception as exc:
-            _log_error("team_inactive_kicks_worker", error=str(exc))
+                    _release_db_session(odb)
+            except Exception as exc:
+                _log_error("shop_orders_auto_cancel_worker", error=str(exc))
 
-        if _delivery_mode() != "rcon":
-            continue
-        db = _SessionLocal()
-        try:
-            pending = (
-                db.query(Order)
-                .filter(Order.status == "PENDENTE")
-                .order_by(Order.created_at.asc())
-                .limit(_RETRY_BATCH_SIZE)
-                .all()
-            )
-            order_ids = [o.order_id for o in pending]
+            _scheduler_job_pause()
+            if _scheduler_stop.is_set() or _scheduler_pool_busy():
+                continue
+
+            try:
+                from lottery_service import process_due_draws
+
+                ldb = _SessionLocal()
+                try:
+                    n = process_due_draws(ldb)
+                    if n:
+                        _log("lottery_draws_processed", count=n)
+                finally:
+                    _release_db_session(ldb)
+            except Exception as exc:
+                _log_error("lottery_draw_worker", error=str(exc))
+
+            _scheduler_job_pause()
+            if _scheduler_stop.is_set() or _scheduler_pool_busy():
+                continue
+
+            try:
+                from arkbank_service import process_timed_outbox
+
+                adb = _SessionLocal()
+                try:
+                    result = process_timed_outbox(
+                        adb, batch_size=_SCHEDULER_OUTBOX_BATCH
+                    )
+                    if result.get("processed"):
+                        _log("arkbank_timed_outbox_processed", **result)
+                finally:
+                    _release_db_session(adb)
+            except Exception as exc:
+                _log_error("arkbank_timed_outbox_worker", error=str(exc))
+
+            _scheduler_job_pause()
+            if _scheduler_stop.is_set() or _scheduler_pool_busy():
+                continue
+
+            try:
+                from team_service import process_team_inactive_kicks, teams_enabled
+
+                if teams_enabled():
+                    tdb = _SessionLocal()
+                    try:
+                        result = process_team_inactive_kicks(tdb)
+                        if result.get("processed"):
+                            _log("team_inactive_kicks", **{
+                                k: v for k, v in result.items() if k != "kicked"
+                            })
+                    finally:
+                        _release_db_session(tdb)
+            except Exception as exc:
+                _log_error("team_inactive_kicks_worker", error=str(exc))
+
+            if _delivery_mode() != "rcon":
+                continue
+            if _scheduler_pool_busy():
+                _log("scheduler_retry_skipped", reason="pool_busy")
+                continue
+            db = _SessionLocal()
+            try:
+                pending = (
+                    db.query(Order)
+                    .filter(Order.status == "PENDENTE")
+                    .order_by(Order.created_at.asc())
+                    .limit(_RETRY_BATCH_SIZE)
+                    .all()
+                )
+                order_ids = [o.order_id for o in pending]
+            finally:
+                _release_db_session(db)
+
+            if order_ids:
+                _log("scheduler_retry_batch", count=len(order_ids))
+                for oid in order_ids:
+                    if _scheduler_stop.is_set() or _scheduler_pool_busy():
+                        break
+                    _process_order_delivery(oid)
         finally:
-            _release_db_session(db)
-
-        if order_ids:
-            _log("scheduler_retry_batch", count=len(order_ids))
-            for oid in order_ids:
-                if _scheduler_stop.is_set():
-                    break
-                _process_order_delivery(oid)
+            _SCHEDULER_TICK_LOCK.release()
 
 
 _SCHEDULER_INIT_LOCK = threading.Lock()
@@ -8647,14 +8836,23 @@ def admin_diagnostics_database():
         connect_args=_DB_CONNECT_ARGS or None,
     )
     result["config"] = {
-        "pool_size": int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15),
-        "max_overflow": int(os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", "30") or 30),
+        "pool_size": int(
+            os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE))
+            or _DEFAULT_DB_POOL_SIZE
+        ),
+        "max_overflow": int(
+            os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", str(_DEFAULT_DB_MAX_OVERFLOW))
+            or _DEFAULT_DB_MAX_OVERFLOW
+        ),
         "pool_timeout": int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5),
-        "pool_recycle": int(os.environ.get("ARKSHOP_DB_POOL_RECYCLE", "600") or 600),
+        "pool_recycle": int(
+            os.environ.get("ARKSHOP_DB_POOL_RECYCLE", str(_DEFAULT_DB_POOL_RECYCLE))
+            or _DEFAULT_DB_POOL_RECYCLE
+        ),
         "read_timeout": _DB_CONNECT_ARGS.get("read_timeout"),
         "write_timeout": _DB_CONNECT_ARGS.get("write_timeout"),
         "connect_timeout": _DB_CONNECT_ARGS.get("connect_timeout"),
-        "http_threads": max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8)),
+        "http_threads": max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32)),
     }
     return jsonify(result)
 
@@ -9877,22 +10075,148 @@ def _amber_lore_block(settings_block: dict[str, Any]) -> dict[str, Any]:
 
 @app.route("/api/public/home", methods=["GET"])
 def public_home():
-    """Dados públicos para a página inicial (sem autenticação)."""
+    """Dados públicos para a página inicial (sem autenticação).
+
+    Cache in-memory TTL ~45s + stale-while-revalidate — sob saturação Waitress
+    evita rebuilds empilhados no lock (antes 50s+ na fila; hit/stale ~ms).
+    """
     _kick_background_db_init()
-    data = _read_shop_config()
-    settings_block = data.get("Settings") or {}
+    t0 = time.perf_counter()
+    payload, cache_status = _get_cached_public_home_payload()
+    duration_ms = int((time.perf_counter() - t0) * 1000)
+    _log(
+        "public_home",
+        duration_ms=duration_ms,
+        cache_hit=cache_status == "HIT",
+        cache_status=cache_status,
+        built_ms=_PUBLIC_HOME_CACHE.get("built_ms") or 0,
+    )
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = (
+        f"public, max-age={int(_PUBLIC_HOME_CACHE_TTL_SEC)}, stale-while-revalidate=120"
+    )
+    resp.headers["X-Home-Cache"] = cache_status
+    return resp
+
+
+def _public_home_sources_fingerprint() -> str:
+    """Invalida cache se catálogo ou servers.json mudarem antes do TTL."""
+    try:
+        srv_m = _SERVERS_FILE.stat().st_mtime if _SERVERS_FILE.exists() else 0.0
+    except OSError:
+        srv_m = -1.0
+    return f"{_CONFIG_CACHE.get('path')}|{_CONFIG_CACHE.get('mtime')}|{srv_m}"
+
+
+def _store_public_home_payload(payload: dict[str, Any], built_ms: int) -> dict[str, Any]:
+    fp = _public_home_sources_fingerprint()
+    with _PUBLIC_HOME_CACHE_LOCK:
+        _PUBLIC_HOME_CACHE.update({
+            "payload": payload,
+            "expires": time.monotonic() + _PUBLIC_HOME_CACHE_TTL_SEC,
+            "fingerprint": fp,
+            "built_ms": built_ms,
+            "built_at": time.monotonic(),
+        })
+    _PUBLIC_HOME_READY.set()
+    return payload
+
+
+def _get_cached_public_home_payload() -> tuple[dict[str, Any], str]:
+    """HIT / STALE / MISS — build sempre fora do lock (single-flight + SWR)."""
+    now = time.monotonic()
+    fp = _public_home_sources_fingerprint()
+    with _PUBLIC_HOME_CACHE_LOCK:
+        cached = _PUBLIC_HOME_CACHE.get("payload")
+        expires = float(_PUBLIC_HOME_CACHE.get("expires") or 0)
+        cache_fp = _PUBLIC_HOME_CACHE.get("fingerprint")
+        built_at = float(_PUBLIC_HOME_CACHE.get("built_at") or 0)
+        if isinstance(cached, dict) and cache_fp == fp and now < expires:
+            return cached, "HIT"
+        stale = None
+        if (
+            isinstance(cached, dict)
+            and cache_fp == fp
+            and built_at > 0
+            and (now - built_at) < _PUBLIC_HOME_STALE_MAX_SEC
+        ):
+            stale = cached
+
+    if stale is not None:
+        if _PUBLIC_HOME_BUILD_SLOTS.acquire(blocking=False):
+            def _bg_refresh() -> None:
+                try:
+                    t_build = time.perf_counter()
+                    payload = _build_public_home_payload()
+                    _store_public_home_payload(
+                        payload, int((time.perf_counter() - t_build) * 1000)
+                    )
+                except Exception as exc:
+                    log.warning("public_home cache refresh failed: %s", exc)
+                finally:
+                    _PUBLIC_HOME_BUILD_SLOTS.release()
+
+            threading.Thread(
+                target=_bg_refresh, daemon=True, name="public-home-swr"
+            ).start()
+        return stale, "STALE"
+
+    acquired = _PUBLIC_HOME_BUILD_SLOTS.acquire(timeout=8.0)
+    try:
+        now = time.monotonic()
+        fp = _public_home_sources_fingerprint()
+        with _PUBLIC_HOME_CACHE_LOCK:
+            cached = _PUBLIC_HOME_CACHE.get("payload")
+            expires = float(_PUBLIC_HOME_CACHE.get("expires") or 0)
+            cache_fp = _PUBLIC_HOME_CACHE.get("fingerprint")
+            if isinstance(cached, dict) and cache_fp == fp and now < expires:
+                return cached, "HIT"
+            if isinstance(cached, dict) and cache_fp == fp:
+                return cached, "STALE"
+        if not acquired:
+            _PUBLIC_HOME_READY.wait(timeout=2.0)
+            with _PUBLIC_HOME_CACHE_LOCK:
+                cached = _PUBLIC_HOME_CACHE.get("payload")
+                if isinstance(cached, dict):
+                    return cached, "STALE"
+            # Último recurso: build sem slot (evita home vazia permanente).
+            t_build = time.perf_counter()
+            payload = _build_public_home_payload()
+            return _store_public_home_payload(
+                payload, int((time.perf_counter() - t_build) * 1000)
+            ), "MISS"
+        t_build = time.perf_counter()
+        payload = _build_public_home_payload()
+        return _store_public_home_payload(
+            payload, int((time.perf_counter() - t_build) * 1000)
+        ), "MISS"
+    finally:
+        if acquired:
+            _PUBLIC_HOME_BUILD_SLOTS.release()
+
+
+def _build_public_home_payload() -> dict[str, Any]:
+    """Monta o JSON da home numa passagem — sem N× catálogo / N× settings / N× servers."""
+    s = _load_settings()
+    data = _peek_shop_config()
+    settings_block = data.get("Settings") if isinstance(data.get("Settings"), dict) else {}
     shop_name = _public_brand_name(
         settings_block.get("ShopName")
         or data.get("ShopName")
         or data.get("shop_name")
         or _DEFAULT_PUBLIC_BRAND
     )
-    s = _load_settings()
     public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
-    website_url = str(settings_block.get("WebsiteUrl") or settings_block.get("WebApiUrl") or public_url).strip()
+    website_url = str(
+        settings_block.get("WebsiteUrl") or settings_block.get("WebApiUrl") or public_url
+    ).strip()
     discord_url = str(settings_block.get("DiscordUrl") or "").strip()
+
+    servers_raw = _load_servers(decrypt_secrets=False)
     servers = []
-    for srv in _load_servers():
+    for srv in servers_raw:
+        if not isinstance(srv, dict):
+            continue
         if not srv.get("server_id") or srv.get("show_on_home", True) is False:
             continue
         entry = {
@@ -9902,15 +10226,27 @@ def public_home():
         }
         entry.update(public_server_connect_view(srv, s))
         servers.append(entry)
-    utilities = _load_downloads()
-    packages = _load_point_packages()
+
+    packages_raw = data.get("PointPackages")
+    if isinstance(packages_raw, list):
+        packages = packages_raw
+    elif isinstance(s.get("point_packages"), list):
+        packages = s["point_packages"]
+    else:
+        packages = _DEFAULT_POINT_PACKAGES
+
+    utilities = [
+        d for d in (data.get("Downloads") or [])
+        if isinstance(d, dict) and not d.get("_auto")
+    ]
+
     stats = _catalog_public_stats(data)
     stats["kits"] = stats.get("kits", 0)
     stats["packages"] = len(packages)
     stats["utilities"] = len(utilities)
     stats["servers"] = len(servers)
 
-    messages = data.get("Messages") or {}
+    messages = data.get("Messages") if isinstance(data.get("Messages"), dict) else {}
     welcome = str(
         messages.get("Welcome")
         or messages.get("HomeWelcome")
@@ -9925,7 +10261,28 @@ def public_home():
         "recompensas simbólicas em Âmbares — itens, dinos e kits entregues quando você conecta."
     )
 
-    return jsonify({
+    mp_token = str(s.get("mp_access_token") or "").strip() or os.environ.get(
+        "MP_ACCESS_TOKEN", ""
+    ).strip()
+    pix_on = bool(mp_token)
+    paypal_path = str(s.get("paypal_qr_path") or DEFAULT_PAYPAL_QR_PATH).strip() or DEFAULT_PAYPAL_QR_PATH
+    if not (paypal_path.startswith("http://") or paypal_path.startswith("https://")):
+        if not paypal_path.startswith("/"):
+            paypal_path = f"/{paypal_path}"
+    paypal_instructions = (
+        str(s.get("paypal_instructions") or "").strip() or DEFAULT_PAYPAL_INSTRUCTIONS
+    )
+    boleto_manual_instructions = (
+        str(s.get("boleto_manual_instructions") or "").strip()
+        or DEFAULT_BOLETO_MANUAL_INSTRUCTIONS
+    )
+
+    # Mapas + mural: ficheiros já em memória; DB só no mural (sessão curta + force release).
+    featured_maps = _load_featured_maps_public(servers=servers_raw, catalog=data)
+    featured_section = _featured_maps_section_meta(catalog=data)
+    mural = _public_home_mural()
+
+    return {
         "ok": True,
         "shop_name": shop_name,
         "public_url": public_url,
@@ -9933,21 +10290,25 @@ def public_home():
         "discord_url": discord_url,
         "currency": _public_currency(),
         "amber_lore": _amber_lore_block(settings_block),
-        "pix_enabled": _pix_enabled(),
-        "card_enabled": _payments_enabled(),
-        "paypal_enabled": _paypal_enabled(),
-        "paypal_qr_url": _paypal_qr_url(),
-        "paypal_instructions": _paypal_instructions(),
-        "boleto_mp_enabled": _boleto_mp_enabled(),
-        "boleto_manual_enabled": _boleto_manual_enabled(),
-        "boleto_manual_instructions": _boleto_manual_instructions(),
+        "pix_enabled": pix_on,
+        "card_enabled": pix_on,
+        "paypal_enabled": bool(s.get("paypal_enabled")),
+        "paypal_qr_url": paypal_path,
+        "paypal_instructions": paypal_instructions,
+        "boleto_mp_enabled": pix_on and bool(s.get("boleto_mp_enabled")),
+        "boleto_manual_enabled": bool(s.get("boleto_manual_enabled")),
+        "boleto_manual_instructions": boleto_manual_instructions,
         "starting_points": int(settings_block.get("StartingPoints") or 0),
         "servers": servers,
         "stats": stats,
         "tagline": (
             "Doações voluntárias · Âmbar simbólico · Entrega automática no ARK"
         ),
-        "description": str(settings_block.get("HomeDescription") or "").strip() or welcome or default_description,
+        "description": (
+            str(settings_block.get("HomeDescription") or "").strip()
+            or welcome
+            or default_description
+        ),
         "welcome_message": welcome,
         "donation_packages": [
             {
@@ -9959,6 +10320,7 @@ def public_home():
                 "estimate_eur": estimate_foreign(float(p.get("price_brl", 0) or 0))["EUR"],
             }
             for p in packages[:6]
+            if isinstance(p, dict)
         ],
         "exchange_rates": get_exchange_rates(),
         "utilities_preview": [
@@ -9986,10 +10348,10 @@ def public_home():
                 "Anúncios no Discord e neste portal quando um novo evento entra em vigor.",
             ],
         },
-        "featured_maps": _load_featured_maps_public(),
-        "featured_maps_section": _featured_maps_section_meta(),
-        **_public_home_mural(),
-    })
+        "featured_maps": featured_maps,
+        "featured_maps_section": featured_section,
+        **mural,
+    }
 
 
 def _public_home_mural() -> dict[str, Any]:
@@ -10031,7 +10393,8 @@ def _public_home_mural() -> dict[str, Any]:
             "home_mural_message": "Não foi possível carregar o mural agora.",
         }
     finally:
-        _release_db_session(db)
+        # force=True: devolve conexão ao pool antes do jsonify/serialização.
+        _release_db_session(db, force=True)
 
 
 @app.route("/api/public/amber-stats", methods=["GET"])
@@ -10068,7 +10431,7 @@ def public_amber_stats():
                 currency=_public_currency(),
             )
     finally:
-        _release_db_session(db)
+        _release_db_session(db, force=True)
     resp = make_response(jsonify(payload))
     resp.headers["Cache-Control"] = "no-cache" if payload.get("degraded") else "public, max-age=60"
     return resp
@@ -10085,6 +10448,101 @@ def public_exchange_rates():
 
 
 # ── Catalog (público, sem autenticação) ───────────────────────────────────────
+
+def _public_catalog_sources_fingerprint() -> str:
+    """Invalida cache se catálogo ou settings mudarem antes do TTL."""
+    try:
+        st_m = _STATE_FILE.stat().st_mtime if _STATE_FILE.exists() else 0.0
+    except OSError:
+        st_m = -1.0
+    return f"{_CONFIG_CACHE.get('path')}|{_CONFIG_CACHE.get('mtime')}|{st_m}"
+
+
+def _get_cached_catalog_payload() -> tuple[dict[str, Any], str]:
+    """HIT / STALE / MISS — enrich O(n) fora do lock (single-flight + SWR)."""
+    now = time.monotonic()
+    fp = _public_catalog_sources_fingerprint()
+    with _PUBLIC_CATALOG_CACHE_LOCK:
+        cached = _PUBLIC_CATALOG_CACHE.get("payload")
+        expires = float(_PUBLIC_CATALOG_CACHE.get("expires") or 0)
+        cache_fp = _PUBLIC_CATALOG_CACHE.get("fingerprint")
+        built_at = float(_PUBLIC_CATALOG_CACHE.get("built_at") or 0)
+        if isinstance(cached, dict) and cache_fp == fp and now < expires:
+            return cached, "HIT"
+        stale = None
+        if (
+            isinstance(cached, dict)
+            and cache_fp == fp
+            and built_at > 0
+            and (now - built_at) < _PUBLIC_CATALOG_STALE_MAX_SEC
+        ):
+            stale = cached
+
+    if stale is not None:
+        if _PUBLIC_CATALOG_BUILD_SLOTS.acquire(blocking=False):
+            def _bg_refresh() -> None:
+                try:
+                    t_build = time.perf_counter()
+                    payload = _build_catalog_payload()
+                    _store_catalog_payload(
+                        payload, int((time.perf_counter() - t_build) * 1000)
+                    )
+                except Exception as exc:
+                    log.warning("catalog cache refresh failed: %s", exc)
+                finally:
+                    _PUBLIC_CATALOG_BUILD_SLOTS.release()
+
+            threading.Thread(
+                target=_bg_refresh, daemon=True, name="catalog-swr"
+            ).start()
+        return stale, "STALE"
+
+    acquired = _PUBLIC_CATALOG_BUILD_SLOTS.acquire(timeout=8.0)
+    try:
+        now = time.monotonic()
+        fp = _public_catalog_sources_fingerprint()
+        with _PUBLIC_CATALOG_CACHE_LOCK:
+            cached = _PUBLIC_CATALOG_CACHE.get("payload")
+            expires = float(_PUBLIC_CATALOG_CACHE.get("expires") or 0)
+            cache_fp = _PUBLIC_CATALOG_CACHE.get("fingerprint")
+            if isinstance(cached, dict) and cache_fp == fp and now < expires:
+                return cached, "HIT"
+            if isinstance(cached, dict) and cache_fp == fp:
+                return cached, "STALE"
+        if not acquired:
+            _PUBLIC_CATALOG_READY.wait(timeout=2.0)
+            with _PUBLIC_CATALOG_CACHE_LOCK:
+                cached = _PUBLIC_CATALOG_CACHE.get("payload")
+                if isinstance(cached, dict):
+                    return cached, "STALE"
+            t_build = time.perf_counter()
+            payload = _build_catalog_payload()
+            return _store_catalog_payload(
+                payload, int((time.perf_counter() - t_build) * 1000)
+            ), "MISS"
+        t_build = time.perf_counter()
+        payload = _build_catalog_payload()
+        return _store_catalog_payload(
+            payload, int((time.perf_counter() - t_build) * 1000)
+        ), "MISS"
+    finally:
+        if acquired:
+            _PUBLIC_CATALOG_BUILD_SLOTS.release()
+
+
+def _store_catalog_payload(payload: dict[str, Any], built_ms: int) -> dict[str, Any]:
+    fp = _public_catalog_sources_fingerprint()
+    with _PUBLIC_CATALOG_CACHE_LOCK:
+        _PUBLIC_CATALOG_CACHE.update({
+            "payload": payload,
+            "expires": time.monotonic() + _PUBLIC_CATALOG_CACHE_TTL_SEC,
+            "fingerprint": fp,
+            "built_ms": built_ms,
+            "built_at": time.monotonic(),
+        })
+    _PUBLIC_CATALOG_READY.set()
+    return payload
+
 
 def _build_catalog_payload() -> dict:
     """Monta o catálogo público (itens, kits, pacotes) — reutilizado pelo bootstrap."""
@@ -10196,10 +10654,26 @@ def _catalog_fingerprint(catalog: dict) -> str:
 
 @app.route("/api/catalog", methods=["GET"])
 def get_catalog():
-    """Retorna catálogo público (itens, kits, pacotes de doação)."""
-    resp = jsonify(_build_catalog_payload())
+    """Retorna catálogo público (itens, kits, pacotes de doação).
+
+    Cache in-memory TTL ~45s + SWR — evita enrich O(n) repetido sob fila Waitress.
+    """
+    t0 = time.perf_counter()
+    catalog, cache_status = _get_cached_catalog_payload()
+    duration_ms = int((time.perf_counter() - t0) * 1000)
+    _log(
+        "get_catalog",
+        duration_ms=duration_ms,
+        cache_hit=cache_status == "HIT",
+        cache_status=cache_status,
+        built_ms=_PUBLIC_CATALOG_CACHE.get("built_ms") or 0,
+    )
+    resp = jsonify(catalog)
     # Catálogo público muda pouco — permite revalidação curta no browser/CDN.
-    resp.headers["Cache-Control"] = "public, max-age=30, stale-while-revalidate=120"
+    resp.headers["Cache-Control"] = (
+        f"public, max-age={int(_PUBLIC_CATALOG_CACHE_TTL_SEC)}, stale-while-revalidate=120"
+    )
+    resp.headers["X-Catalog-Cache"] = cache_status
     return resp
 
 
@@ -10209,8 +10683,9 @@ def store_bootstrap():
     """Warmup agregado: catálogo + me + kit_limits + entitlements num único JSON.
 
     Path quente:
-    - catálogo primeiro (zero DB / zero I/O externo bloqueante)
-    - 1 sessão DB para me + entitlements + kit_limits (sem DDL, sem Steam API)
+    - catálogo primeiro (cache TTL partilhado; zero DB / zero I/O externo bloqueante)
+    - 1 sessão DB para me + entitlements + kit_limits (sem DDL, sem Steam API;
+      shop_config pré-lido — sem I/O de catálogo com sessão aberta)
     - budget ~2.5s → devolve parcial em vez de long_transaction 24–170s
     """
     t0 = time.perf_counter()
@@ -10219,8 +10694,12 @@ def store_bootstrap():
     partial_sections: list[str] = []
 
     t_cat = time.perf_counter()
-    catalog = _build_catalog_payload()
+    catalog, catalog_cache_status = _get_cached_catalog_payload()
     timing["catalog_ms"] = int((time.perf_counter() - t_cat) * 1000)
+    timing["catalog_cache_hit"] = 1 if catalog_cache_status == "HIT" else 0
+    timing["catalog_cache_status"] = catalog_cache_status
+    # Pré-ler catálogo para kit_limits — evita I/O com sessão MySQL aberta.
+    shop_config = _peek_shop_config()
 
     kit_limits = None
     entitlements = None
@@ -10273,7 +10752,9 @@ def store_bootstrap():
                 else:
                     t_kit = time.perf_counter()
                     try:
-                        kit_limits = _build_player_kit_limits(db, steam_id)
+                        kit_limits = _build_player_kit_limits(
+                            db, steam_id, shop_config=shop_config
+                        )
                     except Exception as exc:  # noqa: BLE001
                         _log_error(
                             "store_bootstrap.kit_limits",
@@ -10316,6 +10797,7 @@ def store_bootstrap():
         body["partial_sections"] = partial_sections
     resp = jsonify(body)
     resp.headers["Cache-Control"] = "private, no-store, max-age=0"
+    resp.headers["X-Catalog-Cache"] = catalog_cache_status
     return resp
 
 
@@ -10519,8 +11001,8 @@ def _write_catalog_data(data: dict[str, Any]) -> bool:
     return True
 
 
-def _load_featured_maps_raw() -> list[dict[str, Any]]:
-    data = _read_catalog_data()
+def _load_featured_maps_raw(catalog: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    data = catalog if isinstance(catalog, dict) else _read_catalog_data()
     raw = data.get("FeaturedMaps")
     if not isinstance(raw, list) or not raw:
         return deepcopy(_default_featured_maps())
@@ -10558,8 +11040,8 @@ def _save_featured_maps(maps: list[dict[str, Any]]) -> bool:
     return _write_catalog_data(data)
 
 
-def _featured_maps_section_meta() -> dict[str, str]:
-    data = _read_catalog_data()
+def _featured_maps_section_meta(catalog: dict[str, Any] | None = None) -> dict[str, str]:
+    data = catalog if isinstance(catalog, dict) else _read_catalog_data()
     settings = data.get("Settings") or {}
     return {
         "title": str(settings.get("HomeMapsTitle") or "Mapas do cluster").strip(),
@@ -10567,21 +11049,26 @@ def _featured_maps_section_meta() -> dict[str, str]:
     }
 
 
-def _load_featured_maps_public() -> list[dict[str, Any]]:
+def _load_featured_maps_public(
+    *,
+    servers: list[Dict[str, Any]] | None = None,
+    catalog: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     from src.server_config_snapshot import (
         build_snapshot_indexes,
         match_snapshot_for_map,
         snapshot_public_view,
     )
 
-    servers = _load_servers()
+    if servers is None:
+        servers = _load_servers(decrypt_secrets=False)
     home_servers = [
         s for s in servers
         if isinstance(s, dict)
         and str(s.get("server_id") or "").strip()
         and s.get("show_on_home", True) is not False
     ]
-    manual_maps = _load_featured_maps_raw()
+    manual_maps = _load_featured_maps_raw(catalog)
     by_id_ov, by_slug_ov = _featured_map_overrides_index(manual_maps)
 
     if home_servers:
@@ -14570,6 +15057,7 @@ register_home_notice_routes(
     admin_required=admin_required,
     steam_id_from_session=_steam_id_from_session,
     limiter=limiter,
+    invalidate_home_cache=_invalidate_public_home_cache,
 )
 
 from lottery_routes import register_lottery_routes
@@ -14985,9 +15473,18 @@ def _log_boot_snapshot() -> None:
         resolved, data, note = _resolve_shop_catalog(persist_healed_path=False)
         norm = _normalize_config_to_web(dict(data or {}))
         items_n, kits_n = _catalog_shop_counts(norm)
-        pool_size = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
-        threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8))
-        if os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1":
+        pool_size = max(
+            5,
+            int(
+                os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE))
+                or _DEFAULT_DB_POOL_SIZE
+            ),
+        )
+        threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32))
+        if (
+            os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1"
+            or os.environ.get("ARKSHOP_HTTP_THREADS_CAP_TO_POOL") != "1"
+        ):
             threads = threads_raw
         else:
             threads = min(threads_raw, pool_size)
@@ -15072,19 +15569,39 @@ if __name__ == "__main__":
         raise SystemExit(1)
     atexit.register(_release_webstore_instance_lock)
     port = int(os.environ.get("PORT", 5177))
-    # Default 8: Waitress threads ≤ pool_size evita avalanche de checkout wait.
-    # Override: ARKSHOP_HTTP_THREADS (ainda limitado a pool_size salvo FORCE).
-    pool_size_cfg = max(5, int(os.environ.get("ARKSHOP_DB_POOL_SIZE", "15") or 15))
-    threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8))
-    if os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1":
+    # Default 32: carga de produção (fila Waitress). Override: ARKSHOP_HTTP_THREADS.
+    # Pool MySQL default = _DEFAULT_DB_POOL_SIZE (32) — deve ser >= threads.
+    # Cap opcional a pool_size: ARKSHOP_HTTP_THREADS_CAP_TO_POOL=1 (legado).
+    # FORCE=1 = sem cap (mesmo efeito do default actual).
+    pool_size_cfg = max(
+        5,
+        int(
+            os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE))
+            or _DEFAULT_DB_POOL_SIZE
+        ),
+    )
+    threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32))
+    if (
+        os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1"
+        or os.environ.get("ARKSHOP_HTTP_THREADS_CAP_TO_POOL") != "1"
+    ):
         threads = threads_raw
     else:
         threads = min(threads_raw, pool_size_cfg)
+    channel_timeout = max(
+        30, int(os.environ.get("ARKSHOP_CHANNEL_TIMEOUT", "180") or 180)
+    )
+    connection_limit = max(
+        50, int(os.environ.get("ARKSHOP_CONNECTION_LIMIT", "500") or 500)
+    )
     log.info(
-        "ArkShop Web Manager em http://127.0.0.1:%d (threads=%s pool_size=%s)",
+        "ArkShop Web Manager em http://127.0.0.1:%d "
+        "(threads=%s pool_size=%s channel_timeout=%s connection_limit=%s)",
         port,
         threads,
         pool_size_cfg,
+        channel_timeout,
+        connection_limit,
     )
     try:
         # Waitress: pool de workers estável. Werkzeug threaded=True satura sob
@@ -15098,7 +15615,11 @@ if __name__ == "__main__":
                 host="0.0.0.0",
                 port=port,
                 threads=threads,
-                channel_timeout=120,
+                channel_timeout=channel_timeout,
+                connection_limit=connection_limit,
+                backlog=max(
+                    64, int(os.environ.get("ARKSHOP_HTTP_BACKLOG", "2048") or 2048)
+                ),
                 ident="ARKLAND-WebStore",
             )
         except ImportError:

@@ -10,8 +10,9 @@ Q6: Owner can transfer ownership without staff.
 Q7: team amber bonus % is ADDITIVE with TimedPoints license AND unlocked via milestones
     (staff sets amber_bonus_pp per marco; soft-capped by teams_amber_bonus_cap).
 Q9: post-confirm lottery roster policy via teams_lottery_post_confirm_policy
-    (default freeze: block kick/join until draw; leave forfeits N numbers;
-     forfeit_on_depart: kick/leave revoke N; legacy_keep: old Q9 stay-on-team).
+    (default freeze: block kick until draw; joins allowed + allocate N;
+     leave forfeits N numbers; forfeit_on_depart: kick/leave revoke N;
+     legacy_keep: old Q9 stay-on-team).
 Q10: prize division remainder → team bank (amber).
 Q11: individual + team numbers allowed in same campaign.
 Q12: shortfall refund teams_lottery_shortfall_refund (default 5000) Â per missing number.
@@ -482,22 +483,18 @@ def open_lottery_confirmation(
 
 
 def _assert_roster_unlocked_for_lottery(db: Session, team_id: int, *, action: str) -> None:
-    """Under freeze policy, block kick/join that would change roster after confirm."""
+    """Under freeze policy, block kick (incl. auto-kick) after confirm until draw."""
     if lottery_post_confirm_policy() != LOTTERY_POST_CONFIRM_FREEZE:
+        return
+    if action not in ("kick", "auto_kick"):
         return
     conf = open_lottery_confirmation(db, team_id)
     if not conf:
         return
-    if action in ("kick", "auto_kick"):
-        raise ValueError(
-            "Roster congelado após confirmação do sorteio até o draw "
-            "(política teams_lottery_post_confirm_policy=freeze)."
-        )
-    if action in ("join", "accept_invite", "approve_join"):
-        raise ValueError(
-            "Não é possível alterar o roster após confirmação do sorteio "
-            "até o draw (política freeze)."
-        )
+    raise ValueError(
+        "Roster congelado após confirmação do sorteio até o draw "
+        "(política teams_lottery_post_confirm_policy=freeze)."
+    )
 
 
 def _forfeit_team_lottery_numbers_on_depart(
@@ -1876,7 +1873,6 @@ def accept_invite(db: Session, *, steam_id: str, invite_code: str | None = None,
         raise ValueError("Equipe indisponível.")
     if count_active_members(db, int(row[1])) >= int(team["max_members"]):
         raise ValueError("Equipe cheia.")
-    _assert_roster_unlocked_for_lottery(db, int(row[1]), action="accept_invite")
     now = _naive()
     db.execute(
         text("""
@@ -1955,7 +1951,6 @@ def approve_join(db: Session, *, team_id: int, actor_steam_id: str, target_steam
         raise ValueError("Equipe indisponível.")
     if count_active_members(db, team_id) >= int(team["max_members"]):
         raise ValueError("Equipe cheia.")
-    _assert_roster_unlocked_for_lottery(db, team_id, action="approve_join")
     target_steam_id = str(target_steam_id).strip()
     if get_active_membership(db, target_steam_id):
         raise ValueError("Jogador já está em outra equipe.")
@@ -3986,11 +3981,6 @@ def maybe_allocate_lottery_on_member_join(db: Session, team_id: int) -> dict[str
         return None
     if not teams_enabled() or not _is_enabled():
         return None
-    # freeze blocks join before this; skip allocate if somehow called under freeze
-    if lottery_post_confirm_policy() == LOTTERY_POST_CONFIRM_FREEZE:
-        conf_open = open_lottery_confirmation(db, team_id)
-        if conf_open:
-            return None
     try:
         campaign = get_active_campaign(db)
     except Exception:

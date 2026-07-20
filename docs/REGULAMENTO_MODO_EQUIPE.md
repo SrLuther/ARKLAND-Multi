@@ -132,8 +132,8 @@ Por omissão: **`freeze`** (`teams_lottery_post_confirm_policy`). A staff pode m
 
 | Política | Efeito |
 |----------|--------|
-| **freeze** (padrão) | Depois de confirmar, **não** podes kickar nem aceitar entradas até ao draw. Se **saíres**, a equipe **perde N números** (devolvidos à grade). |
-| **forfeit_on_depart** | Kick ou saída devolvem N números à grade; kick/entrada não ficam bloqueados pelo freeze |
+| **freeze** (padrão) | Depois de confirmar, **não** podes kickar até ao draw. Entradas novas são permitidas (+N números). Se **saíres**, a equipe **perde N números** (devolvidos à grade). |
+| **forfeit_on_depart** | Kick ou saída devolvem N números à grade; kick não fica bloqueado |
 | **legacy_keep** | Números ficam na equipe; kick permitido (comportamento antigo) |
 
 ---

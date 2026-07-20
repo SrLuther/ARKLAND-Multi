@@ -117,6 +117,21 @@ def test_index_nav_page_ttl_cache():
     assert "force: true" not in upd
     assert "await refreshPlayerBalance();" in upd
 
+def test_index_fetch_json_hardens_html_response():
+    """HTML/DOCTYPE da API não deve rebentar com Unexpected token <."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "function _httpStatusHint(status)" in html
+    assert "htmlResponse" in html
+    assert "A API devolveu HTML em vez de JSON" in html
+    assert "retries = 1" in html
+    avail = html[html.index("async function loadAvailable()") : html.index("async function loadAvailable()") + 1200]
+    assert 'fetchJson("/api/player/available"' in avail
+    assert "await r.json()" not in avail
+    cat = html[html.index("async function loadCatalog(opts)") : html.index("async function loadCatalog(opts)") + 2800]
+    assert "readFetchJson(r)" in cat
+    assert "await r.json()" not in cat
+
+
 def test_index_admin_config_load_does_not_false_empty():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     assert "if (!_config) return;" in html

@@ -574,7 +574,7 @@ Casa social da Web Store (**Minha Equipe** / **Equipes** / **Ranking**), indepen
 | **`/marco`** | Preview → `/confirmar` (TTL **60 s**); depósitos **sem reembolso**. |
 | **Bônus Â** | +**2** pp/marco se vazio; teto **20%** (aditivo à licença TimedPoints). |
 | **Split mercado** | **60%** vendedor / **40%** pool; mín. venda **1000 Â**. |
-| **Sorteio** | **N = 2** nº/membro; shortfall **5000 Â**/nº em falta ao banco. Pós-confirmação **freeze**: sem kick/entrada até o draw; saída perde N nº. Staff pode mudar a política. |
+| **Sorteio** | **N = 2** nº/membro; shortfall **5000 Â**/nº em falta ao banco. Pós-confirmação **freeze**: sem kick até o draw; joins OK (+N nº); saída perde N nº. Staff pode mudar a política. |
 | **Ranking** | Staff pode excluir do Top sem suspender. Prémios top 1–3 **desligados** por omissão (ref. 50k/25k/10k se activos). |
 
 Abuso ligado ao Modo Equipe segue [Seção 9](#9-sistema-de-punições).

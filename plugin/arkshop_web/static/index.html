@@ -7595,7 +7595,7 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label for="s-teams-lottery-post-confirm">Política pós-confirmação do sorteio (teams_lottery_post_confirm_policy)</label>
               <select id="s-teams-lottery-post-confirm">
-                <option value="freeze" selected>Congelar roster (padrão) — bloqueia kick/entrada até o draw; saída perde N números</option>
+                <option value="freeze" selected>Congelar roster (padrão) — bloqueia kick até o draw; joins OK (+N nº); saída perde N números</option>
                 <option value="forfeit_on_depart">Perder números ao sair/kick — kick e entrada permitidos; N números voltam ao pool</option>
                 <option value="legacy_keep">Legado Q9 — números ficam na equipe; kick permitido</option>
               </select>
@@ -10416,72 +10416,129 @@ const API = "";  // mesmo origin
 
 let CURRENCY = { singular: "Âmbar", plural: "Âmbares", image_url: "/ambar.png" };
 
-async function readFetchJson(r) {
-  const ct = (r.headers.get("content-type") || "").toLowerCase();
-  if (ct.includes("application/json")) {
-    return r.json().catch(() => ({}));
+function _httpStatusHint(status) {
+  if (status === 429) return "Muitas tentativas. Aguarde um momento e tente novamente.";
+  if (status === 404) return "Serviço indisponível (endpoint não encontrado).";
+  if (status === 502 || status === 503 || status === 504) {
+    return "Loja sobrecarregada ou a reiniciar (HTTP " + status + "). Aguarde 10–30s e tente de novo; se persistir, reinicie o Web Store.";
   }
-  const text = (await r.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const err = new Error(
-    r.status === 429 ? "Muitas tentativas. Aguarde um momento e tente novamente."
-    : r.status === 404 ? "Serviço indisponível (endpoint não encontrado)."
-    : text ? text.slice(0, 160) : `Resposta inválida do servidor (HTTP ${r.status})`
-  );
-  err.status = r.status;
-  err.data = {};
-  throw err;
+  if (status >= 500) {
+    return "Erro interno do servidor (HTTP " + status + "). Se repetir, reinicie o Web Store.";
+  }
+  return "";
 }
 
-async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null, signal = null } = {}) {
-  const ctrl = new AbortController();
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    ctrl.abort();
-  }, timeoutMs);
-  const onExternalAbort = () => ctrl.abort();
-  if (signal) {
-    if (signal.aborted) {
-      clearTimeout(timer);
-      const err = new Error("aborted");
-      err.name = "AbortError";
-      err.stale = true;
+function _isNonJsonBodyError(e) {
+  return !!(e && (e.nonJson || e.htmlResponse));
+}
+
+async function readFetchJson(r) {
+  const ct = (r.headers.get("content-type") || "").toLowerCase();
+  const text = await r.text();
+  const trimmed = (text || "").trim();
+  const looksHtml = /^<!DOCTYPE/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)
+    || ct.includes("text/html");
+  if (looksHtml || (!ct.includes("application/json") && trimmed.startsWith("<"))) {
+    const hint = _httpStatusHint(r.status)
+      || "A API devolveu HTML em vez de JSON — loja sobrecarregada ou proxy. Aguarde e tente de novo; se persistir, reinicie o Web Store.";
+    const err = new Error(hint);
+    err.status = r.status;
+    err.data = {};
+    err.nonJson = true;
+    err.htmlResponse = true;
+    throw err;
+  }
+  if (!trimmed) {
+    if (!r.ok) {
+      const err = new Error(_httpStatusHint(r.status) || `Resposta vazia do servidor (HTTP ${r.status})`);
+      err.status = r.status;
+      err.data = {};
+      err.nonJson = true;
       throw err;
     }
-    signal.addEventListener("abort", onExternalAbort, { once: true });
+    return {};
   }
   try {
-    const opts = { method, signal: ctrl.signal, credentials: "same-origin" };
-    if (body != null) {
-      opts.headers = { "Content-Type": "application/json", ...(headers || {}) };
-      opts.body = typeof body === "string" ? body : JSON.stringify(body);
-    } else if (headers) {
-      opts.headers = headers;
-    }
-    const r = await fetch(API + path, opts);
-    const data = await readFetchJson(r);
-    if (!r.ok) {
-      const err = new Error(data.error || data.message || `HTTP ${r.status}`);
-      err.status = r.status;
-      err.data = data;
-      throw err;
-    }
-    return data;
-  } catch (e) {
-    if (e.name === "AbortError") {
-      if (!timedOut || (signal && signal.aborted)) {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    const plain = trimmed.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const err = new Error(
+      _httpStatusHint(r.status)
+      || (plain ? plain.slice(0, 160) : `Resposta inválida do servidor (HTTP ${r.status})`)
+    );
+    err.status = r.status;
+    err.data = {};
+    err.nonJson = true;
+    throw err;
+  }
+}
+
+async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null, signal = null, retries = 1 } = {}) {
+  const runOnce = async () => {
+    const ctrl = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      ctrl.abort();
+    }, timeoutMs);
+    const onExternalAbort = () => ctrl.abort();
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timer);
         const err = new Error("aborted");
         err.name = "AbortError";
         err.stale = true;
         throw err;
       }
-      throw new Error(`Timeout (${Math.round(timeoutMs / 1000)}s) em ${path}`);
+      signal.addEventListener("abort", onExternalAbort, { once: true });
     }
-    throw e;
-  } finally {
-    clearTimeout(timer);
-    if (signal) signal.removeEventListener("abort", onExternalAbort);
+    try {
+      const opts = { method, signal: ctrl.signal, credentials: "same-origin" };
+      if (body != null) {
+        opts.headers = { "Content-Type": "application/json", ...(headers || {}) };
+        opts.body = typeof body === "string" ? body : JSON.stringify(body);
+      } else if (headers) {
+        opts.headers = headers;
+      }
+      const r = await fetch(API + path, opts);
+      const data = await readFetchJson(r);
+      if (!r.ok) {
+        const err = new Error(data.error || data.message || _httpStatusHint(r.status) || `HTTP ${r.status}`);
+        err.status = r.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    } catch (e) {
+      if (e.name === "AbortError") {
+        if (!timedOut || (signal && signal.aborted)) {
+          const err = new Error("aborted");
+          err.name = "AbortError";
+          err.stale = true;
+          throw err;
+        }
+        throw new Error(`Timeout (${Math.round(timeoutMs / 1000)}s) em ${path}`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", onExternalAbort);
+    }
+  };
+  let lastErr = null;
+  const maxAttempts = Math.max(1, 1 + (Number(retries) || 0));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await runOnce();
+    } catch (e) {
+      lastErr = e;
+      if (e?.name === "AbortError" && e.stale) throw e;
+      const retryable = _isNonJsonBodyError(e) || (e?.status >= 500 && e.status < 600);
+      if (!retryable || attempt >= maxAttempts - 1) throw e;
+      await new Promise((res) => setTimeout(res, 600));
+    }
   }
+  throw lastErr;
 }
 
 function setAdminShopLoading(msg) {
@@ -12856,15 +12913,33 @@ async function loadCatalog(opts) {
       _revalidateCatalogBackground();
       return true;
     }
-    const r = await fetch(API + "/api/catalog", { signal: ctrl.signal });
-    if (gen !== _catalogLoadGen) return false;
-    if (!r.ok) {
-      if (!_catalogHasAnyData()) {
-        _catalogLoadError = "Catálogo indisponível (HTTP " + r.status + ")";
+    let data = null;
+    let lastFetchErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(API + "/api/catalog", { signal: ctrl.signal });
+        if (gen !== _catalogLoadGen) return false;
+        data = await readFetchJson(r);
+        if (!r.ok) {
+          const msg = (data && (data.error || data.message))
+            || _httpStatusHint(r.status)
+            || ("Catálogo indisponível (HTTP " + r.status + ")");
+          const err = new Error(msg);
+          err.status = r.status;
+          throw err;
+        }
+        lastFetchErr = null;
+        break;
+      } catch (e) {
+        lastFetchErr = e;
+        if (e?.name === "AbortError") throw e;
+        if (gen !== _catalogLoadGen) return false;
+        const retryable = _isNonJsonBodyError(e) || (e?.status >= 500 && e.status < 600);
+        if (!retryable || attempt >= 1) throw e;
+        await new Promise((res) => setTimeout(res, 600));
       }
-      return false;
     }
-    const data = await r.json();
+    if (lastFetchErr) throw lastFetchErr;
     try { _writeStoreCache(data); } catch (_) {}
     const ok = await applyCatalogPayload(data, { gen, signal: ctrl.signal });
     if (!ok && !_catalogHasAnyData()) _catalogLoadError = "Catálogo indisponível";
@@ -12897,19 +12972,19 @@ function _revalidateCatalogBackground() {
   _storeWarmupRevalidating = true;
   _catalogLastRevalidateMs = _storeCacheNow();
   // Só /api/catalog (público, SW SWR) — não refetch bootstrap completo a cada nav.
-  fetch(API + "/api/catalog")
-    .then(r => r.ok ? r.json() : null)
-    .then((data) => {
+  (async () => {
+    try {
+      const data = await fetchJson("/api/catalog", { timeoutMs: 15000, retries: 1 });
       if (!data) return;
       try { _writeStoreCache(data); } catch (_) {}
-      return applyCatalogPayload(data, {
+      await applyCatalogPayload(data, {
         entitlements: _playerEntitlements,
         timedPointsTotal: _playerTimedPointsTotal,
         kitLimits: _playerKitLimitsReady ? Object.values(_playerKitLimits) : undefined,
       });
-    })
-    .catch(() => {})
-    .finally(() => { _storeWarmupRevalidating = false; });
+    } catch (_) {}
+    finally { _storeWarmupRevalidating = false; }
+  })();
 }
 
 async function _loadCatalogLegacyUnused() {
@@ -13204,10 +13279,9 @@ async function loadAvailable() {
   }
   host.innerHTML = `<p style="color:var(--text2);text-align:center;">Carregando…</p>`;
   try {
-    const r = await fetch(API + "/api/player/available");
-    const d = await r.json();
-    if (!r.ok || !d.ok) {
-      host.innerHTML = `<p style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar")}</p>`;
+    const d = await fetchJson("/api/player/available", { timeoutMs: 20000, retries: 1 });
+    if (!d || !d.ok) {
+      host.innerHTML = `<p style="color:var(--danger);">${escHtml((d && d.error) || "Erro ao carregar")}</p>`;
       return;
     }
     let html = "";
@@ -13281,7 +13355,11 @@ async function loadAvailable() {
     html += `</div>`;
     host.innerHTML = html;
   } catch (e) {
-    host.innerHTML = `<p style="color:var(--danger);">Erro de rede: ${escHtml(e.message)}</p>`;
+    const msg = e?.message || "Falha ao carregar";
+    host.innerHTML = `<p style="color:var(--danger);">${escHtml(msg)}</p>
+      <div style="text-align:center;margin-top:12px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="loadAvailable()">↺ Tentar novamente</button>
+      </div>`;
   }
 }
 

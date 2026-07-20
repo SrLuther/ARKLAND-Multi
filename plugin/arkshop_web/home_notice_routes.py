@@ -38,8 +38,16 @@ def register_home_notice_routes(
     admin_required: Callable,
     steam_id_from_session: Callable[[], str | None],
     limiter: Any | None = None,
+    invalidate_home_cache: Callable[[], None] | None = None,
 ) -> None:
     _limit = limiter.limit if limiter else (lambda *a, **k: (lambda f: f))
+
+    def _bump_home_cache() -> None:
+        if invalidate_home_cache is not None:
+            try:
+                invalidate_home_cache()
+            except Exception:
+                pass
 
     def _safe_get_notice(db: Any) -> dict[str, Any]:
         try:
@@ -133,6 +141,7 @@ def register_home_notice_routes(
                 body=body.get("body"),
                 updated_by_steam_id=str(steam_id_from_session() or "") or None,
             )
+            _bump_home_cache()
             return jsonify({"ok": True, "notice": notice})
         except ValueError as exc:
             db.rollback()
@@ -180,6 +189,7 @@ def register_home_notice_routes(
                 sort_order=body.get("order") if body.get("order") is not None else body.get("sort_order"),
                 updated_by_steam_id=str(steam_id_from_session() or "") or None,
             )
+            _bump_home_cache()
             return jsonify({"ok": True, "card": card}), 201
         except ValueError as exc:
             db.rollback()
@@ -220,6 +230,7 @@ def register_home_notice_routes(
         db = session_factory()
         try:
             card = update_home_card(db, card_id, **kwargs)
+            _bump_home_cache()
             return jsonify({"ok": True, "card": card})
         except ValueError as exc:
             db.rollback()
@@ -244,6 +255,7 @@ def register_home_notice_routes(
         db = session_factory()
         try:
             card = delete_home_card(db, card_id)
+            _bump_home_cache()
             return jsonify({"ok": True, "card": card})
         except ValueError as exc:
             db.rollback()
@@ -278,6 +290,7 @@ def register_home_notice_routes(
                 ordered,
                 updated_by_steam_id=str(steam_id_from_session() or "") or None,
             )
+            _bump_home_cache()
             return jsonify({"ok": True, "cards": cards})
         except Exception as exc:
             db.rollback()

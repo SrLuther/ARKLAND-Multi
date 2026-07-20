@@ -3,23 +3,60 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.78"
+APP_VERSION: str = "1.10.79"
 BUILD_DATE: str = "2026-07-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 CHANGELOG: list[dict] = [
     {
-        "version": "Unreleased",
+        "version": "1.10.79",
         "date": "2026-07-19",
         "changes": [
             "Feat (ArkPlayer): novo plugin ArkApi MVP — /mindwipe, /missao, "
             "/loot, /nome, /kill; substitui PlayerUtilities; install manual em "
             "ArkApi\\Plugins\\ArkPlayer\\ (ver plugin/ArkPlayer/README.md).",
+            "Fix P0 (Web Store / DB): pool MySQL alinhado a Waitress 32 "
+            "threads — ARKSHOP_DB_POOL_SIZE 15→32, MAX_OVERFLOW 30→32, "
+            "recycle 600→280 (abaixo do wait_timeout); teardown "
+            "rollback+remove; force release com rollback antes de close.",
+            "Fix P0 (Web Store saturação): home/catálogo — build NUNCA no "
+            "lock (antes empilhava todas as threads Waitress → fila 70+, "
+            "home 55s); SWR + single-flight; /api/* 500 sempre JSON; "
+            "amber-stats force-release; Waitress backlog 2048. Verificar: "
+            "X-Home-Cache HIT/STALE, duration_ms≪fila, task queue depth↓.",
+            "Perf (Web Store / Waitress): default threads 8→32, channel_timeout "
+            "180s, connection_limit 500 (ARKSHOP_HTTP_THREADS / "
+            "ARKSHOP_CHANNEL_TIMEOUT / ARKSHOP_CONNECTION_LIMIT; cap pool "
+            "só com ARKSHOP_HTTP_THREADS_CAP_TO_POOL=1).",
             "Fix P0 (Web Store / Home): AbortError de loadHome concorrente "
             "(boot+nav/warmup) já não mostra «Não foi possível carregar a "
             "home» / «signal is aborted without reason»; gen+abort stale "
             "silencioso; timeout 20s com mensagem clara.",
+            "Perf P1 (Web Store / Home): GET /api/public/home — cache "
+            "in-memory TTL 45s + build numa passagem (1× catálogo, 1× "
+            "servers sem decrypt RCON, sessão DB mural com force release); "
+            "invalida em catálogo/mural; log duration_ms + X-Home-Cache; "
+            "alvo <2–3s típico (hit ~ms) vs 50s+ sob fila Waitress.",
+            "Test (Web Store / Home): cache HIT/MISS, invalidate catálogo/"
+            "admin card, sem decrypt RCON na home.",
+            "Fix (Web Store / Equipes): freeze pós-confirmação do sorteio "
+            "bloqueia só kick (não joins); novo membro recebe +N números.",
+            "Fix P0 (Web Store / Catálogo): resposta HTML/DOCTYPE (Waitress/"
+            "proxy saturado) já não rebenta com «Unexpected token <»; "
+            "mensagem clara em PT + retry 1× em fetchJson, /api/catalog e "
+            "aba Disponível.",
+            "Perf P1 (Web Store / Catalog+Bootstrap): GET /api/catalog e "
+            "parte partilhada de /api/store/bootstrap — cache in-memory TTL "
+            "45s (single-flight); invalida em catálogo/settings; "
+            "X-Catalog-Cache; bootstrap pré-lê shop_config antes da sessão "
+            "DB + force release; alvo hit ~ms vs enrich O(n) sob fila.",
+            "Test (Web Store / Catalog): cache HIT/MISS, bootstrap reutiliza "
+            "cache, invalidate via shop_config.",
+            "Perf P1 (Web Store / Scheduler): skip-if-busy + pausa entre jobs "
+            "+ batches menores (auto_cancel/claims/outbox); claims commit por "
+            "linha e outbox commit_every — evita long_transaction / pool "
+            "starvation sob carga MySQL.",
         ],
     },
     {

@@ -1990,43 +1990,63 @@ def expire_stale_claims(db: Session, *, batch_size: int = 50) -> dict[str, Any]:
     Comprador solteiro: reembolso integral + devolução do dino ao vendedor.
     Comprador casal: reembolso 60% de Y + devolução dos dinos; pote sem estorno.
     Vendedor (retirada): listing volta a PAUSED.
+
+    Commit por claim (sem FOR UPDATE no lote) — evita long_transaction sob carga.
     """
     from app import MarketClaim, MarketListing
 
     now = _now()
-    rows = (
-        db.query(MarketClaim, MarketListing)
-        .join(MarketListing, MarketListing.id == MarketClaim.listing_id)
-        .filter(
-            MarketClaim.status.in_(["PENDENTE", "CLAIMED"]),
-            or_(
-                MarketClaim.claim_status == CLAIM_STATUS_PENDING,
-                MarketClaim.claim_status.is_(None),
-            ),
-            MarketClaim.claim_expires_at.isnot(None),
-            MarketClaim.claim_expires_at <= now,
+    # Só IDs — lock por linha abaixo.
+    claim_ids = [
+        int(r[0])
+        for r in (
+            db.query(MarketClaim.id)
+            .filter(
+                MarketClaim.status.in_(["PENDENTE", "CLAIMED"]),
+                or_(
+                    MarketClaim.claim_status == CLAIM_STATUS_PENDING,
+                    MarketClaim.claim_status.is_(None),
+                ),
+                MarketClaim.claim_expires_at.isnot(None),
+                MarketClaim.claim_expires_at <= now,
+            )
+            .order_by(MarketClaim.claim_expires_at.asc())
+            .limit(batch_size)
+            .all()
         )
-        .order_by(MarketClaim.claim_expires_at.asc())
-        .limit(batch_size)
-        .with_for_update()
-        .all()
-    )
+    ]
 
     buyer_refunds: list[dict[str, Any]] = []
     seller_expired: list[dict[str, Any]] = []
 
-    for claim, listing in rows:
-        if claim.claim_type == "BUYER":
-            result = _expire_buyer_claim(db, claim, listing, now=now)
+    for claim_id in claim_ids:
+        row = (
+            db.query(MarketClaim, MarketListing)
+            .join(MarketListing, MarketListing.id == MarketClaim.listing_id)
+            .filter(MarketClaim.id == claim_id)
+            .with_for_update()
+            .first()
+        )
+        if not row:
+            continue
+        claim, listing = row
+        try:
+            result = None
+            if claim.claim_type == "BUYER":
+                result = _expire_buyer_claim(db, claim, listing, now=now)
+                if result:
+                    buyer_refunds.append(result)
+            elif claim.claim_type == "SELLER":
+                result = _expire_seller_claim(db, claim, listing, now=now)
+                if result:
+                    seller_expired.append(result)
             if result:
-                buyer_refunds.append(result)
-        elif claim.claim_type == "SELLER":
-            result = _expire_seller_claim(db, claim, listing, now=now)
-            if result:
-                seller_expired.append(result)
-
-    if buyer_refunds or seller_expired:
-        db.commit()
+                db.commit()
+            else:
+                db.rollback()
+        except Exception:
+            db.rollback()
+            raise
 
     return {
         "processed": len(buyer_refunds) + len(seller_expired),

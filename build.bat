@@ -99,6 +99,13 @@ if errorlevel 1 (
 )
 echo.
 
+if "%SKIP_PLUGIN_BUILD%"=="1" (
+    echo [1b/4] SKIP_PLUGIN_BUILD=1 — pulando compile CustomShop / CustomDinoDeliver ^(DLL existente^).
+    echo [1c/4] SKIP_PLUGIN_BUILD=1 — ok.
+    echo.
+    goto :after_plugin_builds
+)
+
 echo [1b/4] Compilando CustomShop.dll...
 if exist "%~dp0plugin\CustomShop\build_cl.bat" (
     pushd "%~dp0plugin\CustomShop"
@@ -130,6 +137,8 @@ if exist "%~dp0plugin\CustomDinoDeliver\build_cl.bat" (
     echo [AVISO] plugin\CustomDinoDeliver\build_cl.bat nao encontrado — pulando compile do plugin.
 )
 echo.
+
+:after_plugin_builds
 
 :: -- Gera o execut?vel --------------------------------------------------------
 echo [2/4] Gerando executavel com PyInstaller (modo onefile)...

@@ -974,17 +974,18 @@ def test_team_lottery_freeze_blocks_kick_after_confirm(db, lottery_ready):
     assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 4
 
 
-def test_team_lottery_freeze_blocks_join_after_confirm(db, lottery_ready):
+def test_team_lottery_freeze_allows_join_after_confirm(db, lottery_ready):
+    """freeze blocks kick only — join after confirm allocates +N numbers."""
     _set_team_lottery_policy("freeze")
     ls = lottery_ready
     cid = _make_active_campaign(db, ls)
     ts.create_team(db, steam_id=USER_A, name="FreezeJoin")
     tid = ts.get_active_membership(db, USER_A)["team_id"]
     ts.confirm_team_lottery(db, team_id=tid, actor_steam_id=USER_A, campaign_id=cid)
-    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
-    with pytest.raises(ValueError, match="roster|freeze|confirmação"):
-        ts.accept_invite(db, steam_id=USER_B, team_id=tid)
     assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 2
+    ts.invite_member(db, team_id=tid, actor_steam_id=USER_A, target_steam_id=USER_B)
+    ts.accept_invite(db, steam_id=USER_B, team_id=tid)
+    assert len(ls.list_team_numbers(db, campaign_id=cid, team_id=tid)) == 4
 
 
 def test_team_lottery_freeze_leave_forfeits_n_numbers(db, lottery_ready):
@@ -1024,8 +1025,7 @@ def test_team_lottery_forfeit_on_depart_kick_reduces_n(db, lottery_ready):
 
 
 def test_team_lottery_join_after_confirm_allocates_two(db, lottery_ready):
-    # Join after confirm only allowed outside freeze (legacy or forfeit_on_depart)
-    _set_team_lottery_policy("forfeit_on_depart")
+    _set_team_lottery_policy("freeze")
     ls = lottery_ready
     cid = _make_active_campaign(db, ls)
     ts.create_team(db, steam_id=USER_A, name="JoinLot")
