@@ -9127,7 +9127,7 @@
             <div id="dl-vitrine-fallback-hint" class="hidden" style="margin-top:10px;font-size:12px;color:var(--amber);"></div>
           </div>
           <div class="card" style="margin-bottom:16px;">
-            <div class="card-title" style="font-size:13px;">Slots rotativos (15)</div>
+            <div id="dl-vitrine-rotating-title" class="card-title" style="font-size:13px;">Slots rotativos</div>
             <div id="dl-vitrine-rotating" style="margin-top:10px;color:var(--text2);">Carregando…</div>
           </div>
           <div class="card" style="margin-bottom:16px;">
@@ -19299,6 +19299,14 @@ async function loadDinoLabVitrineAdmin() {
       } else {
         hint.classList.add("hidden");
       }
+    }
+    const rotTitle = document.getElementById("dl-vitrine-rotating-title");
+    if (rotTitle) {
+      const n = Array.isArray(v.rotating) ? v.rotating.length : (v.rotating_count || 0);
+      const maxR = v.max_rotating || 15;
+      rotTitle.textContent = n === maxR
+        ? `Slots rotativos (${n})`
+        : `Slots rotativos (${n} / ${maxR})`;
     }
     if (rotatingEl) rotatingEl.innerHTML = _dinoLabVitrineSpeciesChips(v.rotating || []);
     if (permEl) permEl.innerHTML = _dinoLabVitrineSpeciesChips(v.permanents || []);

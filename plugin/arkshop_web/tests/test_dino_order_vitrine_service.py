@@ -94,6 +94,32 @@ def test_draw_fallback_when_size_pool_short():
     assert meta["filled_by_target"]["small"] == 0
 
 
+def test_draw_fallback_completes_to_15_when_mix_short_but_pool_ge_15():
+    """Mix 9+3+3 insuficiente no 1.º passe mas pool total ≥15 → completa 15 + warning."""
+    pool = [_cand(f"large_{i}", "large") for i in range(8)]
+    pool.append(_cand("medium_0", "medium"))
+    pool.append(_cand("small_0", "small"))
+    for i in range(1, 11):
+        pool.append(_cand(f"extra_{i}", "medium"))
+    assert len(pool) >= ROTATING_SLOTS
+    keys, meta = draw_rotating_species(pool, rng=random.Random(11))
+    assert len(keys) == ROTATING_SLOTS
+    assert len(set(keys)) == ROTATING_SLOTS
+    assert meta["fallback_used"] is True
+    assert meta["filled_by_target"]["large"] == 8  # pediu 9
+    assert meta["filled_by_target"]["small"] == 1  # pediu 3
+    assert meta["drawn"] == ROTATING_SLOTS
+    assert sum(meta["actual_mix"].values()) == ROTATING_SLOTS
+
+
+def test_draw_pool_under_15_fills_max():
+    pool = [_cand(f"m_{i}", "medium") for i in range(10)]
+    keys, meta = draw_rotating_species(pool, rng=random.Random(3))
+    assert len(keys) == 10
+    assert meta["fallback_used"] is True
+    assert meta["drawn"] == 10
+
+
 def test_no_duplicates_across_sizes():
     pool = _pool_full()
     keys, _ = draw_rotating_species(pool, rng=random.Random(99))
@@ -117,6 +143,54 @@ def test_permanents_removed_from_rotating():
     assert "r0" not in result["rotating_species_keys"]
     assert "r1" not in result["rotating_species_keys"]
     assert result["removed_from_rotating"] == 2
+
+
+def test_ensure_tops_up_after_permanents_shrink_rotating(monkeypatch):
+    """Permanentes removem dos rotativos; ensure completa de volta a 15."""
+    class _FakeDb:
+        pass
+
+    candidates = _pool_full()
+    monkeypatch.setattr(
+        "dino_order_vitrine_service.list_candidate_species",
+        lambda db, force_refresh=False: candidates,
+    )
+    now = datetime(2026, 7, 12, 12, 0, tzinfo=timezone.utc)
+    force_rotate(_FakeDb(), rng=random.Random(8), now=now)
+    store = load_store()
+    # Simula overlap: 5 rotativos viram permanentes e saem da lista
+    rotating = list(store["rotating_species_keys"])
+    to_perm = rotating[:5]
+    store["permanent_species_keys"] = to_perm
+    store["rotating_species_keys"] = rotating[5:]
+    save_store(store)
+    assert len(store["rotating_species_keys"]) == ROTATING_SLOTS - 5
+
+    snap = ensure_vitrine(_FakeDb(), rng=random.Random(9), now=now)
+    assert len(snap["rotating_species_keys"]) == ROTATING_SLOTS
+    assert not set(snap["rotating_species_keys"]) & set(to_perm)
+    assert snap.get("rotation", {}).get("reason") == "top_up"
+
+
+def test_ensure_tops_up_incomplete_without_resetting_timer(monkeypatch):
+    class _FakeDb:
+        pass
+
+    candidates = _pool_full()
+    monkeypatch.setattr(
+        "dino_order_vitrine_service.list_candidate_species",
+        lambda db, force_refresh=False: candidates,
+    )
+    now = datetime(2026, 7, 12, 12, 0, tzinfo=timezone.utc)
+    force_rotate(_FakeDb(), rng=random.Random(10), now=now)
+    store = load_store()
+    ends = store["rotation_ends_at"]
+    store["rotating_species_keys"] = store["rotating_species_keys"][:10]
+    save_store(store)
+
+    snap = ensure_vitrine(_FakeDb(), rng=random.Random(11), now=now)
+    assert len(snap["rotating_species_keys"]) == ROTATING_SLOTS
+    assert snap["rotation_ends_at"] == ends
 
 
 def test_force_rotate_resets_timer(monkeypatch):

@@ -7,6 +7,14 @@
 
 ## [Unreleased] - 
 
+### Fix
+
+- Fix (Web Store / Encomenda): fallback de porte da vitrine completa sempre até 15 slots rotativos com ACTIVE restantes (antes podia ficar em 10 após permanentes ou mix curto); ensure faz top-up sem reiniciar o timer; header admin mostra contagem real; galeria pública usa o mesmo ensure.
+
+### Other
+
+- Test (Web Store / Vitrine): fallback 9+3+3 incompleto com pool ≥15 → len==15; top-up após permanentes; pool <15.
+
 ## [1.10.86] - 2026-07-20
 
 ### Feature

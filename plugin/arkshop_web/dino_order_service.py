@@ -236,15 +236,16 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
     try:
         from market_service import list_species_public
         from dino_order_showcase_service import primary_showcase_by_species, showcase_counts_by_species
-        from dino_order_vitrine_service import load_store, orderable_species_keys
+        from dino_order_vitrine_service import ensure_vitrine
 
+        # Garante rotação expirada + top-up se incompleta (mesmos slots da admin)
+        snap = ensure_vitrine(db, include_candidates=False)
         rows = list_species_public(db, active_only=True)
         showcase_counts = showcase_counts_by_species(active_only=True)
         primary_showcases = primary_showcase_by_species(active_only=True)
-        orderable = orderable_species_keys(db)
-        store = load_store()
-        permanent = set(store.get("permanent_species_keys") or [])
-        rotation_ends_at = store.get("rotation_ends_at")
+        orderable = set(snap.get("orderable_species_keys") or [])
+        permanent = set(snap.get("permanent_species_keys") or [])
+        rotation_ends_at = snap.get("rotation_ends_at")
     except Exception as exc:
         log.warning("dino_order gallery: %s", exc)
         return []

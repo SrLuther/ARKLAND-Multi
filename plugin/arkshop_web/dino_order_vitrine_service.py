@@ -438,11 +438,14 @@ def draw_rotating_species(
 ) -> tuple[list[str], dict[str, Any]]:
     """Sorteia `slots` espécies com mix 9+3+3.
 
-    Fallback: se um porte não tiver candidatos suficientes, preenche o restante
-    a partir dos outros portes (large → medium → small → qualquer restante).
+    Fallback: se um porte não tiver candidatos suficientes para o mix, completa
+    até `slots` com espécies ACTIVE restantes (qualquer porte), excluindo
+    `exclude` e já escolhidas. Nunca devolve menos que min(slots, pool) quando
+    o pool total (após exclude) tem candidatos sobrando.
     """
     rng = rng or random.Random()
     exclude = set(exclude or ())
+    slots = max(0, int(slots))
     pool = [
         c
         for c in candidates
@@ -458,6 +461,7 @@ def draw_rotating_species(
     filled_by_target: dict[str, int] = {s: 0 for s in SIZE_ORDER}
     filled_actual: dict[str, int] = {s: 0 for s in SIZE_ORDER}
     fallback_used = False
+    target_map = dict(TARGET_MIX)
 
     def _take_from(bucket: list[dict[str, Any]], n: int) -> list[str]:
         available = [c for c in bucket if str(c["species_key"]) not in used]
@@ -470,21 +474,26 @@ def draw_rotating_species(
             filled_actual[normalize_size_class(c.get("size_class"))] += 1
         return keys
 
+    # 1) Mix alvo, limitado ao espaço restante em `slots`
     for size, need in TARGET_MIX:
-        got = _take_from(by_size[size], need)
+        room = slots - len(picked)
+        if room <= 0:
+            break
+        take = min(int(need), room)
+        got = _take_from(by_size[size], take)
         filled_by_target[size] = len(got)
         picked.extend(got)
-        if len(got) < need:
+        if len(got) < take:
             fallback_used = True
 
+    # 2) Reposição por déficit de porte (large → medium → small por prioridade)
     remaining = slots - len(picked)
     if remaining > 0:
         fallback_used = True
-        # Preferência de reposição: portes com maior deficit relativo, depois ordem SIZE_ORDER
         deficit_order = sorted(
             SIZE_ORDER,
             key=lambda s: (
-                -(dict(TARGET_MIX).get(s, 0) - filled_by_target.get(s, 0)),
+                -(target_map.get(s, 0) - filled_by_target.get(s, 0)),
                 SIZE_ORDER.index(s),
             ),
         )
@@ -495,9 +504,13 @@ def draw_rotating_species(
             picked.extend(got)
             remaining = slots - len(picked)
 
-        if remaining > 0:
-            leftover = [c for c in pool if str(c["species_key"]) not in used]
-            got = _take_from(leftover, remaining)
+    # 3) Sempre completar com qualquer ACTIVE restante no pool
+    remaining = slots - len(picked)
+    if remaining > 0:
+        leftover = [c for c in pool if str(c["species_key"]) not in used]
+        got = _take_from(leftover, remaining)
+        if got:
+            fallback_used = True
             picked.extend(got)
 
     meta = {
@@ -507,8 +520,88 @@ def draw_rotating_species(
         "fallback_used": fallback_used,
         "pool_size": len(pool),
         "drawn": len(picked),
+        "slots": slots,
     }
     return picked[:slots], meta
+
+
+def _rotating_keys(store: dict[str, Any]) -> list[str]:
+    return _normalize_key_list(store.get("rotating_species_keys"), max_len=ROTATING_SLOTS)
+
+
+def _permanent_keys(store: dict[str, Any]) -> list[str]:
+    return _normalize_key_list(store.get("permanent_species_keys"), max_len=MAX_PERMANENT)
+
+
+def _available_pool_size(
+    candidates: list[dict[str, Any]],
+    *,
+    exclude: set[str] | frozenset[str] | None = None,
+) -> int:
+    exclude = set(exclude or ())
+    seen: set[str] = set()
+    for c in candidates:
+        key = str(c.get("species_key") or "").strip()
+        if not key or key in exclude or key in seen:
+            continue
+        seen.add(key)
+    return len(seen)
+
+
+def _rotating_incomplete(
+    store: dict[str, Any],
+    candidates: list[dict[str, Any]],
+) -> bool:
+    """True se faltam slots rotativos e ainda há candidatos ACTIVE para preencher."""
+    permanents = set(_permanent_keys(store))
+    current = [k for k in _rotating_keys(store) if k not in permanents]
+    target = min(ROTATING_SLOTS, _available_pool_size(candidates, exclude=permanents))
+    return len(current) < target
+
+
+def _top_up_rotating(
+    store: dict[str, Any],
+    candidates: list[dict[str, Any]],
+    *,
+    reason: str = "top_up",
+    rng: random.Random | None = None,
+) -> dict[str, Any] | None:
+    """Completa slots rotativos em falta sem reshuffle completo nem reiniciar timer."""
+    permanents = set(_permanent_keys(store))
+    current = [k for k in _rotating_keys(store) if k not in permanents]
+    target = min(ROTATING_SLOTS, _available_pool_size(candidates, exclude=permanents))
+    need = target - len(current)
+    if need <= 0:
+        if current != _rotating_keys(store):
+            store["rotating_species_keys"] = current
+            save_store(store)
+            invalidate_vitrine_caches()
+        return None
+
+    extra, meta = draw_rotating_species(
+        candidates,
+        exclude=permanents | set(current),
+        rng=rng,
+        slots=need,
+    )
+    if not extra:
+        return None
+
+    keys = current + extra
+    store["rotating_species_keys"] = keys
+    if meta.get("fallback_used"):
+        store["last_rotation_fallback"] = True
+    _append_history(store, reason=reason, keys=keys, meta=meta)
+    save_store(store)
+    invalidate_vitrine_caches()
+    return {
+        "rotated": True,
+        "reason": reason,
+        "top_up": True,
+        "added": list(extra),
+        "rotating_species_keys": keys,
+        "meta": meta,
+    }
 
 
 def _append_history(store: dict[str, Any], *, reason: str, keys: list[str], meta: dict[str, Any]) -> None:
@@ -602,6 +695,44 @@ def ensure_vitrine(
         )
         payload["rotation"] = result
         return payload
+
+    # Vitrine incompleta (ex.: permanentes removidos dos rotativos, upgrade 10→15)
+    # sem reiniciar o timer — só completa slots em falta.
+    rotating_n = len(_rotating_keys(store))
+    if rotating_n < ROTATING_SLOTS:
+        candidates = list_candidate_species(db)
+        if _rotating_incomplete(store, candidates):
+            result = _top_up_rotating(
+                store, candidates, reason="top_up", rng=rng
+            )
+            store = load_store()
+            payload = get_vitrine_snapshot(
+                db,
+                store=store,
+                now=now,
+                candidates=candidates,
+                candidates_q=candidates_q,
+                candidates_limit=candidates_limit,
+                candidates_offset=candidates_offset,
+                include_candidates=include_candidates,
+                use_cache=False,
+            )
+            if result is not None:
+                payload["rotation"] = result
+            return payload
+        # Pool esgotado: devolve snapshot com contagem real (< 15)
+        return get_vitrine_snapshot(
+            db,
+            store=store,
+            now=now,
+            candidates=candidates,
+            candidates_q=candidates_q,
+            candidates_limit=candidates_limit,
+            candidates_offset=candidates_offset,
+            include_candidates=include_candidates,
+            use_cache=False,
+        )
+
     return get_vitrine_snapshot(
         db,
         store=store,
@@ -710,6 +841,8 @@ def get_vitrine_snapshot(
         "permanent_species_keys": permanent_keys,
         "rotating": _enrich(rotating_keys, slot_kind="rotating"),
         "permanents": _enrich(permanent_keys, slot_kind="permanent"),
+        "rotating_count": len(rotating_keys),
+        "permanent_count": len(permanent_keys),
         "orderable_species_keys": orderable,
         "orderable_count": len(orderable),
         "max_rotating": ROTATING_SLOTS,
@@ -805,7 +938,7 @@ def force_rotate(
     rng: random.Random | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Rodar agora: novo sorteio dos 10 + reinicia timer (now + rotation_days)."""
+    """Rodar agora: novo sorteio dos 15 + reinicia timer (now + rotation_days)."""
     return ensure_vitrine(db, force=True, reason="force", rng=rng, now=now)
 
 
@@ -813,10 +946,11 @@ def orderable_species_keys(db: Any | None = None) -> set[str]:
     """Chaves encomendáveis (rotating ∪ permanent), com auto-rotação se preciso.
 
     Caminho quente (cotação): só lê o store JSON — não lista todo o catálogo.
+    Top-up de slots incompletos fica em ensure_vitrine (admin GET / galeria).
     """
     store = load_store()
     if db is not None and _needs_rotation(store):
-        ensure_vitrine(db, reason="auto")
+        ensure_vitrine(db, reason="auto", include_candidates=False)
         store = load_store()
     return set(
         _normalize_key_list(store.get("rotating_species_keys"), max_len=ROTATING_SLOTS)
