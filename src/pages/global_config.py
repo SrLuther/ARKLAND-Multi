@@ -88,7 +88,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                     hover_color=_GREEN_HOVER).grid(
         row=0, column=0, padx=16, pady=(16, 2), sticky="w")
     ctk.CTkLabel(opt_card,
-                 text="Inicia o app automaticamente quando o Windows ligar.",
+                 text="Inicia o app automaticamente quando o Windows ligar. "
+                      "Marque «Iniciar ao abrir o app» em cada servidor (Gerenciamento Automático) "
+                      "para subir os mapas junto com o ARKLAND.",
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
         row=1, column=0, padx=(42, 16), pady=(0, 8), sticky="w")
 

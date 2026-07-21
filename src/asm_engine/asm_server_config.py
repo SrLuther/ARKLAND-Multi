@@ -388,6 +388,7 @@ class AsmServerConfig:
     exclusive_join:         bool      = False   # CLI flag -exclusivejoin
 
     # ── Gerenciamento Automático ──────────────────────────────────────────────
+    auto_start_on_launch:           bool  = False   # Iniciar ao abrir o app
     enable_auto_restart:            bool  = False
     auto_restart_time:              str   = "03:00"
     auto_restart_days:              List[int] = field(default_factory=lambda: list(range(7)))  # 0=Seg … 6=Dom

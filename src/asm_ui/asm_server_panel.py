@@ -1419,6 +1419,7 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
 
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Gerenciamento Automático", "Gerenciamento automático")
     row = build_cards_layout(sf, ctx, [
+        CardSpec("Inicialização", ["auto_start_on_launch"], bool_grid=True),
         CardSpec("Reinício programado", ["enable_auto_restart", "auto_restart_time", "restart_countdown_minutes"]),
         CardSpec("Atualização automática", ["enable_auto_update_check", "auto_update_check_minutes"]),
         CardSpec("Notificações", ["notify_discord_on_events"], bool_grid=True),
@@ -1441,6 +1442,7 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
     perf_card.grid_columnconfigure(0, weight=1)
     row += 1
     add_collapsible_help(sf, [
+        ("Iniciar ao abrir o app", "Sobe este servidor automaticamente quando o ARKLAND abre (ex.: após reinício do Windows)."),
         ("Reinício automático", "Reinicia o servidor no horário configurado (HH:MM, 24h) nos dias marcados."),
         ("Dias da semana", "Marque em quais dias o reinício programado deve ocorrer."),
         ("Contagem regressiva", "Avisa os jogadores X minutos antes do reinício via mensagem no chat."),

@@ -166,6 +166,7 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     "discord_notify_server_start": "Notificar quando servidor inicia",
     "discord_notify_server_stop": "Notificar quando servidor para",
     "discord_webhook_url": "URL do webhook do Discord",
+    "auto_start_on_launch": "Iniciar ao abrir o app",
     "enable_auto_restart": "Reinício automático ativo",
     "enable_auto_update_check": "Verificar atualizações automaticamente",
     "enable_diseases": "Doenças habilitadas",
@@ -273,6 +274,7 @@ EXTRA_HINTS: dict[str, str] = {
     "discord_webhook_url": "Discord → Integrações → Webhooks → copiar URL.",
     "notify_discord_on_events": "Envia alertas no canal configurado quando eventos ocorrem.",
     # Gerenciamento automático
+    "auto_start_on_launch": "Inicia este servidor automaticamente quando o ARKLAND abre.",
     "enable_auto_restart": "Reinicia o servidor nos dias marcados, no horário configurado.",
     "auto_restart_time": "Horário do reinício no formato HH:MM (24h).",
     "auto_restart_days": "Dias da semana (0=Seg … 6=Dom) em que o reinício programado roda.",

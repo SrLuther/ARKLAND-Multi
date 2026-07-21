@@ -1,9 +1,9 @@
 {
-    "version": "1.10.87",
-    "date": "2026-07-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.87/ARKLAND-Multi-Setup-v1.10.87.exe",
+    "version": "1.10.88",
+    "date": "2026-07-21",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.88/ARKLAND-Multi-Setup-v1.10.88.exe",
     "changelog": [
-        "Fix (Web Store / Encomenda): fallback de porte da vitrine completa sempre até 15 slots rotativos com ACTIVE restantes (antes podia ficar em 10 após permanentes ou mix curto); ensure faz top-up sem reiniciar o timer; header admin mostra contagem real; galeria pública usa o mesmo ensure.",
-        "Test (Web Store / Vitrine): fallback 9+3+3 incompleto com pool ≥15 → len==15; top-up após permanentes; pool <15."
+        "Feat (TEK / Auto-start): servidores com «Iniciar ao abrir o app» sobem automaticamente após reconnect no boot (checkbox em Gerenciamento Automático por servidor).",
+        "Melhoria (TEK / Windows): «Iniciar com o Windows» sincroniza o registro Run ao abrir o app, não só ao salvar Configurações Globais."
     ]
 }

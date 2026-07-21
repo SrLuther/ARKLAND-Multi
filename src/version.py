@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.87"
-BUILD_DATE: str = "2026-07-20"
+APP_VERSION: str = "1.10.88"
+BUILD_DATE: str = "2026-07-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,17 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.88",
+        "date": "2026-07-21",
+        "changes": [
+            "Feat (TEK / Auto-start): servidores com «Iniciar ao abrir o app» "
+            "sobem automaticamente após reconnect no boot (checkbox em "
+            "Gerenciamento Automático por servidor).",
+            "Melhoria (TEK / Windows): «Iniciar com o Windows» sincroniza o "
+            "registro Run ao abrir o app, não só ao salvar Configurações Globais.",
+        ],
     },
     {
         "version": "1.10.87",

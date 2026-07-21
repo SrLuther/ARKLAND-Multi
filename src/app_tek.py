@@ -83,6 +83,8 @@ class ARKServerManagerApp(ctk.CTk):
         # ── Managers ──────────────────────────────────────────────────────────
         self.asm_config_manager = AsmConfigManager()
         self.config_manager  = ConfigManager()
+        from .ui_constants import _set_windows_startup
+        _set_windows_startup(self.config_manager.config.startup_with_windows)
         from .server_visibility import resolve_machine_public_ip
         _pub_ip = resolve_machine_public_ip(self.config_manager.config)
         self.asm_server_manager = AsmServerManager(
@@ -226,6 +228,8 @@ class ARKServerManagerApp(ctk.CTk):
         # Retentativas: exe/cmdline podem nascer vazios; portas UDP demoram a aparecer
         for _scan_ms in (500, 2500, 8000):
             self.after(_scan_ms, self._asm_scan_running_servers)
+        # Auto-start: servidores marcados com auto_start_on_launch (após scan/reconnect)
+        self.after(8500, self._auto_start_servers)
         self.after(2500, self._ensure_buff_manager)
         self.after(2600, self._ensure_global_ark_event_scheduler)
         self.after(3000, self._start_mod_auto_updater)
@@ -668,6 +672,17 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception as _exc:
             _log2.getLogger(__name__).warning(
                 "auto_start_obobonic error: %s", _exc, exc_info=True
+            )
+
+    def _auto_start_servers(self) -> None:
+        """Inicia servidores com auto_start_on_launch após reconnect de processos."""
+        import logging as _log2
+        try:
+            from .pages.auto_start_servers import auto_start_servers
+            auto_start_servers(self)
+        except Exception as _exc:
+            _log2.getLogger(__name__).warning(
+                "auto_start_servers error: %s", _exc, exc_info=True
             )
 
     def _auto_migrate_plugin_website_urls(self) -> None:

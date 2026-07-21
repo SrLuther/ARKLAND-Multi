@@ -7,6 +7,16 @@
 
 ## [Unreleased] - 
 
+## [1.10.88] - 2026-07-21
+
+### Feature
+
+- Feat (TEK / Auto-start): servidores com «Iniciar ao abrir o app» sobem automaticamente após reconnect no boot (checkbox em Gerenciamento Automático por servidor).
+
+### Improvement
+
+- Melhoria (TEK / Windows): «Iniciar com o Windows» sincroniza o registro Run ao abrir o app, não só ao salvar Configurações Globais.
+
 ## [1.10.87] - 2026-07-20
 
 ### Fix
