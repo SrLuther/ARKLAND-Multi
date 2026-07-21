@@ -1,9 +1,8 @@
 {
-    "version": "1.10.85",
+    "version": "1.10.86",
     "date": "2026-07-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.85/ARKLAND-Multi-Setup-v1.10.85.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.86/ARKLAND-Multi-Setup-v1.10.86.exe",
     "changelog": [
-        "Fix (Web Store / Admin Dino Lab): GET /api/admin/dino-order/vitrine deixava de responder em 15s — causa: list_candidate_species → list_species_public (multipliers + economia completa + imagens + get_registry_entry O(n) por espécie) e payload com todo o catálogo. Agora: query leve (load_only, sem multipliers/imagens), índice O(1) no registry, imagens só nos ≤15 slots, cache TTL 30s, candidatos paginados (q/limit/offset, default 100) + filtro no select admin.",
-        "Test (Web Store / Vitrine): page_candidates; snapshot paginado; loader leve; get_registry_entry indexado."
+        "Feat (Web Store / Encomenda): vitrine em grade 5×3 (15 slots rotativos; mix 9 grande + 3 médio + 3 pequeno) + até 5 permanentes."
     ]
 }

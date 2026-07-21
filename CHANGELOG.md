@@ -7,6 +7,8 @@
 
 ## [Unreleased] - 
 
+## [1.10.86] - 2026-07-20
+
 ### Feature
 
 - Feat (Web Store / Encomenda): vitrine em grade 5×3 (15 slots rotativos; mix 9 grande + 3 médio + 3 pequeno) + até 5 permanentes.
