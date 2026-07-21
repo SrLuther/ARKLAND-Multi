@@ -7,6 +7,16 @@
 
 ## [Unreleased] - 
 
+## [1.10.89] - 2026-07-21
+
+### Feature
+
+- Feat (Web Store / ARKBANK): extrato da tesouraria com filtro por Steam ID, intervalo de datas e coluna Jogador (nick Steam).
+
+### Other
+
+- Test (ARKBANK): list_transactions filtra steam_id/data e enriquece player_name a partir de store_users.
+
 ## [1.10.88] - 2026-07-21
 
 ### Feature

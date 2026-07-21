@@ -263,3 +263,69 @@ def test_contribute_market_pair_goes_to_arkbank_not_prize(tmp_path):
         assert get_balance(db) == 80
     finally:
         db.close()
+
+
+def test_list_transactions_filters_steam_and_date(ark_db):
+    from datetime import datetime, timedelta, timezone
+
+    from arkbank_service import credit, debit, list_transactions
+
+    sid_a = "76561198000000011"
+    sid_b = "76561198000000022"
+    credit(
+        ark_db,
+        tx_type="catalog_spend",
+        amount=1000,
+        idempotency_key="flt:c1",
+        steam_id=sid_a,
+        commit=True,
+    )
+    debit(
+        ark_db,
+        tx_type="timed_reward",
+        amount=50,
+        idempotency_key="flt:d1",
+        steam_id=sid_a,
+        commit=True,
+    )
+    debit(
+        ark_db,
+        tx_type="timed_reward",
+        amount=25,
+        idempotency_key="flt:d2",
+        steam_id=sid_b,
+        commit=True,
+    )
+
+    ark_db.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS store_users ("
+            "steam_id TEXT PRIMARY KEY, steam_persona TEXT, display_name TEXT)"
+        )
+    )
+    ark_db.execute(
+        text(
+            "INSERT INTO store_users (steam_id, steam_persona, display_name) "
+            "VALUES (:s, :p, :d)"
+        ),
+        {"s": sid_a, "p": "AlphaNick", "d": "Alpha"},
+    )
+    ark_db.commit()
+
+    by_steam = list_transactions(ark_db, steam_id=sid_a, limit=50)
+    assert len(by_steam) == 2
+    assert all(t["steam_id"] == sid_a for t in by_steam)
+    assert by_steam[0]["player_name"] == "AlphaNick"
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    by_date = list_transactions(ark_db, date_from=today, date_to=today, limit=50)
+    assert len(by_date) == 3
+
+    past = (datetime.now(timezone.utc) - timedelta(days=5)).strftime("%Y-%m-%d")
+    empty = list_transactions(ark_db, date_from=past, date_to=past, limit=50)
+    assert empty == []
+
+    both = list_transactions(ark_db, steam_id=sid_b, date_from=today, date_to=today)
+    assert len(both) == 1
+    assert both[0]["steam_id"] == sid_b
+    assert both[0].get("player_name") is None

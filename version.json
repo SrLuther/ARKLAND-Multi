@@ -1,9 +1,9 @@
 {
-    "version": "1.10.88",
+    "version": "1.10.89",
     "date": "2026-07-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.88/ARKLAND-Multi-Setup-v1.10.88.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.89/ARKLAND-Multi-Setup-v1.10.89.exe",
     "changelog": [
-        "Feat (TEK / Auto-start): servidores com «Iniciar ao abrir o app» sobem automaticamente após reconnect no boot (checkbox em Gerenciamento Automático por servidor).",
-        "Melhoria (TEK / Windows): «Iniciar com o Windows» sincroniza o registro Run ao abrir o app, não só ao salvar Configurações Globais."
+        "Feat (Web Store / ARKBANK): extrato da tesouraria com filtro por Steam ID, intervalo de datas e coluna Jogador (nick Steam).",
+        "Test (ARKBANK): list_transactions filtra steam_id/data e enriquece player_name a partir de store_users."
     ]
 }

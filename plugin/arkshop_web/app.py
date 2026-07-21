@@ -15976,24 +15976,41 @@ def admin_arkbank_summary():
 @app.route("/api/admin/arkbank/transactions", methods=["GET"])
 @admin_required
 def admin_arkbank_transactions():
-    """Extrato recente do ARKBANK."""
+    """Extrato recente do ARKBANK (filtros: steam_id, date_from, date_to, tx_type)."""
     if (err := _require_db()) is not None:
         return err
     limit = request.args.get("limit", 10, type=int) or 10
     offset = request.args.get("offset", 0, type=int) or 0
     tx_type = (request.args.get("tx_type") or "").strip() or None
+    steam_id = (request.args.get("steam_id") or "").strip() or None
+    date_from = (request.args.get("date_from") or "").strip() or None
+    date_to = (request.args.get("date_to") or "").strip() or None
     db = _SessionLocal()
     try:
         from arkbank_service import ensure_arkbank_schema, get_balance, list_transactions
 
         ensure_arkbank_schema(db.get_bind())
-        txs = list_transactions(db, limit=limit, offset=offset, tx_type=tx_type)
+        txs = list_transactions(
+            db,
+            limit=limit,
+            offset=offset,
+            tx_type=tx_type,
+            steam_id=steam_id,
+            date_from=date_from,
+            date_to=date_to,
+        )
         return jsonify({
             "ok": True,
             "balance": get_balance(db),
             "transactions": txs,
             "limit": limit,
             "offset": offset,
+            "filters": {
+                "steam_id": steam_id,
+                "date_from": date_from,
+                "date_to": date_to,
+                "tx_type": tx_type,
+            },
         })
     except Exception as exc:
         _log_error("admin_arkbank_transactions", error=str(exc))

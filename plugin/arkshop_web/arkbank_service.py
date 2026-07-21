@@ -797,20 +797,116 @@ def process_timed_outbox(
 # ── Admin summary / list ──────────────────────────────────────────────────────
 
 
+def _parse_date_bound(value: str | datetime | None, *, end_of_day: bool = False) -> datetime | None:
+    """Converte date/ISO em datetime naive UTC (início ou fim do dia)."""
+    if value is None or value == "":
+        return None
+    date_only = False
+    if isinstance(value, datetime):
+        dt = _naive_utc(value)
+    else:
+        raw = str(value).strip()
+        if not raw:
+            return None
+        date_only = len(raw) <= 10
+        try:
+            if date_only:
+                dt = datetime.fromisoformat(raw[:10])
+            else:
+                dt = _naive_utc(raw)
+        except ValueError:
+            return None
+        if dt.tzinfo is not None:
+            dt = _naive_utc(dt)
+    if date_only:
+        if end_of_day:
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return dt
+
+
+def _enrich_transactions_player_names(
+    db: Session, txs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Anexa player_name a partir de store_users (steam_persona → display_name)."""
+    for t in txs:
+        t.setdefault("player_name", None)
+    ids = sorted({
+        str(t.get("steam_id") or "").strip()
+        for t in txs
+        if str(t.get("steam_id") or "").strip()
+    })
+    if not ids:
+        return txs
+    try:
+        placeholders = ", ".join(f":s{i}" for i in range(len(ids)))
+        params = {f"s{i}": sid for i, sid in enumerate(ids)}
+        rows = db.execute(
+            text(
+                f"SELECT steam_id, steam_persona, display_name FROM store_users "
+                f"WHERE steam_id IN ({placeholders})"
+            ),
+            params,
+        ).fetchall()
+    except Exception:
+        return txs
+    names: dict[str, str] = {}
+    for r in rows:
+        sid = str(_row_val(r, "steam_id", "") or "").strip()
+        if not sid:
+            continue
+        persona = str(_row_val(r, "steam_persona", "") or "").strip()
+        display = str(_row_val(r, "display_name", "") or "").strip()
+        label = ""
+        if persona and persona != sid:
+            label = persona
+        elif display and display != sid:
+            label = display
+        if label:
+            names[sid] = label[:128]
+    for t in txs:
+        sid = str(t.get("steam_id") or "").strip()
+        if sid and sid in names:
+            t["player_name"] = names[sid]
+    return txs
+
+
 def list_transactions(
     db: Session,
     *,
     limit: int = 50,
     offset: int = 0,
     tx_type: str | None = None,
+    steam_id: str | None = None,
+    date_from: str | datetime | None = None,
+    date_to: str | datetime | None = None,
+    enrich_names: bool = True,
 ) -> list[dict[str, Any]]:
     limit = max(1, min(200, int(limit)))
     offset = max(0, int(offset))
     params: dict[str, Any] = {"lim": limit, "off": offset}
-    where = ""
+    clauses: list[str] = []
     if tx_type:
-        where = "WHERE tx_type = :tt"
+        clauses.append("tx_type = :tt")
         params["tt"] = tx_type
+    sid = (str(steam_id).strip() if steam_id else "")
+    if sid:
+        if sid.isdigit() and len(sid) >= 17:
+            clauses.append("steam_id = :sid")
+            params["sid"] = sid
+        else:
+            clauses.append("steam_id LIKE :sid")
+            params["sid"] = f"%{sid}%"
+    dt_from = _parse_date_bound(date_from, end_of_day=False)
+    if dt_from is not None:
+        clauses.append("created_at >= :df")
+        params["df"] = dt_from
+    dt_to = _parse_date_bound(date_to, end_of_day=True)
+    if dt_to is not None:
+        clauses.append("created_at <= :dt")
+        params["dt"] = dt_to
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     rows = db.execute(
         text(
             f"SELECT id, created_at, tx_type, amount, balance_after, steam_id, "
@@ -820,7 +916,10 @@ def list_transactions(
         ),
         params,
     ).fetchall()
-    return [_tx_row_to_dict(r) for r in rows]
+    txs = [_tx_row_to_dict(r) for r in rows]
+    if enrich_names:
+        return _enrich_transactions_player_names(db, txs)
+    return txs
 
 
 def season_meta_inflow(

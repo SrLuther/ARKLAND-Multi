@@ -8915,6 +8915,25 @@
         </div>
         <div class="card" style="padding:14px;">
           <div class="card-title" style="margin-bottom:10px;">Extrato recente</div>
+          <div class="form-grid" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label>Steam ID</label>
+              <input id="arkbank-tx-filter-steam" type="text" placeholder="7656119…"
+                     onkeydown="if(event.key==='Enter'){resetArkbankTxPage();}" />
+            </div>
+            <div class="form-group">
+              <label>Data de</label>
+              <input id="arkbank-tx-date-from" type="date" />
+            </div>
+            <div class="form-group">
+              <label>Data até</label>
+              <input id="arkbank-tx-date-to" type="date" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="resetArkbankTxPage()">Filtrar</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="clearArkbankTxFilters()">Limpar</button>
+          </div>
           <div id="arkbank-tx-list" style="color:var(--text2);">Carregando…</div>
           <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <span id="arkbank-tx-page-info" style="font-size:12px;color:var(--text2);"></span>
@@ -17220,6 +17239,21 @@ async function loadArkbankAdmin() {
 function prevArkbankTxPage() { if (stepTablePage(_arkbankTxPage, -1)) loadArkbankTxPage(); }
 function nextArkbankTxPage() { if (stepTablePage(_arkbankTxPage, 1)) loadArkbankTxPage(); }
 
+function resetArkbankTxPage() {
+  _arkbankTxPage.offset = 0;
+  loadArkbankTxPage();
+}
+
+function clearArkbankTxFilters() {
+  const steam = document.getElementById("arkbank-tx-filter-steam");
+  const df = document.getElementById("arkbank-tx-date-from");
+  const dt = document.getElementById("arkbank-tx-date-to");
+  if (steam) steam.value = "";
+  if (df) df.value = "";
+  if (dt) dt.value = "";
+  resetArkbankTxPage();
+}
+
 async function loadArkbankTxPage() {
   const txRoot = document.getElementById("arkbank-tx-list");
   if (!txRoot) return;
@@ -17227,8 +17261,18 @@ async function loadArkbankTxPage() {
   const ctrl = beginTablePageFetch("arkbank-tx");
   try {
     const lim = _arkbankTxPage.limit;
+    const params = new URLSearchParams({
+      limit: String(lim + 1),
+      offset: String(_arkbankTxPage.offset),
+    });
+    const steam = document.getElementById("arkbank-tx-filter-steam")?.value?.trim();
+    const dateFrom = document.getElementById("arkbank-tx-date-from")?.value;
+    const dateTo = document.getElementById("arkbank-tx-date-to")?.value;
+    if (steam) params.set("steam_id", steam);
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
     const txs = await fetchJson(
-      `/api/admin/arkbank/transactions?limit=${lim + 1}&offset=${_arkbankTxPage.offset}`,
+      `/api/admin/arkbank/transactions?${params.toString()}`,
       { signal: ctrl.signal, retries: 0 },
     );
     const list = (txs.ok && txs.transactions) ? txs.transactions : [];
@@ -17239,21 +17283,27 @@ async function loadArkbankTxPage() {
     });
     txRoot.innerHTML = page.length
       ? `<div class="table-scroll"><table class="data-table"><thead><tr>
-          <th>Quando</th><th>Tipo</th><th>Valor</th><th>Saldo após</th><th>Steam</th><th>Ref</th>
+          <th>Quando</th><th>Tipo</th><th>Valor</th><th>Saldo após</th><th>Jogador</th><th>Steam</th><th>Ref</th>
         </tr></thead><tbody>${page.map(row => {
           const amt = Number(row.amount || 0);
           const col = amt < 0 ? "var(--amber)" : "#3ecf8e";
           const label = _ARKBANK_TX_LABELS[row.tx_type] || row.tx_type;
+          const pname = (row.player_name || "").trim();
+          const sid = (row.steam_id || "").trim();
+          const nameCell = pname
+            ? escHtml(pname)
+            : (sid ? `<span style="color:var(--text2);">—</span>` : "—");
           return `<tr>
             <td style="white-space:nowrap;font-size:12px;">${escHtml(String(row.created_at || "").replace("T", " ").slice(0, 19))}</td>
             <td>${escHtml(label)}</td>
             <td style="color:${col};font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(amt)}</td>
             <td style="font-variant-numeric:tabular-nums;">${_formatAmberAmountPt(row.balance_after)}</td>
-            <td style="font-size:11px;">${escHtml(row.steam_id || "—")}</td>
+            <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(pname || sid || "")}">${nameCell}</td>
+            <td style="font-size:11px;">${escHtml(sid || "—")}</td>
             <td style="font-size:11px;">${escHtml([row.ref_table, row.ref_id].filter(Boolean).join(" ") || (row.map_id || "—"))}</td>
           </tr>`;
         }).join("")}</tbody></table></div>`
-      : "<p>Nenhuma transação ainda.</p>";
+      : "<p>Nenhuma transação encontrada.</p>";
   } catch (e) {
     if (isStaleTableAbort(e)) return;
     txRoot.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
