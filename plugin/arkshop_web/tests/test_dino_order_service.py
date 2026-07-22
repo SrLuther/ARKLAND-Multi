@@ -141,6 +141,51 @@ def test_level_from_stat_points_auto():
     assert spec["stat_points"]["health"] == 20
 
 
+def test_list_gallery_species_includes_dlc_and_all_vitrine_slots():
+    """Galeria lista todos os slots da vitrine (DLC/mods), não só vanilla."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, species_key="rex", display_name="Rex", root_value=8000)
+        _seed_species(
+            db,
+            species_key="giga_rockwell",
+            display_name="Giganotosaurus Rockwell",
+            root_value=36000,
+        )
+        _seed_species(
+            db,
+            species_key="noglin",
+            display_name="Noglin",
+            root_value=9500,
+        )
+        _seed_species(
+            db,
+            species_key="sb_broodmother",
+            display_name="Small Broodmother",
+            root_value=20000,
+        )
+        from dino_order_vitrine_service import load_store, save_store
+
+        store = load_store()
+        store["rotating_species_keys"] = ["rex", "giga_rockwell", "sb_broodmother"]
+        store["permanent_species_keys"] = ["noglin"]
+        store["rotation_days"] = 7
+        store["rotation_ends_at"] = (
+            datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=7)
+        ).isoformat()
+        save_store(store)
+
+        gallery = list_gallery_species(db)
+        keys = {s["species_key"] for s in gallery}
+        assert keys == {"rex", "giga_rockwell", "sb_broodmother", "noglin"}
+        by_key = {s["species_key"]: s for s in gallery}
+        assert by_key["noglin"]["slot_kind"] == "permanent"
+        assert by_key["giga_rockwell"]["slot_kind"] == "rotating"
+        assert by_key["sb_broodmother"]["starting_price"] > 0
+    finally:
+        db.close()
+
+
 def test_list_gallery_species_dedup_by_display_name():
     db = _app_module._SessionLocal()
     try:

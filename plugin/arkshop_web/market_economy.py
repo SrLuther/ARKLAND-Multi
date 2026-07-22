@@ -1166,12 +1166,13 @@ def iter_economy_groups(
     *,
     level1_only: bool = False,
 ) -> list[tuple[str, dict[str, Any], list[tuple[str, dict[str, Any]]]]]:
-    """Agrupa itens Type:dino do catálogo por species_key econômico."""
+    """Agrupa itens Type:dino do catálogo por species_key econômico canônico."""
     catalog_map = build_catalog_economy_map()
     grouped: dict[str, list[tuple[str, dict[str, Any]]]] = {}
     for item_id, entry in iter_catalog_dinos(catalog, level1_only=level1_only):
         defn = catalog_map.get(item_id)
-        group_key = str((defn or {}).get("species_key") or item_id)
+        raw_key = str((defn or {}).get("species_key") or item_id)
+        group_key = canonicalize_species_key(raw_key) or raw_key
         grouped.setdefault(group_key, []).append((item_id, entry))
     out: list[tuple[str, dict[str, Any], list[tuple[str, dict[str, Any]]]]] = []
     defaults_map = load_default_species_map()
@@ -1923,7 +1924,12 @@ _CATALOG_SPECIES_GROUPS: dict[str, str] = {
 _SPECIES_KEY_ALIASES: dict[str, str] = {
     "lionfishlion": "lionfish",
     "shadowmane": "lionfish",
+    "ankylo": "ankylosaurus",
+    "argent": "argentavis",
 }
+
+# Sufixos de nível no id do catálogo (astrodelphis_1, sb_manticore_200, rex_l200).
+_LEVEL_KEY_SUFFIXES: tuple[str, ...] = (L200_ID_SUFFIX, "_200", "_1")
 
 _LEVEL_SUFFIX_RE = re.compile(
     r"\s*(?:[Nn][ií]vel|Nivel|Level)\s*200\b",
@@ -1941,6 +1947,20 @@ _DISPLAY_LEVEL_SUFFIXES = (
     " Nivel 1",
     " Level 1",
 )
+
+
+def strip_level_key_suffix(species_key: str | None) -> str:
+    """Remove sufixos de nível (_1, _200, _l200) e _femea do id de catálogo."""
+    key = str(species_key or "").strip()
+    if not key:
+        return ""
+    for suffix in _LEVEL_KEY_SUFFIXES:
+        if key.endswith(suffix) and len(key) > len(suffix):
+            key = key[: -len(suffix)]
+            break
+    if key.endswith("_femea"):
+        key = key[: -len("_femea")]
+    return key
 
 
 def clean_species_display_name(raw: str | None) -> str:
@@ -1969,12 +1989,7 @@ def canonicalize_species_key(species_key: str | None) -> str:
     low = key.lower()
     if low in _SPECIES_KEY_ALIASES:
         return _SPECIES_KEY_ALIASES[low]
-    for suffix in (L200_ID_SUFFIX, "_200"):
-        if key.endswith(suffix) and len(key) > len(suffix):
-            key = key[: -len(suffix)]
-            break
-    if key.endswith("_femea"):
-        key = key[: -len("_femea")]
+    key = strip_level_key_suffix(key)
     low = key.lower()
     if low in _SPECIES_KEY_ALIASES:
         return _SPECIES_KEY_ALIASES[low]
@@ -2136,12 +2151,7 @@ def _species_key_from_catalog_item_id(item_id: str) -> str:
     low = key.lower()
     if low in _SPECIES_KEY_ALIASES:
         return _SPECIES_KEY_ALIASES[low]
-    for suffix in (L200_ID_SUFFIX, "_200"):
-        if key.endswith(suffix) and len(key) > len(suffix):
-            key = key[: -len(suffix)]
-            break
-    if key.endswith("_femea"):
-        key = key[: -len("_femea")]
+    key = strip_level_key_suffix(key)
     low = key.lower()
     if low in _SPECIES_KEY_ALIASES:
         return _SPECIES_KEY_ALIASES[low]

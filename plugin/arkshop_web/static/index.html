@@ -2311,6 +2311,140 @@
       margin-top: 8px;
       text-decoration: underline;
     }
+    /* ── Comandos in-game (ajuda reutilizável) ───────────────────────────── */
+    .ingame-cmds {
+      background: linear-gradient(135deg, rgba(0,200,255,.07), rgba(232,120,32,.07));
+      border: 1px solid rgba(0,200,255,.28);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .ingame-cmds--compact { padding: 14px 16px; }
+    .ingame-cmds__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 14px;
+      margin-bottom: 12px;
+    }
+    .ingame-cmds__title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--tek);
+      letter-spacing: .02em;
+    }
+    .ingame-cmds__sub {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.4;
+    }
+    .ingame-cmds__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+      gap: 10px;
+    }
+    .ingame-cmds__grid--single {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .ingame-cmds__grid--duo {
+      grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+    }
+    .ingame-cmds__card {
+      background: rgba(0,0,0,.28);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      min-width: 0;
+    }
+    .ingame-cmds__card--focus {
+      border-color: rgba(0,200,255,.35);
+      background: rgba(0,200,255,.06);
+    }
+    .ingame-cmds__card-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .ingame-cmds__chips {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .ingame-cmds__chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0,200,255,.35);
+      background: rgba(0,200,255,.1);
+      color: var(--tek);
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .12s;
+      line-height: 1.2;
+    }
+    .ingame-cmds__chip:hover {
+      border-color: rgba(0,200,255,.65);
+      background: rgba(0,200,255,.18);
+      transform: translateY(-1px);
+    }
+    .ingame-cmds__chip:active { transform: translateY(0); }
+    .ingame-cmds__chip.is-copied {
+      border-color: rgba(18,216,124,.5);
+      background: rgba(18,216,124,.12);
+      color: #6ee7a8;
+    }
+    .ingame-cmds__arrow {
+      color: rgba(0,200,255,.55);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .ingame-cmds__hint {
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .ingame-cmds__footer {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      align-items: center;
+    }
+    .ingame-cmds__footer-label { opacity: .85; }
+    .ingame-cmds__footer a,
+    .ingame-cmds__footer button.ingame-cmds__link {
+      color: var(--tek);
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .ingame-cmds__footer a:hover,
+    .ingame-cmds__footer button.ingame-cmds__link:hover { color: #7ee8ff; }
+    .ingame-cmds__copy-hint {
+      font-size: 10px;
+      color: var(--text2);
+      opacity: .75;
+      margin-left: auto;
+    }
+    @media (max-width: 640px) {
+      .ingame-cmds { padding: 14px; }
+      .ingame-cmds__copy-hint { width: 100%; margin-left: 0; }
+    }
     .policy-modal-body {
       max-height: 60vh;
       overflow-y: auto;
@@ -6631,6 +6765,28 @@
           </div>
           <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
         </div>
+        <div class="ingame-cmds ingame-cmds--compact" data-scope="catalog" aria-label="Comandos in-game do catálogo">
+          <div class="ingame-cmds__head">
+            <div class="ingame-cmds__title">🎮 Comandos in-game</div>
+            <div class="ingame-cmds__sub">Receba itens, dinos e kits resgatados no catálogo</div>
+            <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
+          </div>
+          <div class="ingame-cmds__grid ingame-cmds__grid--single">
+            <div class="ingame-cmds__card ingame-cmds__card--focus">
+              <div class="ingame-cmds__card-label">Receber qualquer recurso do catálogo</div>
+              <div class="ingame-cmds__chips">
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/shop', this)" title="Copiar /shop">/shop</button>
+              </div>
+              <div class="ingame-cmds__hint">No chat global: entrega a fila pendente, mostra o saldo de Âmbar e o link da loja. Esteja online no cluster com o mesmo SteamID.</div>
+            </div>
+          </div>
+          <div class="ingame-cmds__footer">
+            <span class="ingame-cmds__footer-label">Outros:</span>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('market')">Comércio → /enviar · /mercado</button>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('market');setTimeout(function(){setMarketTab('encomenda');},200)">Encomenda → /dinolab</button>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('teams')">Equipe → /marco</button>
+          </div>
+        </div>
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
           <button type="button" class="catalog-tab" data-catalog-tab="dinos" onclick="setCatalogTab('dinos')">🦕 Dinos</button>
@@ -6795,6 +6951,37 @@
             Resgate: <strong>/mercado</strong>. Preço mínimo = valor sugerido. Nome de exibição obrigatório em Minha Área.
           </div>
         </div>
+        <div class="ingame-cmds ingame-cmds--compact" data-scope="market" aria-label="Comandos in-game do comércio">
+          <div class="ingame-cmds__head">
+            <div class="ingame-cmds__title">🎮 Comandos in-game — Comércio</div>
+            <div class="ingame-cmds__sub">Envie e receba dinos do marketplace P2P</div>
+            <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
+          </div>
+          <div class="ingame-cmds__grid ingame-cmds__grid--duo">
+            <div class="ingame-cmds__card ingame-cmds__card--focus">
+              <div class="ingame-cmds__card-label">Enviar dino pro mercado</div>
+              <div class="ingame-cmds__chips">
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/enviar', this)" title="Copiar /enviar">/enviar</button>
+                <span class="ingame-cmds__arrow">→</span>
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/confirmar', this)" title="Copiar /confirmar">/confirmar</button>
+              </div>
+              <div class="ingame-cmds__hint">Preview (2 min) → confirmação. Cryopod no inventário; Licença Nuvem + imprint 100%.</div>
+            </div>
+            <div class="ingame-cmds__card ingame-cmds__card--focus">
+              <div class="ingame-cmds__card-label">Receber dino comprado no mercado</div>
+              <div class="ingame-cmds__chips">
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/mercado', this)" title="Copiar /mercado">/mercado</button>
+              </div>
+              <div class="ingame-cmds__hint">Resgate em até 24h após a compra (ou recuperação). Inventário com espaço.</div>
+            </div>
+          </div>
+          <div class="ingame-cmds__footer">
+            <span class="ingame-cmds__footer-label">Outros:</span>
+            <button type="button" class="ingame-cmds__link" onclick="setMarketTab('encomenda')">Encomenda → /dinolab</button>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('catalog')">Catálogo → /shop</button>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('teams')">Equipe → /marco</button>
+          </div>
+        </div>
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-market-tab="table" onclick="setMarketTab('table')">📋 Tabela Oficial</button>
           <button type="button" class="catalog-tab" data-market-tab="browse" onclick="setMarketTab('browse')">🛒 Mercado</button>
@@ -6842,6 +7029,28 @@
             <p>Encomenda de Dino desabilitada neste servidor.</p>
           </div>
           <div id="market-encomenda-content" style="display:none;">
+            <div class="ingame-cmds ingame-cmds--compact" data-scope="encomenda" aria-label="Comandos in-game da encomenda">
+              <div class="ingame-cmds__head">
+                <div class="ingame-cmds__title">🎮 Comandos in-game — Encomenda</div>
+                <div class="ingame-cmds__sub">Receba o dino encomendado quando a entrega estiver pronta</div>
+                <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
+              </div>
+              <div class="ingame-cmds__grid ingame-cmds__grid--single">
+                <div class="ingame-cmds__card ingame-cmds__card--focus">
+                  <div class="ingame-cmds__card-label">Receber dino encomendado</div>
+                  <div class="ingame-cmds__chips">
+                    <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/dinolab', this)" title="Copiar /dinolab">/dinolab</button>
+                  </div>
+                  <div class="ingame-cmds__hint">No chat global, com espaço no inventário. Entrega a criatura encomendada quando o pedido estiver pronto.</div>
+                </div>
+              </div>
+              <div class="ingame-cmds__footer">
+                <span class="ingame-cmds__footer-label">Outros:</span>
+                <button type="button" class="ingame-cmds__link" onclick="setMarketTab('browse')">Comércio → /enviar · /mercado</button>
+                <button type="button" class="ingame-cmds__link" onclick="goToPage('catalog')">Catálogo → /shop</button>
+                <button type="button" class="ingame-cmds__link" onclick="goToPage('teams')">Equipe → /marco</button>
+              </div>
+            </div>
             <div class="encomenda-rule-callout" role="note">
               <strong>Vitrine rotativa</strong>
               Somente os dinos exibidos nesta galeria estão disponíveis para encomenda neste período
@@ -6892,10 +7101,16 @@
           </div>
           <div id="market-myshop-content" style="display:none;">
             <div class="card" style="margin-bottom:16px;">
-              <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
-                Envie dinos in-game com <code>/enviar</code> e <code>/confirmar</code>. Defina preço e ative abaixo.
-                Resgate próprio: botão «Recuperar» + <code>/mercado</code>.
+              <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.5;">
+                Envie dinos in-game e ative o anúncio abaixo. Resgate próprio: botão «Recuperar» + <code>/mercado</code>.
               </p>
+              <div class="ingame-cmds__chips" style="margin:0;">
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/enviar', this)" title="Copiar /enviar">/enviar</button>
+                <span class="ingame-cmds__arrow">→</span>
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/confirmar', this)" title="Copiar /confirmar">/confirmar</button>
+                <span class="ingame-cmds__arrow">·</span>
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/mercado', this)" title="Copiar /mercado">/mercado</button>
+              </div>
             </div>
             <div id="market-myshop-list"></div>
             <div id="market-myshop-history" style="margin-top:20px;display:none;"></div>
@@ -9786,6 +10001,30 @@
             Fundação, membros, banco, marcos e split de mercado vivem aqui.
             <a href="/regulamento_modo_equipe.html" target="_blank" rel="noopener" style="color:var(--amber);">Regras do Modo Equipe →</a>
           </p>
+        </div>
+        <div class="ingame-cmds ingame-cmds--compact" data-scope="teams" aria-label="Comandos in-game de equipe">
+          <div class="ingame-cmds__head">
+            <div class="ingame-cmds__title">🎮 Comandos in-game — Equipe</div>
+            <div class="ingame-cmds__sub">Deposite recursos no armazém da equipe via marco</div>
+            <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
+          </div>
+          <div class="ingame-cmds__grid ingame-cmds__grid--single">
+            <div class="ingame-cmds__card ingame-cmds__card--focus">
+              <div class="ingame-cmds__card-label">Enviar recursos pra equipe</div>
+              <div class="ingame-cmds__chips">
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/marco', this)" title="Copiar /marco">/marco</button>
+                <span class="ingame-cmds__arrow">→</span>
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/confirmar', this)" title="Copiar /confirmar">/confirmar</button>
+              </div>
+              <div class="ingame-cmds__hint">Preview do depósito → confirme em até ~60s. Vai ao armazém; Owner/Tesoureiro aplica ao marco. Sem reembolso.</div>
+            </div>
+          </div>
+          <div class="ingame-cmds__footer">
+            <span class="ingame-cmds__footer-label">Outros:</span>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('market')">Comércio → /enviar · /mercado</button>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('catalog')">Catálogo → /shop</button>
+            <button type="button" class="ingame-cmds__link" onclick="goToPage('market');setTimeout(function(){setMarketTab('encomenda');},200)">Encomenda → /dinolab</button>
+          </div>
         </div>
         <div id="teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
       </div>
@@ -26386,6 +26625,92 @@ function renderHomeSeasonLandSection() {
     </section>`;
 }
 
+/** Copia comando in-game (chips de ajuda). */
+function copyIngameCmd(cmd, el) {
+  const text = String(cmd || "").trim();
+  if (!text) return false;
+  const onDone = () => {
+    toast("Comando copiado: " + text, "success");
+    if (el && el.classList) {
+      el.classList.add("is-copied");
+      setTimeout(() => el.classList.remove("is-copied"), 1600);
+    }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onDone).catch(() => {
+      if (_fallbackCopyText(text)) onDone();
+      else toast("Não foi possível copiar. Digite " + text + " no chat.", "warning");
+    });
+    return true;
+  }
+  if (_fallbackCopyText(text)) {
+    onDone();
+    return true;
+  }
+  toast("Não foi possível copiar. Digite " + text + " no chat.", "warning");
+  return false;
+}
+
+/** Bloco reutilizável: cheatsheet de comandos in-game na home (todos os fluxos). */
+function renderHomeIngameCmdsSection() {
+  return `
+    <section class="ingame-cmds" data-scope="home" aria-labelledby="home-ingame-cmds-title">
+      <div class="ingame-cmds__head">
+        <div class="ingame-cmds__title" id="home-ingame-cmds-title">🎮 Comandos in-game</div>
+        <div class="ingame-cmds__sub">Use no chat global do ARK com o mesmo SteamID deste portal</div>
+        <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
+      </div>
+      <div class="ingame-cmds__grid">
+        <div class="ingame-cmds__card">
+          <div class="ingame-cmds__card-label">Enviar dino pro mercado</div>
+          <div class="ingame-cmds__chips">
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/enviar', this)" title="Copiar /enviar">/enviar</button>
+            <span class="ingame-cmds__arrow">→</span>
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/confirmar', this)" title="Copiar /confirmar">/confirmar</button>
+          </div>
+          <div class="ingame-cmds__hint">Preview em 2 min → confirmação. Licença Nuvem + imprint 100%.</div>
+        </div>
+        <div class="ingame-cmds__card">
+          <div class="ingame-cmds__card-label">Receber dino comprado no mercado</div>
+          <div class="ingame-cmds__chips">
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/mercado', this)" title="Copiar /mercado">/mercado</button>
+          </div>
+          <div class="ingame-cmds__hint">Resgate em até 24h após compra ou recuperação.</div>
+        </div>
+        <div class="ingame-cmds__card">
+          <div class="ingame-cmds__card-label">Receber dino encomendado</div>
+          <div class="ingame-cmds__chips">
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/dinolab', this)" title="Copiar /dinolab">/dinolab</button>
+          </div>
+          <div class="ingame-cmds__hint">Entrega o pedido de encomenda quando estiver pronto.</div>
+        </div>
+        <div class="ingame-cmds__card">
+          <div class="ingame-cmds__card-label">Receber qualquer recurso do catálogo</div>
+          <div class="ingame-cmds__chips">
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/shop', this)" title="Copiar /shop">/shop</button>
+          </div>
+          <div class="ingame-cmds__hint">Entrega a fila de resgates + saldo de Âmbar + link da loja.</div>
+        </div>
+        <div class="ingame-cmds__card">
+          <div class="ingame-cmds__card-label">Enviar recursos pra equipe</div>
+          <div class="ingame-cmds__chips">
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/marco', this)" title="Copiar /marco">/marco</button>
+            <span class="ingame-cmds__arrow">→</span>
+            <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/confirmar', this)" title="Copiar /confirmar">/confirmar</button>
+          </div>
+          <div class="ingame-cmds__hint">Depósito no armazém da equipe (TTL ~60s). Sem reembolso.</div>
+        </div>
+      </div>
+      <div class="ingame-cmds__footer">
+        <span class="ingame-cmds__footer-label">Ir para:</span>
+        <button type="button" class="ingame-cmds__link" onclick="goToPage('market')">Comércio</button>
+        <button type="button" class="ingame-cmds__link" onclick="goToPage('market');setTimeout(function(){setMarketTab('encomenda');},200)">Encomenda</button>
+        <button type="button" class="ingame-cmds__link" onclick="goToPage('catalog')">Catálogo</button>
+        <button type="button" class="ingame-cmds__link" onclick="goToPage('teams')">Equipe</button>
+      </div>
+    </section>`;
+}
+
 function renderHomeCommerceSection() {
   const currency = escHtml(CURRENCY.plural);
   return `
@@ -26800,6 +27125,8 @@ function renderHomePage(d) {
     </div>
 
     ${connectSectionHtml}
+
+    ${renderHomeIngameCmdsSection()}
 
     ${renderHomeCommerceSection()}
 

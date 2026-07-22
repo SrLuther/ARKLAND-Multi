@@ -1,9 +1,11 @@
 {
-    "version": "1.10.89",
+    "version": "1.10.90",
     "date": "2026-07-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.89/ARKLAND-Multi-Setup-v1.10.89.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.90/ARKLAND-Multi-Setup-v1.10.90.exe",
     "changelog": [
-        "Feat (Web Store / ARKBANK): extrato da tesouraria com filtro por Steam ID, intervalo de datas e coluna Jogador (nick Steam).",
-        "Test (ARKBANK): list_transactions filtra steam_id/data e enriquece player_name a partir de store_users."
+        "Feat (Web Store / Mercado): Tabela Oficial só nível 1, dedupe por blueprint/chave canônica (evita *_200, ankylo vs ankylosaurus, etc.).",
+        "Melhoria (Web Store / Ícones): famílias Reaper/Giga/Noglin partilham ícone canônico; ícone Noglin atualizado com modelo fiel.",
+        "Fix (Web Store / Encomenda): galeria da vitrine lista todos os slots configurados (DLC/mods), não só vanilla.",
+        "Feat (Web Store / UI): comandos in-game na home e nas áreas Catálogo, Comércio, Encomenda e Equipe (chips copiáveis: /enviar /confirmar, /mercado, /dinolab, /shop, /marco)."
     ]
 }

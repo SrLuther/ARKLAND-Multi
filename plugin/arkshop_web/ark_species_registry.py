@@ -238,6 +238,54 @@ def tier_icon_url(tier: str | None) -> str:
     return TIER_ICON_URLS.get(key, TIER_ICON_URLS["B"])
 
 
+# Famílias visuais: variantes (R, Tek, Abissal…) partilham o ícone canónico.
+# (icon_key, needles em key/nome, excludes para falsos positivos)
+_SPECIES_IMAGE_FAMILIES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    # species_key vanilla = xenomorph; display = Reaper / Reaper R / Abissal…
+    ("reaper", ("reaper", "xenomorph"), ("dodoreaper", "dodo_reaper", "dodo reaper")),
+    (
+        "giga",
+        ("giga", "giganoto", "giganotossauro", "giganotosaurus", "bionicgigant", "gigant"),
+        ("gigante", "gigantopithecus"),
+    ),
+    ("noglin", ("noglin", "brainslug"), ()),
+)
+
+
+def species_image_family_key(
+    species_key: str | None,
+    display_name: str | None = None,
+) -> str | None:
+    """Canónico de ícone para famílias (Reaper*, Giga* → reaper / giga)."""
+    sk = (species_key or "").strip().lower()
+    dn = (display_name or "").strip().lower()
+    blob = f"{sk} {dn}".strip()
+    if not blob:
+        return None
+    for canon, needles, excludes in _SPECIES_IMAGE_FAMILIES:
+        if any(ex in blob for ex in excludes):
+            continue
+        for needle in needles:
+            if needle not in blob:
+                continue
+            # "giga" não deve casar só dentro de "gigante" (já excluído) nem tokens irrelevantes
+            if needle == "giga":
+                if (
+                    sk == "giga"
+                    or sk.startswith("giga_")
+                    or re.search(r"(^|[^a-z0-9])giga([^a-z0-9]|$)", blob)
+                ):
+                    return canon
+                continue
+            if needle == "gigant":
+                # class BP / bionicgigant — não "gigante"
+                if "gigant" in sk or re.search(r"\bgigant(?:osaurus|_character)", blob):
+                    return canon
+                continue
+            return canon
+    return None
+
+
 @lru_cache(maxsize=1)
 def _bundled_species_icon_urls() -> dict[str, str]:
     """Mapa species_key → URL de ícone padronizado ARKLAND (preferência para WebP)."""
@@ -273,11 +321,19 @@ def _bundled_species_icon_urls() -> dict[str, str]:
     return urls
 
 
-def _bundled_icon_for_species(species_key: str | None) -> str | None:
+def _bundled_icon_for_species(
+    species_key: str | None,
+    display_name: str | None = None,
+) -> str | None:
+    """Ícone empacotado; variantes de família (Reaper Abissal, Giga Tek…) → ícone canónico."""
+    urls = _bundled_species_icon_urls()
+    family = species_image_family_key(species_key, display_name)
+    if family and family in urls:
+        return urls[family]
     sk = (species_key or "").strip().lower()
     if not sk:
         return None
-    return _bundled_species_icon_urls().get(sk)
+    return urls.get(sk)
 
 
 def _is_local_species_asset_url(url: str) -> bool:
@@ -287,7 +343,9 @@ def _is_local_species_asset_url(url: str) -> bool:
 
 def _image_from_entry(entry: dict[str, Any]) -> str | None:
     """Resolve ícone padronizado, preservando URLs externas explícitas."""
-    bundled = _bundled_icon_for_species(str(entry.get("species_key") or ""))
+    sk = str(entry.get("species_key") or "")
+    dn = str(entry.get("display_name") or "")
+    bundled = _bundled_icon_for_species(sk, dn)
     url = str(entry.get("image_url") or "").strip()
     if bundled and (not url or _is_local_species_asset_url(url)):
         return bundled

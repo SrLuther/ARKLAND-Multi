@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.89"
+APP_VERSION: str = "1.10.90"
 BUILD_DATE: str = "2026-07-21"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,21 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.90",
+        "date": "2026-07-21",
+        "changes": [
+            "Feat (Web Store / Mercado): Tabela Oficial só nível 1, dedupe por "
+            "blueprint/chave canônica (evita *_200, ankylo vs ankylosaurus, etc.).",
+            "Melhoria (Web Store / Ícones): famílias Reaper/Giga/Noglin partilham "
+            "ícone canônico; ícone Noglin atualizado com modelo fiel.",
+            "Fix (Web Store / Encomenda): galeria da vitrine lista todos os slots "
+            "configurados (DLC/mods), não só vanilla.",
+            "Feat (Web Store / UI): comandos in-game na home e nas áreas Catálogo, "
+            "Comércio, Encomenda e Equipe (chips copiáveis: /enviar /confirmar, "
+            "/mercado, /dinolab, /shop, /marco).",
+        ],
     },
     {
         "version": "1.10.89",

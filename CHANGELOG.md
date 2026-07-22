@@ -7,6 +7,21 @@
 
 ## [Unreleased] - 
 
+## [1.10.90] - 2026-07-21
+
+### Feature
+
+- Feat (Web Store / Mercado): Tabela Oficial só nível 1, dedupe por blueprint/chave canônica (evita *_200, ankylo vs ankylosaurus, etc.).
+- Feat (Web Store / UI): comandos in-game na home e nas áreas Catálogo, Comércio, Encomenda e Equipe (chips copiáveis: /enviar /confirmar, /mercado, /dinolab, /shop, /marco).
+
+### Improvement
+
+- Melhoria (Web Store / Ícones): famílias Reaper/Giga/Noglin partilham ícone canônico; ícone Noglin atualizado com modelo fiel.
+
+### Fix
+
+- Fix (Web Store / Encomenda): galeria da vitrine lista todos os slots configurados (DLC/mods), não só vanilla.
+
 ## [1.10.89] - 2026-07-21
 
 ### Feature

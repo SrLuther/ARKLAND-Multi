@@ -230,7 +230,11 @@ def _is_species_in_gallery(species_key: str, db: Session | None = None) -> bool:
 
 
 def list_gallery_species(db: Session) -> list[dict[str, Any]]:
-    """Espécies da vitrine de encomenda (15 rotativos + ≤5 permanentes)."""
+    """Espécies da vitrine de encomenda (15 rotativos + ≤5 permanentes).
+
+    A configuração da vitrine é a fonte de verdade: lista **todos** os
+    ``orderable_species_keys`` (DLC/mods incluídos), não só vanilla ∩ mercado.
+    """
     if not is_dino_order_enabled():
         return []
     try:
@@ -238,13 +242,20 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
         from dino_order_showcase_service import primary_showcase_by_species, showcase_counts_by_species
         from dino_order_vitrine_service import ensure_vitrine
 
-        # Garante rotação expirada + top-up se incompleta (mesmos slots da admin)
         snap = ensure_vitrine(db, include_candidates=False)
         rows = list_species_public(db, active_only=True)
         showcase_counts = showcase_counts_by_species(active_only=True)
         primary_showcases = primary_showcase_by_species(active_only=True)
-        orderable = set(snap.get("orderable_species_keys") or [])
-        permanent = set(snap.get("permanent_species_keys") or [])
+        orderable = [
+            str(k).strip()
+            for k in (snap.get("orderable_species_keys") or [])
+            if str(k).strip()
+        ]
+        permanent = {
+            str(k).strip()
+            for k in (snap.get("permanent_species_keys") or [])
+            if str(k).strip()
+        }
         rotation_ends_at = snap.get("rotation_ends_at")
     except Exception as exc:
         log.warning("dino_order gallery: %s", exc)
@@ -259,62 +270,100 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
         canonicalize_species_key = None  # type: ignore[assignment]
         friendly_species_display_name = None  # type: ignore[assignment]
 
-    orderable_canon = set()
-    if canonicalize_species_key is not None:
-        orderable_canon = {canonicalize_species_key(k) for k in orderable}
+    by_key: dict[str, dict[str, Any]] = {}
+    by_canon: dict[str, dict[str, Any]] = {}
+    for item in rows:
+        sk = str(item.get("species_key") or "").strip()
+        if not sk:
+            continue
+        by_key[sk] = item
+        if canonicalize_species_key is not None:
+            canon = canonicalize_species_key(sk) or sk
+            by_canon.setdefault(canon, item)
 
     cfg = get_pricing_config()
     out: list[dict[str, Any]] = []
-    for item in rows:
-        sk = str(item.get("species_key") or "")
-        if _species_mod_source(sk) != "vanilla":
+    seen_keys: set[str] = set()
+
+    for sk in orderable:
+        if sk in seen_keys:
             continue
-        in_vitrine = sk in orderable
-        if not in_vitrine and canonicalize_species_key is not None:
-            in_vitrine = canonicalize_species_key(sk) in orderable_canon
-        if not in_vitrine:
-            continue
+        item = by_key.get(sk)
+        if item is None and canonicalize_species_key is not None:
+            item = by_canon.get(canonicalize_species_key(sk) or sk)
         economy = _resolve_species_economy(db, sk)
-        if economy is None:
+        if economy is None and item is None:
+            log.warning("dino_order gallery: espécie da vitrine sem economia — %s", sk)
             continue
-        min_quote = quote(
-            {
-                "species_key": sk,
-                "level": DEFAULT_LEVEL,
-                "gender": "female",
-                "colors": [0, 0, 0, 0, 0, 0],
-                "stat_points": {},
-            },
-            db=db,
-            pricing_cfg=cfg,
-            skip_gallery_check=True,
+
+        display_fallback = (
+            (item or {}).get("display_name")
+            or getattr(economy, "display_name", None)
+            or sk
         )
+        if friendly_species_display_name is not None:
+            display_name = friendly_species_display_name(sk, fallback=display_fallback)
+        else:
+            display_name = display_fallback
+
+        tier = (item or {}).get("tier") or getattr(economy, "tier", None) or ""
+        root_value = int(
+            (item or {}).get("root_value")
+            or getattr(economy, "root_value", 0)
+            or 0
+        )
+        size_class = (
+            (item or {}).get("size_class")
+            or getattr(economy, "size_class", None)
+            or "medium"
+        )
+
+        try:
+            min_quote = quote(
+                {
+                    "species_key": sk,
+                    "level": DEFAULT_LEVEL,
+                    "gender": "female",
+                    "colors": [0, 0, 0, 0, 0, 0],
+                    "stat_points": {},
+                },
+                db=db,
+                pricing_cfg=cfg,
+                skip_gallery_check=True,
+                skip_vanilla_check=True,
+            )
+            starting_price = int(min_quote.get("total") or 0)
+        except Exception as exc:
+            log.warning("dino_order gallery quote %s: %s", sk, exc)
+            starting_price = root_value
+
         primary = primary_showcases.get(sk) or {}
+        if not primary and item is not None:
+            primary = primary_showcases.get(str(item.get("species_key") or "")) or {}
         thumb = (
             str(primary.get("image_url") or "").strip()
-            or item.get("image_url")
-            or _species_image(sk, item.get("tier"))
+            or (item or {}).get("image_url")
+            or _species_image(sk, tier)
         )
         slot_kind = "permanent" if sk in permanent else "rotating"
-        if friendly_species_display_name is not None:
-            display_name = friendly_species_display_name(
-                sk,
-                fallback=item.get("display_name") or getattr(economy, "display_name", None),
-            )
-        else:
-            display_name = item.get("display_name") or getattr(economy, "display_name", None) or sk
         out.append({
             "species_key": sk,
             "display_name": display_name or sk,
-            "tier": item.get("tier") or "",
-            "root_value": int(item.get("root_value") or 0),
-            "size_class": item.get("size_class") or "medium",
+            "tier": tier,
+            "root_value": root_value,
+            "size_class": size_class,
             "image_url": thumb,
-            "starting_price": int(min_quote.get("total") or 0),
-            "showcase_count": int(showcase_counts.get(sk) or 0),
+            "starting_price": starting_price,
+            "showcase_count": int(
+                showcase_counts.get(sk)
+                or showcase_counts.get(str((item or {}).get("species_key") or ""))
+                or 0
+            ),
             "slot_kind": slot_kind,
             "rotation_ends_at": rotation_ends_at,
         })
+        seen_keys.add(sk)
+
     out = _dedup_gallery_species(out)
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
     return out
@@ -444,7 +493,12 @@ def quote(
     economy = _resolve_species_economy(db, species_key)
     if economy is None:
         raise ValueError("species_not_available")
-    if not skip_vanilla_check and _species_mod_source(species_key) != "vanilla":
+    # Vitrine admin é a fonte de verdade: DLC/mods encomendáveis se estiverem nela.
+    if (
+        not skip_vanilla_check
+        and _species_mod_source(species_key) != "vanilla"
+        and not _is_species_in_gallery(species_key, db)
+    ):
         raise ValueError("species_not_vanilla")
 
     # Garante B/role mesmo se a row do DB tiver species_key desalinhada do JSON.
@@ -1001,7 +1055,11 @@ def checkout(
         raise ValueError(err or "invalid_spec")
 
     species_key = str(spec.get("species_key") or "")
-    if _species_mod_source(species_key) != "vanilla":
+    # Espécie na vitrine (admin) pode ser DLC/mod — não bloquear por vanilla.
+    if (
+        _species_mod_source(species_key) != "vanilla"
+        and not _is_species_in_gallery(species_key, db)
+    ):
         raise ValueError("species_not_vanilla")
 
     q = quote(spec, db=db)

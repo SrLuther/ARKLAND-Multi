@@ -5,7 +5,7 @@
   "_output_size": "256x256 webp",
   "_prompt_source": "data/species_icon_visual_traits.json",
   "_reference_policy": "User-provided reference per species via --reference; never cross-species anatomy copy",
-  "generated_at": "2026-07-16T04:49:16.245965+00:00",
+  "generated_at": "2026-07-22T00:36:39.739954+00:00",
   "audit": {
     "date": "2026-07-08",
     "issue": "Mosasaurus gerado como T-Rex com respingos de água; giga/quetz/yuty também confundidos",
@@ -2335,13 +2335,12 @@
       "species_key": "noglin",
       "display_name": "Noglin",
       "tier": "A",
-      "path": "/species/icons/generated/noglin.webp",
       "raw_path": "raw/noglin.png",
-      "bust_path": "raw/noglin_bust.png",
-      "raw_kb": 597.2,
-      "webp_kb": 4.8,
-      "size": "256x256",
-      "status": "compressed"
+      "status": "compressed",
+      "path": "/species/icons/generated/noglin.webp",
+      "raw_kb": 448.7,
+      "webp_kb": 7.6,
+      "size": "256x256"
     },
     "oviraptor": {
       "species_key": "oviraptor",

@@ -414,6 +414,10 @@ def test_canonicalize_and_friendly_display_names():
     assert canonicalize_species_key("sb_manticore_200") == "sb_manticore"
     assert canonicalize_species_key("sb_manticore_l200") == "sb_manticore"
     assert canonicalize_species_key("meraxes_femea") == "meraxes"
+    assert canonicalize_species_key("astrodelphis_1") == "astrodelphis"
+    assert canonicalize_species_key("astrodelphis_200") == "astrodelphis"
+    assert canonicalize_species_key("ankylo") == "ankylosaurus"
+    assert canonicalize_species_key("argent") == "argentavis"
 
     assert friendly_species_display_name("lionfishlion", fallback="Lionfish Lion") == "Shadowmane"
     assert friendly_species_display_name("sb_manticore_200", fallback="sb_manticore_200") == (
@@ -427,3 +431,71 @@ def test_canonicalize_and_friendly_display_names():
         "lionfish",
         fallback="Shadowmane Nível 200",
     )
+
+
+def test_dedupe_level1_species_public_by_blueprint_and_canon():
+    from market_service import dedupe_level1_species_public
+
+    rows = [
+        {
+            "species_key": "ankylosaurus",
+            "display_name": "ankylosaurus",
+            "reference_level": 1,
+            "root_value": 2500,
+            "blueprint_path": "/Game/PrimalEarth/Dinos/Ankylo/Ankylo_Character_BP.Ankylo_Character_BP",
+        },
+        {
+            "species_key": "ankylo",
+            "display_name": "Anquilossauro",
+            "reference_level": 1,
+            "root_value": 2000,
+            "blueprint_path": "/Game/PrimalEarth/Dinos/Ankylo/Ankylo_Character_BP.Ankylo_Character_BP",
+        },
+        {
+            "species_key": "astrodelphis_1",
+            "display_name": "astrodelphis_1",
+            "reference_level": 1,
+            "root_value": 6000,
+            "blueprint_path": "",
+        },
+        {
+            "species_key": "astrodelphis_200",
+            "display_name": "astrodelphis_200",
+            "reference_level": 200,
+            "root_value": 18000,
+            "blueprint_path": "",
+        },
+        {
+            "species_key": "sb_crystal_queen",
+            "display_name": "Crystal Queen",
+            "reference_level": 1,
+            "root_value": 12000,
+            "blueprint_path": "/Game/Mods/SB/CrystalQueen_BP.CrystalQueen_BP",
+        },
+        {
+            "species_key": "sb_crystal_queen_200",
+            "display_name": "Crystal Queen 200",
+            "reference_level": 200,
+            "root_value": 40000,
+            "blueprint_path": "/Game/Mods/SB/CrystalQueen_BP.CrystalQueen_BP",
+        },
+        {
+            "species_key": "sb_crystal_queen_200",
+            "display_name": "Crystal Queen L1 misnamed",
+            "reference_level": 1,
+            "root_value": 11000,
+            "blueprint_path": "/Game/Mods/SB/CrystalQueen_BP.CrystalQueen_BP",
+        },
+    ]
+    out = dedupe_level1_species_public(rows)
+    keys = {r["species_key"] for r in out}
+    assert "ankylo" not in keys
+    assert "ankylosaurus" in keys
+    assert "astrodelphis_200" not in keys
+    assert "astrodelphis_1" not in keys or "astrodelphis" in keys
+    assert "astrodelphis" in keys
+    assert "sb_crystal_queen_200" not in keys
+    assert "sb_crystal_queen" in keys
+    assert all(int(r.get("reference_level") or 1) == 1 for r in out)
+    anky = next(r for r in out if r["species_key"] == "ankylosaurus")
+    assert anky["root_value"] == 2500

@@ -183,3 +183,37 @@ def test_bundled_icons_from_meipass_layout(tmp_path, monkeypatch):
 def test_resolve_species_image_prefers_bundled_local_asset():
     entry = {"species_key": "rex", "tier": "A", "image_url": "/species/icons/rex.svg"}
     assert resolve_species_image(entry).endswith("/species/icons/generated/rex.webp")
+
+
+def test_species_image_family_reaper_and_giga():
+    from ark_species_registry import (
+        resolve_species_image,
+        resolve_species_image_for_key,
+        species_image_family_key,
+    )
+
+    assert species_image_family_key("reaper") == "reaper"
+    assert species_image_family_key("xenomorph", "Reaper") == "reaper"
+    assert species_image_family_key("xenomorph") == "reaper"
+    assert species_image_family_key("abyss_reaper_abyssal", "Reaper Abissal") == "reaper"
+    assert species_image_family_key("reaper_gen2", "Reaper Gen2") == "reaper"
+    assert species_image_family_key("reaper_r", "Reaper R") == "reaper"
+    assert species_image_family_key("sb_dodoreaper", "Small Dodoreaper") is None
+
+    assert species_image_family_key("giga") == "giga"
+    assert species_image_family_key("giga_rockwell", "Giga R") == "giga"
+    assert species_image_family_key("bionicgigant", "Giganotossauro Tek") == "giga"
+    assert species_image_family_key("abyss_bee", "Abelha Gigante") is None
+
+    reaper_url = "/species/icons/generated/reaper.webp"
+    giga_url = "/species/icons/generated/giga.webp"
+    assert resolve_species_image_for_key("abyss_reaper_abyssal").endswith(reaper_url)
+    assert resolve_species_image(
+        {"species_key": "abyss_reaper_abyssal", "display_name": "Reaper Abissal", "tier": "S"}
+    ).endswith(reaper_url)
+    assert resolve_species_image_for_key("giga_rockwell").endswith(giga_url)
+    assert resolve_species_image_for_key("bionicgigant").endswith(giga_url)
+    assert resolve_species_image_for_key("giga").endswith(giga_url)
+    # Dodoreaper não herda ícone do Reaper King
+    dodo = resolve_species_image_for_key("sb_dodoreaper")
+    assert "reaper.webp" not in dodo or "dodoreaper" in dodo

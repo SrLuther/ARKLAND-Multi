@@ -786,6 +786,7 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
         mults_by_sid[int(m.species_id)].append(m)
 
     from ark_species_registry import get_registry_entry, resolve_species_image
+    from market_economy import friendly_species_display_name
 
     out = []
     for row in rows:
@@ -795,11 +796,111 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
         item["reference_level"] = row.reference_level
         item["level1_base_value"] = row.root_value
         item["linked_variants"] = aliases_by_sid.get(int(row.id), [])
+        item["display_name"] = friendly_species_display_name(
+            row.species_key,
+            fallback=row.display_name or row.species_key,
+        )
         item["image_url"] = resolve_species_image(
             get_registry_entry(row.species_key),
             tier=row.tier,
         )
         out.append(item)
+    return dedupe_level1_species_public(out)
+
+
+def _is_level_variant_species_key(species_key: str) -> bool:
+    low = str(species_key or "").strip().lower()
+    return low.endswith("_l200") or low.endswith("_200") or low.endswith("_1")
+
+
+def _species_public_preference(item: dict[str, Any], defaults: dict[str, Any]) -> tuple:
+    """Menor tupla = melhor candidato (L1 canônico, BP e defaults)."""
+    from market_economy import canonicalize_species_key
+
+    sk = str(item.get("species_key") or "").strip()
+    canon = canonicalize_species_key(sk) or sk
+    try:
+        ref = int(item.get("reference_level") or 1)
+    except (TypeError, ValueError):
+        ref = 1
+    return (
+        0 if ref == 1 else 1,
+        0 if not _is_level_variant_species_key(sk) else 1,
+        0 if sk in defaults else 1,
+        0 if sk == canon else 1,
+        len(sk),
+        -int(item.get("root_value") or 0),
+        sk.lower(),
+    )
+
+
+def dedupe_level1_species_public(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mantém só base nível 1 e 1 linha por blueprint (fallback: species_key canônico).
+
+    Remove variantes nível 200 e duplicatas PT/EN / *_1 / *_200 do mesmo animal.
+    """
+    from market_economy import (
+        canonicalize_species_key,
+        load_default_species_map,
+        normalize_blueprint,
+    )
+
+    defaults = load_default_species_map()
+    level1: list[dict[str, Any]] = []
+    for item in items:
+        sk = str(item.get("species_key") or "").strip()
+        if not sk:
+            continue
+        try:
+            ref = int(item.get("reference_level") or 1)
+        except (TypeError, ValueError):
+            ref = 1
+        # Tabela oficial = só referência nível 1 (exclui base 200).
+        if ref != 1:
+            continue
+        level1.append(item)
+
+    best_by_dedupe: dict[str, dict[str, Any]] = {}
+    for item in level1:
+        sk = str(item.get("species_key") or "").strip()
+        nb = normalize_blueprint(str(item.get("blueprint_path") or ""))
+        canon = canonicalize_species_key(sk) or sk.lower()
+        # Sempre colapsa por canônico; BP reforça quando presente.
+        dedupe_key = f"bp:{nb}" if nb else f"key:{canon}"
+        # Se já há entrada no mesmo canônico (com outro BP vazio vs preenchido),
+        # a 2ª passagem unifica.
+        prev = best_by_dedupe.get(dedupe_key)
+        if prev is None or _species_public_preference(item, defaults) < _species_public_preference(
+            prev, defaults
+        ):
+            best_by_dedupe[dedupe_key] = item
+
+    best_by_canon: dict[str, dict[str, Any]] = {}
+    for item in best_by_dedupe.values():
+        sk = str(item.get("species_key") or "").strip()
+        canon = canonicalize_species_key(sk) or sk.lower()
+        prev = best_by_canon.get(canon)
+        if prev is None or _species_public_preference(item, defaults) < _species_public_preference(
+            prev, defaults
+        ):
+            best_by_canon[canon] = item
+
+    out = list(best_by_canon.values())
+    # Preferir species_key canônico no payload quando a linha vencedora ainda é variante.
+    for item in out:
+        sk = str(item.get("species_key") or "").strip()
+        canon = canonicalize_species_key(sk)
+        if canon and canon != sk and canon in defaults:
+            item["species_key"] = canon
+            if defaults[canon].get("display_name"):
+                item["display_name"] = str(defaults[canon]["display_name"])
+            if defaults[canon].get("root_value") is not None:
+                try:
+                    item["root_value"] = int(defaults[canon]["root_value"])
+                    item["level1_base_value"] = item["root_value"]
+                except (TypeError, ValueError):
+                    pass
+    out.sort(key=lambda s: str(s.get("display_name") or s.get("species_key") or "").lower())
     return out
 
 
