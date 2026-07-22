@@ -17,7 +17,7 @@ Documentação do fluxo `active_event` (Evento sazonal ARK) desde a UI até dino
 | GUS (runtime) | `{install_dir}\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini` | Seção `[ServerSettings]`, chave `ActiveEvent=Easter` (espelho / admin) |
 | Pasta custom INI | `user_config_folder\GameUserSettings.ini` | **Espelho** — ARK não lê diretamente |
 | CLI / RunServer.cmd | `… -ActiveEvent=Easter` | **Flag ASE oficial** (wiki). Gerado em `build_launch_args()` |
-| Backup buff | `ARKLAND SERVER\BACKUP\.ini\{pasta_servidor}\*.zip` | Zip de GUS+Game.ini antes de buff de rates |
+| Backup buff | `D:\Backups\.ini\{pasta_servidor}\*.zip` | Zip de GUS+Game.ini antes de buff de rates (env `ARKLAND_BACKUP_ROOT`) |
 | Web Store | `seasonal_event_active` | Reflete **BuffManager**, não `active_event` |
 
 **Exemplo Brighamia:** `install_dir` = `C:\ARKLAND SERVER\MAPAS\BR`, mapa CLI = `funny_map` (vanilla path ou 4º segmento de `/Game/Mods/{id}/funny_map`).

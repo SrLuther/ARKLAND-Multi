@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.90"
-BUILD_DATE: str = "2026-07-21"
+APP_VERSION: str = "1.10.91"
+BUILD_DATE: str = "2026-07-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,14 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.91",
+        "date": "2026-07-22",
+        "changes": [
+            "Fix (Web Store / DB): rollback/commit diagnostics now tolerate invalid transaction state during rollback, avoiding PendingRollbackError in instrumentation.",
+            "Fix (Web Store / Kit): preserve pending target kit counts when many other pending kit orders exist.",
+        ],
     },
     {
         "version": "1.10.90",

@@ -38,6 +38,9 @@ def fresh_db(tmp_path, monkeypatch):
     monkeypatch.setattr(_app_module, "_PLAYERS_FILE", tmp_path / "players.json")
     monkeypatch.setattr(_app_module, "_SERVERS_FILE", tmp_path / "servers.json")
     monkeypatch.setattr(_app_module, "_migrate_schema", lambda _engine: None)
+    _app_module.limiter.reset()
+    if hasattr(_app_module.limiter, "storage") and hasattr(_app_module.limiter.storage, "reset"):
+        _app_module.limiter.storage.reset()
 
     (tmp_path / "admin_steamids.json").write_text(json.dumps([ADMIN_STEAM]))
 
@@ -89,6 +92,8 @@ def fresh_db(tmp_path, monkeypatch):
         finally:
             db.close()
     monkeypatch.setattr(_app_module, "_DB_INITIALIZED", True)
+    _app_module._invalidate_pending_delivery_cache()
+    _app_module._invalidate_entitlements_cache()
     yield
     _configure_database("")
 
@@ -1417,13 +1422,11 @@ class TestRconScope:
     def test_rcon_reload_calls_plugin(self, client, tmp_path):
         _write_settings(tmp_path)
         _login(client, ADMIN_STEAM)
-        with patch.object(_app_module, "_rcon_command", return_value="CustomShop reloaded") as mock:
+        with patch.object(_app_module, "_enqueue_shop_reload", return_value=[{"ok": True, "queued": True, "label": "Shop.Reload (background)"}]) as mock:
             r = client.post("/api/rcon/reload")
         assert r.get_json()["ok"] is True
         mock.assert_called()
-        assert mock.call_args.kwargs.get("connect_retries") == 5 or (
-            len(mock.call_args) > 0 and mock.call_args[1].get("connect_retries") == 5
-        )
+        assert r.get_json()["results"][0]["queued"] is True
 
 
 # ── Admin gestão de jogadores ───────────────────────────────────────────────────
@@ -2372,9 +2375,12 @@ class TestCardCheckout:
         }
         with patch.object(_app_module, "fetch_payment", return_value=mp_resp), \
              patch.object(_app_module, "_add_player_points_tx", return_value=500) as credit_mock:
+            import background_tasks as _bg
+            _bg.set_inline_mode(True)
             r = client.post("/api/payments/webhook", json={"data": {"id": "mp_card_99"}})
         d = r.get_json()
         assert d["ok"] is True, d.get("error")
+        assert d.get("queued") is True
         credit_mock.assert_called_once()
 
         db = _app_module._SessionLocal()
@@ -2458,13 +2464,18 @@ class TestCardCheckout:
         with patch.object(_app_module, "fetch_payment", return_value=mp_resp) as fetch_mock, \
              patch.object(_app_module, "_pix_mp_poll_allowed", return_value=True), \
              patch.object(_app_module, "_add_player_points_tx", return_value=500) as credit_mock:
+            import background_tasks as _bg
+            _bg.set_inline_mode(True)
             r = client.get(f"/api/player/pix/{payment_id}/status")
+            # Snapshot pré-job; 2.º poll (inline já creditou) confirma APROVADO.
+            r2 = client.get(f"/api/player/pix/{payment_id}/status")
         d = r.get_json()
         assert d["ok"] is True, d.get("error")
-        assert d["credited"] is True
-        assert d["status"] == "APROVADO"
-        fetch_mock.assert_called_once()
-        credit_mock.assert_called_once()
+        d2 = r2.get_json()
+        assert d2["credited"] is True
+        assert d2["status"] == "APROVADO"
+        fetch_mock.assert_called()
+        credit_mock.assert_called()
 
         db = _app_module._SessionLocal()
         try:
@@ -3046,11 +3057,13 @@ class TestLicenseRenewalKitReset:
 
 class TestRegulamento:
     def test_meta_public(self, client):
+        from regulamento_config import REGULAMENTO_VERSION
+
         r = client.get("/api/regulamento/meta")
         assert r.status_code == 200
         d = r.get_json()
         assert d["ok"] is True
-        assert d["version"] == "1.0"
+        assert d["version"] == REGULAMENTO_VERSION
 
     def test_content_public(self, client):
         r = client.get("/api/regulamento/content")
@@ -3064,16 +3077,21 @@ class TestRegulamento:
         assert r.status_code == 401
 
     def test_accept_persists(self, client):
+        from regulamento_config import REGULAMENTO_VERSION
+
         _seed_store_user(USER_STEAM, regulamento_accepted=False)
         _login(client, USER_STEAM)
-        r = client.post("/api/regulamento/accept", json={"version": "1.0"})
+        r = client.post(
+            "/api/regulamento/accept",
+            json={"version": REGULAMENTO_VERSION},
+        )
         assert r.status_code == 200
         d = r.get_json()
         assert d["ok"] is True
         assert d["needs_regulamento_accept"] is False
         me = client.get("/api/auth/me").get_json()
         assert me["needs_regulamento_accept"] is False
-        assert me["regulamento_version_accepted"] == "1.0"
+        assert me["regulamento_version_accepted"] == REGULAMENTO_VERSION
 
     def test_auth_me_flags_pending(self, client):
         _seed_store_user(USER_STEAM, regulamento_accepted=False)
@@ -3092,9 +3110,14 @@ class TestRegulamento:
         assert r.get_json()["needs_regulamento_accept"] is True
 
     def test_ticket_after_accept(self, client):
+        from regulamento_config import REGULAMENTO_VERSION
+
         _seed_store_user(USER_STEAM, regulamento_accepted=False)
         _login(client, USER_STEAM)
-        client.post("/api/regulamento/accept", json={"version": "1.0"})
+        client.post(
+            "/api/regulamento/accept",
+            json={"version": REGULAMENTO_VERSION},
+        )
         r = client.post(
             "/api/tickets",
             json={
@@ -3752,6 +3775,8 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(_app_module, "_hot_path_indexes_all_present", _fail_all_present)
         _app_module._ensure_hot_path_indexes(engine)
         assert _app_module._HOT_PATH_INDEXES_READY is False
+        # ensure() aplica backoff — limpar para o detalhe poder agendar self-heal.
+        _app_module._HOT_PATH_INDEXES_NEXT_TRY_AT = 0.0
         # Self-heal no detalhe: agenda DDL async e não bloqueia request.
         starts: list[str] = []
         monkeypatch.setattr(

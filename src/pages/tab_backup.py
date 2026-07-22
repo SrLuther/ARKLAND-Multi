@@ -89,14 +89,14 @@ def build_tab_backup(app: "ARKServerManagerApp", parent, srv: "ServerConfig") ->
     w["backup_dir"] = tk.StringVar(value=srv.backup_dir)
     _lbl(cfg_card,
          "Pasta de destino",
-         "Deixe vazio para usar o padrão em %APPDATA%."
+         "Deixe vazio para usar o padrão em D:\\Backups\\servers."
          ).grid(row=5, column=0, padx=(16, 8), pady=(4, 6), sticky="w")
     dir_fr = ctk.CTkFrame(cfg_card, fg_color="transparent")
     dir_fr.grid(row=5, column=1, padx=(0, 16), pady=(4, 6), sticky="ew")
     dir_fr.grid_columnconfigure(0, weight=1)
     ctk.CTkEntry(
         dir_fr, textvariable=w["backup_dir"], height=32,
-        placeholder_text="Padrão: %APPDATA%\\ARKLAND-ServerManager\\backups\\",
+        placeholder_text="Padrão: D:\\Backups\\servers\\",
     ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
     ctk.CTkButton(
         dir_fr, text="📁", width=34, height=32,

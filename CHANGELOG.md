@@ -7,6 +7,13 @@
 
 ## [Unreleased] - 
 
+## [1.10.91] - 2026-07-22
+
+### Fix
+
+- Fix (Web Store / DB): rollback/commit diagnostics now tolerate invalid transaction state during rollback, avoiding PendingRollbackError in instrumentation.
+- Fix (Web Store / Kit): preserve pending target kit counts when many other pending kit orders exist.
+
 ## [1.10.90] - 2026-07-21
 
 ### Feature

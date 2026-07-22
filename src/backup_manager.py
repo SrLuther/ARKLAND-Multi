@@ -2,10 +2,13 @@
 Gerenciador de backups automáticos de saves e configurações de servidor ARK.
 
 Estrutura de armazenamento (ZIP):
-  %APPDATA%/ARKLAND-ServerManager/backups/servers/{server_id}/{YYYYMMDD_HHMMSS}.zip
+  D:\\Backups\\servers\\{server_id}\\{YYYYMMDD_HHMMSS}.zip
       config/              ← GameUserSettings.ini, Game.ini (WindowsServer/) — opcional
       saves/{pasta}/       ← ShooterGame/Saved/{AltSaveDirectoryName}/ (prioridade)
       saves/SavedArks/     ← legado, se existir separadamente
+
+Override da raiz: env ARKLAND_BACKUP_ROOT (default D:\\Backups).
+Pasta por servidor: setting backup_dir não vazio.
 """
 from __future__ import annotations
 

@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.32] - 2026-07-22
+
+### Fix
+
+- Ajustes em `ShopConfig.cpp` / `ShopConfig.h` para compatibilidade com o release atual e garantir comportamento correto do CustomShop.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.32) em cada mapa.
+
 ## [1.10.31] - 2026-07-20
 
 ### Fix

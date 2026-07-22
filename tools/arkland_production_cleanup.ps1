@@ -12,13 +12,13 @@
   5. Remove entitlements VIP em arkland_shop
 
 .PARAMETER BackupDir
-  Pasta de backup antes da limpeza (padrão: C:\ARKLAND SERVER\BACKUP\database).
+  Pasta de backup antes da limpeza (padrão: D:\Backups\database).
 
 .EXAMPLE
   .\tools\arkland_production_cleanup.ps1
 
 .EXAMPLE
-  .\tools\arkland_production_cleanup.ps1 -BackupDir "C:\ARKLAND SERVER\BACKUP\database"
+  .\tools\arkland_production_cleanup.ps1 -BackupDir "D:\Backups\database"
 #>
 [CmdletBinding()]
 param(
@@ -31,7 +31,7 @@ param(
     [int]$MySqlPort = 3306,
     [string]$PermDatabase = "ark_permission",
     [string]$ShopDatabase = "arkland_shop",
-    [string]$BackupDir = "C:\ARKLAND SERVER\BACKUP\database",
+    [string]$BackupDir = "D:\Backups\database",
     [switch]$SkipBackup,
     [switch]$PreviewOnly,
     [switch]$NoPause

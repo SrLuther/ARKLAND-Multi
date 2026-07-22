@@ -239,7 +239,7 @@ def _create_environment(app: "ARKServerManagerApp") -> None:
         _sync_path_vars_from_config(app)
         if hasattr(app, "mod_manager") and cfg.steamcmd_path:
             app.mod_manager.steamcmd_path = cfg.steamcmd_path
-        extra = "\n• Cloud backup local → BACKUP/cloud" if cloud_ok else ""
+        extra = "\n• Cloud backup local → D:\\Backups\\cloud" if cloud_ok else ""
         messagebox.showinfo(
             "Ambiente criado",
             f"Estrutura pronta em:\n{result.paths.root}\n\n"

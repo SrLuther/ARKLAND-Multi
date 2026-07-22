@@ -1,11 +1,9 @@
 {
-    "version": "1.10.90",
-    "date": "2026-07-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.90/ARKLAND-Multi-Setup-v1.10.90.exe",
+    "version": "1.10.91",
+    "date": "2026-07-22",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.91/ARKLAND-Multi-Setup-v1.10.91.exe",
     "changelog": [
-        "Feat (Web Store / Mercado): Tabela Oficial só nível 1, dedupe por blueprint/chave canônica (evita *_200, ankylo vs ankylosaurus, etc.).",
-        "Melhoria (Web Store / Ícones): famílias Reaper/Giga/Noglin partilham ícone canônico; ícone Noglin atualizado com modelo fiel.",
-        "Fix (Web Store / Encomenda): galeria da vitrine lista todos os slots configurados (DLC/mods), não só vanilla.",
-        "Feat (Web Store / UI): comandos in-game na home e nas áreas Catálogo, Comércio, Encomenda e Equipe (chips copiáveis: /enviar /confirmar, /mercado, /dinolab, /shop, /marco)."
+        "Fix (Web Store / DB): rollback/commit diagnostics now tolerate invalid transaction state during rollback, avoiding PendingRollbackError in instrumentation.",
+        "Fix (Web Store / Kit): preserve pending target kit counts when many other pending kit orders exist."
     ]
 }

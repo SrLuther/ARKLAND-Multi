@@ -12,11 +12,14 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from db_diagnostics import record_circuit_success
+
 
 @pytest.fixture(autouse=True)
 def _isolate_steam_api_from_env(monkeypatch):
     """Evita chamadas reais à Steam Web API quando STEAM_API_KEY vem do .env local."""
     monkeypatch.delenv("STEAM_API_KEY", raising=False)
+    record_circuit_success()
 
 
 @pytest.fixture()

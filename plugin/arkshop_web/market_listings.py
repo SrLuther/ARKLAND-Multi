@@ -937,25 +937,32 @@ def list_active_listings(
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    from app import MarketListing, MarketPlayerProfile
+    from app import MarketListing
 
+    limit = max(1, min(100, int(limit)))
+    offset = max(0, int(offset))
     q = db.query(MarketListing).filter(MarketListing.status == "ACTIVE")
     if species_key:
         q = q.filter(MarketListing.species_key == species_key)
     if seller_steam_id:
         q = q.filter(MarketListing.seller_steam_id == seller_steam_id)
-    # Casal: só o primário (menor id) aparece na vitrine pública
-    rows = q.order_by(MarketListing.effective_price.asc()).offset(0).limit(limit * 3 + offset).all()
-    visible: list[Any] = []
-    for row in rows:
-        if is_pair_listing(row) and not is_pair_primary(row):
-            continue
-        visible.append(row)
-    visible = visible[offset : offset + limit]
-    names = _steam_personas_map(db, [r.seller_steam_id for r in visible])
-    species_by_key = _species_map(db, {r.species_key for r in visible})
+    # Casal: só o primário (menor id) na vitrine — filtro no SQL (paginação correcta).
+    q = q.filter(
+        or_(
+            MarketListing.pair_mate_listing_id.is_(None),
+            MarketListing.id < MarketListing.pair_mate_listing_id,
+        )
+    )
+    rows = (
+        q.order_by(MarketListing.effective_price.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    names = _steam_personas_map(db, [r.seller_steam_id for r in rows])
+    species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
-    for row in visible:
+    for row in rows:
         item = listing_to_public(row, species_row=species_by_key.get(row.species_key or ""))
         item["seller_display_name"] = names.get(row.seller_steam_id)
         enrich_listing_pair_fields(db, item, row, species_by_key=species_by_key)
@@ -2054,9 +2061,17 @@ def expire_stale_claims(db: Session, *, batch_size: int = 50) -> dict[str, Any]:
     }
 
 
-def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, Any]]:
+def list_seller_listings(
+    db: Session,
+    seller_steam_id: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
     from app import MarketClaim, MarketListing
 
+    limit = max(1, min(100, int(limit)))
+    offset = max(0, int(offset))
     rows = (
         db.query(MarketListing)
         .filter(
@@ -2064,6 +2079,8 @@ def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, An
             MarketListing.status.notin_(list(TERMINAL_LISTING)),
         )
         .order_by(MarketListing.updated_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
     listing_ids = [r.id for r in rows]
@@ -2085,7 +2102,6 @@ def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, An
                 claims_by_listing[claim.listing_id] = claim
 
     species_by_key = _species_map(db, {r.species_key for r in rows})
-    prof = get_profile(db, seller_steam_id)
     seller_name = _profile_display_name(db, seller_steam_id)
     out = []
     for row in rows:
@@ -3274,9 +3290,12 @@ def list_admin_listings(
     sort: str = "recent",
     limit: int = 50,
     offset: int = 0,
-) -> tuple[list[dict[str, Any]], int]:
+    include_total: bool = True,
+) -> tuple[list[dict[str, Any]], int | None]:
     from app import MarketListing, MarketPlayerProfile
 
+    limit = max(1, min(100, int(limit)))
+    offset = max(0, int(offset))
     query = db.query(MarketListing)
     if status:
         st = status.strip().upper()
@@ -3307,14 +3326,14 @@ def list_admin_listings(
                     MarketListing.species_key.like(like),
                 )
             )
-    total = query.count()
+    total: int | None = int(query.count()) if include_total else None
     if sort == "price_asc":
         query = query.order_by(MarketListing.effective_price.asc())
     elif sort == "price_desc":
         query = query.order_by(MarketListing.effective_price.desc())
     else:
         query = query.order_by(MarketListing.updated_at.desc())
-    rows = query.offset(max(0, offset)).limit(min(max(1, limit), 200)).all()
+    rows = query.offset(offset).limit(limit).all()
     seller_ids = {r.seller_steam_id for r in rows}
     names = _steam_personas_map(db, list(seller_ids)) if seller_ids else {}
     species_by_key = _species_map(db, {r.species_key for r in rows})

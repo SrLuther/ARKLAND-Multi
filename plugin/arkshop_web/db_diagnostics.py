@@ -364,13 +364,19 @@ def attach_engine_listeners(engine: Engine) -> None:
 
     @event.listens_for(engine, "commit")
     def _on_commit(conn: Any) -> None:
-        start = conn.info.pop("txn_start", None)
+        try:
+            start = conn.info.pop("txn_start", None)
+        except Exception:
+            return
         if start is not None:
             record_transaction_ms((time.perf_counter() - start) * 1000.0, outcome="commit")
 
     @event.listens_for(engine, "rollback")
     def _on_rollback(conn: Any) -> None:
-        start = conn.info.pop("txn_start", None)
+        try:
+            start = conn.info.pop("txn_start", None)
+        except Exception:
+            return
         if start is not None:
             record_transaction_ms((time.perf_counter() - start) * 1000.0, outcome="rollback")
 
@@ -521,10 +527,23 @@ def probe_database(
         "recent_slow_queries": recent_slow_queries(15),
         "recent_errors": recent_errors(10),
         "requests": request_diag,
-        "waitress_threads_configured": max(
-            4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32)
-        ),
     }
+
+    # NÃO mentir com default 32 (legado) — usar a mesma resolução do Waitress.
+    try:
+        from db_pool import resolve_pool_settings
+        from waitress_config import resolve_http_threads
+
+        _pool = resolve_pool_settings()
+        _http = resolve_http_threads(pool_size=_pool["pool_size"])
+        result["waitress_threads_configured"] = int(_http["threads"])
+        result["waitress_threads_source"] = _http.get("source")
+        result["waitress_capped_to_pool"] = bool(_http.get("capped_to_pool"))
+        result["db_pool_peak"] = int(_pool["pool_size"]) + int(_pool["max_overflow"])
+    except Exception:
+        result["waitress_threads_configured"] = max(
+            4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "8") or 8)
+        )
 
     if safe_db_fields and active_url:
         result["database"] = safe_db_fields(active_url)

@@ -43,6 +43,10 @@ def fresh_db(tmp_path, monkeypatch):
     if _app_module._ENGINE is not None:
         _app_module.Base.metadata.create_all(bind=_app_module._ENGINE)
     monkeypatch.setattr(_app_module, "_DB_INITIALIZED", True)
+    # Evita 503 de circuit breaker aberto por suite anterior no mesmo processo.
+    from db_diagnostics import record_circuit_success
+
+    record_circuit_success()
     _app_module._invalidate_pending_delivery_cache()
     yield
     _configure_database("")
@@ -92,6 +96,8 @@ def test_claim_empty_cache_skips_db(client, monkeypatch):
         return real_get()
 
     monkeypatch.setattr(_app_module, "_get_db_session", _counting)
+    # Empty-cache short-circuit só com scheduler saudável.
+    monkeypatch.setattr(_app_module, "_pending_stale_scheduler_healthy", lambda: True)
 
     r1 = client.post(
         "/api/pending/claim",
@@ -112,6 +118,52 @@ def test_claim_empty_cache_skips_db(client, monkeypatch):
     assert r2.get_json()["items"] == []
     assert r2.headers.get("X-Pending-Cache") == "EMPTY"
     assert db_calls["n"] == 1  # cache hit — sem DB
+
+
+def test_claim_does_not_mark_empty_cache_when_entregando(client, monkeypatch):
+    """P0: ENTREGANDO sem PENDENTE NÃO pode cachear fila vazia (esconde recover)."""
+    monkeypatch.setattr(_app_module, "_pending_stale_scheduler_healthy", lambda: True)
+    oid = _mk_order(status="ENTREGANDO", updated_at=_now())
+    assert oid
+
+    r = client.post(
+        "/api/pending/claim",
+        headers=_headers(),
+        data=json.dumps({"steam_id": USER_STEAM}),
+    )
+    assert r.status_code == 200
+    assert r.get_json()["items"] == []
+    assert not _app_module._pending_empty_cache_hit(USER_STEAM)
+
+
+def test_claim_empty_cache_bypassed_when_scheduler_dead(client, monkeypatch):
+    """P0: empty-cache com scheduler morto esconderia ENTREGANDO para sempre."""
+    monkeypatch.setattr(_app_module, "_pending_stale_scheduler_healthy", lambda: True)
+    r1 = client.post(
+        "/api/pending/claim",
+        headers=_headers(),
+        data=json.dumps({"steam_id": USER_STEAM}),
+    )
+    assert r1.headers.get("X-Pending-Cache") == "MISS"
+    assert _app_module._pending_empty_cache_hit(USER_STEAM)
+
+    oid = _mk_order(
+        status="ENTREGANDO",
+        updated_at=_now() - timedelta(minutes=30),
+    )
+    # Simula cache stale ainda válido + scheduler morto (chicken-egg).
+    _app_module._mark_pending_empty_cached(USER_STEAM)
+    monkeypatch.setattr(_app_module, "_pending_stale_scheduler_healthy", lambda: False)
+
+    r2 = client.post(
+        "/api/pending/claim",
+        headers=_headers(),
+        data=json.dumps({"steam_id": USER_STEAM}),
+    )
+    assert r2.status_code == 200
+    d = r2.get_json()
+    assert len(d["items"]) == 1
+    assert d["items"][0]["order_id"] == oid or d["items"][0]["item_id"]
 
 
 def test_create_order_invalidates_empty_cache(client):

@@ -1,7 +1,6 @@
 """Backup e restauração compactados do MariaDB/MySQL (arkland_shop, ark_permission)."""
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import threading
@@ -15,9 +14,6 @@ from .arkland_environment import default_db_backup_dir
 
 if TYPE_CHECKING:
     from .config_manager import DbBackupConfig
-
-_APPDATA = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
-_DEFAULT_BACKUP_DIR = _APPDATA / "backups" / "database"
 
 
 def _mariadb_bin_dir() -> Path:

@@ -41,7 +41,7 @@ class DiscordNotifyConfig:
 
 @dataclass
 class BackupConfig:
-    backup_dir:            str  = ""
+    backup_dir:            str  = ""  # "" = D:\Backups\servers (ARKLAND_BACKUP_ROOT)
     include_savegames:     bool = True
     include_config:        bool = False   # opcional — saves são a prioridade
     limit_backup_count:    bool = True
@@ -59,7 +59,7 @@ class BackupConfig:
 @dataclass
 class DbBackupConfig:
     enabled:               bool = False
-    backup_dir:            str  = ""
+    backup_dir:            str  = ""  # "" = D:\Backups\database (ARKLAND_BACKUP_ROOT)
     interval_hours:        int  = 6
     limit_backup_count:    bool = True
     max_backup_count:      int  = 10

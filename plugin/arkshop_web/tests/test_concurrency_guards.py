@@ -229,7 +229,95 @@ def test_runtime_workers_start_once(monkeypatch):
     )
     _app_module._start_runtime_workers_once()
     _app_module._start_runtime_workers_once()
-    assert calls["n"] == 1
+    # Após o 1.º boot, _initialize_scheduler_if_needed continua a ser chamado
+    # (retenta thread morta) — flag _RUNTIME_WORKERS_STARTED só muda 1×.
+    assert calls["n"] == 2
+    assert _app_module._RUNTIME_WORKERS_STARTED is True
+
+
+def test_runtime_workers_retry_secondary_every_call(monkeypatch):
+    """Após o 1.º boot, secondary workers continuam a ser re-tentados (thread morta / falha)."""
+    _app_module._RUNTIME_WORKERS_STARTED = False
+    secondary = {"n": 0}
+
+    monkeypatch.setattr(_app_module, "_initialize_scheduler_if_needed", lambda: None)
+    monkeypatch.setattr(
+        _app_module,
+        "_ensure_secondary_runtime_workers",
+        lambda: secondary.__setitem__("n", secondary["n"] + 1),
+    )
+    _app_module._start_runtime_workers_once()
+    _app_module._start_runtime_workers_once()
+    _app_module._start_runtime_workers_once()
+    assert secondary["n"] == 3
+
+
+def test_retry_scheduler_restarts_dead_thread(monkeypatch):
+    """P0: flag INITIALIZED True + thread morta → re-arranca arkshop-retry."""
+    dead = threading.Thread(target=lambda: None, name="arkshop-retry-dead", daemon=True)
+    dead.start()
+    dead.join(timeout=2)
+    assert not dead.is_alive()
+
+    started = {"n": 0}
+
+    def _counting_start():
+        started["n"] += 1
+        t = threading.Thread(
+            target=lambda: time.sleep(30), name="arkshop-retry-test", daemon=True
+        )
+        t.start()
+        _app_module._scheduler_thread = t
+
+    _app_module._SCHEDULER_INITIALIZED = True
+    _app_module._scheduler_thread = dead
+    monkeypatch.setattr(_app_module, "_start_scheduler", _counting_start)
+    _app_module._initialize_scheduler_if_needed()
+    assert started["n"] == 1
+    assert _app_module._scheduler_thread is not None
+    assert _app_module._scheduler_thread.is_alive()
+    _app_module._initialize_scheduler_if_needed()
+    assert started["n"] == 1
+    _app_module._scheduler_stop.set()
+    _app_module._SCHEDULER_INITIALIZED = False
+    _app_module._scheduler_thread = None
+
+
+def test_ensure_pending_stale_clears_ok_flag_on_failure(monkeypatch):
+    _app_module._PENDING_STALE_SCHEDULER_OK = True
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("boot failed")
+
+    monkeypatch.setattr("pending_jobs.start_pending_stale_scheduler", _boom)
+    _app_module._ensure_pending_stale_scheduler()
+    assert _app_module._PENDING_STALE_SCHEDULER_OK is False
+
+    monkeypatch.setattr(
+        "pending_jobs.start_pending_stale_scheduler",
+        lambda **_k: None,
+    )
+    monkeypatch.setattr(
+        "pending_jobs.is_pending_stale_scheduler_alive",
+        lambda: True,
+    )
+    _app_module._ensure_pending_stale_scheduler()
+    assert _app_module._PENDING_STALE_SCHEDULER_OK is True
+
+
+def test_ensure_pending_stale_ok_false_when_thread_not_alive(monkeypatch):
+    """P0: start 'sucesso' sem thread viva não pode marcar OK (INLINE / crash)."""
+    _app_module._PENDING_STALE_SCHEDULER_OK = False
+    monkeypatch.setattr(
+        "pending_jobs.start_pending_stale_scheduler",
+        lambda **_k: None,
+    )
+    monkeypatch.setattr(
+        "pending_jobs.is_pending_stale_scheduler_alive",
+        lambda: False,
+    )
+    _app_module._ensure_pending_stale_scheduler()
+    assert _app_module._PENDING_STALE_SCHEDULER_OK is False
 
 
 def test_catalog_feed_skips_when_busy(monkeypatch):

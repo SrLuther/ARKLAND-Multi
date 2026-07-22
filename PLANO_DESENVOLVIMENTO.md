@@ -204,7 +204,7 @@ Open: `open_asm_player_list(app, srv: AsmServerConfig)`
 Open: `open_asm_save_restore(app, srv: AsmServerConfig)`
 - Pasta monitorada: `{install_dir}/ShooterGame/Saved/SavedArks/`
 - Arquivos: `.ark`, `.arktribe`, `.arkprofile`, `.bak`
-- Botão "Backup agora" → cópia para `{install_dir}/ARKLAND_Backups/YYYY-MM-DD_HH-MM-SS/`
+- Botão "Backup agora" → cópia para `D:\Backups\saves\{server_id}\YYYY-MM-DD_HH-MM-SS/` (env `ARKLAND_BACKUP_ROOT`)
 - Botão "Restaurar" → stop → substitui arquivos → restart
 
 ---

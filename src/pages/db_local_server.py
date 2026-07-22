@@ -244,6 +244,9 @@ class DbLocalServer:
 
         bind = self.get_bind_address()
         log_file = open(self.log_path, "a", encoding="utf-8", errors="replace")
+        # Fase 1 Web Store: max_connections 150–200 e wait_timeout=600 via CLI
+        # (TEK não gere my.ini; flags no arranque evitam QueuePool vs mysqld default 151
+        # e conexões idle mortas cedo demais). Não grava ficheiros — não quebra install.
         cmd = [
             str(self.mysqld_exe),
             f"--basedir={_mariadb_dir()}",
@@ -251,6 +254,9 @@ class DbLocalServer:
             f"--port={_PORT}",
             f"--bind-address={bind}",
             "--skip-networking=0",
+            "--max-connections=180",
+            "--wait-timeout=600",
+            "--interactive-timeout=600",
             "--console",
         ]
         with self._lock:

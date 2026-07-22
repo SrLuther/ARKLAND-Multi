@@ -18,16 +18,13 @@ def now_brasilia() -> datetime:
 
 
 def resolve_ini_backup_root() -> Path:
-    """Raiz dos backups .ini: ``ARKLAND SERVER/BACKUP/.ini``."""
+    """Raiz dos backups .ini: ``D:\\Backups\\.ini`` (override via ``ARKLAND_BACKUP_ROOT``)."""
     try:
-        from .arkland_environment import try_load_environment_paths
+        from .arkland_environment import default_ini_backup_root
 
-        paths = try_load_environment_paths()
-        if paths is not None:
-            return paths.backup / ".ini"
+        return default_ini_backup_root()
     except Exception:
-        pass
-    return Path(r"C:\ARKLAND SERVER\BACKUP\.ini")
+        return Path(r"D:\Backups\.ini")
 
 
 def server_folder_name(cfg: object) -> str:
@@ -46,7 +43,7 @@ def backup_dir_for(cfg: object) -> Path:
 
 def backup_ini_files(cfg: object, label: str = "") -> Optional[str]:
     """
-    Copia GUS + Game.ini para ``BACKUP/.ini/{server_folder}/{timestamp}.zip``.
+    Copia GUS + Game.ini para ``D:\\Backups\\.ini/{server_folder}/{timestamp}.zip``.
     Retorna o caminho do zip ou None se install_dir ausente.
     """
     install_dir = (getattr(cfg, "install_dir", "") or "").strip()

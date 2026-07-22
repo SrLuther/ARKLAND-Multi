@@ -16,6 +16,7 @@ _last_feed_result: dict[str, Any] | None = None
 _last_feed_source: str | None = None
 _scheduler_thread: threading.Thread | None = None
 _scheduler_stop = threading.Event()
+_scheduler_start_lock = threading.Lock()
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -165,27 +166,32 @@ def _scheduler_worker(interval_minutes: int) -> None:
 
 
 def start_catalog_feed_scheduler_if_needed() -> None:
-    """Inicia job periódico se MARKET_CATALOG_FEED_INTERVAL_MINUTES > 0."""
+    """Inicia job periódico se MARKET_CATALOG_FEED_INTERVAL_MINUTES > 0.
+
+    Idempotente sob concorrência (lock + is_alive) — ``_ensure_secondary_runtime_workers``
+    pode chamar isto em todo request após o 1.º boot.
+    """
     global _scheduler_thread
     interval = _feed_interval_minutes()
     if interval <= 0:
         return
-    if _scheduler_thread is not None and _scheduler_thread.is_alive():
-        return
-    _scheduler_stop.clear()
-    _scheduler_thread = threading.Thread(
-        target=_scheduler_worker,
-        args=(interval,),
-        name="catalog-feed",
-        daemon=True,
-    )
-    _scheduler_thread.start()
-    if _env_flag("MARKET_CATALOG_FEED_ON_BOOT", default=True):
-        threading.Thread(
-            target=lambda: run_catalog_feed(source="boot", only_missing=False),
-            name="catalog-feed-boot",
+    with _scheduler_start_lock:
+        if _scheduler_thread is not None and _scheduler_thread.is_alive():
+            return
+        _scheduler_stop.clear()
+        _scheduler_thread = threading.Thread(
+            target=_scheduler_worker,
+            args=(interval,),
+            name="catalog-feed",
             daemon=True,
-        ).start()
+        )
+        _scheduler_thread.start()
+        if _env_flag("MARKET_CATALOG_FEED_ON_BOOT", default=True):
+            threading.Thread(
+                target=lambda: run_catalog_feed(source="boot", only_missing=False),
+                name="catalog-feed-boot",
+                daemon=True,
+            ).start()
 
 
 def maybe_feed_on_catalog_save(catalog: dict[str, Any] | None = None) -> dict[str, Any] | None:

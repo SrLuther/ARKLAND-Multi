@@ -298,7 +298,12 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     fr_bk = ctk.CTkFrame(bk_card, fg_color="transparent")
     fr_bk.grid(row=0, column=1, padx=(0, 16), pady=(14, 2), sticky="ew")
     fr_bk.grid_columnconfigure(0, weight=1)
-    ctk.CTkEntry(fr_bk, textvariable=app._bk_dir_var, height=32).grid(
+    ctk.CTkEntry(
+        fr_bk,
+        textvariable=app._bk_dir_var,
+        height=32,
+        placeholder_text=r"Padrão: D:\Backups\servers",
+    ).grid(
         row=0, column=0, sticky="ew", padx=(0, 6))
     ctk.CTkButton(fr_bk, text="📁", width=32, height=32,
                   command=lambda: app._browse_dir(app._bk_dir_var)).grid(row=0, column=1)

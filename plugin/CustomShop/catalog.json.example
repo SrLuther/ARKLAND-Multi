@@ -1,0 +1,22 @@
+{
+  "_comment": "Catálogo partilhado CustomShop — Items/Kits/TimedPoints/Settings de gameplay. Path canónico: {ARKLANDSERVER}/CustomShop/catalog.json. O config.json de cada mapa fica só com SharedCatalogPath + ServerId/DB/URLs/Debug.",
+  "Items": {},
+  "Kits": {},
+  "TimedPointsReward": {
+    "Enabled": false,
+    "Interval": 30,
+    "Groups": {}
+  },
+  "Settings": {
+    "ShopName": "ARKLAND Shop",
+    "DeliverDinosInCryopods": true
+  },
+  "CrossChat": {
+    "Enabled": false,
+    "AutoCapture": true
+  },
+  "Messages": {},
+  "Downloads": {},
+  "PointPackages": {},
+  "FeaturedMaps": []
+}

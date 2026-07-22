@@ -691,7 +691,7 @@ def register_market_routes(
     def market_admin_list_listings():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        limit = min(200, max(1, int(request.args.get("limit") or 10)))
+        limit = min(100, max(1, int(request.args.get("limit") or 25)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
@@ -705,7 +705,13 @@ def register_market_routes(
                 limit=limit,
                 offset=offset,
             )
-            return jsonify({"ok": True, "total": total, "listings": items})
+            return jsonify({
+                "ok": True,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "listings": items,
+            })
         finally:
             db.close()
 
@@ -984,14 +990,20 @@ def register_market_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         species_key = (request.args.get("species_key") or "").strip() or None
         seller = (request.args.get("seller_steam_id") or "").strip() or None
-        limit = min(100, max(1, int(request.args.get("limit") or 10)))
+        limit = min(100, max(1, int(request.args.get("limit") or 25)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
             items = list_active_listings(
                 db, species_key=species_key, seller_steam_id=seller, limit=limit, offset=offset
             )
-            return jsonify({"ok": True, "listings": items})
+            return jsonify({
+                "ok": True,
+                "listings": items,
+                "limit": limit,
+                "offset": offset,
+                "has_more": len(items) >= limit,
+            })
         finally:
             db.close()
 
@@ -1113,10 +1125,18 @@ def register_market_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session() or "")
+        limit = min(100, max(1, int(request.args.get("limit") or 50)))
+        offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
-            items = list_seller_listings(db, steam_id)
-            return jsonify({"ok": True, "listings": items})
+            items = list_seller_listings(db, steam_id, limit=limit, offset=offset)
+            return jsonify({
+                "ok": True,
+                "listings": items,
+                "limit": limit,
+                "offset": offset,
+                "has_more": len(items) >= limit,
+            })
         finally:
             db.close()
 

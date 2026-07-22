@@ -133,7 +133,8 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_server       (server_id),
   INDEX ix_orders_original_order_id (original_order_id),
   INDEX ix_orders_steam_created (steam_id, created_at),
-  INDEX ix_orders_steam_type_status (steam_id, item_type, status)
+  INDEX ix_orders_steam_type_status (steam_id, item_type, status),
+  INDEX ix_orders_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS order_attempts (
@@ -269,6 +270,7 @@ CREATE TABLE IF NOT EXISTS market_listings (
   INDEX idx_market_listing_status (status, species_key, effective_price),
   INDEX idx_market_listing_seller (seller_steam_id, status),
   INDEX idx_market_listing_buyer (buyer_steam_id, status),
+  INDEX idx_market_listings_status_updated (status, updated_at),
   CONSTRAINT fk_market_listing_vault
     FOREIGN KEY (vault_id) REFERENCES market_cryopod_vault(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -289,6 +291,7 @@ CREATE TABLE IF NOT EXISTS market_transactions (
   created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_market_tx_listing (listing_id),
   INDEX idx_market_tx_buyer (buyer_steam_id),
+  INDEX idx_market_tx_seller_created (seller_steam_id, created_at),
   CONSTRAINT fk_market_tx_listing
     FOREIGN KEY (listing_id) REFERENCES market_listings(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -307,6 +310,7 @@ CREATE TABLE IF NOT EXISTS market_claims (
   delivered_at        DATETIME     DEFAULT NULL,
   INDEX idx_market_claim_recipient (recipient_steam_id, status),
   INDEX idx_market_claim_listing (listing_id),
+  INDEX idx_market_claims_status_expires (status, claim_expires_at),
   CONSTRAINT fk_market_claim_listing
     FOREIGN KEY (listing_id) REFERENCES market_listings(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -63,6 +63,17 @@ from db_diagnostics import (
     record_pool_timeout,
     set_request_context,
 )
+from db_pool import (
+    DEFAULT_DB_MAX_OVERFLOW,
+    DEFAULT_DB_POOL_RECYCLE,
+    DEFAULT_DB_POOL_SIZE,
+    DEFAULT_DB_POOL_TIMEOUT,
+    db_session as _db_session_cm,
+    release_before_external_io as _release_before_external_io,
+    resolve_pool_settings,
+)
+import ttl_cache as _ttl_cache
+from waitress_config import resolve_http_threads as _resolve_http_threads
 from request_diagnostics import (
     begin_request,
     finish_request,
@@ -104,6 +115,7 @@ from src.shop_integration import (  # noqa: E402
     looks_like_customshop_catalog,
     slugify_server_id,
     merge_catalog_into_plugin_config,
+    migrate_catalog_to_canonical,
     resolve_persistent_catalog_path,
     resolve_web_secret,
     webstore_data_dir,
@@ -214,7 +226,11 @@ def _audit_event(
 
     if not persist or not _db_ready() or _SessionLocal is None:
         return
-    db = _SessionLocal()
+    # Sessão independente do scoped_session do request/job.
+    # Usar _SessionLocal() + remove() no finally matava a sessão do caller
+    # (recover_stale, payment jobs, admin writes) a meio da transação.
+    maker = getattr(_SessionLocal, "session_factory", None)
+    db = maker() if callable(maker) else _SessionLocal()
     try:
         row = AuditEvent(
             event_type=event_type,
@@ -239,10 +255,16 @@ def _audit_event(
         db.add(row)
         db.commit()
     except Exception as exc:
-        db.rollback()
+        try:
+            db.rollback()
+        except Exception:
+            pass
         _log_error("audit_persist_failed", event_type=event_type, error=str(exc))
     finally:
-        _release_db_session(db)
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 def _audit_row_dict(row: AuditEvent) -> dict[str, Any]:
@@ -317,6 +339,11 @@ app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path
 CORS(app, origins=_CORS_ORIGINS, supports_credentials=True)
 
 try:
+    # Preferir catálogo canónico; migrar legado configs/config.json → catalog.json se preciso.
+    try:
+        migrate_catalog_to_canonical()
+    except Exception:
+        pass
     _DEFAULT_CONFIG_PATH = str(
         resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip())
     )
@@ -950,6 +977,7 @@ class MarketListing(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+        index=True,
     )
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tribe_split_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -965,7 +993,7 @@ class MarketTransaction(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     listing_id: Mapped[int] = mapped_column(Integer, index=True)
     buyer_steam_id: Mapped[str] = mapped_column(String(32), index=True)
-    seller_steam_id: Mapped[str] = mapped_column(String(32))
+    seller_steam_id: Mapped[str] = mapped_column(String(32), index=True)
     price_paid: Mapped[int] = mapped_column(Integer, default=0)
     base_value_at_sale: Mapped[int] = mapped_column(Integer, default=0)
     fee_amount: Mapped[int] = mapped_column(Integer, default=0)
@@ -975,7 +1003,7 @@ class MarketTransaction(Base):
     seller_points_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
     market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
 
@@ -1149,11 +1177,14 @@ class MarketAuditEvent(Base):
 
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
-# Pool >= Waitress threads (ARKSHOP_HTTP_THREADS default 32). Sem isso, 32 workers
-# competem por 15 conexões → QueuePool timeout → threads bloqueadas → fila HTTP.
-_DEFAULT_DB_POOL_SIZE = 32
-_DEFAULT_DB_MAX_OVERFLOW = 32  # headroom: workers bg + burst (total até 64)
-_DEFAULT_DB_POOL_RECYCLE = 280  # < MySQL wait_timeout=600 — evita stale no recycle
+# Fase 1: defaults em db_pool.py (pool_size=20, overflow=10, recycle=1800).
+# Waitress threads devem ficar ≤ pool_size (ideal 4–8 — outro agente).
+# PROIBIDO segurar sessão durante RCON/Steam/MP → _release_db_session(..., force=True)
+# ou helpers _db_session_cm / _release_before_external_io.
+_DEFAULT_DB_POOL_SIZE = DEFAULT_DB_POOL_SIZE
+_DEFAULT_DB_MAX_OVERFLOW = DEFAULT_DB_MAX_OVERFLOW
+_DEFAULT_DB_POOL_RECYCLE = DEFAULT_DB_POOL_RECYCLE
+_DEFAULT_DB_POOL_TIMEOUT = DEFAULT_DB_POOL_TIMEOUT
 
 _ENGINE: Any = None
 _SessionLocal: Any = None  # set by _configure_database(); None only before first DB config
@@ -1438,14 +1469,31 @@ def _mysql_index_exists(conn: Any, table: str, index_name: str) -> bool:
 
 
 _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
+    # Jogadores / contas web
     ("store_users", "ix_store_users_last_login_at", "(last_login_at)"),
     ("store_users", "ix_store_users_created_at", "(created_at)"),
+    # Pedidos / entregas pendentes
     ("orders", "ix_orders_original_order_id", "(original_order_id)"),
     ("orders", "ix_orders_steam_created", "(steam_id, created_at)"),
     ("orders", "ix_orders_steam_type_status", "(steam_id, item_type, status)"),
     ("orders", "ix_orders_status_created", "(status, created_at)"),
+    ("orders", "ix_orders_steam_status", "(steam_id, status)"),
+    # Pagamentos / doações
     ("point_payments", "ix_point_payments_steam_created", "(steam_id, created_at)"),
+    ("point_payments", "ix_point_payments_status_created", "(status, created_at)"),
+    # Mercado (listings / claims / txs)
     ("market_listings", "idx_market_listings_seller_status", "(seller_steam_id, status)"),
+    ("market_listings", "idx_market_listings_status_price", "(status, species_key, effective_price)"),
+    ("market_listings", "idx_market_listings_status_updated", "(status, updated_at)"),
+    ("market_claims", "idx_market_claims_recipient_status", "(recipient_steam_id, status)"),
+    ("market_claims", "idx_market_claims_status_expires", "(status, claim_expires_at)"),
+    ("market_transactions", "idx_market_tx_seller_created", "(seller_steam_id, created_at)"),
+    # Audit admin
+    ("audit_events", "idx_audit_events_type_created", "(event_type, created_at)"),
+    # Tribos (tabelas criadas por ensure_tribe_schema — skip se ausentes)
+    ("tribe_sync_requests", "ix_tribe_sync_req_steam_status", "(steam_id, status)"),
+    ("tribe_logs", "ix_tribe_logs_server_captured", "(server_id, captured_at)"),
+    ("tribe_join_requests", "ix_tribe_join_req_group_status", "(cluster_group_id, status)"),
 ]
 
 
@@ -2203,25 +2251,11 @@ def _configure_database_locked(normalized: str) -> None:
             ),
         }
 
-    pool_size = max(
-        5,
-        int(os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE)) or _DEFAULT_DB_POOL_SIZE),
-    )
-    max_overflow = max(
-        0,
-        int(
-            os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", str(_DEFAULT_DB_MAX_OVERFLOW))
-            or _DEFAULT_DB_MAX_OVERFLOW
-        ),
-    )
-    pool_timeout = max(2, int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5))
-    pool_recycle = max(
-        60,
-        int(
-            os.environ.get("ARKSHOP_DB_POOL_RECYCLE", str(_DEFAULT_DB_POOL_RECYCLE))
-            or _DEFAULT_DB_POOL_RECYCLE
-        ),
-    )
+    pool_cfg = resolve_pool_settings()
+    pool_size = pool_cfg["pool_size"]
+    max_overflow = pool_cfg["max_overflow"]
+    pool_recycle = pool_cfg["pool_recycle"]
+    pool_timeout = pool_cfg["pool_timeout"]
 
     engine = create_engine(
         normalized,
@@ -2430,6 +2464,8 @@ def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
     Por omissão só remove fora de request Flask (teardown cuida do fim do request).
     `force=True` libera MESMO durante request — obrigatório antes de I/O externo
     (Steam/RCON/HTTP) para não segurar conexão do pool 4–18s e provocar starvation.
+    Preferir `_release_before_external_io(_release_db_session, db)` ou
+    `with _db_session_cm(_SessionLocal, release=_release_db_session): ...`.
     """
     if _SessionLocal is None:
         return
@@ -2449,6 +2485,16 @@ def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
         _SessionLocal.remove()
     except Exception:
         pass
+
+
+def _short_db_session(*, commit: bool = False):
+    """Context manager: abrir → query → devolver ao pool (force release).
+
+    Usar em blocos curtos antes de RCON/Steam/MP. Ver db_pool.db_session.
+    """
+    if _SessionLocal is None:
+        raise RuntimeError("database not configured")
+    return _db_session_cm(_SessionLocal, release=_release_db_session, commit=commit)
 
 
 def _require_db():
@@ -2483,29 +2529,72 @@ _BOOT_SKIP_PREFIXES = ("/api/health", "/api/auth/me", "/static/", "/logo")
 
 _RUNTIME_WORKERS_STARTED = False
 _RUNTIME_WORKERS_LOCK = threading.Lock()
+_PENDING_STALE_SCHEDULER_OK = False
+
+
+def _ensure_pending_stale_scheduler() -> None:
+    """DeliverPending stale ~10s — idempotente; retenta falha de boot e thread morta.
+
+    Sempre chama ``start_pending_stale_scheduler`` (lock + is_alive lá dentro):
+    early-return só com flag OK deixava thread morta sem restart.
+    """
+    global _PENDING_STALE_SCHEDULER_OK
+    try:
+        from pending_jobs import (
+            is_pending_stale_scheduler_alive,
+            start_pending_stale_scheduler,
+        )
+
+        start_pending_stale_scheduler(interval_sec=10.0)
+        # Flag só True se a thread está viva — INLINE em prod era "OK" mentiroso.
+        _PENDING_STALE_SCHEDULER_OK = bool(is_pending_stale_scheduler_alive())
+    except Exception as exc:
+        _PENDING_STALE_SCHEDULER_OK = False
+        log.warning("pending_stale_scheduler start failed: %s", exc)
+
+
+def _ensure_catalog_feed_scheduler() -> None:
+    """Catalog feed — retenta se o 1.º boot falhou (start_* já é idempotente)."""
+    try:
+        from catalog_feed_service import start_catalog_feed_scheduler_if_needed
+
+        start_catalog_feed_scheduler_if_needed()
+    except Exception as exc:
+        log.warning("catalog_feed_scheduler start failed: %s", exc)
+
+
+def _ensure_tribe_log_poller() -> None:
+    """Tribe log poller — retenta se o 1.º boot falhou."""
+    try:
+        from tribe_log_poller import start_tribe_log_poller_if_needed
+
+        start_tribe_log_poller_if_needed()
+    except Exception as exc:
+        log.warning("tribe_log_poller start failed: %s", exc)
+
+
+def _ensure_secondary_runtime_workers() -> None:
+    """Workers que podem falhar no 1.º request — re-tentar em requests seguintes."""
+    _ensure_pending_stale_scheduler()
+    _ensure_catalog_feed_scheduler()
+    _ensure_tribe_log_poller()
 
 
 def _start_runtime_workers_once() -> None:
     """Schedulers/pollers — idempotente (evita trabalho repetido em todo request)."""
     global _RUNTIME_WORKERS_STARTED
     if _RUNTIME_WORKERS_STARTED:
+        # Retenta retry-scheduler se a thread morreu + secondary workers.
+        _initialize_scheduler_if_needed()
+        _ensure_secondary_runtime_workers()
         return
     with _RUNTIME_WORKERS_LOCK:
         if _RUNTIME_WORKERS_STARTED:
+            _initialize_scheduler_if_needed()
+            _ensure_secondary_runtime_workers()
             return
         _initialize_scheduler_if_needed()
-        try:
-            from catalog_feed_service import start_catalog_feed_scheduler_if_needed
-
-            start_catalog_feed_scheduler_if_needed()
-        except Exception:
-            pass
-        try:
-            from tribe_log_poller import start_tribe_log_poller_if_needed
-
-            start_tribe_log_poller_if_needed()
-        except Exception:
-            pass
+        _ensure_secondary_runtime_workers()
         _RUNTIME_WORKERS_STARTED = True
         _log("runtime_workers_started", pid=os.getpid())
 
@@ -2580,7 +2669,10 @@ def _teardown_db_session(_exc: BaseException | None = None) -> None:
                         _SessionLocal.rollback()
                 except Exception:
                     pass
-            _SessionLocal.remove()
+            # Testes por vezes monkeypatcham _SessionLocal com factory simples.
+            remove = getattr(_SessionLocal, "remove", None)
+            if callable(remove):
+                remove()
     finally:
         clear_request_context()
 
@@ -2668,6 +2760,9 @@ def _save_settings(data: Dict[str, Any]) -> None:
         if key in safe_data:
             safe_data[key] = _encrypt_value(str(safe_data[key]))
     _STATE_FILE.write_text(json.dumps(safe_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    # Fase 4 — configs sistema / status servidores (join_host, public_ip, …)
+    _ttl_cache.system_config.invalidate()
+    _ttl_cache.servers_status.invalidate()
 
 
 def _normalize_steam_id64(value: Any) -> str | None:
@@ -2940,6 +3035,7 @@ def _list_admin_players(
                 "su.created_at, su.last_login_at "
                 "FROM store_users su "
                 f"{players_join}"
+                f"{market_join_for_search}"
                 f"{where} "
                 f"ORDER BY {sort_col} {sort_dir}, su.steam_id ASC "
                 "LIMIT :lim OFFSET :off"
@@ -5091,8 +5187,9 @@ _PUBLIC_HOME_CACHE: dict[str, Any] = {
 }
 
 # Catálogo público (/api/catalog + parte partilhada do bootstrap) — enrich O(n) caro.
+# Fase 4: TTL default 15s (faixa 5–15); override via ARKSHOP_CATALOG_CACHE_TTL_SEC.
 _PUBLIC_CATALOG_CACHE_TTL_SEC = float(
-    os.environ.get("ARKSHOP_CATALOG_CACHE_TTL_SEC", "45") or 45
+    os.environ.get("ARKSHOP_CATALOG_CACHE_TTL_SEC", "15") or 15
 )
 _PUBLIC_CATALOG_STALE_MAX_SEC = float(
     os.environ.get("ARKSHOP_CATALOG_STALE_MAX_SEC", "180") or 180
@@ -5304,6 +5401,9 @@ def _invalidate_shop_config_cache() -> None:
     _TIMED_POINTS_AMOUNTS_CACHE.update({"fingerprint": "", "amounts": None})
     _invalidate_public_home_cache()
     _invalidate_public_catalog_cache()
+    # Fase 4 — caches curtos (produtos / config sistema)
+    _ttl_cache.products.invalidate()
+    _ttl_cache.system_config.invalidate()
 
 
 def _cache_shop_config_file(path: Path, data: dict[str, Any]) -> None:
@@ -7064,6 +7164,7 @@ def _save_servers(servers: list[Dict[str, Any]]) -> None:
             safe["rcon_password"] = _encrypt_value(str(safe["rcon_password"]))
         safe_servers.append(safe)
     _SERVERS_FILE.write_text(json.dumps(safe_servers, indent=2, ensure_ascii=False), encoding="utf-8")
+    _ttl_cache.servers_status.invalidate()
 
 
 def _get_server_settings(server_id: str) -> Dict[str, Any]:
@@ -7497,7 +7598,7 @@ def _auth_display_name_fields(
     *,
     db: Any | None = None,
 ) -> dict[str, Any]:
-    """Campos de /api/auth/me — só cache DB; Steam API em background (não bloqueia bootstrap)."""
+    """Campos de /api/auth/me — usa cache DB e tenta resolver Steam API se faltar persona."""
     persona: str | None = None
     owns_session = db is None and _db_ready()
     if owns_session:
@@ -7506,9 +7607,19 @@ def _auth_display_name_fields(
         if db is not None:
             row = db.get(StoreUser, steam_id)
             cached = (row.steam_persona if row else None)
+            if cached and cached.strip() and cached.strip() != steam_id:
+                if not is_admin:
+                    prof = _safe_market_profile(db, steam_id)
+                    if prof is not None:
+                        market_name = str(prof.market_display_name or "").strip()
+                        if market_name and market_name == cached.strip():
+                            cached = None
             persona = _steam_persona_label(steam_id, cached)
             if not persona:
-                _schedule_steam_persona_backfill([steam_id])
+                if _steam_api_key_configured():
+                    persona = _refresh_steam_persona(steam_id)
+                if not persona:
+                    _schedule_steam_persona_backfill([steam_id])
     finally:
         if owns_session:
             _release_db_session(db)
@@ -7982,52 +8093,103 @@ def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> di
     return base
 
 
+def _tribe_sync_rcon_one(srv: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    """Shop.TribeSync num mapa (usado em paralelo pelo fan-out)."""
+    sid = str(srv.get("server_id") or "server")
+    label = str(srv.get("label") or sid)
+    port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
+    password = sanitize_rcon_password(
+        str(srv.get("rcon_password") or settings.get("rcon_password") or "")
+    )
+    if not password:
+        return {
+            "server_id": sid,
+            "label": label,
+            "ok": False,
+            "error": "senha RCON não configurada",
+        }
+    last_err = ""
+    for host in _rcon_hosts_to_try(srv, settings):
+        try:
+            resp = _rcon_command(
+                host, port, password, "Shop.TribeSync", connect_retries=2,
+            )
+            return {
+                "server_id": sid,
+                "label": label,
+                "ok": True,
+                "host": host,
+                "response": (resp or "")[:200],
+            }
+        except Exception as exc:
+            last_err = f"{host}:{port}: {exc}"
+    return {
+        "server_id": sid,
+        "label": label,
+        "ok": False,
+        "error": last_err or "falha RCON",
+    }
+
+
 def _trigger_tribe_sync_rcon_all() -> list[dict[str, Any]]:
-    """Dispara Shop.TribeSync via RCON em todos os mapas (presença Minha Tribo)."""
+    """Dispara Shop.TribeSync via RCON em todos os mapas (paralelo, multi-host)."""
     settings = _load_settings()
     targets = _resolve_rcon_reload_targets(settings)
+    if not targets:
+        return []
+    if len(targets) == 1:
+        return [_tribe_sync_rcon_one(targets[0], settings)]
+
     results: list[dict[str, Any]] = []
-    for srv in targets:
-        sid = str(srv.get("server_id") or "server")
-        label = str(srv.get("label") or sid)
-        port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
-        password = sanitize_rcon_password(
-            str(srv.get("rcon_password") or settings.get("rcon_password") or "")
-        )
-        if not password:
-            results.append({
-                "server_id": sid,
-                "label": label,
-                "ok": False,
-                "error": "senha RCON não configurada",
-            })
-            continue
-        last_err = ""
-        sent = False
-        for host in _rcon_hosts_to_try(srv, settings):
+    max_workers = min(8, max(1, len(targets)))
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="tribe-sync") as pool:
+        futures = {
+            pool.submit(_tribe_sync_rcon_one, srv, settings): srv
+            for srv in targets
+        }
+        for fut in as_completed(futures):
             try:
-                resp = _rcon_command(
-                    host, port, password, "Shop.TribeSync", connect_retries=2,
-                )
-                results.append({
-                    "server_id": sid,
-                    "label": label,
-                    "ok": True,
-                    "host": host,
-                    "response": (resp or "")[:200],
-                })
-                sent = True
-                break
+                results.append(fut.result())
             except Exception as exc:
-                last_err = f"{host}:{port}: {exc}"
-        if not sent:
-            results.append({
-                "server_id": sid,
-                "label": label,
-                "ok": False,
-                "error": last_err or "falha RCON",
-            })
+                srv = futures[fut]
+                results.append({
+                    "server_id": str(srv.get("server_id") or "?"),
+                    "label": str(srv.get("label") or "?"),
+                    "ok": False,
+                    "error": str(exc),
+                })
+    results.sort(key=lambda r: str(r.get("label") or r.get("server_id") or ""))
     return results
+
+
+def _enqueue_tribe_sync_rcon() -> list[dict[str, Any]]:
+    """Agenda TribeSync RCON em background — request HTTP não espera mapas offline."""
+    from background_tasks import submit as _bg_submit
+
+    queued = _bg_submit(
+        _trigger_tribe_sync_rcon_all,
+        dedupe_key="tribe-sync-rcon-all",
+        name="tribe-sync-rcon",
+    )
+    return [{"ok": True, "queued": bool(queued), "label": "Shop.TribeSync (background)"}]
+
+
+def _enqueue_shop_reload(settings: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Agenda Shop.Reload multi-mapa em background."""
+    from background_tasks import submit as _bg_submit
+
+    s = settings if settings is not None else _load_settings()
+
+    def _job() -> None:
+        try:
+            results = _reload_all_plugins(s)
+            ok_n = sum(1 for r in results if r.get("ok"))
+            _log("shop_reload_bg", ok=ok_n, total=len(results))
+        except Exception as exc:
+            _log_error("shop_reload_bg", error=str(exc))
+
+    queued = _bg_submit(_job, dedupe_key="shop-reload-all", name="shop-reload")
+    return [{"ok": True, "queued": bool(queued), "label": "Shop.Reload (background)"}]
 
 
 def _reload_all_plugins(settings: dict[str, Any]) -> list[dict[str, Any]]:
@@ -8125,6 +8287,10 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
         db.add(order)
         db.commit()
         db.refresh(order)
+        try:
+            db.expunge(order)
+        except Exception:
+            pass
         _invalidate_pending_delivery_cache(steam_id)
         _log("order_created", order_id=order.order_id, steam_id=steam_id, item_id=item_id, amount=amount, server_id=order.server_id)
         return order, None
@@ -8418,6 +8584,7 @@ _SCHEDULER_INITIALIZED = False
 
 
 def _start_scheduler() -> None:
+    """Arranca (ou re-arranca) a thread arkshop-retry se não estiver viva."""
     global _scheduler_thread
     if _scheduler_thread is not None and _scheduler_thread.is_alive():
         return
@@ -8427,11 +8594,20 @@ def _start_scheduler() -> None:
 
 
 def _initialize_scheduler_if_needed() -> None:
+    """Idempotente; retenta se a thread morreu (mesmo padrão de pending_stale)."""
     global _SCHEDULER_INITIALIZED
-    if _SCHEDULER_INITIALIZED:
+    if (
+        _SCHEDULER_INITIALIZED
+        and _scheduler_thread is not None
+        and _scheduler_thread.is_alive()
+    ):
         return
     with _SCHEDULER_INIT_LOCK:
-        if _SCHEDULER_INITIALIZED:
+        if (
+            _SCHEDULER_INITIALIZED
+            and _scheduler_thread is not None
+            and _scheduler_thread.is_alive()
+        ):
             return
         _start_scheduler()
         _SCHEDULER_INITIALIZED = True
@@ -8634,6 +8810,10 @@ def recover_stale_entregando_shop_orders(
     if recovered <= 0:
         return 0
 
+    # Commit ANTES do audit / force-release: sem isto o UPDATE era rollback
+    # no finally do caller (pending_jobs usa force=True → rollback).
+    db.commit()
+
     _invalidate_pending_delivery_cache(sid)
     _log(
         "shop_stale_entregando_recovered",
@@ -8662,6 +8842,56 @@ def recover_stale_entregando_shop_orders(
     return recovered
 
 
+def _pending_stale_scheduler_healthy() -> bool:
+    """True se o recover ENTREGANDO periódico está de facto a correr."""
+    if not _PENDING_STALE_SCHEDULER_OK:
+        return False
+    try:
+        from pending_jobs import is_pending_stale_scheduler_alive
+
+        return bool(is_pending_stale_scheduler_alive())
+    except Exception:
+        return False
+
+
+def _maybe_recover_stale_on_claim(db: Any, steam_id: str) -> int:
+    """Safety net: se o scheduler ~10s estiver morto, recover neste claim.
+
+    Hot path feliz (scheduler vivo) NÃO chama recover — evita trabalho extra
+    em cada poll do plugin. Chicken-egg / INLINE / crash da thread → recupera.
+    """
+    if _pending_stale_scheduler_healthy():
+        return 0
+    try:
+        n = int(recover_stale_entregando_shop_orders(db, steam_id) or 0)
+        if n:
+            _log(
+                "shop_stale_entregando_claim_fallback",
+                severity="warning",
+                steam_id=steam_id,
+                recovered=n,
+            )
+        return n
+    except Exception as exc:
+        _log_error("claim_stale_fallback", steam_id=steam_id, error=str(exc))
+        return 0
+
+
+def _has_entregando_shop_orders(db: Any, steam_id: str) -> bool:
+    """True se há ENTREGANDO (não custom_dino) — fila 'vazia' de PENDENTE é mentirosa."""
+    try:
+        row = db.execute(
+            text(
+                "SELECT 1 FROM orders WHERE steam_id = :sid AND status = 'ENTREGANDO' "
+                "AND item_type != 'custom_dino' LIMIT 1"
+            ),
+            {"sid": str(steam_id)},
+        ).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
 @app.route("/api/pending/claim", methods=["POST"])
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
@@ -8685,7 +8915,13 @@ def claim_pending_orders():
         if isinstance(raw_ids, list) and raw_ids
         else None
     )
-    if not targets_pre and _pending_empty_cache_hit(steam_id):
+    # Empty-cache só é seguro se o scheduler de stale está vivo — senão
+    # ENTREGANDO órfão ficava escondido para sempre (claim nunca via DB).
+    if (
+        not targets_pre
+        and _pending_empty_cache_hit(steam_id)
+        and _pending_stale_scheduler_healthy()
+    ):
         _record_public_cache_metric("pending_empty_hits")
         resp = _pending_items_json([])
         resp.headers["X-Pending-Cache"] = "EMPTY"
@@ -8697,7 +8933,8 @@ def claim_pending_orders():
     claimed: list[dict[str, Any]] = []
     deferred_perm_syncs: list[dict[str, Any]] = []
     try:
-        recover_stale_entregando_shop_orders(db, steam_id)
+        # recover_stale: scheduler ~10s; fallback no claim se scheduler morto.
+        _maybe_recover_stale_on_claim(db, steam_id)
         targets = targets_pre
         q = db.query(Order).options(
             load_only(
@@ -8738,6 +8975,9 @@ def claim_pending_orders():
             claimed.append(_order_to_pending_item(order))
         db.commit()
         if claimed:
+            _invalidate_pending_delivery_cache(steam_id)
+        elif _has_entregando_shop_orders(db, steam_id):
+            # Há ENTREGANDO: NÃO cachear "vazio" — senão esconde recover futuro.
             _invalidate_pending_delivery_cache(steam_id)
         else:
             _mark_pending_empty_cached(steam_id)
@@ -9275,24 +9515,19 @@ def admin_diagnostics_database():
         active_url=_ACTIVE_DATABASE_URL,
         connect_args=_DB_CONNECT_ARGS or None,
     )
+    pool_cfg = resolve_pool_settings()
+    http_cfg = _resolve_http_threads(pool_size=pool_cfg["pool_size"])
     result["config"] = {
-        "pool_size": int(
-            os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE))
-            or _DEFAULT_DB_POOL_SIZE
-        ),
-        "max_overflow": int(
-            os.environ.get("ARKSHOP_DB_MAX_OVERFLOW", str(_DEFAULT_DB_MAX_OVERFLOW))
-            or _DEFAULT_DB_MAX_OVERFLOW
-        ),
-        "pool_timeout": int(os.environ.get("ARKSHOP_DB_POOL_TIMEOUT", "5") or 5),
-        "pool_recycle": int(
-            os.environ.get("ARKSHOP_DB_POOL_RECYCLE", str(_DEFAULT_DB_POOL_RECYCLE))
-            or _DEFAULT_DB_POOL_RECYCLE
-        ),
+        "pool_size": pool_cfg["pool_size"],
+        "max_overflow": pool_cfg["max_overflow"],
+        "pool_timeout": pool_cfg["pool_timeout"],
+        "pool_recycle": pool_cfg["pool_recycle"],
         "read_timeout": _DB_CONNECT_ARGS.get("read_timeout"),
         "write_timeout": _DB_CONNECT_ARGS.get("write_timeout"),
         "connect_timeout": _DB_CONNECT_ARGS.get("connect_timeout"),
-        "http_threads": max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32)),
+        "http_threads": http_cfg["threads"],
+        "http_threads_source": http_cfg["source"],
+        "http_workers_formula": http_cfg["workers_formula"],
     }
     return jsonify(result)
 
@@ -9377,6 +9612,13 @@ def auth_me():
 @app.route("/api/settings", methods=["GET"])
 @admin_required
 def get_settings():
+    """Configs do sistema — cache curto 5–15s (Fase 4). Sem DB no path típico."""
+    cached = _ttl_cache.system_config.get("settings")
+    if cached is not None:
+        resp = jsonify(cached)
+        resp.headers["X-Short-Cache"] = "HIT"
+        return resp
+
     s = _load_settings()
     safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
@@ -9398,7 +9640,10 @@ def get_settings():
     safe["point_packages"] = _load_point_packages()
     safe["db_configured"] = _db_ready()
     safe["db_from_env"] = bool(_DATABASE_URL)
-    return jsonify(safe)
+    _ttl_cache.system_config.set("settings", safe)
+    resp = jsonify(safe)
+    resp.headers["X-Short-Cache"] = "MISS"
+    return resp
 
 
 @app.route("/api/settings", methods=["POST"])
@@ -9526,13 +9771,24 @@ def save_settings():
 @app.route("/api/servers", methods=["GET"])
 @admin_required
 def get_servers():
+    """Lista servidores — cache curto 5–15s (Fase 4)."""
+    cached = _ttl_cache.servers_status.get("list")
+    if cached is not None:
+        resp = jsonify(cached)
+        resp.headers["X-Short-Cache"] = "HIT"
+        return resp
+
     servers = _load_servers()
     safe = []
     for s in servers:
         entry = {k: v for k, v in s.items() if k not in ("rcon_password",)}
         entry["rcon_password_set"] = bool(s.get("rcon_password"))
         safe.append(entry)
-    return jsonify({"ok": True, "items": safe})
+    payload = {"ok": True, "items": safe}
+    _ttl_cache.servers_status.set("list", payload)
+    resp = jsonify(payload)
+    resp.headers["X-Short-Cache"] = "MISS"
+    return resp
 
 
 @app.route("/api/servers", methods=["POST"])
@@ -9620,12 +9876,18 @@ def delete_server(server_id: str):
 @app.route("/api/servers/connect-status", methods=["GET"])
 @admin_required
 def servers_connect_status():
-    """Diagnóstico admin: por que cada servidor pode ou não exibir botões Jogar/Copiar IP."""
+    """Diagnóstico admin: botões Jogar/Copiar IP — cache curto 5–15s (Fase 4)."""
+    cached = _ttl_cache.servers_status.get("connect_status")
+    if cached is not None:
+        resp = jsonify(cached)
+        resp.headers["X-Short-Cache"] = "HIT"
+        return resp
+
     settings = _load_settings()
     items = [diagnose_server_connect(srv, settings) for srv in _load_servers()]
     visible = sum(1 for i in items if i.get("show_on_home"))
     connectable = sum(1 for i in items if i.get("can_connect"))
-    return jsonify({
+    payload = {
         "ok": True,
         "summary": {
             "total": len(items),
@@ -9635,7 +9897,11 @@ def servers_connect_status():
             "settings_public_ip": str(settings.get("public_ip") or ""),
         },
         "items": items,
-    })
+    }
+    _ttl_cache.servers_status.set("connect_status", payload)
+    resp = jsonify(payload)
+    resp.headers["X-Short-Cache"] = "MISS"
+    return resp
 
 
 @app.route("/api/servers/sync", methods=["POST"])
@@ -9946,9 +10212,15 @@ def _heal_empty_shop_config_path(preferred: Path) -> tuple[Path, dict[str, Any] 
 def get_config():
     """Config admin (itens/kits) — ficheiro JSON, zero MySQL no path.
 
-    Nunca devolve ShopItems/Kits vazios em silêncio quando existe fonte recuperável.
+    Cache curto 5–15s (Fase 4). Nunca devolve ShopItems/Kits vazios em silêncio
+    quando existe fonte recuperável.
     """
     t0 = time.perf_counter()
+    cached = _ttl_cache.system_config.get("shop_config")
+    if cached is not None:
+        resp = jsonify(cached)
+        resp.headers["X-Short-Cache"] = "HIT"
+        return resp
     try:
         healed_path, raw, note = _resolve_shop_catalog(persist_healed_path=True)
         data = _normalize_config_to_web(dict(raw or {}))
@@ -9972,13 +10244,22 @@ def get_config():
                 note=note,
             )
             # 200 + error: UI lê a mensagem; não fingir catálogo vazio «válido».
+            # Não cachear estados de erro/recuperação.
             return jsonify(data)
         if note:
             data["_config_healed"] = note
             _log("get_config_healed", path=str(healed_path), note=note, items=items_n, kits=kits_n)
         data["ok"] = True
         data["_timing_ms"] = int((time.perf_counter() - t0) * 1000)
-        return jsonify(data)
+        _ttl_cache.system_config.set("shop_config", data)
+        _ttl_cache.products.set("admin_config_counts", {
+            "items": items_n,
+            "kits": kits_n,
+            "path": str(healed_path),
+        })
+        resp = jsonify(data)
+        resp.headers["X-Short-Cache"] = "MISS"
+        return resp
     except Exception as exc:
         _log_error("get_config", error=str(exc))
         return jsonify({"error": str(exc), "ShopItems": {}, "Kits": {}}), 500
@@ -10024,13 +10305,11 @@ def save_config():
     reload_results: list[dict[str, Any]] = []
     if do_reload:
         try:
-            reload_results = _reload_all_plugins(s)
-            ok_n = sum(1 for r in reload_results if r.get("ok"))
+            reload_results = _enqueue_shop_reload(s)
             _log(
-                "config_reload_rcon",
+                "config_reload_rcon_queued",
                 admin=_steam_id_from_session(),
-                ok=ok_n,
-                total=len(reload_results),
+                queued=True,
             )
         except Exception as exc:
             reload_results = [{"ok": False, "error": str(exc), "label": "reload"}]
@@ -10231,7 +10510,7 @@ def admin_catalog_import():
                     m.get("path") or ""
                 )
 
-            reload_results = _reload_all_plugins(s)
+            reload_results = _enqueue_shop_reload(s)
             for r in reload_results:
                 sid = str(r.get("server_id") or "")
                 if not r.get("plugin_config_path") and sid in path_by_sid:
@@ -11107,7 +11386,8 @@ def _catalog_fingerprint(catalog: dict) -> str:
 def get_catalog():
     """Retorna catálogo público (itens, kits, pacotes de doação).
 
-    Cache in-memory TTL ~45s + SWR — evita enrich O(n) repetido sob fila Waitress.
+    Cache in-memory TTL ~15s (Fase 4, faixa 5–15) + SWR — evita enrich O(n)
+    repetido sob fila Waitress. Lista de produtos da loja.
     """
     t0 = time.perf_counter()
     catalog, cache_status = _get_cached_catalog_payload()
@@ -11812,10 +12092,10 @@ def rcon_reload():
         except Exception as exc:
             results = [{"server_id": server_id, "label": label, "ok": False, "error": str(exc)}]
     else:
-        results = _reload_all_plugins(s)
+        results = _enqueue_shop_reload(s)
     ok_count = sum(1 for r in results if r.get("ok"))
     all_ok = ok_count == len(results) and bool(results)
-    _log("rcon_reload", admin=_steam_id_from_session(), ok=ok_count, total=len(results))
+    _log("rcon_reload", admin=_steam_id_from_session(), ok=ok_count, total=len(results), queued=any(r.get("queued") for r in results))
     return jsonify({
         "ok": all_ok or ok_count > 0,
         "results": results,
@@ -12541,13 +12821,28 @@ def player_available():
     try:
         pending_rows = (
             db.query(Order)
+            .options(
+                load_only(
+                    Order.order_id,
+                    Order.item_type,
+                    Order.item_id,
+                    Order.amount,
+                    Order.status,
+                    Order.last_error,
+                    Order.retry_count,
+                    Order.points_spent,
+                    Order.original_order_id,
+                    Order.created_at,
+                    Order.steam_id,
+                )
+            )
             .filter(
                 Order.steam_id == steam_id,
                 Order.status.in_(("PENDENTE", "ENTREGANDO", "ERRO")),
                 Order.item_type != "custom_dino",
             )
             .order_by(Order.created_at.desc())
-            .limit(100)
+            .limit(50)
             .all()
         )
         pending = []
@@ -13035,10 +13330,21 @@ def _pix_mp_poll_allowed(payment_id: str) -> bool:
 @login_required
 @limiter.limit("20 per minute; 300 per hour", override_defaults=True)
 def player_pix_status(payment_id: str):
+    """Status PIX — tempo-real; NÃO cachear (Fase 4). Confirmação MP em background."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
     mp_id_hint = str(request.args.get("mp_id", "")).strip()
+
+    poll_error = None
+    mp_poll_queued = False
+    needs_mp_poll = False
+    mp_payment_id = None
+    already_credited = False
+    resp_status = "PENDENTE"
+    resp_credited = False
+    resp_points = 0
+    new_balance = None
 
     db = _SessionLocal()
     try:
@@ -13058,68 +13364,52 @@ def player_pix_status(payment_id: str):
         needs_mp_poll = _payment_needs_mp_poll(payment)
         mp_payment_id = payment.mp_payment_id
         already_credited = bool(payment.credited)
-    finally:
-        _release_db_session(db, force=True)
-
-    poll_error = None
-    mp_status_raw = None
-    if needs_mp_poll and not already_credited:
-        token = _get_mp_access_token()
-        if not token:
-            poll_error = "Access Token do Mercado Pago não configurado"
-        elif _pix_mp_poll_allowed(payment_id):
-            try:
-                mp_resp = fetch_payment(
-                    token, str(mp_payment_id), timeout=_PIX_MP_POLL_TIMEOUT,
-                )
-                mp_status_raw = str(mp_resp.get("status", "") or "")
-            except PixPaymentError as exc:
-                poll_error = str(exc)
-                _log_error("pix_status_poll", payment_id=payment_id, error=poll_error)
-
-    db = _SessionLocal()
-    try:
-        payment = db.query(PointPayment).filter(
-            PointPayment.payment_id == payment_id,
-            PointPayment.steam_id == steam_id,
-        ).first()
-        if not payment:
-            return jsonify({"ok": False, "error": "Doação não encontrada"}), 404
 
         if needs_retry_credit:
             try:
                 _finalize_pix_payment(db, payment, "approved")
                 db.commit()
+                db.refresh(payment)
             except Exception as exc:
                 db.rollback()
                 poll_error = str(exc)
                 _log_error("pix_status_retry_credit", payment_id=payment_id, error=poll_error)
-        elif mp_status_raw is not None:
-            try:
-                _finalize_pix_payment(db, payment, mp_status_raw)
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                poll_error = str(exc)
-                _log_error("pix_status_finalize", payment_id=payment_id, error=poll_error)
 
-        db.refresh(payment)
         resp_status = payment.status
-        resp_credited = payment.credited
+        resp_credited = bool(payment.credited)
         resp_points = payment.points
-        new_balance = _get_player_points(steam_id) if resp_credited else None
-        return jsonify({
-            "ok": True,
-            "payment_id": payment.payment_id,
-            "status": resp_status,
-            "credited": resp_credited,
-            "points": resp_points,
-            "new_balance": new_balance,
-            "mp_status": mp_status_raw,
-            "poll_error": poll_error,
-        })
+        new_balance = _get_player_points(steam_id, db=db) if resp_credited else None
     finally:
-        _release_db_session(db)
+        _release_db_session(db, force=True)
+
+    if needs_mp_poll and not already_credited and not resp_credited:
+        token = _get_mp_access_token()
+        if not token:
+            poll_error = "Access Token do Mercado Pago não configurado"
+        elif mp_payment_id and _pix_mp_poll_allowed(payment_id):
+            try:
+                from payment_jobs import enqueue_mp_payment_confirm
+
+                mp_poll_queued = enqueue_mp_payment_confirm(
+                    mp_payment_id=str(mp_payment_id),
+                    payment_id=payment_id,
+                    source="status_poll",
+                )
+            except Exception as exc:
+                poll_error = str(exc)
+                _log_error("pix_status_enqueue", payment_id=payment_id, error=poll_error)
+
+    return jsonify({
+        "ok": True,
+        "payment_id": payment_id,
+        "status": resp_status,
+        "credited": resp_credited,
+        "points": resp_points,
+        "new_balance": new_balance,
+        "mp_status": None,
+        "mp_poll_queued": bool(mp_poll_queued),
+        "poll_error": poll_error,
+    })
 
 
 @app.route("/api/player/pix/<payment_id>/abandon", methods=["POST"])
@@ -13175,7 +13465,7 @@ def player_pix_abandon(payment_id: str):
 @app.route("/api/payments/webhook", methods=["GET", "POST"])
 @limiter.limit("120 per hour")
 def payments_webhook():
-    """Webhook Mercado Pago — confirma PIX/cartão e credita pontos."""
+    """Webhook Mercado Pago — ACK imediato; fetch+crédito em background."""
     if request.method == "GET":
         # Validação de URL no painel MP ou IPN legado (?topic=payment&id=)
         return jsonify({"ok": True}), 200
@@ -13213,46 +13503,17 @@ def payments_webhook():
         return jsonify({"ok": False, "error": "Pagamentos não configurados"}), 503
 
     try:
-        mp_resp = fetch_payment(token, mp_id, timeout=_MP_WEBHOOK_FETCH_TIMEOUT)
-    except PixPaymentError as exc:
-        log.warning("webhook fetch_payment falhou mp_id=%s: %s", mp_id, exc)
-        return jsonify({"ok": False, "error": str(exc)}), 502
+        from payment_jobs import enqueue_mp_payment_confirm
 
-    external_ref = str(mp_resp.get("external_reference") or "").strip()
-    db = _SessionLocal()
-    try:
-        payment = None
-        if external_ref:
-            payment = db.query(PointPayment).filter(PointPayment.payment_id == external_ref).first()
-        if not payment:
-            payment = db.query(PointPayment).filter(PointPayment.mp_payment_id == mp_id).first()
-        if not payment:
-            return jsonify({"ok": True, "ignored": True})
-
-        payment_id_out = payment.payment_id
-        needs_mp = not payment.mp_payment_id
-        db.expunge(payment)
-        if needs_mp:
-            db.query(PointPayment).filter(PointPayment.payment_id == payment_id_out).update(
-                {PointPayment.mp_payment_id: mp_id, PointPayment.updated_at: _now()},
-                synchronize_session=False,
-            )
-        pay_row = db.query(PointPayment).filter(PointPayment.payment_id == payment_id_out).first()
-        if not pay_row:
-            return jsonify({"ok": True, "ignored": True})
-        _finalize_pix_payment(db, pay_row, str(mp_resp.get("status", "")), source="webhook")
-        db.commit()
-        row = db.query(PointPayment).filter(PointPayment.payment_id == payment_id_out).first()
-        return jsonify({
-            "ok": True,
-            "payment_id": payment_id_out,
-            "status": row.status if row else "PENDENTE",
-        })
+        queued = enqueue_mp_payment_confirm(
+            mp_payment_id=mp_id,
+            source="webhook",
+        )
     except Exception as exc:
-        db.rollback()
+        log.warning("webhook enqueue falhou mp_id=%s: %s", mp_id, exc)
         return jsonify({"ok": False, "error": str(exc)}), 500
-    finally:
-        _release_db_session(db)
+
+    return jsonify({"ok": True, "queued": bool(queued), "mp_payment_id": mp_id})
 
 
 @app.route("/api/player/summary", methods=["GET"])
@@ -13477,8 +13738,8 @@ def player_history():
                         "retry_count": r.retry_count,
                         "last_error": r.last_error,
                         "contested": r.contested,
-                        "created_at": r.created_at.isoformat() if r.created_at else None,
-                        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                        "created_at": _dt_iso(r.created_at),
+                        "updated_at": _dt_iso(r.updated_at),
                     }
                     for r in rows
                 ],
@@ -13526,8 +13787,8 @@ def player_donations():
                     "status": r.status,
                     "credited": r.credited,
                     "payment_method": str(getattr(r, "payment_method", "") or "pix").lower(),
-                    "created_at": r.created_at.isoformat() if r.created_at else None,
-                    "credited_at": r.updated_at.isoformat() if r.credited and r.updated_at else None,
+                    "created_at": _dt_iso(r.created_at),
+                    "credited_at": _dt_iso(r.updated_at) if r.credited else None,
                 }
                 for r in rows
             ],
@@ -14181,7 +14442,16 @@ def admin_retry_pending():
         _release_db_session(db)
 
     _log("admin_retry", count=len(order_ids), admin=_steam_id_from_session())
-    processed = [_process_order_delivery(order_id) for order_id in order_ids]
+    processed: list[dict[str, Any]] = []
+    if order_ids:
+        max_workers = min(4, len(order_ids))
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="admin-retry") as pool:
+            futs = [pool.submit(_process_order_delivery, oid) for oid in order_ids]
+            for fut in as_completed(futs):
+                try:
+                    processed.append(fut.result())
+                except Exception as exc:
+                    processed.append({"ok": False, "error": str(exc)})
     return jsonify({"ok": True, "count": len(processed), "items": processed})
 
 
@@ -14815,12 +15085,32 @@ def admin_pix_audit():
     steam_id = str(request.args.get("steam_id", "")).strip()
     payment_id = str(request.args.get("payment_id", "")).strip()
     q = str(request.args.get("q", "")).strip().lower()
-    limit = max(1, min(200, int(request.args.get("limit", 10))))
+    # Hot path: 20–50; max 100. Sem pix_qr/copy_paste (TEXT grande).
+    limit = max(1, min(100, int(request.args.get("limit", 25))))
     offset = max(0, int(request.args.get("offset", 0)))
+    include_total_arg = str(request.args.get("include_total", "")).strip().lower()
+    include_stats_arg = str(request.args.get("include_stats", "1")).strip().lower()
+    want_total = include_total_arg not in ("0", "false", "no", "off")
+    want_stats = include_stats_arg not in ("0", "false", "no", "off")
 
     db = _SessionLocal()
     try:
-        query = db.query(PointPayment)
+        query = db.query(PointPayment).options(
+            load_only(
+                PointPayment.payment_id,
+                PointPayment.mp_payment_id,
+                PointPayment.steam_id,
+                PointPayment.package_id,
+                PointPayment.amount_brl,
+                PointPayment.points,
+                PointPayment.status,
+                PointPayment.credited,
+                PointPayment.payer_email,
+                PointPayment.payment_method,
+                PointPayment.created_at,
+                PointPayment.updated_at,
+            )
+        )
         if status:
             if status == "CONCLUIDA":
                 query = query.filter(PointPayment.credited.is_(True))
@@ -14851,32 +15141,52 @@ def admin_pix_audit():
                 | (PointPayment.payer_email.ilike(f"%{q}%"))
             )
 
-        total = query.count()
-        rows = query.order_by(PointPayment.created_at.desc()).offset(offset).limit(limit).all()
+        rows = (
+            query.order_by(PointPayment.created_at.desc())
+            .offset(offset)
+            .limit(limit + 1)
+            .all()
+        )
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        total: int | None = int(query.count()) if want_total else None
 
-        base = db.query(PointPayment)
-        stats = {
-            "total": base.count(),
-            "concluidas": base.filter(PointPayment.credited.is_(True)).count(),
-            "pendentes": base.filter(
-                PointPayment.status == "PENDENTE",
-                PointPayment.credited.is_(False),
-            ).count(),
-            "abandonadas": base.filter(PointPayment.status == "ABANDONADO").count(),
-            "recusadas": base.filter(PointPayment.status == "RECUSADO").count(),
-            "expiradas": base.filter(PointPayment.status == "EXPIRADO").count(),
-            "estornadas": base.filter(PointPayment.status == "ESTORNADO").count(),
-            "aprovadas_sem_credito": base.filter(
-                PointPayment.status == "APROVADO",
-                PointPayment.credited.is_(False),
-            ).count(),
-        }
+        stats: dict[str, int] | None = None
+        if want_stats:
+            # 1 agregação em vez de 8 COUNT(*) separados.
+            stats_row = db.execute(
+                text(
+                    "SELECT COUNT(*) AS total, "
+                    "SUM(CASE WHEN credited THEN 1 ELSE 0 END) AS concluidas, "
+                    "SUM(CASE WHEN status = 'PENDENTE' AND NOT credited THEN 1 ELSE 0 END) AS pendentes, "
+                    "SUM(CASE WHEN status = 'ABANDONADO' THEN 1 ELSE 0 END) AS abandonadas, "
+                    "SUM(CASE WHEN status = 'RECUSADO' THEN 1 ELSE 0 END) AS recusadas, "
+                    "SUM(CASE WHEN status = 'EXPIRADO' THEN 1 ELSE 0 END) AS expiradas, "
+                    "SUM(CASE WHEN status = 'ESTORNADO' THEN 1 ELSE 0 END) AS estornadas, "
+                    "SUM(CASE WHEN status = 'APROVADO' AND NOT credited THEN 1 ELSE 0 END) "
+                    "AS aprovadas_sem_credito "
+                    "FROM point_payments"
+                )
+            ).fetchone()
+            stats = {
+                "total": int(stats_row[0] or 0) if stats_row else 0,
+                "concluidas": int(stats_row[1] or 0) if stats_row else 0,
+                "pendentes": int(stats_row[2] or 0) if stats_row else 0,
+                "abandonadas": int(stats_row[3] or 0) if stats_row else 0,
+                "recusadas": int(stats_row[4] or 0) if stats_row else 0,
+                "expiradas": int(stats_row[5] or 0) if stats_row else 0,
+                "estornadas": int(stats_row[6] or 0) if stats_row else 0,
+                "aprovadas_sem_credito": int(stats_row[7] or 0) if stats_row else 0,
+            }
 
         return jsonify({
             "ok": True,
             "total": total,
+            "has_more": has_more,
+            "limit": limit,
+            "offset": offset,
             "stats": stats,
-            "items": [_pix_payment_row_dict(r) for r in rows],
+            "items": [_pix_payment_row_dict(r) for r in page_rows],
         })
     except Exception as exc:
         _log_error("admin_pix_audit", error=str(exc))
@@ -14896,12 +15206,33 @@ def admin_list_audit():
     order_id = str(request.args.get("order_id", "")).strip()
     admin_steam_id = str(request.args.get("admin_steam_id", "")).strip()
     q = str(request.args.get("q", "")).strip().lower()
-    limit = max(1, min(200, int(request.args.get("limit", 10))))
+    limit = max(1, min(100, int(request.args.get("limit", 25))))
     offset = max(0, int(request.args.get("offset", 0)))
+    include_total_arg = str(request.args.get("include_total", "")).strip().lower()
+    want_total = include_total_arg not in ("0", "false", "no", "off")
 
     db = _SessionLocal()
     try:
-        query = db.query(AuditEvent)
+        query = db.query(AuditEvent).options(
+            load_only(
+                AuditEvent.id,
+                AuditEvent.event_type,
+                AuditEvent.severity,
+                AuditEvent.source,
+                AuditEvent.actor_type,
+                AuditEvent.actor_steam_id,
+                AuditEvent.target_steam_id,
+                AuditEvent.order_id,
+                AuditEvent.server_id,
+                AuditEvent.item_type,
+                AuditEvent.item_id,
+                AuditEvent.amount,
+                AuditEvent.status_before,
+                AuditEvent.status_after,
+                AuditEvent.message,
+                AuditEvent.created_at,
+            )
+        )
         if event_type:
             if event_type == "pix":
                 query = query.filter(AuditEvent.event_type.like("pix_%"))
@@ -14926,16 +15257,21 @@ def admin_list_audit():
                 | (AuditEvent.item_id.ilike(f"%{q}%"))
                 | (AuditEvent.order_id.ilike(f"%{q}%"))
             )
-        total = query.count()
-        rows = query.order_by(AuditEvent.created_at.desc()).offset(offset).limit(limit).all()
+        rows = query.order_by(AuditEvent.created_at.desc()).offset(offset).limit(limit + 1).all()
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        total: int | None = int(query.count()) if want_total else None
         return jsonify({
             "ok": True,
             "total": total,
-            "items": [_audit_row_dict(r) for r in rows],
+            "has_more": has_more,
+            "limit": limit,
+            "offset": offset,
+            "items": [_audit_row_dict(r) for r in page_rows],
         })
     except Exception as exc:
         _log_error("admin_list_audit", error=str(exc))
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        return jsonify({"ok": False, "error": f"Erro ao listar auditoria: {exc}"}), 500
     finally:
         _release_db_session(db)
 
@@ -15142,6 +15478,8 @@ def _start_sync_all_permissions_job(*, dry_run: bool = False) -> dict[str, Any]:
         _SYNC_ALL_PERM_JOB["error"] = None
         started_at = _SYNC_ALL_PERM_JOB["started_at"]
 
+    _ttl_cache.sync_recent.invalidate()
+
     def _worker() -> None:
         try:
             result = _reconcile_all_entitlements_to_permission_db(dry_run=dry_run)
@@ -15207,6 +15545,7 @@ def admin_metrics():
             "pending_empty_ttl_sec": _PENDING_EMPTY_CACHE_TTL_SEC,
             "pending_get_entries": pending_get_cached,
             "pending_get_ttl_sec": _PENDING_GET_CACHE_TTL_SEC,
+            "short_ttl": _ttl_cache.short_cache_stats(),
         },
         "db": agg,
         "pool": pool_info,
@@ -15238,7 +15577,19 @@ def admin_sync_all_permissions():
 @admin_required
 @limiter.limit("60 per minute")
 def admin_sync_all_permissions_status():
+    """Resultado de sync recente — cache curto só quando o job NÃO está a correr."""
     snap = _sync_all_permissions_job_snapshot()
+    if snap.get("running"):
+        # Em curso: sem cache (progresso tempo-quase-real).
+        return jsonify(snap)
+
+    cache_key = f"sync_all:{snap.get('finished_at') or snap.get('started_at') or 'idle'}"
+    cached = _ttl_cache.sync_recent.get(cache_key)
+    if cached is not None:
+        resp = jsonify(cached)
+        resp.headers["X-Short-Cache"] = "HIT"
+        return resp
+
     result = snap.get("result")
     if isinstance(result, dict) and not snap.get("running"):
         # Expõe campos do reconcile no topo p/ a UI de poll.
@@ -15246,8 +15597,14 @@ def admin_sync_all_permissions_status():
         out["ok"] = bool(result.get("ok", True)) and not snap.get("error")
         if snap.get("error") and not result.get("error"):
             out["error"] = snap["error"]
-        return jsonify(out)
-    return jsonify(snap)
+        _ttl_cache.sync_recent.set(cache_key, out)
+        resp = jsonify(out)
+        resp.headers["X-Short-Cache"] = "MISS"
+        return resp
+    _ttl_cache.sync_recent.set(cache_key, snap)
+    resp = jsonify(snap)
+    resp.headers["X-Short-Cache"] = "MISS"
+    return resp
 
 
 @app.route("/api/admin/players/<steam_id>/sync-permissions", methods=["POST"])
@@ -16152,7 +16509,7 @@ register_tribe_routes(
     steam_id_from_session=_steam_id_from_session,
     is_admin_steamid=_is_admin_steamid,
     limiter=limiter,
-    trigger_tribe_sync_rcon=_trigger_tribe_sync_rcon_all,
+    trigger_tribe_sync_rcon=_enqueue_tribe_sync_rcon,
 )
 
 # ── Modo Equipe (substitui Tribo na UI jogador; flag teams_enabled, default on) ───
@@ -16193,6 +16550,13 @@ if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
     if os.environ.get(_boot_env) != "1":
         os.environ[_boot_env] = "1"
         _kick_background_db_init()
+        # P0: schedulers NÃO podem depender do 1.º request "real".
+        # TEK health usa /api/auth/me (skip list) → chicken-egg sem isto:
+        # ENTREGANDO stale / retry PIX / market claims nunca corriam.
+        try:
+            _start_runtime_workers_once()
+        except Exception as _boot_workers_exc:
+            log.warning("runtime_workers boot start failed: %s", _boot_workers_exc)
 
 # Recupera WEBSTORE/config.json stub no arranque (não bloqueia se falhar).
 try:
@@ -16210,21 +16574,12 @@ def _log_boot_snapshot() -> None:
         resolved, data, note = _resolve_shop_catalog(persist_healed_path=False)
         norm = _normalize_config_to_web(dict(data or {}))
         items_n, kits_n = _catalog_shop_counts(norm)
-        pool_size = max(
-            5,
-            int(
-                os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE))
-                or _DEFAULT_DB_POOL_SIZE
-            ),
-        )
-        threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32))
-        if (
-            os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1"
-            or os.environ.get("ARKSHOP_HTTP_THREADS_CAP_TO_POOL") != "1"
-        ):
-            threads = threads_raw
-        else:
-            threads = min(threads_raw, pool_size)
+        pool_size = resolve_pool_settings()["pool_size"]
+        http_cfg = _resolve_http_threads(pool_size=pool_size)
+        from db_pool import max_safe_app_instances, pool_peak_connections
+
+        peak = pool_peak_connections()
+        safe_n = max_safe_app_instances()
         _log(
             "boot_snapshot",
             pid=os.getpid(),
@@ -16233,11 +16588,34 @@ def _log_boot_snapshot() -> None:
             items_count=items_n,
             kits_count=kits_n,
             pool_size=pool_size,
-            http_threads=threads,
+            pool_peak=peak,
+            max_safe_instances=safe_n,
+            http_threads=http_cfg["threads"],
+            http_threads_source=http_cfg["source"],
             log_level=_LOG_LEVEL,
             log_requests=os.environ.get("ARKSHOP_LOG_REQUESTS", "slow"),
             catalog_note=(note or "")[:200] or None,
         )
+        if http_cfg.get("source") == "env" and int(http_cfg.get("threads_raw") or 0) > int(
+            http_cfg["threads"]
+        ):
+            log.warning(
+                "ARKSHOP_HTTP_THREADS=%s capado a %s (pool_size=%s headroom) — "
+                "FORCE=1 esgota o pool com pool_timeout=5s",
+                http_cfg.get("threads_raw"),
+                http_cfg["threads"],
+                pool_size,
+            )
+        if os.environ.get("ARKSHOP_HTTP_THREADS_CAP_TO_POOL") == "0":
+            log.warning(
+                "ARKSHOP_HTTP_THREADS_CAP_TO_POOL=0 — threads podem exceder o pool "
+                "(QueuePool timeout em 5s sob carga)"
+            )
+        if os.environ.get("ARKSHOP_BG_INLINE", "").strip().lower() in ("1", "true", "yes"):
+            log.warning(
+                "ARKSHOP_BG_INLINE está definido — em production é ignorado; "
+                "em dev bloqueia HTTP e mata interval workers"
+            )
     except Exception as exc:
         log.warning("boot_snapshot indisponível: %s", exc)
 
@@ -16313,43 +16691,29 @@ if __name__ == "__main__":
         raise SystemExit(1)
     atexit.register(_release_webstore_instance_lock)
     port = int(os.environ.get("PORT", 5177))
-    # Default 32: carga de produção (fila Waitress). Override: ARKSHOP_HTTP_THREADS.
-    # Pool MySQL default = _DEFAULT_DB_POOL_SIZE (32) — deve ser >= threads.
-    # Cap opcional a pool_size: ARKSHOP_HTTP_THREADS_CAP_TO_POOL=1 (legado).
-    # FORCE=1 = sem cap (mesmo efeito do default actual).
-    pool_size_cfg = max(
-        5,
-        int(
-            os.environ.get("ARKSHOP_DB_POOL_SIZE", str(_DEFAULT_DB_POOL_SIZE))
-            or _DEFAULT_DB_POOL_SIZE
-        ),
-    )
-    threads_raw = max(4, int(os.environ.get("ARKSHOP_HTTP_THREADS", "32") or 32))
-    if (
-        os.environ.get("ARKSHOP_HTTP_THREADS_FORCE") == "1"
-        or os.environ.get("ARKSHOP_HTTP_THREADS_CAP_TO_POOL") != "1"
-    ):
-        threads = threads_raw
-    else:
-        threads = min(threads_raw, pool_size_cfg)
-    channel_timeout = max(
-        30, int(os.environ.get("ARKSHOP_CHANNEL_TIMEOUT", "180") or 180)
-    )
-    connection_limit = max(
-        50, int(os.environ.get("ARKSHOP_CONNECTION_LIMIT", "500") or 500)
-    )
+    # Fase 5: threads = clamp((CPU×2)+1, 4–8), cap ao pool_size (Fase 1 = 20).
+    # Override: ARKSHOP_HTTP_THREADS; FORCE=1 desliga cap; CAP_TO_POOL=0 legado.
+    pool_size_cfg = resolve_pool_settings()["pool_size"]
+    http_cfg = _resolve_http_threads(pool_size=pool_size_cfg)
+    threads = int(http_cfg["threads"])
+    channel_timeout = int(http_cfg["channel_timeout"])
+    connection_limit = int(http_cfg["connection_limit"])
     log.info(
         "ArkShop Web Manager em http://127.0.0.1:%d "
-        "(threads=%s pool_size=%s channel_timeout=%s connection_limit=%s)",
+        "(threads=%s source=%s workers_formula=%s cpus=%s "
+        "pool_size=%s channel_timeout=%s connection_limit=%s)",
         port,
         threads,
+        http_cfg["source"],
+        http_cfg["workers_formula"],
+        http_cfg["cpus"],
         pool_size_cfg,
         channel_timeout,
         connection_limit,
     )
     try:
-        # Waitress: pool de workers estável. Werkzeug threaded=True satura sob
-        # RCON/DB lentos e enfileira handlers até timeout no browser.
+        # Waitress: 1 processo + N threads (sem multi-worker). Werkzeug threaded
+        # satura sob RCON/DB lentos e enfileira handlers até timeout no browser.
         try:
             from waitress import serve as _waitress_serve
 
@@ -16361,9 +16725,7 @@ if __name__ == "__main__":
                 threads=threads,
                 channel_timeout=channel_timeout,
                 connection_limit=connection_limit,
-                backlog=max(
-                    64, int(os.environ.get("ARKSHOP_HTTP_BACKLOG", "2048") or 2048)
-                ),
+                backlog=int(http_cfg["backlog"]),
                 ident="ARKLAND-WebStore",
             )
         except ImportError:

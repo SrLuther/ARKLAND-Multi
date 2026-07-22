@@ -26,6 +26,7 @@ log = logging.getLogger("arkshop_web.tribe_log_poller")
 
 _scheduler_thread: threading.Thread | None = None
 _scheduler_stop = threading.Event()
+_scheduler_start_lock = threading.Lock()
 _last_status: dict[str, Any] = {"runs": 0, "last_error": None, "servers": {}}
 
 _TRIBELOG_REL = Path("ShooterGame") / "Saved" / "Logs" / "TribeLog.log"
@@ -353,18 +354,23 @@ def _scheduler_worker(interval: int) -> None:
 
 
 def start_tribe_log_poller_if_needed() -> None:
-    """Inicia o worker se ARKSHOP_TRIBE_LOG_POLL_SECONDS > 0."""
+    """Inicia o worker se ARKSHOP_TRIBE_LOG_POLL_SECONDS > 0.
+
+    Idempotente sob concorrência (lock + is_alive) — retentado por request
+    via ``_ensure_secondary_runtime_workers``.
+    """
     global _scheduler_thread
     interval = _poll_interval_seconds()
     if interval <= 0:
         return
-    if _scheduler_thread is not None and _scheduler_thread.is_alive():
-        return
-    _scheduler_stop.clear()
-    _scheduler_thread = threading.Thread(
-        target=_scheduler_worker,
-        args=(interval,),
-        name="arkshop-tribe-log-poller",
-        daemon=True,
-    )
-    _scheduler_thread.start()
+    with _scheduler_start_lock:
+        if _scheduler_thread is not None and _scheduler_thread.is_alive():
+            return
+        _scheduler_stop.clear()
+        _scheduler_thread = threading.Thread(
+            target=_scheduler_worker,
+            args=(interval,),
+            name="arkshop-tribe-log-poller",
+            daemon=True,
+        )
+        _scheduler_thread.start()

@@ -258,7 +258,7 @@ def test_find_cross_chat_collisions_detects_duplicate_labels():
     assert any("ARKLAND" in e for e in errors)
 
 
-def test_sync_plugin_disables_crosschat_by_default(tmp_path):
+def test_sync_plugin_disables_crosschat_by_default(tmp_path, monkeypatch):
     catalog = {
         "Kits": {},
         "Items": {},
@@ -269,6 +269,11 @@ def test_sync_plugin_disables_crosschat_by_default(tmp_path):
             "AutoCapture": True,
         },
     }
+    shared = tmp_path / "catalog.json"
+    shared.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "src.shop_integration.canonical_master_catalog_path", lambda: shared
+    )
     shop = SimpleNamespace(cross_chat_enabled=False)
     srv = SimpleNamespace(
         name="Crystal",
@@ -290,10 +295,12 @@ def test_sync_plugin_disables_crosschat_by_default(tmp_path):
     )
     saved = json.loads(plugin_path.read_text(encoding="utf-8"))
     assert saved["CrossChat"]["Enabled"] is False
-    assert "ServerId" not in saved["CrossChat"]
+    assert saved["CrossChat"]["ServerId"]  # TribeSync
+    assert "Items" not in saved and "Kits" not in saved
+    assert saved["SharedCatalogPath"] == str(shared)
 
 
-def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
+def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path, monkeypatch):
     catalog = {
         "Kits": {},
         "Items": {},
@@ -305,6 +312,11 @@ def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
             "UseWebApi": True,
         },
     }
+    shared = tmp_path / "catalog.json"
+    shared.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "src.shop_integration.canonical_master_catalog_path", lambda: shared
+    )
     shop = SimpleNamespace(cross_chat_enabled=True)
     srv = SimpleNamespace(
         name="ARK Server TEK",
@@ -326,6 +338,8 @@ def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
     assert saved["CrossChat"]["ServerId"] == "BRIGHAMIA"
     assert saved["CrossChat"]["UseWebApi"] is True
     assert saved["CrossChat"]["Enabled"] is True
+    assert saved["SharedCatalogPath"] == str(shared)
+    assert "Kits" not in saved
 
 
 def test_build_cross_chat_settings_unique_per_map():
@@ -355,57 +369,31 @@ def test_build_cross_chat_disabled_keeps_server_id():
     assert cc["ServerId"] == "BRIGHAMIA"
 
 
-def test_sync_plugin_at_path_propagates_timed_points(tmp_path):
+def test_sync_plugin_at_path_stub_points_to_shared_catalog(tmp_path, monkeypatch):
+    """Fase 1: sync grava stub local; TimedPoints/Kits ficam no catalog.json."""
     catalog = {
-        "Kits": {},
-        "Items": {},
-        "Settings": {"ShopName": "Cluster"},
+        "Kits": {"vip": {"Price": 100}},
+        "Items": {"sword": {"Price": 10}},
+        "Settings": {"ShopName": "Cluster", "EngramasCommandPrice": 5000},
         "TimedPointsReward": {
             "Enabled": True,
             "Interval": 30,
-            "StackRewards": True,
-            "Groups": {
-                "Default": {"Amount": 25},
-                "VIPBronze": {"Amount": 20},
-                "VIPDiamante": {"Amount": 75},
-            },
+            "Groups": {"Default": {"Amount": 25}},
         },
     }
-    plugin_path = tmp_path / "config.json"
-    plugin_path.write_text(
-        '{"TimedPointsReward":{"Enabled":false,"Groups":{"Alfa":{"Amount":75}}},"Settings":{"ShopName":"Old"}}',
-        encoding="utf-8",
+    shared = tmp_path / "CustomShop" / "catalog.json"
+    shared.parent.mkdir(parents=True)
+    shared.write_text(json.dumps(catalog), encoding="utf-8")
+    monkeypatch.setattr(
+        "src.shop_integration.canonical_master_catalog_path", lambda: shared
     )
-    sync_plugin_at_path(
-        catalog, plugin_path,
-        "https://shop.test", "http://127.0.0.1:5177", "key", {},
-    )
-    saved = __import__("json").loads(plugin_path.read_text(encoding="utf-8"))
-    assert saved["TimedPointsReward"]["Enabled"] is True
-    assert "VIPBronze" in saved["TimedPointsReward"]["Groups"]
-    assert "Alfa" not in saved["TimedPointsReward"]["Groups"]
-    assert saved["Settings"]["ShopName"] == "Cluster"
-
-
-def test_sync_plugin_at_path_propagates_new_kit_from_master(tmp_path):
-    catalog = {
-        "Kits": {
-            "recursos": {"Price": 0, "Description": "Recursos", "Items": []},
-            "vip": {"Price": 100, "Description": "VIP", "Items": []},
-        },
-        "Items": {},
-        "Settings": {"ShopName": "Mestre"},
-    }
     plugin_path = tmp_path / "config.json"
     plugin_path.write_text(
         json.dumps({
-            "Kits": {
-                "vip": {"Price": 50, "Description": "VIP antigo", "Items": []},
-                "somente_mapa": {"Price": 1, "Description": "Local", "Items": []},
-            },
-            "Items": {},
-            "Settings": {"ShopName": "Mapa"},
-            "CrossChat": {"ServerId": "Mapa1"},
+            "TimedPointsReward": {"Enabled": False},
+            "Kits": {"somente_mapa": {"Price": 1}},
+            "Settings": {"ShopName": "Old", "ServerId": "OLD"},
+            "Database": {"Host": "127.0.0.1", "Password": "secret"},
         }),
         encoding="utf-8",
     )
@@ -414,11 +402,59 @@ def test_sync_plugin_at_path_propagates_new_kit_from_master(tmp_path):
         "https://shop.test", "http://127.0.0.1:5177", "key", {},
     )
     saved = json.loads(plugin_path.read_text(encoding="utf-8"))
-    assert "recursos" in saved["Kits"]
-    assert saved["Kits"]["recursos"]["Description"] == "Recursos"
-    assert saved["Kits"]["vip"]["Price"] == 100
-    assert "somente_mapa" not in saved["Kits"]
+    assert saved["SharedCatalogPath"] == str(shared)
+    assert "TimedPointsReward" not in saved
+    assert "Kits" not in saved
+    assert "Items" not in saved
+    assert "ShopName" not in (saved.get("Settings") or {})
+    assert saved["Settings"]["WebsiteUrl"] == "https://shop.test"
+    assert saved["Database"]["Password"] == "secret"
+    assert (plugin_path.with_suffix(".json.bak")).is_file()
 
+
+def test_sync_plugin_at_path_propagates_new_kit_from_master(tmp_path, monkeypatch):
+    """Compat: extract_shared + merge ainda aplicam kits no catálogo (não no stub)."""
+    from src.shop_integration import extract_shared_catalog_sections, merge_catalog_into_plugin_config
+
+    catalog = {
+        "Kits": {
+            "recursos": {"Price": 0, "Description": "Recursos", "Items": []},
+            "vip": {"Price": 100, "Description": "VIP", "Items": []},
+        },
+        "Items": {},
+        "Settings": {"ShopName": "Mestre"},
+    }
+    existing = {
+        "Kits": {
+            "vip": {"Price": 50, "Description": "VIP antigo", "Items": []},
+            "somente_mapa": {"Price": 1, "Description": "Local", "Items": []},
+        },
+        "Items": {},
+        "Settings": {"ShopName": "Mapa"},
+        "CrossChat": {"ServerId": "Mapa1"},
+    }
+    shared = extract_shared_catalog_sections(catalog)
+    merged = merge_catalog_into_plugin_config(shared, existing)
+    assert "recursos" in merged["Kits"]
+    assert merged["Kits"]["recursos"]["Description"] == "Recursos"
+    assert merged["Kits"]["vip"]["Price"] == 100
+    assert "somente_mapa" not in merged["Kits"]
+
+    shared_path = tmp_path / "catalog.json"
+    shared_path.write_text(json.dumps(catalog), encoding="utf-8")
+    monkeypatch.setattr(
+        "src.shop_integration.canonical_master_catalog_path", lambda: shared_path
+    )
+    plugin_path = tmp_path / "config.json"
+    plugin_path.write_text(json.dumps(existing), encoding="utf-8")
+    sync_plugin_at_path(
+        catalog, plugin_path,
+        "https://shop.test", "http://127.0.0.1:5177", "key", {},
+    )
+    saved = json.loads(plugin_path.read_text(encoding="utf-8"))
+    assert "Kits" not in saved
+    assert saved["SharedCatalogPath"] == str(shared_path)
+    assert saved["CrossChat"]["ServerId"] == "Mapa1"
 
 def test_apply_shared_sections_crosschat_master_wins_without_server_id():
     catalog = {

@@ -14,17 +14,38 @@ if TYPE_CHECKING:
 
 ARKLAND_SERVER_DIR_NAME = "ARKLAND SERVER"
 
+# Disco dedicado de backups (override: env ARKLAND_BACKUP_ROOT).
+BACKUP_ROOT_ENV = "ARKLAND_BACKUP_ROOT"
+DEFAULT_BACKUP_ROOT = Path(r"D:\Backups")
+
 _DIR_README: dict[str, str] = {
     "MAPAS": "Instalações dos servidores ARK (um subdiretório por mapa/servidor).",
     "CLUSTER": "Dados compartilhados de viagem cross-ARK entre mapas do cluster.",
-    "BACKUP": "Backups gerenciados pelo ARKLAND (servidores, saves, banco, cloud).",
+    "BACKUP": "Backups gerenciados pelo ARKLAND (servidores, saves, banco, cloud, .ini).",
     "CACHE": "Cache de atualizações e arquivos temporários.",
     "LOGS": "Logs do gerenciador e diagnósticos.",
     "STEAMCMD": "SteamCMD para instalar/atualizar servidores e mods.",
     "WEBSTORE": "Dados da loja web (modo Host).",
-    "CustomShop": "Catálogo mestre Items/Kits (fonte única de sync).",
+    "CustomShop": "Catálogo partilhado catalog.json (Items/Kits) + configs locais por mapa.",
     "MARIADB": "MariaDB portable (binários e dados).",
 }
+
+
+def resolve_backup_root() -> Path:
+    """Raiz dedicada de backups. Default ``D:\\Backups``; override via ``ARKLAND_BACKUP_ROOT``."""
+    raw = (os.environ.get(BACKUP_ROOT_ENV) or "").strip()
+    return Path(raw) if raw else DEFAULT_BACKUP_ROOT
+
+
+def ensure_backup_tree(root: Optional[Path] = None) -> Path:
+    """Garante a árvore padrão sob a raiz de backups (cria on first use)."""
+    base = root or resolve_backup_root()
+    for sub in ("servers", "saves", "database", "cloud", ".ini"):
+        try:
+            (base / sub).mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+    return base
 
 _TZ_BR = timezone(timedelta(hours=-3))
 
@@ -43,7 +64,8 @@ class EnvironmentPaths:
 
     @property
     def backup(self) -> Path:
-        return self.root / "BACKUP"
+        """Disco dedicado de backups (não fica sob ARKLAND SERVER/)."""
+        return resolve_backup_root()
 
     @property
     def backup_servers(self) -> Path:
@@ -60,6 +82,10 @@ class EnvironmentPaths:
     @property
     def backup_cloud(self) -> Path:
         return self.backup / "cloud"
+
+    @property
+    def backup_ini(self) -> Path:
+        return self.backup / ".ini"
 
     @property
     def cache(self) -> Path:
@@ -90,8 +116,18 @@ class EnvironmentPaths:
         return self.root / "WEBSTORE"
 
     @property
+    def customshop_dir(self) -> Path:
+        return self.root / "CustomShop"
+
+    @property
     def customshop_master(self) -> Path:
-        return self.root / "CustomShop" / "configs" / "config.json"
+        """Catálogo partilhado canónico (Items/Kits/…)."""
+        return self.customshop_dir / "catalog.json"
+
+    @property
+    def customshop_master_legacy(self) -> Path:
+        """Mestre legado monolítico (pré Fase 1)."""
+        return self.customshop_dir / "configs" / "config.json"
 
     @property
     def mariadb(self) -> Path:
@@ -101,41 +137,58 @@ class EnvironmentPaths:
     def mariadb_data(self) -> Path:
         return self.mariadb / "data"
 
-    def all_directories(self) -> list[Path]:
+    def backup_directories(self) -> list[Path]:
+        """Pastas no disco dedicado ``D:\\Backups`` (ou ``ARKLAND_BACKUP_ROOT``)."""
         return [
-            self.maps,
-            self.cluster,
             self.backup_servers,
             self.backup_saves,
             self.backup_database,
             self.backup_cloud,
+            self.backup_ini,
+        ]
+
+    def all_directories(self) -> list[Path]:
+        return [
+            self.maps,
+            self.cluster,
+            *self.backup_directories(),
             self.cache_updates,
             self.logs_manager,
             self.logs / "app",
             self.steamcmd,
             self.webstore,
-            self.customshop_master.parent,
+            self.customshop_dir,
+            self.customshop_master_legacy.parent,
             self.mariadb,
             self.mariadb_data,
         ]
 
+    def _dir_label(self, d: Path) -> str:
+        try:
+            return str(d.relative_to(self.root)).replace("\\", "/")
+        except ValueError:
+            return str(d)
+
     def preview_tree(self) -> str:
         r = str(self.root)
+        b = str(self.backup)
         lines = [
             f"{r}/",
             "├── MAPAS/",
             "├── CLUSTER/",
-            "├── BACKUP/",
-            "│   ├── servers/",
-            "│   ├── saves/",
-            "│   ├── database/",
-            "│   └── cloud/",
             "├── CACHE/updates/",
             "├── LOGS/manager/",
             "├── STEAMCMD/",
             "├── WEBSTORE/",
-            "├── CustomShop/configs/  (catálogo mestre)",
+            "├── CustomShop/catalog.json  (catálogo partilhado)",
             "└── MARIADB/data/",
+            "",
+            f"{b}/   (disco dedicado — env {BACKUP_ROOT_ENV})",
+            "├── servers/",
+            "├── saves/",
+            "├── database/",
+            "├── cloud/",
+            "└── .ini/",
         ]
         return "\n".join(lines)
 
@@ -194,11 +247,7 @@ def validate_environment(root: Path | str) -> list[str]:
     missing: list[str] = []
     for d in paths.all_directories():
         if not d.is_dir():
-            try:
-                rel = d.relative_to(paths.root)
-                missing.append(str(rel).replace("\\", "/"))
-            except ValueError:
-                missing.append(str(d))
+            missing.append(paths._dir_label(d))
     return missing
 
 
@@ -236,13 +285,13 @@ def create_environment(
     *,
     write_readmes: bool = True,
 ) -> CreateEnvironmentResult:
-    """Cria a árvore ARKLAND SERVER de forma idempotente."""
+    """Cria a árvore ARKLAND SERVER de forma idempotente (+ disco dedicado de backups)."""
     root = environment_root_from_parent(parent)
     paths = EnvironmentPaths(root=root)
     result = CreateEnvironmentResult(paths=paths)
 
     for d in paths.all_directories():
-        rel = str(d.relative_to(paths.root)).replace("\\", "/")
+        rel = paths._dir_label(d)
         if d.is_dir():
             result.existing.append(rel)
             continue
@@ -268,8 +317,11 @@ def apply_paths_to_config(cfg: "AppConfig", paths: EnvironmentPaths) -> None:
 
     cfg.default_install_dir = str(paths.maps)
     cfg.steamcmd_path = str(paths.steamcmd_exe)
-    cfg.backup.backup_dir = str(paths.backup_servers)
-    cfg.db_backup.backup_dir = str(paths.backup_database)
+    # Respeita pasta custom já definida pelo utilizador; só preenche o default vazio.
+    if not (cfg.backup.backup_dir or "").strip():
+        cfg.backup.backup_dir = str(paths.backup_servers)
+    if not (cfg.db_backup.backup_dir or "").strip():
+        cfg.db_backup.backup_dir = str(paths.backup_database)
     cfg.auto_update.cache_dir = str(paths.cache_updates)
 
 
@@ -298,7 +350,7 @@ def apply_cluster_dir_to_profiles(config_manager: "ConfigManager", paths: Enviro
 
 
 def apply_cloud_backup_local_path(paths: EnvironmentPaths) -> bool:
-    """Sugere BACKUP/cloud se credenciais cloud local estiverem sem local_path."""
+    """Sugere ``D:\\Backups\\cloud`` se credenciais cloud local estiverem sem local_path."""
     creds_file = (
         Path(os.environ.get("APPDATA", Path.home()))
         / "ARKLAND-ServerManager"
@@ -360,17 +412,28 @@ def suggest_next_server_dir(
 
 
 def default_backups_servers_root() -> Path:
-    paths = try_load_environment_paths()
-    if paths:
-        return paths.backup_servers
-    return Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "backups" / "servers"
+    """Padrão: ``D:\\Backups\\servers`` (override via ``ARKLAND_BACKUP_ROOT``)."""
+    return resolve_backup_root() / "servers"
+
+
+def default_backups_saves_root() -> Path:
+    """Padrão: ``D:\\Backups\\saves``."""
+    return resolve_backup_root() / "saves"
 
 
 def default_db_backup_dir() -> Path:
-    paths = try_load_environment_paths()
-    if paths:
-        return paths.backup_database
-    return Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "backups" / "database"
+    """Padrão: ``D:\\Backups\\database``."""
+    return resolve_backup_root() / "database"
+
+
+def default_ini_backup_root() -> Path:
+    """Padrão: ``D:\\Backups\\.ini`` (Eventos Sazonais / BUFFs)."""
+    return resolve_backup_root() / ".ini"
+
+
+def default_cloud_backup_dir() -> Path:
+    """Padrão: ``D:\\Backups\\cloud``."""
+    return resolve_backup_root() / "cloud"
 
 
 def default_steamcmd_dir() -> Path:

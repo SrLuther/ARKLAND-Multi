@@ -175,6 +175,12 @@ def _details_to_json(details: dict[str, Any]) -> str | None:
     return json.dumps(details, ensure_ascii=False)
 
 
+_SUGGESTION_LIST_COLS = (
+    "id, steam_id, category, title, description, details_json, status, "
+    "admin_note, admin_steam_id, created_at, updated_at"
+)
+
+
 def _row_to_dict(row: Any) -> dict[str, Any]:
     category = row.category or "outro"
     status = row.status or "pending"
@@ -268,7 +274,7 @@ def create_suggestion(
 
     db.commit()
     row = db.execute(
-        text("SELECT * FROM community_suggestions WHERE id = :id"),
+        text(f"SELECT {_SUGGESTION_LIST_COLS} FROM community_suggestions WHERE id = :id"),
         {"id": sugg_id},
     ).fetchone()
     return {"ok": True, "suggestion": _row_to_dict(row)}
@@ -288,7 +294,7 @@ def list_suggestions_for_player(
     total = int(total_row.c if total_row else 0)
     rows = db.execute(
         text(
-            "SELECT * FROM community_suggestions WHERE steam_id = :sid "
+            f"SELECT {_SUGGESTION_LIST_COLS} FROM community_suggestions WHERE steam_id = :sid "
             "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
         ),
         {"sid": steam_id, "lim": min(100, max(1, limit)), "off": max(0, offset)},
@@ -329,7 +335,7 @@ def list_suggestions_admin(
     total = int(total_row.c if total_row else 0)
     rows = db.execute(
         text(
-            f"SELECT * FROM community_suggestions WHERE {where} "
+            f"SELECT {_SUGGESTION_LIST_COLS} FROM community_suggestions WHERE {where} "
             "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
         ),
         params,
@@ -346,7 +352,7 @@ def update_suggestion_admin(
     admin_steam_id: str | None = None,
 ) -> dict[str, Any]:
     row = db.execute(
-        text("SELECT * FROM community_suggestions WHERE id = :id"),
+        text(f"SELECT {_SUGGESTION_LIST_COLS} FROM community_suggestions WHERE id = :id"),
         {"id": suggestion_id},
     ).fetchone()
     if not row:

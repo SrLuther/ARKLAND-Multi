@@ -345,6 +345,10 @@ def test_claim_pending_deferred_perm_sync_runs_after_db_release(monkeypatch):
         def query(self, *_a, **_k):
             return self
 
+        def options(self, *_a, **_k):
+            # claim usa load_only(...).options(...).filter(...).order_by(...).all()
+            return self
+
         def filter(self, *_a, **_k):
             return self
 
@@ -379,6 +383,7 @@ def test_claim_pending_deferred_perm_sync_runs_after_db_release(monkeypatch):
     monkeypatch.setattr(_app_module, "_require_db", lambda: None)
     monkeypatch.setattr(_app_module, "_flush_deferred_license_perm_syncs", _capture_flush)
     monkeypatch.setattr(_app_module, "_release_db_session", lambda db, force=False: db.close())
+    monkeypatch.setattr(_app_module, "_pending_empty_cache_hit", lambda *_a, **_k: False)
 
     client = _app_module.app.test_client()
     resp = client.post(

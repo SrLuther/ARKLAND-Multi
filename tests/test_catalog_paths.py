@@ -137,7 +137,7 @@ def test_ensure_webstore_catalog_config_copies_when_missing(tmp_path, monkeypatc
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text('{"Kits":{}}', encoding="utf-8")
 
@@ -163,7 +163,7 @@ def test_canonical_master_catalog_path_uses_environment(tmp_path, monkeypatch):
         "src.arkland_environment.try_load_environment_paths",
         lambda: env,
     )
-    assert canonical_master_catalog_path() == root / "CustomShop" / "configs" / "config.json"
+    assert canonical_master_catalog_path() == root / "CustomShop" / "catalog.json"
 
 
 def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch):
@@ -173,7 +173,7 @@ def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text('{"ShopItems":{}}', encoding="utf-8")
 
@@ -224,7 +224,7 @@ def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
     resolved = resolve_persistent_catalog_path(str(stub))
-    canonical = root / "CustomShop" / "configs" / "config.json"
+    canonical = root / "CustomShop" / "catalog.json"
     assert resolved == canonical
     assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) >= 140
 
@@ -242,7 +242,7 @@ def test_ensure_webstore_recovers_legacy_stub(tmp_path, monkeypatch):
     # Histórico: stub mínimo que quebrava o boot / catálogo vazio
     stub.write_text('{"Settings":{"ShopName":"x"},"Items":{},"Kits":{}}\n', encoding="utf-8")
     assert stub.stat().st_size < 512
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {f"x{i}": {"Price": 1} for i in range(40)}, "Kits": {"k": {}}}),
@@ -275,7 +275,7 @@ def test_build_webstore_launch_preps_secret_and_catalog(tmp_path, monkeypatch):
     (webstore / "config.json").write_text(
         '{"Settings":{},"Items":{},"Kits":{}}\n', encoding="utf-8"
     )
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     payload = json.dumps({"Items": {f"i{n}": {} for n in range(20)}, "Kits": {}})
     master.write_text(payload, encoding="utf-8")
@@ -341,7 +341,7 @@ def test_migrate_catalog_to_canonical_from_webstore(tmp_path, monkeypatch):
     )
 
     canonical = migrate_catalog_to_canonical(force=True)
-    assert canonical == root / "CustomShop" / "configs" / "config.json"
+    assert canonical == root / "CustomShop" / "catalog.json"
     assert canonical.is_file()
     assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) == 11
 
@@ -352,7 +352,7 @@ def test_reconcile_catalog_keeps_memory_when_equal_count(tmp_path, monkeypatch):
 
     root = tmp_path / "ARKLAND SERVER"
     root.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {"old": {"Price": 1}}, "Kits": {}}),
@@ -382,7 +382,7 @@ def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {"old": {"Price": 1}}, "Kits": {}}),
@@ -423,7 +423,7 @@ def test_ensure_webstore_skips_when_webstore_newer_and_complete(tmp_path, monkey
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {}}),
@@ -459,7 +459,7 @@ def test_ensure_webstore_overwrites_when_newer_but_incomplete(tmp_path, monkeypa
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {}}),
@@ -492,7 +492,7 @@ def test_reconcile_catalog_merges_timed_points_without_item_change(tmp_path, mon
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({
@@ -550,7 +550,7 @@ def test_reconcile_webstore_does_not_stomp_new_master_kit(tmp_path, monkeypatch)
     root.mkdir()
     webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = root / "CustomShop" / "configs" / "config.json"
+    master = root / "CustomShop" / "catalog.json"
     master.parent.mkdir(parents=True)
     import os
     import time

@@ -160,9 +160,15 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     }
 
 
+_MEDIA_LIST_COLS = (
+    "id, video_id, youtube_url, title, description, category, sort_order, "
+    "published, created_by_steam_id, created_at, updated_at"
+)
+
+
 def _fetch_row(db: Session, video_pk: int) -> Any | None:
     return db.execute(
-        text("SELECT * FROM media_videos WHERE id = :id"),
+        text(f"SELECT {_MEDIA_LIST_COLS} FROM media_videos WHERE id = :id"),
         {"id": video_pk},
     ).fetchone()
 
@@ -171,10 +177,10 @@ def list_media_public(
     db: Session,
     *,
     category: str | None = None,
-    limit: int = 100,
+    limit: int = 50,
 ) -> list[dict[str, Any]]:
     clauses = ["published = 1"]
-    params: dict[str, Any] = {"lim": min(200, max(1, limit))}
+    params: dict[str, Any] = {"lim": min(100, max(1, limit))}
     norm_cat = _normalize_category(category) if category else None
     if category and norm_cat:
         clauses.append("category = :cat")
@@ -182,7 +188,7 @@ def list_media_public(
     where = " AND ".join(clauses)
     rows = db.execute(
         text(
-            f"SELECT * FROM media_videos WHERE {where} "
+            f"SELECT {_MEDIA_LIST_COLS} FROM media_videos WHERE {where} "
             "ORDER BY sort_order ASC, id DESC LIMIT :lim"
         ),
         params,
@@ -190,12 +196,13 @@ def list_media_public(
     return [_row_to_dict(r) for r in rows]
 
 
-def list_media_admin(db: Session, *, limit: int = 200) -> list[dict[str, Any]]:
+def list_media_admin(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
     rows = db.execute(
         text(
-            "SELECT * FROM media_videos ORDER BY sort_order ASC, id DESC LIMIT :lim"
+            f"SELECT {_MEDIA_LIST_COLS} FROM media_videos "
+            "ORDER BY sort_order ASC, id DESC LIMIT :lim"
         ),
-        {"lim": min(500, max(1, limit))},
+        {"lim": min(100, max(1, limit))},
     ).fetchall()
     return [_row_to_dict(r) for r in rows]
 

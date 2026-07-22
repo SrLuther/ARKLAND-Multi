@@ -80,7 +80,7 @@ def build_db_backup_section(
     dir_row.grid_columnconfigure(0, weight=1)
     ctk.CTkEntry(
         dir_row, textvariable=app._db_bk_dir_var, height=28,
-        placeholder_text="Padrão: %APPDATA%\\ARKLAND-ServerManager\\backups\\database",
+        placeholder_text="Padrão: D:\\Backups\\database",
         font=ctk.CTkFont(size=11),
     ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
     ctk.CTkButton(
