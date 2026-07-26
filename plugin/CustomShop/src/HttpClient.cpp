@@ -6,6 +6,8 @@
 #include "ShopPoints.h"
 #include "ShopDebug.h"
 
+#include <chrono>
+
 namespace {
 
 // ── WinHTTP helpers ──────────────────────────────────────────────
@@ -18,6 +20,7 @@ constexpr int kHttpResolveMs = 5000;
 constexpr int kHttpConnectMs = 5000;
 constexpr int kHttpSendMs = 8000;
 constexpr int kHttpReceiveMs = 8000;
+constexpr size_t kHttpBodySnippetMax = 240;
 
 bool EnsureSession() {
     if (!g_session) {
@@ -34,15 +37,112 @@ bool EnsureSession() {
     return g_session != nullptr;
 }
 
-// Simple blocking HTTP GET, returns response body or empty string on failure.
-std::string HttpGet(const std::string& url) {
-    if (!EnsureSession()) return "";
+/** Path sem query string — evita logar tokens/?api_key= em URLs. */
+std::string SanitizePathForLog(const std::string& path) {
+    const auto q = path.find('?');
+    return (q == std::string::npos) ? path : path.substr(0, q);
+}
 
-    // Parse URL into components (supports http and https)
-    std::string host, path;
-    int port = 80;
-    bool secure = false;
+std::string TruncateForLog(const std::string& text, size_t max_n = kHttpBodySnippetMax) {
+    if (text.size() <= max_n) return text;
+    return text.substr(0, max_n) + "…";
+}
+
+int ElapsedMs(const std::chrono::steady_clock::time_point& started) {
+    return static_cast<int>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started)
+            .count());
+}
+
+nlohmann::json BuildHttpFields(const char* method,
+                               const std::string& host,
+                               const std::string& path,
+                               int duration_ms,
+                               int http_status = 0,
+                               DWORD winhttp_error = 0,
+                               const char* error = nullptr,
+                               const std::string* response_snippet = nullptr) {
+    nlohmann::json fields = {
+        {"method", method ? method : ""},
+        {"host", host},
+        {"path", SanitizePathForLog(path)},
+        {"duration_ms", duration_ms},
+        {"timeout_ms_resolve", kHttpResolveMs},
+        {"timeout_ms_connect", kHttpConnectMs},
+        {"timeout_ms_send", kHttpSendMs},
+        {"timeout_ms_receive", kHttpReceiveMs},
+    };
+    if (http_status > 0) fields["http_status"] = http_status;
+    if (winhttp_error != 0) fields["winhttp_error"] = static_cast<int>(winhttp_error);
+    if (error && error[0]) fields["error"] = error;
+    if (response_snippet && !response_snippet->empty())
+        fields["response_snippet"] = TruncateForLog(*response_snippet);
+    return fields;
+}
+
+std::string ReadHttpBody(HINTERNET hRequest, size_t hard_cap = 256 * 1024) {
+    std::string result;
+    DWORD bytes_avail = 0, bytes_read = 0;
+    char buf[4096];
+    while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
+        while (bytes_avail > 0) {
+            if (result.size() >= hard_cap) return result;
+            DWORD to_read = (bytes_avail > sizeof(buf)) ? (DWORD)sizeof(buf) : bytes_avail;
+            if (result.size() + to_read > hard_cap)
+                to_read = static_cast<DWORD>(hard_cap - result.size());
+            if (WinHttpReadData(hRequest, buf, to_read, &bytes_read) && bytes_read > 0) {
+                result.append(buf, bytes_read);
+                bytes_avail -= bytes_read;
+            } else {
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+void WarnHttpStatus(const char* method,
+                    const std::string& host,
+                    const std::string& path,
+                    int status_code,
+                    int duration_ms,
+                    const std::string& body) {
+    const std::string safe_path = SanitizePathForLog(path);
+    Log::GetLog()->warn(
+        "HttpClient: {} HTTP {} host={} path={}", method, status_code, host, safe_path);
+    CustomShop::Debug::Fields hf;
+    hf.extra = BuildHttpFields(
+        method, host, path, duration_ms, status_code, 0, "http_error", &body);
+    CustomShop::Debug::Warn(
+        "Http", hf,
+        std::string(method) + " HTTP " + std::to_string(status_code) + " " + safe_path);
+}
+
+void WarnHttpTransport(const char* method,
+                       const std::string& host,
+                       const std::string& path,
+                       int duration_ms,
+                       DWORD winhttp_error,
+                       const char* error_tag) {
+    const std::string safe_path = SanitizePathForLog(path);
+    CustomShop::Debug::Fields hf;
+    hf.extra = BuildHttpFields(
+        method, host, path, duration_ms, 0, winhttp_error, error_tag, nullptr);
+    CustomShop::Debug::Warn(
+        "Http", hf,
+        std::string(method) + " " + error_tag + " err=" + std::to_string(winhttp_error) +
+            " " + safe_path);
+}
+
+bool ParseUrlParts(const std::string& url,
+                   std::string& host,
+                   std::string& path,
+                   int& port,
+                   bool& secure) {
     std::string remaining = url;
+    port = 80;
+    secure = false;
 
     if (remaining.find("http://") == 0) {
         remaining = remaining.substr(7);
@@ -53,32 +153,53 @@ std::string HttpGet(const std::string& url) {
         port = 443;
     }
 
-    // Split host:port/path
-    auto slash_pos = remaining.find('/');
-    auto colon_pos = remaining.find(':');
+    const auto slash_pos = remaining.find('/');
+    const auto colon_pos = remaining.find(':');
 
-    if (colon_pos != std::string::npos && colon_pos < slash_pos) {
+    if (colon_pos != std::string::npos &&
+        (slash_pos == std::string::npos || colon_pos < slash_pos)) {
         host = remaining.substr(0, colon_pos);
-        auto port_end = slash_pos != std::string::npos ? slash_pos : remaining.size();
-        try { port = std::stoi(remaining.substr(colon_pos + 1, port_end - colon_pos - 1)); }
-        catch (...) { port = secure ? 443 : 80; }
+        const auto port_end =
+            slash_pos != std::string::npos ? slash_pos : remaining.size();
+        try {
+            port = std::stoi(remaining.substr(colon_pos + 1, port_end - colon_pos - 1));
+        } catch (...) {
+            port = secure ? 443 : 80;
+        }
     } else {
-        auto end = slash_pos != std::string::npos ? slash_pos : remaining.size();
+        const auto end = slash_pos != std::string::npos ? slash_pos : remaining.size();
         host = remaining.substr(0, end);
     }
     path = (slash_pos != std::string::npos) ? remaining.substr(slash_pos) : "/";
+    return !host.empty();
+}
 
-    // Connect
+// Simple blocking HTTP GET, returns response body or empty string on failure.
+std::string HttpGet(const std::string& url) {
+    if (!EnsureSession()) return "";
+
+    std::string host, path;
+    int port = 80;
+    bool secure = false;
+    if (!ParseUrlParts(url, host, path, port, secure)) return "";
+
+    const auto started = std::chrono::steady_clock::now();
     std::wstring whost(host.begin(), host.end());
     std::wstring wpath(path.begin(), path.end());
 
     HINTERNET hConnect = WinHttpConnect(g_session, whost.c_str(), (INTERNET_PORT)port, 0);
-    if (!hConnect) return "";
+    if (!hConnect) {
+        WarnHttpTransport(
+            "GET", host, path, ElapsedMs(started), GetLastError(), "WinHttpConnect failed");
+        return "";
+    }
 
     DWORD request_flags = secure ? WINHTTP_FLAG_SECURE : 0;
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", wpath.c_str(),
                                              nullptr, nullptr, nullptr, request_flags);
     if (!hRequest) {
+        WarnHttpTransport(
+            "GET", host, path, ElapsedMs(started), GetLastError(), "WinHttpOpenRequest failed");
         WinHttpCloseHandle(hConnect);
         return "";
     }
@@ -93,6 +214,9 @@ std::string HttpGet(const std::string& url) {
     std::string result;
     if (WinHttpSendRequest(hRequest, nullptr, 0, nullptr, 0, 0, 0)) {
         if (!WinHttpReceiveResponse(hRequest, nullptr)) {
+            WarnHttpTransport(
+                "GET", host, path, ElapsedMs(started), GetLastError(),
+                "WinHttpReceiveResponse failed / timeout");
             WinHttpCloseHandle(hRequest);
             WinHttpCloseHandle(hConnect);
             return "";
@@ -107,34 +231,20 @@ std::string HttpGet(const std::string& url) {
                 &status_size,
                 WINHTTP_NO_HEADER_INDEX)) {
             if (status_code >= 400) {
-                Log::GetLog()->warn(
-                    "HttpClient: GET HTTP {} path_host={}", status_code, host);
-                CustomShop::Debug::Fields hf;
-                hf.extra = {{"http_status", static_cast<int>(status_code)},
-                            {"host", host}};
-                CustomShop::Debug::Warn(
-                    "Http", hf,
-                    "GET HTTP " + std::to_string(status_code));
+                result = ReadHttpBody(hRequest);
+                WarnHttpStatus(
+                    "GET", host, path, static_cast<int>(status_code), ElapsedMs(started),
+                    result);
                 WinHttpCloseHandle(hRequest);
                 WinHttpCloseHandle(hConnect);
                 return "";
             }
         }
-        DWORD bytes_avail = 0, bytes_read = 0;
-        char buf[4096];
-        while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
-            while (bytes_avail > 0) {
-                DWORD to_read = (bytes_avail > sizeof(buf)) ? (DWORD)sizeof(buf) : bytes_avail;
-                if (WinHttpReadData(hRequest, buf, to_read, &bytes_read) && bytes_read > 0) {
-                    result.append(buf, bytes_read);
-                    bytes_avail -= bytes_read;
-                } else break;
-            }
-        }
+        result = ReadHttpBody(hRequest);
     } else {
-        CustomShop::Debug::Fields hf;
-        hf.extra = {{"host", host}, {"timeout_ms_send", kHttpSendMs}};
-        CustomShop::Debug::Warn("Http", hf, "GET WinHttpSendRequest failed / timeout");
+        WarnHttpTransport(
+            "GET", host, path, ElapsedMs(started), GetLastError(),
+            "WinHttpSendRequest failed / timeout");
     }
 
     WinHttpCloseHandle(hRequest);
@@ -148,42 +258,26 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
 
     std::string host, path;
     int port = 80;
-    std::string remaining = url;
     bool secure = false;
+    if (!ParseUrlParts(url, host, path, port, secure)) return "";
 
-    if (remaining.find("http://") == 0) {
-        remaining = remaining.substr(7);
-        secure = false;
-    } else if (remaining.find("https://") == 0) {
-        remaining = remaining.substr(8);
-        secure = true;
-        port = 443;
-    }
-
-    auto slash_pos = remaining.find('/');
-    auto colon_pos = remaining.find(':');
-
-    if (colon_pos != std::string::npos && colon_pos < slash_pos) {
-        host = remaining.substr(0, colon_pos);
-        auto port_end = slash_pos != std::string::npos ? slash_pos : remaining.size();
-        try { port = std::stoi(remaining.substr(colon_pos + 1, port_end - colon_pos - 1)); }
-        catch (...) { port = secure ? 443 : 80; }
-    } else {
-        auto end = slash_pos != std::string::npos ? slash_pos : remaining.size();
-        host = remaining.substr(0, end);
-    }
-    path = (slash_pos != std::string::npos) ? remaining.substr(slash_pos) : "/";
-
+    const auto started = std::chrono::steady_clock::now();
     std::wstring whost(host.begin(), host.end());
     std::wstring wpath(path.begin(), path.end());
 
     HINTERNET hConnect = WinHttpConnect(g_session, whost.c_str(), (INTERNET_PORT)port, 0);
-    if (!hConnect) return "";
+    if (!hConnect) {
+        WarnHttpTransport(
+            "POST", host, path, ElapsedMs(started), GetLastError(), "WinHttpConnect failed");
+        return "";
+    }
 
     DWORD request_flags = secure ? WINHTTP_FLAG_SECURE : 0;
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", wpath.c_str(),
                                              nullptr, nullptr, nullptr, request_flags);
     if (!hRequest) {
+        WarnHttpTransport(
+            "POST", host, path, ElapsedMs(started), GetLastError(), "WinHttpOpenRequest failed");
         WinHttpCloseHandle(hConnect);
         return "";
     }
@@ -204,6 +298,9 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
     if (WinHttpSendRequest(hRequest, nullptr, 0, (LPVOID)json_body.c_str(),
                            (DWORD)json_body.size(), (DWORD)json_body.size(), 0)) {
         if (!WinHttpReceiveResponse(hRequest, nullptr)) {
+            WarnHttpTransport(
+                "POST", host, path, ElapsedMs(started), GetLastError(),
+                "WinHttpReceiveResponse failed / timeout");
             WinHttpCloseHandle(hRequest);
             WinHttpCloseHandle(hConnect);
             return "";
@@ -217,32 +314,19 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
                 &status_code,
                 &status_size,
                 WINHTTP_NO_HEADER_INDEX)) {
+            result = ReadHttpBody(hRequest);
             if (status_code >= 400) {
-                Log::GetLog()->warn(
-                    "HttpClient: POST HTTP {} path_host={}", status_code, host);
-                CustomShop::Debug::Fields hf;
-                hf.extra = {{"http_status", static_cast<int>(status_code)},
-                            {"host", host}};
-                CustomShop::Debug::Warn(
-                    "Http", hf,
-                    "POST HTTP " + std::to_string(status_code));
+                WarnHttpStatus(
+                    "POST", host, path, static_cast<int>(status_code), ElapsedMs(started),
+                    result);
             }
-        }
-        DWORD bytes_avail = 0, bytes_read = 0;
-        char buf[4096];
-        while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
-            while (bytes_avail > 0) {
-                DWORD to_read = (bytes_avail > sizeof(buf)) ? (DWORD)sizeof(buf) : bytes_avail;
-                if (WinHttpReadData(hRequest, buf, to_read, &bytes_read) && bytes_read > 0) {
-                    result.append(buf, bytes_read);
-                    bytes_avail -= bytes_read;
-                } else break;
-            }
+        } else {
+            result = ReadHttpBody(hRequest);
         }
     } else {
-        CustomShop::Debug::Fields hf;
-        hf.extra = {{"host", host}, {"timeout_ms_send", kHttpSendMs}};
-        CustomShop::Debug::Warn("Http", hf, "POST WinHttpSendRequest failed / timeout");
+        WarnHttpTransport(
+            "POST", host, path, ElapsedMs(started), GetLastError(),
+            "WinHttpSendRequest failed / timeout");
     }
 
     WinHttpCloseHandle(hRequest);

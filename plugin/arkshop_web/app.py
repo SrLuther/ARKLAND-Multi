@@ -15198,6 +15198,11 @@ def admin_pix_audit():
 @app.route("/api/admin/audit", methods=["GET"])
 @admin_required
 def admin_list_audit():
+    """Lista audit paginada — COUNT(*) só com ``include_total=1`` (padrão Pedidos).
+
+    Default antigo (COUNT ligado) + ``audit_events`` grande → Waitress/proxy
+    devolvia HTML/DOCTYPE e a UI rebentava com Unexpected token '<'.
+    """
     if (err := _require_db()) is not None:
         return err
     event_type = str(request.args.get("event_type", "")).strip()
@@ -15209,7 +15214,8 @@ def admin_list_audit():
     limit = max(1, min(100, int(request.args.get("limit", 25))))
     offset = max(0, int(request.args.get("offset", 0)))
     include_total_arg = str(request.args.get("include_total", "")).strip().lower()
-    want_total = include_total_arg not in ("0", "false", "no", "off")
+    # Opt-in (igual admin_list_orders) — hot path sem COUNT(*) em audit_events.
+    want_total = include_total_arg in ("1", "true", "yes", "on")
 
     db = _SessionLocal()
     try:

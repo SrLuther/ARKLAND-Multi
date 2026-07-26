@@ -771,7 +771,6 @@ def register_tribe_routes(
             generate_invite_code,
             get_active_invite_code,
             get_group_for_owner,
-            get_or_stub_construction_limits,
             handle_ownership_transfer,
             list_admin_alerts,
             list_admin_tribes,
@@ -779,7 +778,6 @@ def register_tribe_routes(
             list_join_requests,
             resolve_join_request,
             revoke_membership_on_map,
-            save_construction_limits,
             set_principal_map,
         )
         return {
@@ -795,8 +793,6 @@ def register_tribe_routes(
             "handle_ownership_transfer": handle_ownership_transfer,
             "list_admin_tribes": list_admin_tribes,
             "list_admin_alerts": list_admin_alerts,
-            "get_or_stub_construction_limits": get_or_stub_construction_limits,
-            "save_construction_limits": save_construction_limits,
         }
 
     @app.route("/api/tribe/invite", methods=["GET"])
@@ -819,7 +815,6 @@ def register_tribe_routes(
                 "cluster_group": group,
                 "requests": inv["list_join_requests"](db, owner_steam_id=steam_id, status="PENDING"),
                 "confirmed": inv["list_confirmed_members"](db, group["id"]),
-                "construction_limits": inv["get_or_stub_construction_limits"](db, group["id"]),
             })
         except Exception as exc:
             log.warning("tribe_invite_get: %s", exc)
@@ -1005,32 +1000,7 @@ def register_tribe_routes(
             return _ok({
                 "tribes": inv["list_admin_tribes"](db),
                 "alerts": inv["list_admin_alerts"](db),
-                "construction_limits": inv["get_or_stub_construction_limits"](db),
             })
-        finally:
-            db.close()
-
-    @app.route("/api/tribe/admin/construction-limits", methods=["POST"])
-    @admin_required
-    def tribe_admin_construction_limits():
-        """Notas admin apenas — sem enforcement (decisão Jul/2026 §20.8)."""
-        if not db_ready():
-            return _fail("DB não disponível", 503)
-        steam_id = steam_id_from_session() or ""
-        body = request.get_json(silent=True) or {}
-        db = _db()
-        try:
-            result = _invite()["save_construction_limits"](
-                db,
-                admin_steam_id=steam_id,
-                principal_max=0,
-                fob_max=0,
-                notes=str(body.get("notes") or ""),
-                cluster_group_id=int(body["cluster_group_id"]) if body.get("cluster_group_id") else None,
-            )
-            return _ok(result)
-        except Exception as exc:
-            return _fail(str(exc), 500)
         finally:
             db.close()
 

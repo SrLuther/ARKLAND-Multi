@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.33] - 2026-07-26
+
+### Improvement
+
+- **HttpClient / Debug**: falhas WinHTTP e HTTP ≥400 passam a gravar `method`, `path` (sem query), `host`, `http_status`, `duration_ms`, `winhttp_error`, timeouts e `response_snippet` truncado — mensagem inclui path/status para diagnóstico na web Admin.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.33) em cada mapa.
+
 ## [1.10.32] - 2026-07-22
 
 ### Fix

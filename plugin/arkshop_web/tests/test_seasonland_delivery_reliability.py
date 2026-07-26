@@ -634,13 +634,16 @@ def test_ops_list_season_pass_orders_filters(client):
     r2 = client.get("/api/admin/season-pass/orders?track=free&level=4&status=ERRO")
     d2 = r2.get_json()
     assert d2["ok"] is True
-    assert d2["total"] == 1
+    assert d2.get("has_more") is False
+    assert len(d2["items"]) == 1
     assert d2["items"][0]["order_id"] == sp_kit
     assert d2["items"][0]["track"] == "free"
     assert d2["items"][0]["level"] == 4
 
     r3 = client.get(f"/api/admin/season-pass/orders?steam_id={USER_STEAM}")
-    assert r3.get_json()["total"] >= 3
+    d3 = r3.get_json()
+    assert d3["ok"] is True
+    assert len(d3["items"]) >= 3
 
 
 def test_ops_admin_orders_hides_seasonland_by_default(client):

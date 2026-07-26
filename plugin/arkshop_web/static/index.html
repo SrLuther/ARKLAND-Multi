@@ -398,6 +398,30 @@
       background: var(--surface3);
       box-shadow: 0 0 0 1px rgba(232,120,32,.14);
     }
+    .auth-myarea-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 8px 0 4px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, box-shadow .15s, color .15s;
+    }
+    .auth-myarea-btn:hover,
+    .auth-myarea-btn--active {
+      border-color: rgba(232,120,32,.55);
+      background: var(--surface3);
+      color: var(--amber);
+      box-shadow: 0 0 0 1px rgba(232,120,32,.14);
+    }
     .notif-badge {
       display: inline-flex;
       align-items: center;
@@ -1262,7 +1286,7 @@
     .sp-admin-row:first-of-type { border-top:none; }
     .sp-grant-edit {
       display:grid;
-      grid-template-columns:150px 1.25fr 120px 110px 1.4fr auto;
+      grid-template-columns:1.5fr 110px 100px 1.3fr auto;
       gap:8px;
       margin-bottom:10px;
       align-items:end;
@@ -1287,10 +1311,41 @@
       box-sizing:border-box;
     }
     .sp-grant-edit .form-group.is-disabled { opacity:.42; }
-    .sp-grant-edit .form-group.is-disabled input {
+    .sp-grant-edit .form-group.is-disabled input,
+    .sp-grant-edit .form-group.is-disabled select {
       cursor:not-allowed;
       background:rgba(0,0,0,.25);
     }
+    .sp-grant-type-wrap {
+      grid-column:1 / -1;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:0;
+    }
+    .sp-grant-type-wrap > label {
+      font-size:9px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--text2);
+    }
+    .sp-grant-type-seg.catalog-tabs {
+      margin:0;
+      gap:4px;
+      flex-wrap:wrap;
+    }
+    .sp-grant-type-seg .catalog-tab {
+      padding:5px 10px;
+      font-size:11px;
+    }
+    .sp-grant-sku-custom {
+      margin-top:4px;
+      padding:7px 10px;
+      font-size:12px;
+      width:100%;
+      box-sizing:border-box;
+    }
+    .sp-grant-sku-custom.hidden { display:none; }
     .sp-grant-remove {
       display:flex; flex-direction:column; gap:4px; align-items:stretch;
     }
@@ -2638,6 +2693,21 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
+    }
+    .catalog-pager {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 12px 0 4px;
+    }
+    .catalog-pager__info {
+      font-size: 12px;
+      color: var(--text2);
+      min-width: 7em;
+      text-align: center;
     }
 
     .catalog-toolbar--sticky {
@@ -6557,6 +6627,9 @@
         </div>
       </div>
       <div id="auth-userline"></div>
+      <button type="button" id="auth-myarea-btn" class="auth-myarea-btn" onclick="goToPage('myarea')" title="Abrir Minha Área">
+        👤 Minha Área
+      </button>
       <button type="button" id="staff-mode-toggle" class="staff-mode-toggle hidden" onclick="toggleStaffMode()" aria-pressed="false" title="Alternar menu de staff (admin/suporte)">
         <span class="staff-mode-dot staff-mode-dot--off" aria-hidden="true"></span>
         <span class="staff-mode-label">MODO STAFF</span>
@@ -6694,9 +6767,9 @@
     <div class="nav-item" data-page="tickets" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets
     </div>
-    <div class="nav-item" data-page="myarea" onclick="nav(this)">
-      <span class="nav-icon">👤</span> Minha Área
-    </div>
+    <!-- Minha Área: botão no card do utilizador (#auth-myarea-btn); nav-item oculto só para goToPage/nav -->
+    <div class="nav-item" data-page="myarea" id="nav-myarea" hidden aria-hidden="true"
+         style="display:none !important;position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;"></div>
     <div class="nav-item" data-page="teams" onclick="nav(this)" id="nav-teams">
       <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Minha Equipe
     </div>
@@ -6802,12 +6875,12 @@
             <div class="catalog-search-wrap">
               <input id="catalog-search" type="search" placeholder="Buscar nome, descrição, categoria ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('items')" />
             </div>
-            <select id="catalog-sort" class="catalog-sort-select" onchange="renderCatalogItems()" aria-label="Ordenar itens">
+            <select id="catalog-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('items');renderCatalogItems()" aria-label="Ordenar itens">
               <option value="name">Nome A–Z</option>
               <option value="price-asc">Preço ↑</option>
               <option value="price-desc">Preço ↓</option>
             </select>
-            <select id="catalog-cat" onchange="renderCatalogItems()" aria-label="Filtrar categoria" style="display:none;">
+            <select id="catalog-cat" onchange="_catalogResetDomPage('items');renderCatalogItems()" aria-label="Filtrar categoria" style="display:none;">
               <option value="">Todas as categorias</option>
             </select>
           </div>
@@ -6821,7 +6894,7 @@
             <div class="catalog-search-wrap">
               <input id="catalog-dinos-search" type="search" placeholder="Buscar dino, espécie ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos')" />
             </div>
-            <select id="catalog-dinos-sort" class="catalog-sort-select" onchange="renderCatalogDinos()" aria-label="Ordenar dinos">
+            <select id="catalog-dinos-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('dinos');renderCatalogDinos()" aria-label="Ordenar dinos">
               <option value="name">Nome A–Z</option>
               <option value="price-asc">Preço ↑</option>
               <option value="price-desc">Preço ↓</option>
@@ -6836,7 +6909,7 @@
             <div class="catalog-search-wrap">
               <input id="catalog-dinos200-search" type="search" placeholder="Buscar dino nível 200, espécie ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos200')" />
             </div>
-            <select id="catalog-dinos200-sort" class="catalog-sort-select" onchange="renderCatalogDinos200()" aria-label="Ordenar dinos 200">
+            <select id="catalog-dinos200-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('dinos200');renderCatalogDinos200()" aria-label="Ordenar dinos 200">
               <option value="name">Nome A–Z</option>
               <option value="price-asc">Preço ↑</option>
               <option value="price-desc">Preço ↓</option>
@@ -6851,7 +6924,7 @@
             <div class="catalog-search-wrap">
               <input id="catalog-kits-search" type="search" placeholder="Buscar kit, item ou características…" autocomplete="off" oninput="debounceCatalogSearch('kits')" />
             </div>
-            <select id="catalog-kits-sort" class="catalog-sort-select" onchange="renderCatalogKits()" aria-label="Ordenar kits">
+            <select id="catalog-kits-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('kits');renderCatalogKits()" aria-label="Ordenar kits">
               <option value="name">Nome A–Z</option>
               <option value="price-asc">Preço ↑</option>
               <option value="price-desc">Preço ↓</option>
@@ -6866,7 +6939,7 @@
             <div class="catalog-search-wrap">
               <input id="catalog-licenses-search" type="search" placeholder="Buscar licença, tier ou duração…" autocomplete="off" oninput="debounceCatalogSearch('licenses')" />
             </div>
-            <select id="catalog-licenses-sort" class="catalog-sort-select" onchange="renderCatalogLicenses()" aria-label="Ordenar licenças">
+            <select id="catalog-licenses-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('licenses');renderCatalogLicenses()" aria-label="Ordenar licenças">
               <option value="name">Nome A–Z</option>
               <option value="price-asc">Preço ↑</option>
               <option value="price-desc">Preço ↓</option>
@@ -8316,7 +8389,7 @@
             </div>
             <div class="tutorial-acc-body">
               <h4>Minha Área (web)</h4>
-              <p>Requer login Steam. Acesse pelo menu lateral <strong>Minha Área</strong>.</p>
+              <p>Requer login Steam. Acesse pelo botão <strong>Minha Área</strong> no card do utilizador (barra lateral).</p>
               <ul>
                 <li><strong>Perfil</strong> — SteamID autenticado e nome de exibição do Comércio.</li>
                 <li><strong>Resumo</strong> — saldo de Âmbar, resgates pendentes, estatísticas.</li>
@@ -9965,23 +10038,6 @@
             Intervenção em denúncias/abusos / códigos quando necessário.
           </p>
         </div>
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">Limites de construção — adiados</div>
-          <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.5;">
-            <strong style="color:var(--amber);">Sem enforcement.</strong>
-            Dois membros do mesmo grupo podem ter cada um uma base ★ Principal em mapas diferentes;
-            por isso limites de construção Principal vs Fob <em>não</em> são aplicados como regra dura.
-            Conduta abusiva continua sujeita a sanção caso a caso.
-          </p>
-          <div class="form-group" style="margin:0;">
-            <label>Notas internas (opcional)</label>
-            <input id="tribe-admin-notes" type="text" placeholder="Notas admin — não ativa limites" />
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="saveTribeAdminLimits()">Salvar notas</button>
-          <div id="tribe-admin-limits-hint" style="font-size:11px;color:var(--text2);margin-top:8px;">
-            Breeding oficial: apenas no mapa Principal (regulamento; sem bloqueio técnico).
-          </div>
-        </div>
         <div id="tribe-admin-alerts" style="margin-bottom:16px;"></div>
         <div id="tribe-admin-list"></div>
       </div>
@@ -10193,14 +10249,21 @@
               <label>Nível</label>
               <select id="pd-filter-level" onchange="loadPluginDebug()">
                 <option value="">Todos</option>
+                <option value="WARN+">WARN+</option>
                 <option value="ERROR">ERROR</option>
                 <option value="WARN">WARN</option>
                 <option value="INFO">INFO</option>
+                <option value="DEBUG">DEBUG</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;min-width:160px;">
               <label>SteamID</label>
               <input id="pd-filter-steam" type="text" placeholder="7656119…"
+                     onkeydown="if(event.key==='Enter')loadPluginDebug()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:200px;flex:1;">
+              <label>Texto (q)</label>
+              <input id="pd-filter-q" type="text" placeholder="path, host, 503, timeout…"
                      onkeydown="if(event.key==='Enter')loadPluginDebug()" />
             </div>
             <button class="btn btn-primary btn-sm" onclick="loadPluginDebug()">Filtrar</button>
@@ -11266,6 +11329,7 @@ function nav(el) {
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   el.classList.add("active");
+  document.getElementById("auth-myarea-btn")?.classList.toggle("auth-myarea-btn--active", page === "myarea");
   const pageEl = document.getElementById("page-" + page);
   if (pageEl) pageEl.classList.add("active");
   if (isMobileNav()) closeSidebar();
@@ -12274,6 +12338,7 @@ function _catalogModeSelectHtml(selected) {
 
 function setCatalogCategory(cat) {
   _catalogActiveCat = cat || "";
+  _catalogResetDomPage("items");
   const sel = document.getElementById("catalog-cat");
   if (sel) sel.value = _catalogActiveCat;
   document.querySelectorAll(".catalog-cat-chip").forEach(el => {
@@ -12316,6 +12381,7 @@ function _catalogTypeIcon(t) {
 function debounceCatalogSearch(tab) {
   clearTimeout(_catalogSearchTimers[tab]);
   _catalogSearchTimers[tab] = setTimeout(() => {
+    _catalogResetDomPage(tab);
     if (tab === "items") renderCatalogItems();
     else if (tab === "dinos") renderCatalogDinos();
     else if (tab === "dinos200") renderCatalogDinos200();
@@ -12417,6 +12483,7 @@ function _handleCatalogEmptyAction(action) {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
+    _catalogResetDomPage();
   }
   if (action === "clear-cat") setCatalogCategory("");
   if (action === "tab-items") setCatalogTab("items");
@@ -13549,13 +13616,22 @@ async function _loadCatalogLegacyUnused() {
   }
 }
 
-const CATALOG_DOM_PAGE_SIZE = 48;
+const CATALOG_DOM_PAGE_SIZE = 20; // UI: 20 cards no DOM (API /api/catalog continua full + cache/ETag/SWR)
 const _catalogDomPage = { items: 0, dinos: 0, dinos200: 0, kits: 0, licenses: 0 };
+
+function _catalogResetDomPage(tab) {
+  if (tab && Object.prototype.hasOwnProperty.call(_catalogDomPage, tab)) {
+    _catalogDomPage[tab] = 0;
+    return;
+  }
+  Object.keys(_catalogDomPage).forEach((k) => { _catalogDomPage[k] = 0; });
+}
 
 function _catalogPageSlice(list, tab) {
   const pages = Math.max(1, Math.ceil(list.length / CATALOG_DOM_PAGE_SIZE));
   let page = _catalogDomPage[tab] || 0;
   if (page >= pages) page = pages - 1;
+  if (page < 0) page = 0;
   _catalogDomPage[tab] = page;
   const start = page * CATALOG_DOM_PAGE_SIZE;
   return {
@@ -13568,21 +13644,45 @@ function _catalogPageSlice(list, tab) {
 
 function _catalogPagerHtml(tab, page, pages, total) {
   if (pages <= 1) return "";
-  return `<div class="catalog-pager" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0 4px;">
+  return `<div class="catalog-pager" role="navigation" aria-label="Paginação do catálogo">
     <button type="button" class="btn btn-ghost btn-sm" ${page <= 0 ? "disabled" : ""} onclick="_catalogDomPagePrev('${tab}')">← Anterior</button>
-    <span style="font-size:12px;color:var(--text2);">${page + 1} / ${pages} (${total})</span>
+    <span class="catalog-pager__info">${page + 1} / ${pages} (${total})</span>
     <button type="button" class="btn btn-ghost btn-sm" ${page >= pages - 1 ? "disabled" : ""} onclick="_catalogDomPageNext('${tab}')">Próxima →</button>
   </div>`;
 }
 
+function _catalogRerenderTab(tab) {
+  if (tab === "items") renderCatalogItems();
+  else if (tab === "dinos") renderCatalogDinos();
+  else if (tab === "dinos200") renderCatalogDinos200();
+  else if (tab === "kits") renderCatalogKits();
+  else if (tab === "licenses") renderCatalogLicenses();
+}
+
 function _catalogDomPagePrev(tab) {
   _catalogDomPage[tab] = Math.max(0, (_catalogDomPage[tab] || 0) - 1);
-  renderCatalog();
+  _catalogRerenderTab(tab);
+  try {
+    document.getElementById("catalog-panel-" + tab)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (_) {}
 }
 
 function _catalogDomPageNext(tab) {
   _catalogDomPage[tab] = (_catalogDomPage[tab] || 0) + 1;
-  renderCatalog();
+  _catalogRerenderTab(tab);
+  try {
+    document.getElementById("catalog-panel-" + tab)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (_) {}
+}
+
+function _catalogFillPagedGrid(grid, countEl, filtered, tab, label, mapCard) {
+  const { slice, page, pages, total } = _catalogPageSlice(filtered, tab);
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(total, label)
+      + (pages > 1 ? ` · página ${page + 1}/${pages}` : "");
+  }
+  grid.innerHTML = slice.map(mapCard).join("") + _catalogPagerHtml(tab, page, pages, total);
 }
 
 function renderCatalogItems() {
@@ -13612,14 +13712,7 @@ function renderCatalogItems() {
     return;
   }
   if (empty) empty.style.display = "none";
-  const { slice, page, pages, total } = _catalogPageSlice(filtered, "items");
-  if (countEl) {
-    countEl.style.display = "";
-    countEl.innerHTML = _catalogResultCountHtml(total, "itens")
-      + (pages > 1 ? ` · página ${page + 1}/${pages}` : "");
-  }
-  grid.innerHTML = slice.map(i => _renderProductCard(i, "Resgatar")).join("")
-    + _catalogPagerHtml("items", page, pages, total);
+  _catalogFillPagedGrid(grid, countEl, filtered, "items", "itens", (i) => _renderProductCard(i, "Resgatar"));
 }
 
 function renderCatalogDinos() {
@@ -13646,11 +13739,7 @@ function renderCatalogDinos() {
     return;
   }
   if (empty) empty.style.display = "none";
-  if (countEl) {
-    countEl.style.display = "";
-    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "dinos");
-  }
-  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
+  _catalogFillPagedGrid(grid, countEl, filtered, "dinos", "dinos", (i) => _renderProductCard(i, "Resgatar"));
 }
 
 function renderCatalogDinos200() {
@@ -13677,11 +13766,7 @@ function renderCatalogDinos200() {
     return;
   }
   if (empty) empty.style.display = "none";
-  if (countEl) {
-    countEl.style.display = "";
-    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "dinos");
-  }
-  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
+  _catalogFillPagedGrid(grid, countEl, filtered, "dinos200", "dinos", (i) => _renderProductCard(i, "Resgatar"));
 }
 
 function renderCatalogKits() {
@@ -13704,11 +13789,7 @@ function renderCatalogKits() {
     return;
   }
   if (empty) empty.style.display = "none";
-  if (countEl) {
-    countEl.style.display = "";
-    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "kits");
-  }
-  grid.innerHTML = filtered.map(k => _renderProductCard(k, "Resgatar Kit")).join("");
+  _catalogFillPagedGrid(grid, countEl, filtered, "kits", "kits", (k) => _renderProductCard(k, "Resgatar Kit"));
 }
 
 function renderCatalogLicenses() {
@@ -13734,11 +13815,7 @@ function renderCatalogLicenses() {
     return;
   }
   if (empty) empty.style.display = "none";
-  if (countEl) {
-    countEl.style.display = "";
-    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "licenças");
-  }
-  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar Licença")).join("");
+  _catalogFillPagedGrid(grid, countEl, filtered, "licenses", "licenças", (i) => _renderProductCard(i, "Resgatar Licença"));
 }
 
 async function loadAvailable() {
@@ -14625,7 +14702,7 @@ async function pollPixStatus(paymentId) {
 }
 
 function renderCatalog() {
-  renderCatalogItems();
+  _renderActiveCatalogTab();
 }
 
 function fmtDate(iso) {
@@ -16890,43 +16967,202 @@ async function seasonPassAdminStart(next) {
 }
 
 let _spAdminCfg = null;
+let _spAdminLicenseCatalog = null;
 
-const _SP_GRANT_TYPE_OPTS = [
-  ["amber", "amber — Âmbar"],
-  ["dino", "dino — Dino (catálogo)"],
-  ["item", "item — Item (catálogo)"],
-  ["kit", "kit — Kit (catálogo)"],
-  ["license", "license — Licença"],
+const _SP_GRANT_TYPES = [
+  { id: "amber", label: "Âmbar" },
+  { id: "dino", label: "Dino" },
+  { id: "item", label: "Item" },
+  { id: "kit", label: "Kit" },
+  { id: "license", label: "Licença" },
 ];
 
-function spGrantTypeChanged(sel) {
+async function _spEnsureGrantCatalogSources() {
+  const tasks = [];
+  if (!(_catalogItems && _catalogItems.length) && !(_catalogKits && _catalogKits.length)) {
+    tasks.push(loadCatalog({ force: false }).catch(() => false));
+  }
+  if (_spAdminLicenseCatalog == null) {
+    tasks.push((async () => {
+      try {
+        const d = await fetchJson("/api/admin/license-catalog");
+        _spAdminLicenseCatalog = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
+      } catch (_) {
+        _spAdminLicenseCatalog = [];
+      }
+    })());
+  }
+  if (tasks.length) await Promise.all(tasks);
+}
+
+function _spCatalogEntriesForGrantType(type) {
+  if (type === "kit") {
+    return (_catalogKits || [])
+      .map((k) => ({ id: String(k.key || ""), label: String(k.name || k.key || ""), days: null }))
+      .filter((e) => e.id)
+      .sort((a, b) => a.label.localeCompare(b.label, "pt"));
+  }
+  if (type === "dino") {
+    return (_catalogItems || [])
+      .filter((i) => _isDinoType(i.type))
+      .map((i) => {
+        const lvl = _catalogDinoLevel(i);
+        const base = String(i.name || i.key || "");
+        return {
+          id: String(i.key || ""),
+          label: lvl === 200 ? `${base} · L200` : base,
+          days: null,
+        };
+      })
+      .filter((e) => e.id)
+      .sort((a, b) => a.label.localeCompare(b.label, "pt"));
+  }
+  if (type === "item") {
+    return (_catalogItems || [])
+      .filter((i) => !_isDinoType(i.type) && !_isLicenseItem(i))
+      .map((i) => ({ id: String(i.key || ""), label: String(i.name || i.key || ""), days: null }))
+      .filter((e) => e.id)
+      .sort((a, b) => a.label.localeCompare(b.label, "pt"));
+  }
+  if (type === "license") {
+    if (Array.isArray(_spAdminLicenseCatalog) && _spAdminLicenseCatalog.length) {
+      return _spAdminLicenseCatalog.map((l) => ({
+        id: String(l.group || ""),
+        label: `${l.label || l.group || ""} (${l.group || ""})`,
+        days: l.days != null ? Number(l.days) : 30,
+      })).filter((e) => e.id);
+    }
+    const fromCat = (_catalogItems || [])
+      .filter((i) => _isLicenseItem(i))
+      .map((i) => ({
+        id: String(i.licenseGroup || i.key || ""),
+        label: String(i.name || i.licenseGroup || i.key || ""),
+        days: i.licenseDays != null ? Number(i.licenseDays) : 30,
+      }))
+      .filter((e) => e.id);
+    if (fromCat.length) return fromCat;
+    const tiers = (_spAdminCfg && _spAdminCfg.tier_sequence) || [
+      "Delta", "Gamma", "Beta", "Alfa", "Omega", "Transcendente",
+    ];
+    return tiers.map((t) => ({ id: t, label: t, days: 30 }));
+  }
+  return [];
+}
+
+function _spGrantSkuFieldLabel(type) {
+  if (type === "amber") return "Catálogo";
+  if (type === "license") return "Licença / tier";
+  if (type === "dino") return "Dino (catálogo)";
+  if (type === "kit") return "Kit (catálogo)";
+  if (type === "item") return "Item (catálogo)";
+  return "Catálogo / SKU";
+}
+
+function _spGrantSkuSelectHtml(type, selectedId) {
+  if (type === "amber") {
+    return `<select data-f="id" disabled aria-label="Catálogo">
+      <option value="">— (só quantidade Â)</option>
+    </select>
+    <input data-f="id-custom" type="text" class="sp-grant-sku-custom hidden" value="" disabled aria-hidden="true" />`;
+  }
+  const entries = _spCatalogEntriesForGrantType(type);
+  const sel = String(selectedId || "");
+  const inList = !!sel && entries.some((e) => e.id === sel);
+  const emptyHint = entries.length
+    ? "— escolher —"
+    : "— catálogo vazio / a carregar —";
+  const opts = [
+    `<option value="">${escHtml(emptyHint)}</option>`,
+    ...entries.map((e) => {
+      const daysAttr = e.days != null && !Number.isNaN(e.days) ? ` data-days="${e.days}"` : "";
+      const labelAttr = ` data-label="${escHtml(e.label)}"`;
+      return `<option value="${escHtml(e.id)}"${daysAttr}${labelAttr}${e.id === sel ? " selected" : ""}>${escHtml(e.label)} · ${escHtml(e.id)}</option>`;
+    }),
+    `<option value="__custom__"${sel && !inList ? " selected" : ""}>Outro / SKU custom…</option>`,
+  ];
+  const customVal = sel && !inList ? escHtml(sel) : "";
+  const customShow = !!(sel && !inList);
+  return `<select data-f="id" onchange="spGrantSkuChanged(this)" aria-label="${escHtml(_spGrantSkuFieldLabel(type))}">${opts.join("")}</select>
+    <input data-f="id-custom" type="text" class="sp-grant-sku-custom${customShow ? "" : " hidden"}"
+      placeholder="SKU / id custom" value="${customVal}" aria-label="SKU custom" />`;
+}
+
+function _spGrantTypeSegHtml(selected) {
+  const buttons = _SP_GRANT_TYPES.map((t) =>
+    `<button type="button" class="catalog-tab${t.id === selected ? " active" : ""}" data-grant-type="${t.id}" onclick="spGrantPickType(this)">${t.label}</button>`
+  ).join("");
+  return `<div class="sp-grant-type-wrap">
+    <label>Tipo</label>
+    <div class="sp-grant-type-seg catalog-tabs" role="group" aria-label="Tipo de recompensa">${buttons}</div>
+    <input type="hidden" data-f="type" value="${escHtml(selected)}" />
+  </div>`;
+}
+
+function spGrantPickType(btn) {
+  const row = btn && btn.closest ? btn.closest(".sp-grant-edit") : null;
+  if (!row) return;
+  const type = btn.getAttribute("data-grant-type") || "amber";
+  row.dataset.type = type;
+  const hidden = row.querySelector('[data-f="type"]');
+  if (hidden) hidden.value = type;
+  row.querySelectorAll(".sp-grant-type-seg .catalog-tab").forEach((b) => {
+    b.classList.toggle("active", b.getAttribute("data-grant-type") === type);
+  });
+  spGrantTypeChanged(row);
+}
+
+function spGrantSkuChanged(sel) {
   const row = sel && sel.closest ? sel.closest(".sp-grant-edit") : null;
   if (!row) return;
-  const type = sel.value || "amber";
+  const type = row.dataset.type || row.querySelector('[data-f="type"]')?.value || "amber";
+  const custom = row.querySelector('[data-f="id-custom"]');
+  if (sel.value === "__custom__") {
+    custom?.classList.remove("hidden");
+    custom?.focus?.();
+  } else {
+    custom?.classList.add("hidden");
+    if (custom) custom.value = "";
+  }
+  const opt = sel.options[sel.selectedIndex];
+  const labelInput = row.querySelector('[data-f="label"]');
+  if (labelInput && sel.value && sel.value !== "__custom__") {
+    const suggested = (opt?.getAttribute("data-label") || "").trim();
+    if (suggested && (!labelInput.value.trim() || labelInput.dataset.auto === "1")) {
+      labelInput.value = suggested;
+      labelInput.dataset.auto = "1";
+    }
+  }
+  if (type === "license") {
+    const daysInput = row.querySelector('[data-f="days"]');
+    const days = parseInt(opt?.getAttribute("data-days") || "", 10);
+    if (daysInput && !Number.isNaN(days) && days > 0) daysInput.value = String(days);
+  }
+}
+
+function spGrantTypeChanged(rowOrSel) {
+  const row = !rowOrSel
+    ? null
+    : (rowOrSel.classList && rowOrSel.classList.contains("sp-grant-edit")
+      ? rowOrSel
+      : (rowOrSel.closest ? rowOrSel.closest(".sp-grant-edit") : null));
+  if (!row) return;
+  const type = row.dataset.type
+    || row.querySelector('[data-f="type"]')?.value
+    || "amber";
   row.dataset.type = type;
-  const idWrap = row.querySelector('[data-f="id"]')?.closest(".form-group");
-  const idInput = row.querySelector('[data-f="id"]');
+  const skuWrap = row.querySelector('[data-role="sku"]');
+  if (skuWrap) {
+    skuWrap.classList.toggle("is-disabled", type === "amber");
+    skuWrap.innerHTML = `<label>${escHtml(_spGrantSkuFieldLabel(type))}</label>${_spGrantSkuSelectHtml(type, "")}`;
+  }
   const daysWrap = row.querySelector('[data-f="days"]')?.closest(".form-group");
   const daysInput = row.querySelector('[data-f="days"]');
   const qtyInput = row.querySelector('[data-f="qty"]');
-  if (type === "amber") {
-    idWrap?.classList.add("is-disabled");
-    if (idInput) {
-      idInput.disabled = true;
-      idInput.value = "";
-      idInput.placeholder = "não usado";
-    }
-  } else {
-    idWrap?.classList.remove("is-disabled");
-    if (idInput) {
-      idInput.disabled = false;
-      idInput.placeholder = type === "license" ? "ex.: Delta, Alfa" : "ex.: rex_femea";
-    }
-  }
   if (type === "license") {
     daysWrap?.classList.remove("is-disabled");
     if (daysInput) {
       daysInput.disabled = false;
+      if (!daysInput.value) daysInput.value = "30";
       daysInput.placeholder = "ex.: 30";
     }
   } else {
@@ -16939,6 +17175,9 @@ function spGrantTypeChanged(sel) {
   }
   if (qtyInput) {
     qtyInput.placeholder = type === "amber" ? "ex.: 500" : "ex.: 1";
+    if (type !== "amber" && (!qtyInput.value || qtyInput.value === "0")) {
+      qtyInput.value = "1";
+    }
   }
 }
 
@@ -16946,27 +17185,20 @@ function _spGrantEditHtml(track, level, g, idx) {
   const t = String(g.type || "amber");
   const isAmber = t === "amber";
   const isLicense = t === "license";
-  const id = isAmber ? "" : escHtml(g.id || "");
-  const qty = Number(g.qty != null ? g.qty : 1);
+  const rawId = isAmber ? "" : String(g.id || "");
+  const qty = Number(g.qty != null ? g.qty : (isAmber ? 0 : 1));
   const days = isLicense && g.days != null ? Number(g.days) : "";
   const label = escHtml(g.label || "");
-  const opts = _SP_GRANT_TYPE_OPTS.map(([val, txt]) =>
-    `<option value="${val}" ${val === t ? "selected" : ""}>${txt}</option>`
-  ).join("");
-  const idPh = isAmber ? "não usado" : (isLicense ? "ex.: Delta, Alfa" : "ex.: rex_femea");
   const qtyPh = isAmber ? "ex.: 500" : "ex.: 1";
   return `<div class="sp-grant-edit" data-track="${escHtml(track)}" data-level="${level}" data-idx="${idx}" data-type="${escHtml(t)}">
-    <div class="form-group">
-      <label>Tipo</label>
-      <select data-f="type" onchange="spGrantTypeChanged(this)" aria-label="Tipo">${opts}</select>
-    </div>
-    <div class="form-group${isAmber ? " is-disabled" : ""}">
-      <label>ID / SKU do catálogo</label>
-      <input data-f="id" type="text" placeholder="${idPh}" value="${id}" ${isAmber ? "disabled" : ""} aria-label="ID / SKU do catálogo" />
+    ${_spGrantTypeSegHtml(t)}
+    <div class="form-group${isAmber ? " is-disabled" : ""}" data-role="sku">
+      <label>${escHtml(_spGrantSkuFieldLabel(t))}</label>
+      ${_spGrantSkuSelectHtml(t, rawId)}
     </div>
     <div class="form-group">
-      <label>Quantidade / Valor Â</label>
-      <input data-f="qty" type="number" min="0" placeholder="${qtyPh}" value="${qty}" aria-label="Quantidade / Valor Â" />
+      <label>${isAmber ? "Valor Â" : "Quantidade"}</label>
+      <input data-f="qty" type="number" min="0" placeholder="${qtyPh}" value="${qty}" aria-label="${isAmber ? "Valor Â" : "Quantidade"}" />
     </div>
     <div class="form-group${isLicense ? "" : " is-disabled"}">
       <label>Dias (só licença)</label>
@@ -16974,7 +17206,7 @@ function _spGrantEditHtml(track, level, g, idx) {
     </div>
     <div class="form-group">
       <label>Texto exibido</label>
-      <input data-f="label" type="text" placeholder="ex.: 500 Â / Kit consumíveis" value="${label}" aria-label="Texto exibido" />
+      <input data-f="label" type="text" placeholder="ex.: 500 Â / Kit consumíveis" value="${label}" aria-label="Texto exibido" oninput="this.dataset.auto='0'" />
     </div>
     <div class="sp-grant-remove">
       <span aria-hidden="true">.</span>
@@ -16997,22 +17229,34 @@ function _spAdminLevelRow(track, level, grants) {
 function spAdminAddGrant(track, level) {
   const row = document.querySelector(`.sp-admin-row[data-track="${track}"][data-level="${level}"] .sp-admin-grants`);
   if (!row) return;
+  const emptyHint = row.querySelector("p");
+  if (emptyHint) emptyHint.remove();
   const idx = row.querySelectorAll(".sp-grant-edit").length;
   const wrap = document.createElement("div");
   wrap.innerHTML = _spGrantEditHtml(track, level, { type: "amber", qty: 0, label: "" }, idx);
   const el = wrap.firstElementChild;
   row.appendChild(el);
-  const typeSel = el?.querySelector?.('[data-f="type"]');
-  if (typeSel) spGrantTypeChanged(typeSel);
+  if (el) spGrantTypeChanged(el);
+}
+
+function _spCollectGrantId(el, type) {
+  if (type === "amber") return "";
+  const sel = el.querySelector('[data-f="id"]');
+  let id = (sel?.value || "").trim();
+  if (id === "__custom__") {
+    id = (el.querySelector('[data-f="id-custom"]')?.value || "").trim();
+  }
+  return id;
 }
 
 function _spCollectGrants(track, level) {
   const edits = document.querySelectorAll(`.sp-grant-edit[data-track="${track}"][data-level="${level}"]`);
   const out = [];
   edits.forEach((el) => {
-    const type = el.querySelector('[data-f="type"]')?.value || "amber";
-    let id = (el.querySelector('[data-f="id"]')?.value || "").trim();
-    if (type === "amber") id = "";
+    const type = el.dataset.type
+      || el.querySelector('[data-f="type"]')?.value
+      || "amber";
+    const id = _spCollectGrantId(el, type);
     const qty = parseInt(el.querySelector('[data-f="qty"]')?.value || "0", 10) || 0;
     let days = null;
     if (type === "license") {
@@ -17075,7 +17319,10 @@ async function loadSeasonPassAdmin() {
   root.style.display = "block";
   root.innerHTML = `<p style="color:var(--text2);margin:0;">A carregar config admin…</p>`;
   try {
-    const d = await fetchJson("/api/admin/season-pass/config");
+    const [d] = await Promise.all([
+      fetchJson("/api/admin/season-pass/config"),
+      _spEnsureGrantCatalogSources(),
+    ]);
     if (!d.ok) throw new Error(d.error || "Falha");
     _spAdminCfg = d.config || {};
     const cfg = _spAdminCfg;
@@ -17173,13 +17420,13 @@ async function loadSeasonPassAdmin() {
       <div class="form-grid" style="margin-bottom:16px;">${priceInputs}</div>
       <div class="card-title" style="margin-bottom:8px;">Recompensas (grants)</div>
       <div class="sp-grant-help">
-        <strong>Como preencher cada campo</strong>
+        <strong>Como preencher cada grant</strong>
         <ul>
-          <li><strong>Tipo</strong> — <code>amber</code> = Âmbar · <code>kit</code> / <code>item</code> / <code>dino</code> = chave do catálogo CustomShop · <code>license</code> = tier da licença</li>
-          <li><strong>ID / SKU do catálogo</strong> — ex. <code>rex_femea</code>, <code>tekstrider_pack10</code>; deixe vazio se tipo = Âmbar (só o valor importa). Para licença: <code>Delta</code>, <code>Alfa</code>, etc.</li>
-          <li><strong>Quantidade / Valor Â</strong> — se Âmbar: quantos Âmbar (ex. <code>500</code>). Se item/dino/kit: quantidade (geralmente <code>1</code>).</li>
-          <li><strong>Dias (só licença)</strong> — duração da licença em dias (ex. <code>30</code>). Desactivado nos outros tipos.</li>
-          <li><strong>Texto exibido</strong> — nome amigável mostrado ao jogador (ex. <code>500 Â</code>, <code>Kit consumíveis</code>).</li>
+          <li><strong>Tipo</strong> — botões Âmbar / Dino / Item / Kit / Licença (mesmo estilo das abas do catálogo).</li>
+          <li><strong>Catálogo</strong> — lista filtrada pelo tipo (itens/kits/dinos da loja; licenças via catálogo de tiers). Âmbar não usa SKU — só o valor. Opção <em>Outro / SKU custom</em> para IDs fora da lista.</li>
+          <li><strong>Valor Â / Quantidade</strong> — Âmbar: quantos Â (ex. <code>500</code>). Item/dino/kit: quantidade (geralmente <code>1</code>).</li>
+          <li><strong>Dias (só licença)</strong> — duração em dias (ex. <code>30</code>); pré-preenchido ao escolher o tier. Desactivado nos outros tipos.</li>
+          <li><strong>Texto exibido</strong> — nome amigável ao jogador (preenche-se ao escolher no catálogo se estiver vazio).</li>
         </ul>
         <div style="margin-top:8px;opacity:.9;">Sem ID em kit/item/dino → <em>sku_pending</em> (Resgatar escondido). Assim que o ID existir, o aviso some e o claim fica disponível. Â na hora; kit/item/dino → fila PENDENTE; licença → entitlement (ou Â se tier superior).</div>
       </div>
@@ -19205,7 +19452,8 @@ async function loadMarketEncomenda() {
   }
   gate.style.display = "none";
   try {
-    const d = await fetchJson("/api/player/dino-order/species");
+    // Backend cache TTL 30s + payload leve; 20s só rede de segurança (não o fix).
+    const d = await fetchJson("/api/player/dino-order/species", { timeoutMs: 20000 });
     if (!d.ok) {
       if (d.error === "dino_order_disabled") {
         content.style.display = "none";
@@ -26105,43 +26353,40 @@ async function loadPixAudit() {
 }
 
 // ── Auditoria (admin) ─────────────────────────────────────────────────────────
-let _auditPage = { limit: 10, offset: 0, total: 0 };
+// include_total=0 + has_more — COUNT em audit_events era o gargalo (DOCTYPE).
+let _auditPage = { limit: 10, offset: 0, total: null, hasMore: false };
 
 function resetAuditPage() { _auditPage.offset = 0; loadAudit(); }
-function prevAuditPage() { _auditPage.offset = Math.max(0, _auditPage.offset - _auditPage.limit); loadAudit(); }
-function nextAuditPage() {
-  if (_auditPage.offset + _auditPage.limit < _auditPage.total) {
-    _auditPage.offset += _auditPage.limit;
-    loadAudit();
-  }
-}
+function prevAuditPage() { if (stepTablePage(_auditPage, -1)) loadAudit(); }
+function nextAuditPage() { if (stepTablePage(_auditPage, 1)) loadAudit(); }
 
 async function loadAudit() {
   const type = document.getElementById("audit-filter-type")?.value || "";
   const severity = document.getElementById("audit-filter-severity")?.value || "";
   const steam = document.getElementById("audit-filter-steam")?.value.trim() || "";
   const q = document.getElementById("audit-filter-q")?.value.trim() || "";
-  let url = `${API}/api/admin/audit?limit=${_auditPage.limit}&offset=${_auditPage.offset}`;
-  if (type) url += `&event_type=${encodeURIComponent(type)}`;
-  if (severity) url += `&severity=${encodeURIComponent(severity)}`;
+  let path = `/api/admin/audit?limit=${_auditPage.limit}&offset=${_auditPage.offset}&include_total=0`;
+  if (type) path += `&event_type=${encodeURIComponent(type)}`;
+  if (severity) path += `&severity=${encodeURIComponent(severity)}`;
   if (steam) {
-    if (isSteamId64(steam)) url += `&steam_id=${encodeURIComponent(steam)}`;
-    else url += `&order_id=${encodeURIComponent(steam)}`;
+    if (isSteamId64(steam)) path += `&steam_id=${encodeURIComponent(steam)}`;
+    else path += `&order_id=${encodeURIComponent(steam)}`;
   }
-  if (q) url += `&q=${encodeURIComponent(q)}`;
+  if (q) path += `&q=${encodeURIComponent(q)}`;
   const el = document.getElementById("audit-list");
   if (!el) return;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  setTableLoading(el);
+  const ctrl = beginTablePageFetch("admin-audit");
   try {
-    const r = await fetch(url);
-    const d = await r.json();
+    const d = await fetchJson(path, { timeoutMs: 15000, retries: 1, signal: ctrl.signal });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
-    _auditPage.total = d.total || 0;
-    const pageNum = Math.floor(_auditPage.offset / _auditPage.limit) + 1;
-    const totalPages = Math.max(1, Math.ceil(_auditPage.total / _auditPage.limit));
-    const info = document.getElementById("audit-page-info");
-    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_auditPage.total} eventos)`;
     const items = d.items || [];
+    _auditPage.hasMore = !!d.has_more;
+    _auditPage.total = (d.total != null && d.total !== "") ? Number(d.total) : null;
+    setTablePageInfo("audit-page-info", {
+      offset: _auditPage.offset, limit: _auditPage.limit,
+      total: _auditPage.total, hasMore: _auditPage.hasMore, count: items.length,
+    });
     if (!items.length) {
       el.innerHTML = `<div style="color:var(--text2)">Nenhum evento encontrado.</div>`;
       return;
@@ -26167,7 +26412,12 @@ async function loadAudit() {
         </tbody>
       </table>`;
   } catch (err) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+    if (isStaleTableAbort(err)) return;
+    const raw = String((err && err.message) || "");
+    const msg = /timeout/i.test(raw)
+      ? "Timeout ao carregar auditoria (15s). Filtre por tipo ou SteamID."
+      : (raw || "Erro ao carregar");
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(msg)}</div>`;
   }
 }
 
@@ -26181,11 +26431,14 @@ async function loadPluginDebug() {
   const category = document.getElementById("pd-filter-category")?.value || "";
   const level = document.getElementById("pd-filter-level")?.value || "";
   const steam = document.getElementById("pd-filter-steam")?.value.trim() || "";
+  const q = document.getElementById("pd-filter-q")?.value.trim() || "";
   let path = `/api/admin/plugin-debug/events?limit=${_pluginDebugPage.limit + 1}&offset=${_pluginDebugPage.offset}`;
   if (plugin) path += `&plugin=${encodeURIComponent(plugin)}`;
   if (category) path += `&category=${encodeURIComponent(category)}`;
-  if (level) path += `&level=${encodeURIComponent(level)}`;
+  if (level === "WARN+") path += `&min_level=WARN`;
+  else if (level) path += `&level=${encodeURIComponent(level)}`;
   if (steam) path += `&steam_id=${encodeURIComponent(steam)}`;
+  if (q) path += `&q=${encodeURIComponent(q)}`;
   setTableLoading(el);
   const ctrl = beginTablePageFetch("plugin-debug");
   try {
@@ -26205,29 +26458,70 @@ async function loadPluginDebug() {
       el.innerHTML = `<div style="color:var(--text2)">Sem eventos. Em produção, WARN/ERROR de TribeSync/Http/License gravam aqui mesmo com Debug.Enabled=false. TRACE detalhado exige ficheiro JSONL no mapa.</div>`;
       return;
     }
+    window.__pluginDebugEvents = events;
     el.innerHTML = `
       <table class="tbl">
         <thead><tr>
-          <th>Data</th><th>Plugin</th><th>Nível</th><th>Cat.</th><th>Steam</th><th>Order</th><th>Mensagem</th>
+          <th>Data</th><th>Plugin</th><th>Nível</th><th>Cat.</th><th>Steam</th><th>Order</th><th>Contexto</th><th>Mensagem</th><th></th>
         </tr></thead>
         <tbody>
-          ${events.map(e => `
-            <tr title="${escHtml(JSON.stringify(e.fields_json || {}))}">
+          ${events.map((e, i) => {
+            const fj = (e.fields_json && typeof e.fields_json === "object") ? e.fields_json : {};
+            const ctxParts = [];
+            if (fj.method || fj.path) ctxParts.push(`${fj.method || "?"} ${fj.path || ""}`.trim());
+            else if (fj.host) ctxParts.push(String(fj.host));
+            if (fj.http_status != null && fj.http_status !== "") ctxParts.push(`HTTP ${fj.http_status}`);
+            if (fj.duration_ms != null && fj.duration_ms !== "") ctxParts.push(`${fj.duration_ms}ms`);
+            if (fj.winhttp_error) ctxParts.push(`err ${fj.winhttp_error}`);
+            const ctx = ctxParts.join(" · ") || "—";
+            return `<tr>
               <td style="font-size:11px;white-space:nowrap;">${fmtDate(e.created_at)}</td>
               <td style="font-size:10px;">${escHtml(e.plugin || "")}</td>
               <td><code style="font-size:10px;">${escHtml(e.level || "")}</code></td>
               <td style="font-size:10px;">${escHtml(e.category || "")}</td>
-              <td style="font-size:10px;">${escHtml((e.steam_id || "").substring(0, 14))}</td>
-              <td style="font-size:10px;">${escHtml((e.order_id || "").substring(0, 10))}</td>
-              <td style="font-size:11px;">${escHtml(e.message || "")}</td>
-            </tr>
-          `).join("")}
+              <td style="font-size:10px;">${escHtml((e.steam_id || "").substring(0, 14) || "—")}</td>
+              <td style="font-size:10px;">${escHtml((e.order_id || "").substring(0, 10) || "—")}</td>
+              <td style="font-size:10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(ctx)}">${escHtml(ctx)}</td>
+              <td style="font-size:11px;max-width:280px;">${escHtml(e.message || "")}</td>
+              <td><button type="button" class="btn btn-ghost btn-sm" onclick="viewPluginDebugDetail(${i})">Detalhe</button></td>
+            </tr>`;
+          }).join("")}
         </tbody>
-      </table>`;
+      </table>
+      <div id="plugin-debug-detail" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);"></div>`;
   } catch (err) {
     if (isStaleTableAbort(err)) return;
     el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
   }
+}
+
+function viewPluginDebugDetail(idx) {
+  const box = document.getElementById("plugin-debug-detail");
+  const events = window.__pluginDebugEvents || [];
+  const e = events[idx];
+  if (!box || !e) return;
+  const fj = e.fields_json;
+  const pretty = (() => {
+    try {
+      return JSON.stringify(fj && typeof fj === "object" ? fj : (fj ? JSON.parse(String(fj)) : {}), null, 2);
+    } catch (_) {
+      return String(fj || "{}");
+    }
+  })();
+  box.style.display = "block";
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;">
+      <strong style="font-size:13px;">Detalhe #${escHtml(String(e.id || idx))}</strong>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('plugin-debug-detail').style.display='none'">Fechar</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.5;">
+      <div><code>${escHtml(e.plugin || "")}</code> · <code>${escHtml(e.level || "")}</code> · <code>${escHtml(e.category || "")}</code></div>
+      <div>Steam: <code>${escHtml(e.steam_id || "—")}</code> · Order: <code>${escHtml(e.order_id || "—")}</code> · Server: <code>${escHtml(e.server_id || "—")}</code></div>
+      <div>Corr: <code>${escHtml(e.correlation_id || "—")}</code> · ${fmtDate(e.created_at)}</div>
+      <div style="margin-top:6px;color:var(--text);">${escHtml(e.message || "")}</div>
+    </div>
+    <pre style="margin:0;padding:10px;overflow:auto;max-height:320px;font-size:11px;background:var(--surface);border-radius:6px;border:1px solid var(--border);">${escHtml(pretty)}</pre>`;
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function renderAmberLoreSection(lore) {
@@ -27471,8 +27765,8 @@ async function viewAdminTimeline(orderId) {
 }
 
 // ── SeasonLand — Ops (admin) ──────────────────────────────────────────────────
-let _slOpsOrdersPage = { limit: 10, offset: 0, total: 0 };
-let _slOpsAuditPage = { limit: 10, offset: 0, total: 0 };
+let _slOpsOrdersPage = { limit: TABLE_PAGE_SIZE, offset: 0, total: null, hasMore: false };
+let _slOpsAuditPage = { limit: TABLE_PAGE_SIZE, offset: 0, total: null, hasMore: false };
 
 function resetSeasonlandOps() {
   _slOpsOrdersPage.offset = 0;
@@ -27482,24 +27776,16 @@ function resetSeasonlandOps() {
 function resetSeasonlandOpsOrders() { _slOpsOrdersPage.offset = 0; loadSeasonlandOpsOrders(); }
 function resetSeasonlandOpsAudit() { _slOpsAuditPage.offset = 0; loadSeasonlandOpsAudit(); }
 function prevSeasonlandOpsOrders() {
-  _slOpsOrdersPage.offset = Math.max(0, _slOpsOrdersPage.offset - _slOpsOrdersPage.limit);
-  loadSeasonlandOpsOrders();
+  if (stepTablePage(_slOpsOrdersPage, -1)) loadSeasonlandOpsOrders();
 }
 function nextSeasonlandOpsOrders() {
-  if (_slOpsOrdersPage.offset + _slOpsOrdersPage.limit < _slOpsOrdersPage.total) {
-    _slOpsOrdersPage.offset += _slOpsOrdersPage.limit;
-    loadSeasonlandOpsOrders();
-  }
+  if (stepTablePage(_slOpsOrdersPage, 1)) loadSeasonlandOpsOrders();
 }
 function prevSeasonlandOpsAudit() {
-  _slOpsAuditPage.offset = Math.max(0, _slOpsAuditPage.offset - _slOpsAuditPage.limit);
-  loadSeasonlandOpsAudit();
+  if (stepTablePage(_slOpsAuditPage, -1)) loadSeasonlandOpsAudit();
 }
 function nextSeasonlandOpsAudit() {
-  if (_slOpsAuditPage.offset + _slOpsAuditPage.limit < _slOpsAuditPage.total) {
-    _slOpsAuditPage.offset += _slOpsAuditPage.limit;
-    loadSeasonlandOpsAudit();
-  }
+  if (stepTablePage(_slOpsAuditPage, 1)) loadSeasonlandOpsAudit();
 }
 
 async function loadSeasonlandOps() {
@@ -27567,24 +27853,33 @@ async function loadSeasonlandOpsOrders() {
   const level = document.getElementById("sl-ops-filter-level")?.value || "";
   const dateFrom = document.getElementById("sl-ops-filter-from")?.value || "";
   const dateTo = document.getElementById("sl-ops-filter-to")?.value || "";
-  let url = `${API}/api/admin/season-pass/orders?limit=${_slOpsOrdersPage.limit}&offset=${_slOpsOrdersPage.offset}`;
-  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
-  if (status) url += `&status=${encodeURIComponent(status)}`;
-  if (track) url += `&track=${encodeURIComponent(track)}`;
-  if (level) url += `&level=${encodeURIComponent(level)}`;
-  if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
-  if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  let path = `/api/admin/season-pass/orders?limit=${_slOpsOrdersPage.limit}&offset=${_slOpsOrdersPage.offset}`;
+  if (steam) path += `&steam_id=${encodeURIComponent(steam)}`;
+  if (status) path += `&status=${encodeURIComponent(status)}`;
+  if (track) path += `&track=${encodeURIComponent(track)}`;
+  if (level) path += `&level=${encodeURIComponent(level)}`;
+  if (dateFrom) path += `&date_from=${encodeURIComponent(dateFrom)}`;
+  if (dateTo) path += `&date_to=${encodeURIComponent(dateTo)}`;
+  setTableLoading(el);
+  const ctrl = beginTablePageFetch("sl-ops-orders");
   try {
-    const r = await fetch(url);
-    const d = await r.json();
+    const d = await fetchJson(path, { timeoutMs: 15000, retries: 1, signal: ctrl.signal });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
-    _slOpsOrdersPage.total = d.total || 0;
-    const pageNum = Math.floor(_slOpsOrdersPage.offset / _slOpsOrdersPage.limit) + 1;
-    const totalPages = Math.max(1, Math.ceil(_slOpsOrdersPage.total / _slOpsOrdersPage.limit));
-    const info = document.getElementById("sl-ops-orders-page-info");
-    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_slOpsOrdersPage.total})`;
     const items = d.items || [];
+    _slOpsOrdersPage.hasMore = !!d.has_more;
+    _slOpsOrdersPage.total = (d.total != null && d.total !== "") ? Number(d.total) : null;
+    const pageNum = Math.floor(_slOpsOrdersPage.offset / _slOpsOrdersPage.limit) + 1;
+    const info = document.getElementById("sl-ops-orders-page-info");
+    if (info) {
+      if (_slOpsOrdersPage.total != null && !Number.isNaN(_slOpsOrdersPage.total)) {
+        const totalPages = Math.max(1, Math.ceil(_slOpsOrdersPage.total / _slOpsOrdersPage.limit));
+        info.textContent = `Pág. ${pageNum}/${totalPages} (${_slOpsOrdersPage.total})`;
+      } else {
+        info.textContent = _slOpsOrdersPage.hasMore
+          ? `Pág. ${pageNum} · ${items.length} nesta página · há mais →`
+          : `Pág. ${pageNum} · ${items.length} pedido(s)`;
+      }
+    }
     if (!items.length) {
       el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido SeasonLand na fila.</div>`;
       return;
@@ -27621,7 +27916,12 @@ async function loadSeasonlandOpsOrders() {
         </tbody>
       </table>`;
   } catch (err) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+    if (isStaleTableAbort(err)) return;
+    const raw = String((err && err.message) || "");
+    const msg = /timeout/i.test(raw)
+      ? "Timeout ao carregar fila SeasonLand (15s). Filtre por SteamID ou data."
+      : (raw || "Erro ao carregar");
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(msg)}</div>`;
   }
 }
 
@@ -27630,22 +27930,32 @@ async function loadSeasonlandOpsAudit() {
   if (!el) return;
   const steam = document.getElementById("sl-ops-filter-steam")?.value?.trim() || "";
   const eventType = document.getElementById("sl-ops-filter-event")?.value || "season_pass";
-  let url = `${API}/api/admin/audit?limit=${_slOpsAuditPage.limit}&offset=${_slOpsAuditPage.offset}&event_type=${encodeURIComponent(eventType)}`;
+  // include_total=0 — COUNT em audit_events era o gargalo (proxy devolvia HTML/DOCTYPE).
+  let path = `/api/admin/audit?limit=${_slOpsAuditPage.limit}&offset=${_slOpsAuditPage.offset}&event_type=${encodeURIComponent(eventType)}&include_total=0`;
   if (steam) {
-    if (typeof isSteamId64 === "function" && isSteamId64(steam)) url += `&steam_id=${encodeURIComponent(steam)}`;
-    else url += `&order_id=${encodeURIComponent(steam)}`;
+    if (typeof isSteamId64 === "function" && isSteamId64(steam)) path += `&steam_id=${encodeURIComponent(steam)}`;
+    else path += `&order_id=${encodeURIComponent(steam)}`;
   }
-  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  setTableLoading(el);
+  const ctrl = beginTablePageFetch("sl-ops-audit");
   try {
-    const r = await fetch(url);
-    const d = await r.json();
+    const d = await fetchJson(path, { timeoutMs: 15000, retries: 1, signal: ctrl.signal });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
-    _slOpsAuditPage.total = d.total || 0;
-    const pageNum = Math.floor(_slOpsAuditPage.offset / _slOpsAuditPage.limit) + 1;
-    const totalPages = Math.max(1, Math.ceil(_slOpsAuditPage.total / _slOpsAuditPage.limit));
-    const info = document.getElementById("sl-ops-audit-page-info");
-    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_slOpsAuditPage.total})`;
     const items = d.items || [];
+    _slOpsAuditPage.hasMore = !!d.has_more;
+    _slOpsAuditPage.total = (d.total != null && d.total !== "") ? Number(d.total) : null;
+    const pageNum = Math.floor(_slOpsAuditPage.offset / _slOpsAuditPage.limit) + 1;
+    const info = document.getElementById("sl-ops-audit-page-info");
+    if (info) {
+      if (_slOpsAuditPage.total != null && !Number.isNaN(_slOpsAuditPage.total)) {
+        const totalPages = Math.max(1, Math.ceil(_slOpsAuditPage.total / _slOpsAuditPage.limit));
+        info.textContent = `Pág. ${pageNum}/${totalPages} (${_slOpsAuditPage.total})`;
+      } else {
+        info.textContent = _slOpsAuditPage.hasMore
+          ? `Pág. ${pageNum} · ${items.length} nesta página · há mais →`
+          : `Pág. ${pageNum} · ${items.length} evento(s)`;
+      }
+    }
     if (!items.length) {
       el.innerHTML = `<div style="color:var(--text2)">Nenhum evento SeasonLand.</div>`;
       return;
@@ -27672,7 +27982,12 @@ async function loadSeasonlandOpsAudit() {
         </tbody>
       </table>`;
   } catch (err) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+    if (isStaleTableAbort(err)) return;
+    const raw = String((err && err.message) || "");
+    const msg = /timeout/i.test(raw)
+      ? "Timeout ao carregar claims (15s). Filtre por SteamID."
+      : (raw || "Erro ao carregar");
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(msg)}</div>`;
   }
 }
 
@@ -27840,13 +28155,6 @@ async function loadTribeAdmin() {
       return;
     }
     const data = d.data || {};
-    const lim = data.construction_limits || {};
-    const notes = document.getElementById("tribe-admin-notes");
-    if (notes) notes.value = lim.notes || "";
-    const hint = document.getElementById("tribe-admin-limits-hint");
-    if (hint && lim.breeding_policy) {
-      hint.textContent = lim.breeding_policy;
-    }
     const alerts = data.alerts || [];
     if (alertsEl) {
       alertsEl.innerHTML = alerts.length
@@ -27873,21 +28181,6 @@ async function loadTribeAdmin() {
     }
   } catch (e) {
     if (listEl) listEl.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
-  }
-}
-
-async function saveTribeAdminLimits() {
-  try {
-    const d = await fetchJson("/api/tribe/admin/construction-limits", {
-      method: "POST",
-      body: {
-        notes: document.getElementById("tribe-admin-notes")?.value || "",
-      },
-    });
-    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    toast("Notas salvas (limites continuam sem enforcement)");
-  } catch (e) {
-    toast(String(e.message || e), "error");
   }
 }
 

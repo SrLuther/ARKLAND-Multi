@@ -75,6 +75,12 @@ def invalidate_vitrine_caches() -> None:
         _snapshot_cache["at"] = 0.0
         _snapshot_cache["sig"] = None
         _snapshot_cache["payload"] = None
+    try:
+        from dino_order_service import invalidate_gallery_cache
+
+        invalidate_gallery_cache()
+    except Exception:
+        pass
 
 
 def _utcnow() -> datetime:

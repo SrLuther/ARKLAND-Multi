@@ -26,6 +26,7 @@ from dino_order_service import (
     configure_dino_order,
     get_admin_order_detail,
     get_pricing_config,
+    invalidate_gallery_cache,
     list_admin_history,
     list_admin_queue,
     list_gallery_species,
@@ -33,6 +34,7 @@ from dino_order_service import (
     quote,
     reject_order,
     requeue_failed_order,
+    _gallery_starting_price,
     _level_from_stat_points,
     _normalize_player_spec,
 )
@@ -222,6 +224,60 @@ def test_list_gallery_species_uses_friendly_catalog_names():
         assert by_key["lionfishlion"]["display_name"] == "Shadowmane"
         assert by_key["sb_manticore_200"]["display_name"] == "Small Manticore"
         assert "Nível 200" not in by_key["sb_manticore_200"]["display_name"]
+    finally:
+        db.close()
+
+
+def test_gallery_starting_price_matches_min_quote_formula():
+    cfg = {"alpha": 0.25, "beta": 0.35, "absolute_max": 500_000}
+    # R + αR + βR = 8000 + 2000 + 2800 = 12800
+    assert _gallery_starting_price(8000, cfg) == 12800
+    assert _gallery_starting_price(0, cfg) == 0
+    # Igual a calculate_encomenda_value: max(floor=R, min(total, cap))
+    assert _gallery_starting_price(50_000, {"alpha": 0.25, "beta": 0.35, "absolute_max": 100_000}) == 80_000
+    assert _gallery_starting_price(400_000, {"alpha": 0.25, "beta": 0.35, "absolute_max": 100_000}) == 400_000
+
+
+def test_list_gallery_species_avoids_list_species_public(monkeypatch):
+    """Hot path da galeria não pode varrer o catálogo público completo."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, species_key="rex", display_name="Rex", root_value=8000)
+        set_permanent_species(["rex"])
+
+        def _boom(*_a, **_k):
+            raise AssertionError("list_species_public não deve ser usado na galeria Encomenda")
+
+        monkeypatch.setattr("market_service.list_species_public", _boom, raising=False)
+        invalidate_gallery_cache()
+        gallery = list_gallery_species(db, force_refresh=True)
+        assert any(s["species_key"] == "rex" for s in gallery)
+        assert gallery[0]["starting_price"] == _gallery_starting_price(8000, get_pricing_config())
+    finally:
+        db.close()
+
+
+def test_list_gallery_species_cache_hit(monkeypatch):
+    """2ª chamada com a mesma assinatura de vitrine reutiliza cache (sem rebuild)."""
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, species_key="rex", display_name="Rex", root_value=8000)
+        set_permanent_species(["rex"])
+        invalidate_gallery_cache()
+        first = list_gallery_species(db, force_refresh=True)
+        assert first
+
+        calls = {"n": 0}
+        real_batch = __import__("dino_order_service", fromlist=["_batch_gallery_species_meta"])._batch_gallery_species_meta
+
+        def _counted(db_arg, keys):
+            calls["n"] += 1
+            return real_batch(db_arg, keys)
+
+        monkeypatch.setattr("dino_order_service._batch_gallery_species_meta", _counted)
+        second = list_gallery_species(db)
+        assert calls["n"] == 0
+        assert [s["species_key"] for s in second] == [s["species_key"] for s in first]
     finally:
         db.close()
 

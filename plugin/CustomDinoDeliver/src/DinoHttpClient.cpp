@@ -5,6 +5,7 @@
 #include "DinoDeliver.h"
 #include "DinoDebug.h"
 
+#include <chrono>
 #include <mutex>
 #include <unordered_set>
 
@@ -19,6 +20,7 @@ constexpr int kHttpResolveMs = 5000;
 constexpr int kHttpConnectMs = 5000;
 constexpr int kHttpSendMs = 8000;
 constexpr int kHttpReceiveMs = 8000;
+constexpr size_t kHttpBodySnippetMax = 240;
 
 bool EnsureSession() {
     if (!g_session) {
@@ -33,6 +35,82 @@ bool EnsureSession() {
         }
     }
     return g_session != nullptr;
+}
+
+std::string SanitizePathForLog(const std::string& path) {
+    const auto q = path.find('?');
+    return (q == std::string::npos) ? path : path.substr(0, q);
+}
+
+std::string TruncateForLog(const std::string& text, size_t max_n = kHttpBodySnippetMax) {
+    if (text.size() <= max_n) return text;
+    return text.substr(0, max_n) + "…";
+}
+
+int ElapsedMs(const std::chrono::steady_clock::time_point& started) {
+    return static_cast<int>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started)
+            .count());
+}
+
+std::string WideMethodToUtf8(const wchar_t* method) {
+    if (!method) return "";
+    std::string out;
+    for (const wchar_t* p = method; *p; ++p) {
+        const wchar_t ch = *p;
+        out.push_back(ch < 128 ? static_cast<char>(ch) : '?');
+    }
+    return out;
+}
+
+nlohmann::json BuildHttpFields(const std::string& method,
+                               const std::string& host,
+                               const std::string& path,
+                               int duration_ms,
+                               int http_status = 0,
+                               DWORD winhttp_error = 0,
+                               const char* error = nullptr,
+                               const std::string* response_snippet = nullptr) {
+    nlohmann::json fields = {
+        {"method", method},
+        {"host", host},
+        {"path", SanitizePathForLog(path)},
+        {"duration_ms", duration_ms},
+        {"timeout_ms_resolve", kHttpResolveMs},
+        {"timeout_ms_connect", kHttpConnectMs},
+        {"timeout_ms_send", kHttpSendMs},
+        {"timeout_ms_receive", kHttpReceiveMs},
+    };
+    if (http_status > 0) fields["http_status"] = http_status;
+    if (winhttp_error != 0) fields["winhttp_error"] = static_cast<int>(winhttp_error);
+    if (error && error[0]) fields["error"] = error;
+    if (response_snippet && !response_snippet->empty())
+        fields["response_snippet"] = TruncateForLog(*response_snippet);
+    return fields;
+}
+
+std::string ReadHttpBody(HINTERNET hRequest, size_t hard_cap = 256 * 1024) {
+    std::string result;
+    DWORD bytes_avail = 0;
+    DWORD bytes_read = 0;
+    char buf[4096];
+    while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
+        while (bytes_avail > 0) {
+            if (result.size() >= hard_cap) return result;
+            DWORD to_read =
+                (bytes_avail > sizeof(buf)) ? static_cast<DWORD>(sizeof(buf)) : bytes_avail;
+            if (result.size() + to_read > hard_cap)
+                to_read = static_cast<DWORD>(hard_cap - result.size());
+            if (WinHttpReadData(hRequest, buf, to_read, &bytes_read) && bytes_read > 0) {
+                result.append(buf, bytes_read);
+                bytes_avail -= bytes_read;
+            } else {
+                break;
+            }
+        }
+    }
+    return result;
 }
 
 bool ParseUrl(const std::string& url, std::string& host, std::string& path, int& port, bool& secure) {
@@ -69,6 +147,35 @@ bool ParseUrl(const std::string& url, std::string& host, std::string& path, int&
     return !host.empty();
 }
 
+void WarnHttpFailure(const std::string& method,
+                     const std::string& host,
+                     const std::string& path,
+                     int duration_ms,
+                     int http_status,
+                     DWORD winhttp_error,
+                     const char* error_tag,
+                     const std::string* body) {
+    const bool is_debug_ingest = path.find("/api/plugin-debug/") != std::string::npos;
+    if (is_debug_ingest) return;
+
+    const std::string safe_path = SanitizePathForLog(path);
+    if (http_status >= 400) {
+        Log::GetLog()->warn(
+            "DinoHttpClient: {} HTTP {} host={} path={}", method, http_status, host, safe_path);
+    }
+    CustomDinoDeliver::Debug::Fields hf;
+    hf.extra = BuildHttpFields(
+        method, host, path, duration_ms, http_status, winhttp_error, error_tag, body);
+    std::string msg = method + " ";
+    if (http_status >= 400) {
+        msg += "HTTP " + std::to_string(http_status) + " " + safe_path;
+    } else {
+        msg += std::string(error_tag ? error_tag : "failed") + " err=" +
+               std::to_string(winhttp_error) + " " + safe_path;
+    }
+    CustomDinoDeliver::Debug::Warn("Http", hf, msg);
+}
+
 std::string HttpRequest(const wchar_t* method, const std::string& url, const std::string& json_body) {
     if (!EnsureSession()) return "";
 
@@ -78,16 +185,26 @@ std::string HttpRequest(const wchar_t* method, const std::string& url, const std
     if (!ParseUrl(url, host, path, port, secure))
         return "";
 
+    const std::string method_utf8 = WideMethodToUtf8(method);
+    const auto started = std::chrono::steady_clock::now();
     const std::wstring whost(host.begin(), host.end());
     const std::wstring wpath(path.begin(), path.end());
 
     HINTERNET hConnect = WinHttpConnect(g_session, whost.c_str(), static_cast<INTERNET_PORT>(port), 0);
-    if (!hConnect) return "";
+    if (!hConnect) {
+        WarnHttpFailure(
+            method_utf8, host, path, ElapsedMs(started), 0, GetLastError(),
+            "WinHttpConnect failed", nullptr);
+        return "";
+    }
 
     const DWORD request_flags = secure ? WINHTTP_FLAG_SECURE : 0;
     HINTERNET hRequest = WinHttpOpenRequest(
         hConnect, method, wpath.c_str(), nullptr, nullptr, nullptr, request_flags);
     if (!hRequest) {
+        WarnHttpFailure(
+            method_utf8, host, path, ElapsedMs(started), 0, GetLastError(),
+            "WinHttpOpenRequest failed", nullptr);
         WinHttpCloseHandle(hConnect);
         return "";
     }
@@ -99,7 +216,7 @@ std::string HttpRequest(const wchar_t* method, const std::string& url, const std
             WINHTTP_ADDREQ_FLAG_ADD);
     }
 
-  if (!CustomDinoDeliver::HttpClient::g_api_key.empty()) {
+    if (!CustomDinoDeliver::HttpClient::g_api_key.empty()) {
         const auto& key = CustomDinoDeliver::HttpClient::g_api_key;
         const std::wstring api_key_hdr = L"X-API-Key: " + std::wstring(key.begin(), key.end());
         WinHttpAddRequestHeaders(
@@ -116,9 +233,18 @@ std::string HttpRequest(const wchar_t* method, const std::string& url, const std
               static_cast<DWORD>(json_body.size()),
               static_cast<DWORD>(json_body.size()), 0);
 
-    if (sent && WinHttpReceiveResponse(hRequest, nullptr)) {
+    if (!sent) {
+        WarnHttpFailure(
+            method_utf8, host, path, ElapsedMs(started), 0, GetLastError(),
+            "WinHttpSendRequest failed / timeout", nullptr);
+    } else if (!WinHttpReceiveResponse(hRequest, nullptr)) {
+        WarnHttpFailure(
+            method_utf8, host, path, ElapsedMs(started), 0, GetLastError(),
+            "WinHttpReceiveResponse failed / timeout", nullptr);
+    } else {
         DWORD status_code = 0;
         DWORD status_size = sizeof(status_code);
+        result = ReadHttpBody(hRequest);
         if (WinHttpQueryHeaders(
                 hRequest,
                 WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
@@ -126,40 +252,11 @@ std::string HttpRequest(const wchar_t* method, const std::string& url, const std
                 &status_code,
                 &status_size,
                 WINHTTP_NO_HEADER_INDEX)) {
-            // Evita recursão no ingest de debug.
-            const bool is_debug_ingest =
-                path.find("/api/plugin-debug/") != std::string::npos;
-            if (status_code >= 400 && !is_debug_ingest) {
-                Log::GetLog()->warn(
-                    "DinoHttpClient: HTTP {} path={}", status_code, path);
-                CustomDinoDeliver::Debug::Fields hf;
-                hf.extra = {{"http_status", static_cast<int>(status_code)},
-                            {"path", path}};
-                CustomDinoDeliver::Debug::Warn(
-                    "Http", hf, "HTTP " + std::to_string(status_code));
+            if (status_code >= 400) {
+                WarnHttpFailure(
+                    method_utf8, host, path, ElapsedMs(started),
+                    static_cast<int>(status_code), 0, "http_error", &result);
             }
-        }
-        DWORD bytes_avail = 0;
-        DWORD bytes_read = 0;
-        char buf[4096];
-        while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
-            while (bytes_avail > 0) {
-                const DWORD to_read = (bytes_avail > sizeof(buf)) ? static_cast<DWORD>(sizeof(buf)) : bytes_avail;
-                if (WinHttpReadData(hRequest, buf, to_read, &bytes_read) && bytes_read > 0) {
-                    result.append(buf, bytes_read);
-                    bytes_avail -= bytes_read;
-                } else {
-                    break;
-                }
-            }
-        }
-    } else {
-        const bool is_debug_ingest =
-            path.find("/api/plugin-debug/") != std::string::npos;
-        if (!is_debug_ingest) {
-            CustomDinoDeliver::Debug::Fields hf;
-            hf.extra = {{"path", path}, {"timeout_ms", kHttpSendMs}};
-            CustomDinoDeliver::Debug::Warn("Http", hf, "WinHTTP send/receive failed");
         }
     }
 

@@ -8,6 +8,16 @@ A UI «Versões esperadas» (Dino Lab) lê `PluginInfo.json` embutido no app (`V
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.16] - 2026-07-26
+
+### Improvement
+
+- **DinoHttpClient / Debug**: falhas WinHTTP e HTTP ≥400 com `method`, `path` (sem query), `host`, `http_status`, `duration_ms`, `winhttp_error`, timeouts e snippet de body truncado.
+
+### Rebuild
+
+Recompilar CustomDinoDeliver e substituir DLL + `PluginInfo.json` (VersionLabel 1.10.16) em cada mapa.
+
 ## [1.10.15] - 2026-07-12
 
 ### Feature

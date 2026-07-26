@@ -919,6 +919,18 @@ class TestAudit:
         d = r.get_json()
         assert d.get("ok") is True
         assert "items" in d
+        # Hot path: sem COUNT(*) — total null, has_more via LIMIT+1.
+        assert d.get("total") is None
+        assert "has_more" in d
+
+    def test_audit_list_include_total_opt_in(self, client):
+        _login(client, ADMIN_STEAM)
+        _create_order_direct()
+        r = client.get("/api/admin/audit?include_total=1")
+        d = r.get_json()
+        assert d.get("ok") is True
+        assert d.get("total") is not None
+        assert d["total"] >= 0
 
     def test_audit_filter_by_steam_id(self, client):
         db = _app_module._SessionLocal()

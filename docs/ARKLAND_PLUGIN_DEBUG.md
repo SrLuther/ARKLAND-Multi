@@ -69,10 +69,12 @@ Categorias comuns: `Boot`, `TribeSync`, `Http`, `MySQL`, `Shop`, `License`, `Per
 ## Como ver na web Admin
 
 1. Abrir a loja web como admin → **Sistema → Debug Plugins**.
-2. API: `GET /api/admin/plugin-debug/events?plugin=CustomShop&category=TribeSync&limit=100`.
-3. CustomDinoDeliver (sem MySQL no plugin) envia críticos via `POST /api/plugin-debug/ingest` (api_key).
+2. Filtros: plugin, categoria (`Http`), nível (`WARN+`), SteamID, texto `q` (path/host/status).
+3. Clique **Detalhe** numa linha para ver `fields_json` completo (method, path, duration_ms, winhttp_error, snippet, etc.).
+4. API: `GET /api/admin/plugin-debug/events?plugin=CustomShop&category=Http&min_level=WARN&q=503&limit=100`.
+5. CustomDinoDeliver (sem MySQL no plugin) envia críticos via `POST /api/plugin-debug/ingest` (api_key).
 
-Tabela: `arkland_plugin_debug` (criada pelo CustomShop no `ShopPoints::Open` e pela web no primeiro acesso).
+Tabela: `arkland_plugin_debug` (criada pelo CustomShop no `ShopPoints::Open` e pela web no primeiro acesso). Colunas + `fields_json`; a UI extrai steam/order do payload se as colunas estiverem vazias.
 
 ## O que está instrumentado
 
@@ -80,7 +82,7 @@ Tabela: `arkland_plugin_debug` (criada pelo CustomShop no `ShopPoints::Open` e p
 
 - Boot: marcador de canal no arranque
 - TribeSync: skip / tentativa / OK / falha MySQL+HTTP (com `correlation_id`)
-- HttpClient: HTTP ≥400 e falhas WinHTTP/timeout
+- HttpClient: HTTP ≥400 e falhas WinHTTP/timeout — com `method`, `path` (sem query), `host`, `http_status`, `duration_ms`, `winhttp_error`, timeouts, `response_snippet` truncado (sem API key)
 - ShopPoints: falha de ligação MySQL
 - ShopEntitlements::Grant: OK / falha
 - Entrega pending: falha de kit/item
@@ -88,7 +90,7 @@ Tabela: `arkland_plugin_debug` (criada pelo CustomShop no `ShopPoints::Open` e p
 **CustomDinoDeliver**
 
 - Boot: marcador de canal no arranque
-- HttpClient: HTTP ≥400 / timeout
+- HttpClient: HTTP ≥400 / timeout (mesmos campos ricos que o CustomShop)
 - SpawnExact: falha do motor, find-after-spawn, identity capture
 
 ## Dump da classe do dino (`/dinoclass`) — PropagatorDinoBlacklist

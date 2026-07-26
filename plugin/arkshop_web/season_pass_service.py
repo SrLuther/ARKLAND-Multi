@@ -1071,16 +1071,10 @@ def list_season_pass_orders(
         params["date_to"] = date_to
 
     where_sql = " AND ".join(where)
-    total = int(
-        db.execute(
-            text(f"SELECT COUNT(*) FROM orders WHERE {where_sql}"),
-            params,
-        ).scalar()
-        or 0
-    )
+    # LIMIT+1 → has_more; sem COUNT(*) (LIKE sp:% em orders grandes + Waitress → HTML/DOCTYPE no UI).
     lim = max(1, min(200, int(limit)))
     off = max(0, int(offset))
-    params_page = {**params, "lim": lim, "off": off}
+    params_page = {**params, "lim": lim + 1, "off": off}
     rows = db.execute(
         text(
             "SELECT order_id, steam_id, server_id, item_type, item_id, amount, status, "
@@ -1091,8 +1085,10 @@ def list_season_pass_orders(
         ),
         params_page,
     ).fetchall()
+    has_more = len(rows) > lim
+    page_rows = rows[:lim]
     items: list[dict[str, Any]] = []
-    for row in rows:
+    for row in page_rows:
         orig = str(row[11] or "") if row[11] is not None else None
         parsed = parse_season_pass_idem(orig)
         created = row[12]
@@ -1126,7 +1122,14 @@ def list_season_pass_orders(
                 ),
             }
         )
-    return {"ok": True, "total": total, "items": items}
+    return {
+        "ok": True,
+        "total": None,
+        "has_more": has_more,
+        "limit": lim,
+        "offset": off,
+        "items": items,
+    }
 
 
 def season_pass_delivery_metrics(db: Session) -> dict[str, Any]:

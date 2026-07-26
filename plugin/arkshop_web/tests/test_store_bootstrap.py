@@ -175,6 +175,28 @@ def test_index_catalog_distinguishes_load_error_from_empty():
     assert "_catalogLoading" in html
 
 
+def test_index_catalog_dom_pagination_20():
+    """Catálogo: 20 cards no DOM por página (client-side; API full+cache intacta)."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert "const CATALOG_DOM_PAGE_SIZE = 20" in html
+    assert "function _catalogPageSlice(" in html
+    assert "function _catalogPagerHtml(" in html
+    assert "function _catalogResetDomPage(" in html
+    assert "function _catalogFillPagedGrid(" in html
+    assert '_catalogFillPagedGrid(grid, countEl, filtered, "items"' in html
+    assert '_catalogFillPagedGrid(grid, countEl, filtered, "dinos"' in html
+    assert '_catalogFillPagedGrid(grid, countEl, filtered, "dinos200"' in html
+    assert '_catalogFillPagedGrid(grid, countEl, filtered, "kits"' in html
+    assert '_catalogFillPagedGrid(grid, countEl, filtered, "licenses"' in html
+    assert "_catalogResetDomPage('items')" in html
+    assert "_catalogResetDomPage(tab)" in html
+    assert "Anterior" in html and "Próxima" in html
+    # Não reintroduzir pager ingénuo que só re-renderiza itens.
+    pager_next = html[html.index("function _catalogDomPageNext") : html.index("function _catalogDomPageNext") + 280]
+    assert "_catalogRerenderTab(tab)" in pager_next
+    assert "renderCatalog();" not in pager_next
+
+
 def test_index_admin_nav_shows_loading_without_config():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     assert 'setAdminShopLoading("Carregando config.json…");' in html

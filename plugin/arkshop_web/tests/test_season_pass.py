@@ -1229,3 +1229,23 @@ def test_audit_claim_failed_on_delivery_error(sp_db):
     with pytest.raises(ValueError, match="ainda não atingido"):
         sps.claim_reward(db, steam_id=USER_STEAM, track="free", level=4)
     assert not any(a["event_type"] == "season_pass_claim_failed" for a in audits)
+
+
+def test_index_seasonland_grant_picker_ui():
+    """Contrato UI: admin grants usam picker de tipo + select de catálogo."""
+    from pathlib import Path
+
+    html = (Path(__file__).resolve().parents[1] / "static" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    assert "spGrantPickType" in html
+    assert "spGrantSkuChanged" in html
+    assert "sp-grant-type-seg" in html
+    assert "_spEnsureGrantCatalogSources" in html
+    assert "_spCatalogEntriesForGrantType" in html
+    assert "_spCollectGrantId" in html
+    assert "Outro / SKU custom" in html
+    assert "/api/admin/license-catalog" in html
+    assert "ID / SKU do catálogo" not in html
+    assert "_SP_GRANT_TYPE_OPTS" not in html
+

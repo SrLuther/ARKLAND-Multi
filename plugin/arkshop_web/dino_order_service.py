@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import secrets
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -55,6 +56,19 @@ _settings_fn: Callable[[], dict[str, Any]] | None = None
 _debit_fn: Callable[[Session, str, int], int] | None = None
 _credit_fn: Callable[[Session, str, int], int] | None = None
 _get_points_fn: Callable[[str], int | None] | None = None
+
+# Galeria Encomenda: ~20 slots; cache evita rebuild (antes: list_species_public + N×quote).
+_GALLERY_TTL_S = 30.0
+_gallery_lock = threading.Lock()
+_gallery_cache: dict[str, Any] = {"at": 0.0, "sig": None, "rows": None}
+
+
+def invalidate_gallery_cache() -> None:
+    """Invalida payload cacheado de GET /api/player/dino-order/species."""
+    with _gallery_lock:
+        _gallery_cache["at"] = 0.0
+        _gallery_cache["sig"] = None
+        _gallery_cache["rows"] = None
 
 
 def configure_dino_order(
@@ -229,23 +243,98 @@ def _is_species_in_gallery(species_key: str, db: Session | None = None) -> bool:
         return False
 
 
-def list_gallery_species(db: Session) -> list[dict[str, Any]]:
+def _gallery_starting_price(root_value: int, cfg: dict[str, Any]) -> int:
+    """Preço «a partir de» (stats/cores vazios) — equivalente a quote() mínimo sem DB/economia.
+
+    Com floor_quality e stats vazios, market_value = R; total = R + αR + βR (cap absolute_max).
+    """
+    r = max(0, int(root_value or 0))
+    alpha = float(cfg.get("alpha", 0.25))
+    beta = float(cfg.get("beta", 0.35))
+    total = r + round(r * alpha) + round(r * beta)
+    try:
+        cap = int(cfg.get("absolute_max") or 500_000)
+    except (TypeError, ValueError):
+        cap = 500_000
+    return max(r, min(total, max(0, cap)))
+
+
+def _batch_gallery_species_meta(db: Session, keys: list[str]) -> dict[str, dict[str, Any]]:
+    """Meta só para as ~20 chaves da vitrine — sem multipliers nem resolve de imagem em massa."""
+    if not keys:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        from app import MarketSpecies
+        from sqlalchemy.orm import load_only
+
+        rows = (
+            db.query(MarketSpecies)
+            .options(
+                load_only(
+                    MarketSpecies.id,
+                    MarketSpecies.species_key,
+                    MarketSpecies.display_name,
+                    MarketSpecies.root_value,
+                    MarketSpecies.tier,
+                    MarketSpecies.status,
+                )
+            )
+            .filter(
+                MarketSpecies.species_key.in_(list(keys)),
+                MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")),
+            )
+            .all()
+        )
+        for row in rows:
+            sk = str(getattr(row, "species_key", "") or "").strip()
+            if not sk:
+                continue
+            out[sk] = {
+                "species_key": sk,
+                "display_name": getattr(row, "display_name", None) or sk,
+                "root_value": int(getattr(row, "root_value", 0) or 0),
+                "tier": str(getattr(row, "tier", None) or ""),
+            }
+    except Exception as exc:
+        log.debug("dino_order gallery batch meta: %s", exc)
+
+    defaults: dict[str, Any] = {}
+    try:
+        defaults = load_default_species_map()
+    except Exception:
+        defaults = {}
+
+    for sk in keys:
+        if sk in out:
+            continue
+        defn = defaults.get(sk) or {}
+        if not defn:
+            continue
+        out[sk] = {
+            "species_key": sk,
+            "display_name": defn.get("display_name") or sk,
+            "root_value": int(defn.get("root_value") or 0),
+            "tier": str(defn.get("tier") or ""),
+            "size_class": defn.get("size_class") or "medium",
+        }
+    return out
+
+
+def list_gallery_species(db: Session, *, force_refresh: bool = False) -> list[dict[str, Any]]:
     """Espécies da vitrine de encomenda (15 rotativos + ≤5 permanentes).
 
-    A configuração da vitrine é a fonte de verdade: lista **todos** os
-    ``orderable_species_keys`` (DLC/mods incluídos), não só vanilla ∩ mercado.
+    Caminho quente: snapshot da vitrine + meta batch das ~20 chaves + fórmula α/β.
+    **Não** usa ``list_species_public`` (catálogo inteiro + multipliers + ícones) nem
+    ``quote()`` / ``_resolve_species_economy`` por espécie (N+1). Cache TTL 30s.
     """
     if not is_dino_order_enabled():
         return []
     try:
-        from market_service import list_species_public
         from dino_order_showcase_service import primary_showcase_by_species, showcase_counts_by_species
         from dino_order_vitrine_service import ensure_vitrine
 
         snap = ensure_vitrine(db, include_candidates=False)
-        rows = list_species_public(db, active_only=True)
-        showcase_counts = showcase_counts_by_species(active_only=True)
-        primary_showcases = primary_showcase_by_species(active_only=True)
         orderable = [
             str(k).strip()
             for k in (snap.get("orderable_species_keys") or [])
@@ -257,6 +346,11 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             if str(k).strip()
         }
         rotation_ends_at = snap.get("rotation_ends_at")
+        cache_sig = (
+            tuple(orderable),
+            tuple(sorted(permanent)),
+            rotation_ends_at,
+        )
     except Exception as exc:
         log.warning("dino_order gallery: %s", exc)
         return []
@@ -264,22 +358,35 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
     if not orderable:
         return []
 
-    try:
-        from market_economy import canonicalize_species_key, friendly_species_display_name
-    except Exception:
-        canonicalize_species_key = None  # type: ignore[assignment]
-        friendly_species_display_name = None  # type: ignore[assignment]
+    now_m = __import__("time").monotonic()
+    with _gallery_lock:
+        cached_rows = _gallery_cache.get("rows")
+        if (
+            not force_refresh
+            and cached_rows is not None
+            and _gallery_cache.get("sig") == cache_sig
+            and (now_m - float(_gallery_cache.get("at") or 0)) < _GALLERY_TTL_S
+        ):
+            return [dict(r) for r in cached_rows]
 
-    by_key: dict[str, dict[str, Any]] = {}
-    by_canon: dict[str, dict[str, Any]] = {}
-    for item in rows:
-        sk = str(item.get("species_key") or "").strip()
-        if not sk:
+    # Slots já enriquecidos pelo snapshot (nome/tier/root/imagem registry) — DLC fora do
+    # pool vanilla pode vir com root=0; batch meta abaixo preenche.
+    slot_by_key: dict[str, dict[str, Any]] = {}
+    for entry in list(snap.get("rotating") or []) + list(snap.get("permanents") or []):
+        if not isinstance(entry, dict):
             continue
-        by_key[sk] = item
-        if canonicalize_species_key is not None:
-            canon = canonicalize_species_key(sk) or sk
-            by_canon.setdefault(canon, item)
+        sk = str(entry.get("species_key") or "").strip()
+        if sk:
+            slot_by_key[sk] = entry
+
+    meta_by_key = _batch_gallery_species_meta(db, orderable)
+    showcase_counts = showcase_counts_by_species(active_only=True)
+    primary_showcases = primary_showcase_by_species(active_only=True)
+
+    try:
+        from market_economy import friendly_species_display_name
+    except Exception:
+        friendly_species_display_name = None  # type: ignore[assignment]
 
     cfg = get_pricing_config()
     out: list[dict[str, Any]] = []
@@ -288,17 +395,15 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
     for sk in orderable:
         if sk in seen_keys:
             continue
-        item = by_key.get(sk)
-        if item is None and canonicalize_species_key is not None:
-            item = by_canon.get(canonicalize_species_key(sk) or sk)
-        economy = _resolve_species_economy(db, sk)
-        if economy is None and item is None:
-            log.warning("dino_order gallery: espécie da vitrine sem economia — %s", sk)
+        slot = slot_by_key.get(sk) or {}
+        meta = meta_by_key.get(sk) or {}
+        if not slot and not meta:
+            log.warning("dino_order gallery: espécie da vitrine sem meta — %s", sk)
             continue
 
         display_fallback = (
-            (item or {}).get("display_name")
-            or getattr(economy, "display_name", None)
+            slot.get("display_name")
+            or meta.get("display_name")
             or sk
         )
         if friendly_species_display_name is not None:
@@ -306,43 +411,27 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
         else:
             display_name = display_fallback
 
-        tier = (item or {}).get("tier") or getattr(economy, "tier", None) or ""
-        root_value = int(
-            (item or {}).get("root_value")
-            or getattr(economy, "root_value", 0)
-            or 0
-        )
+        tier = str(slot.get("tier") or meta.get("tier") or "")
+        try:
+            root_value = int(slot.get("root_value") or meta.get("root_value") or 0)
+        except (TypeError, ValueError):
+            root_value = 0
+        if root_value <= 0 and meta.get("root_value"):
+            try:
+                root_value = int(meta["root_value"])
+            except (TypeError, ValueError):
+                pass
         size_class = (
-            (item or {}).get("size_class")
-            or getattr(economy, "size_class", None)
+            slot.get("size_class")
+            or meta.get("size_class")
             or "medium"
         )
-
-        try:
-            min_quote = quote(
-                {
-                    "species_key": sk,
-                    "level": DEFAULT_LEVEL,
-                    "gender": "female",
-                    "colors": [0, 0, 0, 0, 0, 0],
-                    "stat_points": {},
-                },
-                db=db,
-                pricing_cfg=cfg,
-                skip_gallery_check=True,
-                skip_vanilla_check=True,
-            )
-            starting_price = int(min_quote.get("total") or 0)
-        except Exception as exc:
-            log.warning("dino_order gallery quote %s: %s", sk, exc)
-            starting_price = root_value
+        starting_price = _gallery_starting_price(root_value, cfg)
 
         primary = primary_showcases.get(sk) or {}
-        if not primary and item is not None:
-            primary = primary_showcases.get(str(item.get("species_key") or "")) or {}
         thumb = (
             str(primary.get("image_url") or "").strip()
-            or (item or {}).get("image_url")
+            or str(slot.get("image_url") or "").strip()
             or _species_image(sk, tier)
         )
         slot_kind = "permanent" if sk in permanent else "rotating"
@@ -354,11 +443,7 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             "size_class": size_class,
             "image_url": thumb,
             "starting_price": starting_price,
-            "showcase_count": int(
-                showcase_counts.get(sk)
-                or showcase_counts.get(str((item or {}).get("species_key") or ""))
-                or 0
-            ),
+            "showcase_count": int(showcase_counts.get(sk) or 0),
             "slot_kind": slot_kind,
             "rotation_ends_at": rotation_ends_at,
         })
@@ -366,6 +451,11 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
 
     out = _dedup_gallery_species(out)
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
+
+    with _gallery_lock:
+        _gallery_cache["at"] = now_m
+        _gallery_cache["sig"] = cache_sig
+        _gallery_cache["rows"] = [dict(r) for r in out]
     return out
 
 

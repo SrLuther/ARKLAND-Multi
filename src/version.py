@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.91"
-BUILD_DATE: str = "2026-07-22"
+APP_VERSION: str = "1.10.92"
+BUILD_DATE: str = "2026-07-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,44 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.92",
+        "date": "2026-07-26",
+        "changes": [
+            "Melhoria (Web Store / UI): botão Minha Área movido do menu lateral "
+            "para o card do utilizador (junto a Notificações / saldo / Staff).",
+            "Fix P0 (Web Store / Encomenda): Timeout (15s) em "
+            "/api/player/dino-order/species — galeria deixou de chamar "
+            "list_species_public (catálogo inteiro + multipliers + ícones) e "
+            "N×quote()/_resolve_species_economy; passa a snapshot da vitrine + "
+            "meta batch das ~20 chaves + preço mínimo α/β + cache TTL 30s; "
+            "UI timeout 20s só como rede de segurança.",
+            "Melhoria (Web Store / Tribos Admin): removido card «Limites de construção "
+            "— adiados» (notas internas sem enforcement) e rota POST "
+            "/api/tribe/admin/construction-limits.",
+            "Docs (Web Store / DB): plano verificável docs/WEBSTORE_DB_PERF_PLAN.md "
+            "(inventário honesto, P0–P2, critérios de sucesso, anti-padrões).",
+            "Fix (Web Store / SeasonLand Ops): fila e claims deixam de rebentar com "
+            "«Unexpected token < / DOCTYPE» — sem COUNT(*) pesado (has_more), "
+            "fetchJson com retry e include_total=0 no audit.",
+            "Fix P0 (Web Store / Admin Auditoria): COUNT(*) opt-in (include_total=1); "
+            "UI loadAudit com fetchJson + has_more — alinhado a Pedidos.",
+            "Perf (Web Store / Catálogo): paginação DOM 20 cards/página em Itens, "
+            "Dinos, Dinos 200, Kits e Licenças — filtros/pesquisa/categoria "
+            "resetam à pág. 1; /api/catalog mantém full payload + cache/ETag/SWR "
+            "(gargalo era layout/paint, não o JSON).",
+            "Feat (Web Store / SeasonLand admin): grants com picker de tipo "
+            "(Âmbar/Dino/Item/Kit/Licença) + select do catálogo; Â só quantidade; "
+            "SKU custom como fallback; PUT config inalterado.",
+            "Test (Web Store / SeasonLand): asserts UI do grant picker em index.html.",
+            "Melhoria (Web Store / Debug Plugins): contexto Http (path/status/ms), "
+            "botão Detalhe com fields_json, filtros WARN+ e texto (q); enrich "
+            "steam/order a partir do payload.",
+            "Melhoria (CustomShop 1.10.33 / CustomDinoDeliver): HttpClient grava "
+            "method/path/host/http_status/duration_ms/winhttp_error em falhas "
+            "para diagnóstico na Admin.",
+        ],
     },
     {
         "version": "1.10.91",

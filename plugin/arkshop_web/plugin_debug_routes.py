@@ -65,7 +65,9 @@ def register_plugin_debug_routes(
                 plugin=request.args.get("plugin") or None,
                 category=request.args.get("category") or None,
                 level=request.args.get("level") or None,
+                min_level=request.args.get("min_level") or None,
                 steam_id=request.args.get("steam_id") or None,
+                q=request.args.get("q") or None,
                 limit=int(request.args.get("limit") or 10),
                 offset=int(request.args.get("offset") or 0),
                 since_id=(

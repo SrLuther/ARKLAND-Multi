@@ -34,6 +34,31 @@ CREATE TABLE IF NOT EXISTS arkland_plugin_debug (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 """
 
+# Severidade: número menor = mais grave (ERROR < WARN < INFO …).
+_LEVEL_RANK: dict[str, int] = {
+    "ERROR": 1,
+    "ERR": 1,
+    "WARN": 2,
+    "WARNING": 2,
+    "INFO": 3,
+    "DEBUG": 4,
+    "DBG": 4,
+    "TRACE": 5,
+}
+
+_LEVELS_BY_RANK: list[tuple[str, int]] = [
+    ("ERROR", 1),
+    ("WARN", 2),
+    ("INFO", 3),
+    ("DEBUG", 4),
+    ("TRACE", 5),
+]
+
+_STEAM_KEYS = ("steam_id", "steamid", "SteamId", "steamId")
+_ORDER_KEYS = ("order_id", "orderId", "OrderId")
+_SERVER_KEYS = ("server_id", "serverId", "ServerId")
+_CORR_KEYS = ("correlation_id", "correlationId", "request_id", "requestId")
+
 
 def ensure_plugin_debug_schema(engine) -> None:
     if engine is None:
@@ -43,6 +68,87 @@ def ensure_plugin_debug_schema(engine) -> None:
             conn.execute(text(ENSURE_DDL))
     except Exception as exc:
         log.warning("ensure_plugin_debug_schema failed: %s", exc)
+
+
+def _as_fields_dict(raw: Any) -> dict[str, Any] | None:
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return None
+        try:
+            parsed = json.loads(s)
+        except Exception:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
+
+
+def _pick_str(*candidates: Any, max_len: int = 64) -> str | None:
+    for c in candidates:
+        if c is None:
+            continue
+        s = str(c).strip()
+        if s:
+            return s[:max_len]
+    return None
+
+
+def _pick_from_mapping(mapping: dict[str, Any] | None, keys: tuple[str, ...], max_len: int) -> str | None:
+    if not mapping:
+        return None
+    for k in keys:
+        if k in mapping and mapping[k] is not None:
+            s = str(mapping[k]).strip()
+            if s:
+                return s[:max_len]
+    return None
+
+
+def _levels_at_or_above(min_level: str) -> list[str]:
+    key = (min_level or "").strip().upper()
+    if key.endswith("+"):
+        key = key[:-1]
+    rank = _LEVEL_RANK.get(key)
+    if rank is None:
+        return [key] if key else []
+    return [name for name, r in _LEVELS_BY_RANK if r <= rank]
+
+
+def _sanitize_like_term(term: str) -> str:
+    """Remove metacaracteres LIKE para pesquisa portátil (MySQL + SQLite)."""
+    return "".join(ch for ch in term if ch not in "%_\\")
+
+
+def enrich_event_row(item: dict[str, Any]) -> dict[str, Any]:
+    """Normaliza fields_json e preenche steam/order/server/corr a partir do payload."""
+    fj = _as_fields_dict(item.get("fields_json"))
+    if fj is not None:
+        item["fields_json"] = fj
+    else:
+        # Manter string ilegível como veio (UI mostra raw no detalhe se preciso).
+        pass
+
+    if not item.get("steam_id"):
+        picked = _pick_from_mapping(fj, _STEAM_KEYS, 32)
+        if picked:
+            item["steam_id"] = picked
+    if not item.get("order_id"):
+        picked = _pick_from_mapping(fj, _ORDER_KEYS, 64)
+        if picked:
+            item["order_id"] = picked
+    if not item.get("server_id"):
+        picked = _pick_from_mapping(fj, _SERVER_KEYS, 64)
+        if picked:
+            item["server_id"] = picked
+    if not item.get("correlation_id"):
+        picked = _pick_from_mapping(fj, _CORR_KEYS, 64)
+        if picked:
+            item["correlation_id"] = picked
+    return item
 
 
 def ingest_event(session, payload: dict[str, Any]) -> int | None:
@@ -58,12 +164,44 @@ def ingest_event(session, payload: dict[str, Any]) -> int | None:
     fields = payload.get("fields")
     if fields is None and isinstance(payload.get("extra"), dict):
         fields = payload["extra"]
+    if fields is None and isinstance(payload.get("details"), dict):
+        fields = payload["details"]
+    if fields is None and isinstance(payload.get("payload"), dict):
+        fields = payload["payload"]
+    fields_dict = _as_fields_dict(fields)
     fields_json = None
-    if fields is not None:
+    if fields_dict is not None:
+        try:
+            fields_json = json.dumps(fields_dict, ensure_ascii=False)
+        except Exception:
+            fields_json = None
+    elif fields is not None:
         try:
             fields_json = json.dumps(fields, ensure_ascii=False)
         except Exception:
             fields_json = None
+
+    steam_id = _pick_str(
+        payload.get("steam_id"),
+        _pick_from_mapping(fields_dict, _STEAM_KEYS, 32),
+        max_len=32,
+    )
+    order_id = _pick_str(
+        payload.get("order_id"),
+        _pick_from_mapping(fields_dict, _ORDER_KEYS, 64),
+        max_len=64,
+    )
+    server_id = _pick_str(
+        payload.get("server_id"),
+        _pick_from_mapping(fields_dict, _SERVER_KEYS, 64),
+        max_len=64,
+    )
+    corr = _pick_str(
+        payload.get("correlation_id"),
+        payload.get("request_id"),
+        _pick_from_mapping(fields_dict, _CORR_KEYS, 64),
+        max_len=64,
+    )
 
     row = session.execute(
         text(
@@ -78,14 +216,10 @@ def ingest_event(session, payload: dict[str, Any]) -> int | None:
             "ver": version,
             "level": level,
             "cat": category,
-            "server_id": (str(payload["server_id"])[:64] if payload.get("server_id") else None),
-            "steam_id": (str(payload["steam_id"])[:32] if payload.get("steam_id") else None),
-            "order_id": (str(payload["order_id"])[:64] if payload.get("order_id") else None),
-            "corr": (
-                str(payload["correlation_id"])[:64]
-                if payload.get("correlation_id")
-                else None
-            ),
+            "server_id": server_id,
+            "steam_id": steam_id,
+            "order_id": order_id,
+            "corr": corr,
             "message": message,
             "fields_json": fields_json,
         },
@@ -99,7 +233,9 @@ def list_events(
     plugin: str | None = None,
     category: str | None = None,
     level: str | None = None,
+    min_level: str | None = None,
     steam_id: str | None = None,
+    q: str | None = None,
     limit: int = 10,
     offset: int = 0,
     since_id: int | None = None,
@@ -114,15 +250,45 @@ def list_events(
     if category:
         clauses.append("category = :category")
         params["category"] = category[:32]
-    if level:
+
+    level_exact = (level or "").strip()
+    if level_exact.endswith("+") and not min_level:
+        min_level = level_exact
+        level_exact = ""
+    if level_exact:
         clauses.append("level = :level")
-        params["level"] = level[:8]
+        params["level"] = level_exact[:8]
+    elif min_level:
+        levels = _levels_at_or_above(min_level)
+        if levels:
+            placeholders = []
+            for i, lv in enumerate(levels):
+                key = f"lvl{i}"
+                placeholders.append(f":{key}")
+                params[key] = lv
+            clauses.append(f"level IN ({', '.join(placeholders)})")
+
     if steam_id:
         clauses.append("steam_id = :steam_id")
         params["steam_id"] = steam_id[:32]
     if since_id is not None:
         clauses.append("id > :since_id")
         params["since_id"] = int(since_id)
+
+    q_term = _sanitize_like_term((q or "").strip())[:120]
+    if q_term:
+        like = f"%{q_term}%"
+        params["q"] = like
+        clauses.append(
+            "("
+            "message LIKE :q OR "
+            "IFNULL(steam_id,'') LIKE :q OR "
+            "IFNULL(order_id,'') LIKE :q OR "
+            "IFNULL(correlation_id,'') LIKE :q OR "
+            "IFNULL(server_id,'') LIKE :q OR "
+            "CAST(fields_json AS CHAR) LIKE :q"
+            ")"
+        )
 
     sql = (
         "SELECT id, created_at, plugin, plugin_version, level, category, "
@@ -139,11 +305,5 @@ def list_events(
             if ca.tzinfo is None:
                 ca = ca.replace(tzinfo=timezone.utc)
             item["created_at"] = ca.isoformat()
-        fj = item.get("fields_json")
-        if isinstance(fj, str):
-            try:
-                item["fields_json"] = json.loads(fj)
-            except Exception:
-                pass
-        out.append(item)
+        out.append(enrich_event_row(item))
     return out
