@@ -80,7 +80,45 @@ def _interpret_crash(error_msg: str, culprit: str) -> str:
     if culprit and not any(culprit.lower().startswith(p) for p in _ENGINE_DLL_PREFIXES):
         return (f"Plugin externo suspeito: {culprit}. "
                 "Tente desativar temporariamente para confirmar.")
+    # Fatal error! sozinho — provisório; crash_ai enriquece em seguida.
+    if "fatal error" in em and len(em.strip()) < 40:
+        return (
+            "Crash fatal sem detalhe no extracto inicial. "
+            "A IA integrada vai analisar o ShooterGame.log automaticamente; "
+            "se não houver API key, será usada análise local do log."
+        )
     return "Causa não identificada. Consulte o call stack e o ShooterGame.log para mais detalhes."
+
+
+def _extract_error_message(lines: list) -> str:
+    """Escolhe a melhor linha de erro (evita ficar só em 'Fatal error!')."""
+    if not lines:
+        return "Fatal error! (ver call stack)"
+    preferred = []
+    for ln in lines:
+        low = ln.lower()
+        if low in ("fatal error!", "fatal error"):
+            continue
+        if any(
+            k in low
+            for k in (
+                "assertion",
+                "exception",
+                "access violation",
+                "ensure ",
+                "error:",
+                "fatal error:",
+                "out of memory",
+                "stack overflow",
+            )
+        ):
+            preferred.append(ln.strip()[:300])
+    if preferred:
+        return preferred[-1]
+    for ln in lines:
+        if ln.strip().lower() not in ("fatal error!", "fatal error"):
+            return ln.strip()[:300]
+    return lines[0].strip()[:300]
 
 
 def _build_crashstack_record(cs_file: "Path", dump_files: list) -> dict:
@@ -103,7 +141,7 @@ def _build_crashstack_record(cs_file: "Path", dump_files: list) -> dict:
     except Exception:
         content = ""
     lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
-    error_msg = lines[0] if lines else "Fatal error! (ver call stack)"
+    error_msg = _extract_error_message(lines)
     culprit   = _identify_crash_culprit(content)
     return {
         "folder":        cs_file.stem,
@@ -214,18 +252,26 @@ def _enrich_from_log_tail(crash_dir: "Path", result: dict) -> None:
     try:
         file_size = log_file.stat().st_size
         with open(log_file, "rb") as fh:
-            fh.seek(max(0, file_size - 20480))
+            fh.seek(max(0, file_size - 262_144))
             tail = fh.read().decode("utf-8", errors="replace")
         fatal_idx = tail.rfind("Fatal error!")
         if fatal_idx == -1:
             return
-        crash_section = tail[fatal_idx:]
+        start = max(0, fatal_idx - 2500)
+        crash_section = tail[start:]
         lines = [ln.strip() for ln in crash_section.splitlines() if ln.strip()]
-        result["log_lines"] = lines[:20]
+        result["log_lines"] = lines[:40]
+        if not result["call_stack"]:
+            result["call_stack"] = lines[:40]
         if not result["culprit"]:
             result["culprit"] = _identify_crash_culprit(crash_section)
-        if not result["error_message"] and lines:
-            result["error_message"] = lines[0]
+        better = _extract_error_message(lines)
+        if better and (
+            not result.get("error_message")
+            or result["error_message"].lower().strip() in ("fatal error!", "fatal error")
+            or "ver call stack" in result["error_message"].lower()
+        ):
+            result["error_message"] = better
     except Exception:
         pass
 
@@ -246,18 +292,19 @@ def _build_log_crash_record(block: str, idx: int, log_file: "Path", ts: "datetim
     """Constrói um dict de crash a partir de um bloco Fatal error! do log."""
     lines   = [ln.strip() for ln in block.splitlines() if ln.strip()]
     culprit = _identify_crash_culprit(block)
+    error_msg = _extract_error_message(lines)
     return {
         "folder":        f"ShooterGame.log #{idx + 1}",
         "path":          str(log_file),
         "timestamp":     ts,
-        "error_message": "Fatal error! (ver call stack abaixo)",
-        "call_stack":    lines[:25],
+        "error_message": error_msg,
+        "call_stack":    lines[:40],
         "culprit":       culprit,
         "has_dump":      False,
         "dump_size_kb":  0,
         "dump_path":     "",
-        "diagnosis":     _interpret_crash("fatal error", culprit),
-        "log_lines":     lines[:25],
+        "diagnosis":     _interpret_crash(error_msg, culprit),
+        "log_lines":     lines[:40],
         "source":        "log",
     }
 
@@ -267,6 +314,7 @@ def _parse_crash_from_log(install_dir: str, saved_root: "Path | None" = None) ->
 
     Fallback para quando não há pastas de crash com .dmp — o crash fatal do ARK
     deixa rastro no log mesmo quando o UE4 crash reporter não gera dump.
+    Inclui preamble (~2.5 KB antes do Fatal) — Error/Warning costumam estar ali.
     """
     if saved_root is None:
         saved_root = Path(install_dir) / "ShooterGame" / "Saved"
@@ -284,8 +332,9 @@ def _parse_crash_from_log(install_dir: str, saved_root: "Path | None" = None) ->
 
         fatal_positions = [m.start() for m in re.finditer(r'Fatal error!', content)]
         for idx, pos in enumerate(fatal_positions):
-            next_pos = fatal_positions[idx + 1] if idx + 1 < len(fatal_positions) else pos + 3000
-            block = content[pos:next_pos]
+            next_pos = fatal_positions[idx + 1] if idx + 1 < len(fatal_positions) else min(len(content), pos + 4500)
+            preamble_start = max(0, pos - 2500)
+            block = content[preamble_start:next_pos]
             ts    = _extract_block_ts(content, pos, log_file)
             records.append(_build_log_crash_record(block, idx, log_file, ts))
     except Exception:

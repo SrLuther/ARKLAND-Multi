@@ -117,6 +117,32 @@ class CrashStore:
             except Exception:
                 pass
 
+    def update_diagnosis(self, event_id: str, diagnosis: str) -> None:
+        """Actualiza diagnosis (ex.: resultado da IA) e notifica callbacks."""
+        updated: Optional[CrashEvent] = None
+        with self._lock:
+            for e in self._events:
+                if e.event_id == event_id:
+                    e.diagnosis = diagnosis or e.diagnosis
+                    updated = e
+                    break
+            if updated is not None:
+                self._save_unlocked()
+        if updated is None:
+            return
+        for cb in list(self._callbacks):
+            try:
+                cb(updated)
+            except Exception:
+                pass
+
+    def get(self, event_id: str) -> Optional[CrashEvent]:
+        with self._lock:
+            for e in self._events:
+                if e.event_id == event_id:
+                    return e
+            return None
+
     def mark_seen(self, event_id: str) -> None:
         with self._lock:
             for e in self._events:

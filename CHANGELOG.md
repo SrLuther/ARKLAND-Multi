@@ -7,6 +7,12 @@
 
 ## [Unreleased] - 
 
+## [1.10.93] - 2026-07-26
+
+### Feature
+
+- Feat (TEK / Crashes): análise automática com a IA integrada ao detectar crash — usa NVIDIA/OpenAI (cloud_credentials) + cauda do ShooterGame.log; sem API key, enriquece com heurística local em vez de «Causa não identificada» genérica; Fatal error! passa a incluir preamble do log.
+
 ## [1.10.92] - 2026-07-26
 
 ### Feature

@@ -22,12 +22,20 @@ def _build_event_card_body(card, evt: "CrashEvent") -> int:
     """Renderiza diagnóstico e call stack do card de evento. Retorna o próximo row."""
     body_row = 1
     if evt.diagnosis:
-        diag_f = ctk.CTkFrame(card, fg_color="#1a2a1a", corner_radius=4)
+        is_ai = evt.diagnosis.startswith("🤖")
+        is_pending = "IA a analisar" in evt.diagnosis
+        diag_f = ctk.CTkFrame(
+            card,
+            fg_color="#1a2438" if is_ai else ("#2a2a1a" if is_pending else "#1a2a1a"),
+            corner_radius=4,
+        )
         diag_f.grid(row=body_row, column=0, padx=8, pady=(6, 0), sticky="ew")
         diag_f.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(diag_f, text="🔍", font=ctk.CTkFont(size=12)).grid(row=0, column=0, padx=(8, 4), pady=6)
-        ctk.CTkLabel(diag_f, text=evt.diagnosis, font=ctk.CTkFont(size=11), text_color="#80d080",
-                     anchor="w", wraplength=700).grid(row=0, column=1, padx=(0, 8), pady=6, sticky="w")
+        icon = "🤖" if is_ai or is_pending else "🔍"
+        color = "#7ec8ff" if is_ai else ("#e0c060" if is_pending else "#80d080")
+        ctk.CTkLabel(diag_f, text=icon, font=ctk.CTkFont(size=12)).grid(row=0, column=0, padx=(8, 4), pady=6)
+        ctk.CTkLabel(diag_f, text=evt.diagnosis, font=ctk.CTkFont(size=11), text_color=color,
+                     anchor="w", wraplength=700, justify="left").grid(row=0, column=1, padx=(0, 8), pady=6, sticky="w")
         body_row += 1
     if evt.log_tail:
         ctk.CTkLabel(card, text="Call stack / log:", text_color="gray55",
@@ -201,8 +209,10 @@ def build_global_crash_monitor(app: "ARKServerManagerApp", parent: ctk.CTkFrame)
 
     def _bootstrap_from_files() -> None:
         """Popula CrashStore com crashes históricos de arquivo (roda em background)."""
+        from ..crash_ai import needs_ai_upgrade, schedule_crash_ai_analysis
         from ..server_manager import _list_crash_records
         import uuid as _uuid
+        ai_budget = 5  # no máximo N análises IA no boot (evitar flood)
         for srv in _get_asm_servers():
             if not srv.install_dir:
                 continue
@@ -212,6 +222,7 @@ def build_global_crash_monitor(app: "ARKServerManagerApp", parent: ctk.CTkFrame)
                     alt_save_dir=getattr(srv, "alt_save_directory_name", "") or "",
                 )
                 for rec in recs[:50]:
+                    diagnosis = rec.get("diagnosis", "") or ""
                     evt = CrashEvent(
                         event_id=str(_uuid.uuid4()),
                         server_id=srv.id,
@@ -221,12 +232,39 @@ def build_global_crash_monitor(app: "ARKServerManagerApp", parent: ctk.CTkFrame)
                         exit_code=None,
                         log_tail=rec.get("call_stack") or rec.get("log_lines", []),
                         culprit=rec.get("culprit", ""),
-                        diagnosis=rec.get("diagnosis", ""),
+                        diagnosis=diagnosis,
                         seen=True,
                     )
                     CrashStore.instance().add(evt)
             except Exception:
                 pass
+        # Reanalisa eventos já no store com diagnosis genérica (ex.: só "Fatal error!")
+        try:
+            id_to_dir = {
+                s.id: s.install_dir
+                for s in _get_asm_servers()
+                if s.install_dir
+            }
+            for evt in CrashStore.instance().list_all():
+                if ai_budget <= 0:
+                    break
+                if not needs_ai_upgrade(evt.diagnosis):
+                    continue
+                install = id_to_dir.get(evt.server_id)
+                if not install:
+                    continue
+                schedule_crash_ai_analysis(
+                    evt.event_id,
+                    server_name=evt.server_name,
+                    install_dir=install,
+                    kind=evt.kind,
+                    culprit=evt.culprit,
+                    log_tail=list(evt.log_tail or []),
+                    heuristic_diagnosis=evt.diagnosis,
+                )
+                ai_budget -= 1
+        except Exception:
+            pass
         try:
             if parent.winfo_exists():
                 parent.after(0, _refresh)
