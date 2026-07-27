@@ -11641,12 +11641,48 @@ def _guess_mod_map(server_map: str, display_name: str = "") -> bool:
     return True
 
 
+def _featured_slug_keys(raw: str) -> set[str]:
+    """Variantes de slug para casar label curta (CRYSTAL) ↔ Crystal Isles / crystal_isles."""
+    from src.server_config_snapshot import norm_slug
+
+    slug = norm_slug(str(raw or ""))
+    if not slug:
+        return set()
+    keys = {slug, slug.replace("_", "")}
+    if slug.startswith("the_"):
+        rest = slug[4:]
+        keys.add(rest)
+        keys.add(rest.replace("_", ""))
+    parts = [p for p in slug.split("_") if p]
+    if len(parts) >= 2:
+        keys.add(parts[0])
+        keys.add("".join(parts))
+        if parts[-1].isdigit():
+            keys.add(f"{parts[0]}{parts[-1]}")
+            keys.add(f"{parts[0]}_{parts[-1]}")
+    # Aliases curtos usados como label na home (GEN2, VOLCANO, …)
+    aliases = {
+        "gen2": ("genesis_2", "genesis2"),
+        "genesis2": ("genesis_2", "gen2"),
+        "genesis_2": ("genesis2", "gen2"),
+        "crystal": ("crystal_isles", "crystalisles"),
+        "crystalisles": ("crystal_isles", "crystal"),
+        "crystal_isles": ("crystalisles", "crystal"),
+        "volcano": ("the_volcano", "thevolcano"),
+        "thevolcano": ("the_volcano", "volcano"),
+        "the_volcano": ("volcano", "thevolcano"),
+    }
+    for key in list(keys):
+        for alias in aliases.get(key, ()):
+            keys.add(alias)
+            keys.add(alias.replace("_", ""))
+    return {k for k in keys if k}
+
+
 def _featured_map_overrides_index(
     manual_maps: list[dict[str, Any]],
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """Índice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
-    from src.server_config_snapshot import norm_slug
-
     by_id: dict[str, dict[str, Any]] = {}
     by_slug: dict[str, dict[str, Any]] = {}
     for m in manual_maps:
@@ -11656,9 +11692,17 @@ def _featured_map_overrides_index(
         if sid:
             by_id[sid] = m
         for key in (m.get("name"), m.get("id")):
-            slug = norm_slug(str(key or ""))
-            if slug:
-                by_slug[slug] = m
+            for slug in _featured_slug_keys(str(key or "")):
+                # Preferir chave mais longa já indexada; não sobrescrever com token curto
+                prev = by_slug.get(slug)
+                if prev is None:
+                    by_slug[slug] = m
+                elif slug in _featured_slug_keys(str(prev.get("id") or "")) or slug in _featured_slug_keys(
+                    str(prev.get("name") or "")
+                ):
+                    # mesma família — manter entrada com descrição mais completa
+                    if str(m.get("description") or "").strip() and not str(prev.get("description") or "").strip():
+                        by_slug[slug] = m
     return by_id, by_slug
 
 
@@ -11667,18 +11711,53 @@ def _lookup_featured_override(
     by_id: dict[str, dict[str, Any]],
     by_slug: dict[str, dict[str, Any]],
 ) -> dict[str, Any] | None:
-    from src.server_config_snapshot import norm_slug
-
     sid = str(srv.get("server_id") or "").strip()
     if sid and sid in by_id:
         return by_id[sid]
     label = str(srv.get("label") or "").strip()
     server_map = str(srv.get("server_map") or "").strip()
+    best_for_hit: dict[int, tuple[int, dict[str, Any]]] = {}
     for raw in (label, server_map, sid):
-        slug = norm_slug(raw)
-        if slug and slug in by_slug:
-            return by_slug[slug]
-    return None
+        for key in _featured_slug_keys(raw):
+            hit = by_slug.get(key)
+            if not hit:
+                continue
+            oid = id(hit)
+            prev = best_for_hit.get(oid)
+            if prev is None or len(key) > prev[0]:
+                best_for_hit[oid] = (len(key), hit)
+    if not best_for_hit:
+        return None
+    candidates = list(best_for_hit.values())
+    candidates.sort(key=lambda item: (-item[0], -len(str(item[1].get("description") or ""))))
+    return candidates[0][1]
+
+
+def _featured_description_fallback(
+    srv: dict[str, Any],
+    ov: dict[str, Any] | None,
+    *,
+    defaults: list[dict[str, Any]] | None = None,
+) -> str:
+    """Descrição do override, ou default do mapa quando o match/admin veio sem texto."""
+    if ov:
+        desc = str(ov.get("description") or "").strip()
+        if desc:
+            return desc
+    defaults = defaults if defaults is not None else _default_featured_maps()
+    _, by_slug = _featured_map_overrides_index(defaults)
+    hit = _lookup_featured_override(srv, {}, by_slug)
+    if hit:
+        return str(hit.get("description") or "").strip()
+    if ov:
+        hit = _lookup_featured_override(
+            {"label": ov.get("name"), "server_map": ov.get("id"), "server_id": ""},
+            {},
+            by_slug,
+        )
+        if hit:
+            return str(hit.get("description") or "").strip()
+    return ""
 
 
 def _default_featured_maps() -> list[dict[str, Any]]:
@@ -11882,7 +11961,7 @@ def _load_featured_maps_public(
                     if ov and "mod_map" in ov
                     else _guess_mod_map(server_map, display_name)
                 ),
-                "description": str(ov.get("description") or "").strip() if ov else "",
+                "description": _featured_description_fallback(srv, ov),
             }
             if stats:
                 entry["stats"] = stats
@@ -11897,7 +11976,14 @@ def _load_featured_maps_public(
         entry = {
             "name": m.get("name", ""),
             "mod_map": bool(m.get("mod_map", False)),
-            "description": m.get("description", ""),
+            "description": _featured_description_fallback(
+                {
+                    "label": m.get("name"),
+                    "server_map": m.get("id"),
+                    "server_id": m.get("server_id") or "",
+                },
+                m,
+            ),
         }
         stats = match_snapshot_for_map(m, by_id, by_slug)
         if stats:

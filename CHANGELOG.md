@@ -7,6 +7,12 @@
 
 ## [Unreleased] - 
 
+## [1.10.97] - 2026-07-27
+
+### Fix
+
+- Fix (Web Store / Home): mapas com label curta (CRYSTAL, GEN2, VOLCANO, …) voltam a mostrar a descrição — match por aliases de slug + fallback ao texto padrão.
+
 ## [1.10.96] - 2026-07-27
 
 ### Improvement

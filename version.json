@@ -1,10 +1,8 @@
 {
-    "version": "1.10.96",
+    "version": "1.10.97",
     "date": "2026-07-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.96/ARKLAND-Multi-Setup-v1.10.96.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.97/ARKLAND-Multi-Setup-v1.10.97.exe",
     "changelog": [
-        "Fix (TEK / Discord): painel de status volta a ter webhook dedicado (canal separado dos eventos); ID do canal mantido só para limpeza no restart.",
-        "Fix (TEK / Discord): limpar+painel novo serializa creates (evita duplicados), apaga msg conhecida via webhook, purge com bot e mostra resultado/avisos na UI.",
-        "Melhoria (Web Store / Home): cards de servidores mostram status (PARADO/INICIANDO/ATUALIZANDO/ONLINE via TEK); removido «Jogar agora»; mantém IP + Copiar IP."
+        "Fix (Web Store / Home): mapas com label curta (CRYSTAL, GEN2, VOLCANO, …) voltam a mostrar a descrição — match por aliases de slug + fallback ao texto padrão."
     ]
 }

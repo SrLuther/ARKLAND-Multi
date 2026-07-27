@@ -161,3 +161,43 @@ def test_featured_maps_section_settings(client):
     sec = home.get("featured_maps_section", {})
     assert sec.get("title") == "Meus Mapas"
     assert sec.get("intro") == "Intro customizada."
+
+
+def test_short_server_labels_still_get_map_descriptions():
+    """Labels curtas (CRYSTAL/GEN2/VOLCANO) devem herdar o texto das FeaturedMaps."""
+    servers = [
+        {"server_id": "s1", "label": "CRYSTAL", "server_map": "CrystalIsles", "show_on_home": True},
+        {"server_id": "s2", "label": "GEN2", "server_map": "Gen2_WP", "show_on_home": True},
+        {"server_id": "s3", "label": "VOLCANO", "server_map": "TheVolcano", "show_on_home": True},
+    ]
+    catalog = {
+        "FeaturedMaps": [
+            {
+                "id": "crystal_isles",
+                "name": "Crystal Isles",
+                "mod_map": True,
+                "description": "Ilhas de cristal com biomas unicos.",
+                "enabled": True,
+            },
+            {
+                "id": "genesis_2",
+                "name": "Genesis 2",
+                "mod_map": True,
+                "description": "Megastructure e mundos geneticos.",
+                "enabled": True,
+            },
+            {
+                "id": "the_volcano",
+                "name": "The Volcano",
+                "mod_map": True,
+                "description": "Ilha vulcanica hostil e rica.",
+                "enabled": True,
+            },
+        ],
+    }
+    maps = _app_module._load_featured_maps_public(servers=servers, catalog=catalog)
+    by_desc = {m["description"] for m in maps}
+    assert "Ilhas de cristal com biomas unicos." in by_desc
+    assert "Megastructure e mundos geneticos." in by_desc
+    assert "Ilha vulcanica hostil e rica." in by_desc
+    assert all(str(m.get("description") or "").strip() for m in maps)
