@@ -1758,6 +1758,14 @@ class ARKServerManagerApp(ctk.CTk):
         except ValueError:
             cfg.force_day_on_start = 20
         cfg.steam_api_key        = getattr(self, "_steam_api_key_var", tk.StringVar()).get().strip()
+        try:
+            from .crash_ai import save_ai_keys
+            save_ai_keys(
+                nvidia_api_key=getattr(self, "_ai_nvidia_key_var", tk.StringVar()).get().strip(),
+                openai_api_key=getattr(self, "_ai_openai_key_var", tk.StringVar()).get().strip(),
+            )
+        except Exception:
+            pass
         # Discord
         dc = cfg.discord_notify
         dc.enabled       = getattr(self, "_discord_enabled_var", tk.BooleanVar()).get()

@@ -35,6 +35,47 @@ def _creds_path() -> Path:
     )
 
 
+def load_ai_keys_dict() -> Dict[str, str]:
+    """Chaves globais de IA (nvidia / openai) a partir de cloud_credentials.json."""
+    out = {"nvidia": "", "openai": ""}
+    try:
+        path = _creds_path()
+        if not path.exists():
+            return out
+        data = json.loads(path.read_text(encoding="utf-8"))
+        out["nvidia"] = str(data.get("nvidia_api_key") or "").strip()
+        out["openai"] = str(data.get("openai_api_key") or "").strip()
+    except Exception:
+        pass
+    return out
+
+
+def save_ai_keys(*, nvidia_api_key: str = "", openai_api_key: str = "") -> None:
+    """Persiste keys de IA em cloud_credentials.json (config global)."""
+    path = _creds_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data: Dict[str, Any] = {}
+    try:
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                data = {}
+    except Exception:
+        data = {}
+    nv = (nvidia_api_key or "").strip()
+    oa = (openai_api_key or "").strip()
+    if nv:
+        data["nvidia_api_key"] = nv
+    elif "nvidia_api_key" in data and not nv:
+        # Campo vazio no form = manter existente? Preferimos gravar o que o user salvou.
+        data["nvidia_api_key"] = ""
+    if oa:
+        data["openai_api_key"] = oa
+    else:
+        data["openai_api_key"] = oa
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def load_ai_credentials() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Devolve (provider_id, api_key, model) ou (None, None, None)."""
     try:

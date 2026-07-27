@@ -195,10 +195,54 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         text_color="gray45", font=ctk.CTkFont(size=10), wraplength=560, justify="left",
     ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
 
+    # ── Seção IA (global) ───────────────────────────────────────────────────
+    from ..crash_ai import load_ai_keys_dict
+
+    _ai_keys = load_ai_keys_dict()
+    app._section_lbl(parent, _next_row + 6, "🤖  Assistente IA (global)")
+    ai_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    ai_card.grid(row=_next_row + 7, column=0, padx=20, pady=(0, 14), sticky="ew")
+    ai_card.grid_columnconfigure(1, weight=1)
+
+    app._ai_nvidia_key_var = tk.StringVar(value=_ai_keys.get("nvidia", ""))
+    app._ai_openai_key_var = tk.StringVar(value=_ai_keys.get("openai", ""))
+
+    ctk.CTkLabel(
+        ai_card,
+        text=(
+            "Chaves usadas em todo o app: análise automática de crashes e o chat 🤖 IA "
+            "nos servidores. Preferência: NVIDIA NIM (gratuito)."
+        ),
+        text_color="gray45", font=ctk.CTkFont(size=10), wraplength=620, justify="left",
+    ).grid(row=0, column=0, columnspan=2, padx=16, pady=(14, 8), sticky="w")
+
+    ctk.CTkLabel(ai_card, text="NVIDIA NIM (nvapi-…):", width=200, anchor="w",
+                 text_color="gray60").grid(row=1, column=0, padx=16, pady=(4, 2), sticky="w")
+    ctk.CTkEntry(
+        ai_card, textvariable=app._ai_nvidia_key_var, height=34,
+        placeholder_text="nvapi-… — build.nvidia.com",
+        show="*",
+    ).grid(row=1, column=1, padx=(0, 16), pady=(4, 2), sticky="ew")
+
+    ctk.CTkLabel(ai_card, text="OpenAI (sk-…):", width=200, anchor="w",
+                 text_color="gray60").grid(row=2, column=0, padx=16, pady=(8, 2), sticky="w")
+    ctk.CTkEntry(
+        ai_card, textvariable=app._ai_openai_key_var, height=34,
+        placeholder_text="sk-… — opcional (platform.openai.com)",
+        show="*",
+    ).grid(row=2, column=1, padx=(0, 16), pady=(8, 2), sticky="ew")
+
+    ctk.CTkLabel(
+        ai_card,
+        text="Gravadas em %APPDATA%\\ARKLAND-ServerManager\\cloud_credentials.json ao salvar "
+             "as Configurações Globais. Se ambas existirem, a análise de crash usa NVIDIA primeiro.",
+        text_color="gray45", font=ctk.CTkFont(size=10), wraplength=620, justify="left",
+    ).grid(row=3, column=0, columnspan=2, padx=16, pady=(4, 14), sticky="w")
+
     # ── Seção Discord ───────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 6, "🔔  Notificações Discord")
+    app._section_lbl(parent, _next_row + 8, "🔔  Notificações Discord")
     disc_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    disc_card.grid(row=_next_row + 7, column=0, padx=20, pady=(0, 14), sticky="ew")
+    disc_card.grid(row=_next_row + 9, column=0, padx=20, pady=(0, 14), sticky="ew")
     disc_card.grid_columnconfigure(1, weight=1)
 
     dc = cfg.discord_notify
@@ -274,9 +318,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         row=9, column=0, columnspan=2, padx=(16, 16), pady=(2, 14), sticky="w")
 
     # ── Seção Backup ────────────────────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 8, "💾  Backup Automático")
+    app._section_lbl(parent, _next_row + 10, "💾  Backup Automático")
     bk_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    bk_card.grid(row=_next_row + 9, column=0, padx=20, pady=(0, 14), sticky="ew")
+    bk_card.grid(row=_next_row + 11, column=0, padx=20, pady=(0, 14), sticky="ew")
     bk_card.grid_columnconfigure(1, weight=1)
 
     bk = cfg.backup
@@ -375,9 +419,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     ).grid(row=10, column=0, columnspan=2, padx=16, pady=(0, 14), sticky="w")
 
     # ── Seção Auto-Atualização ───────────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 10, "🔄  Atualização Automática")
+    app._section_lbl(parent, _next_row + 12, "🔄  Atualização Automática")
     upd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    upd_card.grid(row=_next_row + 11, column=0, padx=20, pady=(0, 14), sticky="ew")
+    upd_card.grid(row=_next_row + 13, column=0, padx=20, pady=(0, 14), sticky="ew")
     upd_card.grid_columnconfigure(1, weight=1)
 
     au = cfg.auto_update
@@ -440,9 +484,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         row=6, column=1, padx=(0, 16), pady=(4, 14), sticky="ew")
 
     # ── Seção Desligamento ──────────────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 12, "⏹️  Opções de Desligamento")
+    app._section_lbl(parent, _next_row + 14, "⏹️  Opções de Desligamento")
     sd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    sd_card.grid(row=_next_row + 13, column=0, padx=20, pady=(0, 14), sticky="ew")
+    sd_card.grid(row=_next_row + 15, column=0, padx=20, pady=(0, 14), sticky="ew")
     sd_card.grid_columnconfigure(1, weight=1)
 
     sd = cfg.shutdown
@@ -495,9 +539,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                     ).grid(row=8, column=0, columnspan=2, padx=16, pady=(8, 14), sticky="w")
 
     # ── Seção Mensagens de Alerta ───────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 14, "🔔  Opções de Alerta")
+    app._section_lbl(parent, _next_row + 16, "🔔  Opções de Alerta")
     al_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    al_card.grid(row=_next_row + 15, column=0, padx=20, pady=(0, 14), sticky="ew")
+    al_card.grid(row=_next_row + 17, column=0, padx=20, pady=(0, 14), sticky="ew")
     al_card.grid_columnconfigure(1, weight=1)
 
     am = cfg.alert_messages
@@ -547,9 +591,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  placeholder_text="{ipaddress}:{port}").pack(side="left", padx=6)
 
     # ── Seção Discord Bot ───────────────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 16, "🤖  Discord Bot")
+    app._section_lbl(parent, _next_row + 18, "🤖  Discord Bot")
     bot_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    bot_card.grid(row=_next_row + 17, column=0, padx=20, pady=(0, 14), sticky="ew")
+    bot_card.grid(row=_next_row + 19, column=0, padx=20, pady=(0, 14), sticky="ew")
     bot_card.grid_columnconfigure(1, weight=1)
 
     db = cfg.discord_bot
@@ -616,9 +660,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                     ).grid(row=5, column=0, columnspan=2, padx=16, pady=(6, 14), sticky="w")
 
     # ── Seção SMTP ───────────────────────────────────────────────────────────
-    app._section_lbl(parent, _next_row + 18, "✉️  Configurações de Email SMTP")
+    app._section_lbl(parent, _next_row + 20, "✉️  Configurações de Email SMTP")
     smtp_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    smtp_card.grid(row=_next_row + 19, column=0, padx=20, pady=(0, 14), sticky="ew")
+    smtp_card.grid(row=_next_row + 21, column=0, padx=20, pady=(0, 14), sticky="ew")
     smtp_card.grid_columnconfigure(1, weight=1)
     smtp_card.grid_columnconfigure(3, weight=1)
 
@@ -687,9 +731,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     # ── Servidores legados (modo primitivo) ───────────────────────────────
     _legacy = list(app.config_manager.servers)
     if _legacy:
-        app._section_lbl(parent, _next_row + 21, "📦  Servidores legados (modo primitivo)")
+        app._section_lbl(parent, _next_row + 23, "📦  Servidores legados (modo primitivo)")
         leg_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        leg_card.grid(row=_next_row + 22, column=0, padx=20, pady=(0, 14), sticky="ew")
+        leg_card.grid(row=_next_row + 24, column=0, padx=20, pady=(0, 14), sticky="ew")
         leg_card.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -729,5 +773,5 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         height=44, font=ctk.CTkFont(size=14, weight="bold"),
         fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         command=app._save_global_config,
-    ).grid(row=_next_row + 24, column=0, padx=20, pady=(0, 24), sticky="ew")
+    ).grid(row=_next_row + 26, column=0, padx=20, pady=(0, 24), sticky="ew")
 

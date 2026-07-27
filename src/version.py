@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.93"
+APP_VERSION: str = "1.10.94"
 BUILD_DATE: str = "2026-07-26"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,15 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.94",
+        "date": "2026-07-26",
+        "changes": [
+            "Melhoria (TEK / Configurações Globais): API keys da IA (NVIDIA NIM / OpenAI) "
+            "passam a ser configuradas globalmente — usadas na análise automática de "
+            "crashes e no chat 🤖 IA dos servidores.",
+        ],
     },
     {
         "version": "1.10.93",

@@ -7,6 +7,12 @@
 
 ## [Unreleased] - 
 
+## [1.10.94] - 2026-07-26
+
+### Improvement
+
+- Melhoria (TEK / Configurações Globais): API keys da IA (NVIDIA NIM / OpenAI) passam a ser configuradas globalmente — usadas na análise automática de crashes e no chat 🤖 IA dos servidores.
+
 ## [1.10.93] - 2026-07-26
 
 ### Feature

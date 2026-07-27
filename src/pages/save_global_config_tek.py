@@ -152,6 +152,14 @@ def save_global_config_tek(app) -> None:
     except ValueError:
         cfg.force_day_on_start = 20
     cfg.steam_api_key        = _g(app, "_steam_api_key_var",       strip=True)
+    try:
+        from ..crash_ai import save_ai_keys
+        save_ai_keys(
+            nvidia_api_key=_g(app, "_ai_nvidia_key_var", strip=True),
+            openai_api_key=_g(app, "_ai_openai_key_var", strip=True),
+        )
+    except Exception:
+        pass
     _save_discord(app, cfg.discord_notify)
     _save_backup(app, cfg.backup)
     _save_auto_update(app, cfg.auto_update)

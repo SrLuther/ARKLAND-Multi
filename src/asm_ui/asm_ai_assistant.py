@@ -199,21 +199,11 @@ class _AIAssistantWindow(ctk.CTkToplevel):
         self._send_welcome()
 
     def _load_all_keys(self) -> Dict[str, str]:
-        from pathlib import Path
-        import os
-        creds_path = (
-            Path(os.environ.get("APPDATA", Path.home()))
-            / "ARKLAND-ServerManager"
-            / "cloud_credentials.json"
-        )
-        if creds_path.exists():
-            try:
-                with open(creds_path, encoding="utf-8") as fh:
-                    data = json.load(fh)
-                return {k: data.get(v, "") for k, v in _CREDS_KEYS.items()}
-            except Exception:
-                pass
-        return {k: "" for k in _CREDS_KEYS}
+        try:
+            from ..crash_ai import load_ai_keys_dict
+            return load_ai_keys_dict()
+        except Exception:
+            return {k: "" for k in _CREDS_KEYS}
 
     def _current_key(self) -> str:
         return self._keys.get(self._provider_var.get(), "")
@@ -269,7 +259,7 @@ class _AIAssistantWindow(ctk.CTkToplevel):
         action_frame.grid(row=0, column=2, padx=(0, 8), pady=4)
 
         ctk.CTkButton(
-            action_frame, text="🔑 Configurar Key", width=120, height=26,
+            action_frame, text="🔑 Keys (global)", width=120, height=26,
             fg_color=self._sep, hover_color="#263347",
             font=ctk.CTkFont(size=10), text_color=self._t_sec,
             command=self._set_api_key,
@@ -325,8 +315,8 @@ class _AIAssistantWindow(ctk.CTkToplevel):
     def _mode_text(self) -> str:
         prov = self._provider_var.get()
         if self._current_key():
-            return _PROVIDERS[prov]["label"]
-        return "Modo offline (heurísticas locais) — configure uma API Key"
+            return f"{_PROVIDERS[prov]['label']} · key global"
+        return "Modo offline — configure a API Key em Configurações Globais → Assistente IA"
 
     def _open_help(self):
         """Abre janela de ajuda com tutorial de obtenção das API Keys (singleton)."""
@@ -418,7 +408,7 @@ class _AIAssistantWindow(ctk.CTkToplevel):
         _step("2.", "Após o login, clique no seu perfil (canto superior direito) → \"API Keys\".")
         _step("3.", "Clique em \"Generate Key\" ou \"+ New Key\". Dê um nome como \"ARKLAND\".")
         _step("4.", "A chave gerada começa com nvapi-...  Copie-a agora — ela só é exibida uma vez.")
-        _step("5.", "No Assistente IA, clique em \"🔑 Configurar Key\", selecione NVIDIA NIM e cole a chave.")
+        _step("5.", "Em ARKLAND: Configurações Globais → Assistente IA (global) → cole a chave e Salvar.")
         _divider()
         _section("Qual modelo escolher?", "#e2e8f0")
         rows = [
@@ -453,7 +443,7 @@ class _AIAssistantWindow(ctk.CTkToplevel):
         _step("2.", "Faça login → clique no seu perfil → \"API Keys\" → \"+ Create new secret key\".")
         _step("3.", "Copie a chave (começa com sk-...) — não será exibida novamente.")
         _step("4.", "Adicione créditos em \"Billing\" (mínimo US$ 5). Sem créditos, a key não funciona.")
-        _step("5.", "No Assistente IA, selecione \"OpenAI GPT-4o Mini\" e configure a key.")    
+        _step("5.", "Em ARKLAND: Configurações Globais → Assistente IA (global) → cole a key OpenAI e Salvar.")    
         _divider()
         _section("💡  Dica de segurança", "#f87171")
         _text(
@@ -565,15 +555,20 @@ class _AIAssistantWindow(ctk.CTkToplevel):
             self.after(0, lambda: self._entry.configure(state="normal"))
 
     def _set_api_key(self):
+        """Atalho: grava a key global (mesmo ficheiro das Configurações Globais)."""
+        from ..crash_ai import load_ai_keys_dict, save_ai_keys
+
         prov_id  = self._provider_var.get()
         prov     = _PROVIDERS[prov_id]
         hint     = prov["key_hint"]
         prefix   = prov["key_prefix"]
-        creds_key = _CREDS_KEYS[prov_id]
 
         dlg = ctk.CTkInputDialog(
-            text=f"Cole sua {prov['label']} API Key ({hint}):",
-            title=f"Configurar Key — {prov['label']}",
+            text=(
+                f"Cole a {prov['label']} API Key ({hint}).\n"
+                "É uma configuração GLOBAL (Configurações Globais → Assistente IA)."
+            ),
+            title=f"API Key global — {prov['label']}",
         )
         key = dlg.get_input()
         if not key:
@@ -583,26 +578,19 @@ class _AIAssistantWindow(ctk.CTkToplevel):
             self._append_msg("system", f"[Chave inválida — deve começar com '{prefix}']")
             return
 
-        from pathlib import Path
-        import os
-        creds_path = (
-            Path(os.environ.get("APPDATA", Path.home()))
-            / "ARKLAND-ServerManager"
-            / "cloud_credentials.json"
-        )
         try:
-            if creds_path.exists():
-                with open(creds_path, encoding="utf-8") as fh:
-                    data = json.load(fh)
+            cur = load_ai_keys_dict()
+            if prov_id == "nvidia":
+                save_ai_keys(nvidia_api_key=key, openai_api_key=cur.get("openai", ""))
             else:
-                data = {}
-            data[creds_key] = key
-            creds_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(creds_path, "w", encoding="utf-8") as fh:
-                json.dump(data, fh, indent=2)
-            self._keys[prov_id] = key
+                save_ai_keys(nvidia_api_key=cur.get("nvidia", ""), openai_api_key=key)
+            self._keys = load_ai_keys_dict()
             self._status_lbl.configure(text=self._mode_text())
-            self._append_msg("system", f"✅ Key salva. Próximas mensagens usarão {prov['label']}.")
+            self._append_msg(
+                "system",
+                f"✅ Key global salva ({prov['label']}). Também editável em "
+                "Configurações Globais → Assistente IA.",
+            )
         except Exception as exc:
             self._append_msg("system", f"[Erro ao salvar Key: {exc}]")
 
