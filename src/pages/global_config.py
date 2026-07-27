@@ -255,6 +255,12 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     app._discord_notify_update       = tk.BooleanVar(value=dc.notify_update)
     app._discord_notify_backup       = tk.BooleanVar(value=dc.notify_backup)
     app._discord_mod_changelog_hook  = tk.StringVar(value=dc.mod_changelog_webhook)
+    app._discord_status_board_enabled = tk.BooleanVar(
+        value=getattr(dc, "status_board_enabled", False)
+    )
+    app._discord_status_board_channel = tk.StringVar(
+        value=getattr(dc, "status_board_channel_id", "") or ""
+    )
 
     ctk.CTkCheckBox(
         disc_card, text="Ativar notificações Discord",
@@ -315,7 +321,74 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  text="Quando um mod for atualizado, as notas de atualização serão enviadas para este canal.\n"
                       "Deixe em branco para usar o mesmo webhook principal configurado acima.",
                  text_color="gray45", font=ctk.CTkFont(size=10), justify="left").grid(
-        row=9, column=0, columnspan=2, padx=(16, 16), pady=(2, 14), sticky="w")
+        row=9, column=0, columnspan=2, padx=(16, 16), pady=(2, 10), sticky="w")
+
+    # ── Painel fixo de status (reusa webhook acima) ────────────────────────
+    ctk.CTkLabel(disc_card, text="Painel de status (fixixo):", text_color="gray55",
+                 font=ctk.CTkFont(size=11, weight="bold")).grid(
+        row=10, column=0, columnspan=2, padx=16, pady=(6, 2), sticky="w")
+    ctk.CTkCheckBox(
+        disc_card,
+        text="Ativar painel fixo (reutiliza o webhook acima)",
+        variable=app._discord_status_board_enabled,
+        checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+    ).grid(row=11, column=0, columnspan=2, padx=16, pady=(0, 4), sticky="w")
+    ctk.CTkLabel(disc_card, text="ID do canal:", width=160, anchor="w",
+                 text_color="gray60").grid(row=12, column=0, padx=16, pady=(4, 0), sticky="w")
+    ctk.CTkEntry(
+        disc_card, textvariable=app._discord_status_board_channel, height=32,
+        placeholder_text="ex.: 1234567890123456789 (modo desenvolvedor → Copiar ID do canal)",
+    ).grid(row=12, column=1, padx=(0, 16), pady=(4, 0), sticky="ew")
+    ctk.CTkLabel(
+        disc_card,
+        text=(
+            "Estados: PARADO · INICIANDO · ATUALIZANDO · ONLINE (ONLINE só se listado na Steam).\n"
+            "Em runtime edita a mesma mensagem. Ao reiniciar o app: limpa este canal e publica "
+            "painel novo (Token em «Discord Bot» + Manage Messages). O ID deve ser o canal do webhook."
+        ),
+        text_color="gray45", font=ctk.CTkFont(size=10), justify="left",
+    ).grid(row=13, column=0, columnspan=2, padx=(16, 16), pady=(2, 6), sticky="w")
+
+    def _status_board_recreate() -> None:
+        from ..discord_status_board import recreate_status_board
+        dc.status_board_enabled = bool(app._discord_status_board_enabled.get())
+        dc.status_board_channel_id = app._discord_status_board_channel.get().strip()
+        recreate_status_board(app)
+        try:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Painel Discord",
+                "Limpeza do canal + novo painel iniciados em segundo plano.",
+                parent=app,
+            )
+        except Exception:
+            pass
+
+    def _status_board_refresh() -> None:
+        from ..discord_status_board import schedule_status_board_update
+        dc.status_board_enabled = bool(app._discord_status_board_enabled.get())
+        dc.status_board_channel_id = app._discord_status_board_channel.get().strip()
+        schedule_status_board_update(app)
+        try:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Painel Discord",
+                "Atualização do painel agendada.",
+                parent=app,
+            )
+        except Exception:
+            pass
+
+    btn_fr = ctk.CTkFrame(disc_card, fg_color="transparent")
+    btn_fr.grid(row=14, column=0, columnspan=2, padx=16, pady=(0, 14), sticky="w")
+    ctk.CTkButton(
+        btn_fr, text="Atualizar painel", width=140, height=28,
+        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER, command=_status_board_refresh,
+    ).pack(side="left", padx=(0, 8))
+    ctk.CTkButton(
+        btn_fr, text="Limpar canal + painel novo", width=200, height=28,
+        fg_color="#7f1d1d", hover_color="#991b1b", command=_status_board_recreate,
+    ).pack(side="left")
 
     # ── Seção Backup ────────────────────────────────────────────────────────
     app._section_lbl(parent, _next_row + 10, "💾  Backup Automático")

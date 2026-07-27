@@ -1,8 +1,9 @@
 {
-    "version": "1.10.94",
+    "version": "1.10.95",
     "date": "2026-07-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.94/ARKLAND-Multi-Setup-v1.10.94.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.95/ARKLAND-Multi-Setup-v1.10.95.exe",
     "changelog": [
-        "Melhoria (TEK / Configurações Globais): API keys da IA (NVIDIA NIM / OpenAI) passam a ser configuradas globalmente — usadas na análise automática de crashes e no chat 🤖 IA dos servidores."
+        "Limpeza (Web Store / Nav): removido item admin «Tribos (legado)» — fluxo web fica só com Equipes.",
+        "Feat (TEK / Discord): painel fixo de status dos servidores — reutiliza o webhook global; configura só o ID do canal; PARADO / INICIANDO / ATUALIZANDO / ONLINE (ONLINE só se listado na Steam); nome = SessionName (mesmo da lista Steam); rodapé com data/hora de Brasília a cada update; em runtime edita a mesma mensagem; ao reiniciar limpa o canal (token Discord Bot) e publica painel novo."
     ]
 }

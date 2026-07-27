@@ -1777,6 +1777,12 @@ class ARKServerManagerApp(ctk.CTk):
         dc.notify_update = getattr(self, "_discord_notify_update", tk.BooleanVar()).get()
         dc.notify_backup = getattr(self, "_discord_notify_backup", tk.BooleanVar()).get()
         dc.mod_changelog_webhook = getattr(self, "_discord_mod_changelog_hook", tk.StringVar()).get().strip()
+        dc.status_board_enabled = getattr(
+            self, "_discord_status_board_enabled", tk.BooleanVar()
+        ).get()
+        dc.status_board_channel_id = getattr(
+            self, "_discord_status_board_channel", tk.StringVar()
+        ).get().strip()
         # Backup
         bk = cfg.backup
         bk.backup_dir          = getattr(self, "_bk_dir_var",           tk.StringVar()).get().strip()
@@ -2340,6 +2346,11 @@ class ARKServerManagerApp(ctk.CTk):
             rebuild_asm_dashboard_card(self, sid)
 
         self.after(0, _vis_refresh)
+        try:
+            from .discord_status_board import schedule_status_board_update
+            schedule_status_board_update(self)
+        except Exception:
+            pass
 
     # ── Broadcasts TEK (biblioteca global) ───────────────────────────────────
 

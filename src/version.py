@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.94"
+APP_VERSION: str = "1.10.95"
 BUILD_DATE: str = "2026-07-26"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,20 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.95",
+        "date": "2026-07-26",
+        "changes": [
+            "Limpeza (Web Store / Nav): removido item admin «Tribos (legado)» — "
+            "fluxo web fica só com Equipes.",
+            "Feat (TEK / Discord): painel fixo de status dos servidores — reutiliza "
+            "o webhook global; configura só o ID do canal; PARADO / INICIANDO / "
+            "ATUALIZANDO / ONLINE (ONLINE só se listado na Steam); nome = SessionName "
+            "(mesmo da lista Steam); rodapé com data/hora de Brasília a cada update; "
+            "em runtime edita a mesma mensagem; ao reiniciar limpa o canal "
+            "(token Discord Bot) e publica painel novo.",
+        ],
     },
     {
         "version": "1.10.94",

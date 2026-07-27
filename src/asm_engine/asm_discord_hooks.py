@@ -78,6 +78,12 @@ def notify_tek_server_status(app: Any, server_id: str, new_status: str) -> None:
             )
         _notify_per_server_webhook(app, srv, legacy)
 
+    try:
+        from ..discord_status_board import schedule_status_board_update
+        schedule_status_board_update(app)
+    except Exception:
+        pass
+
 
 def _notify_per_server_webhook(app: Any, srv: AsmServerConfig, status: str) -> None:
     if not getattr(srv, "notify_discord_on_events", False):

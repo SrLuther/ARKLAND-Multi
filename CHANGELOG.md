@@ -7,6 +7,16 @@
 
 ## [Unreleased] - 
 
+## [1.10.95] - 2026-07-26
+
+### Feature
+
+- Feat (TEK / Discord): painel fixo de status dos servidores — reutiliza o webhook global; configura só o ID do canal; PARADO / INICIANDO / ATUALIZANDO / ONLINE (ONLINE só se listado na Steam); nome = SessionName (mesmo da lista Steam); rodapé com data/hora de Brasília a cada update; em runtime edita a mesma mensagem; ao reiniciar limpa o canal (token Discord Bot) e publica painel novo.
+
+### Other
+
+- Limpeza (Web Store / Nav): removido item admin «Tribos (legado)» — fluxo web fica só com Equipes.
+
 ## [1.10.94] - 2026-07-26
 
 ### Improvement
