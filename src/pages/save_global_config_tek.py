@@ -25,6 +25,7 @@ def _save_discord(app, dc) -> None:
     dc.notify_backup = _g(app, "_discord_notify_backup",      tk.BooleanVar)
     dc.mod_changelog_webhook = _g(app, "_discord_mod_changelog_hook", strip=True)
     dc.status_board_enabled = _g(app, "_discord_status_board_enabled", tk.BooleanVar)
+    dc.status_board_webhook_url = _g(app, "_discord_status_board_url", strip=True)
     dc.status_board_channel_id = _g(app, "_discord_status_board_channel", strip=True)
 
 

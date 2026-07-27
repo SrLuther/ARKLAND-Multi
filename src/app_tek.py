@@ -1780,6 +1780,9 @@ class ARKServerManagerApp(ctk.CTk):
         dc.status_board_enabled = getattr(
             self, "_discord_status_board_enabled", tk.BooleanVar()
         ).get()
+        dc.status_board_webhook_url = getattr(
+            self, "_discord_status_board_url", tk.StringVar()
+        ).get().strip()
         dc.status_board_channel_id = getattr(
             self, "_discord_status_board_channel", tk.StringVar()
         ).get().strip()

@@ -4789,9 +4789,15 @@
     }
     .home-server-card__status {
       margin-top: 10px;
-      font-size: 11px;
-      color: var(--success);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
     }
+    .home-server-card__status--online { color: #22c55e; }
+    .home-server-card__status--iniciando { color: #f59e0b; }
+    .home-server-card__status--atualizando { color: #38bdf8; }
+    .home-server-card__status--parado { color: #94a3b8; }
+    .home-server-card__status--unknown { color: var(--text2); font-weight: 500; }
     .home-server-card--connectable {
       border-color: rgba(0,200,255,.25);
     }
@@ -10620,7 +10626,7 @@
       <div class="form-group">
         <label>IP/domínio para jogadores</label>
         <input id="srv-join-host" type="text" placeholder="ex: 203.0.113.10 ou play.seudominio.com" />
-        <div class="kit-json-hint">Usado nos botões «Jogar agora» da home. Pode ser IP público ou domínio.</div>
+          <div class="kit-json-hint">Usado no IP / Copiar IP da home. Pode ser IP público ou domínio.</div>
       </div>
       <div class="form-group">
         <label>Porta do jogo</label>
@@ -26570,6 +26576,50 @@ function renderAmberLoreSection(lore) {
 
 let _homeLoadGen = 0;
 let _homeLoadAbort = null;
+let _homeStatusPollTimer = null;
+
+function _applyHomeServerStatuses(items) {
+  const byId = {};
+  (items || []).forEach(it => {
+    if (it && it.server_id) byId[String(it.server_id)] = it;
+  });
+  document.querySelectorAll("[data-server-status]").forEach(el => {
+    const sid = el.getAttribute("data-server-status") || "";
+    const row = byId[sid];
+    const st = String((row && row.status) || "").trim().toUpperCase();
+    const map = {
+      ONLINE: { cls: "online", emoji: "🟢", label: "ONLINE" },
+      INICIANDO: { cls: "iniciando", emoji: "🟡", label: "INICIANDO" },
+      ATUALIZANDO: { cls: "atualizando", emoji: "🔄", label: "ATUALIZANDO" },
+      PARADO: { cls: "parado", emoji: "🔴", label: "PARADO" },
+    };
+    const meta = map[st];
+    el.className = "home-server-card__status home-server-card__status--" + (meta ? meta.cls : "unknown");
+    el.textContent = meta ? `${meta.emoji} ${meta.label}` : "● Aguardando status do TEK…";
+  });
+}
+
+async function _refreshHomeServerStatuses() {
+  try {
+    const r = await fetch(API + "/api/public/server-status");
+    const d = await r.json();
+    if (!r.ok || !d.ok) return;
+    _applyHomeServerStatuses(d.servers || []);
+  } catch (_) { /* ignore */ }
+}
+
+function _startHomeServerStatusPoll() {
+  if (_homeStatusPollTimer) {
+    clearInterval(_homeStatusPollTimer);
+    _homeStatusPollTimer = null;
+  }
+  _refreshHomeServerStatuses();
+  _homeStatusPollTimer = setInterval(() => {
+    const home = document.getElementById("page-home");
+    if (!home || !home.classList.contains("active")) return;
+    _refreshHomeServerStatuses();
+  }, 20000);
+}
 
 async function loadHome(opts) {
   const force = !!(opts && opts.force);
@@ -26603,6 +26653,7 @@ async function loadHome(opts) {
     }
     renderHomePage(d);
     loadAmberMeter();
+    _startHomeServerStatusPoll();
     _navPageMark("home");
     return true;
   } catch (e) {
@@ -27184,19 +27235,30 @@ function _homeConnectableServers(servers) {
 
 function _homeServerConnectBtns(s, btnClass) {
   const cls = btnClass || "btn-sm";
-  const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
-  if (!canConnect) return "";
-  const steamUrl = escHtml(s.connect_url || _arkSteamConnectUrl(s.join_address || ""));
+  const addr = (s.join_address || "").trim();
+  if (!addr) return "";
   return `<div class="home-server-card__actions">
-    <a class="btn btn-primary ${cls} home-server-card__play"
-       href="${steamUrl}"
-       data-ark-connect
-       data-connect-url="${escHtml(s.connect_url || "")}"
-       data-join-address="${escHtml(s.join_address || "")}">▶ Jogar agora</a>
     <button class="btn btn-ghost ${cls}" type="button"
        data-ark-copy-ip
-       data-join-address="${escHtml(s.join_address || "")}">📋 Copiar IP</button>
+       data-join-address="${escHtml(addr)}">📋 Copiar IP</button>
   </div>`;
+}
+
+function _homeRuntimeStatusHtml(s) {
+  const st = String(s.runtime_status || "").trim().toUpperCase();
+  const map = {
+    ONLINE: { cls: "online", emoji: "🟢", label: "ONLINE" },
+    INICIANDO: { cls: "iniciando", emoji: "🟡", label: "INICIANDO" },
+    ATUALIZANDO: { cls: "atualizando", emoji: "🔄", label: "ATUALIZANDO" },
+    PARADO: { cls: "parado", emoji: "🔴", label: "PARADO" },
+  };
+  const meta = map[st];
+  if (!meta) {
+    return `<div class="home-server-card__status home-server-card__status--unknown"
+      data-server-status="${escHtml(s.server_id || "")}">● Aguardando status do TEK…</div>`;
+  }
+  return `<div class="home-server-card__status home-server-card__status--${meta.cls}"
+    data-server-status="${escHtml(s.server_id || "")}">${meta.emoji} ${meta.label}</div>`;
 }
 
 function _homeHeroConnectHtml(connectable) {
@@ -27215,21 +27277,20 @@ function _renderHomeConnectSection(d) {
     </div>`;
   } else {
     gridHtml = servers.map(s => {
-      const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
+      const addr = (s.join_address || "").trim();
       const mapLine = s.map ? `<div class="home-server-card__map">🗺 ${escHtml(s.map)}</div>` : "";
-      const addrLine = canConnect && s.join_address
-        ? `<div class="home-server-card__addr">${escHtml(s.join_address)}</div>` : "";
-      const connectBtns = canConnect
-        ? _homeServerConnectBtns(s)
-        : `<div class="home-server-card__pending">Endereço em configuração — preencha IP público ou domínio no admin</div>`;
+      const addrLine = addr
+        ? `<div class="home-server-card__addr">${escHtml(addr)}</div>`
+        : `<div class="home-server-card__pending">IP em configuração — preencha IP público ou domínio no admin</div>`;
+      const copyBtn = addr ? _homeServerConnectBtns(s) : "";
       return `
-        <div class="home-server-card${canConnect ? " home-server-card--connectable" : ""}">
+        <div class="home-server-card${addr ? " home-server-card--connectable" : ""}" data-server-id="${escHtml(s.server_id || "")}">
           <div class="home-server-card__name">${escHtml(s.label || s.server_id)}</div>
           <div class="home-server-card__id">ID: ${escHtml(s.server_id)}</div>
           ${mapLine}
           ${addrLine}
-          ${connectBtns}
-          <div class="home-server-card__status">● Cluster ARKLAND · entrega via /shop</div>
+          ${copyBtn}
+          ${_homeRuntimeStatusHtml(s)}
         </div>`;
     }).join("");
   }
@@ -27238,8 +27299,8 @@ function _renderHomeConnectSection(d) {
     <div id="home-connect-section" class="home-section home-section--connect">
       <div class="home-section__head">
         <div>
-          <div class="home-section__title">▶ Conectar aos servidores</div>
-          <p class="home-section__subtitle">Clique em Jogar agora para abrir o ARK via Steam</p>
+          <div class="home-section__title">▶ Status dos servidores</div>
+          <p class="home-section__subtitle">IP do mapa e estado em tempo real (ONLINE só quando listado na Steam)</p>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Guia de conexão →</button>
       </div>

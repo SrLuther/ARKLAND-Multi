@@ -83,9 +83,11 @@ def build_embed(rows: list[tuple[str, str]]) -> dict:
     }
 
 _lock = threading.Lock()
+_io_lock = threading.Lock()
 _last_push = 0.0
 _pending_timer: Optional[threading.Timer] = None
 _boot_done = False
+_suppress_updates = False
 
 
 def map_public_status(process_status: str, steam_status: str) -> str:
@@ -168,29 +170,41 @@ def fetch_webhook_channel_id(webhook_url: str) -> str:
     return str(body.get("channel_id") or "")
 
 
-def purge_channel_messages(bot_token: str, channel_id: str) -> int:
-    """Apaga todas as mensagens recentes do canal (bot com Manage Messages)."""
-    token = (bot_token or "").strip()
+def _normalize_bot_token(bot_token: str) -> str:
+    tok = (bot_token or "").strip()
+    if tok.lower().startswith("bot "):
+        tok = tok[4:].strip()
+    return tok
+
+
+def purge_channel_messages(bot_token: str, channel_id: str) -> tuple[int, str]:
+    """Apaga mensagens do canal. Retorna (apagadas, aviso_ou_vazio)."""
+    token = _normalize_bot_token(bot_token)
     cid = (channel_id or "").strip()
     if not token or not cid:
-        return 0
+        return 0, "Token do bot ou ID do canal em falta."
     deleted = 0
     headers = {"Authorization": f"Bot {token}"}
-    # Até ~500 mensagens (5 páginas × 100) — suficiente para canal de status.
-    for _ in range(5):
+    for _ in range(8):
         code, body = _http_json(
             "GET",
             f"{_API}/channels/{cid}/messages?limit=100",
             headers=headers,
         )
-        if code != 200 or not isinstance(body, list) or not body:
+        if code in (401, 403):
+            return deleted, (
+                f"Bot sem permissão no canal ({code}). "
+                "Precisa Manage Messages + Read Message History."
+            )
+        if code != 200:
+            return deleted, f"Falha ao listar mensagens do canal (HTTP {code})."
+        if not isinstance(body, list) or not body:
             break
         ids = [str(m.get("id")) for m in body if isinstance(m, dict) and m.get("id")]
         if not ids:
             break
-        # Bulk delete exige 2–100 msgs e <14 dias; fallback individual.
         if len(ids) >= 2:
-            bcode, _ = _http_json(
+            bcode, bbody = _http_json(
                 "POST",
                 f"{_API}/channels/{cid}/messages/bulk-delete",
                 payload={"messages": ids[:100]},
@@ -198,8 +212,9 @@ def purge_channel_messages(bot_token: str, channel_id: str) -> int:
             )
             if bcode in (200, 204):
                 deleted += len(ids[:100])
-                time.sleep(0.35)
+                time.sleep(0.4)
                 continue
+            _logger.warning("bulk-delete falhou (%s): %s — a apagar 1 a 1", bcode, bbody)
         for mid in ids:
             dcode, _ = _http_json(
                 "DELETE",
@@ -209,7 +224,18 @@ def purge_channel_messages(bot_token: str, channel_id: str) -> int:
             if dcode in (200, 204):
                 deleted += 1
             time.sleep(0.35)
-    return deleted
+    return deleted, ""
+
+
+def _webhook_delete(url: str, message_id: str) -> bool:
+    wid, token = _parse_webhook_url(url)
+    if not wid or not token or not message_id:
+        return False
+    code, _ = _http_json(
+        "DELETE",
+        f"{_API}/webhooks/{wid}/{token}/messages/{message_id}",
+    )
+    return code in (200, 204)
 
 
 def _status_cfg(app: Any) -> Any:
@@ -224,38 +250,6 @@ def _bot_token(app: Any) -> str:
         return (app.config_manager.config.discord_bot.token or "").strip()
     except Exception:
         return ""
-
-
-def _collect_rows(app: Any) -> list[tuple[str, str]]:
-    """Lista (nome_exibição_Steam, status_público) ordenada por nome."""
-    from .asm_engine.asm_ini_manager import effective_session_name
-
-    rows: list[tuple[str, str]] = []
-    try:
-        servers = list(app.asm_config_manager.servers or [])
-    except Exception:
-        servers = []
-    mgr = getattr(app, "asm_server_manager", None)
-    for srv in servers:
-        # Mesmo nome do browser / lista Steam (SessionName), não o nome interno TEK.
-        try:
-            name = (effective_session_name(srv) or "").strip()
-        except Exception:
-            name = ""
-        if not name:
-            name = (getattr(srv, "session_name", None) or getattr(srv, "name", None)
-                    or getattr(srv, "id", "?") or "?").strip()
-        sid = getattr(srv, "id", "")
-        process = ASM_STATUS_STOPPED
-        steam = ""
-        if mgr is not None:
-            inst = mgr.get_instance(sid)
-            if inst is not None:
-                process = getattr(inst, "status", ASM_STATUS_STOPPED) or ASM_STATUS_STOPPED
-                steam = getattr(inst, "steam_status", "") or ""
-        rows.append((name, map_public_status(process, steam)))
-    rows.sort(key=lambda r: r[0].lower())
-    return rows
 
 
 def _webhook_create(url: str, username: str, embed: dict) -> str:
@@ -299,7 +293,8 @@ def _persist_message_id(app: Any, message_id: str) -> None:
 
 
 def _webhook_url(cfg: Any) -> str:
-    return (getattr(cfg, "webhook_url", "") or "").strip()
+    """Webhook dedicado do painel (não o de eventos)."""
+    return (getattr(cfg, "status_board_webhook_url", "") or "").strip()
 
 
 def _sender_name(cfg: Any) -> str:
@@ -310,7 +305,114 @@ def _channel_id(cfg: Any) -> str:
     return (getattr(cfg, "status_board_channel_id", "") or "").strip()
 
 
-def _push_now(app: Any, *, force_new: bool = False) -> None:
+def _cancel_pending_timer() -> None:
+    global _pending_timer
+    with _lock:
+        if _pending_timer is not None:
+            _pending_timer.cancel()
+            _pending_timer = None
+
+
+def collect_status_payload(app: Any) -> list[dict[str, Any]]:
+    """Lista de status para Discord + push Web Store."""
+    from .asm_engine.asm_ini_manager import effective_session_name
+
+    rows_out: list[dict[str, Any]] = []
+    try:
+        servers = list(app.asm_config_manager.servers or [])
+    except Exception:
+        servers = []
+    mgr = getattr(app, "asm_server_manager", None)
+    updated_at = _now_brasilia_label()
+    now_unix = time.time()
+    for srv in servers:
+        try:
+            display = (effective_session_name(srv) or "").strip()
+        except Exception:
+            display = ""
+        if not display:
+            display = (getattr(srv, "session_name", None) or getattr(srv, "name", None)
+                       or getattr(srv, "id", "?") or "?").strip()
+        shop_id = (getattr(srv, "shop_server_id", None) or "").strip()
+        asm_id = (getattr(srv, "id", None) or "").strip()
+        sid = shop_id or asm_id
+        process = ASM_STATUS_STOPPED
+        steam = ""
+        if mgr is not None and asm_id:
+            inst = mgr.get_instance(asm_id)
+            if inst is not None:
+                process = getattr(inst, "status", ASM_STATUS_STOPPED) or ASM_STATUS_STOPPED
+                steam = getattr(inst, "steam_status", "") or ""
+        status = map_public_status(process, steam)
+        item = {
+            "server_id": sid,
+            "status": status,
+            "display_name": display,
+            "updated_at": updated_at,
+            "updated_at_unix": now_unix,
+        }
+        rows_out.append(item)
+        # Alias pelo id ASM se diferente do shop_id — home pode usar qualquer um.
+        if shop_id and asm_id and shop_id != asm_id:
+            rows_out.append({**item, "server_id": asm_id})
+    return rows_out
+
+
+def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = None) -> None:
+    """Envia status runtime à Web Store (best-effort, thread-safe no caller)."""
+    try:
+        from .shop_integration import resolve_plugin_api_url
+    except Exception:
+        return
+    try:
+        cm = app.config_manager
+        shop = cm.config.shop
+        api_key = (getattr(shop, "api_key", "") or "").strip()
+        if not api_key:
+            return
+        api_url = resolve_plugin_api_url(shop).rstrip("/")
+        payload_items = items if items is not None else collect_status_payload(app)
+        if not payload_items:
+            return
+        body = json.dumps({"servers": payload_items}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            f"{api_url}/api/servers/runtime-status",
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "X-API-Key": api_key,
+                "User-Agent": "ARKLAND-Multi/1.0",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if int(resp.status) not in (200, 201, 204):
+                _logger.warning("runtime-status push HTTP %s", resp.status)
+    except Exception as exc:
+        _logger.debug("runtime-status push: %s", exc)
+
+
+def _collect_rows(app: Any) -> list[tuple[str, str]]:
+    """Lista (nome_exibição_Steam, status_público) ordenada por nome."""
+    seen: set[str] = set()
+    rows: list[tuple[str, str]] = []
+    for item in collect_status_payload(app):
+        name = item.get("display_name") or item.get("server_id") or "?"
+        key = str(name).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((str(name), str(item.get("status") or STATUS_PARADO)))
+    rows.sort(key=lambda r: r[0].lower())
+    return rows
+
+
+def _push_now(app: Any) -> None:
+    """Edita a mensagem existente; só cria se ainda não houver ID (com lock)."""
+    global _suppress_updates
+    if _suppress_updates:
+        return
     cfg = _status_cfg(app)
     if cfg is None or not getattr(cfg, "status_board_enabled", False):
         return
@@ -318,71 +420,140 @@ def _push_now(app: Any, *, force_new: bool = False) -> None:
     if not url:
         return
     username = _sender_name(cfg)
-    embed = build_embed(_collect_rows(app))
-    mid = "" if force_new else (getattr(cfg, "status_board_message_id", "") or "").strip()
+    payload = collect_status_payload(app)
+    seen: set[str] = set()
+    rows: list[tuple[str, str]] = []
+    for item in payload:
+        name = item.get("display_name") or item.get("server_id") or "?"
+        key = str(name).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((str(name), str(item.get("status") or STATUS_PARADO)))
+    rows.sort(key=lambda r: r[0].lower())
+    embed = build_embed(rows)
 
-    if mid and _webhook_edit(url, mid, username, embed):
-        return
-    new_id = _webhook_create(url, username, embed)
+    with _io_lock:
+        if _suppress_updates:
+            return
+        mid = (getattr(cfg, "status_board_message_id", "") or "").strip()
+        if mid and _webhook_edit(url, mid, username, embed):
+            push_status_to_webstore(app, payload)
+            return
+        mid2 = (getattr(cfg, "status_board_message_id", "") or "").strip()
+        if mid2 and mid2 != mid and _webhook_edit(url, mid2, username, embed):
+            push_status_to_webstore(app, payload)
+            return
+        new_id = _webhook_create(url, username, embed)
+        if new_id:
+            _persist_message_id(app, new_id)
+        push_status_to_webstore(app, payload)
+
+
+def _recreate_sync(app: Any) -> dict[str, Any]:
+    """Limpa canal + publica um painel. Corre sob _io_lock (chamador)."""
+    cfg = _status_cfg(app)
+    result: dict[str, Any] = {
+        "ok": False,
+        "purged": 0,
+        "message_id": "",
+        "warnings": [],
+    }
+    if cfg is None or not getattr(cfg, "status_board_enabled", False):
+        result["warnings"].append("Painel de status desativado.")
+        return result
+    url = _webhook_url(cfg)
+    if not url:
+        result["warnings"].append("Webhook do painel vazio.")
+        return result
+
+    # 1) Apaga a mensagem conhecida via webhook (não precisa de bot).
+    old_mid = (getattr(cfg, "status_board_message_id", "") or "").strip()
+    if old_mid:
+        if _webhook_delete(url, old_mid):
+            _logger.info("Painel Discord: mensagem antiga %s apagada via webhook", old_mid)
+        cfg.status_board_message_id = ""
+
+    # 2) Limpa o canal com o bot.
+    channel_id = _channel_id(cfg) or fetch_webhook_channel_id(url)
+    token = _bot_token(app)
+    if token and channel_id:
+        purged, warn = purge_channel_messages(token, channel_id)
+        result["purged"] = purged
+        if warn:
+            result["warnings"].append(warn)
+        else:
+            _logger.info("Painel Discord: canal %s limpo (%s msgs)", channel_id, purged)
+    elif not channel_id:
+        result["warnings"].append(
+            "ID do canal em falta — não limpei a sala (só tentei apagar a msg conhecida)."
+        )
+    else:
+        result["warnings"].append(
+            "Token do Discord Bot em falta — não limpei a sala. "
+            "Mensagens antigas ficam; configure o token em «Discord Bot»."
+        )
+
+    # 3) Uma única mensagem nova.
+    payload = collect_status_payload(app)
+    seen: set[str] = set()
+    rows: list[tuple[str, str]] = []
+    for item in payload:
+        name = item.get("display_name") or item.get("server_id") or "?"
+        key = str(name).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((str(name), str(item.get("status") or STATUS_PARADO)))
+    rows.sort(key=lambda r: r[0].lower())
+    new_id = _webhook_create(url, _sender_name(cfg), build_embed(rows))
     if new_id:
         _persist_message_id(app, new_id)
+        result["message_id"] = new_id
+        result["ok"] = True
+        _logger.info("Painel Discord: nova mensagem %s", new_id)
+    else:
+        result["warnings"].append("Falha ao publicar o painel novo.")
+    push_status_to_webstore(app, payload)
+    return result
 
 
 def boot_status_board(app: Any) -> None:
-    """No arranque: limpa o canal e publica um painel novo (reusa webhook global)."""
-    global _boot_done
+    """No arranque: limpa o canal e publica painel novo (webhook dedicado)."""
+    global _boot_done, _suppress_updates
     cfg = _status_cfg(app)
     if cfg is None or not getattr(cfg, "status_board_enabled", False):
         return
-    url = _webhook_url(cfg)
-    if not url:
-        _logger.warning("Painel Discord: webhook global vazio — painel não publicado.")
+    if not _webhook_url(cfg):
+        _logger.warning(
+            "Painel Discord: webhook do painel vazio — configure o webhook "
+            "dedicado do canal de status."
+        )
         return
 
     def _worker() -> None:
-        global _boot_done
+        global _boot_done, _suppress_updates
+        _cancel_pending_timer()
+        _suppress_updates = True
         try:
-            channel_id = _channel_id(cfg)
-            if not channel_id:
-                # Fallback: canal do próprio webhook
-                channel_id = fetch_webhook_channel_id(url)
-            token = _bot_token(app)
-            if token and channel_id:
-                n = purge_channel_messages(token, channel_id)
-                _logger.info(
-                    "Painel Discord: canal %s limpo (%s msgs)", channel_id, n
-                )
-            elif not channel_id:
-                _logger.warning(
-                    "Painel Discord: defina o ID do canal — "
-                    "não foi possível limpar a sala."
-                )
-            elif not token:
-                _logger.warning(
-                    "Painel Discord: sem token do Discord Bot — "
-                    "não foi possível limpar o canal; só publica painel novo."
-                )
-            cfg.status_board_message_id = ""
-            embed = build_embed(_collect_rows(app))
-            new_id = _webhook_create(url, _sender_name(cfg), embed)
-            if new_id:
-                _persist_message_id(app, new_id)
-                _logger.info("Painel Discord: nova mensagem %s", new_id)
+            with _io_lock:
+                _recreate_sync(app)
         except Exception as exc:
             _logger.warning("boot_status_board falhou: %s", exc)
         finally:
+            _suppress_updates = False
             _boot_done = True
 
     threading.Thread(target=_worker, daemon=True, name="discord-status-boot").start()
 
 
 def schedule_status_board_update(app: Any, *, force_new: bool = False) -> None:
-    """Agenda atualização com debounce (edita a mesma mensagem)."""
+    """Agenda atualização com debounce (edita a mesma mensagem + push Web Store)."""
     global _last_push, _pending_timer
-    cfg = _status_cfg(app)
-    if cfg is None or not getattr(cfg, "status_board_enabled", False):
+    if force_new:
+        recreate_status_board(app)
         return
-    if not _webhook_url(cfg):
+    if _suppress_updates:
         return
 
     def _run() -> None:
@@ -391,17 +562,16 @@ def schedule_status_board_update(app: Any, *, force_new: bool = False) -> None:
             _pending_timer = None
             _last_push = time.monotonic()
         try:
-            _push_now(app, force_new=force_new)
+            # Home sempre atualiza; Discord só se o painel estiver ativo.
+            cfg = _status_cfg(app)
+            if cfg is not None and getattr(cfg, "status_board_enabled", False) and _webhook_url(cfg):
+                _push_now(app)
+            else:
+                push_status_to_webstore(app)
         except Exception as exc:
             _logger.warning("Atualização painel Discord falhou: %s", exc)
 
     with _lock:
-        if force_new:
-            if _pending_timer is not None:
-                _pending_timer.cancel()
-                _pending_timer = None
-            threading.Thread(target=_run, daemon=True, name="discord-status-force").start()
-            return
         now = time.monotonic()
         wait = max(0.0, _DEBOUNCE_S - (now - _last_push))
         if _pending_timer is not None:
@@ -411,6 +581,41 @@ def schedule_status_board_update(app: Any, *, force_new: bool = False) -> None:
         _pending_timer.start()
 
 
-def recreate_status_board(app: Any) -> None:
-    """Limpa canal + publica painel novo (botão UI / restart manual)."""
-    boot_status_board(app)
+def recreate_status_board(app: Any, *, sync: bool = False) -> dict[str, Any]:
+    """Limpa canal + publica painel novo. sync=True bloqueia e devolve resultado."""
+    global _suppress_updates
+
+    def _worker() -> dict[str, Any]:
+        global _suppress_updates
+        _cancel_pending_timer()
+        _suppress_updates = True
+        try:
+            with _io_lock:
+                return _recreate_sync(app)
+        except Exception as exc:
+            _logger.warning("recreate_status_board falhou: %s", exc)
+            return {
+                "ok": False,
+                "purged": 0,
+                "message_id": "",
+                "warnings": [str(exc)],
+            }
+        finally:
+            _suppress_updates = False
+
+    if sync:
+        return _worker()
+
+    result_box: dict[str, Any] = {"ok": False, "purged": 0, "message_id": "", "warnings": []}
+
+    def _bg() -> None:
+        result_box.update(_worker())
+
+    t = threading.Thread(target=_bg, daemon=True, name="discord-status-recreate")
+    t.start()
+    return result_box
+
+
+def recreate_status_board_blocking(app: Any) -> dict[str, Any]:
+    """Versão síncrona para o botão da UI (mostra resultado real)."""
+    return recreate_status_board(app, sync=True)

@@ -83,6 +83,7 @@ from request_diagnostics import (
 )
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
 from server_connect import diagnose_server_connect, public_server_connect_view
+from server_runtime_status import get_all_statuses, upsert_statuses
 
 from kit_limits import (
     get_kit_remaining,
@@ -9904,6 +9905,40 @@ def servers_connect_status():
     return resp
 
 
+@app.route("/api/servers/runtime-status", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+def servers_runtime_status_push():
+    """TEK envia PARADO/INICIANDO/ATUALIZANDO/ONLINE por server_id (home pública)."""
+    body = request.get_json(silent=True) or {}
+    items = body.get("servers")
+    if not isinstance(items, list):
+        return jsonify({"ok": False, "error": "servers[] obrigatório"}), 400
+    n = upsert_statuses(items)
+    try:
+        _invalidate_public_home_cache()
+    except Exception:
+        pass
+    return jsonify({"ok": True, "updated": n})
+
+
+@app.route("/api/public/server-status", methods=["GET"])
+def public_server_status():
+    """Status público leve para refresh da home (sem rebuild completo)."""
+    by_id = get_all_statuses(max_age_s=600.0)
+    return jsonify({
+        "ok": True,
+        "servers": [
+            {
+                "server_id": sid,
+                "status": row.get("status"),
+                "display_name": row.get("display_name") or "",
+                "updated_at": row.get("updated_at") or "",
+            }
+            for sid, row in sorted(by_id.items())
+        ],
+    })
+
+
 @app.route("/api/servers/sync", methods=["POST"])
 @api_key_required(allow_admin_session=False)
 def sync_servers_from_client():
@@ -10943,6 +10978,7 @@ def _build_public_home_payload() -> dict[str, Any]:
     discord_url = str(settings_block.get("DiscordUrl") or "").strip()
 
     servers_raw = _load_servers(decrypt_secrets=False)
+    runtime = get_all_statuses(max_age_s=600.0)
     servers = []
     for srv in servers_raw:
         if not isinstance(srv, dict):
@@ -10955,6 +10991,13 @@ def _build_public_home_payload() -> dict[str, Any]:
             "machine_label": str(srv.get("machine_label") or "").strip(),
         }
         entry.update(public_server_connect_view(srv, s))
+        rt = runtime.get(str(entry["server_id"] or "").strip())
+        if rt:
+            entry["runtime_status"] = rt.get("status") or ""
+            entry["runtime_updated_at"] = rt.get("updated_at") or ""
+        else:
+            entry["runtime_status"] = ""
+            entry["runtime_updated_at"] = ""
         servers.append(entry)
 
     packages_raw = data.get("PointPackages")

@@ -1,9 +1,10 @@
 {
-    "version": "1.10.95",
-    "date": "2026-07-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.95/ARKLAND-Multi-Setup-v1.10.95.exe",
+    "version": "1.10.96",
+    "date": "2026-07-27",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.96/ARKLAND-Multi-Setup-v1.10.96.exe",
     "changelog": [
-        "Limpeza (Web Store / Nav): removido item admin «Tribos (legado)» — fluxo web fica só com Equipes.",
-        "Feat (TEK / Discord): painel fixo de status dos servidores — reutiliza o webhook global; configura só o ID do canal; PARADO / INICIANDO / ATUALIZANDO / ONLINE (ONLINE só se listado na Steam); nome = SessionName (mesmo da lista Steam); rodapé com data/hora de Brasília a cada update; em runtime edita a mesma mensagem; ao reiniciar limpa o canal (token Discord Bot) e publica painel novo."
+        "Fix (TEK / Discord): painel de status volta a ter webhook dedicado (canal separado dos eventos); ID do canal mantido só para limpeza no restart.",
+        "Fix (TEK / Discord): limpar+painel novo serializa creates (evita duplicados), apaga msg conhecida via webhook, purge com bot e mostra resultado/avisos na UI.",
+        "Melhoria (Web Store / Home): cards de servidores mostram status (PARADO/INICIANDO/ATUALIZANDO/ONLINE via TEK); removido «Jogar agora»; mantém IP + Copiar IP."
     ]
 }

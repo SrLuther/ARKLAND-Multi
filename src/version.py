@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.95"
-BUILD_DATE: str = "2026-07-26"
+APP_VERSION: str = "1.10.96"
+BUILD_DATE: str = "2026-07-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,19 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.96",
+        "date": "2026-07-27",
+        "changes": [
+            "Fix (TEK / Discord): painel de status volta a ter webhook dedicado "
+            "(canal separado dos eventos); ID do canal mantido só para limpeza no restart.",
+            "Fix (TEK / Discord): limpar+painel novo serializa creates (evita duplicados), "
+            "apaga msg conhecida via webhook, purge com bot e mostra resultado/avisos na UI.",
+            "Melhoria (Web Store / Home): cards de servidores mostram status "
+            "(PARADO/INICIANDO/ATUALIZANDO/ONLINE via TEK); removido «Jogar agora»; "
+            "mantém IP + Copiar IP.",
+        ],
     },
     {
         "version": "1.10.95",

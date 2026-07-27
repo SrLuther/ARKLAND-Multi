@@ -37,9 +37,10 @@ class DiscordNotifyConfig:
     notify_update: bool = True
     notify_backup: bool = False
     mod_changelog_webhook: str = ""
-    # Painel fixo: reutiliza webhook_url; channel_id para limpar o canal no boot
-    # (purge via discord_bot.token). message_id = mensagem editável em runtime.
+    # Painel fixo: webhook dedicado (canal de status ≠ canal de eventos).
+    # channel_id = limpeza no boot via discord_bot.token; message_id = edit em runtime.
     status_board_enabled: bool = False
+    status_board_webhook_url: str = ""
     status_board_channel_id: str = ""
     status_board_message_id: str = ""
 

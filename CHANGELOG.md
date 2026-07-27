@@ -7,6 +7,17 @@
 
 ## [Unreleased] - 
 
+## [1.10.96] - 2026-07-27
+
+### Improvement
+
+- Melhoria (Web Store / Home): cards de servidores mostram status (PARADO/INICIANDO/ATUALIZANDO/ONLINE via TEK); removido «Jogar agora»; mantém IP + Copiar IP.
+
+### Fix
+
+- Fix (TEK / Discord): painel de status volta a ter webhook dedicado (canal separado dos eventos); ID do canal mantido só para limpeza no restart.
+- Fix (TEK / Discord): limpar+painel novo serializa creates (evita duplicados), apaga msg conhecida via webhook, purge com bot e mostra resultado/avisos na UI.
+
 ## [1.10.95] - 2026-07-26
 
 ### Feature
