@@ -5837,6 +5837,41 @@
       color: var(--text);
     }
     .encomenda-rule-callout strong { color: var(--amber); display: block; margin-bottom: 4px; }
+    .encomenda-rotation-timer {
+      margin: 0 0 16px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(80, 200, 255, .35);
+      background: rgba(80, 200, 255, .08);
+      text-align: center;
+    }
+    .encomenda-rotation-timer__label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .02em;
+      color: var(--text2);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .encomenda-rotation-timer__countdown {
+      font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
+      font-size: clamp(1.6rem, 4vw, 2.1rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--amber);
+      letter-spacing: .04em;
+      line-height: 1.2;
+    }
+    .encomenda-rotation-timer__countdown.is-expired {
+      color: var(--success);
+      font-size: 1.1rem;
+    }
+    .encomenda-rotation-timer__hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.45;
+    }
     /* Vitrine encomenda: 5×3 no desktop (15 slots rotativos + permanentes) */
     #encomenda-gallery.encomenda-vitrine-grid {
       display: grid;
@@ -7131,6 +7166,18 @@
               <strong>Vitrine rotativa</strong>
               Somente os dinos exibidos nesta galeria estão disponíveis para encomenda neste período
               (slots rotativos + permanentes definidos pela administração). Acompanhe as atualizações do servidor.
+            </div>
+            <div id="encomenda-rotation-timer" class="encomenda-rotation-timer hidden" role="timer" aria-live="polite">
+              <div class="encomenda-rotation-timer__label">Próxima troca dos dinos disponíveis</div>
+              <div id="encomenda-rotation-countdown" class="encomenda-rotation-timer__countdown">—</div>
+              <div id="encomenda-rotation-hint" class="encomenda-rotation-timer__hint">
+                Quando zerar, a vitrine rotativa muda as espécies encomendáveis.
+              </div>
+            </div>
+            <div class="encomenda-rule-callout" role="note">
+              <strong>Bloqueio no mercado</strong>
+              Dinos encomendados (e entregas do Dino Lab) ficam <strong>bloqueados por padrão</strong> no mercado P2P —
+              o próprio animal e a genética derivada dele (filhotes / linhagem). Servem para uso próprio e breeding interno, não para revenda.
             </div>
             <div class="catalog-toolbar" style="margin-bottom:16px;">
               <div class="catalog-search-wrap">
@@ -9254,6 +9301,10 @@
           <div id="dinolab-disabled-banner" class="hidden" style="margin-bottom:12px;padding:12px;border-radius:8px;background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.35);color:var(--amber);font-size:12px;">
             Dino Lab desabilitado. Ative em <strong>Configurações → custom_dino_enabled</strong>.
           </div>
+          <div class="encomenda-rule-callout" style="margin-bottom:16px;" role="note">
+            <strong>Bloqueio no mercado</strong>
+            Entregas do Dino Lab / encomenda ficam bloqueadas no mercado P2P por padrão — o dino e a genética derivada (filhotes / linhagem).
+          </div>
           <div class="card">
             <div class="form-grid">
               <div class="form-group" style="grid-column:1/-1;">
@@ -10486,12 +10537,16 @@
         <div class="form-group" style="grid-column:1/-1;">
           <label style="display:flex;align-items:flex-start;gap:8px;font-weight:500;">
             <input id="encomenda-rules-accept" type="checkbox" style="margin-top:3px;" onchange="encomendaSyncCheckoutBtn()" />
-            <span>Li e aceito as regras da <strong>Encomenda de Dino</strong> (§8.12 do Regulamento), incluindo preço de serviço, vitrine limitada e contestação via ticket.</span>
+            <span>Li e aceito as regras da <strong>Encomenda de Dino</strong> (§8.12 do Regulamento), incluindo preço de serviço, vitrine limitada, contestação via ticket e o bloqueio padrão no mercado P2P (o dino encomendado e a genética a partir dele).</span>
           </label>
         </div>
       </div>
       <div id="encomenda-quote-box" style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;">
         <div style="color:var(--text2);">Calculando cotação…</div>
+      </div>
+      <div class="encomenda-rule-callout" style="margin-top:12px;" role="note">
+        <strong>Mercado P2P</strong>
+        Este dino e a genética derivada dele ficam bloqueados para anúncio/venda no mercado. Uso próprio e breeding interno apenas.
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-primary" id="encomenda-checkout-btn" disabled onclick="encomendaCheckout()">Pagar e encomendar</button>
@@ -18122,7 +18177,7 @@ async function dinoLabSimulatePurchase() {
       <div style="display:grid;gap:4px;">
         <div style="font-weight:600;color:var(--text);">Simulação (sem débito) — ${escHtml(q.species_display_name || body.species_key)}</div>
         <div style="font-size:12px;color:var(--text2);">Piso loja (R): ${formatAmberAmount(bd.root_value ?? q.root_value)} · Stats: ${formatAmberAmount(bd.stats_component ?? q.stats_component)} · Cores: ${formatAmberAmount(bd.color_component ?? q.color_component)}</div>
-        <div style="font-size:12px;color:var(--text2);">Taxa base (α): ${formatAmberAmount(bd.base_surcharge ?? q.base_surcharge)} · Serviço (β ${q.service_surcharge_pct ?? 35}%): ${formatAmberAmount(bd.service_premium ?? q.service_premium)}</div>
+        <div style="font-size:12px;color:var(--text2);">Taxa base (α): ${formatAmberAmount(bd.base_surcharge ?? q.base_surcharge)} · Serviço (β ${q.service_surcharge_pct ?? 35}%): ${formatAmberAmount(bd.service_premium ?? q.service_premium)} · Ajuste +${q.price_markup_pct ?? 5}%: ${formatAmberAmount(bd.price_markup ?? q.price_markup ?? 0)}</div>
         <div style="font-size:12px;color:var(--text3);">Teto encomenda: ${formatAmberAmount(bd.ceiling ?? q.ceiling)} · Floor: ${formatAmberAmount(bd.floor ?? q.floor)}</div>
         <div style="font-size:16px;font-weight:700;color:var(--amber);margin-top:6px;">Total estimado: ${typeof amberPriceHtml === "function" ? amberPriceHtml(d.total ?? q.total, 16) : formatAmberAmount(d.total ?? q.total)}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px;">Fórmula floor_quality (mercado) + prémio de cores + taxas de encomenda. Não debita Âmbar.</div>
@@ -18347,7 +18402,7 @@ async function loadDinoLabAdmin() {
   const sel = document.getElementById("dl-species");
   if (sel) {
     try {
-      const sp = await fetchJson("/api/admin/custom-dino/species");
+      const sp = await fetchJson("/api/admin/custom-dino/species", { timeoutMs: 45000 });
       _dinoLabSpecies = sp.species || [];
       sel.innerHTML = _dinoLabSpecies.map(s =>
         `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name)} (${escHtml(s.mod_source)})</option>`
@@ -19442,6 +19497,81 @@ function setMarketTab(tab) {
   if (tab === "myshop") loadMarketMyShop();
 }
 
+let _encomendaRotationEndsAt = null;
+let _encomendaRotationTimerId = null;
+let _encomendaRotationRefreshing = false;
+
+function stopEncomendaRotationCountdown() {
+  if (_encomendaRotationTimerId != null) {
+    clearInterval(_encomendaRotationTimerId);
+    _encomendaRotationTimerId = null;
+  }
+}
+
+function _formatEncomendaCountdown(totalSec) {
+  const s = Math.max(0, Math.floor(totalSec));
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  if (days > 0) return `${days}d ${hh}:${mm}:${ss}`;
+  return `${hh}:${mm}:${ss}`;
+}
+
+function _tickEncomendaRotationCountdown() {
+  const wrap = document.getElementById("encomenda-rotation-timer");
+  const el = document.getElementById("encomenda-rotation-countdown");
+  const hint = document.getElementById("encomenda-rotation-hint");
+  if (!wrap || !el || !_encomendaRotationEndsAt) return;
+  const ends = Date.parse(_encomendaRotationEndsAt);
+  if (!Number.isFinite(ends)) {
+    wrap.classList.add("hidden");
+    return;
+  }
+  const remainingMs = ends - Date.now();
+  wrap.classList.remove("hidden");
+  if (remainingMs <= 0) {
+    el.classList.add("is-expired");
+    el.textContent = "Atualizando vitrine…";
+    if (hint) hint.textContent = "A rotação venceu — buscando os novos dinos disponíveis.";
+    if (!_encomendaRotationRefreshing) {
+      _encomendaRotationRefreshing = true;
+      stopEncomendaRotationCountdown();
+      setTimeout(() => {
+        loadMarketEncomenda().finally(() => {
+          _encomendaRotationRefreshing = false;
+        });
+      }, 1200);
+    }
+    return;
+  }
+  el.classList.remove("is-expired");
+  el.textContent = _formatEncomendaCountdown(remainingMs / 1000);
+  if (hint) {
+    hint.textContent = "Quando zerar, a vitrine rotativa muda as espécies encomendáveis.";
+  }
+}
+
+function startEncomendaRotationCountdown(endsAtIso, secondsRemaining) {
+  stopEncomendaRotationCountdown();
+  const wrap = document.getElementById("encomenda-rotation-timer");
+  if (!wrap) return;
+  let endsIso = endsAtIso || null;
+  if (!endsIso && secondsRemaining != null && Number.isFinite(Number(secondsRemaining))) {
+    endsIso = new Date(Date.now() + Math.max(0, Number(secondsRemaining)) * 1000).toISOString();
+  }
+  _encomendaRotationEndsAt = endsIso;
+  if (!_encomendaRotationEndsAt) {
+    wrap.classList.add("hidden");
+    return;
+  }
+  _tickEncomendaRotationCountdown();
+  _encomendaRotationTimerId = setInterval(_tickEncomendaRotationCountdown, 1000);
+}
+
 async function loadMarketEncomenda() {
   const gate = document.getElementById("market-encomenda-gate");
   const content = document.getElementById("market-encomenda-content");
@@ -19451,6 +19581,8 @@ async function loadMarketEncomenda() {
     gate.style.display = "";
     content.style.display = "none";
     if (disabled) disabled.classList.add("hidden");
+    stopEncomendaRotationCountdown();
+    document.getElementById("encomenda-rotation-timer")?.classList.add("hidden");
     return;
   }
   gate.style.display = "none";
@@ -19461,6 +19593,8 @@ async function loadMarketEncomenda() {
       if (d.error === "dino_order_disabled") {
         content.style.display = "none";
         if (disabled) disabled.classList.remove("hidden");
+        stopEncomendaRotationCountdown();
+        document.getElementById("encomenda-rotation-timer")?.classList.add("hidden");
         return;
       }
       throw new Error(d.message || d.error || "Falha");
@@ -19469,6 +19603,10 @@ async function loadMarketEncomenda() {
     content.style.display = "";
     window._encomendaSpecies = d.species || [];
     window._encomendaPricing = d.pricing || {};
+    const endsAt = d.rotation_ends_at
+      || (d.species && d.species[0] && d.species[0].rotation_ends_at)
+      || null;
+    startEncomendaRotationCountdown(endsAt, d.seconds_remaining);
     renderEncomendaGallery();
     if (window.ARK_COLOR_IDS) ARK_COLOR_IDS.initMount("encomenda-color-ids-ref");
   } catch (e) {
@@ -20156,6 +20294,7 @@ async function encomendaRefreshQuoteNow() {
         <div style="display:flex;justify-content:space-between;gap:8px;"><span>Cores</span><strong>${formatAmberAmount(d.color_component)}</strong></div>
         <div style="display:flex;justify-content:space-between;gap:8px;"><span>Taxa base α (serviço)</span><strong>${formatAmberAmount(d.base_surcharge)}</strong></div>
         <div style="display:flex;justify-content:space-between;gap:8px;"><span>Prêmio serviço β (${d.service_surcharge_pct}%)</span><strong>${formatAmberAmount(d.service_premium)}</strong></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span>Ajuste de preço (+${d.price_markup_pct ?? 5}%)</span><strong>${formatAmberAmount(d.price_markup || 0)}</strong></div>
         <div style="font-size:15px;font-weight:700;color:var(--amber);margin-top:6px;display:flex;justify-content:space-between;"><span>Total</span><span>${amberPriceHtml(d.total, 16)}</span></div>
         <div style="margin-top:4px;">${approveNote}</div>
         ${d.q_index != null ? `<div style="color:var(--text3);margin-top:2px;">Índice Q ${Number(d.q_index).toFixed(2)} · orçamento B ${formatAmberAmount(d.premium_budget || 0)}</div>` : ""}

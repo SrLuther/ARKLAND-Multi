@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.97"
+APP_VERSION: str = "1.10.98"
 BUILD_DATE: str = "2026-07-27"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -13,6 +13,22 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.98",
+        "date": "2026-07-27",
+        "changes": [
+            "Fix (Web Store / Encomenda): removido limite de 3 encomendas / 7 dias — "
+            "redundante com o bloqueio Dino Lab no mercado.",
+            "Melhoria (Web Store / Dino Lab): lista de espécies admin deixa de estourar "
+            "Timeout 15s — catálogo lido uma vez + cache 60s.",
+            "Melhoria (Web Store / Encomenda): aviso explícito de que dinos encomendados "
+            "e a genética derivada ficam bloqueados no mercado P2P.",
+            "Melhoria (Web Store / Encomenda): +5% no preço total das encomendas "
+            "(após taxas α/β, antes do teto).",
+            "Melhoria (Web Store / Encomenda): cronómetro decrescente até a próxima "
+            "troca da vitrine rotativa.",
+        ],
     },
     {
         "version": "1.10.97",

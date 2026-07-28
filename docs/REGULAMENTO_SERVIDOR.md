@@ -536,7 +536,8 @@ Canal **jogador-facing** na Web Store (aba **Encomenda** do Mercado / Dino Lab) 
 
 - O jogador informa pontos desejados por stat (0–254). O **nível** é calculado automaticamente (`1 + soma dos pontos`) e não é editável manualmente.
 - A encomenda entrega um dino conforme a especificação paga (cores/stats/sexo). **Não** replica mutações de breeding nem imprint de linhagens de jogadores, salvo funcionalidade futura explicitamente anunciada.
-- Há limite configurável de encomendas por jogador por período (anti-farm / revenda).
+- Não há teto semanal de encomendas por jogador.
+- Dinos encomendados ou entregues via Dino Lab ficam **bloqueados por padrão** no mercado P2P — o próprio animal e a **genética derivada** (filhotes / linhagem). Destinam-se a uso próprio e breeding interno, não à revenda.
 
 #### 8.12.4 Contestação e suporte
 

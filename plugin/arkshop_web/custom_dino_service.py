@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -28,10 +30,24 @@ STAT_NAMES = ("health", "stamina", "oxygen", "food", "weight", "melee", "speed")
 
 _settings_fn: Callable[[], dict[str, Any]] | None = None
 
+# Cache curto da lista admin (evita N× leitura do catálogo + friendly_name por request).
+_SPECIES_ADMIN_TTL_S = 60.0
+_species_admin_lock = threading.Lock()
+_species_admin_cache: dict[str, Any] = {"at": 0.0, "vanilla": None, "all": None}
+
+
+def invalidate_species_admin_cache() -> None:
+    """Invalida cache de GET /api/admin/custom-dino/species."""
+    with _species_admin_lock:
+        _species_admin_cache["at"] = 0.0
+        _species_admin_cache["vanilla"] = None
+        _species_admin_cache["all"] = None
+
 
 def configure_custom_dino(*, settings_fn: Callable[[], dict[str, Any]] | None = None) -> None:
     global _settings_fn
     _settings_fn = settings_fn
+    invalidate_species_admin_cache()
 
 
 def is_custom_dino_enabled() -> bool:
@@ -259,13 +275,131 @@ def _species_catalog() -> dict[str, dict[str, Any]]:
         return {}
 
 
+def _read_shop_catalog_once() -> dict[str, Any]:
+    try:
+        from app import _read_shop_config
+
+        data = _read_shop_config()
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        log.debug("custom_dino shop catalog: %s", exc)
+        return {}
+
+
+def _shop_dino_blueprint_index(catalog: dict[str, Any]) -> dict[str, str]:
+    """item_id → blueprint (uma passagem no catálogo)."""
+    from market_economy import _catalog_item_blueprint
+
+    items = (
+        catalog.get("Items")
+        or catalog.get("items")
+        or catalog.get("ShopItems")
+        or {}
+    )
+    if not isinstance(items, dict):
+        return {}
+    out: dict[str, str] = {}
+    for item_id, entry in items.items():
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("Type") or "").lower() != "dino":
+            continue
+        bp = str(_catalog_item_blueprint(entry) or "").strip()
+        if not bp:
+            continue
+        key = str(item_id or "").strip()
+        if key:
+            out[key] = bp
+            out[key.lower()] = bp
+    return out
+
+
+def _resolve_species_blueprint(
+    *,
+    species_key: str,
+    defn: dict[str, Any],
+    row_bp: str = "",
+    bp_index: dict[str, str] | None = None,
+) -> str:
+    bp = str(row_bp or "").strip()
+    if bp:
+        return bp
+    bp = str(defn.get("blueprint_path") or "").strip() or _blueprint_from_catalog(defn, bp_index)
+    if bp:
+        return bp
+    if bp_index:
+        for key in (species_key, species_key.lower()):
+            hit = bp_index.get(key)
+            if hit:
+                return hit
+    return _blueprint_from_catalog_item(species_key, bp_index)
+
+
+def _append_species_item(
+    items: list[dict[str, Any]],
+    seen: set[str],
+    *,
+    key: str,
+    display: str,
+    blueprint: str,
+    mod_source: str,
+    tier: str = "",
+    catalog_item_id: str = "",
+) -> None:
+    if not key or key in seen:
+        return
+    if not blueprint or not _looks_like_dino_species_blueprint(blueprint):
+        return
+    seen.add(key)
+    entry: dict[str, Any] = {
+        "species_key": key,
+        "display_name": display,
+        "blueprint_path": _format_blueprint(blueprint),
+        "mod_source": mod_source,
+        "tier": tier,
+    }
+    if catalog_item_id:
+        entry["catalog_item_id"] = catalog_item_id
+    items.append(entry)
+
+
 def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
     """Lista espécies homologadas para Dino Lab — deduplicada por species_key.
 
     Prioridade: market_species (DB) → market_species_defaults.json → catálogo shop (Type:dino).
+    Lê o catálogo da loja **uma vez** e cacheia o resultado (~60s).
     """
+    cache_key = "vanilla" if vanilla_only else "all"
+    now = time.monotonic()
+    with _species_admin_lock:
+        cached = _species_admin_cache.get(cache_key)
+        if (
+            cached is not None
+            and (now - float(_species_admin_cache.get("at") or 0.0)) < _SPECIES_ADMIN_TTL_S
+        ):
+            return list(cached)
+
+    items = _build_species_admin_list(vanilla_only=vanilla_only)
+    with _species_admin_lock:
+        _species_admin_cache["at"] = time.monotonic()
+        _species_admin_cache[cache_key] = list(items)
+    return items
+
+
+def _build_species_admin_list(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
+    from market_economy import (
+        clean_species_display_name,
+        friendly_species_display_name,
+        iter_catalog_dinos,
+        _catalog_item_blueprint,
+        _species_key_from_catalog_item_id,
+    )
+
     seen: set[str] = set()
     items: list[dict[str, Any]] = []
+    defaults = _species_catalog()
+    shop = _read_shop_catalog_once()
+    bp_index = _shop_dino_blueprint_index(shop)
 
     try:
         import app as app_module
@@ -282,108 +416,86 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
                     .order_by(MarketSpecies.display_name)
                     .all()
                 )
-                defaults = _species_catalog()
                 for row in rows:
                     key = str(row.species_key or "").strip()
                     if not key or key in seen:
                         continue
                     defn = defaults.get(key, {})
-                    bp = (
-                        str(row.blueprint_path or "").strip()
-                        or _blueprint_from_catalog(defn)
-                        or _blueprint_from_catalog_item(key)
+                    bp = _resolve_species_blueprint(
+                        species_key=key,
+                        defn=defn,
+                        row_bp=str(row.blueprint_path or ""),
+                        bp_index=bp_index,
                     )
-                    if not bp:
-                        continue
-                    if not _looks_like_dino_species_blueprint(bp):
-                        continue
                     mod = _infer_mod_source(bp, defn)
                     if vanilla_only and mod != "vanilla":
                         continue
-                    seen.add(key)
                     try:
-                        from market_economy import friendly_species_display_name
-
                         display = friendly_species_display_name(
                             key,
                             fallback=str(row.display_name or defn.get("display_name") or key),
+                            catalog=shop,
                         )
                     except Exception:
                         display = str(row.display_name or defn.get("display_name") or key)
-                    items.append({
-                        "species_key": key,
-                        "display_name": display,
-                        "blueprint_path": _format_blueprint(bp),
-                        "mod_source": mod,
-                        "tier": str(row.tier or defn.get("tier") or ""),
-                    })
+                    _append_species_item(
+                        items,
+                        seen,
+                        key=key,
+                        display=display,
+                        blueprint=bp,
+                        mod_source=mod,
+                        tier=str(row.tier or defn.get("tier") or ""),
+                    )
             finally:
                 db.close()
     except Exception as exc:
         log.debug("list_species_admin db: %s", exc)
 
     for key, defn in sorted(
-        _species_catalog().items(),
+        defaults.items(),
         key=lambda kv: str(kv[1].get("display_name") or kv[0]),
     ):
         if key in seen:
             continue
-        bp = (
-            str(defn.get("blueprint_path") or "").strip()
-            or _blueprint_from_catalog(defn)
-            or _blueprint_from_catalog_item(key)
-        )
-        if not bp:
-            continue
-        if not _looks_like_dino_species_blueprint(bp):
-            continue
+        bp = _resolve_species_blueprint(species_key=key, defn=defn, bp_index=bp_index)
         mod = _infer_mod_source(bp, defn)
         if vanilla_only and mod != "vanilla":
             continue
-        seen.add(key)
         try:
-            from market_economy import friendly_species_display_name
-
             display = friendly_species_display_name(
-                key, fallback=str(defn.get("display_name") or key)
+                key, fallback=str(defn.get("display_name") or key), catalog=shop,
             )
         except Exception:
             display = str(defn.get("display_name") or key)
-        items.append({
-            "species_key": key,
-            "display_name": display,
-            "blueprint_path": _format_blueprint(bp),
-            "mod_source": mod,
-            "tier": str(defn.get("tier") or ""),
-        })
+        _append_species_item(
+            items,
+            seen,
+            key=key,
+            display=display,
+            blueprint=bp,
+            mod_source=mod,
+            tier=str(defn.get("tier") or ""),
+        )
 
     # Fallback: dinos Type:dino do config.json ainda sem defaults/DB.
     try:
-        from market_economy import (
-            _catalog_item_blueprint,
-            _species_key_from_catalog_item_id,
-            iter_catalog_dinos,
-        )
-
-        from app import _read_shop_config
-
-        catalog = _read_shop_config()
-        for item_id, entry in iter_catalog_dinos(catalog, level1_only=True):
+        for item_id, entry in iter_catalog_dinos(shop, level1_only=True):
             sk = _species_key_from_catalog_item_id(item_id)
             if sk in seen or item_id in seen:
                 continue
             bp = str(_catalog_item_blueprint(entry) or "").strip()
-            if not bp or not _looks_like_dino_species_blueprint(bp):
-                continue
+            if not bp:
+                bp = bp_index.get(item_id) or bp_index.get(str(item_id).lower()) or ""
             mod = _infer_mod_source(bp, {})
             if vanilla_only and mod != "vanilla":
                 continue
             display = str(entry.get("Name") or entry.get("Description") or sk).strip()
             try:
-                from market_economy import clean_species_display_name, friendly_species_display_name
-
                 display = friendly_species_display_name(
-                    sk, fallback=clean_species_display_name(display) or display
+                    sk,
+                    fallback=clean_species_display_name(display) or display,
+                    catalog=shop,
                 )
             except Exception:
                 for suffix in (" Fêmea Nível 1", " Nível 1", " Level 1", " Nível 200", " Nivel 200"):
@@ -391,15 +503,15 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
                         display = display[: -len(suffix)].strip()
                 if display.endswith(")") and "(" in display:
                     display = display[: display.rfind("(")].strip()
-            seen.add(sk)
-            items.append({
-                "species_key": sk,
-                "display_name": display or sk,
-                "blueprint_path": _format_blueprint(bp),
-                "mod_source": mod,
-                "tier": "",
-                "catalog_item_id": item_id,
-            })
+            _append_species_item(
+                items,
+                seen,
+                key=sk,
+                display=display or sk,
+                blueprint=bp,
+                mod_source=mod,
+                catalog_item_id=item_id,
+            )
     except Exception as exc:
         log.debug("list_species_admin catalog fallback: %s", exc)
 
@@ -421,17 +533,22 @@ def _infer_mod_source(blueprint: str, defn: dict[str, Any] | None = None) -> str
     return mod or "vanilla"
 
 
-def _blueprint_from_catalog_item(item_id: str) -> str:
+def _blueprint_from_catalog_item(
+    item_id: str,
+    bp_index: dict[str, str] | None = None,
+) -> str:
     """Blueprint de um item Type:dino do config.json (ex.: sb_drake_fire)."""
     item_id = str(item_id or "").strip()
     if not item_id:
         return ""
+    if bp_index:
+        hit = bp_index.get(item_id) or bp_index.get(item_id.lower())
+        if hit:
+            return hit
     try:
         from market_economy import _catalog_item_blueprint
 
-        from app import _read_shop_config
-
-        catalog = _read_shop_config()
+        catalog = _read_shop_catalog_once()
         items = (
             catalog.get("Items")
             or catalog.get("items")
@@ -446,13 +563,16 @@ def _blueprint_from_catalog_item(item_id: str) -> str:
     return ""
 
 
-def _blueprint_from_catalog(defn: dict[str, Any]) -> str:
+def _blueprint_from_catalog(
+    defn: dict[str, Any],
+    bp_index: dict[str, str] | None = None,
+) -> str:
     ref_id = str(
         defn.get("reference_catalog_item_id") or defn.get("catalog_item_id") or ""
     ).strip()
     if not ref_id:
         return ""
-    return _blueprint_from_catalog_item(ref_id)
+    return _blueprint_from_catalog_item(ref_id, bp_index)
 
 
 def calc_spawn_exact_level(wild_stats: list[int], tamed_stats: list[int]) -> int:

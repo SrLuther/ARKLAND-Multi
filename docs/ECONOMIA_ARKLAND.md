@@ -352,8 +352,7 @@ COTAÇÃO (quote) → sem débito
 
 ### 5.6 Rate Limit
 
-- **Máximo 3 encomendas por 7 dias** por Steam ID
-- Encomendas com `points_spent = 0` não contam
+Removido. Encomendas não têm teto semanal por Steam ID — o bloqueio Dino Lab no mercado cobre o risco de farm/revenda que motivava o limite original (3 / 7 dias).
 
 ---
 

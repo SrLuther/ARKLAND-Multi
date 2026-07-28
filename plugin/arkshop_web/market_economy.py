@@ -29,6 +29,9 @@ ECONOMY_STAT_KEYS: tuple[str, ...] = (
     "speed",
 )
 
+# Markup fixo sobre o subtotal da encomenda (após α/β, antes do teto).
+ENCOMENDA_PRICE_MARKUP: float = 0.05
+
 # Mapeamento metadata cryopod / UI → stat_key
 STAT_ALIASES: dict[str, str] = {
     "health": "health",
@@ -436,14 +439,16 @@ def calculate_encomenda_value(
     *,
     color_component: int = 0,
 ) -> int:
-    """Valor de encomenda com taxas de serviço e teto global."""
+    """Valor de encomenda com taxas de serviço, markup +5% e teto global."""
     cfg = load_floor_quality_config()
     r = int(species.root_value)
     alpha = float(cfg["encomenda_alpha"])
     beta = float(cfg["encomenda_beta"])
     base_surcharge = round(r * alpha)
     service_premium = round((market_value + color_component) * beta)
-    total = market_value + color_component + base_surcharge + service_premium
+    subtotal = market_value + color_component + base_surcharge + service_premium
+    markup = round(subtotal * ENCOMENDA_PRICE_MARKUP)
+    total = subtotal + markup
     floor = max(market_value, r)
     cap = load_encomenda_absolute_max()
     return max(floor, min(total, cap))

@@ -6,7 +6,7 @@ import logging
 import secrets
 import threading
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from sqlalchemy import text
@@ -38,8 +38,6 @@ ORDER_ORIGIN = "encomenda"
 ORDER_ORIGIN_LABEL = "Encomenda"
 ORDER_SOURCE_JSON_LIKE = '%"order_source": "dino_encomenda"%'
 PRICING_VERSION = 1
-RATE_LIMIT_ORDERS = 3
-RATE_LIMIT_DAYS = 7
 
 _DEFAULT_PRICING = {
     "alpha": 0.25,
@@ -246,12 +244,15 @@ def _is_species_in_gallery(species_key: str, db: Session | None = None) -> bool:
 def _gallery_starting_price(root_value: int, cfg: dict[str, Any]) -> int:
     """Preço «a partir de» (stats/cores vazios) — equivalente a quote() mínimo sem DB/economia.
 
-    Com floor_quality e stats vazios, market_value = R; total = R + αR + βR (cap absolute_max).
+    Com floor_quality e stats vazios, market_value = R; total = (R + αR + βR) × (1+markup).
     """
+    from market_economy import ENCOMENDA_PRICE_MARKUP
+
     r = max(0, int(root_value or 0))
     alpha = float(cfg.get("alpha", 0.25))
     beta = float(cfg.get("beta", 0.35))
-    total = r + round(r * alpha) + round(r * beta)
+    subtotal = r + round(r * alpha) + round(r * beta)
+    total = subtotal + round(subtotal * float(ENCOMENDA_PRICE_MARKUP))
     try:
         cap = int(cfg.get("absolute_max") or 500_000)
     except (TypeError, ValueError):
@@ -616,8 +617,13 @@ def quote(
     service_premium = round((market_value + color_component) * float(cfg["beta"]))
     subtotal = market_value + color_component + base_surcharge + service_premium
     floor = max(market_value, r)
-    from market_economy import calculate_encomenda_value, load_encomenda_absolute_max
+    from market_economy import (
+        ENCOMENDA_PRICE_MARKUP,
+        calculate_encomenda_value,
+        load_encomenda_absolute_max,
+    )
 
+    price_markup = round(subtotal * float(ENCOMENDA_PRICE_MARKUP))
     ceiling = load_encomenda_absolute_max()
     total = calculate_encomenda_value(economy, market_value, color_component=color_component)
 
@@ -639,6 +645,8 @@ def quote(
         "base_surcharge": base_surcharge,
         "service_premium": service_premium,
         "service_component": base_surcharge + service_premium,
+        "price_markup": price_markup,
+        "price_markup_pct": round(float(ENCOMENDA_PRICE_MARKUP) * 100),
         "subtotal": subtotal,
         "floor": floor,
         "ceiling": ceiling,
@@ -655,27 +663,10 @@ def quote(
             "stats": "Valor de stats (equivalente mercado)",
             "colors": "Componente de cores",
             "service": "Serviço Lab (α + β)",
+            "markup": "Ajuste de preço (+5%)",
             "total": "Total encomenda",
         },
     }
-
-
-def _weekly_order_count(db: Session, steam_id: str) -> int:
-    since = (_utcnow() - timedelta(days=RATE_LIMIT_DAYS)).replace(tzinfo=None)
-    row = db.execute(
-        text(
-            "SELECT COUNT(*) FROM orders "
-            "WHERE steam_id = :sid AND item_type = :it AND points_spent > 0 "
-            "AND created_at >= :since AND payload_json LIKE :src"
-        ),
-        {
-            "sid": steam_id,
-            "it": ITEM_TYPE,
-            "since": since,
-            "src": ORDER_SOURCE_JSON_LIKE,
-        },
-    ).fetchone()
-    return int(row[0] if row else 0)
 
 
 def _new_order_id() -> str:
@@ -1136,8 +1127,6 @@ def checkout(
         raise ValueError("dino_order_not_configured")
 
     spec = _normalize_player_spec(spec)
-    if _weekly_order_count(db, steam_id) >= RATE_LIMIT_ORDERS:
-        raise ValueError("rate_limit_exceeded")
 
     body = _build_validate_body(spec)
     payload, err = validate_payload(body, require_note=False)

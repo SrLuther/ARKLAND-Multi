@@ -420,7 +420,7 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 3. **Rex L1 encomenda ~8k vs. catálogo 5k** — gap suficiente para não virar default.
 4. **Stats altos** — total encosta no teto κ=1.15× mercado; acima de 200k exige olho humano.
 5. **SpawnExact / imprint** — só com γ≥20% e flag admin; caso contrário jogadores pedem “100% imprint” de graça via stats.
-6. **Limite 3 encomendas / jogador / semana** (configurável) — anti-farm de revenda.
+6. ~~**Limite 3 encomendas / jogador / semana**~~ — **removido**. O bloqueio Dino Lab no mercado já impede revenda; o teto semanal era anti-farm redundante e nunca foi exposto na UI de config.
 7. **Revisão mensal** — comparar volume encomenda vs. listings mercado vs. entregas Dino Lab gratuitas.
 
 ---

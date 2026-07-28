@@ -7,6 +7,19 @@
 
 ## [Unreleased] - 
 
+## [1.10.98] - 2026-07-27
+
+### Improvement
+
+- Melhoria (Web Store / Dino Lab): lista de espécies admin deixa de estourar Timeout 15s — catálogo lido uma vez + cache 60s.
+- Melhoria (Web Store / Encomenda): aviso explícito de que dinos encomendados e a genética derivada ficam bloqueados no mercado P2P.
+- Melhoria (Web Store / Encomenda): +5% no preço total das encomendas (após taxas α/β, antes do teto).
+- Melhoria (Web Store / Encomenda): cronómetro decrescente até a próxima troca da vitrine rotativa.
+
+### Fix
+
+- Fix (Web Store / Encomenda): removido limite de 3 encomendas / 7 dias — redundante com o bloqueio Dino Lab no mercado.
+
 ## [1.10.97] - 2026-07-27
 
 ### Fix

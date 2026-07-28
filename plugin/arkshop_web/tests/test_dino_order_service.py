@@ -230,11 +230,12 @@ def test_list_gallery_species_uses_friendly_catalog_names():
 
 def test_gallery_starting_price_matches_min_quote_formula():
     cfg = {"alpha": 0.25, "beta": 0.35, "absolute_max": 500_000}
-    # R + αR + βR = 8000 + 2000 + 2800 = 12800
-    assert _gallery_starting_price(8000, cfg) == 12800
+    # (R + αR + βR) + 5% = (8000 + 2000 + 2800) + 640 = 13440
+    assert _gallery_starting_price(8000, cfg) == 13440
     assert _gallery_starting_price(0, cfg) == 0
-    # Igual a calculate_encomenda_value: max(floor=R, min(total, cap))
-    assert _gallery_starting_price(50_000, {"alpha": 0.25, "beta": 0.35, "absolute_max": 100_000}) == 80_000
+    # 50k → subtotal 80k + 5% = 84k (< cap 100k)
+    assert _gallery_starting_price(50_000, {"alpha": 0.25, "beta": 0.35, "absolute_max": 100_000}) == 84_000
+    # floor R=400k acima do cap → devolve R
     assert _gallery_starting_price(400_000, {"alpha": 0.25, "beta": 0.35, "absolute_max": 100_000}) == 400_000
 
 
@@ -326,7 +327,8 @@ def test_quote_rex_default_price():
         assert q["color_component"] == 0
         assert q["base_surcharge"] == 1250
         assert q["service_premium"] == 1750
-        assert q["total"] == 8000
+        assert q["price_markup"] == 400
+        assert q["total"] == 8400
         assert q["auto_approve"] is True
     finally:
         db.close()
@@ -398,7 +400,7 @@ def test_quote_full_254_raises_above_floor():
             skip_vanilla_check=True,
         )
         assert q0["stats_component"] == 5500
-        assert q0["total"] == 8800
+        assert q0["total"] == 9240  # (5500+α+β) + 5%
         assert q254["premium_budget"] > 0
         assert q254["q_index"] == 1.0
         assert q254["stats_component"] > q0["stats_component"]
@@ -491,6 +493,7 @@ def test_quote_indominus_full_254_with_colors(monkeypatch):
         assert q["service_premium"] > 0
         assert q["base_surcharge"] == round(28_000 * 0.25)
         assert q["service_component"] == q["base_surcharge"] + q["service_premium"]
+        assert q["price_markup"] == round(q["subtotal"] * 0.05)
         assert q["total"] > q["market_equivalent"]
         expected = calculate_encomenda_value(
             SpeciesEconomy(
@@ -518,14 +521,14 @@ def test_checkout_debits_and_creates_order():
         db.commit()
         after = _get_player_points(USER)
         assert result["status"] == "PENDENTE"
-        assert result["points_spent"] == 8000
-        assert before - after == 8000
+        assert result["points_spent"] == 8400
+        assert before - after == 8400
         row = db.execute(
             text("SELECT status, points_spent, payload_json FROM orders WHERE order_id = :oid"),
             {"oid": result["order_id"]},
         ).fetchone()
         assert row[0] == "PENDENTE"
-        assert int(row[1]) == 8000
+        assert int(row[1]) == 8400
         payload = json.loads(row[2])
         assert payload["order_source"] == ORDER_SOURCE
         # Sem pontos de stats → SpawnExact off (nível simples)
@@ -845,15 +848,15 @@ def test_reject_falha_cancels_with_refund():
         db.close()
 
 
-def test_rate_limit_blocks_fourth_order():
+def test_checkout_allows_more_than_three_orders():
+    """Sem teto semanal — Dino Lab já bloqueia revenda no mercado."""
     db = _app_module._SessionLocal()
     try:
         _seed_rex(db)
-        for _ in range(3):
-            checkout(db, USER, _base_spec())
+        for _ in range(4):
+            result = checkout(db, USER, _base_spec())
             db.commit()
-        with pytest.raises(ValueError, match="rate_limit"):
-            checkout(db, USER, _base_spec())
+            assert result["order_id"]
     finally:
         db.close()
 

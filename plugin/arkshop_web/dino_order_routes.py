@@ -89,10 +89,26 @@ def register_dino_order_routes(
         db = session_factory()
         try:
             species = list_gallery_species(db)
+            rotation_ends_at = None
+            seconds_remaining = None
+            rotation_days = None
+            try:
+                from dino_order_vitrine_service import ensure_vitrine
+
+                snap = ensure_vitrine(db, include_candidates=False)
+                rotation_ends_at = snap.get("rotation_ends_at")
+                seconds_remaining = snap.get("seconds_remaining")
+                rotation_days = snap.get("rotation_days")
+            except Exception:
+                if species:
+                    rotation_ends_at = species[0].get("rotation_ends_at")
             return jsonify({
                 "ok": True,
                 "species": species,
                 "pricing": get_pricing_config(),
+                "rotation_ends_at": rotation_ends_at,
+                "seconds_remaining": seconds_remaining,
+                "rotation_days": rotation_days,
             })
         except Exception as exc:
             log.exception("dino_order species: %s", exc)
@@ -470,13 +486,10 @@ def register_dino_order_routes(
             db.rollback()
             code = str(exc)
             status = 402 if code == "insufficient_balance" else 400
-            if code == "rate_limit_exceeded":
-                status = 429
             msgs = {
                 "dino_order_disabled": "Encomenda desabilitada.",
                 "custom_dino_disabled": "Entrega custom desabilitada (custom_dino_enabled).",
                 "insufficient_balance": "Saldo insuficiente.",
-                "rate_limit_exceeded": f"Limite de {3} encomendas por 7 dias atingido.",
                 "species_not_available": "Espécie indisponível para encomenda.",
                 "species_not_vanilla": "Apenas espécies vanilla no MVP.",
                 "species_not_in_gallery": "Esta espécie não está na vitrine de encomendas neste período.",

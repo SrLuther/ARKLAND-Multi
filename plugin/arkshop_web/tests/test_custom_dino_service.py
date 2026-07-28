@@ -159,9 +159,12 @@ def test_list_species_admin_catalog_only_mod(monkeypatch):
     )
     monkeypatch.setattr(
         "custom_dino_service._blueprint_from_catalog_item",
-        lambda item_id: sb_bp if item_id == "sb_drake_fire" else "",
+        lambda item_id, bp_index=None: sb_bp if item_id == "sb_drake_fire" else "",
     )
     monkeypatch.setattr("app._read_shop_config", lambda: {"Items": {}})
+    from custom_dino_service import invalidate_species_admin_cache
+
+    invalidate_species_admin_cache()
     all_items = list_species_admin(vanilla_only=False)
     sb = next(s for s in all_items if s["species_key"] == "sb_drake_fire")
     assert sb["mod_source"] == "smallbosses"
@@ -196,16 +199,64 @@ def test_list_species_admin_catalog_fallback(monkeypatch):
     )
     monkeypatch.setattr(
         "custom_dino_service._blueprint_from_catalog",
-        lambda defn: "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
-        if defn.get("reference_catalog_item_id") == "rex_femea"
-        else "",
+        lambda defn, bp_index=None: (
+            "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
+            if defn.get("reference_catalog_item_id") == "rex_femea"
+            else ""
+        ),
     )
     # Evitar fallback para o config.json real da loja neste unit test.
     monkeypatch.setattr("app._read_shop_config", lambda: {"Items": {}})
+    from custom_dino_service import invalidate_species_admin_cache
+
+    invalidate_species_admin_cache()
     vanilla = list_species_admin(vanilla_only=True)
     assert [s["species_key"] for s in vanilla] == ["rex"]
     all_items = list_species_admin(vanilla_only=False)
     assert {s["species_key"] for s in all_items} == {"rex", "indominus"}
+
+
+def test_list_species_admin_reads_shop_catalog_once(monkeypatch):
+    """Regressão Timeout 15s: não reler config.json por espécie."""
+    from custom_dino_service import invalidate_species_admin_cache
+
+    calls = {"n": 0}
+    rex_bp = "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
+    giga_bp = "/Game/PrimalEarth/Dinos/Giganotosaurus/Giganotosaurus_Character_BP.Giganotosaurus_Character_BP"
+
+    def _catalog():
+        calls["n"] += 1
+        return {
+            "Items": {
+                "rex_femea": {
+                    "Type": "dino",
+                    "Name": "Rex Fêmea Nível 1",
+                    "Dinos": [{"Blueprint": rex_bp}],
+                },
+                "giga_femea": {
+                    "Type": "dino",
+                    "Name": "Giga Fêmea Nível 1",
+                    "Dinos": [{"Blueprint": giga_bp}],
+                },
+            }
+        }
+
+    monkeypatch.setattr(
+        "custom_dino_service._species_catalog",
+        lambda: {
+            "rex": {"display_name": "Rex", "reference_catalog_item_id": "rex_femea"},
+            "giga": {"display_name": "Giga", "reference_catalog_item_id": "giga_femea"},
+        },
+    )
+    monkeypatch.setattr("app._read_shop_config", _catalog)
+    monkeypatch.setattr("app._SessionLocal", None)
+    invalidate_species_admin_cache()
+    items = list_species_admin(vanilla_only=False)
+    assert {s["species_key"] for s in items} >= {"rex", "giga"}
+    assert calls["n"] == 1
+    # 2.ª chamada deve vir do cache (sem nova leitura)
+    list_species_admin(vanilla_only=False)
+    assert calls["n"] == 1
 
 
 def test_validate_rejects_short_note():

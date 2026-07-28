@@ -1,8 +1,12 @@
 {
-    "version": "1.10.97",
+    "version": "1.10.98",
     "date": "2026-07-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.97/ARKLAND-Multi-Setup-v1.10.97.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.98/ARKLAND-Multi-Setup-v1.10.98.exe",
     "changelog": [
-        "Fix (Web Store / Home): mapas com label curta (CRYSTAL, GEN2, VOLCANO, …) voltam a mostrar a descrição — match por aliases de slug + fallback ao texto padrão."
+        "Fix (Web Store / Encomenda): removido limite de 3 encomendas / 7 dias — redundante com o bloqueio Dino Lab no mercado.",
+        "Melhoria (Web Store / Dino Lab): lista de espécies admin deixa de estourar Timeout 15s — catálogo lido uma vez + cache 60s.",
+        "Melhoria (Web Store / Encomenda): aviso explícito de que dinos encomendados e a genética derivada ficam bloqueados no mercado P2P.",
+        "Melhoria (Web Store / Encomenda): +5% no preço total das encomendas (após taxas α/β, antes do teto).",
+        "Melhoria (Web Store / Encomenda): cronómetro decrescente até a próxima troca da vitrine rotativa."
     ]
 }
