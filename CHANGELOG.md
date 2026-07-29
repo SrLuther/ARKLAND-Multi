@@ -7,6 +7,12 @@
 
 ## [Unreleased] - 
 
+## [1.10.100] - 2026-07-28
+
+### Fix
+
+- Fix (Web Store / Membros por mapa): texto dos chips MAPAS ASSOCIADOS com contraste claro no tema escuro.
+
 ## [1.10.99] - 2026-07-28
 
 ### Feature
