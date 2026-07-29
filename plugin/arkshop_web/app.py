@@ -9933,6 +9933,8 @@ def public_server_status():
                 "status": row.get("status"),
                 "display_name": row.get("display_name") or "",
                 "updated_at": row.get("updated_at") or "",
+                "players": row.get("players"),
+                "max_players": row.get("max_players"),
             }
             for sid, row in sorted(by_id.items())
         ],
@@ -10995,9 +10997,13 @@ def _build_public_home_payload() -> dict[str, Any]:
         if rt:
             entry["runtime_status"] = rt.get("status") or ""
             entry["runtime_updated_at"] = rt.get("updated_at") or ""
+            entry["players"] = rt.get("players")
+            entry["max_players"] = rt.get("max_players")
         else:
             entry["runtime_status"] = ""
             entry["runtime_updated_at"] = ""
+            entry["players"] = None
+            entry["max_players"] = None
         servers.append(entry)
 
     packages_raw = data.get("PointPackages")
@@ -16645,6 +16651,7 @@ register_tribe_routes(
     is_admin_steamid=_is_admin_steamid,
     limiter=limiter,
     trigger_tribe_sync_rcon=_enqueue_tribe_sync_rcon,
+    load_servers=_load_servers,
 )
 
 # ── Modo Equipe (substitui Tribo na UI jogador; flag teams_enabled, default on) ───

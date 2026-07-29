@@ -313,6 +313,15 @@ def _cancel_pending_timer() -> None:
             _pending_timer = None
 
 
+def _opt_int(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def collect_status_payload(app: Any) -> list[dict[str, Any]]:
     """Lista de status para Discord + push Web Store."""
     from .asm_engine.asm_ini_manager import effective_session_name
@@ -338,11 +347,17 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
         sid = shop_id or asm_id
         process = ASM_STATUS_STOPPED
         steam = ""
+        players: Optional[int] = None
+        max_players: Optional[int] = None
         if mgr is not None and asm_id:
             inst = mgr.get_instance(asm_id)
             if inst is not None:
                 process = getattr(inst, "status", ASM_STATUS_STOPPED) or ASM_STATUS_STOPPED
                 steam = getattr(inst, "steam_status", "") or ""
+                players = _opt_int(getattr(inst, "a2s_players", None))
+                max_players = _opt_int(getattr(inst, "a2s_max_players", None))
+        if max_players is None:
+            max_players = _opt_int(getattr(srv, "max_players", None))
         status = map_public_status(process, steam)
         item = {
             "server_id": sid,
@@ -350,6 +365,8 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
             "display_name": display,
             "updated_at": updated_at,
             "updated_at_unix": now_unix,
+            "players": players,
+            "max_players": max_players,
         }
         rows_out.append(item)
         # Alias pelo id ASM se diferente do shop_id — home pode usar qualquer um.

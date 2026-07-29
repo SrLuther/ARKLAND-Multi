@@ -2336,6 +2336,77 @@
       max-height: calc(100vh - 120px); overflow-y: auto;
     }
     .player-detail-panel.hidden { display: none !important; }
+    .map-members-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (min-width: 1100px) {
+      .map-members-layout.has-panel {
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+      }
+    }
+    .map-members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      align-items: start;
+    }
+    .map-members-col h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .map-members-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .map-members-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .map-members-row .mm-name {
+      font-size: 13px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .map-members-row .mm-meta {
+      font-size: 11px;
+      color: var(--text2);
+    }
+    .map-member-detail-panel {
+      position: sticky;
+      top: 12px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+    .map-member-detail-panel.hidden { display: none !important; }
+    .map-member-assoc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 6px 0 0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(59,130,246,.1);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .map-member-assoc-chip:hover { border-color: rgba(59,130,246,.45); }
     .status-pill--active { background: rgba(34,197,94,.15); color: #4ade80; }
     .status-pill--blocked { background: rgba(240,64,80,.15); color: var(--danger); }
     .donation-policy-banner {
@@ -6739,6 +6810,9 @@
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
     </div>
+    <div class="nav-item admin-only" data-page="map-members-admin" onclick="nav(this)">
+      <span class="nav-icon">🗺️</span> Membros por mapa
+    </div>
     <div class="nav-item admin-only" data-page="teams-admin" onclick="nav(this)">
       <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Equipes
     </div>
@@ -9790,6 +9864,23 @@
         </div>
       </div>
 
+      <!-- PAGE: Membros por mapa (admin) -->
+      <div id="page-map-members-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🗺️ Membros por mapa</div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Personagens conhecidos por mapa (TribeSync). Use <strong>DADOS</strong> para ver PlayerID, SteamID, tribo e mapas associados.</p>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadMapMembersAdmin()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="map-members-layout" id="map-members-layout">
+          <div class="card">
+            <div id="map-members-grid" class="map-members-grid">Carregando…</div>
+          </div>
+          <div id="map-member-detail-panel" class="card map-member-detail-panel hidden"></div>
+        </div>
+      </div>
+
       <!-- PAGE: Auditoria (admin) -->
       <div id="page-audit" class="page admin-only">
         <div id="topbar">
@@ -11434,6 +11525,7 @@ function nav(el) {
   if (page === "seasonland-ops") loadSeasonlandOps();
   if (page === "plugin-debug") loadPluginDebug();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
+  if (page === "map-members-admin") loadMapMembersAdmin();
   if (page === "tribe-admin") loadTribeAdmin();
   if (page === "teams") loadMyTeam();
   if (page === "teams-directory") loadTeamsDirectory();
@@ -26717,6 +26809,16 @@ let _homeLoadGen = 0;
 let _homeLoadAbort = null;
 let _homeStatusPollTimer = null;
 
+function _homePlayersLabel(row, st) {
+  const status = String(st || "").trim().toUpperCase();
+  if (status !== "ONLINE" && status !== "INICIANDO") return "";
+  const p = row && row.players;
+  if (p == null || p === "") return "";
+  const m = row && row.max_players;
+  if (m != null && m !== "") return ` · ${p}/${m}`;
+  return ` · ${p}`;
+}
+
 function _applyHomeServerStatuses(items) {
   const byId = {};
   (items || []).forEach(it => {
@@ -26734,7 +26836,9 @@ function _applyHomeServerStatuses(items) {
     };
     const meta = map[st];
     el.className = "home-server-card__status home-server-card__status--" + (meta ? meta.cls : "unknown");
-    el.textContent = meta ? `${meta.emoji} ${meta.label}` : "● Aguardando status do TEK…";
+    el.textContent = meta
+      ? `${meta.emoji} ${meta.label}${_homePlayersLabel(row, st)}`
+      : "● Aguardando status do TEK…";
   });
 }
 
@@ -27396,8 +27500,9 @@ function _homeRuntimeStatusHtml(s) {
     return `<div class="home-server-card__status home-server-card__status--unknown"
       data-server-status="${escHtml(s.server_id || "")}">● Aguardando status do TEK…</div>`;
   }
+  const players = escHtml(_homePlayersLabel(s, st));
   return `<div class="home-server-card__status home-server-card__status--${meta.cls}"
-    data-server-status="${escHtml(s.server_id || "")}">${meta.emoji} ${meta.label}</div>`;
+    data-server-status="${escHtml(s.server_id || "")}">${meta.emoji} ${meta.label}${players}</div>`;
 }
 
 function _homeHeroConnectHtml(connectable) {
@@ -28338,6 +28443,120 @@ async function syncAllPermissionsAdmin() {
     }
   } catch (_) {
     toast("Falha ao sincronizar Permissions.", "error");
+  }
+}
+
+// ── Admin: Membros por mapa ───────────────────────────────────────────────────
+
+let _mapMembersCache = null;
+
+function _mmDash(v) {
+  if (v === null || v === undefined || v === "") return "—";
+  return String(v);
+}
+
+function closeMapMemberDetail() {
+  const panel = document.getElementById("map-member-detail-panel");
+  const layout = document.getElementById("map-members-layout");
+  if (panel) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+  }
+  if (layout) layout.classList.remove("has-panel");
+}
+
+async function loadMapMembersAdmin() {
+  const grid = document.getElementById("map-members-grid");
+  if (!grid) return;
+  grid.innerHTML = "<p style='color:var(--text2)'>Carregando…</p>";
+  closeMapMemberDetail();
+  try {
+    const d = await fetchJson("/api/admin/map-members?limit=200");
+    if (!d.ok) {
+      grid.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _mapMembersCache = d.maps || [];
+    if (!_mapMembersCache.length) {
+      grid.innerHTML = "<p style='color:var(--text2)'>Nenhum servidor cadastrado. Configure em Servidores.</p>";
+      return;
+    }
+    grid.innerHTML = _mapMembersCache.map(m => {
+      const items = m.items || [];
+      const rows = items.length
+        ? items.map(it => {
+            const name = it.character_name || it.steam_id || "?";
+            const tribe = it.tribe_name ? escHtml(it.tribe_name) : "";
+            return `<div class="map-members-row">
+              <div style="min-width:0;flex:1;">
+                <div class="mm-name" title="${escHtml(it.steam_id || "")}">${escHtml(name)}</div>
+                ${tribe ? `<div class="mm-meta">${tribe}</div>` : ""}
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm"
+                onclick="openMapMemberDados('${escHtml(m.server_id)}','${escHtml(it.steam_id)}')">DADOS</button>
+            </div>`;
+          }).join("")
+        : `<p style="color:var(--text2);font-size:12px;margin:0;">Nenhum personagem conhecido neste mapa.</p>`;
+      return `<div class="map-members-col card" style="padding:12px;margin:0;">
+        <h3>${escHtml(m.label || m.server_id)} <span style="font-weight:500;color:var(--text2);font-size:12px;">(${Number(m.total || 0)})</span></h3>
+        <div class="map-members-list">${rows}</div>
+      </div>`;
+    }).join("");
+  } catch (err) {
+    grid.innerHTML = `<p style="color:var(--danger)">${escHtml(err.message || "Erro ao carregar")}</p>`;
+  }
+}
+
+async function openMapMemberDados(serverId, steamId, opts) {
+  const panel = document.getElementById("map-member-detail-panel");
+  const layout = document.getElementById("map-members-layout");
+  if (!panel) return;
+  panel.classList.remove("hidden");
+  if (layout) layout.classList.add("has-panel");
+  panel.innerHTML = "<p style='color:var(--text2)'>Carregando dados…</p>";
+  try {
+    const d = await fetchJson(
+      `/api/admin/map-members/${encodeURIComponent(serverId)}/${encodeURIComponent(steamId)}`
+    );
+    if (!d.ok) {
+      panel.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Não encontrado")}</p>
+        <button class="btn btn-ghost btn-sm" onclick="closeMapMemberDetail()">Fechar</button>`;
+      return;
+    }
+    const assoc = (d.associated_maps || []).map(a => {
+      const lab = escHtml(a.label || a.server_id);
+      const tn = a.tribe_name ? ` · ${escHtml(a.tribe_name)}` : "";
+      return `<button type="button" class="map-member-assoc-chip"
+        onclick="openMapMemberDados('${escHtml(a.server_id)}','${escHtml(d.steam_id)}')"
+        title="${escHtml(a.server_id)}">${lab}${tn}</button>`;
+    }).join("") || `<span style="color:var(--text2);font-size:12px;">Nenhum outro mapa conhecido.</span>`;
+
+    const sidSafe = escHtml(d.steam_id || "");
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;">
+        <div>
+          <div class="card-title" style="margin:0;">${escHtml(d.character_name || d.steam_id || "Jogador")}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(d.map_label || d.server_id || "")}</div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeMapMemberDetail()">✕</button>
+      </div>
+      <div class="form-group"><label>ID_JOGADOR</label><div><code>${escHtml(_mmDash(d.player_data_id))}</code></div></div>
+      <div class="form-group"><label>ID_STEAM_JOGADOR</label><div><code>${sidSafe}</code></div></div>
+      <div class="form-group"><label>ID_TRIBO</label><div><code>${escHtml(_mmDash(d.tribe_id))}</code></div></div>
+      <div class="form-group"><label>NOME_TRIBO</label><div>${escHtml(_mmDash(d.tribe_name))}</div></div>
+      <div class="form-group"><label>MAPAS_ASSOCIADOS</label><div>${assoc}</div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;">
+        <button type="button" class="btn btn-primary btn-sm"
+          onclick="goToPage('players-admin');setTimeout(()=>selectPlayerAdmin('${sidSafe}'),120)">
+          Abrir em Gerenciar Jogadores
+        </button>
+      </div>`;
+    if (opts && opts.scrollIntoView) {
+      panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  } catch (err) {
+    panel.innerHTML = `<p style="color:var(--danger)">${escHtml(err.message || "Erro")}</p>
+      <button class="btn btn-ghost btn-sm" onclick="closeMapMemberDetail()">Fechar</button>`;
   }
 }
 

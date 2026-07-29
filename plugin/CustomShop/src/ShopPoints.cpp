@@ -260,12 +260,23 @@ bool ShopPoints::Open() {
         "  character_name VARCHAR(128) NULL,"
         "  is_owner       TINYINT(1) NOT NULL DEFAULT 0,"
         "  rank_name      VARCHAR(64) NULL,"
+        "  player_data_id BIGINT NULL,"
         "  joined_at      DATETIME(6) NULL,"
         "  last_seen_at   DATETIME(6) NULL,"
         "  updated_at     DATETIME(6) NOT NULL,"
         "  UNIQUE KEY uq_member_server (server_id, tribe_id, steam_id)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
+
+    // Migrate DBs that predate player_data_id on tribe_members.
+    if (mysql_query(db_,
+            "ALTER TABLE tribe_members ADD COLUMN IF NOT EXISTS player_data_id BIGINT NULL") != 0) {
+        const unsigned err = mysql_errno(db_);
+        if (err != 1060) {
+            Log::GetLog()->error("ShopPoints::Exec failed: {}", mysql_error(db_));
+            return false;
+        }
+    }
 
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS tribe_owners ("

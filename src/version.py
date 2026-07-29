@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.98"
-BUILD_DATE: str = "2026-07-27"
+APP_VERSION: str = "1.10.99"
+BUILD_DATE: str = "2026-07-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,19 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.99",
+        "date": "2026-07-28",
+        "changes": [
+            "Feat (Web Store / Staff): página «Membros por mapa» — lista personagens "
+            "conhecidos por mapa (TribeSync) com botão DADOS (PlayerID, SteamID, "
+            "TribeID, nome da tribo, mapas associados); APIs /api/admin/map-members.",
+            "Feat (CustomShop 1.10.34 / TribeSync): persiste player_data_id em "
+            "tribe_members (DDL + upsert C++/Python) para ID_JOGADOR no painel staff.",
+            "Melhoria (Web Store / Home): cards de status dos mapas mostram "
+            "jogadores online N/max (TEK runtime-status → players/max_players).",
+        ],
     },
     {
         "version": "1.10.98",

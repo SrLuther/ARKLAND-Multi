@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.34] - 2026-07-28
+
+### Feature
+
+- **TribeSync / tribe_members**: persiste `player_data_id` (PlayerID) no upsert MySQL — alimenta o painel staff «Membros por mapa» na Web Store (ID_JOGADOR).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.34) em cada mapa.
+
 ## [1.10.33] - 2026-07-26
 
 ### Improvement

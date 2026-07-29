@@ -497,6 +497,7 @@ def ensure_tribe_schema(engine: Engine) -> None:
           character_name VARCHAR(128),
           is_owner      {_tinyint} NOT NULL DEFAULT 0,
           rank_name     VARCHAR(64),
+          player_data_id BIGINT,
           joined_at     {_now_col},
           last_seen_at  {_now_col},
           updated_at    {_now_col} NOT NULL,
@@ -648,6 +649,7 @@ def ensure_tribe_schema(engine: Engine) -> None:
         # Adiciona colunas de split em market_listings se não existirem
         _add_col_if_missing(conn, is_sqlite, "market_listings", "tribe_split_id", "INTEGER")
         _add_col_if_missing(conn, is_sqlite, "market_listings", "split_snapshot", "TEXT")
+        _add_col_if_missing(conn, is_sqlite, "tribe_members", "player_data_id", "BIGINT")
         try:
             conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_tribe_sync_req_steam_status "
@@ -1061,21 +1063,26 @@ def _upsert_members(
             continue
         char_name = str(m.get("character_name") or "").strip()
         pdid = m.get("player_data_id")
-        if pdid and not str(sid).startswith("pdid:"):
-            pdid_key = member_steam_key(player_data_id=pdid)
+        try:
+            pdid_int = int(pdid) if pdid not in (None, "", 0, "0") else None
+        except (TypeError, ValueError):
+            pdid_int = None
+        if pdid_int and not str(sid).startswith("pdid:"):
+            pdid_key = member_steam_key(player_data_id=pdid_int)
             if pdid_key and pdid_key != sid:
                 db.execute(
                     text("""
                         UPDATE tribe_members
                         SET steam_id = :sid, character_name = :cn, is_owner = :iso,
                             rank_name = :rn, last_seen_at = :now, updated_at = :now,
-                            tribe_name = :tn
+                            tribe_name = :tn, player_data_id = :pdid
                         WHERE server_id = :svid AND tribe_id = :tid AND steam_id = :pdid_key
                     """),
                     {
                         "sid": sid, "cn": char_name or None,
                         "iso": 1 if m.get("is_owner") else 0,
                         "rn": m.get("rank_name"), "now": now, "tn": tribe_name,
+                        "pdid": pdid_int,
                         "svid": server_id, "tid": tribe_id, "pdid_key": pdid_key,
                     },
                 )
@@ -1087,22 +1094,25 @@ def _upsert_members(
             db.execute(text("""
                 UPDATE tribe_members
                 SET character_name = :cn, is_owner = :iso, rank_name = :rn,
-                    last_seen_at = :now, updated_at = :now, tribe_name = :tn
+                    last_seen_at = :now, updated_at = :now, tribe_name = :tn,
+                    player_data_id = COALESCE(:pdid, player_data_id)
                 WHERE server_id = :svid AND tribe_id = :tid AND steam_id = :sid
             """), {
                 "cn": char_name or None, "iso": 1 if m.get("is_owner") else 0,
                 "rn": m.get("rank_name"), "now": now, "tn": tribe_name,
+                "pdid": pdid_int,
                 "svid": server_id, "tid": tribe_id, "sid": sid,
             })
         else:
             db.execute(text("""
                 INSERT INTO tribe_members
-                  (server_id, tribe_id, tribe_name, steam_id, character_name, is_owner, rank_name, joined_at, last_seen_at, updated_at)
-                VALUES (:svid, :tid, :tn, :sid, :cn, :iso, :rn, :now, :now, :now)
+                  (server_id, tribe_id, tribe_name, steam_id, character_name, is_owner,
+                   rank_name, player_data_id, joined_at, last_seen_at, updated_at)
+                VALUES (:svid, :tid, :tn, :sid, :cn, :iso, :rn, :pdid, :now, :now, :now)
             """), {
                 "svid": server_id, "tid": tribe_id, "tn": tribe_name, "sid": sid,
                 "cn": char_name or None, "iso": 1 if m.get("is_owner") else 0,
-                "rn": m.get("rank_name"), "now": now,
+                "rn": m.get("rank_name"), "pdid": pdid_int, "now": now,
             })
 
 

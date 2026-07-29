@@ -49,6 +49,7 @@ def register_tribe_routes(
     is_admin_steamid: Callable[[str], bool],
     limiter: Any | None = None,
     trigger_tribe_sync_rcon: Callable[[], list[dict[str, Any]]] | None = None,
+    load_servers: Callable[[], list[dict[str, Any]]] | None = None,
 ) -> None:
     # Idempotente: import duplo / reload no mesmo processo não re-registra rotas.
     if app.view_functions.get("tribe_presence") is not None:
@@ -1001,6 +1002,83 @@ def register_tribe_routes(
                 "tribes": inv["list_admin_tribes"](db),
                 "alerts": inv["list_admin_alerts"](db),
             })
+        finally:
+            db.close()
+
+    def _server_catalog() -> list[dict[str, Any]]:
+        if load_servers is None:
+            return []
+        try:
+            return list(load_servers() or [])
+        except Exception as exc:
+            log.warning("map-members load_servers: %s", exc)
+            return []
+
+    def _map_labels() -> dict[str, str]:
+        out: dict[str, str] = {}
+        for s in _server_catalog():
+            sid = str(s.get("server_id") or "").strip()
+            if not sid:
+                continue
+            out[sid] = str(s.get("label") or sid).strip() or sid
+        return out
+
+    @app.route("/api/admin/map-members", methods=["GET"])
+    @admin_required
+    def admin_map_members_list():
+        """Lista jogadores conhecidos por mapa (staff)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        from map_members_service import build_map_members_payload
+
+        server_id = str(request.args.get("server_id") or "").strip() or None
+        try:
+            limit = int(request.args.get("limit") or 200)
+        except (TypeError, ValueError):
+            limit = 200
+        try:
+            offset = int(request.args.get("offset") or 0)
+        except (TypeError, ValueError):
+            offset = 0
+
+        db = _db()
+        try:
+            payload = build_map_members_payload(
+                db,
+                servers=_server_catalog(),
+                server_id=server_id,
+                limit=limit,
+                offset=offset,
+            )
+            return jsonify(payload)
+        except Exception as exc:
+            log.warning("admin_map_members_list: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/admin/map-members/<server_id>/<steam_id>", methods=["GET"])
+    @admin_required
+    def admin_map_member_detail(server_id: str, steam_id: str):
+        """Painel DADOS — identidade in-game num mapa + mapas associados."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        from map_members_service import get_member_detail
+
+        db = _db()
+        try:
+            detail = get_member_detail(
+                db,
+                server_id=str(server_id or "").strip(),
+                steam_id=str(steam_id or "").strip(),
+                map_labels=_map_labels(),
+            )
+            if not detail:
+                return _fail("Jogador não encontrado neste mapa", 404)
+            return jsonify({"ok": True, **detail})
+        except Exception as exc:
+            log.warning("admin_map_member_detail: %s", exc)
+            return _fail(str(exc), 500)
         finally:
             db.close()
 

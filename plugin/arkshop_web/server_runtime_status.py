@@ -17,6 +17,15 @@ _CACHE_TTL_S = 2.0
 VALID_STATUSES = frozenset({"PARADO", "INICIANDO", "ATUALIZANDO", "ONLINE"})
 
 
+def _opt_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _store_path() -> Path:
     try:
         from arkland_environment import webstore_data_dir
@@ -48,12 +57,19 @@ def _read_disk() -> dict[str, dict[str, Any]]:
         status = str(row.get("status") or "").strip().upper()
         if status not in VALID_STATUSES:
             continue
-        out[key] = {
+        entry: dict[str, Any] = {
             "status": status,
             "display_name": str(row.get("display_name") or "").strip(),
             "updated_at": str(row.get("updated_at") or "").strip(),
             "updated_at_unix": float(row.get("updated_at_unix") or 0) or 0.0,
         }
+        players = _opt_int(row.get("players"))
+        max_players = _opt_int(row.get("max_players"))
+        if players is not None:
+            entry["players"] = players
+        if max_players is not None:
+            entry["max_players"] = max_players
+        out[key] = entry
     return out
 
 
@@ -105,12 +121,19 @@ def upsert_statuses(items: list[dict[str, Any]]) -> int:
             status = str(raw.get("status") or "").strip().upper()
             if not sid or status not in VALID_STATUSES:
                 continue
-            by_id[sid] = {
+            entry: dict[str, Any] = {
                 "status": status,
                 "display_name": str(raw.get("display_name") or "").strip(),
                 "updated_at": str(raw.get("updated_at") or "").strip(),
                 "updated_at_unix": float(raw.get("updated_at_unix") or now) or now,
             }
+            players = _opt_int(raw.get("players"))
+            max_players = _opt_int(raw.get("max_players"))
+            if players is not None:
+                entry["players"] = players
+            if max_players is not None:
+                entry["max_players"] = max_players
+            by_id[sid] = entry
             n += 1
         if n:
             _write_disk(by_id)

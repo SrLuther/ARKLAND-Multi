@@ -306,17 +306,27 @@ void UpsertMemberDb(
     EscapeSql(db, member.value("character_name", ""), esc_cn);
     EscapeSql(db, member.value("rank_name", ""), esc_rn);
     const int is_owner = member.value("is_owner", false) ? 1 : 0;
+    unsigned int pdid = 0;
+    try {
+        pdid = member.value("player_data_id", 0u);
+    } catch (...) {
+        pdid = 0;
+    }
+    const std::string pdid_sql = pdid == 0 ? "NULL" : std::to_string(pdid);
 
     const std::string sql =
         "INSERT INTO tribe_members "
         "(server_id, tribe_id, tribe_name, steam_id, character_name, is_owner, "
-        "rank_name, joined_at, last_seen_at, updated_at) VALUES ('" +
+        "rank_name, player_data_id, joined_at, last_seen_at, updated_at) VALUES ('" +
         esc_srv + "', " + std::to_string(tribe_id) + ", '" + esc_tn + "', '" +
         esc_sid + "', '" + esc_cn + "', " + std::to_string(is_owner) + ", '" +
-        esc_rn + "', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)) "
+        esc_rn + "', " + pdid_sql +
+        ", UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)) "
         "ON DUPLICATE KEY UPDATE character_name=VALUES(character_name), "
         "is_owner=VALUES(is_owner), rank_name=VALUES(rank_name), "
-        "tribe_name=VALUES(tribe_name), last_seen_at=UTC_TIMESTAMP(6), "
+        "tribe_name=VALUES(tribe_name), "
+        "player_data_id=COALESCE(VALUES(player_data_id), player_data_id), "
+        "last_seen_at=UTC_TIMESTAMP(6), "
         "updated_at=UTC_TIMESTAMP(6)";
     ExecSql(db, sql);
 }

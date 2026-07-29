@@ -1,12 +1,10 @@
 {
-    "version": "1.10.98",
-    "date": "2026-07-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.98/ARKLAND-Multi-Setup-v1.10.98.exe",
+    "version": "1.10.99",
+    "date": "2026-07-28",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.99/ARKLAND-Multi-Setup-v1.10.99.exe",
     "changelog": [
-        "Fix (Web Store / Encomenda): removido limite de 3 encomendas / 7 dias — redundante com o bloqueio Dino Lab no mercado.",
-        "Melhoria (Web Store / Dino Lab): lista de espécies admin deixa de estourar Timeout 15s — catálogo lido uma vez + cache 60s.",
-        "Melhoria (Web Store / Encomenda): aviso explícito de que dinos encomendados e a genética derivada ficam bloqueados no mercado P2P.",
-        "Melhoria (Web Store / Encomenda): +5% no preço total das encomendas (após taxas α/β, antes do teto).",
-        "Melhoria (Web Store / Encomenda): cronómetro decrescente até a próxima troca da vitrine rotativa."
+        "Feat (Web Store / Staff): página «Membros por mapa» — lista personagens conhecidos por mapa (TribeSync) com botão DADOS (PlayerID, SteamID, TribeID, nome da tribo, mapas associados); APIs /api/admin/map-members.",
+        "Feat (CustomShop 1.10.34 / TribeSync): persiste player_data_id em tribe_members (DDL + upsert C++/Python) para ID_JOGADOR no painel staff.",
+        "Melhoria (Web Store / Home): cards de status dos mapas mostram jogadores online N/max (TEK runtime-status → players/max_players)."
     ]
 }

@@ -60,3 +60,33 @@ def test_build_embed_lines():
     assert "Brasília" in emb["footer"]["text"]
     # dd/mm/yyyy hh:mm:ss
     assert re.search(r"\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}", emb["footer"]["text"])
+
+
+def test_collect_status_payload_includes_players():
+    from types import SimpleNamespace
+    from src.discord_status_board import collect_status_payload
+    from src.server_visibility import STEAM_AVAILABLE
+
+    srv = SimpleNamespace(
+        id="map1",
+        shop_server_id="brighamia",
+        session_name="Brighamia",
+        name="Brighamia",
+        max_players=70,
+    )
+    inst = SimpleNamespace(
+        status="running",
+        steam_status=STEAM_AVAILABLE,
+        a2s_players=12,
+        a2s_max_players=70,
+    )
+    mgr = SimpleNamespace(get_instance=lambda _id: inst)
+    cfg_mgr = SimpleNamespace(servers=[srv])
+    app = SimpleNamespace(asm_config_manager=cfg_mgr, asm_server_manager=mgr)
+
+    rows = collect_status_payload(app)
+    by_id = {r["server_id"]: r for r in rows}
+    assert by_id["brighamia"]["status"] == STATUS_ONLINE
+    assert by_id["brighamia"]["players"] == 12
+    assert by_id["brighamia"]["max_players"] == 70
+    assert by_id["map1"]["players"] == 12

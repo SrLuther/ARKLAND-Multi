@@ -307,11 +307,13 @@ class ARKServerManagerApp(ctk.CTk):
         self._asm_status_tick_running = True
 
         def _worker():
+            players_changed = False
             try:
                 for srv in self.asm_config_manager.servers:
                     rich_key = f"_asm_rich_status_{srv.id}"
                     inst = self.asm_server_manager.get_instance(srv.id)
                     status = inst.status if inst else ASM_STATUS_STOPPED
+                    prev_players = getattr(inst, "a2s_players", None) if inst else None
 
                     if status != ASM_STATUS_RUNNING:
                         setattr(self, rich_key, {
@@ -401,6 +403,10 @@ class ARKServerManagerApp(ctk.CTk):
                             if ok:
                                 n = count_listplayers(resp)
                                 data["players"] = f"{n}/{srv.max_players}"
+                                if inst is not None:
+                                    inst.a2s_players = n
+                                    if getattr(inst, "a2s_max_players", None) is None:
+                                        inst.a2s_max_players = getattr(srv, "max_players", None)
                                 try:
                                     from .asm_engine.asm_discord_hooks import poll_tek_player_discord
                                     poll_tek_player_discord(self, srv, players_resp=resp)
@@ -422,10 +428,20 @@ class ARKServerManagerApp(ctk.CTk):
                             pass
 
                     setattr(self, rich_key, data)
+                    if inst is not None and getattr(inst, "a2s_players", None) != prev_players:
+                        players_changed = True
             finally:
                 self._asm_status_tick_running = False
                 from .asm_ui.asm_dashboard import refresh_dashboard_metrics
                 self.after(0, lambda: refresh_dashboard_metrics(self))
+                if players_changed:
+                    def _push_players():
+                        try:
+                            from .discord_status_board import schedule_status_board_update
+                            schedule_status_board_update(self)
+                        except Exception:
+                            pass
+                    self.after(0, _push_players)
 
         threading.Thread(target=_worker, daemon=True).start()
         self.after(interval, self._asm_status_tick)

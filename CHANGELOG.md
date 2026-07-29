@@ -7,6 +7,17 @@
 
 ## [Unreleased] - 
 
+## [1.10.99] - 2026-07-28
+
+### Feature
+
+- Feat (Web Store / Staff): página «Membros por mapa» — lista personagens conhecidos por mapa (TribeSync) com botão DADOS (PlayerID, SteamID, TribeID, nome da tribo, mapas associados); APIs /api/admin/map-members.
+- Feat (CustomShop 1.10.34 / TribeSync): persiste player_data_id em tribe_members (DDL + upsert C++/Python) para ID_JOGADOR no painel staff.
+
+### Improvement
+
+- Melhoria (Web Store / Home): cards de status dos mapas mostram jogadores online N/max (TEK runtime-status → players/max_players).
+
 ## [1.10.98] - 2026-07-27
 
 ### Improvement

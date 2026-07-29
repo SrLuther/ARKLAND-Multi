@@ -52,16 +52,24 @@ def test_upsert_and_public_endpoint(client):
             "display_name": "[ARKLAND BR] - Brighamia",
             "updated_at": "26/07/2026 23:00:00",
             "updated_at_unix": 9999999999,
+            "players": 12,
+            "max_players": 70,
         }
     ])
     assert n == 1
-    assert get_all_statuses()["brighamia"]["status"] == "ONLINE"
+    row = get_all_statuses()["brighamia"]
+    assert row["status"] == "ONLINE"
+    assert row["players"] == 12
+    assert row["max_players"] == 70
 
     r = client.get("/api/public/server-status")
     assert r.status_code == 200
     body = r.get_json()
     assert body["ok"] is True
-    assert any(s["server_id"] == "brighamia" and s["status"] == "ONLINE" for s in body["servers"])
+    match = next(s for s in body["servers"] if s["server_id"] == "brighamia")
+    assert match["status"] == "ONLINE"
+    assert match["players"] == 12
+    assert match["max_players"] == 70
 
 
 def test_home_includes_runtime_status(client, tmp_path, monkeypatch):
@@ -83,9 +91,32 @@ def test_home_includes_runtime_status(client, tmp_path, monkeypatch):
         "server_id": "brighamia",
         "status": "INICIANDO",
         "updated_at_unix": 9999999999,
+        "players": 0,
+        "max_players": 70,
     }])
     _app_module._invalidate_public_home_cache()
     home = client.get("/api/public/home").get_json()
     srv = next(s for s in home["servers"] if s["server_id"] == "brighamia")
     assert srv["runtime_status"] == "INICIANDO"
     assert srv["join_address"] == "203.0.113.20:7777"
+    assert srv["players"] == 0
+    assert srv["max_players"] == 70
+
+
+def test_upsert_omits_invalid_players(tmp_path, monkeypatch):
+    store = tmp_path / "server_runtime_status.json"
+    monkeypatch.setattr("server_runtime_status._store_path", lambda: store)
+    n = upsert_statuses([
+        {
+            "server_id": "alps",
+            "status": "PARADO",
+            "updated_at_unix": 9999999999,
+            "players": "nope",
+            "max_players": None,
+        }
+    ])
+    assert n == 1
+    row = get_all_statuses()["alps"]
+    assert row["status"] == "PARADO"
+    assert "players" not in row
+    assert "max_players" not in row
