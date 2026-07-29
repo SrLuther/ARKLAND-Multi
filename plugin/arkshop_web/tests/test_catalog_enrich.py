@@ -90,7 +90,7 @@ def test_enrich_resource_fallback_consumable_without_manifest():
         "Price": 10,
     }
     meta = enrich_shop_item("recurso_fantasma_xyz", entry)
-    assert meta["thumbnail_url"] == "/catalog/consumable.svg"
+    assert meta["thumbnail_url"] == "/catalog/category-resources.webp"
 
 
 def test_enrich_item_category_icon():
@@ -102,7 +102,7 @@ def test_enrich_item_category_icon():
         "Price": 100,
     }
     meta = enrich_shop_item("pick", entry)
-    assert meta["thumbnail_url"] == "/catalog/tool.svg"
+    assert meta["thumbnail_url"] == "/catalog/category-tools.webp"
     assert meta["display_category"] == "Ferramentas"
     assert "picareta" in meta["search_text"]
 
@@ -163,7 +163,7 @@ def test_infer_category_estrutura():
     meta = enrich_kit("starter", entry)
     assert meta["item_count"] == 2
     assert len(meta["kit_contents"]) == 2
-    assert meta["thumbnail_url"].endswith(".svg")
+    assert meta["thumbnail_url"] == "/catalog/category-kits.webp"
     assert meta["tier"] == "B"
     assert "kit iniciante" in meta["search_text"]
     # Estrutura pronta para kits sem metadados ItensAlfa

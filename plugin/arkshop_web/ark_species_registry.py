@@ -84,13 +84,13 @@ TIER_ROOT_VALUES: dict[str, int] = {
     "C": 800,
 }
 
-# Silhuetas genéricas ARKLAND — servidas de static/species/ (sem dependência externa).
+# Fallback para dinos sem retrato — arte genérica ARKLAND (caveira tribal).
 TIER_ICON_URLS: dict[str, str] = {
-    "S+": "/species/tier-s-plus.svg",
-    "S": "/species/tier-s.svg",
-    "A": "/species/tier-a.svg",
-    "B": "/species/tier-b.svg",
-    "C": "/species/tier-c.svg",
+    "S+": "/catalog/category-dinos.webp",
+    "S": "/catalog/category-dinos.webp",
+    "A": "/catalog/category-dinos.webp",
+    "B": "/catalog/category-dinos.webp",
+    "C": "/catalog/category-dinos.webp",
 }
 
 # (species_key, display_name_pt, class_token, tier, role, root_value)
@@ -621,7 +621,16 @@ def lookup_species(
         return None
 
     conf_order = {"high": 3, "medium": 2, "low": 1}
-    conf, entry = max(candidates, key=lambda c: conf_order.get(c[0], 0))
+
+    def _pick_score(c: tuple[str, dict]) -> tuple[int, int, int]:
+        conf, entry = c
+        sk = str(entry.get("species_key") or "").strip().lower()
+        has_icon = 1 if _bundled_icon_for_species(sk, str(entry.get("display_name") or "")) else 0
+        # Preferir canónicos (rex) a clones auto-sync (rex_copy_b)
+        is_copy = 1 if ("_copy" in sk or re.search(r"_cop(?:y|ia)", sk)) else 0
+        return (conf_order.get(conf, 0), has_icon, -is_copy)
+
+    conf, entry = max(candidates, key=_pick_score)
     tier = str(entry.get("tier") or "B")
     root = int(entry.get("root_value") or TIER_ROOT_VALUES.get(tier, 2500))
     return {

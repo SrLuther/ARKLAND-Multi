@@ -142,16 +142,16 @@ def test_get_registry_entry_is_indexed():
 
 
 def test_tier_icon_url_fallback():
-    assert tier_icon_url("S+").endswith("tier-s-plus.svg")
-    assert tier_icon_url("A").endswith("tier-a.svg")
-    assert tier_icon_url(None).endswith("tier-b.svg")
+    assert tier_icon_url("S+").endswith("category-dinos.webp")
+    assert tier_icon_url("A").endswith("category-dinos.webp")
+    assert tier_icon_url(None).endswith("category-dinos.webp")
 
 
 def test_resolve_species_image_custom_and_fallback():
     entry = {"species_key": "rex", "tier": "A", "icon_path": "rex.png"}
     assert resolve_species_image(entry).endswith("/species/icons/generated/rex.webp")
     assert resolve_species_image({"image_url": "https://cdn.example/rex.webp"}) == "https://cdn.example/rex.webp"
-    assert resolve_species_image(None, tier="C").endswith("tier-c.svg")
+    assert resolve_species_image(None, tier="C").endswith("category-dinos.webp")
 
 
 def test_lookup_includes_image_url():

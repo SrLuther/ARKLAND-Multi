@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.100"
-BUILD_DATE: str = "2026-07-28"
+APP_VERSION: str = "1.10.101"
+BUILD_DATE: str = "2026-07-29"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,21 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.101",
+        "date": "2026-07-29",
+        "changes": [
+            "Feat (Web Store / Catálogo): ícones de categoria ARKLAND — Dinos, "
+            "Ferramentas, Armas, Recursos, Kits, Selas e Outros (arte própria).",
+            "Feat (Web Store / Catálogo): ícones específicos de arcos (bow, "
+            "compound, crossbow, tek) e dos 20 artifact_* do catálogo; BPs e "
+            "arco_tek_* reutilizam o WebP do Tek.",
+            "Melhoria (Web Store / Kits): thumbnail da espécie do pack quando "
+            "houver retrato; senão caixa ARKLAND (category-kits).",
+            "Fix (Web Store / Espécies): lookup prioriza espécie canónica com "
+            "ícone real em vez de clones auto-sync (ex.: rex vs rex_copy_b).",
+        ],
     },
     {
         "version": "1.10.100",

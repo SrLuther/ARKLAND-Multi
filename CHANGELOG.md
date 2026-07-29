@@ -7,6 +7,21 @@
 
 ## [Unreleased] - 
 
+## [1.10.101] - 2026-07-29
+
+### Feature
+
+- Feat (Web Store / Catálogo): ícones de categoria ARKLAND — Dinos, Ferramentas, Armas, Recursos, Kits, Selas e Outros (arte própria).
+- Feat (Web Store / Catálogo): ícones específicos de arcos (bow, compound, crossbow, tek) e dos 20 artifact_* do catálogo; BPs e arco_tek_* reutilizam o WebP do Tek.
+
+### Improvement
+
+- Melhoria (Web Store / Kits): thumbnail da espécie do pack quando houver retrato; senão caixa ARKLAND (category-kits).
+
+### Fix
+
+- Fix (Web Store / Espécies): lookup prioriza espécie canónica com ícone real em vez de clones auto-sync (ex.: rex vs rex_copy_b).
+
 ## [1.10.100] - 2026-07-28
 
 ### Fix

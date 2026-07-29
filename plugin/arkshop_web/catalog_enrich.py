@@ -18,26 +18,29 @@ _ITENSALFA_DESC_CANDIDATES = (
 )
 
 CATEGORY_ICONS: dict[str, str] = {
-    "ferramentas": "/catalog/tool.svg",
-    "armaduras": "/catalog/armor.svg",
-    "armas": "/catalog/weapon.svg",
-    "recursos": "/catalog/consumable.svg",
-    "consumiveis": "/catalog/consumable.svg",
-    "selas": "/catalog/structure.svg",
-    "estruturas": "/catalog/structure.svg",
-    "structures": "/catalog/structure.svg",
-    "blueprints": "/catalog/item.svg",
-    "blueprint": "/catalog/item.svg",
-    "veiculos": "/catalog/structure.svg",
+    "ferramentas": "/catalog/category-tools.webp",
+    "armaduras": "/catalog/category-other.webp",
+    "armas": "/catalog/category-weapons.webp",
+    "recursos": "/catalog/category-resources.webp",
+    "consumiveis": "/catalog/category-resources.webp",
+    "selas": "/catalog/category-saddles.webp",
+    "estruturas": "/catalog/category-other.webp",
+    "structures": "/catalog/category-other.webp",
+    "blueprints": "/catalog/category-other.webp",
+    "blueprint": "/catalog/category-other.webp",
+    "veiculos": "/catalog/category-other.webp",
     "licencas": "/catalog/license.svg",
     "vip": "/catalog/license.svg",
-    "geral": "/catalog/item.svg",
-    "mods": "/catalog/item.svg",
-    "comercio": "/catalog/item.svg",
+    "geral": "/catalog/category-other.webp",
+    "mods": "/catalog/category-other.webp",
+    "comercio": "/catalog/category-other.webp",
+    "dinos": "/catalog/category-dinos.webp",
+    "kits": "/catalog/category-kits.webp",
 }
 
-DEFAULT_ITEM_ICON = "/catalog/item.svg"
-KIT_ICON = "/catalog/kit.svg"
+DEFAULT_ITEM_ICON = "/catalog/category-other.webp"
+KIT_ICON = "/catalog/category-kits.webp"
+DINO_FALLBACK_ICON = "/catalog/category-dinos.webp"
 LICENSE_ICON = "/catalog/license.svg"
 
 BLUEPRINT_FRIENDLY_NAMES: dict[str, str] = {
@@ -226,7 +229,7 @@ def enrich_shop_item(key: str, entry: dict[str, Any]) -> dict[str, Any]:
                     species_key = cand
                     break
             tier = "B"
-            thumbnail_url = bundled or tier_icon_url(tier)
+            thumbnail_url = bundled or DINO_FALLBACK_ICON
     elif _is_license_entry(entry, key):
         thumbnail_url = LICENSE_ICON
     else:
@@ -413,6 +416,49 @@ def _component_characteristics(
     return extras
 
 
+def _kit_thumbnail_url(key: str, entry: dict[str, Any], tier: str) -> str:
+    """Kits: ícone da espécie (se houver dino conhecido) → caixa ARKLAND → fallback."""
+    dinos = entry.get("Dinos") or []
+    if isinstance(dinos, list) and dinos:
+        first = dinos[0] if isinstance(dinos[0], dict) else {}
+        bp = str((first or {}).get("Blueprint") or "").strip()
+        name_hint = str(
+            entry.get("Description") or entry.get("Name") or key or ""
+        ).strip()
+        if bp:
+            lookup = lookup_species(blueprint=bp, name_hint=name_hint)
+            if lookup and lookup.get("image_url"):
+                url = str(lookup["image_url"])
+                # Evitar o próprio fallback genérico se a espécie não tem retrato
+                if "category-dinos" not in url and "/species/tier-" not in url:
+                    return url
+                if lookup.get("image_url") and "generated" in url:
+                    return url
+            from ark_species_registry import _bundled_icon_for_species
+
+            for cand in (
+                str((lookup or {}).get("species_key") or ""),
+                key.rsplit("_pack", 1)[0],
+                key.rsplit("_femea", 1)[0],
+            ):
+                cand = str(cand or "").strip().lower()
+                if not cand:
+                    continue
+                bundled = _bundled_icon_for_species(cand)
+                if bundled:
+                    return bundled
+    # Pack key: astrodelphis_pack10 → astrodelphis
+    stem = re.sub(r"_(pack\d+|femeas?|females?)$", "", key, flags=re.I)
+    stem = re.sub(r"_pack\d+$", "", stem, flags=re.I)
+    if stem and stem != key:
+        from ark_species_registry import _bundled_icon_for_species
+
+        bundled = _bundled_icon_for_species(stem.lower())
+        if bundled:
+            return bundled
+    return KIT_ICON
+
+
 def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(entry, dict):
         return {}
@@ -450,7 +496,7 @@ def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
 
     item_count = len(raw_items) if isinstance(raw_items, list) else 0
     tier = _kit_price_tier(price)
-    thumbnail_url = tier_icon_url(tier)
+    thumbnail_url = _kit_thumbnail_url(key, entry, tier)
 
     counts: dict[str, int] = {"armor": 0, "weapon": 0, "tool": 0, "saddle": 0, "other": 0}
     for c in kit_contents:

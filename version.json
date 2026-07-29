@@ -1,8 +1,11 @@
 {
-    "version": "1.10.100",
-    "date": "2026-07-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.100/ARKLAND-Multi-Setup-v1.10.100.exe",
+    "version": "1.10.101",
+    "date": "2026-07-29",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.101/ARKLAND-Multi-Setup-v1.10.101.exe",
     "changelog": [
-        "Fix (Web Store / Membros por mapa): texto dos chips MAPAS ASSOCIADOS com contraste claro no tema escuro."
+        "Feat (Web Store / Catálogo): ícones de categoria ARKLAND — Dinos, Ferramentas, Armas, Recursos, Kits, Selas e Outros (arte própria).",
+        "Feat (Web Store / Catálogo): ícones específicos de arcos (bow, compound, crossbow, tek) e dos 20 artifact_* do catálogo; BPs e arco_tek_* reutilizam o WebP do Tek.",
+        "Melhoria (Web Store / Kits): thumbnail da espécie do pack quando houver retrato; senão caixa ARKLAND (category-kits).",
+        "Fix (Web Store / Espécies): lookup prioriza espécie canónica com ícone real em vez de clones auto-sync (ex.: rex vs rex_copy_b)."
     ]
 }

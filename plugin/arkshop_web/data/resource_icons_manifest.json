@@ -732,6 +732,524 @@
       "status": "generated",
       "webp_kb": 3.8,
       "size": "256x256"
+    },
+    "artifact_brute": {
+      "path": "/catalog/resources/artifact_brute.webp",
+      "display_name": "Brute",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_12.PrimalItemArtifact_12",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_12"
+      ],
+      "reference_path": "refs/resource_icons/artifact_brute.png",
+      "status": "generated",
+      "webp_kb": 6.2,
+      "size": "256x256",
+      "catalog_key": "artifact_brute"
+    },
+    "artifact_chaos": {
+      "path": "/catalog/resources/artifact_chaos.webp",
+      "display_name": "Chaos",
+      "blueprint": "/Game/Extinction/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_Extinction_DesertKaiju.PrimalItemArtifact_Extinction_DesertKaiju",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_Extinction_DesertKaiju"
+      ],
+      "reference_path": "refs/resource_icons/artifact_chaos.png",
+      "status": "generated",
+      "webp_kb": 6.0,
+      "size": "256x256",
+      "catalog_key": "artifact_chaos"
+    },
+    "artifact_clever": {
+      "path": "/catalog/resources/artifact_clever.webp",
+      "display_name": "Clever",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_05.PrimalItemArtifact_05",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_05"
+      ],
+      "reference_path": "refs/resource_icons/artifact_clever.png",
+      "status": "generated",
+      "webp_kb": 4.4,
+      "size": "256x256",
+      "catalog_key": "artifact_clever"
+    },
+    "artifact_crag": {
+      "path": "/catalog/resources/artifact_crag.webp",
+      "display_name": "Crag",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactSE_02.PrimalItemArtifactSE_02",
+      "blueprint_tokens": [
+        "PrimalItemArtifactSE_02"
+      ],
+      "reference_path": "refs/resource_icons/artifact_crag.png",
+      "status": "generated",
+      "webp_kb": 4.7,
+      "size": "256x256",
+      "catalog_key": "artifact_crag"
+    },
+    "artifact_cunning": {
+      "path": "/catalog/resources/artifact_cunning.webp",
+      "display_name": "Cunning",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_11.PrimalItemArtifact_11",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_11"
+      ],
+      "reference_path": "refs/resource_icons/artifact_cunning.png",
+      "status": "generated",
+      "webp_kb": 6.7,
+      "size": "256x256",
+      "catalog_key": "artifact_cunning"
+    },
+    "artifact_depths": {
+      "path": "/catalog/resources/artifact_depths.webp",
+      "display_name": "Depths",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactAB.PrimalItemArtifactAB",
+      "blueprint_tokens": [
+        "PrimalItemArtifactAB"
+      ],
+      "reference_path": "refs/resource_icons/artifact_depths.png",
+      "status": "generated",
+      "webp_kb": 5.3,
+      "size": "256x256",
+      "catalog_key": "artifact_depths"
+    },
+    "artifact_destroyer": {
+      "path": "/catalog/resources/artifact_destroyer.webp",
+      "display_name": "Destroyer",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactSE_03.PrimalItemArtifactSE_03",
+      "blueprint_tokens": [
+        "PrimalItemArtifactSE_03"
+      ],
+      "reference_path": "refs/resource_icons/artifact_destroyer.png",
+      "status": "generated",
+      "webp_kb": 6.1,
+      "size": "256x256",
+      "catalog_key": "artifact_destroyer"
+    },
+    "artifact_devourer": {
+      "path": "/catalog/resources/artifact_devourer.webp",
+      "display_name": "Devourer",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_07.PrimalItemArtifact_07",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_07"
+      ],
+      "reference_path": "refs/resource_icons/artifact_devourer.png",
+      "status": "generated",
+      "webp_kb": 4.8,
+      "size": "256x256",
+      "catalog_key": "artifact_devourer"
+    },
+    "artifact_gatekeeper": {
+      "path": "/catalog/resources/artifact_gatekeeper.webp",
+      "display_name": "Gatekeeper",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactSE_01.PrimalItemArtifactSE_01",
+      "blueprint_tokens": [
+        "PrimalItemArtifactSE_01"
+      ],
+      "reference_path": "refs/resource_icons/artifact_gatekeeper.png",
+      "status": "generated",
+      "webp_kb": 5.0,
+      "size": "256x256",
+      "catalog_key": "artifact_gatekeeper"
+    },
+    "artifact_growth": {
+      "path": "/catalog/resources/artifact_growth.webp",
+      "display_name": "Growth",
+      "blueprint": "/Game/Extinction/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_Extinction_ForestKaiju.PrimalItemArtifact_Extinction_ForestKaiju",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_Extinction_ForestKaiju"
+      ],
+      "reference_path": "refs/resource_icons/artifact_growth.png",
+      "status": "generated",
+      "webp_kb": 5.0,
+      "size": "256x256",
+      "catalog_key": "artifact_growth"
+    },
+    "artifact_hunter": {
+      "path": "/catalog/resources/artifact_hunter.webp",
+      "display_name": "Hunter",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_01.PrimalItemArtifact_01",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_01"
+      ],
+      "reference_path": "refs/resource_icons/artifact_hunter.png",
+      "status": "generated",
+      "webp_kb": 4.1,
+      "size": "256x256",
+      "catalog_key": "artifact_hunter"
+    },
+    "artifact_immune": {
+      "path": "/catalog/resources/artifact_immune.webp",
+      "display_name": "Immune",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_08.PrimalItemArtifact_08",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_08"
+      ],
+      "reference_path": "refs/resource_icons/artifact_immune.png",
+      "status": "generated",
+      "webp_kb": 5.1,
+      "size": "256x256",
+      "catalog_key": "artifact_immune"
+    },
+    "artifact_lost": {
+      "path": "/catalog/resources/artifact_lost.webp",
+      "display_name": "Lost",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactAB_4.PrimalItemArtifactAB_4",
+      "blueprint_tokens": [
+        "PrimalItemArtifactAB_4"
+      ],
+      "reference_path": "refs/resource_icons/artifact_lost.png",
+      "status": "generated",
+      "webp_kb": 4.6,
+      "size": "256x256",
+      "catalog_key": "artifact_lost"
+    },
+    "artifact_massive": {
+      "path": "/catalog/resources/artifact_massive.webp",
+      "display_name": "Massive",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_03.PrimalItemArtifact_03",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_03"
+      ],
+      "reference_path": "refs/resource_icons/artifact_massive.png",
+      "status": "generated",
+      "webp_kb": 4.3,
+      "size": "256x256",
+      "catalog_key": "artifact_massive"
+    },
+    "artifact_pack": {
+      "path": "/catalog/resources/artifact_pack.webp",
+      "display_name": "Pack",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_02.PrimalItemArtifact_02",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_02"
+      ],
+      "reference_path": "refs/resource_icons/artifact_pack.png",
+      "status": "generated",
+      "webp_kb": 5.0,
+      "size": "256x256",
+      "catalog_key": "artifact_pack"
+    },
+    "artifact_shadows": {
+      "path": "/catalog/resources/artifact_shadows.webp",
+      "display_name": "Shadows",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactAB_2.PrimalItemArtifactAB_2",
+      "blueprint_tokens": [
+        "PrimalItemArtifactAB_2"
+      ],
+      "reference_path": "refs/resource_icons/artifact_shadows.png",
+      "status": "generated",
+      "webp_kb": 4.8,
+      "size": "256x256",
+      "catalog_key": "artifact_shadows"
+    },
+    "artifact_skylord": {
+      "path": "/catalog/resources/artifact_skylord.webp",
+      "display_name": "Skylord",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_06.PrimalItemArtifact_06",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_06"
+      ],
+      "reference_path": "refs/resource_icons/artifact_skylord.png",
+      "status": "generated",
+      "webp_kb": 5.5,
+      "size": "256x256",
+      "catalog_key": "artifact_skylord"
+    },
+    "artifact_stalker": {
+      "path": "/catalog/resources/artifact_stalker.webp",
+      "display_name": "Stalker",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifactAB_3.PrimalItemArtifactAB_3",
+      "blueprint_tokens": [
+        "PrimalItemArtifactAB_3"
+      ],
+      "reference_path": "refs/resource_icons/artifact_stalker.png",
+      "status": "generated",
+      "webp_kb": 5.6,
+      "size": "256x256",
+      "catalog_key": "artifact_stalker"
+    },
+    "artifact_strong": {
+      "path": "/catalog/resources/artifact_strong.webp",
+      "display_name": "Strong",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_09.PrimalItemArtifact_09",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_09"
+      ],
+      "reference_path": "refs/resource_icons/artifact_strong.png",
+      "status": "generated",
+      "webp_kb": 6.2,
+      "size": "256x256",
+      "catalog_key": "artifact_strong"
+    },
+    "artifact_void": {
+      "path": "/catalog/resources/artifact_void.webp",
+      "display_name": "Void",
+      "blueprint": "/Game/Extinction/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_Extinction_IceKaiju.PrimalItemArtifact_Extinction_IceKaiju",
+      "blueprint_tokens": [
+        "PrimalItemArtifact_Extinction_IceKaiju"
+      ],
+      "reference_path": "refs/resource_icons/artifact_void.png",
+      "status": "generated",
+      "webp_kb": 4.1,
+      "size": "256x256",
+      "catalog_key": "artifact_void"
+    },
+    "arma_bow": {
+      "catalog_key": "arma_bow",
+      "path": "/catalog/resources/arma_bow.webp",
+      "display_name": "Arco",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponBow.PrimalItem_WeaponBow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponBow"
+      ],
+      "reference_path": "refs/resource_icons/arma_bow.png",
+      "status": "generated",
+      "webp_kb": 4.3,
+      "size": "256x256"
+    },
+    "arma_bow_bp": {
+      "catalog_key": "arma_bow_bp",
+      "path": "/catalog/resources/arma_bow.webp",
+      "display_name": "Arco BP",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponBow.PrimalItem_WeaponBow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponBow"
+      ],
+      "alias_of": "arma_bow",
+      "status": "alias",
+      "webp_kb": 4.3,
+      "size": "256x256"
+    },
+    "arma_compound_bow": {
+      "catalog_key": "arma_compound_bow",
+      "path": "/catalog/resources/arma_compound_bow.webp",
+      "display_name": "Arco Composto",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponCompoundBow.PrimalItem_WeaponCompoundBow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponCompoundBow"
+      ],
+      "reference_path": "refs/resource_icons/arma_compound_bow.png",
+      "status": "generated",
+      "webp_kb": 4.4,
+      "size": "256x256"
+    },
+    "arma_compound_bow_bp": {
+      "catalog_key": "arma_compound_bow_bp",
+      "path": "/catalog/resources/arma_compound_bow.webp",
+      "display_name": "Arco Composto BP",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponCompoundBow.PrimalItem_WeaponCompoundBow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponCompoundBow"
+      ],
+      "alias_of": "arma_compound_bow",
+      "status": "alias",
+      "webp_kb": 4.4,
+      "size": "256x256"
+    },
+    "arma_crossbow": {
+      "catalog_key": "arma_crossbow",
+      "path": "/catalog/resources/arma_crossbow.webp",
+      "display_name": "Besta",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponCrossbow.PrimalItem_WeaponCrossbow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponCrossbow"
+      ],
+      "reference_path": "refs/resource_icons/arma_crossbow.png",
+      "status": "generated",
+      "webp_kb": 5.8,
+      "size": "256x256"
+    },
+    "arma_crossbow_bp": {
+      "catalog_key": "arma_crossbow_bp",
+      "path": "/catalog/resources/arma_crossbow.webp",
+      "display_name": "Besta BP",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponCrossbow.PrimalItem_WeaponCrossbow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponCrossbow"
+      ],
+      "alias_of": "arma_crossbow",
+      "status": "alias",
+      "webp_kb": 5.8,
+      "size": "256x256"
+    },
+    "arma_tekbow": {
+      "catalog_key": "arma_tekbow",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek",
+      "blueprint": "/Game/Genesis2/Weapons/TekBow/PrimalItem_WeaponTekBow.PrimalItem_WeaponTekBow",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow",
+        "AlfaItemWeapon_TekBow_B",
+        "AlfaItemWeapon_TekBow_D",
+        "AlfaItemWeapon_TekBow_ET",
+        "AlfaItemWeapon_TekBow_G",
+        "AlfaItemWeapon_TekBow_GOD",
+        "AlfaItemWeapon_TekBow_Im",
+        "AlfaItemWeapon_TekBow_O",
+        "AlfaItemWeapon_TekBow_Oni",
+        "AlfaItemWeapon_TekBow_Sur",
+        "AlfaItemWeapon_TekBow_Uni",
+        "PrimalItem_WeaponTekBow"
+      ],
+      "reference_path": "refs/resource_icons/arma_tekbow.png",
+      "status": "generated",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arma_tekbow_bp": {
+      "catalog_key": "arma_tekbow_bp",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek BP",
+      "blueprint": "/Game/Genesis2/Weapons/TekBow/PrimalItem_WeaponTekBow.PrimalItem_WeaponTekBow",
+      "blueprint_tokens": [
+        "PrimalItem_WeaponTekBow"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_alfa": {
+      "catalog_key": "arco_tek_alfa",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekBow.AlfaItemWeapon_TekBow",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_beta": {
+      "catalog_key": "arco_tek_beta",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Beta",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekBow_B.AlfaItemWeapon_TekBow_B",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_B"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_gamma": {
+      "catalog_key": "arco_tek_gamma",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Gamma",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekBow_G.AlfaItemWeapon_TekBow_G",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_G"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_delta": {
+      "catalog_key": "arco_tek_delta",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Delta",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekBow_D.AlfaItemWeapon_TekBow_D",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_D"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_omega": {
+      "catalog_key": "arco_tek_omega",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Omega",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekBow_O.AlfaItemWeapon_TekBow_O",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_O"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_transcendente": {
+      "catalog_key": "arco_tek_transcendente",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Transce…",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekBow_GOD.AlfaItemWeapon_TekBow_GOD",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_GOD"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_etereo": {
+      "catalog_key": "arco_tek_etereo",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Etéreo",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekBow_ET.AlfaItemWeapon_TekBow_ET",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_ET"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_universal": {
+      "catalog_key": "arco_tek_universal",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Universal",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekBow_Uni.AlfaItemWeapon_TekBow_Uni",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_Uni"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_onipotente": {
+      "catalog_key": "arco_tek_onipotente",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Onipote…",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekBow_Oni.AlfaItemWeapon_TekBow_Oni",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_Oni"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_surreal": {
+      "catalog_key": "arco_tek_surreal",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Surreal",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekBow_Sur.AlfaItemWeapon_TekBow_Sur",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_Sur"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "arco_tek_imaterial": {
+      "catalog_key": "arco_tek_imaterial",
+      "path": "/catalog/resources/arma_tekbow.webp",
+      "display_name": "Arco Tek ItensAlfa Imaterial",
+      "blueprint": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekBow_Im.AlfaItemWeapon_TekBow_Im",
+      "blueprint_tokens": [
+        "AlfaItemWeapon_TekBow_Im"
+      ],
+      "alias_of": "arma_tekbow",
+      "status": "alias",
+      "webp_kb": 4.8,
+      "size": "256x256"
     }
   },
   "count": 56
