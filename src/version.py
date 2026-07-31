@@ -8,12 +8,8 @@ BUILD_DATE: str = "2026-07-30"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
+# Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
-    {
-        "version": "Unreleased",
-        "date": "",
-        "changes": [],
-    },
     {
         "version": "1.10.103",
         "date": "2026-07-30",

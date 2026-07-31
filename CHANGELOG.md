@@ -5,8 +5,6 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased] - 
-
 ## [1.10.103] - 2026-07-30
 
 ### Feature
