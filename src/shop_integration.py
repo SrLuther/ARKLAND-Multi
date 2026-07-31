@@ -85,6 +85,37 @@ def catalog_entry_total(data: Dict[str, Any]) -> int:
     return ni + nk
 
 
+def strip_breeding_pack10_kits(catalog: Dict[str, Any]) -> int:
+    """Remove kits de breeding ``*_pack10`` (retirados do catálogo).
+
+    Mantém kit_alfa/beta/gamma, starter, recursos, VIP e ItensAlfa.
+    Retorna quantos kits foram removidos.
+    """
+    kits = catalog.get("Kits")
+    if not isinstance(kits, dict):
+        return 0
+    to_del = [
+        k
+        for k in list(kits.keys())
+        if isinstance(k, str) and k.lower().endswith("_pack10")
+    ]
+    for k in to_del:
+        kits.pop(k, None)
+    return len(to_del)
+
+
+def catalog_richness_score(data: Dict[str, Any]) -> int:
+    """Score para escolher a cópia «mais rica» — ignora *_pack10 (legado)."""
+    ni, nk = catalog_entry_counts(data)
+    kits = data.get("Kits") or {}
+    pack10 = 0
+    if isinstance(kits, dict):
+        pack10 = sum(
+            1 for k in kits if isinstance(k, str) and k.lower().endswith("_pack10")
+        )
+    return ni + max(0, nk - pack10)
+
+
 # Chaves de Settings definidas pelo TEK na sincronização (por mapa / cluster).
 # ServerId: ID do mapa para TribeSync (Minha Tribo) — independente de CrossChat.Enabled.
 TEK_MANAGED_SETTINGS_KEYS = frozenset(
@@ -665,7 +696,7 @@ def _pick_richest_catalog_path(candidates: List[Path]) -> Optional[Path]:
         if not p.is_file():
             continue
         try:
-            score = catalog_entry_total(load_plugin_config(p))
+            score = catalog_richness_score(load_plugin_config(p))
         except Exception:
             continue
         if score > best_score:
@@ -678,7 +709,7 @@ def _is_truncated_vs_alternatives(path: Path, alternatives: List[Path]) -> bool:
     """Detecta cópia WEBSTORE (ou mestre) muito menor que configs nos mapas."""
     if not path.is_file():
         return False
-    own = catalog_entry_total(load_plugin_config(path))
+    own = catalog_richness_score(load_plugin_config(path))
     best_other = 0
     try:
         resolved = path.resolve()
@@ -693,7 +724,7 @@ def _is_truncated_vs_alternatives(path: Path, alternatives: List[Path]) -> bool:
         except OSError:
             if alt == path:
                 continue
-        best_other = max(best_other, catalog_entry_total(load_plugin_config(alt)))
+        best_other = max(best_other, catalog_richness_score(load_plugin_config(alt)))
     return best_other >= 20 and own < max(10, int(best_other * 0.25))
 
 
@@ -739,12 +770,16 @@ def resolve_persistent_catalog_path(
     richest = _pick_richest_catalog_path(search_paths)
     if richest is not None and richest.resolve() != canonical.resolve():
         canonical_total = (
-            catalog_entry_total(load_plugin_config(canonical)) if canonical.is_file() else -1
+            catalog_richness_score(load_plugin_config(canonical)) if canonical.is_file() else -1
         )
-        if catalog_entry_total(load_plugin_config(richest)) > canonical_total:
+        if catalog_richness_score(load_plugin_config(richest)) > canonical_total:
             try:
                 canonical.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(richest, canonical)
+                # Guarda: pack10 legado não deve voltar via «cópia mais rica».
+                data = load_plugin_config(canonical)
+                if strip_breeding_pack10_kits(data):
+                    save_plugin_config(canonical, data)
             except OSError:
                 return richest
 
@@ -3601,13 +3636,18 @@ def diagnose_webstore_access(shop: "ShopGlobalConfig") -> Tuple[bool, str, bool]
 
 def load_plugin_config(path: Path) -> Dict[str, Any]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+    if isinstance(data, dict):
+        strip_breeding_pack10_kits(data)
+    return data if isinstance(data, dict) else {}
 
 
 def save_plugin_config(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(data, dict):
+        strip_breeding_pack10_kits(data)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

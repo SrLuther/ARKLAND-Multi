@@ -158,6 +158,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._update_auto_started: bool = False
         # Performance
         self._perf_running: bool = False
+        self._perf_thread: Any = None
+        self._perf_last_state: Dict[str, str] = {}
         self._asm_status_tick_running: bool = False
         self._perf_cpu_pct_var: Any = None
         self._perf_cpu_bar: Any = None
@@ -169,8 +171,13 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_gpu_pct_var: Any = None
         self._perf_gpu_bar: Any = None
         self._perf_gpu_info_var: Any = None
+        self._perf_gpu_temp_var: Any = None
         self._perf_server_procs: Dict[str, Any] = {}
         self._perf_servers_frame: Any = None
+        self._perf_servers_inner: Any = None
+        self._perf_critical_log: Any = None
+        self._perf_alert_warn_var: Any = None
+        self._perf_alert_crit_var: Any = None
         # Eventos Globais (rates + ActiveEvent)
         self._buff_manager: Any = None
         self._buffs_server_var: Any = None
@@ -1348,6 +1355,10 @@ class ARKServerManagerApp(ctk.CTk):
                 pass
         return conflicts
 
+    def _log_perf_critical(self, metric: str, pct: float, state: str) -> None:
+        from .pages.log_perf_critical import log_perf_critical
+        log_perf_critical(self, metric, pct, state)
+
     def _clear_perf_critical_log(self) -> None:
         log = getattr(self, "_perf_critical_log", None)
         if log:
@@ -2241,11 +2252,13 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _start_perf_monitor(self) -> None:
         import threading
-        if self._perf_running:
+        t = getattr(self, "_perf_thread", None)
+        if self._perf_running and t is not None and t.is_alive():
             return
         self._perf_running = True
         t = threading.Thread(
             target=self._perf_monitor_loop, daemon=True, name="PerfMonitor")
+        self._perf_thread = t
         t.start()
 
     def _perf_monitor_loop(self) -> None:

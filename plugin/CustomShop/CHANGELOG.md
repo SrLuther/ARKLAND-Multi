@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.38] - 2026-07-31
+
+### Feature
+
+- **Nome = rastreio no 1º spawn**: claim da loja web devolve `public_codes`; `DeliverDino` aplica `TamedNameField` (cryo/chão) com o mesmo `public_code` da auditoria.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.38) em cada mapa.
+
 ## [1.10.37] - 2026-07-30
 
 ### Feature

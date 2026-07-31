@@ -40,6 +40,9 @@ def _reset_public_codes():
 def audit_db(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'cdg.db'}")
     ensure_catalog_dino_generations_schema(engine)
+    from catalog_dino_audit_service import ensure_catalog_dino_code_reservations_schema
+
+    ensure_catalog_dino_code_reservations_schema(engine)
     Session = sessionmaker(bind=engine)
     db = Session()
     db.execute(
@@ -67,6 +70,11 @@ def test_canonical_and_species_helpers():
     assert species_key_from_item_id("rex_l200") == "rex"
     assert mask_display_name("AlphaTester") == "Alp***ter"
     assert mask_display_name("76561198000000001") == "Jogador"
+    from catalog_dino_audit_service import public_display_name
+
+    assert public_display_name("AlphaTester") == "AlphaTester"
+    assert public_display_name("76561198000000001") == "Jogador"
+    assert public_display_name("") == "Jogador"
 
 
 def test_public_code_mapping():
@@ -153,7 +161,7 @@ def test_register_filters_level_and_lists_public(audit_db):
 
     all_rows = list_public_catalog_dinos(audit_db, page=1, page_size=10)
     assert all_rows["total"] == 2
-    assert all_rows["items"][0]["display_name"] == "Alp***ter"
+    assert all_rows["items"][0]["display_name"] == "AlphaTester"
     assert "steam_id" not in all_rows["items"][0]
     assert all_rows["items"][0]["public_code"]
     assert all_rows["items"][0]["public_code"].startswith("R")
@@ -337,3 +345,67 @@ def test_plugin_catalog_dino_lookup_endpoint(tmp_path, monkeypatch):
     )
     assert bad.status_code == 400
     assert bad.get_json()["error"] == "invalid_id"
+
+
+def test_reserve_public_codes_and_register_reuse(audit_db):
+    from catalog_dino_audit_service import reserve_public_codes_for_order
+
+    catalog = {
+        "Items": {
+            "rex": {
+                "Type": "dino",
+                "Dinos": [
+                    {
+                        "Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+                        "Level": 1,
+                        "Gender": "female",
+                    }
+                ],
+            }
+        }
+    }
+    seed_families_from_catalog(catalog)
+    codes = reserve_public_codes_for_order(
+        audit_db,
+        order_id="ord-claim-1",
+        steam_id="76561198000000001",
+        item_type="shop",
+        item_id="rex",
+        amount=1,
+        catalog=catalog,
+    )
+    assert len(codes) == 1
+    assert codes[0].startswith("R")
+    # reclaim devolve os mesmos
+    again = reserve_public_codes_for_order(
+        audit_db,
+        order_id="ord-claim-1",
+        steam_id="76561198000000001",
+        item_type="shop",
+        item_id="rex",
+        amount=1,
+        catalog=catalog,
+    )
+    assert again == codes
+
+    n = register_catalog_dino_records(
+        audit_db,
+        steam_id="76561198000000001",
+        catalog=catalog,
+        dino_records=[
+            {
+                "order_id": "ord-claim-1",
+                "item_id": "rex",
+                "dino_id1": 50,
+                "dino_id2": 60,
+                "level": 1,
+                "gender": "female",
+                "public_code": codes[0],
+            }
+        ],
+    )
+    audit_db.commit()
+    assert n == 1
+    listed = list_public_catalog_dinos(audit_db, level=1)
+    assert listed["items"][0]["public_code"] == codes[0]
+    assert listed["items"][0]["display_name"] == "AlphaTester"

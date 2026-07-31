@@ -502,6 +502,9 @@ bool DeliverPending(AShooterPlayerController* controller) {
         const std::string item_id = item.value("item_id", "");
         const int amount = item.value("amount", 1);
         const bool skip_kit_limit = item.value("skip_kit_limit", false);
+        nlohmann::json public_codes = item.value("public_codes", nlohmann::json::array());
+        const nlohmann::json* codes_ptr =
+            public_codes.is_array() && !public_codes.empty() ? &public_codes : nullptr;
 
         if (order_id.empty() || item_id.empty()) continue;
 
@@ -512,12 +515,12 @@ bool DeliverPending(AShooterPlayerController* controller) {
 
         if (item_type == "kit") {
             ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason,
-                                &order_dinos);
+                                &order_dinos, codes_ptr);
             if (!ok && IsUnknownCatalogFailure(fail_reason) && TryReloadConfigForDelivery()) {
                 fail_reason.clear();
                 order_dinos = nlohmann::json::array();
                 ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason,
-                                    &order_dinos);
+                                    &order_dinos, codes_ptr);
                 if (ok) detail = "GiveKit ok (after config reload)";
             }
             if (detail.empty())
@@ -526,12 +529,12 @@ bool DeliverPending(AShooterPlayerController* controller) {
                                 item_id, order_id, ok ? "OK" : "FAIL", detail);
         } else {
             ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason,
-                                 &order_dinos);
+                                 &order_dinos, codes_ptr);
             if (!ok && IsUnknownCatalogFailure(fail_reason) && TryReloadConfigForDelivery()) {
                 fail_reason.clear();
                 order_dinos = nlohmann::json::array();
                 ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason,
-                                     &order_dinos);
+                                     &order_dinos, codes_ptr);
                 if (ok) detail = "GiveItem ok (after config reload)";
             }
             if (detail.empty())

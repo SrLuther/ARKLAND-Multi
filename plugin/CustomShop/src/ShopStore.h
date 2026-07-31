@@ -28,12 +28,14 @@ bool BuyKit(AShooterPlayerController* controller,
 // skip_limit_check: true for admin manual delivery (ignores DefaultAmount).
 // fail_reason: optional out — machine-readable cause when returning false.
 // out_dino_records: optional JSON array of {dino_id1,dino_id2,level} per spawn.
+// public_codes: optional JSON string array — Name/TamedName = public_code on L1/L200 spawn.
 bool GiveKit(AShooterPlayerController* controller,
              const std::string& kit_id,
              bool skip_permission_check = false,
              bool skip_limit_check = false,
              std::string* fail_reason = nullptr,
-             nlohmann::json* out_dino_records = nullptr);
+             nlohmann::json* out_dino_records = nullptr,
+             const nlohmann::json* public_codes = nullptr);
 
 // Deliver an item without charging points (web store / admin use).
 bool GiveItem(AShooterPlayerController* controller,
@@ -41,7 +43,8 @@ bool GiveItem(AShooterPlayerController* controller,
               int amount = 1,
               bool skip_permission_check = false,
               std::string* fail_reason = nullptr,
-              nlohmann::json* out_dino_records = nullptr);
+              nlohmann::json* out_dino_records = nullptr,
+              const nlohmann::json* public_codes = nullptr);
 
 } // namespace Store
 } // namespace CustomShop

@@ -1,12 +1,27 @@
 from __future__ import annotations
+
 import subprocess
 from typing import TYPE_CHECKING, Optional
+
+try:
+    import psutil as _psutil  # type: ignore[reportMissingModuleSource]
+    _PSUTIL_OK = True
+except Exception:
+    _psutil = None  # type: ignore[assignment]
+    _PSUTIL_OK = False
+
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
+# wmic/ACPI costuma falhar ou demorar em hosts sem sensor térmico exposto —
+# após 1 falha, não bloquear o loop de Desempenho de novo.
+_WMI_TEMP_OK: Optional[bool] = None
 
-def get_cpu_temp(app: "ARKServerManagerApp") -> "Optional[float]":
+
+def get_cpu_temp(_app: "ARKServerManagerApp") -> "Optional[float]":
     """Tenta obter temperatura do CPU via psutil (Linux) ou ACPI WMI (Windows)."""
+    global _WMI_TEMP_OK
+
     if _PSUTIL_OK and _psutil is not None:
         try:
             temps = _psutil.sensors_temperatures()
@@ -19,8 +34,10 @@ def get_cpu_temp(app: "ARKServerManagerApp") -> "Optional[float]":
                         return max(e.current for e in entries)
         except Exception:
             pass
-    # Fallback Windows: ACPI via WMI
-    import subprocess
+
+    if _WMI_TEMP_OK is False:
+        return None
+
     try:
         out = subprocess.check_output(
             ["wmic", "/namespace:\\\\root\\wmi", "path",
@@ -28,7 +45,7 @@ def get_cpu_temp(app: "ARKServerManagerApp") -> "Optional[float]":
              "get", "CurrentTemperature", "/value"],
             creationflags=0x08000000,
             stderr=subprocess.DEVNULL,
-            timeout=5,
+            timeout=2,
         ).decode(errors="replace")
         vals = []
         for ln in out.splitlines():
@@ -42,8 +59,9 @@ def get_cpu_temp(app: "ARKServerManagerApp") -> "Optional[float]":
                 except ValueError:
                     pass
         if vals:
+            _WMI_TEMP_OK = True
             return max(vals)
+        _WMI_TEMP_OK = False
     except Exception:
-        pass
+        _WMI_TEMP_OK = False
     return None
-

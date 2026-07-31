@@ -10,6 +10,7 @@ struct DeliverDinoResult {
     uint32_t dino_id2 = 0;
     int level = 0;
     std::string gender;  // catalog Gender → auditoria pública
+    std::string public_code;  // Name/TamedName aplicado no spawn (rastreio)
 };
 
 // Entrega um dino definido em Dinos[] — spawn no chão ou cryopod conforme config/entry.

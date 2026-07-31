@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.104] - 2026-07-31
+
+### Feature
+
+- Feat (CustomShop 1.10.38 + Web Store): no claim, pré-aloca public_codes; plugin define TamedName = public_code no 1º spawn de dinos L1/L200 do catálogo (e kits alfa/beta/gamma).
+
+### Fix
+
+- Fix (Desempenho): painel ficava em «Aguardando…» / «Iniciando monitoramento…» — get_cpu_temp e collect_server_stats usavam _PSUTIL_OK sem import (NameError a cada ciclo); agora importam psutil, isolam métricas opcionais, cacheiam nvidia-smi/WMI indisponíveis (ex. G210) e leem PIDs via asm_server_manager.
+- Fix (Web Store / Auditoria Dinos): GET /api/public/catalog-dinos mostra o nome Steam completo (sem máscara Dem***dor) — auditoria pública intencional; Steam ID64 continua oculto.
+- Fix (Web Store / Kits): strip_breeding_pack10_kits no load/save do catálogo e score «mais rica» ignora *_pack10 — evita reintrodução via WEBSTORE/Desktop Test/docs/config.json.
+
 ## [1.10.103] - 2026-07-30
 
 ### Feature

@@ -1,18 +1,32 @@
 ﻿from __future__ import annotations
-from typing import TYPE_CHECKING
-from ..ui_constants import _GREEN
+
 import time
+from typing import TYPE_CHECKING, Optional
+
 try:
     import psutil as _psutil  # type: ignore[reportMissingModuleSource]
 except Exception:
     _psutil = None  # type: ignore[assignment]
+
+from ..ui_constants import _GREEN
+
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
+# nvidia-smi ausente (ex.: G210 sem driver/smi) — não ficar pagando timeout a cada ciclo
+_NVIDIA_SMI_OK: Optional[bool] = None
+
 
 def perf_monitor_loop(app: "ARKServerManagerApp") -> None:
-    import time
-    assert _psutil is not None
+    global _NVIDIA_SMI_OK
+
+    if _psutil is None:
+        app._perf_running = False
+        return
+
+    if not hasattr(app, "_perf_last_state") or app._perf_last_state is None:
+        app._perf_last_state = {}
+
     while app._perf_running:
         try:
             cpu_pct = _psutil.cpu_percent(interval=2)
@@ -21,21 +35,45 @@ def perf_monitor_loop(app: "ARKServerManagerApp") -> None:
             mem = _psutil.virtual_memory()
             freq = _psutil.cpu_freq()
             cores_phys = _psutil.cpu_count(logical=False) or 1
-            cores_log  = _psutil.cpu_count(logical=True) or 1
+            cores_log = _psutil.cpu_count(logical=True) or 1
 
             freq_str = f"{freq.current / 1000:.2f} GHz" if freq else ""
             cpu_info = f"{cores_phys} núcleos  /  {cores_log} threads"
             if freq_str:
                 cpu_info += f"  ·  {freq_str}"
 
-            used_gb  = mem.used  / (1024 ** 3)
+            used_gb = mem.used / (1024 ** 3)
             total_gb = mem.total / (1024 ** 3)
             ram_info = f"{used_gb:.1f} GB  /  {total_gb:.1f} GB  ({mem.percent:.0f}%)"
 
-            gpu_pct  = app._get_nvidia_gpu_pct()
-            gpu_temp = app._get_nvidia_gpu_temp()
-            cpu_temp = app._get_cpu_temp()
-            srv_stats = app._collect_server_stats()
+            # Métricas opcionais isoladas — falha não pode travar CPU/RAM/servidores
+            gpu_pct: Optional[float] = None
+            gpu_temp: Optional[float] = None
+            cpu_temp: Optional[float] = None
+            srv_stats: list = []
+
+            if _NVIDIA_SMI_OK is not False:
+                try:
+                    gpu_pct = app._get_nvidia_gpu_pct()
+                    gpu_temp = app._get_nvidia_gpu_temp()
+                    if gpu_pct is None and gpu_temp is None:
+                        _NVIDIA_SMI_OK = False
+                    else:
+                        _NVIDIA_SMI_OK = True
+                except Exception:
+                    _NVIDIA_SMI_OK = False
+                    gpu_pct = None
+                    gpu_temp = None
+
+            try:
+                cpu_temp = app._get_cpu_temp()
+            except Exception:
+                cpu_temp = None
+
+            try:
+                srv_stats = app._collect_server_stats()
+            except Exception:
+                srv_stats = []
 
             def _update(cp=cpu_pct, rp=float(mem.percent), ci=cpu_info,
                          ri=ram_info, gp=gpu_pct,
@@ -76,6 +114,8 @@ def perf_monitor_loop(app: "ARKServerManagerApp") -> None:
                             clr = _GREEN if gp < 70 else ("#ffaa44" if gp < 90 else "#ff4444")
                             app._perf_gpu_bar.configure(progress_color=clr)
                             app._perf_gpu_bar.set(gp / 100)
+                    elif app._perf_gpu_pct_var:
+                        app._perf_gpu_pct_var.set("N/D")
                     if app._perf_gpu_temp_var:
                         if gt is not None:
                             app._perf_gpu_temp_var.set(f"🌡 Temperatura: {gt:.0f} °C")
@@ -117,8 +157,12 @@ def perf_monitor_loop(app: "ARKServerManagerApp") -> None:
                 _old_st = app._perf_last_state.get(_metric, "ok")
                 if _new_st != _old_st:
                     app._perf_last_state[_metric] = _new_st
-                    app._log_perf_critical(_metric, _val, _new_st)
+                    try:
+                        app._log_perf_critical(_metric, _val, _new_st)
+                    except Exception:
+                        pass
 
         except Exception:
             time.sleep(2)
 
+    app._perf_running = False

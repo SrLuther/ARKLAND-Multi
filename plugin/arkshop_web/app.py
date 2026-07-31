@@ -1944,9 +1944,13 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("Dino Lab block (sqlite dev): migrate falhou: %s", exc)
         try:
-            from catalog_dino_audit_service import ensure_catalog_dino_generations_schema
+            from catalog_dino_audit_service import (
+                ensure_catalog_dino_code_reservations_schema,
+                ensure_catalog_dino_generations_schema,
+            )
 
             ensure_catalog_dino_generations_schema(engine)
+            ensure_catalog_dino_code_reservations_schema(engine)
         except Exception as exc:
             log.warning("Catalog dino audit (sqlite dev): migrate falhou: %s", exc)
         try:
@@ -2132,9 +2136,13 @@ def _migrate_schema(engine: Any) -> None:
     except Exception as exc:
         log.warning("Dino Lab block: migrate falhou: %s", exc)
     try:
-        from catalog_dino_audit_service import ensure_catalog_dino_generations_schema
+        from catalog_dino_audit_service import (
+            ensure_catalog_dino_code_reservations_schema,
+            ensure_catalog_dino_generations_schema,
+        )
 
         ensure_catalog_dino_generations_schema(engine)
+        ensure_catalog_dino_code_reservations_schema(engine)
     except Exception as exc:
         log.warning("Catalog dino audit: migrate falhou: %s", exc)
     try:
@@ -8985,7 +8993,28 @@ def claim_pending_orders():
             )
             if int(getattr(updated, "rowcount", 0) or 0) <= 0:
                 continue
-            claimed.append(_order_to_pending_item(order))
+            pending_item = _order_to_pending_item(order)
+            try:
+                from catalog_dino_audit_service import reserve_public_codes_for_order
+
+                codes = reserve_public_codes_for_order(
+                    db,
+                    order_id=str(getattr(order, "order_id", "") or ""),
+                    steam_id=steam_id,
+                    item_type=str(getattr(order, "item_type", None) or "shop"),
+                    item_id=str(pending_item.get("item_id") or getattr(order, "item_id", "") or ""),
+                    amount=int(getattr(order, "amount", 1) or 1),
+                    catalog=_peek_shop_config(),
+                )
+                if codes:
+                    pending_item["public_codes"] = codes
+            except Exception as code_exc:
+                log.warning(
+                    "catalog_dino reserve codes falhou order=%s: %s",
+                    getattr(order, "order_id", ""),
+                    code_exc,
+                )
+            claimed.append(pending_item)
         db.commit()
         if claimed:
             _invalidate_pending_delivery_cache(steam_id)
@@ -9204,6 +9233,12 @@ def release_pending_orders():
                 continue
             if to_erro:
                 errored.append(order_id)
+                try:
+                    from catalog_dino_audit_service import release_public_code_reservations
+
+                    release_public_code_reservations(db, [order_id])
+                except Exception:
+                    pass
                 _audit_event(
                     "shop_delivery_erro_after_identical_fails",
                     severity="error",
@@ -10127,12 +10162,38 @@ def _read_json_file(path: Path) -> dict[str, Any]:
     try:
         text_body = path.read_text(encoding="utf-8-sig")
         try:
-            return json.loads(text_body)
+            data = json.loads(text_body)
         except json.JSONDecodeError:
             cleaned = re.sub(r"//[^\n]*", "", text_body)
-            return json.loads(cleaned)
+            data = json.loads(cleaned)
     except Exception:
         return {}
+    if not isinstance(data, dict):
+        return {}
+    try:
+        from src.shop_integration import strip_breeding_pack10_kits
+
+        removed = strip_breeding_pack10_kits(data)
+        if removed:
+            try:
+                path.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                log.info(
+                    "strip_breeding_pack10_kits: removeu %s kits em %s",
+                    removed,
+                    path,
+                )
+            except OSError as exc:
+                log.warning(
+                    "strip_breeding_pack10_kits: falha ao persistir %s: %s",
+                    path,
+                    exc,
+                )
+    except Exception:
+        pass
+    return data
 
 
 def _merge_catalog_into_plugin(existing: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:

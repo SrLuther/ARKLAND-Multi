@@ -250,6 +250,14 @@ DeliverDinoResult DeliverDino(AShooterPlayerController* controller,
 
     ApplyGender(dino, gender);
 
+    const std::string tame_name = entry.value(
+        "Name", entry.value("TamedName", entry.value("public_code", "")));
+    if (!tame_name.empty()) {
+        FString fname(tame_name.c_str());
+        dino->TamedNameField() = fname;
+        result.public_code = tame_name;
+    }
+
     // Captura identidade antes do Destroy no caminho cryopod.
     int id1 = 0;
     int id2 = 0;

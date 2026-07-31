@@ -233,6 +233,163 @@ def ensure_catalog_dino_generations_schema(engine: Engine) -> None:
         conn.commit()
 
 
+def ensure_catalog_dino_code_reservations_schema(engine: Engine) -> None:
+    """Reservas de public_code no claim (antes do spawn) — idempotente."""
+    is_sqlite = "sqlite" in str(engine.url).lower()
+    with engine.connect() as conn:
+        if is_sqlite:
+            conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS catalog_dino_code_reservations ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "public_code VARCHAR(16) NOT NULL UNIQUE,"
+                    "order_id VARCHAR(64) NOT NULL,"
+                    "slot_index INTEGER NOT NULL,"
+                    "species_key VARCHAR(128) NOT NULL DEFAULT '',"
+                    "gender_digit SMALLINT NOT NULL DEFAULT 3,"
+                    "steam_id VARCHAR(32) NOT NULL DEFAULT '',"
+                    "created_at DATETIME NOT NULL,"
+                    "UNIQUE (order_id, slot_index)"
+                    ")"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_cdcr_order "
+                    "ON catalog_dino_code_reservations (order_id)"
+                )
+            )
+            conn.commit()
+            return
+        row = conn.execute(
+            text("SHOW TABLES LIKE 'catalog_dino_code_reservations'")
+        ).fetchone()
+        if row is None:
+            conn.execute(
+                text(
+                    "CREATE TABLE catalog_dino_code_reservations ("
+                    "id INT AUTO_INCREMENT PRIMARY KEY,"
+                    "public_code VARCHAR(16) NOT NULL,"
+                    "order_id VARCHAR(64) NOT NULL,"
+                    "slot_index INT NOT NULL,"
+                    "species_key VARCHAR(128) NOT NULL DEFAULT '',"
+                    "gender_digit SMALLINT NOT NULL DEFAULT 3,"
+                    "steam_id VARCHAR(32) NOT NULL DEFAULT '',"
+                    "created_at DATETIME NOT NULL,"
+                    "UNIQUE KEY uq_cdcr_code (public_code),"
+                    "UNIQUE KEY uq_cdcr_order_slot (order_id, slot_index),"
+                    "INDEX idx_cdcr_order (order_id)"
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                )
+            )
+        conn.commit()
+
+
+def _normalize_bp(raw: str) -> str:
+    s = str(raw or "").strip().lower()
+    if s.startswith("blueprint'"):
+        s = s[len("blueprint'") :]
+    if s.endswith("'"):
+        s = s[:-1]
+    return s.strip()
+
+
+def _species_key_from_blueprint(catalog: dict[str, Any] | None, blueprint: str) -> str:
+    want = _normalize_bp(blueprint)
+    if not want or not isinstance(catalog, dict):
+        return ""
+    items = catalog.get("Items") or catalog.get("ShopItems") or {}
+    if not isinstance(items, dict):
+        return ""
+    for kid, entry in items.items():
+        if not isinstance(entry, dict):
+            continue
+        dinos = entry.get("Dinos")
+        if not isinstance(dinos, list):
+            continue
+        for dino in dinos:
+            if not isinstance(dino, dict):
+                continue
+            if _normalize_bp(str(dino.get("Blueprint") or "")) == want:
+                return species_key_from_item_id(str(kid))
+    return ""
+
+
+def list_audit_spawn_slots(
+    catalog: dict[str, Any] | None,
+    *,
+    item_type: str,
+    item_id: str,
+    amount: int = 1,
+) -> list[dict[str, Any]]:
+    """Slots L1/L200 que o plugin vai spawnar (para pré-alocar public_code)."""
+    if not isinstance(catalog, dict):
+        return []
+    qty = max(1, int(amount or 1))
+    itype = str(item_type or "shop").strip().lower()
+    iid = str(item_id or "").strip()
+    if not iid:
+        return []
+    dinos: list[Any] = []
+    if itype == "kit":
+        kits = catalog.get("Kits") or {}
+        entry = kits.get(iid) if isinstance(kits, dict) else None
+        if isinstance(entry, dict) and isinstance(entry.get("Dinos"), list):
+            dinos = list(entry["Dinos"])
+        qty = 1  # GiveKit não multiplica amount
+    else:
+        items = catalog.get("Items") or catalog.get("ShopItems") or {}
+        entry = items.get(iid) if isinstance(items, dict) else None
+        if isinstance(entry, dict) and isinstance(entry.get("Dinos"), list):
+            dinos = list(entry["Dinos"])
+    slots: list[dict[str, Any]] = []
+    for _ in range(qty):
+        for dino in dinos:
+            if not isinstance(dino, dict):
+                continue
+            level = int(dino.get("Level") or 0)
+            if level not in _ALLOWED_LEVELS:
+                continue
+            bp = str(dino.get("Blueprint") or "")
+            species = _species_key_from_blueprint(catalog, bp) or species_key_from_item_id(iid)
+            gender_digit = resolve_gender_digit(
+                payload_gender=dino.get("Gender", dino.get("gender")),
+                item_id=iid or species,
+                catalog_entry=dino,
+            )
+            slots.append(
+                {
+                    "species_key": species,
+                    "gender_digit": gender_digit,
+                    "level": level,
+                }
+            )
+    return slots
+
+
+def _code_taken(db: Session, code: str) -> bool:
+    exists = db.execute(
+        text(
+            "SELECT 1 FROM catalog_dino_generations "
+            "WHERE public_code = :c LIMIT 1"
+        ),
+        {"c": code},
+    ).fetchone()
+    if exists:
+        return True
+    try:
+        reserved = db.execute(
+            text(
+                "SELECT 1 FROM catalog_dino_code_reservations "
+                "WHERE public_code = :c LIMIT 1"
+            ),
+            {"c": code},
+        ).fetchone()
+    except Exception:
+        return False
+    return reserved is not None
+
+
 def _resolve_display_name(db: Session, steam_id: str) -> str | None:
     try:
         row = db.execute(
@@ -263,6 +420,7 @@ def _as_u32(raw: Any) -> int:
 def _next_sequence_for_prefix(db: Session, prefix: str) -> int:
     """Próximo seq 1..n único dentro do prefixo tipo+variante+género."""
     # Códigos: prefix(3) + digits; extrai sufixo numérico dos existentes.
+    codes: list[str] = []
     rows = db.execute(
         text(
             "SELECT public_code FROM catalog_dino_generations "
@@ -270,10 +428,21 @@ def _next_sequence_for_prefix(db: Session, prefix: str) -> int:
         ),
         {"pat": f"{prefix}%"},
     ).fetchall()
+    codes.extend(str(row[0] or "") for row in rows)
+    try:
+        rows_r = db.execute(
+            text(
+                "SELECT public_code FROM catalog_dino_code_reservations "
+                "WHERE public_code LIKE :pat"
+            ),
+            {"pat": f"{prefix}%"},
+        ).fetchall()
+        codes.extend(str(row[0] or "") for row in rows_r)
+    except Exception:
+        pass
     max_seq = 0
     plen = len(prefix)
-    for row in rows:
-        code = str(row[0] or "")
+    for code in codes:
         if not code.startswith(prefix):
             continue
         tail = code[plen:]
@@ -290,28 +459,160 @@ def _allocate_public_code(
 ) -> str:
     family, variant = parse_species_key(species_key)
     prefix = code_prefix(family, variant, gender_digit)
-    for _ in range(20):
+    for _ in range(40):
         seq = _next_sequence_for_prefix(db, prefix)
         code = build_public_code(
             species_key=species_key,
             gender_digit=gender_digit,
             sequence=seq,
         )
-        exists = db.execute(
-            text(
-                "SELECT 1 FROM catalog_dino_generations "
-                "WHERE public_code = :c LIMIT 1"
-            ),
-            {"c": code},
-        ).fetchone()
-        if not exists:
+        if not _code_taken(db, code):
             return code
-    # Fallback extremo: seq com timestamp parcial
     return build_public_code(
         species_key=species_key,
         gender_digit=gender_digit,
         sequence=int(datetime.now(timezone.utc).timestamp()) % 100000,
     )
+
+
+def reserve_public_codes_for_order(
+    db: Session,
+    *,
+    order_id: str,
+    steam_id: str,
+    item_type: str,
+    item_id: str,
+    amount: int = 1,
+    catalog: dict[str, Any] | None = None,
+) -> list[str]:
+    """Pré-aloca public_codes no claim para o plugin nomear o dino no 1º spawn."""
+    oid = str(order_id or "").strip()
+    if not oid:
+        return []
+    if catalog:
+        seed_families_from_catalog(catalog)
+    # Já reservado (reclaim) — devolve na ordem dos slots.
+    existing = db.execute(
+        text(
+            "SELECT public_code FROM catalog_dino_code_reservations "
+            "WHERE order_id = :oid ORDER BY slot_index ASC"
+        ),
+        {"oid": oid},
+    ).fetchall()
+    if existing:
+        return [str(r[0]) for r in existing if str(r[0] or "").strip()]
+
+    slots = list_audit_spawn_slots(
+        catalog,
+        item_type=item_type,
+        item_id=item_id,
+        amount=amount,
+    )
+    if not slots:
+        return []
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    is_sqlite = "sqlite" in str(db.get_bind().url).lower()
+    insert_sql = (
+        "INSERT OR IGNORE INTO catalog_dino_code_reservations "
+        "(public_code, order_id, slot_index, species_key, gender_digit, steam_id, created_at) "
+        "VALUES (:pc, :oid, :slot, :sk, :gd, :sid, :crt)"
+        if is_sqlite
+        else "INSERT IGNORE INTO catalog_dino_code_reservations "
+        "(public_code, order_id, slot_index, species_key, gender_digit, steam_id, created_at) "
+        "VALUES (:pc, :oid, :slot, :sk, :gd, :sid, :crt)"
+    )
+    codes: list[str] = []
+    for idx, slot in enumerate(slots):
+        species = str(slot.get("species_key") or item_id)
+        gender_digit = int(slot.get("gender_digit") or 3)
+        parse_species_key(species)
+        code = _allocate_public_code(
+            db, species_key=species, gender_digit=gender_digit
+        )
+        db.execute(
+            text(insert_sql),
+            {
+                "pc": code,
+                "oid": oid,
+                "slot": idx,
+                "sk": species,
+                "gd": gender_digit,
+                "sid": str(steam_id or ""),
+                "crt": now,
+            },
+        )
+        codes.append(code)
+    return codes
+
+
+def release_public_code_reservations(db: Session, order_ids: list[str]) -> int:
+    ids = [str(x).strip() for x in (order_ids or []) if str(x).strip()]
+    if not ids:
+        return 0
+    deleted = 0
+    for oid in ids:
+        result = db.execute(
+            text(
+                "DELETE FROM catalog_dino_code_reservations WHERE order_id = :oid"
+            ),
+            {"oid": oid},
+        )
+        try:
+            deleted += int(result.rowcount or 0)
+        except Exception:
+            pass
+    return deleted
+
+
+def _consume_public_code_reservation(
+    db: Session, *, public_code: str, order_id: str
+) -> None:
+    code = str(public_code or "").strip()
+    oid = str(order_id or "").strip()
+    if not code:
+        return
+    try:
+        if oid:
+            db.execute(
+                text(
+                    "DELETE FROM catalog_dino_code_reservations "
+                    "WHERE public_code = :c AND order_id = :oid"
+                ),
+                {"c": code, "oid": oid},
+            )
+        else:
+            db.execute(
+                text(
+                    "DELETE FROM catalog_dino_code_reservations "
+                    "WHERE public_code = :c"
+                ),
+                {"c": code},
+            )
+    except Exception:
+        pass
+
+
+def _take_next_reservation_for_order(db: Session, *, order_id: str) -> str | None:
+    oid = str(order_id or "").strip()
+    if not oid:
+        return None
+    try:
+        row = db.execute(
+            text(
+                "SELECT public_code FROM catalog_dino_code_reservations "
+                "WHERE order_id = :oid ORDER BY slot_index ASC LIMIT 1"
+            ),
+            {"oid": oid},
+        ).fetchone()
+    except Exception:
+        return None
+    if not row:
+        return None
+    code = str(row[0] or "").strip()
+    if code:
+        _consume_public_code_reservation(db, public_code=code, order_id=oid)
+    return code or None
 
 
 def register_catalog_dino_records(
@@ -374,7 +675,15 @@ def register_catalog_dino_records(
         )
         # Garante letra da família registada antes de alocar
         parse_species_key(species)  # side-effect via family_letter on allocate
-        public = _allocate_public_code(db, species_key=species, gender_digit=gender_digit)
+        reserved = str(rec.get("public_code") or "").strip()
+        if reserved:
+            public = reserved
+            _consume_public_code_reservation(db, public_code=public, order_id=order_id)
+        else:
+            taken = _take_next_reservation_for_order(db, order_id=order_id)
+            public = taken or _allocate_public_code(
+                db, species_key=species, gender_digit=gender_digit
+            )
         result = db.execute(
             text(insert_sql),
             {
@@ -401,6 +710,14 @@ def register_catalog_dino_records(
     return inserted
 
 
+def public_display_name(name: str | None) -> str:
+    """Nome completo para auditoria pública — nunca Steam ID64 cru."""
+    src = (name or "").strip()
+    if not src or _STEAMID_RE.match(src):
+        return "Jogador"
+    return src
+
+
 def list_public_catalog_dinos(
     db: Session,
     *,
@@ -409,7 +726,7 @@ def list_public_catalog_dinos(
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
-    """Lista pública — sem Steam ID64 cru; display_name mascarado; public_code em destaque."""
+    """Lista pública — sem Steam ID64; display_name completo (auditoria intencional)."""
     page = max(1, int(page or 1))
     page_size = max(1, min(100, int(page_size or 50)))
     clauses = ["level IN (1, 200)"]
@@ -456,7 +773,7 @@ def list_public_catalog_dinos(
                 "item_id": str(row[3] or ""),
                 "level": int(row[4] or 0),
                 "species_key": str(row[5] or ""),
-                "display_name": mask_display_name(raw_name) if raw_name else "Jogador",
+                "display_name": public_display_name(raw_name),
                 "delivered_at": str(row[7] or "")[:19] if len(row) > 7 else "",
             }
         )
