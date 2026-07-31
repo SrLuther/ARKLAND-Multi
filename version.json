@@ -1,11 +1,8 @@
 {
-    "version": "1.10.104",
+    "version": "1.10.105",
     "date": "2026-07-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.104/ARKLAND-Multi-Setup-v1.10.104.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.105/ARKLAND-Multi-Setup-v1.10.105.exe",
     "changelog": [
-        "Fix (Desempenho): painel ficava em «Aguardando…» / «Iniciando monitoramento…» — get_cpu_temp e collect_server_stats usavam _PSUTIL_OK sem import (NameError a cada ciclo); agora importam psutil, isolam métricas opcionais, cacheiam nvidia-smi/WMI indisponíveis (ex. G210) e leem PIDs via asm_server_manager.",
-        "Fix (Web Store / Auditoria Dinos): GET /api/public/catalog-dinos mostra o nome Steam completo (sem máscara Dem***dor) — auditoria pública intencional; Steam ID64 continua oculto.",
-        "Fix (Web Store / Kits): strip_breeding_pack10_kits no load/save do catálogo e score «mais rica» ignora *_pack10 — evita reintrodução via WEBSTORE/Desktop Test/docs/config.json.",
-        "Feat (CustomShop 1.10.38 + Web Store): no claim, pré-aloca public_codes; plugin define TamedName = public_code no 1º spawn de dinos L1/L200 do catálogo (e kits alfa/beta/gamma)."
+        "Fix (Desempenho): temperatura CPU no Windows passa a tentar LibreHardwareMonitor / OpenHardwareMonitor, contador de zona térmica e MSAcpi (CIM + wmic) numa única sonda — corrige N/D quando só o wmic ACPI falhava; Xeon sem sensor ACPI continua N/D até haver LHM/OHM a correr. GPU: nvidia-smi com deteção rápida + fallback LHM/OHM; G210 sem smi/monitor permanece N/D (sem valores inventados)."
     ]
 }

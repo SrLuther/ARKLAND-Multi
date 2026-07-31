@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.105] - 2026-07-31
+
+### Fix
+
+- Fix (Desempenho): temperatura CPU no Windows passa a tentar LibreHardwareMonitor / OpenHardwareMonitor, contador de zona térmica e MSAcpi (CIM + wmic) numa única sonda — corrige N/D quando só o wmic ACPI falhava; Xeon sem sensor ACPI continua N/D até haver LHM/OHM a correr. GPU: nvidia-smi com deteção rápida + fallback LHM/OHM; G210 sem smi/monitor permanece N/D (sem valores inventados).
+
 ## [1.10.104] - 2026-07-31
 
 ### Feature

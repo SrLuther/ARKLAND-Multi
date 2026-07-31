@@ -3,13 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.104"
+APP_VERSION: str = "1.10.105"
 BUILD_DATE: str = "2026-07-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.105",
+        "date": "2026-07-31",
+        "changes": [
+            "Fix (Desempenho): temperatura CPU no Windows passa a tentar "
+            "LibreHardwareMonitor / OpenHardwareMonitor, contador de zona "
+            "térmica e MSAcpi (CIM + wmic) numa única sonda — corrige N/D "
+            "quando só o wmic ACPI falhava; Xeon sem sensor ACPI continua "
+            "N/D até haver LHM/OHM a correr. GPU: nvidia-smi com deteção "
+            "rápida + fallback LHM/OHM; G210 sem smi/monitor permanece N/D "
+            "(sem valores inventados).",
+        ],
+    },
     {
         "version": "1.10.104",
         "date": "2026-07-31",

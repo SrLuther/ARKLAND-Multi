@@ -13,12 +13,14 @@ from ..ui_constants import _GREEN
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
-# nvidia-smi ausente (ex.: G210 sem driver/smi) — não ficar pagando timeout a cada ciclo
-_NVIDIA_SMI_OK: Optional[bool] = None
+# Após falhas consecutivas de GPU (sem nvidia-smi / LHM), espaçar novas tentativas
+_GPU_METRICS_OK: Optional[bool] = None
+_GPU_RETRY_AT: float = 0.0
+_GPU_RETRY_SEC = 90.0
 
 
 def perf_monitor_loop(app: "ARKServerManagerApp") -> None:
-    global _NVIDIA_SMI_OK
+    global _GPU_METRICS_OK, _GPU_RETRY_AT
 
     if _psutil is None:
         app._perf_running = False
@@ -52,16 +54,20 @@ def perf_monitor_loop(app: "ARKServerManagerApp") -> None:
             cpu_temp: Optional[float] = None
             srv_stats: list = []
 
-            if _NVIDIA_SMI_OK is not False:
+            now = time.monotonic()
+            probe_gpu = _GPU_METRICS_OK is not False or now >= _GPU_RETRY_AT
+            if probe_gpu:
                 try:
                     gpu_pct = app._get_nvidia_gpu_pct()
                     gpu_temp = app._get_nvidia_gpu_temp()
                     if gpu_pct is None and gpu_temp is None:
-                        _NVIDIA_SMI_OK = False
+                        _GPU_METRICS_OK = False
+                        _GPU_RETRY_AT = now + _GPU_RETRY_SEC
                     else:
-                        _NVIDIA_SMI_OK = True
+                        _GPU_METRICS_OK = True
                 except Exception:
-                    _NVIDIA_SMI_OK = False
+                    _GPU_METRICS_OK = False
+                    _GPU_RETRY_AT = now + _GPU_RETRY_SEC
                     gpu_pct = None
                     gpu_temp = None
 
