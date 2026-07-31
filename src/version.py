@@ -3,8 +3,8 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.101"
-BUILD_DATE: str = "2026-07-29"
+APP_VERSION: str = "1.10.103"
+BUILD_DATE: str = "2026-07-30"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -13,6 +13,40 @@ CHANGELOG: list[dict] = [
         "version": "Unreleased",
         "date": "",
         "changes": [],
+    },
+    {
+        "version": "1.10.103",
+        "date": "2026-07-30",
+        "changes": [
+            "Feat (Web Store / Auditoria Dinos): código público padronizado "
+            "({letra}{variante}{género}{seq}, ex. R12347) — mapeamento estável "
+            "por família/variante, persistido em catalog_dino_generations e "
+            "exibido na API/UI; canonical ARK mantido para correlação.",
+            "Feat (CustomShop 1.10.36): dino_records incluem gender do spawn "
+            "para o código público da auditoria.",
+            "Feat (CustomShop 1.10.37 + Web Store): /checar na cryopod "
+            "consulta POST /api/plugin/catalog-dino/lookup e mostra public_code "
+            "(ex. R12347) no chat.",
+            "Fix (Web Store / Kits): remoção dos *_pack10 também em "
+            "WEBSTORE/config.json do ambiente de teste — o boot reintroduzia "
+            "os kits a partir da cópia «mais rica».",
+        ],
+    },
+    {
+        "version": "1.10.102",
+        "date": "2026-07-30",
+        "changes": [
+            "Feat (Web Store / Catálogo): auditoria pública de dinos L1/L200 "
+            "gerados via catálogo — tabela catalog_dino_generations, "
+            "GET /api/public/catalog-dinos e aba «Auditoria Dinos».",
+            "Feat (CustomShop 1.10.35): captura DinoID1/DinoID2 no spawn e envia "
+            "dino_records em /api/pending/delivered (1 registro por dino spawnado).",
+            "Remoção (Catálogo): 191 kits *_pack10 L1 de breeding (188 fêmea + "
+            "tekstrider/xenomorph/xenomorphgen2 sem Gender) — unitários L1 "
+            "permanecem; kit_alfa/beta/gamma e starter intactos.",
+            "Feat (SeasonLand): recompensas premium 21/23 passam de "
+            "moschops_pack10/parasaur_pack10 para dinos unitários moschops/parasaur L1.",
+        ],
     },
     {
         "version": "1.10.101",

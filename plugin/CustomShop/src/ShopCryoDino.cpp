@@ -220,19 +220,22 @@ bool GiveCryopod(AShooterPlayerController* controller,
 
 namespace CustomShop {
 
-bool DeliverDino(AShooterPlayerController* controller,
-                 const nlohmann::json& entry) {
+DeliverDinoResult DeliverDino(AShooterPlayerController* controller,
+                              const nlohmann::json& entry) {
+    DeliverDinoResult result;
     if (!controller)
-        return false;
+        return result;
 
     const std::string blueprint = NormalizeBlueprintPath(entry.value("Blueprint", ""));
     if (blueprint.empty())
-        return false;
+        return result;
 
     const int level = entry.value("Level", 150);
+    result.level = level;
     const bool force_tame = entry.value("ForceTame", true);
     const bool neutered = entry.value("Neutered", false);
     const std::string gender = entry.value("Gender", "");
+    result.gender = gender;
     const std::string saddle_bp = entry.value("SaddleBlueprint", "");
 
     FString fbp(blueprint.c_str());
@@ -242,10 +245,17 @@ bool DeliverDino(AShooterPlayerController* controller,
         Log::GetLog()->warn("ShopCryoDino: failed to spawn '{}'", blueprint);
         NotifyPlayer(controller, FColorList::Red,
                      "Falha ao spawnar o dino. Verifique o blueprint no config.");
-        return false;
+        return result;
     }
 
     ApplyGender(dino, gender);
+
+    // Captura identidade antes do Destroy no caminho cryopod.
+    int id1 = 0;
+    int id2 = 0;
+    dino->GetDinoIDs(&id1, &id2);
+    result.dino_id1 = static_cast<uint32_t>(id1);
+    result.dino_id2 = static_cast<uint32_t>(id2);
 
     if (ShouldUseCryopod(entry)) {
         Log::GetLog()->info(
@@ -255,10 +265,13 @@ bool DeliverDino(AShooterPlayerController* controller,
         UPrimalItem* saddle = CreateSaddleItem(saddle_bp);
         const bool ok = GiveCryopod(controller, dino, saddle);
         if (ok) {
-            Log::GetLog()->info("ShopCryoDino: delivered '{}' in cryopod", blueprint);
+            Log::GetLog()->info(
+                "ShopCryoDino: delivered '{}' in cryopod id1={} id2={}",
+                blueprint, result.dino_id1, result.dino_id2);
             NotifyPlayer(controller, FColorList::Green,
                          "Dino entregue em cryopod no seu inventario.");
-            return true;
+            result.ok = true;
+            return result;
         }
 
         Log::GetLog()->warn(
@@ -266,12 +279,16 @@ bool DeliverDino(AShooterPlayerController* controller,
             blueprint);
         NotifyPlayer(controller, FColorList::Yellow,
                      "Cryopod falhou (inventario cheio?). O dino foi spawnado ao seu lado.");
-        return true;
+        result.ok = true;
+        return result;
     }
 
-    Log::GetLog()->info("ShopCryoDino: spawned '{}' near player", blueprint);
+    Log::GetLog()->info(
+        "ShopCryoDino: spawned '{}' near player id1={} id2={}",
+        blueprint, result.dino_id1, result.dino_id2);
     NotifyPlayer(controller, FColorList::Green, "Dino spawnado ao seu lado.");
-    return true;
+    result.ok = true;
+    return result;
 }
 
 } // namespace CustomShop

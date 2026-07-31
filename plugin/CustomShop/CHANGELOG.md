@@ -8,6 +8,36 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.37] - 2026-07-30
+
+### Feature
+
+- **Checar catálogo**: comando `/checar` lê a cryopod (equipada ou inventário), consulta `POST /api/plugin/catalog-dino/lookup` e mostra o `public_code` (ex. R12347) no chat.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.37) em cada mapa.
+
+## [1.10.36] - 2026-07-30
+
+### Feature
+
+- **Auditoria catálogo**: `dino_records` passam a incluir `gender` (campo Gender do spawn) para o código público padronizado na Web Store.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.36) em cada mapa.
+
+## [1.10.35] - 2026-07-30
+
+### Feature
+
+- **Auditoria catálogo**: após spawn com sucesso, captura `DinoID1`/`DinoID2` e envia `dino_records` em `POST /api/pending/delivered` (itens Type=dino e kits com `Dinos[]`).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.35) em cada mapa.
+
 ## [1.10.34] - 2026-07-28
 
 ### Feature

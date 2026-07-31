@@ -1944,6 +1944,12 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("Dino Lab block (sqlite dev): migrate falhou: %s", exc)
         try:
+            from catalog_dino_audit_service import ensure_catalog_dino_generations_schema
+
+            ensure_catalog_dino_generations_schema(engine)
+        except Exception as exc:
+            log.warning("Catalog dino audit (sqlite dev): migrate falhou: %s", exc)
+        try:
             from tribe_service import ensure_tribe_schema
 
             ensure_tribe_schema(engine)
@@ -2125,6 +2131,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_dino_lab_block_schema(engine)
     except Exception as exc:
         log.warning("Dino Lab block: migrate falhou: %s", exc)
+    try:
+        from catalog_dino_audit_service import ensure_catalog_dino_generations_schema
+
+        ensure_catalog_dino_generations_schema(engine)
+    except Exception as exc:
+        log.warning("Catalog dino audit: migrate falhou: %s", exc)
     try:
         from tribe_service import ensure_tribe_schema
 
@@ -9260,6 +9272,7 @@ def mark_pending_delivered_batch():
     steam_id = str(body.get("steam_id", "")).strip()
     order_ids = body.get("order_ids") or []
     deliveries = body.get("deliveries") or []
+    dino_records = body.get("dino_records") or []
     if not steam_id or not _is_valid_steamid64(steam_id):
         return jsonify({"ok": False, "error": "steam_id inválido"}), 400
     if not isinstance(order_ids, list) or not order_ids:
@@ -9269,6 +9282,7 @@ def mark_pending_delivered_batch():
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
     delivered: list[str] = []
+    catalog_dino_inserted = 0
     try:
         for raw_id in order_ids:
             order_id = str(raw_id).strip()
@@ -9307,6 +9321,23 @@ def mark_pending_delivered_batch():
                 message=f"Plugin confirmou entrega de {order.item_id}",
                 delivery=delivery_detail,
             )
+        if isinstance(dino_records, list) and dino_records:
+            try:
+                from catalog_dino_audit_service import register_catalog_dino_records
+
+                catalog_dino_inserted = register_catalog_dino_records(
+                    db,
+                    steam_id=steam_id,
+                    dino_records=dino_records,
+                    delivered_at=_now(),
+                    catalog=_read_shop_config(),
+                )
+            except Exception as audit_exc:
+                log.warning(
+                    "catalog_dino_audit register falhou steam=%s: %s",
+                    steam_id,
+                    audit_exc,
+                )
         db.commit()
         _audit_event(
             "orders_marked_delivered",
@@ -9316,8 +9347,13 @@ def mark_pending_delivered_batch():
             message=f"{len(delivered)} pedido(s) marcado(s) ENTREGUE",
             count=len(delivered),
             order_ids=delivered,
+            catalog_dino_inserted=catalog_dino_inserted,
         )
-        return jsonify({"ok": True, "delivered": delivered})
+        return jsonify({
+            "ok": True,
+            "delivered": delivered,
+            "catalog_dino_inserted": catalog_dino_inserted,
+        })
     except Exception as exc:
         db.rollback()
         _log_error("mark_pending_delivered_batch", steam_id=steam_id, error=str(exc))
@@ -11462,6 +11498,107 @@ def get_catalog():
         cache_header="X-Catalog-Cache",
         cache_status=cache_status,
     )
+
+
+@app.route("/api/public/catalog-dinos", methods=["GET"])
+@limiter.limit("60 per minute")
+def public_catalog_dinos():
+    """Auditoria pública: dinos L1/L200 gerados via catálogo (sem Steam ID cru)."""
+    if (err := _require_db()) is not None:
+        return err
+    level_raw = str(request.args.get("level") or "").strip()
+    level: int | None = None
+    if level_raw:
+        try:
+            level = int(level_raw)
+        except ValueError:
+            return jsonify({"ok": False, "error": "level deve ser 1 ou 200"}), 400
+        if level not in (1, 200):
+            return jsonify({"ok": False, "error": "level deve ser 1 ou 200"}), 400
+    species = str(request.args.get("species") or "").strip() or None
+    try:
+        page = int(request.args.get("page") or 1)
+    except ValueError:
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size") or request.args.get("per_page") or 50)
+    except ValueError:
+        page_size = 50
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    try:
+        from catalog_dino_audit_service import list_public_catalog_dinos
+
+        return jsonify(
+            list_public_catalog_dinos(
+                db,
+                level=level,
+                species=species,
+                page=page,
+                page_size=page_size,
+            )
+        )
+    except Exception as exc:
+        _log_error("public_catalog_dinos", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/plugin/catalog-dino/lookup", methods=["POST", "GET"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("120 per minute")
+def plugin_catalog_dino_lookup():
+    """Plugin: resolve public_code a partir de dino_id1/dino_id2 ou canonical_id."""
+    if (err := _require_db()) is not None:
+        return err
+    body: dict = {}
+    if request.method == "POST":
+        raw = request.get_json(silent=True)
+        if isinstance(raw, dict):
+            body = raw
+    else:
+        body = {
+            "dino_id1": request.args.get("dino_id1"),
+            "dino_id2": request.args.get("dino_id2"),
+            "canonical_id": request.args.get("canonical_id")
+            or request.args.get("canonical")
+            or request.args.get("id"),
+        }
+    # Prefer parse flexível do Lab (par / canonical / hex colado).
+    from dino_lab_block_service import parse_dino_id_input
+
+    pair = parse_dino_id_input(body)
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    try:
+        from catalog_dino_audit_service import lookup_catalog_dino_by_identity
+
+        if pair:
+            result = lookup_catalog_dino_by_identity(
+                db, dino_id1=pair[0], dino_id2=pair[1]
+            )
+        else:
+            result = lookup_catalog_dino_by_identity(
+                db,
+                dino_id1=body.get("dino_id1"),
+                dino_id2=body.get("dino_id2"),
+                canonical=str(
+                    body.get("canonical_id")
+                    or body.get("canonical")
+                    or body.get("id")
+                    or ""
+                ),
+            )
+        status = 400 if result.get("error") == "invalid_id" else 200
+        return jsonify(result), status
+    except Exception as exc:
+        _log_error("plugin_catalog_dino_lookup", error=str(exc))
+        return jsonify({"ok": False, "found": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
 
 
 @app.route("/api/store/bootstrap", methods=["GET"])

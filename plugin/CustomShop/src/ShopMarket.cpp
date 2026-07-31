@@ -412,6 +412,7 @@ void ShopMarket::RegisterCommands() {
     ArkApi::GetCommands().AddChatCommand("/confirmar", &ShopMarket::CmdConfirmar);
     ArkApi::GetCommands().AddChatCommand("/rastrear", &ShopMarket::CmdRastrear);
     ArkApi::GetCommands().AddChatCommand("/rastreardebug", &ShopMarket::CmdRastrearDebug);
+    ArkApi::GetCommands().AddChatCommand("/checar", &ShopMarket::CmdChecar);
     ArkApi::GetCommands().AddChatCommand("/mercado", &ShopMarket::CmdResgatarMercado);
     ArkApi::GetCommands().AddChatCommand("/mercado_admin", &ShopMarket::CmdMercadoAdmin);
 }
@@ -422,6 +423,7 @@ void ShopMarket::UnregisterCommands() {
     ArkApi::GetCommands().RemoveChatCommand("/confirmar");
     ArkApi::GetCommands().RemoveChatCommand("/rastrear");
     ArkApi::GetCommands().RemoveChatCommand("/rastreardebug");
+    ArkApi::GetCommands().RemoveChatCommand("/checar");
     ArkApi::GetCommands().RemoveChatCommand("/mercado");
     ArkApi::GetCommands().RemoveChatCommand("/mercado_admin");
 }
@@ -564,6 +566,99 @@ void ShopMarket::CmdRastrear(AShooterPlayerController* player, FString*, EChatSe
 
     SendMsg(player, FColorList::Green,
             "Este dino pode ser vendido no Comercio (sem bloqueio Dino Lab detectado).");
+}
+
+void ShopMarket::CmdChecar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
+    if (!player) return;
+    const std::string sid = Bridge::GetSteamId(player);
+
+    UPrimalItem* cryo = FindCryopodInInventory(player, -1);
+    if (!cryo) {
+        SendMsg(player, FColorList::Red,
+                "Nenhuma cryopod valida no inventario. Equipe uma cryo preenchida "
+                "legivel (cryos vazias ou corrompidas sao ignoradas).");
+        return;
+    }
+
+    DinoIdentity identity;
+    if (!ExtractDinoIdentityFromCryopod(cryo, player, identity)) {
+        SendMsg(player, FColorList::Red,
+                "Nao foi possivel ler a identidade desta cryopod.");
+        return;
+    }
+    if (identity.dino_id1 == 0 && identity.dino_id2 == 0) {
+        SendMsg(player, FColorList::Red,
+                "Identidade do dino invalida nesta cryopod.");
+        return;
+    }
+
+    const nlohmann::json body = {
+        {"dino_id1", identity.dino_id1},
+        {"dino_id2", identity.dino_id2},
+        {"canonical_id", FormatDinoIdHex(identity.dino_id1) + "-"
+                             + FormatDinoIdHex(identity.dino_id2)},
+    };
+    const std::string resp = HttpClient::PostJson(
+        "/api/plugin/catalog-dino/lookup", body.dump());
+    if (resp.empty()) {
+        Log::GetLog()->warn(
+            "[Checar] steam={} self={}:{} HTTP vazio/timeout",
+            sid,
+            FormatDinoIdHex(identity.dino_id1),
+            FormatDinoIdHex(identity.dino_id2));
+        SendMsg(player, FColorList::Red,
+                "Nao foi possivel consultar o codigo de rastreio. Tente novamente em instantes.");
+        return;
+    }
+
+    try {
+        const nlohmann::json json = nlohmann::json::parse(resp);
+        if (json.value("found", false)) {
+            const std::string code = json.value("public_code", "");
+            if (!code.empty()) {
+                SendMsg(player, FColorList::Green,
+                        "Codigo de rastreio: " + code);
+                const int level = json.value("level", 0);
+                const std::string species = json.value("species_key", "");
+                if (level > 0 || !species.empty()) {
+                    std::string extra = "Catalogo";
+                    if (!species.empty())
+                        extra += " | " + species;
+                    if (level > 0)
+                        extra += " | lvl " + std::to_string(level);
+                    SendMsg(player, FColorList::Yellow, extra);
+                }
+                Log::GetLog()->info(
+                    "[Checar] steam={} self={}:{} code={}",
+                    sid,
+                    FormatDinoIdHex(identity.dino_id1),
+                    FormatDinoIdHex(identity.dino_id2),
+                    code);
+                return;
+            }
+        }
+        if (json.value("error", "") == std::string("invalid_id")) {
+            SendMsg(player, FColorList::Red,
+                    "Identidade do dino invalida nesta cryopod.");
+            return;
+        }
+        SendMsg(player, FColorList::Yellow,
+                "Este dino nao tem codigo de rastreio do catalogo "
+                "(nao foi gerado pela loja ou ainda nao foi registado).");
+        Log::GetLog()->info(
+            "[Checar] steam={} self={}:{} not_found",
+            sid,
+            FormatDinoIdHex(identity.dino_id1),
+            FormatDinoIdHex(identity.dino_id2));
+    } catch (...) {
+        Log::GetLog()->warn(
+            "[Checar] steam={} self={}:{} JSON invalido",
+            sid,
+            FormatDinoIdHex(identity.dino_id1),
+            FormatDinoIdHex(identity.dino_id2));
+        SendMsg(player, FColorList::Red,
+                "Nao foi possivel consultar o codigo de rastreio. Tente novamente em instantes.");
+    }
 }
 
 void ShopMarket::CmdRastrearDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type) {

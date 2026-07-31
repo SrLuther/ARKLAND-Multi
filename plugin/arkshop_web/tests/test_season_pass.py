@@ -174,7 +174,9 @@ def test_default_seed_has_typed_amber_and_ready_skus():
                     pending.append((track, lv, g.get("type"), g.get("id"), g.get("label")))
     assert pending == [], pending
     assert cfg["free_rewards"]["16"][0]["id"] == "cryopod"
-    assert cfg["premium_rewards"]["21"][0]["id"] == "moschops_pack10"
+    assert cfg["premium_rewards"]["21"][0]["id"] == "moschops"
+    assert cfg["premium_rewards"]["21"][0]["type"] == "dino"
+    assert cfg["premium_rewards"]["23"][0]["id"] == "parasaur"
 
 
 def test_calendar_inactive_by_default():

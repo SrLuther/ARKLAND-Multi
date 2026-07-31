@@ -393,13 +393,29 @@ bool GiveItemsArray(AShooterPlayerController* controller,
 }
 
 // Spawns all dinos in a "Dinos" JSON array.
+// When out_records is set, appends {dino_id1,dino_id2,level,gender} for each successful spawn.
 bool SpawnDinosArray(AShooterPlayerController* controller,
-                     const nlohmann::json& dinos_array) {
+                     const nlohmann::json& dinos_array,
+                     nlohmann::json* out_records = nullptr) {
     if (!dinos_array.is_array() || dinos_array.empty()) return false;
     bool ok = true;
     for (const auto& entry : dinos_array) {
-        if (!CustomShop::DeliverDino(controller, entry))
+        const CustomShop::DeliverDinoResult delivered =
+            CustomShop::DeliverDino(controller, entry);
+        if (!delivered.ok) {
             ok = false;
+            continue;
+        }
+        if (out_records) {
+            nlohmann::json rec = {
+                {"dino_id1", delivered.dino_id1},
+                {"dino_id2", delivered.dino_id2},
+                {"level", delivered.level},
+            };
+            if (!delivered.gender.empty())
+                rec["gender"] = delivered.gender;
+            out_records->push_back(std::move(rec));
+        }
     }
     return ok;
 }
@@ -586,7 +602,8 @@ bool GiveKit(AShooterPlayerController* controller,
              const std::string& kit_id,
              bool skip_permission_check,
              bool skip_limit_check,
-             std::string* fail_reason) {
+             std::string* fail_reason,
+             nlohmann::json* out_dino_records) {
     if (!controller) {
         if (fail_reason) *fail_reason = "jogador_invalido";
         return false;
@@ -638,7 +655,7 @@ bool GiveKit(AShooterPlayerController* controller,
         ok = true;
     }
     if (kit.contains("Dinos")) {
-        if (!SpawnDinosArray(controller, kit.at("Dinos"))) {
+        if (!SpawnDinosArray(controller, kit.at("Dinos"), out_dino_records)) {
             Log::GetLog()->error("GiveKit: dino spawn failed for kit '{}'", kit_id);
             if (fail_reason) *fail_reason = "dino_spawn_falhou";
             return false;
@@ -709,7 +726,8 @@ bool GiveItem(AShooterPlayerController* controller,
               const std::string& item_id,
               int amount,
               bool skip_permission_check,
-              std::string* fail_reason) {
+              std::string* fail_reason,
+              nlohmann::json* out_dino_records) {
     if (!controller || amount < 1) {
         if (fail_reason) *fail_reason = "jogador_invalido";
         return false;
@@ -763,7 +781,7 @@ bool GiveItem(AShooterPlayerController* controller,
     }
 
     if (item.contains("Dinos")) {
-        if (!SpawnDinosArray(controller, item.at("Dinos"))) {
+        if (!SpawnDinosArray(controller, item.at("Dinos"), out_dino_records)) {
             Log::GetLog()->error("GiveItem: dino spawn failed for item '{}'", item_id);
             if (fail_reason) *fail_reason = "dino_spawn_falhou";
             return false;

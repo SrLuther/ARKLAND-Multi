@@ -14,6 +14,8 @@ public:
     static void CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdRastrear(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdRastrearDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type);
+    /** Codigo publico do catalogo (public_code) a partir da cryopod. */
+    static void CmdChecar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdMercadoAdmin(AShooterPlayerController* player, FString*, EChatSendMode::Type);
 };

@@ -181,9 +181,9 @@ def default_delta_config() -> dict[str, Any]:
             _amber(1200),
             _pending("item", "Soul Traps (utilitário leve)", grant_id="item_soultraps_20"),
         ],
-        "21": [_pending("kit", "Pack10 Moschops L1", grant_id="moschops_pack10")],
+        "21": [_pending("dino", "Moschops L1 fêmea", grant_id="moschops")],
         "22": [_amber(5500)],
-        "23": [_pending("kit", "Pack10 Parasaur L1", grant_id="parasaur_pack10")],
+        "23": [_pending("dino", "Parasaur L1 fêmea", grant_id="parasaur")],
         "24": [
             _amber(1500),
             _pending("item", "Sela de Raptor (Q100)", grant_id="sela_raptor"),

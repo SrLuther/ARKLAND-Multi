@@ -6983,6 +6983,7 @@
           <button type="button" class="catalog-tab" data-catalog-tab="dinos200" onclick="setCatalogTab('dinos200')">🦖 Dinos 200</button>
           <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
           <button type="button" class="catalog-tab" data-catalog-tab="licenses" onclick="setCatalogTab('licenses')">📜 Licenças</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="audit-dinos" onclick="setCatalogTab('audit-dinos')">🔎 Auditoria Dinos</button>
           <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação</button>
           <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
         </div>
@@ -7065,6 +7066,40 @@
           <p id="catalog-licenses-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-licenses-grid"></div>
           <div id="catalog-licenses-empty" class="catalog-empty-state" style="display:none;"></div>
+        </div>
+        <div id="catalog-panel-audit-dinos" class="catalog-panel">
+          <div style="margin-bottom:14px;">
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">Código de rastreio do dino</div>
+            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+              Cole o código que recebeu na compra (ex.: <code style="font-weight:700;">R21347</code>) para encontrar o seu dino.
+              O código é o identificador principal — espécie, variante, género e sequência.
+            </p>
+          </div>
+          <div class="catalog-toolbar catalog-toolbar--sticky" style="flex-wrap:wrap;gap:8px;">
+            <div class="catalog-search-wrap" style="min-width:220px;flex:1;">
+              <input id="catalog-audit-species" type="search" placeholder="Buscar código de rastreio ou espécie…" autocomplete="off" aria-label="Buscar código de rastreio" onkeydown="if(event.key==='Enter'){_catalogAuditPage=1;loadCatalogDinoAudit();}" />
+            </div>
+            <select id="catalog-audit-level" class="catalog-sort-select" aria-label="Filtrar nível">
+              <option value="">Nível: 1 e 200</option>
+              <option value="1">Só nível 1</option>
+              <option value="200">Só nível 200</option>
+            </select>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="_catalogAuditPage=1;loadCatalogDinoAudit()">Buscar</button>
+          </div>
+          <p id="catalog-audit-result-count" class="catalog-result-count" style="display:none;"></p>
+          <div id="catalog-audit-dinos-list" style="overflow-x:auto;"></div>
+          <div id="catalog-audit-dinos-empty" class="catalog-empty-state" style="display:none;">
+            Nenhum dino encontrado. Confira o código de rastreio ou limpe o filtro.
+          </div>
+          <div id="catalog-audit-pager" style="display:none;margin-top:12px;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="catalogAuditPrev()">← Anterior</button>
+            <span id="catalog-audit-page-label" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="catalogAuditNext()">Próxima →</button>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin-top:12px;">
+            Lista pública dos dinos adquiridos no catálogo (níveis 1 e 200).
+            Use o <strong>código de rastreio</strong> para acompanhar o seu dino; o ID ARK é só referência técnica.
+          </p>
         </div>
         <div id="catalog-panel-available" class="catalog-panel">
           <div id="catalog-available-content"></div>
@@ -12338,9 +12373,84 @@ function setCatalogTab(tab) {
   if (tab === "dinos200") renderCatalogDinos200();
   if (tab === "kits") renderCatalogKits();
   if (tab === "licenses") renderCatalogLicenses();
+  if (tab === "audit-dinos") loadCatalogDinoAudit();
   if (tab === "available") loadAvailable();
   if (tab === "recharge") renderRecharge();
   if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(tab);
+}
+
+let _catalogAuditPage = 1;
+let _catalogAuditPages = 1;
+
+async function loadCatalogDinoAudit() {
+  const list = document.getElementById("catalog-audit-dinos-list");
+  const empty = document.getElementById("catalog-audit-dinos-empty");
+  const countEl = document.getElementById("catalog-audit-result-count");
+  const pager = document.getElementById("catalog-audit-pager");
+  const pageLabel = document.getElementById("catalog-audit-page-label");
+  if (!list) return;
+  list.innerHTML = "<p style='color:var(--text2);font-size:13px;'>Carregando…</p>";
+  if (empty) empty.style.display = "none";
+  const params = new URLSearchParams({
+    page: String(_catalogAuditPage || 1),
+    page_size: "25",
+  });
+  const level = document.getElementById("catalog-audit-level")?.value || "";
+  const species = document.getElementById("catalog-audit-species")?.value?.trim() || "";
+  if (level) params.set("level", level);
+  if (species) params.set("species", species);
+  try {
+    const d = await fetchJson("/api/public/catalog-dinos?" + params.toString());
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    _catalogAuditPage = d.page || 1;
+    _catalogAuditPages = d.pages || 1;
+    const items = d.items || [];
+    if (countEl) {
+      countEl.style.display = "block";
+      countEl.textContent = `${d.total || 0} registro(s) · página ${_catalogAuditPage}/${_catalogAuditPages}`;
+    }
+    if (pager) pager.style.display = (d.total || 0) > 0 ? "flex" : "none";
+    if (pageLabel) pageLabel.textContent = `Página ${_catalogAuditPage} de ${_catalogAuditPages}`;
+    if (!items.length) {
+      list.innerHTML = "";
+      if (empty) empty.style.display = "block";
+      return;
+    }
+    list.innerHTML = `
+      <table class="pkg-admin-table" style="width:100%;">
+        <thead><tr>
+          <th>Código de rastreio</th><th>Espécie</th><th>Nível</th><th>Gerado por</th><th>Data/hora</th><th>ID ARK</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(r => `
+            <tr>
+              <td>
+                <div style="font-family:ui-monospace,Consolas,monospace;font-size:20px;font-weight:800;letter-spacing:0.08em;line-height:1.2;color:var(--tek, var(--accent, #3dd6c6));">${escHtml(r.public_code || "—")}</div>
+                <div style="font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:0.06em;">código de rastreio</div>
+              </td>
+              <td style="font-size:12px;">${escHtml(r.species_key || r.item_id || "")}</td>
+              <td><span class="badge">${escHtml(String(r.level || ""))}</span></td>
+              <td style="font-size:12px;">${escHtml(r.display_name || "Jogador")}</td>
+              <td style="font-size:11px;white-space:nowrap;">${escHtml(r.delivered_at || "")}</td>
+              <td style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(r.canonical_id || "")}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    list.innerHTML = `<p style="color:var(--danger);font-size:13px;">${escHtml(err.message || String(err))}</p>`;
+  }
+}
+
+function catalogAuditPrev() {
+  if (_catalogAuditPage <= 1) return;
+  _catalogAuditPage -= 1;
+  loadCatalogDinoAudit();
+}
+
+function catalogAuditNext() {
+  if (_catalogAuditPage >= _catalogAuditPages) return;
+  _catalogAuditPage += 1;
+  loadCatalogDinoAudit();
 }
 
 function _isDinoType(t) {

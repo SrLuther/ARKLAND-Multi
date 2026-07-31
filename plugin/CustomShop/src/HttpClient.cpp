@@ -490,6 +490,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
     std::vector<std::string> delivered_ids;
     std::vector<std::string> failed_ids;
     nlohmann::json deliveries = nlohmann::json::array();
+    nlohmann::json dino_records = nlohmann::json::array();
     int success_count = 0;
     int fail_count = 0;
     const int total = static_cast<int>(items.size());
@@ -507,12 +508,16 @@ bool DeliverPending(AShooterPlayerController* controller) {
         bool ok = false;
         std::string detail;
         std::string fail_reason;
+        nlohmann::json order_dinos = nlohmann::json::array();
 
         if (item_type == "kit") {
-            ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason);
+            ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason,
+                                &order_dinos);
             if (!ok && IsUnknownCatalogFailure(fail_reason) && TryReloadConfigForDelivery()) {
                 fail_reason.clear();
-                ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason);
+                order_dinos = nlohmann::json::array();
+                ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason,
+                                    &order_dinos);
                 if (ok) detail = "GiveKit ok (after config reload)";
             }
             if (detail.empty())
@@ -520,16 +525,28 @@ bool DeliverPending(AShooterPlayerController* controller) {
             Log::GetLog()->info("HttpClient: GiveKit '{}' for order {}: {} ({})",
                                 item_id, order_id, ok ? "OK" : "FAIL", detail);
         } else {
-            ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason);
+            ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason,
+                                 &order_dinos);
             if (!ok && IsUnknownCatalogFailure(fail_reason) && TryReloadConfigForDelivery()) {
                 fail_reason.clear();
-                ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason);
+                order_dinos = nlohmann::json::array();
+                ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason,
+                                     &order_dinos);
                 if (ok) detail = "GiveItem ok (after config reload)";
             }
             if (detail.empty())
                 detail = ok ? "GiveItem ok" : ("GiveItem failed: " + fail_reason);
             Log::GetLog()->info("HttpClient: GiveItem '{}' x{} for order {}: {} ({})",
                                 item_id, amount, order_id, ok ? "OK" : "FAIL", detail);
+        }
+
+        if (ok && order_dinos.is_array()) {
+            for (auto& rec : order_dinos) {
+                if (!rec.is_object()) continue;
+                rec["order_id"] = order_id;
+                rec["item_id"] = item_id;
+                dino_records.push_back(rec);
+            }
         }
 
         deliveries.push_back({
@@ -609,6 +626,8 @@ bool DeliverPending(AShooterPlayerController* controller) {
             {"order_ids", delivered_ids},
             {"deliveries", deliveries},
         };
+        if (!dino_records.empty())
+            body["dino_records"] = dino_records;
         const std::string deliver_url = g_web_url + "/api/pending/delivered";
         std::string deliver_resp = HttpPostJson(deliver_url, body.dump());
         Log::GetLog()->info("HttpClient: mark delivered response: {}", deliver_resp);

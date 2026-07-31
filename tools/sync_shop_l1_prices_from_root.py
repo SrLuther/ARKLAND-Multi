@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Opção A: sincroniza Prices L1 (e kits breeding) a partir de root_value.
+"""Opção A: sincroniza Prices L1 (e kits breeding, se existirem) a partir de root_value.
 
 Fonte oficial: market_species_defaults.json → root_value (R).
   Items[Type:dino Level 1].Price = R
-  Kits *_pack10 (40% off) → round(n × P1 × 0.60)
+  Kits *_pack10 (40% off) → round(n × P1 × 0.60)  [legado; kits pack10 removidos do catálogo]
 
 Uso:
   python tools/sync_shop_l1_prices_from_root.py
