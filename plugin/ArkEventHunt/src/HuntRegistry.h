@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pch.h"
+#include "HuntWorld.h"
 
 namespace ArkEventHunt {
 namespace Registry {
@@ -26,6 +27,8 @@ struct Entry {
     std::string display_name;
     std::string server_id;
     std::vector<std::string> allowed_weapons;
+    // Loot entregue no inventário do killer só em COMPLETED / kill válido.
+    std::vector<ArkEventHunt::World::LootEntry> loot_on_complete;
     float min_allowed_weapon_damage_ratio = 0.80f;
     bool forbid_torpor = true;
     bool official_weapons_only = true;

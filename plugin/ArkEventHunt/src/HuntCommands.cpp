@@ -11,7 +11,9 @@ namespace {
 void SendMsg(AShooterPlayerController* c, const FLinearColor& color,
              const std::string& msg) {
     if (!c || msg.empty()) return;
-    ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
+    // config.json / fallbacks são UTF-8; SendServerMessage usa char* ACP.
+    const std::string ansi = ArkEventHunt::World::Utf8ToAnsi(msg);
+    ArkApi::GetApiUtils().SendServerMessage(c, color, ansi.c_str());
 }
 
 bool IsAdminPlayer(AShooterPlayerController* controller) {
@@ -107,19 +109,76 @@ nlohmann::json UnwrapData(const nlohmann::json& j) {
     return j;
 }
 
-bool ParseMembershipActiveTeam(const std::string& steam_id,
-                               bool& active,
-                               uint64_t& team_id) {
+// API _fail body: {"ok":false,"error":"..."}. Truncate for chat readability.
+std::string ExtractApiError(const std::string& body) {
+    if (body.empty()) return "";
+    try {
+        const auto j = nlohmann::json::parse(body);
+        std::string err = JsonStr(j, "error", "");
+        if (err.empty()) err = JsonStr(j, "message", "");
+        if (err.empty() && j.contains("data") && j["data"].is_object())
+            err = JsonStr(j["data"], "error", "");
+        // Strip control chars / keep chat short.
+        std::string clean;
+        clean.reserve(err.size());
+        for (unsigned char c : err) {
+            if (c >= 32 && c != 127) clean.push_back(static_cast<char>(c));
+            else if (c == '\n' || c == '\r' || c == '\t') clean.push_back(' ');
+        }
+        while (!clean.empty() && clean.back() == ' ') clean.pop_back();
+        if (clean.size() > 120) clean = clean.substr(0, 117) + "...";
+        return clean;
+    } catch (...) {
+        return "";
+    }
+}
+
+std::string WithApiReason(const std::string& base, const std::string& body) {
+    const std::string reason = ExtractApiError(body);
+    if (reason.empty()) return base;
+    return base + " Motivo: " + reason;
+}
+
+// Distinguishes API/auth failures from a real "not ACTIVE member" answer.
+// ranking_blocked ("fora do ranking") is irrelevant — membership ignores it.
+enum class MembershipLookup {
+    Active,      // active:true + team_id > 0
+    NotActive,   // HTTP 200 + ok + active:false (or missing team)
+    ApiError,    // offline, empty body, HTTP 4xx/5xx, ok:false, bad JSON
+};
+
+MembershipLookup ParseMembershipActiveTeam(const std::string& steam_id,
+                                           bool& active,
+                                           uint64_t& team_id) {
     active = false;
     team_id = 0;
-    if (steam_id.empty()) return false;
+    if (steam_id.empty()) return MembershipLookup::ApiError;
 
     const auto resp = ArkEventHunt::HttpClient::Get(
         "/api/teams/plugin/membership/" + UrlEncode(steam_id));
-    if (resp.status == 0 || resp.body.empty()) return false;
+    if (resp.status == 0 || resp.body.empty()) {
+        Log::GetLog()->warn(
+            "ArkEventHunt membership: no response steam={} status={}",
+            steam_id, resp.status);
+        return MembershipLookup::ApiError;
+    }
+    if (resp.status >= 400) {
+        Log::GetLog()->warn(
+            "ArkEventHunt membership: HTTP {} steam={} body_len={}",
+            resp.status, steam_id, resp.body.size());
+        return MembershipLookup::ApiError;
+    }
 
     try {
         const auto j = nlohmann::json::parse(resp.body);
+        // Mirror CustomShop: reject {"ok":false,...} as API/auth failure
+        // (teams_enabled=false, bad api_key, DB down) — not "not in team".
+        if (j.contains("ok") && !j.value("ok", false)) {
+            Log::GetLog()->warn(
+                "ArkEventHunt membership: ok=false steam={} body_len={}",
+                steam_id, resp.body.size());
+            return MembershipLookup::ApiError;
+        }
         const auto data = UnwrapData(j);
         active = data.value("active", false);
         if (data.contains("team_id") && !data["team_id"].is_null()) {
@@ -134,9 +193,17 @@ bool ParseMembershipActiveTeam(const std::string& steam_id,
                 }
             }
         }
-        return true;
+        if (!active || team_id == 0) {
+            Log::GetLog()->info(
+                "ArkEventHunt membership: not ACTIVE steam={} active={} team={}",
+                steam_id, active, team_id);
+            return MembershipLookup::NotActive;
+        }
+        return MembershipLookup::Active;
     } catch (...) {
-        return false;
+        Log::GetLog()->warn(
+            "ArkEventHunt membership: JSON parse fail steam={}", steam_id);
+        return MembershipLookup::ApiError;
     }
 }
 
@@ -158,38 +225,41 @@ void ReadAllowedWeapons(const nlohmann::json& payload,
 bool GiveOfficialWeapon(AShooterPlayerController* controller,
                         const std::string& blueprint,
                         int quantity) {
-    if (!controller || blueprint.empty() || quantity < 1)
-        return false;
-    FString fbp(blueprint.c_str());
-    UClass* item_class = UVictoryCore::BPLoadClass(&fbp);
-    if (!item_class) {
-        Log::GetLog()->warn(
-            "ArkEventHunt GiveWeapon: BPLoadClass failed '{}'", blueprint);
-        return false;
+    using ArkEventHunt::World::GiveItemResult;
+    const auto r =
+        ArkEventHunt::World::GiveItemToPlayer(controller, blueprint, quantity);
+    return r == GiveItemResult::Ok;
+}
+
+std::vector<ArkEventHunt::World::LootEntry> ParseLootOnComplete(
+    const nlohmann::json& payload) {
+    std::vector<ArkEventHunt::World::LootEntry> out;
+    if (!payload.contains("loot_on_complete") ||
+        !payload["loot_on_complete"].is_array())
+        return out;
+    for (const auto& row : payload["loot_on_complete"]) {
+        ArkEventHunt::World::LootEntry e;
+        if (row.is_string()) {
+            e.blueprint = row.get<std::string>();
+            e.qty = 1;
+        } else if (row.is_object()) {
+            if (row.contains("blueprint") && row["blueprint"].is_string())
+                e.blueprint = row["blueprint"].get<std::string>();
+            else if (row.contains("bp") && row["bp"].is_string())
+                e.blueprint = row["bp"].get<std::string>();
+            e.qty = 1;
+            if (row.contains("qty") && row["qty"].is_number_integer())
+                e.qty = row["qty"].get<int>();
+            else if (row.contains("quantity") &&
+                     row["quantity"].is_number_integer())
+                e.qty = row["quantity"].get<int>();
+        }
+        if (e.blueprint.empty() || e.qty < 1) continue;
+        if (e.qty > 100) e.qty = 100;
+        out.push_back(std::move(e));
+        if (out.size() >= 32) break;
     }
-    UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
-    if (!inv) {
-        Log::GetLog()->warn("ArkEventHunt GiveWeapon: no inventory");
-        return false;
-    }
-    UPrimalItem::AddNewItem(
-        TSubclassOf<UPrimalItem>(item_class),
-        inv,
-        false,
-        false,
-        0.0f,
-        true,
-        quantity,
-        false,
-        0.0f,
-        false,
-        TSubclassOf<UPrimalItem>(),
-        0.0f,
-        false,
-        false);
-    Log::GetLog()->info(
-        "ArkEventHunt GiveWeapon: delivered qty={} bp={}", quantity, blueprint);
-    return true;
+    return out;
 }
 
 // SPIKE only: SpawnDino wild + bind IDs.
@@ -311,8 +381,17 @@ void CmdEve(AShooterPlayerController* controller, FString* cmd,
 
     bool member_active = false;
     uint64_t member_team = 0;
-    if (!ParseMembershipActiveTeam(steam, member_active, member_team) ||
-        !member_active || member_team == 0) {
+    const MembershipLookup mem =
+        ParseMembershipActiveTeam(steam, member_active, member_team);
+    if (mem == MembershipLookup::ApiError) {
+        SendMsg(controller, FColorList::Red,
+                cfg.Msg("EveMembershipApiDown",
+                        "Não foi possível verificar a tua Equipe "
+                        "(API offline, teams desligado ou chave inválida)."));
+        return;
+    }
+    if (mem != MembershipLookup::Active || !member_active ||
+        member_team == 0) {
         SendMsg(controller, FColorList::Red,
                 cfg.Msg("EveNotActiveMember",
                         "Precisas de ser membro ACTIVE de uma Equipe no site."));
@@ -331,13 +410,17 @@ void CmdEve(AShooterPlayerController* controller, FString* cmd,
     }
     if (claim_resp.status == 404 || claim_resp.body.empty()) {
         SendMsg(controller, FColorList::Red,
-                cfg.Msg("EveCodeInvalid", "Código inválido ou expirado."));
+                WithApiReason(
+                    cfg.Msg("EveCodeInvalid", "Código inválido ou expirado."),
+                    claim_resp.body));
         return;
     }
     if (claim_resp.status >= 400) {
         SendMsg(controller, FColorList::Red,
-                cfg.Msg("EveCodeRejected",
-                        "Código rejeitado pela API Event Hunt."));
+                WithApiReason(
+                    cfg.Msg("EveCodeRejected",
+                            "Código rejeitado pela API Event Hunt."),
+                    claim_resp.body));
         return;
     }
 
@@ -347,8 +430,10 @@ void CmdEve(AShooterPlayerController* controller, FString* cmd,
         payload = UnwrapData(j);
         if (j.contains("ok") && j["ok"].is_boolean() && !j["ok"].get<bool>()) {
             SendMsg(controller, FColorList::Red,
-                    cfg.Msg("EveCodeRejected",
-                            "Código rejeitado pela API Event Hunt."));
+                    WithApiReason(
+                        cfg.Msg("EveCodeRejected",
+                                "Código rejeitado pela API Event Hunt."),
+                        claim_resp.body));
             return;
         }
     } catch (...) {
@@ -490,6 +575,7 @@ void CmdEve(AShooterPlayerController* controller, FString* cmd,
     entry.official_weapons_only = official_only;
     entry.dino_id1 = id1;
     entry.dino_id2 = id2;
+    entry.loot_on_complete = ParseLootOnComplete(payload);
     if (!ArkEventHunt::Registry::Bind(entry)) {
         Log::GetLog()->warn(
             "ArkEventHunt /eve: GetDinoIDs 0/0 claim={} — ver timing ASE",
@@ -617,15 +703,28 @@ void CmdEveAdm(AShooterPlayerController* controller, FString* cmd,
         return;
     }
     if (code_resp.status == 404 || code_resp.body.empty()) {
+        // Tipical: Mode A challenge code used on /eveadm (looked up in Catálogo B).
         SendMsg(controller, FColorList::Red,
-                cfg.Msg("EveAdmCodeInvalid",
-                        "Código Mode B inválido ou sessão inactiva."));
+                WithApiReason(
+                    cfg.Msg("EveAdmCodeInvalid",
+                            "Código Mode B inválido. Se for desafio de Equipe "
+                            "(Modo A), usa /eve."),
+                    code_resp.body));
         return;
     }
     if (code_resp.status >= 400) {
+        // 400/403/409: sessão não ACTIVE, dino desactivado, já vivo, catalog off…
         SendMsg(controller, FColorList::Red,
-                cfg.Msg("EveAdmCodeRejected",
-                        "Código Mode B rejeitado pela API."));
+                WithApiReason(
+                    cfg.Msg("EveAdmCodeRejected",
+                            "Código Mode B rejeitado pela API."),
+                    code_resp.body));
+        Log::GetLog()->warn(
+            "ArkEventHunt /eveadm: code rejected status={} code={} body_len={} body={}",
+            code_resp.status, code, code_resp.body.size(),
+            code_resp.body.size() > 240
+                ? code_resp.body.substr(0, 237) + "..."
+                : code_resp.body);
         return;
     }
 
@@ -635,8 +734,10 @@ void CmdEveAdm(AShooterPlayerController* controller, FString* cmd,
         payload = UnwrapData(j);
         if (j.contains("ok") && j["ok"].is_boolean() && !j["ok"].get<bool>()) {
             SendMsg(controller, FColorList::Red,
-                    cfg.Msg("EveAdmCodeRejected",
-                            "Código Mode B rejeitado pela API."));
+                    WithApiReason(
+                        cfg.Msg("EveAdmCodeRejected",
+                                "Código Mode B rejeitado pela API."),
+                        code_resp.body));
             return;
         }
     } catch (...) {
@@ -771,6 +872,7 @@ void CmdEveAdm(AShooterPlayerController* controller, FString* cmd,
     entry.dino_id1 = id1;
     entry.dino_id2 = id2;
     entry.expires_at_unix = expires_at;
+    entry.loot_on_complete = ParseLootOnComplete(payload);
     if (!ArkEventHunt::Registry::Bind(entry)) {
         Log::GetLog()->warn(
             "ArkEventHunt /eveadm: GetDinoIDs 0/0 code={} — ver timing ASE",

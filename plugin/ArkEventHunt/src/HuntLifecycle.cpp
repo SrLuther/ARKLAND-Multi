@@ -194,6 +194,21 @@ void BindReconciledInstance(const nlohmann::json& row) {
             entry.allowed_weapons = cfg.WeaponWhitelist();
     }
 
+    if (row.contains("loot_on_complete") && row["loot_on_complete"].is_array()) {
+        for (const auto& item : row["loot_on_complete"]) {
+            ArkEventHunt::World::LootEntry e;
+            if (item.is_string()) {
+                e.blueprint = item.get<std::string>();
+                e.qty = 1;
+            } else if (item.is_object()) {
+                e.blueprint = JsonStr(item, "blueprint", JsonStr(item, "bp", ""));
+                e.qty = JsonInt(item, "qty", JsonInt(item, "quantity", 1));
+            }
+            if (e.blueprint.empty() || e.qty < 1) continue;
+            entry.loot_on_complete.push_back(std::move(e));
+        }
+    }
+
     ArkEventHunt::Registry::Bind(entry);
     Log::GetLog()->info(
         "ArkEventHunt reconcile: rebound Mode B instance={} id1={} id2={}",

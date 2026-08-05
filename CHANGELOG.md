@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.107] - 2026-08-05
+
+### Feature
+
+- Feat (ArkEventHunt 0.5.0-0.5.2): loot_on_complete no COMPLETED (GiveItem); Motivo: no chat nas rejeicoes HTTP >=400; log HTTP 4xx com body= (preview).
+- Feat (Web Store / Event Hunt Mode A): loot_on_complete no desafio (schema + by-code + UI Catalogo com linhas/exemplo vanilla).
+- Feat (TEK / Loja): sync WebApiUrl/WebApiKey do ArkEventHunt no install/sync dos mapas (junto com deploy da DLL).
+
+### Fix
+
+- Fix (Web Store / Event Hunt Mode B): catalogo separa estado ON/OFF do botao Activar/Desactivar (antes Off/On invertido no rotulo).
+- Fix (Web Store / Event Hunt): GET /b/codes devolve error_code (dino_disabled, session_not_active, instance_alive) para o plugin mostrar Motivo.
+
 ## [1.10.106] - 2026-08-04
 
 ### Improvement

@@ -358,6 +358,7 @@ DRAFT → OPEN_INSCRIPTION → ACTIVE → CLOSING → CLOSED
 | `grant_weapon_on_start` | bool | Default `true` — entregar arma no `/eve` |
 | `grant_weapon_blueprint` | str | BP do item a entregar (preset) |
 | `grant_weapon_qty` | int | Default `1` |
+| `loot_on_complete` | JSON | Lista `[{blueprint, qty}, …]` — GiveItem ao **killer** só em COMPLETED; vazio = sem loot; **não** incluir ItensAlfa / Tek Alfa nos seeds |
 | `points` | int | Score Team em COMPLETED |
 | `amber_reward` | int | Opcional Modo A |
 | `claim_ttl_sec` | int | Tempo para `/eve` após select |
@@ -430,6 +431,7 @@ Substitui o antigo conceito `event_hunt_team_completions` (lock por team).
 | `points_mvp` | int / weight | |
 | `amber_team` / `amber_mvp` | int | Configurável |
 | `rank_rewards_json` | JSON | Tabela ranking |
+| `loot_on_complete` | JSON | Opcional — mesmo formato do Modo A; GiveItem ao killer em kill válido |
 | `ttl_sec` | int | Expiração instância |
 | `sort_order` | int | Ordem sugerida (admin ainda escolhe) |
 
@@ -584,8 +586,8 @@ Usar em `/eve` antes de spawn.
 | `POST` | `/api/event-hunt/b/sessions/<id>/withdraw` | UI (ACTIVE) | Desinscrever se ainda `OPEN_INSCRIPTION` |
 | `GET` | `/api/event-hunt/b/sessions/<id>/leaderboard` | UI / público | Team + MVP |
 | `GET` | `/api/event-hunt/b/team/summary` | UI (ACTIVE) | Pontos B da minha team + posição + melhor MVP da team |
-| `GET` | `/api/event-hunt/b/codes/<code>` | Plugin | Payload `/eveadm` |
-| `POST` | `/api/event-hunt/b/instances/spawned` | Plugin | Bind |
+| `GET` | `/api/event-hunt/b/codes/<code>` | Plugin | Payload `/eveadm` — exige dino `enabled`, sessão `ACTIVE`, **sem** instância `ALIVE`/`ORPHAN_ALIVE` |
+| `POST` | `/api/event-hunt/b/instances/spawned` | Plugin | Bind confirm-spawn (`ALIVE`) |
 | `POST` | `/api/event-hunt/b/instances/<id>/kill` | Plugin | Credit team+MVP se inscrita |
 | `POST` | `/api/event-hunt/b/instances/<id>/expire` | Plugin | Expiração |
 | `GET` | `/api/admin/event-hunt/b/sessions` | Admin UI | Listar sessões |
@@ -595,7 +597,18 @@ Usar em `/eve` antes de spawn.
 | `GET`/`POST`/`PUT` | `/api/admin/event-hunt/b/sessions/<id>/dinos` | Admin UI | CRUD Catálogo B da sessão + `event_code` |
 | `GET` | `/api/admin/event-hunt/b/sessions/<id>/inscriptions` | Admin UI | Overview de inscritas |
 | `GET` | `/api/admin/event-hunt/b/instances` | Admin UI | Instâncias vivas / histórico |
-| `POST` | `/api/admin/event-hunt/b/instances/<id>/void` | Admin UI | Anular credit / marcar inválida |
+| `POST` | `/api/admin/event-hunt/b/instances/<id>/void` | Admin UI | Anular credit / marcar inválida; **também** limpa `ALIVE` stuck para permitir novo `/eveadm` do mesmo código |
+
+**`GET /b/codes/<code>` — rejeições típicas (JSON `{ok:false,error,error_code?}`):**
+
+| HTTP | `error_code` | Causa |
+|------|--------------|--------|
+| 404 | — | Código inexistente no Catálogo B |
+| 400 | `dino_disabled` | Dino com `enabled=false` (UI deve mostrar estado **OFF**; botão «Activar») |
+| 400 | `session_not_active` | Sessão ≠ `ACTIVE` |
+| 409 | `instance_alive` | Já há `ALIVE`/`ORPHAN_ALIVE` — kill/expire **ou** `POST .../b/instances/<id>/void` |
+
+Fluxo confirm-spawn: `/eveadm` → `GET .../codes/<code>` → spawn in-game → `POST .../instances/spawned` (cria `ALIVE`). Enquanto existir vivo, o mesmo código **não** volta a resolver no by-code.
 
 ### 9.3b Auditoria admin + entrega manual de recompensa
 
@@ -649,6 +662,12 @@ Usar em `/eve` antes de spawn.
   "blueprint": "Blueprint'/Game/...'",
   "level": 150,
   "allowed_weapons": ["tag:shotgun", "BP_..."],
+  "grant_weapon_on_start": true,
+  "grant_weapon_blueprint": "Blueprint'/Game/.../PrimalItem_WeaponShotgun...'",
+  "grant_weapon_qty": 1,
+  "loot_on_complete": [
+    { "blueprint": "Blueprint'/Game/.../PrimalItemArmor_RexSaddle...'", "qty": 1 }
+  ],
   "allow_personal_tames": false,
   "dino_ttl_sec": 900
 }
@@ -725,6 +744,21 @@ Usar em `/eve` antes de spawn.
 
 Fail reasons: `weapon` (ratio / torpor / oficiais) · `stolen` (outra Equipe).
 
+#### 10.1.3 Loot on COMPLETED (`loot_on_complete`)
+
+| Peça | Função |
+|------|--------|
+| Campo desafio / dino B | JSON `[{ "blueprint": "Blueprint'/Game/…'", "qty": 1 }, …]` |
+| Quando | Só kill **válido** (Mode A `COMPLETED`; Mode B kill `valid=true`) |
+| Quem recebe | **Killer** — inventário via `UPrimalItem::AddNewItem` (mesmo padrão `GrantWeaponOnStart`) |
+| FAIL / stolen / weapon / tame | **Nunca** entrega loot |
+| Idempotência | Plugin: `MarkOutcomeSent` antes do grant (1× por dino bind) |
+| Inventário cheio | Chat warn (`LootInventoryFull`) + log; best-effort nos restantes stacks |
+| Seeds / exemplos | Selas, armaduras, armas — **mods + vanilla**; **proibido** ItensAlfa / Tek Alfa / kits alfa nos seeds |
+| Admin UI | Catálogo A: linhas loot no criar + botão **Loot** para editar |
+
+by-code / claim-summon payload inclui `loot_on_complete` para o plugin guardar no registry no spawn.
+
 ### 10.2 Credit de kill / steal (Modo A)
 
 | Killer | Resultado |
@@ -741,14 +775,14 @@ Fail reasons: `weapon` (ratio / torpor / oficiais) · `stolen` (outra Equipe).
 
 ### 10.4 Rewards
 
-| Modo | Score | Âmbar |
-|------|-------|-------|
-| A | `points` → Team ledger | Opcional por desafio |
-| B | Agregado Team + MVP | Por dino + tabela ranking; ambos configuráveis |
+| Modo | Score | Âmbar | Loot in-game |
+|------|-------|-------|--------------|
+| A | `points` → Team ledger | Opcional por desafio | `loot_on_complete` → inventário do killer no COMPLETED |
+| B | Agregado Team + MVP | Por dino + tabela ranking; ambos configuráveis | `loot_on_complete` no dino B (se configurado) |
 
 Pagamentos **idempotentes** (`idempotency_key = complete:{claim_id}` / `kill:{instance_id}`).
 
-Correcção staff (bug / reward 0): `manual_grant:{source_kind}:{source_id}` via §9.3b — **não** substitui o fluxo automático; só completa pagamentos falhados.
+Correcção staff (bug / reward 0): `manual_grant:{source_kind}:{source_id}` via §9.3b — **não** substitui o fluxo automático; só completa pagamentos falhados. Loot in-game **não** é reentregue por grant manual de pontos/Âmbar (só GiveItem no Die).
 
 ---
 
@@ -817,6 +851,8 @@ Paridade com ArkPlayer / CustomDinoDeliver:
 
 Destino no mapa: `ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkEventHunt/`.  
 `config.json` existente **não** é sobrescrito.
+
+**Bridge HTTP:** o plugin precisa de `WebApiUrl` + `WebApiKey` apontando à **mesma** arkshop_web que o admin Mode B no browser. Se o mapa ARK não corre no mesmo host da loja, **não** uses `http://127.0.0.1:…` — usa `http://IP-LAN:porta`. A sync TEK da Loja escreve estes campos (como CustomDinoDeliver). Sintoma típico: UI web OK + chat `API Event Hunt inacessível` (e, em DLL antigas, mensagem enganosa de “membro ACTIVE”). `ranking_blocked` / “fora do ranking” **não** afecta membership ACTIVE.
 
 ### 12.5 Debug
 
@@ -1101,7 +1137,7 @@ Opcional v1.1: sub-nav pills dentro da página (`Marcos` · `Caça A` · `Caça 
 |----|---------|
 | Tabela | ID · Nome · Nível · Pontos · Â · Armas (resumo) · Enabled · Acções |
 | Acções linha | Editar · Activar/Desactivar |
-| Form criar/editar | `display_name`, blueprint/species, `level`, armas via **biblioteca multi-select** (+ CSV opcional), `min_allowed_weapon_damage_ratio`, `forbid_torpor`, `official_weapons_only`, `grant_weapon_on_start` + preset/BP, `points`, `amber_reward`, TTLs, `enabled` |
+| Form criar/editar | `display_name`, blueprint/species, `level`, armas via **biblioteca multi-select** (+ CSV opcional), `min_allowed_weapon_damage_ratio`, `forbid_torpor`, `official_weapons_only`, `grant_weapon_on_start` + preset/BP, `loot_on_complete` (linhas BP+qty; nota sem alfa), `points`, `amber_reward`, TTLs, `enabled` |
 | Biblioteca armas | Card **Armas oficiais salvas** — CRUD presets; usado no form do catálogo A |
 | Validação | Sem blueprint → não salva; desactivar preferível a apagar se já há completions |
 
@@ -1117,9 +1153,10 @@ Opcional v1.1: sub-nav pills dentro da página (`Marcos` · `Caça A` · `Caça 
 
 **Catálogo B** (por sessão)
 
-Tabela: Ordem · Nome · Código (`event_code`) · Nível · Armas · Personal tames · Pts team/MVP · Â · TTL · Acções.  
+Tabela: Ordem · Nome · Código (`event_code`) · Nível · Pts · Â · TTL · Tames · **Estado ON/OFF** · Acção **Activar/Desactivar** (rótulo = acção, não o estado — não confundir com a coluna Estado).  
 Acção **Copiar código** para colar no chat `/eveadm`.  
-Form: todos os campos §8.4.
+Form: todos os campos §8.4.  
+Se by-code rejeitar `instance_alive`: Instâncias B → **void** (`POST /api/admin/event-hunt/b/instances/<id>/void`) e só depois novo `/eveadm`.
 
 **Inscrições**
 
@@ -1243,6 +1280,8 @@ Plugin (`api_key`) permanece §9.2–9.3 (`by-code`, `spawned`, `complete`, `fai
 
 | Versão | Data | Notas |
 |--------|------|-------|
+| 1.9 | 2026-08-05 | Mode B by-code: erros `dino_disabled` / `session_not_active` / `instance_alive`; void admin para ALIVE stuck; UI Catálogo B estado ON/OFF explícito |
+| 1.8 | 2026-08-05 | Loot on COMPLETED: `loot_on_complete` (A+B), GiveItem ao killer, UI Catálogo A, by-code payload; sem ItensAlfa nos seeds |
 | 1.7 | 2026-08-04 | Motor de arma: % dano HP + `ForbidTorpor` + `OfficialWeaponsOnly`; biblioteca presets; `GrantWeaponOnStart` no `/eve`; UI admin |
 | 1.6 | 2026-08-04 | **Mode A MVP web:** migrations + APIs §9.2 + UI Minha Equipe / Equipes Admin; testes claim/lock; Mode B stub |
 | 1.5 | 2026-08-04 | Install TEK: aba Plugins + botão Loja; PyInstaller; §12.4.1; fora de escopo deixa de listar deploy empacotado |

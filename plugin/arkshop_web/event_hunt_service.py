@@ -24,6 +24,21 @@ _load_settings: Callable[[], dict[str, Any]] | None = None
 _add_points_tx: Callable[..., Any] | None = None
 _audit_event: Callable[..., Any] | None = None
 
+
+class EventHuntReject(ValueError):
+    """Rejeição de negócio com código estável para plugin/UI (HTTP 400/409)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str,
+        http_status: int = 400,
+    ) -> None:
+        super().__init__(message)
+        self.error_code = str(error_code)
+        self.http_status = int(http_status)
+
 ACTIVE_CLAIM_STATUSES = ("CLAIMED", "SPAWNED")
 TERMINAL_STATUSES = ("COMPLETED", "FAILED", "CANCELLED", "VOIDED")
 CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -34,6 +49,34 @@ DEFAULT_FORBID_TORPOR = True
 DEFAULT_OFFICIAL_WEAPONS_ONLY = True
 DEFAULT_GRANT_WEAPON_ON_START = True
 DEFAULT_GRANT_WEAPON_QTY = 1
+MAX_LOOT_ROWS = 32
+MAX_LOOT_QTY = 100
+
+# Exemplos vanilla (selas / armadura / arma) — NÃO inclui ItensAlfa / Tek Alfa.
+# Referência docs/UI; desafios novos começam com loot vazio.
+EXAMPLE_LOOT_VANILLA: list[dict[str, Any]] = [
+    {
+        "blueprint": (
+            "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/"
+            "PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle'"
+        ),
+        "qty": 1,
+    },
+    {
+        "blueprint": (
+            "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Metal/"
+            "PrimalItemArmor_MetalHelmet.PrimalItemArmor_MetalHelmet'"
+        ),
+        "qty": 1,
+    },
+    {
+        "blueprint": (
+            "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/"
+            "PrimalItem_WeaponSword.PrimalItem_WeaponSword'"
+        ),
+        "qty": 1,
+    },
+]
 
 # Starter library — official ASE item BPs (admin can edit/extend).
 DEFAULT_WEAPON_PRESETS: list[dict[str, str]] = [
@@ -153,6 +196,7 @@ def ensure_event_hunt_schema(engine: Engine) -> None:
           grant_weapon_on_start {tiny} NOT NULL DEFAULT 1,
           grant_weapon_blueprint VARCHAR(512) NOT NULL DEFAULT '',
           grant_weapon_qty  INTEGER NOT NULL DEFAULT {DEFAULT_GRANT_WEAPON_QTY},
+          loot_on_complete  TEXT,
           enabled           {tiny} NOT NULL DEFAULT 1,
           created_at        {now_col} NOT NULL,
           updated_at        {now_col} NOT NULL
@@ -296,6 +340,7 @@ def ensure_event_hunt_schema(engine: Engine) -> None:
           amber_team            INTEGER NOT NULL DEFAULT 0,
           amber_mvp             INTEGER NOT NULL DEFAULT 0,
           rank_rewards_json     TEXT,
+          loot_on_complete      TEXT,
           ttl_sec               INTEGER NOT NULL DEFAULT 0,
           sort_order            INTEGER NOT NULL DEFAULT 0,
           enabled               {tiny} NOT NULL DEFAULT 1,
@@ -371,12 +416,36 @@ def ensure_event_hunt_schema(engine: Engine) -> None:
             except Exception as exc:
                 log.debug("event_hunt index skip: %s (%s)", ix, exc)
         _migrate_challenge_weapon_rules(conn, is_sqlite, tiny)
+        _migrate_public_dino_loot(conn, is_sqlite)
         _migrate_scores_session_col(conn, is_sqlite)
         _seed_weapon_presets_if_empty(conn)
 
 
+def _add_column_if_missing(
+    conn: Any, *, table: str, col: str, col_type: str, is_sqlite: bool
+) -> None:
+    try:
+        if is_sqlite:
+            existing = [
+                r[1]
+                for r in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+            ]
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+        else:
+            row = conn.execute(
+                text(f"SHOW COLUMNS FROM `{table}` LIKE '{col}'")
+            ).fetchone()
+            if row is None:
+                conn.execute(
+                    text(f"ALTER TABLE `{table}` ADD COLUMN `{col}` {col_type}")
+                )
+    except Exception as exc:
+        log.debug("event_hunt migrate %s.%s: %s", table, col, exc)
+
+
 def _migrate_challenge_weapon_rules(conn: Any, is_sqlite: bool, tiny: str) -> None:
-    """Add damage-ratio / torpor / official-only / grant columns on existing DBs."""
+    """Add damage-ratio / torpor / official-only / grant / loot columns on existing DBs."""
     cols = [
         (
             "min_allowed_weapon_damage_ratio",
@@ -390,36 +459,23 @@ def _migrate_challenge_weapon_rules(conn: Any, is_sqlite: bool, tiny: str) -> No
             "grant_weapon_qty",
             f"INTEGER NOT NULL DEFAULT {DEFAULT_GRANT_WEAPON_QTY}",
         ),
+        ("loot_on_complete", "TEXT"),
     ]
     for col, col_type in cols:
-        try:
-            if is_sqlite:
-                existing = [
-                    r[1]
-                    for r in conn.execute(
-                        text("PRAGMA table_info(event_hunt_challenges)")
-                    ).fetchall()
-                ]
-                if col not in existing:
-                    conn.execute(
-                        text(
-                            f"ALTER TABLE event_hunt_challenges ADD COLUMN {col} {col_type}"
-                        )
-                    )
-            else:
-                row = conn.execute(
-                    text(
-                        f"SHOW COLUMNS FROM `event_hunt_challenges` LIKE '{col}'"
-                    )
-                ).fetchone()
-                if row is None:
-                    conn.execute(
-                        text(
-                            f"ALTER TABLE `event_hunt_challenges` ADD COLUMN `{col}` {col_type}"
-                        )
-                    )
-        except Exception as exc:
-            log.debug("event_hunt migrate %s: %s", col, exc)
+        _add_column_if_missing(
+            conn, table="event_hunt_challenges", col=col, col_type=col_type, is_sqlite=is_sqlite
+        )
+
+
+def _migrate_public_dino_loot(conn: Any, is_sqlite: bool) -> None:
+    """Add loot_on_complete on Mode B public dinos."""
+    _add_column_if_missing(
+        conn,
+        table="event_hunt_public_dinos",
+        col="loot_on_complete",
+        col_type="TEXT",
+        is_sqlite=is_sqlite,
+    )
 
 
 def _migrate_scores_session_col(conn: Any, is_sqlite: bool) -> None:
@@ -491,8 +547,60 @@ def _clamp_ratio(value: Any, default: float = DEFAULT_MIN_ALLOWED_WEAPON_DAMAGE_
     return r
 
 
+def _looks_like_alpha_loot(blueprint: str) -> bool:
+    """Heuristic: ItensAlfa / Tek Alfa / shop alpha kits — never in seeds/examples."""
+    s = (blueprint or "").lower()
+    needles = (
+        "itensalfa",
+        "itens_alfa",
+        "itemsalfa",
+        "tekalfa",
+        "tek_alfa",
+        "alphaarmor",
+        "alpha_armor",
+        "primalitemarmor_alpha",
+        "primalitem_weaponalpha",
+        "/alfa/",
+        "_alfa",
+        "alfa'",
+    )
+    return any(n in s for n in needles)
+
+
+def _normalize_loot_on_complete(raw: Any, *, strip_alpha: bool = False) -> list[dict[str, Any]]:
+    """Normalize `[{blueprint, qty}, ...]` for challenges / public dinos."""
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, str):
+        raw = _json_loads(raw, [])
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, str):
+            bp = item.strip()
+            qty = 1
+        elif isinstance(item, dict):
+            bp = str(item.get("blueprint") or item.get("bp") or "").strip()
+            try:
+                qty = int(item.get("qty") if item.get("qty") is not None else item.get("quantity") or 1)
+            except (TypeError, ValueError):
+                qty = 1
+        else:
+            continue
+        if not bp:
+            continue
+        if strip_alpha and _looks_like_alpha_loot(bp):
+            continue
+        qty = max(1, min(MAX_LOOT_QTY, qty))
+        out.append({"blueprint": bp[:512], "qty": qty})
+        if len(out) >= MAX_LOOT_ROWS:
+            break
+    return out
+
+
 def _row_challenge(row: Any) -> dict[str, Any]:
-    """Map SELECT `_CHALLENGE_COLS` → dict (21 fields after grant columns)."""
+    """Map SELECT `_CHALLENGE_COLS` → dict."""
     n = len(row) if row is not None else 0
 
     def _at(i: int, default: Any = None) -> Any:
@@ -519,9 +627,10 @@ def _row_challenge(row: Any) -> dict[str, Any]:
         "grant_weapon_on_start": bool(_at(15, DEFAULT_GRANT_WEAPON_ON_START)),
         "grant_weapon_blueprint": str(_at(16, "") or ""),
         "grant_weapon_qty": int(_at(17, DEFAULT_GRANT_WEAPON_QTY) or DEFAULT_GRANT_WEAPON_QTY),
-        "enabled": bool(_at(18, True)),
-        "created_at": str(_at(19)) if _at(19) else None,
-        "updated_at": str(_at(20)) if _at(20) else None,
+        "loot_on_complete": _normalize_loot_on_complete(_at(18, [])),
+        "enabled": bool(_at(19, True)),
+        "created_at": str(_at(20)) if _at(20) else None,
+        "updated_at": str(_at(21)) if _at(21) else None,
     }
 
 
@@ -531,7 +640,7 @@ _CHALLENGE_COLS = """
   claim_ttl_sec, spawn_ttl_sec,
   min_allowed_weapon_damage_ratio, forbid_torpor, official_weapons_only,
   grant_weapon_on_start, grant_weapon_blueprint, grant_weapon_qty,
-  enabled, created_at, updated_at
+  loot_on_complete, enabled, created_at, updated_at
 """
 
 
@@ -971,6 +1080,7 @@ def admin_create_challenge(db: Session, payload: dict[str, Any]) -> dict[str, An
     )
     grant_bp = str(payload.get("grant_weapon_blueprint") or "").strip()[:512]
     grant_qty = max(1, int(payload.get("grant_weapon_qty") or DEFAULT_GRANT_WEAPON_QTY))
+    loot = _normalize_loot_on_complete(payload.get("loot_on_complete"))
     db.execute(
         text("""
             INSERT INTO event_hunt_challenges (
@@ -979,14 +1089,14 @@ def admin_create_challenge(db: Session, payload: dict[str, Any]) -> dict[str, An
               claim_ttl_sec, spawn_ttl_sec,
               min_allowed_weapon_damage_ratio, forbid_torpor, official_weapons_only,
               grant_weapon_on_start, grant_weapon_blueprint, grant_weapon_qty,
-              enabled, created_at, updated_at
+              loot_on_complete, enabled, created_at, updated_at
             ) VALUES (
               :sk, :bp, :dn, :lvl, :sm,
               :aw, :fw, :pts, :amb,
               :cttl, :sttl,
               :ratio, :forbid, :official,
               :grant_on, :grant_bp, :grant_qty,
-              :en, :now, :now
+              :loot, :en, :now, :now
             )
         """),
         {
@@ -1007,6 +1117,7 @@ def admin_create_challenge(db: Session, payload: dict[str, Any]) -> dict[str, An
             "grant_on": 1 if grant_on else 0,
             "grant_bp": grant_bp,
             "grant_qty": grant_qty,
+            "loot": _json_dumps(loot),
             "en": 1 if payload.get("enabled", True) else 0,
             "now": now,
         },
@@ -1070,6 +1181,13 @@ def admin_update_challenge(db: Session, challenge_id: int, payload: dict[str, An
                 else ch.get("grant_weapon_qty", DEFAULT_GRANT_WEAPON_QTY)
             ),
         ),
+        "loot_on_complete": _json_dumps(
+            _normalize_loot_on_complete(
+                payload["loot_on_complete"]
+                if "loot_on_complete" in payload
+                else ch.get("loot_on_complete") or []
+            )
+        ),
         "enabled": 1 if payload.get("enabled", ch["enabled"]) else 0,
         "now": _naive(),
         "id": int(challenge_id),
@@ -1092,6 +1210,7 @@ def admin_update_challenge(db: Session, challenge_id: int, payload: dict[str, An
               grant_weapon_on_start=:grant_weapon_on_start,
               grant_weapon_blueprint=:grant_weapon_blueprint,
               grant_weapon_qty=:grant_weapon_qty,
+              loot_on_complete=:loot_on_complete,
               enabled=:enabled, updated_at=:now
             WHERE challenge_id=:id
         """),
@@ -1528,6 +1647,9 @@ def plugin_claim_by_code(db: Session, event_code: str) -> dict[str, Any]:
         "grant_weapon_blueprint": str(ch.get("grant_weapon_blueprint") or ""),
         "grant_weapon_qty": int(
             ch.get("grant_weapon_qty") or DEFAULT_GRANT_WEAPON_QTY
+        ),
+        "loot_on_complete": _normalize_loot_on_complete(
+            ch.get("loot_on_complete") or []
         ),
         "allow_personal_tames": False,
         "dino_ttl_sec": ch["spawn_ttl_sec"],
@@ -2109,7 +2231,7 @@ _PUBLIC_DINO_COLS = """
   allowed_weapons, forbid_torpor, allow_personal_tames,
   min_allowed_weapon_damage_ratio, official_weapons_only,
   points_team, points_mvp, amber_team, amber_mvp, rank_rewards_json,
-  ttl_sec, sort_order, enabled, created_at, updated_at
+  loot_on_complete, ttl_sec, sort_order, enabled, created_at, updated_at
 """
 
 _INSTANCE_COLS = """
@@ -2158,11 +2280,12 @@ def _row_public_dino(row: Any) -> dict[str, Any]:
         "amber_team": int(row[13] or 0),
         "amber_mvp": int(row[14] or 0),
         "rank_rewards_json": _json_loads(row[15], {}),
-        "ttl_sec": int(row[16] or 0),
-        "sort_order": int(row[17] or 0),
-        "enabled": bool(row[18]),
-        "created_at": str(row[19]) if row[19] else None,
-        "updated_at": str(row[20]) if row[20] else None,
+        "loot_on_complete": _normalize_loot_on_complete(row[16] if len(row) > 16 else []),
+        "ttl_sec": int(row[17] or 0),
+        "sort_order": int(row[18] or 0),
+        "enabled": bool(row[19]),
+        "created_at": str(row[20]) if row[20] else None,
+        "updated_at": str(row[21]) if row[21] else None,
     }
 
 
@@ -2664,6 +2787,7 @@ def admin_create_public_dino(
     weapons = payload.get("allowed_weapons") or []
     if isinstance(weapons, str):
         weapons = [w.strip() for w in weapons.split(",") if w.strip()]
+    loot = _normalize_loot_on_complete(payload.get("loot_on_complete"))
     db.execute(
         text("""
             INSERT INTO event_hunt_public_dinos (
@@ -2671,13 +2795,13 @@ def admin_create_public_dino(
               allowed_weapons, forbid_torpor, allow_personal_tames,
               min_allowed_weapon_damage_ratio, official_weapons_only,
               points_team, points_mvp, amber_team, amber_mvp, rank_rewards_json,
-              ttl_sec, sort_order, enabled, created_at, updated_at
+              loot_on_complete, ttl_sec, sort_order, enabled, created_at, updated_at
             ) VALUES (
               :sid, :code, :dn, :bp, :lvl,
               :aw, :ft, :apt,
               :ratio, :owo,
               :pt, :pm, :at, :am, :rr,
-              :ttl, :so, :en, :now, :now
+              :loot, :ttl, :so, :en, :now, :now
             )
         """),
         {
@@ -2701,6 +2825,7 @@ def admin_create_public_dino(
             "at": int(payload.get("amber_team") or 0),
             "am": int(payload.get("amber_mvp") or 0),
             "rr": _json_dumps(payload.get("rank_rewards_json") or {}),
+            "loot": _json_dumps(loot),
             "ttl": int(payload.get("ttl_sec") or 0),
             "so": int(payload.get("sort_order") or 0),
             "en": 1 if payload.get("enabled", True) else 0,
@@ -2732,6 +2857,11 @@ def admin_update_public_dino(
     weapons = payload.get("allowed_weapons", dino["allowed_weapons"])
     if isinstance(weapons, str):
         weapons = [w.strip() for w in weapons.split(",") if w.strip()]
+    loot = _normalize_loot_on_complete(
+        payload["loot_on_complete"]
+        if "loot_on_complete" in payload
+        else dino.get("loot_on_complete") or []
+    )
     db.execute(
         text("""
             UPDATE event_hunt_public_dinos SET
@@ -2739,7 +2869,8 @@ def admin_update_public_dino(
               allowed_weapons=:aw, forbid_torpor=:ft, allow_personal_tames=:apt,
               min_allowed_weapon_damage_ratio=:ratio, official_weapons_only=:owo,
               points_team=:pt, points_mvp=:pm, amber_team=:at, amber_mvp=:am,
-              rank_rewards_json=:rr, ttl_sec=:ttl, sort_order=:so, enabled=:en,
+              rank_rewards_json=:rr, loot_on_complete=:loot,
+              ttl_sec=:ttl, sort_order=:so, enabled=:en,
               updated_at=:now
             WHERE public_dino_id=:id
         """),
@@ -2762,6 +2893,7 @@ def admin_update_public_dino(
             "at": int(payload.get("amber_team", dino["amber_team"])),
             "am": int(payload.get("amber_mvp", dino["amber_mvp"])),
             "rr": _json_dumps(payload.get("rank_rewards_json", dino["rank_rewards_json"])),
+            "loot": _json_dumps(loot),
             "ttl": int(payload.get("ttl_sec", dino["ttl_sec"])),
             "so": int(payload.get("sort_order", dino["sort_order"])),
             "en": 1 if payload.get("enabled", dino["enabled"]) else 0,
@@ -2899,18 +3031,44 @@ def admin_void_instance(
 
 
 def plugin_b_by_code(db: Session, event_code: str) -> dict[str, Any]:
-    """Claim-summon payload for /eveadm <code>."""
+    """Claim-summon payload for /eveadm <code>.
+
+    Pré-condições: dino `enabled`, sessão `ACTIVE`, sem instância ALIVE/ORPHAN_ALIVE.
+    Se houver vivo órfão/stuck: admin void via
+    ``POST /api/admin/event-hunt/b/instances/<id>/void``.
+    """
     _require_enabled()
-    dino = get_public_dino_by_code(db, event_code)
+    code_norm = str(event_code or "").strip().upper()
+    dino = get_public_dino_by_code(db, code_norm)
     if not dino:
+        log.warning("plugin_b_by_code: código B desconhecido code=%s", code_norm)
         raise LookupError("Código B inválido.")
     if not dino["enabled"]:
-        raise ValueError("Dino B desactivado.")
+        log.warning(
+            "plugin_b_by_code: dino desactivado code=%s public_dino_id=%s session=%s",
+            dino["event_code"],
+            dino["public_dino_id"],
+            dino["event_session_id"],
+        )
+        raise EventHuntReject(
+            f"Dino B desactivado (código {dino['event_code']}). "
+            "No Catálogo B usa «Activar» (estado deve mostrar ON) antes de /eveadm.",
+            error_code="dino_disabled",
+        )
     session = get_session(db, int(dino["event_session_id"]))
     if not session:
         raise LookupError("Sessão B em falta.")
     if session["status"] != "ACTIVE":
-        raise ValueError(f"Sessão não está ACTIVE ({session['status']}).")
+        log.warning(
+            "plugin_b_by_code: sessão não ACTIVE code=%s session=%s status=%s",
+            dino["event_code"],
+            session["event_session_id"],
+            session["status"],
+        )
+        raise EventHuntReject(
+            f"Sessão não está ACTIVE ({session['status']}).",
+            error_code="session_not_active",
+        )
     alive = db.execute(
         text("""
             SELECT instance_id FROM event_hunt_instances
@@ -2920,7 +3078,20 @@ def plugin_b_by_code(db: Session, event_code: str) -> dict[str, Any]:
         {"pd": int(dino["public_dino_id"])},
     ).fetchone()
     if alive:
-        raise ValueError("Já existe instância viva deste dino — espera kill/expire.")
+        iid = int(alive[0])
+        log.warning(
+            "plugin_b_by_code: instância viva code=%s instance_id=%s "
+            "(void: POST /api/admin/event-hunt/b/instances/%s/void)",
+            dino["event_code"],
+            iid,
+            iid,
+        )
+        raise EventHuntReject(
+            f"Já existe instância viva (#{iid}) deste dino — espera kill/expire "
+            f"ou void admin POST /api/admin/event-hunt/b/instances/{iid}/void.",
+            error_code="instance_alive",
+            http_status=409,
+        )
     return {
         "ok": True,
         "mode": "B",
@@ -2939,6 +3110,9 @@ def plugin_b_by_code(db: Session, event_code: str) -> dict[str, Any]:
         "points_mvp": dino["points_mvp"],
         "amber_team": dino["amber_team"],
         "amber_mvp": dino["amber_mvp"],
+        "loot_on_complete": _normalize_loot_on_complete(
+            dino.get("loot_on_complete") or []
+        ),
         "display_name": dino["display_name"],
         "session_name": session["name"],
     }

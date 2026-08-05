@@ -4250,6 +4250,23 @@ def sync_customdino_at_path(
     save_plugin_config(plugin_path, merged)
 
 
+def sync_arkeventhunt_at_path(
+    plugin_path: Path,
+    api_url: str,
+    api_key: str,
+) -> None:
+    """Sincroniza WebApiUrl/WebApiKey do ArkEventHunt (raiz ArkEventHunt.*)."""
+    existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
+    merged = deepcopy(existing) if existing else {}
+    root = merged.get("ArkEventHunt")
+    if not isinstance(root, dict):
+        root = {}
+        merged["ArkEventHunt"] = root
+    root["WebApiUrl"] = api_url
+    root["WebApiKey"] = api_key
+    save_plugin_config(plugin_path, merged)
+
+
 def sync_arkshop_web_settings(
     shop: "ShopGlobalConfig",
     catalog_path: Path,
@@ -4735,6 +4752,22 @@ def sync_all_plugins(
                     ok.append(f"{srv_name} → CustomDinoDeliver {dino_path}")
                 except Exception as exc:
                     errors.append(f"{srv_name} CustomDinoDeliver: {exc}")
+
+            hunt_path = arkeventhunt_plugin_dir(install_dir) / "config.json"
+            if hunt_path.is_file() or is_arkeventhunt_installed(install_dir):
+                srv_name = getattr(srv, "name", "") or ""
+                try:
+                    dll_ok, dll_notes = deploy_arkeventhunt_dll_to_server(
+                        install_dir, overwrite=True,
+                    )
+                    for line in dll_ok:
+                        ok.append(f"{srv_name} → {line}")
+                    for line in dll_notes:
+                        errors.append(f"{srv_name} ArkEventHunt: {line}")
+                    sync_arkeventhunt_at_path(hunt_path, api, api_key)
+                    ok.append(f"{srv_name} → ArkEventHunt {hunt_path}")
+                except Exception as exc:
+                    errors.append(f"{srv_name} ArkEventHunt: {exc}")
 
             if install_dir:
                 perm_ok, perm_notes = _ensure_permissions_config_on_server(

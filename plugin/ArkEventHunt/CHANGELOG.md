@@ -3,6 +3,42 @@
 Versões sincronizadas via `plugin_version.txt` +
 `python scripts/sync_plugin_versions.py --plugin ArkEventHunt`.
 
+## [0.5.2] - 2026-08-05
+
+- HTTP 4xx: log inclui `body=` (preview) além de `body_len` — diagnóstico de
+  `dino_disabled` / sessão / instância viva sem adivinhar pelo tamanho.
+- `/eveadm` reject log também imprime o body da API.
+
+## [0.5.1] - 2026-08-05
+
+- `/eve` e `/eveadm`: rejeições HTTP ≥400 mostram `Motivo:` com o `error` da API
+  (ex.: sessão não ACTIVE, dino já vivo, catálogo off) em vez de mensagem opaca.
+- `/eveadm` 404: hint de que códigos Mode A usam `/eve`, não `/eveadm`.
+
+## [0.5.0] - 2026-08-05
+
+- Loot on COMPLETED: `loot_on_complete` `[{blueprint, qty}]` no desafio A / dino B.
+- Die válido → `GiveItem` ao inventário do killer (idempotente via `MarkOutcomeSent`).
+- Inventário cheio → chat `LootInventoryFull` + log; FAIL nunca entrega loot.
+- by-code / Mode B claim-summon incluem a lista; UI Catálogo A edita linhas (sem alfa nos exemplos).
+
+## [0.4.2] - 2026-08-05
+
+- Chat UTF-8: `SendMsg` / `BroadcastChat` convertem UTF-8→ACP/wide
+  (corrige `inacess??vel` e acentos nas Messages).
+- README + `config.json.example`: como apontar `WebApiUrl`/`WebApiKey` à
+  mesma loja LAN do admin web; nota explícita de que ranking_blocked ≠ ACTIVE.
+- TEK sync Loja: escreve `WebApiUrl`/`WebApiKey` no config ArkEventHunt.
+
+## [0.4.1] - 2026-08-05
+
+- `/eve`: distingue falha de membership API (`EveMembershipApiDown`) vs
+  membro não ACTIVE (`EveNotActiveMember`) — HTTP 4xx/`ok:false` já não
+  mostram a mensagem de “não és membro”.
+- Logs mais claros no check de Equipe; Die também rejeita `ok:false`/HTTP≥400
+  como falha de API (não como resposta válida).
+- Nota: `ranking_blocked` (“fora do ranking”) **não** afecta membership ACTIVE.
+
 ## [0.4.0] - 2026-08-04
 
 - **Mode B:** `/eveadm <código>` (admin `bIsAdmin` ou `ModeB.AdminGroups` via Permissions).

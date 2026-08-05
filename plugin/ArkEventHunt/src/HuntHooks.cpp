@@ -181,6 +181,8 @@ std::string UrlEncode(const std::string& s) {
     return out;
 }
 
+// true = HTTP/JSON ok (active may still be false). false = API unreachable /
+// auth/teams error — caller must NOT treat as "not in team" / stolen.
 bool LookupKillerTeam(uint64_t steam_u64, bool& active, uint64_t& team_id) {
     active = false;
     team_id = 0;
@@ -188,9 +190,19 @@ bool LookupKillerTeam(uint64_t steam_u64, bool& active, uint64_t& team_id) {
     const std::string steam = std::to_string(steam_u64);
     const auto resp = ArkEventHunt::HttpClient::Get(
         "/api/teams/plugin/membership/" + UrlEncode(steam));
-    if (resp.status == 0 || resp.body.empty()) return false;
+    if (resp.status == 0 || resp.body.empty() || resp.status >= 400) {
+        Log::GetLog()->warn(
+            "ArkEventHunt membership (Die): API fail steam={} status={}",
+            steam, resp.status);
+        return false;
+    }
     try {
         const auto j = nlohmann::json::parse(resp.body);
+        if (j.contains("ok") && !j.value("ok", false)) {
+            Log::GetLog()->warn(
+                "ArkEventHunt membership (Die): ok=false steam={}", steam);
+            return false;
+        }
         nlohmann::json data = j;
         if (j.contains("data") && j["data"].is_object())
             data = j["data"];
@@ -209,6 +221,8 @@ bool LookupKillerTeam(uint64_t steam_u64, bool& active, uint64_t& team_id) {
         }
         return true;
     } catch (...) {
+        Log::GetLog()->warn(
+            "ArkEventHunt membership (Die): JSON fail steam={}", steam);
         return false;
     }
 }
@@ -218,10 +232,30 @@ void PostModeAOutcome(const ArkEventHunt::Registry::Entry& entry,
                       const char* fail_reason,
                       uint64_t killer_steam,
                       uint64_t killer_team,
-                      const std::string& weapon_hint) {
+                      const std::string& weapon_hint,
+                      AShooterPlayerController* killer_pc) {
     if (entry.claim_id <= 0) return;
     if (!ArkEventHunt::Registry::MarkOutcomeSent(entry.dino_id1, entry.dino_id2))
         return;
+
+    // Loot só em COMPLETED válido — idempotente via MarkOutcomeSent acima.
+    if (success && !entry.loot_on_complete.empty()) {
+        AShooterPlayerController* pc = killer_pc;
+        if (!pc && killer_steam != 0)
+            pc = ArkEventHunt::World::FindPlayerBySteamId(
+                std::to_string(killer_steam));
+        if (pc) {
+            const int n =
+                ArkEventHunt::World::GiveLootTable(pc, entry.loot_on_complete);
+            Log::GetLog()->info(
+                "ArkEventHunt ModeA loot claim={} stacks_ok={} of {}",
+                entry.claim_id, n, entry.loot_on_complete.size());
+        } else {
+            Log::GetLog()->warn(
+                "ArkEventHunt ModeA loot: killer offline claim={} steam={}",
+                entry.claim_id, killer_steam);
+        }
+    }
 
     const float total_hp =
         entry.allowed_hp_damage + entry.other_hp_damage;
@@ -275,10 +309,29 @@ void PostModeBKill(const ArkEventHunt::Registry::Entry& entry,
                    const char* fail_reason,
                    uint64_t killer_steam,
                    uint64_t killer_team,
-                   const std::string& weapon_hint) {
+                   const std::string& weapon_hint,
+                   AShooterPlayerController* killer_pc) {
     if (entry.instance_id <= 0) return;
     if (!ArkEventHunt::Registry::MarkOutcomeSent(entry.dino_id1, entry.dino_id2))
         return;
+
+    if (valid && !entry.loot_on_complete.empty()) {
+        AShooterPlayerController* pc = killer_pc;
+        if (!pc && killer_steam != 0)
+            pc = ArkEventHunt::World::FindPlayerBySteamId(
+                std::to_string(killer_steam));
+        if (pc) {
+            const int n =
+                ArkEventHunt::World::GiveLootTable(pc, entry.loot_on_complete);
+            Log::GetLog()->info(
+                "ArkEventHunt ModeB loot instance={} stacks_ok={} of {}",
+                entry.instance_id, n, entry.loot_on_complete.size());
+        } else {
+            Log::GetLog()->warn(
+                "ArkEventHunt ModeB loot: killer offline instance={} steam={}",
+                entry.instance_id, killer_steam);
+        }
+    }
 
     const float total_hp =
         entry.allowed_hp_damage + entry.other_hp_damage;
@@ -387,18 +440,21 @@ bool WeaponRatioOk(const ArkEventHunt::Registry::Entry& entry, float& ratio_out)
 
 void HandleModeADie(const ArkEventHunt::Registry::Entry& entry,
                     uint64_t killer_steam,
-                    const std::string& weapon) {
+                    const std::string& weapon,
+                    AShooterPlayerController* killer_pc) {
     float ratio = 0.f;
     if (entry.forbid_torpor && entry.torpor_hits > 0.f) {
-        PostModeAOutcome(entry, false, "weapon", killer_steam, 0, weapon);
+        PostModeAOutcome(entry, false, "weapon", killer_steam, 0, weapon,
+                         killer_pc);
         return;
     }
     if (!WeaponRatioOk(entry, ratio)) {
-        PostModeAOutcome(entry, false, "weapon", killer_steam, 0, weapon);
+        PostModeAOutcome(entry, false, "weapon", killer_steam, 0, weapon,
+                         killer_pc);
         return;
     }
     if (killer_steam == 0) {
-        PostModeAOutcome(entry, false, "stolen", 0, 0, weapon);
+        PostModeAOutcome(entry, false, "stolen", 0, 0, weapon, killer_pc);
         return;
     }
 
@@ -407,20 +463,30 @@ void HandleModeADie(const ArkEventHunt::Registry::Entry& entry,
     const bool membership_ok =
         LookupKillerTeam(killer_steam, active, killer_team);
 
-    if (!membership_ok || !active || killer_team == 0 ||
-        killer_team != entry.team_id) {
-        PostModeAOutcome(entry, false, "stolen", killer_steam, killer_team,
-                         weapon);
+    // API down / auth: do not treat as steal (false negative for OWNER).
+    if (!membership_ok) {
+        Log::GetLog()->error(
+            "ArkEventHunt Mode A Die: membership API fail — skip stolen "
+            "steam={} expected_team={}",
+            killer_steam, entry.team_id);
         return;
     }
 
-    PostModeAOutcome(entry, true, nullptr, killer_steam, killer_team, weapon);
+    if (!active || killer_team == 0 || killer_team != entry.team_id) {
+        PostModeAOutcome(entry, false, "stolen", killer_steam, killer_team,
+                         weapon, killer_pc);
+        return;
+    }
+
+    PostModeAOutcome(entry, true, nullptr, killer_steam, killer_team, weapon,
+                     killer_pc);
 }
 
 void HandleModeBDie(const ArkEventHunt::Registry::Entry& entry,
                     uint64_t killer_steam,
                     AActor* damage_causer,
-                    const std::string& weapon) {
+                    const std::string& weapon,
+                    AShooterPlayerController* killer_pc) {
     float ratio = 0.f;
     const bool tame_blow =
         ArkEventHunt::World::IsPersonalTameActor(damage_causer);
@@ -434,7 +500,8 @@ void HandleModeBDie(const ArkEventHunt::Registry::Entry& entry,
         uint64_t killer_team = 0;
         if (killer_steam != 0)
             LookupKillerTeam(killer_steam, active, killer_team);
-        PostModeBKill(entry, false, "tame", killer_steam, killer_team, weapon);
+        PostModeBKill(entry, false, "tame", killer_steam, killer_team, weapon,
+                      killer_pc);
         return;
     }
 
@@ -444,7 +511,7 @@ void HandleModeBDie(const ArkEventHunt::Registry::Entry& entry,
         if (killer_steam != 0)
             LookupKillerTeam(killer_steam, active, killer_team);
         PostModeBKill(entry, false, "weapon", killer_steam, killer_team,
-                      weapon);
+                      weapon, killer_pc);
         return;
     }
 
@@ -454,7 +521,7 @@ void HandleModeBDie(const ArkEventHunt::Registry::Entry& entry,
         if (killer_steam != 0)
             LookupKillerTeam(killer_steam, active, killer_team);
         PostModeBKill(entry, false, "weapon", killer_steam, killer_team,
-                      weapon);
+                      weapon, killer_pc);
         return;
     }
 
@@ -464,7 +531,8 @@ void HandleModeBDie(const ArkEventHunt::Registry::Entry& entry,
         LookupKillerTeam(killer_steam, active, killer_team);
 
     // Inscrição / credit Team+MVP é responsabilidade da API (só inscritas).
-    PostModeBKill(entry, true, nullptr, killer_steam, killer_team, weapon);
+    PostModeBKill(entry, true, nullptr, killer_steam, killer_team, weapon,
+                  killer_pc);
 }
 
 } // anonymous
@@ -513,6 +581,9 @@ bool Hook_APrimalDinoCharacter_Die(APrimalDinoCharacter* _this,
             const uint64_t steam = ArkApi::GetApiUtils().GetAttackerSteamID(
                 _this, Killer, DamageCauser, false);
             const std::string weapon = ResolveWeaponHint(Killer, DamageCauser);
+            auto* killer_pc =
+                Killer ? static_cast<AShooterPlayerController*>(Killer)
+                       : nullptr;
 
             const float fatal_hp = KillingDamage > 0.f ? KillingDamage : 0.f;
             TrackDamageOnEntry(_this, fatal_hp, DamageEvent, Killer,
@@ -535,9 +606,9 @@ bool Hook_APrimalDinoCharacter_Die(APrimalDinoCharacter* _this,
                 entry.personal_tame_hp_damage, entry.torpor_hits);
 
             if (entry.mode == ArkEventHunt::Registry::Mode::ModeA) {
-                HandleModeADie(entry, steam, weapon);
+                HandleModeADie(entry, steam, weapon, killer_pc);
             } else if (entry.mode == ArkEventHunt::Registry::Mode::ModeB) {
-                HandleModeBDie(entry, steam, DamageCauser, weapon);
+                HandleModeBDie(entry, steam, DamageCauser, weapon, killer_pc);
             } else if (entry.mode == ArkEventHunt::Registry::Mode::Spike) {
                 float spike_ratio = 0.f;
                 const bool ratio_ok = WeaponRatioOk(entry, spike_ratio);

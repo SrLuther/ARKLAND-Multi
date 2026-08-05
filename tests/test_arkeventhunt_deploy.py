@@ -50,12 +50,25 @@ def test_install_arkeventhunt_copies_config_and_info(tmp_path: Path) -> None:
     plugin = install_dir / "ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkEventHunt"
     assert (plugin / "ArkEventHunt.dll").is_file()
     assert (plugin / "config.json").is_file()
-    assert read_plugin_info_version(plugin / "PluginInfo.json") == "0.4.0"
+    assert read_plugin_info_version(plugin / "PluginInfo.json") == "0.5.2"
     data = json.loads((plugin / "config.json").read_text(encoding="utf-8"))
     assert "ArkEventHunt" in data
 
 
-def test_install_arkeventhunt_does_not_overwrite_existing_config(tmp_path: Path) -> None:
+def test_sync_arkeventhunt_writes_web_api(tmp_path: Path) -> None:
+    from src.shop_integration import sync_arkeventhunt_at_path
+
+    cfg = tmp_path / "config.json"
+    cfg.write_text(
+        json.dumps({"ArkEventHunt": {"Enabled": True, "WebApiUrl": "http://old"}}),
+        encoding="utf-8",
+    )
+    sync_arkeventhunt_at_path(cfg, "http://192.168.1.10:5177", "secret-key")
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["ArkEventHunt"]["WebApiUrl"] == "http://192.168.1.10:5177"
+    assert data["ArkEventHunt"]["WebApiKey"] == "secret-key"
+    assert data["ArkEventHunt"]["Enabled"] is True
+
     install_dir = tmp_path / "server"
     install_dir.mkdir()
     plugin = install_dir / "ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkEventHunt"

@@ -84,8 +84,11 @@ def register_event_hunt_routes(
         payload.update(extra)
         return jsonify(payload)
 
-    def _fail(msg: str, code: int = 400):
-        return jsonify({"ok": False, "error": msg}), code
+    def _fail(msg: str, code: int = 400, *, error_code: str | None = None):
+        payload: dict = {"ok": False, "error": msg}
+        if error_code:
+            payload["error_code"] = error_code
+        return jsonify(payload), code
 
     def _handle(exc: Exception):
         if isinstance(exc, PermissionError):
@@ -94,8 +97,15 @@ def register_event_hunt_routes(
             return _fail(str(exc) or "Não encontrado", 404)
         if isinstance(exc, ValueError):
             msg = str(exc)
-            code = 409 if "Já" in msg or "já" in msg or "override" in msg.lower() else 400
-            return _fail(msg, code)
+            err_code = getattr(exc, "error_code", None)
+            code = getattr(exc, "http_status", None)
+            if code is None:
+                code = (
+                    409
+                    if "Já" in msg or "já" in msg or "override" in msg.lower()
+                    else 400
+                )
+            return _fail(msg, int(code), error_code=err_code)
         log.exception("event_hunt error: %s", exc)
         return _fail(str(exc) or "Erro interno", 500)
 

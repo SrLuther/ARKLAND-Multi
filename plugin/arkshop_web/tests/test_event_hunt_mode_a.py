@@ -249,3 +249,38 @@ def test_weapon_presets_seed_and_challenge_grant_defaults(db):
     assert payload["grant_weapon_on_start"] is True
     assert payload["grant_weapon_blueprint"] == created["blueprint"]
     assert payload["min_allowed_weapon_damage_ratio"] == 0.9
+
+
+def test_loot_on_complete_challenge_and_by_code(db):
+    _team_with_two(db)
+    loot = [
+        {
+            "blueprint": "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle'",
+            "qty": 1,
+        },
+        {
+            "blueprint": "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponSword.PrimalItem_WeaponSword'",
+            "qty": 2,
+        },
+    ]
+    ch = _challenge(db, loot_on_complete=loot, points=100)
+    assert len(ch["loot_on_complete"]) == 2
+    assert ch["loot_on_complete"][0]["qty"] == 1
+    assert ch["loot_on_complete"][1]["qty"] == 2
+    claim = ehs.select_challenge(db, steam_id=USER_A, challenge_id=ch["challenge_id"])["claim"]
+    payload = ehs.plugin_claim_by_code(db, claim["event_code"])
+    assert payload["loot_on_complete"] == ch["loot_on_complete"]
+    # Update loot
+    updated = ehs.admin_update_challenge(
+        db, ch["challenge_id"], {"loot_on_complete": [loot[0]]}
+    )
+    assert len(updated["loot_on_complete"]) == 1
+    # Alpha heuristic strips only when strip_alpha=True (seeds); admin may set any BP
+    cleaned = ehs._normalize_loot_on_complete(
+        [{"blueprint": "Blueprint'/Game/Mods/ItensAlfa/Foo.Foo'", "qty": 1}],
+        strip_alpha=True,
+    )
+    assert cleaned == []
+    assert ehs.EXAMPLE_LOOT_VANILLA
+    for row in ehs.EXAMPLE_LOOT_VANILLA:
+        assert not ehs._looks_like_alpha_loot(row["blueprint"])

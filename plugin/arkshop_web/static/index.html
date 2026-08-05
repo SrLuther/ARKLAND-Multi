@@ -10447,6 +10447,17 @@
             <div class="form-group"><label>Qtd entrega</label><input id="eh-a-grant-qty" type="number" min="1" value="1" /></div>
             <div class="form-group"><label>TTL claim (s)</label><input id="eh-a-claim-ttl" type="number" min="60" value="3600" /></div>
             <div class="form-group"><label>TTL spawn (s)</label><input id="eh-a-spawn-ttl" type="number" min="60" value="900" /></div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Loot no COMPLETED (GiveItem ao killer) — <em>sem ItensAlfa / Tek Alfa nos seeds</em></label>
+              <p style="font-size:11px;color:var(--text2);margin:4px 0 6px;">
+                Selas, armaduras e armas (mods + vanilla). Só no kill válido; FAIL não entrega.
+              </p>
+              <div id="eh-a-loot-rows" style="display:flex;flex-direction:column;gap:6px;"></div>
+              <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminAddLootRow()">+ linha loot</button>
+                <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminFillExampleLoot()">Exemplo vanilla</button>
+              </div>
+            </div>
             <div class="form-group" style="align-self:end;">
               <button class="btn btn-primary btn-sm" type="button" onclick="ehAdminCreateChallenge()">Criar desafio</button>
             </div>
@@ -29216,7 +29227,7 @@ async function loadEventHuntAdmin() {
     const items = d.data?.items || [];
     el.innerHTML = items.length
       ? `<table class="pkg-admin-table"><thead><tr>
-          <th>ID</th><th>Nome</th><th>Nv</th><th>Pts</th><th>Â</th><th>Armas</th><th>%min</th><th>Grant</th><th>On</th><th></th>
+          <th>ID</th><th>Nome</th><th>Nv</th><th>Pts</th><th>Â</th><th>Armas</th><th>%min</th><th>Grant</th><th>Loot</th><th>On</th><th></th>
          </tr></thead><tbody>${items.map((c) => `<tr>
           <td>${c.challenge_id}</td>
           <td>${escHtml(c.display_name)}</td>
@@ -29226,18 +29237,95 @@ async function loadEventHuntAdmin() {
           <td style="font-size:11px;">${escHtml(_ehWeaponsLabel(c.allowed_weapons))}</td>
           <td>${Math.round((c.min_allowed_weapon_damage_ratio ?? 0.8) * 100)}%</td>
           <td>${c.grant_weapon_on_start ? "sim" : "não"}</td>
+          <td>${(c.loot_on_complete || []).length || 0}</td>
           <td>${c.enabled ? "sim" : "não"}</td>
           <td>
+            <button class="btn btn-ghost btn-sm" onclick="ehAdminEditLootChallenge(${c.challenge_id})">Loot</button>
             <button class="btn btn-ghost btn-sm" onclick="ehAdminToggleChallenge(${c.challenge_id},${c.enabled ? "false" : "true"})">${c.enabled ? "Desactivar" : "Activar"}</button>
           </td>
          </tr>`).join("")}</tbody></table>`
       : "<em>Nenhum desafio no catálogo A.</em>";
+    ehAdminEnsureLootRows();
     ehAdminLoadClaims();
     ehAdminLoadAudit();
     ehAdminLoadModeB();
   } catch (e) {
     el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
   }
+}
+
+const _EH_EXAMPLE_LOOT = [
+  { blueprint: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle'", qty: 1 },
+  { blueprint: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Metal/PrimalItemArmor_MetalHelmet.PrimalItemArmor_MetalHelmet'", qty: 1 },
+  { blueprint: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponSword.PrimalItem_WeaponSword'", qty: 1 },
+];
+
+function ehAdminEnsureLootRows() {
+  const wrap = document.getElementById("eh-a-loot-rows");
+  if (wrap && !wrap.children.length) ehAdminAddLootRow();
+}
+
+function ehAdminAddLootRow(bp, qty) {
+  const wrap = document.getElementById("eh-a-loot-rows");
+  if (!wrap) return;
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap;";
+  row.innerHTML = `
+    <input class="eh-a-loot-bp" type="text" placeholder="Blueprint'/Game/…PrimalItem…'"
+      value="${escHtml(bp || "")}" style="flex:1;min-width:220px;" />
+    <input class="eh-a-loot-qty" type="number" min="1" max="100" value="${qty || 1}" style="width:70px;" title="Qtd" />
+    <button class="btn btn-ghost btn-sm" type="button" onclick="this.parentElement.remove()">×</button>`;
+  wrap.appendChild(row);
+}
+
+function ehAdminFillExampleLoot() {
+  const wrap = document.getElementById("eh-a-loot-rows");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  _EH_EXAMPLE_LOOT.forEach((x) => ehAdminAddLootRow(x.blueprint, x.qty));
+  toast("Exemplo vanilla (sem alfa) — podes editar / misturar mods");
+}
+
+function _ehCollectLootOnComplete() {
+  const wrap = document.getElementById("eh-a-loot-rows");
+  if (!wrap) return [];
+  const out = [];
+  wrap.querySelectorAll(":scope > div").forEach((row) => {
+    const bp = (row.querySelector(".eh-a-loot-bp")?.value || "").trim();
+    const qty = parseInt(row.querySelector(".eh-a-loot-qty")?.value || "1", 10) || 1;
+    if (!bp) return;
+    out.push({ blueprint: bp, qty: Math.max(1, Math.min(100, qty)) });
+  });
+  return out;
+}
+
+async function ehAdminEditLootChallenge(id) {
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/a/challenges");
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    const c = (d.data?.items || []).find((x) => x.challenge_id === id);
+    if (!c) { toast("Desafio não encontrado", "error"); return; }
+    const wrap = document.getElementById("eh-a-loot-rows");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    const loot = c.loot_on_complete || [];
+    if (loot.length) loot.forEach((x) => ehAdminAddLootRow(x.blueprint, x.qty));
+    else ehAdminAddLootRow();
+    const save = confirm(
+      `Editar loot do desafio #${id} (${c.display_name}).\n` +
+      `Ajusta as linhas no formulário e confirma para gravar.\n` +
+      `(Cancelar só carrega as linhas sem gravar.)`
+    );
+    if (!save) return;
+    const body = { loot_on_complete: _ehCollectLootOnComplete() };
+    const u = await fetchJson(`/api/admin/event-hunt/a/challenges/${id}`, {
+      method: "PUT",
+      body,
+    });
+    if (!u.ok) { toast(u.error || "Falha", "error"); return; }
+    toast("Loot actualizado");
+    loadEventHuntAdmin();
+  } catch (e) { toast(String(e.message || e), "error"); }
 }
 
 let _ehWeaponPresetsCache = [];
@@ -29365,6 +29453,7 @@ async function ehAdminCreateChallenge() {
         grant_weapon_on_start: !!document.getElementById("eh-a-grant-weapon")?.checked,
         grant_weapon_blueprint: grantBp,
         grant_weapon_qty: parseInt(document.getElementById("eh-a-grant-qty")?.value || "1", 10),
+        loot_on_complete: _ehCollectLootOnComplete(),
         claim_ttl_sec: parseInt(document.getElementById("eh-a-claim-ttl")?.value || "3600", 10),
         spawn_ttl_sec: parseInt(document.getElementById("eh-a-spawn-ttl")?.value || "900", 10),
         enabled: true,
@@ -29372,6 +29461,9 @@ async function ehAdminCreateChallenge() {
     });
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast("Desafio criado");
+    const lootWrap = document.getElementById("eh-a-loot-rows");
+    if (lootWrap) lootWrap.innerHTML = "";
+    ehAdminEnsureLootRows();
     loadEventHuntAdmin();
   } catch (e) { toast(String(e.message || e), "error"); }
 }
@@ -29624,7 +29716,7 @@ async function ehAdminLoadDinosB() {
     const items = d.data?.items || [];
     el.innerHTML = items.length
       ? `<table class="pkg-admin-table"><thead><tr>
-          <th>#</th><th>Nome</th><th>Código</th><th>Nv</th><th>Pts T/M</th><th>Â T/M</th><th>TTL</th><th>Tames</th><th></th>
+          <th>#</th><th>Nome</th><th>Código</th><th>Nv</th><th>Pts T/M</th><th>Â T/M</th><th>TTL</th><th>Tames</th><th>Estado</th><th></th>
          </tr></thead><tbody>${items.map((x) => `<tr>
           <td>${x.sort_order}</td>
           <td>${escHtml(x.display_name)}</td>
@@ -29635,7 +29727,8 @@ async function ehAdminLoadDinosB() {
           <td>${x.amber_team}/${x.amber_mvp}</td>
           <td>${x.ttl_sec || "—"}</td>
           <td>${x.allow_personal_tames ? "sim" : "não"}</td>
-          <td><button class="btn btn-ghost btn-sm" onclick="ehAdminToggleDinoB(${x.public_dino_id},${x.enabled ? "false" : "true"})">${x.enabled ? "Off" : "On"}</button></td>
+          <td><span style="font-weight:600;color:${x.enabled ? "var(--success,#3ecf8e)" : "var(--danger,#f04050)"}">${x.enabled ? "ON" : "OFF"}</span></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="ehAdminToggleDinoB(${x.public_dino_id},${x.enabled ? "false" : "true"})">${x.enabled ? "Desactivar" : "Activar"}</button></td>
          </tr>`).join("")}</tbody></table>`
       : "<em>Nenhum dino no catálogo B desta sessão.</em>";
   } catch (e) {

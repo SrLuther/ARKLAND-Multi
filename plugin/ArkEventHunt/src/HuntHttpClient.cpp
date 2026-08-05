@@ -165,9 +165,16 @@ ArkEventHunt::HttpClient::Response DoRequestUnlocked(
     out.body = ReadHttpBody(hRequest);
 
     if (out.status >= 400) {
+        std::string preview = out.body;
+        for (char& c : preview) {
+            if (c == '\n' || c == '\r' || c == '\t') c = ' ';
+        }
+        if (preview.size() > 240)
+            preview = preview.substr(0, 237) + "...";
         Log::GetLog()->warn(
-            "ArkEventHunt HTTP: {} {} status={} body_len={}",
-            method_log ? method_log : "?", path, out.status, out.body.size());
+            "ArkEventHunt HTTP: {} {} status={} body_len={} body={}",
+            method_log ? method_log : "?", path, out.status, out.body.size(),
+            preview);
     }
 
     WinHttpCloseHandle(hRequest);
