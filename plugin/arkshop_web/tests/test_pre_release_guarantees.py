@@ -249,6 +249,10 @@ def test_require_db_blocks_when_circuit_open(monkeypatch, _reset_circuit):
     assert code == 503
     payload = resp.get_json()
     assert payload.get("error") == "db_circuit_open"
+    assert payload.get("cooldown_remaining_s") is not None
+    assert payload.get("retry_after_s") is not None
+    assert "indisponível" in (payload.get("user_message") or payload.get("message") or "").lower()
+    assert payload.get("circuit", {}).get("open") is True
 
 
 def test_auth_me_is_boot_skip_workers_must_boot_separately():

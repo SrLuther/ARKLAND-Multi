@@ -8037,6 +8037,9 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label><input id="s-teams-enabled" type="checkbox" checked /> Ativar Modo Equipe (teams_enabled — padrão ligado)</label>
             </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-event-hunt-enabled" type="checkbox" checked /> Ativar Caça de Evento (event_hunt_enabled — padrão ligado)</label>
+            </div>
             <div class="form-group">
               <label for="s-teams-max-members">Máx. membros base (teams_max_members)</label>
               <input id="s-teams-max-members" type="number" min="2" max="100" value="5" />
@@ -10259,6 +10262,13 @@
               </div>
               <div class="ingame-cmds__hint">Preview do depósito → confirme em até ~60s. Vai ao armazém; Owner/Tesoureiro aplica ao marco. Sem reembolso.</div>
             </div>
+            <div class="ingame-cmds__card">
+              <div class="ingame-cmds__card-label">Caça de evento</div>
+              <div class="ingame-cmds__chips">
+                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/eve', this)" title="Copiar /eve">/eve</button>
+              </div>
+              <div class="ingame-cmds__hint">Usa o código do card «O meu desafio activo» — só o dono do claim. Ex.: /eve E7K2M9</div>
+            </div>
           </div>
           <div class="ingame-cmds__footer">
             <span class="ingame-cmds__footer-label">Outros:</span>
@@ -10380,6 +10390,152 @@
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             <button class="btn btn-primary btn-sm" type="button" onclick="teamsAdminPayRankingPrizes('teams')">Pagar prémios — Equipas</button>
             <button class="btn btn-ghost btn-sm" type="button" onclick="teamsAdminPayRankingPrizes('players')">Pagar prémios — Jogadores</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;" id="eh-admin-weapons-card">
+          <div class="card-header">
+            <div class="card-title">Caça — Armas oficiais salvas</div>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminLoadWeaponPresets()">↺</button>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">
+            Biblioteca reutilizável: grava BP oficiais uma vez e escolhe-as nos desafios (sem copiar/colar).
+          </p>
+          <div class="form-grid">
+            <div class="form-group"><label>Nome</label><input id="eh-wp-name" type="text" placeholder="Shotgun fabricada" /></div>
+            <div class="form-group"><label>Blueprint</label><input id="eh-wp-bp" type="text" placeholder="Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/..." /></div>
+            <div class="form-group"><label>Tag</label>
+              <select id="eh-wp-tag">
+                <option value="firearm">firearm</option>
+                <option value="bow">bow</option>
+                <option value="melee">melee</option>
+                <option value="other">other</option>
+              </select>
+            </div>
+            <div class="form-group" style="align-self:end;">
+              <button class="btn btn-primary btn-sm" type="button" onclick="ehAdminSaveWeaponPreset()">Guardar arma</button>
+            </div>
+          </div>
+          <div id="eh-admin-weapon-presets" style="margin-top:12px;color:var(--text2);font-size:12px;">Carregando…</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;" id="eh-admin-catalog-card">
+          <div class="card-header">
+            <div class="card-title">Caça — Catálogo Modo A</div>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="loadEventHuntAdmin()">↺</button>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 10px;">
+            Desafios partilhados: cada membro ACTIVE escolhe para si. Unicidade por SteamID (COMPLETED/FAIL consomem).
+            Regras: ≥% dano com armas permitidas; oficiais only; opcional entregar a arma no /eve.
+          </p>
+          <div class="form-grid">
+            <div class="form-group"><label>Nome</label><input id="eh-a-name" type="text" placeholder="Rex Shotgun 150" /></div>
+            <div class="form-group"><label>Blueprint (dino)</label><input id="eh-a-bp" type="text" placeholder="Blueprint'/Game/..." /></div>
+            <div class="form-group"><label>Nível</label><input id="eh-a-level" type="number" min="1" value="150" /></div>
+            <div class="form-group"><label>Pontos</label><input id="eh-a-points" type="number" min="0" value="500" /></div>
+            <div class="form-group"><label>Âmbar (opcional)</label><input id="eh-a-amber" type="number" min="0" value="0" /></div>
+            <div class="form-group"><label>Armas da biblioteca (Ctrl+clique)</label>
+              <select id="eh-a-weapon-presets" multiple size="6" style="min-height:110px;width:100%;"></select>
+            </div>
+            <div class="form-group"><label>Armas extra (CSV / tags / BP)</label><input id="eh-a-weapons" type="text" placeholder="opcional: tag:shotgun ou BP custom" /></div>
+            <div class="form-group"><label>Min. % dano arma permitida</label><input id="eh-a-min-ratio" type="number" min="0" max="100" step="1" value="80" /></div>
+            <div class="form-group"><label><input id="eh-a-forbid-torpor" type="checkbox" checked /> Proibir torpor / tranq</label></div>
+            <div class="form-group"><label><input id="eh-a-official-only" type="checkbox" checked /> Só armas oficiais (vanilla/DLC)</label></div>
+            <div class="form-group"><label><input id="eh-a-grant-weapon" type="checkbox" checked /> Entregar arma no /eve</label></div>
+            <div class="form-group"><label>Arma a entregar (preset)</label>
+              <select id="eh-a-grant-preset"><option value="">— (primeira seleccionada / BP abaixo) —</option></select>
+            </div>
+            <div class="form-group"><label>BP entrega (override)</label><input id="eh-a-grant-bp" type="text" placeholder="vazio = usa preset / 1ª arma" /></div>
+            <div class="form-group"><label>Qtd entrega</label><input id="eh-a-grant-qty" type="number" min="1" value="1" /></div>
+            <div class="form-group"><label>TTL claim (s)</label><input id="eh-a-claim-ttl" type="number" min="60" value="3600" /></div>
+            <div class="form-group"><label>TTL spawn (s)</label><input id="eh-a-spawn-ttl" type="number" min="60" value="900" /></div>
+            <div class="form-group" style="align-self:end;">
+              <button class="btn btn-primary btn-sm" type="button" onclick="ehAdminCreateChallenge()">Criar desafio</button>
+            </div>
+          </div>
+          <div id="eh-admin-challenges" style="margin-top:12px;color:var(--text2);font-size:12px;">Carregando…</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;" id="eh-admin-ops-card">
+          <div class="card-title">Caça — Operações (claims A)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;"><label>Status</label>
+              <select id="eh-ops-status"><option value="">Todos</option><option>CLAIMED</option><option>SPAWNED</option><option>COMPLETED</option><option>FAILED</option><option>CANCELLED</option></select>
+            </div>
+            <div class="form-group" style="margin:0;"><label>SteamID</label><input id="eh-ops-steam" type="text" placeholder="7656…" style="max-width:180px;" /></div>
+            <div class="form-group" style="margin:0;"><label>Código</label><input id="eh-ops-code" type="text" placeholder="E7K2M9" style="max-width:120px;" /></div>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminLoadClaims()">Filtrar</button>
+          </div>
+          <div id="eh-admin-claims" style="color:var(--text2);font-size:12px;">—</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;" id="eh-admin-audit-card">
+          <div class="card-header">
+            <div class="card-title">Caça — Auditoria</div>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminLoadAudit()">↺</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;"><label>Modo</label>
+              <select id="eh-audit-mode"><option value="">Todos</option><option value="A">A</option><option value="B">B</option></select>
+            </div>
+            <div class="form-group" style="margin:0;"><label>Tipo</label>
+              <select id="eh-audit-type"><option value="">Todos</option>
+                <option>CLAIM_SELECT</option><option>SPAWN</option><option>SUMMON</option><option>COMPLETE</option>
+                <option>KILL</option><option>FAIL</option><option>SCORE</option><option>CANCEL</option>
+                <option>EXPIRE</option><option>VOID</option><option>INSCRIBE</option><option>MANUAL_GRANT</option>
+                <option>SESSION_TRANSITION</option></select>
+            </div>
+            <div class="form-group" style="margin:0;"><label>SteamID</label>
+              <input id="eh-audit-steam" type="text" placeholder="7656…" style="max-width:150px;" /></div>
+            <div class="form-group" style="margin:0;"><label>Team ID</label>
+              <input id="eh-audit-team" type="number" style="max-width:80px;" /></div>
+            <label style="font-size:12px;"><input type="checkbox" id="eh-audit-unpaid" /> Só não pagos</label>
+            <label style="font-size:12px;"><input type="checkbox" id="eh-audit-pts0" /> Pts = 0</label>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminLoadAudit()">Filtrar</button>
+          </div>
+          <div id="eh-admin-audit" style="color:var(--text2);font-size:12px;">—</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;" id="eh-admin-mode-b-card">
+          <div class="card-header">
+            <div class="card-title">Caça — Evento público Modo B</div>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminLoadModeB()">↺</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;"><label>Nome sessão</label>
+              <input id="eh-b-session-name" type="text" placeholder="Evento Rex Público" style="max-width:200px;" /></div>
+            <div class="form-group" style="margin:0;"><label>Map scope</label>
+              <input id="eh-b-map-scope" type="text" value="*" style="max-width:100px;" /></div>
+            <button class="btn btn-primary btn-sm" type="button" onclick="ehAdminCreateSessionB()">Criar sessão (DRAFT)</button>
+          </div>
+          <div id="eh-admin-b-sessions" style="font-size:12px;color:var(--text2);margin-bottom:12px;">Carregando…</div>
+          <div id="eh-admin-b-selected" style="display:none;">
+            <div style="font-size:13px;margin-bottom:8px;">
+              Sessão seleccionada: <strong id="eh-b-sel-name">—</strong>
+              <span id="eh-b-sel-status" style="margin-left:8px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;font-size:11px;"></span>
+              <span id="eh-b-sel-actions" style="margin-left:8px;"></span>
+            </div>
+            <div class="card" style="margin-bottom:12px;padding:12px;background:var(--surface2);">
+              <div class="card-title" style="font-size:13px;">Catálogo B</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;align-items:flex-end;">
+                <input id="eh-b-dino-name" type="text" placeholder="Nome" style="max-width:140px;" />
+                <input id="eh-b-dino-bp" type="text" placeholder="Blueprint" style="max-width:220px;" />
+                <input id="eh-b-dino-level" type="number" value="150" style="max-width:70px;" title="Nível" />
+                <input id="eh-b-dino-pts-team" type="number" value="500" style="max-width:70px;" title="Pts team" />
+                <input id="eh-b-dino-pts-mvp" type="number" value="100" style="max-width:70px;" title="Pts MVP" />
+                <input id="eh-b-dino-ttl" type="number" value="900" style="max-width:70px;" title="TTL sec" />
+                <label style="font-size:11px;"><input type="checkbox" id="eh-b-dino-tames" /> Personal tames</label>
+                <button class="btn btn-primary btn-sm" type="button" onclick="ehAdminAddDinoB()">+ Dino</button>
+              </div>
+              <div id="eh-admin-b-dinos" style="font-size:12px;color:var(--text2);">—</div>
+            </div>
+            <div class="card" style="margin-bottom:12px;padding:12px;background:var(--surface2);">
+              <div class="card-title" style="font-size:13px;">Inscrições</div>
+              <div id="eh-admin-b-inscriptions" style="font-size:12px;color:var(--text2);">—</div>
+            </div>
+            <div class="card" style="margin-bottom:12px;padding:12px;background:var(--surface2);">
+              <div class="card-header">
+                <div class="card-title" style="font-size:13px;">Leaderboard / Instâncias</div>
+                <button class="btn btn-ghost btn-sm" type="button" onclick="ehAdminLoadBoardB()">↺ Board</button>
+              </div>
+              <div id="eh-admin-b-board" style="font-size:12px;color:var(--text2);margin-bottom:8px;">—</div>
+              <div id="eh-admin-b-instances" style="font-size:12px;color:var(--text2);">—</div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -11093,6 +11249,26 @@ function stepTablePage(state, dir) {
 }
 
 
+function formatApiDbError(errOrData) {
+  const d = (errOrData && errOrData.data) ? errOrData.data
+    : (errOrData && typeof errOrData === "object" ? errOrData : {});
+  const code = d.error || "";
+  if (code === "db_circuit_open" || d.circuit?.open || d.db_offline) {
+    const rem = Number(
+      d.retry_after_s ?? d.cooldown_remaining_s ?? d.circuit?.cooldown_remaining_s ?? 0
+    ) || 0;
+    const remI = Math.max(0, Math.ceil(rem));
+    const base = d.user_message || d.message
+      || "Base de dados temporariamente indisponível (proteção automática).";
+    if (/tente novamente/i.test(base)) return base;
+    return remI > 0
+      ? `${base} Tente novamente em ~${remI}s.`
+      : `${base} A recuperar — recarregue em alguns segundos.`;
+  }
+  return d.user_message || d.message || d.error
+    || (errOrData && errOrData.message) || "Erro";
+}
+
 async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null, signal = null, retries = 1 } = {}) {
   const runOnce = async () => {
     const ctrl = new AbortController();
@@ -11123,7 +11299,11 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
       const r = await fetch(API + path, opts);
       const data = await readFetchJson(r);
       if (!r.ok) {
-        const err = new Error(data.error || data.message || _httpStatusHint(r.status) || `HTTP ${r.status}`);
+        const circuitish = data && (data.error === "db_circuit_open" || data.circuit?.open);
+        const errMsg = circuitish
+          ? (data.user_message || data.message || data.error)
+          : (data.error || data.message || _httpStatusHint(r.status) || `HTTP ${r.status}`);
+        const err = new Error(errMsg);
         err.status = r.status;
         err.data = data;
         throw err;
@@ -25591,6 +25771,8 @@ async function loadSettings() {
     if (lotEl) lotEl.checked = !!s.lottery_enabled;
     const teamsEl = document.getElementById("s-teams-enabled");
     if (teamsEl) teamsEl.checked = s.teams_enabled !== false;
+    const ehEl = document.getElementById("s-event-hunt-enabled");
+    if (ehEl) ehEl.checked = s.event_hunt_enabled !== false;
     const tmMax = document.getElementById("s-teams-max-members");
     if (tmMax) tmMax.value = String(parseInt(s.teams_max_members ?? "5", 10) || 5);
     const tmPp = document.getElementById("s-teams-amber-bonus-pp");
@@ -25692,6 +25874,7 @@ async function saveSettings() {
     db_password: document.getElementById("s-db-password").value,
     lottery_enabled: !!document.getElementById("s-lottery-enabled")?.checked,
     teams_enabled: document.getElementById("s-teams-enabled") ? !!document.getElementById("s-teams-enabled").checked : true,
+    event_hunt_enabled: document.getElementById("s-event-hunt-enabled") ? !!document.getElementById("s-event-hunt-enabled").checked : true,
     teams_max_members: parseInt(document.getElementById("s-teams-max-members")?.value || "5", 10) || 5,
     teams_amber_bonus_pp: parseInt(document.getElementById("s-teams-amber-bonus-pp")?.value || "2", 10) || 2,
     teams_amber_bonus_cap: parseInt(document.getElementById("s-teams-amber-bonus-cap")?.value || "20", 10) || 20,
@@ -26650,7 +26833,7 @@ async function loadPixAudit() {
   try {
     const r = await fetch(url);
     const d = await r.json();
-    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(formatApiDbError(d))}</div>`; return; }
     _pixAuditPage.total = d.total || 0;
     const st = d.stats || {};
     if (statsEl) {
@@ -26697,11 +26880,9 @@ async function loadPixAudit() {
         </tbody>
       </table>`;
   } catch (err) {
-    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(formatApiDbError(err))}</div>`;
   }
 }
-
-// ── Auditoria (admin) ─────────────────────────────────────────────────────────
 // include_total=0 + has_more — COUNT em audit_events era o gargalo (DOCTYPE).
 let _auditPage = { limit: 10, offset: 0, total: null, hasMore: false };
 
@@ -26728,7 +26909,7 @@ async function loadAudit() {
   const ctrl = beginTablePageFetch("admin-audit");
   try {
     const d = await fetchJson(path, { timeoutMs: 15000, retries: 1, signal: ctrl.signal });
-    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(formatApiDbError(d))}</div>`; return; }
     const items = d.items || [];
     _auditPage.hasMore = !!d.has_more;
     _auditPage.total = (d.total != null && d.total !== "") ? Number(d.total) : null;
@@ -26763,9 +26944,14 @@ async function loadAudit() {
   } catch (err) {
     if (isStaleTableAbort(err)) return;
     const raw = String((err && err.message) || "");
-    const msg = /timeout/i.test(raw)
-      ? "Timeout ao carregar auditoria (15s). Filtre por tipo ou SteamID."
-      : (raw || "Erro ao carregar");
+    let msg;
+    if (err?.data?.error === "db_circuit_open" || err?.data?.circuit?.open) {
+      msg = formatApiDbError(err);
+    } else if (/timeout/i.test(raw)) {
+      msg = "Timeout ao carregar auditoria (15s). Filtre por tipo ou SteamID.";
+    } else {
+      msg = formatApiDbError(err) || raw || "Erro ao carregar";
+    }
     el.innerHTML = `<div style="color:var(--danger)">${escHtml(msg)}</div>`;
   }
 }
@@ -28753,6 +28939,833 @@ function _teamsFillRoots(html) {
   _navPageMark("teams");
 }
 
+function _ehActiveTeamsRoot() {
+  const teamsPage = document.getElementById("page-teams");
+  const myPage = document.getElementById("page-myarea");
+  if (teamsPage && teamsPage.classList.contains("active")) return document.getElementById("teams-root");
+  if (myPage && myPage.classList.contains("active")) return document.getElementById("myarea-teams-root");
+  return document.getElementById("teams-root") || document.getElementById("myarea-teams-root");
+}
+
+function _ehWeaponsLabel(list) {
+  if (!list || !list.length) return "qualquer";
+  return list.map((w) => String(w)).join(", ");
+}
+
+function _ehAvailabilityLabel(av) {
+  if (av === "available") return "Disponível";
+  if (av === "consumed") return "Já usaste";
+  if (av === "locked_active") return "Indisponível (teu lock activo)";
+  if (av === "disabled") return "Desactivado (staff)";
+  return av || "—";
+}
+
+async function loadEventHuntTeamCards() {
+  const root = _ehActiveTeamsRoot();
+  const slot = root && root.querySelector("#eh-team-cards-slot");
+  if (!slot) return;
+  try {
+    const [meR, teamR, chR, bR] = await Promise.all([
+      fetchJson("/api/event-hunt/a/me/summary"),
+      fetchJson("/api/event-hunt/a/team/summary"),
+      fetchJson("/api/event-hunt/a/challenges"),
+      fetchJson("/api/event-hunt/b/sessions/current"),
+    ]);
+    if (!meR.ok) {
+      slot.innerHTML = `<div class="card" style="margin-bottom:12px;"><div class="card-title">Caça de Evento</div>
+        <p style="font-size:12px;color:var(--text2);margin:0;">${escHtml(meR.error || "Indisponível")}</p></div>`;
+      return;
+    }
+    const me = meR.data || {};
+    const team = (teamR.ok && teamR.data) ? teamR.data : {};
+    const challenges = (chR.ok && chR.data && chR.data.items) ? chR.data.items : [];
+    const scores = me.scores_team || team.scores || {};
+    const lock = me.lock || {};
+    const active = me.my_active_claim;
+    const consumed = me.my_consumed || [];
+    const canSelect = !!lock.can_select;
+
+    const kpi = `<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;margin-top:8px;">
+      <span>Pontos hunt equipa: <strong>${Number(scores.hunt_points_total || 0).toLocaleString("pt-BR")}</strong></span>
+      <span>Tu: <strong>${me.my_completed_count || 0}</strong> conclusões · <strong>${me.my_failed_count || 0}</strong> falhas</span>
+      ${!canSelect ? `<span style="color:var(--amber);">Já tens um desafio activo</span>` : ""}
+    </div>`;
+
+    let activeHtml = `<div class="card" style="margin-bottom:12px;" id="eh-card-active">
+      <div class="card-title">O meu desafio activo</div>
+      <p style="font-size:12px;color:var(--text2);margin:0;">Nenhum desafio activo teu — escolhe abaixo.</p>
+    </div>`;
+    if (active) {
+      const code = active.event_code || "";
+      const cancelBtn = active.status === "CLAIMED"
+        ? `<button class="btn btn-ghost btn-sm" onclick="ehCancelClaim(${active.claim_id})">Cancelar desafio</button>`
+        : `<button class="btn btn-ghost btn-sm" disabled title="Já spawnado">Cancelar</button>`;
+      activeHtml = `<div class="card" style="margin-bottom:12px;" id="eh-card-active">
+        <div class="card-header">
+          <div class="card-title">O meu desafio activo</div>
+          <span style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;">${escHtml(active.status)}</span>
+        </div>
+        <div style="font-size:13px;margin-bottom:8px;">
+          <strong>${escHtml(active.display_name || ("#" + active.challenge_id))}</strong>
+          · Nv ${active.level || "—"} · ${Number(active.points || 0).toLocaleString("pt-BR")} pts
+        </div>
+        <div style="font-family:monospace;font-size:22px;letter-spacing:2px;margin:8px 0;">${escHtml(code)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <button class="btn btn-primary btn-sm" onclick="copyIngameCmd('/eve ${escHtml(code)}', this)">Copiar /eve ${escHtml(code)}</button>
+          ${cancelBtn}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:8px;">Armas: ${_ehWeaponsLabel(active.allowed_weapons)}
+          ${active.claim_expires_at ? " · TTL até " + escHtml(String(active.claim_expires_at)) : ""}</div>
+      </div>`;
+    }
+
+    const rows = challenges.map((c) => {
+      const av = c.availability || (c.consumed_by_me ? "consumed" : "available");
+      const disabled = av !== "available" || !canSelect;
+      const tip = !canSelect ? "Já tens um desafio activo" : _ehAvailabilityLabel(av);
+      const btn = disabled
+        ? `<button class="btn btn-ghost btn-sm" disabled title="${escHtml(tip)}">Escolher</button>`
+        : `<button class="btn btn-primary btn-sm" onclick="ehSelectChallenge(${c.challenge_id})">Escolher</button>`;
+      return `<tr>
+        <td>${escHtml(c.display_name)}</td>
+        <td>${c.level}</td>
+        <td style="font-size:11px;">${escHtml(_ehWeaponsLabel(c.allowed_weapons))}</td>
+        <td>${Number(c.points || 0).toLocaleString("pt-BR")}</td>
+        <td>${c.amber_reward ? Number(c.amber_reward).toLocaleString("pt-BR") : "—"}</td>
+        <td>${escHtml(_ehAvailabilityLabel(av))}</td>
+        <td>${btn}</td>
+      </tr>`;
+    }).join("");
+
+    const chooseHtml = `<div class="card" style="margin-bottom:12px;" id="eh-card-choose">
+      <div class="card-header">
+        <div class="card-title">Escolher desafio</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadEventHuntTeamCards()">↺ Actualizar</button>
+      </div>
+      ${challenges.length ? `<div style="overflow-x:auto;"><table class="pkg-admin-table">
+        <thead><tr><th>Desafio</th><th>Nv</th><th>Armas</th><th>Pts</th><th>Â</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : `<p style="font-size:12px;color:var(--text2);margin:0;">Staff ainda não registou desafios.</p>`}
+    </div>`;
+
+    const consRows = consumed.map((x) => `<tr>
+      <td>${escHtml(x.display_name || ("#" + x.challenge_id))}</td>
+      <td>${escHtml(x.outcome === "COMPLETED" ? "Concluído" : "Falhou")}</td>
+      <td>${escHtml(x.fail_reason || "—")}</td>
+      <td>${x.outcome === "COMPLETED" ? Number(x.points || 0).toLocaleString("pt-BR") : "0"}</td>
+      <td style="font-size:11px;">${escHtml(x.consumed_at || "")}</td>
+    </tr>`).join("");
+    const consumedHtml = `<div class="card" style="margin-bottom:12px;">
+      <div class="card-title">Os meus desafios (consumidos)</div>
+      <p style="font-size:11px;color:var(--text2);margin:0 0 8px;">FAIL também bloqueia re-tentar o mesmo desafio neste SteamID.</p>
+      ${consumed.length
+        ? `<table class="pkg-admin-table"><thead><tr><th>Desafio</th><th>Outcome</th><th>Motivo</th><th>Pts</th><th>Data</th></tr></thead>
+           <tbody>${consRows}</tbody></table>`
+        : `<em style="color:var(--text2);">Ainda não consumiste nenhuma tentativa.</em>`}
+    </div>`;
+
+    const teamActive = (team.active_claims_by_members || []).map((a) => `<tr>
+      <td style="font-family:monospace;font-size:11px;">${escHtml(a.owner_steam_id)}</td>
+      <td>${escHtml(a.display_name || ("#" + a.challenge_id))}</td>
+      <td>${escHtml(a.status)}${a.is_mine ? " (tu)" : ""}</td>
+    </tr>`).join("");
+    const teamRecent = (team.recent_completions || []).slice(0, 8).map((r) => `<tr>
+      <td style="font-family:monospace;font-size:11px;">${escHtml(r.owner_steam_id)}</td>
+      <td>${escHtml(r.display_name)}</td>
+      <td>${escHtml(r.status)}</td>
+      <td>${Number(r.points_awarded || 0)}</td>
+    </tr>`).join("");
+    const teamHtml = `<div class="card" style="margin-bottom:12px;">
+      <div class="card-title">Caça da equipa (agregado)</div>
+      <div style="font-size:12px;margin-bottom:8px;">Códigos de colegas não são mostrados.</div>
+      ${(team.active_claims_by_members || []).length
+        ? `<div style="margin-bottom:8px;"><strong>Activos</strong>
+           <table class="pkg-admin-table"><thead><tr><th>Membro</th><th>Desafio</th><th>Estado</th></tr></thead>
+           <tbody>${teamActive}</tbody></table></div>`
+        : `<em style="color:var(--text2);">Ninguém da equipa tem claim activo.</em>`}
+      ${(team.recent_completions || []).length
+        ? `<div style="margin-top:8px;"><strong>Recentes</strong>
+           <table class="pkg-admin-table"><thead><tr><th>Membro</th><th>Desafio</th><th>Status</th><th>Pts</th></tr></thead>
+           <tbody>${teamRecent}</tbody></table></div>` : ""}
+    </div>`;
+
+    const bData = (bR.ok && bR.data) ? bR.data : {};
+    const bSess = bData.session;
+    let bHtml = `<div class="card" style="margin-bottom:12px;" id="eh-card-mode-b">
+      <div class="card-title">Evento público (Modo B)</div>
+      <p style="font-size:12px;color:var(--text2);margin:0;">${escHtml(bData.message || "Não há evento público aberto.")}</p>
+    </div>`;
+    if (bSess) {
+      const insc = bData.inscription;
+      const st = bSess.status || "";
+      const board = bData.leaderboard || { team: [], mvp: [] };
+      const teamRows = (board.team || []).slice(0, 5).map((r, i) =>
+        `<tr><td>${i + 1}</td><td>${escHtml(r.team_name || ("#" + r.team_id))}</td><td>${Number(r.points || 0).toLocaleString("pt-BR")}</td></tr>`
+      ).join("");
+      const mvpRows = (board.mvp || []).slice(0, 5).map((r, i) =>
+        `<tr><td>${i + 1}</td><td style="font-family:monospace;font-size:11px;">${escHtml(r.steam_id || "")}</td><td>${Number(r.points || 0)}</td></tr>`
+      ).join("");
+      let action = "";
+      if (st === "OPEN_INSCRIPTION") {
+        if (insc && insc.active) {
+          action = `<button class="btn btn-ghost btn-sm" onclick="ehWithdrawB(${bSess.event_session_id})">Cancelar inscrição</button>
+            <span style="font-size:12px;color:var(--ok);margin-left:8px;">Equipa inscrita</span>`;
+        } else {
+          action = `<button class="btn btn-primary btn-sm" onclick="ehInscribeB(${bSess.event_session_id})">Inscrever equipe</button>`;
+        }
+      } else if (st === "ACTIVE" || st === "CLOSING" || st === "CLOSED") {
+        const inscLabel = (insc && insc.active)
+          ? `Inscrita · ${Number(bData.my_team_points || 0).toLocaleString("pt-BR")} pts`
+            + (bData.my_team_rank ? ` · #${bData.my_team_rank}` : "")
+          : "Equipa não inscrita (não pontua)";
+        action = `<span style="font-size:12px;">${escHtml(inscLabel)}</span>
+          ${bData.is_mvp_highlight ? `<span style="margin-left:8px;color:var(--amber);font-size:12px;">És o MVP actual</span>` : ""}`;
+      }
+      bHtml = `<div class="card" style="margin-bottom:12px;" id="eh-card-mode-b">
+        <div class="card-header">
+          <div class="card-title">Evento público (Modo B)</div>
+          <span style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;">${escHtml(st)}</span>
+        </div>
+        <div style="font-size:13px;margin-bottom:8px;"><strong>${escHtml(bSess.name || "")}</strong></div>
+        <div style="margin-bottom:10px;">${action}</div>
+        <p style="font-size:11px;color:var(--text2);margin:0 0 8px;">Códigos /eveadm só para staff — aqui só inscrição e ranking.</p>
+        ${(board.team || []).length
+          ? `<div style="margin-bottom:8px;"><strong>Equipes</strong>
+             <table class="pkg-admin-table"><thead><tr><th>#</th><th>Equipe</th><th>Pts</th></tr></thead>
+             <tbody>${teamRows}</tbody></table></div>`
+          : `<em style="color:var(--text2);">Sem pontos no board ainda.</em>`}
+        ${(board.mvp || []).length
+          ? `<div style="margin-top:8px;"><strong>MVP</strong>
+             <table class="pkg-admin-table"><thead><tr><th>#</th><th>Steam</th><th>Pts</th></tr></thead>
+             <tbody>${mvpRows}</tbody></table></div>` : ""}
+      </div>`;
+    }
+
+    slot.innerHTML = `
+      <div class="card" style="margin-bottom:12px;" id="eh-card-summary">
+        <div class="card-header">
+          <div class="card-title">Caça de Evento</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadEventHuntTeamCards()">↺ Actualizar</button>
+        </div>
+        <div style="font-size:12px;color:var(--text2);">pontos da equipe · a tua tentativa é pessoal</div>
+        ${kpi}
+        ${!(scores.hunt_points_total) && !active && !consumed.length
+          ? `<p style="font-size:12px;color:var(--text2);margin:8px 0 0;">Ainda sem pontos de caça na equipa. Escolhe um desafio abaixo.</p>` : ""}
+      </div>
+      ${activeHtml}
+      ${chooseHtml}
+      ${consumedHtml}
+      ${teamHtml}
+      ${bHtml}`;
+  } catch (e) {
+    slot.innerHTML = `<div class="card" style="margin-bottom:12px;"><p style="color:var(--danger);">${escHtml(String(e.message || e))}</p></div>`;
+  }
+}
+
+async function ehSelectChallenge(challengeId) {
+  if (!confirm("Ficas com 1 desafio activo. Membros da equipa podem fazer o mesmo dino em paralelo. Continuar?")) return;
+  try {
+    const d = await fetchJson("/api/event-hunt/a/claims", {
+      method: "POST",
+      body: { challenge_id: challengeId },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    const code = d.data?.claim?.event_code || "";
+    toast(code ? ("Código: " + code) : "Desafio reservado");
+    loadEventHuntTeamCards();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehCancelClaim(claimId) {
+  if (!confirm("Cancelar este desafio? (não consome a tentativa)")) return;
+  try {
+    const d = await fetchJson(`/api/event-hunt/a/claims/${claimId}/cancel`, { method: "POST", body: {} });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Desafio cancelado");
+    loadEventHuntTeamCards();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehInscribeB(sessionId) {
+  if (!confirm("Inscrever a tua equipe neste evento público?")) return;
+  try {
+    const d = await fetchJson(`/api/event-hunt/b/sessions/${sessionId}/inscribe`, { method: "POST", body: {} });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(d.data?.duplicate ? "Já estavas inscrito" : "Equipa inscrita");
+    loadEventHuntTeamCards();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehWithdrawB(sessionId) {
+  if (!confirm("Cancelar inscrição da equipa?")) return;
+  try {
+    const d = await fetchJson(`/api/event-hunt/b/sessions/${sessionId}/withdraw`, { method: "POST", body: {} });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Inscrição cancelada");
+    loadEventHuntTeamCards();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function loadEventHuntAdmin() {
+  const el = document.getElementById("eh-admin-challenges");
+  if (!el) return;
+  try {
+    await ehAdminLoadWeaponPresets();
+    const d = await fetchJson("/api/admin/event-hunt/a/challenges");
+    if (!d.ok) { el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`; return; }
+    const items = d.data?.items || [];
+    el.innerHTML = items.length
+      ? `<table class="pkg-admin-table"><thead><tr>
+          <th>ID</th><th>Nome</th><th>Nv</th><th>Pts</th><th>Â</th><th>Armas</th><th>%min</th><th>Grant</th><th>On</th><th></th>
+         </tr></thead><tbody>${items.map((c) => `<tr>
+          <td>${c.challenge_id}</td>
+          <td>${escHtml(c.display_name)}</td>
+          <td>${c.level}</td>
+          <td>${c.points}</td>
+          <td>${c.amber_reward || 0}</td>
+          <td style="font-size:11px;">${escHtml(_ehWeaponsLabel(c.allowed_weapons))}</td>
+          <td>${Math.round((c.min_allowed_weapon_damage_ratio ?? 0.8) * 100)}%</td>
+          <td>${c.grant_weapon_on_start ? "sim" : "não"}</td>
+          <td>${c.enabled ? "sim" : "não"}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="ehAdminToggleChallenge(${c.challenge_id},${c.enabled ? "false" : "true"})">${c.enabled ? "Desactivar" : "Activar"}</button>
+          </td>
+         </tr>`).join("")}</tbody></table>`
+      : "<em>Nenhum desafio no catálogo A.</em>";
+    ehAdminLoadClaims();
+    ehAdminLoadAudit();
+    ehAdminLoadModeB();
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+let _ehWeaponPresetsCache = [];
+
+function _ehShortBp(bp) {
+  const s = String(bp || "");
+  const m = s.match(/PrimalItem_[A-Za-z0-9_]+/);
+  return m ? m[0] : (s.length > 42 ? s.slice(0, 40) + "…" : s);
+}
+
+async function ehAdminLoadWeaponPresets() {
+  const el = document.getElementById("eh-admin-weapon-presets");
+  const sel = document.getElementById("eh-a-weapon-presets");
+  const grantSel = document.getElementById("eh-a-grant-preset");
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/a/weapon-presets");
+    if (!d.ok) {
+      if (el) el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _ehWeaponPresetsCache = d.data?.items || [];
+    if (el) {
+      el.innerHTML = _ehWeaponPresetsCache.length
+        ? `<table class="pkg-admin-table"><thead><tr><th>Nome</th><th>Tag</th><th>BP</th><th></th></tr></thead><tbody>${
+            _ehWeaponPresetsCache.map((p) => `<tr>
+              <td>${escHtml(p.name)}</td>
+              <td>${escHtml(p.tag || "—")}</td>
+              <td style="font-size:11px;" title="${escHtml(p.blueprint)}">${escHtml(_ehShortBp(p.blueprint))}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick="ehAdminDeleteWeaponPreset(${p.preset_id})">Apagar</button></td>
+            </tr>`).join("")
+          }</tbody></table>`
+        : "<em>Nenhuma arma na biblioteca — guarda a primeira acima.</em>";
+    }
+    if (sel) {
+      sel.innerHTML = _ehWeaponPresetsCache.map((p) =>
+        `<option value="${p.preset_id}" data-bp="${escHtml(p.blueprint)}" data-tag="${escHtml(p.tag || "")}">${escHtml(p.name)} (${escHtml(p.tag || "—")})</option>`
+      ).join("");
+    }
+    if (grantSel) {
+      const cur = grantSel.value;
+      grantSel.innerHTML = `<option value="">— (primeira seleccionada / BP abaixo) —</option>` +
+        _ehWeaponPresetsCache.map((p) =>
+          `<option value="${p.preset_id}">${escHtml(p.name)}</option>`
+        ).join("");
+      if (cur) grantSel.value = cur;
+    }
+  } catch (e) {
+    if (el) el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminSaveWeaponPreset() {
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/a/weapon-presets", {
+      method: "POST",
+      body: {
+        name: document.getElementById("eh-wp-name")?.value || "",
+        blueprint: document.getElementById("eh-wp-bp")?.value || "",
+        tag: document.getElementById("eh-wp-tag")?.value || "",
+      },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Arma guardada na biblioteca");
+    document.getElementById("eh-wp-name").value = "";
+    document.getElementById("eh-wp-bp").value = "";
+    ehAdminLoadWeaponPresets();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminDeleteWeaponPreset(id) {
+  if (!confirm("Apagar esta arma da biblioteca?")) return;
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/a/weapon-presets/${id}`, { method: "DELETE" });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Preset apagado");
+    ehAdminLoadWeaponPresets();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+function _ehCollectAllowedWeapons() {
+  const sel = document.getElementById("eh-a-weapon-presets");
+  const fromLib = [];
+  if (sel) {
+    Array.from(sel.selectedOptions || []).forEach((o) => {
+      const id = parseInt(o.value, 10);
+      const p = _ehWeaponPresetsCache.find((x) => x.preset_id === id);
+      if (p && p.blueprint) fromLib.push(p.blueprint);
+      if (p && p.tag) fromLib.push("tag:" + p.tag);
+    });
+  }
+  const extra = (document.getElementById("eh-a-weapons")?.value || "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  return [...new Set([...fromLib, ...extra])];
+}
+
+function _ehResolveGrantBlueprint(allowed) {
+  const override = (document.getElementById("eh-a-grant-bp")?.value || "").trim();
+  if (override) return override;
+  const gid = parseInt(document.getElementById("eh-a-grant-preset")?.value || "0", 10);
+  if (gid) {
+    const p = _ehWeaponPresetsCache.find((x) => x.preset_id === gid);
+    if (p && p.blueprint) return p.blueprint;
+  }
+  const firstBp = (allowed || []).find((w) => !String(w).startsWith("tag:"));
+  return firstBp || "";
+}
+
+async function ehAdminCreateChallenge() {
+  const weapons = _ehCollectAllowedWeapons();
+  const minPct = parseInt(document.getElementById("eh-a-min-ratio")?.value || "80", 10);
+  const grantBp = _ehResolveGrantBlueprint(weapons);
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/a/challenges", {
+      method: "POST",
+      body: {
+        display_name: document.getElementById("eh-a-name")?.value || "",
+        blueprint: document.getElementById("eh-a-bp")?.value || "",
+        level: parseInt(document.getElementById("eh-a-level")?.value || "150", 10),
+        points: parseInt(document.getElementById("eh-a-points")?.value || "0", 10),
+        amber_reward: parseInt(document.getElementById("eh-a-amber")?.value || "0", 10),
+        allowed_weapons: weapons,
+        min_allowed_weapon_damage_ratio: Math.max(0, Math.min(100, minPct)) / 100,
+        forbid_torpor: !!document.getElementById("eh-a-forbid-torpor")?.checked,
+        official_weapons_only: !!document.getElementById("eh-a-official-only")?.checked,
+        grant_weapon_on_start: !!document.getElementById("eh-a-grant-weapon")?.checked,
+        grant_weapon_blueprint: grantBp,
+        grant_weapon_qty: parseInt(document.getElementById("eh-a-grant-qty")?.value || "1", 10),
+        claim_ttl_sec: parseInt(document.getElementById("eh-a-claim-ttl")?.value || "3600", 10),
+        spawn_ttl_sec: parseInt(document.getElementById("eh-a-spawn-ttl")?.value || "900", 10),
+        enabled: true,
+      },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Desafio criado");
+    loadEventHuntAdmin();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminToggleChallenge(id, enable) {
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/a/challenges/${id}`, {
+      method: "PUT",
+      body: { enabled: !!enable },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(enable ? "Activado" : "Desactivado");
+    loadEventHuntAdmin();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminLoadClaims() {
+  const el = document.getElementById("eh-admin-claims");
+  if (!el) return;
+  const status = document.getElementById("eh-ops-status")?.value || "";
+  const steam = document.getElementById("eh-ops-steam")?.value?.trim() || "";
+  const code = document.getElementById("eh-ops-code")?.value?.trim() || "";
+  const qs = new URLSearchParams();
+  if (status) qs.set("status", status);
+  if (steam) qs.set("steam_id", steam);
+  if (code) qs.set("event_code", code);
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/a/claims?" + qs.toString());
+    if (!d.ok) { el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`; return; }
+    const items = d.data?.items || [];
+    el.innerHTML = items.length
+      ? `<table class="pkg-admin-table"><thead><tr>
+          <th>ID</th><th>Código</th><th>Team</th><th>Owner</th><th>Status</th><th>Desafio</th><th></th>
+         </tr></thead><tbody>${items.map((c) => `<tr>
+          <td>${c.claim_id}</td>
+          <td style="font-family:monospace;">${escHtml(c.event_code || "")}</td>
+          <td>${c.team_id}</td>
+          <td style="font-family:monospace;font-size:11px;">${escHtml(c.owner_steam_id)}</td>
+          <td>${escHtml(c.status)}${c.fail_reason ? " · " + escHtml(c.fail_reason) : ""}</td>
+          <td>${escHtml(c.display_name || ("#" + c.challenge_id))}</td>
+          <td>${(c.status === "CLAIMED" || c.status === "SPAWNED")
+            ? `<button class="btn btn-ghost btn-sm" onclick="ehAdminVoidClaim(${c.claim_id})">Void</button>` : ""}
+            ${(c.points_awarded === 0 || c.amber_awarded === 0)
+            ? `<button class="btn btn-ghost btn-sm" onclick="ehAdminGrantClaim(${c.claim_id})">Entregar Â/pts</button>` : ""}
+          </td>
+         </tr>`).join("")}</tbody></table>`
+      : "<em>Sem claims.</em>";
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminVoidClaim(claimId) {
+  if (!confirm("Anular claim activo? Consome a tentativa do membro.")) return;
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/a/claims/${claimId}/void`, { method: "POST", body: {} });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Claim anulado");
+    ehAdminLoadClaims();
+    ehAdminLoadAudit();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminGrantClaim(claimId) {
+  const reason = prompt("Motivo da entrega manual (obrigatório, ≥10 chars):");
+  if (!reason || reason.trim().length < 10) { toast("Motivo demasiado curto", "error"); return; }
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/claims/${claimId}/grant-reward`, {
+      method: "POST",
+      body: { reason: reason.trim(), grant_points: true, grant_amber: true },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Recompensa entregue #" + (d.grant_id || ""));
+    ehAdminLoadClaims();
+    ehAdminLoadAudit();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminLoadAudit() {
+  const el = document.getElementById("eh-admin-audit");
+  if (!el) return;
+  const qs = new URLSearchParams();
+  const mode = document.getElementById("eh-audit-mode")?.value || "";
+  const et = document.getElementById("eh-audit-type")?.value || "";
+  const steam = document.getElementById("eh-audit-steam")?.value?.trim() || "";
+  const team = document.getElementById("eh-audit-team")?.value || "";
+  if (mode) qs.set("mode", mode);
+  if (et) qs.set("event_type", et);
+  if (steam) qs.set("member_steam_id", steam);
+  if (team) qs.set("team_id", team);
+  if (document.getElementById("eh-audit-unpaid")?.checked) qs.set("unpaid_only", "1");
+  if (document.getElementById("eh-audit-pts0")?.checked) {
+    qs.set("points_awarded_min", "0");
+    qs.set("points_awarded_max", "0");
+  }
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/audit?" + qs.toString());
+    if (!d.ok) { el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`; return; }
+    const items = d.data?.items || [];
+    el.innerHTML = items.length
+      ? `<table class="pkg-admin-table"><thead><tr>
+          <th>Data</th><th>Modo</th><th>Tipo</th><th>Team</th><th>Membro</th><th>Status</th><th>Pts</th><th>Â</th><th>Código</th><th></th>
+         </tr></thead><tbody>${items.map((a) => {
+           const grantBtn = (a.source_kind === "instance" && a.source_id && (a.points_awarded === 0 || a.reward_status === "UNPAID" || a.reward_status === "NONE") && a.event_type === "KILL")
+             ? `<button class="btn btn-ghost btn-sm" onclick="ehAdminGrantInstance(${a.source_id})">Entregar</button>`
+             : (a.source_kind === "claim" && a.source_id && (a.points_awarded === 0 || a.reward_status === "UNPAID") && ["COMPLETE","FAIL","KILL"].includes(a.event_type))
+               ? `<button class="btn btn-ghost btn-sm" onclick="ehAdminGrantClaim(${a.source_id})">Entregar</button>`
+               : "";
+           return `<tr>
+          <td style="font-size:11px;">${escHtml(a.occurred_at || "")}</td>
+          <td>${escHtml(a.mode || "")}</td>
+          <td>${escHtml(a.event_type || "")}</td>
+          <td>${a.team_id || "—"}</td>
+          <td style="font-family:monospace;font-size:10px;">${escHtml(a.member_steam_id || "")}</td>
+          <td>${escHtml(a.status || "")}</td>
+          <td>${a.points_awarded || 0}</td>
+          <td>${a.amber_awarded || 0}</td>
+          <td style="font-family:monospace;">${escHtml(a.event_code || "")}</td>
+          <td>${grantBtn}</td>
+         </tr>`;
+         }).join("")}</tbody></table>`
+      : "<em>Sem eventos com estes filtros.</em>";
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminGrantInstance(instanceId) {
+  const reason = prompt("Motivo da entrega manual (obrigatório, ≥10 chars):");
+  if (!reason || reason.trim().length < 10) { toast("Motivo demasiado curto", "error"); return; }
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/instances/${instanceId}/grant-reward`, {
+      method: "POST",
+      body: { reason: reason.trim(), grant_points: true, grant_amber: true },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Recompensa entregue #" + (d.grant_id || ""));
+    ehAdminLoadAudit();
+    ehAdminLoadModeB();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+let _ehBSelectedSessionId = null;
+
+async function ehAdminLoadModeB() {
+  const el = document.getElementById("eh-admin-b-sessions");
+  if (!el) return;
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/b/sessions");
+    if (!d.ok) { el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`; return; }
+    const items = d.data?.items || [];
+    el.innerHTML = items.length
+      ? `<table class="pkg-admin-table"><thead><tr><th>ID</th><th>Nome</th><th>Status</th><th></th></tr></thead>
+         <tbody>${items.map((s) => `<tr>
+           <td>${s.event_session_id}</td>
+           <td>${escHtml(s.name)}</td>
+           <td>${escHtml(s.status)}</td>
+           <td><button class="btn btn-ghost btn-sm" onclick="ehAdminSelectSessionB(${s.event_session_id})">Seleccionar</button></td>
+         </tr>`).join("")}</tbody></table>`
+      : "<em>Nenhuma sessão B — cria uma acima.</em>";
+    if (_ehBSelectedSessionId) {
+      const still = items.find((s) => s.event_session_id === _ehBSelectedSessionId);
+      if (still) ehAdminSelectSessionB(_ehBSelectedSessionId, still);
+      else {
+        _ehBSelectedSessionId = null;
+        const sel = document.getElementById("eh-admin-b-selected");
+        if (sel) sel.style.display = "none";
+      }
+    }
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminCreateSessionB() {
+  const name = document.getElementById("eh-b-session-name")?.value?.trim() || "";
+  if (!name) { toast("Nome obrigatório", "error"); return; }
+  const map_scope = document.getElementById("eh-b-map-scope")?.value?.trim() || "*";
+  try {
+    const d = await fetchJson("/api/admin/event-hunt/b/sessions", {
+      method: "POST",
+      body: { name, map_scope },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Sessão criada #" + (d.data?.event_session_id || ""));
+    const nameEl = document.getElementById("eh-b-session-name");
+    if (nameEl) nameEl.value = "";
+    await ehAdminLoadModeB();
+    if (d.data?.event_session_id) ehAdminSelectSessionB(d.data.event_session_id, d.data);
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+function _ehBTransitionButtons(status, sessionId) {
+  const map = {
+    DRAFT: [["OPEN_INSCRIPTION", "Abrir inscrições"]],
+    OPEN_INSCRIPTION: [["ACTIVE", "Iniciar evento"]],
+    ACTIVE: [["CLOSING", "Encerrar (closing)"], ["CLOSED", "Fechar"]],
+    CLOSING: [["CLOSED", "Fechar"]],
+  };
+  const acts = map[status] || [];
+  return acts.map(([st, label]) =>
+    `<button class="btn btn-ghost btn-sm" onclick="ehAdminTransitionB(${sessionId},'${st}')">${escHtml(label)}</button>`
+  ).join(" ");
+}
+
+async function ehAdminSelectSessionB(sessionId, sessionObj) {
+  _ehBSelectedSessionId = sessionId;
+  const wrap = document.getElementById("eh-admin-b-selected");
+  if (wrap) wrap.style.display = "block";
+  let s = sessionObj;
+  if (!s) {
+    const d = await fetchJson("/api/admin/event-hunt/b/sessions");
+    s = (d.data?.items || []).find((x) => x.event_session_id === sessionId);
+  }
+  if (!s) return;
+  const nameEl = document.getElementById("eh-b-sel-name");
+  const stEl = document.getElementById("eh-b-sel-status");
+  const actEl = document.getElementById("eh-b-sel-actions");
+  if (nameEl) nameEl.textContent = `#${s.event_session_id} ${s.name}`;
+  if (stEl) stEl.textContent = s.status;
+  if (actEl) actEl.innerHTML = _ehBTransitionButtons(s.status, sessionId);
+  ehAdminLoadDinosB();
+  ehAdminLoadInscriptionsB();
+  ehAdminLoadBoardB();
+}
+
+async function ehAdminTransitionB(sessionId, status) {
+  const msg = status === "CLOSED" || status === "CLOSING"
+    ? "Encerrar? Dinos vivos ficam no mapa até morrer."
+    : `Transicionar para ${status}?`;
+  if (!confirm(msg)) return;
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/b/sessions/${sessionId}/transition`, {
+      method: "POST",
+      body: { status },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Status: " + (d.data?.status || status));
+    await ehAdminLoadModeB();
+    ehAdminSelectSessionB(sessionId, d.data);
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminLoadDinosB() {
+  const el = document.getElementById("eh-admin-b-dinos");
+  if (!el || !_ehBSelectedSessionId) return;
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/b/sessions/${_ehBSelectedSessionId}/dinos`);
+    if (!d.ok) { el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`; return; }
+    const items = d.data?.items || [];
+    el.innerHTML = items.length
+      ? `<table class="pkg-admin-table"><thead><tr>
+          <th>#</th><th>Nome</th><th>Código</th><th>Nv</th><th>Pts T/M</th><th>Â T/M</th><th>TTL</th><th>Tames</th><th></th>
+         </tr></thead><tbody>${items.map((x) => `<tr>
+          <td>${x.sort_order}</td>
+          <td>${escHtml(x.display_name)}</td>
+          <td style="font-family:monospace;">${escHtml(x.event_code)}
+            <button class="btn btn-ghost btn-sm" onclick="copyIngameCmd('/eveadm ${escHtml(x.event_code)}', this)">Copiar</button></td>
+          <td>${x.level}</td>
+          <td>${x.points_team}/${x.points_mvp}</td>
+          <td>${x.amber_team}/${x.amber_mvp}</td>
+          <td>${x.ttl_sec || "—"}</td>
+          <td>${x.allow_personal_tames ? "sim" : "não"}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="ehAdminToggleDinoB(${x.public_dino_id},${x.enabled ? "false" : "true"})">${x.enabled ? "Off" : "On"}</button></td>
+         </tr>`).join("")}</tbody></table>`
+      : "<em>Nenhum dino no catálogo B desta sessão.</em>";
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminAddDinoB() {
+  if (!_ehBSelectedSessionId) { toast("Selecciona uma sessão", "error"); return; }
+  const display_name = document.getElementById("eh-b-dino-name")?.value?.trim() || "";
+  const blueprint = document.getElementById("eh-b-dino-bp")?.value?.trim() || "";
+  if (!display_name || !blueprint) { toast("Nome e blueprint obrigatórios", "error"); return; }
+  const body = {
+    display_name,
+    blueprint,
+    level: parseInt(document.getElementById("eh-b-dino-level")?.value || "150", 10) || 150,
+    points_team: parseInt(document.getElementById("eh-b-dino-pts-team")?.value || "0", 10) || 0,
+    points_mvp: parseInt(document.getElementById("eh-b-dino-pts-mvp")?.value || "0", 10) || 0,
+    ttl_sec: parseInt(document.getElementById("eh-b-dino-ttl")?.value || "0", 10) || 0,
+    allow_personal_tames: !!document.getElementById("eh-b-dino-tames")?.checked,
+    allowed_weapons: ["tag:shotgun"],
+    forbid_torpor: true,
+  };
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/b/sessions/${_ehBSelectedSessionId}/dinos`, {
+      method: "POST",
+      body,
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Dino B: " + (d.data?.event_code || "ok"));
+    document.getElementById("eh-b-dino-name").value = "";
+    ehAdminLoadDinosB();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminToggleDinoB(id, enabled) {
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/b/dinos/${id}`, {
+      method: "PUT",
+      body: { enabled: enabled === true || enabled === "true" },
+    });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    ehAdminLoadDinosB();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function ehAdminLoadInscriptionsB() {
+  const el = document.getElementById("eh-admin-b-inscriptions");
+  if (!el || !_ehBSelectedSessionId) return;
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/b/sessions/${_ehBSelectedSessionId}/inscriptions`);
+    if (!d.ok) { el.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`; return; }
+    const items = d.data?.items || [];
+    el.innerHTML = items.length
+      ? `<table class="pkg-admin-table"><thead><tr><th>Equipe</th><th>Por</th><th>Quando</th><th>Status</th><th>Pts</th></tr></thead>
+         <tbody>${items.map((i) => `<tr>
+           <td>${escHtml(i.team_name || ("#" + i.team_id))}</td>
+           <td style="font-family:monospace;font-size:10px;">${escHtml(i.inscribed_by_steam_id || "")}</td>
+           <td style="font-size:11px;">${escHtml(i.inscribed_at || "")}</td>
+           <td>${escHtml(i.status)}</td>
+           <td>${Number(i.points || 0)}</td>
+         </tr>`).join("")}</tbody></table>`
+      : "<em>Nenhuma equipe inscrita.</em>";
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminLoadBoardB() {
+  const boardEl = document.getElementById("eh-admin-b-board");
+  const instEl = document.getElementById("eh-admin-b-instances");
+  if (!_ehBSelectedSessionId) return;
+  try {
+    const [lb, inst] = await Promise.all([
+      fetchJson(`/api/event-hunt/b/sessions/${_ehBSelectedSessionId}/leaderboard`),
+      fetchJson(`/api/admin/event-hunt/b/instances?event_session_id=${_ehBSelectedSessionId}`),
+    ]);
+    if (boardEl) {
+      if (!lb.ok) boardEl.innerHTML = `<p style="color:var(--danger)">${escHtml(lb.error || "Erro")}</p>`;
+      else {
+        const team = lb.data?.team || [];
+        const mvp = lb.data?.mvp || [];
+        boardEl.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><strong>Team</strong>${team.length
+              ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Equipe</th><th>Pts</th></tr></thead>
+                 <tbody>${team.map((r, i) => `<tr><td>${i + 1}</td><td>${escHtml(r.team_name || ("#"+r.team_id))}</td><td>${r.points}</td></tr>`).join("")}</tbody></table>`
+              : "<em> Vazio</em>"}</div>
+            <div><strong>MVP</strong>${mvp.length
+              ? `<table class="pkg-admin-table"><thead><tr><th>#</th><th>Steam</th><th>Pts</th></tr></thead>
+                 <tbody>${mvp.map((r, i) => `<tr><td>${i + 1}</td><td style="font-family:monospace;font-size:10px;">${escHtml(r.steam_id)}</td><td>${r.points}</td></tr>`).join("")}</tbody></table>`
+              : "<em> Vazio</em>"}</div>
+          </div>`;
+      }
+    }
+    if (instEl) {
+      if (!inst.ok) instEl.innerHTML = `<p style="color:var(--danger)">${escHtml(inst.error || "Erro")}</p>`;
+      else {
+        const items = inst.data?.items || [];
+        instEl.innerHTML = items.length
+          ? `<strong>Instâncias</strong>
+             <table class="pkg-admin-table"><thead><tr><th>ID</th><th>Nome</th><th>Status</th><th>Killer</th><th>Pts</th><th></th></tr></thead>
+             <tbody>${items.map((x) => `<tr>
+               <td>${x.instance_id}</td>
+               <td>${escHtml(x.display_name || x.event_code)}</td>
+               <td>${escHtml(x.status)}</td>
+               <td style="font-family:monospace;font-size:10px;">${escHtml(x.killer_steam_id || "—")}</td>
+               <td>${x.points_awarded || 0}</td>
+               <td>${["ALIVE","ORPHAN_ALIVE","KILLED","SCORED"].includes(x.status)
+                 ? `<button class="btn btn-ghost btn-sm" onclick="ehAdminVoidInstanceB(${x.instance_id})">Void</button>` : ""}</td>
+             </tr>`).join("")}</tbody></table>`
+          : "<em>Sem instâncias.</em>";
+      }
+    }
+  } catch (e) {
+    if (boardEl) boardEl.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
+  }
+}
+
+async function ehAdminVoidInstanceB(instanceId) {
+  if (!confirm("Anular esta instância?")) return;
+  try {
+    const d = await fetchJson(`/api/admin/event-hunt/b/instances/${instanceId}/void`, { method: "POST", body: {} });
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Instância anulada");
+    ehAdminLoadBoardB();
+    ehAdminLoadAudit();
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
 async function ensureTeamsNavFromApi() {
   if (!_navShouldFetch("teams-status", NAV_PAGE_TTL_MS["teams-status"], false)) return;
   try {
@@ -29005,6 +30018,7 @@ async function loadMyTeam(opts) {
         <div class="card-title">Marco atual</div>
         ${msHtml}
       </div>
+      <div id="eh-team-cards-slot"><div class="card" style="margin-bottom:12px;"><em style="color:var(--text2);">A carregar Caça de Evento…</em></div></div>
       <div class="card" style="margin-bottom:12px;">
         <div class="card-header"><div class="card-title">Split de mercado (equipe)</div>
           ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsEnableSplit()">Ativar 60/40</button>
@@ -29042,6 +30056,7 @@ async function loadMyTeam(opts) {
         })()}
       </div>`;
     _teamsFillRoots(html);
+    loadEventHuntTeamCards();
   } catch (e) {
     _teamsFillRoots(`<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`);
   }
@@ -29687,6 +30702,7 @@ async function loadTeamsAdmin() {
            </tr>`).join("")}</tbody></table>`
         : "<p>Nenhuma equipe.</p>";
     }
+    loadEventHuntAdmin();
   } catch (e) {
     if (listEl) listEl.innerHTML = `<p style="color:var(--danger)">${escHtml(String(e.message || e))}</p>`;
   }

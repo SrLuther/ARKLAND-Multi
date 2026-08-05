@@ -1,8 +1,13 @@
 {
-    "version": "1.10.105",
-    "date": "2026-07-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.105/ARKLAND-Multi-Setup-v1.10.105.exe",
+    "version": "1.10.106",
+    "date": "2026-08-04",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.106/ARKLAND-Multi-Setup-v1.10.106.exe",
     "changelog": [
-        "Fix (Desempenho): temperatura CPU no Windows passa a tentar LibreHardwareMonitor / OpenHardwareMonitor, contador de zona térmica e MSAcpi (CIM + wmic) numa única sonda — corrige N/D quando só o wmic ACPI falhava; Xeon sem sensor ACPI continua N/D até haver LHM/OHM a correr. GPU: nvidia-smi com deteção rápida + fallback LHM/OHM; G210 sem smi/monitor permanece N/D (sem valores inventados)."
+        "Fix (Web Store / DB): circuit breaker half-open — após cooldown admite 1 probe; sucesso em query normal fecha o circuit (já não depende só do ping de diagnostics); falha do probe reabre.",
+        "Fix (Web Store / Auditoria): resposta 503 db_circuit_open com user_message, cooldown_remaining_s e retry_after_s; UI de Auditoria/doações mostra orientação em vez do código cru.",
+        "Melhoria (Web Store / DB): defaults connect/read timeout 5s (antes 3s) para MySQL remoto — menos falsos positivos no circuit.",
+        "Fix (CustomShop 1.10.39): retries de /delivered e /release sob db_circuit_open — previne ENTREGANDO órfão; claim continua a reabrir stale na Web Store.",
+        "Fix (Web Store / Event Hunt): @api_key_required() nas rotas plugin Mode B (sem parênteses sobrescrevia endpoint Flask).",
+        "Nota: Mode B (Event Hunt admin público) continua pendente à parte."
     ]
 }

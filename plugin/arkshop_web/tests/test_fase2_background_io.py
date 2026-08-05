@@ -272,12 +272,37 @@ def test_tribe_sync_rcon_runs_in_parallel(monkeypatch):
 
 
 def test_claim_does_not_call_recover_stale(client, monkeypatch):
-    """Com scheduler vivo, claim NÃO faz recover (hot path)."""
+    """Com scheduler vivo e fila PENDENTE, claim NÃO faz recover (hot path).
+
+    Empty-claim pode reabrir ENTREGANDO stale (ver test_claim_reopens_…);
+    este teste cobre o caminho com trabalho real na fila.
+    """
     calls = {"n": 0}
 
     def boom(*_a, **_k):
         calls["n"] += 1
         return 0
+
+    oid = str(uuid.uuid4())
+    db = _app_module._SessionLocal()
+    try:
+        db.add(
+            _app_module.Order(
+                order_id=oid,
+                steam_id=USER_STEAM,
+                server_id="default",
+                item_type="shop",
+                item_id="sword",
+                amount=1,
+                points_spent=0,
+                status="PENDENTE",
+                created_at=_now(),
+                updated_at=_now(),
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
 
     monkeypatch.setattr(_app_module, "recover_stale_entregando_shop_orders", boom)
     monkeypatch.setattr(_app_module, "_pending_stale_scheduler_healthy", lambda: True)
@@ -288,6 +313,7 @@ def test_claim_does_not_call_recover_stale(client, monkeypatch):
         data=json.dumps({"steam_id": USER_STEAM}),
     )
     assert r.status_code == 200
+    assert len(r.get_json()["items"]) == 1
     assert calls["n"] == 0
 
 

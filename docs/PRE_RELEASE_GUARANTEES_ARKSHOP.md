@@ -76,7 +76,8 @@ Checklist manual pós-deploy (sem `_release.ps1`):
 8. **Admin Pedidos** — 1.ª página rápida; `has_more`; `include_total=1` só quando pedido.
 9. **Índices** — `hot_path_indexes_ready` true após migrate; CREATE INDEX não bloqueia requests longos.
 10. **Schedulers vivos** — após horas, `arkshop-retry` / `arkshop-pending-stale` / catalog-feed activas (ou self-restart).
-11. **Circuit breaker** — MySQL down → 503 em rotas DB; health 200; recovery fecha o circuit.
+11. **Circuit breaker** — MySQL down → 503 em rotas DB; health 200; após cooldown
+   half-open com 1 probe; sucesso em query normal fecha o circuit (não só ping diagnostics).
 
 ---
 

@@ -15,6 +15,7 @@ from ..plugin_versions import (
     get_installed_plugin_version,
 )
 from ..shop_integration import (
+    install_arkeventhunt_to_server,
     install_arkplayer_to_server,
     install_customdino_to_server,
     install_customshop_to_server,
@@ -35,7 +36,9 @@ _ARKAPI  = _WIN64 / "ArkApi"
 _PLUGINS = _ARKAPI / "Plugins"
 
 # Plugins ARKLAND com versão sincronizada ao app (instalação embutida)
-_ARKLAND_PLUGINS = frozenset({"CustomShop", "CustomDinoDeliver", "ArkPlayer"})
+_ARKLAND_PLUGINS = frozenset({
+    "CustomShop", "CustomDinoDeliver", "ArkPlayer", "ArkEventHunt",
+})
 
 # ── Definição dos plugins oficiais ───────────────────────────────────────────
 _OFFICIAL_PLUGINS = [
@@ -110,6 +113,18 @@ _OFFICIAL_PLUGINS = [
                       "Substitui PlayerUtilities (MVP). Requer Permissions.dll.",
         "url":        "",
         "detect":     lambda d: (d / _PLUGINS / "ArkPlayer" / "ArkPlayer.dll").is_file(),
+        "install_to": lambda d: d / _PLUGINS,
+    },
+    {
+        "name":       "ArkEventHunt",
+        "version":    expected_plugin_version("ArkEventHunt"),
+        "author":     "ARKLAND",
+        "tag":        "Plugin — caça de evento",
+        "tag_color":  "#5a3a1a",
+        "desc":       "Caça de dinos de evento (PvE): /eve, /eveadm, spike /evespike.\n"
+                      "Pontuação para Equipes web. Plugin independente (spike ASE).",
+        "url":        "",
+        "detect":     lambda d: (d / _PLUGINS / "ArkEventHunt" / "ArkEventHunt.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
 ]
@@ -280,6 +295,10 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
                         )
                     elif name == "CustomDinoDeliver":
                         copied, notes = install_customdino_to_server(
+                            srv.install_dir, overwrite_dlls=True,
+                        )
+                    elif name == "ArkEventHunt":
+                        copied, notes = install_arkeventhunt_to_server(
                             srv.install_dir, overwrite_dlls=True,
                         )
                     else:

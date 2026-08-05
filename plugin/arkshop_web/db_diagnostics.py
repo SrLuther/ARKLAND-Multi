@@ -30,7 +30,7 @@ _MAX_ERRORS = 40
 _MAX_POOL_SAMPLES = 200
 _MAX_CONNECT_SAMPLES = 50
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 _attached_engines: set[int] = set()
 
 # Ring buffers
@@ -55,10 +55,17 @@ _txn_long_count = 0  # transactions > 1s
 _ctx = threading.local()
 
 # Circuit breaker (fail-fast quando DB degrada)
+# Estados: closed → open (cooldown) → half_open (1 probe) → closed | open
 _circuit_failures = 0
 _circuit_open_until = 0.0
+_circuit_probe_in_flight = False
+_circuit_probe_started_at = 0.0
+_circuit_open_logged = False
 _CIRCUIT_THRESHOLD = max(3, int(os.environ.get("ARKSHOP_DB_CIRCUIT_THRESHOLD", "8") or 8))
 _CIRCUIT_COOLDOWN_S = max(5.0, float(os.environ.get("ARKSHOP_DB_CIRCUIT_COOLDOWN_S", "30") or 30))
+_CIRCUIT_PROBE_TIMEOUT_S = max(
+    5.0, float(os.environ.get("ARKSHOP_DB_CIRCUIT_PROBE_TIMEOUT_S", "15") or 15)
+)
 
 # Fingerprints agregados (top slow)
 _fingerprint_ms: Counter[str] = Counter()
@@ -226,40 +233,145 @@ def record_query(
                 "fingerprint": fp[:120],
             })
             _register_circuit_failure()
+        else:
+            # Sucesso real (não só ping de diagnostics) fecha/heala o breaker.
+            _maybe_heal_circuit_on_success()
+
+
+def _recent_errors_summary(limit: int = 5) -> str:
+    parts: list[str] = []
+    for entry in list(_recent_errors)[:limit]:
+        err = str(entry.get("error") or "")[:80]
+        ep = str(entry.get("endpoint") or "?")
+        if err:
+            parts.append(f"{ep}: {err}")
+    return "; ".join(parts) if parts else "(sem detalhe)"
+
+
+def _log_circuit_opened(*, reason: str) -> None:
+    """Loga uma vez por ciclo open→closed (evita spam sob carga)."""
+    global _circuit_open_logged
+    if _circuit_open_logged:
+        return
+    _circuit_open_logged = True
+    summary = _recent_errors_summary(5)
+    log.warning(
+        "DB circuit breaker OPEN por %.0fs após %d falhas (%s). recent_errors: %s",
+        _CIRCUIT_COOLDOWN_S,
+        _circuit_failures,
+        reason,
+        summary[:500],
+    )
+    _emit_request_event(
+        "db_circuit_open",
+        level="error",
+        failures=_circuit_failures,
+        cooldown_s=_CIRCUIT_COOLDOWN_S,
+        reason=reason,
+        recent_errors_summary=summary[:500],
+        endpoint=get_endpoint() or "?",
+        request_id=get_request_id(),
+    )
 
 
 def _register_circuit_failure() -> None:
-    global _circuit_failures, _circuit_open_until
+    global _circuit_failures, _circuit_open_until, _circuit_probe_in_flight
+    global _circuit_probe_started_at, _circuit_open_logged
+    now = time.monotonic()
+    # Half-open: probe falhou → reabre cooldown completo.
+    if _circuit_open_until > 0 and now >= _circuit_open_until:
+        _circuit_failures = max(_circuit_failures + 1, _CIRCUIT_THRESHOLD)
+        _circuit_open_until = now + _CIRCUIT_COOLDOWN_S
+        _circuit_probe_in_flight = False
+        _circuit_probe_started_at = 0.0
+        _circuit_open_logged = False
+        _log_circuit_opened(reason="half_open_probe_failed")
+        return
     _circuit_failures += 1
     if _circuit_failures >= _CIRCUIT_THRESHOLD:
-        _circuit_open_until = time.monotonic() + _CIRCUIT_COOLDOWN_S
-        log.warning(
-            "DB circuit breaker OPEN por %.0fs após %d falhas consecutivas",
-            _CIRCUIT_COOLDOWN_S,
-            _circuit_failures,
-        )
+        already_blocking = _circuit_open_until > 0 and now < _circuit_open_until
+        _circuit_open_until = now + _CIRCUIT_COOLDOWN_S
+        _circuit_probe_in_flight = False
+        _circuit_probe_started_at = 0.0
+        if not already_blocking:
+            _log_circuit_opened(reason="threshold_reached")
+
+
+def _maybe_heal_circuit_on_success() -> None:
+    """Reset em sucesso: fecha open/half-open e zera falhas consecutivas."""
+    global _circuit_failures, _circuit_open_until, _circuit_probe_in_flight
+    if _circuit_failures <= 0 and _circuit_open_until <= 0:
+        return
+    record_circuit_success()
 
 
 def record_circuit_success() -> None:
-    global _circuit_failures, _circuit_open_until
-    _circuit_failures = 0
-    _circuit_open_until = 0.0
+    global _circuit_failures, _circuit_open_until, _circuit_probe_in_flight
+    global _circuit_probe_started_at, _circuit_open_logged
+    with _lock:
+        _circuit_failures = 0
+        _circuit_open_until = 0.0
+        _circuit_probe_in_flight = False
+        _circuit_probe_started_at = 0.0
+        _circuit_open_logged = False
+
+
+def circuit_state() -> str:
+    """closed | open | half_open — sem consumir o probe."""
+    open_until = _circuit_open_until
+    if open_until <= 0:
+        return "closed"
+    now = time.monotonic()
+    if now < open_until:
+        return "open"
+    return "half_open"
+
+
+def circuit_allow_request() -> bool:
+    """Gate para `_require_db`: em half-open admite 1 probe (com timeout de stall).
+
+    Não usar em `circuit_status()` / health — consumiria o probe.
+    """
+    global _circuit_probe_in_flight, _circuit_probe_started_at
+    with _lock:
+        open_until = _circuit_open_until
+        if open_until <= 0:
+            return True
+        now = time.monotonic()
+        if now < open_until:
+            return False
+        stalled = (
+            _circuit_probe_in_flight
+            and (now - _circuit_probe_started_at) >= _CIRCUIT_PROBE_TIMEOUT_S
+        )
+        if not _circuit_probe_in_flight or stalled:
+            _circuit_probe_in_flight = True
+            _circuit_probe_started_at = now
+            return True
+        return False
 
 
 def circuit_is_open() -> bool:
-    if time.monotonic() < _circuit_open_until:
-        return True
-    return False
+    """True só no estado *open* (cooldown activo). Half-open NÃO conta como open.
+
+    Preferir `circuit_allow_request()` para gating de rotas.
+    """
+    return circuit_state() == "open"
 
 
 def circuit_status() -> dict[str, Any]:
+    state = circuit_state()
     open_until = _circuit_open_until
-    remaining = max(0.0, open_until - time.monotonic()) if open_until else 0.0
+    remaining = max(0.0, open_until - time.monotonic()) if state == "open" else 0.0
     return {
-        "open": circuit_is_open(),
+        "open": state == "open",
+        "state": state,
+        "half_open": state == "half_open",
         "failures": _circuit_failures,
-        "cooldown_remaining_s": round(remaining, 1) if circuit_is_open() else 0,
+        "cooldown_remaining_s": round(remaining, 1),
         "threshold": _CIRCUIT_THRESHOLD,
+        "probe_in_flight": bool(_circuit_probe_in_flight) if state == "half_open" else False,
+        "retry_after_s": round(remaining, 1) if state == "open" else 0,
     }
 
 
@@ -697,6 +809,7 @@ def reset_stats_for_tests() -> None:
     """Limpa buffers — só testes."""
     global _query_count, _query_total_ms, _pool_wait_total_ms, _pool_wait_count
     global _connect_total_ms, _connect_count, _circuit_failures, _circuit_open_until
+    global _circuit_probe_in_flight, _circuit_probe_started_at, _circuit_open_logged
     global _txn_total_ms, _txn_count, _txn_long_count
     with _lock:
         _slow_queries.clear()
@@ -717,4 +830,7 @@ def reset_stats_for_tests() -> None:
         _txn_long_count = 0
         _circuit_failures = 0
         _circuit_open_until = 0.0
+        _circuit_probe_in_flight = False
+        _circuit_probe_started_at = 0.0
+        _circuit_open_logged = False
         _attached_engines.clear()

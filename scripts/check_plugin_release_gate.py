@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gate de release: plugins com código alterado exigem bump + CHANGELOG.
 
-Para cada plugin oficial (CustomShop, CustomDinoDeliver, ArkPlayer):
+Para cada plugin oficial (CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt):
   1. plugin_version.txt, PluginInfo.json (VersionLabel) e plugin_version.h
      têm de estar alinhados.
   2. CHANGELOG.md tem de existir com secção ``## [X.Y.Z]`` da versão actual.
@@ -214,7 +214,10 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
     else:
-        print("OK: gate de versão dos plugins (CustomShop + CustomDinoDeliver + ArkPlayer)")
+        print(
+            "OK: gate de versão dos plugins "
+            "(CustomShop + CustomDinoDeliver + ArkPlayer + ArkEventHunt)"
+        )
     return 1 if errors else 0
 
 

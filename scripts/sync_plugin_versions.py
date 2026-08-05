@@ -21,11 +21,13 @@ PLUGIN_DIRS: dict[str, Path] = {
     "customdino": ROOT / "plugin" / "CustomDinoDeliver",
     "customdinodeliver": ROOT / "plugin" / "CustomDinoDeliver",
     "arkplayer": ROOT / "plugin" / "ArkPlayer",
+    "arkeventhunt": ROOT / "plugin" / "ArkEventHunt",
 }
 ALL_PLUGINS = (
     ROOT / "plugin" / "CustomShop",
     ROOT / "plugin" / "CustomDinoDeliver",
     ROOT / "plugin" / "ArkPlayer",
+    ROOT / "plugin" / "ArkEventHunt",
 )
 
 _SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
@@ -123,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--plugin",
-        help="CustomShop | CustomDinoDeliver | caminho do plugin",
+        help="CustomShop | CustomDinoDeliver | ArkPlayer | ArkEventHunt | caminho",
     )
     parser.add_argument(
         "--all",

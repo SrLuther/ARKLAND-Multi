@@ -334,6 +334,42 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
     return result;
 }
 
+/** True se a resposta de /delivered ou /release exige retry (rede/circuit). */
+bool PendingAckNeedsRetry(const std::string& body) {
+    if (body.empty()) return true;
+    try {
+        const auto j = nlohmann::json::parse(body);
+        if (j.value("ok", false)) return false;
+        const std::string err = j.value("error", "");
+        if (err == "db_circuit_open" || err == "Database not available") return true;
+        if (j.value("db_offline", false)) return true;
+        return false;
+    } catch (...) {
+        return true;
+    }
+}
+
+/**
+ * POST com até max_attempts tentativas — só para ack pós-entrega (/delivered, /release).
+ * Claim NÃO usa isto: retry de claim após commit parcial aumentaria risco de duplicar Give*.
+ */
+std::string HttpPostJsonRetry(const std::string& url,
+                              const std::string& json_body,
+                              int max_attempts = 3) {
+    std::string last;
+    const int attempts = (max_attempts < 1) ? 1 : max_attempts;
+    for (int i = 0; i < attempts; ++i) {
+        if (i > 0) {
+            Log::GetLog()->warn(
+                "HttpClient: retrying POST {} (attempt {}/{})", url, i + 1, attempts);
+            Sleep(400u * static_cast<DWORD>(i));
+        }
+        last = HttpPostJson(url, json_body);
+        if (!PendingAckNeedsRetry(last)) return last;
+    }
+    return last;
+}
+
 } // anonymous namespace
 
 namespace {
@@ -506,7 +542,27 @@ bool DeliverPending(AShooterPlayerController* controller) {
         const nlohmann::json* codes_ptr =
             public_codes.is_array() && !public_codes.empty() ? &public_codes : nullptr;
 
-        if (order_id.empty() || item_id.empty()) continue;
+        if (order_id.empty() || item_id.empty()) {
+            // Claim já pôs ENTREGANDO — skip silencioso deixava órfão sem release.
+            Log::GetLog()->error(
+                "HttpClient: claimed item missing order_id/item_id (oid='{}' iid='{}')",
+                order_id, item_id);
+            if (!order_id.empty()) {
+                failed_ids.push_back(order_id);
+                fail_count++;
+                deliveries.push_back({
+                    {"order_id", order_id},
+                    {"item_id", item_id},
+                    {"item_type", item_type},
+                    {"amount", amount},
+                    {"ok", false},
+                    {"trigger", "auto"},
+                    {"details", "missing order_id or item_id"},
+                    {"fail_reason", "payload_incompleto"},
+                });
+            }
+            continue;
+        }
 
         bool ok = false;
         std::string detail;
@@ -607,9 +663,15 @@ bool DeliverPending(AShooterPlayerController* controller) {
             {"errors", errors},
         };
         const std::string release_url = g_web_url + "/api/pending/release";
-        std::string release_resp = HttpPostJson(release_url, release_body.dump());
+        std::string release_resp =
+            HttpPostJsonRetry(release_url, release_body.dump(), 3);
         Log::GetLog()->warn("HttpClient: released {} failed order(s): {}",
                             failed_ids.size(), release_resp);
+        if (PendingAckNeedsRetry(release_resp)) {
+            Log::GetLog()->error(
+                "HttpClient: release ACK failed after retries — {} order(s) may stay ENTREGANDO",
+                failed_ids.size());
+        }
     }
 
     if (success_count > 0) {
@@ -632,8 +694,15 @@ bool DeliverPending(AShooterPlayerController* controller) {
         if (!dino_records.empty())
             body["dino_records"] = dino_records;
         const std::string deliver_url = g_web_url + "/api/pending/delivered";
-        std::string deliver_resp = HttpPostJson(deliver_url, body.dump());
+        std::string deliver_resp =
+            HttpPostJsonRetry(deliver_url, body.dump(), 3);
         Log::GetLog()->info("HttpClient: mark delivered response: {}", deliver_resp);
+        if (PendingAckNeedsRetry(deliver_resp)) {
+            Log::GetLog()->error(
+                "HttpClient: delivered ACK failed after retries — {} order(s) may stay ENTREGANDO "
+                "(items may already be in inventory — avoid blind REENVIAR)",
+                delivered_ids.size());
+        }
     } else if (fail_count > 0) {
         std::wstring msg = first_fail_msg.empty()
             ? (L"[Shop] Falha ao entregar " + std::to_wstring(fail_count)

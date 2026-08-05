@@ -5,6 +5,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.106] - 2026-08-04
+
+### Improvement
+
+- Melhoria (Web Store / DB): defaults connect/read timeout 5s (antes 3s) para MySQL remoto — menos falsos positivos no circuit.
+
+### Fix
+
+- Fix (Web Store / DB): circuit breaker half-open — após cooldown admite 1 probe; sucesso em query normal fecha o circuit (já não depende só do ping de diagnostics); falha do probe reabre.
+- Fix (Web Store / Auditoria): resposta 503 db_circuit_open com user_message, cooldown_remaining_s e retry_after_s; UI de Auditoria/doações mostra orientação em vez do código cru.
+- Fix (CustomShop 1.10.39): retries de /delivered e /release sob db_circuit_open — previne ENTREGANDO órfão; claim continua a reabrir stale na Web Store.
+- Fix (Web Store / Event Hunt): @api_key_required() nas rotas plugin Mode B (sem parênteses sobrescrevia endpoint Flask).
+
+### Other
+
+- Nota: Mode B (Event Hunt admin público) continua pendente à parte.
+
 ## [1.10.105] - 2026-07-31
 
 ### Fix

@@ -246,3 +246,39 @@ def test_recover_stale_fast_path_and_reopen(client):
         assert _app_module.recover_stale_entregando_shop_orders(db2, USER_STEAM) == 0
     finally:
         db2.close()
+
+
+def test_claim_reopens_stale_entregando_even_when_scheduler_alive(client, monkeypatch):
+    """P0 suporte: scheduler 'vivo' mas recover global saltado → claim deve reabrir.
+
+    Reproduz Felipe/ops: UI ENTREGANDO + plugin 'no pending deliveries'.
+    """
+    monkeypatch.setattr(_app_module, "_pending_stale_scheduler_healthy", lambda: True)
+    oid = _mk_order(
+        status="ENTREGANDO",
+        updated_at=_now() - timedelta(minutes=30),
+        item_id="tekstrider_femea_l200",
+    )
+    assert oid
+
+    r = client.post(
+        "/api/pending/claim",
+        headers=_headers(),
+        data=json.dumps({"steam_id": USER_STEAM}),
+    )
+    assert r.status_code == 200
+    d = r.get_json()
+    assert len(d["items"]) == 1
+    assert d["items"][0]["order_id"] == oid
+    assert d["items"][0]["item_id"] == "tekstrider_femea_l200"
+
+    db = _app_module._SessionLocal()
+    try:
+        st = db.execute(
+            text("SELECT status FROM orders WHERE order_id = :o"),
+            {"o": oid},
+        ).fetchone()
+        # Claim reabriu stale → PENDENTE → re-claim → ENTREGANDO
+        assert st[0] == "ENTREGANDO"
+    finally:
+        db.close()

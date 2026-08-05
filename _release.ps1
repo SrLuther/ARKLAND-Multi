@@ -19,9 +19,9 @@
 
     Gates obrigatórios (falham o release se em falta):
       - Entrada CHANGELOG em src/version.py para a versão do app
-      - Plugins oficiais (CustomShop, CustomDinoDeliver): se o código C++ mudou
-        desde o último bump, exige plugin_version.txt maior + secção no
-        plugin/*/CHANGELOG.md (scripts/check_plugin_release_gate.py)
+      - Plugins oficiais (CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt):
+        se o código C++ mudou desde o último bump, exige plugin_version.txt maior
+        + secção no plugin/*/CHANGELOG.md (scripts/check_plugin_release_gate.py)
 
 .PARAMETER Version
     Versão a publicar no formato X.Y.Z (ex: "1.2.2")
@@ -63,7 +63,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 # ── 0b) Gate de versão dos plugins (código alterado ⇒ bump + CHANGELOG) ───────
-Write-Step 0 7 "Validando versoes dos plugins (CustomShop / CustomDinoDeliver)..."
+Write-Step 0 7 "Validando versoes dos plugins (CustomShop / CustomDinoDeliver / ArkPlayer / ArkEventHunt)..."
 & $python (Join-Path $root "scripts\check_plugin_release_gate.py")
 if ($LASTEXITCODE -ne 0) {
     Write-Fail "Gate de plugins falhou. Bumpe plugin_version.txt + plugin/*/CHANGELOG.md e sincronize com scripts\sync_plugin_versions.py antes de continuar."
@@ -172,7 +172,7 @@ Write-Ok "src\version.py  →  BUILD_DATE = $date"
 # PluginInfo.json sincronizado a partir de plugin_version.txt (sem --from-app)
 & $python (Join-Path $root "scripts\sync_plugin_versions.py") --all
 if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_plugin_versions.py --all falhou" }
-Write-Ok "PluginInfo.json  →  sincronizado com plugin_version.txt (CustomShop + CustomDinoDeliver)"
+Write-Ok "PluginInfo.json  →  sincronizado com plugin_version.txt (CustomShop + CustomDinoDeliver + ArkPlayer + ArkEventHunt)"
 
 # CHANGELOG.md gerado a partir de version.py
 & $python (Join-Path $root "scripts\sync_changelog_md.py")

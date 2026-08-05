@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.39] - 2026-08-04
+
+### Fix
+
+- **HttpClient / ENTREGANDO**: retries em `/api/pending/delivered` e `/release` quando a Web Store responde `db_circuit_open` / `db_offline` (ou body vazio) — evita pedidos órfãos em ENTREGANDO sob circuit breaker MySQL.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.39) em cada mapa.
+
 ## [1.10.38] - 2026-07-31
 
 ### Feature

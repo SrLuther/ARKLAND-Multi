@@ -1,0 +1,59 @@
+{
+  "ArkEventHunt": {
+    "Enabled": true,
+    "WebApiUrl": "http://127.0.0.1:5177",
+    "WebApiKey": "",
+    "ServerId": "",
+    "SenderNameInChat": "ARKLAND EVENT",
+    "MinAllowedWeaponDamageRatio": 0.80,
+    "ForbidTorpor": true,
+    "OfficialWeaponsOnly": true,
+    "WeaponWhitelist": [
+      "PrimalItem_WeaponBow",
+      "PrimalItem_WeaponCrossbow",
+      "PrimalItem_WeaponPike",
+      "PrimalItem_WeaponMachinedShotgun",
+      "tag:shotgun"
+    ],
+    "OfficialWeaponCatalog": [],
+    "ModeA": {
+      "Enabled": true,
+      "MinAllowedWeaponDamageRatio": 0.80,
+      "ForbidTorpor": true,
+      "OfficialWeaponsOnly": true
+    },
+    "ModeB": {
+      "Enabled": true,
+      "AllowPersonalTamesDefault": false,
+      "TtlTickSeconds": 5,
+      "AdminGroups": ["Admins"]
+    },
+    "Spike": {
+      "Enabled": true,
+      "DefaultLevel": 150,
+      "DefaultBlueprint": "Blueprint'/Game/PrimalEarth/Dinos/Dodo/Dodo_Character_BP.Dodo_Character_BP'",
+      "WeaponWhitelist": []
+    },
+    "Messages": {
+      "NoPermission": "Sem permissão.",
+      "Disabled": "ArkEventHunt desligado.",
+      "EveUsage": "Uso: /eve <código> — só o dono do claim no site.",
+      "EveNotOwner": "Só o dono do claim pode usar /eve com este código.",
+      "EveNotActiveMember": "Precisas de ser membro ACTIVE de uma Equipe no site.",
+      "EveCodeInvalid": "Código inválido ou expirado.",
+      "EveSpawnOk": "Evento: dino spawnado! Mata com a arma permitida. id1={} id2={}",
+      "EveSpawnFail": "Falha ao spawnar o dino de evento.",
+      "EveWeaponGranted": "Arma oficial do desafio entregue no inventário.",
+      "EveWeaponGrantFail": "Não foi possível entregar a arma — usa a oficial da whitelist.",
+      "SpikeSpawnOk": "Spike: dino spawnado (wild) id1={} id2={}",
+      "SpikeSpawnFail": "Spike: falha ao spawnar.",
+      "EveAdmUsage": "Uso: /eveadm <código> | /eveadm status",
+      "EveAdmCodeInvalid": "Código Mode B inválido ou sessão inactiva.",
+      "EveAdmSpawnOk": "Mode B: {name} spawnado (PUBLIC) id1={} id2={}",
+      "EveAdmSpawnFail": "Falha ao spawnar o dino Mode B.",
+      "EveAdmExpireWarn": "[Evento] {name} expira em 1 minuto!",
+      "EveAdmExpired": "[Evento] {name} expirou e foi removido.",
+      "NotImplemented": "ArkEventHunt: comando ainda em desenvolvimento."
+    }
+  }
+}

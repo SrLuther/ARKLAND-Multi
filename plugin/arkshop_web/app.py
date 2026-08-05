@@ -55,7 +55,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, load_only, mapped_column, sc
 
 from db_diagnostics import (
     attach_engine_listeners,
-    circuit_is_open,
+    circuit_allow_request,
     circuit_status,
     clear_request_context,
     mark_checkout_started,
@@ -1966,6 +1966,12 @@ def _migrate_schema(engine: Any) -> None:
         except Exception as exc:
             log.warning("Modo Equipe (sqlite dev): migrate falhou: %s", exc)
         try:
+            from event_hunt_service import ensure_event_hunt_schema
+
+            ensure_event_hunt_schema(engine)
+        except Exception as exc:
+            log.warning("Event Hunt (sqlite dev): migrate falhou: %s", exc)
+        try:
             from itensalfa_licenses_migrate import ensure_itensalfa_licenses_schema
 
             ensure_itensalfa_licenses_schema(engine)
@@ -2158,6 +2164,12 @@ def _migrate_schema(engine: Any) -> None:
     except Exception as exc:
         log.warning("Modo Equipe: migrate falhou: %s", exc)
     try:
+        from event_hunt_service import ensure_event_hunt_schema
+
+        ensure_event_hunt_schema(engine)
+    except Exception as exc:
+        log.warning("Event Hunt: migrate falhou: %s", exc)
+    try:
         from itensalfa_licenses_migrate import ensure_itensalfa_licenses_schema
 
         ensure_itensalfa_licenses_schema(engine)
@@ -2256,14 +2268,15 @@ def _configure_database_locked(normalized: str) -> None:
         _reset_schema_runtime_flags()
         return
 
-    # Timeouts agressivos: pool_timeout + read_timeout no pre_ping de conexão
-    # morta empilhavam ≈29s (12+12) sem query pesada — causa de timeouts com DB vazio.
+    # Timeouts: default 5s (antes 3s). MySQL remoto com jitter gerava falsos
+    # positivos no circuit breaker; pool_timeout continua a falhar rápido no checkout.
+    # Override: ARKSHOP_DB_CONNECT_TIMEOUT / ARKSHOP_DB_READ_TIMEOUT / WRITE.
     connect_args: dict[str, Any] = {}
     if "mysql" in normalized.lower():
-        read_to = int(os.environ.get("ARKSHOP_DB_READ_TIMEOUT", "3") or 3)
+        read_to = int(os.environ.get("ARKSHOP_DB_READ_TIMEOUT", "5") or 5)
         write_to = int(os.environ.get("ARKSHOP_DB_WRITE_TIMEOUT", "5") or 5)
         connect_args = {
-            "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "3") or 3),
+            "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "5") or 5),
             "read_timeout": max(2, read_to),
             "write_timeout": max(2, write_to),
             # Keepalive: evita conexões stale que disparam pre_ping + read_timeout longo.
@@ -2528,18 +2541,29 @@ def _require_db():
             "error": "Banco não configurado. Configure as credenciais em Configurações → DB.",
             "db_offline": True,
         }), 503
-    if circuit_is_open():
+    if not circuit_allow_request():
         st = circuit_status()
+        rem = float(st.get("cooldown_remaining_s") or st.get("retry_after_s") or 0)
+        rem_i = max(0, int(rem + 0.999))  # ceil
+        user_msg = (
+            f"Base de dados temporariamente indisponível (proteção automática). "
+            f"Tente novamente em ~{rem_i}s."
+            if rem_i > 0
+            else (
+                "Base de dados temporariamente indisponível (proteção automática). "
+                "A recuperar — tente novamente em alguns segundos."
+            )
+        )
         return jsonify({
             "ok": False,
             "error": "db_circuit_open",
-            "message": (
-                f"MySQL degradado — circuit breaker aberto "
-                f"({st.get('cooldown_remaining_s')}s restantes). "
-                "Ver GET /api/admin/diagnostics/database."
-            ),
+            "message": user_msg,
+            "user_message": user_msg,
+            "retry_after_s": rem_i,
+            "cooldown_remaining_s": rem,
             "db_offline": True,
             "circuit": st,
+            "hint": "retry_after_cooldown",
         }), 503
     return None
 
@@ -8977,6 +9001,30 @@ def claim_pending_orders():
             q = q.filter(Order.order_id.in_(targets))
         pending = q.order_by(Order.created_at.asc()).all()
 
+        # Fila PENDENTE vazia + ENTREGANDO stale: o scheduler pode estar
+        # "alive" mas saltar recover (pool_busy / circuit) — claim devolvia
+        # items=[] ("no pending deliveries") com UI ainda em ENTREGANDO.
+        # Fast-path do recover (SELECT 1) é barato quando não há stale.
+        if not pending and not targets:
+            try:
+                n_reopen = int(
+                    recover_stale_entregando_shop_orders(db, steam_id) or 0
+                )
+                if n_reopen:
+                    _log(
+                        "shop_stale_entregando_claim_empty_reopen",
+                        severity="warning",
+                        steam_id=steam_id,
+                        recovered=n_reopen,
+                    )
+                    pending = q.order_by(Order.created_at.asc()).all()
+            except Exception as reopen_exc:
+                _log_error(
+                    "claim_stale_empty_reopen",
+                    steam_id=steam_id,
+                    error=str(reopen_exc),
+                )
+
         now = _now()
         for order in pending:
             if _finalize_license_order_if_fulfilled(
@@ -9744,6 +9792,7 @@ def save_settings():
         "join_host",
         "lottery_enabled",
         "teams_enabled",
+        "event_hunt_enabled",
         "teams_max_members",
         "teams_amber_bonus_pp",
         "teams_amber_bonus_cap",
@@ -16863,6 +16912,27 @@ configure_team_service(
     audit_event=_audit_event,
 )
 register_team_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    api_key_required=api_key_required,
+    steam_id_from_session=_steam_id_from_session,
+    is_admin_steamid=_is_admin_steamid,
+    limiter=limiter,
+)
+
+# ── ArkEventHunt (Mode A MVP — caça de evento nas páginas Equipes) ───────────
+from event_hunt_routes import register_event_hunt_routes
+from event_hunt_service import configure_event_hunt_service
+
+configure_event_hunt_service(
+    settings_fn=_load_settings,
+    add_points_tx=_add_player_points_tx,
+    audit_event=_audit_event,
+)
+register_event_hunt_routes(
     app,
     db_ready=_db_ready,
     session_factory=_db_session_factory,

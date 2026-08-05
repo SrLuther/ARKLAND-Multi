@@ -155,5 +155,57 @@ def test_circuit_opens_after_errors():
     assert diag.circuit_is_open() is True
     st = diag.circuit_status()
     assert st["open"] is True
+    assert st["state"] == "open"
     diag.record_circuit_success()
     assert diag.circuit_is_open() is False
+    assert diag.circuit_status()["state"] == "closed"
+
+
+def test_successful_query_heals_circuit_failures():
+    """Sucesso normal (não só ping diagnostics) zera falhas consecutivas."""
+    for _ in range(diag._CIRCUIT_THRESHOLD - 1):
+        diag.record_query(statement="SELECT 1", duration_ms=1.0, error="timeout")
+    assert diag.circuit_is_open() is False
+    assert diag.circuit_status()["failures"] == diag._CIRCUIT_THRESHOLD - 1
+    diag.record_query(statement="SELECT 1", duration_ms=2.0)
+    assert diag.circuit_status()["failures"] == 0
+    assert diag.circuit_status()["state"] == "closed"
+
+
+def test_half_open_probe_success_closes_circuit():
+    for _ in range(diag._CIRCUIT_THRESHOLD):
+        diag.record_query(statement="SELECT 1", duration_ms=0.0, error="gone away")
+    assert diag.circuit_is_open() is True
+    # Expira cooldown → half_open
+    diag._circuit_open_until = time.monotonic() - 0.01
+    assert diag.circuit_state() == "half_open"
+    assert diag.circuit_allow_request() is True  # 1º probe
+    assert diag.circuit_allow_request() is False  # restantes bloqueados
+    # Probe bem-sucedido
+    diag.record_query(statement="SELECT 1", duration_ms=3.0)
+    assert diag.circuit_status()["state"] == "closed"
+    assert diag.circuit_allow_request() is True
+
+
+def test_half_open_probe_failure_reopens():
+    for _ in range(diag._CIRCUIT_THRESHOLD):
+        diag.record_query(statement="SELECT 1", duration_ms=0.0, error="gone away")
+    diag._circuit_open_until = time.monotonic() - 0.01
+    assert diag.circuit_allow_request() is True
+    diag.record_query(statement="SELECT 1", duration_ms=0.0, error="still down")
+    assert diag.circuit_is_open() is True
+    assert diag.circuit_status()["state"] == "open"
+    assert diag.circuit_status()["cooldown_remaining_s"] > 0
+
+
+def test_circuit_status_does_not_consume_probe():
+    for _ in range(diag._CIRCUIT_THRESHOLD):
+        diag.record_query(statement="SELECT 1", duration_ms=0.0, error="gone away")
+    diag._circuit_open_until = time.monotonic() - 0.01
+    st1 = diag.circuit_status()
+    st2 = diag.circuit_status()
+    assert st1["state"] == "half_open"
+    assert st2["state"] == "half_open"
+    assert st1["probe_in_flight"] is False
+    assert diag.circuit_allow_request() is True
+    assert diag.circuit_status()["probe_in_flight"] is True

@@ -52,6 +52,7 @@ from ..shop_integration import (
     install_customshop_all,
     install_customdino_all,
     install_arkplayer_all,
+    install_arkeventhunt_all,
     is_customshop_installed,
     is_customdino_installed,
     iter_shop_rcon_servers,
@@ -2040,11 +2041,13 @@ def _build_webstore_tab(
     _bundled_shop_ver = get_bundled_plugin_version("CustomShop") or expected_plugin_version("CustomShop")
     _bundled_dino_ver = get_bundled_plugin_version("CustomDinoDeliver") or expected_plugin_version("CustomDinoDeliver")
     _bundled_player_ver = get_bundled_plugin_version("ArkPlayer") or expected_plugin_version("ArkPlayer")
+    _bundled_hunt_ver = get_bundled_plugin_version("ArkEventHunt") or expected_plugin_version("ArkEventHunt")
     tk.Label(
         card_srv,
         text=(
             f"Versões esperadas (app): CustomShop v{_bundled_shop_ver} · "
-            f"Dino Lab v{_bundled_dino_ver} · ArkPlayer v{_bundled_player_ver}"
+            f"Dino Lab v{_bundled_dino_ver} · ArkPlayer v{_bundled_player_ver} · "
+            f"ArkEventHunt v{_bundled_hunt_ver}"
         ),
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
@@ -2127,20 +2130,25 @@ def _build_webstore_tab(
             _player_status, player_txt = describe_plugin_version(
                 srv.install_dir, "ArkPlayer", short_label="ArkPlayer",
             )
+            _hunt_status, hunt_txt = describe_plugin_version(
+                srv.install_dir, "ArkEventHunt", short_label="EventHunt",
+            )
             _ver_fg = "#55cc77" if (
                 _shop_status == "match"
                 and _dino_status in ("match", "not_installed")
                 and _player_status in ("match", "not_installed")
+                and _hunt_status in ("match", "not_installed")
             ) else (
                 "#ccaa55" if (
                     _shop_status in ("outdated", "missing")
                     or _dino_status in ("outdated", "missing")
                     or _player_status in ("outdated", "missing")
+                    or _hunt_status in ("outdated", "missing")
                 ) else "gray55"
             )
             tk.Label(
                 ver_row,
-                text=f"{shop_txt}  |  {dino_txt}  |  {player_txt}",
+                text=f"{shop_txt}  |  {dino_txt}  |  {player_txt}  |  {hunt_txt}",
                 bg="#1a1a30",
                 fg=_ver_fg,
                 font=ctk.CTkFont(size=8),
@@ -2294,6 +2302,31 @@ def _build_webstore_tab(
         except AttributeError:
             messagebox.showinfo("Instalar ArkPlayer", msg)
 
+    def _install_arkeventhunt() -> None:
+        asm_cm = getattr(app, "asm_config_manager", None)
+        targets = iter_shop_servers(app.config_manager, asm_cm)
+        if not targets:
+            messagebox.showwarning("Instalar", "Nenhum servidor cadastrado no app.")
+            return
+        if not messagebox.askyesno(
+            "Instalar ArkEventHunt",
+            f"Copiar ArkEventHunt.dll para {len(targets)} servidor(es)?\n\n"
+            "Caça de evento (spike): /evespike, stubs /eve e /eveadm.\n"
+            "config.json existente não será sobrescrito.",
+        ):
+            return
+        ok, errs = install_arkeventhunt_all(
+            app.config_manager, asm_cm, overwrite_dlls=True,
+        )
+        _rebuild_server_rows()
+        msg = f"{len(ok)} servidor(es) com ArkEventHunt instalado."
+        if errs:
+            msg += "\n" + "\n".join(errs[:5])
+        try:
+            app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
+        except AttributeError:
+            messagebox.showinfo("Instalar ArkEventHunt", msg)
+
     def _reload_customshop_all_servers() -> None:
         if not _validate_shared_shop_requirements():
             return
@@ -2409,6 +2442,9 @@ def _build_webstore_tab(
     ctk.CTkButton(act_row, text="🎮  Instalar ArkPlayer",
                   height=34, fg_color="#3a2d5a", hover_color="#4a3d6a",
                   command=_install_arkplayer).pack(side="left", padx=(0, 10))
+    ctk.CTkButton(act_row, text="🎯  Instalar ArkEventHunt",
+                  height=34, fg_color="#5a3a1a", hover_color="#6a4a2a",
+                  command=_install_arkeventhunt).pack(side="left", padx=(0, 10))
     ctk.CTkButton(act_row, text="📢  Propagar mestre → mapas + loja",
                   height=34, fg_color="#b45309", hover_color="#c2410c",
                   command=_apply_plugins).pack(side="left", padx=(0, 10))
