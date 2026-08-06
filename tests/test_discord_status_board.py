@@ -90,3 +90,31 @@ def test_collect_status_payload_includes_players():
     assert by_id["brighamia"]["players"] == 12
     assert by_id["brighamia"]["max_players"] == 70
     assert by_id["map1"]["players"] == 12
+
+
+def test_boot_status_board_pushes_webstore_when_discord_disabled(monkeypatch):
+    """Home não depende do painel Discord — boot deve empurrar runtime-status."""
+    from types import SimpleNamespace
+    import src.discord_status_board as board
+
+    calls: list = []
+    monkeypatch.setattr(board, "boot_webstore_status_push", lambda app: calls.append(app))
+    monkeypatch.setattr(board, "_status_cfg", lambda _app: SimpleNamespace(status_board_enabled=False))
+
+    app = SimpleNamespace()
+    board.boot_status_board(app)
+    assert calls == [app]
+
+
+def test_schedule_suppress_still_pushes_webstore(monkeypatch):
+    from types import SimpleNamespace
+    import src.discord_status_board as board
+
+    pushed: list = []
+    monkeypatch.setattr(board, "push_status_to_webstore", lambda app, items=None: pushed.append(app))
+    board._suppress_updates = True
+    try:
+        board.schedule_status_board_update(SimpleNamespace())
+        assert len(pushed) == 1
+    finally:
+        board._suppress_updates = False

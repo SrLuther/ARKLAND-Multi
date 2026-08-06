@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.108] - 2026-08-05
+
+### Improvement
+
+- Melhoria (ArkEventHunt 0.5.3): feedback de chat no kill; tag:melee (sword/pike/club); TTL Mode A (dino_ttl_sec/expired); UTF-8 chat wide.
+
+### Fix
+
+- Fix (TEK / Web Store): status na home deixa de ficar eterno em «Aguardando status do TEK…» — heartbeat POST /api/servers/runtime-status a cada tick (30–60s) + push no boot mesmo sem painel Discord; falhas de push passam a log warning (api_key/URL/auth).
+- Fix (ArkEventHunt 0.5.3): Die Mode A já não fica SPAWNED eterno quando membership API falha — dono completa com team_id do claim; não-dono fail api_membership; outcome idempotente por claim_id + POST reliable.
+
+### Other
+
+- Nota: cancel/reactivate de desafios Event Hunt ainda não implementado nesta release.
+
 ## [1.10.107] - 2026-08-05
 
 ### Feature

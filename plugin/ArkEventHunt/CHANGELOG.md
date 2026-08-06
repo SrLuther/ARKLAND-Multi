@@ -3,6 +3,18 @@
 Versões sincronizadas via `plugin_version.txt` +
 `python scripts/sync_plugin_versions.py --plugin ArkEventHunt`.
 
+## [0.5.3] - 2026-08-05
+
+- **Fix SPAWNED eterno após kill:** Die Mode A já não faz `return` silencioso
+  quando membership API falha — dono do claim → `complete` com `team_id` do
+  claim; não-dono → `fail api_membership` (desbloqueia o claim).
+- Outcome Mode A: idempotência por `claim_id` (sobrevive a `Unbind`); POST
+  reliable com 8 retries + log ERROR se falhar.
+- Chat feedback no kill (ok / weapon / stolen / API / dino sem registry).
+- `tag:melee` reconhece sword/pike/club/…; OfficialPath inclui `weapsword`.
+- Mode A spawn TTL (`dino_ttl_sec`) + expire → `POST .../fail` `expired`.
+- UTF-8 chat: `SendMsg` via `ClientChatMessage` wide (corrige `já não` → `j?`).
+
 ## [0.5.2] - 2026-08-05
 
 - HTTP 4xx: log inclui `body=` (preview) além de `body_len` — diagnóstico de

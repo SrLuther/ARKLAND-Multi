@@ -3,13 +3,30 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.107"
+APP_VERSION: str = "1.10.108"
 BUILD_DATE: str = "2026-08-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.108",
+        "date": "2026-08-05",
+        "changes": [
+            "Fix (TEK / Web Store): status na home deixa de ficar eterno em "
+            "«Aguardando status do TEK…» — heartbeat POST /api/servers/runtime-status "
+            "a cada tick (30–60s) + push no boot mesmo sem painel Discord; "
+            "falhas de push passam a log warning (api_key/URL/auth).",
+            "Fix (ArkEventHunt 0.5.3): Die Mode A já não fica SPAWNED eterno quando "
+            "membership API falha — dono completa com team_id do claim; não-dono "
+            "fail api_membership; outcome idempotente por claim_id + POST reliable.",
+            "Melhoria (ArkEventHunt 0.5.3): feedback de chat no kill; tag:melee "
+            "(sword/pike/club); TTL Mode A (dino_ttl_sec/expired); UTF-8 chat wide.",
+            "Nota: cancel/reactivate de desafios Event Hunt ainda não implementado "
+            "nesta release.",
+        ],
+    },
     {
         "version": "1.10.107",
         "date": "2026-08-05",

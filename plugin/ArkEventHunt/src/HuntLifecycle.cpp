@@ -115,11 +115,58 @@ void ExpireInstance(const ArkEventHunt::Registry::Entry& entry, bool warn_only) 
         entry.instance_id, entry.dino_id1, entry.dino_id2);
 }
 
+void ExpireModeAClaim(const ArkEventHunt::Registry::Entry& entry) {
+    if (entry.claim_id <= 0) return;
+    if (!ArkEventHunt::Registry::MarkOutcomeSent(entry.dino_id1, entry.dino_id2))
+        return;
+
+    auto& cfg = ArkEventHunt::HuntConfig::Get();
+    const std::string name =
+        entry.display_name.empty() ? entry.code : entry.display_name;
+    std::string msg = cfg.Msg(
+        "EveExpired",
+        "[Evento] {name} expirou (TTL) — claim FAILED.");
+    const auto pos = msg.find("{name}");
+    if (pos != std::string::npos)
+        msg.replace(pos, 6, name);
+    ArkEventHunt::World::BroadcastChat(msg);
+    ArkEventHunt::World::DespawnDino(entry.dino_id1, entry.dino_id2);
+
+    nlohmann::json body = {
+        {"reason", "expired"},
+        {"dino_id1", entry.dino_id1},
+        {"dino_id2", entry.dino_id2},
+        {"server_id", entry.server_id},
+        {"idempotency_key", "expire:" + std::to_string(entry.claim_id)},
+    };
+    ArkEventHunt::HttpClient::PostJsonDetached(
+        "/api/event-hunt/a/claims/" + std::to_string(entry.claim_id) + "/fail",
+        body.dump(), 5);
+
+    ArkEventHunt::Registry::Unbind(entry.dino_id1, entry.dino_id2);
+    Log::GetLog()->info(
+        "ArkEventHunt ModeA TTL expire: claim={} id1={} id2={}",
+        entry.claim_id, entry.dino_id1, entry.dino_id2);
+}
+
 void TtlTick() {
     if (g_stopped) return;
-    if (!ArkEventHunt::HuntConfig::Get().ModeBEnabled()) return;
 
     const int64_t now = ArkEventHunt::World::NowUnix();
+
+    // Mode A — spawn TTL (dino_ttl_sec do by-code).
+    if (ArkEventHunt::HuntConfig::Get().ModeAEnabled()) {
+        const auto mode_a = ArkEventHunt::Registry::Snapshot(
+            ArkEventHunt::Registry::Mode::ModeA, true);
+        for (const auto& e : mode_a) {
+            if (e.expires_at_unix <= 0 || e.outcome_sent) continue;
+            if (e.expires_at_unix - now <= 0)
+                ExpireModeAClaim(e);
+        }
+    }
+
+    if (!ArkEventHunt::HuntConfig::Get().ModeBEnabled()) return;
+
     const auto entries = ArkEventHunt::Registry::Snapshot(
         ArkEventHunt::Registry::Mode::ModeB, true);
 

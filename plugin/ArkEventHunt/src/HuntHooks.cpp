@@ -5,6 +5,9 @@
 #include "HuntRegistry.h"
 #include "HuntWorld.h"
 
+#include <unordered_set>
+#include <thread>
+
 namespace {
 
 std::string ToLower(std::string s) {
@@ -56,8 +59,22 @@ bool WhitelistMatch(const std::string& hint,
     for (const auto& w : whitelist) {
         if (w.empty()) continue;
         std::string tag = w;
-        if (tag.rfind("tag:", 0) == 0)
+        if (tag.rfind("tag:", 0) == 0) {
             tag = tag.substr(4);
+            const std::string t = ToLower(tag);
+            if (t == "melee") {
+                static const char* melee_keys[] = {
+                    "melee", "sword", "pike", "club", "spear", "hatchet",
+                    "pick", "axe", "whip", "lance", "teksword", "weapsword",
+                    "weappike", "weapspear", "weapclub", "weaphatchet",
+                };
+                for (const char* k : melee_keys) {
+                    if (low.find(k) != std::string::npos)
+                        return true;
+                }
+                continue;
+            }
+        }
         if (low.find(ToLower(tag)) != std::string::npos)
             return true;
     }
@@ -100,6 +117,9 @@ bool LooksLikeOfficialPath(const std::string& hint) {
         "weaptekrifle",
         "weaptekpistol",
         "weapteksword",
+        "weapsword",
+        "weaponsword",
+        "primalitem_weaponsword",
     };
     for (const char* k : keys) {
         if (low.find(k) != std::string::npos)
@@ -227,6 +247,59 @@ bool LookupKillerTeam(uint64_t steam_u64, bool& active, uint64_t& team_id) {
     }
 }
 
+// Idempotência Mode A independente do registry (Unbind após Die).
+std::mutex g_mode_a_outcome_mu;
+std::unordered_set<int64_t> g_mode_a_outcome_claims;
+
+bool TryClaimModeAOutcomeSlot(int64_t claim_id) {
+    if (claim_id <= 0) return false;
+    std::lock_guard<std::mutex> lock(g_mode_a_outcome_mu);
+    if (g_mode_a_outcome_claims.count(claim_id)) return false;
+    g_mode_a_outcome_claims.insert(claim_id);
+    return true;
+}
+
+void NotifyKiller(AShooterPlayerController* killer_pc,
+                  uint64_t killer_steam,
+                  const std::string& msg) {
+    if (msg.empty()) return;
+    AShooterPlayerController* pc = killer_pc;
+    if (!pc && killer_steam != 0)
+        pc = ArkEventHunt::World::FindPlayerBySteamId(
+            std::to_string(killer_steam));
+    if (pc)
+        ArkEventHunt::World::SendPlayerChat(pc, msg);
+}
+
+void ReliablePostJson(const std::string& path, const std::string& body) {
+    // Detached com retries agressivos — Die não pode deixar SPAWNED eterno.
+    std::thread([path, body]() {
+        try {
+            constexpr int kAttempts = 8;
+            const auto resp =
+                ArkEventHunt::HttpClient::PostJsonRetry(path, body, kAttempts);
+            if (resp.status >= 200 && resp.status < 300) {
+                Log::GetLog()->info(
+                    "ArkEventHunt HTTP reliable POST {} status={}",
+                    path, resp.status);
+                return;
+            }
+            Log::GetLog()->error(
+                "ArkEventHunt HTTP reliable POST FAILED {} status={} "
+                "body_len={} — claim pode ficar SPAWNED; admin void ou "
+                "reenviar complete/fail",
+                path, resp.status, resp.body.size());
+        } catch (const std::exception& e) {
+            Log::GetLog()->error(
+                "ArkEventHunt HTTP reliable POST {} exception: {}",
+                path, e.what());
+        } catch (...) {
+            Log::GetLog()->error(
+                "ArkEventHunt HTTP reliable POST {} unknown exception", path);
+        }
+    }).detach();
+}
+
 void PostModeAOutcome(const ArkEventHunt::Registry::Entry& entry,
                       bool success,
                       const char* fail_reason,
@@ -235,10 +308,18 @@ void PostModeAOutcome(const ArkEventHunt::Registry::Entry& entry,
                       const std::string& weapon_hint,
                       AShooterPlayerController* killer_pc) {
     if (entry.claim_id <= 0) return;
-    if (!ArkEventHunt::Registry::MarkOutcomeSent(entry.dino_id1, entry.dino_id2))
+    if (!TryClaimModeAOutcomeSlot(entry.claim_id)) {
+        Log::GetLog()->warn(
+            "ArkEventHunt ModeA outcome duplicate skip claim={}",
+            entry.claim_id);
         return;
+    }
+    // Best-effort no registry (pode já ter sido Unbind).
+    ArkEventHunt::Registry::MarkOutcomeSent(entry.dino_id1, entry.dino_id2);
 
-    // Loot só em COMPLETED válido — idempotente via MarkOutcomeSent acima.
+    auto& cfg = ArkEventHunt::HuntConfig::Get();
+
+    // Loot só em COMPLETED válido — idempotente via claim slot acima.
     if (success && !entry.loot_on_complete.empty()) {
         AShooterPlayerController* pc = killer_pc;
         if (!pc && killer_steam != 0)
@@ -287,6 +368,10 @@ void PostModeAOutcome(const ArkEventHunt::Registry::Entry& entry,
             "complete:" + std::to_string(entry.claim_id);
         path = "/api/event-hunt/a/claims/" + std::to_string(entry.claim_id) +
                "/complete";
+        NotifyKiller(
+            killer_pc, killer_steam,
+            cfg.Msg("EveKillOk",
+                    "Evento: kill válido! Pontuação a registar…"));
     } else {
         body["reason"] = fail_reason ? fail_reason : "unknown";
         body["idempotency_key"] =
@@ -294,9 +379,29 @@ void PostModeAOutcome(const ArkEventHunt::Registry::Entry& entry,
             (fail_reason ? fail_reason : "unknown");
         path = "/api/event-hunt/a/claims/" + std::to_string(entry.claim_id) +
                "/fail";
+        const std::string reason = fail_reason ? fail_reason : "unknown";
+        if (reason == "weapon") {
+            NotifyKiller(
+                killer_pc, killer_steam,
+                cfg.Msg("EveKillFailWeapon",
+                        "Evento: FAIL — arma/torpor/ratio inválidos. Tentativa consumida."));
+        } else if (reason == "stolen") {
+            NotifyKiller(
+                killer_pc, killer_steam,
+                cfg.Msg("EveKillFailStolen",
+                        "Evento: FAIL — kill de outra Equipe / sem Steam. Tentativa consumida."));
+        } else {
+            std::string m = cfg.Msg(
+                "EveKillFail",
+                "Evento: FAIL ({reason}). Tentativa consumida.");
+            const auto pos = m.find("{reason}");
+            if (pos != std::string::npos)
+                m.replace(pos, 8, reason);
+            NotifyKiller(killer_pc, killer_steam, m);
+        }
     }
 
-    ArkEventHunt::HttpClient::PostJsonDetached(path, body.dump(), 3);
+    ReliablePostJson(path, body.dump());
     Log::GetLog()->info(
         "ArkEventHunt ModeA outcome queued claim={} ok={} reason={} "
         "killer={} team={} ratio={:.3f}",
@@ -442,6 +547,7 @@ void HandleModeADie(const ArkEventHunt::Registry::Entry& entry,
                     uint64_t killer_steam,
                     const std::string& weapon,
                     AShooterPlayerController* killer_pc) {
+    auto& cfg = ArkEventHunt::HuntConfig::Get();
     float ratio = 0.f;
     if (entry.forbid_torpor && entry.torpor_hits > 0.f) {
         PostModeAOutcome(entry, false, "weapon", killer_steam, 0, weapon,
@@ -454,21 +560,49 @@ void HandleModeADie(const ArkEventHunt::Registry::Entry& entry,
         return;
     }
     if (killer_steam == 0) {
+        NotifyKiller(
+            killer_pc, 0,
+            cfg.Msg("EveKillNoSteam",
+                    "Evento: kill ignorado para score — SteamID do killer não resolvido; a marcar FAIL."));
         PostModeAOutcome(entry, false, "stolen", 0, 0, weapon, killer_pc);
         return;
     }
+
+    const bool is_owner =
+        !entry.owner_steam_id.empty() &&
+        std::to_string(killer_steam) == entry.owner_steam_id;
 
     bool active = false;
     uint64_t killer_team = 0;
     const bool membership_ok =
         LookupKillerTeam(killer_steam, active, killer_team);
 
-    // API down / auth: do not treat as steal (false negative for OWNER).
+    // API down / auth: NUNCA deixar SPAWNED eterno (bug antigo: return cedo).
     if (!membership_ok) {
+        if (is_owner) {
+            Log::GetLog()->warn(
+                "ArkEventHunt Mode A Die: membership API fail — owner kill "
+                "trusted team={} steam={} claim={}",
+                entry.team_id, killer_steam, entry.claim_id);
+            NotifyKiller(
+                killer_pc, killer_steam,
+                cfg.Msg("EveKillMembershipDegraded",
+                        "Evento: API Equipe offline — a registar kill do dono do claim."));
+            PostModeAOutcome(entry, true, nullptr, killer_steam, entry.team_id,
+                             weapon, killer_pc);
+            return;
+        }
         Log::GetLog()->error(
-            "ArkEventHunt Mode A Die: membership API fail — skip stolen "
-            "steam={} expected_team={}",
-            killer_steam, entry.team_id);
+            "ArkEventHunt Mode A Die: membership API fail — non-owner "
+            "steam={} expected_team={} claim={} — FAIL api_membership "
+            "(desbloqueia SPAWNED; staff pode grant)",
+            killer_steam, entry.team_id, entry.claim_id);
+        NotifyKiller(
+            killer_pc, killer_steam,
+            cfg.Msg("EveKillMembershipFail",
+                    "Evento: API Equipe offline no kill — FAIL temporário. Contacta staff se fores da Equipe certa."));
+        PostModeAOutcome(entry, false, "api_membership", killer_steam, 0,
+                         weapon, killer_pc);
         return;
     }
 
@@ -581,9 +715,11 @@ bool Hook_APrimalDinoCharacter_Die(APrimalDinoCharacter* _this,
             const uint64_t steam = ArkApi::GetApiUtils().GetAttackerSteamID(
                 _this, Killer, DamageCauser, false);
             const std::string weapon = ResolveWeaponHint(Killer, DamageCauser);
-            auto* killer_pc =
-                Killer ? static_cast<AShooterPlayerController*>(Killer)
-                       : nullptr;
+            AShooterPlayerController* killer_pc = nullptr;
+            if (Killer &&
+                Killer->IsA(AShooterPlayerController::GetPrivateStaticClass())) {
+                killer_pc = static_cast<AShooterPlayerController*>(Killer);
+            }
 
             const float fatal_hp = KillingDamage > 0.f ? KillingDamage : 0.f;
             TrackDamageOnEntry(_this, fatal_hp, DamageEvent, Killer,
@@ -621,6 +757,26 @@ bool Hook_APrimalDinoCharacter_Die(APrimalDinoCharacter* _this,
             }
 
             ArkEventHunt::Registry::Unbind(id1, id2);
+        } else if (id1 != 0 || id2 != 0) {
+            // Dino com IDs mas fora do registry — tipicamente reload mid-fight.
+            const uint64_t steam = ArkApi::GetApiUtils().GetAttackerSteamID(
+                _this, Killer, DamageCauser, false);
+            AShooterPlayerController* killer_pc = nullptr;
+            if (Killer &&
+                Killer->IsA(AShooterPlayerController::GetPrivateStaticClass())) {
+                killer_pc = static_cast<AShooterPlayerController*>(Killer);
+            }
+            Log::GetLog()->warn(
+                "ArkEventHunt Die: dino id1={} id2={} NÃO está no registry "
+                "(reload? /eve noutro mapa?) steam={} — claim SPAWNED pode "
+                "ficar preso; admin void no site",
+                id1, id2, steam);
+            NotifyKiller(
+                killer_pc, steam,
+                ArkEventHunt::HuntConfig::Get().Msg(
+                    "EveKillUnknownDino",
+                    "Evento: dino morto sem tracking local (plugin reload?). "
+                    "Se o claim ficar SPAWNED no site, pede void ao staff."));
         }
     }
 

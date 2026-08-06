@@ -8,12 +8,11 @@
 
 namespace {
 
-void SendMsg(AShooterPlayerController* c, const FLinearColor& color,
+void SendMsg(AShooterPlayerController* c, const FLinearColor& /*color*/,
              const std::string& msg) {
     if (!c || msg.empty()) return;
-    // config.json / fallbacks são UTF-8; SendServerMessage usa char* ACP.
-    const std::string ansi = ArkEventHunt::World::Utf8ToAnsi(msg);
-    ArkApi::GetApiUtils().SendServerMessage(c, color, ansi.c_str());
+    // UTF-8 → wide ClientChatMessage (SendServerMessage ACP corrompia "já não").
+    ArkEventHunt::World::SendPlayerChat(c, msg);
 }
 
 bool IsAdminPlayer(AShooterPlayerController* controller) {
@@ -576,6 +575,12 @@ void CmdEve(AShooterPlayerController* controller, FString* cmd,
     entry.dino_id1 = id1;
     entry.dino_id2 = id2;
     entry.loot_on_complete = ParseLootOnComplete(payload);
+    {
+        const int ttl_sec = JsonInt(payload, "dino_ttl_sec", 0);
+        if (ttl_sec > 0)
+            entry.expires_at_unix =
+                ArkEventHunt::World::NowUnix() + ttl_sec;
+    }
     if (!ArkEventHunt::Registry::Bind(entry)) {
         Log::GetLog()->warn(
             "ArkEventHunt /eve: GetDinoIDs 0/0 claim={} — ver timing ASE",

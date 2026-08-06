@@ -441,14 +441,22 @@ class ARKServerManagerApp(ctk.CTk):
                 self._asm_status_tick_running = False
                 from .asm_ui.asm_dashboard import refresh_dashboard_metrics
                 self.after(0, lambda: refresh_dashboard_metrics(self))
-                if players_changed:
-                    def _push_players():
-                        try:
+
+                # Heartbeat Web Store: status público expira em ~10 min sem push.
+                # Discord só nos eventos (status/visibilidade/players); aqui
+                # renovamos runtime-status a cada tick (30–60 s).
+                def _heartbeat_webstore_status(need_discord: bool = players_changed):
+                    try:
+                        if need_discord:
                             from .discord_status_board import schedule_status_board_update
                             schedule_status_board_update(self)
-                        except Exception:
-                            pass
-                    self.after(0, _push_players)
+                        else:
+                            from .discord_status_board import push_status_to_webstore
+                            push_status_to_webstore(self)
+                    except Exception:
+                        pass
+
+                self.after(0, _heartbeat_webstore_status)
 
         threading.Thread(target=_worker, daemon=True).start()
         self.after(interval, self._asm_status_tick)

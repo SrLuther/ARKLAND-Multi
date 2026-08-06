@@ -31,6 +31,8 @@ APrimalDinoCharacter* FindDinoByIds(uint32_t id1, uint32_t id2);
 bool DespawnDino(uint32_t id1, uint32_t id2);
 
 void BroadcastChat(const std::string& message);
+// Chat/notificação a um jogador com UTF-8 (wide ClientChatMessage — evita "j? n?o").
+void SendPlayerChat(AShooterPlayerController* controller, const std::string& message);
 
 bool IsPersonalTameActor(AActor* actor);
 

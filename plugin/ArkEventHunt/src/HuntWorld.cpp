@@ -72,15 +72,9 @@ bool DespawnDino(uint32_t id1, uint32_t id2) {
     }
 }
 
-void BroadcastChat(const std::string& message) {
-    if (message.empty()) return;
-    UWorld* world = ArkApi::GetApiUtils().GetWorld();
-    if (!world) return;
-
+static void BuildChatMessage(FChatMessage& chat, const std::string& message) {
     const std::wstring wsender = Utf8ToWide(HuntConfig::Get().SenderName());
     const std::wstring wmsg = Utf8ToWide(message);
-
-    FChatMessage chat;
     chat.SenderName = FString(wsender.c_str());
     chat.Message = FString(wmsg.c_str());
     chat.SenderSteamName = FString();
@@ -88,6 +82,15 @@ void BroadcastChat(const std::string& message) {
     chat.SenderId = 0;
     chat.SenderIcon = nullptr;
     chat.UserId = FString();
+}
+
+void BroadcastChat(const std::string& message) {
+    if (message.empty()) return;
+    UWorld* world = ArkApi::GetApiUtils().GetWorld();
+    if (!world) return;
+
+    FChatMessage chat;
+    BuildChatMessage(chat, message);
 
     const auto& pcs = world->PlayerControllerListField();
     for (TWeakObjectPtr<APlayerController> pc : pcs) {
@@ -95,6 +98,13 @@ void BroadcastChat(const std::string& message) {
         if (shooter)
             shooter->ClientChatMessage(chat);
     }
+}
+
+void SendPlayerChat(AShooterPlayerController* controller, const std::string& message) {
+    if (!controller || message.empty()) return;
+    FChatMessage chat;
+    BuildChatMessage(chat, message);
+    controller->ClientChatMessage(chat);
 }
 
 bool IsPersonalTameActor(AActor* actor) {

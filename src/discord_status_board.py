@@ -88,6 +88,18 @@ _last_push = 0.0
 _pending_timer: Optional[threading.Timer] = None
 _boot_done = False
 _suppress_updates = False
+_last_push_warn = 0.0
+_PUSH_WARN_INTERVAL_S = 120.0
+
+
+def _warn_push(msg: str, *args: Any) -> None:
+    global _last_push_warn
+    now = time.monotonic()
+    if now - _last_push_warn < _PUSH_WARN_INTERVAL_S:
+        _logger.debug(msg, *args)
+        return
+    _last_push_warn = now
+    _logger.warning(msg, *args)
 
 
 def map_public_status(process_status: str, steam_status: str) -> str:
@@ -386,8 +398,15 @@ def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = No
         shop = cm.config.shop
         api_key = (getattr(shop, "api_key", "") or "").strip()
         if not api_key:
+            _warn_push(
+                "runtime-status push ignorado: shop.api_key vazio "
+                "(home fica em «Aguardando status do TEK…»)."
+            )
             return
         api_url = resolve_plugin_api_url(shop).rstrip("/")
+        if not api_url:
+            _warn_push("runtime-status push ignorado: URL da Web Store vazia.")
+            return
         payload_items = items if items is not None else collect_status_payload(app)
         if not payload_items:
             return
@@ -405,9 +424,26 @@ def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = No
         )
         with urllib.request.urlopen(req, timeout=8) as resp:
             if int(resp.status) not in (200, 201, 204):
-                _logger.warning("runtime-status push HTTP %s", resp.status)
+                _warn_push("runtime-status push HTTP %s", resp.status)
     except Exception as exc:
-        _logger.debug("runtime-status push: %s", exc)
+        # Auth/URL/rede — sem isto a home fica eternamente «Aguardando status do TEK…».
+        _warn_push("runtime-status push falhou: %s", exc)
+
+
+def boot_webstore_status_push(app: Any) -> None:
+    """No arranque: envia status à Web Store mesmo sem painel Discord activo."""
+
+    def _worker() -> None:
+        try:
+            # Pequeno atraso para reconnect/Steam poller terem estado útil.
+            time.sleep(3.0)
+            push_status_to_webstore(app)
+        except Exception as exc:
+            _logger.warning("boot_webstore_status_push falhou: %s", exc)
+
+    threading.Thread(
+        target=_worker, daemon=True, name="webstore-status-boot"
+    ).start()
 
 
 def _collect_rows(app: Any) -> list[tuple[str, str]]:
@@ -538,6 +574,9 @@ def _recreate_sync(app: Any) -> dict[str, Any]:
 def boot_status_board(app: Any) -> None:
     """No arranque: limpa o canal e publica painel novo (webhook dedicado)."""
     global _boot_done, _suppress_updates
+    # Home pública NÃO depende do painel Discord — sempre faz push runtime.
+    boot_webstore_status_push(app)
+
     cfg = _status_cfg(app)
     if cfg is None or not getattr(cfg, "status_board_enabled", False):
         return
@@ -571,6 +610,11 @@ def schedule_status_board_update(app: Any, *, force_new: bool = False) -> None:
         recreate_status_board(app)
         return
     if _suppress_updates:
+        # Durante recreate Discord, a home não pode ficar sem heartbeat.
+        try:
+            push_status_to_webstore(app)
+        except Exception:
+            pass
         return
 
     def _run() -> None:
