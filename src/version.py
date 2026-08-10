@@ -3,13 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.108"
-BUILD_DATE: str = "2026-08-05"
+APP_VERSION: str = "1.10.109"
+BUILD_DATE: str = "2026-08-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.109",
+        "date": "2026-08-09",
+        "changes": [
+            "Fix (Web Store / Tickets): botão «Remover» da Equipe de Suporte "
+            "voltava a não fazer nada — aspas quebradas no onclick com "
+            "JSON.stringify(steam_id); atributo passa a aspas simples "
+            "(mesmo padrão em removeTimedGroup).",
+        ],
+    },
     {
         "version": "1.10.108",
         "date": "2026-08-05",

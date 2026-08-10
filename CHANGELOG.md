@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.109] - 2026-08-09
+
+### Fix
+
+- Fix (Web Store / Tickets): botão «Remover» da Equipe de Suporte voltava a não fazer nada — aspas quebradas no onclick com JSON.stringify(steam_id); atributo passa a aspas simples (mesmo padrão em removeTimedGroup).
+
 ## [1.10.108] - 2026-08-05
 
 ### Improvement

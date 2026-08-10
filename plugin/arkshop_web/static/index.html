@@ -15945,7 +15945,7 @@ function renderGeneral() {
       <label>${escHtml(grp)}</label>
       <div style="display:flex;align-items:center;gap:6px;">
         <input class="me-timed-grp-amt" data-grp="${escHtml(grp)}" type="number" value="${v.Amount??0}" style="width:90px;text-align:right;" />
-        <button type="button" class="btn btn-ghost btn-sm" title="Remover grupo" onclick="removeTimedGroup(${JSON.stringify(grp)})">✕</button>
+        <button type="button" class="btn btn-ghost btn-sm" title="Remover grupo" onclick='removeTimedGroup(${JSON.stringify(String(grp))})'>✕</button>
       </div>
     </div>`).join("");
 
@@ -19760,7 +19760,7 @@ async function loadSupportStaffRoster() {
     el.innerHTML = `<table class="tbl"><thead><tr><th>SteamID64</th><th></th></tr></thead><tbody>${
       items.map((sid) => `<tr>
         <td><code>${escHtml(sid)}</code></td>
-        <td><button class="btn btn-danger btn-sm" onclick="removeSupportStaff(${JSON.stringify(sid)})">Remover</button></td>
+        <td><button type="button" class="btn btn-danger btn-sm" onclick='removeSupportStaff(${JSON.stringify(String(sid))})'>Remover</button></td>
       </tr>`).join("")
     }</tbody></table>`;
   } catch (e) {
