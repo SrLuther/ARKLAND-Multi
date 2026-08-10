@@ -6336,6 +6336,14 @@
       background: rgba(0, 0, 0, .35);
       box-shadow: 0 0 28px rgba(232, 120, 32, .22);
     }
+    .home-seasonland__logo--species {
+      object-fit: cover;
+      object-position: center;
+    }
+    .home-seasonland__price {
+      color: var(--amber);
+      font-weight: 700;
+    }
     .home-seasonland__eyebrow {
       font-size: 10px;
       font-weight: 700;
@@ -6430,11 +6438,14 @@
     .home-seasonland__nav--next { right: 10px; }
     .home-seasonland__dots {
       position: absolute;
-      left: 0; right: 0; bottom: 12px;
+      left: 8px; right: 8px; bottom: 10px;
       z-index: 3;
       display: flex;
+      flex-wrap: wrap;
       justify-content: center;
-      gap: 7px;
+      gap: 6px;
+      max-height: 28px;
+      overflow: hidden;
     }
     .home-seasonland__dot {
       width: 8px; height: 8px;
@@ -27181,6 +27192,9 @@ async function loadHome(opts) {
   const root = document.getElementById("home-root");
   if (!root) return false;
   if (!_navShouldFetch("home", NAV_PAGE_TTL_MS.home, force) && root.children.length > 0) {
+    // Home em cache: mantém auto-rotate e refresca anúncios do Comércio.
+    _startHomeFeatureCarousel({ resetIndex: false });
+    loadHomeMarketCarouselAds();
     return true;
   }
   // Abort fetch anterior (boot + applyRoleUi/nav podem disparar loadHome em paralelo).
@@ -27386,6 +27400,13 @@ async function loadAmberMeter() {
 let _homeFeatureCarouselTimer = null;
 let _homeFeatureCarouselIndex = 0;
 let _homeFeatureCarouselPaused = false;
+let _homeMarketListingsById = new Map();
+let _homeMarketDeck = [];
+let _homeMarketLastShownId = null;
+let _homeMarketPollTimer = null;
+let _homeMarketLoadGen = 0;
+const _HOME_MARKET_POLL_MS = 90000;
+const _HOME_FEATURE_STATIC_COUNT = 2;
 
 function _stopHomeFeatureCarousel() {
   if (_homeFeatureCarouselTimer) {
@@ -27394,43 +27415,332 @@ function _stopHomeFeatureCarousel() {
   }
 }
 
+function _stopHomeMarketPoll() {
+  if (_homeMarketPollTimer) {
+    clearTimeout(_homeMarketPollTimer);
+    _homeMarketPollTimer = null;
+  }
+}
+
+function _scheduleHomeMarketPoll() {
+  _stopHomeMarketPoll();
+  _homeMarketPollTimer = setTimeout(() => {
+    const homePage = document.getElementById("page-home");
+    const onHome = !!(homePage && homePage.classList.contains("active"));
+    if (onHome && _pageIsVisible()) {
+      // loadHomeMarketCarouselAds já reagenda o poll no finally interno.
+      loadHomeMarketCarouselAds();
+    } else {
+      _scheduleHomeMarketPoll();
+    }
+  }, _HOME_MARKET_POLL_MS);
+}
+
+function _shuffleHomeMarketIds(ids, avoidFirstId) {
+  const arr = (ids || []).map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  if (
+    avoidFirstId != null
+    && arr.length > 1
+    && Number(arr[0]) === Number(avoidFirstId)
+  ) {
+    const swapWith = 1 + Math.floor(Math.random() * (arr.length - 1));
+    const tmp = arr[0];
+    arr[0] = arr[swapWith];
+    arr[swapWith] = tmp;
+  }
+  return arr;
+}
+
+function _homeFeatureSlides(root) {
+  return root ? root.querySelectorAll(".home-seasonland__slide") : [];
+}
+
+function _homeFeatureShowIndex(idx) {
+  const root = document.getElementById("home-feature-carousel");
+  if (!root) return;
+  const slides = _homeFeatureSlides(root);
+  const dots = root.querySelectorAll(".home-seasonland__dot");
+  if (!slides.length) return;
+  const target = ((idx % slides.length) + slides.length) % slides.length;
+  slides.forEach((el, i) => el.classList.toggle("is-active", i === target));
+  dots.forEach((el, i) => el.classList.toggle("is-active", i === target));
+  _homeFeatureCarouselIndex = target;
+  const active = slides[target];
+  if (active && active.dataset.listingId) {
+    _homeMarketLastShownId = Number(active.dataset.listingId);
+  }
+}
+
 function _homeFeatureCarouselGo(delta) {
   const root = document.getElementById("home-feature-carousel");
   if (!root) return;
-  const slides = root.querySelectorAll(".home-seasonland__slide");
-  const dots = root.querySelectorAll(".home-seasonland__dot");
+  const slides = _homeFeatureSlides(root);
   if (!slides.length) return;
-  slides[_homeFeatureCarouselIndex]?.classList.remove("is-active");
-  dots[_homeFeatureCarouselIndex]?.classList.remove("is-active");
-  _homeFeatureCarouselIndex = (_homeFeatureCarouselIndex + delta + slides.length) % slides.length;
-  slides[_homeFeatureCarouselIndex]?.classList.add("is-active");
-  dots[_homeFeatureCarouselIndex]?.classList.add("is-active");
+  const cur = slides[_homeFeatureCarouselIndex];
+  if (cur && cur.dataset.listingId) {
+    _homeMarketLastShownId = Number(cur.dataset.listingId);
+  }
+  const n = slides.length;
+  const next = (_homeFeatureCarouselIndex + delta + n) % n;
+  const wrappedForward = delta > 0 && next < _homeFeatureCarouselIndex;
+  // Após um ciclo completo (todos os anúncios já passaram), reembaralha o baralho do market.
+  if (wrappedForward && _homeMarketDeck.length > 1) {
+    _homeMarketDeck = _shuffleHomeMarketIds(_homeMarketDeck, _homeMarketLastShownId);
+    _applyHomeMarketSlides({ keepIndex: 0 });
+    return;
+  }
+  _homeFeatureShowIndex(next);
 }
 
 function _homeFeatureCarouselSet(idx) {
   const root = document.getElementById("home-feature-carousel");
   if (!root) return;
-  const slides = root.querySelectorAll(".home-seasonland__slide");
+  const slides = _homeFeatureSlides(root);
   if (!slides.length) return;
   const target = ((idx % slides.length) + slides.length) % slides.length;
-  const delta = target - _homeFeatureCarouselIndex;
-  if (delta) _homeFeatureCarouselGo(delta);
+  const cur = slides[_homeFeatureCarouselIndex];
+  if (cur && cur.dataset.listingId) {
+    _homeMarketLastShownId = Number(cur.dataset.listingId);
+  }
+  _homeFeatureShowIndex(target);
 }
 
 function _homeFeatureCarouselNavigate(page) {
   if (page) goToPage(page);
 }
 
-function _startHomeFeatureCarousel() {
+function _homeFeatureOpenMarket(listingId) {
+  goToPage("market");
+  setTimeout(() => {
+    const listing = listingId != null ? _homeMarketListingsById.get(Number(listingId)) : null;
+    const q = listing
+      ? (listing.display_title || listing.species_display_name || "")
+      : "";
+    const search = document.getElementById("market-browse-search");
+    if (search && q) search.value = q;
+    setMarketTab("browse");
+  }, 200);
+}
+
+function _rebuildHomeFeatureDots(root, slides) {
+  const dotsEl = root.querySelector(".home-seasonland__dots");
+  if (!dotsEl) return;
+  const total = slides.length;
+  dotsEl.innerHTML = Array.from(slides).map((slide, i) => {
+    const label = slide.dataset.dotLabel
+      || slide.querySelector(".home-seasonland__title")?.textContent?.trim()
+      || `Slide ${i + 1}`;
+    const active = i === _homeFeatureCarouselIndex ? " is-active" : "";
+    return `<button type="button" class="home-seasonland__dot${active}" aria-label="${escHtml(label)}"
+      onclick="event.stopPropagation();_homeFeatureCarouselSet(${i})"></button>`;
+  }).join("");
+  // Atualiza aria dos slides (N de total)
+  slides.forEach((slide, i) => {
+    const title = slide.dataset.dotLabel
+      || slide.querySelector(".home-seasonland__title")?.textContent?.trim()
+      || `Slide ${i + 1}`;
+    slide.setAttribute("aria-label", `${i + 1} de ${total}: ${title}`);
+  });
+}
+
+function _homeMarketSlideHtml(listing, indexInDeck, totalSlides) {
+  const l = listing || {};
+  const id = Number(l.listing_id);
+  const isPair = !!(l.is_pair || l.listing_kind === "pair");
+  const title = l.display_title || l.species_display_name || l.custom_name || "Dino";
+  const speciesLine = l.species_display_name && title !== l.species_display_name
+    ? l.species_display_name
+    : (l.species_key || "");
+  const category = l.effective_category || l.category || l.species_tier || "";
+  const seller = l.seller_display_name || "Jogador";
+  const gender = l.is_female ? "Fêmea" : "Macho";
+  const imgUrl = _marketSpeciesImageUrl(l);
+  const imgFallback = _marketTierImageUrl(
+    l.species_tier || l.effective_category || ((l.classification_suggestion || {}).tier)
+  );
+  const currency = CURRENCY.singular || "Âmbar";
+  let price = 0;
+  if (isPair) {
+    price = l.pair_checkout_price != null
+      ? Number(l.pair_checkout_price)
+      : Number(l.display_price || l.effective_price || 0);
+  } else {
+    price = Number(l.effective_price || 0);
+  }
+  const priceLabel = isPair ? "Preço do casal" : "Preço";
+  const kindLabel = isPair ? "Casal à venda" : "Dino à venda";
+  const slideNum = _HOME_FEATURE_STATIC_COUNT + indexInDeck + 1;
+  const statsLine = isPair && l.pair_mate
+    ? `Macho · ${_marketCreatureStatLine(l.is_female ? l.pair_mate : l)} · Fêmea · ${_marketCreatureStatLine(l.is_female ? l : l.pair_mate)}`
+    : _marketCreatureStatLine(l);
+  const levelBit = l.dino_level != null && l.dino_level !== ""
+    ? `Nível <strong>${escHtml(String(l.dino_level))}</strong>`
+    : "Nível sob consulta";
+  return `
+    <article class="home-seasonland__slide home-seasonland__slide--market" data-listing-id="${id}"
+      data-dot-label="${escHtml(title)}"
+      onclick="_homeFeatureOpenMarket(${id})"
+      onkeydown="if(event.key==='Enter')_homeFeatureOpenMarket(${id})"
+      role="group" aria-roledescription="slide" aria-label="${slideNum} de ${totalSlides}: ${escHtml(title)}" tabindex="0">
+      <div class="home-seasonland__inner">
+        <div class="home-seasonland__brand">
+          <img class="home-seasonland__logo home-seasonland__logo--species" src="${escHtml(imgUrl)}"
+            alt="${escHtml(title)}" width="88" height="88"
+            loading="lazy" onerror="this.onerror=null;this.src='${escHtml(imgFallback)}'" />
+          <span class="home-seasonland__eyebrow">Comércio</span>
+        </div>
+        <div>
+          <h2 class="home-seasonland__title">${escHtml(title)}</h2>
+          <p class="home-seasonland__lead">
+            <strong>${escHtml(kindLabel)}</strong> no marketplace P2P —
+            ${isPair ? "casal" : escHtml(gender.toLowerCase())}
+            ${speciesLine ? ` · ${escHtml(speciesLine)}` : ""}
+            · vendedor <strong>${escHtml(seller)}</strong>.
+            ${priceLabel}: <span class="home-seasonland__price">${escHtml(_marketFmtAmber(price))} ${escHtml(currency)}</span>.
+          </p>
+          <ul class="home-seasonland__points">
+            <li><strong>${isPair ? "Casal" : escHtml(gender)}</strong>${category ? ` · categoria ${escHtml(String(category))}` : ""} · ${levelBit}</li>
+            <li><strong>Stats:</strong> ${escHtml(statsLine || "—")}</li>
+            <li><strong>${escHtml(priceLabel)}:</strong> <span class="home-seasonland__price">${escHtml(_marketFmtAmber(price))}</span> ${escHtml(currency)} — taxa zero.</li>
+          </ul>
+          <div class="home-seasonland__actions">
+            <button type="button" class="btn btn-primary"
+              onclick="event.stopPropagation();_homeFeatureOpenMarket(${id})">
+              Ver no Comércio →
+            </button>
+            <button type="button" class="btn btn-ghost"
+              onclick="event.stopPropagation();goToPage('market');setTimeout(function(){setMarketTab('browse');},200)">
+              Explorar mercado
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>`;
+}
+
+function _applyHomeMarketSlides(opts) {
+  const root = document.getElementById("home-feature-carousel");
+  const track = document.getElementById("home-feature-carousel-track");
+  if (!root || !track) return;
+  const keepIndex = opts && opts.keepIndex != null ? opts.keepIndex : _homeFeatureCarouselIndex;
+  const prevListingId = (() => {
+    const slides = _homeFeatureSlides(root);
+    const cur = slides[_homeFeatureCarouselIndex];
+    return cur && cur.dataset.listingId ? Number(cur.dataset.listingId) : null;
+  })();
+
+  track.querySelectorAll(".home-seasonland__slide--market").forEach((el) => el.remove());
+
+  const total = _HOME_FEATURE_STATIC_COUNT + _homeMarketDeck.length;
+  const html = _homeMarketDeck.map((id, i) => {
+    const listing = _homeMarketListingsById.get(Number(id));
+    return listing ? _homeMarketSlideHtml(listing, i, total) : "";
+  }).join("");
+  track.insertAdjacentHTML("beforeend", html);
+
+  const slides = _homeFeatureSlides(root);
+  let nextIndex = keepIndex;
+  if (opts && opts.preferListingId != null) {
+    const idx = Array.from(slides).findIndex(
+      (s) => Number(s.dataset.listingId) === Number(opts.preferListingId)
+    );
+    if (idx >= 0) nextIndex = idx;
+  } else if (prevListingId != null && (opts && opts.preserveListing)) {
+    const idx = Array.from(slides).findIndex(
+      (s) => Number(s.dataset.listingId) === prevListingId
+    );
+    if (idx >= 0) nextIndex = idx;
+  }
+  if (nextIndex >= slides.length) nextIndex = 0;
+  _homeFeatureCarouselIndex = nextIndex;
+  _rebuildHomeFeatureDots(root, slides);
+  _homeFeatureShowIndex(nextIndex);
+  // Auto-rotate se houver 2+ slides
+  _startHomeFeatureCarousel({ resetIndex: false });
+}
+
+async function _fetchActiveMarketListingsForHome() {
+  const all = [];
+  let offset = 0;
+  const limit = 100;
+  for (let page = 0; page < 10; page++) {
+    const r = await fetch(API + `/api/market/listings?limit=${limit}&offset=${offset}`);
+    const d = await r.json();
+    if (!r.ok || !d.ok) break;
+    const rows = d.listings || [];
+    all.push(...rows);
+    if (!d.has_more || rows.length < limit) break;
+    offset += limit;
+  }
+  return all;
+}
+
+async function loadHomeMarketCarouselAds(opts) {
+  const gen = ++_homeMarketLoadGen;
+  try {
+    const listings = await _fetchActiveMarketListingsForHome();
+    if (gen !== _homeMarketLoadGen) return false;
+    const byId = new Map();
+    for (const l of listings) {
+      const id = l && l.listing_id != null ? Number(l.listing_id) : NaN;
+      if (!Number.isFinite(id)) continue;
+      // API já devolve só ACTIVE (+ primário de casal); reforço defensivo.
+      if (l.status && String(l.status).toUpperCase() !== "ACTIVE") continue;
+      byId.set(id, l);
+    }
+    const ids = Array.from(byId.keys());
+    const prevSet = new Set(_homeMarketDeck);
+    const sameSet = ids.length === _homeMarketDeck.length && ids.every((id) => prevSet.has(id));
+    if (!sameSet || (opts && opts.forceReshuffle) || !_homeMarketDeck.length) {
+      // Baralho novo: shuffle sem reposição; um anúncio só volta após o ciclo completo.
+      _homeMarketDeck = _shuffleHomeMarketIds(ids, _homeMarketLastShownId);
+    } else {
+      // Mesmo conjunto: preserva ordem do baralho até o wrap/reshuffle.
+      _homeMarketDeck = _homeMarketDeck.filter((id) => byId.has(Number(id)));
+    }
+    _homeMarketListingsById = byId;
+    _applyHomeMarketSlides({
+      preserveListing: true,
+      preferListingId: opts && opts.preferListingId,
+    });
+    return true;
+  } catch (_) {
+    if (gen !== _homeMarketLoadGen) return false;
+    // Sem market: só slides estáticos — carrossel continua.
+    if (_homeMarketDeck.length) {
+      _homeMarketDeck = [];
+      _homeMarketListingsById = new Map();
+      _applyHomeMarketSlides({ keepIndex: Math.min(_homeFeatureCarouselIndex, _HOME_FEATURE_STATIC_COUNT - 1) });
+    }
+    return false;
+  } finally {
+    if (gen === _homeMarketLoadGen) _scheduleHomeMarketPoll();
+  }
+}
+
+function _startHomeFeatureCarousel(opts) {
   _stopHomeFeatureCarousel();
-  _homeFeatureCarouselIndex = 0;
+  const resetIndex = !(opts && opts.resetIndex === false);
+  if (resetIndex) _homeFeatureCarouselIndex = 0;
   _homeFeatureCarouselPaused = false;
   const root = document.getElementById("home-feature-carousel");
   if (!root) return;
-  const slides = root.querySelectorAll(".home-seasonland__slide");
+  const slides = _homeFeatureSlides(root);
+  if (!slides.length) return;
+  if (_homeFeatureCarouselIndex >= slides.length) _homeFeatureCarouselIndex = 0;
+  _homeFeatureShowIndex(_homeFeatureCarouselIndex);
   if (slides.length < 2) return;
-  root.addEventListener("mouseenter", () => { _homeFeatureCarouselPaused = true; });
-  root.addEventListener("mouseleave", () => { _homeFeatureCarouselPaused = false; });
+  if (!root.dataset.pauseBound) {
+    root.dataset.pauseBound = "1";
+    root.addEventListener("mouseenter", () => { _homeFeatureCarouselPaused = true; });
+    root.addEventListener("mouseleave", () => { _homeFeatureCarouselPaused = false; });
+  }
   _homeFeatureCarouselTimer = setInterval(() => {
     if (!_homeFeatureCarouselPaused && _pageIsVisible()) _homeFeatureCarouselGo(1);
   }, 10000);
@@ -27439,9 +27749,9 @@ function _startHomeFeatureCarousel() {
 function renderHomeSeasonLandSection() {
   const currency = escHtml(CURRENCY.singular || "Âmbar");
   return `
-    <section class="home-seasonland" id="home-feature-carousel" aria-roledescription="carousel" aria-label="Destaques SeasonLand e Equipes">
-      <div class="home-seasonland__track">
-        <article class="home-seasonland__slide is-active" data-page="season-pass"
+    <section class="home-seasonland" id="home-feature-carousel" aria-roledescription="carousel" aria-label="Destaques SeasonLand, Equipes e Comércio">
+      <div class="home-seasonland__track" id="home-feature-carousel-track">
+        <article class="home-seasonland__slide is-active" data-page="season-pass" data-dot-label="SeasonLand"
           onclick="_homeFeatureCarouselNavigate('season-pass')"
           onkeydown="if(event.key==='Enter')_homeFeatureCarouselNavigate('season-pass')"
           role="group" aria-roledescription="slide" aria-label="1 de 2: SeasonLand" tabindex="0">
@@ -27473,7 +27783,7 @@ function renderHomeSeasonLandSection() {
             </div>
           </div>
         </article>
-        <article class="home-seasonland__slide" data-page="teams-directory"
+        <article class="home-seasonland__slide" data-page="teams-directory" data-dot-label="Equipes"
           onclick="_homeFeatureCarouselNavigate('teams-directory')"
           onkeydown="if(event.key==='Enter')_homeFeatureCarouselNavigate('teams-directory')"
           role="group" aria-roledescription="slide" aria-label="2 de 2: Equipes" tabindex="0">
@@ -28110,6 +28420,7 @@ function renderHomePage(d) {
     : 0;
   _startHomeCarousel(slideCount);
   _startHomeFeatureCarousel();
+  loadHomeMarketCarouselAds();
   loadHomeLotteryTeaser();
 }
 

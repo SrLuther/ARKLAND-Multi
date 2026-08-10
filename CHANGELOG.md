@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.110] - 2026-08-09
+
+### Feature
+
+- Feat (Web Store / Home): carrossel da home passa a incluir anúncios ACTIVE do Marketplace (dino/casal) junto com SeasonLand/Equipes — baralho shuffle sem reposição, auto-rotação e CTA para abrir o anúncio no Market.
+
 ## [1.10.109] - 2026-08-09
 
 ### Fix

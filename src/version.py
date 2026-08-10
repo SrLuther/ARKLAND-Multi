@@ -3,13 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.109"
+APP_VERSION: str = "1.10.110"
 BUILD_DATE: str = "2026-08-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.110",
+        "date": "2026-08-09",
+        "changes": [
+            "Feat (Web Store / Home): carrossel da home passa a incluir "
+            "anúncios ACTIVE do Marketplace (dino/casal) junto com "
+            "SeasonLand/Equipes — baralho shuffle sem reposição, "
+            "auto-rotação e CTA para abrir o anúncio no Market.",
+        ],
+    },
     {
         "version": "1.10.109",
         "date": "2026-08-09",
