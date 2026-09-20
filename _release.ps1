@@ -37,7 +37,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$python = Join-Path $root ".python-full\python.exe"
+$python = "python"
 $utf8NoBOM = New-Object System.Text.UTF8Encoding $false
 
 function Write-Step($n, $total, $text) {

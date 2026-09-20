@@ -11,6 +11,14 @@ BUILD_DATE: str = "2026-08-09"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.10.111",
+        "date": "2026-09-19",
+        "changes": [
+            "Fix (Lint/Tests): formatação automática (autopep8) e correções de estilo em player_level_ramp e testes — sem mudanças funcionais; prepara deploy para v1.10.111.",
+        ],
+    },
+
+    {
         "version": "1.10.110",
         "date": "2026-08-09",
         "changes": [
