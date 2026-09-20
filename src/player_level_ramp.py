@@ -19,6 +19,7 @@ def total_ramp_slots(base_level: int) -> int:
     """Entradas na rampa: nível base (XP) + 75 ascensão de boss."""
     return max(1, int(base_level or 0)) + ARK_ASCENSION_RAMP_SLOTS
 
+
 _RAMP_ENTRY_RE = re.compile(
     r"ExperiencePointsForLevel\[(\d+)\]\s*=\s*(\d+)",
     re.IGNORECASE,
@@ -75,7 +76,11 @@ def geometric_xp_per_slot(index: int, base: int, mult: float) -> int:
     return max(1, int(base * (mult ** index)))
 
 
-def _slot_matches_vanilla(index: int, xp: int, *, tolerance: float = 0.02) -> bool:
+def _slot_matches_vanilla(
+        index: int,
+        xp: int,
+        *,
+        tolerance: float = 0.02) -> bool:
     expected = vanilla_xp_per_slot(index)
     if expected <= 0:
         return xp <= 1
@@ -174,11 +179,17 @@ def _expected_ramp_slots(cfg: object, base: int | None = None) -> int:
     count = _read_cfg_int(cfg, "player_ramp_entry_count", 0)
     if count > 0:
         return count
-    parsed = parse_ramp_from_text(_read_cfg_str(cfg, "player_level_stats_raw", ""))
+    parsed = parse_ramp_from_text(
+        _read_cfg_str(
+            cfg, "player_level_stats_raw", ""))
     return max(int(parsed.get("entry_count", 0) or 0), 0)
 
 
-def ensure_ramp_slot_count(cfg: object, count: int, *, base: int | None = None) -> int:
+def ensure_ramp_slot_count(
+        cfg: object,
+        count: int,
+        *,
+        base: int | None = None) -> int:
     """Garante contagem mínima base+75 quando o nível base está configurado."""
     count = max(0, int(count or 0))
     expected = _expected_ramp_slots(cfg, base)
@@ -194,7 +205,9 @@ def detect_and_apply_legacy_curve(cfg: object) -> bool:
     base = _resolve_base_level(cfg)
     applied = False
 
-    parsed = parse_ramp_from_text(_read_cfg_str(cfg, "player_level_stats_raw", ""))
+    parsed = parse_ramp_from_text(
+        _read_cfg_str(
+            cfg, "player_level_stats_raw", ""))
     ramp_count = ensure_ramp_slot_count(
         cfg,
         int(parsed.get("entry_count", 0) or 0),
@@ -207,7 +220,8 @@ def detect_and_apply_legacy_curve(cfg: object) -> bool:
             _apply_curve_params_to_cfg(cfg, inferred)
             applied = True
 
-    if base > 0 and is_legacy_geometric_xp_cap(_read_override_xp_from_cfg(cfg), base):
+    if base > 0 and is_legacy_geometric_xp_cap(
+            _read_override_xp_from_cfg(cfg), base):
         _apply_curve_params_to_cfg(
             cfg,
             {
@@ -222,11 +236,8 @@ def detect_and_apply_legacy_curve(cfg: object) -> bool:
         )
         applied = True
 
-    if (
-        base > 0
-        and is_player_level_progressions_enabled(cfg)
-        and _read_cfg_str(cfg, "player_xp_curve_mode", XP_CURVE_VANILLA).lower() != XP_CURVE_CUSTOM
-    ):
+    if (base > 0 and is_player_level_progressions_enabled(cfg) and _read_cfg_str(
+            cfg, "player_xp_curve_mode", XP_CURVE_VANILLA).lower() != XP_CURVE_CUSTOM):
         if not applied:
             _apply_curve_params_to_cfg(
                 cfg,
@@ -265,7 +276,11 @@ def parse_ramp_from_text(text: str) -> dict[str, Any]:
     """
     slots: dict[int, int] = {}
     if not text or not str(text).strip():
-        return {"entry_count": 0, "max_index": -1, "slots": slots, "indices": []}
+        return {
+            "entry_count": 0,
+            "max_index": -1,
+            "slots": slots,
+            "indices": []}
     for match in _RAMP_ENTRY_RE.finditer(str(text)):
         idx = int(match.group(1))
         xp = int(match.group(2))
@@ -421,8 +436,12 @@ def get_ramp_values_from_cfg(cfg: object) -> list[int]:
             formula=str(curve["formula"]),
         )
 
-    count = ensure_ramp_slot_count(cfg, _read_cfg_int(cfg, "player_ramp_entry_count", 0))
-    parsed = parse_ramp_from_text(_read_cfg_str(cfg, "player_level_stats_raw", ""))
+    count = ensure_ramp_slot_count(
+        cfg, _read_cfg_int(
+            cfg, "player_ramp_entry_count", 0))
+    parsed = parse_ramp_from_text(
+        _read_cfg_str(
+            cfg, "player_level_stats_raw", ""))
     if count > 0 and parsed.get("slots"):
         return ramp_slots_to_values(parsed["slots"], count)
     return []
@@ -442,7 +461,9 @@ def get_ramp_entry_count(cfg: object) -> int:
     if base > 0:
         return total_ramp_slots(base)
     stored = _read_cfg_int(cfg, "player_ramp_entry_count", 0)
-    parsed = parse_ramp_from_text(_read_cfg_str(cfg, "player_level_stats_raw", ""))
+    parsed = parse_ramp_from_text(
+        _read_cfg_str(
+            cfg, "player_level_stats_raw", ""))
     disk_count = int(parsed.get("entry_count", 0) or 0)
     return ensure_ramp_slot_count(cfg, max(stored, disk_count))
 
@@ -529,7 +550,8 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
             formula=str(curve["formula"]),
         )
         xp_level = base if base > 0 else ramp_base
-        # Cap no nível base farmável; ideal ≥ último slot da rampa farmável + 1.
+        # Cap no nível base farmável; ideal ≥ último slot da rampa farmável +
+        # 1.
         override_xp = max(1, cumulative_xp_on_ramp(values, xp_level) + 1)
         existing_xp = _read_override_xp_from_cfg(cfg)
         if existing_xp > override_xp:
@@ -600,8 +622,10 @@ def resolve_effective_ingame_cap(
 
     from .player_level_ascension import resolve_theoretical_player_level
 
-    theo = int(theoretical if theoretical is not None else resolve_theoretical_player_level(cfg))
-    values = ramp_values if ramp_values is not None else get_ramp_values_from_cfg(cfg)
+    theo = int(
+        theoretical if theoretical is not None else resolve_theoretical_player_level(cfg))
+    values = ramp_values if ramp_values is not None else get_ramp_values_from_cfg(
+        cfg)
     ramp_count = len(values) if values else get_ramp_entry_count(cfg)
     if ramp_count <= 0 and base > 0:
         ramp_count = base
@@ -612,7 +636,8 @@ def resolve_effective_ingame_cap(
         if cap_xp <= 0:
             gs = getattr(cfg, "game_settings", None)
             if gs is not None:
-                cap_xp = _read_cfg_int(gs, "override_max_experience_points_player", 0)
+                cap_xp = _read_cfg_int(
+                    gs, "override_max_experience_points_player", 0)
 
     candidates = [max(1, theo)]
     if ramp_count > 0:
@@ -657,7 +682,14 @@ def migrate_player_level_dict(data: dict, pl: dict) -> None:
         data.setdefault("player_base_level", pl["base_level"])
     asc = pl.get("ascension")
     if isinstance(asc, dict):
-        data.setdefault("player_ascension_state", json.dumps(asc, ensure_ascii=False, separators=(",", ":")))
+        data.setdefault(
+            "player_ascension_state",
+            json.dumps(
+                asc,
+                ensure_ascii=False,
+                separators=(
+                    ",",
+                    ":")))
     xpc = pl.get("xp_curve")
     if isinstance(xpc, dict):
         if xpc.get("mode"):
@@ -671,6 +703,10 @@ def migrate_player_level_dict(data: dict, pl: dict) -> None:
             if "formula" in custom:
                 data.setdefault("player_xp_curve_formula", custom["formula"])
     if "engram_multiplier" in pl:
-        data.setdefault("player_engram_points_multiplier", pl["engram_multiplier"])
+        data.setdefault(
+            "player_engram_points_multiplier",
+            pl["engram_multiplier"])
     if "progressions_enabled" in pl:
-        data.setdefault("player_level_progressions_enabled", pl["progressions_enabled"])
+        data.setdefault(
+            "player_level_progressions_enabled",
+            pl["progressions_enabled"])

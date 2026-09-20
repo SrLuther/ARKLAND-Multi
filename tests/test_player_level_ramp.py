@@ -1,7 +1,7 @@
 """Testes da rampa de XP e cap efetivo do jogador."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.player_engram_points import build_engram_points_ini_lines
 from src.player_level_ascension import (
@@ -26,7 +26,6 @@ from src.player_level_ramp import (
     is_player_level_progressions_enabled,
     parse_ramp_from_text,
     populate_player_ramp_from_game_ini,
-    resolve_effective_ingame_cap,
     sync_config_player_level,
     total_ramp_slots,
     vanilla_xp_cap_for_base,
@@ -54,7 +53,8 @@ def test_vanilla_ramp_includes_base_plus_75_ascension():
     assert cumulative_xp_on_ramp(values, base) > 0
     lines = build_ramp_ini_lines(values)
     assert len(lines) == 1
-    assert lines[0].count("ExperiencePointsForLevel[") == total_ramp_slots(base)
+    assert lines[0].count(
+        "ExperiencePointsForLevel[") == total_ramp_slots(base)
     assert "ExperiencePointsForLevel[0]" in lines[0]
 
 
@@ -96,8 +96,12 @@ def test_sync_config_player_level_sets_xp_at_base_not_total():
     assert derived["ramp_entries"] == total_ramp_slots(105)
     assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
     expected = cumulative_xp_on_ramp(
-        build_ramp_values(105, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.05), 105
-    ) + 1
+        build_ramp_values(
+            105,
+            mode=XP_CURVE_CUSTOM,
+            xp_base=70,
+            xp_mult=1.05),
+        105) + 1
     assert srv.override_max_xp_player == expected
 
 
@@ -138,7 +142,11 @@ LEGACY_GEOMETRIC_GUS_XP = 4_201_966_627_760
 
 
 def test_infer_geometric_curve_from_legacy_ramp():
-    values = build_ramp_values(165, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.15)
+    values = build_ramp_values(
+        165,
+        mode=XP_CURVE_CUSTOM,
+        xp_base=70,
+        xp_mult=1.15)
     inferred = infer_xp_curve_from_ramp(values)
     assert inferred["mode"] == XP_CURVE_CUSTOM
     assert inferred["xp_base"] == 70
@@ -224,9 +232,8 @@ def test_base_160_progressions_off_skips_game_ini_ramp():
         player_base_level: int = 160
         player_ascension_state: str = ""
         override_max_xp_player: int = VANILLA_CAP_BASE_160
-        player_level_stats_raw: str = export_ramp_raw(
-            build_ramp_values(160, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.05)
-        )
+        player_level_stats_raw: str = export_ramp_raw(build_ramp_values(
+            160, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.05))
         player_ramp_entry_count: int = total_ramp_slots(160)
         player_ramp_max_index: int = total_ramp_slots(160) - 1
         player_xp_curve_mode: str = XP_CURVE_CUSTOM
