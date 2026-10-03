@@ -10720,6 +10720,10 @@ def _shop_bulk_after_market_include(keys: list[str], catalog: dict[str, Any]) ->
                     db.rollback()
                 except Exception:
                     pass
+                try:
+                    db.expunge_all()
+                except Exception:
+                    pass
                 extra[k] = {"warning": f"Pré-cadastro do Comércio falhou: {exc}"}
     finally:
         db.close()

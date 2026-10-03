@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.112] - 2026-10-03
+
+### Fix
+
+- Fix (Web Store / Comércio): o lote «Incluir no Comércio» não aborta quando o blueprint já existe na mesma espécie (trata como já cadastrado) nem quando pertence a outra (pula o item com aviso, sem fundir espécies). O pré-cadastro deixava de gravar o restante do lote ao bater no unique do alias (IntegrityError 1062, ex.: Alpha Baryonyx). Requer reiniciar a Web Store a partir do app atualizado; os mapas não precisam de DLL nova.
+
 ## [1.10.111] - 2026-10-03
 
 ### Feature

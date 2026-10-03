@@ -3,13 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.111"
+APP_VERSION: str = "1.10.112"
 BUILD_DATE: str = "2026-10-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.112",
+        "date": "2026-10-03",
+        "changes": [
+            "Fix (Web Store / Comércio): o lote «Incluir no Comércio» não aborta quando o blueprint já existe na mesma espécie (trata como já cadastrado) nem quando pertence a outra (pula o item com aviso, sem fundir espécies). O pré-cadastro deixava de gravar o restante do lote ao bater no unique do alias (IntegrityError 1062, ex.: Alpha Baryonyx). Requer reiniciar a Web Store a partir do app atualizado; os mapas não precisam de DLL nova.",
+        ],
+    },
     {
         "version": "1.10.111",
         "date": "2026-10-03",

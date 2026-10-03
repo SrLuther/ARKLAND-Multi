@@ -208,41 +208,89 @@ def _apply_multipliers_row(db: Session, row: Any, species: SpeciesEconomy) -> No
         )
 
 
-def _sync_species_aliases(db: Session, species_row: Any, aliases: list[dict[str, Any]]) -> None:
-    from app import MarketSpeciesAlias
+def _sync_species_aliases(db: Session, species_row: Any, aliases: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Upsert de aliases sem violar a unique de blueprint_norm.
 
+    A linha do item da loja é achada por catalog_item_id. Se o blueprint_norm
+    pedido já está em outra linha da mesma espécie, não reescreve essa linha
+    (já cadastrado). Se a linha dona é de outra espécie, não move o alias —
+    fundir misturaria preço/mercado. Devolve esses conflitos.
+    """
+    from app import MarketSpecies, MarketSpeciesAlias
+
+    conflicts: list[dict[str, str]] = []
     seen_catalog: set[str] = set()
     seen_bp: set[str] = set()
     for alias in aliases:
         cid = str(alias.get("catalog_item_id") or "").strip() or None
         bp_norm = str(alias.get("blueprint_norm") or "").strip()
+        bp_path = str(alias.get("blueprint_path") or "")
+        label = str(alias.get("variant_label") or "") or None
         if not bp_norm and not cid:
             continue
         if cid:
             seen_catalog.add(cid)
         if bp_norm:
             seen_bp.add(bp_norm)
-        row = None
+        by_cid = None
         if cid:
-            row = (
+            by_cid = (
                 db.query(MarketSpeciesAlias)
                 .filter(MarketSpeciesAlias.catalog_item_id == cid)
                 .first()
             )
-        if row is None and bp_norm:
-            row = (
+        by_bp = None
+        if bp_norm:
+            by_bp = (
                 db.query(MarketSpeciesAlias)
                 .filter(MarketSpeciesAlias.blueprint_norm == bp_norm)
                 .first()
             )
+
+        if by_bp is not None and int(by_bp.species_id) != int(species_row.id):
+            owner = (
+                db.query(MarketSpecies)
+                .filter(MarketSpecies.id == by_bp.species_id)
+                .first()
+            )
+            if owner is not None and owner.species_key:
+                owner_key = str(owner.species_key)
+            else:
+                owner_key = str(by_bp.species_id)
+            conflicts.append({
+                "catalog_item_id": cid or "",
+                "blueprint_norm": bp_norm,
+                "owner_species_key": owner_key,
+            })
+            continue
+
+        if by_bp is not None and by_cid is not None and by_bp.id != by_cid.id:
+            # Mesma espécie: o path já tem dono. Não copiar blueprint_norm para a outra linha.
+            if cid and (not by_bp.catalog_item_id or by_bp.catalog_item_id == cid):
+                if by_cid.catalog_item_id == cid:
+                    by_cid.catalog_item_id = None
+                    db.flush()
+                by_bp.catalog_item_id = cid
+                if bp_path:
+                    by_bp.blueprint_path = bp_path
+                if label:
+                    by_bp.variant_label = label
+            else:
+                if by_bp.catalog_item_id:
+                    seen_catalog.add(str(by_bp.catalog_item_id))
+                if by_cid.blueprint_norm:
+                    seen_bp.add(by_cid.blueprint_norm)
+            continue
+
+        row = by_cid or by_bp
         if row is None:
             row = MarketSpeciesAlias(species_id=species_row.id)
             db.add(row)
         row.species_id = species_row.id
         row.catalog_item_id = cid
-        row.blueprint_path = str(alias.get("blueprint_path") or "")
+        row.blueprint_path = bp_path
         row.blueprint_norm = bp_norm
-        row.variant_label = str(alias.get("variant_label") or "") or None
+        row.variant_label = label
 
     existing = (
         db.query(MarketSpeciesAlias)
@@ -254,6 +302,7 @@ def _sync_species_aliases(db: Session, species_row: Any, aliases: list[dict[str,
         bp = row.blueprint_norm or ""
         if (cid and cid not in seen_catalog) or (bp and bp not in seen_bp):
             db.delete(row)
+    return conflicts
 
 
 def _list_species_aliases(db: Session, species_id: int) -> list[dict[str, Any]]:
@@ -1013,7 +1062,18 @@ def pre_register_catalog_item(
         if row.status not in ("ACTIVE",):
             row.status = "PRE_REGISTERED"
     _apply_multipliers_row(db, row, species)
-    _sync_species_aliases(db, row, aliases)
+    conflicts = _sync_species_aliases(db, row, aliases)
+    blocking = [c for c in conflicts if c.get("catalog_item_id") == item_id]
+    if blocking:
+        db.rollback()
+        detail = "; ".join(
+            f"{c['blueprint_norm']} (espécie {c['owner_species_key']})"
+            for c in blocking
+        )
+        raise ValueError(
+            "Blueprint já pertence a outra espécie e não foi fundido "
+            "(evita misturar preço/mercado): " + detail
+        )
     db.commit()
     return {
         "species_key": species.species_key,
