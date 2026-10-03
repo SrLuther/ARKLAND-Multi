@@ -425,6 +425,10 @@ def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = No
         with urllib.request.urlopen(req, timeout=8) as resp:
             if int(resp.status) not in (200, 201, 204):
                 _warn_push("runtime-status push HTTP %s", resp.status)
+            else:
+                from .diagnostics.events import CAT_WEBSTORE, diag_event
+                diag_event(CAT_WEBSTORE, "runtime-status push ok", _level=10,
+                           servers=len(payload_items), url=api_url)
     except Exception as exc:
         # Auth/URL/rede — sem isto a home fica eternamente «Aguardando status do TEK…».
         _warn_push("runtime-status push falhou: %s", exc)

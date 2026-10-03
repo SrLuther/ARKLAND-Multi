@@ -43,7 +43,7 @@ def strip_engram_points_from_raw(raw: str) -> str:
 
 
 def resolve_ramp_entries_for_engrams(cfg: object) -> int:
-    """Uma linha de engrama por slot da rampa (base + 75 ascensão)."""
+    """Uma linha de engrama por slot da rampa (base + 100 reservados)."""
     from .player_level_ascension import _difficulty_fallback_level
     from .player_level_ramp import _resolve_base_level, get_ramp_entry_count, total_ramp_slots
 

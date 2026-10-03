@@ -202,6 +202,21 @@ void HuntConfig::Load() {
 
     HttpClient::Configure(WebApiUrl(), WebApiKey());
 
+    if (WebApiKey().empty()) {
+        Log::GetLog()->warn(
+            "ArkEventHunt: WebApiKey VAZIA em {} — a loja responderá 401 e "
+            "/eve, /eveadm e o registo de kills falham. Defina WebApiKey "
+            "(api_key da loja) ou use a Sync da Loja no ARKLAND Multi.",
+            path);
+    }
+    if (WebApiUrl().find("127.0.0.1") != std::string::npos ||
+        WebApiUrl().find("localhost") != std::string::npos) {
+        Log::GetLog()->warn(
+            "ArkEventHunt: WebApiUrl={} aponta para o próprio servidor ARK — "
+            "só funciona se a loja (arkshop_web) correr nesta mesma máquina.",
+            WebApiUrl());
+    }
+
     Log::GetLog()->info(
         "ArkEventHunt: config loaded (enabled={}, modeA={}, modeB={}, spike={}, "
         "whitelist={}, officialCatalog={}, minWeaponRatio={:.2f}, "

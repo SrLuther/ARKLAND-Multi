@@ -84,6 +84,42 @@ def test_parse_ramp_single_line_official_format():
     assert parsed["slots"] == {0: 1, 1: 3, 2: 5}
 
 
+def test_read_ini_keeps_progressions_off_when_game_ini_still_has_ramp(tmp_path):
+    """Boot/snapshot lê o Game.ini e não pode religar o toggle salvo como OFF."""
+    from src.asm_engine.asm_ini_manager import read_ini
+
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.player_base_level = 199
+    cfg.player_level_progressions_enabled = False
+
+    path = _game_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    pre = (
+        f"[{_GAME_MODE_SECTION}]\r\n"
+        "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=70,"
+        "ExperiencePointsForLevel[1]=80)\r\n"
+    )
+    path.write_bytes(b"\xff\xfe" + pre.encode("utf-16-le"))
+
+    read_ini(cfg)
+
+    assert cfg.player_level_progressions_enabled is False
+
+
+def test_from_dict_keeps_explicit_progressions_off_despite_custom_curve():
+    cfg = AsmServerConfig.from_dict({
+        "player_base_level": 199,
+        "player_level_progressions_enabled": False,
+        "player_xp_curve_mode": "custom",
+        "player_level_stats_raw": (
+            "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=70)"
+        ),
+        "override_max_xp_player": 10**15,
+    })
+    assert cfg.player_level_progressions_enabled is False
+
+
 def test_write_ini_vanilla_stock_base_105_skips_ramp_and_max_xp(tmp_path):
     """Base ≤105 sem progressões: Game.ini sem rampa/OverrideMaxXP (vanilla stock)."""
     cfg = AsmServerConfig()

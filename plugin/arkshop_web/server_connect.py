@@ -1,7 +1,11 @@
 """Helpers para conexão Steam direta aos servidores ARK (home pública)."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+import logging
+from typing import Any, Dict, List, Optional, Tuple
+
+_log = logging.getLogger(__name__)
+_WARNED_MISSING_QUERY: set = set()
 
 # ARK: Survival Evolved (cliente Steam). steam://connect quebrou no cliente (~2023).
 ARK_ASE_STEAM_APP_ID = 346110
@@ -43,8 +47,31 @@ def resolve_join_host(srv: dict, settings: dict) -> Optional[str]:
     return None
 
 
+def resolve_query_port(srv: dict) -> Optional[int]:
+    """QueryPort do servidor (Steam/A2S, favoritos) ou None se ausente/inválida."""
+    val = srv.get("query_port")
+    if val in (None, ""):
+        return None
+    try:
+        port = int(val)
+    except (TypeError, ValueError):
+        return None
+    return port if 0 < port <= 65535 else None
+
+
+def resolve_display_port(srv: dict) -> Tuple[int, str]:
+    """Porta exibida/copiada na web: QueryPort; fallback = porta de jogo.
+
+    Retorna ``(porta, origem)`` com origem ``"query"`` ou ``"game_fallback"``.
+    """
+    query = resolve_query_port(srv)
+    if query is not None:
+        return query, "query"
+    return resolve_game_port(srv), "game_fallback"
+
+
 def resolve_game_port(srv: dict) -> int:
-    """Porta de jogo para join (+connect). Nunca usar query_port (só listagem A2S)."""
+    """Porta de jogo (game port). Não confundir com query_port (exibição/Steam)."""
     for key in ("game_port", "server_port"):
         val = srv.get(key)
         if val in (None, ""):
@@ -71,14 +98,30 @@ def build_join_address(host: str, port: int) -> str:
 def public_server_connect_view(srv: dict, settings: dict) -> Dict[str, Any]:
     """Campos públicos de conexão para a home (sem credenciais RCON)."""
     host = resolve_join_host(srv, settings)
-    port = resolve_game_port(srv)
+    game_port = resolve_game_port(srv)
+    port, port_source = resolve_display_port(srv)
     can_connect = bool(host and port > 0)
 
+    if can_connect and port_source != "query":
+        sid = str(srv.get("server_id") or "")
+        if sid not in _WARNED_MISSING_QUERY:
+            _WARNED_MISSING_QUERY.add(sid)
+            _log.warning(
+                "servidor %r sem query_port — exibindo porta de jogo %s "
+                "(sincronize os servidores pelo ARKLAND Multi)", sid, game_port,
+            )
+
     out: Dict[str, Any] = {
+        # join_address / connect_url: IP:QueryPort (fallback = porta de jogo)
         "connect_url": build_steam_connect_url(host, port) if can_connect else "",
         "join_address": build_join_address(host, port) if can_connect else "",
+        # Porta de jogo (console `open IP:porta`), sempre separada da query
+        "game_address": build_join_address(host, game_port) if can_connect else "",
         "can_connect": can_connect,
-        "game_port": port,
+        "game_port": game_port,
+        "query_port": resolve_query_port(srv),
+        "display_port": port,
+        "display_port_source": port_source,
         "steam_app_id": ARK_ASE_STEAM_APP_ID,
     }
 
@@ -92,7 +135,7 @@ def public_server_connect_view(srv: dict, settings: dict) -> Dict[str, Any]:
 def diagnose_server_connect(srv: dict, settings: dict) -> Dict[str, Any]:
     """Diagnóstico admin: por que um servidor pode ou não exibir botões de conexão."""
     host = resolve_join_host(srv, settings)
-    port = resolve_game_port(srv)
+    port, port_source = resolve_display_port(srv)
     blockers: List[str] = []
 
     if not str(srv.get("server_id") or "").strip():
@@ -105,7 +148,12 @@ def diagnose_server_connect(srv: dict, settings: dict) -> Dict[str, Any]:
             "ou join_host/public_ip global nas Configurações; rcon_host só vale se não for localhost"
         )
     if port <= 0:
-        blockers.append("game_port inválida ou ausente")
+        blockers.append("porta (query_port/game_port) inválida ou ausente")
+    warnings: List[str] = []
+    if port_source != "query":
+        warnings.append(
+            "query_port ausente — a home exibe a porta de jogo; sincronize pelo ARKLAND Multi"
+        )
 
     view = public_server_connect_view(srv, settings)
     return {
@@ -118,11 +166,14 @@ def diagnose_server_connect(srv: dict, settings: dict) -> Dict[str, Any]:
         "connect_url": view.get("connect_url", ""),
         "join_address": view.get("join_address", ""),
         "blockers": blockers,
+        "warnings": warnings,
+        "display_port_source": port_source,
         "fields": {
             "join_host": str(srv.get("join_host") or ""),
             "game_host": str(srv.get("game_host") or ""),
             "public_ip": str(srv.get("public_ip") or ""),
-            "game_port": port,
+            "game_port": resolve_game_port(srv),
+            "query_port": resolve_query_port(srv),
             "rcon_host": str(srv.get("rcon_host") or ""),
         },
         "settings_fallback": {

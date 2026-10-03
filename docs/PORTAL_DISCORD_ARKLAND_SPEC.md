@@ -42,9 +42,11 @@ Um **painel persistente** (embed + botões) em canal fixo do Discord ARKLAND —
 
 #### oBobonic / TEK (`src/obobonic_bot.py`, `src/pages/obobonic_panel.py`)
 
-- Gerenciador de subprocesso do **oBobonicClean** (projeto externo em `oBobonicClean/`).
-- Sincroniza mapas TEK → variáveis `ARK_MAP*` no `.env` do bot.
-- Health check RCON/A2S por mapa; catálogo de **cogs** já carregáveis: `rcon_monitor`, `ark`, `ark_a2s`, `tickets`, `voting`, `xp`, `referrals`, `vip`, etc.
+> **Atualização (Unreleased):** o oBobonic agora é um bot **embutido** no app (`src/discord_bot/`, ver [`OBOBONIC_BOT_EMBUTIDO.md`](OBOBONIC_BOT_EMBUTIDO.md)) com apenas 3 capacidades (administração, moderação, salas de voz). O supervisor de subprocesso externo, o sync TEK → `.env`, o health check RCON (`MapHealthResult`) e o catálogo de cogs descritos abaixo foram **removidos**; um futuro cog `portal_arkland` teria de ser portado para `src/discord_bot/`.
+
+- _(legado)_ Gerenciador de subprocesso do **oBobonicClean** (projeto externo em `oBobonicClean/`).
+- _(legado)_ Sincronizava mapas TEK → variáveis `ARK_MAP*` no `.env` do bot.
+- _(legado)_ Health check RCON/A2S por mapa; catálogo de **cogs** carregáveis: `rcon_monitor`, `ark`, `ark_a2s`, `tickets`, `voting`, `xp`, `referrals`, `vip`, etc.
 - **Não** implementa hoje integração com Web Store — apenas orquestração e configuração via painel TEK.
 
 #### Web Store (`plugin/arkshop_web`)

@@ -257,6 +257,16 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
     _ensure_listing_presentation_columns(engine)
     _ensure_listing_pair_columns(engine)
 
+    # Vitrine de Recursos (tabelas market_resource_*; módulo próprio, falha não derruba o mercado de dinos)
+    resource_vitrine: dict[str, Any] | None = None
+    try:
+        from resource_vitrine_migrate import ensure_resource_vitrine_schema
+
+        resource_vitrine = ensure_resource_vitrine_schema(engine)
+    except Exception as exc:
+        log.warning("Vitrine de Recursos: migrate falhou: %s", exc)
+        resource_vitrine = {"ok": False, "error": str(exc)}
+
     after = _existing_tables(engine)
     still_missing = [t for t in MARKET_TABLES if t not in after]
 
@@ -267,6 +277,8 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
         "still_missing": still_missing,
         "ok": len(still_missing) == 0,
     }
+    if resource_vitrine is not None:
+        result["resource_vitrine"] = resource_vitrine
 
     if still_missing:
         log.error("Mercado: tabelas ausentes após migrate: %s", still_missing)

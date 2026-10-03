@@ -48,6 +48,13 @@ class ARKServerManagerApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
+        # Diagnóstico: logging central + captura de exceções (Tk/threads/asyncio).
+        try:
+            from .diagnostics.logging_setup import attach_to_app
+            attach_to_app(self, "tek")
+        except Exception:  # noqa: BLE001 — diagnóstico nunca impede o boot
+            pass
+
         # #region agent log
         try:
             from ._agent_debug_log import agent_dbg
@@ -463,6 +470,18 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _on_server_status_change(self, server_id: str, new_status: str) -> None:
         """Chamado pela thread do monitor quando o status de um servidor muda."""
+        try:
+            from .diagnostics.events import CAT_SERVER, diag_event
+            _inst0 = self.asm_server_manager.get_instance(server_id)
+            _cfg0 = getattr(_inst0, "cfg", None)
+            diag_event(
+                CAT_SERVER, f"Status do servidor mudou para {new_status}",
+                _level=40 if new_status == ASM_STATUS_CRASHED else 20,
+                server=getattr(_cfg0, "name", server_id), server_id=server_id,
+                status=new_status, pid=getattr(getattr(_inst0, "_proc", None), "pid", None),
+            )
+        except Exception:  # noqa: BLE001
+            pass
         try:
             from .asm_engine.asm_discord_hooks import (
                 clear_tek_player_cache,

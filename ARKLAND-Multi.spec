@@ -5,6 +5,10 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_sub
 ctk_datas, ctk_binaries, ctk_hiddenimports = collect_all('customtkinter')
 pil_datas,  pil_binaries,  pil_hiddenimports  = collect_all('PIL')
 tray_datas, tray_binaries, tray_hiddenimports = collect_all('pystray')
+# Bot Discord oBobonic EMBUTIDO (src/discord_bot): discord.py + aiohttp e deps.
+# Os cogs são carregados via load_extension (import dinâmico), por isso collect_all.
+dpy_datas, dpy_binaries, dpy_hiddenimports = collect_all('discord')
+aio_datas, aio_binaries, aio_hiddenimports = collect_all('aiohttp')
 
 # Coleta todos os submódulos do pacote src automaticamente
 src_hiddenimports = collect_submodules('src')
@@ -12,7 +16,7 @@ src_hiddenimports = collect_submodules('src')
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[] + ctk_binaries + pil_binaries + tray_binaries,
+    binaries=[] + ctk_binaries + pil_binaries + tray_binaries + dpy_binaries + aio_binaries,
     datas=[
         ('ig', 'ig'),
         ('setup_db.sql', '.'),
@@ -30,7 +34,7 @@ a = Analysis(
         ('plugin/ArkEventHunt/configs/config.json',    'plugins/arkeventhunt'),
         ('plugin/Permissions/configs/config.json',   'Permissions/configs'),
         ('config/mapas_cross_chat_ids.json',         'config'),
-    ] + ctk_datas + pil_datas + tray_datas,
+    ] + ctk_datas + pil_datas + tray_datas + dpy_datas + aio_datas,
     hiddenimports=[
         # customtkinter
         'customtkinter',
@@ -57,7 +61,17 @@ a = Analysis(
         'psutil',
         'psutil._pswindows',
         'psutil._common',
-    ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports + src_hiddenimports,
+        # bot Discord embutido (cogs carregados dinamicamente)
+        'discord',
+        'discord.ext.commands',
+        'aiohttp',
+        'certifi',
+        'src.discord_bot',
+        'src.discord_bot.bot',
+        'src.discord_bot.admin',
+        'src.discord_bot.moderation',
+        'src.discord_bot.voice_manager',
+    ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports + dpy_hiddenimports + aio_hiddenimports + src_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

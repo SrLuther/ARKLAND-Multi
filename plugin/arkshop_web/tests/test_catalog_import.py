@@ -82,7 +82,9 @@ def test_catalog_import_writes_master_and_reports_stages(client, tmp_path, monke
         {"label": "Ragnarok", "path": str(map_cfg), "kind": "server"},
     ])
     monkeypatch.setattr(_app_module, "_discover_local_rcon_servers", lambda: [])
-    monkeypatch.setattr(_app_module, "_reload_all_plugins", lambda settings: [{
+    # O endpoint agenda o reload em background via _enqueue_shop_reload (que so devolve
+    # {"ok", "queued", "label"}); mockamos o enqueue para validar o relatorio com resultado completo.
+    monkeypatch.setattr(_app_module, "_enqueue_shop_reload", lambda settings=None: [{
         "server_id": "ragnarok",
         "label": "Ragnarok",
         "ok": True,

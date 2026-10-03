@@ -394,7 +394,7 @@ bool GiveItemsArray(AShooterPlayerController* controller,
 
 // Spawns all dinos in a "Dinos" JSON array.
 // When out_records is set, appends {dino_id1,dino_id2,level,gender,public_code} for each successful spawn.
-// public_codes (optional array) applies Name to L1/L200 entries in order (catalog audit rastreio).
+// public_codes (optional array) applies Name to entries of any level >= 1 in order (catalog audit rastreio).
 bool SpawnDinosArray(AShooterPlayerController* controller,
                      const nlohmann::json& dinos_array,
                      nlohmann::json* out_records = nullptr,
@@ -408,7 +408,7 @@ bool SpawnDinosArray(AShooterPlayerController* controller,
         nlohmann::json entry = raw_entry;
         const int level = entry.is_object() ? entry.value("Level", 0) : 0;
         if (entry.is_object()
-            && (level == 1 || level == 200)
+            && level >= 1
             && public_codes
             && public_codes->is_array()
             && code_idx < public_codes->size()) {
@@ -871,6 +871,62 @@ bool GiveItem(AShooterPlayerController* controller,
     Log::GetLog()->info("GiveItem: item '{}' x{} delivered to player '{}' (ok={})",
                         item_id, amount, id, ok);
     return ok;
+}
+
+int GiveResourceStacks(AShooterPlayerController* controller,
+                       const std::string& blueprint,
+                       int quantity,
+                       int stack_size) {
+    if (!controller || quantity < 1) return 0;
+
+    const std::string bp = ExtractBlueprintPath(blueprint);
+    if (bp.empty()) return 0;
+
+    FString fblueprint(bp.c_str());
+    UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
+    if (!item_class) {
+        Log::GetLog()->warn("GiveResourceStacks: failed to load class '{}'", bp);
+        return 0;
+    }
+
+    UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
+    if (!inv) return 0;
+
+    // Stack efetivo: o do admin, limitado ao maximo real do jogo (evita stack invalido).
+    int per_stack = stack_size;
+    if (UPrimalItem* item_cdo =
+            static_cast<UPrimalItem*>(item_class->GetDefaultObject(true))) {
+        const int real_max =
+            item_cdo->GetMaxItemQuantity(ArkApi::GetApiUtils().GetWorld());
+        if (real_max > 1 && (per_stack <= 0 || per_stack > real_max))
+            per_stack = real_max;
+    }
+    if (per_stack < 1) per_stack = 1;
+
+    int given = 0;
+    int remaining = quantity;
+    while (remaining > 0) {
+        const int chunk = std::min(per_stack, remaining);
+        UPrimalItem* created = UPrimalItem::AddNewItem(
+            TSubclassOf<UPrimalItem>(item_class),
+            inv,
+            false,
+            false,
+            0.0f,
+            true,
+            chunk,
+            false,
+            0.0f,
+            false,
+            TSubclassOf<UPrimalItem>(),
+            0.0f,
+            false,
+            false);
+        if (!created) break;
+        given += chunk;
+        remaining -= chunk;
+    }
+    return given;
 }
 
 } // namespace Store

@@ -36,6 +36,19 @@ MARKET_ADMIN_AUDIT_LABELS: dict[str, str] = {
     "MARKET_SELLER_RECLAIM_DELIVERED": "Devolução após remoção admin",
     "MARKET_LISTING_BULK_ADMIN_ACTION": "Ação em lote (moderação)",
     "MARKET_TICKET_LINKED": "Ticket vinculado",
+    # Vitrine de Recursos (docs/VITRINE_RECURSOS_SPEC.md)
+    "MARKET_RESOURCE_ADMIN_CATALOG": "Recursos (vitrine): catálogo alterado",
+    "MARKET_RESOURCE_ADMIN_SETTINGS": "Recursos (vitrine): limite de tipos alterado",
+    "MARKET_RESOURCE_UPLOAD": "Recursos (vitrine): envio do jogo aplicado",
+    "MARKET_RESOURCE_UPLOAD_CANCELLED": "Recursos (vitrine): envio cancelado",
+    "MARKET_RESOURCE_LISTING_SET": "Recursos (vitrine): anúncio definido",
+    "MARKET_RESOURCE_PURCHASE": "Recursos (vitrine): compra concluída",
+    "MARKET_RESOURCE_WITHDRAW": "Recursos (vitrine): retirada solicitada",
+    "MARKET_RESOURCE_CLAIM_CLAIMED": "Recursos (vitrine): resgate iniciado",
+    "MARKET_RESOURCE_CLAIM_RELEASED": "Recursos (vitrine): resgate liberado",
+    "MARKET_RESOURCE_CLAIM_DELIVERED": "Recursos (vitrine): resgate entregue",
+    "MARKET_RESOURCE_CLAIM_EXPIRED_REFUND": "Recursos (vitrine): resgate expirado — reembolso",
+    "MARKET_RESOURCE_CLAIM_EXPIRED_RETURN": "Recursos (vitrine): retirada expirada — devolvido ao estoque",
 }
 
 

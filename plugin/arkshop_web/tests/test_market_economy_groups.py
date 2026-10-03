@@ -104,22 +104,44 @@ def test_merge_economy_group_rex_variants():
     assert normalize_blueprint(TEK_REX_BP) in norms
 
 
-def test_sync_creates_one_rex_row_with_aliases(db_session):
+def _aliases_of(db, species_id):
+    from app import MarketSpeciesAlias
+
+    return db.query(MarketSpeciesAlias).filter(MarketSpeciesAlias.species_id == species_id).all()
+
+
+def test_sync_creates_one_row_per_species_defaults_group(db_session):
+    """O sync segue os grupos de ``market_species_defaults.json`` (1 linha por species_key).
+
+    No defaults vigente Rex, Rex Tek (bionicrex) e Rex Volcano são espécies econômicas
+    distintas (Rex Tek tem R/B próprios — docs/ECONOMIA_ARKLAND.md, «Rex Tek | S+ | 21.000»),
+    cada uma com o alias do seu próprio blueprint. O agrupamento Rex+Tek+Volcano numa
+    linha só continua suportado por ``merge_economy_group`` (ver teste acima).
+    """
+    from app import MarketSpecies
+
     sync_catalog_to_db(db_session, CATALOG)
-    from app import MarketSpecies, MarketSpeciesAlias
 
-    rows = db_session.query(MarketSpecies).filter(MarketSpecies.species_key == "rex").all()
-    assert len(rows) == 1
-    aliases = db_session.query(MarketSpeciesAlias).filter(MarketSpeciesAlias.species_id == rows[0].id).all()
-    assert len(aliases) == 3
+    for key, bp in (("rex", REX_BP), ("bionicrex", TEK_REX_BP)):
+        rows = db_session.query(MarketSpecies).filter(MarketSpecies.species_key == key).all()
+        assert len(rows) == 1, key
+        norms = {a.blueprint_norm for a in _aliases_of(db_session, rows[0].id)}
+        assert normalize_blueprint(bp) in norms, key
+    rex = db_session.query(MarketSpecies).filter(MarketSpecies.species_key == "rex").one()
+    # O blueprint do Tek Rex NÃO pode vazar para a linha do Rex (economias separadas).
+    assert normalize_blueprint(TEK_REX_BP) not in {
+        a.blueprint_norm for a in _aliases_of(db_session, rex.id)
+    }
 
 
-def test_resolve_tek_rex_blueprint_to_rex_economy(db_session):
+def test_resolve_tek_rex_blueprint_to_its_own_economy(db_session):
     sync_catalog_to_db(db_session, CATALOG, activate=True)
     row = resolve_species(db_session, blueprint=TEK_REX_BP)
     assert row is not None
-    assert row.species_key == "rex"
-    assert row.root_value == 5000
+    assert row.species_key == "bionicrex"
+    assert row.root_value == 8000  # preço do item bionicrex_femea no catálogo
+    rex = resolve_species(db_session, blueprint=REX_BP)
+    assert rex is not None and rex.species_key == "rex" and rex.root_value == 5000
 
 
 def test_merge_giga_group():
@@ -150,7 +172,37 @@ def test_acro_includes_scorched_variant_alias(db_session):
     assert row.root_value == 8000
 
 
-def test_sync_registers_reference_mod_species(db_session):
+def test_sync_registers_reference_mod_species(db_session, tmp_path, monkeypatch):
+    """Espécie de mod SEM item Type:dino na loja é pré-cadastrada como «referência» P2P.
+
+    No defaults do repo o Dread Wyvern já tem item no catálogo (``dread_wyvern``, R=33.000),
+    logo não é mais «referência»; o caminho é exercitado com defaults explícitos.
+    """
+    import json
+
+    import market_economy as me
+
+    defaults = tmp_path / "market_species_defaults.json"
+    defaults.write_text(
+        json.dumps(
+            {
+                "species": [
+                    {
+                        "species_key": "dread_wyvern",
+                        "display_name": "Dread Wyvern",
+                        "blueprint_path": DREAD_WYVERN_BP,
+                        "root_value": 42000,
+                        "tier": "S",
+                        "pricing_mode": "floor_quality",
+                    }
+                ],
+                "global_stat_labels": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(me, "_DEFAULTS_FILE", defaults)
+    me.invalidate_defaults_cache()
     result = sync_catalog_to_db(db_session, CATALOG)
     assert "dread_wyvern" in result.get("reference_keys", [])
     from app import MarketSpecies
@@ -187,4 +239,6 @@ def test_resolve_carcha_cryo_blueprint(db_session):
     sync_catalog_to_db(db_session, catalog, activate=True)
     row = resolve_species(db_session, blueprint=CARCHA_CRYO_BP)
     assert row is not None
-    assert row.species_key == "carcha_femea"
+    # species_key é o do grupo nos defaults ("carcha"); "carcha_femea" é só o id do item da loja.
+    assert row.species_key == "carcha"
+    assert row.root_value == 12000

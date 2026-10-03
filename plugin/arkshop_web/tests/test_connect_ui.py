@@ -45,3 +45,9 @@ def test_steam_url_js_helper_matches_python(index_html: str):
 def test_copy_feedback_class_present(index_html: str):
     assert "btn--copied" in index_html
     assert "IP copiado:" in index_html
+
+
+def test_home_copy_uses_join_address_and_admin_has_query_port(index_html: str):
+    assert 'data-join-address="${escHtml(addr)}"' in index_html
+    assert 'id="srv-query-port"' in index_html
+    assert "query_port:" in index_html

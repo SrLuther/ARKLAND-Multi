@@ -31,6 +31,8 @@ from pix_payments import (
     PayerValidationError,
     PixPaymentError,
     WebhookSignatureError,
+    classify_mp_notification,
+    is_public_https_url,
     create_boleto_checkout_preference,
     create_card_checkout_preference,
     create_pix_payment,
@@ -2623,6 +2625,7 @@ def _ensure_secondary_runtime_workers() -> None:
     _ensure_pending_stale_scheduler()
     _ensure_catalog_feed_scheduler()
     _ensure_tribe_log_poller()
+    _start_mp_auto_reconcile_worker()
 
 
 def _start_runtime_workers_once() -> None:
@@ -3944,28 +3947,17 @@ def _catalog_kit_options() -> list[dict[str, Any]]:
 
 
 def _catalog_entry_dino_level(entry: dict[str, Any]) -> int:
-    """Nível do dino no catálogo (Dinos[0].Level ou dino_level enriquecido)."""
-    if not isinstance(entry, dict):
-        return 1
-    raw = entry.get("dino_level")
-    if raw is not None:
-        try:
-            n = int(raw or 1)
-            return n if n > 0 else 1
-        except (TypeError, ValueError):
-            pass
-    dinos = entry.get("Dinos") or []
-    if isinstance(dinos, list) and dinos and isinstance(dinos[0], dict):
-        try:
-            n = int(dinos[0].get("Level") or 1)
-            return n if n > 0 else 1
-        except (TypeError, ValueError):
-            return 1
-    return 1
+    """Nível do dino no catálogo (Dinos[0].Level; tolerante a catálogos antigos)."""
+    from dino_levels import entry_dino_level
+
+    return entry_dino_level(entry)
 
 
 def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
-    """SKUs resgatáveis do catálogo Items, alinhados às abas Itens / Dinos / Dinos 200."""
+    """SKUs resgatáveis do catálogo Items, alinhados às abas Itens / Dinos (todos os níveis).
+
+    ``dinos200`` é alias legado (subconjunto de ``dinos`` com nível 200) para clientes antigos.
+    """
     fingerprint = _catalog_files_fingerprint()
     cached = _SHOP_DELIVER_OPTIONS_CACHE.get("data")
     if (
@@ -3995,12 +3987,11 @@ def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
         if typ == "dino":
             level = _catalog_entry_dino_level(entry)
             row["dino_level"] = level
+            if level != 1:
+                row["label"] = f"{label} (Nv.{level})"
+            dinos_out.append(row)
             if level == 200:
-                dinos200_out.append(row)
-            else:
-                if level != 1:
-                    row["label"] = f"{label} (Nv.{level})"
-                dinos_out.append(row)
+                dinos200_out.append(row)  # alias legado
         else:
             items_out.append(row)
     items_out.sort(key=lambda x: x["label"].lower())
@@ -4714,7 +4705,9 @@ def _admin_player_catalog_deliver(
         "dino200": "dinos200",
     }
     category = cat_aliases.get(category, category)
-    if category not in ("items", "dinos", "dinos200"):
+    if category == "dinos200":
+        category = "dinos"  # alias legado: categoria Dinos 200 foi unificada em Dinos
+    if category not in ("items", "dinos"):
         return {"ok": False, "error": f"Categoria inválida: {category}"}
 
     entry = _catalog_entry("shop", item_id)
@@ -4722,20 +4715,13 @@ def _admin_player_catalog_deliver(
         return {"ok": False, "error": f"SKU «{item_id}» não encontrado no catálogo"}
 
     typ = str(entry.get("Type") or "item").lower()
-    if category in ("dinos", "dinos200"):
+    if category == "dinos":
+        # Categoria única «Dinos»: qualquer nível válido do catálogo (sem trava L1/L200).
         if typ != "dino":
             return {"ok": False, "error": f"«{item_id}» não é um dino do catálogo"}
-        level = _catalog_entry_dino_level(entry)
-        if category == "dinos200" and level != 200:
-            return {
-                "ok": False,
-                "error": f"«{item_id}» não é Dino 200 (nível {level})",
-            }
-        if category == "dinos" and level == 200:
-            return {"ok": False, "error": "Use a categoria Dinos 200 para este SKU"}
     else:
         if typ == "dino":
-            return {"ok": False, "error": "Use a categoria Dinos / Dinos 200"}
+            return {"ok": False, "error": "Use a categoria Dinos"}
         if _is_catalog_license_item(entry, item_id):
             return {
                 "ok": False,
@@ -7158,6 +7144,115 @@ def _shop_public_base_url() -> str:
     return DEFAULT_SHOP_PUBLIC_URL.rstrip("/")
 
 
+_MP_WEBHOOK_PUBLIC_WARNED: set[str] = set()
+
+
+def _mp_webhook_expected_url() -> str:
+    """URL do webhook que deve estar cadastrada no painel MP (Webhooks > Pagamentos)."""
+    return f"{_shop_public_base_url()}/api/payments/webhook"
+
+
+def _mp_notification_url() -> str:
+    """``notification_url`` explícita enviada ao MP (opcional; vazia = usa o painel MP).
+
+    Configure em settings (``mp_notification_url``) ou env ``MP_NOTIFICATION_URL``.
+    URL não pública (localhost/IP privado/http) é descartada com aviso — o MP não alcança.
+    """
+    explicit = str(
+        _load_settings().get("mp_notification_url") or os.environ.get("MP_NOTIFICATION_URL") or ""
+    ).strip()
+    expected = _mp_webhook_expected_url()
+    if not is_public_https_url(expected) and expected not in _MP_WEBHOOK_PUBLIC_WARNED:
+        _MP_WEBHOOK_PUBLIC_WARNED.add(expected)
+        log.warning(
+            "URL do webhook MP (%s) não é pública/HTTPS — o Mercado Pago não conseguirá notificar. "
+            "Ajuste public_url nas configurações da Web Store.", expected,
+        )
+    if not explicit:
+        return ""
+    if is_public_https_url(explicit):
+        return explicit
+    if explicit not in _MP_WEBHOOK_PUBLIC_WARNED:
+        _MP_WEBHOOK_PUBLIC_WARNED.add(explicit)
+        log.warning(
+            "mp_notification_url NÃO é pública (HTTPS/host público) — ignorada: o Mercado Pago "
+            "não conseguiria notificar. Corrija em settings/MP_NOTIFICATION_URL."
+        )
+    return ""
+
+
+def _mp_webhook_diagnostics() -> dict[str, Any]:
+    """Estado da integração de notificações MP (sem expor segredos)."""
+    expected = _mp_webhook_expected_url()
+    explicit = str(
+        _load_settings().get("mp_notification_url") or os.environ.get("MP_NOTIFICATION_URL") or ""
+    ).strip()
+    warnings: list[str] = []
+    if not is_public_https_url(expected):
+        warnings.append(
+            f"URL pública da loja ({expected}) não é HTTPS/pública — o Mercado Pago não conseguirá notificar."
+        )
+    if explicit and not is_public_https_url(explicit):
+        warnings.append("mp_notification_url configurada não é pública (HTTPS) e está sendo ignorada.")
+    if not _get_mp_webhook_secret():
+        warnings.append("Secret do webhook não configurado: assinatura x-signature não é validada.")
+    if not _get_mp_access_token():
+        warnings.append("Access Token do Mercado Pago ausente: nenhum pagamento pode ser confirmado.")
+    return {
+        "expected_webhook_url": expected,
+        "expected_webhook_url_public": is_public_https_url(expected),
+        "explicit_notification_url_set": bool(explicit),
+        "explicit_notification_url_public": bool(explicit) and is_public_https_url(explicit),
+        "webhook_secret_set": bool(_get_mp_webhook_secret()),
+        "webhook_strict_signature": _mp_webhook_strict_signature(),
+        "access_token_set": bool(_get_mp_access_token()),
+        "auto_reconcile_enabled": _mp_auto_reconcile_enabled(),
+        "warnings": warnings,
+    }
+
+
+def _mp_webhook_strict_signature() -> bool:
+    """Assinatura inválida => 401? Padrão NÃO: o pagamento é sempre re-lido do MP com o token."""
+    raw = _load_settings().get("mp_webhook_strict_signature")
+    if raw is None:
+        raw = os.environ.get("MP_WEBHOOK_STRICT_SIGNATURE", "")
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _mp_auto_reconcile_enabled() -> bool:
+    """Varredura periódica de doações pendentes/abandonadas (desligada por padrão)."""
+    raw = _load_settings().get("mp_auto_reconcile")
+    if raw is None:
+        raw = os.environ.get("MP_AUTO_RECONCILE", "")
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+_MP_AUTO_RECONCILE_INTERVAL_SEC = 300.0
+
+
+def _mp_auto_reconcile_tick() -> None:
+    """Tick do worker: no-op se ``mp_auto_reconcile`` estiver desligado (re-lido a cada tick)."""
+    if not _mp_auto_reconcile_enabled():
+        return
+    from payment_jobs import reconcile_pending_payments
+
+    reconcile_pending_payments(source="auto_reconcile")
+
+
+def _start_mp_auto_reconcile_worker() -> None:
+    """Agenda a reconciliação periódica (idempotente por nome; cheio de no-op se desligada)."""
+    try:
+        from background_tasks import start_interval_worker
+
+        start_interval_worker(
+            _mp_auto_reconcile_tick,
+            interval_sec=_MP_AUTO_RECONCILE_INTERVAL_SEC,
+            name="mp-auto-reconcile",
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("mp auto reconcile worker não iniciou: %s", exc)
+
+
 def _build_base_url() -> str:
     """URL base para redirects (Steam login, MP). Preferência: settings > proxy > fallback público."""
     public = _shop_public_base_url()
@@ -7855,6 +7950,11 @@ def _connect_fields_from_asm_raw(
         "game_host": game_host,
         "game_port": game_port,
     }
+    if srv.get("query_port") not in (None, ""):
+        try:
+            out["query_port"] = int(srv.get("query_port"))
+        except (TypeError, ValueError):
+            pass
     server_public = str(srv.get("public_ip") or "").strip()
     if server_public:
         out["public_ip"] = server_public
@@ -8519,6 +8619,19 @@ def _retry_worker() -> None:
                     _release_db_session(mdb)
             except Exception as exc:
                 _log_error("market_claims_expire_worker", error=str(exc))
+
+            try:
+                from resource_vitrine_service import expire_resource_claims
+
+                rdb = _SessionLocal()
+                try:
+                    rv_result = expire_resource_claims(rdb, batch_size=_SCHEDULER_MAINT_BATCH)
+                    if rv_result.get("processed"):
+                        _log("market_resource_claims_expired", **rv_result)
+                finally:
+                    _release_db_session(rdb)
+            except Exception as exc:
+                _log_error("market_resource_claims_expire_worker", error=str(exc))
 
             _scheduler_job_pause()
             if _scheduler_stop.is_set() or _scheduler_pool_busy():
@@ -9497,6 +9610,18 @@ def index():
     return resp
 
 
+@app.route("/dinos200")
+@app.route("/dinos-200")
+@app.route("/dinos_200")
+@app.route("/loja/dinos200")
+@app.route("/catalogo/dinos200")
+def legacy_dinos200_redirect():
+    """URLs antigas da aba «Dinos 200» → Dinos com filtro de nível 200 (SPA lê ?tab=&nivel=)."""
+    from dino_levels import LEGACY_DINOS200_LEVEL
+
+    return redirect(f"/?tab=dinos&nivel={LEGACY_DINOS200_LEVEL}", code=301)
+
+
 @app.route("/manifest.webmanifest")
 def pwa_manifest():
     resp = make_response(app.send_static_file("manifest.webmanifest"))
@@ -10202,6 +10327,13 @@ def _normalize_config_to_file(data: dict) -> dict:
         sanitize_catalog_blueprints(data)
     except Exception:
         pass
+    try:
+        # Dinos: Level explícito + categoria «Dinos 200» → «Dinos» (idempotente).
+        from dino_levels import migrate_catalog_dinos
+
+        migrate_catalog_dinos(data)
+    except Exception:
+        pass
     return data
 
 
@@ -10456,12 +10588,41 @@ def save_config():
     do_reload = body.pop("reload", True)
     if not isinstance(do_reload, bool):
         do_reload = True
+    payload, status = _persist_shop_catalog(body, s, do_reload=do_reload)
+    return jsonify(payload), status
+
+
+def _persist_shop_catalog(
+    body: dict[str, Any],
+    s: dict[str, Any],
+    *,
+    do_reload: bool = True,
+) -> tuple[dict[str, Any], int]:
+    """Valida e grava o catálogo (formato web) em todos os destinos + caches/feed/reload.
+
+    Fluxo único usado por ``POST /api/config`` e pelas ações em lote de Itens da Loja
+    (``POST /api/admin/shop-items/bulk``). Retorna ``(payload_json, http_status)``.
+    """
     settings = body.get("Settings")
     if isinstance(settings, dict) and settings.get("ShopName"):
         settings["ShopName"] = _public_brand_name(str(settings["ShopName"]))
+    try:
+        from dino_levels import dino_level_max, validate_catalog_dino_levels
+
+        _lvl_cap = dino_level_max(s)
+        level_errors = validate_catalog_dino_levels(body, max_level=_lvl_cap)
+    except Exception:
+        level_errors, _lvl_cap = [], 0
+    if level_errors:
+        return {
+            "ok": False,
+            "error": level_errors[0]["error"],
+            "level_errors": level_errors[:50],
+            "dino_level_max": _lvl_cap,
+        }, 400
     written, write_errors = _write_config_all_targets(body, s)
     if not written and write_errors:
-        return jsonify({"ok": False, "error": write_errors[0]["error"], "written": [], "errors": write_errors}), 500
+        return {"ok": False, "error": write_errors[0]["error"], "written": [], "errors": write_errors}, 500
     _log(
         "config_saved",
         paths=[w["path"] for w in written],
@@ -10498,7 +10659,7 @@ def save_config():
             reload_results = [{"ok": False, "error": str(exc), "label": "reload"}]
 
     reload_ok = sum(1 for r in reload_results if r.get("ok"))
-    return jsonify({
+    return {
         "ok": True,
         "written": written,
         "errors": write_errors,
@@ -10507,7 +10668,226 @@ def save_config():
         "reload_count": reload_ok,
         "reload_total": len(reload_results),
         "catalog_feed": catalog_feed_result,
-    })
+    }, 200
+
+
+# ── Ações em lote — Itens da Loja (admin) ────────────────────────────────────
+# Para estender (ex.: «alterar categoria» em lote): escreva um ``apply(items, key, entry, params)``
+# que muta ``items`` e devolva o status curto, e registre em ``_SHOP_BULK_ACTIONS``.
+SHOP_BULK_MAX_IDS = 200
+_SHOP_BULK_LOCK = threading.Lock()
+
+
+def _shop_bulk_is_dino(entry: Any) -> bool:
+    """Mesmo critério de «dinossauro» do pré-cadastro/Comércio e da aba Dinos: ``Type == dino``."""
+    return isinstance(entry, dict) and str(entry.get("Type") or "").strip().lower() == "dino"
+
+
+def _shop_bulk_apply_market_include(items: dict, key: str, entry: dict, params: dict) -> str:
+    entry["MarketInclude"] = True  # mesma flag do checkbox «Incluir no Comércio» (confirmItem)
+    return "market_included"
+
+
+def _shop_bulk_apply_market_exclude(items: dict, key: str, entry: dict, params: dict) -> str:
+    entry.pop("MarketInclude", None)
+    return "market_removed"
+
+
+def _shop_bulk_apply_delete(items: dict, key: str, entry: dict, params: dict) -> str:
+    del items[key]
+    return "deleted"
+
+
+def _shop_bulk_after_market_include(keys: list[str], catalog: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Pré-cadastra a espécie no Comércio (como o fluxo individual após salvar)."""
+    extra: dict[str, dict[str, Any]] = {}
+    if not keys:
+        return extra
+    if not _db_ready():
+        for k in keys:
+            extra[k] = {"warning": "Banco não configurado — flag gravada, pré-cadastro do Comércio pendente"}
+        return extra
+    from market_service import pre_register_catalog_item
+
+    db = _db_session_factory()
+    try:
+        for k in keys:
+            try:
+                res = pre_register_catalog_item(db, catalog, k)
+                extra[k] = {"species_key": res.get("species_key"), "market_status": res.get("status")}
+            except Exception as exc:  # noqa: BLE001 — falha por item não derruba o lote
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                extra[k] = {"warning": f"Pré-cadastro do Comércio falhou: {exc}"}
+    finally:
+        db.close()
+    return extra
+
+
+_SHOP_BULK_ACTIONS: dict[str, dict[str, Any]] = {
+    "market_include": {
+        "label": "Incluir no Comércio",
+        "dino_only": True,
+        "destructive": False,
+        "apply": _shop_bulk_apply_market_include,
+        "after_save": _shop_bulk_after_market_include,
+    },
+    "market_exclude": {
+        "label": "Remover do Comércio",
+        "dino_only": True,
+        "destructive": False,
+        "apply": _shop_bulk_apply_market_exclude,
+        "after_save": None,
+    },
+    "delete": {
+        "label": "Deletar",
+        "dino_only": True,
+        "destructive": True,
+        "apply": _shop_bulk_apply_delete,
+        "after_save": None,
+    },
+}
+
+
+@app.route("/api/admin/shop-items/bulk", methods=["POST"])
+@admin_required
+def admin_shop_items_bulk():
+    """Ação em lote sobre itens do catálogo (hoje: só dinos).
+
+    Body: ``{"action": "market_include|market_exclude|delete", "ids": [...], "confirm": true, "reload": true}``.
+    ``confirm`` é obrigatório para ações destrutivas (delete). Persistência pelo mesmo fluxo de
+    ``POST /api/config`` (todos os destinos + caches + feed + push WEBSTORE + Shop.Reload).
+    """
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "Corpo JSON inválido."}), 400
+    action = str(body.get("action") or "").strip()
+    spec = _SHOP_BULK_ACTIONS.get(action)
+    if spec is None:
+        return jsonify({
+            "ok": False,
+            "error": f"Ação inválida: {action or '(vazia)'}.",
+            "actions": sorted(_SHOP_BULK_ACTIONS),
+        }), 400
+    raw_ids = body.get("ids")
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({"ok": False, "error": "Informe 'ids' (lista não vazia de IDs de itens)."}), 400
+    ids: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_ids:
+        if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 200:
+            return jsonify({"ok": False, "error": "Cada ID deve ser um texto não vazio (até 200 caracteres)."}), 400
+        key = raw.strip()
+        if key not in seen:
+            seen.add(key)
+            ids.append(key)
+    if len(ids) > SHOP_BULK_MAX_IDS:
+        return jsonify({
+            "ok": False,
+            "error": f"Máximo de {SHOP_BULK_MAX_IDS} itens por requisição (recebido: {len(ids)}).",
+            "max_ids": SHOP_BULK_MAX_IDS,
+        }), 400
+    if spec["destructive"] and body.get("confirm") is not True:
+        return jsonify({"ok": False, "error": "Ação destrutiva: envie confirm=true."}), 400
+    do_reload = body.get("reload", True)
+    if not isinstance(do_reload, bool):
+        do_reload = True
+
+    s = _load_settings()
+    with _SHOP_BULK_LOCK:
+        try:
+            _, raw_catalog, note = _resolve_shop_catalog(persist_healed_path=False)
+        except Exception as exc:
+            _log_error("shop_bulk_resolve", error=str(exc))
+            return jsonify({"ok": False, "error": f"Falha ao ler o catálogo: {exc}"}), 500
+        catalog = _normalize_config_to_web(deepcopy(raw_catalog or {}))
+        items = catalog.get("ShopItems")
+        if not isinstance(items, dict) or not items:
+            return jsonify({
+                "ok": False,
+                "error": note or "Catálogo vazio ou indisponível — nada foi alterado.",
+            }), 409
+
+        results: list[dict[str, Any]] = []
+        applied: list[str] = []
+        for key in ids:
+            entry = items.get(key)
+            if not isinstance(entry, dict):
+                results.append({"id": key, "ok": False, "error": "Item não encontrado no catálogo."})
+                continue
+            if spec["dino_only"] and not _shop_bulk_is_dino(entry):
+                results.append({"id": key, "ok": False, "error": "Item não é dinossauro (Type != dino)."})
+                continue
+            try:
+                status = spec["apply"](items, key, entry, body)
+            except Exception as exc:  # noqa: BLE001
+                results.append({"id": key, "ok": False, "error": str(exc)})
+                continue
+            applied.append(key)
+            results.append({"id": key, "ok": True, "status": status})
+
+        persisted: dict[str, Any] | None = None
+        if applied:
+            payload, http_status = _persist_shop_catalog(catalog, s, do_reload=do_reload)
+            if http_status != 200 or not payload.get("ok"):
+                err = payload.get("error") or "Falha ao gravar o catálogo."
+                for r in results:
+                    if r["ok"]:
+                        r.update({"ok": False, "status": None, "error": f"Não gravado: {err}"})
+                _log_error("shop_bulk_persist_failed", action=action, error=err)
+                return jsonify({
+                    "ok": False,
+                    "action": action,
+                    "error": err,
+                    "requested": len(ids),
+                    "succeeded": 0,
+                    "failed": len(ids),
+                    "results": results,
+                    "level_errors": payload.get("level_errors"),
+                }), http_status if http_status >= 400 else 500
+            persisted = payload
+            after = spec.get("after_save")
+            if after:
+                extras = after(applied, catalog)
+                for r in results:
+                    if r["ok"] and r["id"] in extras:
+                        r.update(extras[r["id"]])
+
+    succeeded = len(applied)
+    failed = len(ids) - succeeded
+    try:
+        _audit_event(
+            f"SHOP_ITEMS_BULK_{action.upper()}",
+            source="admin",
+            actor_type="admin",
+            actor_steam_id=_steam_id_from_session(),
+            message=f"{spec['label']}: {succeeded} ok, {failed} falha(s)",
+            requested=len(ids),
+            succeeded=succeeded,
+            failed=failed,
+            item_ids=applied[:100],
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.debug("shop bulk audit skipped: %s", exc)
+
+    resp: dict[str, Any] = {
+        "ok": failed == 0,
+        "action": action,
+        "requested": len(ids),
+        "succeeded": succeeded,
+        "failed": failed,
+        "results": results,
+    }
+    if persisted:
+        resp.update({
+            "sync_count": persisted.get("sync_count"),
+            "reload_count": persisted.get("reload_count"),
+            "reload_total": persisted.get("reload_total"),
+            "errors": persisted.get("errors"),
+        })
+    return jsonify(resp), (200 if succeeded else 422)
 
 
 @app.route("/api/admin/catalog/import", methods=["POST"])
@@ -11521,7 +11901,19 @@ def _build_catalog_payload() -> dict:
 
     items_n = len(items) if isinstance(items, dict) else 0
     kits_n = len(kits) if isinstance(kits, dict) else 0
+    try:
+        from dino_levels import collect_level_options, dino_level_max
+
+        dino_level_options = collect_level_options(
+            e for e in (items or {}).values()
+            if isinstance(e, dict) and str(e.get("Type") or "").lower() == "dino"
+        )
+        dino_level_cap = dino_level_max(s)
+    except Exception:
+        dino_level_options, dino_level_cap = [], 500
     catalog_meta = {
+        "dino_levels": dino_level_options,
+        "dino_level_max": dino_level_cap,
         "config_path": str(config_path.resolve()) if config_path.exists() else str(config_path),
         "config_exists": config_path.is_file(),
         "items_count": items_n,
@@ -11577,6 +11969,18 @@ def _catalog_fingerprint(catalog: dict) -> str:
     return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
 
 
+@app.route("/api/catalog/dino-levels", methods=["GET"])
+def get_catalog_dino_levels():
+    """Níveis existentes no catálogo (chips dinâmicos da aba Dinos) + teto de cadastro."""
+    catalog, _status = _get_cached_catalog_payload()
+    meta = (catalog or {}).get("catalog_meta") or {}
+    return jsonify({
+        "ok": True,
+        "levels": meta.get("dino_levels") or [],
+        "max_level": meta.get("dino_level_max"),
+    })
+
+
 @app.route("/api/catalog", methods=["GET"])
 def get_catalog():
     """Retorna catálogo público (itens, kits, pacotes de doação).
@@ -11613,18 +12017,21 @@ def get_catalog():
 @app.route("/api/public/catalog-dinos", methods=["GET"])
 @limiter.limit("60 per minute")
 def public_catalog_dinos():
-    """Auditoria pública: dinos L1/L200 gerados via catálogo (sem Steam ID cru)."""
+    """Auditoria pública: dinos (qualquer nível) gerados via catálogo (sem Steam ID cru)."""
     if (err := _require_db()) is not None:
         return err
     level_raw = str(request.args.get("level") or "").strip()
     level: int | None = None
     if level_raw:
-        try:
-            level = int(level_raw)
-        except ValueError:
-            return jsonify({"ok": False, "error": "level deve ser 1 ou 200"}), 400
-        if level not in (1, 200):
-            return jsonify({"ok": False, "error": "level deve ser 1 ou 200"}), 400
+        from dino_levels import dino_level_max, parse_dino_level
+
+        _lvl_cap = dino_level_max(_load_settings())
+        level = parse_dino_level(level_raw, max_level=_lvl_cap)
+        if level is None:
+            return jsonify({
+                "ok": False,
+                "error": f"level deve ser um inteiro entre 1 e {_lvl_cap}",
+            }), 400
     species = str(request.args.get("species") or "").strip() or None
     try:
         page = int(request.args.get("page") or 1)
@@ -13019,12 +13426,27 @@ def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
         entry = (data.get("Kits") or {}).get(item_id) or {}
     else:
         entry = (data.get("Items") or data.get("ShopItems") or {}).get(item_id) or {}
-    return {
+    out: dict[str, Any] = {
         "name": entry.get("Description") or item_id,
         "description": entry.get("Description") or "",
         "price": int(entry.get("Price", 0) or 0),
         "type": entry.get("Type") or ("kit" if item_type == "kit" else "item"),
     }
+    try:
+        from dino_levels import dino_card_meta, is_dino_entry
+
+        if isinstance(entry, dict) and is_dino_entry(entry):
+            m = dino_card_meta(entry, item_id)
+            out.update({
+                "dino_level": m["dino_level"],
+                "dino_levels": m.get("dino_levels"),
+                "dino_gender": m["dino_gender"],
+                "dino_gender_label": m["dino_gender_label"],
+                "dino_count": m["dino_count"],
+            })
+    except Exception:
+        pass
+    return out
 
 
 def _resolve_payment_method(row: PointPayment) -> str:
@@ -13054,6 +13476,10 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
     payment_id = payment.payment_id
     old_status = payment.status
     if payment.status == "ABANDONADO" and mapped == "PENDENTE":
+        return
+    # Doação já paga/creditada: notificação tardia de OUTRA tentativa (recusada/expirada/
+    # pendente) não pode rebaixar o status — só estorno altera uma doação aprovada.
+    if (payment.credited or old_status == "APROVADO") and mapped in ("PENDENTE", "RECUSADO", "EXPIRADO"):
         return
     payment.status = mapped
     payment.updated_at = _now()
@@ -13255,6 +13681,11 @@ def player_available():
                 "cancel_available_at": policy.get("cancel_available_at"),
                 "name": meta["name"],
                 "description": meta["description"],
+                "dino_level": meta.get("dino_level"),
+                "dino_levels": meta.get("dino_levels"),
+                "dino_gender": meta.get("dino_gender"),
+                "dino_gender_label": meta.get("dino_gender_label"),
+                "dino_count": meta.get("dino_count"),
                 "created_at": row.created_at.isoformat() if row.created_at else None,
             })
 
@@ -13364,6 +13795,7 @@ def player_pix_checkout():
             external_reference=payment_id,
             idempotency_key=payment_id,
             payer=payer,
+            notification_url=_mp_notification_url() or None,
         )
     except PixPaymentError as exc:
         _audit_event(
@@ -13495,6 +13927,7 @@ def player_card_checkout():
             external_reference=payment_id,
             payer=payer,
             back_urls=back_urls,
+            notification_url=_mp_notification_url() or None,
         )
     except PixPaymentError as exc:
         _audit_event(
@@ -13606,6 +14039,7 @@ def player_boleto_checkout():
             external_reference=payment_id,
             payer=payer,
             back_urls=back_urls,
+            notification_url=_mp_notification_url() or None,
         )
     except PixPaymentError as exc:
         _audit_event(
@@ -13845,43 +14279,68 @@ def player_pix_abandon(payment_id: str):
 
 
 @app.route("/api/payments/webhook", methods=["GET", "POST"])
-@limiter.limit("120 per hour")
+@limiter.limit("3000 per hour; 300 per minute", override_defaults=True)
 def payments_webhook():
-    """Webhook Mercado Pago — ACK imediato; fetch+crédito em background."""
-    if request.method == "GET":
-        # Validação de URL no painel MP ou IPN legado (?topic=payment&id=)
+    """Webhook Mercado Pago — ACK imediato; fetch+crédito em background.
+
+    Segurança: o corpo da notificação NUNCA define status/valor — o pagamento é sempre
+    re-lido do MP com o Access Token. Por isso assinatura inválida só bloqueia em modo
+    estrito (``mp_webhook_strict_signature``); no padrão é registrada e o fluxo segue,
+    evitando perder doação paga por secret/relógio errado.
+    """
+    body = request.get_json(force=True, silent=True) if request.method == "POST" else None
+    body = body if isinstance(body, dict) else {}
+    topic, mp_id = classify_mp_notification(body, request.args)
+    if request.method == "GET" and not mp_id:
+        # Validação de URL no painel MP.
         return jsonify({"ok": True}), 200
+
+    sig_problem = ""
     webhook_secret = _get_mp_webhook_secret()
     if webhook_secret:
-        data_id = (
-            request.args.get("data.id")
-            or request.args.get("id")
-            or ""
-        ).strip()
-        if not data_id:
-            body_preview = request.get_json(force=True, silent=True) or {}
-            data_id = str(body_preview.get("data", {}).get("id") or body_preview.get("id") or "").strip()
+        sig_id = (request.args.get("data.id") or request.args.get("id") or mp_id or "").strip()
         try:
             verify_mp_webhook_signature(
                 request.headers.get("x-signature"),
                 request.headers.get("x-request-id"),
-                data_id or None,
+                sig_id or None,
                 webhook_secret,
             )
         except WebhookSignatureError as exc:
-            log.warning("webhook MP assinatura inválida: %s", exc)
-            return jsonify({"ok": False, "error": "Invalid webhook signature"}), 401
+            sig_problem = str(exc)
+            log.warning("webhook MP assinatura inválida: %s (topic=%s id=%s)", exc, topic, mp_id)
+    notif = {
+        "topic": topic,
+        "data_id": mp_id or None,
+        "action": str(body.get("action") or "")[:64] or None,
+        "live_mode": body.get("live_mode"),
+        "signature_problem": sig_problem or None,
+        "has_signature": bool(request.headers.get("x-signature")),
+    }
+    if sig_problem and _mp_webhook_strict_signature():
+        _audit_event(
+            "mp_webhook_rejected", severity="warn", source="webhook",
+            message=f"Webhook MP rejeitado (assinatura): {sig_problem}", **notif,
+        )
+        return jsonify({"ok": False, "error": "Invalid webhook signature"}), 401
     if (err := _require_db()) is not None:
         return err
-    body = request.get_json(force=True, silent=True) or {}
-    mp_id = str(body.get("data", {}).get("id") or body.get("id") or "").strip()
-    if not mp_id:
-        mp_id = str(request.args.get("data.id") or request.args.get("id") or "").strip()
     if not mp_id:
         return jsonify({"ok": True, "ignored": True})
+    if topic != "payment":
+        # merchant_order etc.: o id NÃO é de pagamento — consultar /v1/payments daria 404.
+        _audit_event(
+            "mp_webhook_ignored", source="webhook",
+            message=f"Webhook MP ignorado (tópico {topic})", **notif,
+        )
+        return jsonify({"ok": True, "ignored": True, "topic": topic})
 
     token = _get_mp_access_token()
     if not token:
+        _audit_event(
+            "mp_webhook_rejected", severity="error", source="webhook",
+            message="Webhook MP recebido mas Access Token ausente", **notif,
+        )
         return jsonify({"ok": False, "error": "Pagamentos não configurados"}), 503
 
     try:
@@ -13893,8 +14352,16 @@ def payments_webhook():
         )
     except Exception as exc:
         log.warning("webhook enqueue falhou mp_id=%s: %s", mp_id, exc)
+        _audit_event(
+            "mp_webhook_rejected", severity="error", source="webhook",
+            message=f"Webhook MP: falha ao enfileirar: {str(exc)[:200]}", **notif,
+        )
         return jsonify({"ok": False, "error": str(exc)}), 500
 
+    _audit_event(
+        "mp_webhook_received", source="webhook",
+        message=f"Webhook MP recebido (payment {mp_id})", queued=bool(queued), **notif,
+    )
     return jsonify({"ok": True, "queued": bool(queued), "mp_payment_id": mp_id})
 
 
@@ -15457,6 +15924,122 @@ def _pix_payment_row_dict(row: PointPayment) -> dict[str, Any]:
     }
 
 
+_PIX_MP_EVENT_TYPES = (
+    "mp_payment_checked", "mp_payment_fetch_failed", "mp_amount_mismatch",
+    "mp_payment_apply_failed", "mp_payment_no_row", "mp_duplicate_approved",
+    "pix_admin_reconcile",
+)
+
+
+def _pix_last_mp_events(db: Any, payment_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Último evento MP (notificação/consulta/rejeição) por doação — para o log de suporte."""
+    ids = [p for p in payment_ids if p]
+    if not ids:
+        return {}
+    try:
+        rows = (
+            db.query(AuditEvent)
+            .options(load_only(
+                AuditEvent.id, AuditEvent.order_id, AuditEvent.event_type,
+                AuditEvent.severity, AuditEvent.message, AuditEvent.source, AuditEvent.created_at,
+            ))
+            .filter(AuditEvent.order_id.in_(ids), AuditEvent.event_type.in_(_PIX_MP_EVENT_TYPES))
+            .order_by(AuditEvent.id.desc())
+            .limit(max(50, len(ids) * 10))
+            .all()
+        )
+    except Exception as exc:  # noqa: BLE001 — log de suporte não pode falhar por isto
+        _log_error("pix_last_mp_events", error=str(exc))
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        if r.order_id in out:
+            continue
+        out[r.order_id] = {
+            "event_type": r.event_type,
+            "severity": r.severity,
+            "source": r.source,
+            "message": (r.message or "")[:240],
+            "at": r.created_at.isoformat() if r.created_at else None,
+        }
+    return out
+
+
+@app.route("/api/admin/pix/webhook-diagnostics", methods=["GET"])
+@admin_required
+def admin_pix_webhook_diagnostics():
+    """Config de notificações MP (sem segredos) + últimas chamadas recebidas do webhook."""
+    if (err := _require_db()) is not None:
+        return err
+    diag = _mp_webhook_diagnostics()
+    db = _SessionLocal()
+    try:
+        rows = (
+            db.query(AuditEvent)
+            .filter(AuditEvent.event_type.like("mp_webhook_%"))
+            .order_by(AuditEvent.id.desc())
+            .limit(10)
+            .all()
+        )
+        recent = []
+        for r in rows:
+            try:
+                pl = json.loads(r.payload_json) if r.payload_json else {}
+            except Exception:
+                pl = {}
+            recent.append({
+                "event_type": r.event_type,
+                "severity": r.severity,
+                "message": (r.message or "")[:200],
+                "at": r.created_at.isoformat() if r.created_at else None,
+                "topic": pl.get("topic"),
+                "data_id": pl.get("data_id"),
+                "signature_problem": pl.get("signature_problem"),
+            })
+        diag["recent_webhooks"] = recent
+        diag["last_webhook_at"] = recent[0]["at"] if recent else None
+        return jsonify({"ok": True, **diag})
+    except Exception as exc:
+        _log_error("admin_pix_webhook_diagnostics", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/admin/pix/<payment_id>/reconcile", methods=["POST"])
+@admin_required
+@limiter.limit("30 per hour", override_defaults=True)
+def admin_pix_reconcile(payment_id: str):
+    """Reconsulta o Mercado Pago (GET somente leitura) e aplica o fluxo idempotente.
+
+    Credita âmbares SOMENTE se o MP retornar approved com valor >= pacote e a doação
+    ainda não estiver creditada (trava FOR UPDATE + flag ``credited``). Exige ``confirm``.
+    """
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    if body.get("confirm") is not True:
+        return jsonify({"ok": False, "error": "Confirmação obrigatória (confirm=true)"}), 400
+    admin_id = str(_steam_id_from_session())
+    pid = str(payment_id or "").strip()
+    _audit_event(
+        "pix_admin_reconcile", source="admin", actor_type="admin", actor_steam_id=admin_id,
+        order_id=pid, message="Admin solicitou reconsulta da doação no Mercado Pago",
+    )
+    try:
+        from payment_jobs import reconcile_payment
+
+        res = reconcile_payment(
+            pid, source="admin_reconcile", actor_steam_id=admin_id, attempts=2,
+        )
+    except Exception as exc:
+        _log_error("admin_pix_reconcile", payment_id=pid, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    result = str(res.get("result") or "")
+    status_code = {"not_found": 404, "no_token": 503}.get(result, 200)
+    return jsonify({"ok": result not in ("not_found", "no_token", "error"), **res}), status_code
+
+
 @app.route("/api/admin/pix/audit", methods=["GET"])
 @admin_required
 def admin_pix_audit():
@@ -15532,6 +16115,7 @@ def admin_pix_audit():
         has_more = len(rows) > limit
         page_rows = rows[:limit]
         total: int | None = int(query.count()) if want_total else None
+        last_mp = _pix_last_mp_events(db, [r.payment_id for r in page_rows])
 
         stats: dict[str, int] | None = None
         if want_stats:
@@ -15568,7 +16152,10 @@ def admin_pix_audit():
             "limit": limit,
             "offset": offset,
             "stats": stats,
-            "items": [_pix_payment_row_dict(r) for r in page_rows],
+            "items": [
+                {**_pix_payment_row_dict(r), "last_mp_event": last_mp.get(r.payment_id)}
+                for r in page_rows
+            ],
         })
     except Exception as exc:
         _log_error("admin_pix_audit", error=str(exc))
@@ -16243,6 +16830,20 @@ register_market_routes(
     session_factory=_db_session_factory,
     read_shop_config=_read_shop_config,
     load_settings=_load_settings,
+    admin_required=admin_required,
+    login_required=login_required,
+    api_key_required=api_key_required,
+    steam_id_from_session=_steam_id_from_session,
+    audit_event=_audit_event,
+    limiter=limiter,
+)
+
+from resource_vitrine_routes import register_resource_vitrine_routes
+
+register_resource_vitrine_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
     admin_required=admin_required,
     login_required=login_required,
     api_key_required=api_key_required,
@@ -16952,6 +17553,16 @@ register_plugin_debug_routes(
     session_factory=_db_session_factory,
     admin_required=admin_required,
     api_key_required=api_key_required,
+)
+
+from diagnostics_routes import register_diagnostics_routes
+
+register_diagnostics_routes(
+    app,
+    api_key_required=api_key_required,
+    admin_required=admin_required,
+    limiter=limiter,
+    data_dir=_DATA_DIR,
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":

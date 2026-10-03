@@ -83,6 +83,7 @@
     <ClCompile Include="src\ShopEngrams.cpp" />
     <ClCompile Include="src\ShopNotes.cpp" />
     <ClCompile Include="src\ShopTribeSync.cpp" />
+    <ClCompile Include="src\ShopVitrine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h" />
@@ -102,6 +103,7 @@
     <ClInclude Include="src\ShopEngrams.h" />
     <ClInclude Include="src\ShopNotes.h" />
     <ClInclude Include="src\ShopTribeSync.h" />
+    <ClInclude Include="src\ShopVitrine.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\mysql.h" />
   </ItemGroup>

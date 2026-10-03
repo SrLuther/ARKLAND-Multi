@@ -73,7 +73,10 @@ def test_catalog_l1_and_optional_l200():
             l200.append(item_id)
         else:
             raise AssertionError(f"Nível inesperado {level} em {item_id}")
-    assert len(l1) == 189, f"Esperado 189 dinos L1, encontrado {len(l1)}"
+    # config.json e dado vivo do operador (gitignored; so existe localmente) e cresce quando
+    # dinos sao adicionados (local: 193). O teste garante o piso conhecido (189 de Jul/2026)
+    # e os invariantes de L200 abaixo, sem travar a contagem exata de um arquivo nao versionado.
+    assert len(l1) >= 189, f"Esperado >= 189 dinos L1, encontrado {len(l1)}"
     for l200_id in l200:
         l1_id = l200_id[: -len("_l200")]
         assert l1_id in items, f"L200 órfão: {l200_id}"
@@ -83,7 +86,8 @@ def test_matrix_has_79_rows():
     if not MATRIX_PATH.is_file():
         pytest.skip("matrix csv ausente")
     lines = MATRIX_PATH.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 171  # header + 170 (79 originais + 91 vanilla/DLC Jul/2026)
+    # header + 173 (170 de Jul/2026 + 3 linhas adicionadas depois; CSV inalterado desde 1.10.80)
+    assert len(lines) == 174
 
 
 def test_apex_hierarchy_r_values():

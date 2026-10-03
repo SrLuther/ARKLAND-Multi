@@ -7,6 +7,7 @@
 #include "ShopEngrams.h"
 #include "ShopNotes.h"
 #include "ShopTeams.h"
+#include "ShopVitrine.h"
 #include "ShopPoints.h"
 #include "ShopPerms.h"
 #include "HttpClient.h"
@@ -428,9 +429,26 @@ void ShopMarket::UnregisterCommands() {
     ArkApi::GetCommands().RemoveChatCommand("/mercado_admin");
 }
 
+bool ShopMarket::HasPendingEnviar(const std::string& steam_id) {
+    if (steam_id.empty()) return false;
+    std::lock_guard<std::mutex> lock(g_pending_mutex);
+    const auto it = g_pending.find(steam_id);
+    if (it == g_pending.end()) return false;
+    if (std::chrono::steady_clock::now() > it->second.expires) {
+        g_pending.erase(it);
+        return false;
+    }
+    return true;
+}
+
 void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
     if (!player) return;
     const std::string sid = Bridge::GetSteamId(player);
+    // Um pending por jogador: nao sobrescrever/ofuscar um /vitrine aguardando /confirmar.
+    if (Vitrine::HasPending(sid)) {
+        SendMsg(player, FColorList::Red, Vitrine::kMsgPendingBlocks);
+        return;
+    }
     if (!ShopCloudInventory::Get().HasCloudLicense(sid, true)) {
         SendMsg(player, FColorList::Red,
                 "Licenca Nuvem obrigatoria para enviar dinos ao Comercio.");
@@ -709,8 +727,11 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
     }
 
     // Ordem de despacho /confirmar (pending por steam_id):
-    //   1 engramas → 2 notas → 3 marco (Teams::HasPendingDeposit) → 4 mercado
+    //   1 engramas → 2 notas → 3 marco (Teams::HasPendingDeposit)
+    //   → 4 vitrine (Vitrine::HasPending) → 5 mercado (/enviar de dino)
     // Spec Modo Equipe §5.5.4 — nao misturar kinds; mensagens especificas por ramo.
+    // A vitrine fica DEPOIS de marco/notas/engramas: /vitrine recusa-se a criar pending se
+    // houver um deles, e eles recusam-se se houver /vitrine (ver ShopVitrine.cpp).
 
     if (Notes::HasPendingUnlock(sid)) {
         int price = 0;
@@ -777,6 +798,12 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
             return;
         }
         SendMsg(player, FColorList::Green, Teams::FormatSuccessMessage(deposited));
+        return;
+    }
+
+    // Vitrine de Recursos: journal -> remove itens -> POST upload (ver ShopVitrine.cpp).
+    if (Vitrine::HasPending(sid)) {
+        Vitrine::ConfirmPending(player);
         return;
     }
 
@@ -1001,6 +1028,8 @@ void ShopMarket::CmdMercadoAdmin(AShooterPlayerController* player, FString* cmd_
 void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
     if (!player) return;
     const std::string sid = Bridge::GetSteamId(player);
+    // Vitrine: retoma journals de envio interrompidos antes de entregar qualquer coisa.
+    Vitrine::RecoverForPlayer(player);
     const std::string resp = HttpClient::Get("/api/market/pending/" + sid);
     nlohmann::json json;
     try {
@@ -1015,10 +1044,25 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
     }
     const auto& claims = json.value("claims", nlohmann::json::array());
     if (claims.empty()) {
+        // Sem dinos: tenta recursos da Vitrine (DeliverMarketClaims lista e entrega).
+        if (Vitrine::DeliverMarketClaims(player)) return;
         SendMsg(player, FColorList::Yellow,
                 "Nenhum dino pendente no Comercio (ou resgate expirado â€” reembolso automatico).");
         return;
     }
+
+    // Com dinos: depois de qualquer saida deste fluxo (sucesso, inventario cheio, erro),
+    // entrega tambem os recursos pendentes da Vitrine (independente dos dinos).
+    struct VitrineTail {
+        AShooterPlayerController* player;
+        ~VitrineTail() {
+            try {
+                Vitrine::DeliverMarketClaims(player);
+            } catch (...) {
+                Log::GetLog()->error("ShopMarket: erro ao entregar recursos da Vitrine no /mercado");
+            }
+        }
+    } vitrine_tail{player};
 
     double min_hours = 9999.0;
     for (const auto& c : claims) {

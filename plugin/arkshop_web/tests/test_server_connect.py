@@ -203,3 +203,110 @@ def test_diagnose_server_connect_lists_blockers():
     assert view["can_connect"] is False
     assert any("show_on_home" in b for b in view["blockers"])
     assert any("host público" in b for b in view["blockers"])
+
+
+# ── IP:QueryPort na home ─────────────────────────────────────────────────────
+
+def test_resolve_query_port_valid_and_invalid():
+    from server_connect import resolve_query_port
+
+    assert resolve_query_port({"query_port": 27015}) == 27015
+    assert resolve_query_port({"query_port": "27017"}) == 27017
+    for bad in (None, "", 0, -1, "abc", 70000):
+        assert resolve_query_port({"query_port": bad}) is None
+    assert resolve_query_port({}) is None
+
+
+def test_resolve_display_port_prefers_query_with_fallback():
+    from server_connect import resolve_display_port
+
+    assert resolve_display_port({"game_port": 7777, "query_port": 27015}) == (27015, "query")
+    assert resolve_display_port({"game_port": 7779}) == (7779, "game_fallback")
+    assert resolve_display_port({"server_port": 7781, "query_port": ""}) == (7781, "game_fallback")
+    assert resolve_display_port({}) == (7777, "game_fallback")
+
+
+def test_public_view_uses_query_port_for_join_address():
+    view = public_server_connect_view(
+        {"game_host": "179.185.19.88", "game_port": 7777, "query_port": 27015}, {},
+    )
+    assert view["join_address"] == "179.185.19.88:27015"
+    assert view["connect_url"].endswith("%20179.185.19.88:27015")
+    assert view["game_address"] == "179.185.19.88:7777"
+    assert view["game_port"] == 7777
+    assert view["query_port"] == 27015
+    assert view["display_port_source"] == "query"
+
+
+def test_public_view_fallback_to_game_port_without_query(caplog):
+    with caplog.at_level("WARNING"):
+        view = public_server_connect_view(
+            {"server_id": "legacy_x", "game_host": "179.185.19.88", "game_port": 7779}, {},
+        )
+    assert view["join_address"] == "179.185.19.88:7779"
+    assert view["query_port"] is None
+    assert view["display_port_source"] == "game_fallback"
+    assert any("sem query_port" in r.getMessage() for r in caplog.records)
+
+
+def test_diagnose_warns_when_query_port_missing():
+    view = diagnose_server_connect(
+        {"server_id": "x", "game_host": "203.0.113.5", "game_port": 7777}, {},
+    )
+    assert view["display_port_source"] == "game_fallback"
+    assert any("query_port" in w for w in view["warnings"])
+    ok = diagnose_server_connect(
+        {"server_id": "y", "game_host": "203.0.113.5", "game_port": 7777, "query_port": 27015}, {},
+    )
+    assert ok["warnings"] == []
+    assert ok["resolved_port"] == 27015
+
+
+def test_public_home_api_returns_query_port(client, tmp_path, monkeypatch):
+    servers_file = tmp_path / "servers.json"
+    servers_file.write_text(
+        json.dumps([{
+            "server_id": "alps",
+            "label": "01 ALPS",
+            "show_on_home": True,
+            "game_host": "179.185.19.88",
+            "game_port": 7777,
+            "query_port": 27015,
+            "rcon_host": "127.0.0.1",
+            "rcon_password": "secret",
+        }]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
+
+    home = client.get("/api/public/home").get_json()
+    srv = next(s for s in home["servers"] if s["server_id"] == "alps")
+    assert srv["join_address"] == "179.185.19.88:27015"
+    assert srv["query_port"] == 27015
+    assert srv["game_port"] == 7777
+    assert srv["game_address"] == "179.185.19.88:7777"
+
+
+def test_sync_endpoint_persists_query_port(client):
+    r = client.post(
+        "/api/servers/sync",
+        json={
+            "machine_label": "Maquina-Q",
+            "servers": [{
+                "server_id": "ragnarok",
+                "label": "02 RAGNAROK",
+                "rcon_host": "127.0.0.1",
+                "game_host": "179.185.19.88",
+                "game_port": 7779,
+                "query_port": 27017,
+                "arkland_ref": "tek:rag-1",
+            }],
+            "active_refs": ["tek:rag-1"],
+        },
+        headers={"X-API-Key": "test-key", "Content-Type": "application/json"},
+    )
+    assert r.status_code == 200
+    home = client.get("/api/public/home").get_json()
+    srv = next(s for s in home["servers"] if s["server_id"] == "ragnarok")
+    assert srv["join_address"] == "179.185.19.88:27017"
+    assert srv["query_port"] == 27017

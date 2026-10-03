@@ -25,6 +25,13 @@ def _xp_at(level: int) -> int:
 
 @pytest.fixture(autouse=True)
 def _sp_env(tmp_path, monkeypatch):
+    # Relógio congelado: os testes iniciam a season com ``now`` fixo (2026-07-14) e o
+    # código de produção (add_timed_xp/buy_premium) lê o relógio real via ``_utcnow``.
+    # Sem isto, depois de 2026-08-13 a season fica "claim_window" e os testes quebram
+    # por data expirada (não por bug). Congela dentro da janela da season de 30 dias.
+    frozen = datetime(2026, 7, 14, 12, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(sps, "_utcnow", lambda: frozen)
+    monkeypatch.setattr(spcfg, "_utcnow", lambda: frozen)
     monkeypatch.setenv("ARKSHOP_WEB_SECRET", "test-secret")
     monkeypatch.setattr(_app_module, "_ADMIN_FILE", tmp_path / "admin_steamids.json")
     monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")

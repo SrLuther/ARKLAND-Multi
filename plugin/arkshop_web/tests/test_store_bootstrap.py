@@ -185,7 +185,8 @@ def test_index_catalog_dom_pagination_20():
     assert "function _catalogFillPagedGrid(" in html
     assert '_catalogFillPagedGrid(grid, countEl, filtered, "items"' in html
     assert '_catalogFillPagedGrid(grid, countEl, filtered, "dinos"' in html
-    assert '_catalogFillPagedGrid(grid, countEl, filtered, "dinos200"' in html
+    # Aba única «Dinos» — sem painel/paginação «dinos200».
+    assert '_catalogFillPagedGrid(grid, countEl, filtered, "dinos200"' not in html
     assert '_catalogFillPagedGrid(grid, countEl, filtered, "kits"' in html
     assert '_catalogFillPagedGrid(grid, countEl, filtered, "licenses"' in html
     assert "_catalogResetDomPage('items')" in html

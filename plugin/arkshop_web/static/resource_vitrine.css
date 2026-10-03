@@ -1,0 +1,121 @@
+/* Vitrine de Recursos — estilos isolados (prefixo rv-). Tema escuro laranja/dourado do portal. */
+
+.rv-panel { padding-bottom: 24px; }
+
+.rv-intro { margin-bottom: 14px; padding: 12px 16px; }
+.rv-intro p { margin: 0 0 8px; font-size: 13px; color: var(--text2); line-height: 1.55; }
+.rv-intro p:last-child { margin-bottom: 0; }
+.rv-intro strong { color: var(--text); }
+
+.rv-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
+.rv-chips .rv-arrow { color: var(--text2); font-size: 13px; }
+
+.rv-subtabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 4px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  width: fit-content; max-width: 100%;
+}
+.rv-subtab {
+  background: transparent; border: 1px solid transparent; color: var(--text2);
+  padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all .15s;
+}
+.rv-subtab:hover { color: var(--text); }
+.rv-subtab:focus-visible, .rv-btn-focus:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.rv-subtab.active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+
+.rv-subpanel { display: none; }
+.rv-subpanel.active { display: block; }
+
+.rv-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+.rv-toolbar .rv-field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; flex: 1; max-width: 280px; }
+.rv-toolbar label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; }
+.rv-toolbar input, .rv-toolbar select, .rv-input {
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text); font-size: 13px; font-family: inherit; width: 100%;
+  box-sizing: border-box;
+}
+.rv-toolbar input:focus, .rv-toolbar select:focus, .rv-input:focus { outline: none; border-color: var(--amber); }
+.rv-page-info { font-size: 12px; color: var(--text2); align-self: center; }
+
+.rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.rv-empty { color: var(--text2); text-align: center; padding: 40px 12px; font-size: 14px; }
+.rv-loading { grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--text2); }
+.rv-error { color: var(--danger); font-size: 13px; padding: 12px; }
+
+.rv-card { display: flex; flex-direction: column; gap: 10px; }
+.rv-card__top { display: flex; gap: 12px; align-items: flex-start; }
+.rv-icon {
+  width: 52px; height: 52px; flex: 0 0 52px; border-radius: 10px;
+  background: radial-gradient(circle at 30% 25%, rgba(232,120,32,.28), var(--surface3));
+  border: 1px solid var(--border-g); display: flex; align-items: center; justify-content: center;
+  font-size: 26px; line-height: 1;
+}
+.rv-card__main { min-width: 0; flex: 1; }
+.rv-card__name { font-weight: 700; font-size: 15px; color: #fff; word-break: break-word; }
+.rv-card__seller { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.rv-card__seller strong { color: var(--text); }
+.rv-card__price { display: flex; align-items: center; gap: 6px; font-size: 17px; font-weight: 700; color: var(--amber); }
+.rv-card__price .amber-icon { vertical-align: middle; }
+.rv-card__price small { font-size: 11px; font-weight: 400; color: var(--text2); }
+.rv-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 12px; color: var(--text2); }
+.rv-stats strong { color: var(--text); }
+.rv-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;
+  background: var(--surface3); color: var(--text2); border: 1px solid var(--border);
+}
+.rv-badge--ok { color: var(--success); border-color: rgba(18,216,124,.4); background: rgba(18,216,124,.08); }
+.rv-badge--warn { color: var(--amber); border-color: rgba(232,120,32,.5); background: var(--amber-dim); }
+.rv-badge--bad { color: var(--danger); border-color: rgba(232,48,48,.45); background: rgba(232,48,48,.08); }
+
+.rv-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.rv-summary .rv-sum-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 12px; color: var(--text2); }
+.rv-summary .rv-sum-item strong { display: block; font-size: 16px; color: var(--amber); }
+
+.rv-lot-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+.rv-lot-form label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 3px; }
+.rv-hint { font-size: 11px; color: var(--text2); line-height: 1.45; }
+.rv-hint--warn { color: var(--amber); }
+.rv-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.rv-section-title { font-family: 'Cinzel', Georgia, serif; font-size: 13px; letter-spacing: .06em; color: var(--amber); margin: 22px 0 10px; }
+
+.rv-callout {
+  border-left: 3px solid var(--amber); background: var(--amber-dim);
+  padding: 10px 14px; border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 12.5px; color: var(--text); line-height: 1.55; margin: 10px 0;
+}
+.rv-callout--ok { border-left-color: var(--success); background: rgba(18,216,124,.08); }
+.rv-callout--bad { border-left-color: var(--danger); background: rgba(232,48,48,.08); }
+
+.rv-table-wrap { overflow-x: auto; }
+.rv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rv-table th, .rv-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+.rv-table th { color: var(--text2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.rv-table code { font-size: 11px; opacity: .85; word-break: break-all; }
+
+/* Modal (compartilha .modal-backdrop/.modal do portal) */
+.rv-modal .modal { max-width: 460px; }
+.rv-modal--wide .modal { max-width: 560px; }
+.rv-modal__sum { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0; font-size: 13px; }
+.rv-modal__sum-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; color: var(--text2); }
+.rv-modal__sum-row strong { color: var(--text); text-align: right; }
+.rv-modal__sum-row--total strong { color: var(--amber); font-size: 15px; }
+.rv-modal__sum-row--bad strong { color: var(--danger); }
+.rv-form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.rv-form-group label { font-size: 12px; color: var(--text2); }
+.rv-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rv-err { color: var(--danger); font-size: 12px; min-height: 16px; margin-top: 4px; }
+
+/* Admin */
+.rv-admin-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.rv-admin-settings { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.rv-admin-settings .rv-form-group { margin-bottom: 0; min-width: 200px; }
+
+@media (max-width: 640px) {
+  .rv-grid { grid-template-columns: 1fr; }
+  .rv-lot-form, .rv-form-row { grid-template-columns: 1fr; }
+  .rv-toolbar .rv-field { max-width: none; min-width: 100%; }
+  .rv-subtabs { width: 100%; }
+  .rv-subtab { flex: 1; text-align: center; padding: 8px 10px; }
+}

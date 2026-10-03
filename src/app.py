@@ -140,6 +140,13 @@ class ARKServerManagerApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
+        # Diagnóstico: logging central + captura de exceções (Tk/threads/asyncio).
+        try:
+            from .diagnostics.logging_setup import attach_to_app
+            attach_to_app(self, "classic")
+        except Exception:  # noqa: BLE001 — diagnóstico nunca impede o boot
+            pass
+
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("green")
 
@@ -262,6 +269,7 @@ class ARKServerManagerApp(ctk.CTk):
             ("🏠  Dashboard",      "dashboard"),
             ("🔄  Sincronização",  "sync"),
             ("⚙️  Configurações",  "config"),
+            ("🩺  Diagnóstico",     "diagnostico"),
             ("ℹ️  Sobre",           "sobre"),
         ]):
             btn = ctk.CTkButton(
@@ -274,11 +282,11 @@ class ARKServerManagerApp(ctk.CTk):
             self._nav_buttons[key] = btn
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=7, column=0, sticky="ew", padx=12, pady=8)
+            row=9, column=0, sticky="ew", padx=12, pady=8)
 
         # Título "Servidores" + botão "+"
         srv_hdr = ctk.CTkFrame(sb, fg_color="transparent")
-        srv_hdr.grid(row=8, column=0, padx=12, pady=(0, 4), sticky="ew")
+        srv_hdr.grid(row=10, column=0, padx=12, pady=(0, 4), sticky="ew")
         srv_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(srv_hdr, text="SERVIDORES",
                      font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
@@ -293,12 +301,12 @@ class ARKServerManagerApp(ctk.CTk):
         # Frame scrollable para lista de servidores
         self._servers_list_sb = ctk.CTkScrollableFrame(
             sb, fg_color="transparent", height=280)
-        self._servers_list_sb.grid(row=9, column=0, sticky="ew", padx=6)
+        self._servers_list_sb.grid(row=11, column=0, sticky="ew", padx=6)
         self._servers_list_sb.grid_columnconfigure(0, weight=1)
 
         self._sidebar_update_lbl = ctk.CTkLabel(
             sb, text="", font=ctk.CTkFont(size=10), text_color="#ffaa44", wraplength=180)
-        self._sidebar_update_lbl.grid(row=10, column=0, padx=10, pady=4)
+        self._sidebar_update_lbl.grid(row=12, column=0, padx=10, pady=4)
 
     def _rebuild_server_sidebar(self) -> None:
         """Reconstrói a lista de botões de servidores na sidebar."""
@@ -361,6 +369,12 @@ class ARKServerManagerApp(ctk.CTk):
         sobre.grid(row=0, column=1, sticky="nsew")
         self._build_about(sobre)
         self._frames["sobre"] = sobre
+
+        diag = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
+        diag.grid(row=0, column=1, sticky="nsew")
+        from .pages.build_diagnostics import build_diagnostics
+        build_diagnostics(self, diag)
+        self._frames["diagnostico"] = diag
 
     # ══════════════════════════════════════════════════════════════════════════
     # Painel de Sincronização

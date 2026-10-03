@@ -117,6 +117,7 @@ echo === Compiling C++ sources (v%PLUGIN_VER%) ===
   "%SRC_DIR%\ShopEngrams.cpp" ^
   "%SRC_DIR%\ShopNotes.cpp" ^
   "%SRC_DIR%\ShopTeams.cpp" ^
+  "%SRC_DIR%\ShopVitrine.cpp" ^
   "%SRC_DIR%\ShopDebug.cpp" ^
   "%SRC_DIR%\HttpClient.cpp"
 if %ERRORLEVEL% neq 0 goto :error
@@ -151,6 +152,7 @@ echo === Linking DLL ===
   "%OBJ_DIR%\ShopEngrams.obj" ^
   "%OBJ_DIR%\ShopNotes.obj" ^
   "%OBJ_DIR%\ShopTeams.obj" ^
+  "%OBJ_DIR%\ShopVitrine.obj" ^
   "%OBJ_DIR%\ShopDebug.obj" ^
   "%OBJ_DIR%\HttpClient.obj"
 if %ERRORLEVEL% neq 0 goto :error

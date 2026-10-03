@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from src.plugin_versions import read_plugin_info_version
+from src.plugin_versions import read_plugin_info_version, read_plugin_version_file
 from src.shop_integration import (
     bundled_arkplayer_files,
     deploy_arkplayer_dll_to_server,
@@ -50,7 +50,10 @@ def test_install_arkplayer_copies_config_and_info(tmp_path: Path) -> None:
     plugin = install_dir / "ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkPlayer"
     assert (plugin / "ArkPlayer.dll").is_file()
     assert (plugin / "config.json").is_file()
-    assert read_plugin_info_version(plugin / "PluginInfo.json") == "1.0.0"
+    # Versão = plugin_version.txt (sem hardcode; muda a cada bump do ArkPlayer).
+    assert read_plugin_info_version(plugin / "PluginInfo.json") == read_plugin_version_file(
+        "ArkPlayer"
+    )
     data = json.loads((plugin / "config.json").read_text(encoding="utf-8"))
     assert "ArkPlayer" in data
     assert "PlayerCharacterWipe" in data["ArkPlayer"]

@@ -852,6 +852,8 @@ Paridade com ArkPlayer / CustomDinoDeliver:
 Destino no mapa: `ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkEventHunt/`.  
 `config.json` existente **não** é sobrescrito.
 
+**Permissions (ordem de carga):** layout esperado `ArkApi/Plugins/Permissions/Permissions.dll` + `ArkApi/Plugins/ArkEventHunt/{ArkEventHunt.dll,config.json}`. O ArkApi carrega plugins por ordem de directório (`ArkEventHunt` < `Permissions`), logo a Permissions só está carregada **depois** do `Plugin_Init`; o plugin resolve `Permissions::IsPlayerInGroup` (export C++ mangled com `FString const&`) de forma **lazy** (1.º `/eveadm`, +30 s após o arranque). Desde v0.5.4 não há warning falso no boot; troubleshooting em `plugin/ArkEventHunt/README.md`.
+
 **Bridge HTTP:** o plugin precisa de `WebApiUrl` + `WebApiKey` apontando à **mesma** arkshop_web que o admin Mode B no browser. Se o mapa ARK não corre no mesmo host da loja, **não** uses `http://127.0.0.1:…` — usa `http://IP-LAN:porta`. A sync TEK da Loja escreve estes campos (como CustomDinoDeliver). Sintoma típico: UI web OK + chat `API Event Hunt inacessível` (e, em DLL antigas, mensagem enganosa de “membro ACTIVE”). `ranking_blocked` / “fora do ranking” **não** afecta membership ACTIVE.
 
 ### 12.5 Debug

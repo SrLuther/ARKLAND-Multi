@@ -14,6 +14,7 @@
 #include "ShopTribeSync.h"
 #include "HttpClient.h"
 #include "ShopDebug.h"
+#include "ShopVitrine.h"
 #include <Timer.h>
 
 // ─────────────────────────────────────────────────────────────────
@@ -43,6 +44,13 @@ void PollPendingForOnlinePlayers() {
             CustomShop::HttpClient::DeliverPending(raw);
         }, delay_sec);
     }
+}
+
+// Vitrine de Recursos: conclui journals de envio interrompidos (crash/web fora) apos o mapa subir.
+void ScheduleVitrineRecovery() {
+    API::Timer::Get().DelayExecute([]() {
+        CustomShop::Vitrine::RecoverAll();
+    }, 45);
 }
 
 void SchedulePendingPoll() {
@@ -91,6 +99,7 @@ void Hook_AShooterGameMode_BeginPlay(AShooterGameMode* _this) {
     SchedulePendingPoll();
     ScheduleTribeSyncPoll();
     ScheduleTribeSyncRequestPoll();
+    ScheduleVitrineRecovery();
 }
 
 DECLARE_HOOK(AShooterGameMode_HandleNewPlayer, bool,
@@ -119,6 +128,12 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
         if (!raw_ctrl) return;
         CustomShop::HttpClient::DeliverPending(raw_ctrl);
     }, 8);
+
+    // Vitrine: retoma envio interrompido (reenvia upload_id ou devolve itens). Por SteamID
+    // (resolve o controller no momento da execucao; nao guarda ponteiro).
+    API::Timer::Get().DelayExecute([steam_id]() {
+        CustomShop::Vitrine::RecoverForSteamId(steam_id);
+    }, 12);
 
     // TribeSync é independente de CrossChat.Enabled — presença Minha Tribo.
     Log::GetLog()->info(
@@ -188,6 +203,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         SchedulePendingPoll();
         ScheduleTribeSyncPoll();
         ScheduleTribeSyncRequestPoll();
+        ScheduleVitrineRecovery();
     }
 
     {

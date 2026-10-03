@@ -50,7 +50,11 @@ def test_install_arkeventhunt_copies_config_and_info(tmp_path: Path) -> None:
     plugin = install_dir / "ShooterGame/Binaries/Win64/ArkApi/Plugins/ArkEventHunt"
     assert (plugin / "ArkEventHunt.dll").is_file()
     assert (plugin / "config.json").is_file()
-    assert read_plugin_info_version(plugin / "PluginInfo.json") == "0.5.2"
+    expected = (
+        Path(__file__).resolve().parents[1]
+        / "plugin" / "ArkEventHunt" / "plugin_version.txt"
+    ).read_text(encoding="utf-8").strip()
+    assert read_plugin_info_version(plugin / "PluginInfo.json") == expected
     data = json.loads((plugin / "config.json").read_text(encoding="utf-8"))
     assert "ArkEventHunt" in data
 

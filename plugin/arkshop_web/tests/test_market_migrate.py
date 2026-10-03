@@ -14,7 +14,7 @@ os.environ.setdefault("ARKSHOP_WEB_SECRET", "test-secret")
 
 import app as _app_module
 from app import _configure_database
-from market_migrate import MARKET_TABLES, ensure_market_schema, schema_status
+from market_migrate import MARKET_SCHEMA_VERSION, MARKET_TABLES, ensure_market_schema, schema_status
 
 
 @pytest.fixture(autouse=True)
@@ -41,7 +41,8 @@ def test_ensure_market_schema_creates_tables():
     result = ensure_market_schema(engine, bootstrap=False)
     assert result["ok"] is True
     assert result["still_missing"] == []
-    assert result["schema_version"] == "1.2.0"
+    # 1.3.0 desde v1.10.28 (colunas de pair/listing); 1.2.0 era a versão anterior.
+    assert result["schema_version"] == MARKET_SCHEMA_VERSION == "1.3.0"
     status = schema_status(engine)
     assert status["ok"] is True
     for name in MARKET_TABLES:

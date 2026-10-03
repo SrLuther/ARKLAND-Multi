@@ -67,7 +67,8 @@ def test_lookup_ankylo_by_name_hint():
 def test_lookup_rex_defaults():
     hit = lookup_species(species_key="rex")
     assert hit is not None
-    assert hit["tier"] == "A"
+    # market_species_defaults.json versionado: Rex = tier S (antes «A» no cache antigo do WEBSTORE local).
+    assert hit["tier"] == "S"
 
 
 def test_registry_stats_has_species():
@@ -155,9 +156,10 @@ def test_resolve_species_image_custom_and_fallback():
 
 
 def test_lookup_includes_image_url():
-    hit = lookup_species(species_key="ankylo")
+    # species_key canônico nos defaults versionados é «ankylosaurus» (não existe «ankylo»).
+    hit = lookup_species(species_key="ankylosaurus")
     assert hit is not None
-    assert hit["image_url"].endswith("/species/icons/generated/ankylo.webp")
+    assert hit["image_url"].endswith("/species/icons/generated/ankylosaurus.webp")
 
 
 def test_lookup_shop_rex_uses_species_icon():

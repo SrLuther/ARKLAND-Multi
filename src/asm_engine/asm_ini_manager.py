@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from .asm_server_config import AsmServerConfig
+from ..diagnostics.ini_events import traced_read_ini, traced_write_ini
 
 
 # ── Mapeamento declarativo ────────────────────────────────────────────────────
@@ -574,6 +575,7 @@ def _assert_game_ini_ramp_written(
         )
 
 
+@traced_write_ini
 def write_ini(cfg: AsmServerConfig) -> None:
     """Escreve GameUserSettings.ini e Game.ini a partir de AsmServerConfig.
 
@@ -779,6 +781,8 @@ def _write_ini_file(
             except (UnicodeDecodeError, UnicodeError):
                 continue
             except Exception:
+                _LOG.warning("INI existente ilegível (%s); seções não gerenciadas podem se perder: %s",
+                             enc, path, exc_info=True)
                 break
 
     # Injeta / substitui as seções gerenciadas
@@ -809,6 +813,7 @@ def _write_ini_file(
     tmp.replace(path)
 
 
+@traced_read_ini
 def read_ini(cfg: AsmServerConfig) -> None:
     """Lê GameUserSettings.ini e Game.ini e popula cfg in-place."""
     if not cfg.install_dir:
@@ -828,6 +833,7 @@ def read_ini(cfg: AsmServerConfig) -> None:
                 except (UnicodeDecodeError, UnicodeError):
                     continue
                 except Exception:
+                    _LOG.warning("read_ini: falha ao ler %s (%s)", fp, enc, exc_info=True)
                     break
         parsers[fk] = p
 
@@ -854,6 +860,8 @@ def read_ini(cfg: AsmServerConfig) -> None:
             else:
                 val = _strip_ini_quotes(raw)
         except Exception:
+            _LOG.warning("read_ini: valor inválido para %s (%s=%r) — mantido o valor do perfil",
+                         field_name, ini_key, raw[:80] if isinstance(raw, str) else raw, exc_info=True)
             continue
 
         # Desfaz inversão

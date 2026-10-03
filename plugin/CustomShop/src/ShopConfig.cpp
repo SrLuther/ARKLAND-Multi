@@ -380,6 +380,22 @@ bool ShopConfig::NotasCommandEnabled() const {
     return settings_.value("NotasCommandEnabled", true);
 }
 
+bool ShopConfig::VitrineCommandEnabled() const {
+    return settings_.value("VitrineCommandEnabled", true);
+}
+
+int ShopConfig::VitrinePreviewTtlSeconds() const {
+    int ttl = 120;
+    try {
+        ttl = settings_.value("VitrinePreviewTtlSeconds", 120);
+    } catch (...) {
+        ttl = 120;
+    }
+    if (ttl < 30) ttl = 30;
+    if (ttl > 120) ttl = 120;
+    return ttl;
+}
+
 bool ShopConfig::MarketDeliverAsSpawn() const {
     return settings_.value("MarketDeliverAsSpawn", true);
 }

@@ -18,6 +18,9 @@ public:
     static void CmdChecar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdMercadoAdmin(AShooterPlayerController* player, FString*, EChatSendMode::Type);
+
+    /** Pending de /enviar (dino) ativo e nao expirado — usado pela Vitrine (1 pending por jogador). */
+    static bool HasPendingEnviar(const std::string& steam_id);
 };
 
 } // namespace CustomShop

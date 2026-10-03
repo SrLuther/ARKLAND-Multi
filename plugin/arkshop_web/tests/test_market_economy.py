@@ -1,11 +1,93 @@
-"""Testes do módulo market_economy."""
+"""Testes do módulo market_economy.
+
+Regra de preço vigente (docs/TABELA_PRECOS_DINOS.md, docs/SHOP_L200_PRICING.md):
+``floor_quality`` — ``Mercado(Q) = min(R + B × Q, market_absolute_max)`` com
+``Q = Σ w_stat × (pts/254)^γ / Σ w_stat`` (pesos por ``dino_role``, γ=0.82, teto 150.000).
+Todas as 191 espécies do ``market_species_defaults.json`` do repo usam esse modo; os modos
+``proportional``/``custom``/``legacy_multipliers`` continuam suportados e são testados com
+defaults explícitos (fixture ``legacy_proportional_defaults``), nunca com dados do ambiente.
+"""
+import json
+
+import pytest
+
 from market_economy import (
+    StatMultiplier,
     calculate_suggested_value,
     load_default_species_map,
+    load_market_absolute_max,
     merge_species_from_catalog_item,
     normalize_stat_points,
     size_cap_for_class,
 )
+
+
+@pytest.fixture
+def legacy_proportional_defaults(tmp_path, monkeypatch):
+    """Defaults mínimos (formato legado, modo ``proportional``) — independentes do repo/ambiente.
+
+    Replica as entradas ``carcha_femea`` (large, saúde+melee) e ``deinonychus_femea`` (small,
+    melee 0.7 / stamina 0.3) usadas pelos testes do modelo proporcional, sem bundle por cima.
+    """
+    import market_economy as me
+
+    path = tmp_path / "market_species_defaults.json"
+    path.write_text(
+        json.dumps(
+            {
+                "species": [
+                    {
+                        "species_key": "carcha_femea",
+                        "catalog_item_id": "carcha_femea",
+                        "display_name": "Carcha",
+                        "tier": "A",
+                        "multipliers": {"health": 84, "melee": 720, "weight": 108, "stamina": 18},
+                        "diet_class": "carnivore",
+                        "size_class": "large",
+                        "economy_stats": {
+                            "health": {"enabled": True},
+                            "melee": {"enabled": True},
+                            "weight": {"enabled": False},
+                            "stamina": {"enabled": False},
+                            "speed": {"enabled": False},
+                        },
+                        "pricing_mode": "proportional",
+                    },
+                    {
+                        "species_key": "deinonychus_femea",
+                        "catalog_item_id": "deinonychus_femea",
+                        "display_name": "Deinonychus",
+                        "tier": "B",
+                        "multipliers": {"health": 60, "melee": 680, "weight": 100, "stamina": 24},
+                        "diet_class": "carnivore",
+                        "size_class": "small",
+                        "economy_stats": {
+                            "health": {"enabled": False},
+                            "melee": {"enabled": True, "weight_override": 0.7},
+                            "weight": {"enabled": False},
+                            "stamina": {"enabled": True, "weight_override": 0.3},
+                            "speed": {"enabled": False},
+                        },
+                        "pricing_mode": "proportional",
+                    },
+                ],
+                "global_stat_labels": {},
+                "_size_caps": {"large": 300000, "medium": 250000, "small": 100000},
+                "_pts_reference": 254,
+                "_stat_weights": {
+                    "carnivore": {"health": 0.55, "melee": 0.45, "weight": 0, "stamina": 0, "speed": 0}
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(me, "_DEFAULTS_FILE", path)
+    # Sem o bundle do repo: ele (floor_quality) prevaleceria sobre o modo legado.
+    monkeypatch.setattr(me, "_bundled_species_map", lambda: {})
+    me.invalidate_defaults_cache()
+    yield path
+    me.invalidate_defaults_cache()
 
 
 def test_ensure_catalog_species_in_defaults_adds_missing(tmp_path, monkeypatch):
@@ -153,14 +235,70 @@ def test_carcha_zero_points_equals_root():
     assert breakdown[-1]["subtotal"] == 29994
 
 
-def test_carcha_moderate_stats():
-    entry = {
+def _carcha_entry():
+    return {
         "Type": "dino",
         "Name": "Carcha",
         "Price": 29994,
         "Dinos": [{"Blueprint": "/Game/.../Carcha", "Level": 1}],
     }
-    species = merge_species_from_catalog_item("carcha_femea", entry)
+
+
+def test_carcha_moderate_stats():
+    """floor_quality (padrão do repo): carcha = raid, B=125.000, γ=0.82.
+
+    Pesos raid: saúde 0.30, melee 0.50, weight 0.15, stamina 0.05. Com saúde 78 e melee 105:
+    Q = 0.30·(78/254)^0.82 + 0.50·(105/254)^0.82 (stats com 0 pts contribuem 0) ≈ 0.3563
+    → 29.994 + round(125.000 × Q) = 74.526 (conferido à mão fora do código).
+    """
+    species = merge_species_from_catalog_item("carcha_femea", _carcha_entry())
+    assert species.pricing_mode == "floor_quality"
+    assert species.premium_budget == 125_000
+    assert species.dino_role == "raid"
+    points = normalize_stat_points(
+        {
+            "health": {"points_base": 78},
+            "melee": {"points_base": 105},
+        }
+    )
+    total, breakdown = calculate_suggested_value(species, points)
+    assert total == 74_526
+    q_row = next(r for r in breakdown if r["kind"] == "quality")
+    assert q_row["premium_budget"] == 125_000
+    assert q_row["subtotal"] == 74_526 - 29_994
+    stat_rows = [r for r in breakdown if r["kind"] == "stat"]
+    # floor_quality lista todos os stats com peso > 0 no papel (raid: 4), mesmo com 0 pts.
+    assert {r["stat_key"] for r in stat_rows} == {"health", "melee", "weight", "stamina"}
+
+
+def test_carcha_top_stats_hits_cap():
+    """Stats 254 em tudo → Q=1 → R + B (154.994) é cortado no teto global de mercado (150.000)."""
+    species = merge_species_from_catalog_item("carcha_femea", _carcha_entry())
+    points = normalize_stat_points(
+        {sk: {"points_base": 254} for sk in ("health", "melee", "weight", "stamina", "speed")}
+    )
+    total, breakdown = calculate_suggested_value(species, points)
+    assert 29_994 + species.premium_budget > load_market_absolute_max()
+    assert total == load_market_absolute_max() == 150_000
+    assert any(r["kind"] == "cap" for r in breakdown)
+
+
+def test_carcha_only_health_melee_254_stays_below_cap():
+    """Saúde+melee 254 mas weight/stamina 0: Q=0.8 → 129.994 (abaixo do teto 150.000)."""
+    species = merge_species_from_catalog_item("carcha_femea", _carcha_entry())
+    points = normalize_stat_points(
+        {"health": {"points_base": 254}, "melee": {"points_base": 254}}
+    )
+    total, breakdown = calculate_suggested_value(species, points)
+    assert total == 129_994
+    assert not any(r["kind"] == "cap" for r in breakdown)
+
+
+def test_carcha_proportional_moderate_stats(legacy_proportional_defaults):
+    """Modo legado ``proportional``: root + fatias do espaço bônus (teto porte large 300.000)."""
+    species = merge_species_from_catalog_item("carcha_femea", _carcha_entry())
+    assert species.pricing_mode == "proportional"
+    assert species.size_class == "large"
     points = normalize_stat_points(
         {
             "health": {"points_base": 78},
@@ -173,14 +311,8 @@ def test_carcha_moderate_stats():
     assert len(stat_rows) == 2
 
 
-def test_carcha_top_stats_hits_cap():
-    entry = {
-        "Type": "dino",
-        "Name": "Carcha",
-        "Price": 29994,
-        "Dinos": [{"Blueprint": "/Game/.../Carcha", "Level": 1}],
-    }
-    species = merge_species_from_catalog_item("carcha_femea", entry)
+def test_carcha_proportional_top_stats_hits_cap(legacy_proportional_defaults):
+    species = merge_species_from_catalog_item("carcha_femea", _carcha_entry())
     points = normalize_stat_points(
         {
             "health": {"points_base": 254},
@@ -309,23 +441,26 @@ def test_patch_species_economy_meta(tmp_path, monkeypatch):
     fake.write_text(__import__("json").dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     monkeypatch.setattr("market_economy._DEFAULTS_FILE", fake)
 
+    # Os defaults do repo são indexados por species_key ("carcha"), não por id de catálogo.
+    assert patch_species_economy_meta("carcha_femea", {"size_class": "small"}) is None
     updated = patch_species_economy_meta(
-        "carcha_femea",
+        "carcha",
         {
             "diet_class": "carnivore",
-            "size_class": "medium",
+            "size_class": "large",
             "economy_stats": {"health": True, "melee": False, "weight": True},
         },
     )
     assert updated is not None
     meta = species_economy_meta_from_defaults("carcha_femea")
-    assert meta["size_class"] == "medium"
+    assert meta["size_class"] == "large"
     assert meta["economy_stats"]["health"]["enabled"] is True
     assert meta["economy_stats"]["melee"]["enabled"] is False
     assert meta["economy_stats"]["weight"]["enabled"] is True
 
 
-def test_deinonychus_weight_override_pricing():
+def test_deinonychus_weight_override_pricing(legacy_proportional_defaults):
+    """Modo proporcional: weight_override (melee 0.7 / stamina 0.3) separa os subtotais."""
     entry = {
         "Type": "dino",
         "Name": "Deinonychus",
@@ -355,8 +490,8 @@ def test_custom_pricing_mode(tmp_path, monkeypatch):
     fake.write_text(__import__("json").dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     monkeypatch.setattr("market_economy._DEFAULTS_FILE", fake)
 
-    patch_species_economy_meta(
-        "carcha_femea",
+    assert patch_species_economy_meta(
+        "carcha",
         {
             "pricing_mode": "custom",
             "economy_stats": {
@@ -393,9 +528,14 @@ def test_legacy_multipliers_mode():
     }
     species = merge_species_from_catalog_item("rex_femea", entry)
     species.pricing_mode = "legacy_multipliers"
+    # O defaults do repo não traz mais ``multipliers`` (removidos em v1.10.19, floor_quality);
+    # o multiplicador é injetado explicitamente para o teste não ser vacuamente 5000 + 10×0.
+    species.multipliers["melee"] = StatMultiplier(
+        stat_key="melee", multiplier=720, enabled=True, label="Dano"
+    )
     points = normalize_stat_points({"melee": {"points_base": 10}})
     total, breakdown = calculate_suggested_value(species, points)
-    assert total == 5000 + 10 * species.multipliers["melee"].multiplier
+    assert total == 5000 + 10 * 720
     assert any(r.get("kind") == "mode" for r in breakdown)
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ark_species_registry import lookup_species, tier_icon_url
+from dino_levels import dino_card_meta, infer_level_from_category, is_dino_entry
 from resource_icon_registry import resolve_resource_icon
 
 _WEB_DIR = Path(__file__).resolve().parent
@@ -101,9 +102,12 @@ def _infer_category_from_content(entry: dict[str, Any], key: str) -> str:
 
 def _resolve_display_category(entry: dict[str, Any], key: str) -> str:
     explicit = str(entry.get("Category") or entry.get("category") or "").strip()
-    if explicit:
-        return explicit
     itype = str(entry.get("Type") or entry.get("type") or "item").lower()
+    if explicit:
+        # Catálogos antigos: categoria «Dinos 200» foi unificada em «Dinos» (nível = campo).
+        if itype == "dino" and infer_level_from_category(explicit) is not None:
+            return "Dinos"
+        return explicit
     text = f"{entry.get('Name') or ''} {entry.get('Description') or ''} {key}"
     if itype == "command" and re.search(r"licen[cç]a|license", text, re.I):
         return "Licenças"
@@ -261,11 +265,14 @@ def enrich_shop_item(key: str, entry: dict[str, Any]) -> dict[str, Any]:
     if blueprint:
         out["blueprint"] = blueprint
     if itype == "dino":
-        dinos = entry.get("Dinos") or []
-        if dinos and isinstance(dinos[0], dict):
-            out["dino_level"] = int(dinos[0].get("Level") or 1)
-        else:
-            out["dino_level"] = 1
+        # Nível/gênero unificados (sem trava L1/L200): ver dino_levels.py
+        meta = dino_card_meta(entry, key)
+        out.update(meta)
+        out["search_text"] = _build_search_text(
+            out["search_text"],
+            f"nivel {meta['dino_level']} nv {meta['dino_level']} lvl {meta['dino_level']}",
+            str(meta["dino_gender_label"]),
+        )
     if license_days is not None:
         out["license_days"] = license_days
     if license_group:
@@ -595,6 +602,15 @@ def enrich_kit(key: str, entry: dict[str, Any]) -> dict[str, Any]:
         "tier": tier,
         "kit_description": kit_description,
     }
+    if is_dino_entry(entry):
+        # Kits com Dinos[] (ex.: pack de fêmeas): mostra nível/gênero no mesmo card.
+        meta = dino_card_meta(entry, key)
+        out.update(meta)
+        out["search_text"] = _build_search_text(
+            out["search_text"],
+            f"nivel {meta['dino_level']} nv {meta['dino_level']} lvl {meta['dino_level']}",
+            str(meta["dino_gender_label"]),
+        )
     return out
 
 

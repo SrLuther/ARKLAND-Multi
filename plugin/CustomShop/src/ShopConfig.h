@@ -79,6 +79,12 @@ public:
     /** false = desativa /notas no jogo. */
     bool        NotasCommandEnabled() const;
 
+    /** false = desativa /vitrine (Vitrine de Recursos) no jogo. Padrao true. */
+    bool        VitrineCommandEnabled() const;
+
+    /** TTL do preview de /vitrine antes do /confirmar (30-120 s, padrao 120 como /enviar). */
+    int         VitrinePreviewTtlSeconds() const;
+
     /** true = /mercado spawna o dino no chao; false = entrega cryopod no inventario. */
     bool        MarketDeliverAsSpawn() const;
 

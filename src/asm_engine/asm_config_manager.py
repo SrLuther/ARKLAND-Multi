@@ -6,6 +6,7 @@ Dados salvos separados do PRIMITIVE em:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -13,6 +14,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from .asm_server_config import AsmServerConfig
+from ..diagnostics.events import CAT_CONFIG, diag_event
+
+_LOG = logging.getLogger("arkland")
 
 
 class AsmConfigManager:
@@ -40,16 +44,25 @@ class AsmConfigManager:
                 try:
                     self._servers.append(AsmServerConfig.from_dict(item))
                 except Exception:
-                    pass
+                    _LOG.warning("asm_servers.json: perfil inválido ignorado (id=%r)",
+                                 item.get("id") if isinstance(item, dict) else None, exc_info=True)
         except Exception:
-            pass
+            _LOG.exception("Falha ao ler %s — lista de servidores TEK ficará vazia", self._servers_file)
+        diag_event(CAT_CONFIG, "asm_servers.json carregado", servers=len(self._servers),
+                   file=str(self._servers_file))
 
     def save(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
         tmp = self._servers_file.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
-        tmp.replace(self._servers_file)
+        try:
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+            tmp.replace(self._servers_file)
+        except Exception:
+            _LOG.exception("Falha ao gravar %s", self._servers_file)
+            raise
+        diag_event(CAT_CONFIG, "asm_servers.json salvo", servers=len(self._servers),
+                   file=str(self._servers_file))
 
     # ── CRUD ─────────────────────────────────────────────────────────────────
 

@@ -80,6 +80,11 @@ def test_market_display_name_syncs_steam_persona(market_client, monkeypatch):
     assert prof.get("ok") is True
     assert prof["profile"]["steam_persona"] == "SellerBR"
 
+    # /api/auth/me descarta o cache quando market_display_name == steam_persona
+    # (nick Steam vem sempre da API - CHANGELOG "nick Steam unico"); simulamos a API
+    # Steam porque o conftest remove STEAM_API_KEY e o teste nao deve chamar a rede.
+    monkeypatch.setattr(app_module, "_steam_api_key_configured", lambda: True)
+    monkeypatch.setattr(app_module, "_refresh_steam_persona", lambda sid: "SellerBR")
     r3 = market_client.get("/api/auth/me")
     me = r3.get_json()
     assert me.get("steam_persona") == "SellerBR"

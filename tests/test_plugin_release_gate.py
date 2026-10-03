@@ -6,7 +6,11 @@ from pathlib import Path
 
 import scripts.check_plugin_release_gate as gate
 from scripts.sync_plugin_versions import ALL_PLUGINS, sync_plugin_info, write_plugin_version
-from src.plugin_versions import expected_plugin_version, get_bundled_plugin_version
+from src.plugin_versions import (
+    expected_plugin_version,
+    get_bundled_plugin_version,
+    read_plugin_version_file,
+)
 
 
 def test_official_plugins_have_changelog_for_current_version() -> None:
@@ -32,7 +36,8 @@ def test_bundled_versions_match_plugin_version_txt() -> None:
         "CustomDinoDeliver"
     )
     assert get_bundled_plugin_version("ArkPlayer") == expected_plugin_version("ArkPlayer")
-    assert expected_plugin_version("ArkPlayer") == "1.0.0"
+    # Fonte de verdade: plugin_version.txt (evita hardcode que fica obsoleto a cada bump).
+    assert expected_plugin_version("ArkPlayer") == read_plugin_version_file("ArkPlayer")
 
 
 def test_changelog_versions_parser(tmp_path: Path) -> None:

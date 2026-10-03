@@ -263,3 +263,47 @@ def test_remote_register_calls_central_api(shop_dir, monkeypatch):
     assert payload_srv["game_host"] == "203.0.113.55"
     assert payload_srv["game_port"] == 7778
     assert not (shop_dir / "servers.json").exists()
+
+
+# ── query_port (IP:QueryPort exibido na Web Store) ───────────────────────────
+
+@dataclass
+class _FakeSrvQ(_FakeSrv):
+    query_port: int = 27015
+
+
+def test_register_tek_sends_query_port(shop_dir):
+    srv = _FakeSrvQ(id="tek-1", name="Alps", shop_server_id="alps", server_port=7777, query_port=27015)
+    register_arkshop_servers(_FakeCM(), _host_shop(), asm_cm=_FakeAsmCM([srv]))
+    entry = _load_servers(shop_dir / "servers.json")[0]
+    assert entry["game_port"] == 7777
+    assert entry["query_port"] == 27015
+
+
+def test_register_classic_sends_query_port(shop_dir):
+    srv = _FakeSrvQ(id="cl-1", name="Ragnarok", shop_server_id="ragnarok", server_port=7779, query_port=27017)
+    register_arkshop_servers(_FakeCM(servers=[srv]), _host_shop())
+    entry = _load_servers(shop_dir / "servers.json")[0]
+    assert entry["arkland_ref"].startswith("classic:")
+    assert entry["game_port"] == 7779
+    assert entry["query_port"] == 27017
+
+
+def test_register_omits_invalid_query_port(shop_dir):
+    srv = _FakeSrvQ(id="tek-1", name="Alps", shop_server_id="alps", query_port=0)
+    register_arkshop_servers(_FakeCM(), _host_shop(), asm_cm=_FakeAsmCM([srv]))
+    assert "query_port" not in _load_servers(shop_dir / "servers.json")[0]
+
+
+def test_merge_preserves_existing_query_port_when_incoming_lacks_it():
+    existing = {"server_id": "alps", "arkland_ref": "tek:tek-1", "query_port": 27015}
+    incoming = {"server_id": "alps", "game_port": 7777, "arkland_ref": "tek:tek-1"}
+    merged = _merge_arkland_server_entry(existing, incoming, _FakeSrv(id="tek-1", name="Alps"))
+    assert merged["query_port"] == 27015
+
+
+def test_merge_incoming_query_port_wins():
+    existing = {"server_id": "alps", "arkland_ref": "tek:tek-1", "query_port": 27015}
+    incoming = {"server_id": "alps", "query_port": 27019, "arkland_ref": "tek:tek-1"}
+    merged = _merge_arkland_server_entry(existing, incoming, _FakeSrv(id="tek-1", name="Alps"))
+    assert merged["query_port"] == 27019

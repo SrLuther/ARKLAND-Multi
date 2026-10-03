@@ -1650,6 +1650,12 @@ class TestAdminCatalogDeliver:
                     "Price": 2000,
                     "Dinos": [{"Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP", "Level": 200}],
                 },
+                "rex_l50": {
+                    "Type": "dino",
+                    "Description": "Rex Nível 50",
+                    "Price": 900,
+                    "Dinos": [{"Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP", "Level": 50}],
+                },
                 "licenca_gamma": {
                     "Type": "license",
                     "Description": "Licença Gamma",
@@ -1703,6 +1709,10 @@ class TestAdminCatalogDeliver:
         cat = d.get("deliver_catalog") or {}
         assert any(i["item_id"] == "metal_ingot" for i in cat.get("items") or [])
         assert any(i["item_id"] == "rex_l1" for i in cat.get("dinos") or [])
+        # Categoria única «Dinos»: L1 e L200 (e qualquer outro nível) na mesma lista.
+        l200 = [i for i in cat.get("dinos") or [] if i["item_id"] == "rex_l200"]
+        assert l200 and l200[0]["dino_level"] == 200
+        # Alias legado para clientes antigos.
         assert any(i["item_id"] == "rex_l200" for i in cat.get("dinos200") or [])
         assert any(i["item_id"] == "starter" for i in cat.get("kits") or [])
         # Licenças ficam no bloco separado — não no seletor de entrega.
@@ -1734,6 +1744,18 @@ class TestAdminCatalogDeliver:
         assert r.status_code == 200, d
         assert d["ok"] is True
         self._assert_order_pendente(d["order_id"], item_type="shop", item_id="rex_l1")
+
+    def test_admin_deliver_dino_arbitrary_level(self, client, monkeypatch, tmp_path):
+        self._mock_full_catalog(monkeypatch, tmp_path)
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/deliver",
+            json={"category": "dinos", "item_id": "rex_l50", "amount": 1},
+        )
+        d = r.get_json()
+        assert r.status_code == 200, d
+        self._assert_order_pendente(d["order_id"], item_type="shop", item_id="rex_l50")
 
     def test_admin_deliver_dino200(self, client, monkeypatch, tmp_path):
         self._mock_full_catalog(monkeypatch, tmp_path)

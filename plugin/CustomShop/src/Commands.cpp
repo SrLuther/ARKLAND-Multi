@@ -8,6 +8,7 @@
 #include "ShopVip.h"
 #include "ShopCloudInventory.h"
 #include "ShopTeams.h"
+#include "ShopVitrine.h"
 #include "HttpClient.h"
 #include "ShopMarket.h"
 #include "TimedPoints.h"
@@ -823,6 +824,11 @@ void CmdNotas(AShooterPlayerController* controller, FString*, EChatSendMode::Typ
         return;
     }
 
+    if (CustomShop::Vitrine::HasPending(sid)) {
+        SendMsg(controller, FColorList::Red, CustomShop::Vitrine::kMsgPendingBlocks);
+        return;
+    }
+
     if (!CustomShop::Notes::RequestUnlockAll(controller)) {
         SendMsg(controller, FColorList::Red,
                 "Nao foi possivel iniciar /notas. Tente novamente.");
@@ -850,6 +856,11 @@ void CmdEngramas(AShooterPlayerController* controller, FString*, EChatSendMode::
     if (ArkApi::IApiUtils::IsPlayerDead(controller)) {
         SendMsg(controller, FColorList::Red,
                 "Nao foi possivel iniciar /engramas. Voce precisa estar vivo.");
+        return;
+    }
+
+    if (CustomShop::Vitrine::HasPending(CustomShop::Bridge::GetSteamId(controller))) {
+        SendMsg(controller, FColorList::Red, CustomShop::Vitrine::kMsgPendingBlocks);
         return;
     }
 
@@ -894,6 +905,8 @@ void Register() {
 
     ShopMarket::RegisterCommands();
     CustomShop::Teams::RegisterCommands(); // /marco → preview → /confirmar
+    if (CustomShop::ShopConfig::Get().VitrineCommandEnabled())
+        CustomShop::Vitrine::RegisterCommands(); // /vitrine → preview → /confirmar
     CustomShop::TribeSync::RegisterChatCommands();
 
     // Admin (RCON ou console in-game)
@@ -929,6 +942,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ShopMarket::UnregisterCommands();
     CustomShop::Teams::UnregisterCommands();
+    CustomShop::Vitrine::UnregisterCommands();
     CustomShop::TribeSync::UnregisterChatCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveChatCommand("/engramas");

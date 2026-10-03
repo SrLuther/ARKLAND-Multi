@@ -46,6 +46,13 @@ if sys.platform == "win32":
         sys.exit(0)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Logging central + captura de exceções o mais cedo possível (antes de importar a UI).
+try:
+    from src.diagnostics.logging_setup import setup_logging
+    setup_logging("tek")
+except Exception:  # noqa: BLE001 — diagnóstico nunca impede o boot
+    pass
+
 from src.app_tek import ARKServerManagerApp
 
 if __name__ == "__main__":

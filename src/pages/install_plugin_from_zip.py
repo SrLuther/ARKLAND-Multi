@@ -24,6 +24,12 @@ def _do_plugin_extract(app, server_id: str, zip_path: str, plugins_path: str) ->
                 os.makedirs(dest, exist_ok=True)
                 _safe_extract_zip(zf, dest)
                 plugin_name = base
+        try:
+            from ..diagnostics.events import CAT_PLUGINS, diag_event
+            diag_event(CAT_PLUGINS, "Plugin instalado via ZIP", plugin=plugin_name,
+                       zip=os.path.basename(zip_path), dest=plugins_path)
+        except Exception:  # noqa: BLE001
+            pass
         app.after(0, lambda: (
             messagebox.showinfo(
                 "Plugin Instalado",
@@ -34,6 +40,8 @@ def _do_plugin_extract(app, server_id: str, zip_path: str, plugins_path: str) ->
             app._refresh_plugins_list(server_id),
         ))
     except Exception as exc:
+        import logging
+        logging.getLogger("arkland").exception("Falha ao instalar plugin do ZIP %s", zip_path)
         err_msg = str(exc)
         app.after(0, lambda m=err_msg: messagebox.showerror("Erro ao extrair", m, parent=app))
 

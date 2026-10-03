@@ -20,9 +20,19 @@ bool IsAdminPlayer(AShooterPlayerController* controller) {
     if (controller->bIsAdmin()()) return true;
     const uint64 steam = ArkApi::GetApiUtils().GetSteamIdFromController(controller);
     if (steam == 0) return false;
-    return ArkEventHunt::Perms::IsInAnyGroup(
-        static_cast<uint64_t>(steam),
-        ArkEventHunt::HuntConfig::Get().AdminGroups());
+    const auto& groups = ArkEventHunt::HuntConfig::Get().AdminGroups();
+    // AdminGroups vazio → só bIsAdmin() (comportamento seguro).
+    if (groups.empty()) return false;
+    // Ligação à Permissions é lazy (primeiro uso).
+    if (ArkEventHunt::Perms::IsInAnyGroup(static_cast<uint64_t>(steam), groups))
+        return true;
+    if (!ArkEventHunt::Perms::IsAvailable()) {
+        Log::GetLog()->warn(
+            "ArkEventHunt: acesso admin negado a steam={} — Permissions "
+            "indisponível e bIsAdmin()=false (ver aviso de Permissions acima).",
+            steam);
+    }
+    return false;
 }
 
 std::string GetSteamId(AShooterPlayerController* controller) {

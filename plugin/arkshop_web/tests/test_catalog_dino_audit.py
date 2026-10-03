@@ -157,14 +157,17 @@ def test_register_filters_level_and_lists_public(audit_db):
         ],
     )
     audit_db.commit()
-    assert n == 2
+    # Qualquer nível >= 1 é auditável (L1, L150, L200); só id/dino_ids inválidos ficam de fora.
+    assert n == 3
 
     all_rows = list_public_catalog_dinos(audit_db, page=1, page_size=10)
-    assert all_rows["total"] == 2
+    assert all_rows["total"] == 3
+    only150 = list_public_catalog_dinos(audit_db, level=150)
+    assert only150["total"] == 1 and only150["items"][0]["level"] == 150
     assert all_rows["items"][0]["display_name"] == "AlphaTester"
     assert "steam_id" not in all_rows["items"][0]
     assert all_rows["items"][0]["public_code"]
-    assert all_rows["items"][0]["public_code"].startswith("R")
+    assert any(r["public_code"].startswith("R") for r in all_rows["items"])
 
     only1 = list_public_catalog_dinos(audit_db, level=1)
     assert only1["total"] == 1

@@ -96,6 +96,31 @@ Se o by-code devolver `dino_disabled`, activa o dino no Catálogo B (estado **ON
 | `EveNotActiveMember` | API respondeu `active:false` |
 | `EveApiDown` | Claim/código Event Hunt inacessível (`status==0`) |
 
+## Permissions (grupos de `/eveadm`)
+
+Instalação esperada da Permissions (ArkServerApi):
+
+```
+ShooterGame\Binaries\Win64\ArkApi\Plugins\Permissions\Permissions.dll
+ShooterGame\Binaries\Win64\ArkApi\Plugins\ArkEventHunt\ArkEventHunt.dll
+ShooterGame\Binaries\Win64\ArkApi\Plugins\ArkEventHunt\config.json
+```
+
+- **Ordem de carga:** o ArkApi carrega por ordem de directório (`ArkEventHunt` antes de `Permissions`). Por isso a Permissions **não** está carregada em `Plugin_Init`; o plugin liga-se a ela **de forma tardia** (1.º `/eveadm`, re-tentativa a cada 5 s, e reavaliação 30 s após o arranque). Não é preciso `Dependencies` no `PluginInfo.json`.
+- A Permissions oficial exporta `?IsPlayerInGroup@Permissions@@YA_N_KAEBVFString@@@Z` (mangled); o plugin lê a tabela de exports do PE (não usa `GetProcAddress("IsPlayerInGroup")`).
+- `bIsAdmin()` sempre autoriza; `ModeB.AdminGroups` (default `["Admins"]`) autoriza por grupo. Com `AdminGroups` vazio (config explícito) só vale `bIsAdmin()`.
+
+### Troubleshooting (log do ArkApi — janela do servidor / `ShooterGame/Saved/Logs` e pasta de logs do ArkApi)
+
+| Log | Significado / acção |
+|-----|---------------------|
+| `Permissions ainda não carregada (ordem de carga…)` (info, no arranque) | Normal. Sem acção. |
+| `Permissions ligado — <caminho> :: <export>` | OK. |
+| `Permissions não está carregada neste momento (… ficheiro esperado '<path>' EXISTE no disco…)` | A DLL existe mas não carregou: ver log da Permissions (MySQL em `Plugins/Permissions/config.json`, `UseMysql`, credenciais). |
+| `Permissions carregada … mas SEM export IsPlayerInGroup compatível` | Versão incompatível da Permissions; envie a lista de exports do log. |
+| `WebApiKey VAZIA` | `/eve`, `/eveadm` e kills dão 401 — preencher `WebApiKey` (Sync da Loja). |
+| `WebApiUrl=127.0.0.1…` | Só serve se a loja corre no mesmo PC do ARK. |
+
 ## Build
 
 ```bat

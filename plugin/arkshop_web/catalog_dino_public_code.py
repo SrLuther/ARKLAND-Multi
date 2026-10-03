@@ -109,7 +109,7 @@ _known_families: set[str] = set()
 
 _FEMEA_RE = re.compile(r"_femea$", re.I)
 _MACHO_RE = re.compile(r"_macho$", re.I)
-_L200_RE = re.compile(r"_l200$", re.I)
+_L200_RE = re.compile(r"_l\d{1,4}$", re.I)  # nome legado; cobre qualquer nível (_l50, _l225…)
 _PACK10_RE = re.compile(r"_pack10$", re.I)
 
 

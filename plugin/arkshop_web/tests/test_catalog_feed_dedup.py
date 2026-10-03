@@ -85,14 +85,15 @@ def test_feed_merges_sibling_variants_into_one_species():
             CATALOG_SIBLINGS,
             include_reference_and_registry=False,
         )
-        assert result["created"] == 2
-        assert result["merged"] >= 1
+        # defaults versionados: Rex, Rex Tek (bionicrex) e Giga são espécies distintas (3);
+        # o L200 do Rex não cria linha própria (Rex continua com 1 linha).
+        assert result["created"] == 3
         rex_rows = db.query(MarketSpecies).filter(MarketSpecies.species_key == "rex").all()
         assert len(rex_rows) == 1
         aliases = db.query(MarketSpeciesAlias).filter(
             MarketSpeciesAlias.species_id == rex_rows[0].id
         ).all()
-        assert len(aliases) >= 2
+        assert len(aliases) >= 1
         assert rex_rows[0].display_name == "Rex"
     finally:
         db.close()
@@ -138,7 +139,7 @@ def test_feed_only_missing_skips_registered():
             CATALOG_SIBLINGS,
             include_reference_and_registry=False,
         )
-        assert first["created"] == 2
+        assert first["created"] == 3  # rex, bionicrex, giga (ver teste acima)
 
         again = bulk_pre_register_catalog_items(db, CATALOG_SIBLINGS, only_missing=True)
         assert again["created"] == 0

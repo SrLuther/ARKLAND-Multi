@@ -40,8 +40,16 @@ Um dino nível 200 na loja **não** tem stats de breeding (Q≪1); daí o preço
 
 ## Web Store
 
-- Aba **🦕 Dinos** → só nível 1
-- Aba **🦖 Dinos 200** → só nível 200 (`data-catalog-tab="dinos200"`)
+- Aba única **🦕 Dinos** com chips de **Nível** dinâmicos (gerados do catálogo: Todos, Nv. 1, Nv. 50, Nv. 200…).
+  A antiga aba «Dinos 200» foi unificada: `?tab=dinos200`, `#/dinos200` e a rota `/dinos200`
+  redirecionam para Dinos com o filtro de nível 200.
+- O nível é um **inteiro livre** (1..500, configurável via `settings.shop_dino_level_max` ou
+  `ARKSHOP_DINO_LEVEL_MAX`); não existe mais a trava «nível 1 ou 200». Preços L200 continuam
+  sendo só a **geração** de catálogo descrita acima.
+- Outros níveis: `python tools/generate_dino_level_variants.py --levels 50,100,150,225 [--apply]`
+  (uma entrada por espécie/nível, ids `<base>_l<N>`, preço interpolado L1↔L200).
+- Catálogos antigos: `python tools/migrate_dinos_unified.py [--apply]` (preenche `Level` ausente,
+  categoria «Dinos 200» → «Dinos»; idempotente, faz `.bak`).
 
 ## Apply idempotente
 

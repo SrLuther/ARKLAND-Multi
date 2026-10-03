@@ -3,6 +3,25 @@
 Versões sincronizadas via `plugin_version.txt` +
 `python scripts/sync_plugin_versions.py --plugin ArkEventHunt`.
 
+## [0.5.4] - 2026-10-02
+
+- **Fix aviso falso "Permissions.dll não encontrado":** a Permissions era
+  procurada só em `Plugin_Init`, quando ainda não estava carregada (ArkApi
+  carrega por ordem de directório: `ArkEventHunt` < `Permissions`). Agora a
+  ligação é **lazy** (1.º uso de `/eveadm` com re-tentativa a cada 5 s) e
+  reavaliada 30 s após o arranque; o Init deixou de emitir warning.
+- **Fix grupos nunca resolvidos:** a Permissions oficial exporta
+  `?IsPlayerInGroup@Permissions@@YA_N_KAEBVFString@@@Z` (C++ mangled), e
+  `GetProcAddress("IsPlayerInGroup")` nunca o achava. Resolve-se agora pela
+  tabela de exports do PE (mangled `FString const&` ou plain) e chama-se com a
+  assinatura correcta.
+- Logs precisos: caminho esperado
+  (`ArkApi/Plugins/Permissions/Permissions.dll`), se o ficheiro existe,
+  módulo/export ligado, exports relacionados se a DLL estiver carregada sem
+  `IsPlayerInGroup`. `AdminGroups` vazio → só `bIsAdmin()`.
+- Aviso no arranque se `WebApiKey` vazia (401 em `/eve`, `/eveadm` e kills) ou
+  `WebApiUrl` aponta para `127.0.0.1`/`localhost`.
+
 ## [0.5.3] - 2026-08-05
 
 - **Fix SPAWNED eterno após kill:** Die Mode A já não faz `return` silencioso

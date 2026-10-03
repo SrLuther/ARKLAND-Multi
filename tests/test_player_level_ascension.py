@@ -70,7 +70,8 @@ def test_engram_points_fixed_400():
     class _Srv:
         game_settings: _Gs = field(default_factory=_Gs)
         player_base_level: int = 120
+        player_level_progressions_enabled: bool = True
 
     lines = build_engram_points_ini_lines(_Srv())
-    assert len(lines) == total_ramp_slots(120)
+    assert len(lines) == total_ramp_slots(120) == 220
     assert all(ln == "OverridePlayerLevelEngramPoints=400" for ln in lines)

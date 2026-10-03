@@ -572,6 +572,12 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         w["_name_title_var"].set(srv.name)
 
     # Persiste
+    try:
+        from ..diagnostics.events import CAT_SAVE, diag_event
+        diag_event(CAT_SAVE, "Salvar perfil clássico", server=srv.name, server_id=srv.id,
+                   map=srv.map, install_dir=srv.install_dir, silent=silent, force=force)
+    except Exception:  # noqa: BLE001
+        pass
     app.config_manager.update_server(srv)
     app.server_manager.update_server_config(srv)
 
@@ -581,14 +587,22 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         _chg_logger = app._get_change_logger(server_id)
         diff_snapshots(_chg_logger, _snap_before, _snap_after)
     except Exception:
-        pass
+        import logging
+        logging.getLogger("arkland").warning("Histórico de alterações falhou para '%s'", srv.name, exc_info=True)
 
     # Escreve .ini se o diretório existir
     if srv.install_dir and os.path.isdir(srv.install_dir):
         try:
             ini_mgr = ArkIniManager(srv.install_dir)
             ini_mgr.save_all(srv)
+            try:
+                from ..diagnostics.events import CAT_INI, diag_event
+                diag_event(CAT_INI, "save_all (clássico) ok", server=srv.name, install_dir=srv.install_dir)
+            except Exception:  # noqa: BLE001
+                pass
         except Exception as exc:
+            import logging
+            logging.getLogger("arkland").exception("Erro ao salvar .ini para '%s'", srv.name)
             app._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
         # Grava AllowedCheaterSteamIDs.txt (ShooterGame/Saved/)

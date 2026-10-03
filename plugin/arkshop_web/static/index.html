@@ -2765,7 +2765,7 @@
       line-height: 1.4;
     }
 
-    #catalog-grid, #catalog-dinos-grid, #catalog-dinos200-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
+    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
@@ -3050,6 +3050,55 @@
       font-weight: 700;
       color: var(--amber);
       letter-spacing: .04em;
+    }
+    .item-card__badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 1px 0 2px;
+    }
+    .dino-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .dino-badge__icon { font-size: 12px; font-weight: 800; }
+    .dino-badge--level { color: #ffb35c; border-color: rgba(232,120,32,.5); background: rgba(232,120,32,.12); }
+    .dino-badge--male { color: #8ccbff; border-color: rgba(80,160,255,.5); background: rgba(80,160,255,.12); }
+    .dino-badge--female { color: #ffa6cf; border-color: rgba(255,120,180,.5); background: rgba(255,120,180,.12); }
+    .dino-badge--pair { color: #cdbdff; border-color: rgba(160,130,255,.5); background: rgba(160,130,255,.12); }
+    .dino-badge--random { color: var(--text2); }
+    .dino-badge--count { color: var(--text2); }
+    .dino-badge--inferred { border-style: dashed; }
+    .item-card__techid {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 9px;
+      color: var(--text2);
+      opacity: .65;
+      overflow-wrap: anywhere;
+      text-align: left;
+    }
+    .catalog-levels { align-items: center; margin-bottom: 14px; }
+    .catalog-levels__label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-right: 2px;
+    }
+    @media (max-width: 640px) {
+      .dino-badge { font-size: 12px; padding: 5px 9px; }
+      .catalog-levels { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
     }
     .item-card__kit-preview {
       font-size: 10px;
@@ -3459,7 +3508,7 @@
       margin-bottom: 20px;
     }
     #catalog-search, #catalog-cat,
-    #catalog-dinos-search, #catalog-dinos200-search, #catalog-kits-search, #catalog-licenses-search,
+    #catalog-dinos-search, #catalog-kits-search, #catalog-licenses-search,
     .catalog-search-wrap input {
       background: var(--surface2);
       border: 1px solid var(--border);
@@ -3474,8 +3523,14 @@
     }
     #catalog-search { flex: 1; min-width: 180px; max-width: none; }
     #catalog-search:focus, #catalog-cat:focus,
-    #catalog-dinos-search:focus, #catalog-dinos200-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus,
+    #catalog-dinos-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus,
     #shop-admin-search:focus { border-color: var(--tek); }
+    .shop-tab-count { font-weight: 600; opacity: .75; margin-left: 4px; }
+    .shop-bulk-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; padding: 10px 16px; }
+    .shop-bulk-bar .shop-bulk-count { font-size: 13px; color: var(--text2); }
+    .shop-bulk-bar .shop-bulk-count strong { color: var(--text); }
+    .shop-bulk-bar .shop-bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+    .tbl .shop-bulk-check { width: 34px; text-align: center; }
     #catalog-cat option { background: var(--surface); }
 
     /* ── Modal ────────────────────────────────────────────────────────────── */
@@ -4157,7 +4212,7 @@
         width: 100%;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-dinos200-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
       .recharge-grid {
         grid-template-columns: 1fr;
         gap: 12px;
@@ -4301,7 +4356,7 @@
         text-align: center;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-dinos200-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-recharge-grid {
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-recharge-grid {
         grid-template-columns: 1fr;
       }
 
@@ -4636,6 +4691,26 @@
     .home-step__text { font-size: 12px; color: var(--text2); line-height: 1.55; }
 
     /* ── Tutoriais ─────────────────────────────────────────────────────────── */
+    .tutorial-videos { margin-bottom: 28px; }
+    .tutorial-videos__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .tutorial-videos__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .tutorial-videos__sub {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.55;
+    }
     .tutorial-hero {
       margin-bottom: 20px;
       padding: 24px;
@@ -6549,6 +6624,7 @@
       background: var(--amber);
     }
   </style>
+  <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
 </head>
 <body>
 <script>
@@ -6783,8 +6859,8 @@
     <div class="nav-item admin-only" data-page="market-economy-admin" onclick="nav(this)">
       <span class="nav-icon">🧮</span> Economia (tabela)
     </div>
-    <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com Âmbar no catálogo">
-      <span class="nav-icon">💰</span> Venda in-game (legado)
+    <div class="nav-item admin-only" data-page="market-resources-admin" onclick="nav(this)">
+      <span class="nav-icon">💎</span> Recursos (vitrine)
     </div>
 
     <!-- Nav: Sistema (admin) -->
@@ -6821,7 +6897,7 @@
       <span class="nav-icon">💡</span> Sugestões
     </div>
     <div class="nav-item admin-only" data-page="midias-admin" onclick="nav(this)">
-      <span class="nav-icon">🎬</span> Mídias
+      <span class="nav-icon">🎬</span> Vídeos (Tutoriais)
     </div>
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
@@ -6873,9 +6949,6 @@
     </div>
     <div class="nav-item" data-page="tutoriais" onclick="nav(this)">
       <span class="nav-icon">📖</span> Tutoriais
-    </div>
-    <div class="nav-item" data-page="midias" onclick="nav(this)">
-      <span class="nav-icon">🎬</span> Mídias
     </div>
     <div class="nav-item" data-page="polls" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
@@ -6991,7 +7064,6 @@
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
           <button type="button" class="catalog-tab" data-catalog-tab="dinos" onclick="setCatalogTab('dinos')">🦕 Dinos</button>
-          <button type="button" class="catalog-tab" data-catalog-tab="dinos200" onclick="setCatalogTab('dinos200')">🦖 Dinos 200</button>
           <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
           <button type="button" class="catalog-tab" data-catalog-tab="licenses" onclick="setCatalogTab('licenses')">📜 Licenças</button>
           <button type="button" class="catalog-tab" data-catalog-tab="audit-dinos" onclick="setCatalogTab('audit-dinos')">🔎 Auditoria Dinos</button>
@@ -7021,32 +7093,20 @@
         <div id="catalog-panel-dinos" class="catalog-panel">
           <div class="catalog-toolbar catalog-toolbar--sticky">
             <div class="catalog-search-wrap">
-              <input id="catalog-dinos-search" type="search" placeholder="Buscar dino, espécie ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos')" />
+              <input id="catalog-dinos-search" type="search" placeholder="Buscar dino, espécie, nível ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos')" />
             </div>
             <select id="catalog-dinos-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('dinos');renderCatalogDinos()" aria-label="Ordenar dinos">
               <option value="name">Nome A–Z</option>
               <option value="price-asc">Preço ↑</option>
               <option value="price-desc">Preço ↓</option>
+              <option value="level-asc">Nível ↑</option>
+              <option value="level-desc">Nível ↓</option>
             </select>
           </div>
+          <div id="catalog-dinos-levels" class="catalog-cats catalog-levels" role="group" aria-label="Filtrar por nível"></div>
           <p id="catalog-dinos-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-dinos-grid"></div>
           <div id="catalog-dinos-empty" class="catalog-empty-state" style="display:none;"></div>
-        </div>
-        <div id="catalog-panel-dinos200" class="catalog-panel">
-          <div class="catalog-toolbar catalog-toolbar--sticky">
-            <div class="catalog-search-wrap">
-              <input id="catalog-dinos200-search" type="search" placeholder="Buscar dino nível 200, espécie ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos200')" />
-            </div>
-            <select id="catalog-dinos200-sort" class="catalog-sort-select" onchange="_catalogResetDomPage('dinos200');renderCatalogDinos200()" aria-label="Ordenar dinos 200">
-              <option value="name">Nome A–Z</option>
-              <option value="price-asc">Preço ↑</option>
-              <option value="price-desc">Preço ↓</option>
-            </select>
-          </div>
-          <p id="catalog-dinos200-result-count" class="catalog-result-count" style="display:none;"></p>
-          <div id="catalog-dinos200-grid"></div>
-          <div id="catalog-dinos200-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-kits" class="catalog-panel">
           <div class="catalog-toolbar catalog-toolbar--sticky">
@@ -7091,9 +7151,7 @@
               <input id="catalog-audit-species" type="search" placeholder="Buscar código de rastreio ou espécie…" autocomplete="off" aria-label="Buscar código de rastreio" onkeydown="if(event.key==='Enter'){_catalogAuditPage=1;loadCatalogDinoAudit();}" />
             </div>
             <select id="catalog-audit-level" class="catalog-sort-select" aria-label="Filtrar nível">
-              <option value="">Nível: 1 e 200</option>
-              <option value="1">Só nível 1</option>
-              <option value="200">Só nível 200</option>
+              <option value="">Todos os níveis</option>
             </select>
             <button type="button" class="btn btn-ghost btn-sm" onclick="_catalogAuditPage=1;loadCatalogDinoAudit()">Buscar</button>
           </div>
@@ -7223,6 +7281,7 @@
           <button type="button" class="catalog-tab" data-market-tab="browse" onclick="setMarketTab('browse')">🛒 Mercado</button>
           <button type="button" class="catalog-tab" data-market-tab="encomenda" onclick="setMarketTab('encomenda')">📦 Encomenda</button>
           <button type="button" class="catalog-tab" data-market-tab="myshop" onclick="setMarketTab('myshop')">🏪 Minha Loja</button>
+          <button type="button" class="catalog-tab" data-market-tab="resources" onclick="setMarketTab('resources')">💎 Vitrine de Recursos</button>
         </div>
         <div id="market-panel-table" class="catalog-panel active">
           <div class="card" style="margin-bottom:16px;">
@@ -7364,6 +7423,63 @@
             <div id="market-myshop-history" style="margin-top:20px;display:none;"></div>
           </div>
         </div>
+        <!-- Vitrine de Recursos (P2P, só Âmbar) — separada da vitrine de dinos. Lógica: resource_vitrine.js · estilos: resource_vitrine.css (prefixo rv-) -->
+        <div id="market-panel-resources" class="catalog-panel rv-panel">
+          <div class="card rv-intro">
+            <p>
+              <strong>Mercado P2P de recursos — somente Âmbares.</strong> Jogadores vendem recursos em <strong>lotes</strong>
+              (você define o tamanho do lote e o preço do lote) e compram lotes inteiros de outros jogadores.
+              O resgate é <strong>no jogo</strong> com <strong>/mercado</strong>, em até <strong>24 horas</strong> — se expirar, o pagamento é reembolsado automaticamente.
+            </p>
+            <div class="rv-chips" aria-label="Comandos in-game da Vitrine de Recursos">
+              <span class="rv-hint">Colocar à venda:</span>
+              <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/vitrine', this)" title="Copiar /vitrine">/vitrine</button>
+              <span class="rv-arrow">→</span>
+              <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/confirmar', this)" title="Copiar /confirmar">/confirmar</button>
+              <span class="rv-hint" style="margin-left:8px;">Receber o que comprou:</span>
+              <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/mercado', this)" title="Copiar /mercado">/mercado</button>
+            </div>
+          </div>
+          <div class="rv-subtabs" role="tablist" aria-label="Vitrine de Recursos" onkeydown="rvTabKey(event)">
+            <button type="button" role="tab" class="rv-subtab active" data-rv-tab="explore" id="rv-tab-explore" aria-selected="true" aria-controls="rv-sub-explore" onclick="rvSetTab('explore')">🔎 Explorar</button>
+            <button type="button" role="tab" class="rv-subtab" data-rv-tab="mine" id="rv-tab-mine" aria-selected="false" tabindex="-1" aria-controls="rv-sub-mine" onclick="rvSetTab('mine')">🏪 Minha vitrine</button>
+          </div>
+          <div id="rv-live" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);" aria-live="polite"></div>
+          <div id="rv-sub-explore" class="rv-subpanel active" role="tabpanel" aria-labelledby="rv-tab-explore">
+            <div class="rv-toolbar">
+              <div class="rv-field">
+                <label for="rv-filter-resource">Recurso</label>
+                <select id="rv-filter-resource" onchange="rvFilterChanged()"><option value="">Todos os recursos</option></select>
+              </div>
+              <div class="rv-field">
+                <label for="rv-filter-seller">Vendedor (nome ou SteamID)</label>
+                <input id="rv-filter-seller" type="search" placeholder="Nome do vendedor ou SteamID64…" autocomplete="off" oninput="rvSellerInput()" />
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="rvReload()">↺ Atualizar</button>
+              <span id="rv-page-info" class="rv-page-info"></span>
+              <button type="button" id="rv-prev" class="btn btn-ghost btn-sm" onclick="rvPrevPage()" aria-label="Página anterior" disabled>◀</button>
+              <button type="button" id="rv-next" class="btn btn-ghost btn-sm" onclick="rvNextPage()" aria-label="Próxima página" disabled>▶</button>
+            </div>
+            <div id="rv-grid" class="rv-grid"></div>
+            <p id="rv-empty" class="rv-empty" style="display:none;">Nenhum recurso à venda no momento.</p>
+          </div>
+          <div id="rv-sub-mine" class="rv-subpanel" role="tabpanel" aria-labelledby="rv-tab-mine">
+            <div id="rv-mine-gate" style="display:none;padding:24px;text-align:center;color:var(--text2);">
+              <p>Faça login com Steam para gerenciar sua vitrine de recursos.</p>
+              <button type="button" class="btn btn-primary" onclick="loginWithSteam()">Entrar com Steam</button>
+            </div>
+            <div id="rv-mine-content" style="display:none;">
+              <div class="card rv-intro">
+                <p>
+                  <strong>Como colocar itens:</strong> no jogo, digite <strong>/vitrine</strong> para ver o que do seu inventário pessoal pode ir para a vitrine
+                  e <strong>/confirmar</strong> para enviar. Depois, aqui, defina o <strong>tamanho do lote</strong> e o <strong>preço do lote</strong> de cada recurso e ative o anúncio.
+                  Para tirar itens, use <strong>Retirar</strong> e resgate no jogo com <strong>/mercado</strong>.
+                </p>
+              </div>
+              <div id="rv-mine-root"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- PAGE: Itens da Loja (admin) -->
@@ -7385,11 +7501,16 @@
             <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage('market-economy-admin')">🧮 Economia</button>.
           </p>
         </div>
+        <div class="catalog-tabs" id="shop-admin-tabs">
+          <button type="button" class="catalog-tab active" data-shop-admin-tab="dino" onclick="setShopAdminTab('dino')">🦖 Dinossauros <span id="shop-admin-tab-count-dino" class="shop-tab-count"></span></button>
+          <button type="button" class="catalog-tab" data-shop-admin-tab="item" onclick="setShopAdminTab('item')">📦 Itens <span id="shop-admin-tab-count-item" class="shop-tab-count"></span></button>
+        </div>
         <div class="catalog-toolbar" style="margin-bottom:12px;">
           <div class="catalog-search-wrap">
             <input id="shop-admin-search" type="search" placeholder="Buscar nome, ID, categoria, tipo, preço ou permissões…" autocomplete="off" oninput="renderShop()" />
           </div>
         </div>
+        <div id="shop-bulk-bar" class="card shop-bulk-bar" style="display:none;"></div>
         <div id="shop-list"></div>
       </div>
 
@@ -7630,19 +7751,15 @@
         </div>
       </div>
 
-      <!-- PAGE: Venda in-game legado (admin, oculto) -->
-      <div id="page-sell" class="page">
+      <!-- PAGE: Recursos autorizados da Vitrine de Recursos (admin) — lógica em resource_vitrine.js -->
+      <div id="page-market-resources-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Venda in-game (legado)</div>
-          <p style="font-size:12px;color:var(--amber);margin-top:6px;max-width:720px;">
-            Desativado pela política ARKLAND Donations. Jogadores obtêm itens apenas por resgate com Âmbar no catálogo.
-          </p>
+          <div class="page-title">Mercado — Recursos (vitrine)</div>
           <div class="topbar-actions">
-            <button class="btn btn-primary" onclick="openSellModal()">+ Novo Item</button>
-            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload Plugin</button>
+            <button class="btn btn-ghost" onclick="rvAdminLoad()">↺ Recarregar</button>
           </div>
         </div>
-        <div id="sell-list"></div>
+        <div id="rv-admin-root"></div>
       </div>
 
       <!-- PAGE: Configurações Gerais (admin) -->
@@ -8209,6 +8326,24 @@
 
       <!-- PAGE: Tutoriais (público) -->
       <div id="page-tutoriais" class="page">
+        <!-- Vídeos (antiga aba «Mídias») — topo da página; guias escritos abaixo. Um único scroll (#main). -->
+        <section id="tutoriais-videos" class="tutorial-videos" aria-label="Vídeos tutoriais">
+          <div class="tutorial-videos__head">
+            <div class="tutorial-videos__title">🎬 Vídeos</div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="loadMidias({ force: true })">↺ Atualizar</button>
+          </div>
+          <p class="tutorial-videos__sub">
+            Tutoriais em vídeo, informativos e conteúdo útil sobre o cluster ARKLAND.
+            Assista aqui ou abra no YouTube pelo player.
+          </p>
+          <div class="catalog-tabs" id="midias-filter-tabs">
+            <button type="button" class="catalog-tab active" data-midias-cat="" onclick="setMidiasFilter(this, '')">Todos</button>
+            <button type="button" class="catalog-tab" data-midias-cat="tutorial" onclick="setMidiasFilter(this, 'tutorial')">Tutorial</button>
+            <button type="button" class="catalog-tab" data-midias-cat="informativo" onclick="setMidiasFilter(this, 'informativo')">Informativo</button>
+            <button type="button" class="catalog-tab" data-midias-cat="geral" onclick="setMidiasFilter(this, 'geral')">Geral</button>
+          </div>
+          <div id="midias-grid" class="media-grid" style="color:var(--text2);">Carregando…</div>
+        </section>
         <div class="tutorial-hero">
           <div class="tutorial-hero__title">📖 Tutoriais ARKLAND</div>
           <p class="tutorial-hero__sub">
@@ -8300,9 +8435,8 @@
               <h4>Abas do Catálogo</h4>
               <ul>
                 <li><strong>📦 Itens</strong> — recursos, ferramentas, armas e materiais.</li>
-                <li><strong>🦕 Dinos</strong> — criaturas nível 1 configuradas pela equipe.</li>
-                <li><strong>🦖 Dinos 200</strong> — mesmo blueprint no nível 200 (quando o teto de mercado permite).</li>
-                <li><strong>🎁 Kits</strong> — pacotes com vários itens de uma vez.</li>
+                <li><strong>🦕 Dinos</strong> — criaturas de todos os níveis configurados pela equipe; use os chips de <em>Nível</em> para filtrar.</li>
+                                <li><strong>🎁 Kits</strong> — pacotes com vários itens de uma vez.</li>
                 <li><strong>📜 Licenças</strong> — Gamma, Beta, Alfa (bônus de Âmbar) e <strong>Nuvem</strong> (cofre de inventário).</li>
                 <li><strong>💚 Doação</strong> — doação voluntária via PIX ou cartão (Mercado Pago).</li>
                 <li><strong>✅ Disponível</strong> — resgates pendentes, gratuitos e fila de entrega.</li>
@@ -8428,6 +8562,9 @@
                 <strong>💡 Timer da cryopod</strong>
                 Cryopods com timer de decay são aceitas no envio, mas o timer é <strong>removido permanentemente</strong> na confirmação. Cryopods permanentes também são aceitas.
               </div>
+
+              <h4>Vitrine de Recursos (recursos em lotes, só Âmbar)</h4>
+              <p>Na aba <strong>Comércio → 💎 Vitrine de Recursos</strong> você vende e compra recursos (metal, pedra etc.) em <strong>lotes</strong>. No jogo, digite <code>/vitrine</code> para ver os recursos do inventário pessoal que podem ser enviados e <code>/confirmar</code> para colocá-los na sua vitrine. Na web, em <strong>Minha vitrine</strong>, defina o <strong>tamanho do lote</strong> e o <strong>preço do lote</strong> (em Âmbares) de cada recurso e ative o anúncio. Para comprar, abra <strong>Explorar</strong>, escolha quantos lotes inteiros quer e confirme; depois resgate no jogo com <code>/mercado</code> em até <strong>24 horas</strong> (se expirar, você é reembolsado automaticamente). Quem quiser tirar recursos da vitrine usa <strong>Retirar</strong> e também resgata com <code>/mercado</code>.</p>
             </div>
           </div>
 
@@ -8977,29 +9114,6 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- PAGE: Mídias (vídeos YouTube — público) -->
-      <div id="page-midias" class="page">
-        <div id="topbar">
-          <div class="page-title">Mídias</div>
-          <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadMidias({ force: true })">↺ Atualizar</button>
-          </div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <p style="margin:0;font-size:13px;color:var(--text2);line-height:1.55;">
-            Tutoriais, vídeos informativos e conteúdo útil sobre o cluster ARKLAND.
-            Assista aqui ou abra no YouTube pelo player.
-          </p>
-        </div>
-        <div class="catalog-tabs" id="midias-filter-tabs">
-          <button type="button" class="catalog-tab active" data-midias-cat="" onclick="setMidiasFilter(this, '')">Todos</button>
-          <button type="button" class="catalog-tab" data-midias-cat="tutorial" onclick="setMidiasFilter(this, 'tutorial')">Tutorial</button>
-          <button type="button" class="catalog-tab" data-midias-cat="informativo" onclick="setMidiasFilter(this, 'informativo')">Informativo</button>
-          <button type="button" class="catalog-tab" data-midias-cat="geral" onclick="setMidiasFilter(this, 'geral')">Geral</button>
-        </div>
-        <div id="midias-grid" class="media-grid" style="color:var(--text2);">Carregando…</div>
       </div>
 
       <!-- PAGE: Votações (comunidade) -->
@@ -9946,6 +10060,7 @@
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">💚 Doações — log de suporte (PIX / cartão)</div>
+          <div id="pix-webhook-diag" style="font-size:11px;color:var(--text2);margin-bottom:10px;"></div>
           <div id="pix-audit-stats" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;font-size:12px;"></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
             <div class="form-group" style="margin:0;min-width:140px;">
@@ -10934,21 +11049,6 @@
   </div>
 </div>
 
-<!-- ── Modal: Sell ───────────────────────────────────────────────────────────── -->
-<div id="modal-sell" class="modal-backdrop hidden">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-sell-title">Novo Item para Venda</div>
-      <button class="modal-close" onclick="closeModal('modal-sell')">✕</button>
-    </div>
-    <div id="modal-sell-body"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-sell')">Cancelar</button>
-      <button class="btn btn-success" onclick="confirmSell()">✔ Salvar</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── Modal: Order Detail ───────────────────────────────────────────────────── -->
 <div id="modal-order-detail" class="modal-backdrop hidden">
   <div class="modal" style="max-width:720px;">
@@ -10995,6 +11095,11 @@
       <div class="form-group">
         <label>Porta do jogo</label>
         <input id="srv-game-port" type="number" placeholder="7777" />
+      </div>
+      <div class="form-group">
+        <label>Porta de consulta (query)</label>
+        <input id="srv-query-port" type="number" placeholder="27015" />
+        <div class="kit-json-hint">Porta exibida/copiada na home como IP:porta (a que os jogadores usam nos favoritos). Sem ela, a home mostra a porta do jogo.</div>
       </div>
       <div class="form-group">
         <label>Senha RCON</label>
@@ -11110,6 +11215,7 @@
 
 <script src="ark_color_ids.js?v=__WEB_BUILD__" defer></script>
 <script src="redeem_docs.js?v=__WEB_BUILD__" defer></script>
+<script src="resource_vitrine.js?v=__WEB_BUILD__" defer></script>
 <script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
@@ -11138,7 +11244,7 @@ function _clearBootWatchdog() {
 let _config = null;
 let _players = [];
 let _editingKey = null;   // key sendo editada
-let _editingSection = null; // 'shop'|'kit'|'sell'
+let _editingSection = null; // 'shop'|'kit'
 let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, steam_persona: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
 let _staffMode = false;
 let _staffModeLoadedForSid = null;
@@ -11565,7 +11671,15 @@ function hideDisplayNameGate() {}
 function guardDisplayName() { return true; }
 async function saveDisplayNameFromGate() {}
 
+// Páginas removidas da sidebar → destino atual (ex.: «Mídias» foi unificada em «Tutoriais»).
+// A tela legada de venda in-game foi removida: 'sell' leva ao Comércio (que tem a Vitrine de Recursos).
+const LEGACY_PAGE_ALIASES = { midias: "tutoriais", sell: "market" };
+function resolveLegacyPage(page) {
+  return Object.prototype.hasOwnProperty.call(LEGACY_PAGE_ALIASES, page) ? LEGACY_PAGE_ALIASES[page] : page;
+}
+
 function goToPage(page) {
+  page = resolveLegacyPage(page);
   const el = document.querySelector(`.nav-item[data-page="${page}"]`);
   if (el) nav(el);
 }
@@ -11696,7 +11810,12 @@ function _syncStoreWarmupReady() {
 // Troca de aba: remove .active de todos os .page e aplica só no alvo (uma página visível por vez).
 function nav(el) {
   if (!_syncStoreWarmupReady()) return;
-  const page = el.dataset.page;
+  let page = resolveLegacyPage(el.dataset.page);
+  if (page !== el.dataset.page) {
+    const target = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (!target) return;
+    el = target;
+  }
   if (page === "myarea" && !_auth.authenticated) {
     promptLogin("Minha Área");
     return;
@@ -11709,7 +11828,7 @@ function nav(el) {
     promptLogin("Sugestões");
     return;
   }
-  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "midias" && page !== "sorteio" && page !== "sorteio-regulamento" && page !== "season-pass" && playerNeedsRegulamentoAccept()) {
+  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "sorteio" && page !== "sorteio-regulamento" && page !== "season-pass" && playerNeedsRegulamentoAccept()) {
     showRegulamentoGate();
     return;
   }
@@ -11732,7 +11851,6 @@ function nav(el) {
   if (page === "sorteio") loadSorteio();
   if (page === "season-pass") loadSeasonPass();
   if (page === "sorteio-regulamento") loadLotteryRegulamentoPage();
-  if (page === "midias") loadMidias();
   if (page === "sugestoes" && _auth.authenticated) loadSugestoes();
   if (page === "catalog") loadCatalog();
   if (page === "shop") {
@@ -11753,8 +11871,12 @@ function nav(el) {
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
   if (page === "market-economy-admin") loadMarketEconomyAdmin();
+  if (page === "market-resources-admin" && typeof rvAdminLoad === "function") rvAdminLoad();
   if (page === "downloads") loadDownloads();
-  if (page === "tutoriais") initTutoriaisPage();
+  if (page === "tutoriais") {
+    loadMidias(); // vídeos no topo da página (TTL/cache em _navShouldFetch)
+    initTutoriaisPage();
+  }
   if (page === "regulamento") loadRegulamentoPage();
   if (page === "settings" && _auth.is_admin) loadSettings();
   if (page === "servers" && _auth.is_admin) loadServers();
@@ -11799,8 +11921,6 @@ function nav(el) {
     try { history.replaceState({}, "", window.location.pathname + "#/sugestoes"); } catch (_) {}
   } else if (page === "sorteio") {
     try { history.replaceState({}, "", window.location.pathname + "#/sorteio"); } catch (_) {}
-  } else if (page === "midias") {
-    try { history.replaceState({}, "", window.location.pathname + "#/midias"); } catch (_) {}
   } else if (window.location.hash && window.location.hash.match(/^#\/?sugestoes/)) {
     try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
   } else if (window.location.hash && window.location.hash.match(/^#\/?sorteio/)) {
@@ -12556,7 +12676,110 @@ function acceptDonationPolicy() {
   }
 }
 
+// Aba única «Dinos» + filtro de nível dinâmico (antes: «Dinos» = L1 e «Dinos 200» = L200).
+let _catalogDinoLevelFilter = null; // null = Todos os níveis
+let _dinoLevelMax = 500; // teto de cadastro (catalog_meta.dino_level_max; env ARKSHOP_DINO_LEVEL_MAX)
+
+/** Nível para salvar: inválido (0, negativo, texto, fração, > teto) lança erro (bloqueia o salvar). */
+function _dinoLevelForSave(raw) {
+  const lvl = _parseDinoLevelInput(raw);
+  if (lvl == null) {
+    throw new Error(`Nível inválido «${raw}»: use um inteiro entre 1 e ${_dinoLevelMax}.`);
+  }
+  return lvl;
+}
+
+/** Datalist global de sugestões de nível (níveis do catálogo + marcos comuns); sem trava 1/200. */
+function _ensureDinoLevelDatalist() {
+  let dl = document.getElementById("dino-level-suggestions");
+  if (!dl) {
+    dl = document.createElement("datalist");
+    dl.id = "dino-level-suggestions";
+    document.body.appendChild(dl);
+  }
+  const set = new Set([1, 50, 100, 150, 200, 225]);
+  (_catalogItems || []).forEach((i) => { if (_isDinoType(i.type)) set.add(_catalogDinoLevel(i)); });
+  dl.innerHTML = [...set].filter((n) => n <= _dinoLevelMax).sort((a, b) => a - b)
+    .map((n) => `<option value="${n}"></option>`).join("");
+}
+
+/** Lê nível do editor: inteiro 1..teto; inválido (0, negativo, texto) → null (bloqueia salvar). */
+function _parseDinoLevelInput(raw) {
+  const s = String(raw ?? "").trim();
+  if (!/^\d{1,5}$/.test(s)) return null;
+  const n = parseInt(s, 10);
+  return n >= 1 && n <= _dinoLevelMax ? n : null;
+}
+const _CATALOG_LEGACY_TABS = {
+  dinos200: 200, dinos_200: 200, "dinos-200": 200, "dinos 200": 200,
+  dino200: 200, dino_200: 200, "dino-200": 200,
+};
+
+/** Mapeia abas/URLs antigas → { tab, level }. Devolve null se não for legado. */
+function _catalogLegacyTab(tab) {
+  const key = String(tab || "").trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(_CATALOG_LEGACY_TABS, key)) {
+    return { tab: "dinos", level: _CATALOG_LEGACY_TABS[key] };
+  }
+  return null;
+}
+
+function _catalogParseLevelParam(raw) {
+  const s = String(raw ?? "").trim();
+  if (!/^\d{1,4}$/.test(s)) return null;
+  const n = parseInt(s, 10);
+  return n >= 1 ? n : null;
+}
+
+/**
+ * Deep links: ?tab=dinos200 | ?tab=dinos&nivel=200 | #/dinos200 | #/dinos?nivel=150 | #/catalogo/dinos/200.
+ * Retorna true se aplicou algo.
+ */
+function _applyCatalogDeepLink() {
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    let tab = (qs.get("tab") || "").trim().toLowerCase();
+    let level = _catalogParseLevelParam(qs.get("nivel") ?? qs.get("level") ?? qs.get("lvl"));
+    const rawHash = (window.location.hash || "").replace(/^#\/?/, "");
+    if (!tab && rawHash) {
+      const [pathPart, queryPart] = rawHash.split("?");
+      const segs = pathPart.split("/").filter(Boolean).map((x) => x.toLowerCase());
+      const idx = segs.findIndex((x) => x === "dinos" || x === "dino" || Object.prototype.hasOwnProperty.call(_CATALOG_LEGACY_TABS, x));
+      if (idx >= 0) {
+        tab = segs[idx];
+        if (level == null && segs[idx + 1]) level = _catalogParseLevelParam(segs[idx + 1]);
+        if (level == null && queryPart) {
+          const hq = new URLSearchParams(queryPart);
+          level = _catalogParseLevelParam(hq.get("nivel") ?? hq.get("level") ?? hq.get("lvl"));
+        }
+      }
+    }
+    if (!tab) return false;
+    const legacy = _catalogLegacyTab(tab);
+    if (legacy) { tab = legacy.tab; if (level == null) level = legacy.level; }
+    if (tab !== "dinos") return false;
+    _catalogDinoLevelFilter = level;
+    const catalogNav = document.querySelector('.nav-item[data-page="catalog"]');
+    if (catalogNav && !document.getElementById("page-catalog")?.classList.contains("active")) nav(catalogNav);
+    setCatalogTab("dinos");
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function setCatalogDinoLevel(level) {
+  _catalogDinoLevelFilter = (level === "" || level == null) ? null : _catalogParseLevelParam(level);
+  _catalogResetDomPage("dinos");
+  renderCatalogDinos();
+}
+
 function setCatalogTab(tab) {
+  const _legacyTab = _catalogLegacyTab(tab);
+  if (_legacyTab) {
+    tab = _legacyTab.tab;
+    _catalogDinoLevelFilter = _legacyTab.level;
+  }
   if ((tab === "available" || tab === "recharge") && !_auth.authenticated) {
     promptLogin(tab === "recharge" ? "Doação" : "Disponível");
     return;
@@ -12572,7 +12795,6 @@ function setCatalogTab(tab) {
   if (panel) panel.classList.add("active");
   if (tab === "items") renderCatalogItems();
   if (tab === "dinos") renderCatalogDinos();
-  if (tab === "dinos200") renderCatalogDinos200();
   if (tab === "kits") renderCatalogKits();
   if (tab === "licenses") renderCatalogLicenses();
   if (tab === "audit-dinos") loadCatalogDinoAudit();
@@ -12584,7 +12806,21 @@ function setCatalogTab(tab) {
 let _catalogAuditPage = 1;
 let _catalogAuditPages = 1;
 
+/** Opções de nível da auditoria vêm do catálogo (dinâmico); mantém a seleção atual. */
+function _populateAuditLevelSelect() {
+  const sel = document.getElementById("catalog-audit-level");
+  if (!sel) return;
+  const prev = sel.value;
+  const levels = _catalogDinoLevelOptions("").map((o) => o.level);
+  if (prev && !levels.includes(Number(prev))) levels.push(Number(prev));
+  levels.sort((a, b) => a - b);
+  sel.innerHTML = `<option value="">Todos os níveis</option>` +
+    levels.map((n) => `<option value="${n}">Só nível ${n}</option>`).join("");
+  if (prev) sel.value = prev;
+}
+
 async function loadCatalogDinoAudit() {
+  _populateAuditLevelSelect();
   const list = document.getElementById("catalog-audit-dinos-list");
   const empty = document.getElementById("catalog-audit-dinos-empty");
   const countEl = document.getElementById("catalog-audit-result-count");
@@ -12621,7 +12857,7 @@ async function loadCatalogDinoAudit() {
     list.innerHTML = `
       <table class="pkg-admin-table" style="width:100%;">
         <thead><tr>
-          <th>Código de rastreio</th><th>Espécie</th><th>Nível</th><th>Gerado por</th><th>Data/hora</th><th>ID ARK</th>
+          <th>Código de rastreio</th><th>Espécie</th><th>Nível</th><th>Sexo</th><th>Gerado por</th><th>Data/hora</th><th>ID ARK</th>
         </tr></thead>
         <tbody>
           ${items.map(r => `
@@ -12632,6 +12868,7 @@ async function loadCatalogDinoAudit() {
               </td>
               <td style="font-size:12px;">${escHtml(r.species_key || r.item_id || "")}</td>
               <td><span class="badge">${escHtml(String(r.level || ""))}</span></td>
+              <td style="font-size:12px;">${({1: "♂ Macho", 2: "♀ Fêmea"})[Number(r.gender_digit)] || "Aleatório"}</td>
               <td style="font-size:12px;">${escHtml(r.display_name || "Jogador")}</td>
               <td style="font-size:11px;white-space:nowrap;">${escHtml(r.delivered_at || "")}</td>
               <td style="font-family:monospace;font-size:10px;color:var(--text2);">${escHtml(r.canonical_id || "")}</td>
@@ -12851,7 +13088,6 @@ function debounceCatalogSearch(tab) {
     _catalogResetDomPage(tab);
     if (tab === "items") renderCatalogItems();
     else if (tab === "dinos") renderCatalogDinos();
-    else if (tab === "dinos200") renderCatalogDinos200();
     else if (tab === "kits") renderCatalogKits();
     else if (tab === "licenses") renderCatalogLicenses();
   }, 280);
@@ -12876,6 +13112,10 @@ function _catalogSortItems(list, sortKey) {
   sorted.sort((a, b) => {
     if (key === "price-asc") return (a.price || 0) - (b.price || 0);
     if (key === "price-desc") return (b.price || 0) - (a.price || 0);
+    if (key === "level-asc" || key === "level-desc") {
+      const d = _catalogDinoLevel(a) - _catalogDinoLevel(b);
+      if (d !== 0) return key === "level-asc" ? d : -d;
+    }
     return String(a.name || "").localeCompare(String(b.name || ""), "pt", { sensitivity: "base" });
   });
   return sorted;
@@ -12891,8 +13131,7 @@ function _catalogEmptyStateHtml(tab, search, cat) {
   if (search) suggestions.push({ label: "Limpar busca", action: "clear-search" });
   if (cat) suggestions.push({ label: "Todas as categorias", action: "clear-cat" });
   if (tab === "dinos") suggestions.push({ label: "Ver aba Itens", action: "tab-items" });
-  if (tab === "dinos") suggestions.push({ label: "Ver Dinos 200", action: "tab-dinos200" });
-  if (tab === "dinos200") suggestions.push({ label: "Ver Dinos L1", action: "tab-dinos" });
+  if (tab === "dinos" && _catalogDinoLevelFilter != null) suggestions.push({ label: "Todos os níveis", action: "clear-dino-level" });
   if (tab === "items") suggestions.push({ label: "Ver Dinos", action: "tab-dinos" });
   if (tab === "kits") suggestions.push({ label: "Ver Licenças", action: "tab-licenses" });
   const sugHtml = suggestions.map(s =>
@@ -12927,7 +13166,6 @@ function _renderActiveCatalogTab() {
   if (!document.getElementById("page-catalog")?.classList.contains("active")) return;
   if (_catalogActiveTab === "items") renderCatalogItems();
   else if (_catalogActiveTab === "dinos") renderCatalogDinos();
-  else if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
   else if (_catalogActiveTab === "kits") renderCatalogKits();
   else if (_catalogActiveTab === "licenses") renderCatalogLicenses();
 }
@@ -12946,7 +13184,7 @@ function _updateCatalogStatusBar() {
 
 function _handleCatalogEmptyAction(action) {
   if (action === "clear-search") {
-    ["catalog-search", "catalog-dinos-search", "catalog-dinos200-search", "catalog-kits-search", "catalog-licenses-search"].forEach(id => {
+    ["catalog-search", "catalog-dinos-search", "catalog-kits-search", "catalog-licenses-search"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
@@ -12955,11 +13193,10 @@ function _handleCatalogEmptyAction(action) {
   if (action === "clear-cat") setCatalogCategory("");
   if (action === "tab-items") setCatalogTab("items");
   if (action === "tab-dinos") setCatalogTab("dinos");
-  if (action === "tab-dinos200") setCatalogTab("dinos200");
+  if (action === "clear-dino-level") _catalogDinoLevelFilter = null;
   if (action === "tab-licenses") setCatalogTab("licenses");
   if (_catalogActiveTab === "items") renderCatalogItems();
   else if (_catalogActiveTab === "dinos") renderCatalogDinos();
-  else if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
   else if (_catalogActiveTab === "kits") renderCatalogKits();
   else if (_catalogActiveTab === "licenses") renderCatalogLicenses();
 }
@@ -13122,6 +13359,115 @@ function _attachRedeemDoc(item) {
   return item;
 }
 
+/** Normaliza campo Gender explícito do catálogo → male|female|pair|random|null. */
+function _dinoGenderNorm(raw) {
+  const s = String(raw ?? "").trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  if (["female", "femea", "fem", "f", "2", "♀"].includes(s)) return "female";
+  if (["male", "macho", "masc", "m", "1", "♂"].includes(s)) return "male";
+  if (["pair", "casal", "couple"].includes(s)) return "pair";
+  if (["", "random", "aleatorio", "any", "none", "3"].includes(s)) return "random";
+  return null;
+}
+
+/** Inferência de gênero por texto (nome/id): FEMEA, FEM, MACHO, MALE… */
+function _dinoGenderFromText(...parts) {
+  const s = parts.filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  const f = /(?:^|[^a-z0-9])(femeas?|females?|fem)(?![a-z0-9])|♀/.test(s);
+  const m = /(?:^|[^a-z0-9])(machos?|males?|masc)(?![a-z0-9])|♂/.test(s);
+  if (f && m) return "pair";
+  if (f) return "female";
+  if (m) return "male";
+  if (/(?:^|[^a-z0-9])(casal|couple|pair)(?![a-z0-9])/.test(s)) return "pair";
+  return null;
+}
+
+const _DINO_GENDER_LABELS = { male: "Macho", female: "Fêmea", pair: "Casal", random: "Aleatório" };
+
+/**
+ * Campos de nível/gênero para o card. Usa os campos do servidor (dino_gender, dino_level…)
+ * e cai para inferência local quando o payload vem de cache antigo (SW / IndexedDB).
+ */
+function _catalogDinoMeta(v, key) {
+  const dinos = Array.isArray(v.Dinos) ? v.Dinos.filter((d) => d && typeof d === "object") : [];
+  const hasDinos = dinos.length > 0 || v.dino_level != null;
+  if (!hasDinos) return { hasDinos: false };
+  let gender = v.dino_gender;
+  let source = v.dino_gender_source || "";
+  if (!gender) {
+    const explicit = new Set(dinos.map((d) => _dinoGenderNorm(d.Gender)).filter((g) => g && g !== "random"));
+    if (explicit.size > 1 || explicit.has("pair")) { gender = "pair"; source = "explicit"; }
+    else if (explicit.size === 1) { gender = [...explicit][0]; source = "explicit"; }
+    else {
+      const inferred = _dinoGenderFromText(key, v.Name || v.name, v.Description || v.description);
+      gender = inferred || "random";
+      source = inferred ? "inferred" : "default";
+    }
+  }
+  const levels = Array.isArray(v.dino_levels) && v.dino_levels.length
+    ? v.dino_levels.map(Number).filter((n) => n > 0)
+    : [...new Set(dinos.map((d) => Number(d.Level)).filter((n) => n > 0))].sort((a, b) => a - b);
+  return {
+    hasDinos: true,
+    dinoGender: gender,
+    dinoGenderLabel: v.dino_gender_label || _DINO_GENDER_LABELS[gender] || "Aleatório",
+    dinoGenderSource: source || "default",
+    dinoCount: Number(v.dino_count) || dinos.length || 1,
+    dinoLevels: levels,
+  };
+}
+
+/** Texto comparável para detectar linhas redundantes (sem acento/pontuação/nível/gênero). */
+function _catalogDedupKey(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "")
+    .replace(/(?:nivel|level|lvl|nv)\.?\s*\d+/g, " ")
+    .replace(/\b(femeas?|females?|fem|machos?|males?|casal)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function _catalogTextRedundant(a, b) {
+  const ka = _catalogDedupKey(a);
+  const kb = _catalogDedupKey(b);
+  if (!ka || !kb) return false;
+  return ka === kb || ka.includes(kb) || kb.includes(ka);
+}
+
+/** Nome do card sem sufixo «Nível N»/«Fêmea» quando os badges já mostram essa informação. */
+function _catalogDinoDisplayName(i) {
+  const raw = String(i.name || "");
+  let out = raw;
+  if (i.dinoLevel) out = out.replace(/\s*[-–—(]?\s*(?:n[ií]vel|nivel|level|lvl|nv\.?)\s*\d+\s*\)?\s*$/i, "");
+  if (i.dinoGender && i.dinoGender !== "random") out = out.replace(/\s+(?:f[eê]meas?|machos?|casal)\s*$/i, "");
+  out = out.trim();
+  return out || raw;
+}
+
+function _dinoLevelText(i) {
+  const lv = Array.isArray(i.dinoLevels) ? i.dinoLevels : [];
+  if (lv.length > 1) return `Nv. ${lv[0]}–${lv[lv.length - 1]}`;
+  return `Nv. ${i.dinoLevel || lv[0] || 1}`;
+}
+
+/** Badges acessíveis de nível/gênero (dinos e kits que entregam dinos). */
+function _dinoBadgesHtml(i, opts) {
+  const isDino = _isDinoType(i.type);
+  if (!(isDino || (i.catalogKind === "kit" && i.hasDinos))) return "";
+  const g = i.dinoGender || "random";
+  const icons = { male: "♂", female: "♀", pair: "⚤", random: "?" };
+  const label = i.dinoGenderLabel || _DINO_GENDER_LABELS[g] || "Aleatório";
+  const inferred = i.dinoGenderSource === "inferred";
+  const gTitle = inferred
+    ? `Gênero: ${label} (inferido pelo nome — a entrega pode ser aleatória se o catálogo não fixar o sexo)`
+    : `Gênero: ${label}`;
+  const lvlText = _dinoLevelText(i);
+  const count = Number(i.dinoCount) > 1
+    ? `<span class="dino-badge dino-badge--count" aria-label="${escHtml(String(i.dinoCount))} criaturas" title="${escHtml(String(i.dinoCount))} criaturas">×${escHtml(String(i.dinoCount))}</span>`
+    : "";
+  const levelBadge = (opts && opts.hideLevel) ? "" :
+    `<span class="dino-badge dino-badge--level" aria-label="Nível ${escHtml(lvlText.replace("Nv. ", ""))}" title="${escHtml(lvlText.replace("Nv.", "Nível"))}">${escHtml(lvlText)}</span>`;
+  return `<div class="item-card__badges">${levelBadge}
+    <span class="dino-badge dino-badge--${escHtml(g)}${inferred ? " dino-badge--inferred" : ""}" aria-label="${escHtml(gTitle)}" title="${escHtml(gTitle)}"><span class="dino-badge__icon" aria-hidden="true">${icons[g] || "?"}</span>${escHtml(label)}</span>${count}</div>`;
+}
+
 function _renderProductCard(i, btnLabel) {
   const doc = i._redeemDoc || (typeof RedeemDocs !== "undefined" ? RedeemDocs.buildItemRedeemDoc(i, _redeemDocHelpers()) : null);
   const locked = _auth.authenticated && _licensePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
@@ -13139,14 +13485,17 @@ function _renderProductCard(i, btnLabel) {
       : kitExhausted
         ? `<button class="btn btn-ghost btn-sm" disabled title="Limite de resgates esgotado">🔒 Esgotado</button>`
         : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
-  const docHtml = doc && typeof RedeemDocs !== "undefined" ? RedeemDocs.renderProductDocHtml(doc) : "";
+  const isDinoCard = _isDinoType(i.type) || (i.catalogKind === "kit" && i.hasDinos);
+  const docHtmlRaw = doc && typeof RedeemDocs !== "undefined" ? RedeemDocs.renderProductDocHtml(doc) : "";
+  // Dinos: o texto genérico «Resgate o dino X…» só repete o nome — badges já informam nível/gênero.
+  const docHtml = (_isDinoType(i.type) && doc && !(doc.requiredLicenses && doc.requiredLicenses.length)) ? "" : docHtmlRaw;
   const adminDesc = String(i.desc || "").trim();
   const shortDesc = doc ? doc.shortDescription : (adminDesc || "");
   const fullDesc = doc ? (doc.detailedDescription || doc.shortDescription) : adminDesc;
-  const descBlock = shortDesc
+  const descBlock = shortDesc && !(_isDinoType(i.type) && !docHtmlRaw) && !_catalogTextRedundant(shortDesc, i.name)
     ? `<div class="item-card__desc" title="${escHtml(fullDesc || shortDesc)}">${escHtml(shortDesc)}</div>`
     : "";
-  const adminLine = adminDesc && adminDesc !== i.name && (!doc || adminDesc !== doc.detailedDescription) && adminDesc !== shortDesc
+  const adminLine = adminDesc && !_catalogTextRedundant(adminDesc, i.name) && (!doc || adminDesc !== doc.detailedDescription) && adminDesc !== shortDesc
     ? `<div class="item-card__desc item-card__desc--admin" title="${escHtml(adminDesc)}">${escHtml(adminDesc)}</div>`
     : "";
   const lockHint = locked && !docHtml
@@ -13167,9 +13516,12 @@ function _renderProductCard(i, btnLabel) {
     const eff = kitEff;
     const effLabel = kitLoading ? "…" : String(eff ?? 0);
     metaLine += `<div class="item-card__meta-line" style="color:${!kitLoading && (eff ?? 0) <= 0 ? "var(--danger)" : "var(--text2)"};">🔁 ${effLabel} de ${kitLim.limit} resgate(s) restante(s)</div>`;
-  } else if (i.tier && _isDinoType(i.type) && i.speciesKey) {
-    metaLine = `<div class="item-card__meta-line">${escHtml(i.speciesKey)}</div>`;
+  } else if (i.tier && _isDinoType(i.type) && i.speciesKey && _auth.is_admin) {
+    // ID técnico da espécie: discreto e só para staff (jogadores veem nome + badges).
+    metaLine = `<div class="item-card__techid" title="ID técnico da espécie (staff)">${escHtml(i.speciesKey)}</div>`;
   }
+  const badgesHtml = _dinoBadgesHtml(i);
+  const cardTitle = _isDinoType(i.type) ? _catalogDinoDisplayName(i) : i.name;
   const tierOnlyThumb = !!(i.tier && _isDinoType(i.type) && !i.thumbnailUrl);
   return `
     <div class="item-card ${_catalogTypeClass(i.type)}${cardLocked ? " item-card--locked" : ""}" title="${escHtml(fullDesc || shortDesc || i.name)}">
@@ -13178,7 +13530,8 @@ function _renderProductCard(i, btnLabel) {
       </div>
       <div class="item-card__body">
         <div class="item-card__cat">${escHtml(catLabel)}</div>
-        <div class="item-card__name">${escHtml(i.name)}</div>
+        <div class="item-card__name">${escHtml(cardTitle)}</div>
+        ${badgesHtml}
         ${metaLine}
         ${docHtml || descBlock}
         ${adminLine}
@@ -13753,6 +14106,7 @@ async function applyCatalogPayload(data, opts = {}) {
       speciesKey: v.species_key || "",
       blueprint: v.blueprint || "",
       dinoLevel: Number(v.dino_level ?? ((v.Dinos || [])[0] || {}).Level ?? 1) || 1,
+      ..._catalogDinoMeta(v, key),
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
     }));
@@ -13772,6 +14126,8 @@ async function applyCatalogPayload(data, opts = {}) {
       kitContents: v.kit_contents || [],
       kitDescription: v.kit_description || v.KitDescription || "",
       kitSummary: v.kit_summary || {},
+      dinoLevel: v.dino_level != null ? Number(v.dino_level) || 1 : 0,
+      ..._catalogDinoMeta(v, key),
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
       thumbnailUrl: v.thumbnail_url || "",
@@ -13796,6 +14152,7 @@ async function applyCatalogPayload(data, opts = {}) {
     if (genStale()) return false;
 
     const catMeta = data.catalog_meta;
+    if (catMeta && Number(catMeta.dino_level_max) > 0) _dinoLevelMax = Number(catMeta.dino_level_max);
     if (catMeta?.catalog_empty && catMeta?.catalog_note) {
       console.warn("Catálogo vazio:", catMeta.catalog_note);
     }
@@ -13838,7 +14195,6 @@ async function applyCatalogPayload(data, opts = {}) {
     renderCatalogCats(dynamicCats, catCounts);
     if (_catalogActiveTab === "items") renderCatalogItems();
     if (_catalogActiveTab === "dinos") renderCatalogDinos();
-    if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
     if (_catalogActiveTab === "kits") renderCatalogKits();
     if (_catalogActiveTab === "licenses") renderCatalogLicenses();
     if (_catalogActiveTab === "available") loadAvailable();
@@ -13997,6 +14353,7 @@ async function _loadCatalogLegacyUnused() {
       speciesKey: v.species_key || "",
       blueprint: v.blueprint || "",
       dinoLevel: Number(v.dino_level ?? ((v.Dinos || [])[0] || {}).Level ?? 1) || 1,
+      ..._catalogDinoMeta(v, key),
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
     }));
@@ -14016,6 +14373,8 @@ async function _loadCatalogLegacyUnused() {
       kitContents: v.kit_contents || [],
       kitDescription: v.kit_description || v.KitDescription || "",
       kitSummary: v.kit_summary || {},
+      dinoLevel: v.dino_level != null ? Number(v.dino_level) || 1 : 0,
+      ..._catalogDinoMeta(v, key),
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
       thumbnailUrl: v.thumbnail_url || "",
@@ -14072,7 +14431,6 @@ async function _loadCatalogLegacyUnused() {
     renderCatalogCats(dynamicCats, catCounts);
     if (_catalogActiveTab === "items") renderCatalogItems();
     if (_catalogActiveTab === "dinos") renderCatalogDinos();
-    if (_catalogActiveTab === "dinos200") renderCatalogDinos200();
     if (_catalogActiveTab === "kits") renderCatalogKits();
     if (_catalogActiveTab === "licenses") renderCatalogLicenses();
     if (_catalogActiveTab === "available") loadAvailable();
@@ -14084,7 +14442,7 @@ async function _loadCatalogLegacyUnused() {
 }
 
 const CATALOG_DOM_PAGE_SIZE = 20; // UI: 20 cards no DOM (API /api/catalog continua full + cache/ETag/SWR)
-const _catalogDomPage = { items: 0, dinos: 0, dinos200: 0, kits: 0, licenses: 0 };
+const _catalogDomPage = { items: 0, dinos: 0, kits: 0, licenses: 0 };
 
 function _catalogResetDomPage(tab) {
   if (tab && Object.prototype.hasOwnProperty.call(_catalogDomPage, tab)) {
@@ -14121,7 +14479,6 @@ function _catalogPagerHtml(tab, page, pages, total) {
 function _catalogRerenderTab(tab) {
   if (tab === "items") renderCatalogItems();
   else if (tab === "dinos") renderCatalogDinos();
-  else if (tab === "dinos200") renderCatalogDinos200();
   else if (tab === "kits") renderCatalogKits();
   else if (tab === "licenses") renderCatalogLicenses();
 }
@@ -14182,6 +14539,43 @@ function renderCatalogItems() {
   _catalogFillPagedGrid(grid, countEl, filtered, "items", "itens", (i) => _renderProductCard(i, "Resgatar"));
 }
 
+/** Níveis existentes no catálogo (dinâmico, sem hardcode de 1/200): [{ level, count }] crescente. */
+function _catalogDinoLevelOptions(search) {
+  const counts = new Map();
+  for (const i of _catalogItems) {
+    if (!_isDinoType(i.type)) continue;
+    if (search && !_catalogMatchesSearch(i, search)) continue;
+    const lvl = _catalogDinoLevel(i);
+    counts.set(lvl, (counts.get(lvl) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([level, count]) => ({ level, count }));
+}
+
+function renderCatalogDinoLevelChips(search) {
+  const bar = document.getElementById("catalog-dinos-levels");
+  if (!bar) return;
+  const opts = _catalogDinoLevelOptions(search);
+  const sel = _catalogDinoLevelFilter;
+  // Deep link/filtro para um nível sem itens: mantém o chip (0) para o usuário poder limpar.
+  if (sel != null && !opts.some((o) => o.level === sel)) {
+    opts.push({ level: sel, count: 0 });
+    opts.sort((a, b) => a.level - b.level);
+  }
+  if (opts.length <= 1 && sel == null) {
+    bar.innerHTML = "";
+    bar.style.display = "none";
+    return;
+  }
+  bar.style.display = "";
+  const total = opts.reduce((a, o) => a + o.count, 0);
+  const chip = (lvlAttr, label, n, active) =>
+    `<button type="button" class="catalog-cat-chip${active ? " active" : ""}${n === 0 ? " empty" : ""}" data-level="${lvlAttr}" aria-pressed="${active ? "true" : "false"}" onclick="setCatalogDinoLevel(this.dataset.level)">${escHtml(label)} <span style="opacity:.7;font-weight:500;">(${n})</span></button>`;
+  bar.innerHTML =
+    `<span class="catalog-levels__label">Nível</span>` +
+    chip("", "Todos", total, sel == null) +
+    opts.map((o) => chip(String(o.level), `Nv. ${o.level}`, o.count, sel === o.level)).join("");
+}
+
 function renderCatalogDinos() {
   const search = (document.getElementById("catalog-dinos-search")?.value || "").trim();
   const sort = document.getElementById("catalog-dinos-sort")?.value || "name";
@@ -14190,9 +14584,11 @@ function renderCatalogDinos() {
   const countEl = document.getElementById("catalog-dinos-result-count");
   if (!grid) return;
 
+  renderCatalogDinoLevelChips(search);
+  const levelFilter = _catalogDinoLevelFilter;
   const filtered = _catalogSortItems(_catalogItems.filter(i => {
     if (!_isDinoType(i.type)) return false;
-    if (_catalogDinoLevel(i) !== 1) return false;
+    if (levelFilter != null && _catalogDinoLevel(i) !== levelFilter) return false;
     return _catalogMatchesSearch(i, search);
   }), sort);
 
@@ -14207,33 +14603,6 @@ function renderCatalogDinos() {
   }
   if (empty) empty.style.display = "none";
   _catalogFillPagedGrid(grid, countEl, filtered, "dinos", "dinos", (i) => _renderProductCard(i, "Resgatar"));
-}
-
-function renderCatalogDinos200() {
-  const search = (document.getElementById("catalog-dinos200-search")?.value || "").trim();
-  const sort = document.getElementById("catalog-dinos200-sort")?.value || "name";
-  const grid = document.getElementById("catalog-dinos200-grid");
-  const empty = document.getElementById("catalog-dinos200-empty");
-  const countEl = document.getElementById("catalog-dinos200-result-count");
-  if (!grid) return;
-
-  const filtered = _catalogSortItems(_catalogItems.filter(i => {
-    if (!_isDinoType(i.type)) return false;
-    if (_catalogDinoLevel(i) !== 200) return false;
-    return _catalogMatchesSearch(i, search);
-  }), sort);
-
-  if (!filtered.length) {
-    grid.innerHTML = "";
-    if (empty) {
-      empty.style.display = "";
-      empty.innerHTML = _catalogPanelIdleHtml("dinos200", search, "");
-    }
-    if (countEl) countEl.style.display = "none";
-    return;
-  }
-  if (empty) empty.style.display = "none";
-  _catalogFillPagedGrid(grid, countEl, filtered, "dinos200", "dinos", (i) => _renderProductCard(i, "Resgatar"));
 }
 
 function renderCatalogKits() {
@@ -14283,6 +14652,20 @@ function renderCatalogLicenses() {
   }
   if (empty) empty.style.display = "none";
   _catalogFillPagedGrid(grid, countEl, filtered, "licenses", "licenças", (i) => _renderProductCard(i, "Resgatar Licença"));
+}
+
+/** Nível/gênero no pedido pendente (dinos e kits com dinos). */
+function _pendingDinoBadgesHtml(p) {
+  if (!p || p.dino_level == null) return "";
+  return _dinoBadgesHtml({
+    type: "dino",
+    dinoLevel: Number(p.dino_level) || 1,
+    dinoLevels: Array.isArray(p.dino_levels) ? p.dino_levels : [],
+    dinoGender: p.dino_gender || "random",
+    dinoGenderLabel: p.dino_gender_label || "",
+    dinoGenderSource: "default",
+    dinoCount: Number(p.dino_count) || 1,
+  });
 }
 
 async function loadAvailable() {
@@ -14338,6 +14721,7 @@ async function loadAvailable() {
         <div class="available-card">
           <div>
             <div class="available-card__name">${escHtml(p.name)}</div>
+            ${_pendingDinoBadgesHtml(p)}
             <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}${p.is_license ? " · Licença" : ""}${p.is_season_pass ? " · SeasonLand" : ""}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
@@ -15770,7 +16154,6 @@ async function saveAndReload() {
 function renderAll() {
   renderShop();
   renderKits();
-  renderSell();
   renderGeneral();
 }
 
@@ -15810,23 +16193,48 @@ function renderShop() {
   const items = _config?.ShopItems || {};
   const keys = Object.keys(items);
   const search = (document.getElementById("shop-admin-search")?.value || "").trim();
+  // Abas: «Dinossauros» = Type dino (mesma modalidade/critério da loja pública e do Comércio); «Itens» = o resto.
+  const tab = _shopAdminTab === "item" ? "item" : "dino";
+  const dinoKeysAll = keys.filter(k => _isDinoType(items[k]?.Type));
+  const itemKeysAll = keys.filter(k => !_isDinoType(items[k]?.Type));
+  const dinoCountEl = document.getElementById("shop-admin-tab-count-dino");
+  const itemCountEl = document.getElementById("shop-admin-tab-count-item");
+  if (dinoCountEl) dinoCountEl.textContent = `(${dinoKeysAll.length})`;
+  if (itemCountEl) itemCountEl.textContent = `(${itemKeysAll.length})`;
+  document.querySelectorAll("[data-shop-admin-tab]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.shopAdminTab === tab);
+  });
+  const tabKeys = tab === "dino" ? dinoKeysAll : itemKeysAll;
+  const tabLabel = tab === "dino" ? "dinossauro" : "item";
+  const tabLabelPlural = tab === "dino" ? "dinossauros" : "itens";
+  const isDinoTab = tab === "dino";
   if (!keys.length) {
+    _shopBulkSelected.clear();
+    _shopRenderBulkBar([]);
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div><p>Nenhum item cadastrado</p></div>`;
     return;
   }
-  const filteredKeys = keys.filter(k => _shopItemMatchesSearch(k, items[k], search));
+  const filteredKeys = tabKeys.filter(k => _shopItemMatchesSearch(k, items[k], search));
+  // Seleção só vale para o que está visível (aba + busca atuais) — evita ação em lote sobre linhas ocultas.
+  const visibleSet = new Set(isDinoTab ? filteredKeys : []);
+  [..._shopBulkSelected].forEach(k => { if (!visibleSet.has(k)) _shopBulkSelected.delete(k); });
+  _shopBulkVisibleKeys = isDinoTab ? filteredKeys.slice() : [];
+  _shopRenderBulkBar(_shopBulkVisibleKeys);
   if (!filteredKeys.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><p>Nenhum item corresponde à busca</p><p style="font-size:12px;color:var(--text2);margin-top:8px;">Tente outro termo ou <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('shop-admin-search').value='';renderShop();">limpar busca</button></p></div>`;
+    el.innerHTML = search
+      ? `<div class="empty-state"><div class="empty-icon">🔍</div><p>Nenhum ${tabLabel} corresponde à busca</p><p style="font-size:12px;color:var(--text2);margin-top:8px;">Tente outro termo ou <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('shop-admin-search').value='';renderShop();">limpar busca</button></p></div>`
+      : `<div class="empty-state"><div class="empty-icon">${isDinoTab ? "🦖" : "🛒"}</div><p>Nenhum ${tabLabel} cadastrado</p></div>`;
     return;
   }
   const countHtml = search
-    ? `<p class="catalog-result-count">${filteredKeys.length === 1 ? "<strong>1</strong> item encontrado" : `<strong>${filteredKeys.length}</strong> itens encontrados`} de <strong>${keys.length}</strong></p>`
+    ? `<p class="catalog-result-count">${filteredKeys.length === 1 ? `<strong>1</strong> ${tabLabel} encontrado` : `<strong>${filteredKeys.length}</strong> ${tabLabelPlural} encontrados`} de <strong>${tabKeys.length}</strong></p>`
     : "";
   el.innerHTML = `
     ${countHtml}
     <div class="card">
       <table class="tbl">
         <thead><tr>
+          ${isDinoTab ? `<th class="shop-bulk-check"><input type="checkbox" id="shop-bulk-select-all" title="Selecionar todos os visíveis" onchange="shopBulkToggleAll(this.checked)" /></th>` : ""}
           <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Comércio</th><th>Conteúdo</th><th>Permissões</th><th>Ações</th>
         </tr></thead>
         <tbody>
@@ -15841,6 +16249,7 @@ function renderShop() {
             if (it.LicenseGrant?.Group) parts.push(`📜 ${escHtml(it.LicenseGrant.Group)}`);
             const content = parts.length ? parts.join(" · ") : "—";
             return `<tr>
+              ${isDinoTab ? `<td class="shop-bulk-check"><input type="checkbox" class="shop-bulk-row" data-shop-key="${escHtml(k)}" ${_shopBulkSelected.has(k) ? "checked" : ""} onchange="shopBulkToggleRow(this)" /></td>` : ""}
               <td>
                 <div style="font-weight:600;color:var(--text)">${escHtml(displayName)}</div>
                 <code style="font-size:10px;color:var(--text2)">${k}</code>
@@ -15861,6 +16270,122 @@ function renderShop() {
         </tbody>
       </table>
     </div>`;
+  _shopBulkSyncSelectAll();
+}
+
+// ── Itens da Loja: abas + ações em lote (aba Dinossauros) ─────────────────────
+let _shopAdminTab = "dino";
+let _shopBulkSelected = new Set();
+let _shopBulkVisibleKeys = [];
+let _shopBulkBusy = false;
+const SHOP_BULK_MAX_IDS = 200; // espelha SHOP_BULK_MAX_IDS do backend
+// Para novas ações em lote: adicione aqui (id = action do backend) e implemente no app.py (_SHOP_BULK_ACTIONS).
+const SHOP_BULK_ACTIONS = [
+  { action: "market_include", label: "🦖 Incluir no Comércio", cls: "btn-primary", destructive: false,
+    confirm: (n, names) => `Incluir ${n} dinossauro(s) no Comércio?\n\n${names}\n\nMarca «Incluir no Comércio» e pré-cadastra a espécie (homologue depois em Espécies).` },
+  { action: "market_exclude", label: "↩ Remover do Comércio", cls: "btn-ghost", destructive: false,
+    confirm: (n, names) => `Remover ${n} dinossauro(s) do Comércio (desmarca «Incluir no Comércio»)?\n\n${names}` },
+  { action: "delete", label: "🗑 Deletar", cls: "btn-danger", destructive: true,
+    confirm: (n, names) => `⚠️ DELETAR ${n} dinossauro(s) da loja?\n\n${names}\n\nIsto remove os itens do catálogo em todos os mapas e não pode ser desfeito.` },
+];
+
+function setShopAdminTab(tab) {
+  _shopAdminTab = tab === "item" ? "item" : "dino";
+  renderShop();
+}
+
+function _shopBulkNames(keys, limit = 8) {
+  const items = _config?.ShopItems || {};
+  const names = keys.slice(0, limit).map(k => `• ${items[k]?.Name || items[k]?.Description || k} (${k})`);
+  if (keys.length > limit) names.push(`… e mais ${keys.length - limit}`);
+  return names.join("\n");
+}
+
+function _shopRenderBulkBar(visibleKeys) {
+  const bar = document.getElementById("shop-bulk-bar");
+  if (!bar) return;
+  if (_shopAdminTab !== "dino" || !visibleKeys.length) {
+    bar.style.display = "none";
+    bar.innerHTML = "";
+    return;
+  }
+  const n = _shopBulkSelected.size;
+  bar.style.display = "flex";
+  bar.innerHTML = `
+    <span class="shop-bulk-count" id="shop-bulk-count"><strong>${n}</strong> selecionado(s) de ${visibleKeys.length} visível(is)</span>
+    <div class="shop-bulk-actions">
+      ${SHOP_BULK_ACTIONS.map(a => `<button type="button" class="btn ${a.cls} btn-sm" data-shop-bulk-action="${a.action}" ${n && !_shopBulkBusy ? "" : "disabled"} onclick="shopBulkRun('${a.action}')">${a.label}</button>`).join("")}
+    </div>`;
+}
+
+function _shopBulkSyncSelectAll() {
+  const all = document.getElementById("shop-bulk-select-all");
+  const n = _shopBulkSelected.size;
+  const total = _shopBulkVisibleKeys.length;
+  if (all) {
+    all.checked = total > 0 && n === total;
+    all.indeterminate = n > 0 && n < total;
+  }
+  _shopRenderBulkBar(_shopBulkVisibleKeys);
+}
+
+function shopBulkToggleRow(cb) {
+  const k = cb?.dataset?.shopKey;
+  if (!k) return;
+  if (cb.checked) _shopBulkSelected.add(k); else _shopBulkSelected.delete(k);
+  _shopBulkSyncSelectAll();
+}
+
+function shopBulkToggleAll(checked) {
+  _shopBulkVisibleKeys.forEach(k => { if (checked) _shopBulkSelected.add(k); else _shopBulkSelected.delete(k); });
+  document.querySelectorAll("#shop-list .shop-bulk-row").forEach(cb => { cb.checked = !!checked; });
+  _shopBulkSyncSelectAll();
+}
+
+async function shopBulkRun(action) {
+  if (_shopBulkBusy) return;
+  const spec = SHOP_BULK_ACTIONS.find(a => a.action === action);
+  if (!spec) return;
+  const ids = _shopBulkVisibleKeys.filter(k => _shopBulkSelected.has(k));
+  if (!ids.length) { toast("Selecione ao menos um dinossauro.", "warning"); return; }
+  if (!confirm(spec.confirm(ids.length, _shopBulkNames(ids)))) return;
+  _shopBulkBusy = true;
+  _shopRenderBulkBar(_shopBulkVisibleKeys);
+  const failures = [];
+  let okCount = 0;
+  try {
+    for (let i = 0; i < ids.length; i += SHOP_BULK_MAX_IDS) {
+      const chunk = ids.slice(i, i + SHOP_BULK_MAX_IDS);
+      const isLast = i + SHOP_BULK_MAX_IDS >= ids.length;
+      const r = await fetch(API + "/api/admin/shop-items/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids: chunk, confirm: spec.destructive ? true : undefined, reload: isLast }),
+      });
+      let d = {};
+      try { d = await r.json(); } catch (_) {}
+      if (Array.isArray(d.results)) {
+        d.results.forEach(x => { if (x.ok) okCount++; else failures.push(x); });
+      } else {
+        chunk.forEach(id => failures.push({ id, error: d.error || `HTTP ${r.status}` }));
+      }
+      (d.results || []).filter(x => x.ok && x.warning).forEach(x => failures.push({ id: x.id, error: x.warning, warning: true }));
+    }
+    const hard = failures.filter(f => !f.warning);
+    const warn = failures.filter(f => f.warning);
+    let msg = `${spec.label.replace(/^\S+\s/, "")}: ${okCount} ok`;
+    if (hard.length) msg += `, ${hard.length} falha(s) — ${hard.slice(0, 3).map(f => `${f.id}: ${f.error}`).join(" | ")}${hard.length > 3 ? " …" : ""}`;
+    if (warn.length) msg += ` · ${warn.length} aviso(s): ${warn[0].error}`;
+    toast(msg, hard.length ? "warning" : (warn.length ? "warning" : "success"));
+    _shopBulkSelected.clear();
+    await loadConfig();
+    await loadShopMarketStatus();
+  } catch (e) {
+    toast("Falha na ação em lote: " + (e.message || e), "error");
+  } finally {
+    _shopBulkBusy = false;
+    renderShop();
+  }
 }
 
 function renderKits() {
@@ -15909,38 +16434,6 @@ async function previewKitContents(kitKey) {
     return;
   }
   toast("Kit ainda não está no catálogo público — salve/recarregue o catálogo.", "warning");
-}
-
-function renderSell() {
-  const el = document.getElementById("sell-list");
-  const sell = _config?.SellItems || {};
-  const keys = Object.keys(sell);
-  if (!keys.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">💰</div><p>Nenhum item de venda cadastrado</p></div>`;
-    return;
-  }
-  el.innerHTML = `
-    <div class="card">
-      <table class="tbl">
-        <thead><tr>
-          <th>ID</th><th>Descrição</th><th>Preço (${escHtml(CURRENCY.plural)})</th><th>Ações</th>
-        </tr></thead>
-        <tbody>
-          ${keys.map(k => {
-            const it = sell[k];
-            return `<tr>
-              <td><code>${k}</code></td>
-              <td><span class="truncate">${it.Description||"-"}</span></td>
-              <td class="price-tag">${it.Price??0} ${escHtml(CURRENCY.plural)}</td>
-              <td><div class="actions-col">
-                <button class="btn btn-ghost btn-sm" onclick="openSellModal('${k}')">✏️</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteSell('${k}')">🗑</button>
-              </div></td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
-    </div>`;
 }
 
 function renderGeneral() {
@@ -17477,7 +17970,7 @@ function _spCatalogEntriesForGrantType(type) {
         const base = String(i.name || i.key || "");
         return {
           id: String(i.key || ""),
-          label: lvl === 200 ? `${base} · L200` : base,
+          label: lvl !== 1 ? `${base} · Nv. ${lvl}` : base,
           days: null,
         };
       })
@@ -19904,6 +20397,7 @@ function setMarketTab(tab) {
   if (tab === "browse") loadMarketBrowse();
   if (tab === "encomenda") loadMarketEncomenda();
   if (tab === "myshop") loadMarketMyShop();
+  if (tab === "resources" && typeof rvOnTabShown === "function") rvOnTabShown();
 }
 
 let _encomendaRotationEndsAt = null;
@@ -21861,6 +22355,7 @@ function reloadMarketPage() {
   if (_marketTab === "table") loadMarketTable();
   else if (_marketTab === "browse") loadMarketBrowse();
   else if (_marketTab === "encomenda") loadMarketEncomenda();
+  else if (_marketTab === "resources") { if (typeof rvReload === "function") rvReload(); }
   else loadMarketMyShop();
 }
 
@@ -24659,7 +25154,7 @@ function syncShopItemDraftFromDOM() {
     if (!_shopItemDinosDraft[idx]) return;
     _shopItemDinosDraft[idx] = {
       Blueprint: row.querySelector('[data-field="blueprint"]')?.value || "",
-      Level: parseInt(row.querySelector('[data-field="level"]')?.value, 10) || 150,
+      Level: row.querySelector('[data-field="level"]')?.value ?? 150,
       Gender: row.querySelector('[data-field="gender"]')?.value || "",
       ForceTame: row.querySelector('[data-field="forcetame"]')?.checked !== false,
       Neutered: row.querySelector('[data-field="neutered"]')?.checked || false,
@@ -24756,7 +25251,7 @@ function readShopItemDinosFromDOM() {
     if (!bp) return;
     const entry = {
       Blueprint: bp,
-      Level: Math.max(1, parseInt(dino.Level, 10) || 150),
+      Level: _dinoLevelForSave(dino.Level),
       ForceTame: dino.ForceTame !== false,
       Neutered: !!dino.Neutered,
     };
@@ -24790,26 +25285,6 @@ function readShopItemCommandsFromDOM() {
   return out;
 }
 
-const LICENSE_GRANT_PRESETS = {
-  keyvault: {
-    Group: "keyvault", Days: 30, Redeemable: true,
-    command: "Permissions.AddTimed {SteamID} keyvault 720",
-    catalogMode: "command|Licenças",
-  },
-  delta: { Group: "Delta", Days: 30, Redeemable: true, TimedPointsBonus: 5, catalogMode: "license|Licenças" },
-  gamma: { Group: "Gamma", Days: 30, Redeemable: true, TimedPointsBonus: 25, catalogMode: "license|Licenças" },
-  beta:  { Group: "Beta",  Days: 30, Redeemable: true, TimedPointsBonus: 50, catalogMode: "license|Licenças" },
-  alfa:  { Group: "Alfa",  Days: 30, Redeemable: true, TimedPointsBonus: 75, catalogMode: "license|Licenças" },
-  omega: { Group: "Omega", Days: 30, Redeemable: true, TimedPointsBonus: 90, catalogMode: "license|Licenças" },
-  transcendente: { Group: "Transcendente", Days: 30, Redeemable: true, TimedPointsBonus: 105, catalogMode: "license|Licenças" },
-  etereo: { Group: "Etereo", Days: 30, Redeemable: true, TimedPointsBonus: 120, catalogMode: "license|Licenças" },
-  universal: { Group: "Universal", Days: 30, Redeemable: true, TimedPointsBonus: 135, catalogMode: "license|Licenças" },
-  onipotente: { Group: "Onipotente", Days: 30, Redeemable: true, TimedPointsBonus: 150, catalogMode: "license|Licenças" },
-  surreal: { Group: "Surreal", Days: 30, Redeemable: true, TimedPointsBonus: 165, catalogMode: "license|Licenças" },
-  imaterial: { Group: "Imaterial", Days: 30, Redeemable: true, TimedPointsBonus: 180, catalogMode: "license|Licenças" },
-  exotico: { Group: "Exotico", Days: 30, Redeemable: true, TimedPointsBonus: 200, catalogMode: "license|Licenças" },
-};
-
 function licenseGrantEditorHtml(prefix, entry) {
   const lic = entry?.LicenseGrant || {};
   const enabled = !!lic.Group;
@@ -24817,15 +25292,6 @@ function licenseGrantEditorHtml(prefix, entry) {
     <div class="kit-section" id="${prefix}-license-section">
       <div class="kit-section-header">
         <span class="kit-section-title">📜 Concessão de licença (LicenseGrant)</span>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','keyvault')">☁️ Nuvem</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','delta')">Δ Delta</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','gamma')">Γ Gamma</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','beta')">β Beta</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','alfa')">α Alfa</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','omega')">Ω Omega</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','exotico')">✦ Exótico</button>
-        </div>
       </div>
       <div class="toggle-row">
         <label>Registrar licença no resgate (MySQL + plugin)</label>
@@ -24852,8 +25318,7 @@ function licenseGrantEditorHtml(prefix, entry) {
         </div>
         <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.45;">
           Grava <code>player_entitlements</code> no resgate web e o plugin aplica o mesmo grupo via
-          <code>GiveItem</code>. Para Nuvem (<code>keyvault</code>), use o preset ☁️ Nuvem — ele também
-          adiciona o comando <code>Permissions.AddTimed</code>.
+          <code>GiveItem</code>.
         </div>
       </div>
     </div>`;
@@ -24879,40 +25344,6 @@ function readTimedPointsBonusFromDOM(prefix) {
   if (raw === "" || raw == null) return null;
   const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function applyLicensePreset(prefix, presetKey) {
-  const preset = LICENSE_GRANT_PRESETS[presetKey];
-  if (!preset) return;
-  const enabledEl = document.getElementById(`${prefix}-lic-enabled`);
-  if (!enabledEl) return;
-  enabledEl.checked = true;
-  toggleLicenseGrantFields(prefix);
-  document.getElementById(`${prefix}-lic-group`).value = preset.Group;
-  document.getElementById(`${prefix}-lic-days`).value = preset.Days;
-  document.getElementById(`${prefix}-lic-redeemable`).checked = preset.Redeemable !== false;
-  const bonusEl = document.getElementById(`${prefix}-lic-timed-bonus`);
-  if (bonusEl) bonusEl.value = preset.TimedPointsBonus ?? "";
-  if (prefix === "mi" && preset.catalogMode) {
-    const modeEl = document.getElementById("mi-catalog-mode");
-    if (modeEl) modeEl.value = preset.catalogMode;
-  }
-  if (preset.command && prefix === "mi") {
-    syncShopItemDraftFromDOM();
-    const hasCmd = _shopItemCommandsDraft.some(c => String(c.Command || "").includes(preset.Group));
-    if (!hasCmd) {
-      _shopItemCommandsDraft.push(normalizeKitCommand({ Command: preset.command, ExecuteAsAdmin: true }));
-      renderShopItemEntrySections();
-    }
-  } else if (preset.command && prefix === "mk") {
-    syncKitDraftFromDOM();
-    const hasCmd = _kitCommandsDraft.some(c => String(c.Command || "").includes(preset.Group));
-    if (!hasCmd) {
-      _kitCommandsDraft.push(normalizeKitCommand({ Command: preset.command, ExecuteAsAdmin: true }));
-      renderKitEntrySections();
-    }
-  }
-  toast(`Preset ${preset.Group} aplicado`, "success");
 }
 
 function openItemModal(key) {
@@ -25053,7 +25484,8 @@ async function confirmItem() {
   const subItems = readShopItemSubItemsFromDOM();
   if (subItems.length) it.Items = subItems; else delete it.Items;
 
-  const dinos = readShopItemDinosFromDOM();
+  let dinos;
+  try { dinos = readShopItemDinosFromDOM(); } catch (err) { toast(err.message, "error"); return; }
   if (dinos.length) it.Dinos = dinos; else delete it.Dinos;
 
   const commands = readShopItemCommandsFromDOM();
@@ -25250,7 +25682,7 @@ function kitDinoEntryHtml(dino, idx, removeFn) {
         </div>
         <div class="form-group">
           <label>Nível</label>
-          <input data-field="level" type="number" min="1" value="${dino.Level ?? 150}" />
+          <input data-field="level" type="number" min="1" max="${_dinoLevelMax}" step="1" inputmode="numeric" list="dino-level-suggestions" value="${dino.Level ?? 150}" title="Inteiro entre 1 e ${_dinoLevelMax}" onfocus="_ensureDinoLevelDatalist()" />
         </div>
         <div class="form-group">
           <label>Sexo</label>
@@ -25323,7 +25755,7 @@ function syncKitDraftFromDOM() {
     if (!_kitDinosDraft[idx]) return;
     _kitDinosDraft[idx] = {
       Blueprint: row.querySelector('[data-field="blueprint"]')?.value || "",
-      Level: parseInt(row.querySelector('[data-field="level"]')?.value, 10) || 150,
+      Level: row.querySelector('[data-field="level"]')?.value ?? 150,
       Gender: row.querySelector('[data-field="gender"]')?.value || "",
       ForceTame: row.querySelector('[data-field="forcetame"]')?.checked !== false,
       Neutered: row.querySelector('[data-field="neutered"]')?.checked || false,
@@ -25427,7 +25859,7 @@ function readKitDinosFromDOM() {
     if (!bp) return;
     const entry = {
       Blueprint: bp,
-      Level: Math.max(1, parseInt(dino.Level, 10) || 150),
+      Level: _dinoLevelForSave(dino.Level),
       ForceTame: dino.ForceTame !== false,
       Neutered: !!dino.Neutered,
     };
@@ -25548,7 +25980,8 @@ async function confirmKit() {
   const items = readKitItemsFromDOM();
   if (items.length) kit.Items = items; else delete kit.Items;
 
-  const dinos = readKitDinosFromDOM();
+  let dinos;
+  try { dinos = readKitDinosFromDOM(); } catch (err) { toast(err.message, "error"); return; }
   if (dinos.length) kit.Dinos = dinos; else delete kit.Dinos;
 
   const commands = readKitCommandsFromDOM();
@@ -25595,46 +26028,6 @@ function deleteKit(key) {
   delete _config.Kits[key];
   renderKits();
   toast(`Kit "${key}" removido.`);
-}
-
-// ── Sell modal ────────────────────────────────────────────────────────────────
-function openSellModal(key) {
-  _editingKey = key || null;
-  _editingSection = "sell";
-  const item = key ? (_config?.SellItems?.[key] || {}) : {};
-  document.getElementById("modal-sell-title").textContent = key ? `Editar Venda: ${key}` : "Novo Item para Venda";
-  document.getElementById("modal-sell-body").innerHTML = `
-    <div class="form-grid">
-      <div class="form-group">
-        <label>ID do Item</label>
-        <input id="ms-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} />
-      </div>
-      <div class="form-group"><label>Preço (${escHtml(CURRENCY.plural)})</label><input id="ms-price" type="number" value="${item.Price??0}" /></div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Descrição</label>
-        <input id="ms-desc" type="text" value="${escHtml(item.Description||"")}" />
-      </div>
-    </div>`;
-  openModal("modal-sell");
-}
-
-function confirmSell() {
-  const key = document.getElementById("ms-key").value.trim();
-  if (!key) { toast("ID é obrigatório", "warning"); return; }
-  if (!_config.SellItems) _config.SellItems = {};
-  _config.SellItems[key] = {
-    Price: parseInt(document.getElementById("ms-price").value) || 0,
-    Description: document.getElementById("ms-desc").value,
-  };
-  closeModal("modal-sell");
-  renderSell();
-  toast("Item de venda salvo");
-}
-
-function deleteSell(key) {
-  if (!confirm(`Remover item de venda "${key}"?`)) return;
-  delete _config.SellItems[key];
-  renderSell();
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -26467,7 +26860,7 @@ function renderServers() {
         <td><code>${s.server_id}</code></td>
         <td>${escHtml(s.label||"")}</td>
         <td>${s.show_on_home === false ? '<span style="color:var(--text2);font-size:11px;">Oculto</span>' : '<span style="color:var(--success);font-size:11px;">Sim</span>'}</td>
-        <td style="font-size:11px;color:var(--text2)">${escHtml(s.join_host || s.game_host || s.public_ip || "—")}${s.game_port ? ":" + s.game_port : ""}</td>
+        <td style="font-size:11px;color:var(--text2)">${escHtml(s.join_host || s.game_host || s.public_ip || "—")}${(s.query_port || s.game_port) ? ":" + (s.query_port || s.game_port) : ""}</td>
         <td style="font-size:11px;color:var(--text2)">${escHtml(s.rcon_host||"—")}:${s.rcon_port||"—"}</td>
         <td><span class="truncate" style="font-size:11px;color:var(--text2);max-width:220px;display:inline-block;">${escHtml(s.plugin_config_path||"—")}</span></td>
         <td><div class="actions-col">
@@ -26488,6 +26881,7 @@ function openServerModal(serverId) {
   document.getElementById("srv-port").value     = s.rcon_port || 27020;
   document.getElementById("srv-join-host").value = s.join_host || s.game_host || s.public_ip || "";
   document.getElementById("srv-game-port").value  = s.game_port || s.server_port || 7777;
+  document.getElementById("srv-query-port").value = s.query_port || "";
   document.getElementById("srv-password").value = "";
   document.getElementById("srv-retry").value    = s.retry_max_attempts || 10;
   document.getElementById("srv-config-path").value = s.plugin_config_path || s.customshop_config_path || "";
@@ -26505,6 +26899,7 @@ async function confirmServer() {
     rcon_port:   parseInt(document.getElementById("srv-port").value),
     join_host:   document.getElementById("srv-join-host").value.trim(),
     game_port:   parseInt(document.getElementById("srv-game-port").value) || 7777,
+    query_port:  parseInt(document.getElementById("srv-query-port").value) || null,
     rcon_password: document.getElementById("srv-password").value,
     retry_max_attempts: parseInt(document.getElementById("srv-retry").value),
     plugin_config_path: document.getElementById("srv-config-path").value.trim(),
@@ -26581,8 +26976,8 @@ function _scheduleSteamFallbackHint(addr) {
     if (window._arkSteamHintShown[text]) return;
     window._arkSteamHintShown[text] = true;
     toast(
-      "Se o ARK não abriu: no jogo pressione ~ e digite open " + text
-        + " — ou use «Copiar IP».",
+      "Se o ARK não abriu: adicione " + text
+        + " aos favoritos (Adicionar servidor) — ou use «Copiar IP».",
       "warning"
     );
   }, 2200);
@@ -26743,6 +27138,7 @@ function openBuyModal(item, policyAlreadyAccepted) {
       <div style="font-size:48px;filter:drop-shadow(0 0 16px rgba(232,120,32,.4));margin-bottom:10px;">${typeIcon}</div>
       <div style="font-family:'Cinzel',Georgia,serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">${escHtml(item.name)}</div>
       ${doc ? `<div style="font-size:12px;color:var(--amber);font-weight:600;">${escHtml(doc.categoryLabel)}</div>` : ""}
+      ${_dinoBadgesHtml(item) ? `<div style="display:flex;justify-content:center;margin-top:8px;">${_dinoBadgesHtml(item)}</div>` : ""}
       ${doc ? `<p style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;">${escHtml(doc.shortDescription)}</p>` : (item.desc ? `<div style="font-size:12px;color:var(--text2);">${escHtml(item.desc)}</div>` : "")}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
@@ -26835,6 +27231,41 @@ function nextPixAuditPage() {
   }
 }
 
+async function reconcilePixPayment(paymentId) {
+  if (!paymentId) return;
+  if (!confirm("Reconsultar esta doação no Mercado Pago?\n\nSe o MP confirmar o pagamento (valor >= pacote) e ainda não houver crédito, os Âmbares serão creditados UMA única vez.\nConfira antes no banco se já não foram creditados manualmente.\n\nPayment ID: " + paymentId)) return;
+  try {
+    const r = await fetch(API + "/api/admin/pix/" + encodeURIComponent(paymentId) + "/reconcile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: true }),
+    });
+    const d = await r.json();
+    const msg = d.message || d.error || d.result || "Concluído";
+    toast(`${msg}${d.status ? " — status: " + d.status : ""}${d.mp_status ? " (MP: " + d.mp_status + ")" : ""}`, d.ok && d.result === "credited" ? "success" : (d.ok ? "warning" : "error"));
+  } catch (err) {
+    toast("Falha ao reconsultar: " + (err && err.message ? err.message : err), "error");
+  }
+  loadPixAudit();
+}
+
+async function loadPixWebhookDiagnostics() {
+  const el = document.getElementById("pix-webhook-diag");
+  if (!el) return;
+  try {
+    const r = await fetch(API + "/api/admin/pix/webhook-diagnostics");
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = ""; return; }
+    const warns = (d.warnings || []).map(w => `<div style="color:var(--danger)">⚠ ${escHtml(w)}</div>`).join("");
+    const last = d.last_webhook_at
+      ? `Último webhook MP recebido: ${fmtDate(d.last_webhook_at)}`
+      : `<span style="color:var(--danger)">Nenhum webhook do Mercado Pago registrado ainda</span>`;
+    el.innerHTML = `${warns}<div>${last} · URL esperada no painel MP: <code>${escHtml(d.expected_webhook_url || "")}</code></div>`;
+  } catch (_) {
+    el.innerHTML = "";
+  }
+}
+
 function pixAuditStatusBadge(row) {
   if (row.credited) return `<span class="badge badge-item">Concluída</span>`;
   return donationStatusBadge(row.status, false);
@@ -26882,7 +27313,7 @@ async function loadPixAudit() {
     el.innerHTML = `
       <table class="tbl">
         <thead><tr>
-          <th>Data</th><th>Forma</th><th>SteamID</th><th>Pacote</th><th>R$</th><th>Âmbares</th><th>Status</th><th>Payment ID</th><th>MP ID</th><th>E-mail</th>
+          <th>Data</th><th>Forma</th><th>SteamID</th><th>Pacote</th><th>R$</th><th>Âmbares</th><th>Status</th><th>Payment ID</th><th>MP ID</th><th>E-mail</th><th>Última checagem MP</th><th>Ação</th>
         </tr></thead>
         <tbody>
           ${items.map(p => `
@@ -26897,6 +27328,8 @@ async function loadPixAudit() {
               <td><code style="font-size:9px;" title="${escHtml(p.payment_id || "")}">${escHtml((p.payment_id || "").substring(0, 8))}…</code></td>
               <td><code style="font-size:9px;">${p.mp_payment_id ? escHtml(String(p.mp_payment_id)) : "—"}</code></td>
               <td style="font-size:10px;">${escHtml(p.payer_email || "—")}</td>
+              <td style="font-size:10px;max-width:200px;" title="${escHtml(p.last_mp_event ? (p.last_mp_event.message || "") : "")}">${p.last_mp_event ? `${fmtDate(p.last_mp_event.at)}<br>${escHtml((p.last_mp_event.message || p.last_mp_event.event_type || "").substring(0, 70))}` : "<span style='color:var(--text2)'>sem registro</span>"}</td>
+              <td>${p.credited ? "—" : `<button class="btn btn-ghost btn-sm" title="Consulta o pagamento no Mercado Pago (somente leitura) e credita se aprovado" onclick="reconcilePixPayment('${escHtml(p.payment_id)}')">↻ Reconsultar no MP</button>`}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -31457,7 +31890,6 @@ function renderPlayerAdminPanel(d) {
   const deliverCatalog = d.deliver_catalog || {
     items: [],
     dinos: [],
-    dinos200: [],
     kits: (d.kit_catalog || []).map(k => ({ item_id: k.kit_id, label: k.label, price: k.price })),
   };
   const entChips = (p.entitlements || []).map(e =>
@@ -31581,7 +32013,6 @@ function renderPlayerAdminPanel(d) {
         <select id="pa-deliver-category" onchange="playerAdminDeliverCategoryChanged()">
           <option value="items">📦 Itens</option>
           <option value="dinos">🦕 Dinos</option>
-          <option value="dinos200">🦖 Dinos 200</option>
           <option value="kits">🎁 Kits</option>
         </select>
       </div>
@@ -31739,7 +32170,7 @@ async function playerAdminCatalogDeliver() {
   const amount = parseInt(document.getElementById("pa-deliver-amount")?.value || "1", 10);
   const reason = document.getElementById("pa-deliver-reason")?.value?.trim() || "";
   if (!item_id) { toast("Selecione um SKU", "error"); return; }
-  const catLabel = ({ items: "item", dinos: "dino", dinos200: "dino 200", kits: "kit" })[category] || category;
+  const catLabel = ({ items: "item", dinos: "dino", kits: "kit" })[category] || category;
   if (!confirm(`Entregar ${catLabel} «${item_id}» ×${amount}?`)) return;
   const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/deliver", {
     method: "POST",
@@ -31862,9 +32293,10 @@ async function bootPortal() {
       if (hashRoute === "sugestoes" && _auth.authenticated) {
         const suggNav = document.querySelector('.nav-item[data-page="sugestoes"]');
         if (suggNav) nav(suggNav);
-      } else if (hashRoute === "midias") {
-        const midNav = document.querySelector('.nav-item[data-page="midias"]');
-        if (midNav) nav(midNav);
+      } else if (hashRoute === "midias" || hashRoute === "tutoriais") {
+        // «#/midias» (legado) → Tutoriais (vídeos no topo).
+        const tutNav = document.querySelector('.nav-item[data-page="tutoriais"]');
+        if (tutNav) nav(tutNav);
       } else if (hashRoute === "sorteio/regulamento") {
         const lotNav = document.querySelector('.nav-item[data-page="sorteio"]');
         if (lotNav) {
@@ -31879,6 +32311,9 @@ async function bootPortal() {
         if (lotNav) nav(lotNav);
       }
     }
+
+    // Deep links da loja: ?tab=dinos&nivel=200, #/dinos200 (legado «Dinos 200» → Dinos + filtro).
+    _applyCatalogDeepLink();
 
     const catalogHasData = _catalogItems.length > 0 || _catalogKits.length > 0;
     if (!warmupOk) {

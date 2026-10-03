@@ -145,37 +145,21 @@
     dinos: {
       icon: "🦕",
       title: "Dinos",
-      short: "Resgate criaturas nível 1 conforme as regras e limites do servidor.",
+      short: "Resgate criaturas de vários níveis conforme as regras e limites do servidor.",
       detailed:
-        "Dinossauros resgatados seguem as configurações do Arkland: nível, estatísticas e " +
-        "restrições definidas pela administração. Esta aba lista apenas dinos de nível 1 (piso). " +
-        "Para nível 200, use a aba «Dinos 200».",
+        "Dinossauros resgatados seguem as configurações do Arkland: nível, gênero, estatísticas e " +
+        "restrições definidas pela administração. Use os chips de «Nível» para filtrar (1, 50, 100, 200…) " +
+        "— os níveis disponíveis vêm do catálogo. Cada card mostra o nível (Nv.) e o gênero " +
+        "(Macho, Fêmea, Casal ou Aleatório).",
       notes: [
         "Dinos especiais podem exigir licença Gamma, Beta ou Alfa.",
         "Limites de tribo, cupos de domesticação e regras PvP do servidor continuam valendo.",
+        "Gênero «Aleatório»: o sexo não é fixado pelo catálogo e é sorteado na entrega.",
         "Leia os avisos no card — dinos únicos podem ter condições adicionais.",
       ],
       warnings: [
         "Confirme que há espaço na sua tribo / estabulo antes de resgatar.",
         "Alguns dinos não podem ser transferidos entre mapas — consulte as regras do cluster.",
-      ],
-    },
-    dinos200: {
-      icon: "🦖",
-      title: "Dinos 200",
-      short: "Criaturas nível 200 com preço derivado do L1 e do piso de mercado.",
-      detailed:
-        "Mesmo blueprint do dino L1 correspondente, spawnado no nível 200. O preço usa markup fixo " +
-        "k=1,40 sobre o L1, com teto de 75% do root_value (piso de mercado da espécie). " +
-        "Espécies sem margem sob o teto não aparecem aqui.",
-      notes: [
-        "Preço = round(clamp(P_L1 × 1,40, P_L1+1, 0,75 × root_value)).",
-        "A aba «Dinos» continua a listar apenas nível 1.",
-        "Limites de tribo e licenças aplicam-se da mesma forma que nos dinos L1.",
-      ],
-      warnings: [
-        "Confirme espaço na tribo / estábulo antes de resgatar.",
-        "Nem todas as espécies têm par L200 — só quando o teto de mercado permite.",
       ],
     },
     licenses: {
@@ -264,8 +248,7 @@
     if (item.catalogKind === "kit") return "kits";
     const type = String(item.type || "").toLowerCase();
     if (type === "dino" || (helpers && helpers.isDino && helpers.isDino(type))) {
-      const level = Number(item.dinoLevel ?? item.dino_level ?? 1) || 1;
-      return level === 200 ? "dinos200" : "dinos";
+      return "dinos";
     }
     if (helpers && helpers.isLicense && helpers.isLicense(item)) return "licenses";
     return "items";
@@ -305,7 +288,7 @@
     if (category === "kits") {
       requirements.push("Espaço no inventário para todos os itens do kit");
     }
-    if (category === "dinos" || category === "dinos200") {
+    if (category === "dinos") {
       requirements.push("Conformidade com limites de tribo e regras do servidor");
     }
     if (category === "licenses" && tierInfo) {
@@ -357,7 +340,7 @@
           `O kit ${displayName} reúne itens selecionados pela equipe. Ideal para acelerar sua progressão ` +
           "sem perder o espírito de conquista do Arkland.";
       }
-    } else if (category === "dinos" || category === "dinos200") {
+    } else if (category === "dinos") {
       shortDescription = `Resgate o dino ${name} conforme configuração do servidor.`;
       if (!detailedDescription) {
         detailedDescription =

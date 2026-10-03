@@ -8,6 +8,31 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.41] - 2026-10-03
+
+### Feature
+
+- **Vitrine de Recursos (`/vitrine`)**: novo módulo `ShopVitrine.cpp/.h` — mercado P2P de recursos só por Âmbar. `/vitrine` lê o inventário **pessoal** (inventário + hotbar; sem cofres, criaturas, equipados, engramas, blueprints, itens com durabilidade/rating ou `maxStack<=1`), filtra pela lista autorizada pelo admin (`GET /api/market/resources/plugin/config`), soma por recurso, aplica o limite de tipos (trunca e avisa; nada removido) e grava o pending (TTL `Settings.VitrinePreviewTtlSeconds`, 30–120 s, padrão 120 como `/enviar`).
+- **`/confirmar` (ramo novo)**: ordem `engramas → notas → marco → vitrine → mercado (/enviar)`. Segurança dos itens: **journal local** (`ArkApi/Plugins/CustomShop/vitrine_journal/<upload_id>.json`, escrita atômica + flush) → remove itens (delta medido no inventário) → `POST plugin/upload` com `upload_id` idempotente → falhou: `POST upload/cancel` (tombstone) e **devolve os itens**; sem resposta da web: journal mantido. Recuperação no login (`HandleNewPlayer`), em `/vitrine`, `/mercado` e `RecoverAll` 45 s após o mapa subir.
+- **`/mercado`**: lista e entrega claims de recursos (compra e retirada) junto aos dinos, em stacks do `stack_size` do admin (limitado ao stack real do jogo) via `Store::GiveResourceStacks`; confere o delta, envia `delivered` (com retry + ack persistente no journal) e libera o claim se faltar espaço/falhar, sem perder nem duplicar.
+- **Um pending por jogador**: `/vitrine` recusa se houver pending de `/engramas`, `/notas`, `/marco` ou `/enviar`; e esses comandos recusam se houver `/vitrine` pendente.
+- Novas chaves opcionais em `Settings`: `VitrineCommandEnabled` (padrão `true`), `VitrinePreviewTtlSeconds` (padrão 120).
+- Contrato da API: `docs/VITRINE_RECURSOS_SPEC.md` (requer Web Store atualizada; plugin novo + web antiga → "Vitrine indisponivel", nada removido).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.41) em cada mapa **somente depois** da Web Store atualizada.
+
+## [1.10.40] - 2026-10-02
+
+### Feature
+
+- **Dinos de qualquer nível (Web Store unificada)**: `SpawnDinosArray` deixa de aplicar o `public_code` (nome = rastreio da auditoria) só a dinos L1/L200 — agora vale para qualquer `Level >= 1`, alinhado ao backend (`catalog_dino_audit_service`) que passou a reservar códigos para todos os níveis. Sem isso, kits/itens com níveis como 50, 100 ou 225 desalinhavam a ordem dos `public_codes`. Sem mudança de ABI/JSON: `Dinos[].Level` já era livre na entrega.
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.40) em cada mapa.
+
 ## [1.10.39] - 2026-08-04
 
 ### Fix

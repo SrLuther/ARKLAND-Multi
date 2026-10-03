@@ -1936,10 +1936,13 @@ _SPECIES_KEY_ALIASES: dict[str, str] = {
 # Sufixos de nível no id do catálogo (astrodelphis_1, sb_manticore_200, rex_l200).
 _LEVEL_KEY_SUFFIXES: tuple[str, ...] = (L200_ID_SUFFIX, "_200", "_1")
 
+# Qualquer nível (não só 200): «Rex Nível 50», «Rex Level 225»…
 _LEVEL_SUFFIX_RE = re.compile(
-    r"\s*(?:[Nn][ií]vel|Nivel|Level)\s*200\b",
+    r"\s*(?:[Nn][ií]vel|Nivel|Level)\s*\d{1,4}\b",
     re.IGNORECASE,
 )
+# Sufixo de id gerado por tools/generate_dino_level_variants.py (`rex_l50`, `rex_femea_l225`).
+_GENERIC_LEVEL_ID_RE = re.compile(r"_l\d{1,4}$", re.IGNORECASE)
 _DISPLAY_LEVEL_SUFFIXES = (
     " Fêmea Nível 200",
     " Femea Nivel 200",
@@ -1963,6 +1966,10 @@ def strip_level_key_suffix(species_key: str | None) -> str:
         if key.endswith(suffix) and len(key) > len(suffix):
             key = key[: -len(suffix)]
             break
+    else:
+        stripped = _GENERIC_LEVEL_ID_RE.sub("", key)
+        if stripped and stripped != key:
+            key = stripped
     if key.endswith("_femea"):
         key = key[: -len("_femea")]
     return key

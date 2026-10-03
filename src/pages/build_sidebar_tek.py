@@ -58,6 +58,7 @@ def _build_sidebar_tek_nav(app, scroll, theme: dict, accent: str,
         ("🔗", "clusters",    "Clusters"),
         ("🖥",  "remoto",      "Remoto"),
         ("⚙",  "settings",    "Configurações"),
+        ("🩺", "diagnostico", "Diagnóstico"),
         ("ℹ",  "about",       "Sobre"),
     ]
     app._nav_btns: Dict[str, ctk.CTkButton] = {}

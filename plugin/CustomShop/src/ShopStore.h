@@ -28,7 +28,7 @@ bool BuyKit(AShooterPlayerController* controller,
 // skip_limit_check: true for admin manual delivery (ignores DefaultAmount).
 // fail_reason: optional out — machine-readable cause when returning false.
 // out_dino_records: optional JSON array of {dino_id1,dino_id2,level} per spawn.
-// public_codes: optional JSON string array — Name/TamedName = public_code on L1/L200 spawn.
+// public_codes: optional JSON string array — Name/TamedName = public_code on spawn of any level >= 1.
 bool GiveKit(AShooterPlayerController* controller,
              const std::string& kit_id,
              bool skip_permission_check = false,
@@ -45,6 +45,15 @@ bool GiveItem(AShooterPlayerController* controller,
               std::string* fail_reason = nullptr,
               nlohmann::json* out_dino_records = nullptr,
               const nlohmann::json* public_codes = nullptr);
+
+// Vitrine de Recursos: entrega `quantity` unidades do recurso `blueprint` em stacks de
+// `stack_size` (cadastro do admin; limitado ao stack real do jogo quando este e menor).
+// Retorna quantas unidades o jogo aceitou (pode ser < quantity se o inventario encheu).
+// Nunca lanca; chamador confere o delta de inventario para validar a entrega.
+int GiveResourceStacks(AShooterPlayerController* controller,
+                       const std::string& blueprint,
+                       int quantity,
+                       int stack_size);
 
 } // namespace Store
 } // namespace CustomShop

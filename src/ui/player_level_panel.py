@@ -21,12 +21,11 @@ from ..player_level_ascension import (
 from ..player_level_ramp import (
     _curve_params_from_cfg,
     build_ramp_values,
-    cumulative_xp_on_ramp,
     detect_and_apply_legacy_curve,
     export_ramp_raw,
     is_legacy_geometric_xp_cap,
     is_player_level_progressions_enabled,
-    total_ramp_slots,
+    override_max_xp_from_ramp,
 )
 from ..ui_constants import _GREEN, _GREEN_DARK
 
@@ -77,9 +76,9 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
             formula=str(curve["formula"]),
         )
         xp = (
-            max(1, cumulative_xp_on_ramp(ramp_values, base) + 1)
+            override_max_xp_from_ramp(ramp_values)
             if ramp_values
-            else level_to_xp(base)
+            else level_to_xp(total)
         )
         if cfg is not None:
             existing = int(getattr(cfg, "override_max_xp_player", 0) or 0)
@@ -180,9 +179,9 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
             formula=str(curve["formula"]),
         )
         xp = (
-            max(1, cumulative_xp_on_ramp(ramp_values, base) + 1)
+            override_max_xp_from_ramp(ramp_values)
             if ramp_values
-            else level_to_xp(base)
+            else level_to_xp(total)
         )
     else:
         xp = 0
@@ -224,8 +223,9 @@ def _progressions_toggle_row(
         text=(
             "Marcado = rampa + OverrideMaxXP + engrams no Game.ini "
             "[/Script/ShooterGame.ShooterGameMode] (curva soft 70×1.05^i; 400 EP/nível). "
-            "Desmarcado = limpa esses overrides (vanilla stock). Cap no GUS NÃO funciona. "
-            "Toggle livre — com base >105 desmarcado o ARK ignora o teto elevado."
+            "Rampa = base + 100 (últimos 100 níveis reservados a bosses/notas/runas/chibi). "
+            "OverrideMaxXP = último limiar da rampa + 1. Desmarcado = vanilla stock "
+            "(GUS não sobe o teto). Base >105 OFF: ARK ignora o teto elevado."
         ),
         bg=bg,
         fg="gray50",
@@ -258,7 +258,7 @@ def _unified_summary_row(
     cells = (
         (0, "Nível base (XP)", "Farmável sem bosses/conquistas", base_var, True),
         (1, "Bônus fixo", f"+{ARK_BOSS_ASCENSION_LEVELS} boss + {ARK_CONQUEST_LEVELS} conquistas", asc_var, False),
-        (2, "Nível máximo", "Base + 100 (automático)", total_var, False),
+        (2, "Nível máximo", "Base + 100 = rampa completa (atingível)", total_var, False),
     )
     for col, title, sub, var, editable in cells:
         fr = tk.Frame(box, bg="#0d1a14" if col % 2 else "#0a1410", padx=8, pady=8)
@@ -284,7 +284,7 @@ def _unified_summary_row(
              font=ctk.CTkFont(size=10)).pack(side="left")
     tk.Label(meta, textvariable=ramp_var, bg=bg, fg=accent,
              font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 12))
-    tk.Label(meta, text="slots (base + 75)", bg=bg, fg="gray50",
+    tk.Label(meta, text="slots (base + 100)", bg=bg, fg="gray50",
              font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 12))
     tk.Label(meta, textvariable=xp_var, bg=bg, fg="gray50",
              font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 12))
@@ -297,7 +297,7 @@ def _unified_summary_row(
 def _bonus_breakdown_row(parent: tk.Misc, *, row: int, bg: str) -> int:
     sec = tk.LabelFrame(
         parent,
-        text="  Bônus automáticos (+100)  ",
+        text="  Bônus na rampa (+100 reservados no fim da tabela)  ",
         bg=bg, fg="gray55", font=ctk.CTkFont(size=10),
     )
     sec.grid(row=row, column=0, sticky="ew", padx=12, pady=(0, 6))
@@ -307,14 +307,22 @@ def _bonus_breakdown_row(parent: tk.Misc, *, row: int, bg: str) -> int:
 
     tk.Label(
         sec,
-        text=f"Rampa INI (+75): {boss_line}",
+        text=f"Bosses (+{ARK_BOSS_ASCENSION_LEVELS}): {boss_line}",
         bg=bg, fg="gray60", font=ctk.CTkFont(size=9), wraplength=520, justify="left",
     ).grid(row=0, column=0, padx=10, pady=(8, 2), sticky="w")
     tk.Label(
         sec,
-        text=f"Implante (+25): {conquest_line}",
+        text=f"Conquistas (+{ARK_CONQUEST_LEVELS}): {conquest_line}",
         bg=bg, fg="gray60", font=ctk.CTkFont(size=9), wraplength=520, justify="left",
-    ).grid(row=1, column=0, padx=10, pady=(0, 8), sticky="w")
+    ).grid(row=1, column=0, padx=10, pady=(0, 2), sticky="w")
+    tk.Label(
+        sec,
+        text=(
+            "O ARK reserva os últimos 100 slots da rampa a esses desbloqueios. "
+            "Sem eles na tabela (só +75) o teto real fica abaixo do «nível máximo» da UI."
+        ),
+        bg=bg, fg="gray50", font=ctk.CTkFont(size=8), wraplength=520, justify="left",
+    ).grid(row=2, column=0, padx=10, pady=(0, 8), sticky="w")
     return row + 1
 
 
@@ -369,12 +377,31 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
     def _recalc() -> None:
         sync_player_level_vars(vars_ref, cfg=ctx.srv)
 
+    def _on_progressions_toggle() -> None:
+        """Grava o toggle no perfil JSON na hora.
+
+        O save completo (INI) continua bloqueado com o servidor no ar. Sem esta
+        escrita, reiniciar o app recarregava o valor antigo (marcado).
+        """
+        from ..player_level_ramp import sync_config_player_level
+
+        _recalc()
+        sync_config_player_level(ctx.srv)
+        app = vars_ref.get("_app")
+        mgr = getattr(app, "asm_config_manager", None) if app is not None else None
+        if mgr is None:
+            return
+        try:
+            mgr.update_server(ctx.srv)
+        except Exception:
+            pass
+
     r = 0
     r = _progressions_toggle_row(
         body,
         row=r,
         var=vars_ref["player_level_progressions_enabled"],
-        on_change=_recalc,
+        on_change=_on_progressions_toggle,
         bg=bg,
         accent=accent,
     )
@@ -450,10 +477,10 @@ def build_classic_player_level_panel(
     tk.Label(
         panel,
         text=(
-            "Informe o nível base (farmável com XP). O teto total (+100) é automático. "
-            "Com progressões ON: rampa + OverrideMaxXP + engrams 400/nível no Game.ini "
-            "(curva soft 70×1.05^i). Toggle livre — base >105 OFF avisa que o ARK "
-            "reverte para progressão vanilla. Cap só no GUS não altera o teto."
+            "Informe o nível base (farmável com XP). O teto (= base + 100) é a rampa "
+            "completa no Game.ini. Progressões ON: rampa base+100 + OverrideMaxXP "
+            "(último limiar+1) + engrams 400/nível (curva soft 70×1.05^i). "
+            "Base >105 OFF: aviso — ARK reverte a vanilla. Cap só no GUS não funciona."
         ),
         bg=_BG_PANEL, fg="gray50", font=ctk.CTkFont(size=10), justify="left",
         wraplength=560,

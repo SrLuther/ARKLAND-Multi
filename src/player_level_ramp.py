@@ -12,12 +12,15 @@ from .player_level_ascension import (
     calc_max_total_level,
 )
 
-ARK_ASCENSION_RAMP_SLOTS = ARK_BOSS_ASCENSION_LEVELS  # 75 slots na rampa Game.ini
+# Legado: só bosses (+75). A rampa Game.ini precisa dos +100 (wiki ARK:
+# últimos 100 níveis = ascensão + notas + runas + chibi).
+ARK_ASCENSION_RAMP_SLOTS = ARK_BOSS_ASCENSION_LEVELS
+ARK_RAMP_BONUS_SLOTS = ARK_TOTAL_BONUS_LEVELS  # 100
 
 
 def total_ramp_slots(base_level: int) -> int:
-    """Entradas na rampa: nível base (XP) + 75 ascensão de boss."""
-    return max(1, int(base_level or 0)) + ARK_ASCENSION_RAMP_SLOTS
+    """Entradas na rampa: nível base farmável + 100 reservados (implante)."""
+    return max(1, int(base_level or 0)) + ARK_RAMP_BONUS_SLOTS
 
 _RAMP_ENTRY_RE = re.compile(
     r"ExperiencePointsForLevel\[(\d+)\]\s*=\s*(\d+)",
@@ -82,12 +85,23 @@ def _slot_matches_vanilla(index: int, xp: int, *, tolerance: float = 0.02) -> bo
     return abs(xp - expected) <= max(1, int(expected * tolerance))
 
 
+def _slot_matches_vanilla_cumulative(index: int, xp: int, *, tolerance: float = 0.02) -> bool:
+    """True se o limiar cumulativo no índice coincide com a curva vanilla."""
+    expected = max(1, sum(vanilla_xp_per_slot(j) for j in range(index)))
+    if expected <= 0:
+        return xp <= 1
+    return abs(xp - expected) <= max(1, int(expected * tolerance))
+
+
 def infer_xp_curve_from_ramp(values: list[int]) -> dict[str, Any]:
     """Infere vanilla vs geométrica a partir dos slots lidos do Game.ini."""
     if not values:
         return {"mode": XP_CURVE_VANILLA}
     sample = min(len(values), 8)
+    # Aceita rampa antiga (deltas) ou atual (limiares cumulativos).
     if all(_slot_matches_vanilla(i, values[i]) for i in range(sample)):
+        return {"mode": XP_CURVE_VANILLA}
+    if all(_slot_matches_vanilla_cumulative(i, values[i]) for i in range(sample)):
         return {"mode": XP_CURVE_VANILLA}
     xp_base = max(1, int(values[0]))
     xp_mult = DEFAULT_CUSTOM_XP_MULT
@@ -135,7 +149,7 @@ def _read_override_xp_from_cfg(cfg: object) -> int:
 
 
 def vanilla_xp_cap_for_base(base: int) -> int:
-    """XP acumulado na curva vanilla até o nível base."""
+    """XP cumulativo vanilla no nível base (limiar ExperiencePointsForLevel)."""
     base = max(1, int(base or 0))
     values = build_ramp_values(base, mode=XP_CURVE_VANILLA)
     return cumulative_xp_on_ramp(values, base)
@@ -179,7 +193,7 @@ def _expected_ramp_slots(cfg: object, base: int | None = None) -> int:
 
 
 def ensure_ramp_slot_count(cfg: object, count: int, *, base: int | None = None) -> int:
-    """Garante contagem mínima base+75 quando o nível base está configurado."""
+    """Garante contagem mínima base+100 quando o nível base está configurado."""
     count = max(0, int(count or 0))
     expected = _expected_ramp_slots(cfg, base)
     if expected > 0 and (count <= 0 or count < expected):
@@ -302,12 +316,17 @@ def build_ramp_values(
     xp_mult: float = DEFAULT_CUSTOM_XP_MULT,
     formula: str = DEFAULT_CUSTOM_XP_FORMULA,
 ) -> list[int]:
-    """Gera valores de XP por slot: base_level farmáveis + 75 ascensão."""
+    """Gera limiares cumulativos de XP: base farmável + 100 reservados.
+
+    ``ExperiencePointsForLevel[i]`` no ARK é o XP **total** para atingir o
+    nível ``i+1`` (não o delta por level-up). Curva custom: a fórmula define
+    o limiar direto (ex. ``70×1.05^i``). Vanilla: soma dos custos por nível.
+    """
     count = total_ramp_slots(base_level)
     values: list[int] = []
     mode_n = (mode or XP_CURVE_VANILLA).strip().lower()
-    for i in range(count):
-        if mode_n == XP_CURVE_CUSTOM:
+    if mode_n == XP_CURVE_CUSTOM:
+        for i in range(count):
             try:
                 xp = int(
                     eval(
@@ -319,8 +338,13 @@ def build_ramp_values(
             except Exception:
                 xp = geometric_xp_per_slot(i, int(xp_base), float(xp_mult))
             values.append(max(1, xp))
-        else:
-            values.append(vanilla_xp_per_slot(i))
+    else:
+        # Limiar cumulativo: values[i] ≈ XP total para o nível i+1
+        # (_level_to_xp(i+1); nível 1 → mínimo 1).
+        for i in range(count):
+            values.append(
+                max(1, sum(vanilla_xp_per_slot(j) for j in range(i)))
+            )
     return values
 
 
@@ -339,26 +363,34 @@ def build_ramp_ini_lines(values: list[int]) -> list[str]:
     return [build_ramp_ini_line(values)]
 
 
-def cumulative_xp_on_ramp(values: list[int], level: int) -> int:
-    """XP acumulado na rampa até atingir `level` (1-based)."""
-    lvl = max(0, int(level))
-    if lvl <= 1:
+def override_max_xp_from_ramp(values: list[int]) -> int:
+    """OverrideMaxExperiencePointsPlayer = último limiar da rampa + 1."""
+    if not values:
         return 0
-    need = min(lvl - 1, len(values))
-    return sum(values[:need])
+    return max(1, int(values[-1]) + 1)
+
+
+def cumulative_xp_on_ramp(values: list[int], level: int) -> int:
+    """Limiar de XP na rampa cumulativa para atingir `level` (1-based)."""
+    lvl = max(0, int(level))
+    if lvl <= 1 or not values:
+        return 0
+    idx = min(lvl - 1, len(values) - 1)
+    return int(values[idx])
 
 
 def xp_to_level_on_ramp(values: list[int], xp: int) -> int:
-    """Converte XP acumulado em nível-teto na rampa customizada."""
+    """Converte XP total em nível-teto (limiares cumulativos)."""
     target = max(0, int(xp or 0))
     if target <= 0 or not values:
         return 0
-    total = 0
-    for i, slot_xp in enumerate(values):
-        total += slot_xp
-        if total > target:
-            return i + 1
-    return len(values) + 1
+    level = 1
+    for i, threshold in enumerate(values):
+        if target >= int(threshold):
+            level = i + 1
+        else:
+            break
+    return level
 
 
 def xp_cap_on_ramp(values: list[int], override_xp: int) -> int:
@@ -476,11 +508,17 @@ def populate_player_ramp_from_game_ini(cfg: object, game_path) -> None:
         if hasattr(cfg, "player_level_stats_raw"):
             cfg.player_level_stats_raw = export_ramp_raw(values)
         apply_inferred_xp_curve(cfg, values)
-        if hasattr(cfg, "player_level_progressions_enabled"):
-            cfg.player_level_progressions_enabled = True
+
+        # A rampa no disco não é a preferência do admin. Perfis que já têm o
+        # campo (mesmo False) não podem ser religados só porque o Game.ini
+        # ainda contém LevelExperienceRampOverrides — isso acontecia no boot,
+        # via read_ini do snapshot, e o checkbox voltava marcado ao reabrir o app.
+        if not hasattr(cfg, "player_level_progressions_enabled"):
+            setattr(cfg, "player_level_progressions_enabled", True)
+
         detect_and_apply_legacy_curve(cfg)
-        if _resolve_base_level(cfg) <= 0 and count > ARK_ASCENSION_RAMP_SLOTS:
-            inferred_base = max(1, count - ARK_ASCENSION_RAMP_SLOTS)
+        if _resolve_base_level(cfg) <= 0 and count > ARK_RAMP_BONUS_SLOTS:
+            inferred_base = max(1, count - ARK_RAMP_BONUS_SLOTS)
             if hasattr(cfg, "player_base_level"):
                 cfg.player_base_level = inferred_base
 
@@ -505,13 +543,13 @@ def _curve_params_from_cfg(cfg: object | None) -> dict[str, Any]:
 
 
 def sync_config_player_level(cfg: object) -> dict[str, int]:
-    """Ponto único de derivação: rampa (base+75), XP cap no Game.ini, teto base+100."""
+    """Ponto único: rampa (base+100), OverrideMaxXP = último limiar+1, teto base+100."""
     progressions = is_player_level_progressions_enabled(cfg)
     if progressions:
         detect_and_apply_legacy_curve(cfg)
     base = _resolve_base_level(cfg)
     ramp_base = base if base > 0 else max(
-        get_ramp_entry_count(cfg) - ARK_ASCENSION_RAMP_SLOTS,
+        get_ramp_entry_count(cfg) - ARK_RAMP_BONUS_SLOTS,
         ARK_DEFAULT_BASE_LEVEL,
     )
     ramp_base = max(1, ramp_base)
@@ -528,16 +566,14 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
             xp_mult=float(curve["xp_mult"]),
             formula=str(curve["formula"]),
         )
-        xp_level = base if base > 0 else ramp_base
-        # Cap no nível base farmável; ideal ≥ último slot da rampa farmável + 1.
-        override_xp = max(1, cumulative_xp_on_ramp(values, xp_level) + 1)
+        # Cap no FIM da rampa (base+100). Cap só no nível base fazia o ARK
+        # cortar ~nível 220 com curva 70×1.05^i (limiares lidos como cumulativos).
+        override_xp = override_max_xp_from_ramp(values)
         existing_xp = _read_override_xp_from_cfg(cfg)
-        if existing_xp > override_xp:
-            if (
-                str(curve["mode"]).lower() == XP_CURVE_CUSTOM
-                or is_legacy_geometric_xp_cap(existing_xp, ramp_base)
-            ):
-                override_xp = existing_xp
+        if existing_xp > override_xp and is_legacy_geometric_xp_cap(
+            existing_xp, ramp_base
+        ):
+            override_xp = existing_xp
     else:
         # Vanilla stock / progressões off: não gravar override no INI
         # (base >105 sem rampa → ARK volta à progressão vanilla — toggle livre + aviso UI).

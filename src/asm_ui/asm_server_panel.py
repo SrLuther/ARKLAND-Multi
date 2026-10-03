@@ -3938,11 +3938,24 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
 
     # 1. Sincroniza UI → cfg em memória
     _sync_ui_to_cfg(app, srv)
+    try:
+        from ..diagnostics.events import CAT_SAVE, diag_event
+        diag_event(
+            CAT_SAVE, "Salvar perfil TEK", server=srv.name, server_id=srv.id,
+            progressions_enabled=getattr(srv, "player_level_progressions_enabled", None),
+            ramp_entries=getattr(srv, "player_ramp_entry_count", None),
+            override_max_xp_player=getattr(srv, "override_max_xp_player", None),
+            install_dir=srv.install_dir,
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
     # 2. Persiste no JSON
     try:
         app.asm_config_manager.update_server(srv)
     except Exception as _e:
+        import logging
+        logging.getLogger("arkland").exception("Falha ao persistir perfil TEK '%s'", srv.name)
         import tkinter.messagebox as _mb
         _mb.showerror("Erro ao salvar", f"Não foi possível salvar: {_e}", parent=app)
         return
@@ -3979,7 +3992,7 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         except Exception as exc:
             import logging
             logging.getLogger("arkland").warning(
-                "write_ini falhou para '%s': %s", srv.name, exc
+                "write_ini falhou para '%s': %s", srv.name, exc, exc_info=True
             )
 
         from ..ark_server_files import write_allowed_cheater_steam_ids_safe
@@ -4000,12 +4013,19 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     try:
         app._asm_refresh_dashboard()
     except Exception:
-        pass
+        import logging
+        logging.getLogger("arkland").warning("Refresh do dashboard após salvar falhou", exc_info=True)
     try:
         app._rebuild_server_sidebar()
     except Exception:
-        pass
+        import logging
+        logging.getLogger("arkland").warning("Rebuild da sidebar após salvar falhou", exc_info=True)
 
+    try:
+        from ..diagnostics.events import CAT_SAVE, diag_event
+        diag_event(CAT_SAVE, "Perfil TEK salvo", server=srv.name, server_id=srv.id)
+    except Exception:  # noqa: BLE001
+        pass
     import tkinter.messagebox as _mb2
     _mb2.showinfo("Salvo", f"Configurações de '{srv.name}' salvas.", parent=app)
 

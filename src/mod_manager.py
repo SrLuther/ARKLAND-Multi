@@ -128,6 +128,13 @@ class ModManager:
                     on_done(False)
                 return
             self._active = True
+        try:
+            from .diagnostics.events import CAT_MODS, wrap_done
+            on_done = wrap_done(CAT_MODS, "Download/atualização de mods", on_done,
+                                mod_count=len(mod_ids), mod_ids=",".join(str(m) for m in mod_ids[:30]),
+                                install_dir=install_dir, copy_to_mods=copy_to_mods)
+        except Exception:  # noqa: BLE001
+            pass
         _eff_log(f"⏳ Preparando download de {len(mod_ids)} mod(s) em um único SteamCMD…", "info")
         _eff_log("A auto-atualização do SteamCMD pode levar 1–2 min antes do progresso aparecer.", "info")
         thread = threading.Thread(
@@ -307,6 +314,12 @@ class ModManager:
                 self._on_log("Já existe uma operação em progresso.", "warning")
                 return
             self._active = True
+        try:
+            from .diagnostics.events import CAT_SERVER, wrap_done
+            on_done = wrap_done(CAT_SERVER, "Instalação/atualização do servidor (SteamCMD)", on_done,
+                                install_dir=install_dir, validate=validate, branch=branch_name or "stable")
+        except Exception:  # noqa: BLE001
+            pass
         self._on_log("⏳ Iniciando instalação/atualização do servidor via SteamCMD…", "info")
         self._on_log("A auto-atualização do SteamCMD pode levar 1–2 min antes do download aparecer.", "info")
         thread = threading.Thread(

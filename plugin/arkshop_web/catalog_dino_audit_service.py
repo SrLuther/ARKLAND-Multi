@@ -1,4 +1,4 @@
-"""Auditoria pública de dinos gerados via catálogo (L1 / L200)."""
+"""Auditoria pública de dinos gerados via catálogo (qualquer nível ≥ 1)."""
 from __future__ import annotations
 
 import logging
@@ -21,7 +21,18 @@ from catalog_dino_public_code import (
 
 log = logging.getLogger("arkshop_web.catalog_dino_audit")
 
-_ALLOWED_LEVELS = frozenset({1, 200})
+_MAX_AUDIT_LEVEL = 5000  # alinhado a HARD_DINO_LEVEL_MAX / plugin (kSpawnExactMaxTotalLevel)
+
+
+def _is_auditable_level(level: Any) -> bool:
+    """Qualquer nível inteiro 1..5000 é auditável (sem trava L1/L200)."""
+    try:
+        n = int(level)
+    except (TypeError, ValueError):
+        return False
+    return 1 <= n <= _MAX_AUDIT_LEVEL
+
+
 _STEAMID_RE = re.compile(r"^7656119\d{10}$")
 
 
@@ -33,8 +44,7 @@ def species_key_from_item_id(item_id: str) -> str:
     s = str(item_id or "").strip()
     if s.endswith("_pack10"):
         s = s[: -len("_pack10")]
-    if s.endswith("_l200"):
-        s = s[: -len("_l200")]
+    s = re.sub(r"_l\d{1,4}$", "", s, flags=re.I)
     return s
 
 
@@ -322,7 +332,7 @@ def list_audit_spawn_slots(
     item_id: str,
     amount: int = 1,
 ) -> list[dict[str, Any]]:
-    """Slots L1/L200 que o plugin vai spawnar (para pré-alocar public_code)."""
+    """Slots (qualquer nível) que o plugin vai spawnar (para pré-alocar public_code)."""
     if not isinstance(catalog, dict):
         return []
     qty = max(1, int(amount or 1))
@@ -348,7 +358,7 @@ def list_audit_spawn_slots(
             if not isinstance(dino, dict):
                 continue
             level = int(dino.get("Level") or 0)
-            if level not in _ALLOWED_LEVELS:
+            if not _is_auditable_level(level):
                 continue
             bp = str(dino.get("Blueprint") or "")
             species = _species_key_from_blueprint(catalog, bp) or species_key_from_item_id(iid)
@@ -623,9 +633,9 @@ def register_catalog_dino_records(
     delivered_at: datetime | None = None,
     catalog: dict[str, Any] | None = None,
 ) -> int:
-    """Persiste registros L1/L200 enviados pelo plugin após spawn com sucesso.
+    """Persiste registros de qualquer nível enviados pelo plugin após spawn com sucesso.
 
-    Kits com N dinos → N linhas (mesmo order_id). Ignora níveis fora de {1, 200}.
+    Kits com N dinos → N linhas (mesmo order_id). Ignora níveis inválidos (< 1).
     Gera ``public_code`` único (formato R21347) por registo.
     """
     if not isinstance(dino_records, list) or not dino_records:
@@ -661,7 +671,7 @@ def register_catalog_dino_records(
         level = int(rec.get("level") or 0)
         id1 = _as_u32(rec.get("dino_id1"))
         id2 = _as_u32(rec.get("dino_id2"))
-        if not order_id or level not in _ALLOWED_LEVELS:
+        if not order_id or not _is_auditable_level(level):
             continue
         if id1 == 0 and id2 == 0:
             continue
@@ -729,9 +739,9 @@ def list_public_catalog_dinos(
     """Lista pública — sem Steam ID64; display_name completo (auditoria intencional)."""
     page = max(1, int(page or 1))
     page_size = max(1, min(100, int(page_size or 50)))
-    clauses = ["level IN (1, 200)"]
+    clauses = ["level >= 1"]
     params: dict[str, Any] = {}
-    if level in _ALLOWED_LEVELS:
+    if level is not None and _is_auditable_level(level):
         clauses = ["level = :lvl"]
         params["lvl"] = int(level)
     if species:

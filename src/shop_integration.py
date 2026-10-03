@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from .server_config import ServerConfig
 
 from .plugin_versions import bundled_plugin_info_path
+from .diagnostics.events import CAT_PLUGINS, CAT_WEBSTORE, diag_call
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Dev: preferir catalog.json; fallback ao monolítico legado em configs/
@@ -3176,6 +3177,15 @@ def _resolve_game_host(
     return server_ip or "127.0.0.1"
 
 
+def _coerce_query_port(value: Any) -> Optional[int]:
+    """QueryPort válida (1-65535) ou None — enviada à Web Store para IP:QueryPort."""
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return None
+    return port if 0 < port <= 65535 else None
+
+
 def _server_rcon_entry(
     srv: Any,
     shop: "ShopGlobalConfig",
@@ -3211,9 +3221,9 @@ def _server_rcon_entry(
         entry["public_ip"] = server_public
     elif game_host and not _is_local_game_host(game_host):
         entry["public_ip"] = game_host
-    query_port = getattr(srv, "query_port", None)
+    query_port = _coerce_query_port(getattr(srv, "query_port", None))
     if query_port is not None:
-        entry["query_port"] = int(query_port)
+        entry["query_port"] = query_port
     server_map = (getattr(srv, "server_map", "") or "").strip()
     if server_map:
         entry["server_map"] = server_map
@@ -4364,6 +4374,10 @@ def _merge_arkland_server_entry(
         effective_host = str(out.get("game_host") or "").strip()
         if effective_host and not _is_local_game_host(effective_host):
             out["join_host"] = effective_host
+    if existing and _coerce_query_port(out.get("query_port")) is None:
+        prev_query = _coerce_query_port(existing.get("query_port"))
+        if prev_query is not None:
+            out["query_port"] = prev_query
     out["_auto_label"] = auto_label
     return out
 
@@ -4454,6 +4468,8 @@ def _collect_server_registry(
     return machine_label, incoming, active_refs
 
 
+@diag_call(CAT_WEBSTORE, "sync_server_snapshots_to_webstore",
+           lambda a, k, r: {"servers_synced": r, "errors": len(k.get("errors") or [])})
 def sync_server_snapshots_to_webstore(
     cm: "ConfigManager",
     shop: "ShopGlobalConfig",
@@ -4589,6 +4605,8 @@ def register_arkshop_servers(
     return _register_arkshop_servers_local(cm, shop, asm_cm=asm_cm, buff_manager=buff_manager)
 
 
+@diag_call(CAT_PLUGINS, "sync_all_plugins",
+           lambda a, k, r: {"ok": len(r[0]), "errors": len(r[1]), "first_error": (r[1][0] if r[1] else "")})
 def sync_all_plugins(
     cm: "ConfigManager",
     shop: "ShopGlobalConfig",

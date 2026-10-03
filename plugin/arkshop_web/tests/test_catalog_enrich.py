@@ -33,7 +33,7 @@ def test_enrich_rex_uses_generated_webp():
     meta = enrich_shop_item("rex", entry)
     assert meta["thumbnail_url"].endswith("/species/icons/generated/rex.webp")
     assert meta["species_key"] == "rex"
-    assert meta["tier"] == "A"
+    assert meta["tier"] == "S"  # defaults versionados: Rex = S
 
 
 def test_enrich_bionicrex_uses_generated_webp():

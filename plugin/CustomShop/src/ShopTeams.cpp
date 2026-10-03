@@ -2,6 +2,7 @@
 #include "ShopTeams.h"
 #include "ShopBridge.h"
 #include "ShopCloudInventory.h"
+#include "ShopVitrine.h"
 #include "HttpClient.h"
 
 #include <algorithm>
@@ -302,6 +303,12 @@ bool RequestDepositPreview(AShooterPlayerController* controller) {
     if (!controller) return false;
     const std::string sid = Bridge::GetSteamId(controller);
     if (sid.empty()) return false;
+
+    // Um pending por jogador: nao sobrepor um /vitrine aguardando /confirmar.
+    if (Vitrine::HasPending(sid)) {
+        SendEquipeMsg(controller, Vitrine::kMsgPendingBlocks);
+        return false;
+    }
 
     const MembershipInfo mem = FetchMembership(sid);
     if (!mem.active) {

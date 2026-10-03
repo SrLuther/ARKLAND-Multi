@@ -7,12 +7,13 @@ from typing import Any
 ARK_DEFAULT_BASE_LEVEL = 105
 
 # Bônus fixos após o nível base (farmável só com XP).
-# 75 na rampa INI (5 mapas × α +15) + 25 de conquistas (notas, runas, chibi).
+# Wiki ARK: os últimos 100 níveis da rampa são reservados a ascensão + conquistas.
+# 75 bosses (5 mapas × α +15) + 25 conquistas (notas, runas, chibi).
 ARK_BOSS_ASCENSION_LEVELS = 75
 ARK_CONQUEST_LEVELS = 25  # notas +10, runas +10, chibi +5
 ARK_TOTAL_BONUS_LEVELS = ARK_BOSS_ASCENSION_LEVELS + ARK_CONQUEST_LEVELS  # 100
 
-# Mapas com ascensão α (+15 cada) — entram nos 75 slots da rampa.
+# Mapas com ascensão α (+15 cada) — parte dos 100 slots reservados na rampa.
 ASCENSION_BOSSES: tuple[tuple[str, str, str], ...] = (
     ("island", "The Island", "Overseer"),
     ("scorched", "Scorched Earth", "Manticore"),
@@ -21,7 +22,7 @@ ASCENSION_BOSSES: tuple[tuple[str, str, str], ...] = (
     ("genesis2", "Genesis Pt.2", "Rockwell Prime"),
 )
 
-# Conquistas fora dos 75 slots da rampa (+25 total).
+# Conquistas — também nos 100 slots reservados da rampa (+25 total).
 CONQUEST_BONUSES: tuple[tuple[str, str, int], ...] = (
     ("explorer_notes", "Notas de Explorador (todas)", 10),
     ("fjordur_runes", "Runas de Fjordur", 10),

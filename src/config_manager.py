@@ -5,6 +5,8 @@ Os servidores são salvos em %APPDATA%\\ARKLAND-ServerManager\\servers.json
 """
 import json
 import os
+import shutil
+import time
 import uuid
 from pathlib import Path
 from dataclasses import dataclass, asdict, field, fields
@@ -118,14 +120,69 @@ class AlertMessagesConfig:
     dino_respawn:         str  = "Matando dinos selvagens..."
 
 
+def _as_bool(value: object, default: bool) -> bool:
+    """Booleano tolerante ao JSON do config (aceita "false"/"0"/"nao"; ``bool("false")`` seria True)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("1", "true", "yes", "y", "sim", "on"):
+            return True
+        if low in ("0", "false", "no", "n", "nao", "não", "off", ""):
+            return False
+    return default
+
+
 @dataclass
 class ObobonicBotConfig:
-    """Bot Discord oBobonicClean — pasta externa gerenciada pelo painel TEK."""
-    project_path: str = r"C:\Users\Ciano\Documents\oBobonicClean"
-    start_hidden: bool = True
+    """Bot Discord oBobonic EMBUTIDO no app (administração, moderação e salas de voz).
+
+    Não depende de pasta externa: roda numa thread do próprio app. O token fica no
+    config.json, como os demais segredos do app (discord_bot.token, smtp.password…).
+    """
+    # ── Execução ──────────────────────────────────────────────────────────────
     auto_start: bool = True
     auto_restart_on_crash: bool = False
-    health_check_before_start: bool = True
+    # ── Discord ───────────────────────────────────────────────────────────────
+    token: str = ""
+    client_id: str = ""            # opcional; vazio = derivado do token
+    guild_id: str = ""
+    command_prefix: str = "!"
+    # ── Cogs embutidos ────────────────────────────────────────────────────────
+    enable_voice: bool = True
+    enable_moderation: bool = True
+    lobby_channel_id: str = ""     # lobby das salas de voz temporárias
+    logs_channel_id: str = ""      # logs de moderação/admin
+    quarantine_role_id: str = ""   # cargo aplicado por !limpezageral
+    # ── Migração (config antiga com pasta externa) ────────────────────────────
+    legacy_project_path: str = ""  # só para OFERECER importar uma vez; nunca usado em runtime
+    legacy_import_done: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ObobonicBotConfig":
+        """Carrega config nova OU antiga (project_path/start_hidden/health_check_* são ignorados)."""
+        defaults = cls()
+        kwargs: dict = {}
+        for f in fields(cls):
+            if f.name not in data:
+                continue
+            value = data[f.name]
+            default = getattr(defaults, f.name)
+            if isinstance(default, bool):
+                kwargs[f.name] = _as_bool(value, default)
+            elif isinstance(default, str):
+                kwargs[f.name] = "" if value is None else str(value)
+        legacy_path = data.get("project_path")
+        if (
+            isinstance(legacy_path, str)
+            and legacy_path.strip()
+            and not kwargs.get("legacy_project_path")
+            and not kwargs.get("legacy_import_done")
+        ):
+            kwargs["legacy_project_path"] = legacy_path.strip()
+        return cls(**kwargs)
 
 
 @dataclass
@@ -241,7 +298,7 @@ class AppConfig:
     alert_messages: AlertMessagesConfig = field(default_factory=AlertMessagesConfig)
     # Discord Bot
     discord_bot: DiscordBotConfig = field(default_factory=DiscordBotConfig)
-    # oBobonicClean (bot Discord externo)
+    # oBobonic (bot Discord embutido no app)
     obobonic: ObobonicBotConfig = field(default_factory=ObobonicBotConfig)
     # SMTP
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
@@ -295,7 +352,10 @@ class ConfigManager:
                 _deserialize(ShutdownConfig,      "shutdown")
                 _deserialize(AlertMessagesConfig, "alert_messages")
                 _deserialize(DiscordBotConfig,    "discord_bot")
-                _deserialize(ObobonicBotConfig,   "obobonic")
+                if isinstance(raw.get("obobonic"), dict):
+                    raw["obobonic"] = ObobonicBotConfig.from_dict(raw["obobonic"])
+                else:
+                    raw.pop("obobonic", None)
                 _deserialize(SmtpConfig,          "smtp")
                 _deserialize(ShopGlobalConfig,    "shop")
                 _deserialize(EnvironmentConfig,   "environment")
@@ -348,6 +408,22 @@ class ConfigManager:
                     if old_local or old_shared:
                         self.config.sync_cycles = [[old_local, old_shared]]
         except Exception:
+            import logging as _logging
+            _logging.getLogger("arkland").exception(
+                "config.json ilegível — recomeçando com padrões (cópia .corrupt-* será criada): %s",
+                self._config_file)
+            # Config ilegível: guarda cópia antes de recomeçar com os padrões
+            # (evita perder silenciosamente todas as opções salvas).
+            try:
+                if self._config_file.exists():
+                    shutil.copy2(
+                        self._config_file,
+                        self._config_file.with_name(
+                            f"{self._config_file.name}.corrupt-{time.strftime('%Y%m%d-%H%M%S')}"
+                        ),
+                    )
+            except OSError:
+                pass
             self.config = AppConfig()
             self.config.remote_agent_token = str(uuid.uuid4())
             self.save()
@@ -356,9 +432,35 @@ class ConfigManager:
         self._load_clusters()
 
     def save(self) -> None:
+        """Grava o config.json de forma ATÔMICA (tmp + replace) com retentativas.
+
+        A gravação direta (``open(..., "w")``) deixava o arquivo truncado se o app fosse
+        encerrado no meio, e uma falha de I/O (antivírus/lock no Windows) passava em
+        silêncio dentro de callbacks do Tk — a opção «voltava» ao valor antigo no próximo
+        boot. Agora o erro é propagado ao chamador depois de algumas tentativas.
+        """
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._config_file, "w", encoding="utf-8") as fh:
-            json.dump(asdict(self.config), fh, indent=2, ensure_ascii=False)  # type: ignore[arg-type]
+        payload = json.dumps(asdict(self.config), indent=2, ensure_ascii=False)  # type: ignore[arg-type]
+        tmp = self._config_file.with_name(self._config_file.name + ".tmp")
+        last_exc: Optional[BaseException] = None
+        for attempt in range(5):
+            try:
+                with open(tmp, "w", encoding="utf-8") as fh:
+                    fh.write(payload)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp, self._config_file)
+                return
+            except OSError as exc:
+                last_exc = exc
+                import logging as _logging
+                _logging.getLogger("arkland").warning(
+                    "Falha ao gravar config.json (tentativa %d/5): %s", attempt + 1, exc)
+                time.sleep(0.15 * (attempt + 1))
+        assert last_exc is not None
+        import logging as _logging
+        _logging.getLogger("arkland").error("config.json NÃO foi gravado após 5 tentativas: %s", last_exc)
+        raise last_exc
 
     # ── Servidores ────────────────────────────────────────────────────────────
 
@@ -377,14 +479,25 @@ class ConfigManager:
                 try:
                     self._servers.append(ServerConfig.from_dict(item))
                 except Exception:
-                    pass
+                    import logging as _logging
+                    _logging.getLogger("arkland").warning(
+                        "servers.json: perfil inválido ignorado (id=%r)",
+                        item.get("id") if isinstance(item, dict) else None, exc_info=True)
         except Exception:
-            pass
+            import logging as _logging
+            _logging.getLogger("arkland").exception("Falha ao ler %s", self._servers_file)
 
     def save_servers(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._servers_file, "w", encoding="utf-8") as fh:
-            json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+        try:
+            with open(self._servers_file, "w", encoding="utf-8") as fh:
+                json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+        except Exception:
+            import logging as _logging
+            _logging.getLogger("arkland").exception("Falha ao gravar %s", self._servers_file)
+            raise
+        from .diagnostics.events import CAT_CONFIG, diag_event
+        diag_event(CAT_CONFIG, "servers.json salvo", servers=len(self._servers), file=str(self._servers_file))
 
     def add_server(self, server: ServerConfig) -> None:
         self._servers.append(server)

@@ -9,7 +9,7 @@
 | **Fora de escopo** | Código, deploy, migração de servidores em produção |
 | **Relacionado** | [`ARK_SERVER_CONFIG_REFERENCE.md`](../ARK_SERVER_CONFIG_REFERENCE.md), [`ARKLAND_TEK.md`](../ARKLAND_TEK.md) |
 
-> **Resumo (atualizado 2026-07-13 / v1.10.34):** o ARK espera progresso custom do jogador em **`Game.ini`** sob `[/Script/ShooterGame.ShooterGameMode]`: `LevelExperienceRampOverrides`, `OverrideMaxExperiencePointsPlayer` e opcionalmente `OverridePlayerLevelEngramPoints`. Gravar só `OverrideMaxExperiencePointsPlayer` em **GameUserSettings.ini** **não** estende o teto além da rampa default. O ARKLAND escreve o cap no **Game.ini** quando **progressões estão ON** (curva soft 70×1.05^i + 400 EP/nível). O checkbox é **livre**: base **>105** com progressões **OFF** mostra aviso na UI — o jogo reverte para progressão vanilla. O painel TEK e a Web Store podem divergir se a rampa custom no disco não for regenerada após mudar o nível base.
+> **Resumo (atualizado 2026-08-09):** o ARK espera progresso custom em **`Game.ini`** `[/Script/ShooterGame.ShooterGameMode]`: `LevelExperienceRampOverrides` (limiares **cumulativos**), `OverrideMaxExperiencePointsPlayer` (= **último limiar + 1**) e `OverridePlayerLevelEngramPoints`. Wiki: os **últimos 100** slots da rampa são reservados (bosses + notas + runas + chibi) — rampa = **base + 100**. Bug clássico: OverrideMaxXP calculado como soma até o nível base com curva `70×1.05^i` cortava o teto em **~220** enquanto a UI anunciava base+100 (ex. 260). Cap só no GUS **não** estende o teto. Progressões OFF com base >105: aviso UI + limpa overrides (vanilla).
 
 ---
 
@@ -44,8 +44,11 @@
 | `player_base_level`, `player_ascension_state` | `%APPDATA%\ARKLAND-ServerManager\asm_servers.json` | ❌ Não |
 | `override_max_xp_player` | `asm_servers.json` **e** espelhado em **Game.ini** (não GUS) | ✅ Sim (Game.ini; GUS legado só na leitura) |
 | `player_level_stats_raw` | `asm_servers.json` apenas | ❌ Não (textbox carrega do JSON, não re-parseia `Game.ini`) |
+| `player_level_progressions_enabled` | `asm_servers.json` — gravado **no clique** do checkbox e de novo no Salvar | ❌ Não (rampa no `Game.ini` não liga o toggle; só `from_dict` infere ON para perfis **sem a chave** com rampa/curva custom) |
 
-**Regra UI (2026-07-13 / v1.10.34):** checkbox de progressões é **livre**. Base **>105** sem progressões: aviso claro — sem `LevelExperienceRampOverrides` no Game.ini o ARK **não** honra o teto elevado (reverte ~vanilla). OFF limpa rampa + OverrideMaxXP + engrams do Game.ini (e remove legado no GUS).
+Regressão coberta por `tests/test_player_level_progressions_persistence.py` (ciclo ON → desmarcar → salvar parado → reiniciar; desmarcar com servidor no ar; boot com rampa velha no `Game.ini`).
+
+**Regra UI (2026-07-13 / v1.10.34, persistência 2026-10):** checkbox de progressões é **livre** e a preferência fica em `player_level_progressions_enabled` no perfil. Desmarcar grava o JSON na hora (mesmo com o servidor no ar). `read_ini` / snapshot **não** religa o toggle só porque o `Game.ini` ainda tem rampa. O INI em disco só é reescrito no save com o processo parado. Base **>105** sem progressões: aviso claro — sem `LevelExperienceRampOverrides` no Game.ini o ARK **não** honra o teto elevado (reverte ~vanilla). OFF limpa rampa + OverrideMaxXP + engrams do Game.ini (e remove legado no GUS).
 
 ### 1.3 Fluxo de escrita (`write_ini`)
 

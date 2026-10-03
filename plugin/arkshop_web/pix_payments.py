@@ -268,6 +268,7 @@ def create_pix_payment(
     external_reference: str,
     idempotency_key: str,
     payer: dict[str, Any],
+    notification_url: str | None = None,
 ) -> dict[str, Any]:
     if not payer or not payer.get("email"):
         raise PayerValidationError("Dados do pagador são obrigatórios.", field="email")
@@ -278,6 +279,8 @@ def create_pix_payment(
         "external_reference": external_reference[:256],
         "payer": payer,
     }
+    if notification_url:
+        payload["notification_url"] = str(notification_url)[:248]
     return _mp_request(
         access_token,
         "POST",
@@ -331,6 +334,7 @@ def create_card_checkout_preference(
     external_reference: str,
     payer: dict[str, Any],
     back_urls: dict[str, str],
+    notification_url: str | None = None,
 ) -> dict[str, Any]:
     """Checkout Pro — cartão de crédito/débito (PIX excluído; fluxo PIX usa API direta)."""
     if not payer or not payer.get("email"):
@@ -374,6 +378,8 @@ def create_card_checkout_preference(
         payload["auto_return"] = "approved"
     if payer.get("phone"):
         payload["payer"]["phone"] = payer["phone"]
+    if notification_url:
+        payload["notification_url"] = str(notification_url)[:248]
     return _mp_request(access_token, "POST", "/checkout/preferences", payload)
 
 
@@ -385,6 +391,7 @@ def create_boleto_checkout_preference(
     external_reference: str,
     payer: dict[str, Any],
     back_urls: dict[str, str],
+    notification_url: str | None = None,
 ) -> dict[str, Any]:
     """Checkout Pro — só boleto (ticket). Cartão/PIX excluídos nesta preference."""
     if not payer or not payer.get("email"):
@@ -433,6 +440,8 @@ def create_boleto_checkout_preference(
         payload["auto_return"] = "approved"
     if payer.get("phone"):
         payload["payer"]["phone"] = payer["phone"]
+    if notification_url:
+        payload["notification_url"] = str(notification_url)[:248]
     return _mp_request(access_token, "POST", "/checkout/preferences", payload)
 
 
@@ -510,3 +519,101 @@ def verify_mp_webhook_signature(
                 raise WebhookSignatureError("timestamp too old")
         except ValueError as exc:
             raise WebhookSignatureError("invalid ts") from exc
+
+
+# ── Reconciliação / notificações (Fix Web Store / Doações) ──────────────────
+
+def search_payments_by_external_reference(
+    access_token: str,
+    external_reference: str,
+    *,
+    timeout: float = 15.0,
+) -> list[dict[str, Any]]:
+    """GET /v1/payments/search — somente leitura. Lista pagamentos MP de uma doação.
+
+    Usado quando o registro local ainda não tem ``mp_payment_id`` (cartão/Checkout Pro:
+    o id do pagamento só chega por webhook ou pelo retorno do checkout).
+    """
+    ref = str(external_reference or "").strip()
+    if not ref:
+        return []
+    from urllib.parse import quote
+
+    path = (
+        "/v1/payments/search?sort=date_created&criteria=desc&limit=10"
+        f"&external_reference={quote(ref, safe='')}"
+    )
+    data = _mp_request(access_token, "GET", path, timeout=timeout)
+    results = data.get("results") if isinstance(data, dict) else None
+    return [r for r in (results or []) if isinstance(r, dict)]
+
+
+def pick_best_payment(results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Entre vários pagamentos da mesma referência, prefere o aprovado; senão o mais recente."""
+    if not results:
+        return None
+    for r in results:
+        if map_mp_status(str(r.get("status", ""))) == "APROVADO":
+            return r
+    return results[0]
+
+
+def mp_amount_covers_package(mp_resp: dict[str, Any], expected_brl: float) -> bool:
+    """True se o valor pago (transaction_amount) cobre o preço do pacote.
+
+    Se o MP não informar valor (mocks/legado) não bloqueia — o MP sempre informa em produção.
+    """
+    raw = mp_resp.get("transaction_amount")
+    if raw is None:
+        return True
+    try:
+        paid = float(raw)
+    except (TypeError, ValueError):
+        return False
+    return paid + 0.009 >= float(expected_brl or 0)
+
+
+def classify_mp_notification(body: dict[str, Any] | None, args: Any) -> tuple[str, str]:
+    """Retorna (tópico normalizado, id). Tópico: 'payment' | 'merchant_order' | outro.
+
+    Webhooks: ``{"type":"payment","data":{"id":..}}`` / ``?data.id=..&type=payment``.
+    IPN legado: ``?topic=payment&id=..`` ou ``?topic=merchant_order&id=..`` (id NÃO é de pagamento).
+    Sem tópico informado assume 'payment' (compatibilidade).
+    """
+    body = body if isinstance(body, dict) else {}
+    data = body.get("data") if isinstance(body.get("data"), dict) else {}
+    topic = str(
+        body.get("type") or body.get("topic") or args.get("type") or args.get("topic") or ""
+    ).strip().lower()
+    action = str(body.get("action") or "").strip().lower()
+    if not topic and action.startswith("payment."):
+        topic = "payment"
+    if topic in ("payments",):
+        topic = "payment"
+    if not topic:
+        topic = "payment"
+    data_id = str(
+        data.get("id") or args.get("data.id") or body.get("id") or args.get("id") or ""
+    ).strip()
+    return topic, data_id
+
+
+def is_public_https_url(url: str) -> bool:
+    """False para localhost/IP privado/sem HTTPS — o MP só notifica URL pública."""
+    import ipaddress
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(str(url or "").strip())
+    except Exception:
+        return False
+    host = (parsed.hostname or "").strip().lower()
+    if parsed.scheme != "https" or not host:
+        return False
+    if host in ("localhost",) or host.endswith((".local", ".lan", ".internal", ".home")):
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return "." in host
+    return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved)

@@ -1,43 +1,37 @@
-"""Painel TEK de gerenciamento do bot Discord oBobonicClean."""
+"""Painel TEK do bot Discord oBobonic EMBUTIDO (administração, moderação e salas de voz)."""
 from __future__ import annotations
 
+import logging
 import os
-import threading
 import webbrowser
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
+from ..discord_bot.legacy_import import (
+    apply_legacy_to_config,
+    collect_legacy_values,
+    import_badwords,
+    should_offer_legacy_import,
+)
+from ..discord_bot.settings import BotSettings, default_data_dir
+from ..discord_bot.storage import BADWORDS_FILENAME, ensure_data_dir
 from ..obobonic_bot import (
-    COG_CATALOG,
-    DEFAULT_PROJECT_PATH,
-    ENV_SECTIONS,
-    ArkMapEntry,
-    MapHealthResult,
-    ObobonicBotProcess,
-    apply_env_section_updates,
-    backup_env_file,
-    collect_bot_log_text,
+    STATE_ERROR,
+    STATE_ONLINE,
+    TEXT_FIELDS,
     discord_developer_url,
     discord_invite_url,
-    health_check_maps,
-    list_env_backups,
-    mask_secret,
-    parse_ark_maps_from_env,
-    parse_bot_status_from_log,
-    read_config_cogs,
-    read_env_value,
-    read_log_tail,
-    restore_env_backup,
-    sync_asm_servers_to_env,
-    validate_discord_token,
-    write_ark_maps_to_env,
-    write_config_cogs,
+    get_runner,
+    live_config,
+    restart_embedded_bot,
+    save_bot_fields,
+    save_panel_options,
+    start_embedded_bot,
 )
-from ..server_visibility import resolve_machine_public_ip
 from ..ui_constants import (
     _BG,
     _CARD_BG,
@@ -52,6 +46,8 @@ from ..ui_constants import (
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 
+_log = logging.getLogger(__name__)
+
 _SEC_BG = "#0d0d1e"
 _HEAD_BG = "#141428"
 _INNER = "#16162a"
@@ -59,6 +55,17 @@ _BDR = "#2a2a45"
 _FIELD_BG = "#111128"
 _AMBER = "#e0af68"
 _OFFLINE = "#f7768e"
+
+# (campo da config, rótulo, secreto?, dica)
+_FIELD_ROWS = (
+    ("token", "Token do bot", True, "Dev Portal → Bot → Reset Token"),
+    ("client_id", "Client ID (opcional)", False, "vazio = derivado do token"),
+    ("guild_id", "ID do servidor Discord", False, "Servidor onde o bot atua"),
+    ("command_prefix", "Prefixo dos comandos", False, "padrão: !"),
+    ("lobby_channel_id", "Lobby de voz", False, "entrar cria uma sala própria"),
+    ("logs_channel_id", "Canal de logs", False, "moderação / admin"),
+    ("quarantine_role_id", "Cargo de quarentena", False, "usado por !limpezageral"),
+)
 
 
 def _head(parent: tk.Widget, text: str, bg: str = _INNER) -> None:
@@ -80,53 +87,79 @@ def _toast(app: "ARKTEKApp", msg: str, kind: str = "info") -> None:
             messagebox.showinfo("oBobonic", msg)
 
 
+def _save_config(app: "ARKTEKApp") -> Optional[str]:
+    """Salva o config; devolve a mensagem de erro (ou None)."""
+    try:
+        app.config_manager.save()
+        return None
+    except OSError as exc:
+        return str(exc)
+
+
+def import_legacy_folder(app: "ARKTEKApp", folder: Path, *, overwrite: bool = False) -> str:
+    """Importa token/IDs/palavrões da pasta antiga (uma vez, a pedido). Devolve resumo SEM segredos."""
+    cfg = live_config(app)
+    data = collect_legacy_values(folder)
+    if not data.has_anything:
+        cfg.legacy_import_done = True
+        _save_config(app)
+        return "Nada para importar nessa pasta."
+    changed = apply_legacy_to_config(cfg, data, overwrite=overwrite)
+    badwords = import_badwords(data, default_data_dir())
+    cfg.legacy_import_done = True
+    cfg.legacy_project_path = ""
+    err = _save_config(app)
+    if err:
+        raise OSError(err)
+    parts = list(changed)
+    if badwords:
+        parts.append("palavroes.txt")
+    return "Importado: " + (", ".join(parts) if parts else "nenhum campo novo (já configurado)")
+
+
+def offer_legacy_import(app: "ARKTEKApp", after_import: Any = None) -> bool:
+    """Pergunta UMA vez se deve importar a config do bot antigo. Retorna True se importou."""
+    cfg = live_config(app)
+    if not should_offer_legacy_import(cfg):
+        return False
+    folder = Path(cfg.legacy_project_path)
+    try:
+        answer = messagebox.askyesno(
+            "oBobonic — importar dados do bot antigo",
+            "O oBobonic agora roda DENTRO do app (sem pasta externa).\n\n"
+            f"Encontrei token e IDs do bot antigo em:\n{folder}\n\n"
+            "Importar essas configurações uma única vez? "
+            "(o caminho antigo não será mais usado)",
+        )
+    except Exception:
+        return False
+    imported = False
+    try:
+        if answer:
+            summary = import_legacy_folder(app, folder)
+            _toast(app, summary, "info")
+            imported = True
+        else:
+            cfg.legacy_import_done = True
+            cfg.legacy_project_path = ""
+            _save_config(app)
+    except Exception as exc:
+        _toast(app, f"Falha ao importar: {exc}", "error")
+    if imported and after_import:
+        after_import()
+    return imported
+
+
 def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     theme = get_theme("tek")
     accent = theme["accent"]
-    cfg = app.config_manager.config.obobonic
+    runner = get_runner(app)
 
     parent.grid_rowconfigure(0, weight=0)
     parent.grid_rowconfigure(1, weight=1)
     parent.grid_columnconfigure(0, weight=1)
 
-    bot_holder: Dict[str, Any] = {"proc": None}
-    state: Dict[str, Any] = {
-        "maps": [],
-        "follow_logs": True,
-        "poll_job": None,
-        "health": {},  # name -> MapHealthResult
-    }
-
-    def _project_dir() -> Path:
-        raw = (path_var.get() or "").strip() or DEFAULT_PROJECT_PATH
-        return Path(raw)
-
-    def _env_path() -> Path:
-        return _project_dir() / ".env"
-
-    def _read_env_text() -> str:
-        p = _env_path()
-        if not p.is_file():
-            return ""
-        return p.read_text(encoding="utf-8")
-
-    def _ensure_bot() -> ObobonicBotProcess:
-        pdir = _project_dir()
-        proc = bot_holder.get("proc")
-        if proc is None:
-            boot = getattr(app, "_obobonic_boot_proc", None)
-            if boot is not None and boot.project_dir == pdir:
-                proc = boot
-                bot_holder["proc"] = proc
-        if proc is None or proc.project_dir != pdir:
-            proc = ObobonicBotProcess(pdir)
-            bot_holder["proc"] = proc
-        proc.set_auto_restart(auto_restart_var.get())
-        return proc
-
-    def _persist_path() -> None:
-        cfg.project_path = str(_project_dir())
-        app.config_manager.save()
+    state: Dict[str, Any] = {"follow_logs": True, "poll_job": None}
 
     # ── Header ────────────────────────────────────────────────────────────
     header = ctk.CTkFrame(parent, fg_color=_HEAD_BG, corner_radius=0, height=72)
@@ -143,10 +176,10 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     status_dot = ctk.CTkLabel(header, text="●", font=ctk.CTkFont(size=18), text_color=_OFFLINE)
     status_dot.grid(row=0, column=1, padx=(0, 6), sticky="e")
     status_var = tk.StringVar(value="Parado")
-    pid_var = tk.StringVar(value="PID —")
+    detail_var = tk.StringVar(value="Embutido no app")
     ctk.CTkLabel(header, textvariable=status_var, font=ctk.CTkFont(size=12, weight="bold")).grid(
         row=0, column=2, sticky="w")
-    ctk.CTkLabel(header, textvariable=pid_var, text_color="gray55",
+    ctk.CTkLabel(header, textvariable=detail_var, text_color="gray55",
                  font=ctk.CTkFont(size=10)).grid(row=1, column=2, sticky="w")
 
     # ── Corpo scrollável ──────────────────────────────────────────────────
@@ -154,67 +187,20 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     body.grid(row=1, column=0, sticky="nsew")
     body.grid_columnconfigure(0, weight=1)
 
-    # Caminho do projeto
-    path_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
-    path_card.pack(fill="x", padx=16, pady=(16, 8))
-    path_card.grid_columnconfigure(1, weight=1)
-
-    ctk.CTkLabel(path_card, text="Pasta do bot (oBobonicClean)", text_color="gray60",
-                 font=ctk.CTkFont(size=11, weight="bold")).grid(
-        row=0, column=0, columnspan=3, padx=12, pady=(10, 4), sticky="w")
-
-    path_var = tk.StringVar(value=cfg.project_path or DEFAULT_PROJECT_PATH)
-    path_entry = ctk.CTkEntry(path_card, textvariable=path_var, height=30)
-    path_entry.grid(row=1, column=0, columnspan=2, padx=12, pady=(0, 10), sticky="ew")
-
-    def _browse_path() -> None:
-        chosen = filedialog.askdirectory(
-            title="Selecionar pasta do oBobonicClean",
-            initialdir=str(_project_dir()) if _project_dir().is_dir() else str(Path.home()),
-        )
-        if chosen:
-            path_var.set(chosen)
-            _persist_path()
-            _refresh_validation()
-            _load_maps()
-            _refresh_logs()
-
-    def _open_folder() -> None:
-        p = _project_dir()
-        if p.is_dir():
-            os.startfile(str(p))  # type: ignore[attr-defined]
-        else:
-            _toast(app, "Pasta do bot não encontrada.", "warning")
-
-    ctk.CTkButton(path_card, text="📁", width=36, height=30,
-                  fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
-                  command=_browse_path).grid(row=1, column=2, padx=(0, 12), pady=(0, 10))
-
-    val_lbl = ctk.CTkLabel(path_card, text="", text_color="gray55", anchor="w",
-                           font=ctk.CTkFont(size=10), wraplength=720, justify="left")
-    val_lbl.grid(row=2, column=0, columnspan=3, padx=12, pady=(0, 10), sticky="ew")
-
     # Controles
     ctrl_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
-    ctrl_card.pack(fill="x", padx=16, pady=8)
+    ctrl_card.pack(fill="x", padx=16, pady=(16, 8))
+
+    val_lbl = ctk.CTkLabel(ctrl_card, text="", text_color="gray55", anchor="w",
+                           font=ctk.CTkFont(size=10), wraplength=720, justify="left")
+    val_lbl.pack(fill="x", padx=12, pady=(10, 0))
 
     btn_row = ctk.CTkFrame(ctrl_card, fg_color="transparent")
     btn_row.pack(fill="x", padx=12, pady=12)
 
-    hidden_var = tk.BooleanVar(value=cfg.start_hidden)
-    auto_start_var = tk.BooleanVar(value=cfg.auto_start)
-    auto_restart_var = tk.BooleanVar(value=cfg.auto_restart_on_crash)
-    health_before_start_var = tk.BooleanVar(value=cfg.health_check_before_start)
-
-    def _set_status(running: bool, pid: Optional[int] = None) -> None:
-        if running:
-            status_var.set("Rodando")
-            status_dot.configure(text_color=_GREEN)
-            pid_var.set(f"PID {pid}" if pid else "PID —")
-        else:
-            status_var.set("Parado")
-            status_dot.configure(text_color=_OFFLINE)
-            pid_var.set("PID —")
+    cfg0 = live_config(app)
+    auto_start_var = tk.BooleanVar(value=bool(cfg0.auto_start))
+    auto_restart_var = tk.BooleanVar(value=bool(cfg0.auto_restart_on_crash))
 
     def _append_panel_log(msg: str) -> None:
         log_box.configure(state=tk.NORMAL)
@@ -224,65 +210,27 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
         log_box.configure(state=tk.DISABLED)
 
     def _on_action(ok: bool, msg: str) -> None:
-        prefix = "✅ " if ok else "⚠ "
-        _append_panel_log(prefix + msg)
+        _append_panel_log(("✅ " if ok else "⚠ ") + msg)
         _refresh_status()
         _toast(app, msg, "info" if ok else "warning")
 
     def _start() -> None:
-        _persist_path()
-        bot = _ensure_bot()
-        bot.set_auto_restart(auto_restart_var.get())
-
-        def _worker() -> None:
-            health: Optional[List[MapHealthResult]] = None
-            if health_before_start_var.get():
-                try:
-                    env_text = _read_env_text()
-                    maps = _collect_maps() or parse_ark_maps_from_env(env_text)
-                    if maps:
-                        health = health_check_maps(maps, env_text)
-                        state["health"] = {h.name: h for h in health}
-                        app.after(0, _refresh_health_ui)
-                except Exception as exc:
-                    app.after(0, lambda: _on_action(False, f"Health check falhou: {exc}"))
-                    return
-            ok, msg = bot.start(
-                hidden=hidden_var.get(),
-                skip_health=not health_before_start_var.get(),
-                health_results=health,
-            )
-            app.after(0, lambda: _on_action(ok, msg))
-
-        threading.Thread(target=_worker, daemon=True).start()
+        _on_action(*start_embedded_bot(app))
 
     def _stop() -> None:
-        bot = _ensure_bot()
-        bot.set_auto_restart(False)
+        import threading
 
         def _worker() -> None:
-            ok, msg = bot.stop()
+            ok, msg = runner.stop()
             app.after(0, lambda: _on_action(ok, msg))
 
         threading.Thread(target=_worker, daemon=True).start()
 
     def _restart() -> None:
-        _persist_path()
-        bot = _ensure_bot()
-        bot.set_auto_restart(auto_restart_var.get())
+        import threading
 
         def _worker() -> None:
-            health: Optional[List[MapHealthResult]] = None
-            if health_before_start_var.get():
-                env_text = _read_env_text()
-                maps = _collect_maps() or parse_ark_maps_from_env(env_text)
-                if maps:
-                    health = health_check_maps(maps, env_text)
-            ok, msg = bot.restart(
-                hidden=hidden_var.get(),
-                skip_health=not health_before_start_var.get(),
-                health_results=health,
-            )
+            ok, msg = restart_embedded_bot(app)
             app.after(0, lambda: _on_action(ok, msg))
 
         threading.Thread(target=_worker, daemon=True).start()
@@ -301,17 +249,23 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     opt_row.pack(fill="x", padx=12, pady=(0, 12))
 
     def _save_opt() -> None:
-        cfg.start_hidden = hidden_var.get()
-        cfg.auto_start = auto_start_var.get()
-        cfg.auto_restart_on_crash = auto_restart_var.get()
-        cfg.health_check_before_start = health_before_start_var.get()
-        app.config_manager.save()
-        _ensure_bot().set_auto_restart(auto_restart_var.get())
+        """Persiste as caixas (marcadas OU desmarcadas) na config ATUAL do app."""
+        wanted = (auto_start_var.get(), auto_restart_var.get())
+        try:
+            save_panel_options(
+                app.config_manager,
+                auto_start=wanted[0],
+                auto_restart_on_crash=wanted[1],
+            )
+        except OSError as exc:
+            # Não deixa a UI mentir: volta ao que está de fato gravado e avisa.
+            cur = live_config(app)
+            auto_start_var.set(bool(cur.auto_start))
+            auto_restart_var.set(bool(cur.auto_restart_on_crash))
+            _toast(app, f"Não foi possível salvar as opções: {exc}", "error")
+            return
+        runner.set_auto_restart(wanted[1])
 
-    ctk.CTkCheckBox(opt_row, text="Modo oculto (sem janela)",
-                    variable=hidden_var, command=_save_opt,
-                    fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
-        side=tk.LEFT, padx=(0, 12))
     ctk.CTkCheckBox(opt_row, text="Iniciar com o app",
                     variable=auto_start_var, command=_save_opt,
                     fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
@@ -320,140 +274,80 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
                     variable=auto_restart_var, command=_save_opt,
                     fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
         side=tk.LEFT, padx=(0, 12))
-    ctk.CTkCheckBox(opt_row, text="Verificar RCON antes de iniciar",
-                    variable=health_before_start_var, command=_save_opt,
-                    fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
-        side=tk.LEFT)
 
-    aux_row = ctk.CTkFrame(ctrl_card, fg_color="transparent")
-    aux_row.pack(fill="x", padx=12, pady=(0, 12))
-
-    def _install_deps() -> None:
-        bot = _ensure_bot()
-        _append_panel_log("📦 Criando .venv (se necessário) e instalando dependências...")
-
-        def _worker() -> None:
-            def on_line(line: str) -> None:
-                if line.strip():
-                    app.after(0, lambda l=line: _append_panel_log(l))
-
-            ok, msg = bot.install_dependencies(on_line=on_line, create_venv=True)
-            app.after(0, lambda: _on_action(ok, msg))
-
-        threading.Thread(target=_worker, daemon=True).start()
-
-    def _sync_asm() -> None:
-        asm_servers = app.asm_config_manager.servers
-        if not asm_servers:
-            _toast(app, "Nenhum servidor TEK cadastrado para sincronizar.", "warning")
-            return
-        env_path = _env_path()
-        if not env_path.is_file():
-            _toast(app, "Arquivo .env não encontrado na pasta do bot.", "error")
-            return
-
-        def _worker() -> None:
-            try:
-                env_text = env_path.read_text(encoding="utf-8")
-                pub_ip = resolve_machine_public_ip(app.config_manager.config)
-                default_host = pub_ip or read_env_value(env_text, "ARK_HOST") or "127.0.0.1"
-                new_text, maps, logs = sync_asm_servers_to_env(
-                    env_text, asm_servers, default_host=default_host,
-                )
-                if not maps:
-                    app.after(0, lambda: _toast(app, logs[0] if logs else "Nada a sincronizar.", "warning"))
-                    return
-                env_path.write_text(new_text, encoding="utf-8")
-                state["maps"] = maps
-
-                def _done() -> None:
-                    _load_maps()
-                    for line in logs:
-                        _append_panel_log("↻ " + line)
-                    _toast(
-                        app,
-                        f"Sincronizado: {len(maps)} mapa(s) TEK → .env (RCON, query, senha).",
-                        "info",
-                    )
-                    _run_health_check(quiet=True)
-
-                app.after(0, _done)
-            except OSError as exc:
-                app.after(0, lambda: _toast(app, str(exc), "error"))
-
-        _append_panel_log("↻ Sincronizando servidores TEK → .env do bot...")
-        threading.Thread(target=_worker, daemon=True).start()
-
-    ctk.CTkButton(aux_row, text="📦 Instalar deps", width=130, height=30,
-                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_install_deps).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(aux_row, text="↻ Sync TEK → .env", width=140, height=30,
-                  fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
-                  command=_sync_asm).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(aux_row, text="📂 Abrir pasta", width=120, height=30,
-                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_open_folder).pack(side=tk.LEFT)
-
-    # ── Status Discord (via logs) ─────────────────────────────────────────
+    # ── Status Discord (ao vivo) ──────────────────────────────────────────
     discord_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
     discord_card.pack(fill="x", padx=16, pady=8)
     discord_inner = tk.Frame(discord_card, bg=_INNER)
     discord_inner.pack(fill="x", padx=2, pady=2)
-    _head(discord_inner, "Status Discord (inferido dos logs)")
+    _head(discord_inner, "Status Discord")
 
     discord_status_lbl = ctk.CTkLabel(
         discord_inner, text="—", anchor="w", justify="left",
-        text_color="gray65", wraplength=700, font=ctk.CTkFont(size=10),
+        text_color="gray65", wraplength=700, font=ctk.CTkFont(size=11),
     )
-    discord_status_lbl.pack(fill="x", padx=10, pady=(0, 6))
-
-    discord_note = ctk.CTkLabel(
+    discord_status_lbl.pack(fill="x", padx=10, pady=(0, 4))
+    ctk.CTkLabel(
         discord_inner,
-        text="Latência e contagem de guilds exigem API Discord — não disponível sem alterar o bot.",
+        text="Capacidades: administração (!reload/!load/!unload/!restart/!shutdown), "
+             "moderação (!faxina/!limpar/!limpezageral + filtros) e salas de voz temporárias.",
         text_color="gray50", font=ctk.CTkFont(size=9), anchor="w", wraplength=700, justify="left",
-    )
-    discord_note.pack(fill="x", padx=10, pady=(0, 8))
+    ).pack(fill="x", padx=10, pady=(0, 8))
 
     link_row = ctk.CTkFrame(discord_inner, fg_color="transparent")
     link_row.pack(fill="x", padx=10, pady=(0, 10))
 
+    def _current_token_client() -> tuple:
+        cfg = live_config(app)
+        tok = (field_vars["token"].get() if "token" in field_vars else cfg.token).strip()
+        cid = (field_vars["client_id"].get() if "client_id" in field_vars else cfg.client_id).strip()
+        return tok, cid
+
     def _open_discord_dev() -> None:
         try:
-            env_text = _read_env_text()
-            token = read_env_value(env_text, "DISCORD_TOKEN")
-            url = discord_developer_url(token)
-            if url:
-                webbrowser.open(url)
-            else:
-                webbrowser.open("https://discord.com/developers/applications")
+            tok, cid = _current_token_client()
+            webbrowser.open(discord_developer_url(tok, cid))
         except Exception as exc:
             _toast(app, str(exc), "error")
+
+    def _invite_url() -> Optional[str]:
+        tok, cid = _current_token_client()
+        return discord_invite_url(tok, cid)
 
     def _open_discord_invite() -> None:
+        url = _invite_url()
+        if url:
+            webbrowser.open(url)
+        else:
+            _toast(app, "Informe um token ou Client ID válido para gerar o link de convite.", "warning")
+
+    def _copy_invite() -> None:
+        url = _invite_url()
+        if not url:
+            _toast(app, "Informe um token ou Client ID válido para gerar o link de convite.", "warning")
+            return
         try:
-            env_text = _read_env_text()
-            token = read_env_value(env_text, "DISCORD_TOKEN")
-            url = discord_invite_url(token)
-            if url:
-                webbrowser.open(url)
-            else:
-                _toast(app, "Token inválido — não foi possível gerar link de convite.", "warning")
+            app.clipboard_clear()
+            app.clipboard_append(url)
+            _toast(app, "Link de convite copiado.", "info")
         except Exception as exc:
             _toast(app, str(exc), "error")
 
-    def _open_bancos() -> None:
-        p = _project_dir() / ".bancos"
-        if p.is_dir():
+    def _open_data_dir() -> None:
+        p = ensure_data_dir(default_data_dir())
+        try:
             os.startfile(str(p))  # type: ignore[attr-defined]
-        else:
-            _toast(app, "Pasta .bancos não encontrada.", "warning")
+        except Exception as exc:
+            _toast(app, f"Não foi possível abrir a pasta: {exc}", "warning")
 
-    def _open_data() -> None:
-        p = _project_dir() / "data"
-        if p.is_dir():
-            os.startfile(str(p))  # type: ignore[attr-defined]
-        else:
-            _toast(app, "Pasta data não encontrada.", "warning")
+    def _edit_badwords() -> None:
+        ensure_data_dir(default_data_dir())
+        path = default_data_dir() / BADWORDS_FILENAME
+        try:
+            os.startfile(str(path))  # type: ignore[attr-defined]
+            _toast(app, "Salve o arquivo e reinicie o bot para aplicar a nova lista.", "info")
+        except Exception as exc:
+            _toast(app, f"Não foi possível abrir o arquivo: {exc}", "warning")
 
     ctk.CTkButton(link_row, text="🔗 Dev Portal", width=110, height=28,
                   fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
@@ -461,434 +355,131 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     ctk.CTkButton(link_row, text="➕ Convidar bot", width=110, height=28,
                   fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
                   command=_open_discord_invite).pack(side=tk.LEFT, padx=(0, 6))
-    ctk.CTkButton(link_row, text="🗄 .bancos", width=90, height=28,
+    ctk.CTkButton(link_row, text="📋 Copiar convite", width=120, height=28,
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_open_bancos).pack(side=tk.LEFT, padx=(0, 6))
-    ctk.CTkButton(link_row, text="📁 data/", width=80, height=28,
+                  command=_copy_invite).pack(side=tk.LEFT, padx=(0, 6))
+    ctk.CTkButton(link_row, text="🗄 Pasta de dados", width=120, height=28,
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_open_data).pack(side=tk.LEFT)
+                  command=_open_data_dir).pack(side=tk.LEFT)
 
-    def _refresh_discord_status() -> None:
-        bot = _ensure_bot()
-        log_text = collect_bot_log_text(
-            _project_dir(),
-            proc_log_lines=[],
-            hidden_log_path=bot.hidden_log_path if bot else None,
-        )
-        if bot.is_running and not bot.hidden_mode:
-            recent = []
-            log_box.configure(state=tk.NORMAL)
-            recent = log_box.get("1.0", tk.END).splitlines()[-400:]
-            log_box.configure(state=tk.DISABLED)
-            log_text = collect_bot_log_text(
-                _project_dir(), proc_log_lines=recent, hidden_log_path=bot.hidden_log_path,
+    # ── Configuração do bot ───────────────────────────────────────────────
+    cfg_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+    cfg_card.pack(fill="x", padx=16, pady=8)
+    cfg_inner = tk.Frame(cfg_card, bg=_INNER)
+    cfg_inner.pack(fill="x", padx=2, pady=2)
+    _head(cfg_inner, "Configuração do bot")
+
+    fields_fr = ctk.CTkFrame(cfg_inner, fg_color="transparent")
+    fields_fr.pack(fill="x", padx=10, pady=(0, 8))
+    fields_fr.grid_columnconfigure(1, weight=1)
+    field_vars: Dict[str, tk.StringVar] = {}
+    token_entry: Dict[str, Any] = {}
+
+    for row_i, (key, label, secret, hint) in enumerate(_FIELD_ROWS):
+        ctk.CTkLabel(fields_fr, text=label, text_color="gray60",
+                     font=ctk.CTkFont(size=10)).grid(row=row_i, column=0, sticky="w", padx=(0, 8), pady=3)
+        var = tk.StringVar(value=str(getattr(cfg0, key, "") or ""))
+        field_vars[key] = var
+        ent = ctk.CTkEntry(fields_fr, textvariable=var, height=28, show="•" if secret else "")
+        ent.grid(row=row_i, column=1, sticky="ew", pady=3)
+        if secret:
+            token_entry["w"] = ent
+        ctk.CTkLabel(fields_fr, text=hint, text_color="gray45",
+                     font=ctk.CTkFont(size=9)).grid(row=row_i, column=2, sticky="w", padx=(8, 0))
+
+    show_token_var = tk.BooleanVar(value=False)
+
+    def _toggle_token() -> None:
+        token_entry["w"].configure(show="" if show_token_var.get() else "•")
+
+    ctk.CTkCheckBox(cfg_inner, text="Mostrar token", variable=show_token_var,
+                    command=_toggle_token, width=120,
+                    fg_color=theme["accent_dark"]).pack(anchor="w", padx=10, pady=(0, 6))
+
+    cogs_row = ctk.CTkFrame(cfg_inner, fg_color="transparent")
+    cogs_row.pack(fill="x", padx=10, pady=(0, 6))
+    voice_var = tk.BooleanVar(value=bool(cfg0.enable_voice))
+    moderation_var = tk.BooleanVar(value=bool(cfg0.enable_moderation))
+    ctk.CTkCheckBox(cogs_row, text="Salas de voz temporárias", variable=voice_var,
+                    fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
+        side=tk.LEFT, padx=(0, 12))
+    ctk.CTkCheckBox(cogs_row, text="Moderação (filtros + comandos)", variable=moderation_var,
+                    fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
+        side=tk.LEFT, padx=(0, 12))
+    ctk.CTkLabel(cogs_row, text="Administração está sempre ativa.", text_color="gray50",
+                 font=ctk.CTkFont(size=9)).pack(side=tk.LEFT)
+
+    def _save_fields() -> None:
+        values = {k: v.get() for k, v in field_vars.items()}
+        try:
+            errors = save_bot_fields(
+                app.config_manager, values,
+                enable_voice=voice_var.get(), enable_moderation=moderation_var.get(),
             )
-        st = parse_bot_status_from_log(log_text)
-        if bot.is_running and st.online:
-            discord_status_lbl.configure(text=f"🟢 {st.summary}", text_color=_GREEN)
-        elif bot.is_running:
-            discord_status_lbl.configure(text=f"🟡 Iniciando… {st.summary}", text_color=_AMBER)
-        else:
-            discord_status_lbl.configure(text=f"⚫ Parado — {st.summary}", text_color="gray55")
-
-    # ── Configuração .env (seções) ────────────────────────────────────────
-    env_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
-    env_card.pack(fill="x", padx=16, pady=8)
-    env_inner = tk.Frame(env_card, bg=_INNER)
-    env_inner.pack(fill="x", padx=2, pady=2)
-    _head(env_inner, "Configuração .env (chaves críticas)")
-
-    env_section_var = tk.StringVar(value=ENV_SECTIONS[0]["id"] if ENV_SECTIONS else "")
-    env_fields_fr = ctk.CTkFrame(env_inner, fg_color="transparent")
-    env_fields_fr.pack(fill="x", padx=10, pady=(0, 8))
-    env_field_vars: Dict[str, tk.StringVar] = {}
-
-    def _rebuild_env_fields(*_args: Any) -> None:
-        for w in env_fields_fr.winfo_children():
-            w.destroy()
-        env_field_vars.clear()
-        sid = env_section_var.get()
-        section = next((s for s in ENV_SECTIONS if s["id"] == sid), None)
-        if not section:
-            return
-        env_text = _read_env_text()
-        for row_i, (key, label, secret) in enumerate(section["keys"]):
-            ctk.CTkLabel(env_fields_fr, text=label, text_color="gray60",
-                         font=ctk.CTkFont(size=10)).grid(row=row_i, column=0, sticky="w", padx=(0, 8), pady=3)
-            raw = read_env_value(env_text, key)
-            display = mask_secret(raw) if secret and raw else raw
-            var = tk.StringVar(value=display)
-            env_field_vars[key] = var
-            show = "*" if secret else ""
-            ent = ctk.CTkEntry(env_fields_fr, textvariable=var, height=28, show=show)
-            ent.grid(row=row_i, column=1, sticky="ew", pady=3)
-            ctk.CTkLabel(env_fields_fr, text=key, text_color="gray45",
-                         font=ctk.CTkFont(size=9)).grid(row=row_i, column=2, sticky="w", padx=(8, 0))
-        env_fields_fr.grid_columnconfigure(1, weight=1)
-
-    env_sel_row = ctk.CTkFrame(env_inner, fg_color="transparent")
-    env_sel_row.pack(fill="x", padx=10, pady=(0, 6))
-    ctk.CTkLabel(env_sel_row, text="Seção:", text_color="gray60").pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkOptionMenu(
-        env_sel_row,
-        variable=env_section_var,
-        values=[s["id"] for s in ENV_SECTIONS],
-        command=lambda _v: _rebuild_env_fields(),
-        width=160, height=28,
-        fg_color=_SEC_BG,
-    ).pack(side=tk.LEFT)
-    _rebuild_env_fields()
-
-    def _save_env_section() -> None:
-        env_path = _env_path()
-        if not env_path.is_file():
-            _toast(app, ".env não encontrado.", "error")
-            return
-        sid = env_section_var.get()
-        section = next((s for s in ENV_SECTIONS if s["id"] == sid), None)
-        if not section:
-            return
-        updates = {key: var.get().strip() for key, var in env_field_vars.items()}
-        secret_keys = {key for key, _l, sec in section["keys"] if sec}
-        for key in secret_keys:
-            if updates.get(key) == mask_secret(read_env_value(_read_env_text(), key)):
-                updates[key] = read_env_value(_read_env_text(), key)
-        try:
-            text = env_path.read_text(encoding="utf-8")
-            new_text = apply_env_section_updates(text, updates)
-            env_path.write_text(new_text, encoding="utf-8")
-            _append_panel_log(f"✅ Seção «{sid}» salva no .env. Reinicie o bot para aplicar.")
-            _toast(app, f"Seção {sid} salva.", "info")
-            _refresh_validation()
-            _rebuild_env_fields()
         except OSError as exc:
-            _toast(app, str(exc), "error")
-
-    def _backup_env() -> None:
-        env_path = _env_path()
-        if not env_path.is_file():
-            _toast(app, ".env não encontrado.", "error")
+            _toast(app, f"Não foi possível salvar: {exc}", "error")
             return
-        try:
-            backup = backup_env_file(env_path)
-            _append_panel_log(f"💾 Backup: {backup.name}")
-            _toast(app, f"Backup criado: {backup.name}", "info")
-        except OSError as exc:
-            _toast(app, str(exc), "error")
-
-    def _restore_env() -> None:
-        backups = list_env_backups(_project_dir())
-        if not backups:
-            _toast(app, "Nenhum backup .env encontrado.", "warning")
+        if errors:
+            _toast(app, "\n".join(errors), "warning")
             return
-        latest = backups[0]
+        _append_panel_log("✅ Configuração salva. Reinicie o bot para aplicar.")
+        _toast(app, "Configuração salva. Reinicie o bot para aplicar.", "info")
+        _refresh_validation()
+
+    def _reload_fields() -> None:
+        cfg = live_config(app)
+        for key in TEXT_FIELDS:
+            if key in field_vars:
+                field_vars[key].set(str(getattr(cfg, key, "") or ""))
+        voice_var.set(bool(cfg.enable_voice))
+        moderation_var.set(bool(cfg.enable_moderation))
+        _refresh_validation()
+
+    def _import_legacy() -> None:
+        chosen = filedialog.askdirectory(
+            title="Pasta do oBobonicClean antigo (leitura única)",
+            initialdir=str(Path.home()),
+        )
+        if not chosen:
+            return
+        folder = Path(chosen)
+        data = collect_legacy_values(folder)
+        if not data.has_anything:
+            _toast(app, "Nenhum token, ID ou palavroes.txt encontrado nessa pasta.", "warning")
+            return
+        found = ", ".join(sorted(data.values)) + (", palavroes.txt" if data.badwords_path else "")
         if not messagebox.askyesno(
-            "Restaurar .env",
-            f"Restaurar backup mais recente?\n\n{latest.name}\n\nO .env atual será sobrescrito.",
+            "Importar dados do bot antigo",
+            f"Encontrado: {found}\n\nImportar para o app? Campos já preenchidos serão mantidos "
+            "(use «Sim» apenas se quiser aproveitar o que falta).",
         ):
             return
         try:
-            restore_env_backup(latest, _env_path())
-            _append_panel_log(f"↩ .env restaurado de {latest.name}")
-            _toast(app, "Backup restaurado. Reinicie o bot.", "info")
-            _refresh_validation()
-            _rebuild_env_fields()
-            _load_maps()
-        except OSError as exc:
-            _toast(app, str(exc), "error")
+            summary = import_legacy_folder(app, folder)
+        except Exception as exc:
+            _toast(app, f"Falha ao importar: {exc}", "error")
+            return
+        _reload_fields()
+        _append_panel_log("📥 " + summary)
+        _toast(app, summary, "info")
 
-    env_btn_row = ctk.CTkFrame(env_inner, fg_color="transparent")
+    env_btn_row = ctk.CTkFrame(cfg_inner, fg_color="transparent")
     env_btn_row.pack(fill="x", padx=10, pady=(0, 10))
-    ctk.CTkButton(env_btn_row, text="💾 Salvar seção", width=120, height=30,
+    ctk.CTkButton(env_btn_row, text="💾 Salvar configuração", width=160, height=30,
                   fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                  command=_save_env_section).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(env_btn_row, text="💾 Backup .env", width=120, height=30,
+                  command=_save_fields).pack(side=tk.LEFT, padx=(0, 8))
+    ctk.CTkButton(env_btn_row, text="📥 Importar dados do bot antigo", width=210, height=30,
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_backup_env).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(env_btn_row, text="↩ Restaurar", width=100, height=30,
+                  command=_import_legacy).pack(side=tk.LEFT, padx=(0, 8))
+    ctk.CTkButton(env_btn_row, text="✏ Editar palavrões", width=150, height=30,
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_restore_env).pack(side=tk.LEFT)
+                  command=_edit_badwords).pack(side=tk.LEFT, padx=(0, 8))
     ctk.CTkLabel(
-        env_btn_row,
-        text="Mapas ARK: use «Salas» acima. Cogs: edite abaixo. Dados JSON: pastas .bancos/ e data/.",
-        text_color="gray50", font=ctk.CTkFont(size=9),
-    ).pack(side=tk.LEFT, padx=(12, 0))
-
-    # ── Status dos mapas (health) ─────────────────────────────────────────
-    health_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
-    health_card.pack(fill="x", padx=16, pady=8)
-    health_inner = tk.Frame(health_card, bg=_INNER)
-    health_inner.pack(fill="both", expand=True, padx=2, pady=2)
-    _head(health_inner, "Status dos mapas (RCON / query)")
-
-    health_list_fr = ctk.CTkFrame(health_inner, fg_color="transparent")
-    health_list_fr.pack(fill="x", padx=10, pady=(0, 8))
-    health_rows: Dict[str, ctk.CTkLabel] = {}
-
-    def _refresh_health_ui() -> None:
-        for w in health_list_fr.winfo_children():
-            w.destroy()
-        health_rows.clear()
-        health_map: Dict[str, MapHealthResult] = state.get("health") or {}
-        if not health_map:
-            ctk.CTkLabel(
-                health_list_fr, text="Clique em «Testar RCON» ou sincronize com os servidores TEK.",
-                text_color="gray55", font=ctk.CTkFont(size=10), anchor="w",
-            ).pack(fill="x", pady=4)
-            return
-        for name, h in sorted(health_map.items(), key=lambda x: x[0].lower()):
-            row = ctk.CTkFrame(health_list_fr, fg_color=_SEC_BG, corner_radius=6)
-            row.pack(fill="x", pady=2)
-            dot = "🟢" if h.online else "🔴"
-            detail = h.status_label
-            if not h.rcon_ok and h.rcon_detail:
-                detail += f" — {h.rcon_detail[:60]}"
-            lbl = ctk.CTkLabel(
-                row, text=f"{dot}  {name}: {detail}",
-                anchor="w", font=ctk.CTkFont(size=10),
-                text_color=_GREEN if h.online else "gray60",
-            )
-            lbl.pack(fill="x", padx=10, pady=6)
-            health_rows[name] = lbl
-
-    def _run_health_check(quiet: bool = False) -> None:
-        env_path = _env_path()
-        if not env_path.is_file():
-            if not quiet:
-                _toast(app, ".env não encontrado.", "error")
-            return
-
-        def _worker() -> None:
-            try:
-                env_text = env_path.read_text(encoding="utf-8")
-                maps = _collect_maps() or parse_ark_maps_from_env(env_text)
-                if not maps:
-                    app.after(0, lambda: _toast(app, "Nenhum mapa configurado no .env.", "warning"))
-                    return
-                results = health_check_maps(maps, env_text)
-                state["health"] = {h.name: h for h in results}
-
-                def _done() -> None:
-                    _refresh_health_ui()
-                    ok_n = sum(1 for h in results if h.rcon_ok)
-                    if not quiet:
-                        _toast(
-                            app,
-                            f"Health check: {ok_n}/{len(results)} mapa(s) com RCON OK.",
-                            "info" if ok_n == len(results) else "warning",
-                        )
-
-                app.after(0, _done)
-            except Exception as exc:
-                app.after(0, lambda: _toast(app, str(exc), "error"))
-
-        if not quiet:
-            _append_panel_log("🔍 Testando RCON/query de cada mapa...")
-        threading.Thread(target=_worker, daemon=True).start()
-
-    health_btns = ctk.CTkFrame(health_inner, fg_color="transparent")
-    health_btns.pack(fill="x", padx=10, pady=(0, 10))
-    ctk.CTkButton(health_btns, text="🔍 Testar RCON", width=130, height=30,
-                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                  command=lambda: _run_health_check(quiet=False)).pack(side=tk.LEFT)
-
-    # ── Salas / Mapas ARK ─────────────────────────────────────────────────
-    maps_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
-    maps_card.pack(fill="x", padx=16, pady=8)
-    maps_inner = tk.Frame(maps_card, bg=_INNER)
-    maps_inner.pack(fill="both", expand=True, padx=2, pady=2)
-    _head(maps_inner, "Salas ARK no .env (RCON, query, serviço)")
-
-    maps_list_fr = ctk.CTkFrame(maps_inner, fg_color="transparent")
-    maps_list_fr.pack(fill="x", padx=10, pady=(0, 8))
-
-    map_rows: List[Dict[str, Any]] = []
-
-    def _clear_map_rows() -> None:
-        for row in map_rows:
-            row["frame"].destroy()
-        map_rows.clear()
-
-    def _add_map_row(entry: Optional[ArkMapEntry] = None) -> None:
-        idx = entry.index if entry else (max((m.index for m in state["maps"]), default=0) + 1)
-        fr = ctk.CTkFrame(maps_list_fr, fg_color=_SEC_BG, corner_radius=8)
-        fr.pack(fill="x", pady=4)
-        for c, w in enumerate((28, 1, 90, 90, 1, 50, 32)):
-            fr.grid_columnconfigure(c, weight=w if w == 1 else 0)
-
-        name_var = tk.StringVar(value=entry.name if entry else "")
-        port_var = tk.StringVar(value=entry.port if entry else "")
-        query_var = tk.StringVar(value=entry.query_port if entry else "")
-        svc_var = tk.StringVar(value=entry.service if entry else "")
-        max_var = tk.StringVar(value=entry.max_players if entry else "50")
-
-        ctk.CTkLabel(fr, text=f"#{idx}", width=28, text_color="gray55").grid(
-            row=0, column=0, rowspan=2, padx=(8, 4), pady=8)
-        ctk.CTkLabel(fr, text="Nome", text_color="gray60", font=ctk.CTkFont(size=10)).grid(
-            row=0, column=1, sticky="w", padx=4)
-        ctk.CTkEntry(fr, textvariable=name_var, height=28,
-                     placeholder_text="Ex: Brighamia").grid(
-            row=1, column=1, sticky="ew", padx=4, pady=(0, 8))
-        ctk.CTkLabel(fr, text="RCON", text_color="gray60", font=ctk.CTkFont(size=10)).grid(
-            row=0, column=2, sticky="w", padx=4)
-        ctk.CTkEntry(fr, textvariable=port_var, width=80, height=28).grid(
-            row=1, column=2, padx=4, pady=(0, 8))
-        ctk.CTkLabel(fr, text="Query", text_color="gray60", font=ctk.CTkFont(size=10)).grid(
-            row=0, column=3, sticky="w", padx=4)
-        ctk.CTkEntry(fr, textvariable=query_var, width=80, height=28).grid(
-            row=1, column=3, padx=4, pady=(0, 8))
-        ctk.CTkLabel(fr, text="Serviço", text_color="gray60", font=ctk.CTkFont(size=10)).grid(
-            row=0, column=4, sticky="w", padx=4)
-        ctk.CTkEntry(fr, textvariable=svc_var, height=28,
-                     placeholder_text="ark-brighamia.service").grid(
-            row=1, column=4, sticky="ew", padx=4, pady=(0, 8))
-        ctk.CTkLabel(fr, text="Max", text_color="gray60", font=ctk.CTkFont(size=10)).grid(
-            row=0, column=5, sticky="w", padx=4)
-        ctk.CTkEntry(fr, textvariable=max_var, width=44, height=28).grid(
-            row=1, column=5, padx=4, pady=(0, 8))
-
-        def _remove() -> None:
-            fr.destroy()
-            map_rows[:] = [r for r in map_rows if r["frame"] is not fr]
-
-        ctk.CTkButton(fr, text="✕", width=32, height=28,
-                      fg_color=_RED_DARK, hover_color=_RED_HOVER,
-                      command=_remove).grid(row=0, column=6, rowspan=2, padx=8, pady=8)
-
-        map_rows.append({
-            "frame": fr,
-            "index": idx,
-            "name": name_var,
-            "port": port_var,
-            "query": query_var,
-            "service": svc_var,
-            "max": max_var,
-        })
-
-    def _load_maps() -> None:
-        _clear_map_rows()
-        env_path = _env_path()
-        if not env_path.is_file():
-            state["maps"] = []
-            return
-        try:
-            text = env_path.read_text(encoding="utf-8")
-            state["maps"] = parse_ark_maps_from_env(text)
-            for m in state["maps"]:
-                _add_map_row(m)
-        except OSError as exc:
-            _toast(app, f"Erro ao ler .env: {exc}", "error")
-
-    def _collect_maps() -> List[ArkMapEntry]:
-        entries: List[ArkMapEntry] = []
-        for i, row in enumerate(map_rows, start=1):
-            name = row["name"].get().strip()
-            port = row["port"].get().strip()
-            if not name or not port:
-                continue
-            entries.append(ArkMapEntry(
-                index=i,
-                name=name,
-                port=port,
-                query_port=row["query"].get().strip(),
-                service=row["service"].get().strip(),
-                max_players=row["max"].get().strip() or "50",
-            ))
-        return entries
-
-    def _save_maps() -> None:
-        env_path = _env_path()
-        if not env_path.is_file():
-            _toast(app, "Arquivo .env não encontrado na pasta do bot.", "error")
-            return
-        try:
-            text = env_path.read_text(encoding="utf-8")
-            maps = _collect_maps()
-            new_text = write_ark_maps_to_env(text, maps)
-            env_path.write_text(new_text, encoding="utf-8")
-            state["maps"] = maps
-            _append_panel_log(f"✅ Salas salvas no .env ({len(maps)} mapa(s)). Reinicie o bot para aplicar.")
-            _toast(app, f"{len(maps)} sala(s) salva(s) no .env.", "info")
-        except OSError as exc:
-            _toast(app, str(exc), "error")
-
-    maps_btns = ctk.CTkFrame(maps_inner, fg_color="transparent")
-    maps_btns.pack(fill="x", padx=10, pady=(0, 10))
-    ctk.CTkButton(maps_btns, text="＋ Adicionar sala", width=140, height=30,
-                  fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
-                  command=lambda: _add_map_row()).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(maps_btns, text="💾 Salvar salas", width=120, height=30,
-                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                  command=_save_maps).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(maps_btns, text="↻ Recarregar", width=110, height=30,
-                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_load_maps).pack(side=tk.LEFT)
-
-    # ── Gerenciador de cogs ───────────────────────────────────────────────
-    cogs_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
-    cogs_card.pack(fill="x", padx=16, pady=8)
-    cogs_inner = tk.Frame(cogs_card, bg=_INNER)
-    cogs_inner.pack(fill="x", padx=2, pady=2)
-    _head(cogs_inner, "Módulos (cogs) — habilitar/desabilitar em config.py")
-
-    cogs_grid = ctk.CTkFrame(cogs_inner, fg_color="transparent")
-    cogs_grid.pack(fill="x", padx=10, pady=(0, 6))
-    cog_vars: Dict[str, tk.BooleanVar] = {}
-
-    def _load_cogs() -> None:
-        for w in cogs_grid.winfo_children():
-            w.destroy()
-        cog_vars.clear()
-        enabled, available = read_config_cogs(_project_dir())
-        if not available:
-            ctk.CTkLabel(cogs_grid, text="config.py ou pasta cogs/ não encontrados.",
-                         text_color="gray55", font=ctk.CTkFont(size=10)).pack(anchor="w")
-            return
-        cols = 2
-        for i, name in enumerate(available):
-            meta = COG_CATALOG.get(name, {})
-            label = meta.get("label", name)
-            env_hint = meta.get("env", [])
-            hint = f" ({', '.join(env_hint[:2])})" if env_hint else ""
-            var = tk.BooleanVar(value=name in enabled)
-            cog_vars[name] = var
-            txt = f"{label}{hint}"
-            cb = ctk.CTkCheckBox(
-                cogs_grid, text=txt, variable=var,
-                font=ctk.CTkFont(size=10),
-                fg_color=theme["accent_dark"], hover_color=theme["accent_hover"],
-            )
-            cb.grid(row=i // cols, column=i % cols, sticky="w", padx=4, pady=2)
-
-    def _save_cogs() -> None:
-        enabled = [name for name, var in cog_vars.items() if var.get()]
-        if not enabled:
-            _toast(app, "Selecione ao menos um cog.", "warning")
-            return
-        if "admin" not in enabled:
-            _toast(app, "O cog «admin» não pode ser desabilitado.", "warning")
-            return
-        try:
-            write_config_cogs(_project_dir(), enabled)
-            _append_panel_log(f"✅ Cogs salvos em config.py ({len(enabled)} ativos). Reinicie o bot.")
-            _toast(app, f"{len(enabled)} cog(s) ativos — reinicie o bot.", "info")
-            _load_cogs()
-        except OSError as exc:
-            _toast(app, str(exc), "error")
-
-    cogs_btn_row = ctk.CTkFrame(cogs_inner, fg_color="transparent")
-    cogs_btn_row.pack(fill="x", padx=10, pady=(0, 10))
-    ctk.CTkButton(cogs_btn_row, text="💾 Salvar cogs", width=120, height=30,
-                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                  command=_save_cogs).pack(side=tk.LEFT, padx=(0, 8))
-    ctk.CTkButton(cogs_btn_row, text="↻ Recarregar", width=110, height=30,
-                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
-                  command=_load_cogs).pack(side=tk.LEFT)
-    ctk.CTkLabel(
-        cogs_btn_row,
-        text="Alterações exigem reinício. Comandos !load/!reload continuam no Discord.",
-        text_color="gray50", font=ctk.CTkFont(size=9),
-    ).pack(side=tk.LEFT, padx=(12, 0))
+        cfg_inner,
+        text="Intents: ative «Server Members Intent» e «Message Content Intent» no Dev Portal → Bot. "
+             "Alterações exigem reiniciar o bot.",
+        text_color="gray50", font=ctk.CTkFont(size=9), anchor="w", wraplength=700, justify="left",
+    ).pack(fill="x", padx=10, pady=(0, 10))
 
     # ── Logs ──────────────────────────────────────────────────────────────
     log_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
@@ -902,7 +493,6 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
                  text_color=accent).pack(side=tk.LEFT)
 
     follow_var = tk.BooleanVar(value=True)
-    state["follow_logs"] = True
 
     log_host = tk.Frame(log_card, bg=_FIELD_BG, highlightthickness=1,
                         highlightbackground=_BDR)
@@ -910,7 +500,7 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     log_host.grid_rowconfigure(0, weight=1)
     log_host.grid_columnconfigure(0, weight=1)
 
-    log_box = tk.Text(log_host, bg="#0a0a14", fg="#9ece6a",
+    log_box = tk.Text(log_host, bg="#0a0a14", fg="#9ece6a", height=14,
                       insertbackground="#c8c8e8", font=("Consolas", 10),
                       relief=tk.FLAT, wrap=tk.WORD, state=tk.DISABLED)
     log_sb = tk.Scrollbar(log_host, command=log_box.yview,
@@ -920,24 +510,13 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     log_sb.grid(row=0, column=1, sticky="ns")
 
     def _refresh_logs() -> None:
-        bot = _ensure_bot()
-        for line in bot.drain_logs():
-            log_box.configure(state=tk.NORMAL)
+        lines = runner.drain_logs()
+        if not lines:
+            return
+        log_box.configure(state=tk.NORMAL)
+        for line in lines:
             log_box.insert(tk.END, line + "\n")
-            log_box.configure(state=tk.DISABLED)
-        if bot.hidden_mode and bot.is_running:
-            tail = read_log_tail(bot.hidden_log_path, max_lines=400)
-            if tail:
-                log_box.configure(state=tk.NORMAL)
-                log_box.delete("1.0", tk.END)
-                log_box.insert("1.0", tail)
-                log_box.configure(state=tk.DISABLED)
-        elif not bot.is_running:
-            tail = read_log_tail(bot.hidden_log_path, max_lines=200)
-            if tail and log_box.index(tk.END) == "1.0":
-                log_box.configure(state=tk.NORMAL)
-                log_box.insert("1.0", tail)
-                log_box.configure(state=tk.DISABLED)
+        log_box.configure(state=tk.DISABLED)
         if follow_var.get():
             log_box.see(tk.END)
 
@@ -961,118 +540,112 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
                   command=_clear_logs).pack(side=tk.LEFT)
 
+    # ── Status / validação ────────────────────────────────────────────────
     def _refresh_validation() -> None:
-        bot = _ensure_bot()
-        ok, msg = bot.validate(check_token=False)
-        parts: List[str] = []
-        if ok:
-            parts.append("✅ bot.py, .env e Python OK")
-        else:
-            parts.append(f"⚠ {msg.replace(chr(10), ' — ')}")
-        env_path = _env_path()
-        if env_path.is_file():
-            try:
-                env_text = env_path.read_text(encoding="utf-8")
-                tok_ok, tok_msg = validate_discord_token(env_text)
-                if tok_ok:
-                    parts.append("✅ DISCORD_TOKEN válido")
-                    val_lbl.configure(text="  ·  ".join(parts), text_color=_GREEN)
-                else:
-                    parts.append(f"⚠ {tok_msg}")
-                    val_lbl.configure(text="  ·  ".join(parts), text_color=_AMBER)
-            except OSError:
-                val_lbl.configure(text="  ·  ".join(parts), text_color=_AMBER)
-        else:
+        settings = BotSettings.from_config(live_config(app))
+        problems = settings.problems()
+        parts = []
+        if problems:
+            parts.append("⚠ " + problems[0])
             val_lbl.configure(text="  ·  ".join(parts), text_color=_AMBER)
+            return
+        parts.append("✅ Bot embutido no app · token válido")
+        for w in settings.warnings():
+            parts.append("⚠ " + w)
+        val_lbl.configure(text="  ·  ".join(parts), text_color=_GREEN if len(parts) == 1 else _AMBER)
 
     def _refresh_status() -> None:
-        bot = _ensure_bot()
-        _set_status(bot.is_running, bot.pid)
-        _refresh_validation()
-
-    _health_poll_counter = {"n": 0}
+        st = runner.snapshot()
+        if st.state == STATE_ONLINE:
+            status_var.set("Online")
+            status_dot.configure(text_color=_GREEN)
+            discord_status_lbl.configure(text=f"🟢 {st.summary}", text_color=_GREEN)
+        elif st.running:
+            status_var.set("Iniciando…" if st.state != "stopping" else "Encerrando…")
+            status_dot.configure(text_color=_AMBER)
+            discord_status_lbl.configure(text=f"🟡 {st.summary}", text_color=_AMBER)
+        else:
+            status_var.set("Erro" if st.state == STATE_ERROR else "Parado")
+            status_dot.configure(text_color=_OFFLINE)
+            discord_status_lbl.configure(
+                text=f"⚫ {st.summary}",
+                text_color=_OFFLINE if st.state == STATE_ERROR else "gray55",
+            )
+        detail_var.set(
+            f"Embutido no app · {st.latency_ms:.0f} ms" if st.latency_ms is not None
+            else "Embutido no app"
+        )
 
     def _poll_tick() -> None:
         _refresh_logs()
         _refresh_status()
-        _refresh_discord_status()
-        _health_poll_counter["n"] += 1
-        if _health_poll_counter["n"] % 30 == 0 and map_rows:
-            _run_health_check(quiet=True)
         state["poll_job"] = app.after(500, _poll_tick)
 
-    def _on_destroy(_event=None) -> None:
+    def _on_destroy(event: Any = None) -> None:
+        # Só reage à destruição do próprio painel (o bot continua rodando no app).
+        if event is not None and getattr(event, "widget", None) is not parent:
+            return
         job = state.get("poll_job")
         if job:
             try:
                 app.after_cancel(job)
             except Exception:
                 pass
-        proc = bot_holder.get("proc")
-        if proc:
-            proc.shutdown()
 
     parent.bind("<Destroy>", _on_destroy, add="+")
-    path_entry.bind("<FocusOut>", lambda _e: _persist_path())
 
-    _refresh_validation()
-    _load_maps()
-    _load_cogs()
-    _refresh_health_ui()
-    _refresh_logs()
+    # Repovoa o log com o histórico da sessão (o painel é reconstruído ao navegar).
+    hist = runner.history()
+    runner.drain_logs()
+    if hist:
+        log_box.configure(state=tk.NORMAL)
+        log_box.insert("1.0", "\n".join(hist[-300:]) + "\n")
+        log_box.configure(state=tk.DISABLED)
+        log_box.see(tk.END)
     boot_result = getattr(app, "_obobonic_autostart_msg", None)
     if isinstance(boot_result, tuple) and len(boot_result) == 2:
         ok, msg = boot_result
         _append_panel_log(("✅ " if ok else "⚠ ") + msg)
+
+    _refresh_validation()
+    _refresh_status()
     _poll_tick()
 
-    app._obobonic_panel_state = state
-    app._obobonic_bot_holder = bot_holder
+    # Config antiga com pasta externa: oferece importar uma única vez.
+    app.after(400, lambda: offer_legacy_import(app, after_import=_reload_fields))
 
 
 def auto_start_obobonic(app: "ARKTEKApp") -> None:
-    """Inicia o bot oBobonic no boot do TEK se obobonic.auto_start estiver ativo."""
-    import logging
-
-    log = logging.getLogger(__name__)
+    """Inicia o bot embutido no boot do TEK se ``obobonic.auto_start`` estiver ativo."""
     if getattr(app, "_obobonic_autostart_started", False):
         return
     app._obobonic_autostart_started = True
 
-    cfg = app.config_manager.config.obobonic
-    if not cfg.auto_start:
-        return
+    cfg = live_config(app)
 
-    project_dir = Path((cfg.project_path or "").strip() or DEFAULT_PROJECT_PATH)
-    if not project_dir.is_dir():
-        log.warning("auto_start_obobonic: pasta não encontrada — %s", project_dir)
-        return
-
-    def _worker() -> None:
-        bot = ObobonicBotProcess(project_dir)
-        bot.set_auto_restart(cfg.auto_restart_on_crash)
-        health: Optional[List[MapHealthResult]] = None
-        if cfg.health_check_before_start:
-            try:
-                env_path = project_dir / ".env"
-                env_text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
-                maps = parse_ark_maps_from_env(env_text)
-                if maps:
-                    health = health_check_maps(maps, env_text)
-            except Exception as exc:
-                log.warning("auto_start_obobonic: health check ignorado — %s", exc)
-        ok, msg = bot.start(
-            hidden=cfg.start_hidden,
-            skip_health=not cfg.health_check_before_start,
-            health_results=health,
-        )
-        app._obobonic_boot_proc = bot
+    def _autostart() -> None:
+        live = live_config(app)
+        if not live.auto_start:
+            return
+        if not BotSettings.from_config(live).token:
+            msg = "Token não configurado — configure no painel oBobonic para iniciar o bot."
+            app._obobonic_autostart_msg = (False, msg)
+            _log.info("auto_start_obobonic: %s", msg)
+            return
+        ok, msg = start_embedded_bot(app)
         app._obobonic_autostart_msg = (ok, msg)
-        level = "info" if ok else "warning"
-        log.log(logging.INFO if ok else logging.WARNING, "auto_start_obobonic: %s", msg)
+        _log.log(logging.INFO if ok else logging.WARNING, "auto_start_obobonic: %s", msg)
         try:
-            app.after(0, lambda: app._global_log(f"[oBobonic] {msg}", level))
+            app._global_log(f"[oBobonic] {msg}", "info" if ok else "warning")
         except Exception:
             pass
 
-    threading.Thread(target=_worker, daemon=True, name="ObobonicAutostart").start()
+    # Config antiga (pasta externa): oferece importar uma vez e, se importou, inicia.
+    try:
+        if should_offer_legacy_import(cfg):
+            offer_legacy_import(app, after_import=_autostart)
+            return
+    except Exception:
+        _log.warning("auto_start_obobonic: oferta de importação falhou", exc_info=True)
+
+    _autostart()
