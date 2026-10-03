@@ -164,6 +164,13 @@ def test_js_isolated_namespace(js):
     assert "_marketBrowse" not in js and "market-browse" not in js
 
 
+def test_js_blueprint_preview_strips_cdo_and_suffix(js):
+    """O preview do admin usa a mesma canonização que o serviço (Default__ e _c)."""
+    body = js.split("function rvNormalizeBlueprint", 1)[1].split("function rvAdminOpenForm", 1)[0]
+    assert "Default__" in body
+    assert "_c" in body or 'endsWith("c")' in body
+
+
 def test_js_escapes_html_and_has_no_unsafe_sinks(js):
     assert "eval(" not in js and "document.write" not in js
     assert "rvEsc(" in js

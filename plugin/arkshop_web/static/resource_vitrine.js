@@ -1113,10 +1113,21 @@ function rvNormalizeBlueprint(raw) {
   const m = t.match(/(\/(?:Game|Script|Engine)\/[A-Za-z0-9_./\-]+)/);
   if (!m) return "";
   let p = m[1].replace(/[/.]+$/, "");
-  if (p.endsWith("_C")) p = p.slice(0, -2);
-  const last = p.split("/").pop();
-  if (!last) return "";
-  if (!last.includes(".")) p = `${p}.${last}`;
+  const slash = p.lastIndexOf("/");
+  const dot = p.lastIndexOf(".");
+  const stripC = (name) => (name.length > 2 && name[name.length - 2] === "_" && (name.endsWith("C") || name.endsWith("c")) ? name.slice(0, -2) : name);
+  if (dot !== -1 && dot > slash) {
+    let obj = p.slice(dot + 1);
+    if (obj.startsWith("Default__") && obj.length > 9) obj = obj.slice(9);
+    obj = stripC(obj);
+    if (!obj) return "";
+    p = p.slice(0, dot + 1) + obj;
+  } else {
+    p = stripC(p);
+    const last = p.split("/").pop();
+    if (!last) return "";
+    if (!last.includes(".")) p = `${p}.${last}`;
+  }
   if (p.length > 255 || p.includes("..")) return "";
   return p;
 }

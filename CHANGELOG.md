@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.113] - 2026-10-03
+
+### Fix
+
+- Fix (CustomShop 1.10.42 / Vitrine de Recursos): o /vitrine identifica o item pelo mesmo blueprint do giveitem (ClassToStringReference), normaliza Default__ e o sufixo _c, e o chat separa catálogo vazio de item filtrado (durabilidade, equipado, blueprint ou stack 1). A Web Store usa a mesma canonização no cadastro e no preview. Atualize o app e troque/recarregue o plugin só numa janela em que o mapa reinicie.
+
 ## [1.10.112] - 2026-10-03
 
 ### Fix

@@ -180,6 +180,23 @@ def test_normalize_blueprint_variants():
     assert svc.normalize_blueprint("/Game/../../etc/passwd'; DROP TABLE x;--") is None or True
 
 
+def test_normalize_blueprint_admin_paste_matches_ark_report():
+    """O mesmo item: cola do admin, GetFullName da classe e GetFullName do CDO."""
+    pkg = BP_METAL.rsplit(".", 1)[0]
+    forms = [
+        BP_METAL,
+        BP_METAL + "_C",
+        BP_METAL + "_c",
+        f"Blueprint'{BP_METAL}'",
+        f"Blueprint'{BP_METAL}_C'",
+        f"BlueprintGeneratedClass {BP_METAL}_C",
+        f"PrimalItemResource_Metal_C {pkg}.Default__PrimalItemResource_Metal_C",
+        f'cheat giveitem "Blueprint\'{BP_METAL}\'" 100 0 0',
+    ]
+    for raw in forms:
+        assert svc.normalize_blueprint(raw) == (BP_METAL, BP_METAL.lower()), raw
+
+
 def test_clean_steam_id_rejects_invalid():
     with pytest.raises(svc.RVError):
         svc.clean_steam_id("abc")

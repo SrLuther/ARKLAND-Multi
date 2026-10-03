@@ -3,13 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.112"
+APP_VERSION: str = "1.10.113"
 BUILD_DATE: str = "2026-10-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.113",
+        "date": "2026-10-03",
+        "changes": [
+            "Fix (CustomShop 1.10.42 / Vitrine de Recursos): o /vitrine identifica o item pelo mesmo blueprint do giveitem (ClassToStringReference), normaliza Default__ e o sufixo _c, e o chat separa catálogo vazio de item filtrado (durabilidade, equipado, blueprint ou stack 1). A Web Store usa a mesma canonização no cadastro e no preview. Atualize o app e troque/recarregue o plugin só numa janela em que o mapa reinicie.",
+        ],
+    },
     {
         "version": "1.10.112",
         "date": "2026-10-03",

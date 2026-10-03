@@ -133,11 +133,20 @@ def as_int(value: Any, field: str, *, minimum: int | None = None, maximum: int |
     return number
 
 
+def _strip_class_suffix(name: str) -> str:
+    """Remove o sufixo de classe ``_C`` / ``_c`` (só no nome do objeto, não no asset)."""
+    if len(name) > 2 and name[-2] == "_" and name[-1] in "Cc":
+        return name[:-2]
+    return name
+
+
 def normalize_blueprint(raw: Any) -> tuple[str, str] | None:
     """Retorna ``(blueprint_canonico, chave_minuscula)`` ou None.
 
-    Aceita ``Blueprint'/Game/.../X.X'``, ``/Game/.../X.X``, ``/Game/.../X.X_C`` e
-    ``BlueprintGeneratedClass /Game/.../X.X_C``. Canônico: ``/Game/.../X.X`` (sem ``_C``).
+    Aceita o que o admin cola e o que o ARK reporta para o mesmo item:
+    ``Blueprint'/Game/.../X.X'``, ``/Game/.../X.X``, ``/Game/.../X.X_C`` (ou ``_c``),
+    ``BlueprintGeneratedClass /Game/.../X.X_C`` e o nome do CDO
+    ``.../X.Default__X_C`` (``GetFullName`` do default object). Canônico: ``/Game/.../X.X``.
     """
     text_in = str(raw or "").strip()
     if not text_in or len(text_in) > 400:
@@ -146,13 +155,23 @@ def normalize_blueprint(raw: Any) -> tuple[str, str] | None:
     if not match:
         return None
     path = match.group(1).rstrip("/.")
-    if path.endswith("_C"):
-        path = path[:-2]
-    last = path.rsplit("/", 1)[-1]
-    if not last:
-        return None
-    if "." not in last:
-        path = f"{path}.{last}"
+    slash = path.rfind("/")
+    dot = path.rfind(".")
+    if dot != -1 and dot > slash:
+        obj = path[dot + 1 :]
+        if obj.startswith("Default__") and len(obj) > 9:
+            obj = obj[9:]
+        obj = _strip_class_suffix(obj)
+        if not obj:
+            return None
+        path = path[: dot + 1] + obj
+    else:
+        path = _strip_class_suffix(path)
+        last = path.rsplit("/", 1)[-1]
+        if not last:
+            return None
+        if "." not in last:
+            path = f"{path}.{last}"
     if len(path) > 255 or ".." in path:
         return None
     return path, path.lower()

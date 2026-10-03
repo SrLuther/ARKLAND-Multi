@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.42] - 2026-10-03
+
+### Fix
+
+- **`/vitrine`**: identifica o item pelo mesmo blueprint do giveitem (`ClassToStringReference`), normaliza `Default__` e o sufixo `_c`, lê o stack máximo da classe ou da instância, e o chat separa catálogo vazio de item filtrado (durabilidade, equipado, blueprint ou stack 1).
+
+### Rebuild
+
+Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.42) em cada mapa **somente depois** da Web Store atualizada. O mapa precisa recarregar o plugin.
+
 ## [1.10.41] - 2026-10-03
 
 ### Feature

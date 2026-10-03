@@ -192,10 +192,24 @@ def test_normalize_blueprint_matches_plugin_inputs() -> None:
         sys.path.pop(0)
 
     stone = "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone"
+    pkg = stone.rsplit(".", 1)[0]
     for raw in (
         f"BlueprintGeneratedClass {stone}_C",  # GetFullName da classe do item
         f"Blueprint'{stone}'",
         f"{stone}_C",
+        f"{stone}_c",
         stone,
+        # GetFullName do default object (CDO): .../Stone.Default__PrimalItemResource_Stone_C
+        f"PrimalItemResource_Stone_C {pkg}.Default__PrimalItemResource_Stone_C",
     ):
         assert svc.normalize_blueprint(raw) == (stone, stone.lower()), raw
+
+    vit = _read(SRC / "ShopVitrine.cpp")
+    # O plugin nao pode casar so com GetFullName: ClassToStringReference e o texto do giveitem.
+    assert "ClassToStringReference" in vit
+    assert "Default__" in vit
+    assert "GetDefaultObject" in vit
+    # Lista vazia e "nao esta carregando" sao mensagens diferentes.
+    assert "Nenhum recurso esta autorizado na vitrine ainda" in vit
+    assert "Nenhum recurso autorizado no seu inventario pessoal" in vit
+    assert "tem durabilidade" in vit

@@ -38,7 +38,8 @@ constexpr int kMaxChatLines = 20;
 struct Resource {
     int id = 0;
     std::string blueprint;   // canonico /Game/.../X.X
-    std::string key;         // minusculo
+    std::string key;         // minusculo, sempre re-normalizado do blueprint
+    std::string short_key;   // token da classe (ex.: primalitemresource_metal)
     std::string name;
     std::string name_ascii;
     int stack_size = 0;
@@ -123,10 +124,17 @@ long long NowUnix() {
     return static_cast<long long>(std::time(nullptr));
 }
 
+void StripClassSuffix(std::string& name) {
+    if (name.size() > 2 && name[name.size() - 2] == '_'
+        && (name.back() == 'C' || name.back() == 'c'))
+        name.resize(name.size() - 2);
+}
+
 /**
- * Espelha `normalize_blueprint` do backend (resource_vitrine_service.py):
- * aceita Blueprint'/Game/.../X.X', /Game/.../X.X(_C) e "BlueprintGeneratedClass /Game/.../X.X_C".
- * canonical = /Game/.../X.X (sem _C, caixa original); key = canonical minusculo.
+ * Espelha `normalize_blueprint` do backend (resource_vitrine_service.py).
+ * Aceita o que o admin cola e o que o ARK reporta do mesmo item:
+ * Blueprint'/Game/.../X.X', /Game/.../X.X(_C|_c), "BlueprintGeneratedClass /Game/.../X.X_C"
+ * e o CDO "…/X.Default__X_C". canonical = /Game/.../X.X (sem _C); key = minusculo.
  */
 bool NormalizeBlueprint(const std::string& raw, std::string* canonical, std::string* key) {
     if (raw.empty() || raw.size() > 400) return false;
@@ -150,19 +158,51 @@ bool NormalizeBlueprint(const std::string& raw, std::string* canonical, std::str
     std::string path = raw.substr(pos, end - pos);
     while (!path.empty() && (path.back() == '/' || path.back() == '.'))
         path.pop_back();
-    if (path.size() > 2 && path.compare(path.size() - 2, 2, "_C") == 0)
-        path.resize(path.size() - 2);
 
     const size_t slash = path.rfind('/');
-    const std::string last = (slash == std::string::npos) ? path : path.substr(slash + 1);
-    if (last.empty()) return false;
-    if (last.find('.') == std::string::npos)
-        path += "." + last;
+    const size_t dot = path.rfind('.');
+    if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
+        std::string obj = path.substr(dot + 1);
+        if (obj.size() > 9 && obj.compare(0, 9, "Default__") == 0)
+            obj = obj.substr(9);
+        StripClassSuffix(obj);
+        if (obj.empty()) return false;
+        path = path.substr(0, dot + 1) + obj;
+    } else {
+        StripClassSuffix(path);
+        const size_t slash2 = path.rfind('/');
+        const std::string last = (slash2 == std::string::npos) ? path : path.substr(slash2 + 1);
+        if (last.empty()) return false;
+        if (last.find('.') == std::string::npos)
+            path += "." + last;
+    }
     if (path.size() > 255 || path.find("..") != std::string::npos) return false;
 
     if (canonical) *canonical = path;
     if (key) *key = ToLower(path);
     return true;
+}
+
+/** Token da classe: `PrimalItemResource_Metal` a partir do path, do CDO ou de "Package.Class_C". */
+std::string ShortToken(std::string s) {
+    if (s.empty()) return {};
+    const auto sp = s.find_last_of(" \t");
+    if (sp != std::string::npos) s = s.substr(sp + 1);
+    while (!s.empty() && (s.back() == '\'' || s.back() == '"')) s.pop_back();
+    while (!s.empty() && (s.front() == '\'' || s.front() == '"')) s.erase(s.begin());
+    const auto slash = s.rfind('/');
+    if (slash != std::string::npos) s = s.substr(slash + 1);
+    const auto dot = s.rfind('.');
+    if (dot != std::string::npos && dot + 1 < s.size()) s = s.substr(dot + 1);
+    if (s.size() > 9 && s.compare(0, 9, "Default__") == 0) s = s.substr(9);
+    StripClassSuffix(s);
+    for (char& ch : s)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    if (s.size() < 8 || s.size() > 80 || s.find('_') == std::string::npos) return {};
+    for (unsigned char ch : s) {
+        if (!(std::isalnum(ch) || ch == '_')) return {};
+    }
+    return s;
 }
 
 std::string NewUploadId() {
@@ -196,37 +236,134 @@ bool PlayerReady(AShooterPlayerController* player) {
     return player->GetPlayerInventoryComponent() != nullptr;
 }
 
-std::string ItemClassKey(UPrimalItem* item, std::string* canonical) {
-    if (!item) return {};
+struct ItemIdentity {
+    std::string full_key;
+    std::string short_key;
+    std::string canonical;
+};
+
+/**
+ * Identidade do item no inventario.
+ * 1) ClassToStringReference — o mesmo texto do giveitem / do cadastro admin.
+ * 2) GetFullName — "BlueprintGeneratedClass /Game/.../X.X_C" ou, sem path,
+ *    "BlueprintGeneratedClass Package.X_C" (cai no token curto).
+ */
+ItemIdentity IdentifyItem(UPrimalItem* item) {
+    ItemIdentity id;
+    if (!item) return id;
     UClass* cls = item->ClassField();
-    if (!cls) return {};
+    if (!cls) return id;
+
+    const auto take = [&](const std::string& raw) {
+        if (raw.empty()) return;
+        std::string canon;
+        std::string key;
+        if (NormalizeBlueprint(raw, &canon, &key)) {
+            if (id.full_key.empty()) {
+                id.full_key = key;
+                id.canonical = canon;
+                const std::string token = ShortToken(key);
+                if (!token.empty()) id.short_key = token;
+            }
+            return;
+        }
+        if (id.short_key.empty()) {
+            const std::string token = ShortToken(raw);
+            if (!token.empty()) id.short_key = token;
+        }
+    };
+
+    FString ref;
+    UVictoryCore::ClassToStringReference(&ref, TSubclassOf<UObject>(cls));
+    take(ref.ToString());
+
     FString class_name;
     cls->GetFullName(&class_name, nullptr);
-    std::string key;
-    if (!NormalizeBlueprint(class_name.ToString(), canonical, &key)) return {};
-    return key;
+    take(class_name.ToString());
+    return id;
+}
+
+std::string ItemClassKey(UPrimalItem* item, std::string* canonical) {
+    const ItemIdentity id = IdentifyItem(item);
+    if (!id.full_key.empty()) {
+        if (canonical) *canonical = id.canonical;
+        return id.full_key;
+    }
+    if (canonical && !id.short_key.empty()) *canonical = id.short_key;
+    return id.short_key;
+}
+
+enum class PlainReject : int {
+    Ok = 0,
+    Engram = 1,
+    Blueprint = 2,
+    Equipped = 3,
+    Durability = 4,
+    Rating = 5,
+    Owner = 6,
+    MaxStack = 7,
+    Qty = 8,
+};
+
+/** Stack maximo da classe (CDO) ou da instancia — o que for maior. Recurso comum e > 1. */
+int MaxStackOf(UPrimalItem* item, UWorld* world) {
+    int best = 0;
+    if (!item || !world) return 0;
+    if (UClass* cls = item->ClassField()) {
+        if (UPrimalItem* cdo = static_cast<UPrimalItem*>(cls->GetDefaultObject(true))) {
+            const int q = cdo->GetMaxItemQuantity(world);
+            if (q > best) best = q;
+        }
+    }
+    const int inst = item->GetMaxItemQuantity(world);
+    if (inst > best) best = inst;
+    return best;
 }
 
 /**
- * Item "comum empilhavel" elegivel: sem engrama/blueprint/equipado/durabilidade/rating
- * e com stack maximo > 1. Mesmo predicado para listar E remover (nunca remove outro item).
+ * Item "comum empilhavel": sem engrama/blueprint/equipado/durabilidade/rating
+ * e com stack maximo > 1. Mesmo predicado para listar E remover.
  */
-bool IsPlainStackable(UPrimalItem* item, UPrimalInventoryComponent* inv) {
-    if (!item || !inv) return false;
-    if (item->bIsEngram().Get()) return false;
-    if (item->bIsBlueprint().Get()) return false;
-    if (item->bEquippedItem().Get()) return false;
-    if (item->bUseItemDurability().Get()) return false;
-    if (item->ItemRatingField() > 0.0001f) return false;
-    if (item->GetItemQuantity() <= 0) return false;
+PlainReject ClassifyPlain(UPrimalItem* item, UPrimalInventoryComponent* inv) {
+    if (!item || !inv) return PlainReject::Qty;
+    if (item->bIsEngram().Get()) return PlainReject::Engram;
+    if (item->bIsBlueprint().Get()) return PlainReject::Blueprint;
+    if (item->bEquippedItem().Get()) return PlainReject::Equipped;
+    if (item->bUseItemDurability().Get()) return PlainReject::Durability;
+    if (item->ItemRatingField() > 0.0001f) return PlainReject::Rating;
+    if (item->GetItemQuantity() <= 0) return PlainReject::Qty;
 
     UPrimalInventoryComponent* owner = item->OwnerInventoryField().Get();
-    if (owner && owner != inv) return false;
+    if (owner && owner != inv) return PlainReject::Owner;
 
     UWorld* world = ArkApi::GetApiUtils().GetWorld();
-    if (!world) return false;
-    if (item->GetMaxItemQuantity(world) <= 1) return false;
-    return true;
+    if (!world) return PlainReject::Qty;
+    if (MaxStackOf(item, world) <= 1) return PlainReject::MaxStack;
+    return PlainReject::Ok;
+}
+
+bool IsPlainStackable(UPrimalItem* item, UPrimalInventoryComponent* inv) {
+    return ClassifyPlain(item, inv) == PlainReject::Ok;
+}
+
+const char* BlockedReasonMessage(int reason) {
+    switch (static_cast<PlainReject>(reason)) {
+    case PlainReject::Engram:
+        return "So o engrama desse recurso foi encontrado. A vitrine precisa do item solto no inventario.";
+    case PlainReject::Blueprint:
+        return "Voce tem o blueprint desse recurso, nao o item. A vitrine so aceita o item fabricado, solto no inventario.";
+    case PlainReject::Equipped:
+        return "O recurso autorizado esta equipado. Tire do corpo e deixe solto no inventario pessoal.";
+    case PlainReject::Durability:
+        return "O recurso autorizado tem durabilidade (equipamento ou perecivel). "
+               "A vitrine so aceita recurso comum sem durabilidade.";
+    case PlainReject::Rating:
+        return "O item autorizado tem qualidade (rating). A vitrine so aceita recurso comum sem rating.";
+    case PlainReject::MaxStack:
+        return "O recurso autorizado nao e empilhavel. A vitrine so aceita itens com stack maior que 1.";
+    default:
+        return nullptr;
+    }
 }
 
 /** Inventario pessoal: itens + hotbar (dedup por ponteiro). Sem cofres/criaturas. */
@@ -246,28 +383,89 @@ std::vector<UPrimalItem*> CollectPersonalItems(UPrimalInventoryComponent* inv) {
     return out;
 }
 
-/** key -> (quantidade total, classe canonica do item). */
+/** key -> (quantidade total, classe canonica, chave que CountPlain entende). */
 struct Totals {
     int quantity = 0;
     std::string bp_class;
+    std::string match_key;
 };
 
-std::unordered_map<std::string, Totals> ScanPlainTotals(AShooterPlayerController* player) {
-    std::unordered_map<std::string, Totals> totals;
-    if (!player) return totals;
+struct InventoryScan {
+    std::unordered_map<std::string, Totals> plain;
+    std::unordered_map<std::string, int> blocked;  // chave -> PlainReject
+    std::vector<std::string> sample;
+    int plain_stacks = 0;
+};
+
+InventoryScan ScanInventory(AShooterPlayerController* player) {
+    InventoryScan scan;
+    if (!player) return scan;
     UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
-    if (!inv) return totals;
+    if (!inv) return scan;
+
+    struct Row {
+        ItemIdentity id;
+        int qty = 0;
+        int reject = 0;
+    };
+    std::vector<Row> rows;
+    std::unordered_map<std::string, std::string> short_full;
+    std::unordered_set<std::string> short_ambiguous;
+
     for (UPrimalItem* item : CollectPersonalItems(inv)) {
-        if (!IsPlainStackable(item, inv)) continue;
-        std::string canonical;
-        const std::string key = ItemClassKey(item, &canonical);
-        if (key.empty()) continue;
-        Totals& t = totals[key];
-        const long long next = static_cast<long long>(t.quantity) + item->GetItemQuantity();
-        t.quantity = static_cast<int>(std::min<long long>(next, 2000000000LL));
-        if (t.bp_class.empty()) t.bp_class = canonical;
+        const ItemIdentity id = IdentifyItem(item);
+        if (id.full_key.empty() && id.short_key.empty()) continue;
+        Row row;
+        row.id = id;
+        row.reject = static_cast<int>(ClassifyPlain(item, inv));
+        row.qty = row.reject == static_cast<int>(PlainReject::Ok) ? item->GetItemQuantity() : 0;
+        rows.push_back(row);
+        if (!id.full_key.empty() && !id.short_key.empty() && id.short_key != id.full_key) {
+            const auto it = short_full.find(id.short_key);
+            if (it == short_full.end()) short_full.emplace(id.short_key, id.full_key);
+            else if (it->second != id.full_key) short_ambiguous.insert(id.short_key);
+        }
+        if (scan.sample.size() < 4 && row.reject != static_cast<int>(PlainReject::Engram)) {
+            if (!id.canonical.empty()) scan.sample.push_back(id.canonical);
+            else if (!id.short_key.empty()) scan.sample.push_back(id.short_key);
+        }
     }
-    return totals;
+
+    const auto bump = [&](const std::string& key, const Row& row) {
+        if (key.empty() || row.qty <= 0) return;
+        Totals& t = scan.plain[key];
+        const long long next = static_cast<long long>(t.quantity) + row.qty;
+        t.quantity = static_cast<int>(std::min<long long>(next, 2000000000LL));
+        if (t.bp_class.empty())
+            t.bp_class = !row.id.canonical.empty() ? row.id.canonical : row.id.short_key;
+        if (t.match_key.empty())
+            t.match_key = !row.id.full_key.empty() ? row.id.full_key : row.id.short_key;
+    };
+    const auto note_blocked = [&](const std::string& key, int reason) {
+        if (key.empty() || reason == static_cast<int>(PlainReject::Ok)) return;
+        if (!scan.blocked.count(key)) scan.blocked.emplace(key, reason);
+    };
+
+    for (const Row& row : rows) {
+        const bool plain = row.reject == static_cast<int>(PlainReject::Ok) && row.qty > 0;
+        if (!plain) {
+            // Engrama fica no inventario o tempo todo: nao e "o item na mao".
+            if (row.reject != static_cast<int>(PlainReject::Engram)
+                && row.reject != static_cast<int>(PlainReject::Qty)
+                && row.reject != static_cast<int>(PlainReject::Owner)) {
+                note_blocked(row.id.full_key, row.reject);
+                if (!short_ambiguous.count(row.id.short_key))
+                    note_blocked(row.id.short_key, row.reject);
+            }
+            continue;
+        }
+        ++scan.plain_stacks;
+        bump(row.id.full_key, row);
+        if (!row.id.short_key.empty() && row.id.short_key != row.id.full_key
+            && !short_ambiguous.count(row.id.short_key))
+            bump(row.id.short_key, row);
+    }
+    return scan;
 }
 
 int CountPlain(AShooterPlayerController* player, const std::string& key) {
@@ -853,9 +1051,10 @@ bool FetchConfig(std::vector<Resource>& out, int& max_types) {
         std::string my_key;
         if (NormalizeBlueprint(res.blueprint, &canonical, &my_key)) {
             res.blueprint = canonical;
-            if (key.empty()) key = my_key;
+            key = my_key;
         }
         res.key = key;
+        res.short_key = ShortToken(res.key);
         if (res.id <= 0 || res.key.empty() || res.blueprint.empty()) continue;
         if (res.name_ascii.empty()) res.name_ascii = "Recurso " + std::to_string(res.id);
         out.push_back(std::move(res));
@@ -948,25 +1147,58 @@ void CmdVitrine(AShooterPlayerController* player, FString*, EChatSendMode::Type)
     }
 
     // Soma do inventario pessoal por recurso autorizado.
-    const auto totals = ScanPlainTotals(player);
-    std::vector<Line> found;
+    // Path completo casa primeiro; token da classe so se for unico no cadastro
+    // (GetFullName sem /Game/, ou pasta colada diferente do mesmo item).
+    std::unordered_map<std::string, int> short_count;
     for (const Resource& res : resources) {
-        const auto it = totals.find(res.key);
-        if (it == totals.end() || it->second.quantity <= 0) continue;
+        if (!res.short_key.empty()) short_count[res.short_key] += 1;
+    }
+    const InventoryScan scan = ScanInventory(player);
+    std::vector<Line> found;
+    int blocked_reason = 0;
+    for (const Resource& res : resources) {
+        const Totals* hit = nullptr;
+        const auto it = scan.plain.find(res.key);
+        if (it != scan.plain.end() && it->second.quantity > 0) hit = &it->second;
+        else if (!res.short_key.empty() && short_count[res.short_key] == 1) {
+            const auto sit = scan.plain.find(res.short_key);
+            if (sit != scan.plain.end() && sit->second.quantity > 0) hit = &sit->second;
+        }
+        if (!hit) {
+            if (blocked_reason == 0) {
+                auto bit = scan.blocked.find(res.key);
+                if (bit == scan.blocked.end() && !res.short_key.empty() && short_count[res.short_key] == 1)
+                    bit = scan.blocked.find(res.short_key);
+                if (bit != scan.blocked.end()) blocked_reason = bit->second;
+            }
+            continue;
+        }
         Line l;
         l.resource_id = res.id;
-        l.key = res.key;
+        l.key = !hit->match_key.empty() ? hit->match_key : res.key;
         l.blueprint = res.blueprint;
-        l.bp_class = it->second.bp_class;
+        l.bp_class = !hit->bp_class.empty() ? hit->bp_class : res.blueprint;
         l.name_ascii = res.name_ascii;
         l.stack_size = res.stack_size;
-        l.quantity = std::min(it->second.quantity, kMaxQtyPerLine);
+        l.quantity = std::min(hit->quantity, kMaxQtyPerLine);
         found.push_back(std::move(l));
     }
 
     if (found.empty()) {
-        SendMsg(player, "Nenhum recurso autorizado no seu inventario pessoal "
-                        "(cofres, criaturas e itens equipados nao contam).");
+        const char* specific = BlockedReasonMessage(blocked_reason);
+        if (specific)
+            SendMsg(player, specific);
+        else
+            SendMsg(player, "Nenhum recurso autorizado no seu inventario pessoal "
+                            "(cofres, criaturas e itens equipados nao contam).");
+        std::string amostra;
+        for (size_t i = 0; i < scan.sample.size(); ++i) {
+            if (i) amostra += " | ";
+            amostra += scan.sample[i];
+        }
+        Log::GetLog()->info(
+            "ShopVitrine: /vitrine sem envio steam={} autorizados={} stacks={} bloqueio={} amostra={}",
+            sid, resources.size(), scan.plain_stacks, blocked_reason, amostra);
         return;
     }
 
