@@ -32,6 +32,15 @@ ECONOMY_STAT_KEYS: tuple[str, ...] = (
 # Markup fixo sobre o subtotal da encomenda (após α/β, antes do teto).
 ENCOMENDA_PRICE_MARKUP: float = 0.05
 
+# Teto da tabela Economia (floor_quality). O teto antigo dessa tabela era 150000.
+ECONOMY_TABLE_CAP: int = 600_000
+
+# Afixos de variante tirados ao achar a família vanilla. Ordem: prefixo mais longo primeiro.
+_VARIANT_PREFIXES: tuple[str, ...] = ("aby_", "pf_", "vn_", "ab_", "x_")
+_VARIANT_SUFFIXES: tuple[str, ...] = ("_aberrante", "_aberrant", "_fabled", "_alpha")
+_VARIANT_SEGMENTS: frozenset[str] = frozenset({"alpha", "fabled", "aberrante", "aberrant"})
+_GENDER_KEY_SUFFIXES: tuple[str, ...] = ("_femea", "_macho", "_female", "_male")
+
 # Mapeamento metadata cryopod / UI → stat_key
 STAT_ALIASES: dict[str, str] = {
     "health": "health",
@@ -934,6 +943,7 @@ def _economy_row_from_catalog_group(
     defn: dict[str, Any],
     items: list[tuple[str, dict[str, Any]]],
 ) -> dict[str, Any]:
+    """Legado do agrupamento por espécie (preço L1). A tabela usa a linha do catálogo."""
     defn = defn or {}
     has_defaults = bool(defn.get("species_key"))
     meta = (
@@ -989,22 +999,292 @@ def _economy_row_from_catalog_group(
     }
 
 
+def economy_line_level(entry: dict[str, Any] | None) -> int:
+    """Nível da linha do catálogo. Ausente, inválido ou zero conta como 1."""
+    dino: dict[str, Any] = {}
+    if isinstance(entry, dict):
+        dinos = entry.get("Dinos") or []
+        if dinos and isinstance(dinos[0], dict):
+            dino = dinos[0]
+    raw = dino.get("Level")
+    if raw is None or raw == "":
+        return 1
+    try:
+        level = int(raw)
+    except (TypeError, ValueError):
+        return 1
+    return level if level > 0 else 1
+
+
+def economy_line_root(price: int, level: int) -> int:
+    """R = preço daquela linha dividido pelo nível dela."""
+    lvl = int(level or 0)
+    if lvl <= 0:
+        lvl = 1
+    return max(0, int(price)) // lvl
+
+
+def strip_economy_variant_key(raw: str | None) -> str:
+    """Tira nível, gênero e afixos de variante para achar a família.
+
+    Prefixos e sufixos: pf_, ab_, vn_, aby_, x_, alpha, fabled, aberrante.
+    """
+    key = str(raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not key:
+        return ""
+    key = strip_level_key_suffix(key)
+    for gender in _GENDER_KEY_SUFFIXES:
+        if key.endswith(gender) and len(key) > len(gender):
+            key = key[: -len(gender)]
+            break
+    changed = True
+    while key and changed:
+        changed = False
+        for prefix in _VARIANT_PREFIXES:
+            if key.startswith(prefix) and len(key) > len(prefix):
+                key = key[len(prefix) :]
+                changed = True
+                break
+        if changed:
+            continue
+        for suffix in _VARIANT_SUFFIXES:
+            if key.endswith(suffix) and len(key) > len(suffix):
+                key = key[: -len(suffix)]
+                changed = True
+                break
+        if changed:
+            continue
+        parts = [part for part in key.split("_") if part]
+        if len(parts) > 1 and any(part in _VARIANT_SEGMENTS for part in parts):
+            key = "_".join(part for part in parts if part not in _VARIANT_SEGMENTS)
+            changed = True
+    return key.strip("_")
+
+
+def _is_vanilla_family_defn(defn: dict[str, Any]) -> bool:
+    source = str(defn.get("mod_source") or "").strip().lower()
+    return source == "vanilla" or source.startswith("vanilla_")
+
+
+def _vanilla_family_index(
+    species_map: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for key, defn in species_map.items():
+        if not isinstance(defn, dict) or not _is_vanilla_family_defn(defn):
+            continue
+        species_key = str(defn.get("species_key") or key).strip().lower()
+        if species_key:
+            out[species_key] = defn
+    return out
+
+
+def _match_vanilla_family(
+    token: str,
+    families: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Casa o token com a família vanilla. Abreviação única conta (ankylo = ankylosaurus)."""
+    token = str(token or "").strip().lower()
+    if not token or not families:
+        return None
+    if token in families:
+        return families[token]
+    alias = _SPECIES_KEY_ALIASES.get(token)
+    if alias and alias in families:
+        return families[alias]
+    if len(token) >= 4:
+        hits = [key for key in families if key.startswith(token)]
+        if len(hits) == 1:
+            return families[hits[0]]
+    return None
+
+
+def economy_quality_premium(
+    role: str,
+    tier: str,
+    family_root: int,
+    stored_premium: int,
+) -> int:
+    """B do piso de qualidade, pelo tier herdado.
+
+    Usa o prêmio já gravado na família. Se ele for 0, B = alvo do tier − raiz
+    da família (não o preço da linha, e não 0 só porque a variante perdeu o tier).
+    """
+    stored = max(0, int(stored_premium or 0))
+    if stored > 0:
+        return stored
+    ladder = load_species_root_ladder()
+    targets = (ladder.get("mercado_254_targets") or {}).get(str(role or "")) or {}
+    try:
+        target = int(targets.get(str(tier or "")) or 0)
+    except (TypeError, ValueError):
+        target = 0
+    if target <= 0:
+        return 0
+    return max(0, target - max(0, int(family_root or 0)))
+
+
+def _blueprint_creature_token(entry: dict[str, Any]) -> str:
+    short = blueprint_short_key(_catalog_item_blueprint(entry))
+    if short.endswith("_character_bp"):
+        short = short[: -len("_character_bp")]
+    return short
+
+
+def _lookup_vanilla_family_for_line(
+    item_id: str,
+    species_key: str,
+    entry: dict[str, Any],
+    families: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    seen: set[str] = set()
+    for raw in (item_id, species_key, _blueprint_creature_token(entry)):
+        text = str(raw or "").strip().lower()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        stripped = strip_economy_variant_key(text)
+        if not stripped:
+            continue
+        hit = _match_vanilla_family(stripped, families)
+        if hit:
+            return hit
+    return None
+
+
+def _resolve_catalog_dino_defn(
+    item_id: str,
+    entry: dict[str, Any],
+    species_map: dict[str, dict[str, Any]],
+    by_id: dict[str, dict[str, Any]],
+    by_bp: dict[str, dict[str, Any]],
+) -> tuple[str, dict[str, Any]]:
+    defn = by_id.get(item_id)
+    if not defn:
+        blueprint = normalize_blueprint(_catalog_item_blueprint(entry))
+        defn = by_bp.get(blueprint) if blueprint else None
+    if defn and defn.get("species_key"):
+        raw_key = str(defn.get("species_key") or "")
+    else:
+        raw_key = _species_key_from_catalog_item_id(item_id)
+        mapped = species_map.get(raw_key)
+        if mapped:
+            defn = mapped
+        elif not isinstance(defn, dict):
+            defn = {}
+    species_key = str(raw_key or item_id).strip() or item_id
+    return species_key, defn if isinstance(defn, dict) else {}
+
+
+def _economy_line_display(
+    entry: dict[str, Any],
+    source: dict[str, Any],
+    fallback: str,
+) -> str:
+    raw = str(entry.get("Name") or "").strip()
+    if raw.endswith(")") and "(" in raw:
+        raw = raw[: raw.rfind("(")].strip()
+    if raw:
+        return raw
+    display = clean_species_display_name(str(source.get("display_name") or ""))
+    return display or fallback
+
+
+def _economy_row_from_catalog_line(
+    item_id: str,
+    entry: dict[str, Any],
+    species_key: str,
+    defn: dict[str, Any],
+    families: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Uma linha do catálogo. R é o preço dela ÷ o nível dela. Não média, não só L1."""
+    defn = defn or {}
+    family = _lookup_vanilla_family_for_line(item_id, species_key, entry, families)
+    source = family or defn
+    has_source = bool(source.get("species_key"))
+    if family:
+        species_key = str(family.get("species_key") or species_key)
+        role = str(family.get("dino_role") or "")
+        tier = str(family.get("tier") or "") or "—"
+        premium = economy_quality_premium(
+            role,
+            tier,
+            int(family.get("root_value") or 0),
+            int(family.get("premium_budget") or 0),
+        )
+    elif has_source:
+        role = str(defn.get("dino_role") or "")
+        tier = str(defn.get("tier") or "") or "—"
+        premium = int(defn.get("premium_budget") or 0)
+    else:
+        role = ""
+        tier = "—"
+        premium = 0
+    meta: dict[str, Any] = {}
+    if has_source:
+        meta = species_economy_meta_from_defaults(str(source.get("species_key") or species_key))
+    level = economy_line_level(entry)
+    shop_price = int(entry.get("Price") or 0)
+    root_value = economy_line_root(shop_price, level)
+    mode = str(source.get("pricing_mode") or meta.get("pricing_mode") or "floor_quality")
+    if mode == "floor_quality":
+        size_cap = ECONOMY_TABLE_CAP
+        bonus_space = premium
+    else:
+        size_class = str(meta.get("size_class") or source.get("size_class") or "medium")
+        size_cap = size_cap_for_class(size_class)
+        bonus_space = max(0, size_cap - int(root_value or 0))
+    return {
+        "species_key": species_key,
+        "catalog_item_id": item_id,
+        "reference_level": level,
+        "shop_price": shop_price,
+        "display_name": _economy_line_display(entry, source, species_key),
+        "tier": tier,
+        "root_value": root_value,
+        "premium_budget": premium,
+        "dino_role": role,
+        "prestige_rank": int(source.get("prestige_rank") or meta.get("prestige_rank") or 0),
+        "commerce_channel": str(
+            source.get("commerce_channel") or meta.get("commerce_channel") or "market_p2p"
+        ),
+        "diet_class": meta.get("diet_class") or "",
+        "size_class": meta.get("size_class") or "",
+        "economy_stats": meta.get("economy_stats") or {},
+        "pricing_mode": mode,
+        "size_cap": size_cap,
+        "bonus_space": bonus_space,
+    }
+
+
 def list_species_economy_meta(
     catalog: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Espécies da página Economia = Type:dino do catálogo da loja.
+    """Uma linha por Type:dino do catálogo da loja.
 
-    ``market_species_defaults`` só enriquece papel, tier e prêmio B. Uma
-    species_key que não tem item no catálogo não entra na tabela nem no
-    simulador. R é o Price do item nível 1; sem L1 o piso fica ausente.
+    R = Price daquela linha ÷ nível dela (nível ausente ou zero vale 1).
+    Papel e tier de variante vêm da família vanilla, sem prefixo de mod.
+    B é o prêmio floor_quality desse tier. Cap da tabela = 600000.
+    Espécie que só existe em market_species_defaults não entra.
+    Criatura sem família vanilla mantém a classificação que já tem.
     """
     if not _catalog_items_dict(catalog):
         return []
+    species_map = _merged_economy_species_map()
+    by_id, by_bp = _index_economy_defs(species_map)
+    families = _vanilla_family_index(species_map)
     out = [
-        _economy_row_from_catalog_group(species_key, defn, items)
-        for species_key, defn, items in _group_catalog_dinos_for_economy(catalog)
+        _economy_row_from_catalog_line(item_id, entry, species_key, defn, families)
+        for item_id, entry in iter_catalog_dinos(catalog)
+        for species_key, defn in (_resolve_catalog_dino_defn(item_id, entry, species_map, by_id, by_bp),)
     ]
-    out.sort(key=lambda row: (str(row.get("display_name") or "").casefold(), row["species_key"]))
+    out.sort(
+        key=lambda row: (
+            str(row.get("display_name") or "").casefold(),
+            row["species_key"],
+            str(row.get("catalog_item_id") or ""),
+        )
+    )
     return out
 
 

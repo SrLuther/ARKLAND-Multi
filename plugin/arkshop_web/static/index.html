@@ -7728,7 +7728,7 @@
           </div>
         </div>
         <p style="color:var(--text2);font-size:13px;margin:0 0 16px;">
-          Modelo <strong>floor_quality</strong>: <strong>piso R</strong> = preço L1 loja · <strong>prêmio</strong> = B × índice Q (stats breedáveis, γ sublinear) · teto mercado <strong>150k</strong> · encomenda <strong>275k</strong>.
+          Modelo <strong>floor_quality</strong>: <strong>piso R</strong> = preço da linha ÷ nível · <strong>prêmio</strong> = B × índice Q (stats breedáveis, γ sublinear) · teto mercado <strong>600.000</strong> · encomenda <strong>275k</strong>.
         </p>
         <div class="catalog-tabs" style="margin-bottom:16px;">
           <button type="button" class="catalog-tab active" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Pisos e caps</button>
@@ -24266,32 +24266,34 @@ function renderMarketEconomySpecies(species) {
     const bonus = s.bonus_space != null ? s.bonus_space : s.premium_budget;
     return `<tr class="me-econ-row">
       <td class="me-econ-name">${escHtml(s.display_name)}${status}</td>
-      <td class="me-econ-key"><code>${escHtml(s.species_key)}</code></td>
+      <td class="me-econ-key"><code>${escHtml(s.catalog_item_id || s.species_key)}</code></td>
       <td class="me-econ-role">${escHtml(role)}</td>
       <td class="me-econ-tier">${escHtml(s.tier || "—")}</td>
       <td class="me-econ-r">${fmtMeNumber(s.root_value)}</td>
       <td class="me-econ-b">${fmtMeNumber(bonus)}</td>
       <td class="me-econ-cap">${fmtMeNumber(s.size_cap)}</td>
       <td class="me-econ-mode" style="font-size:11px;">${escHtml(mode)}</td>
-      <td class="me-econ-actions"><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}">Editar</button></td>
+      <td class="me-econ-actions"><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}" data-catalog-item-id="${escHtml(s.catalog_item_id || "")}">Editar</button></td>
     </tr>`;
   }).join("");
   const empty = rows
     ? ""
     : `<p class="me-econ-empty" style="font-size:13px;color:var(--text2);">Nenhuma espécie com item no catálogo da loja.</p>`;
   root.innerHTML = `${empty}<div class="me-econ-scroll"><table class="me-econ-table"><thead><tr>
-    <th>Nome</th><th>Key</th><th>Papel</th><th>Tier</th><th>R (L1)</th><th>B (prêmio)</th><th>Cap mercado</th><th>Modo</th><th></th>
+    <th>Nome</th><th>Key</th><th>Papel</th><th>Tier</th><th>R</th><th>B (prêmio)</th><th>Cap mercado</th><th>Modo</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table></div>
-  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Só entram espécies com item no catálogo da loja. R = Price do nível 1. B = prêmio floor_quality. Cap = teto de mercado. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
+  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Só entram dinos do catálogo. Cada linha mantém o próprio preço. R = preço ÷ nível (nível ausente ou zero vale 1). B = prêmio floor_quality do tier herdado da família vanilla. Cap = 600.000. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
   root.querySelectorAll(".me-species-edit-btn").forEach(btn => {
-    btn.addEventListener("click", () => marketEconomyEditSpecies(btn.dataset.speciesKey));
+    btn.addEventListener("click", () => marketEconomyEditSpecies(btn.dataset.speciesKey, btn.dataset.catalogItemId));
   });
 }
 
 let _marketEconomyEditing = null;
 
-function marketEconomyEditSpecies(speciesKey) {
-  const sp = (_marketEconomyConfig?.species || []).find(s => s.species_key === speciesKey);
+function marketEconomyEditSpecies(speciesKey, catalogItemId) {
+  const list = _marketEconomyConfig?.species || [];
+  const sp = (catalogItemId && list.find(s => s.catalog_item_id === catalogItemId))
+    || list.find(s => s.species_key === speciesKey);
   if (!sp) return;
   _marketEconomyEditing = sp;
   const stats = ["health", "melee", "weight", "stamina", "speed"];
@@ -24431,7 +24433,7 @@ function renderMarketEconomySim(species) {
         </div>
         <div class="form-group">
           <label for="me-sim-root">Raiz (opcional)</label>
-          <input id="me-sim-root" type="number" placeholder="preço loja lvl 1" />
+          <input id="me-sim-root" type="number" placeholder="R da linha" />
         </div>
         <div class="me-sim-stats">
           <div class="form-group">

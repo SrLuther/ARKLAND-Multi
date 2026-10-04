@@ -3,13 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.117"
+APP_VERSION: str = "1.10.118"
 BUILD_DATE: str = "2026-10-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.118",
+        "date": "2026-10-04",
+        "changes": [
+            "Fix (Web Store / Economia): a tabela calcula R como o preço daquela linha do catálogo dividido pelo nível (nível ausente ou zero vale 1). Cada linha mantém o próprio preço. Papel e tier são herdados da família vanilla (ankylo/ankylosaurus = utilitário C; argentavis = locomoção B). Os prefixos pf_, ab_, vn_, aby_, alpha, fabled, aberrante e x_ não mudam a família. B é o prêmio floor_quality do tier herdado. O teto é 600.000. Criatura sem família vanilla mantém a classificação que já tem. Não há média entre variantes. Requer reiniciar a Web Store.",
+            "Feat (Plugin ArkPlayer /nome): /nome está funcionando como esperado. A permanência do nome depois de morte ou troca de mapa foi confirmada.",
+            "Falha conhecida (/loot, ArkPlayer): no teste de 04/10/2026, personagem «teste», nível 17, a bag de morte estava ao lado (feixe verde). O chat disse «Bag(s) de morte recuperada(s)» depois de «Comando comprado por 5 pontos», mas nada do loot entrou no inventário. O inventário ficou só com um item que já estava (peso 0.0). O comando mente sucesso. Parado até segunda ordem. Sem correção nesta versão.",
+            "Falha conhecida (número de dano curto, ArkPlayer): o número curto (9k / 27k / 95.9k) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte. Fica para outro momento. Sem correção nesta versão.",
+        ],
+    },
     {
         "version": "1.10.117",
         "date": "2026-10-04",
