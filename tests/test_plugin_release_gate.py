@@ -38,6 +38,9 @@ def test_bundled_versions_match_plugin_version_txt() -> None:
     assert get_bundled_plugin_version("ArkPlayer") == expected_plugin_version("ArkPlayer")
     # Fonte de verdade: plugin_version.txt (evita hardcode que fica obsoleto a cada bump).
     assert expected_plugin_version("ArkPlayer") == read_plugin_version_file("ArkPlayer")
+    assert get_bundled_plugin_version("ArkEventHunt") == expected_plugin_version("ArkEventHunt")
+    assert get_bundled_plugin_version("EngramLevel") == expected_plugin_version("EngramLevel")
+    assert expected_plugin_version("EngramLevel") == read_plugin_version_file("EngramLevel")
 
 
 def test_changelog_versions_parser(tmp_path: Path) -> None:

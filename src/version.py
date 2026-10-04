@@ -3,13 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.115"
-BUILD_DATE: str = "2026-10-03"
+APP_VERSION: str = "1.10.116"
+BUILD_DATE: str = "2026-10-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.116",
+        "date": "2026-10-04",
+        "changes": [
+            "Feat (Plugin EngramLevel 0.1.0): instalável junto com os outros plugins. /autoengram começa desligado; liga o automático só daquele jogador. Tek só se UnlockTotal estiver true, e num passo seguinte aos não tek. Enquanto o plugin está ligado, bAutoUnlockAllEngrams fica false na memória.",
+            "Fix (Nível do jogador): o preset nível 200 vai dentro do executável; a página de configurações do jogador abre mesmo se o arquivo faltasse.",
+        ],
+    },
     {
         "version": "1.10.115",
         "date": "2026-10-03",

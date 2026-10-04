@@ -1,8 +1,9 @@
 {
-    "version": "1.10.115",
-    "date": "2026-10-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.115/ARKLAND-Multi-Setup-v1.10.115.exe",
+    "version": "1.10.116",
+    "date": "2026-10-04",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.116/ARKLAND-Multi-Setup-v1.10.116.exe",
     "changelog": [
-        "Feat (Nível do jogador): botão «Aplicar preset nível 200» na tela de nível do jogador (clássico e TEK) liga a progressão e define a base 199 (ou mantém 200). O salvar com o mapa parado grava o bloco do nivel200.txt (rampa, teto 1529554000 e 243 linhas de engrama). Não substitui a curva atual."
+        "Feat (Plugin EngramLevel 0.1.0): instalável junto com os outros plugins. /autoengram começa desligado; liga o automático só daquele jogador. Tek só se UnlockTotal estiver true, e num passo seguinte aos não tek. Enquanto o plugin está ligado, bAutoUnlockAllEngrams fica false na memória.",
+        "Fix (Nível do jogador): o preset nível 200 vai dentro do executável; a página de configurações do jogador abre mesmo se o arquivo faltasse."
     ]
 }

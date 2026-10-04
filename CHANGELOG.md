@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.116] - 2026-10-04
+
+### Feature
+
+- Feat (Plugin EngramLevel 0.1.0): instalável junto com os outros plugins. /autoengram começa desligado; liga o automático só daquele jogador. Tek só se UnlockTotal estiver true, e num passo seguinte aos não tek. Enquanto o plugin está ligado, bAutoUnlockAllEngrams fica false na memória.
+
+### Fix
+
+- Fix (Nível do jogador): o preset nível 200 vai dentro do executável; a página de configurações do jogador abre mesmo se o arquivo faltasse.
+
 ## [1.10.115] - 2026-10-03
 
 ### Feature

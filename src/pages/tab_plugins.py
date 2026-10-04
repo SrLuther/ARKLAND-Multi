@@ -19,6 +19,7 @@ from ..shop_integration import (
     install_arkplayer_to_server,
     install_customdino_to_server,
     install_customshop_to_server,
+    install_engramlevel_to_server,
 )
 from ..ui_constants import (
     _CARD_BG,
@@ -37,7 +38,7 @@ _PLUGINS = _ARKAPI / "Plugins"
 
 # Plugins ARKLAND com versão sincronizada ao app (instalação embutida)
 _ARKLAND_PLUGINS = frozenset({
-    "CustomShop", "CustomDinoDeliver", "ArkPlayer", "ArkEventHunt",
+    "CustomShop", "CustomDinoDeliver", "ArkPlayer", "ArkEventHunt", "EngramLevel",
 })
 
 # ── Definição dos plugins oficiais ───────────────────────────────────────────
@@ -125,6 +126,19 @@ _OFFICIAL_PLUGINS = [
                       "Pontuação para Equipes web. Plugin independente (spike ASE).",
         "url":        "",
         "detect":     lambda d: (d / _PLUGINS / "ArkEventHunt" / "ArkEventHunt.dll").is_file(),
+        "install_to": lambda d: d / _PLUGINS,
+    },
+    {
+        "name":       "EngramLevel",
+        "version":    expected_plugin_version("EngramLevel"),
+        "author":     "ARKLAND",
+        "tag":        "Plugin — engramas por nível",
+        "tag_color":  "#1a3a4a",
+        "desc":       "No level up libera só os engramas daquele nível.\n"
+                      "Automático começa desligado; /autoengram liga por jogador.\n"
+                      "Instale só com o mapa parado. Tire bAutoUnlockAllEngrams do Game.ini.",
+        "url":        "",
+        "detect":     lambda d: (d / _PLUGINS / "EngramLevel" / "EngramLevel.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
 ]
@@ -299,6 +313,10 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
                         )
                     elif name == "ArkEventHunt":
                         copied, notes = install_arkeventhunt_to_server(
+                            srv.install_dir, overwrite_dlls=True,
+                        )
+                    elif name == "EngramLevel":
+                        copied, notes = install_engramlevel_to_server(
                             srv.install_dir, overwrite_dlls=True,
                         )
                     else:

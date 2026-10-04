@@ -16,6 +16,7 @@ OFFICIAL_PLUGINS: dict[str, dict[str, str]] = {
     "CustomDinoDeliver": {"folder": "CustomDinoDeliver", "dll": "CustomDinoDeliver.dll"},
     "ArkPlayer": {"folder": "ArkPlayer", "dll": "ArkPlayer.dll"},
     "ArkEventHunt": {"folder": "ArkEventHunt", "dll": "ArkEventHunt.dll"},
+    "EngramLevel": {"folder": "EngramLevel", "dll": "EngramLevel.dll"},
 }
 
 # Slug da pasta PluginInfo no bundle PyInstaller (plugins/<slug>/PluginInfo.json)
@@ -24,6 +25,7 @@ _BUNDLE_INFO_SLUGS: dict[str, str] = {
     "CustomDinoDeliver": "customdino",
     "ArkPlayer": "arkplayer",
     "ArkEventHunt": "arkeventhunt",
+    "EngramLevel": "engramlevel",
 }
 
 PluginVersionStatus = Literal["missing", "match", "outdated", "newer", "unknown", "not_installed"]

@@ -1,0 +1,13 @@
+{
+  "EngramLevel": {
+    "Enabled": true,
+    "UnlockNonTek": true,
+    "UnlockTotal": false,
+    "SuppressAutoUnlockDuringLevelUp": true,
+    "UnlockOnlyAppliedLevel": true,
+    "CatalogBuyoutPoints": 999,
+    "Engrams": [],
+    "ExtraEngrams": [],
+    "RemovedEngrams": []
+  }
+}

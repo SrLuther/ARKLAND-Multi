@@ -19,7 +19,7 @@
 
     Gates obrigatórios (falham o release se em falta):
       - Entrada CHANGELOG em src/version.py para a versão do app
-      - Plugins oficiais (CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt):
+      - Plugins oficiais (CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt, EngramLevel):
         se o código C++ mudou desde o último bump, exige plugin_version.txt maior
         + secção no plugin/*/CHANGELOG.md (scripts/check_plugin_release_gate.py)
 
@@ -63,7 +63,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 # ── 0b) Gate de versão dos plugins (código alterado ⇒ bump + CHANGELOG) ───────
-Write-Step 0 7 "Validando versoes dos plugins (CustomShop / CustomDinoDeliver / ArkPlayer / ArkEventHunt)..."
+Write-Step 0 7 "Validando versoes dos plugins (CustomShop / CustomDinoDeliver / ArkPlayer / ArkEventHunt / EngramLevel)..."
 & $python (Join-Path $root "scripts\check_plugin_release_gate.py")
 if ($LASTEXITCODE -ne 0) {
     Write-Fail "Gate de plugins falhou. Bumpe plugin_version.txt + plugin/*/CHANGELOG.md e sincronize com scripts\sync_plugin_versions.py antes de continuar."
@@ -172,7 +172,7 @@ Write-Ok "src\version.py  →  BUILD_DATE = $date"
 # PluginInfo.json sincronizado a partir de plugin_version.txt (sem --from-app)
 & $python (Join-Path $root "scripts\sync_plugin_versions.py") --all
 if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_plugin_versions.py --all falhou" }
-Write-Ok "PluginInfo.json  →  sincronizado com plugin_version.txt (CustomShop + CustomDinoDeliver + ArkPlayer + ArkEventHunt)"
+Write-Ok "PluginInfo.json  →  sincronizado com plugin_version.txt (CustomShop + CustomDinoDeliver + ArkPlayer + ArkEventHunt + EngramLevel)"
 
 # CHANGELOG.md gerado a partir de version.py
 & $python (Join-Path $root "scripts\sync_changelog_md.py")
@@ -214,6 +214,22 @@ Write-Step 4 7 "Commitando alteracoes..."
 # $ErrorActionPreference=Stop / StrictMode e abortam o release a meio.
 cmd /c "git add -A 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
+# catalog.json do usuário: tira do stage sem alterar o working tree.
+cmd /c "git reset HEAD -- plugin/CustomShop/catalog.json 2>&1"
+if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do catalog.json falhou (exit $LASTEXITCODE)" }
+cmd /c "git reset HEAD -- plugin/CustomShop/ArkServerAPI 2>&1"
+if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do ArkServerAPI falhou (exit $LASTEXITCODE)" }
+$stagedNames = cmd /c "git diff --cached --name-only 2>&1"
+foreach ($name in @($stagedNames)) {
+    $norm = ([string]$name -replace '\\', '/')
+    if ($norm -like "_release_*.log" -or $norm -like "*/_release_*.log") {
+        cmd /c "git reset HEAD -- `"$name`" 2>&1"
+        if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel tirar $name do stage" }
+    }
+}
+$catalogOut = cmd /c "git diff --cached --name-only -- plugin/CustomShop/catalog.json 2>&1"
+$catalogHit = @($catalogOut) | Where-Object { ($_ -replace '\\', '/') -eq "plugin/CustomShop/catalog.json" }
+if ($catalogHit) { Write-Fail "catalog.json ainda esta no stage — release abortado" }
 cmd /c "git commit -m `"release: v$Version`" 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git commit falhou (exit $LASTEXITCODE)" }
 cmd /c "git push 2>&1"

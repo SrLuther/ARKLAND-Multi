@@ -32,8 +32,12 @@ a = Analysis(
         ('plugin/ArkEventHunt/bin/ArkEventHunt.dll',   'plugins'),
         ('plugin/ArkEventHunt/bin/PluginInfo.json',    'plugins/arkeventhunt'),
         ('plugin/ArkEventHunt/configs/config.json',    'plugins/arkeventhunt'),
+        ('plugin/EngramLevel/bin/EngramLevel.dll',     'plugins'),
+        ('plugin/EngramLevel/bin/PluginInfo.json',     'plugins/engramlevel'),
+        ('plugin/EngramLevel/configs/config.json',     'plugins/engramlevel'),
         ('plugin/Permissions/configs/config.json',   'Permissions/configs'),
         ('config/mapas_cross_chat_ids.json',         'config'),
+        ('src/data/nivel200.txt',                    'src/data'),
     ] + ctk_datas + pil_datas + tray_datas + dpy_datas + aio_datas,
     hiddenimports=[
         # customtkinter

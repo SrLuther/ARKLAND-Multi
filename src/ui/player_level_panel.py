@@ -22,6 +22,7 @@ from ..player_level_200 import (
     apply_level_200_shortcut,
     is_level_200_base,
     level_200_override_max_xp,
+    level_200_preset_error,
     level_200_ramp_values,
 )
 
@@ -75,10 +76,18 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
 
     total = calc_max_total_level(base)
     level_200 = progressions and is_level_200_base(base)
-    if level_200:
+    preset_error = level_200_preset_error() if level_200 else None
+    if level_200 and not preset_error:
         ramp_values = level_200_ramp_values()
         xp = level_200_override_max_xp()
         ramp_entries = len(ramp_values)
+    elif level_200 and preset_error:
+        # A tabela não pode derrubar a seção. O botão mostra preset_error.
+        ramp_values = []
+        xp = 0
+        ramp_entries = 0
+        if "_pl_level200_status" in vars_ref:
+            vars_ref["_pl_level200_status"].set(preset_error)
     elif progressions:
         curve = _curve_params_from_cfg(cfg)
         ramp_values = build_ramp_values(
@@ -136,14 +145,16 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
             str(ramp_entries) if progressions else "— (vanilla stock)"
         )
     if "_pl_engram_var" in vars_ref:
-        if level_200:
+        if preset_error:
+            engram_label = "preset indisponível"
+        elif level_200:
             engram_label = "tabela 200"
         elif progressions:
             engram_label = str(engram_points_per_level())
         else:
             engram_label = "vanilla (8)"
         vars_ref["_pl_engram_var"].set(engram_label)
-    if "player_level_stats_raw" in vars_ref:
+    if "player_level_stats_raw" in vars_ref and not preset_error:
         vars_ref["player_level_stats_raw"].set(
             export_ramp_raw(ramp_values) if progressions and ramp_values else ""
         )
@@ -268,12 +279,27 @@ def _level_200_shortcut_row(
     bg: str,
     accent: str,
 ) -> int:
-    """Atalho do preset nivel200. Só ajusta a tela; o Game.ini entra no Salvar."""
-    cap = level_200_override_max_xp()
+    """Atalho do preset nivel200. Só ajusta a tela; o Game.ini entra no Salvar.
+
+    Arquivo ausente não impede o restante da seção: o status do botão mostra o erro.
+    """
+    missing = level_200_preset_error()
+    if missing:
+        cap_phrase = "o teto e os engramas da tabela (preset indisponível)"
+        status_var.set(missing)
+    else:
+        cap_phrase = (
+            "o teto OverrideMaxExperiencePointsPlayer="
+            f"{level_200_override_max_xp()} e os engramas"
+        )
     fr = tk.Frame(parent, bg=bg)
     fr.grid(row=row, column=0, sticky="ew", padx=12, pady=(0, 6))
 
     def _apply() -> None:
+        unavailable = level_200_preset_error()
+        if unavailable:
+            status_var.set(unavailable)
+            return
         try:
             current = int(float(base_var.get()))
         except (ValueError, TypeError, tk.TclError):
@@ -305,7 +331,7 @@ def _level_200_shortcut_row(
             "Atalho da tabela nivel200: liga as progressões e fixa a base em 199 "
             "(mantém 200 se o campo já for 200). A curva dos outros níveis continua "
             "na caixa de nível base. O próximo Salvar, com o mapa PARADO, grava a rampa, "
-            f"o teto OverrideMaxExperiencePointsPlayer={cap} e os engramas. "
+            f"{cap_phrase}. "
             "Com o mapa no ar o Game.ini não muda. Desmarcar progressões volta a "
             "não gravar a tabela."
         ),

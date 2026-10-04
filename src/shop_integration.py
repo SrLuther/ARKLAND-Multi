@@ -44,6 +44,8 @@ _DEFAULT_ARKPLAYER_CONFIG = _PROJECT_ROOT / "plugin" / "ArkPlayer" / "configs" /
 _DEV_ARKEVENTHUNT_BIN_DIR = _PROJECT_ROOT / "plugin" / "ArkEventHunt" / "bin"
 _PLUGIN_INFO_ARKEVENTHUNT = _PROJECT_ROOT / "plugin" / "ArkEventHunt" / "configs" / "PluginInfo.json"
 _DEFAULT_ARKEVENTHUNT_CONFIG = _PROJECT_ROOT / "plugin" / "ArkEventHunt" / "configs" / "config.json"
+_DEV_ENGRAMLEVEL_BIN_DIR = _PROJECT_ROOT / "plugin" / "EngramLevel" / "bin"
+_DEFAULT_ENGRAMLEVEL_CONFIG = _PROJECT_ROOT / "plugin" / "EngramLevel" / "configs" / "config.json"
 DEFAULT_SHOP_PUBLIC_URL = "https://arkland.com.br"
 DEFAULT_SHOP_PORT = 27199
 DEFAULT_REMOTE_SHOP_HOST = "192.168.15.51"
@@ -55,6 +57,7 @@ _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 _CUSTOMDINO_DLLS = ("CustomDinoDeliver.dll",)
 _ARKPLAYER_DLLS = ("ArkPlayer.dll",)
 _ARKEVENTHUNT_DLLS = ("ArkEventHunt.dll",)
+_ENGRAMLEVEL_DLLS = ("EngramLevel.dll",)
 
 logger = logging.getLogger(__name__)
 
@@ -1968,6 +1971,18 @@ def arkeventhunt_plugin_dir(install_dir: str) -> Path:
     )
 
 
+def engramlevel_plugin_dir(install_dir: str) -> Path:
+    return (
+        Path(install_dir)
+        / "ShooterGame"
+        / "Binaries"
+        / "Win64"
+        / "ArkApi"
+        / "Plugins"
+        / "EngramLevel"
+    )
+
+
 def permissions_plugin_dir(install_dir: str) -> Path:
     return (
         Path(install_dir)
@@ -2506,6 +2521,156 @@ def install_arkeventhunt_to_server(
                 "config.json padrão não encontrado no app — "
                 "copie plugin/ArkEventHunt/configs/config.json para "
                 "ArkApi/Plugins/ArkEventHunt/config.json"
+            )
+
+    return ok, notes
+
+
+def bundled_engramlevel_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "plugins"  # type: ignore[attr-defined]
+    return _DEV_ENGRAMLEVEL_BIN_DIR
+
+
+def bundled_engramlevel_files() -> Dict[str, Path]:
+    """Localiza EngramLevel.dll no bundle PyInstaller ou bin/ do projeto."""
+    candidates: list[Path] = [bundled_engramlevel_root(), _DEV_ENGRAMLEVEL_BIN_DIR]
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / "plugins")
+
+    found: Dict[str, Path] = {}
+    for name in _ENGRAMLEVEL_DLLS:
+        for root in candidates:
+            p = root / name
+            if p.is_file():
+                found[name] = p
+                break
+    return found
+
+
+def _default_engramlevel_config_template() -> Path:
+    """Template config.json do EngramLevel (PyInstaller bundle ou repo)."""
+    if getattr(sys, "frozen", False):
+        meipass = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        for candidate in (
+            meipass / "plugins" / "engramlevel" / "config.json",
+            meipass / "plugins" / "config.json",
+        ):
+            if candidate.is_file():
+                return candidate
+    for candidate in (
+        _DEFAULT_ENGRAMLEVEL_CONFIG,
+        _PROJECT_ROOT / "plugin" / "EngramLevel" / "config.json",
+        _DEV_ENGRAMLEVEL_BIN_DIR / "config.json",
+    ):
+        if candidate.is_file():
+            return candidate
+    return _DEFAULT_ENGRAMLEVEL_CONFIG
+
+
+def is_engramlevel_installed(install_dir: str) -> bool:
+    if not install_dir or not install_dir.strip():
+        return False
+    return (engramlevel_plugin_dir(install_dir) / "EngramLevel.dll").is_file()
+
+
+def deploy_engramlevel_dll_to_server(
+    install_dir: str,
+    *,
+    overwrite: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Copia EngramLevel.dll (e PluginInfo) do bundle para o servidor."""
+    ok: List[str] = []
+    notes: List[str] = []
+
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+
+    root = Path(install_dir)
+    if not root.is_dir():
+        return ok, [f"pasta não encontrada: {install_dir}"]
+
+    bundled = bundled_engramlevel_files()
+    if "EngramLevel.dll" not in bundled:
+        return ok, [
+            "EngramLevel.dll não encontrado no bundle do app — "
+            "compile plugin/EngramLevel ou reinstale o ARKLAND Multi"
+        ]
+
+    dest = engramlevel_plugin_dir(install_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    for name, src in bundled.items():
+        target = dest / name
+        src_mtime = _path_mtime(src)
+        dest_mtime = _path_mtime(target)
+        should_copy = (
+            overwrite
+            or not target.is_file()
+            or src_mtime > dest_mtime + 0.001
+        )
+        if not should_copy:
+            ok.append(f"{name} (já atualizada)")
+            continue
+        try:
+            shutil.copy2(src, target)
+            ok.append(f"{name} → Plugins/EngramLevel/")
+        except OSError as exc:
+            notes.append(
+                f"{name} não copiada — pare o servidor ARK se estiver online: {exc}"
+            )
+
+    info_ok, info_notes = _copy_bundled_plugin_info(
+        "EngramLevel", dest, overwrite=overwrite,
+    )
+    ok.extend(info_ok)
+    notes.extend(info_notes)
+
+    return ok, notes
+
+
+def install_engramlevel_to_server(
+    install_dir: str,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Copia EngramLevel.dll + PluginInfo/config padrão (sem sobrescrever config)."""
+    ok: List[str] = []
+    notes: List[str] = []
+
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+
+    root = Path(install_dir)
+    if not root.is_dir():
+        return ok, [f"pasta não encontrada: {install_dir}"]
+
+    deployed, deploy_notes = deploy_engramlevel_dll_to_server(
+        install_dir, overwrite=overwrite_dlls,
+    )
+    ok.extend(deployed)
+    notes.extend(deploy_notes)
+    if not deployed and deploy_notes:
+        return ok, notes
+
+    dest = engramlevel_plugin_dir(install_dir)
+
+    cfg_dest = dest / "config.json"
+    if cfg_dest.is_file():
+        ok.append("config.json (já presente)")
+    else:
+        template = _default_engramlevel_config_template()
+        if template.is_file():
+            try:
+                shutil.copy2(template, cfg_dest)
+                ok.append("config.json (padrão)")
+            except OSError as exc:
+                notes.append(f"config.json não copiado: {exc}")
+        else:
+            notes.append(
+                "config.json padrão não encontrado no app — "
+                "copie plugin/EngramLevel/configs/config.json para "
+                "ArkApi/Plugins/EngramLevel/config.json"
             )
 
     return ok, notes
@@ -3325,6 +3490,36 @@ def install_arkeventhunt_all(
             errors.append(f"{name}: sem install_dir")
             continue
         copied, notes = install_arkeventhunt_to_server(
+            srv.install_dir, overwrite_dlls=overwrite_dlls,
+        )
+        if not copied and notes:
+            errors.append(f"{name}: {'; '.join(notes)}")
+            continue
+        detail = ", ".join(copied[:4])
+        if len(copied) > 4:
+            detail += f" (+{len(copied) - 4})"
+        warn = f" — {'; '.join(notes)}" if notes else ""
+        ok.append(f"{name}: {detail}{warn}")
+
+    return ok, errors
+
+
+def install_engramlevel_all(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Instala EngramLevel em todos os servidores. Retorna (sucessos, erros)."""
+    ok: List[str] = []
+    errors: List[str] = []
+
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        name = getattr(srv, "name", "") or getattr(srv, "id", "")
+        if not getattr(srv, "install_dir", ""):
+            errors.append(f"{name}: sem install_dir")
+            continue
+        copied, notes = install_engramlevel_to_server(
             srv.install_dir, overwrite_dlls=overwrite_dlls,
         )
         if not copied and notes:
@@ -4757,6 +4952,22 @@ def sync_all_plugins(
                     ok.append(f"{srv_name} → ArkEventHunt {hunt_path}")
                 except Exception as exc:
                     errors.append(f"{srv_name} ArkEventHunt: {exc}")
+
+            engram_installed = is_engramlevel_installed(install_dir)
+            engram_cfg = engramlevel_plugin_dir(install_dir) / "config.json"
+            if engram_installed or engram_cfg.is_file():
+                srv_name = getattr(srv, "name", "") or ""
+                try:
+                    dll_ok, dll_notes = deploy_engramlevel_dll_to_server(
+                        install_dir, overwrite=True,
+                    )
+                    for line in dll_ok:
+                        ok.append(f"{srv_name} → {line}")
+                    for line in dll_notes:
+                        errors.append(f"{srv_name} EngramLevel: {line}")
+                    ok.append(f"{srv_name} → EngramLevel {engramlevel_plugin_dir(install_dir)}")
+                except Exception as exc:
+                    errors.append(f"{srv_name} EngramLevel: {exc}")
 
             if install_dir:
                 perm_ok, perm_notes = _ensure_permissions_config_on_server(
