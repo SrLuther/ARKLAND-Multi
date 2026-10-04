@@ -1,5 +1,14 @@
 # Changelog — EngramLevel
 
+## [0.1.1] - 2026-10-04
+
+- `/autoengram` liga o automático daquele SteamID (default desligado). Ao ligar, põe na fila os não tek já devidos até o nível atual: 10 engramas por bloco, 1 segundo entre blocos. O primeiro bloco sai 1 segundo depois. Com o automático ligado, aplicar nível faz a mesma releitura 1 segundo depois, fora do `ServerApplyLevelUp`. `/ae` só reforça essa fila com `/autoengram` ligado; desligado, não solta nada. Desligar apaga a fila. Testado in-game: ficou excelente.
+- No arranque, antes do mapa, o GameMode ainda não existe e o plugin fica em silêncio. Num apply real, se o getter global vier nulo, o modo é lido do mundo do personagem. Se continuar inalcançável, o original não corre e a flag não é reativada.
+
+### Rebuild
+
+Recompilar EngramLevel e substituir `EngramLevel.dll` + `PluginInfo.json` (VersionLabel 0.1.1) em cada mapa, com o mapa parado.
+
 ## [0.1.0] - 2026-10-04
 
 - Plugin novo. No `ServerApplyLevelUp` (level up e reaplicação depois do mindwipe) libera só os engramas cujo nível exigido é o deste clique.

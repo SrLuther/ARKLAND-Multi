@@ -13,7 +13,7 @@
         "PlayerCompleteMissionPrice": 30,
         "PlayerGetDeathBagsEnabled": true,
         "PlayerGetDeathBagsPrice": 5,
-        "PlayerGetDeathBagsRangeFoundations": 15,
+        "PlayerGetDeathBagsRangeFoundations": 30,
         "PlayerRenameEnabled": true,
         "PlayerRenamePrice": 50,
         "PlayerRenameBlacklist": [],

@@ -36,6 +36,8 @@ bool Toggle(const std::string& steam);
 
 } // namespace Prefs
 
+void TellPlayer(AShooterPlayerController* controller, const std::string& message);
+
 namespace Commands {
 
 void Register();

@@ -3,13 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.116"
+APP_VERSION: str = "1.10.117"
 BUILD_DATE: str = "2026-10-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.117",
+        "date": "2026-10-04",
+        "changes": [
+            "Feat (Plugin EngramLevel 0.1.1): fila de 10 engramas, 1 segundo entre blocos, releitura 1 segundo depois do nível. /ae só age com /autoengram ligado. Testado in-game e ficou excelente. A DLL só entra com o mapa parado.",
+            "Feat (Plugin ArkPlayer 1.0.2): /kill, /mindwipe e /nome executam e cobram quando há saldo. /nome grava o nome no perfil. A permanência desse nome depois de morte ou troca de mapa ainda não foi retestada. A DLL só entra com o mapa parado.",
+            "Feat (Plugin CustomShop 1.10.44): exporta a API de pontos para o ArkPlayer cobrar (CustomShop_PointsReady, CustomShop_GetPoints, CustomShop_SpendPoints). A DLL só vale depois que o mapa recarregar o plugin.",
+            "Feat (Web Store / Guia): o tópico antigo do Guia permanece. Entrou o tópico «Primal Fear — jogador». No teste, a área para jogadores ficou muito boa. Requer reiniciar a Web Store e Ctrl+F5.",
+            "Falha conhecida (/loot, ArkPlayer): no teste de 04/10/2026, personagem «teste», nível 17, a bag de morte estava ao lado (feixe verde). O chat disse «Bag(s) de morte recuperada(s)» depois de «Comando comprado por 5 pontos», mas nada do loot entrou no inventário. O inventário ficou só com um item que já estava (peso 0.0). O comando mente sucesso. Sem correção nesta versão.",
+            "Falha conhecida (número de dano curto, ArkPlayer): o número curto (9k / 27k / 95.9k) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte. Fica para outro momento. Sem correção nesta versão.",
+        ],
+    },
     {
         "version": "1.10.116",
         "date": "2026-10-04",

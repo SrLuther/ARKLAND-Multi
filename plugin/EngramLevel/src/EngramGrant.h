@@ -104,13 +104,27 @@ inline std::string NormalizeEngramId(std::string id) {
 
 // Nome interno ou nome mostrado, inteiros e sem diferenciar maiúsculas.
 // "rifle" não acerta "Tek Rifle" nem "EngramEntry_TekRifle_C".
+// PrimalItem e caminho /Game/ não são engrama. O filtro é EngramEntry_…_C
+// ou o nome mostrado inteiro.
+inline bool EngramIdRejected(const std::string& id) {
+    const std::string norm = NormalizeEngramId(id);
+    return norm.find("primalitem") != std::string::npos ||
+           norm.find("/game/") != std::string::npos;
+}
+
 inline bool EngramFilterHits(const std::string& internal_name,
                              const std::string& shown_name,
                              const std::string& filter) {
     const std::string id = NormalizeEngramId(filter);
-    if (id.empty()) return false;
+    if (id.empty() || EngramIdRejected(id)) return false;
     return NormalizeEngramId(internal_name) == id ||
            NormalizeEngramId(shown_name) == id;
+}
+
+// Ao ligar /autoengram: não tek com nível exigido entre 1 e o nível atual.
+// Tek não entra neste passo.
+inline bool OwnedNonTekFits(int required, int character_level) {
+    return required > 0 && character_level > 0 && required <= character_level;
 }
 
 inline bool EngramListHits(const std::string& internal_name,
@@ -159,14 +173,109 @@ inline std::vector<std::string> MergeEngramIds(
     return kept;
 }
 
+// Motivo quando o desbloqueio não solta nenhum engrama.
+enum class UnlockMiss {
+    None,
+    NoPlayer,
+    EmptyList,
+    LevelZero,
+    AlreadyKnown,
+    NoneAtLevel
+};
+
+struct UnlockReport {
+    int unlocked = 0;
+    int character_level = 0;
+    int target_level = 0;
+    UnlockMiss miss = UnlockMiss::None;
+};
+
+inline const char* UnlockMissText(UnlockMiss miss) {
+    switch (miss) {
+    case UnlockMiss::NoPlayer: return "sem jogador";
+    case UnlockMiss::EmptyList: return "lista vazia";
+    case UnlockMiss::LevelZero: return "nível 0";
+    case UnlockMiss::AlreadyKnown: return "todos já constavam como aprendidos";
+    case UnlockMiss::NoneAtLevel: return "nenhum com esse nível";
+    case UnlockMiss::None: break;
+    }
+    return "nenhum com esse nível";
+}
+
+// Blocos da fila. O timer do ArkApi conta em segundos inteiros.
+constexpr int kQueueBlock = 10;
+constexpr int kQueueDelaySeconds = 1;
+
+// Antes do primeiro bloco, cada nível empurra a saída para 1 segundo.
+// Com um bloco já enviado, o nível novo não reinicia a espera.
+inline bool LevelUpRestartsWait(bool block_already_sent) {
+    return !block_already_sent;
+}
+
+inline std::string CatchUpChat(const UnlockReport& report) {
+    if (report.unlocked > 0) {
+        return "Desbloqueio automático ligado. " +
+               std::to_string(report.unlocked) +
+               " engramas não tek na fila até o nível " +
+               std::to_string(report.character_level) + ".";
+    }
+    return std::string("Desbloqueio automático ligado. Nenhum engrama: ") +
+           UnlockMissText(report.miss) + ".";
+}
+
+inline std::string FinishChat(const UnlockReport& report) {
+    const int level = report.character_level > 0
+                          ? report.character_level
+                          : report.target_level;
+    return "Desbloqueados " + std::to_string(report.unlocked) +
+           " engramas não tek até o nível " + std::to_string(level) + ".";
+}
+
+inline std::string ManualChat(const UnlockReport& report) {
+    if (report.miss == UnlockMiss::NoPlayer ||
+        report.miss == UnlockMiss::EmptyList ||
+        report.miss == UnlockMiss::LevelZero) {
+        return std::string("Nenhum engrama: ") + UnlockMissText(report.miss) + ".";
+    }
+    if (report.unlocked > 0) {
+        return std::to_string(report.unlocked) +
+               " engramas não tek entraram na fila até o nível " +
+               std::to_string(report.character_level) + ".";
+    }
+    return "Nenhum engrama pendente até o nível " +
+           std::to_string(report.character_level) + ".";
+}
+
 // Libera só engramas com RequiredLevel == level, e só um tipo (tek ou
-// não-tek) neste clique. Devolve quantos foram novos.
-int UnlockExactLevel(AShooterPlayerController* controller, int level,
-                     int character_level);
+// não-tek) neste clique.
+UnlockReport UnlockExactLevel(AShooterPlayerController* controller, int level,
+                              int character_level);
 
 // Vários pontos num único ServerApplyLevelUp: um nível de cada vez, e tek
 // só no lote seguinte ao não tek daquele mesmo nível quando UnlockTotal.
-int UnlockSpentLevels(AShooterPlayerController* controller,
-                      const std::vector<int>& levels);
+UnlockReport UnlockSpentLevels(AShooterPlayerController* controller,
+                               const std::vector<int>& levels);
+
+// Transição de /autoengram para ligado. Não tek já devidos até o nível
+// atual, via ServerUnlockEngram. Tek fica fora deste comando.
+UnlockReport UnlockOwnedNonTek(AShooterPlayerController* controller);
+
+// A mesma releitura, em blocos de kQueueBlock, no timer do ArkApi.
+// O primeiro bloco sai kQueueDelaySeconds depois. Não despeja a lista inteira.
+UnlockReport BeginOwnedQueue(AShooterPlayerController* controller);
+
+// /ae. Soma o que a releitura achou e ainda não está na fila.
+// Com um bloco já enviado, não reinicia a espera.
+UnlockReport RefreshOwnedQueue(AShooterPlayerController* controller);
+
+// Level-up com /autoengram ligado. Não desbloqueia aqui: só arma o timer.
+void ScheduleOwnedReread(AShooterPlayerController* controller);
+
+// Desligar /autoengram: apaga a fila e invalida o próximo bloco.
+void CancelPlayerQueue(uint64 steam);
+
+// Um timer no processo, no mesmo estilo do TimedPoints do CustomShop.
+void StartUnlockQueue();
+void StopUnlockQueue();
 
 } // namespace EngramLevel

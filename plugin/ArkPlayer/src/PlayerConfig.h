@@ -13,7 +13,7 @@ struct GroupSettings {
     int mission_price = 0;
     bool loot_enabled = true;
     int loot_price = 0;
-    int loot_range_foundations = 15;
+    int loot_range_foundations = 30;
     bool rename_enabled = true;
     int rename_price = 0;
     std::vector<std::string> rename_blacklist;

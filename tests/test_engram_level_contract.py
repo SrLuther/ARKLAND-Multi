@@ -79,7 +79,7 @@ def engram_filter_hits(internal_name: str, shown_name: str, filt: str) -> bool:
         return value.strip().lower()
 
     token = norm(filt)
-    if not token:
+    if not token or "primalitem" in token or "/game/" in token:
         return False
     return norm(internal_name) == token or norm(shown_name) == token
 
@@ -118,7 +118,9 @@ def test_hook_suppresses_auto_unlock_and_skips_buyout():
     assert original in hooks[hooks.index(flag_off):]
     assert "IsCatalogBuyout" in hooks
     assert "points[i] = 0" in hooks
-    assert "UnlockExactLevel" in hooks
+    assert "ScheduleOwnedReread" in hooks
+    assert "UnlockExactLevel" not in hooks
+    assert "ServerUnlockEngram" not in hooks
     assert "required != level" in grant
     assert "GetRequiredLevel" in grant
     assert "GiveEngrams" not in grant
@@ -215,7 +217,21 @@ def test_autoengram_starts_off_and_tek_follows_unlock_total():
     assert '"OptedIn"' in commands
     assert "AddChatCommand" in commands
     assert "/autoengram" in commands
-    assert "Desbloqueio automático ligado" in commands
+    assert "Desbloqueio automático ligado" in _src("src", "EngramGrant.h")
+    assert "engramas não tek na fila até o nível" in _src("src", "EngramGrant.h")
+    assert "Desbloqueados " in _src("src", "EngramGrant.h")
+    assert "engramas não tek até o nível" in _src("src", "EngramGrant.h")
+    assert "entraram na fila até o nível" in _src("src", "EngramGrant.h")
+    assert "Nenhum engrama pendente até o nível" in _src("src", "EngramGrant.h")
+    assert "kQueueBlock = 10" in _src("src", "EngramGrant.h")
+    assert "kQueueDelaySeconds = 1" in _src("src", "EngramGrant.h")
+    assert "return !block_already_sent" in _src("src", "EngramGrant.h")
+    assert "sem jogador" in _src("src", "EngramGrant.h")
+    assert "lista vazia" in _src("src", "EngramGrant.h")
+    assert "nível 0" in _src("src", "EngramGrant.h")
+    assert "todos já constavam como aprendidos" in _src("src", "EngramGrant.h")
+    assert "nenhum com esse nível" in _src("src", "EngramGrant.h")
+    assert "CatchUpChat" in commands
     assert "Desbloqueio automático desligado" in commands
     assert "Desbloqueio automático desligado no servidor." in commands
     enabled_gate = commands.index("!EngramLevel::Config::Get().Enabled()")
@@ -223,15 +239,41 @@ def test_autoengram_starts_off_and_tek_follows_unlock_total():
     assert enabled_gate < toggle_call
 
     auto_gate = hooks.index("Prefs::IsAutoEnabled")
-    unlock_call = hooks.index("UnlockExactLevel")
-    assert auto_gate < unlock_call
-    assert auto_gate < hooks.index("UnlockSpentLevels")
+    assert auto_gate < hooks.index("ScheduleOwnedReread")
+    assert "UnlockExactLevel" not in hooks
+    assert "UnlockSpentLevels" not in hooks
+    assert "ServerUnlockEngram" not in hooks
     assert "UnlockExactLevel" not in commands
     assert "UnlockSpentLevels" not in commands
+    toggle_on = commands.split("if (on)", 1)[1].split("SendPlayer", 1)[0]
+    assert "BeginOwnedQueue" in toggle_on
+    assert "UnlockOwnedNonTek" not in toggle_on
+    assert "bAutoUnlockAllEngrams" not in commands
+    assert "GiveEngrams" not in commands
+    assert "UnlockAll(" not in commands
 
-    # O gate de tek olha só os não tek deste nível, não o catálogo inteiro.
+    # O gate de tek do apply olha só os não tek deste nível.
     assert "required != level" in grant
     assert "required > known_level" not in grant
+    assert "OwnedNonTekFits" in grant
+    owned = grant.split("UnlockReport UnlockOwnedNonTek", 1)[1]
+    assert "GrantTier::NonTek" in owned
+    assert "GrantTier::Tek" not in owned
+    assert "ServerUnlockEngram" in grant
+    assert "EngramItemBlueprintsField" in grant
+    assert "HasEngram(" not in grant
+    assert "ClientNotifyUnlockedEngram" in grant
+    assert "bAutoUnlockAllEngrams" not in grant
+    assert "ApplyChat" not in hooks
+    assert "FinishChat" in grant
+    assert "DelayExecute" in grant
+    assert "EngramLevel.Queue" in grant
+    assert "AddOnTimerCallback" in grant
+    assert "/ae" in commands
+    assert "RefreshOwnedQueue" in commands
+    assert "CancelPlayerQueue" in commands
+    assert "LevelUpRestartsWait" in grant
+    assert "kQueueBlock" in grant
 
     opted: list[str] = []
     assert "76561198000000000" not in opted
@@ -278,13 +320,34 @@ def test_null_game_mode_skips_original_and_does_not_rearm_the_flag():
     hooks = _src("src", "EngramHooks.cpp")
     hook = hooks.split("void Hook_UPrimalCharacterStatusComponent_ServerApplyLevelUp", 1)[1]
     hook = hook.split("} // namespace", 1)[0]
-    log = "GetShooterGameMode() nulo — ServerApplyLevelUp original não foi chamado e a flag não foi reativada"
+    log = (
+        "ServerApplyLevelUp sem GameMode alcançável — "
+        "original não foi chamado e a flag não foi reativada"
+    )
     assert log in hook
+    assert "ApplyCrashMask(status, by_pc)" in hook
+    assert hook.index("g_in_level_up = false") < hook.index(log)
     assert hook.index(log) < hook.rindex("ServerApplyLevelUp_original")
     window = hook[hook.index(log):hook.index(log) + 400]
     assert "return" in window
     assert "bAutoUnlockAllEngramsField() = g_saved_auto_unlock" not in window
     assert "não foi reativada" in hooks
+    assert "não mascarou" not in log
+    assert "mapa ainda sem mundo" not in log
+    # Apply real: mundo do componente, dono, outer e controller.
+    assert "AuthorityGameModeField()" in hooks
+    assert "status->GetWorld()" in hooks
+    assert "status->GetOwner()" in hooks
+    assert "CachedOwnerField()" in hooks
+    assert "OuterField()" in hooks
+    assert "WorldFromOuter(status)" in hooks
+    assert "ModeFromActor(by_pc" in hooks
+    # Arranque e Reload antes do mapa: nenhum log.
+    assert "não mascarou bAutoUnlockAllEngrams" not in hooks
+    assert "mapa ainda sem mundo" not in hooks
+    sync = hooks.split("void SyncCrashMask", 1)[1].split("void ReleaseCrashMask", 1)[0]
+    assert "Log::GetLog()" not in sync
+    assert "g_in_level_up = true" not in sync
 
 
 def test_autoengram_write_is_atomic_and_bad_json_keeps_memory():
@@ -314,6 +377,17 @@ def test_engram_filter_is_exact_name_not_a_substring():
     assert engram_filter_hits(
         "EngramEntry_TekRifle_C", "Tek Rifle", "engramentry_tekrifle_c"
     ) is True
+    assert engram_filter_hits(
+        "EngramEntry_StoneHatchet_C",
+        "Machado de Pedra",
+        "PrimalItem_WeaponStoneHatchet_C",
+    ) is False
+    assert engram_filter_hits(
+        "EngramEntry_StoneHatchet_C",
+        "Machado de Pedra",
+        "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponStoneHatchet",
+    ) is False
+    assert "EngramIdRejected" in header
     assert "exata" in readme.lower()
     assert "rifle" in readme.lower()
 
@@ -325,8 +399,9 @@ def test_mindwipe_multi_point_unlocks_one_level_at_a_time():
     readme = _src("README.md")
     assert "GrantBatchesForSpentLevels" in header
     assert "UnlockSpentLevels" in grant
-    assert "levels.size() > 1" in hooks
-    assert hooks.index("levels.size() > 1") < hooks.index("UnlockSpentLevels")
+    assert "UnlockSpentLevels" not in hooks
+    assert "ScheduleOwnedReread" in hooks
+    assert hooks.index("ServerApplyLevelUp_original") < hooks.index("ScheduleOwnedReread")
     assert "GetRequiredLevel" in grant
     assert "RequiredCharacterLevelField" in grant
 

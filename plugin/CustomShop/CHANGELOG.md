@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.44] - 2026-10-04
+
+### Feature
+
+- Exporta a API de pontos para o ArkPlayer cobrar: `CustomShop_PointsReady`, `CustomShop_GetPoints` e `CustomShop_SpendPoints`. Não exporta `GetPoints`/`SpendPoints` soltos (esses nomes são do ArkShop).
+
+### Rebuild
+
+A DLL 1.10.44 só vale depois que o mapa recarregar o plugin.
+
 ## [1.10.43] - 2026-10-03
 
 ### Fix

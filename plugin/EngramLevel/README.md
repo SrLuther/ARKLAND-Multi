@@ -6,7 +6,7 @@ O crash do ASE 361.7 acontece dentro de `UPrimalCharacterStatusComponent::Server
 
 Um `OverridePlayerLevelEngramPoints` de **999** (ou maior) compra o catálogo num único nível. Essas linhas ficam em 0 enquanto o plugin estiver ligado e também não voltam no fim do apply. No unload ou com `Enabled: false`, voltam ao que foi lido no load. Os pontos modestos do `nivel200.txt` (200, 12, 400, 16, 800…) continuam.
 
-Se `GetShooterGameMode()` vier nulo e não der para mascarar a flag, o plugin regista o erro e **não** chama o `ServerApplyLevelUp` original. Também não reativa a flag.
+No arranque o ArkApi ainda não tem o GameMode: os plugins carregam no `UEngine::Init`, e o ponteiro global só é gravado no `AShooterGameMode::InitGame`. Isso não é um level-up e o plugin não escreve log. Num `ServerApplyLevelUp` real, se esse getter vier nulo, o modo é lido do mundo do componente (campo, `GetWorld`, dono, outer ou o controller). Se mesmo assim não houver GameMode, o original não corre — chamar com a flag ainda ligada é o crash — e o erro sai uma vez por apply. A flag não é reativada.
 
 ## Config (`plugin/EngramLevel/configs/config.json`)
 
@@ -27,14 +27,19 @@ Ficheiro no mapa: `ShooterGame/Binaries/Win64/ArkApi/Plugins/EngramLevel/config.
 
 O jogador começa com o automático **desligado**. O plugin não chama `ServerUnlockEngram` para ele até ele pedir.
 
-`/autoengram` liga o automático daquele SteamID. Usado de novo, desliga. O chat responde «Desbloqueio automático ligado» ou «Desbloqueio automático desligado». Quem nunca usou o comando continua desligado, também depois de relog e de restart.
+`/autoengram` liga o automático daquele SteamID. Usado de novo, desliga. O chat responde quantos engramas não tek entraram na fila e até qual nível, ou o motivo se não entrou nenhum. Desligar responde «Desbloqueio automático desligado.» e apaga a fila daquele jogador. Quem nunca usou o comando continua desligado, também depois de relog e de restart.
+
+`/ae` é o reforço manual. Com o automático desligado não solta nada e responde «Desbloqueio automático desligado.» Com ele ligado, faz a mesma releitura e completa a mesma fila.
 
 A lista de quem ligou fica em `ArkApi/Plugins/EngramLevel/autoengram.json` (ao lado do config). A gravação vai para um ficheiro temporário e só depois troca o nome. Se a pasta não existir, o plugin cria. Não usa MySQL. Um JSON inválido no arranque não apaga a lista: fica o último estado bom em memória e o erro vai para o log.
 
-O comando não libera tek por si e não repõe níveis já gastos antes de `/autoengram`. Com o automático ligado:
+Ao passar de desligado para ligado, o comando relê os engramas não tek cujo nível exigido é menor ou igual ao nível atual e que ainda não estão na lista que a tela mostra (`EngramItemBlueprints`). Não usa `HasEngram`. Não liga `bAutoUnlockAllEngrams` e não aprende o catálogo inteiro. Tek não entra nesse comando.
 
-- `UnlockTotal: false` — só engramas não tek do nível deste clique.
-- `UnlockTotal: true` — neste clique, os não tek desse nível. Os tek desse nível só entram num `ServerApplyLevelUp` seguinte, quando esses não tek já foram. Nunca os dois no mesmo lote.
+A lista não sai de uma vez. Entra numa fila do jogador: no máximo 10 engramas por bloco, 1 segundo entre blocos, no timer do ArkApi (o mesmo tipo de agendamento do TimedPoints do CustomShop). O primeiro bloco sai 1 segundo depois. Cada um sai por `ServerUnlockEngram` no `PlayerState`. Se o call não puser a classe na lista da tela, o plugin adiciona e avisa o cliente. Quando a fila acaba, o chat diz quantos foram desbloqueados e até qual nível.
+
+`UnlockTotal: false` deixa o tek de fora desta fila. `UnlockTotal: true` não mete tek no mesmo bloco: a releitura do comando, do `/ae` e do level-up continua só com não tek.
+
+Com o automático ligado, aplicar um nível não solta só o número daquele clique e não corre dentro de `ServerApplyLevelUp`. Espera 1 segundo e faz a mesma releitura (não tek até o nível atual). Antes do primeiro bloco, cada clique empurra esse bloco para daqui a 1 segundo — a espera não passa de 1 segundo. Depois que um bloco já saiu, um nível novo não reinicia a espera: o que faltar entra no fim da fila.
 
 `Enabled: false` desliga o plugin inteiro. O comando não religa e responde «Desbloqueio automático desligado no servidor.»
 
@@ -50,7 +55,7 @@ Exemplo para somar um engrama pelo nome interno (ou pelo nome mostrado, inteiro)
 
 ## Limite
 
-Cada ponto aplicado libera o nível correspondente, não os níveis já gastos antes de `/autoengram`. Se o mindwipe mantém o nível 200 e devolve os pontos, um `ServerApplyLevelUp` que gaste um ponto libera os engramas do nível 2 (o primeiro ponto); o seguinte, os do 3. Se um único apply gastar vários pontos, esses níveis saem em sequência, um de cada vez: só engramas cujo nível exigido é exatamente aquele número. Tek e não tek não vão no mesmo lote. Com `UnlockTotal: true`, o tek daquele nível é o lote seguinte, depois dos não tek. Não há backfill do que já tinha sido gasto antes do comando.
+Quem não ligou `/autoengram` não ganha engrama. Os níveis já gastos antes de `/autoengram` ficam para o momento em que o comando liga: a fila pega os não tek até o nível atual. Com o automático ligado, aplicar nível (também o primeiro ponto depois do mindwipe, que corresponde ao nível 2) espera 1 segundo e relê essa mesma faixa, sem precisar desligar e ligar o comando. Tek continua de fora enquanto `UnlockTotal` está false.
 
 ## Build
 

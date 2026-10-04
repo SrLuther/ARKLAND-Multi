@@ -15,11 +15,90 @@ bool g_mask_captured = false;
 bool g_saved_auto_unlock = false;
 std::vector<std::pair<int, int>> g_saved_points;
 
+bool g_logged_world_mode = false;
+
 bool IsPlayerStatus(UPrimalCharacterStatusComponent* status) {
     if (!status) return false;
     AActor* owner = status->GetPrimalCharacter();
     if (!owner) return false;
     return owner->IsA(AShooterCharacter::GetPrivateStaticClass());
+}
+
+AShooterGameMode* AsShooterGameMode(AGameMode* mode) {
+    if (!mode) return nullptr;
+    if (!mode->IsA(AShooterGameMode::StaticClass())) return nullptr;
+    return static_cast<AShooterGameMode*>(mode);
+}
+
+AShooterGameMode* ModeFromWorld(UWorld* world) {
+    if (!world) return nullptr;
+    if (AShooterGameMode* mode = AsShooterGameMode(world->AuthorityGameModeField()))
+        return mode;
+    return AsShooterGameMode(world->GetAuthGameMode());
+}
+
+bool IsWorldObject(UObject* object) {
+    if (!object) return false;
+    UClass* cls = object->ClassField();
+    if (!cls) return false;
+    return cls->NameField() == L"World";
+}
+
+// Outer do componente é o actor, o do actor é o level, o do level é o UWorld.
+UWorld* WorldFromOuter(UObject* object) {
+    UObject* cursor = object;
+    for (int step = 0; cursor && step < 12; ++step) {
+        if (IsWorldObject(cursor))
+            return static_cast<UWorld*>(cursor);
+        UObject* outer = cursor->OuterField();
+        if (!outer || outer == cursor) break;
+        cursor = outer;
+    }
+    return nullptr;
+}
+
+AShooterGameMode* TakeWorldMode(UWorld* world, bool* used_world) {
+    AShooterGameMode* mode = ModeFromWorld(world);
+    if (!mode) return nullptr;
+    if (used_world) *used_world = true;
+    return mode;
+}
+
+AShooterGameMode* ModeFromActor(AActor* actor, bool* used_world) {
+    if (!actor) return nullptr;
+    if (AShooterGameMode* mode = TakeWorldMode(actor->GetWorld(), used_world))
+        return mode;
+    return TakeWorldMode(WorldFromOuter(actor), used_world);
+}
+
+// O getter global é o ponteiro que o ArkApi grava só em InitGame.
+// Num apply real, o mundo do status / dono / outer / controller ainda tem o modo.
+AShooterGameMode* ResolveGameMode(UPrimalCharacterStatusComponent* status,
+                                  AShooterPlayerController* by_pc,
+                                  bool* used_world) {
+    if (used_world) *used_world = false;
+    if (AShooterGameMode* cached = ArkApi::GetApiUtils().GetShooterGameMode())
+        return cached;
+
+    if (status) {
+        if (AShooterGameMode* mode = TakeWorldMode(status->WorldField(), used_world))
+            return mode;
+        if (AShooterGameMode* mode = TakeWorldMode(status->GetWorld(), used_world))
+            return mode;
+        if (AShooterGameMode* mode = ModeFromActor(status->GetOwner(), used_world))
+            return mode;
+        if (AShooterGameMode* mode = ModeFromActor(status->CachedOwnerField(), used_world))
+            return mode;
+        if (AShooterGameMode* mode = ModeFromActor(status->GetPrimalCharacter(), used_world))
+            return mode;
+        if (AShooterGameMode* mode = TakeWorldMode(WorldFromOuter(status), used_world))
+            return mode;
+    }
+    if (by_pc) {
+        if (AShooterGameMode* mode = ModeFromActor(by_pc, used_world))
+            return mode;
+    }
+    return TakeWorldMode(ArkApi::GetApiUtils().GetWorld(), used_world);
 }
 
 bool IndexSaved(int index) {
@@ -31,9 +110,16 @@ bool IndexSaved(int index) {
 
 // Lê a flag e as linhas de buyout na primeira vez que o GameMode existe.
 // Nas seguintes só reafirma false / 0. Não guarda o zero como se fosse o original.
-bool ApplyCrashMask() {
-    AShooterGameMode* game_mode = ArkApi::GetApiUtils().GetShooterGameMode();
+bool ApplyCrashMask(UPrimalCharacterStatusComponent* status,
+                    AShooterPlayerController* by_pc) {
+    bool from_world = false;
+    AShooterGameMode* game_mode = ResolveGameMode(status, by_pc, &from_world);
     if (!game_mode) return false;
+    if (from_world && !g_logged_world_mode) {
+        g_logged_world_mode = true;
+        Log::GetLog()->info(
+            "EngramLevel: GetShooterGameMode() nulo; GameMode lido pelo mundo do personagem");
+    }
 
     const int buyout = EngramLevel::Config::Get().CatalogBuyoutPoints();
     TArray<int>& points = game_mode->OverridePlayerLevelEngramPointsField();
@@ -64,7 +150,7 @@ bool ApplyCrashMask() {
 
 void RestoreCrashMask() {
     if (!g_mask_captured) return;
-    AShooterGameMode* game_mode = ArkApi::GetApiUtils().GetShooterGameMode();
+    AShooterGameMode* game_mode = ResolveGameMode(nullptr, nullptr, nullptr);
     if (!game_mode) {
         Log::GetLog()->error(
             "EngramLevel: GetShooterGameMode() nulo — não restaurou bAutoUnlockAllEngrams lido no load; a flag não foi reativada");
@@ -103,42 +189,22 @@ void Hook_UPrimalCharacterStatusComponent_ServerApplyLevelUp(
         ~ClearInLevelUp() { g_in_level_up = false; }
     } clear_in_level_up;
 
-    if (cfg.SuppressAutoUnlock() && !ApplyCrashMask()) {
+    if (cfg.SuppressAutoUnlock() && !ApplyCrashMask(status, by_pc)) {
         Log::GetLog()->error(
-            "EngramLevel: GetShooterGameMode() nulo — ServerApplyLevelUp original não foi chamado e a flag não foi reativada");
+            "EngramLevel: ServerApplyLevelUp sem GameMode alcançável — original não foi chamado e a flag não foi reativada");
         return;
     }
-
-    const int before_base = status->GetBaseLevelFromLevelUpPoints(true);
-    const int before_char = status->GetCharacterLevel();
-    const int available_before = status->GetNumLevelUpsAvailable();
 
     UPrimalCharacterStatusComponent_ServerApplyLevelUp_original(
         status, value_type, by_pc);
 
-    const int after_base = status->GetBaseLevelFromLevelUpPoints(true);
-    const int after_char = status->GetCharacterLevel();
-    const int available_after = status->GetNumLevelUpsAvailable();
-    const std::vector<int> levels = EngramLevel::AppliedLevelSpan(
-        before_base, after_base, before_char, after_char,
-        available_before, available_after);
-
-    int unlocked = 0;
-    if (by_pc && cfg.UnlockOnlyAppliedLevel() && !levels.empty()) {
+    // A fila não corre aqui. Quem ligou /autoengram só arma a releitura
+    // (não tek até o nível atual) para daqui a 1 segundo.
+    if (by_pc && cfg.UnlockOnlyAppliedLevel()) {
         const uint64 steam = ArkApi::GetApiUtils().GetSteamIdFromController(by_pc);
         const std::string sid = steam != 0 ? std::to_string(steam) : "";
-        if (EngramLevel::Prefs::IsAutoEnabled(sid)) {
-            if (levels.size() > 1)
-                unlocked = EngramLevel::UnlockSpentLevels(by_pc, levels);
-            else
-                unlocked = EngramLevel::UnlockExactLevel(by_pc, levels.front(), after_char);
-        }
-    }
-
-    if (unlocked > 0) {
-        Log::GetLog()->info(
-            "EngramLevel: {} nível(is) — {} engrama(s) (auto-unlock continua suprimido)",
-            levels.size(), unlocked);
+        if (EngramLevel::Prefs::IsAutoEnabled(sid))
+            EngramLevel::ScheduleOwnedReread(by_pc);
     }
 }
 
@@ -153,10 +219,9 @@ void SyncCrashMask() {
         RestoreCrashMask();
         return;
     }
-    if (!ApplyCrashMask()) {
-        Log::GetLog()->error(
-            "EngramLevel: GetShooterGameMode() nulo — não mascarou bAutoUnlockAllEngrams; a flag não foi reativada");
-    }
+    // Plugin_Init e Reload correm antes de InitGame. Getter nulo aí é o arranque:
+    // sem log. O primeiro ServerApplyLevelUp real é que mascara.
+    ApplyCrashMask(nullptr, nullptr);
 }
 
 void ReleaseCrashMask() {

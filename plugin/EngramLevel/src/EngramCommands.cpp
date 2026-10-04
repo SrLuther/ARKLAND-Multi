@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "EngramCommands.h"
 #include "EngramConfig.h"
+#include "EngramGrant.h"
 
 #include <mutex>
 
@@ -79,6 +80,14 @@ std::wstring Utf8ToWide(const std::string& text) {
 }
 
 void SendPlayer(AShooterPlayerController* controller, const std::string& message) {
+    EngramLevel::TellPlayer(controller, message);
+}
+
+} // namespace
+
+namespace EngramLevel {
+
+void TellPlayer(AShooterPlayerController* controller, const std::string& message) {
     if (!controller || message.empty()) return;
     const std::wstring wmsg = Utf8ToWide(message);
     FChatMessage chat;
@@ -101,7 +110,7 @@ void SaveUnlocked() {
         Log::GetLog()->error("EngramLevel: não gravou {}", path);
 }
 
-// Liga ou desliga só este SteamID. Não repõe níveis já gastos antes do comando.
+// Liga ou desliga só este SteamID. Ao ligar, solta os não tek já devidos.
 void CmdAutoEngram(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
     if (!EngramLevel::Config::Get().Enabled()) {
@@ -114,9 +123,35 @@ void CmdAutoEngram(AShooterPlayerController* controller, FString*, EChatSendMode
         return;
     }
     const bool on = EngramLevel::Prefs::Toggle(std::to_string(steam));
-    SendPlayer(
-        controller,
-        on ? "Desbloqueio automático ligado" : "Desbloqueio automático desligado");
+    if (on) {
+        const EngramLevel::UnlockReport report =
+            EngramLevel::BeginOwnedQueue(controller);
+        SendPlayer(controller, EngramLevel::CatchUpChat(report));
+        return;
+    }
+    EngramLevel::CancelPlayerQueue(steam);
+    SendPlayer(controller, "Desbloqueio automático desligado.");
+}
+
+// Reforço manual. Só enfileira se /autoengram já está ligado para este jogador.
+void CmdAe(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    if (!EngramLevel::Config::Get().Enabled()) {
+        SendPlayer(controller, "Desbloqueio automático desligado no servidor.");
+        return;
+    }
+    const uint64 steam = ArkApi::GetApiUtils().GetSteamIdFromController(controller);
+    if (steam == 0) {
+        SendPlayer(controller, "SteamID inválido.");
+        return;
+    }
+    if (!EngramLevel::Prefs::IsAutoEnabled(std::to_string(steam))) {
+        SendPlayer(controller, "Desbloqueio automático desligado.");
+        return;
+    }
+    const EngramLevel::UnlockReport report =
+        EngramLevel::RefreshOwnedQueue(controller);
+    SendPlayer(controller, EngramLevel::ManualChat(report));
 }
 
 } // namespace
@@ -175,12 +210,16 @@ bool Toggle(const std::string& steam) {
 namespace Commands {
 
 void Register() {
+    EngramLevel::StartUnlockQueue();
     ArkApi::GetCommands().AddChatCommand("/autoengram", &CmdAutoEngram);
+    ArkApi::GetCommands().AddChatCommand("/ae", &CmdAe);
     Log::GetLog()->info("EngramLevel: comando /autoengram (default desligado)");
 }
 
 void Unregister() {
+    ArkApi::GetCommands().RemoveChatCommand("/ae");
     ArkApi::GetCommands().RemoveChatCommand("/autoengram");
+    EngramLevel::StopUnlockQueue();
 }
 
 } // namespace Commands

@@ -2,6 +2,7 @@
 #include "plugin_version.h"
 #include "PlayerCommands.h"
 #include "PlayerConfig.h"
+#include "PlayerDamage.h"
 #include "PlayerPerms.h"
 #include "PlayerPoints.h"
 
@@ -16,6 +17,7 @@ void OnWorldReady() {
     // Bindings que podem tocar no mundo só depois de Ready.
     ArkPlayer::Perms::Init();
     ArkPlayer::Points::Init();
+    ArkPlayer::Damage::ArmFloatingWidget();
 
     Log::GetLog()->info("ArkPlayer: world ready — Permissions/Points resolvidos");
 }
@@ -46,12 +48,13 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         &AShooterGameMode_BeginPlay_original);
 
     ArkPlayer::Commands::Register();
+    ArkPlayer::Damage::Install();
 
     // Hot-reload: se o plugin carregar com o servidor já Ready.
     if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready)
         OnWorldReady();
 
-    Log::GetLog()->info("ArkPlayer v{} ready (MVP: /mindwipe /missao /loot /nome /kill)",
+    Log::GetLog()->info("ArkPlayer v{} ready (comandos + dano na tela)",
                         ARKLAND_PLUGIN_VERSION);
 }
 
@@ -60,6 +63,7 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
         "AShooterGameMode.BeginPlay()",
         Hook_AShooterGameMode_BeginPlay);
 
+    ArkPlayer::Damage::Remove();
     ArkPlayer::Commands::Unregister();
     Log::GetLog()->info("ArkPlayer: unloaded");
 }

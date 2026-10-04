@@ -2,13 +2,17 @@
 
 Substitui o **PlayerUtilities** de terceiros só com os 5 comandos activos no config de produção.
 
+## Dano na tela
+
+Falha conhecida, sem correção nesta versão. O número curto (`9k` / `27k` / `95.9k`) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte.
+
 ## Comandos
 
 | Comando | Efeito | Preço Default (config) |
 |---------|--------|------------------------|
 | `/mindwipe` | Reseta pontos de atributo (DoRespec) | 5 |
 | `/missao` | Completa missão activa (Genesis 1/2) | 30 |
-| `/loot` | Recupera death bags no raio | 5 |
+| `/loot` | Recupera death bags no raio. Falha conhecida: no teste de 04/10/2026 o chat confirmou e o loot não entrou no inventário. Sem correção nesta versão | 5 |
 | `/nome <nome>` | Renomeia o personagem | 50 |
 | `/kill` | Suicídio | 5 |
 
@@ -18,7 +22,7 @@ Grupo **Staff** (Permissions) tem preços reduzidos/zero — ver `configs/config
 
 - **Permissions** (obrigatório no `PluginInfo.json`)
 - **ArkShop** Points API (opcional): se o preço for >0 e a API não estiver disponível, o comando é recusado. Com `EverythingIsFREE: true` ou preço 0, funciona sem shop.
-- **CustomShop** não exporta Points ainda — em servidores só CustomShop, use preço 0 ou `EverythingIsFREE`.
+- **CustomShop** exporta `CustomShop_PointsReady`, `CustomShop_GetPoints` e `CustomShop_SpendPoints` para estes comandos cobrarem.
 
 ## Build
 

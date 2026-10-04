@@ -74,7 +74,8 @@ echo === Compiling ArkPlayer (v%PLUGIN_VER%) ===
   "%SRC_DIR%\PlayerConfig.cpp" ^
   "%SRC_DIR%\PlayerPerms.cpp" ^
   "%SRC_DIR%\PlayerPoints.cpp" ^
-  "%SRC_DIR%\PlayerCommands.cpp"
+  "%SRC_DIR%\PlayerCommands.cpp" ^
+  "%SRC_DIR%\PlayerDamage.cpp"
 if %ERRORLEVEL% neq 0 goto :error
 
 echo === Linking DLL ===
@@ -90,7 +91,8 @@ echo === Linking DLL ===
   "%OBJ_DIR%\PlayerConfig.obj" ^
   "%OBJ_DIR%\PlayerPerms.obj" ^
   "%OBJ_DIR%\PlayerPoints.obj" ^
-  "%OBJ_DIR%\PlayerCommands.obj"
+  "%OBJ_DIR%\PlayerCommands.obj" ^
+  "%OBJ_DIR%\PlayerDamage.obj"
 if %ERRORLEVEL% neq 0 goto :error
 
 copy /Y "%PLUGIN_DIR%configs\config.json" "%BIN_DIR%\config.json" >nul

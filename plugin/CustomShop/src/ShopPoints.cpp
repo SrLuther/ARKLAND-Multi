@@ -585,3 +585,29 @@ int ShopPoints::ResetDependentKitLimits(const std::string& steam_id,
 
 } // namespace CustomShop
 
+// API C para o ArkPlayer cobrar /mindwipe, /loot, /missao, /nome e /kill.
+// Não exportar GetPoints/SpendPoints soltos: o ArkShop usa esses nomes.
+extern "C" __declspec(dllexport) bool CustomShop_PointsReady() {
+    return CustomShop::ShopPoints::Get().GetDb() != nullptr;
+}
+
+extern "C" __declspec(dllexport) int CustomShop_GetPoints(unsigned long long steam_id) {
+    if (!CustomShop_PointsReady() || steam_id == 0) return -1;
+    try {
+        return CustomShop::ShopPoints::Get().GetPoints(std::to_string(steam_id));
+    } catch (...) {
+        return -1;
+    }
+}
+
+extern "C" __declspec(dllexport) bool CustomShop_SpendPoints(int amount,
+                                                            unsigned long long steam_id) {
+    if (!CustomShop_PointsReady() || steam_id == 0 || amount <= 0) return false;
+    try {
+        return CustomShop::ShopPoints::Get().SpendPoints(
+            std::to_string(steam_id), amount);
+    } catch (...) {
+        return false;
+    }
+}
+

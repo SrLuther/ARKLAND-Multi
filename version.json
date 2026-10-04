@@ -1,9 +1,13 @@
 {
-    "version": "1.10.116",
+    "version": "1.10.117",
     "date": "2026-10-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.116/ARKLAND-Multi-Setup-v1.10.116.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.117/ARKLAND-Multi-Setup-v1.10.117.exe",
     "changelog": [
-        "Feat (Plugin EngramLevel 0.1.0): instalável junto com os outros plugins. O automático começa desligado. /autoengram liga só para aquele jogador. Tek só entra se UnlockTotal estiver true, e só num clique seguinte. Enquanto o plugin está ligado, a flag de auto-unlock da engine fica desligada. Não foi testado in-game. Tire bAutoUnlockAllEngrams do Game.ini antes de testar. A DLL só entra com o mapa parado, numa janela do usuário.",
-        "Fix (Nível do jogador): o preset nivel200.txt vai no pacote do executável. Se o arquivo faltar, a tela «Configurações do Jogador» ainda abre."
+        "Feat (Plugin EngramLevel 0.1.1): fila de 10 engramas, 1 segundo entre blocos, releitura 1 segundo depois do nível. /ae só age com /autoengram ligado. Testado in-game e ficou excelente. A DLL só entra com o mapa parado.",
+        "Feat (Plugin ArkPlayer 1.0.2): /kill, /mindwipe e /nome executam e cobram quando há saldo. /nome grava o nome no perfil. A permanência desse nome depois de morte ou troca de mapa ainda não foi retestada. A DLL só entra com o mapa parado.",
+        "Feat (Plugin CustomShop 1.10.44): exporta a API de pontos para o ArkPlayer cobrar (CustomShop_PointsReady, CustomShop_GetPoints, CustomShop_SpendPoints). A DLL só vale depois que o mapa recarregar o plugin.",
+        "Feat (Web Store / Guia): o tópico antigo do Guia permanece. Entrou o tópico «Primal Fear — jogador». No teste, a área para jogadores ficou muito boa. Requer reiniciar a Web Store e Ctrl+F5.",
+        "Falha conhecida (/loot, ArkPlayer): no teste de 04/10/2026, personagem «teste», nível 17, a bag de morte estava ao lado (feixe verde). O chat disse «Bag(s) de morte recuperada(s)» depois de «Comando comprado por 5 pontos», mas nada do loot entrou no inventário. O inventário ficou só com um item que já estava (peso 0.0). O comando mente sucesso. Sem correção nesta versão.",
+        "Falha conhecida (número de dano curto, ArkPlayer): o número curto (9k / 27k / 95.9k) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte. Fica para outro momento. Sem correção nesta versão."
     ]
 }

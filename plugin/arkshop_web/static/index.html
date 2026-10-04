@@ -6625,6 +6625,7 @@
     }
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
+  <link rel="stylesheet" href="guia.css?v=__WEB_BUILD__" />
 </head>
 <body>
 <script>
@@ -6946,6 +6947,9 @@
     </div>
     <div class="nav-item" data-page="tutoriais" onclick="nav(this)">
       <span class="nav-icon">📖</span> Tutoriais
+    </div>
+    <div class="nav-item" data-page="guia" onclick="nav(this)">
+      <span class="nav-icon">📚</span> Guia
     </div>
     <div class="nav-item" data-page="polls" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
@@ -8912,6 +8916,14 @@
             <button class="btn btn-success" type="button" onclick="saveAdminHomeCard()">💾 Salvar card</button>
           </div>
         </div>
+      </div>
+
+      <!-- PAGE: Guia (índice + artigos; conteúdo em guia.js) -->
+      <div id="page-guia" class="page">
+        <div id="topbar">
+          <div class="page-title">📚 Guia</div>
+        </div>
+        <div id="kb-root"></div>
       </div>
 
       <!-- PAGE: Regulamento -->
@@ -11242,6 +11254,7 @@
 <script src="ark_color_ids.js?v=__WEB_BUILD__" defer></script>
 <script src="redeem_docs.js?v=__WEB_BUILD__" defer></script>
 <script src="resource_vitrine.js?v=__WEB_BUILD__" defer></script>
+<script src="guia.js?v=__WEB_BUILD__" defer></script>
 <script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
