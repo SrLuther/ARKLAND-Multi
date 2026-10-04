@@ -9,11 +9,11 @@
 
 ### Feature
 
-- Feat (Plugin EngramLevel 0.1.0): instalável junto com os outros plugins. /autoengram começa desligado; liga o automático só daquele jogador. Tek só se UnlockTotal estiver true, e num passo seguinte aos não tek. Enquanto o plugin está ligado, bAutoUnlockAllEngrams fica false na memória.
+- Feat (Plugin EngramLevel 0.1.0): instalável junto com os outros plugins. O automático começa desligado. /autoengram liga só para aquele jogador. Tek só entra se UnlockTotal estiver true, e só num clique seguinte. Enquanto o plugin está ligado, a flag de auto-unlock da engine fica desligada. Não foi testado in-game. Tire bAutoUnlockAllEngrams do Game.ini antes de testar. A DLL só entra com o mapa parado, numa janela do usuário.
 
 ### Fix
 
-- Fix (Nível do jogador): o preset nível 200 vai dentro do executável; a página de configurações do jogador abre mesmo se o arquivo faltasse.
+- Fix (Nível do jogador): o preset nivel200.txt vai no pacote do executável. Se o arquivo faltar, a tela «Configurações do Jogador» ainda abre.
 
 ## [1.10.115] - 2026-10-03
 
