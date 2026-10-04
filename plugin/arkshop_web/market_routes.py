@@ -17,24 +17,23 @@ from market_economy import (
     calculate_suggested_value,
     load_economy_global_config,
     load_tier_legend,
+    attach_economy_db_status,
     list_species_economy_meta,
     normalize_stat_points,
     patch_economy_global_config,
     patch_species_economy_meta,
-    shop_catalog_display_name,
     simulate_economy,
     species_economy_meta_from_defaults,
 )
 from market_service import (
     feed_catalog_to_market,
     get_species_table_payload,
-    list_species_public,
+    list_admin_species,
     pre_register_catalog_item,
     sync_catalog_to_db,
     sync_registry_overlay_to_db,
     update_species_display_name,
     _list_species_aliases,
-    _filter_commerce_dino_rows,
     _species_row_is_commerce_dino,
 )
 
@@ -172,31 +171,8 @@ def register_market_routes(
         status = (request.args.get("status") or "").strip()
         db = session_factory()
         try:
-            from app import MarketSpecies
-
-            q = db.query(MarketSpecies).order_by(MarketSpecies.root_value.desc())
-            if status:
-                q = q.filter(MarketSpecies.status == status)
-            else:
-                q = q.filter(MarketSpecies.status != "INACTIVE")
-            rows, alias_map = _filter_commerce_dino_rows(db, q.all())
-            items = list_species_public(db, active_only=False)
-            by_key = {i["species_key"]: i for i in items}
-            catalog = read_shop_config()
-            out = []
-            for row in rows:
-                data = by_key.get(row.species_key) or {
-                    "species_key": row.species_key,
-                    "display_name": row.display_name,
-                    "root_value": row.root_value,
-                    "status": row.status,
-                }
-                data["status"] = row.status
-                data["catalog_item_id"] = row.catalog_item_id
-                data["shop_catalog_name"] = shop_catalog_display_name(catalog, row.catalog_item_id)
-                data["linked_variants"] = alias_map.get(int(row.id), [])
-                out.append(data)
-            return jsonify({"ok": True, "species": out, "tier_legend": load_tier_legend()})
+            species = list_admin_species(db, read_shop_config(), status=status)
+            return jsonify({"ok": True, "species": species, "tier_legend": load_tier_legend()})
         finally:
             db.close()
 
@@ -432,7 +408,15 @@ def register_market_routes(
     @admin_required
     def market_admin_economy_config_get():
         cfg = load_economy_global_config()
-        species = list_species_economy_meta()
+        catalog: dict[str, Any] | None = None
+        try:
+            from app import _peek_shop_config
+
+            peeked = _peek_shop_config()
+            catalog = peeked if isinstance(peeked, dict) else None
+        except Exception:
+            catalog = None
+        species = list_species_economy_meta(catalog)
         if db_ready():
             db = session_factory()
             try:
@@ -441,14 +425,7 @@ def register_market_routes(
                 db_rows = {
                     r.species_key: r for r in db.query(MarketSpecies).all()
                 }
-                for sp in species:
-                    row = db_rows.get(sp["species_key"])
-                    if row and row.root_value:
-                        sp["root_value"] = row.root_value
-                        sp["bonus_space"] = max(
-                            0, sp["size_cap"] - row.root_value
-                        )
-                        sp["db_status"] = row.status
+                attach_economy_db_status(species, db_rows)
             finally:
                 db.close()
         cfg["species"] = species

@@ -209,6 +209,19 @@ def test_normalize_blueprint_matches_plugin_inputs() -> None:
     assert "ClassToStringReference" in vit
     assert "Default__" in vit
     assert "GetDefaultObject" in vit
+    assert "ResourceVitrine" in vit
+    assert "origem=" in vit
+
+    sys.path.insert(0, str(ROOT / "plugin" / "arkshop_web"))
+    try:
+        match = pytest.importorskip("vitrine_match")
+    finally:
+        sys.path.pop(0)
+    for raw in match.HIDE_ARK_FORMS:
+        assert match.resources_match(match.HIDE_BLUEPRINT, raw), raw
+    assert match.choose_vitrine_source(True, [], [{"blueprint": match.HIDE_BLUEPRINT}])[0] == "arquivo"
+    assert match.choose_vitrine_source(False, None, [{"blueprint": match.HIDE_BLUEPRINT}])[0] == "arquivo"
+    assert match.choose_vitrine_source(True, [{"blueprint": match.HIDE_BLUEPRINT}], [])[0] == "mysql"
     # Lista vazia e "nao esta carregando" sao mensagens diferentes.
     assert "Nenhum recurso esta autorizado na vitrine ainda" in vit
     assert "Nenhum recurso autorizado no seu inventario pessoal" in vit

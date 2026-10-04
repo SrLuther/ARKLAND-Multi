@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from market_fee import compute_market_fee
+from vitrine_match import canonical_blueprint, identify as identify_blueprint
 from resource_vitrine_migrate import (
     resource_catalog as T_CAT,
     resource_claims as T_CLAIM,
@@ -64,7 +65,6 @@ SETTING_MAX_TYPES = "max_types_per_player"
 _STEAM_RE = re.compile(r"^\d{17}$")
 _UPLOAD_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{8,64}$")
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_\-:.]{1,64}$")
-_BP_RE = re.compile(r"(/(?:Game|Script|Engine)/[A-Za-z0-9_./\-]+)")
 _NAME_BAD_RE = re.compile(r"[\x00-\x1f\x7f<>]")
 
 
@@ -133,13 +133,6 @@ def as_int(value: Any, field: str, *, minimum: int | None = None, maximum: int |
     return number
 
 
-def _strip_class_suffix(name: str) -> str:
-    """Remove o sufixo de classe ``_C`` / ``_c`` (só no nome do objeto, não no asset)."""
-    if len(name) > 2 and name[-2] == "_" and name[-1] in "Cc":
-        return name[:-2]
-    return name
-
-
 def normalize_blueprint(raw: Any) -> tuple[str, str] | None:
     """Retorna ``(blueprint_canonico, chave_minuscula)`` ou None.
 
@@ -147,34 +140,9 @@ def normalize_blueprint(raw: Any) -> tuple[str, str] | None:
     ``Blueprint'/Game/.../X.X'``, ``/Game/.../X.X``, ``/Game/.../X.X_C`` (ou ``_c``),
     ``BlueprintGeneratedClass /Game/.../X.X_C`` e o nome do CDO
     ``.../X.Default__X_C`` (``GetFullName`` do default object). Canônico: ``/Game/.../X.X``.
+    A comparação com nome curto (sem path) fica em ``vitrine_match.resources_match``.
     """
-    text_in = str(raw or "").strip()
-    if not text_in or len(text_in) > 400:
-        return None
-    match = _BP_RE.search(text_in)
-    if not match:
-        return None
-    path = match.group(1).rstrip("/.")
-    slash = path.rfind("/")
-    dot = path.rfind(".")
-    if dot != -1 and dot > slash:
-        obj = path[dot + 1 :]
-        if obj.startswith("Default__") and len(obj) > 9:
-            obj = obj[9:]
-        obj = _strip_class_suffix(obj)
-        if not obj:
-            return None
-        path = path[: dot + 1] + obj
-    else:
-        path = _strip_class_suffix(path)
-        last = path.rsplit("/", 1)[-1]
-        if not last:
-            return None
-        if "." not in last:
-            path = f"{path}.{last}"
-    if len(path) > 255 or ".." in path:
-        return None
-    return path, path.lower()
+    return canonical_blueprint(raw)
 
 
 def ascii_fold(value: str) -> str:
@@ -431,6 +399,82 @@ def disable_catalog_resource(db: Session, resource_id: int, *, admin_steam_id: s
         metadata={"resource_id": resource_id, "blueprint": row.blueprint, "enabled": False, "action": "disable"},
     )
     return {"id": resource_id, "enabled": False, "has_dependents": _resource_has_dependents(db, resource_id)}
+
+
+def extract_vitrine_block(catalog: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Bloco ``ResourceVitrine`` (ou ``VitrineResources``) do catalog.json. None se ausente."""
+    if not isinstance(catalog, dict):
+        return None
+    for key in ("ResourceVitrine", "VitrineResources"):
+        raw = catalog.get(key)
+        if isinstance(raw, dict):
+            return raw
+    return None
+
+
+def sync_vitrine_from_catalog(db: Session, catalog: dict[str, Any] | None) -> dict[str, Any]:
+    """O arquivo manda. Atualiza ``market_resource_catalog`` a partir do bloco.
+
+    Sem o bloco, não apaga nada (o MySQL continua até o catalog passar a ter a lista).
+    Com ``resources`` lista, o que não está no arquivo fica desativado e não volta na leitura.
+    """
+    block = extract_vitrine_block(catalog)
+    if block is None:
+        return {"applied": False, "reason": "absent"}
+    rows_in = block.get("resources")
+    if not isinstance(rows_in, list):
+        return {"applied": False, "reason": "invalid"}
+
+    if block.get("max_types_per_player") is not None:
+        try:
+            set_max_types(db, block.get("max_types_per_player"))
+        except RVError:
+            log.warning("Vitrine: max_types_per_player do catalog ignorado")
+
+    existing = {
+        str(r["key"]): r
+        for r in list_catalog(db, include_disabled=True)
+        if r.get("key")
+    }
+    seen: set[str] = set()
+    upserted = 0
+    for item in rows_in:
+        if not isinstance(item, dict):
+            continue
+        ident = identify_blueprint(item.get("blueprint"))
+        if not ident["key"]:
+            continue
+        key = ident["key"]
+        seen.add(key)
+        body: dict[str, Any] = {
+            "blueprint": ident["path"],
+            "name": item.get("name") or "Recurso",
+            "stack_size": item.get("stack_size") if item.get("stack_size") not in (None, "") else 100,
+            "min_lot_price": item.get("min_lot_price"),
+            "max_lot_price": item.get("max_lot_price"),
+            "enabled": item.get("enabled", True) is not False,
+        }
+        current = existing.get(key)
+        if current is not None:
+            body["id"] = current["id"]
+        try:
+            saved = upsert_catalog_resource(db, body)
+        except RVError as exc:
+            log.warning("Vitrine: item do catalog ignorado (%s): %s", key, exc.message)
+            seen.discard(key)
+            continue
+        existing[key] = saved
+        upserted += 1
+
+    disabled = 0
+    for key, row in list(existing.items()):
+        if key in seen or not row.get("enabled"):
+            continue
+        disable_catalog_resource(db, int(row["id"]))
+        disabled += 1
+
+    db.expire_all()
+    return {"applied": True, "upserted": upserted, "disabled": disabled, "keys": sorted(seen)}
 
 
 # ── Estoque: helpers ─────────────────────────────────────────────────────────

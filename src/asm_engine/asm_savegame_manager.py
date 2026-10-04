@@ -90,12 +90,59 @@ class SaveInventory:
     entries: List[SaveFileEntry] = field(default_factory=list)
     dir_exists: bool = False
     error: str = ""
+    source_dirs: List[Path] = field(default_factory=list)
 
 
 def savegame_dir(srv: AsmServerConfig) -> Path:
-    """Caminho ShooterGame/Saved/{alt_save_directory_name ou savegame}."""
+    """Pasta que o servidor usa ao iniciar: ShooterGame/Saved/{AltSaveDirectoryName}."""
     sub = (srv.alt_save_directory_name or "").strip() or "savegame"
     return Path(srv.install_dir) / "ShooterGame" / "Saved" / sub
+
+
+def _saved_root(srv: AsmServerConfig) -> Path:
+    return Path(srv.install_dir) / "ShooterGame" / "Saved"
+
+
+def _dir_key(path: Path) -> str:
+    return os.path.normcase(os.path.abspath(str(path)))
+
+
+def candidate_save_dirs(srv: AsmServerConfig) -> List[Path]:
+    """Pastas onde o ARK pode ter deixado o mundo deste mapa.
+
+    A configurada (AltSaveDirectoryName, padrão savegame) vem primeiro.
+    SavedArks (dedicado) e SavedArksLocal (local) entram se forem outras pastas —
+    o painel antigo só olhava savegame e a lista ficava vazia.
+    """
+    configured = savegame_dir(srv)
+    ordered = [
+        configured,
+        _saved_root(srv) / "SavedArks",
+        _saved_root(srv) / "SavedArksLocal",
+    ]
+    out: List[Path] = []
+    seen: set[str] = set()
+    for path in ordered:
+        key = _dir_key(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return out
+
+
+def is_world_save_filename(name: str) -> bool:
+    """True para mundo .ark/.bak. Perfis e tribos não contam como save do mapa."""
+    lower = (name or "").lower()
+    if lower.endswith((
+        ".arkprofile",
+        ".arktribe",
+        ".arktributetribe",
+        ".profilebak",
+        ".tribebak",
+    )):
+        return False
+    return lower.endswith(".ark") or lower.endswith(".bak")
 
 
 def map_save_basename(srv: AsmServerConfig) -> str:
@@ -126,8 +173,16 @@ def parse_dated_backup_filename(name: str) -> Optional[datetime]:
 def classify_save_files(
     directory: Path,
     map_basename: str,
+    *,
+    mark_active: bool = True,
 ) -> List[SaveFileEntry]:
-    """Classifica arquivos .ark/.bak no diretório savegame."""
+    """Classifica arquivos de mundo .ark/.bak. Perfis (.arkprofile) ficam de fora.
+
+    ``mark_active`` só na pasta configurada do servidor — um ``Mapa.ark`` em
+    SavedArks continua carregável em vez de ser tratado como o save ativo.
+    O nome do mapa não esconde outros .ark: se o basename não bater, o arquivo
+    entra como «Outro» e ainda pode ser carregado.
+    """
     if not directory.is_dir():
         return []
 
@@ -140,8 +195,7 @@ def classify_save_files(
         if not path.is_file():
             continue
         name = path.name
-        lower = name.lower()
-        if not (lower.endswith(".ark") or lower.endswith(".bak")):
+        if not is_world_save_filename(name):
             continue
 
         try:
@@ -152,13 +206,14 @@ def classify_save_files(
             size = 0
             modified = None
 
-        if name == active_name:
+        lower_name = name.lower()
+        if mark_active and lower_name == active_name.lower():
             kind = SaveFileKind.ACTIVE
             parsed = None
-        elif name == anti_name:
+        elif lower_name == anti_name.lower():
             kind = SaveFileKind.ANTI_CORRUPTION
             parsed = None
-        elif name == new_launch_name:
+        elif lower_name == new_launch_name.lower():
             kind = SaveFileKind.NEW_LAUNCH
             parsed = None
         elif parse_dated_backup_filename(name) is not None:
@@ -217,7 +272,12 @@ def backup_timestamp(dt: Optional[datetime] = None) -> str:
 
 
 def list_server_saves(srv: AsmServerConfig) -> SaveInventory:
-    """Inventário de saves de um servidor."""
+    """Inventário de saves do servidor.
+
+    Lista a pasta configurada e, se o mundo estiver em SavedArks ou
+    SavedArksLocal, esses arquivos também. O save ativo continua sendo
+    ``{mapa}.ark`` na pasta configurada (é para lá que «Carregar» copia).
+    """
     sg_dir = savegame_dir(srv)
     basename = map_save_basename(srv)
     inv = SaveInventory(
@@ -227,16 +287,45 @@ def list_server_saves(srv: AsmServerConfig) -> SaveInventory:
         map_basename=basename,
         active_filename=f"{basename}.ark",
     )
-    if not sg_dir.exists():
+    configured_key = _dir_key(sg_dir)
+    any_dir = False
+    entries: List[SaveFileEntry] = []
+    found: List[Path] = []
+    for directory in candidate_save_dirs(srv):
+        if not directory.exists():
+            continue
+        if not directory.is_dir():
+            continue
+        any_dir = True
+        mark_active = _dir_key(directory) == configured_key
+        batch = classify_save_files(directory, basename, mark_active=mark_active)
+        if batch:
+            found.append(directory)
+            entries.extend(batch)
+
+    if not any_dir:
         inv.dir_exists = False
-        inv.error = "Pasta de saves não encontrada."
+        inv.error = (
+            "Pasta de saves não encontrada. "
+            "Procurei a pasta configurada, SavedArks e SavedArksLocal."
+        )
         return inv
-    if not sg_dir.is_dir():
-        inv.dir_exists = False
-        inv.error = "Caminho de saves não é uma pasta."
-        return inv
+
+    def _sort_key(e: SaveFileEntry) -> tuple:
+        kind_order = {
+            SaveFileKind.ACTIVE: 0,
+            SaveFileKind.DATED_BACKUP: 1,
+            SaveFileKind.ANTI_CORRUPTION: 2,
+            SaveFileKind.NEW_LAUNCH: 3,
+            SaveFileKind.OTHER: 4,
+        }
+        dt = e.display_date or datetime.min
+        return (kind_order.get(e.kind, 9), -dt.timestamp(), e.name.lower())
+
+    entries.sort(key=_sort_key)
     inv.dir_exists = True
-    inv.entries = classify_save_files(sg_dir, basename)
+    inv.entries = entries
+    inv.source_dirs = found
     return inv
 
 
@@ -280,6 +369,7 @@ def load_save(srv: AsmServerConfig, source_path: Path) -> Path:
 
     active = active_save_path(srv)
     sg_dir = savegame_dir(srv)
+    sg_dir.mkdir(parents=True, exist_ok=True)
     if not sg_dir.is_dir():
         raise FileNotFoundError(f"Pasta de saves não encontrada: {sg_dir}")
 

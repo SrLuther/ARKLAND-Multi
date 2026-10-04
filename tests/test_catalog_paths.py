@@ -69,13 +69,11 @@ def test_load_settings_migrates_ephemeral_config_path(tmp_path, monkeypatch):
 
     settings_file.write_text(json.dumps({"config_path": bad}), encoding="utf-8")
     monkeypatch.setattr(app_module, "_STATE_FILE", settings_file)
-    monkeypatch.setattr(
-        app_module,
-        "resolve_persistent_catalog_path",
-        lambda _p: good,
-    )
+    monkeypatch.setattr(app_module, "_DEFAULT_CONFIG_PATH", str(good))
+    assert not hasattr(app_module, "resolve_persistent_catalog_path")
 
     data = app_module._load_settings()
+    assert "_MEI" not in data["config_path"]
     assert data["config_path"] == str(good)
     saved = json.loads(settings_file.read_text(encoding="utf-8"))
     assert saved["config_path"] == str(good)
@@ -196,7 +194,7 @@ def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch
 
 
 def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
-    """WEBSTORE/config.json não deve ser mestre — migra para canônico a partir do mapa."""
+    """WEBSTORE/config.json não é mestre. O resolve silencioso não copia a cópia rica."""
     from src.arkland_environment import EnvironmentPaths
 
     root = tmp_path / "ARKLAND SERVER"
@@ -218,15 +216,23 @@ def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
         }),
         encoding="utf-8",
     )
+    full_before = full.read_text(encoding="utf-8")
+    stub_before = stub.read_text(encoding="utf-8")
 
     env = EnvironmentPaths(root=root)
     monkeypatch.setattr("src.arkland_environment.try_load_environment_paths", lambda: env)
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr(
+        "src.shop_integration._collect_catalog_search_paths",
+        lambda: [stub, full],
+    )
 
     resolved = resolve_persistent_catalog_path(str(stub))
     canonical = root / "CustomShop" / "catalog.json"
-    assert resolved == canonical
-    assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) >= 140
+    assert resolved.resolve() == full.resolve()
+    assert not canonical.exists()
+    assert full.read_text(encoding="utf-8") == full_before
+    assert stub.read_text(encoding="utf-8") == stub_before
 
 
 def test_ensure_webstore_recovers_legacy_stub(tmp_path, monkeypatch):

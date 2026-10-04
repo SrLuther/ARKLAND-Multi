@@ -81,6 +81,57 @@ def test_classify_save_files(tmp_path: Path):
     assert dated.parsed_date == datetime(2026, 7, 1, 1, 39, 14)
 
 
+def test_list_server_saves_finds_savedarks_when_savegame_empty(tmp_path: Path):
+    """savegame só com perfil não esconde o mundo real em SavedArks."""
+    install = tmp_path / "ARK"
+    sg = install / "ShooterGame" / "Saved" / "savegame"
+    arks = install / "ShooterGame" / "Saved" / "SavedArks"
+    sg.mkdir(parents=True)
+    arks.mkdir(parents=True)
+    (sg / "12345678901234567.arkprofile").write_bytes(b"profile")
+    (arks / "Alps.ark").write_bytes(b"world")
+    (arks / "Alps_01.07.2026_12.00.00.ark").write_bytes(b"dated")
+
+    srv = _srv(install_dir=str(install), server_map="Alps", alt_save_directory_name="savegame")
+    inv = list_server_saves(srv)
+    names = {e.name for e in inv.entries}
+    assert "Alps.ark" in names
+    assert "Alps_01.07.2026_12.00.00.ark" in names
+    assert not any(n.endswith(".arkprofile") for n in names)
+    active = next(e for e in inv.entries if e.name == "Alps.ark")
+    assert active.kind != SaveFileKind.ACTIVE
+    assert "SavedArks" in str(active.path)
+
+
+def test_list_server_saves_savedarkslocal_and_unmatched_map_name(tmp_path: Path):
+    install = tmp_path / "ARK"
+    local = install / "ShooterGame" / "Saved" / "SavedArksLocal"
+    local.mkdir(parents=True)
+    (local / "Ragnarok.ark").write_bytes(b"rag")
+
+    srv = _srv(install_dir=str(install), server_map="TheIsland", alt_save_directory_name="savegame")
+    inv = list_server_saves(srv)
+    assert [e.name for e in inv.entries] == ["Ragnarok.ark"]
+    assert inv.entries[0].kind == SaveFileKind.OTHER
+    assert inv.dir_exists is True
+
+
+def test_load_save_from_savedarks_into_configured_dir_without_starting(tmp_path: Path):
+    install = tmp_path / "ARK"
+    arks = install / "ShooterGame" / "Saved" / "SavedArks"
+    arks.mkdir(parents=True)
+    source = arks / "Alps_01.07.2026_12.00.00.ark"
+    source.write_bytes(b"restored-content")
+
+    srv = _srv(install_dir=str(install), server_map="Alps")
+    result = load_save(srv, source)
+    active = active_save_path(srv)
+    assert result == active
+    assert active.read_bytes() == b"restored-content"
+    assert source.read_bytes() == b"restored-content"
+    assert active.parent.name == "savegame"
+
+
 def test_list_server_saves_missing_dir(tmp_path: Path):
     srv = _srv(install_dir=str(tmp_path))
     inv = list_server_saves(srv)

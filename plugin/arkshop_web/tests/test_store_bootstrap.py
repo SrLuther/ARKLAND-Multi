@@ -110,7 +110,8 @@ def test_index_nav_page_ttl_cache():
     # Admin pages carregam on-demand na nav.
     assert 'if (page === "settings" && _auth.is_admin) loadSettings();' in html
     assert 'if (page === "servers" && _auth.is_admin) loadServers();' in html
-    assert 'if (page === "rcon" && _auth.is_admin) loadPlayers();' in html
+    assert 'if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); loadPlayers(); }' in html
+    assert 'if (page === "rcon"' not in html
     # Saldo na nav não força refresh a cada applyCatalog.
     assert "async function updateCatalogPoints()" in html
     upd = html[html.index("async function updateCatalogPoints()") : html.index("async function updateCatalogPoints()") + 200]

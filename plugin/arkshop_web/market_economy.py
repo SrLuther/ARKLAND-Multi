@@ -787,34 +787,246 @@ def patch_species_economy_meta(species_key: str, updates: dict[str, Any]) -> dic
     return target
 
 
-def list_species_economy_meta() -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for sk, defn in sorted(load_default_species_map().items()):
-        meta = species_economy_meta_from_defaults(sk)
-        out.append(
-            {
-                "species_key": sk,
-                "display_name": defn.get("display_name") or sk,
-                "tier": defn.get("tier") or "B",
-                "root_value": int(defn.get("root_value") or 0),
-                "premium_budget": int(defn.get("premium_budget") or 0),
-                "dino_role": defn.get("dino_role") or "ataque",
-                "prestige_rank": int(defn.get("prestige_rank") or 50),
-                "commerce_channel": defn.get("commerce_channel") or "market_p2p",
-                **meta,
-                "size_cap": load_market_absolute_max()
-                if (meta.get("pricing_mode") or "floor_quality") == "floor_quality"
-                else size_cap_for_class(meta["size_class"]),
-                "bonus_space": int(defn.get("premium_budget") or 0)
-                if (meta.get("pricing_mode") or "floor_quality") == "floor_quality"
-                else max(
-                    0,
-                    size_cap_for_class(meta["size_class"])
-                    - int(defn.get("root_value") or 0),
-                ),
-            }
-        )
+def _catalog_items_dict(catalog: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(catalog, dict):
+        return {}
+    items = catalog.get("Items") or catalog.get("ShopItems") or {}
+    return items if isinstance(items, dict) else {}
+
+
+def _l1_shop_price(
+    defn: dict[str, Any],
+    items: list[tuple[str, dict[str, Any]]],
+    species_key: str,
+) -> int | None:
+    """Price do item Type:dino nível 1. Sem L1, não há piso — não usar o preço L200."""
+    l1 = [(iid, entry) for iid, entry in items if is_catalog_dino_level1(entry)]
+    if not l1:
+        return None
+    by_id = {iid: entry for iid, entry in l1}
+    preferred = [
+        str(defn.get("reference_catalog_item_id") or ""),
+        str(defn.get("catalog_item_id") or ""),
+        species_key,
+        f"{species_key}_femea" if species_key else "",
+    ]
+    for rid in preferred:
+        if rid and rid in by_id:
+            return int(by_id[rid].get("Price") or 0)
+    _iid, entry = sorted(l1, key=lambda pair: pair[0])[0]
+    return int(entry.get("Price") or 0)
+
+
+def _resolved_listing_defn(live: dict[str, Any], bundled: dict[str, Any]) -> dict[str, Any]:
+    """Une a cópia gravável com o JSON do repo.
+
+    Cache antigo (modo proportional, sem B) não zera o prêmio floor_quality.
+    """
+    live = live or {}
+    bundled = bundled or {}
+    if not live and not bundled:
+        return {}
+    merged = _prefer_bundled_floor_quality(_merge_species_defn(bundled, live), bundled)
+    legacy = (
+        str(live.get("pricing_mode") or "").strip().lower() == "proportional"
+        and int(live.get("premium_budget") or 0) <= 0
+    )
+    if bundled and (not live or legacy):
+        for field in (
+            "tier",
+            "blueprint_path",
+            "catalog_item_id",
+            "reference_catalog_item_id",
+            "catalog_item_ids",
+            "blueprint_aliases",
+            "catalog_aliases",
+            "species_key",
+        ):
+            bundled_val = bundled.get(field)
+            if bundled_val not in (None, "", [], {}):
+                merged[field] = bundled_val
+    return merged
+
+
+def _merged_economy_species_map() -> dict[str, dict[str, Any]]:
+    bundled = _bundled_species_map()
+    live = load_default_species_map()
+    out: dict[str, dict[str, Any]] = {}
+    for key in set(bundled) | set(live):
+        resolved = _resolved_listing_defn(live.get(key) or {}, bundled.get(key) or {})
+        sk = str(resolved.get("species_key") or key).strip()
+        if sk:
+            out[sk] = resolved
     return out
+
+
+def _index_economy_defs(
+    species_map: dict[str, dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    by_bp: dict[str, dict[str, Any]] = {}
+    for sk, defn in species_map.items():
+        if not isinstance(defn, dict):
+            continue
+        by_id[str(sk)] = defn
+        ids: list[Any] = [
+            defn.get("catalog_item_id"),
+            defn.get("reference_catalog_item_id"),
+            *(defn.get("catalog_item_ids") or []),
+        ]
+        for alias in defn.get("catalog_aliases") or []:
+            if isinstance(alias, str):
+                ids.append(alias)
+            elif isinstance(alias, dict) and alias.get("catalog_item_id"):
+                ids.append(alias["catalog_item_id"])
+        for cid in ids:
+            if cid:
+                by_id[str(cid)] = defn
+        paths = [str(defn.get("blueprint_path") or "")]
+        for alias in defn.get("blueprint_aliases") or []:
+            if isinstance(alias, str):
+                paths.append(alias)
+            elif isinstance(alias, dict):
+                paths.append(str(alias.get("blueprint_path") or ""))
+        for path in paths:
+            nb = normalize_blueprint(path)
+            if nb and nb not in by_bp:
+                by_bp[nb] = defn
+    return by_id, by_bp
+
+
+def _group_catalog_dinos_for_economy(
+    catalog: dict[str, Any],
+) -> list[tuple[str, dict[str, Any], list[tuple[str, dict[str, Any]]]]]:
+    """Agrupa Type:dino do catálogo da loja por species_key.
+
+    Item id conhecido nos defaults ganha do blueprint. Espécie que só existe
+    em market_species_defaults não entra.
+    """
+    species_map = _merged_economy_species_map()
+    by_id, by_bp = _index_economy_defs(species_map)
+    grouped: dict[str, dict[str, Any]] = {}
+    for item_id, entry in iter_catalog_dinos(catalog, level1_only=False):
+        defn = by_id.get(item_id)
+        if not defn:
+            nb = normalize_blueprint(_catalog_item_blueprint(entry))
+            defn = by_bp.get(nb) if nb else None
+        if defn and defn.get("species_key"):
+            raw_key = str(defn.get("species_key") or "")
+        else:
+            raw_key = _species_key_from_catalog_item_id(item_id)
+            defn = species_map.get(raw_key) or {}
+        group_key = str(raw_key or item_id).strip()
+        if not group_key:
+            continue
+        bucket = grouped.get(group_key)
+        if bucket is None:
+            bucket = {"defn": defn if isinstance(defn, dict) else {}, "items": []}
+            grouped[group_key] = bucket
+        elif not bucket["defn"] and defn:
+            bucket["defn"] = defn
+        bucket["items"].append((item_id, entry))
+    return [(key, bucket["defn"] or {}, bucket["items"]) for key, bucket in grouped.items()]
+
+
+def _economy_row_from_catalog_group(
+    species_key: str,
+    defn: dict[str, Any],
+    items: list[tuple[str, dict[str, Any]]],
+) -> dict[str, Any]:
+    defn = defn or {}
+    has_defaults = bool(defn.get("species_key"))
+    meta = (
+        species_economy_meta_from_defaults(str(defn.get("species_key") or species_key))
+        if has_defaults
+        else {
+            "diet_class": "",
+            "size_class": "",
+            "economy_stats": {},
+            "pricing_mode": "floor_quality",
+            "premium_budget": 0,
+            "dino_role": "",
+            "prestige_rank": 0,
+            "commerce_channel": "market_p2p",
+        }
+    )
+    mode = str(defn.get("pricing_mode") or meta.get("pricing_mode") or "floor_quality")
+    # B é o prêmio do defaults. Não recalcular como teto − R (isso colava B em 150k − cache).
+    premium = int(defn.get("premium_budget") or 0) if has_defaults else 0
+    root_value = _l1_shop_price(defn, items, species_key)
+    if mode == "floor_quality":
+        size_cap = load_market_absolute_max()
+        bonus_space = premium
+    else:
+        size_class = str(meta.get("size_class") or defn.get("size_class") or "medium")
+        size_cap = size_cap_for_class(size_class)
+        bonus_space = max(0, size_cap - int(root_value or 0))
+    display = clean_species_display_name(str(defn.get("display_name") or ""))
+    if not display:
+        for _iid, entry in items:
+            display = clean_species_display_name(str(entry.get("Name") or ""))
+            if display:
+                break
+    if not display:
+        display = species_key
+    return {
+        "species_key": species_key,
+        "display_name": display,
+        "tier": (defn.get("tier") if has_defaults else None) or "—",
+        "root_value": root_value,
+        "premium_budget": premium,
+        "dino_role": str(defn.get("dino_role") or "") if has_defaults else "",
+        "prestige_rank": int(defn.get("prestige_rank") or meta.get("prestige_rank") or 0),
+        "commerce_channel": str(
+            defn.get("commerce_channel") or meta.get("commerce_channel") or "market_p2p"
+        ),
+        "diet_class": meta.get("diet_class") or "",
+        "size_class": meta.get("size_class") or "",
+        "economy_stats": meta.get("economy_stats") or {},
+        "pricing_mode": mode,
+        "size_cap": size_cap,
+        "bonus_space": bonus_space,
+    }
+
+
+def list_species_economy_meta(
+    catalog: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Espécies da página Economia = Type:dino do catálogo da loja.
+
+    ``market_species_defaults`` só enriquece papel, tier e prêmio B. Uma
+    species_key que não tem item no catálogo não entra na tabela nem no
+    simulador. R é o Price do item nível 1; sem L1 o piso fica ausente.
+    """
+    if not _catalog_items_dict(catalog):
+        return []
+    out = [
+        _economy_row_from_catalog_group(species_key, defn, items)
+        for species_key, defn, items in _group_catalog_dinos_for_economy(catalog)
+    ]
+    out.sort(key=lambda row: (str(row.get("display_name") or "").casefold(), row["species_key"]))
+    return out
+
+
+def attach_economy_db_status(
+    species: list[dict[str, Any]],
+    db_rows: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Grava o selo de status do MySQL sem substituir R nem B.
+
+    O root_value antigo da tabela MarketSpecies não é o piso da loja, e
+    recalcular B como cap − root inventava prêmio (ex.: 147.000).
+    """
+    for sp in species:
+        row = db_rows.get(str(sp.get("species_key") or ""))
+        if row is None:
+            continue
+        status = getattr(row, "status", None)
+        if status is None and isinstance(row, dict):
+            status = row.get("status")
+        if status:
+            sp["db_status"] = str(status)
+    return species
 
 
 def simulate_economy(

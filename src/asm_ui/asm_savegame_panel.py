@@ -124,25 +124,41 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
     ).grid(row=0, column=0, padx=14, pady=(12, 4), sticky="w")
 
     help_text = (
-        "• Save ativo — arquivo principal do mundo (ex.: Alps.ark). É o que o servidor usa ao iniciar.\n"
-        "• Backups datados — cópias automáticas ou manuais com data no nome "
-        "(ex.: Alps_01.07.2026_01.39.14.ark).\n"
-        "• Anti Corruption — backup de emergência (.bak) criado pelo ARK quando detecta "
-        "corrupção ao carregar o mundo.\n"
-        "• New Launch — backup (.bak) criado pelo ARK ao iniciar com wipe controlado "
-        "(novo lançamento / NewLaunch).\n\n"
-        "⚠ Para carregar um backup como save ativo, o servidor deve estar parado ou travado. "
-        "O app não para o servidor automaticamente."
+        "• Save ativo — arquivo principal do mundo (ex.: Alps.ark) na pasta configurada "
+        "(AltSaveDirectoryName, em geral savegame). É o que o servidor usa ao iniciar.\n"
+        "• A lista também mostra mundos em SavedArks e SavedArksLocal quando a pasta "
+        "configurada está vazia ou o save real está lá.\n"
+        "• Backups datados, Anti Corruption e New Launch podem ser escolhidos e carregados.\n\n"
+        "⚠ Para carregar um save o mapa precisa estar desligado. "
+        "O app não desliga um servidor que está no ar e não inicia o mapa depois de carregar. "
+        "Desligue o servidor manualmente, escolha o arquivo e clique em Carregar."
     )
     ctk.CTkLabel(
         help_card, text=help_text, justify="left", anchor="w",
         font=ctk.CTkFont(size=11), text_color=t_mut, wraplength=900,
     ).grid(row=1, column=0, padx=14, pady=(0, 12), sticky="w")
 
-    status_lbl = ctk.CTkLabel(
-        parent, text="", font=ctk.CTkFont(size=11), text_color=t_mut,
+    pick_row = ctk.CTkFrame(parent, fg_color="transparent")
+    pick_row.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 4))
+    pick_row.grid_columnconfigure(1, weight=1)
+
+    ctk.CTkLabel(
+        pick_row, text="Servidor",
+        font=ctk.CTkFont(size=12, weight="bold"), text_color=t_sec,
+    ).grid(row=0, column=0, padx=(2, 8), sticky="w")
+
+    server_var = tk.StringVar(value="—")
+    server_menu = ctk.CTkOptionMenu(
+        pick_row, variable=server_var, values=["—"], width=280, height=32,
+        fg_color=acc_mb, button_color=acc_dk, button_hover_color=hover_bg,
+        text_color=t_pri,
     )
-    status_lbl.grid(row=2, column=0, sticky="w", padx=22, pady=(0, 4))
+    server_menu.grid(row=0, column=1, sticky="w")
+
+    status_lbl = ctk.CTkLabel(
+        pick_row, text="", font=ctk.CTkFont(size=11), text_color=t_mut,
+    )
+    status_lbl.grid(row=0, column=2, padx=(16, 0), sticky="e")
 
     # ── Lista de servidores ─────────────────────────────────────────────────────
     list_scroll = ctk.CTkScrollableFrame(
@@ -251,8 +267,10 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             text_color=kind_colors.get(entry.kind, t_sec),
         ).grid(row=0, column=0, padx=(8, 4), pady=6, sticky="w")
 
+        folder = entry.path.parent.name
+        file_label = f"{folder}\\{entry.name}"
         ctk.CTkLabel(
-            row, text=entry.name, anchor="w",
+            row, text=file_label, anchor="w",
             font=ctk.CTkFont(family="Consolas", size=10),
             text_color=t_sec,
         ).grid(row=0, column=1, padx=4, pady=6, sticky="ew")
@@ -446,8 +464,15 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             font=ctk.CTkFont(size=10), text_color=t_mut,
         ).grid(row=0, column=1, padx=(0, 12), sticky="w")
 
+        extra = ""
+        others = [
+            p.name for p in getattr(inv, "source_dirs", [])
+            if p.name.lower() != inv.savegame_dir.name.lower()
+        ]
+        if others:
+            extra = "  ·  também " + ", ".join(others)
         ctk.CTkLabel(
-            meta, text=str(inv.savegame_dir),
+            meta, text=str(inv.savegame_dir) + extra,
             font=ctk.CTkFont(family="Consolas", size=9), text_color=t_mut,
         ).grid(row=0, column=2, sticky="w")
 
@@ -467,23 +492,53 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             body.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
             body.grid_columnconfigure(0, weight=1)
 
+            notice_row = 0
+            if not can_load:
+                ctk.CTkLabel(
+                    body,
+                    text=(
+                        "Mapa ligado. Desligue-o manualmente para carregar um save. "
+                        "O app não desliga nem inicia o servidor."
+                    ),
+                    font=ctk.CTkFont(size=11), text_color=warn_tc,
+                    wraplength=860, justify="left",
+                ).grid(row=notice_row, column=0, pady=(4, 8), padx=8, sticky="w")
+                notice_row += 1
+            else:
+                ctk.CTkLabel(
+                    body,
+                    text=(
+                        "Mapa desligado. Escolha um save e clique em Carregar. "
+                        "O servidor não será iniciado."
+                    ),
+                    font=ctk.CTkFont(size=11), text_color=ok_tc,
+                    wraplength=860, justify="left",
+                ).grid(row=notice_row, column=0, pady=(4, 8), padx=8, sticky="w")
+                notice_row += 1
+
             if inv.error and not inv.dir_exists:
                 ctk.CTkLabel(
                     body, text=inv.error,
                     font=ctk.CTkFont(size=11), text_color=warn_tc,
-                ).grid(row=0, column=0, pady=12, padx=8, sticky="w")
+                ).grid(row=notice_row, column=0, pady=12, padx=8, sticky="w")
                 return
 
             if not inv.entries:
+                looked = str(inv.savegame_dir)
                 ctk.CTkLabel(
-                    body, text="Nenhum arquivo .ark ou .bak encontrado nesta pasta.",
+                    body,
+                    text=(
+                        "Nenhum save de mundo (.ark/.bak) em "
+                        f"{looked}, SavedArks ou SavedArksLocal."
+                    ),
                     font=ctk.CTkFont(size=11), text_color=t_mut,
-                ).grid(row=0, column=0, pady=12, padx=8, sticky="w")
+                    wraplength=860, justify="left",
+                ).grid(row=notice_row, column=0, pady=12, padx=8, sticky="w")
                 return
 
             tbl_hdr = ctk.CTkFrame(body, fg_color=hover_bg if not is_light else "#e2e8f0",
                                    corner_radius=4, height=28)
-            tbl_hdr.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+            tbl_hdr.grid(row=notice_row, column=0, sticky="ew", pady=(0, 2))
             tbl_hdr.grid_propagate(False)
             for col, (txt, w) in enumerate([
                 ("Tipo", 120), ("Arquivo", 0), ("Data", 130), ("Tamanho", 72), ("Ações", 130),
@@ -496,19 +551,67 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
                     tbl_hdr.grid_columnconfigure(col, weight=1)
 
             files_frame = ctk.CTkFrame(body, fg_color="transparent")
-            files_frame.grid(row=1, column=0, sticky="ew")
+            files_frame.grid(row=notice_row + 1, column=0, sticky="ew")
             files_frame.grid_columnconfigure(0, weight=1)
 
             for i, entry in enumerate(inv.entries):
                 _render_file_row(srv_id, entry, i, files_frame, can_load, load_reason)
 
+    def _server_choices() -> tuple[list, dict]:
+        servers = list(app.asm_config_manager.servers)
+        bases = [(srv.name or srv.id or "Servidor").strip() for srv in servers]
+        dupes = {name for name in bases if bases.count(name) > 1}
+        labels: dict[str, str] = {}
+        ordered_labels: list[str] = []
+        for srv, base in zip(servers, bases):
+            label = f"{base} · {srv.id[:8]}" if base in dupes else base
+            if label in labels:
+                label = f"{base} · {srv.id[:8]}"
+            labels[label] = srv.id
+            ordered_labels.append(label)
+        return ordered_labels, labels
+
+    def _selected_server_id(labels: dict) -> str:
+        current = str(state.get("selected_id") or "")
+        ids = set(labels.values())
+        if current in ids:
+            return current
+        active = getattr(app, "_asm_panel_active_server_id", None)
+        if active and active in ids:
+            return str(active)
+        if labels:
+            return next(iter(labels.values()))
+        return ""
+
+    def _sync_server_menu(labels_order: list, labels: dict, selected_id: str) -> None:
+        if not labels_order:
+            server_menu.configure(values=["—"])
+            server_var.set("—")
+            return
+        server_menu.configure(values=labels_order)
+        for label, sid in labels.items():
+            if sid == selected_id:
+                server_var.set(label)
+                return
+        server_var.set(labels_order[0])
+
+    def _on_server_picked() -> None:
+        _labels_order, labels = _server_choices()
+        sid = labels.get(server_var.get(), "")
+        if not sid or sid == state.get("selected_id"):
+            return
+        state["selected_id"] = sid
+        _refresh_all()
+
     def _render_inventories(inventories: List[SaveInventory]) -> None:
-        """Renderiza cards a partir de inventários já carregados (thread-safe na UI)."""
+        """Renderiza o servidor escolhido a partir de inventários já carregados."""
         for w in list_scroll.winfo_children():
             w.destroy()
 
-        servers = list(app.asm_config_manager.servers)
-        if not servers:
+        labels_order, labels = _server_choices()
+        if not labels_order:
+            server_menu.configure(values=["—"])
+            server_var.set("—")
             ctk.CTkLabel(
                 list_scroll,
                 text="Nenhum servidor cadastrado. Adicione um servidor na barra lateral.",
@@ -517,15 +620,24 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             status_lbl.configure(text="0 servidores")
             return
 
+        selected_id = _selected_server_id(labels)
+        state["selected_id"] = selected_id
+        _sync_server_menu(labels_order, labels, selected_id)
+
         by_id = {inv.server_id: inv for inv in inventories}
-        ordered = [by_id[s.id] for s in servers if s.id in by_id]
+        inv = by_id.get(selected_id)
+        if inv is None:
+            ctk.CTkLabel(
+                list_scroll,
+                text="Não foi possível ler os saves deste servidor.",
+                font=ctk.CTkFont(size=13), text_color=t_mut,
+            ).grid(row=0, column=0, pady=40, padx=12)
+            status_lbl.configure(text="0 arquivos")
+            return
 
-        for i, inv in enumerate(ordered):
-            _render_server_card(inv, i)
-
-        total_files = sum(len(inv.entries) for inv in ordered)
+        _render_server_card(inv, 0)
         status_lbl.configure(
-            text=f"{len(ordered)} servidor(es) · {total_files} arquivo(s) de save",
+            text=f"{len(inv.entries)} arquivo(s) de save",
         )
 
     def _refresh_all() -> None:
@@ -605,5 +717,6 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
         threading.Thread(target=worker, daemon=True, name="savegame-list").start()
 
     refresh_btn.configure(command=_refresh_async)
+    server_menu.configure(command=lambda _v: _on_server_picked())
     app._savegame_panel_refresh = _refresh_async  # type: ignore[attr-defined]
     _refresh_async()

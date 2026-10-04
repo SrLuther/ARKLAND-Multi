@@ -386,6 +386,25 @@ void Emit(Level level,
         Log::GetLog()->error("[{}] {}", category ? category : "?", message);
 }
 
+void WriteAlways(const char* category, const std::string& message) {
+    std::lock_guard<std::mutex> lock(g_mu);
+    EnsureLogDirUnlocked();
+    OpenFileUnlocked();
+    if (!g_file.is_open()) return;
+    nlohmann::json line = {
+        {"ts", IsoTimestamp()},
+        {"plugin", "CustomShop"},
+        {"version", ARKLAND_PLUGIN_VERSION},
+        {"level", "INFO"},
+        {"category", category ? category : ""},
+        {"message", message},
+    };
+    const std::string line_str = line.dump();
+    g_file << line_str << '\n';
+    g_file.flush();
+    g_file_bytes += line_str.size() + 1;
+}
+
 void Error(const char* category, const Fields& fields, const std::string& message) {
     Emit(Level::Error, category, fields, message);
 }

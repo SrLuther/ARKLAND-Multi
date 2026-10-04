@@ -1098,7 +1098,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._set_nav_active(name if name in (
             "dashboard", "shop", "database", "broadcasts", "saves",
-            "obobonic", "crashes", "settings", "about",
+            "obobonic", "settings", "about",
         ) else "")
 
         frame = ctk.CTkFrame(self._page_area, fg_color=get_theme("tek")["bg"],

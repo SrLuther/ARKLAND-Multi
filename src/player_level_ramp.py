@@ -193,8 +193,18 @@ def _expected_ramp_slots(cfg: object, base: int | None = None) -> int:
 
 
 def ensure_ramp_slot_count(cfg: object, count: int, *, base: int | None = None) -> int:
-    """Garante contagem mínima base+100 quando o nível base está configurado."""
+    """Garante contagem mínima base+100 quando o nível base está configurado.
+
+    A progressão de 200 níveis (base 199/200) usa o tamanho da tabela fixa.
+    Não infla uma rampa já lida do disco até base+100 — isso preenchia o
+    fim com XP vanilla e afastava o Game.ini do formato de 200 níveis.
+    """
+    from .player_level_200 import is_level_200_base, level_200_ramp_values
+
     count = max(0, int(count or 0))
+    resolved = int(base if base is not None else _resolve_base_level(cfg))
+    if is_level_200_base(resolved):
+        return count if count > 0 else len(level_200_ramp_values())
     expected = _expected_ramp_slots(cfg, base)
     if expected > 0 and (count <= 0 or count < expected):
         return expected
@@ -441,8 +451,12 @@ def get_ramp_values_from_cfg(cfg: object) -> list[int]:
     """Valores da rampa: vazio no modo simples; senão nível base tem prioridade."""
     if not is_player_level_progressions_enabled(cfg):
         return []
-    detect_and_apply_legacy_curve(cfg)
+    from .player_level_200 import is_level_200_base, level_200_ramp_values
+
     base = _resolve_base_level(cfg)
+    if is_level_200_base(base):
+        return level_200_ramp_values()
+    detect_and_apply_legacy_curve(cfg)
     curve = _curve_params_from_cfg(cfg)
     if base > 0:
         return build_ramp_values(
@@ -470,7 +484,11 @@ def _resolve_base_level(cfg: object) -> int:
 
 
 def get_ramp_entry_count(cfg: object) -> int:
+    from .player_level_200 import is_level_200_base, level_200_ramp_values
+
     base = _resolve_base_level(cfg)
+    if is_level_200_base(base) and is_player_level_progressions_enabled(cfg):
+        return len(level_200_ramp_values())
     if base > 0:
         return total_ramp_slots(base)
     stored = _read_cfg_int(cfg, "player_ramp_entry_count", 0)
@@ -543,11 +561,18 @@ def _curve_params_from_cfg(cfg: object | None) -> dict[str, Any]:
 
 
 def sync_config_player_level(cfg: object) -> dict[str, int]:
-    """Ponto único: rampa (base+100), OverrideMaxXP = último limiar+1, teto base+100."""
+    """Ponto único: rampa, OverrideMaxXP e teto.
+
+    Base 199/200 com progressões ligadas usa a tabela fixa de 200 níveis.
+    Nos demais níveis a rampa é base+100 e o teto é o último limiar + 1.
+    """
+    from .player_level_200 import is_level_200_base, level_200_override_max_xp, level_200_ramp_values
+
     progressions = is_player_level_progressions_enabled(cfg)
-    if progressions:
-        detect_and_apply_legacy_curve(cfg)
     base = _resolve_base_level(cfg)
+    level_200 = progressions and is_level_200_base(base)
+    if progressions and not level_200:
+        detect_and_apply_legacy_curve(cfg)
     ramp_base = base if base > 0 else max(
         get_ramp_entry_count(cfg) - ARK_RAMP_BONUS_SLOTS,
         ARK_DEFAULT_BASE_LEVEL,
@@ -557,7 +582,11 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
     theoretical = calc_max_total_level(ramp_base if base <= 0 else base)
     asc_bonus = ARK_TOTAL_BONUS_LEVELS
 
-    if progressions:
+    if level_200:
+        # Tabela fixa (nivel200): não regenerar 70×1.05^i nem last+1.
+        values = level_200_ramp_values()
+        override_xp = level_200_override_max_xp()
+    elif progressions:
         curve = _curve_params_from_cfg(cfg)
         values = build_ramp_values(
             ramp_base,
@@ -670,8 +699,12 @@ def build_player_ramp_ini_lines(cfg: object) -> list[str]:
     sync_config_player_level(cfg)
     if not is_player_level_progressions_enabled(cfg):
         return []
-    values = get_ramp_values_from_cfg(cfg)
+    from .player_level_200 import is_level_200_base
+
     base = _resolve_base_level(cfg) or ARK_DEFAULT_BASE_LEVEL
+    if is_level_200_base(base):
+        return build_ramp_ini_lines(get_ramp_values_from_cfg(cfg))
+    values = get_ramp_values_from_cfg(cfg)
     expected = total_ramp_slots(base) if base > 0 else 0
     if not values or (expected > 0 and len(values) < expected):
         curve = _curve_params_from_cfg(cfg)

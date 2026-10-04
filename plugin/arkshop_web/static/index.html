@@ -6920,9 +6920,6 @@
 
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
-    <div class="nav-item admin-only" data-page="rcon" onclick="nav(this)">
-      <span class="nav-icon">👤</span> Jogadores & Entregas
-    </div>
     <div class="nav-item admin-only" data-page="server-console" onclick="nav(this)">
       <span class="nav-icon">🖥️</span> Console do Servidor
     </div>
@@ -7686,6 +7683,39 @@
 
       <!-- PAGE: Economia Comércio (admin) -->
       <div id="page-market-economy-admin" class="page admin-only">
+        <style>
+          #page-market-economy-admin .me-econ-scroll {
+            overflow-x: auto;
+            max-width: 100%;
+          }
+          #page-market-economy-admin .me-econ-table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+          }
+          #page-market-economy-admin .me-econ-table th,
+          #page-market-economy-admin .me-econ-table td {
+            padding: 8px 14px;
+            white-space: nowrap;
+            vertical-align: middle;
+            text-align: left;
+            border-bottom: 1px solid rgba(26,40,64,.5);
+          }
+          #page-market-economy-admin .me-econ-table th {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--text3);
+          }
+          #page-market-economy-admin .me-econ-status {
+            margin-left: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .04em;
+          }
+        </style>
         <div id="topbar">
           <div class="page-title">Economia — Comércio</div>
           <div class="topbar-actions">
@@ -7894,96 +7924,6 @@
             </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- PAGE: Admin — jogadores, pontos e entregas -->
-      <div id="page-rcon" class="page">
-        <div id="topbar">
-          <div class="page-title">Jogadores & Entregas</div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">👤 Cadastro de Jogador</div>
-          </div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>SteamID64</label>
-              <input id="player-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
-            </div>
-            <div class="form-group">
-              <label>Nome do Jogador</label>
-              <input id="player-name" type="text" placeholder="Nome in-game" />
-            </div>
-            <div class="form-group">
-              <label>Tribo</label>
-              <input id="player-tribe" type="text" placeholder="Nome da tribo" />
-            </div>
-            <div class="form-group">
-              <label>Observações</label>
-              <input id="player-note" type="text" placeholder="Opcional" />
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
-            <button class="btn btn-primary" onclick="savePlayer()">💾 Salvar Jogador</button>
-            <button class="btn btn-ghost" onclick="clearPlayerForm()">🧹 Limpar</button>
-          </div>
-          <div id="players-list" style="margin-top:14px;"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">📦 Entrega de Resgate</div>
-            <div style="font-size:12px;color:var(--text2);">Cria pedido PENDENTE — o CustomShop entrega quando o jogador estiver online</div>
-          </div>
-          <div class="form-grid" style="margin-bottom:14px;">
-            <div class="form-group">
-              <label>SteamID64</label>
-              <input id="deliver-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
-            </div>
-            <div class="form-group">
-              <label>Tipo</label>
-              <select id="deliver-item-type">
-                <option value="shop">shop</option>
-                <option value="kit">kit</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>ID do Item/Kit</label>
-              <input id="deliver-item-id" type="text" placeholder="Ex: tools ou starter" />
-            </div>
-            <div class="form-group">
-              <label>Quantidade</label>
-              <input id="deliver-amount" type="number" min="1" value="1" />
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-success" onclick="deliverPurchase()">🚚 Entregar Resgate</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">🔃 Pontos de Jogador</div>
-            <div style="font-size:12px;color:var(--text2);">Saldo no banco central MySQL — independente do servidor ARK estar online</div>
-          </div>
-          <div class="form-grid" style="margin-bottom:14px;">
-            <div class="form-group">
-              <label>SteamID64</label>
-              <input id="admin-points-steam" type="text" placeholder="7656119XXXXXXXXXX" />
-            </div>
-            <div class="form-group">
-              <label>Quantidade</label>
-              <input id="admin-points-amount" type="number" value="0" />
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <button class="btn btn-ghost" onclick="adminPoints('get')">🔍 Consultar</button>
-            <button class="btn btn-primary" onclick="adminPoints('add')">+ Adicionar Pontos</button>
-            <button class="btn btn-ghost" onclick="adminPoints('set')">✏️ Definir Pontos</button>
-          </div>
-          <pre id="admin-points-output" style="margin-top:12px;min-height:2.4em;"></pre>
         </div>
       </div>
 
@@ -9992,7 +9932,7 @@
       <div id="page-players-admin" class="page admin-only">
         <div id="topbar">
           <div class="page-title">👥 Gerenciar Jogadores</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças, cargos MOD/STAFF e entrega do catálogo (itens, dinos, kits).</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças, cargos MOD/STAFF e entrega do catálogo (itens, dinos, kits). Cadastro manual, entrega de resgate por ID e pontos do banco central ficam nesta mesma página.</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="syncAllPermissionsAdmin()">🔄 Sync Permissions</button>
             <button class="btn btn-ghost" onclick="loadPlayersAdmin(true)">↺ Recarregar</button>
@@ -10029,6 +9969,92 @@
             </div>
           </div>
           <div id="player-detail-panel" class="card player-detail-panel hidden"></div>
+        </div>
+
+        <!-- Cadastro, entrega de resgate e pontos (antes na página solta) -->
+        <p style="font-size:12px;color:var(--text2);margin:18px 0 8px;">Cadastro manual, entrega de resgate (ID livre, shop ou kit) e consulta de pontos no MySQL — para qualquer SteamID64, sem abrir a ficha. Na ficha à direita, o jogador selecionado também tem ajuste de Âmbar (com motivo) e entrega pelo catálogo.</p>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">👤 Cadastro de Jogador</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>SteamID64</label>
+              <input id="player-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>Nome do Jogador</label>
+              <input id="player-name" type="text" placeholder="Nome in-game" />
+            </div>
+            <div class="form-group">
+              <label>Tribo</label>
+              <input id="player-tribe" type="text" placeholder="Nome da tribo" />
+            </div>
+            <div class="form-group">
+              <label>Observações</label>
+              <input id="player-note" type="text" placeholder="Opcional" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+            <button class="btn btn-primary" onclick="savePlayer()">💾 Salvar Jogador</button>
+            <button class="btn btn-ghost" onclick="clearPlayerForm()">🧹 Limpar</button>
+          </div>
+          <div id="players-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📦 Entrega de Resgate</div>
+            <div style="font-size:12px;color:var(--text2);">Cria pedido PENDENTE — o CustomShop entrega quando o jogador estiver online</div>
+          </div>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>SteamID64</label>
+              <input id="deliver-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>Tipo</label>
+              <select id="deliver-item-type">
+                <option value="shop">shop</option>
+                <option value="kit">kit</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ID do Item/Kit</label>
+              <input id="deliver-item-id" type="text" placeholder="Ex: tools ou starter" />
+            </div>
+            <div class="form-group">
+              <label>Quantidade</label>
+              <input id="deliver-amount" type="number" min="1" value="1" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="deliverPurchase()">🚚 Entregar Resgate</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔃 Pontos de Jogador</div>
+            <div style="font-size:12px;color:var(--text2);">Saldo no banco central MySQL — independente do servidor ARK estar online</div>
+          </div>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>SteamID64</label>
+              <input id="admin-points-steam" type="text" placeholder="7656119XXXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>Quantidade</label>
+              <input id="admin-points-amount" type="number" value="0" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-ghost" onclick="adminPoints('get')">🔍 Consultar</button>
+            <button class="btn btn-primary" onclick="adminPoints('add')">+ Adicionar Pontos</button>
+            <button class="btn btn-ghost" onclick="adminPoints('set')">✏️ Definir Pontos</button>
+          </div>
+          <pre id="admin-points-output" style="margin-top:12px;min-height:2.4em;"></pre>
         </div>
       </div>
 
@@ -11673,7 +11699,8 @@ async function saveDisplayNameFromGate() {}
 
 // Páginas removidas da sidebar → destino atual (ex.: «Mídias» foi unificada em «Tutoriais»).
 // A tela legada de venda in-game foi removida: 'sell' leva ao Comércio (que tem a Vitrine de Recursos).
-const LEGACY_PAGE_ALIASES = { midias: "tutoriais", sell: "market" };
+// rcon, jogadores e entregas: página antiga de cadastro/resgate/pontos → Gerenciar Jogadores.
+const LEGACY_PAGE_ALIASES = { midias: "tutoriais", sell: "market", rcon: "players-admin", jogadores: "players-admin", entregas: "players-admin" };
 function resolveLegacyPage(page) {
   return Object.prototype.hasOwnProperty.call(LEGACY_PAGE_ALIASES, page) ? LEGACY_PAGE_ALIASES[page] : page;
 }
@@ -11880,7 +11907,6 @@ function nav(el) {
   if (page === "regulamento") loadRegulamentoPage();
   if (page === "settings" && _auth.is_admin) loadSettings();
   if (page === "servers" && _auth.is_admin) loadServers();
-  if (page === "rcon" && _auth.is_admin) loadPlayers();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "admin-home-notice") loadAdminHomeCards();
@@ -11888,7 +11914,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "seasonland-ops") loadSeasonlandOps();
   if (page === "plugin-debug") loadPluginDebug();
-  if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
+  if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); loadPlayers(); }
   if (page === "map-members-admin") loadMapMembersAdmin();
   if (page === "tribe-admin") loadTribeAdmin();
   if (page === "teams") loadMyTeam();
@@ -23957,7 +23983,7 @@ async function loadMarketCatalogFeedStatus() {
   }
 }
 
-async function loadMarketAdmin() {
+async function loadMarketAdmin({ preserveOnEmpty = false } = {}) {
   const list = document.getElementById("market-admin-list");
   const banner = document.getElementById("market-admin-schema-banner");
   if (banner) {
@@ -23980,19 +24006,36 @@ async function loadMarketAdmin() {
   }
   loadMarketCatalogFeedStatus();
   if (!list) return;
-  list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  const hadSpecies = _marketAdminSpecies.length > 0;
+  if (!hadSpecies) {
+    list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  }
   try {
     const r = await fetch(API + "/api/market/admin/species");
     const d = await r.json();
     if (!d.ok) {
+      if (hadSpecies) {
+        toast(d.error || "Falha ao atualizar a lista de espécies", "error");
+        return;
+      }
       list.innerHTML = `<p style="color:var(--warn);">${escHtml(d.error || "Erro")}</p>`;
       return;
     }
-    _marketAdminSpecies = d.species || [];
+    const next = d.species || [];
+    if (!next.length && hadSpecies && preserveOnEmpty) {
+      renderMarketAdmin();
+      loadMarketCatalogImport();
+      return;
+    }
+    _marketAdminSpecies = next;
     _marketTierLegend = d.tier_legend || _marketTierLegend;
     renderMarketAdmin();
     loadMarketCatalogImport();
   } catch (e) {
+    if (hadSpecies) {
+      toast(String(e), "error");
+      return;
+    }
     list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
 }
@@ -24067,6 +24110,7 @@ async function marketSyncCatalog(activate) {
     }
     toast(
       `Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`
+      + (d.activated ? `, ${d.activated} ativadas` : "")
       + (d.merged ? `, ${d.merged} fundidas` : "")
       + (d.skipped_duplicate ? `, ${d.skipped_duplicate} dup. ignoradas` : "")
       + (d.registry_created ? `, ${d.registry_created} do registro Abyss/mods` : "")
@@ -24074,7 +24118,8 @@ async function marketSyncCatalog(activate) {
       "success",
     );
     loadMarketCatalogFeedStatus();
-    loadMarketAdmin();
+    const catalogUnchanged = !(d.created || d.updated);
+    loadMarketAdmin({ preserveOnEmpty: catalogUnchanged });
   } catch (e) {
     toast(String(e), "error");
   }
@@ -24184,9 +24229,16 @@ function renderMarketEconomyCaps(cfg) {
     </div>
     <div class="card">
       <div class="card-title">Pesos do índice Q por papel (dino_role)</div>
-      <div class="table-scroll"><table class="data-table"><thead><tr><th>Papel</th>${stats.map(sk => `<th>${statLabels[sk]}</th>`).join("")}</tr></thead><tbody>${roleWeightsHtml}</tbody></table></div>
+      <div class="me-econ-scroll"><table class="me-econ-table"><thead><tr><th>Papel</th>${stats.map(sk => `<th>${statLabels[sk]}</th>`).join("")}</tr></thead><tbody>${roleWeightsHtml}</tbody></table></div>
       <div style="padding:14px 16px;"><button class="btn btn-primary btn-sm" onclick="marketEconomySaveCaps()">Salvar pisos e caps</button></div>
     </div>`;
+}
+
+function fmtMeNumber(v) {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("pt-BR");
 }
 
 function renderMarketEconomySpecies(species) {
@@ -24194,26 +24246,30 @@ function renderMarketEconomySpecies(species) {
   if (!root) return;
   const rows = (species || []).map(s => {
     const status = s.db_status
-      ? `<span style="font-size:11px;color:${s.db_status === "ACTIVE" ? "var(--success)" : "var(--warn)"};">${escHtml(s.db_status)}</span>`
+      ? `<span class="me-econ-status" style="color:${s.db_status === "ACTIVE" ? "var(--success)" : "var(--warn)"};">${escHtml(s.db_status)}</span>`
       : "";
     const role = s.dino_role || "—";
     const mode = s.pricing_mode || "floor_quality";
-    return `<tr>
-      <td>${escHtml(s.display_name)} ${status}</td>
-      <td><code>${escHtml(s.species_key)}</code></td>
-      <td>${escHtml(role)}</td>
-      <td>${escHtml(s.tier || "—")}</td>
-      <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
-      <td>${Number(s.bonus_space || s.premium_budget || 0).toLocaleString("pt-BR")}</td>
-      <td>${Number(s.size_cap || 0).toLocaleString("pt-BR")}</td>
-      <td style="font-size:11px;">${escHtml(mode)}</td>
-      <td><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}">Editar</button></td>
+    const bonus = s.bonus_space != null ? s.bonus_space : s.premium_budget;
+    return `<tr class="me-econ-row">
+      <td class="me-econ-name">${escHtml(s.display_name)}${status}</td>
+      <td class="me-econ-key"><code>${escHtml(s.species_key)}</code></td>
+      <td class="me-econ-role">${escHtml(role)}</td>
+      <td class="me-econ-tier">${escHtml(s.tier || "—")}</td>
+      <td class="me-econ-r">${fmtMeNumber(s.root_value)}</td>
+      <td class="me-econ-b">${fmtMeNumber(bonus)}</td>
+      <td class="me-econ-cap">${fmtMeNumber(s.size_cap)}</td>
+      <td class="me-econ-mode" style="font-size:11px;">${escHtml(mode)}</td>
+      <td class="me-econ-actions"><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}">Editar</button></td>
     </tr>`;
   }).join("");
-  root.innerHTML = `<div class="table-scroll"><table class="data-table"><thead><tr>
+  const empty = rows
+    ? ""
+    : `<p class="me-econ-empty" style="font-size:13px;color:var(--text2);">Nenhuma espécie com item no catálogo da loja.</p>`;
+  root.innerHTML = `${empty}<div class="me-econ-scroll"><table class="me-econ-table"><thead><tr>
     <th>Nome</th><th>Key</th><th>Papel</th><th>Tier</th><th>R (L1)</th><th>B (prêmio)</th><th>Cap mercado</th><th>Modo</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table></div>
-  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Uma espécie por blueprint. R = Price L1. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
+  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Só entram espécies com item no catálogo da loja. R = Price do nível 1. B = prêmio floor_quality. Cap = teto de mercado. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
   root.querySelectorAll(".me-species-edit-btn").forEach(btn => {
     btn.addEventListener("click", () => marketEconomyEditSpecies(btn.dataset.speciesKey));
   });
@@ -32277,7 +32333,11 @@ async function bootPortal() {
     _updateStaffModeToggleUi();
     const staffUiActive = staffUiBoot;
 
-    if (_auth.is_admin && staffUiActive) {
+    const hashRouteBoot = (window.location.hash || "").replace(/^#\/?/, "").toLowerCase().split(/[?#]/)[0];
+    if (hashRouteBoot === "rcon" || hashRouteBoot === "jogadores" || hashRouteBoot === "entregas") {
+      const playersNav = document.querySelector('.nav-item[data-page="players-admin"]');
+      if (playersNav) nav(playersNav);
+    } else if (_auth.is_admin && staffUiActive) {
       if (configOk) {
         const shopNav = document.querySelector('.nav-item[data-page="shop"]');
         if (shopNav) nav(shopNav);

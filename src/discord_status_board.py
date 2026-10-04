@@ -51,8 +51,23 @@ def _now_brasilia_label() -> str:
     return datetime.now(_TZ_BRASILIA).strftime("%d/%m/%Y %H:%M:%S")
 
 
-def build_embed(rows: list[tuple[str, str]]) -> dict:
+def connected_label(status: str, players: Optional[int]) -> str:
+    """Texto de pessoas conectadas no card.
+
+    Usa a contagem A2S já guardada no servidor. Servidor parado ou em
+    atualização não tem query ao vivo — traço, sem reaproveitar cache antigo.
+    Query ausente (None) também vira traço. Não inventa um número.
+    """
+    if status in (STATUS_PARADO, STATUS_ATUALIZANDO):
+        return "—"
+    if players is None:
+        return "—"
+    return f"{players} jogadores"
+
+
+def build_embed(rows: list) -> dict:
     updated_at = _now_brasilia_label()
+    counted: list[str] = []
     if not rows:
         description = "_Nenhum servidor configurado._"
         color = 0x64748B
@@ -60,16 +75,29 @@ def build_embed(rows: list[tuple[str, str]]) -> dict:
         lines: list[str] = []
         worst = STATUS_ONLINE
         order = [STATUS_PARADO, STATUS_ATUALIZANDO, STATUS_INICIANDO, STATUS_ONLINE]
-        for name, status in rows:
-            emoji, _ = _STATUS_META.get(status, ("⚪", 0x64748B))
-            lines.append(f"{emoji} **{name}** — `{status}`")
-            if order.index(status) < order.index(worst):
-                worst = status
-        description = "\n".join(lines)
+        for row in rows:
+            try:
+                name = str(row[0])
+                status = str(row[1]) if len(row) > 1 else STATUS_PARADO
+                if status not in _STATUS_META:
+                    status = STATUS_PARADO
+                players = _opt_int(row[2]) if len(row) > 2 else None
+                emoji, _ = _STATUS_META.get(status, ("⚪", 0x64748B))
+                lines.append(
+                    f"{emoji} **{name}** — `{status}` · {connected_label(status, players)}"
+                )
+                counted.append(status)
+                if order.index(status) < order.index(worst):
+                    worst = status
+            except Exception:
+                _logger.debug("Linha do painel Discord ignorada", exc_info=True)
+                lines.append("⚪ **?** — `PARADO` · —")
+                counted.append(STATUS_PARADO)
+        description = "\n".join(lines) if lines else "_Nenhum servidor configurado._"
         color = _STATUS_META.get(worst, ("", 0x64748B))[1]
 
-    online_n = sum(1 for _, s in rows if s == STATUS_ONLINE)
-    total_n = len(rows)
+    online_n = sum(1 for s in counted if s == STATUS_ONLINE)
+    total_n = len(counted)
     return {
         "title": "🖥️  Status dos servidores",
         "description": description[:4000],
@@ -348,42 +376,61 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
     now_unix = time.time()
     for srv in servers:
         try:
-            display = (effective_session_name(srv) or "").strip()
+            try:
+                display = (effective_session_name(srv) or "").strip()
+            except Exception:
+                display = ""
+            if not display:
+                display = (getattr(srv, "session_name", None) or getattr(srv, "name", None)
+                           or getattr(srv, "id", "?") or "?").strip()
+            shop_id = (getattr(srv, "shop_server_id", None) or "").strip()
+            asm_id = (getattr(srv, "id", None) or "").strip()
+            sid = shop_id or asm_id
+            process = ASM_STATUS_STOPPED
+            steam = ""
+            players: Optional[int] = None
+            max_players: Optional[int] = None
+            if mgr is not None and asm_id:
+                try:
+                    inst = mgr.get_instance(asm_id)
+                except Exception:
+                    inst = None
+                    _logger.debug("get_instance falhou para %s", asm_id, exc_info=True)
+                if inst is not None:
+                    process = getattr(inst, "status", ASM_STATUS_STOPPED) or ASM_STATUS_STOPPED
+                    steam = getattr(inst, "steam_status", "") or ""
+                    # Contagem já preenchida pelo poller A2S (mesma fonte do card «pessoas»).
+                    # None = query falhou ou ainda não correu — o card mostra traço.
+                    players = _opt_int(getattr(inst, "a2s_players", None))
+                    max_players = _opt_int(getattr(inst, "a2s_max_players", None))
+            if max_players is None:
+                max_players = _opt_int(getattr(srv, "max_players", None))
+            status = map_public_status(process, steam)
+            item = {
+                "server_id": sid,
+                "status": status,
+                "display_name": display,
+                "updated_at": updated_at,
+                "updated_at_unix": now_unix,
+                "players": players,
+                "max_players": max_players,
+            }
+            rows_out.append(item)
+            # Alias pelo id ASM se diferente do shop_id — home pode usar qualquer um.
+            if shop_id and asm_id and shop_id != asm_id:
+                rows_out.append({**item, "server_id": asm_id})
         except Exception:
-            display = ""
-        if not display:
-            display = (getattr(srv, "session_name", None) or getattr(srv, "name", None)
-                       or getattr(srv, "id", "?") or "?").strip()
-        shop_id = (getattr(srv, "shop_server_id", None) or "").strip()
-        asm_id = (getattr(srv, "id", None) or "").strip()
-        sid = shop_id or asm_id
-        process = ASM_STATUS_STOPPED
-        steam = ""
-        players: Optional[int] = None
-        max_players: Optional[int] = None
-        if mgr is not None and asm_id:
-            inst = mgr.get_instance(asm_id)
-            if inst is not None:
-                process = getattr(inst, "status", ASM_STATUS_STOPPED) or ASM_STATUS_STOPPED
-                steam = getattr(inst, "steam_status", "") or ""
-                players = _opt_int(getattr(inst, "a2s_players", None))
-                max_players = _opt_int(getattr(inst, "a2s_max_players", None))
-        if max_players is None:
-            max_players = _opt_int(getattr(srv, "max_players", None))
-        status = map_public_status(process, steam)
-        item = {
-            "server_id": sid,
-            "status": status,
-            "display_name": display,
-            "updated_at": updated_at,
-            "updated_at_unix": now_unix,
-            "players": players,
-            "max_players": max_players,
-        }
-        rows_out.append(item)
-        # Alias pelo id ASM se diferente do shop_id — home pode usar qualquer um.
-        if shop_id and asm_id and shop_id != asm_id:
-            rows_out.append({**item, "server_id": asm_id})
+            _logger.debug("Servidor omitido do payload de status", exc_info=True)
+            name = (getattr(srv, "name", None) or getattr(srv, "id", "?") or "?")
+            rows_out.append({
+                "server_id": getattr(srv, "id", "") or "?",
+                "status": STATUS_PARADO,
+                "display_name": str(name),
+                "updated_at": updated_at,
+                "updated_at_unix": now_unix,
+                "players": None,
+                "max_players": None,
+            })
     return rows_out
 
 
@@ -450,19 +497,29 @@ def boot_webstore_status_push(app: Any) -> None:
     ).start()
 
 
-def _collect_rows(app: Any) -> list[tuple[str, str]]:
-    """Lista (nome_exibição_Steam, status_público) ordenada por nome."""
+def _rows_for_embed(payload: list[dict[str, Any]]) -> list[tuple[str, str, Optional[int]]]:
+    """Uma linha por mapa: nome, status público, jogadores A2S (ou None)."""
     seen: set[str] = set()
-    rows: list[tuple[str, str]] = []
-    for item in collect_status_payload(app):
-        name = item.get("display_name") or item.get("server_id") or "?"
-        key = str(name).lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append((str(name), str(item.get("status") or STATUS_PARADO)))
+    rows: list[tuple[str, str, Optional[int]]] = []
+    for item in payload:
+        try:
+            name = str(item.get("display_name") or item.get("server_id") or "?")
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            status = str(item.get("status") or STATUS_PARADO)
+            players = _opt_int(item.get("players"))
+            rows.append((name, status, players))
+        except Exception:
+            _logger.debug("Item de status ignorado no card", exc_info=True)
     rows.sort(key=lambda r: r[0].lower())
     return rows
+
+
+def _collect_rows(app: Any) -> list[tuple[str, str, Optional[int]]]:
+    """Lista (nome, status, jogadores A2S) ordenada por nome."""
+    return _rows_for_embed(collect_status_payload(app))
 
 
 def _push_now(app: Any) -> None:
@@ -478,17 +535,7 @@ def _push_now(app: Any) -> None:
         return
     username = _sender_name(cfg)
     payload = collect_status_payload(app)
-    seen: set[str] = set()
-    rows: list[tuple[str, str]] = []
-    for item in payload:
-        name = item.get("display_name") or item.get("server_id") or "?"
-        key = str(name).lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append((str(name), str(item.get("status") or STATUS_PARADO)))
-    rows.sort(key=lambda r: r[0].lower())
-    embed = build_embed(rows)
+    embed = build_embed(_rows_for_embed(payload))
 
     with _io_lock:
         if _suppress_updates:
@@ -553,17 +600,7 @@ def _recreate_sync(app: Any) -> dict[str, Any]:
 
     # 3) Uma única mensagem nova.
     payload = collect_status_payload(app)
-    seen: set[str] = set()
-    rows: list[tuple[str, str]] = []
-    for item in payload:
-        name = item.get("display_name") or item.get("server_id") or "?"
-        key = str(name).lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append((str(name), str(item.get("status") or STATUS_PARADO)))
-    rows.sort(key=lambda r: r[0].lower())
-    new_id = _webhook_create(url, _sender_name(cfg), build_embed(rows))
+    new_id = _webhook_create(url, _sender_name(cfg), build_embed(_rows_for_embed(payload)))
     if new_id:
         _persist_message_id(app, new_id)
         result["message_id"] = new_id

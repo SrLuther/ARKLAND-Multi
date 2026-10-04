@@ -61,9 +61,21 @@ def resolve_max_level_for_engrams(cfg: object) -> int:
 
 
 def build_engram_points_ini_lines(cfg: object) -> list[str]:
-    """Linhas OverridePlayerLevelEngramPoints=400 (uma por nível na rampa)."""
+    """Linhas OverridePlayerLevelEngramPoints.
+
+    Progressão de 200 níveis: valores da tabela fixa (não 400 em todas as linhas).
+    Demais níveis com progressões ligadas: 400 por slot da rampa.
+    """
     if not should_apply_engram_overrides(cfg):
         return []
+    from .player_level_200 import is_level_200_base, level_200_engram_points
+    from .player_level_ramp import _resolve_base_level
+
+    if is_level_200_base(_resolve_base_level(cfg)):
+        return [
+            f"OverridePlayerLevelEngramPoints={pts}"
+            for pts in level_200_engram_points()
+        ]
     max_lvl = resolve_max_level_for_engrams(cfg)
     pts = engram_points_per_level()
     return [f"OverridePlayerLevelEngramPoints={pts}"] * max_lvl

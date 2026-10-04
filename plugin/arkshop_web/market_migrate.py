@@ -263,6 +263,14 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
         from resource_vitrine_migrate import ensure_resource_vitrine_schema
 
         resource_vitrine = ensure_resource_vitrine_schema(engine)
+        try:
+            from vitrine_catalog_sync import sync_catalog_file_on_boot
+
+            catalog_sync = sync_catalog_file_on_boot(engine)
+            if isinstance(resource_vitrine, dict):
+                resource_vitrine["catalog_sync"] = catalog_sync
+        except Exception as exc:
+            log.warning("Vitrine: sync do catalog.json na subida falhou: %s", exc)
     except Exception as exc:
         log.warning("Vitrine de Recursos: migrate falhou: %s", exc)
         resource_vitrine = {"ok": False, "error": str(exc)}

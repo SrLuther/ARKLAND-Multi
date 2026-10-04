@@ -81,9 +81,6 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
     elif name == "diagnostico":
         from .build_diagnostics import build_diagnostics
         build_diagnostics(app, _scrollable_inner(frame, bg))
-    elif name == "crashes":
-        from .global_crash_monitor import build_global_crash_monitor
-        build_global_crash_monitor(app, frame)
     elif name == "server_panel":
         from ..asm_ui.asm_server_panel import build_asm_server_panel
         build_asm_server_panel(app, frame, kwargs["srv"])
@@ -105,7 +102,7 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
 
     _static_nav = (
         "dashboard", "shop", "database", "broadcasts", "saves",
-        "obobonic", "crashes", "settings", "diagnostico", "about",
+        "obobonic", "settings", "diagnostico", "about",
     )
     app._set_nav_active(name if name in _static_nav else "")
 

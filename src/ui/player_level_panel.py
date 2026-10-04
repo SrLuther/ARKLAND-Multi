@@ -18,6 +18,11 @@ from ..player_level_ascension import (
     level_to_xp,
     serialize_ascension_state,
 )
+from ..player_level_200 import (
+    is_level_200_base,
+    level_200_override_max_xp,
+    level_200_ramp_values,
+)
 from ..player_level_ramp import (
     _curve_params_from_cfg,
     build_ramp_values,
@@ -62,11 +67,16 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
             cfg.player_base_level = base
         if hasattr(cfg, "player_level_progressions_enabled"):
             cfg.player_level_progressions_enabled = progressions
-        if progressions:
+        if progressions and not is_level_200_base(base):
             detect_and_apply_legacy_curve(cfg)
 
     total = calc_max_total_level(base)
-    if progressions:
+    level_200 = progressions and is_level_200_base(base)
+    if level_200:
+        ramp_values = level_200_ramp_values()
+        xp = level_200_override_max_xp()
+        ramp_entries = len(ramp_values)
+    elif progressions:
         curve = _curve_params_from_cfg(cfg)
         ramp_values = build_ramp_values(
             base,
@@ -123,9 +133,13 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
             str(ramp_entries) if progressions else "— (vanilla stock)"
         )
     if "_pl_engram_var" in vars_ref:
-        vars_ref["_pl_engram_var"].set(
-            str(engram_points_per_level()) if progressions else "vanilla (8)"
-        )
+        if level_200:
+            engram_label = "tabela 200"
+        elif progressions:
+            engram_label = str(engram_points_per_level())
+        else:
+            engram_label = "vanilla (8)"
+        vars_ref["_pl_engram_var"].set(engram_label)
     if "player_level_stats_raw" in vars_ref:
         vars_ref["player_level_stats_raw"].set(
             export_ramp_raw(ramp_values) if progressions and ramp_values else ""
@@ -165,11 +179,13 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
         gs.player_base_level = base
     if hasattr(gs, "player_level_progressions_enabled"):
         gs.player_level_progressions_enabled = progressions
-    if progressions:
+    if progressions and not is_level_200_base(base):
         detect_and_apply_legacy_curve(gs)
 
     total = calc_max_total_level(base)
-    if progressions:
+    if progressions and is_level_200_base(base):
+        xp = level_200_override_max_xp()
+    elif progressions:
         curve = _curve_params_from_cfg(gs)
         ramp_values = build_ramp_values(
             base,
@@ -222,10 +238,11 @@ def _progressions_toggle_row(
         fr,
         text=(
             "Marcado = rampa + OverrideMaxXP + engrams no Game.ini "
-            "[/Script/ShooterGame.ShooterGameMode] (curva soft 70×1.05^i; 400 EP/nível). "
-            "Rampa = base + 100 (últimos 100 níveis reservados a bosses/notas/runas/chibi). "
-            "OverrideMaxXP = último limiar da rampa + 1. Desmarcado = vanilla stock "
-            "(GUS não sobe o teto). Base >105 OFF: ARK ignora o teto elevado."
+            "[/Script/ShooterGame.ShooterGameMode]. Nível base 199 ou 200 grava a "
+            "tabela fixa de 200 níveis (mesmos valores do padrão). Outros níveis: "
+            "curva soft 70×1.05^i, rampa = base+100, 400 EP/nível, "
+            "OverrideMaxXP = último limiar + 1. Desmarcado = vanilla stock "
+            "(remove rampa, teto e engrams custom). Base >105 OFF: ARK ignora o teto elevado."
         ),
         bg=bg,
         fg="gray50",
@@ -336,8 +353,9 @@ def _engram_info_row(parent: tk.Misc, *, row: int, bg: str, accent: str) -> int:
     tk.Label(
         sec,
         text=(
-            f"Cada level-up na rampa recebe {ARK_ENGRAM_POINTS_PER_LEVEL} pontos de engrama "
-            f"(OverridePlayerLevelEngramPoints × entradas na rampa)."
+            f"Nível base 199 ou 200: cada linha de OverridePlayerLevelEngramPoints "
+            f"sai da tabela fixa de 200 níveis. Nos demais níveis, com progressões "
+            f"ligadas, cada level-up recebe {ARK_ENGRAM_POINTS_PER_LEVEL} pontos."
         ),
         bg=bg, fg=accent, font=ctk.CTkFont(size=10), wraplength=520, justify="left",
     ).grid(row=0, column=0, padx=10, pady=8, sticky="w")
@@ -477,9 +495,9 @@ def build_classic_player_level_panel(
     tk.Label(
         panel,
         text=(
-            "Informe o nível base (farmável com XP). O teto (= base + 100) é a rampa "
-            "completa no Game.ini. Progressões ON: rampa base+100 + OverrideMaxXP "
-            "(último limiar+1) + engrams 400/nível (curva soft 70×1.05^i). "
+            "Informe o nível base (farmável com XP). Progressões ON com base 199 ou 200: "
+            "tabela fixa de 200 níveis no Game.ini. Outros níveis: rampa base+100, "
+            "OverrideMaxXP no último limiar+1 e 400 engramas/nível (curva 70×1.05^i). "
             "Base >105 OFF: aviso — ARK reverte a vanilla. Cap só no GUS não funciona."
         ),
         bg=_BG_PANEL, fg="gray50", font=ctk.CTkFont(size=10), justify="left",

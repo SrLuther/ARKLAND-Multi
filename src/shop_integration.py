@@ -138,6 +138,8 @@ SHARED_SYNC_TOP_LEVEL_KEYS = (
     "Downloads",
     "PointPackages",
     "FeaturedMaps",
+    # Vitrine de Recursos: bloco no catalog.json (fonte). Não vai para o config.json do mapa.
+    "ResourceVitrine",
 )
 
 # Chaves top-level que permanecem no config.json local por mapa.
@@ -710,37 +712,22 @@ def _pick_richest_catalog_path(candidates: List[Path]) -> Optional[Path]:
     return best
 
 
-def _is_truncated_vs_alternatives(path: Path, alternatives: List[Path]) -> bool:
-    """Detecta cópia WEBSTORE (ou mestre) muito menor que configs nos mapas."""
-    if not path.is_file():
-        return False
-    own = catalog_richness_score(load_plugin_config(path))
-    best_other = 0
-    try:
-        resolved = path.resolve()
-    except OSError:
-        resolved = path
-    for alt in alternatives:
-        if not alt.is_file():
-            continue
-        try:
-            if alt.resolve() == resolved:
-                continue
-        except OSError:
-            if alt == path:
-                continue
-        best_other = max(best_other, catalog_richness_score(load_plugin_config(alt)))
-    return best_other >= 20 and own < max(10, int(best_other * 0.25))
-
-
 def resolve_persistent_catalog_path(
     configured: str | Path = "",
     *,
     shop: Optional["ShopGlobalConfig"] = None,
 ) -> Path:
-    """Resolve caminho gravável do catálogo mestre — sempre o canônico quando possível."""
-    canonical = migrate_catalog_to_canonical()
-    search_paths = _collect_catalog_search_paths()
+    """Devolve o catálogo a ler, sem gravar outra cópia por cima.
+
+    O arquivo que o usuário indicou e salvou é a fonte — mesmo se tiver menos
+    itens que uma cópia antiga (repo, mapa, WEBSTORE, AppData). Não copia esse
+    arquivo para um mestre canônico e não faz write-back da cópia mais rica.
+
+    Paths efêmeros (_MEI) e a cópia runtime WEBSTORE/config.json não são fonte:
+    devolve o canônico se ele já existir, senão outro arquivo existente, sem copy2.
+    Gravar de propósito continua em propagar / upload.
+    """
+    canonical = canonical_master_catalog_path()
 
     raw_paths: List[Path] = []
     for raw in (
@@ -754,46 +741,15 @@ def resolve_persistent_catalog_path(
             raw_paths.append(p)
 
     for p in raw_paths:
-        if not p.is_file():
-            continue
-        if _is_truncated_vs_alternatives(p, search_paths):
-            logger.warning(
-                "Catálogo configurado parece truncado (%s itens+kits) — "
-                "ignorando em favor de fonte mais completa",
-                catalog_entry_total(load_plugin_config(p)),
-            )
-            continue
-        if p.resolve() != canonical.resolve():
-            try:
-                canonical.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(p, canonical)
-                logger.info("Catálogo configurado migrado para mestre canônico: %s", canonical)
-            except OSError:
-                return p
-        return canonical
-
-    richest = _pick_richest_catalog_path(search_paths)
-    if richest is not None and richest.resolve() != canonical.resolve():
-        canonical_total = (
-            catalog_richness_score(load_plugin_config(canonical)) if canonical.is_file() else -1
-        )
-        if catalog_richness_score(load_plugin_config(richest)) > canonical_total:
-            try:
-                canonical.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(richest, canonical)
-                # Guarda: pack10 legado não deve voltar via «cópia mais rica».
-                data = load_plugin_config(canonical)
-                if strip_breeding_pack10_kits(data):
-                    save_plugin_config(canonical, data)
-            except OSError:
-                return richest
+        if p.is_file():
+            return p
 
     if canonical.is_file():
         return canonical
 
-    for p in installed_catalog_candidates():
-        if p.is_file():
-            return migrate_catalog_to_canonical()
+    richest = _pick_richest_catalog_path(_collect_catalog_search_paths())
+    if richest is not None:
+        return richest
 
     try:
         canonical.parent.mkdir(parents=True, exist_ok=True)
@@ -1147,6 +1103,18 @@ def sanitize_polluted_kit_titles(catalog: Dict[str, Any]) -> int:
     return fixed
 
 
+def preserve_resource_vitrine_block(data: Dict[str, Any], master: Path) -> None:
+    """Não deixa um save do catálogo apagar o bloco ResourceVitrine se o payload não o trouxer."""
+    if isinstance(data.get("ResourceVitrine"), dict):
+        return
+    if not master.is_file():
+        return
+    old = load_plugin_config(master)
+    block = old.get("ResourceVitrine")
+    if isinstance(block, dict):
+        data["ResourceVitrine"] = deepcopy(block)
+
+
 def propagate_master_catalog(
     cm: "ConfigManager",
     shop: "ShopGlobalConfig",
@@ -1178,6 +1146,7 @@ def propagate_master_catalog(
                 data = deepcopy(catalog)
             apply_catalog_sync(data)
             n_clean = sanitize_polluted_kit_titles(data)
+            preserve_resource_vitrine_block(data, master)
             save_plugin_config(master, data)
             ok.append(f"Catálogo partilhado gravado → {master}")
             if n_clean:
@@ -4299,6 +4268,8 @@ def sync_arkshop_web_settings(
             )
             return
 
+    # Arquivo configurado permanece a fonte. Só troca o path quando ele é
+    # efêmero (_MEI) ou a cópia runtime WEBSTORE — nunca por ser «menor».
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
         shop.catalog_config_path = str(catalog_path)
@@ -4626,13 +4597,13 @@ def sync_all_plugins(
         shop.catalog_config_path = str(catalog_path)
         shop_dirty = True
 
-    # NÃO reconciliar WEBSTORE → mestre (puxava ficheiro errado/sujo e bagunçava o sync).
-    # Fonte de verdade: só o mestre canônico no disco.
+    # NÃO reconciliar WEBSTORE → catálogo (puxava ficheiro errado e bagunçava o sync).
+    # Fonte: o arquivo configurado. Não promover um canônico nem a cópia mais cheia.
     if catalog_path.is_file():
         catalog = load_plugin_config(catalog_path)
         ni, nk = catalog_entry_counts(catalog)
         logger.info(
-            "CustomShop sync: mestre canônico recarregado (%d itens, %d kits) ← %s",
+            "CustomShop sync: catálogo configurado recarregado (%d itens, %d kits) ← %s",
             ni, nk, catalog_path,
         )
     sanitize_polluted_kit_titles(catalog)

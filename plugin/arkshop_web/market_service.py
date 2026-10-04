@@ -1,8 +1,11 @@
 """Persistência e sync do catálogo econômico do Mercado de Dinos."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
+
+log = logging.getLogger("arkshop_web.market")
 
 from sqlalchemy.orm import Session
 
@@ -513,7 +516,10 @@ def _upsert_species_row(
         if species.catalog_item_id:
             row.shop_price_synced_at = now
         row.updated_at = now
-        if activate:
+        # INACTIVE = desativado de propósito (ou não-dino). Sync não religa.
+        if row.status == "INACTIVE":
+            pass
+        elif activate:
             row.status = "ACTIVE"
         elif row.status != "ACTIVE":
             row.status = species.status
@@ -630,6 +636,77 @@ def sync_registry_overlay_to_db(
     }
 
 
+def activate_pre_registered_species(db: Session) -> dict[str, Any]:
+    """Promove PRE_REGISTERED → ACTIVE, o mesmo efeito do botão Ativar de cada linha.
+
+    Não exige que a espécie esteja «pendente» no catálogo nem que o feed tenha
+    criado/atualizado algo. INACTIVE fica como está (desativação explícita / não-dino).
+    """
+    from app import MarketSpecies
+    from market_listings import promote_listings_on_species_activate
+
+    now = datetime.now(timezone.utc)
+    rows = (
+        db.query(MarketSpecies)
+        .filter(MarketSpecies.status == "PRE_REGISTERED")
+        .all()
+    )
+    rows, _alias_map = _filter_commerce_dino_rows(db, rows)
+    keys: list[str] = []
+    for row in rows:
+        row.status = "ACTIVE"
+        row.activated_at = now
+        row.updated_at = now
+        keys.append(row.species_key)
+    if keys:
+        db.commit()
+    promoted = 0
+    for sk in keys:
+        promoted += promote_listings_on_species_activate(db, sk)
+    return {"activated": len(keys), "promoted_listings": promoted}
+
+
+def list_admin_species(
+    db: Session,
+    catalog: dict[str, Any],
+    *,
+    status: str = "",
+) -> list[dict[str, Any]]:
+    """Espécies da aba Mercado — Espécies (não some se o enriquecimento público falhar)."""
+    from app import MarketSpecies
+
+    q = db.query(MarketSpecies).order_by(MarketSpecies.root_value.desc())
+    if status:
+        q = q.filter(MarketSpecies.status == status)
+    else:
+        q = q.filter(MarketSpecies.status != "INACTIVE")
+    rows, alias_map = _filter_commerce_dino_rows(db, q.all())
+    by_key: dict[str, dict[str, Any]] = {}
+    try:
+        for item in list_species_public(db, active_only=False):
+            sk = str(item.get("species_key") or "")
+            if sk:
+                by_key[sk] = item
+    except Exception:
+        log.exception("list_species_public falhou; listagem admin usa as linhas do banco")
+        by_key = {}
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        base = by_key.get(row.species_key)
+        data = dict(base) if base else {
+            "species_key": row.species_key,
+            "display_name": row.display_name,
+            "root_value": row.root_value,
+            "status": row.status,
+        }
+        data["status"] = row.status
+        data["catalog_item_id"] = row.catalog_item_id
+        data["shop_catalog_name"] = shop_catalog_display_name(catalog, row.catalog_item_id)
+        data["linked_variants"] = alias_map.get(int(row.id), [])
+        out.append(data)
+    return out
+
+
 def feed_catalog_to_market(
     db: Session,
     catalog: dict[str, Any],
@@ -649,7 +726,7 @@ def feed_catalog_to_market(
     - Kits não são processados (bundles, não espécies).
     - Por padrão considera só Type:dino com Dinos[0].Level == 1 (piso econômico).
     """
-    created = updated = merged = skipped_duplicate = skipped = 0
+    created = updated = merged = skipped_duplicate = skipped = activated = 0
     items: list[str] = []
     errors: list[dict[str, str]] = []
     now = datetime.now(timezone.utc)
@@ -703,11 +780,14 @@ def feed_catalog_to_market(
 
         existing, _ = _find_existing_species_row(db, species, aliases)
         if only_missing and existing and existing.status in ("ACTIVE", "PRE_REGISTERED"):
+            # Já está no Comércio: não regrava preço/alias, mas «ativar» ainda
+            # promove PRE_REGISTERED no passe final (não exige pendente).
             skipped_duplicate += len(catalog_items)
             seen_groups.add(group_key)
             seen_bp_norms.update(group_norms)
             continue
 
+        prev_status = existing.status if existing is not None else None
         try:
             row, was_created, was_merged = _upsert_species_row(
                 db,
@@ -740,6 +820,8 @@ def feed_catalog_to_market(
             created += 1
         else:
             updated += 1
+        if activate and (was_created or prev_status == "PRE_REGISTERED"):
+            activated += 1
 
     db.commit()
 
@@ -762,12 +844,18 @@ def feed_catalog_to_market(
         )
 
     cleanup = deactivate_non_dino_species(db)
+    if activate:
+        # Espécies já pré-cadastradas que o feed L1 não reprocessou (0/0)
+        # ou que «only_missing» pulou continuam elegíveis ao Ativar em massa.
+        extra = activate_pre_registered_species(db)
+        activated += int(extra.get("activated") or 0)
     from market_listings import reconcile_pending_listings
 
     promoted = reconcile_pending_listings(db)
     return {
         "created": created,
         "updated": updated,
+        "activated": activated,
         "merged": merged,
         "skipped_duplicate": skipped_duplicate,
         "skipped": skipped,
@@ -1149,21 +1237,13 @@ def bulk_pre_register_catalog_items(
         item_ids=item_ids,
         include_reference_and_registry=False,
     )
-    activated = 0
-    if activate:
-        from app import MarketSpecies
-
-        for sk in result.get("species_keys") or []:
-            row = db.query(MarketSpecies).filter(MarketSpecies.species_key == sk).first()
-            if row and row.status == "ACTIVE":
-                activated += 1
     return {
         "created": result.get("created", 0),
         "updated": result.get("updated", 0),
         "merged": result.get("merged", 0),
         "skipped_duplicate": result.get("skipped_duplicate", 0),
         "skipped": result.get("skipped_duplicate", 0) + result.get("skipped", 0),
-        "activated": activated,
+        "activated": int(result.get("activated") or 0),
         "results": [],
         "errors": result.get("errors") or [],
     }

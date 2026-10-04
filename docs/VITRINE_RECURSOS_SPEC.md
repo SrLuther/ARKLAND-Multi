@@ -26,7 +26,7 @@ em jogo pelo `/mercado` (o mesmo comando do comércio de dinos).
 
 | Tema | Decisão |
 | --- | --- |
-| Onde persistir "Recursos autorizados" e limite de tipos | **Tabelas dedicadas** (`market_resource_catalog`, `market_resource_settings`) servidas ao plugin por API (`GET plugin/config`). Motivo: o backend valida tudo (bypass por API direta) e o plugin não depende de `config.json`/`catalog.json` sincronizado por arquivo nem de reload de mapas. O plugin consulta a config a cada `/vitrine` (sem cache longo). |
+| Onde persistir "Recursos autorizados" e limite de tipos | **Fonte:** bloco `ResourceVitrine` no `catalog.json` partilhado (o mesmo arquivo que a Web Store grava e que o CustomShop abre na subida via `SharedCatalogPath`). **Cópia:** tabelas `market_resource_catalog` / `market_resource_settings`. Na subida da Web Store e ao ler a lista, o arquivo atualiza o MySQL; linha que saiu do arquivo não volta só porque sobrou no banco. O plugin consulta `GET plugin/config` primeiro e, se a lista vier vazia ou a chamada falhar, lê o mesmo bloco no catalog local. |
 | Chave de recurso | Blueprint normalizado: `/Game/.../Nome.Nome` (sem `Blueprint'...'`, sem sufixo `_C`); comparação sempre em minúsculas (`blueprint_key`). O plugin normaliza o nome completo da classe do item da mesma forma. |
 | "Preço mín/máx por lote" do admin | Aplicado ao **preço do lote** definido pelo jogador (independe do tamanho do lote). Opcional (NULL = livre). Risco conhecido: como o jogador escolhe o tamanho do lote, a faixa não limita preço por unidade — se o admin precisar disso, usar lote fixo no futuro. |
 | Comissão (`fee_amount`) | Constante única em `market_fee.py` (`MARKET_FEE_PERCENT = 0`). A Vitrine de Recursos já usa; o comércio de dinos hoje grava `fee_amount=0` fixo (mesmo valor). Se a comissão deixar de ser 0, mudar `market_fee.py` **e** ligar `purchase_listing` ao helper. |
@@ -147,9 +147,12 @@ Códigos: `invalid_input`, `not_authorized_resource`, `type_limit`, `stock_cap`,
 Novo módulo `ShopVitrine.cpp/.h` (namespace `CustomShop::Vitrine`).
 
 * `/vitrine` (configurável: `Settings.VitrineCommandEnabled`, `Settings.VitrinePreviewTtlSeconds` 30–120, padrão 120 como o `/enviar`):
-  consulta `plugin/config` + `plugin/stock/<steam>`; varre o inventário pessoal (dedup por ponteiro; sem equipados,
-  engramas, blueprints, durabilidade, `maxStack<=1`); soma por recurso; aplica o limite de tipos (trunca e avisa); lista no
+  consulta `plugin/config` (MySQL) e, se a lista vier vazia ou a web falhar, lê `ResourceVitrine` no `catalog.json`
+  (`SharedCatalogPath`, senão o `config.json` local); varre o inventário pessoal (dedup por ponteiro; sem equipados,
+  engramas, blueprints, durabilidade; quantidade acima do stack vanilla não descarta o item); casa path **ou** nome curto
+  sem `_C`; soma por recurso; aplica o limite de tipos (trunca e avisa); lista no
   chat (`nome: quantidade`) e grava o **pending** (um por jogador, TTL).
+  Log em `logs/arkland_debug.log`: `origem`, quantidade de recursos, itens lidos e a chave do item.
 * **Um pending por jogador**: `/vitrine` recusa-se (mensagem clara) se houver pending de engramas, notas, marco ou
   `/enviar`; e `/engramas`, `/notas`, `/marco`, `/enviar` (via `Vitrine::HasPending`) avisam se houver `/vitrine` pendente
   em vez de sobrescrever (nos fluxos onde isso é viável sem reescrevê-los — ver §6.3).

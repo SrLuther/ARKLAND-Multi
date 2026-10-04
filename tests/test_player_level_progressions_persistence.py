@@ -22,7 +22,7 @@ from src.asm_engine.asm_game_list_ini import (
 )
 from src.asm_engine.asm_ini_manager import read_ini, write_ini
 from src.asm_engine.asm_server_config import AsmServerConfig
-from src.player_level_ramp import total_ramp_slots
+from src.player_level_200 import level_200_ramp_values
 
 _KEY = "player_level_progressions_enabled"
 
@@ -187,7 +187,7 @@ def test_boot_with_stale_ramp_in_game_ini_does_not_reenable(env):
     srv = env.mgr.get_server(env.cfg.id)
     # estado em disco: rampa ON gravada
     text = _game_ini(env.install).read_text(encoding="utf-16")
-    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == total_ramp_slots(199)
+    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == len(level_200_ramp_values())
 
     setattr(srv, _KEY, False)
     env.mgr.update_server(srv)  # perfil salvo como OFF, mas o INI não foi regravado
@@ -203,7 +203,7 @@ def test_boot_with_stale_ramp_in_game_ini_does_not_reenable(env):
 def test_on_still_writes_ramp_and_legacy_profiles_infer_on(env):
     """Comportamento desejado preservado: ON grava rampa; perfil antigo sem chave infere ON."""
     text = _game_ini(env.install).read_text(encoding="utf-16")
-    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == total_ramp_slots(199)
+    assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == len(level_200_ramp_values())
     assert "overridemaxexperiencepointsplayer=" in text.lower()
 
     legacy_with_ramp = AsmServerConfig.from_dict({

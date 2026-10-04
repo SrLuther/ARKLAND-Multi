@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.114] - 2026-10-03
+
+### Feature
+
+- Feat (Web Store / Mercado): «Sync + ativar todas» e «Pré-cadastrar + ativar» promovem espécies PRE_REGISTERED. Um sync que volta 0/0 não apaga a tabela. Espécies INACTIVE permanecem inativas. Requer reiniciar a Web Store.
+- Feat (Web Store / Jogadores): «Jogadores & Entregas» foi unida em Gerenciar Jogadores. Requer reiniciar a Web Store.
+- Feat (Progressão): com a opção ligada, base 199 ou 200 grava o bloco de nivel200.txt (teto 1529554000, rampa e engramas). Desligada, não grava esse bloco e não remarca a opção sozinha. A progressão de 200 níveis só entra no Game.ini com o mapa parado, a opção ligada e a config salva.
+- Feat (Discord): o card único mostra os jogadores online de cada mapa (traço se a consulta falhar).
+- Feat (Saves): a lista inclui savegame, SavedArks e SavedArksLocal. Carregar um save só com o mapa desligado.
+
+### Fix
+
+- Fix (CustomShop 1.10.43 / Vitrine de Recursos): o bloco ResourceVitrine do catalog.json partilhado é a fonte da lista autorizada; o MySQL fica como cópia (a Web Store atualiza o banco a partir do arquivo na subida e ao ler a lista; o que saiu do arquivo não volta). O /vitrine consulta o MySQL primeiro e, se a lista vier vazia ou a web falhar, lê o mesmo bloco no catalog local. O Couro casa pelo path, por Blueprint, pela classe _C (BlueprintGeneratedClass/Default__) e pelo nome curto com ou sem _C; stack do cadastro e quantidade alta (x100000) não filtram a descoberta. A DLL 1.10.43 só vale depois que o mapa recarregar o plugin.
+- Fix (Web Store / Home): Mapas da Home só lista servidores sincronizados. Defaults antigos (Brighamia, The Volcano, Amissa, Crystal Isles, Genesis 2) não voltam. Requer reiniciar a Web Store.
+- Fix (Web Store / Economia): a tabela e o simulador usam só dinos do catálogo configurado. R é o preço do nível 1 e B é o prêmio floor_quality; colunas alinhadas. Requer reiniciar a Web Store.
+- Fix (TEK): o monitor geral de crashes saiu do menu. A aba de crashes do servidor, o diagnóstico e o doctor continuam.
+- Fix (Catálogo): a Web Store e o sync/boot do app não substituem o catalog.json configurado por uma cópia mais cheia nem trocam o path.
+
 ## [1.10.113] - 2026-10-03
 
 ### Fix

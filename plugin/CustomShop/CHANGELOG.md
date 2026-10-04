@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.43] - 2026-10-03
+
+### Fix
+
+- **`/vitrine`**: a lista autorizada fica no bloco `ResourceVitrine` do `catalog.json` partilhado (o arquivo que a loja e o plugin já abrem). O MySQL continua como cópia: a Web Store atualiza o banco a partir do arquivo na subida e ao ler a lista; o que saiu do arquivo não volta. O comando consulta o MySQL primeiro e, se a lista vier vazia ou a web falhar, lê o mesmo bloco no catalog local. O Couro casa pelo path, por `Blueprint'...'`, `BlueprintGeneratedClass ..._C`, `Default__..._C` e pelo nome curto com ou sem `_C`. Quantidade acima do stack vanilla (ex.: x100000) não impede o reconhecimento. Cada `/vitrine` grava uma linha em `logs/arkland_debug.log` com a origem (mysql ou arquivo), a quantidade de recursos e a chave do item lido.
+
+### Rebuild
+
+A DLL 1.10.43 só vale depois que o mapa recarregar o plugin. O `catalog.json` no disco em 1.10.42 não é esta correção.
+
 ## [1.10.42] - 2026-10-03
 
 ### Fix

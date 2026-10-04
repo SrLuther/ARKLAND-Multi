@@ -152,26 +152,35 @@ def register_resource_vitrine_routes(
     @admin_required
     @_handler
     def rv_admin_catalog(db):
+        from vitrine_catalog_sync import refresh_db_from_catalog_path
+
+        refresh_db_from_catalog_path(db)
         return jsonify({"ok": True, **svc.admin_overview(db)})
 
     @app.route(f"{PREFIX}/admin/catalog", methods=["PUT"])
     @admin_required
     @_handler
     def rv_admin_catalog_upsert(db):
-        item = svc.upsert_catalog_resource(db, _body(), admin_steam_id=_me())
+        from vitrine_catalog_sync import publish_admin_upsert
+
+        item = publish_admin_upsert(db, _body(), admin_steam_id=_me())
         return jsonify({"ok": True, "resource": item})
 
     @app.route(f"{PREFIX}/admin/catalog/<int:resource_id>", methods=["DELETE"])
     @admin_required
     @_handler
     def rv_admin_catalog_disable(db, resource_id: int):
-        return jsonify({"ok": True, **svc.disable_catalog_resource(db, resource_id, admin_steam_id=_me())})
+        from vitrine_catalog_sync import publish_admin_disable
+
+        return jsonify({"ok": True, **publish_admin_disable(db, resource_id, admin_steam_id=_me())})
 
     @app.route(f"{PREFIX}/admin/settings", methods=["PUT"])
     @admin_required
     @_handler
     def rv_admin_settings(db):
-        value = svc.set_max_types(db, _body().get("max_types_per_player"))
+        from vitrine_catalog_sync import publish_max_types
+
+        value = publish_max_types(db, _body().get("max_types_per_player"))
         svc._audit(
             db,
             "MARKET_RESOURCE_ADMIN_SETTINGS",
@@ -206,6 +215,9 @@ def register_resource_vitrine_routes(
     @_limit("120 per minute")
     @_handler
     def rv_plugin_config(db):
+        from vitrine_catalog_sync import refresh_db_from_catalog_path
+
+        refresh_db_from_catalog_path(db)
         return jsonify({"ok": True, **svc.plugin_config(db)})
 
     @app.route(f"{PREFIX}/plugin/stock/<steam_id>", methods=["GET"])

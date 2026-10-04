@@ -111,15 +111,11 @@ from src.shop_integration import (  # noqa: E402
     canonical_master_catalog_path,
     catalog_entry_counts,
     default_customshop_path,
-    ensure_webstore_catalog_config,
     is_ephemeral_pyinstaller_path,
-    is_webstore_catalog_path,
-    load_plugin_config,
     looks_like_customshop_catalog,
     slugify_server_id,
     merge_catalog_into_plugin_config,
-    migrate_catalog_to_canonical,
-    resolve_persistent_catalog_path,
+    push_catalog_to_webstore,
     resolve_web_secret,
     webstore_data_dir,
     write_and_propagate_master_catalog,
@@ -341,20 +337,17 @@ _CORS_ORIGINS = [
 app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path="")
 CORS(app, origins=_CORS_ORIGINS, supports_credentials=True)
 
+# Default só quando settings.json não tem config_path. Não migra nem copia outro
+# catalog.json por cima — isso reabria uma versão antiga mais «rica».
+_env_catalog = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip()
 try:
-    # Preferir catálogo canónico; migrar legado configs/config.json → catalog.json se preciso.
-    try:
-        migrate_catalog_to_canonical()
-    except Exception:
-        pass
-    _DEFAULT_CONFIG_PATH = str(
-        resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip())
-    )
+    if _env_catalog and not is_ephemeral_pyinstaller_path(_env_catalog):
+        _DEFAULT_CONFIG_PATH = _env_catalog
+    else:
+        _DEFAULT_CONFIG_PATH = str(canonical_master_catalog_path())
 except Exception as _catalog_boot_exc:
     log.warning("Catálogo mestre indisponível no boot: %s", _catalog_boot_exc)
-    _DEFAULT_CONFIG_PATH = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip() or str(
-        canonical_master_catalog_path()
-    )
+    _DEFAULT_CONFIG_PATH = _env_catalog
 _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
 _ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
@@ -2726,11 +2719,20 @@ def _teardown_db_session(_exc: BaseException | None = None) -> None:
 
 
 def _resolve_settings_catalog_path(configured: str = "") -> str:
-    """Mestre canônico único — migra WEBSTORE/_MEIPASS legados."""
-    raw = (configured or os.environ.get("ARKSHOP_CONFIG_PATH", "") or "").strip()
-    if is_ephemeral_pyinstaller_path(raw) or is_webstore_catalog_path(raw):
+    """Path que a Web Store lê e grava: o ``config_path`` configurado.
+
+    Não chama ``resolve_persistent_catalog_path``. Essa função (migração do app
+    desktop) devolve o mestre canônico e, se o arquivo configurado parecer
+    «truncado» frente a outra cópia, copia a mais rica por cima do disco.
+    """
+    raw = (configured or "").strip()
+    if not raw:
+        raw = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip()
+    if raw and is_ephemeral_pyinstaller_path(raw):
         raw = ""
-    return str(resolve_persistent_catalog_path(raw or canonical_master_catalog_path()))
+    if raw:
+        return raw
+    return str(_DEFAULT_CONFIG_PATH)
 
 
 def _load_settings() -> Dict[str, Any]:
@@ -3854,31 +3856,13 @@ def _catalog_files_fingerprint() -> str:
 
 
 def _read_richest_license_catalog_config() -> dict[str, Any]:
-    """Prefer config com mais licenças — evita dropdown truncado (stub só VIP)."""
-    fingerprint = _catalog_files_fingerprint()
-    cached = _RICHEST_LICENSE_CONFIG_CACHE.get("data")
-    if (
-        fingerprint
-        and _RICHEST_LICENSE_CONFIG_CACHE.get("fingerprint") == fingerprint
-        and isinstance(cached, dict)
-    ):
-        return cached
-    best = _read_shop_config()
-    best_count = _count_catalog_license_items(best)
-    for path in _collect_catalog_search_paths():
-        if not path.is_file():
-            continue
-        try:
-            candidate = load_plugin_config(path)
-        except Exception:
-            continue
-        count = _count_catalog_license_items(candidate)
-        if count > best_count:
-            best = candidate
-            best_count = count
-    _RICHEST_LICENSE_CONFIG_CACHE["fingerprint"] = fingerprint
-    _RICHEST_LICENSE_CONFIG_CACHE["data"] = best
-    return best
+    """Licenças do catalog.json configurado.
+
+    Antes varria mapas/repo e ficava com o arquivo que tinha mais licenças —
+    a loja mostrava itens de uma cópia antiga.
+    """
+    data = _read_shop_config()
+    return data if isinstance(data, dict) else {}
 
 
 def _catalog_license_options() -> list[dict[str, Any]]:
@@ -5416,10 +5400,12 @@ def _invalidate_public_catalog_cache() -> None:
 
 
 def _invalidate_shop_config_cache() -> None:
-    _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
+    _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "mtime_ns": 0, "size": 0, "data": {}})
     _RESOLVED_CATALOG_CACHE.update({
         "preferred": "",
         "preferred_mtime": 0.0,
+        "preferred_mtime_ns": None,
+        "preferred_size": None,
         "resolved_path": "",
         "data": {},
         "note": None,
@@ -5437,14 +5423,74 @@ def _invalidate_shop_config_cache() -> None:
     _ttl_cache.system_config.invalidate()
 
 
+def _catalog_file_token(path: Path) -> tuple[int, int]:
+    """mtime_ns e tamanho do catalog.json. Os dois invalidam o cache."""
+    try:
+        if path.is_file():
+            st = path.stat()
+            return int(st.st_mtime_ns), int(st.st_size)
+    except OSError:
+        pass
+    return 0, 0
+
+
+def _configured_catalog_fingerprint_part() -> str:
+    """Path configurado + mtime + tamanho, lidos do disco (não do cache em memória)."""
+    try:
+        s = _load_settings()
+        path = Path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH))
+    except Exception:
+        path = Path(str(_DEFAULT_CONFIG_PATH))
+    mtime_ns, size = _catalog_file_token(path)
+    return f"{path}|{mtime_ns}|{size}"
+
+
 def _cache_shop_config_file(path: Path, data: dict[str, Any]) -> None:
     try:
         path_key = str(path.resolve())
-        mtime = path.stat().st_mtime if path.is_file() else 0.0
+        if path.is_file():
+            st = path.stat()
+            mtime = st.st_mtime
+            mtime_ns = int(st.st_mtime_ns)
+            size = int(st.st_size)
+        else:
+            mtime, mtime_ns, size = 0.0, 0, 0
     except OSError:
         path_key = str(path)
-        mtime = 0.0
-    _CONFIG_CACHE.update({"path": path_key, "mtime": mtime, "data": data})
+        mtime, mtime_ns, size = 0.0, 0, 0
+    _CONFIG_CACHE.update({
+        "path": path_key,
+        "mtime": mtime,
+        "mtime_ns": mtime_ns,
+        "size": size,
+        "data": data,
+    })
+
+
+def _remember_resolved_catalog(
+    preferred_key: str,
+    token: tuple[int, int],
+    resolved: Path,
+    data: dict[str, Any],
+    note: str | None,
+) -> None:
+    mtime_ns, size = token
+    _cache_shop_config_file(resolved, data)
+    _RESOLVED_CATALOG_CACHE.update({
+        "preferred": preferred_key,
+        "preferred_mtime": (mtime_ns / 1_000_000_000) if mtime_ns else 0.0,
+        "preferred_mtime_ns": mtime_ns,
+        "preferred_size": size,
+        "resolved_path": str(resolved),
+        "data": data,
+        "note": note,
+    })
+    log.info(
+        "Catálogo recarregado path=%s mtime=%s size=%s",
+        resolved,
+        mtime_ns,
+        size,
+    )
 
 
 def _resolve_shop_catalog(
@@ -5452,28 +5498,35 @@ def _resolve_shop_catalog(
     persist_healed_path: bool = False,
     copy: bool = True,
 ) -> tuple[Path, dict[str, Any], str | None]:
-    """Resolve catálogo mestre (path + JSON) com cache e heal quando o path falta.
+    """Lê o catalog.json de ``config_path``.
 
-    `copy=False` devolve a referência em cache (só leitura) — evita shallow-copy O(n)
-    em paths quentes como /api/public/home.
+    Cache em memória vale só enquanto mtime e tamanho não mudam. Arquivo
+    configurado que existe nunca é trocado por outra cópia. `copy=False`
+    devolve a referência em cache (só leitura).
     """
     s = _load_settings()
     preferred = Path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH))
     pref_key = str(preferred)
-    try:
-        pref_mtime = preferred.stat().st_mtime if preferred.is_file() else 0.0
-    except OSError:
-        pref_mtime = 0.0
+    token = _catalog_file_token(preferred)
+    mtime_ns, size = token
 
     cache = _RESOLVED_CATALOG_CACHE
+    cached_resolved = Path(str(cache.get("resolved_path") or preferred))
+    same_path = True
+    if preferred.is_file():
+        try:
+            same_path = cached_resolved.resolve() == preferred.resolve()
+        except OSError:
+            same_path = str(cached_resolved) == pref_key
     if (
         cache.get("preferred") == pref_key
-        and cache.get("preferred_mtime") == pref_mtime
+        and cache.get("preferred_mtime_ns") == mtime_ns
+        and cache.get("preferred_size") == size
+        and same_path
         and isinstance(cache.get("data"), dict)
     ):
-        resolved = Path(str(cache.get("resolved_path") or preferred))
         data = cache["data"]
-        return resolved, (dict(data) if copy else data), cache.get("note")
+        return cached_resolved, (dict(data) if copy else data), cache.get("note")
 
     note: str | None = None
     resolved = preferred
@@ -5482,73 +5535,61 @@ def _resolve_shop_catalog(
     if preferred.is_file():
         data = _read_json_file(preferred)
         items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data)))
-        if items_n + kits_n > 0:
-            _cache_shop_config_file(preferred, data)
-            cache.update({
-                "preferred": pref_key,
-                "preferred_mtime": pref_mtime,
-                "resolved_path": pref_key,
-                "data": data,
-                "note": None,
-            })
-            return preferred, data, None
-        note = (
-            f"config.json sem itens/kits em {preferred}. "
-            "Verifique Configurações → caminho do catálogo ou restaure o mestre CustomShop."
-        )
-        record_event(
-            "catalog_empty",
-            level="warning",
-            config_path=str(preferred),
-            items_count=items_n,
-            kits_count=kits_n,
-            note=note[:200],
-        )
-    else:
-        record_event(
-            "config_path_missing",
-            level="warning",
-            config_path=str(preferred),
-        )
-        resolved, data, note = _heal_empty_shop_config_path(preferred)
-        if note and "recuperado" in note.lower():
-            items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data or {})))
+        if items_n + kits_n == 0:
+            note = (
+                f"config.json sem itens/kits em {preferred}. "
+                "Verifique Configurações → caminho do catálogo ou restaure o mestre CustomShop."
+            )
             record_event(
-                "config_path_healed",
-                level="info",
-                config_path=str(resolved),
+                "catalog_empty",
+                level="warning",
+                config_path=str(preferred),
                 items_count=items_n,
                 kits_count=kits_n,
                 note=note[:200],
             )
-        elif note:
-            record_event(
-                "catalog_load_failure",
-                level="warning",
-                config_path=str(resolved),
-                note=note[:200],
-            )
-        if persist_healed_path and note and resolved.is_file():
-            resolved_key = str(resolved)
-            if resolved_key != pref_key:
-                try:
-                    s["config_path"] = resolved_key
-                    _save_settings(s)
-                    _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
-                    _HEAL_RICHEST_CACHE.update({"expires": 0.0, "path": ""})
-                except Exception as exc:
-                    _log_error("heal_shop_config_persist", error=str(exc))
+        _remember_resolved_catalog(pref_key, token, preferred, data, note)
+        return preferred, (dict(data) if copy else data), note
 
-    if data:
-        _cache_shop_config_file(resolved, data)
-    cache.update({
-        "preferred": pref_key,
-        "preferred_mtime": pref_mtime,
-        "resolved_path": str(resolved),
-        "data": data,
-        "note": note,
-    })
-    return resolved, (dict(data) if copy and data else data), note
+    record_event(
+        "config_path_missing",
+        level="warning",
+        config_path=str(preferred),
+    )
+    resolved, data, note = _heal_empty_shop_config_path(preferred)
+    if note and "recuperado" in note.lower():
+        items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data or {})))
+        record_event(
+            "config_path_healed",
+            level="info",
+            config_path=str(resolved),
+            items_count=items_n,
+            kits_count=kits_n,
+            note=note[:200],
+        )
+    elif note:
+        record_event(
+            "catalog_load_failure",
+            level="warning",
+            config_path=str(resolved),
+            note=note[:200],
+        )
+    if persist_healed_path and note and resolved.is_file():
+        resolved_key = str(resolved)
+        if resolved_key != pref_key:
+            try:
+                s["config_path"] = resolved_key
+                _save_settings(s)
+                _CONFIG_CACHE.update({
+                    "path": "", "mtime": 0.0, "mtime_ns": 0, "size": 0, "data": {},
+                })
+                _HEAL_RICHEST_CACHE.update({"expires": 0.0, "path": ""})
+            except Exception as exc:
+                _log_error("heal_shop_config_persist", error=str(exc))
+
+    payload = data if isinstance(data, dict) else {}
+    _remember_resolved_catalog(pref_key, token, resolved, payload, note)
+    return resolved, (dict(payload) if copy and payload else payload), note
 
 
 def _read_shop_config() -> dict[str, Any]:
@@ -6084,8 +6125,12 @@ def _normalize_entitlement_group(group: str) -> str:
 
 def _timed_points_groups_amounts() -> dict[str, int]:
     """Amount por grupo a partir de TimedPointsReward.Groups (fonte de verdade do plugin)."""
+    _read_shop_config()
     cache = _RESOLVED_CATALOG_CACHE
-    fingerprint = f"{cache.get('preferred', '')}:{cache.get('preferred_mtime', 0.0)}"
+    fingerprint = (
+        f"{cache.get('preferred', '')}:{cache.get('preferred_mtime_ns', 0)}:"
+        f"{cache.get('preferred_size', 0)}"
+    )
     tp_cache = _TIMED_POINTS_AMOUNTS_CACHE
     if tp_cache.get("fingerprint") == fingerprint and isinstance(tp_cache.get("amounts"), dict):
         return dict(tp_cache["amounts"])
@@ -7863,7 +7908,7 @@ def _rcon_command_blocked_reason(command: str) -> str | None:
     if token in _RCON_BLOCKED_COMMANDS:
         return (
             "Este comando é gerenciado fora do jogo (banco central / painel web). "
-            "Use Jogadores & Entregas para pontos e entregas."
+            "Use Gerenciar Jogadores para pontos e entregas."
         )
     return None
 
@@ -10447,79 +10492,40 @@ def _catalog_shop_counts(data: dict[str, Any]) -> tuple[int, int]:
 
 
 def _heal_empty_shop_config_path(preferred: Path) -> tuple[Path, dict[str, Any] | None, str | None]:
-    """Recupera catálogo quando o path configurado falta (não quando está vazio de propósito).
+    """Não troca o path configurado e não copia outro catalog.json por cima.
 
-    Bug admin «Nenhum item cadastrado»: GET /api/config devolvia ShopItems/Kits={}
-    com 200 se o ficheiro não existia — UI tratava como catálogo válido vazio.
+    Arquivo ausente fica ausente. A cópia «mais rica» (mapa, repo, WEBSTORE)
+    regravava a versão antiga depois de um save menor.
     """
-    from src.shop_integration import (
-        _collect_catalog_search_paths,
-        _pick_richest_catalog_path,
-        catalog_entry_total,
-        load_plugin_config,
-        resolve_persistent_catalog_path,
-    )
-
     if preferred.is_file():
         data = _read_json_file(preferred)
         items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data)))
         if items_n + kits_n > 0:
             return preferred, data, None
-        # Ficheiro existe mas sem itens/kits — não sobrescrever; aviso explícito.
         return preferred, data, (
             f"config.json sem itens/kits em {preferred}. "
             "Verifique Configurações → caminho do catálogo ou restaure o mestre CustomShop."
         )
 
-    # Path em falta → resolve/migra a partir de candidatos (mapas, AppData, plugin).
-    note: str | None = None
-    try:
-        healed = Path(resolve_persistent_catalog_path(str(preferred) if preferred else ""))
-    except Exception as exc:
-        _log_error("heal_shop_config_resolve", path=str(preferred), error=str(exc))
-        healed = preferred
-
-    if healed.is_file():
-        data = _read_json_file(healed)
-        items_n, kits_n = _catalog_shop_counts(_normalize_config_to_web(dict(data)))
-        if items_n + kits_n > 0:
-            note = f"Catálogo recuperado de {healed}"
-            return healed, data, note
-
-    now = time.monotonic()
-    richest: Path | None = None
-    cached_richest = str(_HEAL_RICHEST_CACHE.get("path") or "").strip()
-    if cached_richest and now < float(_HEAL_RICHEST_CACHE.get("expires") or 0):
-        candidate = Path(cached_richest)
-        if candidate.is_file():
-            richest = candidate
-    if richest is None:
-        try:
-            richest = _pick_richest_catalog_path(_collect_catalog_search_paths())
-        except Exception:
-            richest = None
-        _HEAL_RICHEST_CACHE["path"] = str(richest) if richest else ""
-        _HEAL_RICHEST_CACHE["expires"] = now + 120.0
-    if richest is not None and richest.is_file():
-        try:
-            total = catalog_entry_total(load_plugin_config(richest))
-        except Exception:
-            total = 0
-        if total > 0:
-            note = f"Catálogo recuperado da fonte mais completa ({richest})"
-            try:
-                preferred.parent.mkdir(parents=True, exist_ok=True)
-                import shutil
-
-                shutil.copy2(richest, preferred)
-                return preferred, _read_json_file(preferred), note
-            except OSError:
-                return richest, _read_json_file(richest), note
-
     return preferred, {}, (
         f"config.json em falta: {preferred}. "
         "Defina o caminho em Configurações → config_path."
     )
+
+
+def _shop_config_ttl_fresh(payload: dict[str, Any]) -> bool:
+    """O TTL de /api/config não pode devolver o JSON se o arquivo mudou."""
+    path = Path(str(payload.get("_config_path") or ""))
+    if not str(path):
+        return False
+    mtime_ns, size = _catalog_file_token(path)
+    try:
+        return (
+            int(payload.get("_catalog_mtime_ns")) == mtime_ns
+            and int(payload.get("_catalog_size")) == size
+        )
+    except (TypeError, ValueError):
+        return False
 
 
 @app.route("/api/config", methods=["GET"])
@@ -10532,7 +10538,7 @@ def get_config():
     """
     t0 = time.perf_counter()
     cached = _ttl_cache.system_config.get("shop_config")
-    if cached is not None:
+    if isinstance(cached, dict) and _shop_config_ttl_fresh(cached):
         resp = jsonify(cached)
         resp.headers["X-Short-Cache"] = "HIT"
         return resp
@@ -10566,6 +10572,9 @@ def get_config():
             _log("get_config_healed", path=str(healed_path), note=note, items=items_n, kits=kits_n)
         data["ok"] = True
         data["_timing_ms"] = int((time.perf_counter() - t0) * 1000)
+        mtime_ns, size = _catalog_file_token(healed_path)
+        data["_catalog_mtime_ns"] = mtime_ns
+        data["_catalog_size"] = size
         _ttl_cache.system_config.set("shop_config", data)
         _ttl_cache.products.set("admin_config_counts", {
             "items": items_n,
@@ -11397,12 +11406,12 @@ def public_home():
 
 
 def _public_home_sources_fingerprint() -> str:
-    """Invalida cache se catálogo ou servers.json mudarem antes do TTL."""
+    """Invalida cache se o catalog.json configurado ou servers.json mudarem."""
     try:
-        srv_m = _SERVERS_FILE.stat().st_mtime if _SERVERS_FILE.exists() else 0.0
+        srv_m = _SERVERS_FILE.stat().st_mtime_ns if _SERVERS_FILE.exists() else 0
     except OSError:
-        srv_m = -1.0
-    return f"{_CONFIG_CACHE.get('path')}|{_CONFIG_CACHE.get('mtime')}|{srv_m}"
+        srv_m = -1
+    return f"{_configured_catalog_fingerprint_part()}|{srv_m}"
 
 
 def _store_public_home_payload(payload: dict[str, Any], built_ms: int) -> dict[str, Any]:
@@ -11759,12 +11768,12 @@ def public_exchange_rates():
 # ── Catalog (público, sem autenticação) ───────────────────────────────────────
 
 def _public_catalog_sources_fingerprint() -> str:
-    """Invalida cache se catálogo ou settings mudarem antes do TTL."""
+    """Invalida cache se o catalog.json configurado ou settings.json mudarem."""
     try:
-        st_m = _STATE_FILE.stat().st_mtime if _STATE_FILE.exists() else 0.0
+        st_m = _STATE_FILE.stat().st_mtime_ns if _STATE_FILE.exists() else 0
     except OSError:
-        st_m = -1.0
-    return f"{_CONFIG_CACHE.get('path')}|{_CONFIG_CACHE.get('mtime')}|{st_m}"
+        st_m = -1
+    return f"{_configured_catalog_fingerprint_part()}|{st_m}"
 
 
 def _get_cached_catalog_payload() -> tuple[dict[str, Any], str]:
@@ -12345,12 +12354,14 @@ def _featured_slug_keys(raw: str) -> set[str]:
 
 def _featured_map_overrides_index(
     manual_maps: list[dict[str, Any]],
+    *,
+    include_disabled: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     """Índice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
     by_id: dict[str, dict[str, Any]] = {}
     by_slug: dict[str, dict[str, Any]] = {}
     for m in manual_maps:
-        if m.get("enabled", True) is False:
+        if not include_disabled and m.get("enabled", True) is False:
             continue
         sid = str(m.get("server_id") or "").strip()
         if sid:
@@ -12526,10 +12537,11 @@ def _write_catalog_data(data: dict[str, Any]) -> bool:
 
 
 def _load_featured_maps_raw(catalog: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Overrides gravados no catálogo (texto, badge, ativo). Sem defaults embutidos."""
     data = catalog if isinstance(catalog, dict) else _read_catalog_data()
     raw = data.get("FeaturedMaps")
     if not isinstance(raw, list) or not raw:
-        return deepcopy(_default_featured_maps())
+        return []
     out: list[dict[str, Any]] = []
     for item in raw:
         if not isinstance(item, dict):
@@ -12547,13 +12559,90 @@ def _load_featured_maps_raw(catalog: dict[str, Any] | None = None) -> list[dict[
             "server_id": str(item.get("server_id") or "").strip(),
         })
     out.sort(key=lambda m: (int(m.get("sort_order", 0) or 0), m.get("name", "")))
-    defaults = _default_featured_maps()
-    known_ids = {m["id"] for m in out}
-    for default_map in defaults:
-        if default_map["id"] not in known_ids:
-            out.append(deepcopy(default_map))
-    out.sort(key=lambda m: (int(m.get("sort_order", 0) or 0), m.get("name", "")))
-    return out or deepcopy(_default_featured_maps())
+    return out
+
+
+def _home_servers_for_featured(
+    servers: list[Dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Servidores sincronizados que entram na home (show_on_home)."""
+    if servers is None:
+        servers = _load_servers(decrypt_secrets=False)
+    out: list[dict[str, Any]] = []
+    for srv in servers or []:
+        if not isinstance(srv, dict):
+            continue
+        if not str(srv.get("server_id") or "").strip():
+            continue
+        if srv.get("show_on_home", True) is False:
+            continue
+        out.append(srv)
+    return out
+
+
+def _reconcile_featured_maps(
+    servers: list[Dict[str, Any]] | None = None,
+    catalog: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Lista da página Mapas da Home: só servidores syncados agora.
+
+    Texto promocional, badge Mod/oficial, ordem e «ativo» salvos para um mapa
+    que ainda existe são preservados. Entrada antiga do catálogo ou default
+    embutido que não casa com um servidor atual não volta para a lista.
+    """
+    home_servers = _home_servers_for_featured(servers)
+    stored = _load_featured_maps_raw(catalog)
+    by_id, by_slug = _featured_map_overrides_index(stored, include_disabled=True)
+    used_ids: set[str] = set()
+    out: list[dict[str, Any]] = []
+    ordered = sorted(
+        home_servers,
+        key=lambda s: str(s.get("label") or s.get("server_id") or "").lower(),
+    )
+    for idx, srv in enumerate(ordered):
+        sid = str(srv.get("server_id") or "").strip()
+        label = str(srv.get("label") or sid).strip()
+        server_map = str(srv.get("server_map") or "").strip()
+        ov = _lookup_featured_override(srv, by_id, by_slug)
+        ov_id = str(ov.get("id") or "").strip() if ov else ""
+        if ov_id and ov_id in used_ids:
+            ov = None
+            ov_id = ""
+        if ov_id:
+            used_ids.add(ov_id)
+        if ov:
+            name = str(ov.get("name") or label).strip() or label
+            mod_map = (
+                bool(ov.get("mod_map"))
+                if "mod_map" in ov
+                else _guess_mod_map(server_map, name)
+            )
+            description = str(ov.get("description") or "").strip()
+            sort_order = int(ov.get("sort_order", idx) or 0)
+            enabled = ov.get("enabled", True) is not False
+            map_id = ov_id or sid
+            server_id = sid
+        else:
+            name = label or server_map or sid
+            mod_map = _guess_mod_map(server_map, name)
+            description = ""
+            sort_order = 1000 + idx
+            enabled = True
+            map_id = sid
+            server_id = sid
+        if not description:
+            description = _featured_description_fallback(srv, ov)
+        out.append({
+            "id": map_id[:48],
+            "name": name,
+            "mod_map": mod_map,
+            "description": description,
+            "sort_order": sort_order,
+            "enabled": enabled,
+            "server_id": server_id,
+        })
+    out.sort(key=lambda m: (int(m.get("sort_order", 0) or 0), str(m.get("name") or "")))
+    return out
 
 
 def _save_featured_maps(maps: list[dict[str, Any]]) -> bool:
@@ -12586,70 +12675,38 @@ def _load_featured_maps_public(
 
     if servers is None:
         servers = _load_servers(decrypt_secrets=False)
-    home_servers = [
-        s for s in servers
-        if isinstance(s, dict)
-        and str(s.get("server_id") or "").strip()
-        and s.get("show_on_home", True) is not False
+    rows = [
+        row for row in _reconcile_featured_maps(servers, catalog)
+        if row.get("enabled", True) is not False
     ]
-    manual_maps = _load_featured_maps_raw(catalog)
-    by_id_ov, by_slug_ov = _featured_map_overrides_index(manual_maps)
-
-    if home_servers:
-        out: list[dict[str, Any]] = []
-        for srv in sorted(
-            home_servers,
-            key=lambda s: str(s.get("label") or s.get("server_id") or "").lower(),
-        ):
-            sid = str(srv.get("server_id") or "").strip()
-            label = str(srv.get("label") or sid).strip()
-            server_map = str(srv.get("server_map") or "").strip()
-            display_name = label or server_map or sid
-            ov = _lookup_featured_override(srv, by_id_ov, by_slug_ov)
-
-            snap = srv.get("config_snapshot")
-            stats = snapshot_public_view(snap) if isinstance(snap, dict) else None
-            if not stats:
-                pseudo = {"server_id": sid, "name": display_name, "id": sid}
-                stats = match_snapshot_for_map(
-                    pseudo, *build_snapshot_indexes(servers),
-                )
-
-            if ov and ov.get("name"):
-                display_name = str(ov["name"]).strip()
-
-            entry: dict[str, Any] = {
-                "name": display_name,
-                "mod_map": (
-                    bool(ov.get("mod_map"))
-                    if ov and "mod_map" in ov
-                    else _guess_mod_map(server_map, display_name)
-                ),
-                "description": _featured_description_fallback(srv, ov),
-            }
-            if stats:
-                entry["stats"] = stats
-            out.append(entry)
-        return out
-
-    by_id, by_slug = build_snapshot_indexes(servers)
-    out = []
-    for m in manual_maps:
-        if m.get("enabled", True) is False:
-            continue
-        entry = {
-            "name": m.get("name", ""),
-            "mod_map": bool(m.get("mod_map", False)),
-            "description": _featured_description_fallback(
-                {
-                    "label": m.get("name"),
-                    "server_map": m.get("id"),
-                    "server_id": m.get("server_id") or "",
-                },
-                m,
-            ),
+    by_sid = {
+        str(s.get("server_id") or "").strip(): s
+        for s in (servers or [])
+        if isinstance(s, dict) and str(s.get("server_id") or "").strip()
+    }
+    snap_indexes = None
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        sid = str(row.get("server_id") or "").strip()
+        srv = by_sid.get(sid) if sid else None
+        entry: dict[str, Any] = {
+            "name": row.get("name") or "",
+            "mod_map": bool(row.get("mod_map")),
+            "description": str(row.get("description") or ""),
         }
-        stats = match_snapshot_for_map(m, by_id, by_slug)
+        snap = srv.get("config_snapshot") if isinstance(srv, dict) else None
+        stats = snapshot_public_view(snap) if isinstance(snap, dict) else None
+        if not stats:
+            if snap_indexes is None:
+                snap_indexes = build_snapshot_indexes(servers)
+            stats = match_snapshot_for_map(
+                {
+                    "server_id": sid,
+                    "name": row.get("name"),
+                    "id": row.get("id") or sid,
+                },
+                *snap_indexes,
+            )
         if stats:
             entry["stats"] = stats
         out.append(entry)
@@ -12667,7 +12724,7 @@ def get_featured_maps_admin():
     section = _featured_maps_section_meta()
     return jsonify({
         "ok": True,
-        "maps": _load_featured_maps_raw(),
+        "maps": _reconcile_featured_maps(),
         "section": section,
     })
 
@@ -12737,13 +12794,67 @@ def update_featured_map(map_id: str):
                 return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
             _log("featured_map_updated", id=map_id, admin=_steam_id_from_session())
             return jsonify({"ok": True, "map": maps[i]})
-    return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
+    live = next(
+        (
+            row for row in _reconcile_featured_maps()
+            if row.get("id") == map_id or row.get("server_id") == map_id
+        ),
+        None,
+    )
+    if not live:
+        return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
+    entry = {
+        "id": map_id,
+        "name": str(body.get("name", live.get("name", ""))).strip(),
+        "mod_map": body.get("mod_map", live.get("mod_map", True)) is not False,
+        "description": str(body.get("description", live.get("description", ""))).strip(),
+        "sort_order": int(body.get("sort_order", live.get("sort_order", 0)) or 0),
+        "enabled": body.get("enabled", live.get("enabled", True)) is not False,
+        "server_id": str(body.get("server_id", live.get("server_id", "")) or "").strip(),
+    }
+    maps.append(entry)
+    if not _save_featured_maps(maps):
+        return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
+    _log("featured_map_updated", id=map_id, admin=_steam_id_from_session())
+    return jsonify({"ok": True, "map": entry})
 
 
 @app.route("/api/featured-maps/<map_id>", methods=["DELETE"])
 @admin_required
 def delete_featured_map(map_id: str):
     maps = _load_featured_maps_raw()
+    live = next(
+        (
+            row for row in _reconcile_featured_maps()
+            if row.get("id") == map_id or row.get("server_id") == map_id
+        ),
+        None,
+    )
+    if live:
+        # Servidor ainda sincronizado: esconde da home pública e mantém o texto.
+        found = False
+        for i, m in enumerate(maps):
+            if m.get("id") == map_id or m.get("id") == live.get("id"):
+                updated = dict(m)
+                updated["enabled"] = False
+                updated["server_id"] = str(live.get("server_id") or m.get("server_id") or "")
+                maps[i] = updated
+                found = True
+                break
+        if not found:
+            maps.append({
+                "id": str(live.get("id") or map_id)[:48],
+                "name": str(live.get("name") or map_id),
+                "mod_map": bool(live.get("mod_map")),
+                "description": str(live.get("description") or ""),
+                "sort_order": int(live.get("sort_order", 0) or 0),
+                "enabled": False,
+                "server_id": str(live.get("server_id") or ""),
+            })
+        if not _save_featured_maps(maps):
+            return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
+        _log("featured_map_deleted", id=map_id, admin=_steam_id_from_session())
+        return jsonify({"ok": True, "removed": 1, "enabled": False})
     new_list = [m for m in maps if m.get("id") != map_id]
     if len(new_list) == len(maps):
         return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
@@ -17583,13 +17694,16 @@ if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
         except Exception as _boot_workers_exc:
             log.warning("runtime_workers boot start failed: %s", _boot_workers_exc)
 
-# Recupera WEBSTORE/config.json stub no arranque (não bloqueia se falhar).
-try:
-    _boot_master = Path(_DEFAULT_CONFIG_PATH)
-    if _boot_master.is_file():
-        ensure_webstore_catalog_config(_boot_master)
-except Exception as _boot_cat_exc:
-    log.warning("ensure_webstore_catalog_config no boot: %s", _boot_cat_exc)
+# Espelha o catalog.json configurado para WEBSTORE/config.json.
+# Não usa ensure/resolve: esses copiavam a fonte mais rica por cima do mestre.
+if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
+    try:
+        _boot_settings = _load_settings()
+        _boot_master = Path(str(_boot_settings.get("config_path") or _DEFAULT_CONFIG_PATH))
+        if _boot_master.is_file():
+            push_catalog_to_webstore(_boot_master)
+    except Exception as _boot_cat_exc:
+        log.warning("push_catalog_to_webstore no boot: %s", _boot_cat_exc)
 
 
 def _log_boot_snapshot() -> None:

@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "ShopVitrine.h"
+#include "ShopDebug.h"
+#include "VitrineMatch.h"
 #include "ShopBridge.h"
 #include "ShopCloudInventory.h"
 #include "ShopConfig.h"
@@ -12,6 +14,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <fstream>
 #include <cmath>
 #include <ctime>
 #include <mutex>
@@ -124,12 +127,6 @@ long long NowUnix() {
     return static_cast<long long>(std::time(nullptr));
 }
 
-void StripClassSuffix(std::string& name) {
-    if (name.size() > 2 && name[name.size() - 2] == '_'
-        && (name.back() == 'C' || name.back() == 'c'))
-        name.resize(name.size() - 2);
-}
-
 /**
  * Espelha `normalize_blueprint` do backend (resource_vitrine_service.py).
  * Aceita o que o admin cola e o que o ARK reporta do mesmo item:
@@ -137,72 +134,16 @@ void StripClassSuffix(std::string& name) {
  * e o CDO "…/X.Default__X_C". canonical = /Game/.../X.X (sem _C); key = minusculo.
  */
 bool NormalizeBlueprint(const std::string& raw, std::string* canonical, std::string* key) {
-    if (raw.empty() || raw.size() > 400) return false;
-
-    size_t pos = std::string::npos;
-    for (const char* root : {"/Game/", "/Script/", "/Engine/"}) {
-        const size_t p = raw.find(root);
-        if (p != std::string::npos && (pos == std::string::npos || p < pos))
-            pos = p;
-    }
-    if (pos == std::string::npos) return false;
-
-    size_t end = pos;
-    while (end < raw.size()) {
-        const unsigned char ch = static_cast<unsigned char>(raw[end]);
-        if (std::isalnum(ch) || ch == '_' || ch == '.' || ch == '/' || ch == '-')
-            ++end;
-        else
-            break;
-    }
-    std::string path = raw.substr(pos, end - pos);
-    while (!path.empty() && (path.back() == '/' || path.back() == '.'))
-        path.pop_back();
-
-    const size_t slash = path.rfind('/');
-    const size_t dot = path.rfind('.');
-    if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
-        std::string obj = path.substr(dot + 1);
-        if (obj.size() > 9 && obj.compare(0, 9, "Default__") == 0)
-            obj = obj.substr(9);
-        StripClassSuffix(obj);
-        if (obj.empty()) return false;
-        path = path.substr(0, dot + 1) + obj;
-    } else {
-        StripClassSuffix(path);
-        const size_t slash2 = path.rfind('/');
-        const std::string last = (slash2 == std::string::npos) ? path : path.substr(slash2 + 1);
-        if (last.empty()) return false;
-        if (last.find('.') == std::string::npos)
-            path += "." + last;
-    }
-    if (path.size() > 255 || path.find("..") != std::string::npos) return false;
-
-    if (canonical) *canonical = path;
-    if (key) *key = ToLower(path);
+    const VitrineMatch::Identity id = VitrineMatch::Identify(raw);
+    if (id.path.empty()) return false;
+    if (canonical) *canonical = id.path;
+    if (key) *key = id.key;
     return true;
 }
 
 /** Token da classe: `PrimalItemResource_Metal` a partir do path, do CDO ou de "Package.Class_C". */
-std::string ShortToken(std::string s) {
-    if (s.empty()) return {};
-    const auto sp = s.find_last_of(" \t");
-    if (sp != std::string::npos) s = s.substr(sp + 1);
-    while (!s.empty() && (s.back() == '\'' || s.back() == '"')) s.pop_back();
-    while (!s.empty() && (s.front() == '\'' || s.front() == '"')) s.erase(s.begin());
-    const auto slash = s.rfind('/');
-    if (slash != std::string::npos) s = s.substr(slash + 1);
-    const auto dot = s.rfind('.');
-    if (dot != std::string::npos && dot + 1 < s.size()) s = s.substr(dot + 1);
-    if (s.size() > 9 && s.compare(0, 9, "Default__") == 0) s = s.substr(9);
-    StripClassSuffix(s);
-    for (char& ch : s)
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    if (s.size() < 8 || s.size() > 80 || s.find('_') == std::string::npos) return {};
-    for (unsigned char ch : s) {
-        if (!(std::isalnum(ch) || ch == '_')) return {};
-    }
-    return s;
+std::string ShortToken(const std::string& s) {
+    return VitrineMatch::Identify(s).short_key;
 }
 
 std::string NewUploadId() {
@@ -238,8 +179,11 @@ bool PlayerReady(AShooterPlayerController* player) {
 
 struct ItemIdentity {
     std::string full_key;
+    std::string alt_key;
     std::string short_key;
     std::string canonical;
+    std::string raw;
+    std::vector<std::string> keys;
 };
 
 /**
@@ -254,22 +198,27 @@ ItemIdentity IdentifyItem(UPrimalItem* item) {
     UClass* cls = item->ClassField();
     if (!cls) return id;
 
+    const auto remember = [&](const std::string& key) {
+        if (key.empty()) return;
+        if (std::find(id.keys.begin(), id.keys.end(), key) == id.keys.end())
+            id.keys.push_back(key);
+    };
     const auto take = [&](const std::string& raw) {
         if (raw.empty()) return;
-        std::string canon;
-        std::string key;
-        if (NormalizeBlueprint(raw, &canon, &key)) {
+        if (id.raw.empty()) id.raw = raw;
+        const VitrineMatch::Identity parsed = VitrineMatch::Identify(raw);
+        if (!parsed.key.empty()) {
             if (id.full_key.empty()) {
-                id.full_key = key;
-                id.canonical = canon;
-                const std::string token = ShortToken(key);
-                if (!token.empty()) id.short_key = token;
+                id.full_key = parsed.key;
+                id.canonical = parsed.path;
+            } else if (parsed.key != id.full_key && id.alt_key.empty()) {
+                id.alt_key = parsed.key;
             }
-            return;
+            remember(parsed.key);
         }
-        if (id.short_key.empty()) {
-            const std::string token = ShortToken(raw);
-            if (!token.empty()) id.short_key = token;
+        if (!parsed.short_key.empty()) {
+            if (id.short_key.empty()) id.short_key = parsed.short_key;
+            remember(parsed.short_key);
         }
     };
 
@@ -331,14 +280,17 @@ PlainReject ClassifyPlain(UPrimalItem* item, UPrimalInventoryComponent* inv) {
     if (item->bEquippedItem().Get()) return PlainReject::Equipped;
     if (item->bUseItemDurability().Get()) return PlainReject::Durability;
     if (item->ItemRatingField() > 0.0001f) return PlainReject::Rating;
-    if (item->GetItemQuantity() <= 0) return PlainReject::Qty;
+    const int qty = item->GetItemQuantity();
+    if (qty <= 0) return PlainReject::Qty;
 
     UPrimalInventoryComponent* owner = item->OwnerInventoryField().Get();
     if (owner && owner != inv) return PlainReject::Owner;
 
     UWorld* world = ArkApi::GetApiUtils().GetWorld();
     if (!world) return PlainReject::Qty;
-    if (MaxStackOf(item, world) <= 1) return PlainReject::MaxStack;
+    // Stack do cadastro nao filtra. Quantidade acima do maximo vanilla (Couro x100000
+    // com hide em 100/200) continua sendo o recurso. So rejeita item realmente nao empilhavel.
+    if (MaxStackOf(item, world) <= 1 && qty <= 1) return PlainReject::MaxStack;
     return PlainReject::Ok;
 }
 
@@ -395,6 +347,10 @@ struct InventoryScan {
     std::unordered_map<std::string, int> blocked;  // chave -> PlainReject
     std::vector<std::string> sample;
     int plain_stacks = 0;
+    int items_read = 0;
+    std::string trace_raw;
+    std::string trace_key;
+    bool saw_hide = false;
 };
 
 InventoryScan ScanInventory(AShooterPlayerController* player) {
@@ -413,8 +369,16 @@ InventoryScan ScanInventory(AShooterPlayerController* player) {
     std::unordered_set<std::string> short_ambiguous;
 
     for (UPrimalItem* item : CollectPersonalItems(inv)) {
+        ++scan.items_read;
         const ItemIdentity id = IdentifyItem(item);
-        if (id.full_key.empty() && id.short_key.empty()) continue;
+        const std::string blob = ToLower(id.raw + " " + id.canonical + " " + id.short_key + " " + id.full_key);
+        const bool is_hide = blob.find("primalitemresource_hide") != std::string::npos;
+        if (!scan.saw_hide && (scan.trace_raw.empty() || is_hide)) {
+            scan.trace_raw = id.raw;
+            scan.trace_key = !id.full_key.empty() ? id.full_key : id.short_key;
+            if (is_hide) scan.saw_hide = true;
+        }
+        if (id.full_key.empty() && id.short_key.empty() && id.alt_key.empty()) continue;
         Row row;
         row.id = id;
         row.reject = static_cast<int>(ClassifyPlain(item, inv));
@@ -454,16 +418,17 @@ InventoryScan ScanInventory(AShooterPlayerController* player) {
                 && row.reject != static_cast<int>(PlainReject::Qty)
                 && row.reject != static_cast<int>(PlainReject::Owner)) {
                 note_blocked(row.id.full_key, row.reject);
+                note_blocked(row.id.alt_key, row.reject);
                 if (!short_ambiguous.count(row.id.short_key))
                     note_blocked(row.id.short_key, row.reject);
             }
             continue;
         }
         ++scan.plain_stacks;
-        bump(row.id.full_key, row);
-        if (!row.id.short_key.empty() && row.id.short_key != row.id.full_key
-            && !short_ambiguous.count(row.id.short_key))
-            bump(row.id.short_key, row);
+        for (const std::string& key : row.id.keys) {
+            if (key.find('/') == std::string::npos && short_ambiguous.count(key)) continue;
+            bump(key, row);
+        }
     }
     return scan;
 }
@@ -1055,11 +1020,112 @@ bool FetchConfig(std::vector<Resource>& out, int& max_types) {
         }
         res.key = key;
         res.short_key = ShortToken(res.key);
+        if (res.short_key.empty()) res.short_key = ShortToken(res.blueprint);
         if (res.id <= 0 || res.key.empty() || res.blueprint.empty()) continue;
         if (res.name_ascii.empty()) res.name_ascii = "Recurso " + std::to_string(res.id);
         out.push_back(std::move(res));
     }
     return true;
+}
+
+bool FillCatalogResource(const nlohmann::json& r, Resource& res, bool require_id) {
+    if (!r.is_object()) return false;
+    if (r.contains("enabled") && !r["enabled"].is_null()) {
+        bool enabled = true;
+        if (r["enabled"].is_boolean()) enabled = r["enabled"].get<bool>();
+        else if (r["enabled"].is_number()) enabled = r["enabled"].get<int>() != 0;
+        if (!enabled) return false;
+    }
+    res.id = JsonGet<int>(r, "id", 0);
+    res.blueprint = JsonGet<std::string>(r, "blueprint", "");
+    res.name = JsonGet<std::string>(r, "name", "");
+    res.name_ascii = JsonGet<std::string>(r, "name_ascii", res.name);
+    res.stack_size = JsonGet<int>(r, "stack_size", 0);
+    const VitrineMatch::Identity ident = VitrineMatch::Identify(res.blueprint);
+    if (!ident.key.empty()) {
+        res.blueprint = ident.path;
+        res.key = ident.key;
+    } else if (!ident.short_key.empty()) {
+        res.key = ident.short_key;
+        if (res.blueprint.empty()) res.blueprint = ident.short_key;
+    }
+    res.short_key = !ident.short_key.empty() ? ident.short_key : ShortToken(res.key);
+    if (require_id && res.id <= 0) return false;
+    if (res.key.empty()) return false;
+    if (res.name_ascii.empty()) res.name_ascii = res.name.empty() ? std::string("Recurso") : res.name;
+    return true;
+}
+
+/** true se o arquivo tem o bloco (mesmo com zero recursos habilitados). */
+bool ParseVitrineBlock(const nlohmann::json& root, std::vector<Resource>& out, int& max_types) {
+    const nlohmann::json* block = nullptr;
+    if (root.contains("ResourceVitrine") && root["ResourceVitrine"].is_object())
+        block = &root["ResourceVitrine"];
+    else if (root.contains("VitrineResources") && root["VitrineResources"].is_object())
+        block = &root["VitrineResources"];
+    if (!block) return false;
+    if (block->contains("resources") && !(*block)["resources"].is_array()) return false;
+    max_types = std::max(1, JsonGet<int>(*block, "max_types_per_player", max_types > 0 ? max_types : 5));
+    out.clear();
+    if (block->contains("resources")) {
+        for (const auto& r : (*block)["resources"]) {
+            Resource res;
+            if (!FillCatalogResource(r, res, false)) continue;
+            out.push_back(std::move(res));
+        }
+    }
+    return true;
+}
+
+bool LoadResourcesFromCatalogFile(std::vector<Resource>& out, int& max_types, std::string& path_used) {
+    out.clear();
+    path_used.clear();
+    const ShopConfig& cfg = ShopConfig::Get();
+    std::vector<std::string> paths;
+    if (!cfg.SharedCatalogPath().empty()) paths.push_back(cfg.SharedCatalogPath());
+    if (!cfg.LocalConfigPath().empty() && cfg.LocalConfigPath() != cfg.SharedCatalogPath())
+        paths.push_back(cfg.LocalConfigPath());
+    for (const std::string& path : paths) {
+        std::ifstream file(path);
+        if (!file.is_open()) continue;
+        nlohmann::json root;
+        try {
+            file >> root;
+        } catch (...) {
+            continue;
+        }
+        if (!root.is_object()) continue;
+        std::vector<Resource> parsed;
+        int mt = max_types;
+        if (!ParseVitrineBlock(root, parsed, mt)) continue;
+        path_used = path;
+        max_types = mt;
+        out = std::move(parsed);
+        return true;
+    }
+    return false;
+}
+
+void LogVitrineRead(const std::string& origem, const std::string& arquivo,
+                    const std::vector<Resource>& resources, const InventoryScan& scan) {
+    std::string chave = scan.trace_key;
+    std::string cru = scan.trace_raw;
+    if (cru.size() > 180) cru.resize(180);
+    for (char& ch : cru) {
+        if (ch == '\n' || ch == '\r') ch = ' ';
+    }
+    std::string msg = "vitrine origem=" + origem
+        + " recursos=" + std::to_string(resources.size())
+        + " itens=" + std::to_string(scan.items_read)
+        + " chave=" + (chave.empty() ? std::string("-") : chave)
+        + " cru=" + (cru.empty() ? std::string("-") : cru);
+    if (!resources.empty()) {
+        const std::string cadastro = !resources[0].key.empty() ? resources[0].key : resources[0].short_key;
+        if (!cadastro.empty()) msg += " cadastro=" + cadastro;
+    }
+    if (!arquivo.empty()) msg += " arquivo=" + arquivo;
+    Debug::WriteAlways("Vitrine", msg);
+    Log::GetLog()->info("ShopVitrine: {}", msg);
 }
 
 bool FetchStock(const std::string& steam_id, std::set<int>& types, int& max_types) {
@@ -1131,20 +1197,34 @@ void CmdVitrine(AShooterPlayerController* player, FString*, EChatSendMode::Type)
 
     std::vector<Resource> resources;
     int max_types = 0;
-    if (!FetchConfig(resources, max_types)) {
-        SendMsg(player, "Vitrine indisponivel no momento (web). Nada foi removido. Tente mais tarde.");
-        return;
-    }
-    if (resources.empty()) {
-        SendMsg(player, "Nenhum recurso esta autorizado na vitrine ainda. Veja a loja web.");
-        return;
+    std::string origem = "vazio";
+    std::string arquivo;
+    const bool http_ok = FetchConfig(resources, max_types);
+    if (http_ok && !resources.empty()) {
+        origem = "mysql";
+    } else {
+        std::vector<Resource> from_file;
+        int file_max = max_types;
+        std::string file_path;
+        const bool saw_block = LoadResourcesFromCatalogFile(from_file, file_max, file_path);
+        if (!from_file.empty()) {
+            resources = std::move(from_file);
+            max_types = file_max > 0 ? file_max : max_types;
+            origem = "arquivo";
+            arquivo = file_path;
+        } else if (!http_ok && !saw_block) {
+            LogVitrineRead("vazio", "", resources, InventoryScan{});
+            SendMsg(player, "Vitrine indisponivel no momento (web). Nada foi removido. Tente mais tarde.");
+            return;
+        } else {
+            LogVitrineRead(saw_block ? "arquivo" : "mysql", file_path, resources, InventoryScan{});
+            SendMsg(player, "Nenhum recurso esta autorizado na vitrine ainda. Veja a loja web.");
+            return;
+        }
     }
 
     std::set<int> stock_types;
-    if (!FetchStock(sid, stock_types, max_types)) {
-        SendMsg(player, "Vitrine indisponivel no momento (web). Nada foi removido. Tente mais tarde.");
-        return;
-    }
+    const bool stock_ok = FetchStock(sid, stock_types, max_types);
 
     // Soma do inventario pessoal por recurso autorizado.
     // Path completo casa primeiro; token da classe so se for unico no cadastro
@@ -1154,6 +1234,7 @@ void CmdVitrine(AShooterPlayerController* player, FString*, EChatSendMode::Type)
         if (!res.short_key.empty()) short_count[res.short_key] += 1;
     }
     const InventoryScan scan = ScanInventory(player);
+    LogVitrineRead(origem, arquivo, resources, scan);
     std::vector<Line> found;
     int blocked_reason = 0;
     for (const Resource& res : resources) {
@@ -1200,6 +1281,10 @@ void CmdVitrine(AShooterPlayerController* player, FString*, EChatSendMode::Type)
             "ShopVitrine: /vitrine sem envio steam={} autorizados={} stacks={} bloqueio={} amostra={}",
             sid, resources.size(), scan.plain_stacks, blocked_reason, amostra);
         return;
+    }
+
+    if (!stock_ok) {
+        SendMsg(player, "Estoque da vitrine na web nao respondeu. O /confirmar pode falhar; nada foi removido ainda.");
     }
 
     // Limite de tipos: tipos ja no estoque sempre cabem; novos so ate o limite.

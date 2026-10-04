@@ -65,6 +65,9 @@ void Info (const char* category, const Fields& fields, const std::string& messag
 void LogDebug(const char* category, const Fields& fields, const std::string& message);
 void LogTrace(const char* category, const Fields& fields, const std::string& message);
 
+/** Uma linha no arkland_debug.log mesmo com Debug.Enabled=false. */
+void WriteAlways(const char* category, const std::string& message);
+
 /** Últimas N linhas do ring buffer (mais recentes no fim). */
 std::vector<std::string> RecentLines(size_t max_n = 50);
 
