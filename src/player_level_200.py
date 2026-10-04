@@ -13,6 +13,7 @@ _DATA_PATH = Path(__file__).resolve().parent / "data" / "nivel200.txt"
 
 # Perfil dos mapas: nível base 199. 200 cobre o mesmo padrão se o campo for ajustado.
 LEVEL_200_BASE_LEVELS = frozenset({199, 200})
+LEVEL_200_PROFILE_BASE = 199
 
 _RAMP_ENTRY_RE = re.compile(
     r"ExperiencePointsForLevel\[(\d+)\]\s*=\s*(\d+)",
@@ -26,6 +27,38 @@ def is_level_200_base(base_level: int) -> bool:
         return int(base_level or 0) in LEVEL_200_BASE_LEVELS
     except (TypeError, ValueError):
         return False
+
+
+def level_200_shortcut_base(current: int) -> int:
+    """Base que emite o bloco nivel200. Mantém 199 ou 200; senão usa 199."""
+    try:
+        value = int(current or 0)
+    except (TypeError, ValueError):
+        return LEVEL_200_PROFILE_BASE
+    if value in LEVEL_200_BASE_LEVELS:
+        return value
+    return LEVEL_200_PROFILE_BASE
+
+
+def apply_level_200_shortcut(cfg: object) -> int:
+    """Liga a progressão customizada e fixa a base do preset.
+
+    Não escreve Game.ini. A curva dos outros níveis permanece nos campos da curva.
+    """
+    try:
+        current = int(getattr(cfg, "player_base_level", 0) or 0)
+    except (TypeError, ValueError):
+        current = 0
+    base = level_200_shortcut_base(current)
+    if hasattr(cfg, "player_base_level"):
+        cfg.player_base_level = base
+    else:
+        setattr(cfg, "player_base_level", base)
+    if hasattr(cfg, "player_level_progressions_enabled"):
+        cfg.player_level_progressions_enabled = True
+    else:
+        setattr(cfg, "player_level_progressions_enabled", True)
+    return base
 
 
 @cache

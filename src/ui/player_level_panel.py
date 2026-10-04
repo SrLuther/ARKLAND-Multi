@@ -19,10 +19,13 @@ from ..player_level_ascension import (
     serialize_ascension_state,
 )
 from ..player_level_200 import (
+    apply_level_200_shortcut,
     is_level_200_base,
     level_200_override_max_xp,
     level_200_ramp_values,
 )
+
+LEVEL_200_SHORTCUT_BUTTON_TEXT = "Aplicar preset nível 200"
 from ..player_level_ramp import (
     _curve_params_from_cfg,
     build_ramp_values,
@@ -253,6 +256,77 @@ def _progressions_toggle_row(
     return row + 1
 
 
+def _level_200_shortcut_row(
+    parent: tk.Misc,
+    *,
+    row: int,
+    base_var: tk.StringVar,
+    prog_var: tk.BooleanVar,
+    status_var: tk.StringVar,
+    cfg: object,
+    on_change: Callable[[], None],
+    bg: str,
+    accent: str,
+) -> int:
+    """Atalho do preset nivel200. Só ajusta a tela; o Game.ini entra no Salvar."""
+    cap = level_200_override_max_xp()
+    fr = tk.Frame(parent, bg=bg)
+    fr.grid(row=row, column=0, sticky="ew", padx=12, pady=(0, 6))
+
+    def _apply() -> None:
+        try:
+            current = int(float(base_var.get()))
+        except (ValueError, TypeError, tk.TclError):
+            current = int(getattr(cfg, "player_base_level", 0) or 0)
+        if hasattr(cfg, "player_base_level"):
+            cfg.player_base_level = current
+        base = apply_level_200_shortcut(cfg)
+        base_var.set(str(base))
+        prog_var.set(True)
+        on_change()
+        status_var.set(
+            f"Preset nível 200 aplicado na tela (base {base}). "
+            "O próximo Salvar, com o mapa parado, grava o Game.ini."
+        )
+
+    ctk.CTkButton(
+        fr,
+        text=LEVEL_200_SHORTCUT_BUTTON_TEXT,
+        command=_apply,
+        height=28,
+        fg_color=accent,
+        hover_color=_GREEN_DARK,
+        text_color="#04140c",
+        font=ctk.CTkFont(size=12, weight="bold"),
+    ).pack(anchor="w")
+    tk.Label(
+        fr,
+        text=(
+            "Atalho da tabela nivel200: liga as progressões e fixa a base em 199 "
+            "(mantém 200 se o campo já for 200). A curva dos outros níveis continua "
+            "na caixa de nível base. O próximo Salvar, com o mapa PARADO, grava a rampa, "
+            f"o teto OverrideMaxExperiencePointsPlayer={cap} e os engramas. "
+            "Com o mapa no ar o Game.ini não muda. Desmarcar progressões volta a "
+            "não gravar a tabela."
+        ),
+        bg=bg,
+        fg="gray50",
+        font=ctk.CTkFont(size=9),
+        wraplength=540,
+        justify="left",
+    ).pack(anchor="w", pady=(4, 0))
+    tk.Label(
+        fr,
+        textvariable=status_var,
+        bg=bg,
+        fg=accent,
+        font=ctk.CTkFont(size=10, weight="bold"),
+        wraplength=540,
+        justify="left",
+    ).pack(anchor="w", pady=(2, 0))
+    return row + 1
+
+
 def _unified_summary_row(
     parent: tk.Misc,
     *,
@@ -377,6 +451,7 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
     vars_ref["_pl_ramp_var"] = tk.StringVar()
     vars_ref["_pl_engram_var"] = tk.StringVar(value=str(ARK_ENGRAM_POINTS_PER_LEVEL))
     vars_ref["_pl_warn_var"] = tk.StringVar()
+    vars_ref["_pl_level200_status"] = tk.StringVar()
     vars_ref.setdefault("player_level_stats_raw", tk.StringVar(
         value=str(getattr(ctx.srv, "player_level_stats_raw", "") or "")))
     vars_ref.setdefault(
@@ -419,6 +494,17 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
         body,
         row=r,
         var=vars_ref["player_level_progressions_enabled"],
+        on_change=_on_progressions_toggle,
+        bg=bg,
+        accent=accent,
+    )
+    r = _level_200_shortcut_row(
+        body,
+        row=r,
+        base_var=vars_ref["player_base_level"],
+        prog_var=vars_ref["player_level_progressions_enabled"],
+        status_var=vars_ref["_pl_level200_status"],
+        cfg=ctx.srv,
         on_change=_on_progressions_toggle,
         bg=bg,
         accent=accent,
@@ -483,6 +569,7 @@ def build_classic_player_level_panel(
     w["_pl_ramp_var"] = tk.StringVar()
     w["_pl_engram_var"] = tk.StringVar(value=str(ARK_ENGRAM_POINTS_PER_LEVEL))
     w["_pl_warn_var"] = tk.StringVar()
+    w["_pl_level200_status"] = tk.StringVar()
     w["player_level_progressions_enabled"] = tk.BooleanVar(
         value=bool(getattr(gs, "player_level_progressions_enabled", False))
     )
@@ -512,6 +599,17 @@ def build_classic_player_level_panel(
         panel,
         row=r,
         var=w["player_level_progressions_enabled"],
+        on_change=_recalc,
+        bg=_BG_PANEL,
+        accent=_GREEN,
+    )
+    r = _level_200_shortcut_row(
+        panel,
+        row=r,
+        base_var=w["gs_player_base_level"],
+        prog_var=w["player_level_progressions_enabled"],
+        status_var=w["_pl_level200_status"],
+        cfg=gs,
         on_change=_recalc,
         bg=_BG_PANEL,
         accent=_GREEN,

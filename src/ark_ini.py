@@ -173,6 +173,34 @@ def get_ini_path(install_dir: str, filename: str) -> Path:
     )
 
 
+def _insert_lines_in_section(text: str, section: str, extra: list[str]) -> str:
+    """Insere linhas no fim de uma seção INI, antes do próximo cabeçalho."""
+    if not extra:
+        return text
+    extra_lines = [ln + "\n" for ln in extra]
+    header = f"[{section}]"
+    lines = text.splitlines(keepends=True)
+    start = None
+    for i, raw in enumerate(lines):
+        if raw.strip().lower() == header.lower():
+            start = i
+            break
+    if start is None:
+        prefix = text
+        if prefix and not prefix.endswith("\n"):
+            prefix += "\n"
+        return prefix + header + "\n" + "".join(extra_lines)
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if lines[j].lstrip().startswith("["):
+            end = j
+            break
+    if end > 0 and not lines[end - 1].endswith("\n"):
+        lines[end - 1] += "\n"
+    lines[end:end] = extra_lines
+    return "".join(lines)
+
+
 _INI_ENCODINGS = (
     "utf-8-sig",
     "utf-8",
@@ -1351,8 +1379,16 @@ class ArkIniManager:
             else:
                 parser.set(section, key, str(value))
 
-        # Se level_cap > 0, sobrepõe o XP calculado pela curva padrão
-        if gs.player_level_cap > 0:
+        # Progressões custom: o teto oficial fica no Game.ini (como no modo TEK).
+        # Sem isso, player_level_cap > 0 trocava o preset por uma curva vanilla.
+        from .player_level_ramp import is_player_level_progressions_enabled
+
+        if is_player_level_progressions_enabled(gs):
+            if parser.has_section("ServerSettings") and parser.has_option(
+                "ServerSettings", "OverrideMaxExperiencePointsPlayer"
+            ):
+                parser.remove_option("ServerSettings", "OverrideMaxExperiencePointsPlayer")
+        elif gs.player_level_cap > 0:
             parser.set("ServerSettings", "OverrideMaxExperiencePointsPlayer",
                        str(_level_to_xp(gs.player_level_cap)))
         if gs.dino_level_cap > 0:
@@ -1642,7 +1678,9 @@ class ArkIniManager:
             r'|tameddinoclassresistancemultipliers'
             r'|tameddinoclassdamagemultipliers'
             r'|configoverridesupplycrateitems'
-            r'|overrideplayerlevelengrampoints)\s*=.*$',
+            r'|overrideplayerlevelengrampoints'
+            r'|levelexperiencerampoverrides'
+            r'|overridemaxexperiencepointsplayer)\s*=.*$',
             _re.IGNORECASE | _re.MULTILINE,
         )
         ini_text = _SPAWN_RE.sub("", ini_text)
@@ -1666,9 +1704,10 @@ class ArkIniManager:
         for crate in adv.supply_crate_overrides:
             spawn_lines.append(f"ConfigOverrideSupplyCrateItems={_serialize_supply_crate_override(crate)}")
 
-        from .player_engram_points import build_engram_points_ini_lines
+        from .player_level_ramp import build_player_level_ini_lines
 
-        spawn_lines.extend(build_engram_points_ini_lines(config))
+        player_lines = build_player_level_ini_lines(config.game_settings)
+        ini_text = _insert_lines_in_section(ini_text, section, player_lines)
 
         if spawn_lines:
             spawn_block = [s + "\n" for s in spawn_lines]

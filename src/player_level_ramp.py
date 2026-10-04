@@ -694,6 +694,20 @@ def resolve_effective_ingame_cap(
     return max(1, min(candidates))
 
 
+def build_player_level_ini_lines(cfg: object) -> list[str]:
+    """Bloco do jogador: teto, rampa e engramas. Vazio com progressões desligadas."""
+    from .player_engram_points import build_engram_points_ini_lines
+
+    derived = sync_config_player_level(cfg)
+    if not is_player_level_progressions_enabled(cfg):
+        return []
+    return [
+        f"OverrideMaxExperiencePointsPlayer={derived['override_xp']}",
+        *build_player_ramp_ini_lines(cfg),
+        *build_engram_points_ini_lines(cfg),
+    ]
+
+
 def build_player_ramp_ini_lines(cfg: object) -> list[str]:
     """Linhas LevelExperienceRampOverrides para patch_game_ini_repeated_lines."""
     sync_config_player_level(cfg)

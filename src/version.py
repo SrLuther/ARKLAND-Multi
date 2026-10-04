@@ -3,13 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.114"
+APP_VERSION: str = "1.10.115"
 BUILD_DATE: str = "2026-10-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.115",
+        "date": "2026-10-03",
+        "changes": [
+            "Feat (Nível do jogador): botão «Aplicar preset nível 200» na tela de nível do jogador (clássico e TEK) liga a progressão e define a base 199 (ou mantém 200). O salvar com o mapa parado grava o bloco do nivel200.txt (rampa, teto 1529554000 e 243 linhas de engrama). Não substitui a curva atual.",
+        ],
+    },
     {
         "version": "1.10.114",
         "date": "2026-10-03",

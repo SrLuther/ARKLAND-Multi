@@ -106,6 +106,16 @@ def _find_progressions_checkbox(widget):
     return None
 
 
+def _find_button(widget, text: str):
+    for child in widget.winfo_children():
+        if isinstance(child, ctk.CTkButton) and text in str(child.cget("text")):
+            return child
+        found = _find_button(child, text)
+        if found is not None:
+            return found
+    return None
+
+
 def _quiet_messageboxes(monkeypatch):
     import tkinter.messagebox as mb
 
@@ -215,3 +225,112 @@ def test_on_still_writes_ramp_and_legacy_profiles_infer_on(env):
     assert getattr(legacy_with_ramp, _KEY) is True
     legacy_plain = AsmServerConfig.from_dict({"player_base_level": 160})
     assert getattr(legacy_plain, _KEY) is False
+
+
+def _relevant_level_lines(text: str) -> list[str]:
+    keys = (
+        "overridemaxexperiencepointsplayer=",
+        "levelexperiencerampoverrides=",
+        "overrideplayerlevelengrampoints=",
+    )
+    lines: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        low = line.lower()
+        if any(low.startswith(key) for key in keys):
+            lines.append(line)
+    return lines
+
+
+def test_tek_shortcut_button_waits_for_stopped_save(env, monkeypatch):
+    """O botão prepara o preset. O Game.ini só muda no Salvar com o mapa parado."""
+    import src.asm_ui.asm_server_panel as panel
+    from src.asm_engine.asm_game_list_ini import extract_ini_section_text
+    from src.player_level_200 import level_200_relevant_ini_lines
+    from src.ui.player_level_panel import LEVEL_200_SHORTCUT_BUTTON_TEXT
+
+    _quiet_messageboxes(monkeypatch)
+    srv = env.mgr.get_server(env.cfg.id)
+    srv.player_base_level = 80
+    setattr(srv, _KEY, False)
+    env.mgr.update_server(srv)
+    write_ini(srv)
+    game = _game_ini(env.install)
+    before = game.read_text(encoding="utf-16")
+    assert _relevant_level_lines(before) == []
+
+    app = _fake_app(env, "stopped")
+    vars_ref, card = _open_panel(env, app, srv)
+    btn = _find_button(card, LEVEL_200_SHORTCUT_BUTTON_TEXT)
+    assert btn is not None
+    btn.cget("command")()
+
+    assert game.read_text(encoding="utf-16") == before
+    assert vars_ref[_KEY].get() is True
+    assert vars_ref["player_base_level"].get() == "199"
+    assert "parado" in vars_ref["_pl_level200_status"].get().lower()
+
+    panel._save(app, srv)
+    text = game.read_text(encoding="utf-16")
+    block = extract_ini_section_text(text, "/Script/ShooterGame.ShooterGameMode")
+    assert _relevant_level_lines(block) == level_200_relevant_ini_lines()
+
+    _find_progressions_checkbox(card).toggle()
+    assert vars_ref[_KEY].get() is False
+    panel._save(app, srv)
+    text_off = game.read_text(encoding="utf-16")
+    block_off = extract_ini_section_text(text_off, "/Script/ShooterGame.ShooterGameMode")
+    assert _relevant_level_lines(block_off) == []
+
+    mgr2 = AsmConfigManager()
+    srv2 = mgr2.servers[0]
+    _boot_everything(srv2)
+    assert getattr(srv2, _KEY) is False
+
+
+def test_tek_shortcut_while_running_does_not_write_game_ini(env, monkeypatch):
+    import src.asm_ui.asm_server_panel as panel
+    from src.ui.player_level_panel import LEVEL_200_SHORTCUT_BUTTON_TEXT
+
+    shown = _quiet_messageboxes(monkeypatch)
+    srv = env.mgr.get_server(env.cfg.id)
+    srv.player_base_level = 80
+    setattr(srv, _KEY, False)
+    env.mgr.update_server(srv)
+    write_ini(srv)
+    game = _game_ini(env.install)
+    before = game.read_text(encoding="utf-16")
+
+    app = _fake_app(env, "running")
+    _vars, card = _open_panel(env, app, srv)
+    _find_button(card, LEVEL_200_SHORTCUT_BUTTON_TEXT).cget("command")()
+    panel._save(app, srv)
+    assert shown == ["warning"]
+    assert game.read_text(encoding="utf-16") == before
+
+
+def test_classic_shortcut_button_sets_preset_without_ini(env):
+    from src.server_config import ServerGameSettings
+    from src.ui.player_level_panel import (
+        LEVEL_200_SHORTCUT_BUTTON_TEXT,
+        build_classic_player_level_panel,
+    )
+
+    gs = ServerGameSettings()
+    gs.player_base_level = 105
+    gs.player_level_progressions_enabled = False
+    parent = tk.Frame(env.root)
+    w: dict = {}
+    build_classic_player_level_panel(parent, 0, w, gs)
+    btn = _find_button(parent, LEVEL_200_SHORTCUT_BUTTON_TEXT)
+    assert btn is not None
+    btn.cget("command")()
+    assert w[_KEY].get() is True
+    assert w["gs_player_base_level"].get() == "199"
+    assert gs.player_level_progressions_enabled is True
+    assert gs.player_base_level == 199
+    assert "parado" in w["_pl_level200_status"].get().lower()
+
+    _find_progressions_checkbox(parent).toggle()
+    assert w[_KEY].get() is False
+    assert gs.player_level_progressions_enabled is False

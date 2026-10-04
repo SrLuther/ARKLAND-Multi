@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.115] - 2026-10-03
+
+### Feature
+
+- Feat (Nível do jogador): botão «Aplicar preset nível 200» na tela de nível do jogador (clássico e TEK) liga a progressão e define a base 199 (ou mantém 200). O salvar com o mapa parado grava o bloco do nivel200.txt (rampa, teto 1529554000 e 243 linhas de engrama). Não substitui a curva atual.
+
 ## [1.10.114] - 2026-10-03
 
 ### Feature
