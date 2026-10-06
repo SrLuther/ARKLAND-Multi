@@ -41,6 +41,86 @@ function _pfEsc(value) {
   return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+var _pfLangPt = false;
+
+function _pfLineLocked(line) {
+  var ln = String(line || "").trim();
+  if (!ln) return true;
+  if (/^https?:\/\/\S+$/.test(ln)) return true;
+  if (/^\[[^\]]+\]$/.test(ln)) return true;
+  if (/^[A-Za-z][A-Za-z0-9_]*\s*=\s*\S+$/.test(ln)) return true;
+  if (/^EngramEntryAutoUnlocks=\(/.test(ln)) return true;
+  if (/Blueprint'|\/Game\/|EngramEntry_[A-Za-z0-9_]+_C|PrimalItem[A-Za-z0-9_]*_C|_Character_BP|SpawnDino|giveitem/i.test(ln)) {
+    var leftover = ln
+      .replace(/Blueprint'[^']+'/gi, " ")
+      .replace(/\/Game\/\S+/g, " ")
+      .replace(/https?:\/\/\S+/g, " ")
+      .replace(/EngramEntry_[A-Za-z0-9_]+_C/g, " ")
+      .replace(/PrimalItem[A-Za-z0-9_]*_C/g, " ")
+      .replace(/[A-Za-z0-9_]+_Character_BP\w*/g, " ")
+      .replace(/\b(admincheat|cheat|giveitem|GiveItem|SpawnDino|summon)\b/gi, " ")
+      .replace(/[\d\s"'.,:=_\-\/\\“”]+/g, " ");
+    return !/[A-Za-z]{3,}/.test(leftover);
+  }
+  if (/^(admincheat|cheat)\s+/i.test(ln)) return true;
+  if (/^[A-Za-z][A-Za-z0-9_]*$/.test(ln) && (/_/.test(ln) || /^PF/.test(ln) || /_C$/.test(ln))) return true;
+  if (/^(L CLK|R CLK|C|X|LFT CTRL|Ctrl|CTRL|Control|Shift|Alt|L|R|x)$/.test(ln)) return true;
+  return false;
+}
+
+function _pfWholeLocked(text) {
+  var lines = String(text || "").split(/\r?\n/).map(function (ln) { return ln.trim(); }).filter(Boolean);
+  return !lines.length || lines.every(_pfLineLocked);
+}
+
+function _pfKeepsLocked(src, dst) {
+  var re = /Blueprint'[^']+'|\/Game\/[^\s"']+|EngramEntry_[A-Za-z0-9_]+_C|PrimalItem[A-Za-z0-9_]*_C|[A-Za-z0-9_]+_Character_BP\w*|https?:\/\/\S+/gi;
+  var match;
+  while ((match = re.exec(src))) {
+    if (String(dst).indexOf(match[0]) === -1) return false;
+  }
+  var chords = String(src).match(/\b(?:Control|Ctrl|CTRL)\s*\+\s*[A-Za-z]\b|\bLFT CTRL\b/g) || [];
+  for (var i = 0; i < chords.length; i++) {
+    if (String(dst).indexOf(chords[i]) === -1) return false;
+  }
+  return true;
+}
+
+function _pfMapText(text) {
+  var map = (_pfFichaData && _pfFichaData.pt) || {};
+  if (!Object.prototype.hasOwnProperty.call(map, text)) return text;
+  var next = String(map[text]);
+  if (!_pfKeepsLocked(text, next)) return text;
+  return next;
+}
+
+function _pfText(value) {
+  var text = String(value == null ? "" : value);
+  if (!_pfLangPt || _pfWholeLocked(text)) return text;
+  return _pfMapText(text);
+}
+
+function _pfBoth(value) {
+  var text = String(value == null ? "" : value);
+  if (_pfWholeLocked(text)) return text;
+  var next = _pfMapText(text);
+  if (!next || next === text) return text;
+  return text + " " + next;
+}
+
+function _pfSyncLangButton() {
+  var btn = document.getElementById("pf-ficha-lang");
+  if (!btn) return;
+  btn.textContent = _pfLangPt ? "Ver original" : "Traduzir para português";
+  btn.setAttribute("aria-pressed", _pfLangPt ? "true" : "false");
+}
+
+function togglePrimalFearLang() {
+  _pfLangPt = !_pfLangPt;
+  _pfSyncLangButton();
+  if (_pfFichaData) _pfRenderFicha(_pfFichaData);
+}
+
 function _pfFilterFicha() {
   var q = (document.getElementById("pf-ficha-q") || {}).value || "";
   q = String(q).trim().toLowerCase();
@@ -53,34 +133,35 @@ function _pfFilterFicha() {
 function _pfRenderFicha(data) {
   var root = document.getElementById("pf-ficha-root");
   if (!root) return;
+  _pfSyncLangButton();
   var toc = (data.sheets || []).map(function (sheet) {
-    return '<a href="#pf-sheet-' + _pfEsc(sheet.id) + '">' + _pfEsc(sheet.title) + "</a>";
+    return '<a href="#pf-sheet-' + _pfEsc(sheet.id) + '">' + _pfEsc(_pfText(sheet.title)) + "</a>";
   }).join("");
   var body = (data.sheets || []).map(function (sheet) {
     var inner = "";
     if (sheet.kind === "dinos") {
       inner = (sheet.groups || []).map(function (group) {
         var cards = (group.dinos || []).map(function (dino) {
-          var hit = [group.title, dino.name].concat((dino.fields || []).map(function (field) {
-            return field.label + " " + field.value;
-          })).join(" ");
+          var hit = _pfBoth(group.title) + " " + _pfBoth(dino.name) + " " + (dino.fields || []).map(function (field) {
+            return _pfBoth(field.label) + " " + _pfBoth(field.value);
+          }).join(" ");
           var fields = (dino.fields || []).map(function (field) {
             var code = /spawn|blueprint|cheat|entity|entidade|tag/i.test(field.label);
-            return '<div class="kb-field"><span class="kb-field-k">' + _pfEsc(field.label) +
+            return '<div class="kb-field"><span class="kb-field-k">' + _pfEsc(_pfText(field.label)) +
               '</span><span class="kb-field-v' + (code ? " kb-code" : "") + '">' +
-              _pfEsc(field.value) + "</span></div>";
+              _pfEsc(_pfText(field.value)) + "</span></div>";
           }).join("");
           return '<article class="kb-dino" data-pf-hit="' + _pfEsc(hit) + '"><h3 class="kb-h4">' +
-            _pfEsc(dino.name) + "</h3>" + fields + "</article>";
+            _pfEsc(_pfText(dino.name)) + "</h3>" + fields + "</article>";
         }).join("");
-        return '<section class="kb-sec"><h3 class="kb-h3">' + _pfEsc(group.title) + "</h3>" + cards + "</section>";
+        return '<section class="kb-sec"><h3 class="kb-h3">' + _pfEsc(_pfText(group.title)) + "</h3>" + cards + "</section>";
       }).join("");
     } else {
       inner = (sheet.blocks || []).map(function (block) {
-        if (block.type === "h2") return '<h3 class="kb-h3">' + _pfEsc(block.text) + "</h3>";
+        if (block.type === "h2") return '<h3 class="kb-h3">' + _pfEsc(_pfText(block.text)) + "</h3>";
         if (block.type === "p") {
-          return '<p class="kb-p" data-pf-hit="' + _pfEsc(block.text) + '">' +
-            _pfEsc(block.text).replace(/\n/g, "<br>") + "</p>";
+          return '<p class="kb-p" data-pf-hit="' + _pfEsc(_pfBoth(block.text)) + '">' +
+            _pfEsc(_pfText(block.text)).replace(/\n/g, "<br>") + "</p>";
         }
         var rows = block.rows || [];
         if (!rows.length) return "";
@@ -92,22 +173,22 @@ function _pfRenderFicha(data) {
         var html = '<div class="kb-table-wrap"><table class="kb-table">';
         if (useHead) {
           html += "<thead><tr>" + head.map(function (cell) {
-            return "<th>" + _pfEsc(cell) + "</th>";
+            return "<th>" + _pfEsc(_pfText(cell)) + "</th>";
           }).join("") + "</tr></thead>";
         }
         html += "<tbody>" + bodyRows.map(function (row) {
-          var hit = row.join(" ");
+          var hit = row.map(_pfBoth).join(" ");
           return '<tr data-pf-hit="' + _pfEsc(hit) + '">' + row.map(function (cell) {
             var code = /blueprint'|cheat |admincheat/i.test(cell);
-            return '<td class="' + (code ? "kb-code" : "") + '">' + _pfEsc(cell) + "</td>";
+            return '<td class="' + (code ? "kb-code" : "") + '">' + _pfEsc(_pfText(cell)) + "</td>";
           }).join("") + "</tr>";
         }).join("") + "</tbody></table></div>";
         return html;
       }).join("");
     }
     return '<section class="kb-sec" id="pf-sheet-' + _pfEsc(sheet.id) + '">' +
-      '<p class="kb-kicker">' + _pfEsc(sheet.sheet) + "</p>" +
-      '<h2 class="kb-h2">' + _pfEsc(sheet.title) + "</h2>" + inner + "</section>";
+      '<p class="kb-kicker">' + _pfEsc(_pfText(sheet.sheet)) + "</p>" +
+      '<h2 class="kb-h2">' + _pfEsc(_pfText(sheet.title)) + "</h2>" + inner + "</section>";
   }).join("");
   root.innerHTML = '<nav class="kb-toc" aria-label="Ficha Primal Fear">' + toc + "</nav>" + body;
   var links = root.querySelectorAll(".kb-toc a");

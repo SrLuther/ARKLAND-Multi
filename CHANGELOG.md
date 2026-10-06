@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.120] - 2026-10-06
+
+### Feature
+
+- Feat (Web Store / Ficha Primal Fear): botão «Traduzir para português» traduz o texto corrido das seções (português gravado na ficha, sem API externa). O segundo clique mostra «Ver original». Blueprints e chaves (paths /Game/..., classes, atalhos, códigos de spawn) não são traduzidos. Requer reiniciar a Web Store e Ctrl+F5.
+
+### Other
+
+- Falha conhecida (/loot, ArkPlayer): no teste de 04/10/2026, personagem «teste», nível 17, a bag de morte estava ao lado (feixe verde). O chat disse «Bag(s) de morte recuperada(s)» depois de «Comando comprado por 5 pontos», mas nada do loot entrou no inventário. O inventário ficou só com um item que já estava (peso 0.0). O comando mente sucesso. Parado até segunda ordem. Sem correção nesta versão.
+- Falha conhecida (número de dano curto, ArkPlayer): o número curto (9k / 27k / 95.9k) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte. Fica para outro momento. Sem correção nesta versão.
+
 ## [1.10.119] - 2026-10-06
 
 ### Feature

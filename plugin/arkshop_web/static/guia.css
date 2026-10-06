@@ -54,6 +54,12 @@
   border-radius: 8px;
   padding: 6px 10px;
 }
+.kb-ficha-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+}
 /* Ficha e busca de blueprints: o miolo usa a largura da área ao lado do menu. */
 #page-primal-fear-ficha,
 #page-blueprint-index {

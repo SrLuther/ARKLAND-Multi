@@ -3,13 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.119"
+APP_VERSION: str = "1.10.120"
 BUILD_DATE: str = "2026-10-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.120",
+        "date": "2026-10-06",
+        "changes": [
+            "Feat (Web Store / Ficha Primal Fear): botão «Traduzir para português» traduz o texto corrido das seções (português gravado na ficha, sem API externa). O segundo clique mostra «Ver original». Blueprints e chaves (paths /Game/..., classes, atalhos, códigos de spawn) não são traduzidos. Requer reiniciar a Web Store e Ctrl+F5.",
+            "Falha conhecida (/loot, ArkPlayer): no teste de 04/10/2026, personagem «teste», nível 17, a bag de morte estava ao lado (feixe verde). O chat disse «Bag(s) de morte recuperada(s)» depois de «Comando comprado por 5 pontos», mas nada do loot entrou no inventário. O inventário ficou só com um item que já estava (peso 0.0). O comando mente sucesso. Parado até segunda ordem. Sem correção nesta versão.",
+            "Falha conhecida (número de dano curto, ArkPlayer): o número curto (9k / 27k / 95.9k) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte. Fica para outro momento. Sem correção nesta versão.",
+        ],
+    },
     {
         "version": "1.10.119",
         "date": "2026-10-06",
