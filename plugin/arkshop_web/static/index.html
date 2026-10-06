@@ -3892,6 +3892,12 @@
     body.boot-support .nav-item.support-staff-only { display: flex !important; }
     body.boot-admin .page.support-staff-only.active,
     body.boot-support .page.support-staff-only.active { display: block !important; }
+    /* ARKLAND_LOCAL_PREVIEW: só Ficha e Busca de blueprints, sem o resto do admin. */
+    .nav-section.local-preview-only { display: none !important; }
+    body.local-preview .nav-section.local-preview-only { display: flex !important; }
+    body.local-preview .nav-item.local-preview-open { display: flex !important; }
+    body.local-preview #page-primal-fear-ficha.active,
+    body.local-preview #page-blueprint-index.active { display: block !important; }
 
     /* RCON terminal output */
     #rcon-output, .rcon-log {
@@ -6918,6 +6924,13 @@
     <div class="nav-item admin-only" data-page="plugin-debug" onclick="nav(this)">
       <span class="nav-icon">🐛</span> Debug Plugins
     </div>
+    <div class="nav-section local-preview-only">Preview</div>
+    <div class="nav-item admin-only local-preview-open" data-page="primal-fear-ficha" onclick="nav(this)">
+      <span class="nav-icon">🦖</span> Ficha Primal Fear
+    </div>
+    <div class="nav-item admin-only local-preview-open" data-page="blueprint-index" onclick="nav(this)">
+      <span class="nav-icon">🔎</span> Busca de blueprints
+    </div>
 
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
@@ -7729,6 +7742,7 @@
         </div>
         <p style="color:var(--text2);font-size:13px;margin:0 0 16px;">
           Modelo <strong>floor_quality</strong>: <strong>piso R</strong> = preço da linha ÷ nível · <strong>prêmio</strong> = B × índice Q (stats breedáveis, γ sublinear) · teto mercado <strong>600.000</strong> · encomenda <strong>275k</strong>.
+          Referência PF, ao lado: raiz da família vanilla × (M ÷ 5). Não multiplica o piso.
         </p>
         <div class="catalog-tabs" style="margin-bottom:16px;">
           <button type="button" class="catalog-tab active" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Pisos e caps</button>
@@ -10722,6 +10736,96 @@
         </div>
       </div>
 
+      <!-- PAGE: Ficha Primal Fear (admin) -->
+      <div id="page-primal-fear-ficha" class="page admin-only">
+        <div class="kb-wrap">
+          <header class="kb-article-h">
+            <p class="kb-kicker">Admin</p>
+            <h2 class="kb-title">Ficha Primal Fear</h2>
+            <p class="kb-lead">Tags, códigos, comida de doma e as outras seções do documento. Nomes e códigos ficam como na ficha. A busca de blueprints do projeto é a página ao lado.</p>
+          </header>
+          <input id="pf-ficha-q" class="kb-search" type="search" placeholder="Buscar na ficha: nome, tag, código…" oninput="if (window._pfFilterFicha) _pfFilterFicha()" />
+          <p style="margin:0 0 10px;"><button type="button" class="btn btn-ghost btn-sm" onclick="goBlueprintIndex()">Busca de blueprints</button></p>
+          <div id="pf-ficha-root" class="kb-p">Abra a página para carregar.</div>
+        </div>
+      </div>
+
+      <!-- PAGE: Busca de blueprints (admin) -->
+      <div id="page-blueprint-index" class="page admin-only">
+        <div class="kb-wrap">
+          <header class="kb-article-h">
+            <p class="kb-kicker">Admin</p>
+            <h2 class="kb-title">Busca de blueprints</h2>
+            <p class="kb-lead">Pesquisa nome, mod, blueprint, classe e observações. Dá para cadastrar, editar e excluir só o que foi criado aqui e ainda não existe no projeto. Blueprint que já vem do catálogo, do registry, de JSON, de engrama ou das tools não é alterada nesta página: a mensagem pede para atualizar na origem. Se a origem mudar, a sincronização acompanha. Um cadastro manual não some quando a sincronização roda.</p>
+          </header>
+          <p style="margin:0 0 10px;"><button type="button" class="btn btn-ghost btn-sm" onclick="goPrimalFearFicha()">Ficha Primal Fear</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="openBlueprintIndex()">Atualizar do projeto</button></p>
+          <form class="kb-form" onsubmit="submitBlueprintIndex(event)">
+            <h3 class="kb-h3" id="bidx-form-title" style="margin-top:0;">Cadastrar</h3>
+            <input id="bidx-edit-norm" type="hidden" value="" />
+            <div class="kb-form-row">
+              <div>
+                <label for="bidx-name">Nome</label>
+                <input id="bidx-name" class="kb-input" type="text" />
+              </div>
+              <div>
+                <label for="bidx-mod">Mod</label>
+                <input id="bidx-mod" class="kb-input" type="text" placeholder="Nome do mod" />
+              </div>
+            </div>
+            <label for="bidx-new-kind-btn">Tipo</label>
+            <select id="bidx-new-kind" class="kb-select">
+              <option value="">Escolha o tipo</option>
+              <option value="dino">Dino</option>
+              <option value="sela">Sela</option>
+              <option value="recurso">Recurso</option>
+              <option value="estrutura">Estrutura</option>
+              <option value="outro">Outro</option>
+            </select>
+            <label for="bidx-id">Blueprint</label>
+            <input id="bidx-id" class="kb-input" type="text" placeholder="/Game/... ou EngramEntry_..._C ou PrimalItem_..._C" oninput="fillBlueprintClass()" />
+            <label for="bidx-class">Classe</label>
+            <input id="bidx-class" class="kb-input" type="text" readonly placeholder="Preenchida a partir da blueprint" />
+            <label for="bidx-note">Observações</label>
+            <input id="bidx-note" class="kb-input" type="text" placeholder="Ex.: domado ou não, qual kibble usa" />
+            <div>
+              <button class="btn btn-primary btn-sm" id="bidx-save" type="submit">Cadastrar</button>
+              <button class="btn btn-ghost btn-sm" id="bidx-cancel" type="button" onclick="cancelBlueprintIndexEdit()" style="display:none;">Cancelar</button>
+            </div>
+            <p id="bidx-form-msg" class="kb-msg"></p>
+          </form>
+          <div class="kb-form-row">
+            <div>
+              <label for="bidx-q">Busca</label>
+              <input id="bidx-q" class="kb-search" type="search" placeholder="Nome, mod, blueprint, classe ou observações"
+                     oninput="scheduleBlueprintIndexQuery()"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();scheduleBlueprintIndexQuery(true);}" />
+            </div>
+            <div>
+              <label for="bidx-kind-btn">Tipo</label>
+              <select id="bidx-kind" class="kb-select" onchange="scheduleBlueprintIndexQuery(true)">
+                <option value="">Todos</option>
+                <option value="dino">Dino</option>
+                <option value="sela">Sela</option>
+                <option value="recurso">Recurso</option>
+                <option value="estrutura">Estrutura</option>
+                <option value="outro">Outro</option>
+                <option value="item">Item</option>
+                <option value="engrama">Engrama</option>
+                <option value="comando">Comando</option>
+              </select>
+            </div>
+          </div>
+          <p id="blueprint-index-sync" class="kb-p"></p>
+          <div id="blueprint-index-list" class="kb-p">Abra a página para carregar.</div>
+          <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span id="blueprint-index-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="prevBlueprintIndexPage()">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="nextBlueprintIndexPage()">Próxima ▶</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PAGE: Debug Plugins (admin) -->
       <div id="page-plugin-debug" class="page admin-only">
         <div id="topbar">
@@ -11255,6 +11359,7 @@
 <script src="redeem_docs.js?v=__WEB_BUILD__" defer></script>
 <script src="resource_vitrine.js?v=__WEB_BUILD__" defer></script>
 <script src="guia.js?v=__WEB_BUILD__" defer></script>
+<script src="primal_fear_ficha.js?v=__WEB_BUILD__" defer></script>
 <script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
@@ -11927,6 +12032,8 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "seasonland-ops") loadSeasonlandOps();
   if (page === "plugin-debug") loadPluginDebug();
+  if (page === "primal-fear-ficha") openPrimalFearFicha();
+  if (page === "blueprint-index") openBlueprintIndex();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); loadPlayers(); }
   if (page === "map-members-admin") loadMapMembersAdmin();
   if (page === "tribe-admin") loadTribeAdmin();
@@ -12385,7 +12492,14 @@ function _syncStaffModeFromAuth() {
   }
 }
 
+function _isLocalPreviewPageEl(pageEl) {
+  if (!pageEl || !document.body.classList.contains("local-preview")) return false;
+  const id = pageEl.id || "";
+  return id === "page-primal-fear-ficha" || id === "page-blueprint-index";
+}
+
 function _isStaffOnlyPageEl(pageEl) {
+  if (_isLocalPreviewPageEl(pageEl)) return false;
   return !!(pageEl && (pageEl.classList.contains("admin-only") || pageEl.classList.contains("support-staff-only")));
 }
 
@@ -12487,6 +12601,11 @@ function applyRoleUi(deferAdminNav = false) {
     document.querySelectorAll(".admin-only:not(.page)").forEach((el) => {
       el.style.display = "none";
     });
+    if (document.body.classList.contains("local-preview")) {
+      document.querySelectorAll(
+        ".nav-section.local-preview-only, .nav-item.local-preview-open"
+      ).forEach((el) => el.style.removeProperty("display"));
+    }
     const profile = document.getElementById("myarea-profile");
     if (profile && _auth.authenticated) {
       profile.textContent = `SteamID autenticado: ${_auth.steam_id}.`;
@@ -24254,6 +24373,13 @@ function fmtMeNumber(v) {
   return n.toLocaleString("pt-BR");
 }
 
+function fmtMeIndex(v) {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
 function renderMarketEconomySpecies(species) {
   const root = document.getElementById("market-economy-species-list");
   if (!root) return;
@@ -24272,6 +24398,10 @@ function renderMarketEconomySpecies(species) {
       <td class="me-econ-r">${fmtMeNumber(s.root_value)}</td>
       <td class="me-econ-b">${fmtMeNumber(bonus)}</td>
       <td class="me-econ-cap">${fmtMeNumber(s.size_cap)}</td>
+      <td class="me-econ-pf-band"${s.pf_note ? ' title="' + escHtml(s.pf_note) + '"' : ""}>${escHtml(s.pf_band || "—")}</td>
+      <td class="me-econ-pf-index">${fmtMeIndex(s.pf_index)}</td>
+      <td class="me-econ-pf-ref">${s.pf_reference == null || s.pf_reference === "" ? "—" : fmtMeNumber(s.pf_reference)}</td>
+      <td class="me-econ-pf-mod">${escHtml(s.pf_mod || "—")}</td>
       <td class="me-econ-mode" style="font-size:11px;">${escHtml(mode)}</td>
       <td class="me-econ-actions"><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}" data-catalog-item-id="${escHtml(s.catalog_item_id || "")}">Editar</button></td>
     </tr>`;
@@ -24280,9 +24410,9 @@ function renderMarketEconomySpecies(species) {
     ? ""
     : `<p class="me-econ-empty" style="font-size:13px;color:var(--text2);">Nenhuma espécie com item no catálogo da loja.</p>`;
   root.innerHTML = `${empty}<div class="me-econ-scroll"><table class="me-econ-table"><thead><tr>
-    <th>Nome</th><th>Key</th><th>Papel</th><th>Tier</th><th>R</th><th>B (prêmio)</th><th>Cap mercado</th><th>Modo</th><th></th>
+    <th>Nome</th><th>Key</th><th>Papel</th><th>Tier</th><th>R</th><th>B (prêmio)</th><th>Cap mercado</th><th>Faixa PF</th><th>Índice</th><th>Referência PF</th><th>Mod de origem</th><th>Modo</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table></div>
-  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Só entram dinos do catálogo. Cada linha mantém o próprio preço. R = preço ÷ nível (nível ausente ou zero vale 1). B = prêmio floor_quality do tier herdado da família vanilla. Cap = 600.000. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
+  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Só entram dinos do catálogo. Cada linha mantém o próprio preço. R = preço ÷ nível (nível ausente ou zero vale 1). B = prêmio floor_quality do tier herdado da família vanilla. Cap = 600.000. Referência PF = raiz da família × índice (M ÷ 5, Alpha = 1), no máximo 600.000. Sem família, sem M ou sem faixa, a referência fica vazia. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
   root.querySelectorAll(".me-species-edit-btn").forEach(btn => {
     btn.addEventListener("click", () => marketEconomyEditSpecies(btn.dataset.speciesKey, btn.dataset.catalogItemId));
   });

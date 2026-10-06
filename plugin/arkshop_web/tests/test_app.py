@@ -357,6 +357,28 @@ class TestAuth:
         r = client.get("/api/settings")
         assert r.status_code == 403
 
+    def test_local_preview_opens_blueprint_search_only(self, client, monkeypatch):
+        monkeypatch.delenv("ARKLAND_LOCAL_PREVIEW", raising=False)
+        assert client.get("/api/admin/blueprint-index").status_code == 401
+        assert 'class="local-preview"' not in client.get("/").get_data(as_text=True)
+        me = client.get("/api/auth/me").get_json()
+        assert me["authenticated"] is False
+        assert me["is_admin"] is False
+        assert me["local_preview"] is False
+
+        monkeypatch.setenv("ARKLAND_LOCAL_PREVIEW", "1")
+        home = client.get("/")
+        assert home.status_code == 200
+        assert '<body class="local-preview">' in home.get_data(as_text=True)
+        listed = client.get("/api/admin/blueprint-index")
+        assert listed.status_code == 200
+        assert listed.get_json()["ok"] is True
+        assert client.get("/api/settings").status_code == 401
+        me_preview = client.get("/api/auth/me").get_json()
+        assert me_preview["authenticated"] is False
+        assert me_preview["is_admin"] is False
+        assert me_preview["local_preview"] is True
+
 
 class TestPointPackages:
     def _use_isolated_catalog(self, monkeypatch, config_path):

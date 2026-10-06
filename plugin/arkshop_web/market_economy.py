@@ -1234,12 +1234,22 @@ def _economy_row_from_catalog_line(
         size_class = str(meta.get("size_class") or source.get("size_class") or "medium")
         size_cap = size_cap_for_class(size_class)
         bonus_space = max(0, size_cap - int(root_value or 0))
+    display_name = _economy_line_display(entry, source, species_key)
+    from primal_fear_secondary import primal_fear_secondary_fields
+
+    pf = primal_fear_secondary_fields(
+        item_id=item_id,
+        entry=entry,
+        display_name=display_name,
+        family_root=int(family.get("root_value") or 0) if family else None,
+        cap=ECONOMY_TABLE_CAP,
+    )
     return {
         "species_key": species_key,
         "catalog_item_id": item_id,
         "reference_level": level,
         "shop_price": shop_price,
-        "display_name": _economy_line_display(entry, source, species_key),
+        "display_name": display_name,
         "tier": tier,
         "root_value": root_value,
         "premium_budget": premium,
@@ -1254,6 +1264,11 @@ def _economy_row_from_catalog_line(
         "pricing_mode": mode,
         "size_cap": size_cap,
         "bonus_space": bonus_space,
+        "pf_band": pf["pf_band"],
+        "pf_index": pf["pf_index"],
+        "pf_reference": pf["pf_reference"],
+        "pf_mod": pf["pf_mod"],
+        "pf_note": pf["pf_note"],
     }
 
 
@@ -1267,6 +1282,8 @@ def list_species_economy_meta(
     B é o prêmio floor_quality desse tier. Cap da tabela = 600000.
     Espécie que só existe em market_species_defaults não entra.
     Criatura sem família vanilla mantém a classificação que já tem.
+    A referência PF é outra coluna: raiz da família × (M ÷ 5), teto 600000.
+    Ela não multiplica R nem B.
     """
     if not _catalog_items_dict(catalog):
         return []

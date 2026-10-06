@@ -1873,6 +1873,17 @@ def _ensure_orders_original_order_id_width(conn: Any) -> None:
     conn.commit()
 
 
+def _ensure_blueprint_index(engine: Any) -> None:
+    """Cria blueprint_index e sincroniza as fontes do projeto. Não altera outras tabelas."""
+    try:
+        from blueprint_index_service import ensure_blueprint_index_schema, sync_blueprint_index
+
+        ensure_blueprint_index_schema(engine)
+        sync_blueprint_index(engine)
+    except Exception as exc:
+        log.warning("Índice de blueprints: migrate falhou: %s", exc)
+
+
 def _migrate_schema(engine: Any) -> None:
     """Alinha schema MySQL com os modelos SQLAlchemy (incl. setup_db.sql legado)."""
     global _ENTITLEMENTS_SCHEMA_READY
@@ -1982,6 +1993,7 @@ def _migrate_schema(engine: Any) -> None:
             ensure_home_notice_schema(engine)
         except Exception as exc:
             log.warning("Mural home (sqlite dev): migrate falhou: %s", exc)
+        _ensure_blueprint_index(engine)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -2180,6 +2192,7 @@ def _migrate_schema(engine: Any) -> None:
         ensure_home_notice_schema(engine)
     except Exception as exc:
         log.warning("Mural home: migrate falhou: %s", exc)
+    _ensure_blueprint_index(engine)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -7739,9 +7752,39 @@ def login_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     return _wrapper
 
 
+def _local_preview_enabled() -> bool:
+    """Preview local. Produção não define ARKLAND_LOCAL_PREVIEW."""
+    return (os.environ.get("ARKLAND_LOCAL_PREVIEW") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+_LOCAL_PREVIEW_API_PATHS = frozenset({
+    "/api/admin/blueprint-index",
+    "/api/admin/blueprint-index/refresh",
+})
+
+
+def _local_preview_api_bypass() -> bool:
+    """Libera só a busca de blueprints, e só neste processo.
+
+    A ficha Primal Fear é JSON estático. Equipes, pontos e o resto do admin
+    continuam em admin_required.
+    """
+    if not _local_preview_enabled() or not has_request_context():
+        return False
+    path = (request.path or "").rstrip("/") or "/"
+    return path in _LOCAL_PREVIEW_API_PATHS
+
+
 def admin_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(fn)
     def _wrapper(*args: Any, **kwargs: Any):
+        if _local_preview_api_bypass():
+            return fn(*args, **kwargs)
         steam_id = _steam_id_from_session()
         if not steam_id:
             return jsonify({"ok": False, "error": "Não autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
@@ -9648,6 +9691,8 @@ def index():
     html = html_path.read_text(encoding="utf-8")
     build = _web_build_id()
     html = html.replace("__WEB_BUILD__", build)
+    if _local_preview_enabled():
+        html = html.replace("<body>", '<body class="local-preview">', 1)
     resp = make_response(html)
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
@@ -9835,6 +9880,7 @@ def _build_auth_me_payload(*, db: Any | None = None) -> dict[str, Any]:
             "is_admin": False,
             "is_support": False,
             "can_manage_tickets": False,
+            "local_preview": _local_preview_enabled(),
             "steam_id": None,
             "steam_persona": None,
             "display_name": None,
@@ -9872,6 +9918,7 @@ def _build_auth_me_payload(*, db: Any | None = None) -> dict[str, Any]:
         "is_admin": is_admin,
         "is_support": is_support,
         "can_manage_tickets": can_manage_tickets,
+        "local_preview": _local_preview_enabled(),
         "steam_id": steam_id,
     }
     owns_session = db is None and _db_ready()
@@ -17668,6 +17715,15 @@ register_plugin_debug_routes(
     session_factory=_db_session_factory,
     admin_required=admin_required,
     api_key_required=api_key_required,
+)
+
+from blueprint_index_routes import register_blueprint_index_routes
+
+register_blueprint_index_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    admin_required=admin_required,
 )
 
 from diagnostics_routes import register_diagnostics_routes

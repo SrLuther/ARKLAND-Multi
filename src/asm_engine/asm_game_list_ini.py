@@ -32,6 +32,7 @@ REPEATED_KEY_PREFIXES: tuple[str, ...] = (
     "configoverridesupplycrateitems",
     "overrideplayerlevelengrampoints",
     "levelexperiencerampoverrides",
+    "overridenamedengramentries",
 )
 
 _STRIP_RE = re.compile(
@@ -164,7 +165,18 @@ def build_repeated_game_lines(cfg: "AsmServerConfig") -> list[str]:
         cfg.supply_crate_overrides_raw,
         cfg.custom_game_ini_raw,
     ):
-        lines.extend(_lines_from_raw_text(raw))
+        for line in _lines_from_raw_text(raw):
+            # OverrideNamedEngramEntries repete. Entra no bloco abaixo, senão
+            # o dict do INI fica só com a última linha.
+            if line.lower().startswith("overridenamedengramentries="):
+                continue
+            lines.append(line)
+
+    from .asm_engram_entries import merged_engram_ini_lines
+
+    lines.extend(
+        merged_engram_ini_lines(cfg.engram_entries_raw, cfg.custom_game_ini_raw)
+    )
 
     from ..player_engram_points import build_engram_points_ini_lines
     from ..player_level_ramp import build_player_ramp_ini_lines

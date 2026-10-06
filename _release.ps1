@@ -222,7 +222,11 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do ArkServerAPI falhou (ex
 $stagedNames = cmd /c "git diff --cached --name-only 2>&1"
 foreach ($name in @($stagedNames)) {
     $norm = ([string]$name -replace '\\', '/')
-    if ($norm -like "_release_*.log" -or $norm -like "*/_release_*.log") {
+    $drop = $false
+    if ($norm -like "_release_*.log" -or $norm -like "*/_release_*.log") { $drop = $true }
+    if ($norm -eq "catalog.json" -or $norm -like "*/catalog.json") { $drop = $true }
+    if ($norm -eq "ig/betland.jpg") { $drop = $true }
+    if ($drop) {
         cmd /c "git reset HEAD -- `"$name`" 2>&1"
         if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel tirar $name do stage" }
     }

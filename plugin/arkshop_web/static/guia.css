@@ -54,20 +54,104 @@
   border-radius: 8px;
   padding: 6px 10px;
 }
+/* Ficha e busca de blueprints: o miolo usa a largura da área ao lado do menu. */
+#page-primal-fear-ficha,
+#page-blueprint-index {
+  min-width: 0;
+  max-width: 100%;
+}
+#page-primal-fear-ficha .kb-wrap,
+#page-blueprint-index .kb-wrap {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+#pf-ficha-root,
+#blueprint-index-list,
+#page-primal-fear-ficha .kb-table-wrap,
+#page-blueprint-index .kb-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+#page-primal-fear-ficha .kb-table,
+#page-blueprint-index .kb-table {
+  width: 100%;
+  table-layout: auto;
+}
+/* overflow-wrap:anywhere em todas as células reduzia a largura mínima a um
+   caractere; Blueprint e Classe então ocupavam a tabela e Mod, Tipo e
+   Observações quebravam no meio do título. */
+#page-primal-fear-ficha .kb-table td,
+#page-primal-fear-ficha .kb-table th,
+#page-blueprint-index .kb-table td,
+#page-blueprint-index .kb-table th {
+  overflow-wrap: break-word;
+  word-break: normal;
+  overflow: visible;
+  text-overflow: clip;
+  hyphens: manual;
+}
+#page-blueprint-index .kb-table td.kb-col-name,
+#page-blueprint-index .kb-table td.kb-col-path,
+#page-blueprint-index .kb-table td.kb-col-class,
+#page-primal-fear-ficha .kb-table td.kb-code,
+#page-blueprint-index .kb-table td.kb-code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+/* Piso em px/rem: o layout automático não pode voltar a esmagar estas colunas.
+   Nome, blueprint e classe absorvem o resto e quebram linha. */
+#page-blueprint-index .kb-table .kb-col-name { min-width: 9rem; }
+#page-blueprint-index .kb-table .kb-col-path { min-width: 12rem; }
+#page-blueprint-index .kb-table .kb-col-class { min-width: 10rem; }
+#page-blueprint-index .kb-table .kb-col-mod {
+  width: 11rem;
+  min-width: 11rem;
+}
+#page-blueprint-index .kb-table .kb-col-kind {
+  width: 9rem;
+  min-width: 9rem;
+}
+#page-blueprint-index .kb-table .kb-col-note {
+  width: 16rem;
+  min-width: 16rem;
+}
+#page-blueprint-index .kb-table th,
+#page-primal-fear-ficha .kb-table th {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
 .kb-toc {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px 10px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .kb-toc a {
   color: var(--text, #f3efe8);
   text-decoration: none;
   border: 1px solid var(--border, rgba(255, 255, 255, .1));
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: normal;
+  max-width: 100%;
+  flex: 0 1 auto;
 }
-.kb-toc a:hover { border-color: var(--amber, #e87820); }
+.kb-toc a:hover,
+.kb-toc a.is-active {
+  border-color: var(--amber, #e87820);
+}
+.kb-toc a.is-active {
+  background: rgba(232, 120, 32, .16);
+  color: var(--amber, #e87820);
+}
 .kb-h2 {
   margin: 22px 0 8px;
   font-size: 20px;
@@ -120,8 +204,121 @@
   background: rgba(0, 0, 0, .25);
 }
 .kb-table td { color: var(--text2, #c8b8a4); }
+.kb-search, .kb-input, .kb-select {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, .12));
+  background: rgba(0, 0, 0, .25);
+  color: inherit;
+  font: inherit;
+}
+/* Menu próprio no lugar do select nativo: a lista do Windows não aceita fundo escuro. */
+.kb-menu { position: relative; width: 100%; }
+.kb-select-native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.kb-menu-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, .12));
+  background: rgba(0, 0, 0, .35);
+  color: var(--text, #d4c8a8);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kb-menu-btn:hover,
+.kb-menu-btn[aria-expanded="true"] {
+  border-color: var(--amber, #e87820);
+}
+.kb-menu-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--amber, #e87820);
+  flex: 0 0 auto;
+}
+.kb-menu-list {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 4px;
+  background: var(--surface2, #131008);
+  border: 1px solid var(--border, #2c2014);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .7);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.kb-menu-list[hidden] { display: none !important; }
+.kb-menu-opt {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text, #d4c8a8);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.kb-menu-opt:hover,
+.kb-menu-opt:focus-visible {
+  background: var(--surface3, #1c1710);
+  color: var(--text, #d4c8a8);
+  outline: none;
+}
+.kb-menu-opt.is-selected {
+  background: linear-gradient(90deg, var(--amber-dim, rgba(232, 120, 32, .14)), transparent);
+  border-left-color: var(--amber, #e87820);
+  color: var(--amber, #e87820);
+}
+.kb-form {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border, rgba(255, 255, 255, .1));
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .15);
+}
+.kb-form-row { display: grid; gap: 8px; grid-template-columns: 1.4fr .7fr; }
+.kb-code {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+.kb-msg { min-height: 1.2em; font-size: 13px; color: var(--amber, #e87820); }
+.kb-hidden { display: none !important; }
 @media (max-width: 640px) {
   .kb-field { grid-template-columns: 1fr; gap: 2px; }
   .kb-title { font-size: 22px; }
   .kb-table { font-size: 12px; }
+  .kb-form-row { grid-template-columns: 1fr; }
 }
