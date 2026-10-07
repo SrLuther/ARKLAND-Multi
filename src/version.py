@@ -3,13 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.120"
-BUILD_DATE: str = "2026-10-06"
+APP_VERSION: str = "1.10.121"
+BUILD_DATE: str = "2026-10-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.121",
+        "date": "2026-10-07",
+        "changes": [
+            "Feat (Web Store / Economia — Comércio, aba Precificação): preço travado das criaturas do catálogo que a loja já abre. Catálogo: 10.000 × (raiz da família ÷ 18.000) × índice; o nível não multiplica. Noxious acompanha Toxic; Fey acompanha Celestial e Demonic. Tek Strider, sem família e sem índice não recebem preço automático. Ajuste manual, Aplicar (uma ficha) e Aplicar em massa gravam só o campo Price. Conferências: Rex vanilla 7.500, Rex alpha 37.500, Giga vanilla 9.375, Giga alpha 46.875, utilitária raiz 800, alpha 1.667, Megalossauro Fey 103.125. Documento docs/PROJETO_PRECIFICACAO_CRIATURAS.md. Requer reiniciar a Web Store. Não é DLL de mapa.",
+            "Feat (Web Store / Economia — P2P): preço de catálogo + arredondamento(B × Q). Exemplo: Megalossauro Fey status 254 = 103.125 + 66.000 = 169.125.",
+            "Feat (Web Store / Economia — Encomenda): (P2P + cores + catálogo × 0,25 + (P2P + cores) × 0,35) × 1,05. Sempre acima do P2P dos mesmos status. Sem teto de 275.000. Encomenda sem cores: 266.805.",
+            "Falha conhecida (/loot, ArkPlayer): no teste de 04/10/2026, personagem «teste», nível 17, a bag de morte estava ao lado (feixe verde). O chat disse «Bag(s) de morte recuperada(s)» depois de «Comando comprado por 5 pontos», mas nada do loot entrou no inventário. O inventário ficou só com um item que já estava (peso 0.0). O comando mente sucesso. Parado até segunda ordem. Sem correção nesta versão.",
+            "Falha conhecida (número de dano curto, ArkPlayer): o número curto (9k / 27k / 95.9k) não aparece na tela. Com a opção nativa desligada, não apareceu nada. A tentativa de substituir o texto do widget flutuante também não mostrou número no teste seguinte. Fica para outro momento. Sem correção nesta versão.",
+        ],
+    },
     {
         "version": "1.10.120",
         "date": "2026-10-06",

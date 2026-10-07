@@ -232,6 +232,174 @@ def detect_primal_fear_band(signals: list[str], group: str = "") -> str | None:
     return None
 
 
+def _index_from_multiplier(multiplier: float | None) -> tuple[Decimal | None, int | float | None]:
+    """Índice = M ÷ 5, com uma casa. Alpha (M 5) fica 1."""
+    if multiplier is None:
+        return None, None
+    index_dec = (Decimal(str(multiplier)) / Decimal(5)).quantize(Decimal("0.1"))
+    index: int | float = int(index_dec) if index_dec == index_dec.to_integral_value() else float(index_dec)
+    return index_dec, index
+
+
+def _reference_from_index(family_root: int | None, index_dec: Decimal | None, cap: int) -> int | None:
+    """min(raiz × índice, teto). Sem raiz ou sem índice, a referência fica vazia."""
+    if family_root is None or index_dec is None:
+        return None
+    raw = (Decimal(int(family_root)) * index_dec).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return min(int(raw), int(cap))
+
+
+def _scale_part(name: str, multiplier: float | None, family_root: int | None, cap: int) -> dict[str, Any]:
+    index_dec, index = _index_from_multiplier(multiplier)
+    return {
+        "name": name,
+        "multiplier": multiplier,
+        "index": index,
+        "reference": _reference_from_index(family_root, index_dec, cap),
+    }
+
+
+def _base_row(
+    step: int | None,
+    label: str,
+    note: str,
+    parts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {"step": step, "label": label, "note": note, "parts": parts}
+
+
+def primal_fear_base_ladder(family_root: int | None = None, cap: int = 600_000) -> dict[str, Any]:
+    """Quatro blocos da área Base Primal Fear.
+
+    1. Progressão principal, do vanilla ao ápice domesticável. Os ovos de um
+       tier fazem o kibble do seguinte. Vanilla é o único 1× implícito
+       (Toxic é 3× em relação a ele). Omega fica depois de Fabled, com o 13
+       do documento.
+    2. Paralelos e utilitários, fora da linha de kibble.
+    3. Expansões: Noxious herda o 3 da Toxic; Fey herda o 27,5 de Celestial
+       e Demonic.
+    4. Chefes não domesticáveis, sem referência de preço.
+
+    A referência não altera o piso R + B×Q.
+    """
+
+    def part(name: str, multiplier: float | None, inherited_from: str | None = None) -> dict[str, Any]:
+        row = _scale_part(name, multiplier, family_root, cap)
+        row["inherited_from"] = inherited_from
+        return row
+
+    def unpriced(name: str) -> dict[str, Any]:
+        return {
+            "name": name,
+            "multiplier": None,
+            "index": None,
+            "reference": None,
+            "inherited_from": None,
+        }
+
+    progression = [
+        _base_row(1, "Vanilla", "Base do jogo. Toxic é 3× em relação ao vanilla, então este 1× é o único implícito. Índice 0,2.", [part("Vanilla", 1)]),
+        _base_row(2, "Toxic", "Índice 0,6. Na mesma família vale mais que Vanilla e menos que Alpha.", [part("Toxic", 3)]),
+        _base_row(3, "Alpha", "Índice 1.", [part("Alpha", 5)]),
+        _base_row(4, "Elemental Básico", "Fogo, gelo, cáustico e elétrico.", [part("Elemental Básico", 7.5)]),
+        _base_row(5, "Apex", "Índice 2.", [part("Apex", 10)]),
+        _base_row(6, "Elemental Avançado", "Luz e trevas.", [part("Elemental Avançado", 14)]),
+        _base_row(7, "Fabled", "Índice 3,2. Degrau próprio, antes de Omega.", [part("Fabled", 16)]),
+        _base_row(
+            8,
+            "Omega",
+            "Fica depois de Fabled na árvore. O multiplicador documentado continua 13 (índice 2,6), menor que o 16 do Fabled.",
+            [part("Omega", 13)],
+        ),
+        _base_row(
+            9,
+            "Celestial e Demonic",
+            "Mesmo nível de poder, em paralelo. Celestial 25× e Demonic 30×; o degrau usa 27,5 (índice 5,5) para os dois.",
+            [part("Celestial", 27.5), part("Demonic", 27.5)],
+        ),
+        _base_row(
+            10,
+            "Chaos e Spirit",
+            "Mesmo ápice domesticável. Faixa 35×–45×; o degrau usa 40 (índice 8) para os dois.",
+            [part("Chaos", 40), part("Spirit", 40)],
+        ),
+    ]
+    parallels = [
+        _base_row(None, "Elder", "Sem multiplicador fixo.", [part("Elder", None)]),
+        _base_row(None, "Malin", "Sem multiplicador.", [part("Malin", None)]),
+        _base_row(None, "Buffoon", "Sem multiplicador fixo.", [part("Buffoon", None)]),
+        _base_row(
+            None,
+            "Primal Tek",
+            "Número próprio do Useful Info: are default 12x stat multipliers. Índice 2,4. Não é herança.",
+            [part("Primal Tek", 12)],
+        ),
+        _base_row(None, "Corrupted", "Mecânica. O General Info não dá multiplicador de faixa.", [part("Corrupted", None)]),
+        _base_row(None, "Miscellaneous", "Sem multiplicador.", [part("Miscellaneous", None)]),
+    ]
+    expansions = [
+        _base_row(
+            None,
+            "Noxious",
+            "Early game, veneno e torpor. Mesmo nível da Toxic: herda o multiplicador 3 e o índice 0,6.",
+            [part("Noxious", 3, inherited_from="Toxic")],
+        ),
+        _base_row(
+            None,
+            "Fey",
+            "Suporte, cura, expansão mágica. Mesmo nível de Celestial e Demonic: herda 27,5 e o índice 5,5.",
+            [part("Fey", 27.5, inherited_from="Celestial / Demonic")],
+        ),
+    ]
+    bosses = [
+        _base_row(0, "Mini Bosses", "Tier 0. Não entra no cálculo.", [unpriced("Mini Bosses")]),
+        _base_row(1, "Primals", "Tier 1. Não entra no cálculo.", [unpriced("Primals")]),
+        _base_row(2, "Origins", "Tier 2. Não entra no cálculo.", [unpriced("Origins")]),
+        _base_row(3, "Emperor e Empress", "Tier 3. Não entra no cálculo.", [unpriced("Emperor e Empress")]),
+        _base_row(4, "Guardians", "Tier 4. Não entra no cálculo.", [unpriced("Guardians")]),
+        _base_row(5, "Gods/Creators", "Tier 5. Não entra no cálculo.", [unpriced("Gods/Creators")]),
+        _base_row(6, "Colossus", "Tier 6. Não entra no cálculo.", [unpriced("Colossus")]),
+        _base_row(7, "Pikkon's Revenge", "Tier 7. Não entra no cálculo.", [unpriced("Pikkon's Revenge")]),
+    ]
+    return {
+        "cap": int(cap),
+        "family_root": None if family_root is None else int(family_root),
+        "blocks": [
+            {
+                "id": "progression",
+                "title": "Progressão principal",
+                "intro": "Do mais básico ao mais forte. Os ovos de um tier fazem o kibble do seguinte.",
+                "priced": True,
+                "rows": progression,
+            },
+            {
+                "id": "parallels",
+                "title": "Paralelos e utilitários",
+                "intro": "Fora da linha de kibble. Sem multiplicador inventado.",
+                "priced": True,
+                "rows": parallels,
+            },
+            {
+                "id": "expansions",
+                "title": "Expansões",
+                "intro": "Quem está no mesmo nível de uma faixa com número herda esse multiplicador.",
+                "priced": True,
+                "rows": expansions,
+            },
+            {
+                "id": "bosses",
+                "title": "Chefes não domesticáveis",
+                "intro": (
+                    "Não entra no cálculo. São chefes não domesticáveis. "
+                    "Ficam de fora para evitar desgaste na base de preço."
+                ),
+                "priced": False,
+                "rows": bosses,
+            },
+        ],
+    }
+
+
 def _band_payload(band: str | None, family_root: int | None, cap: int) -> tuple[str | None, int | float | None, int | None]:
     if not band or band not in _BANDS:
         return None, None, None

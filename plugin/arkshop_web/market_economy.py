@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -1237,11 +1240,17 @@ def _economy_row_from_catalog_line(
     display_name = _economy_line_display(entry, source, species_key)
     from primal_fear_secondary import primal_fear_secondary_fields
 
+    family_root = int(family.get("root_value") or 0) if family else None
+    family_name = (
+        clean_species_display_name(str(family.get("display_name") or "")) or species_key
+        if family
+        else None
+    )
     pf = primal_fear_secondary_fields(
         item_id=item_id,
         entry=entry,
         display_name=display_name,
-        family_root=int(family.get("root_value") or 0) if family else None,
+        family_root=family_root,
         cap=ECONOMY_TABLE_CAP,
     )
     return {
@@ -1269,6 +1278,8 @@ def _economy_row_from_catalog_line(
         "pf_reference": pf["pf_reference"],
         "pf_mod": pf["pf_mod"],
         "pf_note": pf["pf_note"],
+        "family_root": family_root,
+        "family_name": family_name,
     }
 
 
@@ -1358,6 +1369,8 @@ def simulate_economy(
 
 
 def load_economy_global_config() -> dict[str, Any]:
+    from primal_fear_secondary import primal_fear_base_ladder
+
     fq = load_floor_quality_config()
     return {
         "floor_quality": fq,
@@ -1369,6 +1382,7 @@ def load_economy_global_config() -> dict[str, Any]:
         "role_stat_weights": fq["role_stat_weights"],
         "tier_legend": load_tier_legend(),
         "price_ceiling": load_price_ceiling_config(),
+        "pf_base": primal_fear_base_ladder(cap=ECONOMY_TABLE_CAP),
     }
 
 
@@ -2936,4 +2950,669 @@ def ensure_catalog_species_in_defaults(
         "added": len(added_keys),
         "species_keys": added_keys,
         "missing_catalog_items": [cid for cid, _ in missing],
+    }
+
+
+# ── Precificação travada do catálogo ─────────────────────────────────────────
+# Preço de catálogo = 10.000 × (raiz da família ÷ 18.000) × índice.
+# O nível não multiplica. Noxious usa o índice da Toxic. Fey usa o de Celestial/Demonic.
+# Tek Strider, sem família e sem índice não recebem preço automático.
+
+CATALOG_PRICE_ORIGIN: int = 10_000
+REX_ROOT_RULER: int = 18_000
+LOCKED_PTS_REFERENCE: int = 254
+LOCKED_GAMMA: Decimal = Decimal("0.82")
+LOCKED_ATTACK_WEIGHTS: dict[str, Decimal] = {
+    "health": Decimal("0.35"),
+    "melee": Decimal("0.45"),
+    "weight": Decimal("0.10"),
+    "stamina": Decimal("0.10"),
+}
+LOCKED_ENCOMENDA_ALPHA: Decimal = Decimal("0.25")
+LOCKED_ENCOMENDA_BETA: Decimal = Decimal("0.35")
+LOCKED_ENCOMENDA_MARKUP: Decimal = Decimal("1.05")
+MEGALOSAURUS_P2P_BUDGET: int = 66_000
+
+# Índices travados. Não são M ÷ 5.
+_LOCKED_TIER_INDEX: dict[str, tuple[str, Decimal]] = {
+    "vanilla": ("Vanilla", Decimal("0.75")),
+    "toxic": ("Toxic", Decimal("2.25")),
+    "noxious": ("Noxious", Decimal("2.25")),
+    "alpha": ("Alpha", Decimal("3.75")),
+    "elemental_basic": ("Elemental Basic", Decimal("5.625")),
+    "apex": ("Apex", Decimal("7.5")),
+    "elemental_advanced": ("Elemental Advanced", Decimal("10.5")),
+    "fabled": ("Fabled", Decimal("12")),
+    "omega": ("Omega", Decimal("9.75")),
+    "celestial": ("Celestial", Decimal("20.625")),
+    "demonic": ("Demonic", Decimal("20.625")),
+    "fey": ("Fey", Decimal("20.625")),
+    "chaos": ("Chaos", Decimal("30")),
+    "spirit": ("Spirit", Decimal("30")),
+    "primal_tek": ("Primal Tek", Decimal("9")),
+}
+
+# Segmentos tirados do nome para achar a família. Não são, sozinhos, um índice.
+_FAMILY_DROP_TOKENS: frozenset[str] = frozenset({
+    "pf", "ab", "vn", "aby", "x",
+    "alpha", "alfa", "fabled", "apex", "toxic", "toxico", "noxious",
+    "elemental", "omega", "celestial", "demonic", "demoniaco",
+    "chaos", "caos", "spirit", "espirito", "fey",
+    "aberrante", "aberrant", "aberration",
+    "elder", "anciao", "malin", "buffoon",
+    "corrupted", "corrupt", "miscellaneous",
+    "primal", "tek", "bionic",
+    "basic", "basico", "advanced", "avancado",
+    "light", "dark", "luz", "trevas",
+    "fire", "fogo", "ice", "gelo", "electric", "eletrico", "caustic", "caustico",
+    "black", "negro",
+    "shop", "femea", "macho", "female", "male",
+})
+
+_BOSS_TOKENS: frozenset[str] = frozenset({
+    "boss", "bosses", "miniboss", "minibosses",
+    "emperor", "empress", "guardian", "guardians",
+    "colossus", "pikkon", "origins", "gods", "creators",
+})
+
+_UNPRICED_TIER_REASONS: tuple[tuple[str, str], ...] = (
+    ("elder", "Elder não tem índice. Sem preço automático."),
+    ("anciao", "Elder não tem índice. Sem preço automático."),
+    ("malin", "Malin não tem índice. Sem preço automático."),
+    ("buffoon", "Buffoon não tem índice. Sem preço automático."),
+    ("corrupted", "Corrupted não tem índice. Sem preço automático."),
+    ("corrupt", "Corrupted não tem índice. Sem preço automático."),
+    ("miscellaneous", "Miscellaneous não tem índice. Sem preço automático."),
+)
+
+PROTECTED_CATALOG_BACKUP_NAMES: frozenset[str] = frozenset({
+    "catalog.json.bak-antes-itens-pf",
+    "catalog.json.bak-antes-ajuste-precos",
+})
+
+_FOLD_CHARS = str.maketrans({
+    "á": "a", "à": "a", "ã": "a", "â": "a",
+    "é": "e", "ê": "e",
+    "í": "i",
+    "ó": "o", "ô": "o", "õ": "o",
+    "ú": "u",
+    "ç": "c",
+})
+
+
+def _pricing_fold(text: str | None) -> str:
+    return (text or "").strip().lower().translate(_FOLD_CHARS)
+
+
+def _pricing_tokens(*parts: str | None) -> list[str]:
+    tokens: list[str] = []
+    for part in parts:
+        tokens.extend(re.findall(r"[a-z0-9]+", _pricing_fold(part)))
+    return tokens
+
+
+def format_pt_int(value: int) -> str:
+    return f"{int(value):,}".replace(",", ".")
+
+
+def format_pt_decimal(value: Decimal) -> str:
+    text = format(value.normalize(), "f")
+    if "." not in text:
+        return text
+    whole, frac = text.split(".", 1)
+    return f"{whole},{frac}"
+
+
+def locked_round_half_up(value: Decimal) -> int:
+    """Inteiro mais próximo. Empate no meio sobe (half up)."""
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def locked_catalog_price(family_root: int, index: Decimal) -> int:
+    """10.000 × (raiz ÷ 18.000) × índice, em inteiro half up."""
+    raw = (Decimal(CATALOG_PRICE_ORIGIN) * Decimal(int(family_root)) * index) / Decimal(REX_ROOT_RULER)
+    return locked_round_half_up(raw)
+
+
+def coefficient_label(family_root: int) -> str:
+    """Rótulo do coeficiente. Se a divisão não fecha curto, mostra a fração."""
+    root = int(family_root)
+    coef = Decimal(root) / Decimal(REX_ROOT_RULER)
+    short = coef.quantize(Decimal("0.0001"))
+    if short == coef:
+        return format_pt_decimal(coef)
+    return f"{format_pt_int(root)} ÷ {format_pt_int(REX_ROOT_RULER)}"
+
+
+def locked_attack_quality(stat_points: dict[str, int] | None) -> Decimal:
+    """Q do papel ataque. Média ponderada de (pontos ÷ 254) ^ 0,82, limitada a 1."""
+    points = stat_points or {}
+    ref = Decimal(LOCKED_PTS_REFERENCE)
+    weighted = Decimal(0)
+    weight_total = Decimal(0)
+    for key, weight in LOCKED_ATTACK_WEIGHTS.items():
+        try:
+            pts = Decimal(int(points.get(key) or 0))
+        except (TypeError, ValueError):
+            pts = Decimal(0)
+        if pts < 0:
+            pts = Decimal(0)
+        weighted += weight * ((pts / ref) ** LOCKED_GAMMA)
+        weight_total += weight
+    if weight_total <= 0:
+        return Decimal(0)
+    quality = weighted / weight_total
+    if quality > 1:
+        return Decimal(1)
+    if quality < 0:
+        return Decimal(0)
+    return quality
+
+
+def locked_p2p_price(catalog_price: int, budget: int, stat_points: dict[str, int] | None) -> int:
+    """P2P = preço de catálogo + arredondamento(B × Q). O nível não entra."""
+    quality = locked_attack_quality(stat_points)
+    addon = locked_round_half_up(Decimal(int(budget)) * quality)
+    return int(catalog_price) + addon
+
+
+def locked_color_amount(
+    catalog_price: int,
+    *,
+    mode: str = "none",
+    regions: int = 0,
+) -> Decimal:
+    """Fração do catálogo. none = 0. uniform = 8%. regions = 5% + 2% por região."""
+    catalog = Decimal(int(catalog_price))
+    kind = str(mode or "none").strip().lower()
+    if kind == "uniform":
+        return catalog * Decimal("0.08")
+    if kind == "regions":
+        count = max(0, int(regions))
+        return catalog * (Decimal("0.05") + Decimal("0.02") * Decimal(count))
+    return Decimal(0)
+
+
+def locked_encomenda_price(
+    catalog_price: int,
+    p2p_price: int,
+    *,
+    color_mode: str = "none",
+    regions: int = 0,
+) -> int:
+    """(P2P + cores + catálogo × 0,25 + (P2P + cores) × 0,35) × 1,05.
+
+    Sem teto. Com catálogo positivo, fica acima do P2P dos mesmos status.
+    """
+    catalog = Decimal(int(catalog_price))
+    p2p = Decimal(int(p2p_price))
+    colors = locked_color_amount(catalog_price, mode=color_mode, regions=regions)
+    total = (p2p + colors + catalog * LOCKED_ENCOMENDA_ALPHA + (p2p + colors) * LOCKED_ENCOMENDA_BETA) * LOCKED_ENCOMENDA_MARKUP
+    return locked_round_half_up(total)
+
+
+def locked_pricing_examples() -> dict[str, Any]:
+    """Números de conferência. As raízes saem de market_species_defaults.json."""
+    species = load_default_species_map()
+    rex_root = int(species["rex"]["root_value"])
+    giga_root = int(species["giga"]["root_value"])
+    mega_root = int(species["megalosaurus"]["root_value"])
+    mega_budget = int(species["megalosaurus"]["premium_budget"])
+    vanilla = _LOCKED_TIER_INDEX["vanilla"][1]
+    alpha = _LOCKED_TIER_INDEX["alpha"][1]
+    fey = _LOCKED_TIER_INDEX["fey"][1]
+    full = {"health": LOCKED_PTS_REFERENCE, "melee": LOCKED_PTS_REFERENCE, "weight": LOCKED_PTS_REFERENCE, "stamina": LOCKED_PTS_REFERENCE}
+    mega_catalog = locked_catalog_price(mega_root, fey)
+    mega_p2p = locked_p2p_price(mega_catalog, mega_budget, full)
+    return {
+        "rex_root": rex_root,
+        "giga_root": giga_root,
+        "megalosaurus_root": mega_root,
+        "megalosaurus_budget": mega_budget,
+        "rex_vanilla": locked_catalog_price(rex_root, vanilla),
+        "rex_alpha": locked_catalog_price(rex_root, alpha),
+        "giga_vanilla": locked_catalog_price(giga_root, vanilla),
+        "giga_alpha": locked_catalog_price(giga_root, alpha),
+        "utility_root_800_alpha": locked_catalog_price(800, alpha),
+        "megalosaurus_fey_catalog": mega_catalog,
+        "megalosaurus_fey_p2p": mega_p2p,
+        "megalosaurus_fey_encomenda": locked_encomenda_price(mega_catalog, mega_p2p),
+        "noxious_index": format(_LOCKED_TIER_INDEX["noxious"][1], "f"),
+        "toxic_index": format(_LOCKED_TIER_INDEX["toxic"][1], "f"),
+        "fey_index": format(_LOCKED_TIER_INDEX["fey"][1], "f"),
+        "celestial_index": format(_LOCKED_TIER_INDEX["celestial"][1], "f"),
+        "demonic_index": format(_LOCKED_TIER_INDEX["demonic"][1], "f"),
+    }
+
+
+def _family_token(text: str | None) -> str:
+    kept: list[str] = []
+    for token in _pricing_tokens(text):
+        if token in _FAMILY_DROP_TOKENS:
+            continue
+        if re.fullmatch(r"l?\d+", token):
+            continue
+        kept.append(token)
+    return "_".join(kept)
+
+
+def _locked_family_index() -> dict[str, dict[str, Any]]:
+    """Famílias com raiz gravada. A chave é o species_key dos defaults."""
+    out: dict[str, dict[str, Any]] = {}
+    for key, defn in load_default_species_map().items():
+        if not isinstance(defn, dict):
+            continue
+        try:
+            root = int(defn.get("root_value") or 0)
+        except (TypeError, ValueError):
+            continue
+        if root <= 0:
+            continue
+        species_key = str(defn.get("species_key") or key).strip().lower()
+        if species_key:
+            out[species_key] = defn
+    return out
+
+
+def _match_locked_family(token: str, families: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    token = str(token or "").strip().lower()
+    if not token or not families:
+        return None
+    if token in families:
+        return families[token]
+    alias = _SPECIES_KEY_ALIASES.get(token)
+    if alias and alias in families:
+        return families[alias]
+    if len(token) >= 4:
+        hits = [key for key in families if key.startswith(token)]
+        if len(hits) == 1:
+            return families[hits[0]]
+    return None
+
+
+def _lookup_locked_family(
+    item_id: str,
+    entry: dict[str, Any],
+    display_name: str,
+    families: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    blueprint = _catalog_item_blueprint(entry)
+    short = blueprint_short_key(blueprint)
+    if short.endswith("_character_bp"):
+        short = short[: -len("_character_bp")]
+    for raw in (item_id, short, display_name):
+        token = _family_token(raw)
+        hit = _match_locked_family(token, families)
+        if hit:
+            return hit
+    resolved = resolve_species_by_blueprint(blueprint)
+    if isinstance(resolved, dict):
+        try:
+            root = int(resolved.get("root_value") or 0)
+        except (TypeError, ValueError):
+            root = 0
+        if root > 0:
+            stripped = _family_token(str(resolved.get("species_key") or ""))
+            rematched = _match_locked_family(stripped, families) if stripped else None
+            return rematched or resolved
+    return None
+
+
+def _detect_locked_tier(
+    tokens: list[str],
+    item_id: str,
+    family_key: str = "",
+) -> tuple[str | None, str | None, Decimal | None, str | None]:
+    """Devolve (chave, rótulo, índice, motivo de bloqueio).
+
+    Motivo preenchido significa sem preço automático.
+    Palavra que já faz parte do nome da família (Rock Elemental) não vira tier.
+    """
+    token_set = set(tokens)
+    flat = "".join(tokens)
+    item_key = _pricing_fold(item_id)
+    if "tekstrider" in token_set or "tekstrider" in flat or {"tek", "strider"} <= token_set:
+        return None, None, None, "Tek Strider não é âncora e não recebe preço automático."
+    if item_key.startswith("pfb_") or item_key.startswith("pfb ") or token_set & _BOSS_TOKENS:
+        return None, None, None, "Chefe não domesticável. Sem preço automático."
+    for token, reason in _UNPRICED_TIER_REASONS:
+        if token in token_set:
+            return None, None, None, reason
+    if "blackomega" in flat or ({"black", "omega"} <= token_set):
+        return None, None, None, "Black Omega não tem índice nesta tabela. Sem preço automático."
+    if "primaltek" in flat or "bionic" in token_set or ({"primal", "tek"} <= token_set):
+        label, index = _LOCKED_TIER_INDEX["primal_tek"]
+        return "primal_tek", label, index, None
+    if "primal" in token_set:
+        return None, None, None, "Primal não tem índice. Sem preço automático."
+    family_tokens = set(_pricing_tokens(family_key))
+    tokens = [token for token in tokens if token not in family_tokens]
+    token_set = set(tokens)
+    flat = "".join(tokens)
+    if "elemental" in token_set or "elemental" in flat:
+        advanced = (
+            "advanced" in token_set
+            or "avancado" in token_set
+            or "elementaladvanced" in flat
+            or token_set & {"light", "dark", "luz", "trevas"}
+        )
+        key = "elemental_advanced" if advanced else "elemental_basic"
+        label, index = _LOCKED_TIER_INDEX[key]
+        return key, label, index, None
+    ordered = (
+        "fey",
+        "celestial",
+        "demonic",
+        "chaos",
+        "spirit",
+        "omega",
+        "fabled",
+        "apex",
+        "alpha",
+        "noxious",
+        "toxic",
+    )
+    aliases = {
+        "demoniaco": "demonic",
+        "caos": "chaos",
+        "espirito": "spirit",
+        "alfa": "alpha",
+        "toxico": "toxic",
+    }
+    found: set[str] = set()
+    for token in tokens:
+        key = aliases.get(token, token)
+        if key in ordered:
+            found.add(key)
+    for key in ordered:
+        if key in found:
+            label, index = _LOCKED_TIER_INDEX[key]
+            return key, label, index, None
+    label, index = _LOCKED_TIER_INDEX["vanilla"]
+    return "vanilla", label, index, None
+
+
+def _catalog_price_formula(family_root: int, index: Decimal, price: int) -> str:
+    coef = coefficient_label(family_root)
+    if "÷" in coef:
+        coef_text = f"({coef})"
+    else:
+        coef_text = coef
+    return (
+        f"{format_pt_int(CATALOG_PRICE_ORIGIN)} × {coef_text} × {format_pt_decimal(index)}"
+        f" = {format_pt_int(price)}"
+    )
+
+
+def locked_pricing_row(
+    item_id: str,
+    entry: dict[str, Any],
+    families: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Uma criatura do catálogo, com o preço calculado ou o motivo de não calcular."""
+    families = families if families is not None else _locked_family_index()
+    display_name = _economy_line_display(entry, {}, item_id)
+    blueprint = _catalog_item_blueprint(entry)
+    short = blueprint_short_key(blueprint)
+    tokens = _pricing_tokens(item_id, display_name, short)
+    family = _lookup_locked_family(item_id, entry, display_name, families)
+    family_key = str(family.get("species_key") or "").strip().lower() if family else ""
+    family_name = ""
+    family_root: int | None = None
+    if family:
+        family_name = clean_species_display_name(str(family.get("display_name") or "")) or family_key
+        try:
+            family_root = int(family.get("root_value") or 0)
+        except (TypeError, ValueError):
+            family_root = 0
+        if family_root <= 0:
+            family_root = None
+            family = None
+    tier_key, tier_label, index, block_reason = _detect_locked_tier(tokens, item_id, family_key)
+    if family_key == "tekstrider":
+        block_reason = "Tek Strider não é âncora e não recebe preço automático."
+        tier_key, tier_label, index = None, None, None
+    calculated: int | None = None
+    formula = ""
+    coef_label = ""
+    if block_reason:
+        calculated = None
+    elif family is None or family_root is None:
+        block_reason = "Sem família vanilla com raiz gravada. Sem preço automático."
+    elif index is None:
+        block_reason = block_reason or "Sem índice. Sem preço automático."
+    else:
+        calculated = locked_catalog_price(family_root, index)
+        coef_label = coefficient_label(family_root)
+        formula = _catalog_price_formula(family_root, index, calculated)
+    try:
+        current_price = int(entry.get("Price") or 0)
+    except (TypeError, ValueError):
+        current_price = 0
+    return {
+        "catalog_item_id": item_id,
+        "display_name": display_name,
+        "level": economy_line_level(entry),
+        "family_key": family_key or None,
+        "family_name": family_name or None,
+        "family_root": family_root,
+        "coefficient_label": coef_label or None,
+        "tier_key": tier_key,
+        "tier_label": tier_label,
+        "index_label": format_pt_decimal(index) if index is not None else None,
+        "calculated_price": calculated,
+        "price_formula": formula or None,
+        "current_price": current_price,
+        "block_reason": block_reason,
+        "can_apply_calculated": calculated is not None,
+    }
+
+
+def list_locked_catalog_pricing(catalog: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Todas as criaturas Type:dino do catálogo que a loja abre."""
+    if not isinstance(catalog, dict) or not _catalog_items_dict(catalog):
+        return []
+    families = _locked_family_index()
+    rows = [
+        locked_pricing_row(item_id, entry, families)
+        for item_id, entry in iter_catalog_dinos(catalog)
+        if isinstance(entry, dict)
+    ]
+    rows.sort(
+        key=lambda row: (
+            str(row.get("display_name") or "").casefold(),
+            str(row.get("catalog_item_id") or ""),
+        )
+    )
+    return rows
+
+
+def parse_manual_price(value: Any) -> tuple[int | None, str | None]:
+    """Vazio vira None. Inteiro ≥ 0 é o preço manual. O resto é erro."""
+    if value is None:
+        return None, None
+    if isinstance(value, bool):
+        return None, "Ajuste manual precisa ser um inteiro maior ou igual a zero."
+    if isinstance(value, str):
+        text = value.strip()
+        if text == "":
+            return None, None
+        if not text.isdigit():
+            return None, "Ajuste manual precisa ser um inteiro maior ou igual a zero."
+        return int(text), None
+    if isinstance(value, int):
+        if value < 0:
+            return None, "Ajuste manual precisa ser um inteiro maior ou igual a zero."
+        return value, None
+    if isinstance(value, float) and value >= 0 and value.is_integer():
+        return int(value), None
+    return None, "Ajuste manual precisa ser um inteiro maior ou igual a zero."
+
+
+def _price_to_write(row: dict[str, Any], manual: int | None) -> int | None:
+    """Manual preenchido ganha do calculado. Sem os dois, não grava."""
+    if manual is not None:
+        return int(manual)
+    if row.get("can_apply_calculated") and row.get("calculated_price") is not None:
+        return int(row["calculated_price"])
+    return None
+
+
+def apply_locked_prices_to_catalog(
+    catalog: dict[str, Any],
+    *,
+    item_ids: list[str],
+    manuals: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Grava só Items/ShopItems[id].Price das criaturas pedidas.
+
+    Não mexe em Quantity, kits, itens nem nas outras chaves.
+    """
+    manuals = manuals or {}
+    rows = {
+        str(row["catalog_item_id"]): row
+        for row in list_locked_catalog_pricing(catalog)
+    }
+    items = _catalog_items_dict(catalog)
+    changed: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    parsed_manuals: dict[str, int | None] = {}
+    seen: set[str] = set()
+    for raw_id in item_ids:
+        item_id = str(raw_id or "").strip()
+        if not item_id or item_id in seen:
+            continue
+        seen.add(item_id)
+        if item_id in manuals:
+            manual, error = parse_manual_price(manuals[item_id])
+            if error:
+                errors.append({"catalog_item_id": item_id, "error": error})
+                continue
+            parsed_manuals[item_id] = manual
+    if errors:
+        return {"ok": False, "changed": [], "skipped": [], "errors": errors, "changed_count": 0}
+    seen.clear()
+    for raw_id in item_ids:
+        item_id = str(raw_id or "").strip()
+        if not item_id or item_id in seen:
+            continue
+        seen.add(item_id)
+        manual = parsed_manuals.get(item_id)
+        row = rows.get(item_id)
+        if row is None or item_id not in items or not isinstance(items.get(item_id), dict):
+            skipped.append({"catalog_item_id": item_id, "reason": "Criatura não está no catálogo."})
+            continue
+        price = _price_to_write(row, manual)
+        if price is None:
+            skipped.append({
+                "catalog_item_id": item_id,
+                "reason": row.get("block_reason") or "Sem preço calculado e sem ajuste manual.",
+            })
+            continue
+        entry = items[item_id]
+        old = entry.get("Price")
+        if old == price:
+            skipped.append({"catalog_item_id": item_id, "reason": "Price já está nesse valor.", "price": price})
+            continue
+        entry["Price"] = price
+        changed.append({
+            "catalog_item_id": item_id,
+            "old_price": old,
+            "new_price": price,
+            "source": "manual" if manual is not None else "calculado",
+        })
+    return {
+        "ok": not errors,
+        "changed": changed,
+        "skipped": skipped,
+        "errors": errors,
+        "changed_count": len(changed),
+    }
+
+
+def _backup_name_is_protected(name: str) -> bool:
+    lowered = name.lower()
+    if name in PROTECTED_CATALOG_BACKUP_NAMES or lowered in PROTECTED_CATALOG_BACKUP_NAMES:
+        return True
+    return lowered.endswith("bak-antes-itens-pf") or lowered.endswith("bak-antes-ajuste-precos")
+
+
+def backup_catalog_beside(path: Path) -> Path:
+    """Cópia ao lado do catálogo. Não apaga e não sobrescreve backups antigos."""
+    source = Path(path)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    number = 0
+    while True:
+        suffix = f".bak-precificacao-{stamp}" if number == 0 else f".bak-precificacao-{stamp}-{number}"
+        dest = source.parent / f"{source.name}{suffix}"
+        number += 1
+        if _backup_name_is_protected(dest.name) or dest.exists():
+            continue
+        shutil.copy2(source, dest)
+        return dest
+
+
+def apply_locked_prices_at_path(
+    path: Path,
+    *,
+    mode: str,
+    catalog_item_id: str | None = None,
+    manuals: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Lê, altera Price e grava o mesmo arquivo. A massa faz cópia antes."""
+    catalog_path = Path(path)
+    if not catalog_path.is_file():
+        return {"ok": False, "error": "Catálogo não encontrado no caminho que a loja já abre.", "changed": [], "skipped": []}
+    kind = str(mode or "").strip().lower()
+    if kind not in {"one", "bulk"}:
+        return {"ok": False, "error": "Modo inválido. Use individual ou em massa.", "changed": [], "skipped": []}
+    try:
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"ok": False, "error": f"Não foi possível ler o catálogo: {exc}", "changed": [], "skipped": []}
+    if not isinstance(catalog, dict):
+        return {"ok": False, "error": "O catálogo não é um objeto JSON.", "changed": [], "skipped": []}
+    manuals = dict(manuals or {})
+    if kind == "one":
+        item_id = str(catalog_item_id or "").strip()
+        if not item_id:
+            return {"ok": False, "error": "Informe a criatura.", "changed": [], "skipped": []}
+        item_ids = [item_id]
+        if item_id not in manuals:
+            manuals[item_id] = None
+    else:
+        item_ids = [item_id for item_id, _entry in iter_catalog_dinos(catalog)]
+    result = apply_locked_prices_to_catalog(catalog, item_ids=item_ids, manuals=manuals)
+    if not result.get("ok"):
+        return {**result, "error": "Ajuste manual inválido.", "backup": None, "written": False}
+    if not result["changed"]:
+        return {**result, "backup": None, "written": False, "path": str(catalog_path)}
+    backup_path: Path | None = None
+    if kind == "bulk":
+        backup_path = backup_catalog_beside(catalog_path)
+    payload = json.dumps(catalog, indent=2, ensure_ascii=False) + "\n"
+    temporary = catalog_path.parent / f".{catalog_path.name}.precificacao-tmp-{os.getpid()}"
+    try:
+        temporary.write_text(payload, encoding="utf-8")
+        os.replace(temporary, catalog_path)
+    except OSError as exc:
+        try:
+            if temporary.exists():
+                temporary.unlink()
+        except OSError:
+            pass
+        return {
+            "ok": False,
+            "error": f"Não foi possível gravar o catálogo: {exc}",
+            "changed": [],
+            "skipped": result["skipped"],
+            "backup": str(backup_path) if backup_path else None,
+            "written": False,
+        }
+    return {
+        **result,
+        "backup": str(backup_path) if backup_path else None,
+        "written": True,
+        "path": str(catalog_path),
     }

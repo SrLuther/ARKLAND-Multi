@@ -14,11 +14,14 @@ from dino_lab_block_service import (
 )
 
 from market_economy import (
+    apply_locked_prices_at_path,
     calculate_suggested_value,
     load_economy_global_config,
     load_tier_legend,
     attach_economy_db_status,
+    list_locked_catalog_pricing,
     list_species_economy_meta,
+    locked_pricing_examples,
     normalize_stat_points,
     patch_economy_global_config,
     patch_species_economy_meta,
@@ -417,6 +420,15 @@ def register_market_routes(
         except Exception:
             catalog = None
         species = list_species_economy_meta(catalog)
+        try:
+            examples = locked_pricing_examples()
+        except Exception:
+            examples = {}
+        cfg["locked_pricing"] = {
+            "examples": examples,
+            "rows": list_locked_catalog_pricing(catalog),
+        }
+        cfg["locked_pricing"]["creature_count"] = len(cfg["locked_pricing"]["rows"])
         if db_ready():
             db = session_factory()
             try:
@@ -430,6 +442,56 @@ def register_market_routes(
                 db.close()
         cfg["species"] = species
         return jsonify({"ok": True, **cfg})
+
+    @app.route("/api/market/admin/economy/apply-prices", methods=["POST"])
+    @admin_required
+    def market_admin_economy_apply_prices():
+        """Grava Price no catálogo que a loja já abre. Não troca o config_path."""
+        body = request.get_json(silent=True) or {}
+        mode = str(body.get("mode") or "").strip().lower()
+        if mode in {"individual", "one", "um"}:
+            mode = "one"
+        elif mode in {"bulk", "massa", "all"}:
+            mode = "bulk"
+        item_id = str(body.get("catalog_item_id") or "").strip()
+        manuals: dict[str, Any] = {}
+        if mode == "one":
+            if "manual_price" in body:
+                manuals[item_id] = body.get("manual_price")
+        else:
+            raw_manuals = body.get("manuals")
+            if isinstance(raw_manuals, dict):
+                manuals = {str(key): value for key, value in raw_manuals.items()}
+        try:
+            from app import _invalidate_shop_config_cache, _resolve_shop_catalog
+
+            resolved, _data, note = _resolve_shop_catalog(persist_healed_path=False)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Falha ao localizar o catálogo: {exc}"}), 500
+        if not getattr(resolved, "is_file", lambda: False)():
+            return jsonify({
+                "ok": False,
+                "error": note or "Catálogo não encontrado no caminho que a loja já abre.",
+            }), 404
+        result = apply_locked_prices_at_path(
+            resolved,
+            mode=mode,
+            catalog_item_id=item_id,
+            manuals=manuals,
+        )
+        if result.get("written"):
+            _invalidate_shop_config_cache()
+            try:
+                audit_event(
+                    "MARKET_CATALOG_PRICES_APPLIED",
+                    mode=mode,
+                    changed=result.get("changed_count"),
+                    path=str(resolved),
+                )
+            except Exception:
+                pass
+        status = 200 if result.get("ok") else 400
+        return jsonify(result), status
 
     @app.route("/api/market/admin/economy/config", methods=["PATCH"])
     @admin_required

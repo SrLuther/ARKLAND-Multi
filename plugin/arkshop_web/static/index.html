@@ -7732,6 +7732,60 @@
             font-weight: 700;
             letter-spacing: .04em;
           }
+          #page-market-economy-admin .me-pf-lead,
+          #page-market-economy-admin .me-pf-note {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.45;
+            margin: 0 0 14px;
+          }
+          #page-market-economy-admin .me-pf-noxious td { background: rgba(180, 140, 60, .12); }
+          #page-market-economy-admin .me-pf-toxic td { background: rgba(80, 200, 120, .10); }
+          #page-market-economy-admin .me-pf-alpha td { background: rgba(80, 160, 255, .10); }
+          #page-market-economy-admin .me-pf-vanilla td { background: rgba(160, 160, 180, .10); }
+          #page-market-economy-admin .me-pf-bosses {
+            border: 1px dashed rgba(224, 176, 96, .55);
+            background: rgba(224, 176, 96, .06);
+          }
+          #page-market-economy-admin .me-formula-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin: 0 0 16px;
+          }
+          #page-market-economy-admin .me-formula-card {
+            padding: 14px 16px 16px;
+          }
+          #page-market-economy-admin .me-formula-card h3 {
+            margin: 0 0 8px;
+            font-size: 15px;
+          }
+          #page-market-economy-admin .me-formula-card p,
+          #page-market-economy-admin .me-formula-card li {
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--text2);
+            margin: 0 0 8px;
+          }
+          #page-market-economy-admin .me-formula-card ul {
+            margin: 0 0 8px 18px;
+            padding: 0;
+          }
+          #page-market-economy-admin .me-formula-result {
+            color: var(--text);
+            font-weight: 700;
+          }
+          #page-market-economy-admin .me-locked-blocked td {
+            background: rgba(224, 176, 96, .08);
+          }
+          #page-market-economy-admin .me-locked-manual {
+            width: 168px;
+          }
+          @media (max-width: 1100px) {
+            #page-market-economy-admin .me-formula-grid {
+              grid-template-columns: 1fr;
+            }
+          }
         </style>
         <div id="topbar">
           <div class="page-title">Economia — Comércio</div>
@@ -7740,16 +7794,73 @@
             <button class="btn btn-warn btn-sm" onclick="marketEconomyRecompute()">Recalcular DRAFT</button>
           </div>
         </div>
-        <p style="color:var(--text2);font-size:13px;margin:0 0 16px;">
-          Modelo <strong>floor_quality</strong>: <strong>piso R</strong> = preço da linha ÷ nível · <strong>prêmio</strong> = B × índice Q (stats breedáveis, γ sublinear) · teto mercado <strong>600.000</strong> · encomenda <strong>275k</strong>.
-          Referência PF, ao lado: raiz da família vanilla × (M ÷ 5). Não multiplica o piso.
-        </p>
+        <div id="locked-pricing-formulas" class="me-formula-grid">
+          <section class="card me-formula-card">
+            <h3>1. Catálogo</h3>
+            <p>O nível não multiplica preço nenhum. O dinheiro nasce em <strong>10.000</strong>.</p>
+            <p><strong>Coeficiente</strong> = raiz da família vanilla ÷ <strong>18.000</strong>. A raiz 18.000 é só a régua. O Rex tem coeficiente 1.</p>
+            <p><strong>Preço</strong> = 10.000 × coeficiente × índice. A tabela 10.000 × índice é a coluna do Rex. Outra família multiplica de novo pelo coeficiente.</p>
+            <p class="me-formula-result">Rex vanilla: 10.000 × 1 × 0,75 = 7.500.</p>
+            <p class="me-formula-result">Megalossauro Fey: raiz 9.000, coeficiente 0,5, índice 20,625. 10.000 × 0,5 × 20,625 = 103.125.</p>
+            <ul>
+              <li>Vanilla 0,75 → coluna do Rex 7.500</li>
+              <li>Toxic 2,25 → 22.500. Noxious acompanha Toxic: mesmo índice 2,25</li>
+              <li>Alpha 3,75 → 37.500. Rex alpha = 37.500</li>
+              <li>Elemental Basic 5,625 → 56.250</li>
+              <li>Apex 7,5 → 75.000</li>
+              <li>Elemental Advanced 10,5 → 105.000</li>
+              <li>Fabled 12 → 120.000</li>
+              <li>Omega 9,75 → 97.500</li>
+              <li>Celestial e Demonic 20,625 → 206.250. Fey acompanha os dois: mesmo índice 20,625</li>
+              <li>Chaos e Spirit 30 → 300.000</li>
+              <li>Primal Tek 9 → 90.000, fora da linha de kibble</li>
+            </ul>
+            <p>Giga, raiz 22.500, coeficiente 1,25: vanilla 9.375 e alpha 46.875. Utilitária de raiz 800 no alpha: 10.000 × (800 ÷ 18.000) × 3,75 = 1.667.</p>
+            <p>Sem família, sem índice ou Tek Strider: sem preço automático. Essas linhas mostram o motivo e não têm botão de aplicar o calculado. O ajuste manual continua disponível.</p>
+          </section>
+          <section class="card me-formula-card">
+            <h3>2. P2P</h3>
+            <p>O anúncio soma um adicional em cima do preço de catálogo. O <strong>254</strong> é o exemplo de status cheio, não um preço gravado por criatura. O nível fica de fora. R = preço ÷ nível não entra.</p>
+            <p><strong>Q</strong> = média ponderada de (pontos ÷ 254) ^ 0,82, limitada a 1.</p>
+            <p>Papel ataque: vida 0,35, dano 0,45, peso 0,10, energia 0,10. Velocidade e comida ficam de fora.</p>
+            <p><strong>P2P</strong> = preço de catálogo + arredondamento(B × Q).</p>
+            <p>No megalossauro, B = 66.000. Com todos os status em 254, cada parcela vale 1 e Q = 1. O limite 1 não reduz. Adicional = 66.000.</p>
+            <p class="me-formula-result">Megalossauro Fey 254: 103.125 + 66.000 = 169.125.</p>
+          </section>
+          <section class="card me-formula-card">
+            <h3>3. Encomenda</h3>
+            <p>A encomenda fica <strong>sempre acima do P2P</strong> dos mesmos status. Não há teto fixo de 275.000.</p>
+            <p><strong>Cores</strong> = fração do catálogo. Uniforme: 8%. Se não for uniforme: 5% + 2% por região. Sem cores, a fração é zero.</p>
+            <p><strong>Encomenda</strong> = (P2P + cores + catálogo × 0,25 + (P2P + cores) × 0,35) × 1,05.</p>
+            <p>Sem cores, o Megalossauro Fey 254 entra assim: P2P 169.125, cores 0, catálogo × 0,25 = 25.781,25 e (P2P + cores) × 0,35 = 59.193,75. A soma 254.100 × 1,05 fecha em 266.805.</p>
+            <p class="me-formula-result">Exemplo sem cores: 266.805. Isso é maior que o P2P 169.125.</p>
+            <p>Se a conta não fechar inteira, o preço gravado é o inteiro mais próximo, com o meio para cima. 7.500, 103.125 e 266.805 fecham exatos. A utilitária alpha de raiz 800 fecha em 1.667.</p>
+          </section>
+        </div>
         <div class="catalog-tabs" style="margin-bottom:16px;">
-          <button type="button" class="catalog-tab active" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Pisos e caps</button>
+          <button type="button" class="catalog-tab active" data-market-economy-tab="precos" onclick="setMarketEconomyTab('precos')">Precificação</button>
+          <button type="button" class="catalog-tab" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Pisos e caps</button>
           <button type="button" class="catalog-tab" data-market-economy-tab="species" onclick="setMarketEconomyTab('species')">Por espécie (blueprint)</button>
           <button type="button" class="catalog-tab" data-market-economy-tab="sim" onclick="setMarketEconomyTab('sim')">Simulador</button>
+          <button type="button" class="catalog-tab" data-market-economy-tab="pf" onclick="setMarketEconomyTab('pf')">Base Primal Fear</button>
         </div>
-        <div id="market-economy-panel-caps" class="catalog-panel active">
+        <div id="market-economy-panel-precos" class="catalog-panel active">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Criaturas do catálogo</div>
+            <p class="me-pf-note" style="padding:0 16px;">
+              Cada linha é uma criatura do catálogo que a loja já abre. O campo de ajuste, se preenchido, é o Price que será gravado no lugar do calculado. Vazio grava o calculado.
+              Aplicar grava somente o Price da criatura. Não mexe em quantidade, kits nem itens.
+              A massa faz uma cópia de segurança ao lado do catálogo e não apaga os backups antigos.
+            </p>
+            <div style="padding:0 16px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <input id="locked-pricing-search" type="search" placeholder="Filtrar criatura, família ou tier" style="min-width:240px;flex:1;" oninput="renderLockedPricingTable()" />
+              <span id="locked-pricing-count" style="font-size:12px;color:var(--text2);"></span>
+              <button type="button" id="locked-pricing-apply-bulk" class="btn btn-primary btn-sm" onclick="lockedPricingApplyBulk()">Aplicar em massa</button>
+            </div>
+            <div id="locked-pricing-table" class="me-econ-scroll"></div>
+          </div>
+        </div>
+        <div id="market-economy-panel-caps" class="catalog-panel">
           <div id="market-economy-caps-form"></div>
         </div>
         <div id="market-economy-panel-species" class="catalog-panel">
@@ -7758,6 +7869,9 @@
         <div id="market-economy-panel-sim" class="catalog-panel">
           <div id="market-economy-sim-form"></div>
           <div id="market-economy-sim-result" style="margin-top:16px;"></div>
+        </div>
+        <div id="market-economy-panel-pf" class="catalog-panel">
+          <div id="market-economy-pf-base"></div>
         </div>
       </div>
 
@@ -24291,7 +24405,178 @@ async function marketActivateSpecies(speciesKey) {
   }
 }
 
-let _marketEconomyTab = "caps";
+let _marketEconomyTab = "precos";
+let _lockedPricingDraft = {};
+
+function lockedPricingRows() {
+  return (_marketEconomyConfig && _marketEconomyConfig.locked_pricing && _marketEconomyConfig.locked_pricing.rows) || [];
+}
+
+function lockedPricingRememberDraft() {
+  document.querySelectorAll(".locked-pricing-manual").forEach(input => {
+    const id = input.dataset.catalogItemId;
+    if (id) _lockedPricingDraft[id] = input.value;
+  });
+}
+
+function lockedPricingSyncApplyButton(input) {
+  const id = input.dataset.catalogItemId;
+  const row = lockedPricingRows().find(item => item.catalog_item_id === id);
+  if (!row || row.calculated_price != null) return;
+  const cell = input.closest("tr")?.querySelector(".me-locked-apply");
+  if (!cell) return;
+  const filled = input.value.trim() !== "";
+  cell.innerHTML = filled
+    ? `<button type="button" class="btn btn-sm btn-ghost locked-pricing-apply-one" data-catalog-item-id="${escHtml(id)}">Aplicar ajuste</button>`
+    : "";
+}
+
+function renderLockedPricingTable() {
+  const root = document.getElementById("locked-pricing-table");
+  const countEl = document.getElementById("locked-pricing-count");
+  if (!root) return;
+  lockedPricingRememberDraft();
+  const rows = lockedPricingRows();
+  const query = (document.getElementById("locked-pricing-search")?.value || "").trim().toLocaleLowerCase("pt-BR");
+  const visible = rows.filter(row => {
+    if (!query) return true;
+    const hay = [row.display_name, row.catalog_item_id, row.family_name, row.family_key, row.tier_label, row.block_reason]
+      .filter(Boolean).join(" ").toLocaleLowerCase("pt-BR");
+    return hay.includes(query);
+  });
+  if (countEl) {
+    const total = rows.length;
+    countEl.textContent = query ? `${visible.length} de ${total} criaturas` : `${total} criaturas no catálogo`;
+  }
+  if (!rows.length) {
+    root.innerHTML = `<p class="me-pf-note">Nenhuma criatura no catálogo que a loja abre.</p>`;
+    return;
+  }
+  const body = visible.map(row => {
+    const blocked = row.calculated_price == null;
+    const draft = _lockedPricingDraft[row.catalog_item_id] || "";
+    const manualFilled = String(draft).trim() !== "";
+    const applyLabel = blocked ? "Aplicar ajuste" : "Aplicar";
+    const showApply = !blocked || manualFilled;
+    const apply = showApply
+      ? `<button type="button" class="btn btn-sm btn-ghost locked-pricing-apply-one" data-catalog-item-id="${escHtml(row.catalog_item_id)}">${applyLabel}</button>`
+      : "";
+    const tier = blocked
+      ? escHtml(row.block_reason || "Sem preço automático.")
+      : `${escHtml(row.tier_label || "—")} <span style="color:var(--text3);">${escHtml(row.index_label || "")}</span>`;
+    const calculated = blocked
+      ? "—"
+      : `<span title="${escHtml(row.price_formula || "")}">${fmtMeNumber(row.calculated_price)}</span>`;
+    const family = row.family_name
+      ? `${escHtml(row.family_name)}${row.family_root ? ` <span style="color:var(--text3);">raiz ${fmtMeNumber(row.family_root)}</span>` : ""}`
+      : "—";
+    return `<tr class="${blocked ? "me-locked-blocked" : ""}">
+      <td><strong>${escHtml(row.display_name || row.catalog_item_id)}</strong><div style="font-size:11px;color:var(--text3);"><code>${escHtml(row.catalog_item_id)}</code> · nível ${fmtMeNumber(row.level)}, não multiplica</div></td>
+      <td>${family}</td>
+      <td>${escHtml(row.coefficient_label || "—")}</td>
+      <td style="white-space:normal;max-width:280px;">${tier}</td>
+      <td>${calculated}</td>
+      <td>${fmtMeNumber(row.current_price)}</td>
+      <td><input class="locked-pricing-manual me-locked-manual" data-catalog-item-id="${escHtml(row.catalog_item_id)}" type="number" min="0" step="1" inputmode="numeric" placeholder="vazio = calculado" value="${escHtml(draft)}" /></td>
+      <td class="me-locked-apply">${apply}</td>
+    </tr>`;
+  }).join("");
+  root.innerHTML = `<table class="me-econ-table"><thead><tr>
+    <th>Criatura</th><th>Família</th><th>Coeficiente</th><th>Índice / tier</th><th>Preço calculado</th><th>Preço atual</th><th>Ajuste manual</th><th></th>
+  </tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function lockedPricingApplyOne(itemId) {
+  lockedPricingRememberDraft();
+  const raw = String(_lockedPricingDraft[itemId] || "").trim();
+  const row = lockedPricingRows().find(item => item.catalog_item_id === itemId);
+  let manual = null;
+  if (raw !== "") {
+    if (!/^\d+$/.test(raw)) {
+      toast("Ajuste manual precisa ser um inteiro maior ou igual a zero.", "error");
+      return;
+    }
+    manual = Number(raw);
+  }
+  if (manual == null && (!row || row.calculated_price == null)) {
+    toast("Esta criatura não tem preço calculado. Preencha o ajuste manual.", "error");
+    return;
+  }
+  const priceText = manual == null ? fmtMeNumber(row.calculated_price) : fmtMeNumber(manual);
+  const name = row?.display_name || itemId;
+  if (!confirm(`Gravar Price ${priceText} em ${name}? Só o Price dessa criatura muda, no catálogo que a loja já abre.`)) return;
+  try {
+    const response = await fetch(API + "/api/market/admin/economy/apply-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "one", catalog_item_id: itemId, manual_price: manual }),
+    });
+    const data = await response.json();
+    if (!data.ok) {
+      toast(data.error || "Não foi possível gravar o Price.", "error");
+      return;
+    }
+    if (!data.written) {
+      toast(data.skipped?.[0]?.reason || "Nenhum Price precisou mudar.", "error");
+      return;
+    }
+    delete _lockedPricingDraft[itemId];
+    toast(`Price gravado em ${name}.`, "success");
+    loadMarketEconomyAdmin();
+  } catch (error) {
+    toast(String(error), "error");
+  }
+}
+
+async function lockedPricingApplyBulk() {
+  lockedPricingRememberDraft();
+  const manuals = {};
+  for (const [id, raw] of Object.entries(_lockedPricingDraft)) {
+    const text = String(raw || "").trim();
+    if (text === "") continue;
+    if (!/^\d+$/.test(text)) {
+      toast("Ajuste manual precisa ser um inteiro maior ou igual a zero.", "error");
+      return;
+    }
+    manuals[id] = Number(text);
+  }
+  const total = lockedPricingRows().length;
+  if (!confirm(`Aplicar em massa nas ${total} criaturas do catálogo? Entra quem tem preço calculado ou ajuste manual preenchido. Tek Strider e linhas sem índice ou sem família só são gravadas se o ajuste manual estiver preenchido. Antes disso, uma cópia de segurança fica ao lado do catálogo. Só o campo Price muda.`)) return;
+  try {
+    const response = await fetch(API + "/api/market/admin/economy/apply-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "bulk", manuals }),
+    });
+    const data = await response.json();
+    if (!data.ok) {
+      toast(data.error || "Não foi possível gravar os preços.", "error");
+      return;
+    }
+    if (!data.written) {
+      toast("Nenhum Price precisou mudar.", "error");
+      return;
+    }
+    _lockedPricingDraft = {};
+    const backup = data.backup ? " Cópia de segurança criada ao lado do catálogo." : "";
+    toast(`${data.changed_count} Price gravado(s).${backup}`, "success");
+    loadMarketEconomyAdmin();
+  } catch (error) {
+    toast(String(error), "error");
+  }
+}
+
+document.getElementById("locked-pricing-table")?.addEventListener("click", event => {
+  const button = event.target.closest(".locked-pricing-apply-one");
+  if (!button) return;
+  lockedPricingApplyOne(button.dataset.catalogItemId);
+});
+document.getElementById("locked-pricing-table")?.addEventListener("input", event => {
+  const input = event.target.closest(".locked-pricing-manual");
+  if (!input) return;
+  _lockedPricingDraft[input.dataset.catalogItemId] = input.value;
+  lockedPricingSyncApplyButton(input);
+});
 let _marketEconomyConfig = null;
 
 function setMarketEconomyTab(tab) {
@@ -24315,8 +24600,10 @@ async function loadMarketEconomyAdmin() {
     }
     _marketEconomyConfig = d;
     renderMarketEconomyCaps(d);
+    renderLockedPricingTable();
     renderMarketEconomySpecies(d.species || []);
     renderMarketEconomySim(d.species || []);
+    renderMarketEconomyPfBase(d);
     if (_marketEconomyPendingKey) {
       const key = _marketEconomyPendingKey;
       _marketEconomyPendingKey = null;
@@ -24358,7 +24645,7 @@ function renderMarketEconomyCaps(cfg) {
         <label>β serviço <input id="me-fq-beta" type="number" step="0.01" value="${beta}" style="width:72px;margin-left:8px;" /></label>
         <label>Ref. pts <input id="me-pts-ref" type="number" value="${cfg.pts_reference || 254}" style="width:80px;margin-left:8px;" /></label>
       </div>
-      <p style="font-size:12px;color:var(--text2);padding:0 16px 14px;margin:0;">V_mercado = min(R + B×Q, mercado max). Matriz de calibração: <code>tools/blueprint_catalog_matrix.csv</code></p>
+      <p style="font-size:12px;color:var(--text2);padding:0 16px 14px;margin:0;">Estes caps são o piso antigo do comércio. Não definem o Price do catálogo. O preço da criatura está na aba Precificação: 10.000 × coeficiente × índice, sem teto de 275.000 na encomenda.</p>
     </div>
     <div class="card">
       <div class="card-title">Pesos do índice Q por papel (dino_role)</div>
@@ -24379,6 +24666,143 @@ function fmtMeIndex(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
   return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
+let _marketEconomyPfKey = "";
+
+function pfScaleReference(familyRoot, index, cap) {
+  if (familyRoot == null || familyRoot === "" || index == null || index === "") return null;
+  const rootN = Math.trunc(Number(familyRoot));
+  const tenths = Math.round(Number(index) * 10);
+  if (!Number.isFinite(rootN) || !Number.isFinite(tenths)) return null;
+  const raw = Math.floor((rootN * tenths + 5) / 10);
+  const limit = Number(cap);
+  return Math.min(raw, Number.isFinite(limit) ? limit : 600000);
+}
+
+function marketEconomyPfFamilies(species) {
+  const map = new Map();
+  (species || []).forEach(s => {
+    const root = Number(s.family_root);
+    const key = s.species_key;
+    if (!key || !Number.isFinite(root) || root <= 0) return;
+    if (!map.has(key)) map.set(key, { key, name: s.family_name || key, root });
+  });
+  return [...map.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"));
+}
+
+function marketEconomyPfPick(key) {
+  _marketEconomyPfKey = key || "";
+  renderMarketEconomyPfBase(_marketEconomyConfig);
+}
+
+function pfRowClass(step) {
+  const label = (step && step.label) || "";
+  if (label === "Noxious") return "me-pf-noxious";
+  if (label === "Vanilla") return "me-pf-vanilla";
+  if (label === "Toxic") return "me-pf-toxic";
+  if (label === "Alpha") return "me-pf-alpha";
+  return "";
+}
+
+function pfFindRow(block, label) {
+  return block && (block.rows || []).find(row => row.label === label);
+}
+
+function pfJoinParts(parts, pick) {
+  return (parts || []).map(part => {
+    const bit = pick(part);
+    if ((parts || []).length === 1) return bit;
+    return `${escHtml(part.name)} ${bit}`;
+  }).join(" · ");
+}
+
+function pfRefText(parts, familyRoot, cap) {
+  return pfJoinParts(parts, part => {
+    const value = pfScaleReference(familyRoot, part.index, cap);
+    return value == null ? "—" : fmtMeNumber(value);
+  });
+}
+
+function renderMarketEconomyPfBase(cfg) {
+  const root = document.getElementById("market-economy-pf-base");
+  if (!root) return;
+  const ladder = cfg && cfg.pf_base;
+  const blocks = ladder && ladder.blocks;
+  if (!Array.isArray(blocks) || !blocks.length) {
+    root.innerHTML = `<p class="me-pf-note">A base Primal Fear não veio na configuração.</p>`;
+    return;
+  }
+  const cap = ladder.cap || 600000;
+  const families = marketEconomyPfFamilies((cfg && cfg.species) || []);
+  let selected = families.find(f => f.key === _marketEconomyPfKey);
+  if (!selected) selected = families.find(f => f.key === "ankylosaurus") || families[0] || null;
+  _marketEconomyPfKey = selected ? selected.key : "";
+  const familyRoot = selected ? selected.root : null;
+  const options = families.map(f =>
+    `<option value="${escHtml(f.key)}"${f.key === _marketEconomyPfKey ? " selected" : ""}>${escHtml(f.name)} · raiz ${fmtMeNumber(f.root)}</option>`
+  ).join("");
+  const selector = families.length
+    ? `<label style="display:block;margin:0 0 12px;">Mesma família
+        <select id="me-pf-family" style="display:block;margin-top:6px;min-width:280px;" onchange="marketEconomyPfPick(this.value)">${options}</select>
+      </label>`
+    : `<p class="me-pf-note">Nenhuma família vanilla com raiz nesta lista. Sem família, a referência numérica fica vazia.</p>`;
+
+  const progression = blocks.find(b => b.id === "progression");
+  const vanilla = pfFindRow(progression, "Vanilla");
+  const toxic = pfFindRow(progression, "Toxic");
+  const alpha = pfFindRow(progression, "Alpha");
+  const fabled = pfFindRow(progression, "Fabled");
+  const omega = pfFindRow(progression, "Omega");
+  const vanillaRef = vanilla ? pfScaleReference(familyRoot, vanilla.parts[0].index, cap) : null;
+  const toxicRef = toxic ? pfScaleReference(familyRoot, toxic.parts[0].index, cap) : null;
+  const alphaRef = alpha ? pfScaleReference(familyRoot, alpha.parts[0].index, cap) : null;
+  const fabledRef = fabled ? pfScaleReference(familyRoot, fabled.parts[0].index, cap) : null;
+  const omegaRef = omega ? pfScaleReference(familyRoot, omega.parts[0].index, cap) : null;
+  const compareSentence = selected && vanillaRef != null && toxicRef != null && alphaRef != null
+    ? `<p class="me-pf-note">Na família <strong>${escHtml(selected.name)}</strong>, raiz ${fmtMeNumber(selected.root)}: Vanilla ${fmtMeNumber(vanillaRef)}, Toxic ${fmtMeNumber(toxicRef)}, Alpha ${fmtMeNumber(alphaRef)}. Vanilla fica abaixo de Toxic, e Toxic abaixo de Alpha. Omega ${fmtMeNumber(omegaRef)} vem depois de Fabled ${fmtMeNumber(fabledRef)} na árvore, mesmo quando o número é menor.</p>`
+    : `<p class="me-pf-note">Na mesma família, Vanilla fica abaixo de Toxic, e Toxic abaixo de Alpha. Omega vem depois de Fabled na árvore.</p>`;
+
+  const cards = blocks.map(block => {
+    const priced = block.priced !== false;
+    const rows = (block.rows || []).map(step => {
+      const parts = step.parts || [];
+      const stepCell = step.step == null ? "—" : escHtml(String(step.step));
+      if (!priced) {
+        return `<tr>
+          <td>${stepCell}</td>
+          <td><strong>${escHtml(step.label || "")}</strong></td>
+          <td style="white-space:normal;">${escHtml(step.note || "")}</td>
+        </tr>`;
+      }
+      const showStep = block.id === "progression";
+      return `<tr class="${pfRowClass(step)}">
+        ${showStep ? `<td>${stepCell}</td>` : ""}
+        <td><strong>${escHtml(step.label || "")}</strong></td>
+        <td>${pfJoinParts(parts, part => fmtMeIndex(part.multiplier))}</td>
+        <td>${pfJoinParts(parts, part => fmtMeIndex(part.index))}</td>
+        <td>${pfRefText(parts, familyRoot, cap)}</td>
+        <td style="white-space:normal;max-width:420px;">${escHtml(step.note || "")}</td>
+      </tr>`;
+    }).join("");
+    const head = priced
+      ? (block.id === "progression"
+        ? `<th>Degrau</th><th>Faixa</th><th>Multiplicador</th><th>Índice</th><th>Referência</th><th>Leitura</th>`
+        : `<th>Faixa</th><th>Multiplicador</th><th>Índice</th><th>Referência</th><th>Leitura</th>`)
+      : `<th>Tier</th><th>Chefe</th><th>Situação</th>`;
+    const bossClass = priced ? "" : " me-pf-bosses";
+    const familyBits = priced && block.id === "progression" ? `${selector}${compareSentence}` : "";
+    return `<div class="card${bossClass}" style="margin-bottom:16px;">
+      <div class="card-title">${escHtml(block.title || "")}</div>
+      <p class="me-pf-note" style="padding:0 16px;">${escHtml(block.intro || "")}</p>
+      ${familyBits ? `<div style="padding:0 16px;">${familyBits}</div>` : ""}
+      <div class="me-econ-scroll"><table class="me-econ-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  }).join("");
+
+  root.innerHTML = `
+    <p class="me-pf-lead">Esta aba é a escada antiga: índice = M ÷ 5 (Alpha = 1) e referência = mínimo entre raiz × índice e o teto de ${fmtMeNumber(cap)}. Ela não grava o Price. O preço do catálogo está na aba Precificação: 10.000 × coeficiente × índice.</p>
+    ${cards}`;
 }
 
 function renderMarketEconomySpecies(species) {
