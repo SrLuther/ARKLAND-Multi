@@ -7781,6 +7781,31 @@
           #page-market-economy-admin .me-locked-manual {
             width: 168px;
           }
+          #page-market-economy-admin .me-origin-note {
+            margin: 0 0 6px;
+            font-size: 12px;
+          }
+          #page-market-economy-admin .me-origin-actions,
+          #page-market-economy-admin .me-origin-create {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: flex-end;
+            margin-top: 6px;
+          }
+          #page-market-economy-admin .me-origin-actions label,
+          #page-market-economy-admin .me-origin-create label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 11px;
+            color: var(--text3);
+          }
+          #page-market-economy-admin .me-origin-actions select,
+          #page-market-economy-admin .me-origin-actions input,
+          #page-market-economy-admin .me-origin-create input {
+            width: 168px;
+          }
           @media (max-width: 1100px) {
             #page-market-economy-admin .me-formula-grid {
               grid-template-columns: 1fr;
@@ -7849,6 +7874,7 @@
             <div class="card-title">Criaturas do catálogo</div>
             <p class="me-pf-note" style="padding:0 16px;">
               Cada linha é uma criatura do catálogo que a loja já abre. O campo de ajuste, se preenchido, é o Price que será gravado no lugar do calculado. Vazio grava o calculado.
+              Sem família com raiz gravada, a linha tem duas ações: escolher uma família existente ou criar uma família nova (nome e raiz). A raiz manual, se preenchida, vale no lugar da família. A escolha fica na economia da Web Store, fora do catálogo.
               Aplicar grava somente o Price da criatura. Não mexe em quantidade, kits nem itens.
               A massa faz uma cópia de segurança ao lado do catálogo e não apaga os backups antigos.
             </p>
@@ -24407,9 +24433,184 @@ async function marketActivateSpecies(speciesKey) {
 
 let _marketEconomyTab = "precos";
 let _lockedPricingDraft = {};
+let _lockedOriginDraft = {};
+let _lockedOriginSkipRemember = false;
+let _lockedOriginTimer = null;
 
 function lockedPricingRows() {
   return (_marketEconomyConfig && _marketEconomyConfig.locked_pricing && _marketEconomyConfig.locked_pricing.rows) || [];
+}
+
+function lockedPricingFamilies() {
+  return (_marketEconomyConfig && _marketEconomyConfig.locked_pricing && _marketEconomyConfig.locked_pricing.families) || [];
+}
+
+function lockedPricingField(className, itemId) {
+  return [...document.querySelectorAll("." + className)].find(el => el.dataset.catalogItemId === itemId) || null;
+}
+
+function lockedPricingRememberOrigin() {
+  if (_lockedOriginSkipRemember) {
+    _lockedOriginSkipRemember = false;
+    _lockedOriginDraft = {};
+    return;
+  }
+  const draft = {};
+  const take = (className, field) => {
+    document.querySelectorAll("." + className).forEach(el => {
+      const id = el.dataset.catalogItemId;
+      if (!id) return;
+      draft[id] = draft[id] || {};
+      draft[id][field] = el.value;
+    });
+  };
+  take("locked-pricing-origin-family", "family");
+  take("locked-pricing-origin-root", "root");
+  take("locked-pricing-new-family-name", "name");
+  take("locked-pricing-new-family-root", "newRoot");
+  _lockedOriginDraft = draft;
+}
+
+function lockedPricingOriginCell(row) {
+  const notes = [];
+  if (row.missing_family_message) notes.push(row.missing_family_message);
+  if (row.strider_message) notes.push(row.strider_message);
+  if (row.block_reason && !notes.includes(row.block_reason)) notes.push(row.block_reason);
+  const noteHtml = notes.map(text => `<p class="me-origin-note">${escHtml(text)}</p>`).join("");
+  const remembered = _lockedOriginDraft[row.catalog_item_id] || {};
+  const selected = remembered.family != null ? remembered.family : (row.origin_family_key || "");
+  const rootValue = remembered.root != null ? remembered.root : (row.origin_manual_root != null ? String(row.origin_manual_root) : "");
+  const options = [`<option value="">Escolher família</option>`].concat(lockedPricingFamilies().map(family => {
+    const mark = family.source === "criada" ? " · criada" : "";
+    const label = `${family.display_name} — raiz ${fmtMeNumber(family.root_value)}${mark}`;
+    const isSelected = family.species_key === selected ? " selected" : "";
+    return `<option value="${escHtml(family.species_key)}"${isSelected}>${escHtml(label)}</option>`;
+  }));
+  const tierLine = row.index_label
+    ? `<div style="margin-top:6px;">${escHtml(row.tier_label || "—")} <span style="color:var(--text3);">${escHtml(row.index_label)}</span></div>`
+    : "";
+  const id = escHtml(row.catalog_item_id);
+  return `${noteHtml}
+    <div class="me-origin-actions">
+      <label>Família existente
+        <select class="locked-pricing-origin-family" data-catalog-item-id="${id}">${options.join("")}</select>
+      </label>
+      <label>Raiz manual
+        <input class="locked-pricing-origin-root" data-catalog-item-id="${id}" type="number" min="1" step="1" inputmode="numeric" placeholder="número" value="${escHtml(rootValue)}" />
+      </label>
+    </div>
+    <div class="me-origin-create">
+      <label>Família nova
+        <input class="locked-pricing-new-family-name" data-catalog-item-id="${id}" type="text" placeholder="Nome" value="${escHtml(remembered.name || "")}" />
+      </label>
+      <label>Raiz da família nova
+        <input class="locked-pricing-new-family-root" data-catalog-item-id="${id}" type="number" min="1" step="1" inputmode="numeric" placeholder="Raiz" value="${escHtml(remembered.newRoot || "")}" />
+      </label>
+      <button type="button" class="btn btn-sm btn-ghost locked-pricing-create-family" data-catalog-item-id="${id}">Criar família</button>
+    </div>
+    ${tierLine}`;
+}
+
+async function lockedPricingPostOrigins(origins) {
+  const response = await fetch(API + "/api/market/admin/economy/pricing-origins", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ origins }),
+  });
+  const data = await response.json();
+  if (!data.ok) {
+    toast(data.error || "Não foi possível gravar a família ou a raiz.", "error");
+    return false;
+  }
+  return true;
+}
+
+async function lockedPricingFlushOrigins() {
+  const origins = {};
+  document.querySelectorAll(".locked-pricing-origin-family").forEach(el => {
+    const id = el.dataset.catalogItemId;
+    if (!id) return;
+    origins[id] = { family_key: el.value, manual_root: null };
+  });
+  for (const el of document.querySelectorAll(".locked-pricing-origin-root")) {
+    const id = el.dataset.catalogItemId;
+    if (!id || !origins[id]) continue;
+    const text = el.value.trim();
+    if (text !== "" && !/^[1-9]\d*$/.test(text)) {
+      toast("A raiz precisa ser um inteiro maior que zero.", "error");
+      return false;
+    }
+    origins[id].manual_root = text === "" ? null : Number(text);
+  }
+  if (!Object.keys(origins).length) return true;
+  try {
+    return await lockedPricingPostOrigins(origins);
+  } catch (error) {
+    toast(String(error), "error");
+    return false;
+  }
+}
+
+async function lockedPricingSaveOrigin(itemId) {
+  const family = lockedPricingField("locked-pricing-origin-family", itemId);
+  const root = lockedPricingField("locked-pricing-origin-root", itemId);
+  const rootText = root ? root.value.trim() : "";
+  if (rootText !== "" && !/^[1-9]\d*$/.test(rootText)) {
+    toast("A raiz precisa ser um inteiro maior que zero.", "error");
+    return;
+  }
+  try {
+    const ok = await lockedPricingPostOrigins({
+      [itemId]: {
+        family_key: family ? family.value : "",
+        manual_root: rootText === "" ? null : Number(rootText),
+      },
+    });
+    if (!ok) return;
+    _lockedOriginSkipRemember = true;
+    await loadMarketEconomyAdmin();
+  } catch (error) {
+    toast(String(error), "error");
+  }
+}
+
+async function lockedPricingCreateFamily(itemId) {
+  const nameEl = lockedPricingField("locked-pricing-new-family-name", itemId);
+  const rootEl = lockedPricingField("locked-pricing-new-family-root", itemId);
+  const name = nameEl ? nameEl.value.trim() : "";
+  const rootText = rootEl ? rootEl.value.trim() : "";
+  if (!name) {
+    toast("Informe o nome da família nova.", "error");
+    return;
+  }
+  if (!/^[1-9]\d*$/.test(rootText)) {
+    toast("Informe a raiz da família nova. Sem raiz, ela não calcula preço.", "error");
+    return;
+  }
+  try {
+    const response = await fetch(API + "/api/market/admin/economy/pricing-origins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        create_family: true,
+        catalog_item_id: itemId,
+        display_name: name,
+        root_value: Number(rootText),
+      }),
+    });
+    const data = await response.json();
+    if (!data.ok) {
+      toast(data.error || "Não foi possível criar a família.", "error");
+      return;
+    }
+    if (nameEl) nameEl.value = "";
+    if (rootEl) rootEl.value = "";
+    _lockedOriginSkipRemember = true;
+    toast(`Família ${data.display_name} criada.`, "success");
+    await loadMarketEconomyAdmin();
+  } catch (error) {
+    toast(String(error), "error");
+  }
 }
 
 function lockedPricingRememberDraft() {
@@ -24436,6 +24637,7 @@ function renderLockedPricingTable() {
   const countEl = document.getElementById("locked-pricing-count");
   if (!root) return;
   lockedPricingRememberDraft();
+  lockedPricingRememberOrigin();
   const rows = lockedPricingRows();
   const query = (document.getElementById("locked-pricing-search")?.value || "").trim().toLocaleLowerCase("pt-BR");
   const visible = rows.filter(row => {
@@ -24461,20 +24663,24 @@ function renderLockedPricingTable() {
     const apply = showApply
       ? `<button type="button" class="btn btn-sm btn-ghost locked-pricing-apply-one" data-catalog-item-id="${escHtml(row.catalog_item_id)}">${applyLabel}</button>`
       : "";
-    const tier = blocked
-      ? escHtml(row.block_reason || "Sem preço automático.")
-      : `${escHtml(row.tier_label || "—")} <span style="color:var(--text3);">${escHtml(row.index_label || "")}</span>`;
+    const tier = row.origin_fields
+      ? lockedPricingOriginCell(row)
+      : (blocked
+        ? escHtml(row.block_reason || "Sem preço automático.")
+        : `${escHtml(row.tier_label || "—")} <span style="color:var(--text3);">${escHtml(row.index_label || "")}</span>`);
     const calculated = blocked
       ? "—"
       : `<span title="${escHtml(row.price_formula || "")}">${fmtMeNumber(row.calculated_price)}</span>`;
-    const family = row.family_name
-      ? `${escHtml(row.family_name)}${row.family_root ? ` <span style="color:var(--text3);">raiz ${fmtMeNumber(row.family_root)}</span>` : ""}`
-      : "—";
+    const family = row.coefficient_source === "manual_root" && row.family_root
+      ? `Raiz manual <span style="color:var(--text3);">raiz ${fmtMeNumber(row.family_root)}</span>`
+      : (row.family_name
+        ? `${escHtml(row.family_name)}${row.family_root ? ` <span style="color:var(--text3);">raiz ${fmtMeNumber(row.family_root)}</span>` : ""}`
+        : "—");
     return `<tr class="${blocked ? "me-locked-blocked" : ""}">
       <td><strong>${escHtml(row.display_name || row.catalog_item_id)}</strong><div style="font-size:11px;color:var(--text3);"><code>${escHtml(row.catalog_item_id)}</code> · nível ${fmtMeNumber(row.level)}, não multiplica</div></td>
       <td>${family}</td>
       <td>${escHtml(row.coefficient_label || "—")}</td>
-      <td style="white-space:normal;max-width:280px;">${tier}</td>
+      <td style="white-space:normal;${row.origin_fields ? "" : "max-width:280px;"}">${tier}</td>
       <td>${calculated}</td>
       <td>${fmtMeNumber(row.current_price)}</td>
       <td><input class="locked-pricing-manual me-locked-manual" data-catalog-item-id="${escHtml(row.catalog_item_id)}" type="number" min="0" step="1" inputmode="numeric" placeholder="vazio = calculado" value="${escHtml(draft)}" /></td>
@@ -24488,6 +24694,10 @@ function renderLockedPricingTable() {
 
 async function lockedPricingApplyOne(itemId) {
   lockedPricingRememberDraft();
+  const flushed = await lockedPricingFlushOrigins();
+  if (!flushed) return;
+  _lockedOriginSkipRemember = true;
+  await loadMarketEconomyAdmin();
   const raw = String(_lockedPricingDraft[itemId] || "").trim();
   const row = lockedPricingRows().find(item => item.catalog_item_id === itemId);
   let manual = null;
@@ -24530,6 +24740,10 @@ async function lockedPricingApplyOne(itemId) {
 
 async function lockedPricingApplyBulk() {
   lockedPricingRememberDraft();
+  const flushed = await lockedPricingFlushOrigins();
+  if (!flushed) return;
+  _lockedOriginSkipRemember = true;
+  await loadMarketEconomyAdmin();
   const manuals = {};
   for (const [id, raw] of Object.entries(_lockedPricingDraft)) {
     const text = String(raw || "").trim();
@@ -24541,7 +24755,7 @@ async function lockedPricingApplyBulk() {
     manuals[id] = Number(text);
   }
   const total = lockedPricingRows().length;
-  if (!confirm(`Aplicar em massa nas ${total} criaturas do catálogo? Entra quem tem preço calculado ou ajuste manual preenchido. Tek Strider e linhas sem índice ou sem família só são gravadas se o ajuste manual estiver preenchido. Antes disso, uma cópia de segurança fica ao lado do catálogo. Só o campo Price muda.`)) return;
+  if (!confirm(`Aplicar em massa nas ${total} criaturas do catálogo? Entra quem tem preço calculado ou ajuste manual preenchido. Sem correção de família ou raiz, a criatura sem família fica de fora. Tek Strider fica de fora até o operador corrigir. Sem índice, a correção não cria preço. Antes disso, uma cópia de segurança fica ao lado do catálogo. Só o campo Price muda.`)) return;
   try {
     const response = await fetch(API + "/api/market/admin/economy/apply-prices", {
       method: "POST",
@@ -24567,15 +24781,32 @@ async function lockedPricingApplyBulk() {
 }
 
 document.getElementById("locked-pricing-table")?.addEventListener("click", event => {
+  const create = event.target.closest(".locked-pricing-create-family");
+  if (create) {
+    lockedPricingCreateFamily(create.dataset.catalogItemId);
+    return;
+  }
   const button = event.target.closest(".locked-pricing-apply-one");
   if (!button) return;
   lockedPricingApplyOne(button.dataset.catalogItemId);
 });
+document.getElementById("locked-pricing-table")?.addEventListener("change", event => {
+  const family = event.target.closest(".locked-pricing-origin-family");
+  if (!family) return;
+  lockedPricingSaveOrigin(family.dataset.catalogItemId);
+});
 document.getElementById("locked-pricing-table")?.addEventListener("input", event => {
   const input = event.target.closest(".locked-pricing-manual");
-  if (!input) return;
-  _lockedPricingDraft[input.dataset.catalogItemId] = input.value;
-  lockedPricingSyncApplyButton(input);
+  if (input) {
+    _lockedPricingDraft[input.dataset.catalogItemId] = input.value;
+    lockedPricingSyncApplyButton(input);
+    return;
+  }
+  const root = event.target.closest(".locked-pricing-origin-root");
+  if (!root) return;
+  const id = root.dataset.catalogItemId;
+  clearTimeout(_lockedOriginTimer);
+  _lockedOriginTimer = setTimeout(() => lockedPricingSaveOrigin(id), 400);
 });
 let _marketEconomyConfig = null;
 

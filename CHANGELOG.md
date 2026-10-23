@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.122] - 2026-10-22
+
+### Fix
+
+- Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.
+- Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas.
+- Fix (Testes): adicionada cobertura de regressão para garantir remoção das flags de engrama quando desligadas.
+
 ## [1.10.121] - 2026-10-07
 
 ### Feature

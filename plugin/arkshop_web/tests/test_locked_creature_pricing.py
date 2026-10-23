@@ -249,6 +249,155 @@ def test_apply_one_and_bulk_change_only_price_on_a_temp_copy(tmp_path: Path):
     assert not (tmp_path / "catalog.json.bak-antes-itens-pf").samefile(backup_path)
 
 
+def test_origin_correction_and_new_family_price_without_touching_catalog_fields(tmp_path: Path):
+    loose = "/Game/Mods/Nada/Nada_Character_BP.Nada_Character_BP"
+    catalog = {
+        "ShopName": "Arkland",
+        "Items": {
+            "zzz_sem_familia": _dino("Criatura Solta", 13, loose),
+            "outra_solta": _dino("Outra Solta", 21, loose),
+            "pf_elder_solta": _dino("Solta Elder", 5, loose),
+            "tekstrider_femea": _dino("Tek Strider", 11, _STRIDER_BP),
+            "metal": {"Type": "item", "Name": "Metal", "Price": 10, "Quantity": 99, "Description": "item"},
+        },
+        "Kits": {"starter": {"Price": 50, "Description": "kit", "Items": [{"Item": "metal", "Amount": 3}]}},
+    }
+    bare = _row(catalog, "zzz_sem_familia")
+    assert bare["calculated_price"] is None
+    assert bare["can_apply_calculated"] is False
+    assert bare["block_reason"] == "Sem família vanilla com raiz gravada. Sem preço automático."
+    assert bare["origin_fields"] is True
+    assert _row(catalog, "tekstrider_femea")["calculated_price"] is None
+
+    defaults_path = me._defaults_file_path()
+    repo_defaults = Path(__file__).resolve().parents[1] / "data" / "market_species_defaults.json"
+    assert defaults_path.resolve() != repo_defaults.resolve()
+    before = json.loads(defaults_path.read_text(encoding="utf-8"))
+
+    refused = me.set_catalog_pricing_origin("zzz_sem_familia", family_key="familia_inventada")
+    assert refused["ok"] is False
+    assert _row(catalog, "zzz_sem_familia")["calculated_price"] is None
+
+    rex_root = int(me.load_default_species_map()["rex"]["root_value"])
+    assert rex_root == 18_000
+    pointed = me.set_catalog_pricing_origin("zzz_sem_familia", family_key="rex")
+    assert pointed["ok"] is True
+    rex_row = _row(catalog, "zzz_sem_familia")
+    assert rex_row["calculated_price"] == me.locked_catalog_price(rex_root, Decimal("0.75"))
+    assert rex_row["calculated_price"] == 7_500
+    assert rex_row["index_label"] == "0,75"
+    assert rex_row["missing_family_message"] == bare["block_reason"]
+
+    manual = me.set_catalog_pricing_origin("zzz_sem_familia", family_key="", manual_root=12_000)
+    assert manual["ok"] is True
+    manual_row = _row(catalog, "zzz_sem_familia")
+    assert manual_row["calculated_price"] == me.locked_catalog_price(12_000, Decimal("0.75"))
+    assert manual_row["calculated_price"] == 5_000
+    assert manual_row["coefficient_source"] == "manual_root"
+
+    cleared = me.set_catalog_pricing_origin("zzz_sem_familia", family_key="", manual_root=None)
+    assert cleared["ok"] is True
+    assert _row(catalog, "zzz_sem_familia")["calculated_price"] is None
+
+    no_root = me.create_catalog_pricing_family("fantasma_solta", "Fantasma", None)
+    assert no_root["ok"] is False
+    assert "fantasma" not in {row["species_key"] for row in me.list_locked_pricing_families()}
+
+    created = me.create_catalog_pricing_family("zzz_sem_familia", "Basilisk", 12_000)
+    assert created["ok"] is True
+    assert created["species_key"] == "basilisk"
+    assert created["root_value"] == 12_000
+    basil = _row(catalog, "zzz_sem_familia")
+    assert basil["family_key"] == "basilisk"
+    assert basil["family_root"] == 12_000
+    assert basil["calculated_price"] == 5_000
+    assert basil["calculated_price"] == me.locked_catalog_price(12_000, Decimal("0.75"))
+    assert basil["missing_family_message"] == "Sem família vanilla com raiz gravada. Sem preço automático."
+    assert basil["can_apply_calculated"] is True
+
+    families = {row["species_key"]: row for row in me.list_locked_pricing_families()}
+    assert families["basilisk"]["source"] == "criada"
+    assert families["basilisk"]["root_value"] == 12_000
+    assert families["rex"]["source"] == "gravada"
+
+    other = me.set_catalog_pricing_origin("outra_solta", family_key="basilisk")
+    assert other["ok"] is True
+    assert _row(catalog, "outra_solta")["calculated_price"] == 5_000
+
+    me.set_catalog_pricing_origin("pf_elder_solta", family_key="basilisk")
+    elder = _row(catalog, "pf_elder_solta")
+    assert elder["calculated_price"] is None
+    assert "Elder" in elder["block_reason"]
+
+    assert _row(catalog, "tekstrider_femea")["calculated_price"] is None
+    me.set_catalog_pricing_origin("tekstrider_femea", manual_root=18_000)
+    assert _row(catalog, "tekstrider_femea")["calculated_price"] == 7_500
+
+    after = json.loads(defaults_path.read_text(encoding="utf-8"))
+    assert after["species"] == before["species"]
+    recorded = next(row for row in after["species"] if row.get("species_key") == "basilisk")
+    assert recorded["root_value"] == 3_500
+    assert after["_catalog_pricing_origins"]["families"]["basilisk"] == {
+        "display_name": "Basilisk",
+        "root_value": 12_000,
+    }
+    real = {
+        "Items": {
+            "basilisk": _dino(
+                "Basilisk",
+                1,
+                "/Game/Aberration/Dinos/Basilisk/Basilisk_Character_BP.Basilisk_Character_BP",
+            ),
+        }
+    }
+    automatic = _row(real, "basilisk")
+    assert automatic["origin_fields"] is False
+    assert automatic["family_root"] == 3_500
+    assert automatic["calculated_price"] == me.locked_catalog_price(3_500, Decimal("0.75"))
+
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(catalog, indent=2), encoding="utf-8")
+    original = catalog["Items"]["zzz_sem_familia"]
+    one = me.apply_locked_prices_at_path(path, mode="one", catalog_item_id="zzz_sem_familia")
+    assert one["written"] is True
+    assert one["changed"] == [{
+        "catalog_item_id": "zzz_sem_familia",
+        "old_price": 13,
+        "new_price": 5_000,
+        "source": "calculado",
+    }]
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    item = saved["Items"]["zzz_sem_familia"]
+    assert item["Price"] == 5_000
+    assert set(item) == set(original)
+    for key, value in original.items():
+        if key != "Price":
+            assert item[key] == value
+    assert "_catalog_pricing_origins" not in saved
+    assert saved["Items"]["metal"] == catalog["Items"]["metal"]
+    assert saved["Kits"] == catalog["Kits"]
+    assert saved["Items"]["outra_solta"]["Price"] == 21
+
+    me.set_catalog_pricing_origin("zzz_sem_familia", family_key="", manual_root=None)
+    clean = {
+        "Items": {
+            "zzz_sem_familia": _dino("Criatura Solta", 13, loose),
+            "rex_femea": _dino("Rex", 1, _REX_BP),
+        }
+    }
+    clean_path = tmp_path / "limpo" / "catalog.json"
+    clean_path.parent.mkdir()
+    clean_path.write_text(json.dumps(clean), encoding="utf-8")
+    bulk = me.apply_locked_prices_at_path(clean_path, mode="bulk")
+    assert bulk["written"] is True
+    assert "zzz_sem_familia" not in {row["catalog_item_id"] for row in bulk["changed"]}
+    assert "zzz_sem_familia" in {row["catalog_item_id"] for row in bulk["skipped"]}
+    final = json.loads(clean_path.read_text(encoding="utf-8"))
+    assert final["Items"]["zzz_sem_familia"]["Price"] == 13
+    assert final["Items"]["rex_femea"]["Price"] == 7_500
+    assert set(final["Items"]["zzz_sem_familia"]) == set(clean["Items"]["zzz_sem_familia"])
+
+
 def test_page_shows_the_three_formulas_and_apply_buttons():
     html = _HTML.read_text(encoding="utf-8")
     start = html.find('id="locked-pricing-formulas"')
@@ -268,8 +417,22 @@ def test_page_shows_the_three_formulas_and_apply_buttons():
     assert "Aplicar em massa" in html
     assert "locked-pricing-manual" in html
     assert "Aplicar ajuste" in html
-    assert 'data-market-economy-tab="precos"' in html
+    assert "Família existente" in html
+    assert "Família nova" in html
+    assert "Criar família" in html
+    assert "Raiz manual" in html
+    assert "locked-pricing-origin-family" in html
+    assert "locked-pricing-origin-root" in html
+    assert "locked-pricing-create-family" in html
     routes = _ROUTES.read_text(encoding="utf-8")
+    origin_start = routes.find("def market_admin_economy_pricing_origins")
+    origin_end = routes.find("@app.route", origin_start)
+    origin = routes[origin_start:origin_end]
+    assert "create_catalog_pricing_family" in origin
+    assert "set_catalog_pricing_origins" in origin
+    assert "_resolve_shop_catalog" not in origin
+    assert "apply_locked_prices_at_path" not in origin
+    assert 'data-market-economy-tab="precos"' in html
     fn_start = routes.find("def market_admin_economy_apply_prices")
     fn_end = routes.find("@app.route", fn_start)
     fn = routes[fn_start:fn_end]

@@ -145,10 +145,10 @@ def test_config_buyout_is_999_and_version_matches():
 
     version = (PLUGIN / "plugin_version.txt").read_text(encoding="utf-8").strip()
     info = json.loads(_src("configs", "PluginInfo.json"))
-    assert info["VersionLabel"] == version == "0.1.0"
-    assert 'ARKLAND_PLUGIN_VERSION "0.1.0"' in _src("src", "plugin_version.h")
+    assert info["VersionLabel"] == version
+    assert f'ARKLAND_PLUGIN_VERSION "{version}"' in _src("src", "plugin_version.h")
     assert "mindwipe" in _src("README.md").lower()
-    assert "## [0.1.0]" in _src("CHANGELOG.md")
+    assert f"## [{version}]" in _src("CHANGELOG.md")
 
 
 def test_grant_tier_never_mixes_tek_and_non_tek():

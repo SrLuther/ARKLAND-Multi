@@ -3258,10 +3258,26 @@ def _lookup_locked_family(
     return None
 
 
+MISSING_FAMILY_MESSAGE = "Sem família vanilla com raiz gravada. Sem preço automático."
+TEK_STRIDER_MESSAGE = "Tek Strider não é âncora e não recebe preço automático."
+_PRICING_ORIGINS_KEY = "_catalog_pricing_origins"
+
+
+def _is_tek_strider_line(tokens: list[str], item_id: str, family_key: str) -> bool:
+    token_set = set(tokens)
+    flat = "".join(tokens)
+    item_key = _pricing_fold(item_id)
+    if family_key == "tekstrider" or "tekstrider" in item_key:
+        return True
+    return "tekstrider" in token_set or "tekstrider" in flat or {"tek", "strider"} <= token_set
+
+
 def _detect_locked_tier(
     tokens: list[str],
     item_id: str,
     family_key: str = "",
+    *,
+    ignore_tek_strider: bool = False,
 ) -> tuple[str | None, str | None, Decimal | None, str | None]:
     """Devolve (chave, rótulo, índice, motivo de bloqueio).
 
@@ -3271,8 +3287,10 @@ def _detect_locked_tier(
     token_set = set(tokens)
     flat = "".join(tokens)
     item_key = _pricing_fold(item_id)
-    if "tekstrider" in token_set or "tekstrider" in flat or {"tek", "strider"} <= token_set:
-        return None, None, None, "Tek Strider não é âncora e não recebe preço automático."
+    if not ignore_tek_strider and (
+        "tekstrider" in token_set or "tekstrider" in flat or {"tek", "strider"} <= token_set
+    ):
+        return None, None, None, TEK_STRIDER_MESSAGE
     if item_key.startswith("pfb_") or item_key.startswith("pfb ") or token_set & _BOSS_TOKENS:
         return None, None, None, "Chefe não domesticável. Sem preço automático."
     for token, reason in _UNPRICED_TIER_REASONS:
@@ -3344,47 +3362,361 @@ def _catalog_price_formula(family_root: int, index: Decimal, price: int) -> str:
     )
 
 
+def parse_pricing_root(value: Any) -> tuple[int | None, str | None]:
+    """Vazio vira None. Inteiro maior que zero é a raiz. O resto é erro."""
+    if value is None:
+        return None, None
+    if isinstance(value, bool):
+        return None, "A raiz precisa ser um inteiro maior que zero."
+    if isinstance(value, str):
+        text = value.strip()
+        if text == "":
+            return None, None
+        if not text.isdigit() or int(text) <= 0:
+            return None, "A raiz precisa ser um inteiro maior que zero."
+        return int(text), None
+    if isinstance(value, int):
+        if value <= 0:
+            return None, "A raiz precisa ser um inteiro maior que zero."
+        return value, None
+    if isinstance(value, float) and value > 0 and value.is_integer():
+        return int(value), None
+    return None, "A raiz precisa ser um inteiro maior que zero."
+
+
+def _created_family_key(display_name: str) -> str:
+    return "_".join(_pricing_tokens(display_name))
+
+
+def load_catalog_pricing_store() -> dict[str, Any]:
+    """Correções de origem e famílias criadas na Precificação.
+
+    Fica no JSON de economia da Web Store, fora do catalog.json e fora de cada espécie.
+    """
+    raw = load_defaults_file().get(_PRICING_ORIGINS_KEY)
+    families: dict[str, dict[str, Any]] = {}
+    rows: dict[str, dict[str, Any]] = {}
+    if isinstance(raw, dict):
+        raw_families = raw.get("families") if isinstance(raw.get("families"), dict) else {}
+        raw_rows = raw.get("rows") if isinstance(raw.get("rows"), dict) else {}
+        for key, item in raw_families.items():
+            if not isinstance(item, dict):
+                continue
+            species_key = str(key or "").strip().lower()
+            name = str(item.get("display_name") or "").strip()
+            root, error = parse_pricing_root(item.get("root_value"))
+            if not species_key or not name or error or root is None:
+                continue
+            families[species_key] = {"display_name": name, "root_value": root}
+        for key, item in raw_rows.items():
+            if not isinstance(item, dict):
+                continue
+            item_id = str(key or "").strip()
+            if not item_id:
+                continue
+            family_key = str(item.get("family_key") or "").strip().lower()
+            manual, error = parse_pricing_root(item.get("manual_root"))
+            if error:
+                manual = None
+            if not family_key and manual is None:
+                continue
+            rows[item_id] = {"family_key": family_key, "manual_root": manual}
+    return {"families": families, "rows": rows}
+
+
+def _write_catalog_pricing_store(store: dict[str, Any]) -> None:
+    data = load_defaults_file()
+    families_out: dict[str, dict[str, Any]] = {}
+    for key, item in (store.get("families") or {}).items():
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("display_name") or "").strip()
+        root, error = parse_pricing_root(item.get("root_value"))
+        species_key = str(key or "").strip().lower()
+        if not species_key or not name or error or root is None:
+            continue
+        families_out[species_key] = {"display_name": name, "root_value": root}
+    rows_out: dict[str, dict[str, Any]] = {}
+    for key, item in (store.get("rows") or {}).items():
+        if not isinstance(item, dict):
+            continue
+        item_id = str(key or "").strip()
+        if not item_id:
+            continue
+        family_key = str(item.get("family_key") or "").strip().lower()
+        manual = item.get("manual_root")
+        if not isinstance(manual, int) or manual <= 0:
+            manual = None
+        if not family_key and manual is None:
+            continue
+        rows_out[item_id] = {"family_key": family_key, "manual_root": manual}
+    data[_PRICING_ORIGINS_KEY] = {"families": families_out, "rows": rows_out}
+    save_defaults_file(data)
+
+
+def list_locked_pricing_families() -> list[dict[str, Any]]:
+    """Famílias do seletor: raízes já gravadas e famílias criadas na Precificação."""
+    out: dict[str, dict[str, Any]] = {}
+    for key, defn in _locked_family_index().items():
+        try:
+            root = int(defn.get("root_value") or 0)
+        except (TypeError, ValueError):
+            continue
+        if root <= 0:
+            continue
+        name = clean_species_display_name(str(defn.get("display_name") or "")) or key
+        out[key] = {
+            "species_key": key,
+            "display_name": name,
+            "root_value": root,
+            "source": "gravada",
+        }
+    for key, item in load_catalog_pricing_store()["families"].items():
+        out[key] = {
+            "species_key": key,
+            "display_name": str(item.get("display_name") or key),
+            "root_value": int(item["root_value"]),
+            "source": "criada",
+        }
+    return sorted(
+        out.values(),
+        key=lambda row: (str(row.get("display_name") or "").casefold(), str(row.get("species_key") or "")),
+    )
+
+
+def _pricing_family_by_key(family_key: str) -> dict[str, Any] | None:
+    key = str(family_key or "").strip().lower()
+    if not key:
+        return None
+    for row in list_locked_pricing_families():
+        if row["species_key"] == key:
+            return row
+    return None
+
+
+def set_catalog_pricing_origins(updates: dict[str, Any]) -> dict[str, Any]:
+    """Grava família escolhida e raiz manual. Não mexe no catálogo."""
+    if not isinstance(updates, dict):
+        return {"ok": False, "error": "Correções inválidas."}
+    parsed: list[tuple[str, str, int | None]] = []
+    errors: list[dict[str, str]] = []
+    for raw_id, raw in updates.items():
+        item_id = str(raw_id or "").strip()
+        if not item_id:
+            continue
+        if not isinstance(raw, dict):
+            errors.append({"catalog_item_id": item_id, "error": "Correção inválida."})
+            continue
+        chosen = str(raw.get("family_key") or "").strip().lower()
+        if chosen:
+            known = _pricing_family_by_key(chosen)
+            if known is None:
+                errors.append({"catalog_item_id": item_id, "error": "Família sem raiz gravada."})
+                continue
+            chosen = str(known["species_key"])
+        manual, root_error = parse_pricing_root(raw.get("manual_root"))
+        if root_error:
+            errors.append({"catalog_item_id": item_id, "error": root_error})
+            continue
+        parsed.append((item_id, chosen, manual))
+    if errors:
+        return {"ok": False, "error": errors[0]["error"], "errors": errors}
+    store = load_catalog_pricing_store()
+    for item_id, chosen, manual in parsed:
+        if not chosen and manual is None:
+            store["rows"].pop(item_id, None)
+        else:
+            store["rows"][item_id] = {"family_key": chosen, "manual_root": manual}
+    _write_catalog_pricing_store(store)
+    return {"ok": True, "saved": len(parsed)}
+
+
+def set_catalog_pricing_origin(
+    catalog_item_id: str,
+    *,
+    family_key: Any = None,
+    manual_root: Any = None,
+) -> dict[str, Any]:
+    item_id = str(catalog_item_id or "").strip()
+    if not item_id:
+        return {"ok": False, "error": "Informe a criatura."}
+    return set_catalog_pricing_origins({
+        item_id: {"family_key": family_key, "manual_root": manual_root},
+    })
+
+
+def create_catalog_pricing_family(
+    catalog_item_id: str,
+    display_name: str,
+    root_value: Any,
+) -> dict[str, Any]:
+    """Cria a família na economia da Web Store e aponta a linha para ela.
+
+    Sem raiz, não grava família e não calcula preço.
+    """
+    item_id = str(catalog_item_id or "").strip()
+    if not item_id:
+        return {"ok": False, "error": "Informe a criatura."}
+    name = str(display_name or "").strip()
+    key = _created_family_key(name)
+    if not key:
+        return {"ok": False, "error": "Informe o nome da família nova."}
+    root, root_error = parse_pricing_root(root_value)
+    if root_error:
+        return {"ok": False, "error": root_error}
+    if root is None:
+        return {
+            "ok": False,
+            "error": "Informe a raiz da família nova. Sem raiz, ela não calcula preço.",
+        }
+    store = load_catalog_pricing_store()
+    store["families"][key] = {"display_name": name, "root_value": root}
+    store["rows"][item_id] = {"family_key": key, "manual_root": None}
+    _write_catalog_pricing_store(store)
+    return {
+        "ok": True,
+        "catalog_item_id": item_id,
+        "species_key": key,
+        "display_name": name,
+        "root_value": root,
+    }
+
+
+def _known_pricing_family(
+    family_key: str,
+    families: dict[str, dict[str, Any]],
+    store: dict[str, Any],
+) -> dict[str, Any] | None:
+    key = str(family_key or "").strip().lower()
+    if not key:
+        return None
+    created = (store.get("families") or {}).get(key)
+    if isinstance(created, dict):
+        try:
+            root = int(created.get("root_value") or 0)
+        except (TypeError, ValueError):
+            root = 0
+        if root > 0:
+            return {
+                "species_key": key,
+                "display_name": str(created.get("display_name") or key),
+                "root_value": root,
+                "source": "criada",
+            }
+    recorded = families.get(key)
+    if isinstance(recorded, dict):
+        try:
+            root = int(recorded.get("root_value") or 0)
+        except (TypeError, ValueError):
+            root = 0
+        if root > 0:
+            name = clean_species_display_name(str(recorded.get("display_name") or "")) or key
+            return {
+                "species_key": key,
+                "display_name": name,
+                "root_value": root,
+                "source": "gravada",
+            }
+    return None
+
+
+def _row_pricing_origin(item_id: str, store: dict[str, Any]) -> tuple[str, int | None]:
+    raw = (store.get("rows") or {}).get(item_id) or {}
+    if not isinstance(raw, dict):
+        return "", None
+    family_key = str(raw.get("family_key") or "").strip().lower()
+    manual = raw.get("manual_root")
+    if not isinstance(manual, int) or manual <= 0:
+        manual = None
+    return family_key, manual
+
+
 def locked_pricing_row(
     item_id: str,
     entry: dict[str, Any],
     families: dict[str, dict[str, Any]] | None = None,
+    store: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Uma criatura do catálogo, com o preço calculado ou o motivo de não calcular."""
     families = families if families is not None else _locked_family_index()
+    if store is None:
+        store = load_catalog_pricing_store()
     display_name = _economy_line_display(entry, {}, item_id)
     blueprint = _catalog_item_blueprint(entry)
     short = blueprint_short_key(blueprint)
     tokens = _pricing_tokens(item_id, display_name, short)
     family = _lookup_locked_family(item_id, entry, display_name, families)
-    family_key = str(family.get("species_key") or "").strip().lower() if family else ""
-    family_name = ""
-    family_root: int | None = None
+    auto_key = str(family.get("species_key") or "").strip().lower() if family else ""
+    auto_name = ""
+    auto_root: int | None = None
     if family:
-        family_name = clean_species_display_name(str(family.get("display_name") or "")) or family_key
+        auto_name = clean_species_display_name(str(family.get("display_name") or "")) or auto_key
         try:
-            family_root = int(family.get("root_value") or 0)
+            auto_root = int(family.get("root_value") or 0)
         except (TypeError, ValueError):
-            family_root = 0
-        if family_root <= 0:
-            family_root = None
+            auto_root = 0
+        if auto_root <= 0:
+            auto_root = None
             family = None
-    tier_key, tier_label, index, block_reason = _detect_locked_tier(tokens, item_id, family_key)
-    if family_key == "tekstrider":
-        block_reason = "Tek Strider não é âncora e não recebe preço automático."
+            auto_key = ""
+            auto_name = ""
+    missing_family = family is None or auto_root is None
+    is_strider = _is_tek_strider_line(tokens, item_id, auto_key)
+    chosen_key, manual_root = _row_pricing_origin(item_id, store)
+    chosen = _known_pricing_family(chosen_key, families, store) if chosen_key else None
+    if chosen is None:
+        chosen_key = ""
+    operator_root: int | None = None
+    operator_source: str | None = None
+    if manual_root is not None:
+        operator_root = manual_root
+        operator_source = "manual_root"
+    elif chosen is not None:
+        operator_root = int(chosen["root_value"])
+        operator_source = "family"
+    use_operator = operator_root is not None and (missing_family or is_strider)
+    tier_key, tier_label, index, block_reason = _detect_locked_tier(
+        tokens,
+        item_id,
+        auto_key,
+        ignore_tek_strider=bool(use_operator and is_strider),
+    )
+    if is_strider and not use_operator:
+        block_reason = TEK_STRIDER_MESSAGE
         tier_key, tier_label, index = None, None, None
+    shown_key = auto_key or None
+    shown_name = auto_name or None
+    shown_root = auto_root
+    if use_operator and operator_source == "manual_root":
+        shown_key = None
+        shown_name = None
+        shown_root = manual_root
+    elif use_operator and chosen is not None:
+        shown_key = str(chosen["species_key"])
+        shown_name = str(chosen["display_name"])
+        shown_root = int(chosen["root_value"])
     calculated: int | None = None
     formula = ""
     coef_label = ""
+    price_root = operator_root if use_operator else auto_root
     if block_reason:
         calculated = None
-    elif family is None or family_root is None:
-        block_reason = "Sem família vanilla com raiz gravada. Sem preço automático."
+    elif use_operator and index is not None and operator_root is not None:
+        calculated = locked_catalog_price(operator_root, index)
+        coef_label = coefficient_label(operator_root)
+        formula = _catalog_price_formula(operator_root, index, calculated)
+    elif missing_family:
+        block_reason = MISSING_FAMILY_MESSAGE
+    elif is_strider:
+        block_reason = TEK_STRIDER_MESSAGE
+    elif price_root is None:
+        block_reason = MISSING_FAMILY_MESSAGE
     elif index is None:
         block_reason = block_reason or "Sem índice. Sem preço automático."
     else:
-        calculated = locked_catalog_price(family_root, index)
-        coef_label = coefficient_label(family_root)
-        formula = _catalog_price_formula(family_root, index, calculated)
+        calculated = locked_catalog_price(int(price_root), index)
+        coef_label = coefficient_label(int(price_root))
+        formula = _catalog_price_formula(int(price_root), index, calculated)
     try:
         current_price = int(entry.get("Price") or 0)
     except (TypeError, ValueError):
@@ -3393,10 +3725,11 @@ def locked_pricing_row(
         "catalog_item_id": item_id,
         "display_name": display_name,
         "level": economy_line_level(entry),
-        "family_key": family_key or None,
-        "family_name": family_name or None,
-        "family_root": family_root,
+        "family_key": shown_key,
+        "family_name": shown_name,
+        "family_root": shown_root,
         "coefficient_label": coef_label or None,
+        "coefficient_source": operator_source if calculated is not None and use_operator else None,
         "tier_key": tier_key,
         "tier_label": tier_label,
         "index_label": format_pt_decimal(index) if index is not None else None,
@@ -3405,6 +3738,11 @@ def locked_pricing_row(
         "current_price": current_price,
         "block_reason": block_reason,
         "can_apply_calculated": calculated is not None,
+        "origin_fields": missing_family or is_strider,
+        "origin_family_key": chosen_key or None,
+        "origin_manual_root": manual_root,
+        "missing_family_message": MISSING_FAMILY_MESSAGE if missing_family else None,
+        "strider_message": TEK_STRIDER_MESSAGE if is_strider else None,
     }
 
 
@@ -3413,8 +3751,9 @@ def list_locked_catalog_pricing(catalog: dict[str, Any] | None) -> list[dict[str
     if not isinstance(catalog, dict) or not _catalog_items_dict(catalog):
         return []
     families = _locked_family_index()
+    store = load_catalog_pricing_store()
     rows = [
-        locked_pricing_row(item_id, entry, families)
+        locked_pricing_row(item_id, entry, families, store)
         for item_id, entry in iter_catalog_dinos(catalog)
         if isinstance(entry, dict)
     ]

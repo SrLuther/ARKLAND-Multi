@@ -3,13 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.121"
-BUILD_DATE: str = "2026-10-07"
+APP_VERSION: str = "1.10.122"
+BUILD_DATE: str = "2026-10-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.122",
+        "date": "2026-10-22",
+        "changes": [
+            "Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.",
+            "Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas.",
+            "Fix (Testes): adicionada cobertura de regressão para garantir remoção das flags de engrama quando desligadas.",
+        ],
+    },
     {
         "version": "1.10.121",
         "date": "2026-10-07",

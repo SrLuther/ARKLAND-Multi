@@ -16,12 +16,15 @@ from dino_lab_block_service import (
 from market_economy import (
     apply_locked_prices_at_path,
     calculate_suggested_value,
+    create_catalog_pricing_family,
     load_economy_global_config,
     load_tier_legend,
     attach_economy_db_status,
     list_locked_catalog_pricing,
+    list_locked_pricing_families,
     list_species_economy_meta,
     locked_pricing_examples,
+    set_catalog_pricing_origins,
     normalize_stat_points,
     patch_economy_global_config,
     patch_species_economy_meta,
@@ -427,6 +430,7 @@ def register_market_routes(
         cfg["locked_pricing"] = {
             "examples": examples,
             "rows": list_locked_catalog_pricing(catalog),
+            "families": list_locked_pricing_families(),
         }
         cfg["locked_pricing"]["creature_count"] = len(cfg["locked_pricing"]["rows"])
         if db_ready():
@@ -490,6 +494,31 @@ def register_market_routes(
                 )
             except Exception:
                 pass
+        status = 200 if result.get("ok") else 400
+        return jsonify(result), status
+
+    @app.route("/api/market/admin/economy/pricing-origins", methods=["POST"])
+    @admin_required
+    def market_admin_economy_pricing_origins():
+        """Grava família, raiz manual ou família nova na economia. Não grava o catálogo."""
+        body = request.get_json(silent=True) or {}
+        if body.get("create_family"):
+            result = create_catalog_pricing_family(
+                str(body.get("catalog_item_id") or ""),
+                str(body.get("display_name") or ""),
+                body.get("root_value"),
+            )
+        else:
+            origins = body.get("origins")
+            if not isinstance(origins, dict):
+                item_id = str(body.get("catalog_item_id") or "").strip()
+                origins = {
+                    item_id: {
+                        "family_key": body.get("family_key"),
+                        "manual_root": body.get("manual_root"),
+                    },
+                } if item_id else {}
+            result = set_catalog_pricing_origins(origins)
         status = 200 if result.get("ok") else 400
         return jsonify(result), status
 

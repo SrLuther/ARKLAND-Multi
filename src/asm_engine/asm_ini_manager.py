@@ -479,7 +479,6 @@ def _render_ini_text(
 ) -> str:
     """Renderiza INI no formato nativo do ARK (key=value, seções separadas por linha em branco)."""
     if section_order:
-        order_lower = {s.lower(): s for s in section_order}
         seen: set[str] = set()
         ordered: list[str] = []
         for sec in section_order:
@@ -733,6 +732,12 @@ def write_ini(cfg: AsmServerConfig) -> None:
     _write_ini_file(_ini_path_for_cfg(cfg, "GUS", write=True),  gus, remove_options=remove_gus_options)
     _game_path = _ini_path_for_cfg(cfg, "Game", write=True)
     remove_game_options: list[tuple[str, str]] = []
+    # Campos condicionais precisam limpeza explícita quando desligados.
+    # Caso contrário, valor legado no INI permanece e read_ini() religa o toggle.
+    if not bool(getattr(cfg, "auto_unlock_all_engrams", False)):
+        remove_game_options.append((_GAME_MODE_SECTION, "bAutoUnlockAllEngrams"))
+    if not bool(getattr(cfg, "only_allow_specified_engrams", False)):
+        remove_game_options.append((_GAME_MODE_SECTION, "bOnlyAllowSpecifiedEngrams"))
     if not int(getattr(cfg, "override_max_xp_player", 0) or 0):
         remove_game_options.append(
             (_GAME_MODE_SECTION, "OverrideMaxExperiencePointsPlayer")
@@ -741,7 +746,6 @@ def write_ini(cfg: AsmServerConfig) -> None:
 
     from .asm_game_list_ini import (
         build_repeated_game_lines,
-        count_ramp_lines_in_section,
         patch_game_ini_repeated_lines,
     )
     repeated_lines = build_repeated_game_lines(cfg)

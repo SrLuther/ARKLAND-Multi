@@ -120,3 +120,26 @@ def test_inject_raw_ini_text_game_default_section():
     assert _GAME_MODE_SECTION in game
     assert game[_GAME_MODE_SECTION]["SomeGameKey"] == "1"
     assert "ServerSettings" not in game
+
+
+def test_write_ini_removes_engrm_flags_when_disabled(tmp_path):
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.auto_unlock_all_engrams = False
+    cfg.only_allow_specified_engrams = False
+
+    game_path = _game_path(tmp_path)
+    game_path.parent.mkdir(parents=True)
+    pre = (
+        f"[{_GAME_MODE_SECTION}]\r\n"
+        "bAutoUnlockAllEngrams=True\r\n"
+        "bOnlyAllowSpecifiedEngrams=True\r\n"
+    )
+    game_path.write_bytes(b"\xff\xfe" + pre.encode("utf-16-le"))
+
+    write_ini(cfg)
+
+    text = game_path.read_text(encoding="utf-16")
+    block = _section_block(text, _GAME_MODE_SECTION).lower()
+    assert "bautounlockallengrams" not in block
+    assert "bonlyallowspecifiedengrams" not in block

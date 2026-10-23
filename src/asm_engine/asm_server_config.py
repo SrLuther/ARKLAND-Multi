@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field, fields, asdict
-from typing import List, Optional
+from typing import List
 
 
 @dataclass
