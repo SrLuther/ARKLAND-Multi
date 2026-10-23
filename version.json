@@ -1,10 +1,10 @@
 {
-    "version": "1.10.122",
+    "version": "1.10.123",
     "date": "2026-10-23",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.122/ARKLAND-Multi-Setup-v1.10.122.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.123/ARKLAND-Multi-Setup-v1.10.123.exe",
     "changelog": [
+        "Fix (Release / Versionamento): o app agora publica uma nova tag e release em vez de reaproveitar a versão v1.10.122 já existente no GitHub.",
         "Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.",
-        "Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas.",
-        "Fix (Testes): adicionada cobertura de regressão para garantir remoção das flags de engrama quando desligadas."
+        "Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas."
     ]
 }

@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.122"
+APP_VERSION: str = "1.10.123"
 BUILD_DATE: str = "2026-10-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.123",
+        "date": "2026-10-23",
+        "changes": [
+            "Fix (Release / Versionamento): o app agora publica uma nova tag e release em vez de reaproveitar a versão v1.10.122 já existente no GitHub.",
+            "Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.",
+            "Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas.",
+        ],
+    },
     {
         "version": "1.10.122",
         "date": "2026-10-22",

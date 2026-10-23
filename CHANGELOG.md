@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.123] - 2026-10-23
+
+### Fix
+
+- Fix (Release / Versionamento): o app agora publica uma nova tag e release em vez de reaproveitar a versão v1.10.122 já existente no GitHub.
+- Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.
+- Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas.
+
 ## [1.10.122] - 2026-10-22
 
 ### Fix
