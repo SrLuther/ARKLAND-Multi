@@ -2,9 +2,10 @@
 Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
+# flake8: noqa
 
 APP_VERSION: str = "1.10.122"
-BUILD_DATE: str = "2026-10-22"
+BUILD_DATE: str = "2026-10-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
@@ -929,7 +930,7 @@ CHANGELOG: list[dict] = [
             "Fix (CustomShop v1.10.23): DeliverPending escalonado (evita HangWatcher); GET HTTP>=400 nao engole erro; Shop.Reload tambem atualiza WebApiUrl/Key; aceita ShopItems alem de Items.",
         ],
     },
-{
+    {
         "version": "1.10.66",
         "date": "2026-07-17",
         "changes": [
@@ -2057,7 +2058,7 @@ CHANGELOG: list[dict] = [
             "Feature (Web Store / Kits): na renova??o de licen?a (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licen?a s?o resetados ao valor inicial do cat?logo.",
         ],
     },
-{
+    {
         "version": "1.9.195",
         "date": "2026-07-03",
         "changes": [

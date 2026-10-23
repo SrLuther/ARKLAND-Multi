@@ -1,6 +1,6 @@
 {
     "version": "1.10.122",
-    "date": "2026-10-22",
+    "date": "2026-10-23",
     "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.122/ARKLAND-Multi-Setup-v1.10.122.exe",
     "changelog": [
         "Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.",
