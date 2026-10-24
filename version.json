@@ -1,10 +1,9 @@
 {
-    "version": "1.10.123",
+    "version": "1.10.124",
     "date": "2026-10-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.123/ARKLAND-Multi-Setup-v1.10.123.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.124/ARKLAND-Multi-Setup-v1.10.124.exe",
     "changelog": [
-        "Fix (Release / Versionamento): o app agora publica uma nova tag e release em vez de reaproveitar a versão v1.10.122 já existente no GitHub.",
-        "Fix (TEK / Engramas): ao desmarcar «Desbloquear todos os engramas», o app remove bAutoUnlockAllEngrams e bOnlyAllowSpecifiedEngrams legados do Game.ini quando necessário. Isso impede que o toggle volte sozinho após reiniciar.",
-        "Fix (Nível 200): a tabela de referência agora inicia com a primeira linha OverridePlayerLevelEngramPoints=0, mantendo as demais linhas intactas."
+        "Fix (Catálogo / Config): o app preserva o catalogo.json configurado e o SharedCatalogPath do mapa, separando as seções compartilhadas (Items, Kits, TimedPointsReward, CrossChat, ResourceVitrine) das chaves locais do plugin para não sobrescrever o catálogo real por uma cópia mais cheia ou por um config.json legado.",
+        "Fix (Sync / Catálogo): o resolver de caminho agora rejeita caminhos temporários do PyInstaller (_MEI) e mantém a cópia mais rica como fonte de sincronização, sem reintroduzir kits legacy *_pack10 ou desalinhamentos de permissões no plugin."
     ]
 }

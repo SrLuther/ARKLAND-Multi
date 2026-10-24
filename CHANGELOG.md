@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.124] - 2026-10-24
+
+### Fix
+
+- Fix (Catálogo / Config): o app preserva o catalogo.json configurado e o SharedCatalogPath do mapa, separando as seções compartilhadas (Items, Kits, TimedPointsReward, CrossChat, ResourceVitrine) das chaves locais do plugin para não sobrescrever o catálogo real por uma cópia mais cheia ou por um config.json legado.
+- Fix (Sync / Catálogo): o resolver de caminho agora rejeita caminhos temporários do PyInstaller (_MEI) e mantém a cópia mais rica como fonte de sincronização, sem reintroduzir kits legacy *_pack10 ou desalinhamentos de permissões no plugin.
+
 ## [1.10.123] - 2026-10-23
 
 ### Fix
