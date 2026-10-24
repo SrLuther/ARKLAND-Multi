@@ -2766,6 +2766,62 @@ def _default_config_template() -> Path:
     return fallback if fallback.is_file() else _DEFAULT_CATALOG_LEGACY
 
 
+def initialize_customshop_setup(
+    install_dir: str | Path | None = None,
+    *,
+    source_json: str | Path | None = None,
+) -> Dict[str, Any]:
+    """Cria a estrutura inicial explícita do CustomShop.
+
+    - catálogo compartilhado (CustomShop/catalogo.json)
+    - stub local do plugin (CustomShop/config.json)
+
+    Se ``source_json`` for informado, tenta importar o JSON completo como base do catálogo
+    compartilhado; em caso de ausência, cria um catálogo limpo e um stub básico.
+    """
+    shared = canonical_master_catalog_path()
+    shared.parent.mkdir(parents=True, exist_ok=True)
+
+    plugin_root = Path(install_dir) if install_dir else shared.parent
+    if plugin_root.name.lower() != "customshop":
+        plugin_root = customshop_plugin_dir(str(plugin_root))
+    plugin_root.mkdir(parents=True, exist_ok=True)
+
+    final_catalog: Dict[str, Any] = {"Items": {}, "Kits": {}}
+    if source_json:
+        src_path = Path(source_json)
+        try:
+            raw = json.loads(src_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                if any(key in raw for key in ("Items", "Kits", "TimedPointsReward", "ResourceVitrine", "CrossChat")):
+                    final_catalog = extract_shared_catalog_sections(raw)
+                else:
+                    final_catalog = deepcopy(raw)
+                if not isinstance(final_catalog.get("Items"), dict):
+                    final_catalog["Items"] = {}
+                if not isinstance(final_catalog.get("Kits"), dict):
+                    final_catalog["Kits"] = {}
+        except Exception:
+            final_catalog = {"Items": {}, "Kits": {}}
+
+    save_plugin_config(shared, final_catalog)
+
+    local_cfg = build_local_plugin_config(
+        {},
+        final_catalog,
+        shared_catalog_path=str(shared),
+    )
+    cfg_path = plugin_root / "config.json"
+    save_plugin_config(cfg_path, local_cfg)
+    return {
+        "shared_path": str(shared),
+        "local_config_path": str(cfg_path),
+        "catalog": final_catalog,
+        "created": True,
+        "source_json": str(src_path) if source_json else None,
+    }
+
+
 def ensure_customshop_files_for_install(
     install_dir: str,
     *,

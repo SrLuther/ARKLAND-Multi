@@ -4,13 +4,21 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.124"
+APP_VERSION: str = "1.10.125"
 BUILD_DATE: str = "2026-10-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.125",
+        "date": "2026-10-24",
+        "changes": [
+            "Feature (CustomShop / Configuração inicial): novo botão explícito “Configuração inicial” cria catalogo.json e config.json base com confirmação, permitindo importar um JSON completo opcional ou gerar um setup limpo e transparente sem depender de comportamento oculto do save/propagate.",
+            "Fix (Catálogo / Config): preserva o catalogo.json configurado e o SharedCatalogPath do mapa, separando as seções compartilhadas (Items, Kits, TimedPointsReward, CrossChat, ResourceVitrine) das chaves locais do plugin e evitando sobrescrita por cópias monolíticas legadas.",
+        ],
+    },
     {
         "version": "1.10.124",
         "date": "2026-10-24",

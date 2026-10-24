@@ -49,6 +49,7 @@ from ..shop_integration import (
     fetch_public_ip,
     get_local_ip,
     get_shop_subprocess_env,
+    initialize_customshop_setup,
     install_customshop_all,
     install_customdino_all,
     install_arkplayer_all,
@@ -411,6 +412,98 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
             msg += f", {result['kits_skipped']} sobrescritos"
         msg += ")\n\nUse «Salvar mestre» e depois «Propagar mestre → mapas + loja»."
         messagebox.showinfo("Importação concluída", msg, parent=parent.winfo_toplevel())
+
+    def _initial_setup() -> None:
+        from tkinter import filedialog
+
+        dialog = tk.Toplevel(parent.winfo_toplevel())
+        dialog.title("CONFIGURAÇÃO INICIAL do CustomShop")
+        dialog.transient(parent.winfo_toplevel())
+        dialog.grab_set()
+        dialog.configure(bg=_BG)
+
+        ctk.CTkLabel(
+            dialog,
+            text="Informe um JSON completo opcional. Se ficar vazio, o app cria catalogo.json e config.json base limpos.",
+            text_color="#dfe3ff",
+            justify="left",
+            wraplength=620,
+            font=ctk.CTkFont(size=12),
+        ).pack(padx=18, pady=(18, 8), anchor="w")
+
+        path_var_setup = tk.StringVar(value="")
+        entry = ctk.CTkEntry(dialog, textvariable=path_var_setup, width=560, height=32)
+        entry.pack(fill="x", padx=18, pady=(0, 10))
+
+        def _pick_file() -> None:
+            src = filedialog.askopenfilename(
+                title="Arquivo JSON completo do CustomShop",
+                filetypes=[("JSON", "*.json"), ("Todos", "*.*")],
+                initialfile="loja_completa.json",
+            )
+            if src:
+                path_var_setup.set(src)
+
+        row = tk.Frame(dialog, bg=_BG)
+        row.pack(fill="x", padx=18, pady=(0, 12))
+        ctk.CTkButton(
+            row,
+            text="Escolher arquivo",
+            width=150,
+            fg_color="#3a3a6a",
+            hover_color="#4a4a8a",
+            command=_pick_file,
+        ).pack(side="left")
+        ctk.CTkButton(
+            row,
+            text="Continuar",
+            width=150,
+            fg_color=_GREEN_DARK,
+            hover_color=_GREEN_HOVER,
+            command=lambda: _confirm_setup(path_var_setup.get().strip()),
+        ).pack(side="left", padx=(10, 0))
+        ctk.CTkButton(
+            row,
+            text="Cancelar",
+            width=110,
+            fg_color="#4d4d69",
+            hover_color="#5a5a7b",
+            command=dialog.destroy,
+        ).pack(side="left", padx=(10, 0))
+
+        def _confirm_setup(src: str) -> None:
+            try:
+                result = initialize_customshop_setup(
+                    install_dir=str(Path(canonical_master_catalog_path()).parent),
+                    source_json=src or None,
+                )
+                if result["shared_path"]:
+                    master = Path(result["shared_path"])
+                    path_var.set(str(master))
+                    shop_cfg.catalog_config_path = str(master)
+                    _persist_shop_globals()
+                    data.clear()
+                    data.update(_load_config(master))
+                dialog.destroy()
+                msg = (
+                    "Estrutura inicial concluída.\n\n"
+                    f"Catálogo: {result['shared_path']}\n"
+                    f"Config: {result['local_config_path']}\n"
+                )
+                if src:
+                    msg += "\nFonte JSON utilizada: " + src
+                else:
+                    msg += "\nSem arquivo de origem: catálogo e config base foram criados em branco."
+                messagebox.showinfo("Configuração inicial", msg, parent=parent.winfo_toplevel())
+            except Exception as exc:
+                dialog.destroy()
+                messagebox.showerror("Erro na configuração inicial", str(exc), parent=parent.winfo_toplevel())
+
+    ctk.CTkButton(
+        top_bar, text="⚙️  Configuração inicial",
+        height=36, width=180, fg_color="#3b5bdb", hover_color="#4d6ee8",
+        command=_initial_setup,
+    ).pack(side="left", padx=(10, 0), pady=8)
 
     ctk.CTkButton(
         top_bar, text="📥  Importar JSON",

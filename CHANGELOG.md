@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.125] - 2026-10-24
+
+### Feature
+
+- Feature (CustomShop / Configuração inicial): novo botão explícito “Configuração inicial” cria catalogo.json e config.json base com confirmação, permitindo importar um JSON completo opcional ou gerar um setup limpo e transparente sem depender de comportamento oculto do save/propagate.
+
+### Fix
+
+- Fix (Catálogo / Config): preserva o catalogo.json configurado e o SharedCatalogPath do mapa, separando as seções compartilhadas (Items, Kits, TimedPointsReward, CrossChat, ResourceVitrine) das chaves locais do plugin e evitando sobrescrita por cópias monolíticas legadas.
+
 ## [1.10.124] - 2026-10-24
 
 ### Fix
