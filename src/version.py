@@ -5,7 +5,7 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 # flake8: noqa
 
 APP_VERSION: str = "1.10.123"
-BUILD_DATE: str = "2026-10-23"
+BUILD_DATE: str = "2026-10-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).

@@ -27,8 +27,9 @@ from .plugin_versions import bundled_plugin_info_path
 from .diagnostics.events import CAT_PLUGINS, CAT_WEBSTORE, diag_call
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-# Dev: preferir catalog.json; fallback ao monolítico legado em configs/
+# Dev: preferir catalogo.json; manter compatibilidade com catalog.json legado e config monolítico antigo.
 _DEFAULT_CATALOG = _PROJECT_ROOT / "plugin" / "CustomShop" / "catalog.json"
+_DEFAULT_CATALOG_CANON = _PROJECT_ROOT / "plugin" / "CustomShop" / "catalogo.json"
 _DEFAULT_CATALOG_LEGACY = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
 _PLUGIN_INFO = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "PluginInfo.json"
 _PERM_CONFIG_TEMPLATE = _PROJECT_ROOT / "plugin" / "Permissions" / "configs" / "config.json"
@@ -61,10 +62,11 @@ _ENGRAMLEVEL_DLLS = ("EngramLevel.dll",)
 
 logger = logging.getLogger(__name__)
 
-_INSTALLED_CATALOG_REL = Path("plugin") / "CustomShop" / "catalog.json"
+_INSTALLED_CATALOG_REL = Path("plugin") / "CustomShop" / "catalogo.json"
 _INSTALLED_CATALOG_LEGACY_REL = Path("plugin") / "CustomShop" / "configs" / "config.json"
-_MASTER_CATALOG_REL = Path("CustomShop") / "catalog.json"
-_MASTER_CATALOG_LEGACY_REL = Path("CustomShop") / "configs" / "config.json"
+_MASTER_CATALOG_REL = Path("CustomShop") / "catalogo.json"
+_MASTER_CATALOG_LEGACY_REL = Path("CustomShop") / "catalog.json"
+_MASTER_CATALOG_CONFIG_LEGACY_REL = Path("CustomShop") / "configs" / "config.json"
 
 # Meta-chave no config.json local do mapa (path absoluto do catálogo partilhado).
 SHARED_CATALOG_PATH_KEY = "SharedCatalogPath"
@@ -254,13 +256,13 @@ def build_local_plugin_config(
 
 
 def _looks_like_shared_catalog_path(path_str: str) -> bool:
-    """True se o path parece ser o catalog.json partilhado (não o config local do mapa)."""
+    """True se o path parece ser o catálogo partilhado (não o config local do mapa)."""
     if not path_str:
         return False
     try:
         p = Path(path_str)
         name = p.name.lower()
-        if name == "catalog.json":
+        if name in {"catalog.json", "catalogo.json"}:
             return True
         canon = canonical_master_catalog_path()
         try:
@@ -268,7 +270,8 @@ def _looks_like_shared_catalog_path(path_str: str) -> bool:
         except OSError:
             return str(p).lower() == str(canon).lower()
     except Exception:
-        return path_str.replace("\\", "/").lower().endswith("/catalog.json")
+        lowered = path_str.replace("\\", "/").lower()
+        return lowered.endswith("/catalog.json") or lowered.endswith("/catalogo.json")
 
 
 def shared_config_fingerprint(data: Dict[str, Any]) -> str:
@@ -438,9 +441,9 @@ def merge_catalog_into_plugin_config(
 def canonical_master_catalog_path() -> Path:
     """Caminho canônico do catálogo partilhado (fonte de verdade Items/Kits).
 
-    Ambiente ARKLAND: ``ARKLAND SERVER/CustomShop/catalog.json``
-    Instalado sem ambiente: ``%APPDATA%/ARKLAND-ServerManager/CustomShop/catalog.json``
-    Desenvolvimento: ``plugin/CustomShop/catalog.json`` (fallback: ``configs/config.json``)
+    Ambiente ARKLAND: ``ARKLAND SERVER/CustomShop/catalogo.json``
+    Instalado sem ambiente: ``%APPDATA%/ARKLAND-ServerManager/CustomShop/catalogo.json``
+    Desenvolvimento: ``plugin/CustomShop/catalogo.json`` (fallback: ``catalog.json`` legado)
     """
     from .arkland_environment import try_load_environment_paths
 
@@ -453,32 +456,50 @@ def canonical_master_catalog_path() -> Path:
             / "ARKLAND-ServerManager"
             / _MASTER_CATALOG_REL
         )
+    if _DEFAULT_CATALOG_CANON.is_file():
+        return _DEFAULT_CATALOG_CANON
     if _DEFAULT_CATALOG.is_file():
-        return _DEFAULT_CATALOG
+        return _DEFAULT_CATALOG_CANON
     if _DEFAULT_CATALOG_LEGACY.is_file():
-        return _DEFAULT_CATALOG_LEGACY
-    return _DEFAULT_CATALOG
+        return _DEFAULT_CATALOG_CANON
+    return _DEFAULT_CATALOG_CANON
 
 
 def legacy_master_catalog_path() -> Path:
-    """Path do mestre monolítico legado (configs/config.json)."""
+    """Path do mestre monolítico legado (catalog.json antigo / configs/config.json)."""
     from .arkland_environment import try_load_environment_paths
 
     env = try_load_environment_paths()
     if env is not None:
-        return env.customshop_master_legacy
+        legacy = env.customshop_master_legacy
+        if legacy.is_file():
+            return legacy
+        legacy_shared = env.customshop_dir / "catalog.json"
+        if legacy_shared.is_file():
+            return legacy_shared
+        return legacy
     if getattr(sys, "frozen", False):
-        return (
-            Path(os.environ.get("APPDATA", Path.home()))
-            / "ARKLAND-ServerManager"
-            / _MASTER_CATALOG_LEGACY_REL
-        )
+        appdata = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+        legacy_shared = appdata / _MASTER_CATALOG_LEGACY_REL
+        if legacy_shared.is_file():
+            return legacy_shared
+        return appdata / _MASTER_CATALOG_CONFIG_LEGACY_REL
+    if _DEFAULT_CATALOG.is_file():
+        return _DEFAULT_CATALOG
     return _DEFAULT_CATALOG_LEGACY
 
 
 def _legacy_master_catalog_paths() -> List[Path]:
     """Locais legados que já guardaram o mestre (migração para o canônico)."""
-    return _dedupe_paths(installed_catalog_candidates() + [_webstore_catalog_path_or_none()])
+    candidates = installed_catalog_candidates()
+    try:
+        shared_legacy = canonical_master_catalog_path().parent / "catalog.json"
+        if shared_legacy.is_file():
+            candidates.append(shared_legacy)
+    except Exception:
+        pass
+    candidates.append(_webstore_catalog_path_or_none())
+    return _dedupe_paths([p for p in candidates if p is not None])
 
 
 def _webstore_catalog_path_or_none() -> Optional[Path]:
@@ -544,13 +565,15 @@ def _webstore_catalog_file() -> Optional[Path]:
 
 
 def migrate_catalog_to_canonical(force: bool = False) -> Path:
-    """Garante que ``CustomShop/catalog.json`` existe (extrai seções partilhadas do legado)."""
+    """Garante que ``CustomShop/catalogo.json`` existe e migra o legado ``catalog.json`` quando houver."""
     canonical = canonical_master_catalog_path()
     if canonical.is_file() and not force:
         return canonical
 
     sources = _legacy_master_catalog_paths()
-    # Preferir mestre legado explícito se existir e ainda não for o canónico.
+    legacy_same_dir = canonical.parent / "catalog.json"
+    if legacy_same_dir.is_file():
+        sources = _dedupe_paths([legacy_same_dir] + sources)
     try:
         legacy = legacy_master_catalog_path()
         if legacy.is_file():
@@ -558,12 +581,32 @@ def migrate_catalog_to_canonical(force: bool = False) -> Path:
     except Exception:
         pass
 
-    best = _pick_richest_catalog_path(sources)
+    preferred = None
+    for candidate in [legacy_same_dir]:
+        try:
+            if candidate.is_file():
+                preferred = candidate
+                break
+        except Exception:
+            continue
+    if preferred is None:
+        try:
+            legacy = legacy_master_catalog_path()
+            if legacy.is_file() and legacy != legacy_same_dir:
+                preferred = legacy
+        except Exception:
+            pass
+    if preferred is not None:
+        best = preferred
+    else:
+        best = _pick_richest_catalog_path(sources)
     if best is None:
         try:
             canonical.parent.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            pass
+            save_plugin_config(canonical, {"Items": {}, "Kits": {}})
+            logger.info("Catálogo partilhado criado em %s (sem fonte legado detectada)", canonical)
+        except OSError as exc:
+            logger.warning("Falha ao criar catálogo vazio em %s: %s", canonical, exc)
         return canonical
 
     if best.resolve() == canonical.resolve():
@@ -576,7 +619,6 @@ def migrate_catalog_to_canonical(force: bool = False) -> Path:
         return canonical
 
     shared = extract_shared_catalog_sections(raw)
-    # Se a fonte já era só catálogo (ou monolítico), garantir Items/Kits presentes.
     if catalog_entry_total(shared) <= 0 and catalog_entry_total(raw) > 0:
         shared = raw
 
@@ -1924,8 +1966,11 @@ def slugify_server_id(name: str, srv_id: str) -> str:
 
 
 def customshop_plugin_dir(install_dir: str) -> Path:
+    p = Path(install_dir)
+    if p.name.lower() == "customshop":
+        return p
     return (
-        Path(install_dir)
+        p
         / "ShooterGame"
         / "Binaries"
         / "Win64"
@@ -2721,6 +2766,101 @@ def _default_config_template() -> Path:
     return fallback if fallback.is_file() else _DEFAULT_CATALOG_LEGACY
 
 
+def ensure_customshop_files_for_install(
+    install_dir: str,
+    *,
+    shop: Optional["ShopGlobalConfig"] = None,
+) -> Tuple[List[str], List[str]]:
+    """Garante que existem catalogo.json e config.json no local esperado.
+
+    - catálogo compartilhado em ``CustomShop/catalogo.json``
+    - config local do mapa em ``.../CustomShop/config.json``
+    - se houver um ``catalog.json`` legado na mesma pasta, ele é lido e partido entre os dois arquivos.
+    """
+    ok: List[str] = []
+    notes: List[str] = []
+
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+
+    plugin_path = customshop_plugin_dir(install_dir)
+    if Path(install_dir).name.lower() != "customshop" and "CustomShop" not in {part.lower() for part in Path(install_dir).parts}:
+        plugin_path = customshop_plugin_dir(install_dir)
+    else:
+        plugin_path = Path(install_dir)
+
+    try:
+        shared = migrate_catalog_to_canonical()
+    except Exception as exc:
+        logger.warning("ensure_customshop_files_for_install: migrate_catalog_to_canonical falhou: %s", exc)
+        shared = canonical_master_catalog_path()
+
+    if not shared.is_file():
+        try:
+            shared.parent.mkdir(parents=True, exist_ok=True)
+            save_plugin_config(shared, {"Items": {}, "Kits": {}})
+            ok.append(f"catalogo.json (criado padrão) → {shared}")
+        except Exception as exc:
+            notes.append(f"catalogo.json não pôde ser criado: {exc}")
+    else:
+        ok.append(f"catalogo.json (presente) → {shared}")
+
+    cfg_dest = plugin_path / "config.json"
+    legacy_shared = shared.parent / "catalog.json"
+    base_source: Dict[str, Any] = {}
+    if legacy_shared.is_file():
+        try:
+            base_source = load_plugin_config(legacy_shared)
+        except Exception as exc:
+            notes.append(f"catalog.json legado não pôde ser lido: {exc}")
+    elif shared.is_file():
+        try:
+            base_source = load_plugin_config(shared)
+        except Exception:
+            base_source = {}
+
+    if not cfg_dest.is_file():
+        if base_source:
+            local_seed = deepcopy(base_source)
+            cc = local_seed.get("CrossChat")
+            if isinstance(cc, dict):
+                cc = deepcopy(cc)
+                cc.pop("ServerId", None)
+                local_seed["CrossChat"] = cc
+            try:
+                stub = build_local_plugin_config(
+                    local_seed,
+                    base_source,
+                    shared_catalog_path=str(shared),
+                )
+                save_plugin_config(cfg_dest, stub)
+                ok.append(f"config.json (migrado do catalog.json legado) → {cfg_dest}")
+            except Exception as exc:
+                notes.append(f"config.json não pôde ser criado a partir do legacy catalog.json: {exc}")
+        else:
+            stub: Dict[str, Any] = {
+                SHARED_CATALOG_PATH_KEY: str(shared),
+                "Settings": {},
+                "Debug": {"Enabled": False, "Level": "INFO"},
+            }
+            try:
+                save_plugin_config(cfg_dest, stub)
+                ok.append(f"config.json (stub padrão) → {cfg_dest}")
+            except Exception as exc:
+                notes.append(f"config.json não pôde ser criado: {exc}")
+    else:
+        try:
+            existing_cfg = load_plugin_config(cfg_dest)
+            if not str(existing_cfg.get(SHARED_CATALOG_PATH_KEY) or "").strip():
+                existing_cfg[SHARED_CATALOG_PATH_KEY] = str(shared)
+                save_plugin_config(cfg_dest, existing_cfg)
+                ok.append(f"SharedCatalogPath injetado → {shared}")
+        except Exception as exc:
+            notes.append(f"SharedCatalogPath: {exc}")
+
+    return ok, notes
+
+
 def install_customshop_to_server(
     install_dir: str,
     *,
@@ -2772,6 +2912,10 @@ def install_customshop_to_server(
     )
     ok.extend(info_ok)
     notes.extend(info_notes)
+
+    ensure_ok, ensure_notes = ensure_customshop_files_for_install(install_dir, shop=shop)
+    ok.extend(ensure_ok)
+    notes.extend(ensure_notes)
 
     cfg_dest = dest / "config.json"
     if not cfg_dest.is_file():

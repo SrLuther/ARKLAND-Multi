@@ -11,6 +11,7 @@ from src.shop_integration import (
     build_cross_chat_settings,
     catalog_permission_diff,
     collect_groups_from_catalog,
+    ensure_customshop_files_for_install,
     find_cross_chat_collisions,
     format_permission_sync_note,
     merge_catalog_into_plugin_config,
@@ -217,6 +218,49 @@ def test_cross_chat_server_label_ignores_shared_shop_server_id():
     assert "unique" in label or label  # slugify do nome/id
 
 
+def test_ensure_customshop_files_for_install_prefers_catalogo_and_migrates_legacy_catalog(tmp_path, monkeypatch):
+    shared_dir = tmp_path / "ARKLAND SERVER" / "CustomShop"
+    shared_dir.mkdir(parents=True)
+    legacy = shared_dir / "catalog.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "Items": {"item_a": {"Name": "Item A"}},
+                "Kits": {"kit_a": {"Name": "Kit A"}},
+                "Settings": {"WebsiteUrl": "https://shop.test", "ServerId": "MapaX"},
+                "Database": {"Host": "localhost"},
+                "CrossChat": {"Enabled": True, "ServerId": "MapaX"},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    install_dir = tmp_path / "Mapas" / "MapaX" / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins" / "CustomShop"
+    install_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "src.shop_integration.canonical_master_catalog_path",
+        lambda: shared_dir / "catalogo.json",
+    )
+    monkeypatch.setattr(
+        "src.shop_integration.legacy_master_catalog_path",
+        lambda: legacy,
+    )
+
+    ok, notes = ensure_customshop_files_for_install(str(install_dir))
+
+    catalogo = shared_dir / "catalogo.json"
+    config_path = install_dir / "config.json"
+    assert catalogo.is_file(), ok
+    assert config_path.is_file(), notes
+    assert "item_a" in json.loads(catalogo.read_text(encoding="utf-8"))["Items"]
+    assert "kit_a" in json.loads(catalogo.read_text(encoding="utf-8"))["Kits"]
+    local_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    assert local_cfg["Settings"]["WebsiteUrl"] == "https://shop.test"
+    assert local_cfg["SharedCatalogPath"].endswith("catalogo.json")
+    assert "ServerId" not in local_cfg["CrossChat"]
+
+
 def test_cross_chat_server_label_unique_fallback_when_same_name():
     a = SimpleNamespace(
         name="ARK Server TEK",
@@ -410,6 +454,24 @@ def test_sync_plugin_at_path_stub_points_to_shared_catalog(tmp_path, monkeypatch
     assert saved["Settings"]["WebsiteUrl"] == "https://shop.test"
     assert saved["Database"]["Password"] == "secret"
     assert (plugin_path.with_suffix(".json.bak")).is_file()
+
+
+def test_migrate_catalog_to_canonical_creates_missing_shared_file(tmp_path, monkeypatch):
+    from src.shop_integration import migrate_catalog_to_canonical
+
+    shared = tmp_path / "ARKLAND SERVER" / "CustomShop" / "catalog.json"
+    monkeypatch.setattr("src.shop_integration.canonical_master_catalog_path", lambda: shared)
+    monkeypatch.setattr("src.shop_integration.legacy_master_catalog_path", lambda: tmp_path / "missing" / "config.json")
+    monkeypatch.setattr("src.shop_integration._legacy_master_catalog_paths", lambda: [])
+    monkeypatch.setattr("src.shop_integration.installed_catalog_candidates", lambda: [])
+
+    result = migrate_catalog_to_canonical()
+
+    assert result == shared
+    assert shared.is_file()
+    data = json.loads(shared.read_text(encoding="utf-8"))
+    assert data["Items"] == {}
+    assert data["Kits"] == {}
 
 
 def test_sync_plugin_at_path_propagates_new_kit_from_master(tmp_path, monkeypatch):

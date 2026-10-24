@@ -1,6 +1,6 @@
 {
     "version": "1.10.123",
-    "date": "2026-10-23",
+    "date": "2026-10-24",
     "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.123/ARKLAND-Multi-Setup-v1.10.123.exe",
     "changelog": [
         "Fix (Release / Versionamento): o app agora publica uma nova tag e release em vez de reaproveitar a versão v1.10.122 já existente no GitHub.",
