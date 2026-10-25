@@ -2321,6 +2321,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         XP_CURVE_CUSTOM,
         build_ramp_values,
         export_ramp_raw,
+        normalize_ramp_override_line,
         parse_ramp_from_text,
     )
 
@@ -2412,7 +2413,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
 
     _fields_p = [
         ("Nível máx.", str(_prefill_max)), ("XP base (lv0)", "70"),
-        ("Multiplicador XP", "1.05"), ("Engrams/nível", "8"),
+        ("Multiplicador XP", "1.05"), ("XP máximo", "0"),
     ]
     _vars_p: list[tk.StringVar] = []
     for col, (lbl, default) in enumerate(_fields_p):
@@ -2432,6 +2433,43 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     custom_formula_var = tk.StringVar(value="base * (mult ** i)")
     ctk.CTkEntry(custom_f, textvariable=custom_formula_var, width=260, height=26,
                  font=ctk.CTkFont(family="Consolas", size=10)).pack(side="left", padx=(0, 6))
+
+    def _draw_xp_curve(xp_values: list[int], canvas: tk.Canvas) -> None:
+        """Desenha uma curva simples de XP para o preview do nível do jogador."""
+        try:
+            canvas.delete("all")
+            if not xp_values:
+                return
+            width = max(240, int(canvas.winfo_width() or 620))
+            height = max(120, int(canvas.winfo_height() or 120))
+            pad_x = 18
+            pad_y = 18
+            max_val = max(max(xp_values), 1)
+            if len(xp_values) == 1:
+                x = pad_x + (width - pad_x * 2) / 2
+                y = height - pad_y
+                canvas.create_line(x, height - pad_y, x, y, fill="#7dd3fc", width=2)
+                return
+
+            points = []
+            for idx, xp in enumerate(xp_values[:300]):
+                x = pad_x + (idx / max(len(xp_values) - 1, 1)) * (width - pad_x * 2)
+                y = height - pad_y - (xp / max_val) * (height - pad_y * 2)
+                points.extend([x, y])
+            canvas.create_line(points, fill="#7dd3fc", width=2, smooth=True)
+            for i in range(1, 5):
+                y = pad_y + (i / 4) * (height - pad_y * 2)
+                canvas.create_line(pad_x, y, width - pad_x, y, fill="#1e293b", dash=(4, 4))
+        except Exception:
+            pass
+
+    preview_box = ctk.CTkTextbox(gen_card, height=90, width=620,
+                                 font=ctk.CTkFont(family="Consolas", size=9))
+    preview_box.grid(row=5, column=0, columnspan=8, padx=12, pady=(0, 6), sticky="ew")
+    preview_box.configure(state="disabled")
+    canvas_xp = tk.Canvas(gen_card, width=620, height=120, bg="#081421",
+                          highlightthickness=0, bd=0)
+    canvas_xp.grid(row=6, column=0, columnspan=8, padx=12, pady=(0, 8), sticky="ew")
 
     def _preview_player_gen():
         try:
@@ -2470,13 +2508,14 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         box_p.insert("1.0", text)
         box_p.configure(state="disabled")
 
-    def _apply_player_gen():
+    def _apply_generated_player_ramp():
         try:
             max_lvl = max(1, min(int(_vars_p[0].get()), 500))
             xp_base = max(1, int(_vars_p[1].get()))
             xp_mult = max(1.0, float(_vars_p[2].get()))
+            max_xp = max(0, int(float(_vars_p[3].get())))
         except ValueError:
-            return
+            return None
 
         formula = custom_formula_var.get().strip()
         xp_vals = []
@@ -2488,9 +2527,40 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         except Exception:
             xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
 
+        if max_xp > 0:
+            xp_vals = [min(int(v), max_xp) for v in xp_vals]
+
         from src.player_level_ramp import build_ramp_ini_line
 
-        text = build_ramp_ini_line(xp_vals)
+        return build_ramp_ini_line(xp_vals), max_lvl, xp_base, xp_mult, formula, max_xp
+
+    def _apply_player_gen():
+        generated = _apply_generated_player_ramp()
+        if generated is None:
+            return
+        text, max_lvl, xp_base, xp_mult, formula, max_xp = generated
+
+        custom_text = str(player_line_var.get() or "").strip()
+        if custom_text:
+            normalized = normalize_ramp_override_line(custom_text, key="LevelExperienceRampOverrides")
+            if not normalized:
+                messagebox.showwarning("Linha inválida", "A linha de rampa informada não contém um formato válido de LevelExperienceRampOverrides.")
+                return
+            parsed = parse_ramp_from_text(normalized)
+            if parsed.get("entry_count", 0) > 0:
+                max_lvl = max(max_lvl, int(parsed.get("entry_count", 0) or max_lvl))
+                if max_xp > 0:
+                    values = [min(int(v), max_xp) for v in parsed.get("slots", {}).values()]
+                    ordered = [0] * int(parsed.get("entry_count", 0) or 0)
+                    for idx, val in parsed.get("slots", {}).items():
+                        ordered[int(idx)] = min(int(val), max_xp)
+                    text = "LevelExperienceRampOverrides=(" + ",".join(
+                        f"ExperiencePointsForLevel[{idx}]={int(value)}" for idx, value in enumerate(ordered)
+                    ) + ")"
+                else:
+                    text = normalized
+            else:
+                text = normalized
 
         disk_parsed = parse_ramp_from_text(str(getattr(srv, "player_level_stats_raw", "") or ""))
         new_parsed = parse_ramp_from_text(text)
@@ -2518,16 +2588,76 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         _refresh_export_box(text)
         _preview_player_gen()
 
+    player_line_var = tk.StringVar(value=str(getattr(srv, "player_level_stats_raw", "") or ""))
+    player_line_frame = ctk.CTkFrame(gen_card, fg_color="transparent")
+    player_line_frame.grid(row=4, column=0, columnspan=8, padx=12, pady=(0, 6), sticky="ew")
+
+    ctk.CTkLabel(player_line_frame, text="Linha custom (1 linha):",
+                 font=ctk.CTkFont(size=10), text_color="#8899aa").pack(side="left", padx=(0, 6))
+    player_line_box = ctk.CTkTextbox(player_line_frame, height=48, width=420,
+                                    font=ctk.CTkFont(family="Consolas", size=10))
+    player_line_box.pack(side="left", fill="x", expand=True, padx=(0, 6))
+    player_line_box.insert("1.0", player_line_var.get())
+
+    def _player_import_file():
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title="Selecionar rampa do jogador (.txt/.json)",
+            filetypes=[("Arquivos de texto", "*.txt *.json"), ("Todos", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            text = open(path, "r", encoding="utf-8-sig").read()
+        except UnicodeDecodeError:
+            text = open(path, "r", encoding="utf-16").read()
+        except OSError:
+            messagebox.showwarning("Arquivo inválido", "Não foi possível abrir o arquivo selecionado.")
+            return
+        normalized = normalize_ramp_override_line(text, key="LevelExperienceRampOverrides")
+        if not normalized:
+            messagebox.showwarning("Linha inválida", "O arquivo não contém uma rampa válida em formato de linha única.")
+            return
+        player_line_var.set(normalized)
+        player_line_box.delete("1.0", "end")
+        player_line_box.insert("1.0", normalized)
+
+    def _player_paste_raw():
+        try:
+            clip = sf.clipboard_get().strip()
+        except Exception:
+            clip = ""
+        if not clip:
+            return
+        normalized = normalize_ramp_override_line(clip, key="LevelExperienceRampOverrides")
+        if not normalized:
+            messagebox.showwarning("Linha inválida", "O texto colado não contém uma rampa válida em formato de linha única.")
+            return
+        player_line_var.set(normalized)
+        player_line_box.delete("1.0", "end")
+        player_line_box.insert("1.0", normalized)
+
+    actions_p = ctk.CTkFrame(gen_card, fg_color="transparent")
+    actions_p.grid(row=7, column=0, columnspan=8, padx=12, pady=(0, 6), sticky="w")
+    ctk.CTkButton(actions_p, text="📁 Importar .txt/.json", width=130, height=28,
+                  fg_color="#1e293b", hover_color="#334155",
+                  font=ctk.CTkFont(size=10), command=_player_import_file).pack(side="left", padx=(0, 6))
+    ctk.CTkButton(actions_p, text="📋 Colar linha", width=110, height=28,
+                  fg_color="#1e293b", hover_color="#334155",
+                  font=ctk.CTkFont(size=10), command=_player_paste_raw).pack(side="left", padx=(0, 6))
+
+    player_line_var.set(str(getattr(srv, "player_level_stats_raw", "") or ""))
+
     ctk.CTkButton(gen_card, text="👁  Preview",
                   height=28, fg_color="#1e293b", hover_color="#334155",
                   font=ctk.CTkFont(size=11),
                   command=_preview_player_gen).grid(
-        row=5, column=0, padx=12, pady=(0, 8), sticky="w")
+        row=8, column=0, padx=12, pady=(0, 8), sticky="w")
     ctk.CTkButton(gen_card, text="Gerar e aplicar",
                   height=28, fg_color="#0e4a6e", hover_color="#0a3550",
                   font=ctk.CTkFont(size=11),
                   command=_apply_player_gen).grid(
-        row=5, column=1, padx=(0, 12), pady=(0, 8), sticky="w")
+        row=8, column=1, padx=(0, 12), pady=(0, 8), sticky="w")
 
     # ── Textbox raw (export somente leitura) ─────────────────────────────────
     box_p = ctk.CTkTextbox(sf, height=180, font=ctk.CTkFont(family="Consolas", size=10))
@@ -2576,23 +2706,108 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         ctk.CTkEntry(gen_card_d, textvariable=v, width=80, height=28).grid(
             row=1, column=col * 2 + 1, padx=(0, 8), pady=(0, 4), sticky="w")
 
+    dino_line_var = tk.StringVar(value=str(getattr(srv, "dino_level_stats_raw", "") or ""))
+    dino_line_frame = ctk.CTkFrame(gen_card_d, fg_color="transparent")
+    dino_line_frame.grid(row=2, column=0, columnspan=6, padx=12, pady=(0, 4), sticky="ew")
+    ctk.CTkLabel(dino_line_frame, text="Linha custom (1 linha):",
+                 font=ctk.CTkFont(size=10), text_color="#8899aa").pack(side="left", padx=(0, 6))
+    dino_line_box = ctk.CTkTextbox(dino_line_frame, height=44, width=420,
+                                  font=ctk.CTkFont(family="Consolas", size=10))
+    dino_line_box.pack(side="left", fill="x", expand=True, padx=(0, 6))
+    dino_line_box.insert("1.0", dino_line_var.get())
+
+    def _dino_import_file():
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title="Selecionar rampa do dino (.txt/.json)",
+            filetypes=[("Arquivos de texto", "*.txt *.json"), ("Todos", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            text = open(path, "r", encoding="utf-8-sig").read()
+        except UnicodeDecodeError:
+            text = open(path, "r", encoding="utf-16").read()
+        except OSError:
+            messagebox.showwarning("Arquivo inválido", "Não foi possível abrir o arquivo selecionado.")
+            return
+        normalized = normalize_ramp_override_line(text, key="DinoMaxLevelExperienceRampOverrides")
+        if not normalized:
+            messagebox.showwarning("Linha inválida", "O arquivo não contém uma rampa válida em formato de linha única.")
+            return
+        dino_line_var.set(normalized)
+        dino_line_box.delete("1.0", "end")
+        dino_line_box.insert("1.0", normalized)
+
+    def _dino_paste_raw():
+        try:
+            clip = sf.clipboard_get().strip()
+        except Exception:
+            clip = ""
+        if not clip:
+            return
+        normalized = normalize_ramp_override_line(clip, key="DinoMaxLevelExperienceRampOverrides")
+        if not normalized:
+            messagebox.showwarning("Linha inválida", "O texto colado não contém uma rampa válida em formato de linha única.")
+            return
+        dino_line_var.set(normalized)
+        dino_line_box.delete("1.0", "end")
+        dino_line_box.insert("1.0", normalized)
+
+    actions_d = ctk.CTkFrame(gen_card_d, fg_color="transparent")
+    actions_d.grid(row=3, column=0, columnspan=6, padx=12, pady=(0, 6), sticky="w")
+    ctk.CTkButton(actions_d, text="📁 Importar .txt/.json", width=130, height=28,
+                  fg_color="#1e293b", hover_color="#334155",
+                  font=ctk.CTkFont(size=10), command=_dino_import_file).pack(side="left", padx=(0, 6))
+    ctk.CTkButton(actions_d, text="📋 Colar linha", width=110, height=28,
+                  fg_color="#1e293b", hover_color="#334155",
+                  font=ctk.CTkFont(size=10), command=_dino_paste_raw).pack(side="left", padx=(0, 6))
+
     def _apply_dino_gen():
         try:
             max_lvl = max(1, min(int(_vars_d[0].get()), 500))
             xp_base = max(1, int(_vars_d[1].get()))
             xp_mult = max(1.0, float(_vars_d[2].get()))
+            max_xp = max(0, int(float(_vars_d[3].get())))
         except ValueError:
             return
+
         text = _gen_dino_lines(max_lvl, xp_base, xp_mult)
+        custom_text = str(dino_line_var.get() or "").strip()
+        if custom_text:
+            normalized = normalize_ramp_override_line(custom_text, key="DinoMaxLevelExperienceRampOverrides")
+            if not normalized:
+                messagebox.showwarning("Linha inválida", "A linha do dino informada não contém um formato válido de DinoMaxLevelExperienceRampOverrides.")
+                return
+            if max_xp > 0:
+                parsed = parse_ramp_from_text(normalized)
+                ordered = [0] * int(parsed.get("entry_count", 0) or 0)
+                for idx, value in parsed.get("slots", {}).items():
+                    ordered[int(idx)] = min(int(value), max_xp)
+                text = "DinoMaxLevelExperienceRampOverrides=(" + ",".join(
+                    f"ExperiencePointsForLevel[{idx}]={int(value)}" for idx, value in enumerate(ordered)
+                ) + ")"
+            else:
+                text = normalized
+        elif max_xp > 0:
+            capped = []
+            for i in range(max_lvl):
+                xp = int(xp_base * (xp_mult ** i))
+                capped.append(min(xp, max_xp))
+            text = "\n".join(
+                f"DinoMaxLevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp})"
+                for i, xp in enumerate(capped)
+            )
         box_d.configure(state="normal")
         box_d.delete("1.0", "end")
         box_d.insert("1.0", text)
+        srv.dino_level_stats_raw = text
 
     ctk.CTkButton(gen_card_d, text="Gerar e aplicar",
                   height=28, fg_color="#0e4a6e", hover_color="#0a3550",
                   font=ctk.CTkFont(size=11),
                   command=_apply_dino_gen).grid(
-        row=2, column=0, columnspan=6, padx=12, pady=(0, 8), sticky="w")
+        row=4, column=0, columnspan=6, padx=12, pady=(0, 8), sticky="w")
 
     # ── Textbox raw dino ──────────────────────────────────────────────────────
     box_d = ctk.CTkTextbox(sf, height=150, font=ctk.CTkFont(family="Consolas", size=10))
@@ -2605,7 +2820,11 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         ("Pontos de engrama por nível", "Quantidade de pontos de engrama ganhos em cada nível. Uma linha por nível."),
         ("Tabela de XP do dino", "Define a progressão de XP dos dinos. Uma linha por nível."),
         ("Gerador rápido", "Calcula automaticamente os valores com base em nível máximo, XP base e multiplicador."),
+        ("Linha custom", "Aceita a rampa em uma linha única, importando .txt/.json ou colando diretamente o texto. O jogador fica sempre acima do dino."),
     ])
+
+    # Keep player line ordered above dino line at export time.
+    # This is already ensured by write_ini() writing player before dino.
 
 
 # ════════════════════════════════════════════════════════════════════════════ #

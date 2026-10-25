@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.arkland_environment import EnvironmentPaths
 from src.shop_integration import (
     _cross_chat_server_label,
     apply_shared_sections_to_plugin,
@@ -220,6 +221,12 @@ def test_cross_chat_server_label_ignores_shared_shop_server_id():
     assert "unique" in label or label  # slugify do nome/id
 
 
+def test_environment_paths_use_catalogo_as_canonical_shared_catalog_name():
+    env = EnvironmentPaths(Path("C:/ARKLAND SERVER"))
+    assert env.customshop_master.name == "catalogo.json"
+    assert "catalogo.json" in env.preview_tree().lower()
+
+
 def test_ensure_customshop_files_for_install_prefers_catalogo_and_migrates_legacy_catalog(tmp_path, monkeypatch):
     shared_dir = tmp_path / "ARKLAND SERVER" / "CustomShop"
     shared_dir.mkdir(parents=True)
@@ -280,6 +287,47 @@ def test_initialize_customshop_setup_creates_clean_base_when_no_source(tmp_path,
     assert shared["Items"] == {}
     assert shared["Kits"] == {}
     local_cfg = json.loads(Path(result["local_config_path"]).read_text(encoding="utf-8"))
+    assert local_cfg["SharedCatalogPath"] == str(Path(result["shared_path"]))
+
+
+def test_initialize_customshop_setup_splits_wrapped_full_json_source(tmp_path, monkeypatch):
+    shared_dir = tmp_path / "ARKLAND SERVER" / "CustomShop"
+    install_dir = tmp_path / "MAPAS" / "BR" / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins" / "CustomShop"
+    install_dir.mkdir(parents=True)
+    monkeypatch.setattr(
+        "src.shop_integration.canonical_master_catalog_path",
+        lambda: shared_dir / "catalogo.json",
+    )
+
+    source = tmp_path / "full_customshop.json"
+    source.write_text(
+        json.dumps(
+            {
+                "Catalog": {
+                    "Items": {"item_a": {"Name": "Item A"}},
+                    "Kits": {"kit_a": {"Name": "Kit A"}},
+                    "TimedPointsReward": {"Enabled": True, "Interval": 30},
+                },
+                "Config": {
+                    "Settings": {"WebsiteUrl": "https://shop.test", "ServerId": "MapaX"},
+                    "Database": {"Host": "localhost"},
+                    "CrossChat": {"Enabled": True, "ServerId": "MapaX"},
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = initialize_customshop_setup(install_dir=install_dir, source_json=source)
+
+    shared = json.loads(Path(result["shared_path"]).read_text(encoding="utf-8"))
+    assert "item_a" in shared["Items"]
+    assert "kit_a" in shared["Kits"]
+    assert "Settings" not in shared or not shared["Settings"]
+    local_cfg = json.loads(Path(result["local_config_path"]).read_text(encoding="utf-8"))
+    assert "Items" not in local_cfg
+    assert "Kits" not in local_cfg
     assert local_cfg["SharedCatalogPath"] == str(Path(result["shared_path"]))
 
 

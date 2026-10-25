@@ -157,20 +157,72 @@ def _stable_json_blob(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, ensure_ascii=False, default=str)
 
 
+def _unwrap_customshop_source_dict(data: Any) -> Dict[str, Any]:
+    """Tenta localizar o dicionário do catálogo compartilhado em payloads completos."""
+    if not isinstance(data, dict):
+        return {}
+
+    direct_keys = {key for key in SHARED_SYNC_TOP_LEVEL_KEYS if key in data}
+    if direct_keys:
+        return data
+
+    candidates: List[Dict[str, Any]] = []
+    for wrapper in (
+        "Catalog",
+        "catalog",
+        "CustomShop",
+        "customshop",
+        "Shop",
+        "shop",
+        "Data",
+        "data",
+    ):
+        candidate = data.get(wrapper)
+        if isinstance(candidate, dict):
+            candidates.append(candidate)
+
+    for candidate in candidates:
+        if any(key in candidate for key in SHARED_SYNC_TOP_LEVEL_KEYS):
+            return candidate
+
+    stack: List[Any] = [data]
+    seen: set[int] = set()
+    while stack:
+        current = stack.pop()
+        if not isinstance(current, dict):
+            continue
+        obj_id = id(current)
+        if obj_id in seen:
+            continue
+        seen.add(obj_id)
+        if any(key in current for key in SHARED_SYNC_TOP_LEVEL_KEYS):
+            return current
+        for value in current.values():
+            if isinstance(value, dict):
+                stack.append(value)
+            elif isinstance(value, list):
+                stack.extend(item for item in value if isinstance(item, dict))
+    return {}
+
+
 def extract_shared_catalog_sections(data: Dict[str, Any]) -> Dict[str, Any]:
     """Extrai só as seções do catálogo partilhado (sem ServerId / URLs TEK)."""
+    source = _unwrap_customshop_source_dict(data)
+    if not source:
+        return {}
+
     out: Dict[str, Any] = {}
     for key in SHARED_SYNC_TOP_LEVEL_KEYS:
-        if key not in data:
+        if key not in source:
             continue
         if key == "CrossChat":
-            cc = deepcopy(data["CrossChat"])
+            cc = deepcopy(source["CrossChat"])
             if isinstance(cc, dict):
                 cc.pop("ServerId", None)
             out[key] = cc
         else:
-            out[key] = deepcopy(data[key])
-    settings = data.get("Settings") or {}
+            out[key] = deepcopy(source[key])
+    settings = source.get("Settings") or {}
     if isinstance(settings, dict) and settings:
         out["Settings"] = {
             k: deepcopy(v)
@@ -2793,7 +2845,10 @@ def initialize_customshop_setup(
         try:
             raw = json.loads(src_path.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
-                if any(key in raw for key in ("Items", "Kits", "TimedPointsReward", "ResourceVitrine", "CrossChat")):
+                extracted = extract_shared_catalog_sections(raw)
+                if catalog_entry_total(extracted) > 0:
+                    final_catalog = extracted
+                elif any(key in raw for key in ("Items", "Kits", "TimedPointsReward", "ResourceVitrine", "CrossChat")):
                     final_catalog = extract_shared_catalog_sections(raw)
                 else:
                     final_catalog = deepcopy(raw)
@@ -2801,6 +2856,9 @@ def initialize_customshop_setup(
                     final_catalog["Items"] = {}
                 if not isinstance(final_catalog.get("Kits"), dict):
                     final_catalog["Kits"] = {}
+                for local_key in tuple(final_catalog.keys()):
+                    if local_key not in SHARED_SYNC_TOP_LEVEL_KEYS and local_key not in {"Items", "Kits"}:
+                        final_catalog.pop(local_key, None)
         except Exception:
             final_catalog = {"Items": {}, "Kits": {}}
 

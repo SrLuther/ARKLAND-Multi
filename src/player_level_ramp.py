@@ -281,6 +281,103 @@ def resolve_xp_curve_mode(cfg: object | None) -> str:
     return _read_cfg_str(cfg, "player_xp_curve_mode", XP_CURVE_VANILLA).lower()
 
 
+def _build_ramp_string(values: list[int], *, key: str = "LevelExperienceRampOverrides") -> str:
+    if not values:
+        return ""
+    parts = ",".join(
+        f"ExperiencePointsForLevel[{i}]={int(xp)}" for i, xp in enumerate(values)
+    )
+    return f"{key}=({parts})"
+
+
+def normalize_ramp_override_line(raw: str, *, key: str = "LevelExperienceRampOverrides") -> str:
+    """Normaliza uma rampa de XP para uma única linha de INI a partir de texto, JSON ou lista.
+
+    Aceita:
+    - linha raw do Game.ini
+    - JSON com chave `ramp`/`line`/`value`
+    - JSON com lista em `values` / `xp_values`
+    - texto simples com valores separados por vírgula ou quebra de linha
+    """
+    if raw is None:
+        return ""
+
+    text = str(raw).strip()
+    if not text:
+        return ""
+
+    explicit = re.search(
+        r"(?i)(?:LevelExperienceRampOverrides|DinoMaxLevelExperienceRampOverrides)\s*=\s*\((?:.*)\)",
+        text,
+    )
+    if explicit:
+        return explicit.group(0).strip()
+
+    candidates: list[str] = []
+    if text.startswith("{") or text.startswith("["):
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict):
+            for name in (
+                key,
+                "ramp",
+                "line",
+                "value",
+                "raw",
+                "LevelExperienceRampOverrides",
+                "DinoMaxLevelExperienceRampOverrides",
+                "values",
+                "xp_values",
+            ):
+                if name in payload:
+                    candidates.append(str(payload[name]))
+        elif isinstance(payload, list):
+            candidates.append(str(payload))
+    else:
+        candidates.append(text)
+
+    for candidate in candidates:
+        candidate = str(candidate).strip()
+        if not candidate:
+            continue
+        line_match = re.search(
+            r"(?i)(?:LevelExperienceRampOverrides|DinoMaxLevelExperienceRampOverrides)\s*=\s*\((?:.*)\)",
+            candidate,
+        )
+        if line_match:
+            return line_match.group(0).strip()
+
+        values: list[int] = []
+        if candidate.startswith("["):
+            try:
+                parsed_list = json.loads(candidate)
+                if isinstance(parsed_list, list):
+                    values = [int(float(v)) for v in parsed_list if v is not None]
+            except (TypeError, ValueError, json.JSONDecodeError):
+                values = []
+        if not values:
+            chunks = [part.strip() for part in re.split(r"[\r\n,]+", candidate) if part.strip()]
+            numeric_values = []
+            for chunk in chunks:
+                try:
+                    numeric_values.append(int(float(chunk)))
+                except ValueError:
+                    continue
+            values = numeric_values
+        if values:
+            return _build_ramp_string(values, key=key)
+
+    if "ExperiencePointsForLevel[" in text:
+        # Sem chave explícita: mantém a primeira linha útil em um único fluxo.
+        m = re.search(r"(?:ExperiencePointsForLevel\[\d+\]\s*=\s*\d+(?:\s*,\s*|\s*\))*", text)
+        if m:
+            return f"{key}=({m.group(0).strip()})"
+
+    return text if text.upper().startswith((key.upper(), "LEVELEXPERIENCERAMPOVERRIDES", "DINOMAXLEVELEXPERIENCERAMPOVERRIDES")) else ""
+
+
 def parse_ramp_from_text(text: str) -> dict[str, Any]:
     """Conta entradas e índices de LevelExperienceRampOverrides em texto INI.
 

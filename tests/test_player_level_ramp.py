@@ -24,6 +24,7 @@ from src.player_level_ramp import (
     infer_xp_curve_from_ramp,
     is_legacy_geometric_xp_cap,
     is_player_level_progressions_enabled,
+    normalize_ramp_override_line,
     override_max_xp_from_ramp,
     parse_ramp_from_text,
     populate_player_ramp_from_game_ini,
@@ -208,6 +209,29 @@ def test_sync_preserves_geometric_cap_for_legacy_server():
 def test_vanilla_ramp_stays_vanilla_on_infer():
     values = build_ramp_values(120, mode=XP_CURVE_VANILLA)
     assert infer_xp_curve_from_ramp(values)["mode"] == XP_CURVE_VANILLA
+
+
+def test_normalize_ramp_override_line_accepts_text_and_json_single_line():
+    raw = "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=10,ExperiencePointsForLevel[1]=20)"
+    assert normalize_ramp_override_line(raw, key="LevelExperienceRampOverrides") == raw
+
+    json_raw = '{"ramp": "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=10,ExperiencePointsForLevel[1]=20)"}'
+    normalized = normalize_ramp_override_line(json_raw, key="LevelExperienceRampOverrides")
+    assert normalized.startswith("LevelExperienceRampOverrides=")
+    assert "ExperiencePointsForLevel[1]=20" in normalized
+
+    json_values = '{"values":[10,20,30,40]}'
+    normalized_values = normalize_ramp_override_line(json_values, key="DinoMaxLevelExperienceRampOverrides")
+    assert normalized_values.startswith("DinoMaxLevelExperienceRampOverrides=")
+    assert "ExperiencePointsForLevel[0]=10" in normalized_values
+    assert "ExperiencePointsForLevel[3]=40" in normalized_values
+
+
+def test_player_ramp_line_remains_above_dino_ramp_when_ordered():
+    player_line = "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=10,ExperiencePointsForLevel[1]=20)"
+    dino_line = "DinoMaxLevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=6,ExperiencePointsForLevel[1]=12)"
+    ordered = "\n".join([player_line, dino_line])
+    assert ordered.index(player_line) < ordered.index(dino_line)
 
 
 LEGACY_GEOMETRIC_CAP_BASE_160 = 2_089_120_049_548

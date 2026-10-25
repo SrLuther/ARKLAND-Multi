@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .config_manager import AppConfig, ConfigManager
@@ -26,7 +26,7 @@ _DIR_README: dict[str, str] = {
     "LOGS": "Logs do gerenciador e diagnósticos.",
     "STEAMCMD": "SteamCMD para instalar/atualizar servidores e mods.",
     "WEBSTORE": "Dados da loja web (modo Host).",
-    "CustomShop": "Catálogo partilhado catalog.json (Items/Kits) + configs locais por mapa.",
+    "CustomShop": "Catálogo partilhado catalogo.json (Items/Kits) + configs locais por mapa.",
     "MARIADB": "MariaDB portable (binários e dados).",
 }
 
@@ -37,7 +37,7 @@ def resolve_backup_root() -> Path:
     return Path(raw) if raw else DEFAULT_BACKUP_ROOT
 
 
-def ensure_backup_tree(root: Optional[Path] = None) -> Path:
+def ensure_backup_tree(root: Path | None = None) -> Path:
     """Garante a árvore padrão sob a raiz de backups (cria on first use)."""
     base = root or resolve_backup_root()
     for sub in ("servers", "saves", "database", "cloud", ".ini"):
@@ -122,7 +122,7 @@ class EnvironmentPaths:
     @property
     def customshop_master(self) -> Path:
         """Catálogo partilhado canónico (Items/Kits/…)."""
-        return self.customshop_dir / "catalog.json"
+        return self.customshop_dir / "catalogo.json"
 
     @property
     def customshop_master_legacy(self) -> Path:
@@ -180,7 +180,7 @@ class EnvironmentPaths:
             "├── LOGS/manager/",
             "├── STEAMCMD/",
             "├── WEBSTORE/",
-            "├── CustomShop/catalog.json  (catálogo partilhado)",
+            "├── CustomShop/catalogo.json  (catálogo partilhado)",
             "└── MARIADB/data/",
             "",
             f"{b}/   (disco dedicado — env {BACKUP_ROOT_ENV})",
@@ -212,7 +212,7 @@ def _config_file_path() -> Path:
     return Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "config.json"
 
 
-def try_load_environment_paths() -> Optional[EnvironmentPaths]:
+def try_load_environment_paths() -> EnvironmentPaths | None:
     """Lê config.json do APPDATA e retorna paths se o ambiente estiver ativo."""
     try:
         cfg_path = _config_file_path()
@@ -227,11 +227,11 @@ def try_load_environment_paths() -> Optional[EnvironmentPaths]:
         if not root:
             return None
         return EnvironmentPaths(root=Path(root))
-    except Exception:
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return None
 
 
-def resolve_environment(cfg: "AppConfig") -> Optional[EnvironmentPaths]:
+def resolve_environment(cfg: AppConfig) -> EnvironmentPaths | None:
     env = getattr(cfg, "environment", None)
     if env is None or not getattr(env, "enabled", False):
         return None
@@ -307,7 +307,7 @@ def create_environment(
     return result
 
 
-def apply_paths_to_config(cfg: "AppConfig", paths: EnvironmentPaths) -> None:
+def apply_paths_to_config(cfg: AppConfig, paths: EnvironmentPaths) -> None:
     """Preenche campos globais com os caminhos do ambiente."""
     env = cfg.environment
     env.enabled = True
@@ -325,7 +325,7 @@ def apply_paths_to_config(cfg: "AppConfig", paths: EnvironmentPaths) -> None:
     cfg.auto_update.cache_dir = str(paths.cache_updates)
 
 
-def apply_cluster_dir_to_profiles(config_manager: "ConfigManager", paths: EnvironmentPaths) -> int:
+def apply_cluster_dir_to_profiles(config_manager: ConfigManager, paths: EnvironmentPaths) -> int:
     """Define cluster_dir no perfil principal se vazio. Retorna quantos perfis atualizados."""
     updated = 0
     clusters = config_manager.clusters
@@ -361,7 +361,7 @@ def apply_cloud_backup_local_path(paths: EnvironmentPaths) -> bool:
     try:
         with open(creds_file, encoding="utf-8") as fh:
             creds = json.load(fh)
-    except Exception:
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
     if creds.get("provider") != "local":
         return False
@@ -397,7 +397,7 @@ def suggest_next_server_dir(
     paths: EnvironmentPaths,
     *,
     existing_count: int = 0,
-    occupied_paths: Optional[List[str]] = None,
+    occupied_paths: list[str] | None = None,
 ) -> str:
     """Próxima pasta livre em MAPAS/ (Servidor 01, 02, …)."""
     occupied = {Path(p).resolve() for p in (occupied_paths or []) if p}
