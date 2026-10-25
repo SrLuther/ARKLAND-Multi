@@ -1,9 +1,10 @@
 {
-    "version": "1.10.125",
-    "date": "2026-10-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.125/ARKLAND-Multi-Setup-v1.10.125.exe",
+    "version": "1.10.126",
+    "date": "2026-10-25",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.126/ARKLAND-Multi-Setup-v1.10.126.exe",
     "changelog": [
-        "Feature (CustomShop / Configuração inicial): novo botão explícito “Configuração inicial” cria catalogo.json e config.json base com confirmação, permitindo importar um JSON completo opcional ou gerar um setup limpo e transparente sem depender de comportamento oculto do save/propagate.",
-        "Fix (Catálogo / Config): preserva o catalogo.json configurado e o SharedCatalogPath do mapa, separando as seções compartilhadas (Items, Kits, TimedPointsReward, CrossChat, ResourceVitrine) das chaves locais do plugin e evitando sobrescrita por cópias monolíticas legadas."
+        "Feat (Configuração do Jogador): novo ajuste MaxFallSpeedMultiplier incluído no app, com suporte de leitura/escrita no GameUserSettings.ini e mapeamento completo no modo clássico e TEK.",
+        "Fix (UI Clássica/TEK): campo de velocidade máxima de queda adicionado nas seções de jogador com persistência no salvar e categorização/labels de busca atualizadas.",
+        "Fix (Qualidade interna): limpeza de diagnósticos nos arquivos de configuração/salvamento relacionados à entrega desta versão."
     ]
 }

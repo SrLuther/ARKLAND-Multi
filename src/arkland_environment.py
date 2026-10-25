@@ -47,6 +47,7 @@ def ensure_backup_tree(root: Path | None = None) -> Path:
             pass
     return base
 
+
 _TZ_BR = timezone(timedelta(hours=-3))
 
 

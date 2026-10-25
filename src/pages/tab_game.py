@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import tkinter as tk
 from typing import TYPE_CHECKING
 
@@ -10,7 +9,6 @@ from ..ui_constants import _GREEN, _GREEN_DARK, _GREEN_HOVER, _CARD_BG
 from ..breeding_calculator import open_breeding_calculator
 from ..server_config import SERVER_STATUS_STOPPED
 
-import platform
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
     from ..server_config import ServerConfig
@@ -20,10 +18,10 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
     scroll.pack(fill="both", expand=True, padx=4, pady=4)
 
-    # Referência mutável para o body frame da seção corrente.
-    # Atualizado em _dispatch_task quando uma nova seção ("s") é criada.
+    # ReferÃªncia mutÃ¡vel para o body frame da seÃ§Ã£o corrente.
+    # Atualizado em _dispatch_task quando uma nova seÃ§Ã£o ("s") Ã© criada.
     _cur_body:    list = [None]  # tk.Frame atual alvo dos widgets
-    _sec_start_r: list = [0]    # valor de r da última seção criada + 1
+    _sec_start_r: list = [0]    # valor de r da Ãºltima seÃ§Ã£o criada + 1
 
     # Auto-carrega Game.ini do disco antes de popular os widgets,
     # garantindo que PerLevelStatsMultiplier e campos de breeding
@@ -136,9 +134,12 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
             command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
         )
         slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
+
         def _sync_adv(*_, _v=var, _ev=entry_var):
             _ev.set(f"{_v.get():.2f}")
+
         var.trace_add("write", _sync_adv)
+
         def _commit_adv(event=None, _var=var, _ev=entry_var, _frm=frm, _to=to):
             try:
                 v = float(_ev.get().replace(",", "."))
@@ -147,6 +148,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                 _ev.set(f"{v:.2f}")
             except ValueError:
                 _ev.set(f"{_var.get():.2f}")
+
         entry.bind("<Return>", _commit_adv)
         entry.bind("<FocusOut>", _commit_adv)
 
@@ -184,16 +186,16 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         def _update_xp_preview(*_):
             try:
                 lvl = int(w[f"gs_{field}"].get())
-                xp_lbl.configure(text="(padrão ARK)" if lvl <= 0 else f"→ {_l2xp(lvl):,} XP")
+                xp_lbl.configure(text="(padrÃ£o ARK)" if lvl <= 0 else f"â†’ {_l2xp(lvl):,} XP")
             except (ValueError, TypeError):
                 xp_lbl.configure(text="")
 
         w[f"gs_{field}"].trace_add("write", _update_xp_preview)
         _update_xp_preview()
 
-    # ── Coleta de tasks com row pré-calculado ─────────────────────────────
+    # â”€â”€ Coleta de tasks com row prÃ©-calculado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Em vez de criar todos os ~350 widgets de uma vez (freeze de ~500ms),
-    # as tasks são despachadas em lotes de 6 via after(0), cedendo o
+    # as tasks sÃ£o despachadas em lotes de 6 via after(0), cedendo o
     # controle ao event loop entre cada lote.
     _tasks: list = []
     r = 0
@@ -251,18 +253,18 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         _tasks.append(("plsm", r))
         r += 1
 
-    # ── Definição das rows ────────────────────────────────────────────────
-    _s("⚙️  Dificuldade")
-    _f("Nível de Dificuldade",
-       "Padrão: 0.20 — Aumentar eleva o nível máximo dos dinos selvagens.",
+    # â”€â”€ DefiniÃ§Ã£o das rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    _s("âš™ï¸  Dificuldade")
+    _f("NÃ­vel de Dificuldade",
+       "PadrÃ£o: 0.20 â€” Aumentar eleva o nÃ­vel mÃ¡ximo dos dinos selvagens.",
        "difficulty_offset", gs.difficulty_offset, 0, 1)
-    _f("Dificuldade Máxima (Override)",
-       "Ex: 5.0 = dinos até nível 150. Aumente para dinos mais difíceis.",
+    _f("Dificuldade MÃ¡xima (Override)",
+       "Ex: 5.0 = dinos atÃ© nÃ­vel 150. Aumente para dinos mais difÃ­ceis.",
        "override_official_difficulty", gs.override_official_difficulty, 1, 10)
 
-    _s("📈  XP")
+    _s("ðŸ“ˆ  XP")
     _f("Multiplicador de XP Geral",
-       "Multiplica todo o XP ganho. Aumente para progredir mais rápido.",
+       "Multiplica todo o XP ganho. Aumente para progredir mais rÃ¡pido.",
        "xp_multiplier", gs.xp_multiplier)
     _f("XP por Abate",
        "Multiplica o XP ganho ao matar criaturas.",
@@ -273,46 +275,50 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _f("XP por Craft",
        "Multiplica o XP ganho ao fabricar itens.",
        "craft_xp_multiplier", gs.craft_xp_multiplier)
-    _f("XP Genérico",
+    _f("XP GenÃ©rico",
        "Multiplica o XP de fontes diversas.",
        "generic_xp_multiplier", gs.generic_xp_multiplier)
     _f("XP Especial",
        "Multiplica o XP de eventos e fontes especiais.",
        "special_xp_multiplier", gs.special_xp_multiplier)
 
-    _s("👤  Jogador")
+    _s("ðŸ‘¤  Jogador")
     _f("Dano do Jogador",
        "Aumenta o dano causado pelo jogador. Ex: 2.0 = dano dobrado.",
        "player_damage_multiplier", gs.player_damage_multiplier)
-    _f("Resistência do Jogador",
+    _f("ResistÃªncia do Jogador",
        "Reduz o dano recebido. Menor = mais resistente ao dano.",
        "player_resistance_multiplier", gs.player_resistance_multiplier)
-    _f("Consumo de Água",
-       "Taxa de consumo de água. Menor = seca mais devagar.",
+    _f("Consumo de Ãgua",
+       "Taxa de consumo de Ã¡gua. Menor = seca mais devagar.",
        "player_character_water_drain_multiplier",
        gs.player_character_water_drain_multiplier)
     _f("Consumo de Comida",
        "Taxa de consumo de comida. Menor = fica com fome mais devagar.",
        "player_character_food_drain_multiplier",
        gs.player_character_food_drain_multiplier)
-    _f("Regeneração de Vida",
-       "Velocidade de recuperação de HP. Maior = recupera mais rápido.",
+    _f("RegeneraÃ§Ã£o de Vida",
+       "Velocidade de recuperaÃ§Ã£o de HP. Maior = recupera mais rÃ¡pido.",
        "player_character_health_recovery_multiplier",
        gs.player_character_health_recovery_multiplier)
     _f("Consumo de Stamina",
        "Taxa de consumo de stamina. Menor = cansa mais devagar.",
        "player_character_stamina_drain_multiplier",
        gs.player_character_stamina_drain_multiplier)
+    _f("Velocidade MÃ¡xima de Queda",
+       "Ajusta o limite de velocidade em queda do jogador. 1.0 = padrÃ£o do ARK.",
+       "max_fall_speed_multiplier",
+       gs.max_fall_speed_multiplier)
 
-    _s("🦖  Dinos")
+    _s("ðŸ¦–  Dinos")
     _f("Dano dos Dinos",
        "Aumenta o dano causado pelos dinos selvagens.",
        "dino_damage_multiplier", gs.dino_damage_multiplier)
-    _f("Resistência dos Dinos",
+    _f("ResistÃªncia dos Dinos",
        "Reduz o dano recebido pelos dinos. Menor = dinos mais resistentes.",
        "dino_resistance_multiplier", gs.dino_resistance_multiplier)
-    _f("Regeneração dos Dinos",
-       "Velocidade de recuperação de HP dos dinos.",
+    _f("RegeneraÃ§Ã£o dos Dinos",
+       "Velocidade de recuperaÃ§Ã£o de HP dos dinos.",
        "dino_character_health_recovery_multiplier",
        gs.dino_character_health_recovery_multiplier)
     _f("Consumo de Comida dos Dinos (GUS)",
@@ -326,7 +332,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _f("Dano dos Dinos Domesticados",
        "Multiplica o dano causado pelos dinos domesticados.",
        "tamed_dino_damage_multiplier", gs.tamed_dino_damage_multiplier)
-    _f("Resistência dos Dinos Domesticados",
+    _f("ResistÃªncia dos Dinos Domesticados",
        "Reduz o dano recebido pelos dinos domesticados. Menor = mais resistentes.",
        "tamed_dino_resistance_multiplier", gs.tamed_dino_resistance_multiplier)
     _f("Dano de Torretas Montadas em Dino",
@@ -335,10 +341,10 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _f("Quantidade de Dinos no Mapa",
        "Multiplica a quantidade de dinos. Ex: 2.0 = dobro de dinos selvagens.",
        "dino_count_multiplier", gs.dino_count_multiplier)
-    _i("Máx. Dinos Domesticados (Global)",
+    _i("MÃ¡x. Dinos Domesticados (Global)",
        "Limite total de dinos domesticados no servidor.",
        "max_tamed_dinos", gs.max_tamed_dinos)
-    _f("Máx. Dinos Domesticados por Jogador",
+    _f("MÃ¡x. Dinos Domesticados por Jogador",
        "Limite individual de dinos por jogador (0 = ilimitado pelo slot de sela).",
        "max_personal_tamed_dinos", gs.max_personal_tamed_dinos, 0, 500)
     _i("Custo em Estruturas por Sela de Plataforma",
@@ -346,49 +352,49 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "personal_tamed_dinos_saddle_structure_cost",
        gs.personal_tamed_dinos_saddle_structure_cost)
 
-    _s("📊  Stats por Nível")
+    _s("ðŸ“Š  Stats por NÃ­vel")
     _plsm()
 
-    _s("🥚  Criação / Imprinting")
+    _s("ðŸ¥š  CriaÃ§Ã£o / Imprinting")
     _calc()
-    _f("Velocidade de Domesticação",
-       "Maior = domestica mais rápido. Ex: 3.0 = 3× mais rápido.",
+    _f("Velocidade de DomesticaÃ§Ã£o",
+       "Maior = domestica mais rÃ¡pido. Ex: 3.0 = 3Ã— mais rÃ¡pido.",
        "taming_speed_multiplier", gs.taming_speed_multiplier)
     _f("Intervalo de Acasalamento",
-       "Menor = pode acasalar com mais frequência.",
+       "Menor = pode acasalar com mais frequÃªncia.",
        "mating_interval_multiplier", gs.mating_interval_multiplier)
     _f("Velocidade de Chocagem",
-       "Maior = ovos chocam mais rápido.",
+       "Maior = ovos chocam mais rÃ¡pido.",
        "egg_hatch_speed_multiplier", gs.egg_hatch_speed_multiplier)
     _f("Intervalo de Postura de Ovos",
-       "Menor = dinos põem ovos com mais frequência.",
+       "Menor = dinos pÃµem ovos com mais frequÃªncia.",
        "lay_egg_interval_multiplier", gs.lay_egg_interval_multiplier)
     _f("Velocidade de Crescimento do Filhote",
-       "Maior = filhotes crescem mais rápido.",
+       "Maior = filhotes crescem mais rÃ¡pido.",
        "baby_mature_speed_multiplier", gs.baby_mature_speed_multiplier, 0, 100)
     _f("Velocidade de Nascimento do Filhote",
-       "Maior = filhotes vivíparos nascem mais rápido.",
+       "Maior = filhotes vivÃ­paros nascem mais rÃ¡pido.",
        "baby_hatch_speed_multiplier", gs.baby_hatch_speed_multiplier, 0, 100)
     _f("Consumo de Comida do Filhote",
-       "Menor = filhotes comem menos (mais fácil de criar).",
+       "Menor = filhotes comem menos (mais fÃ¡cil de criar).",
        "baby_food_consumption_speed_multiplier",
        gs.baby_food_consumption_speed_multiplier)
     _f("Intervalo de Carinho (Imprint)",
        "Menor = menos tempo entre os pedidos de carinho do filhote.",
        "baby_cuddle_interval_multiplier", gs.baby_cuddle_interval_multiplier)
-    _f("Tolerância de Atraso do Imprint",
+    _f("TolerÃ¢ncia de Atraso do Imprint",
        "Maior = mais tempo para responder ao pedido de carinho sem perder %.",
        "baby_cuddle_grace_period_multiplier",
        gs.baby_cuddle_grace_period_multiplier)
-    _f("Bônus de Stats por Imprint",
-       "Maior = mais bônus de stats ao completar 100% de imprint.",
+    _f("BÃ´nus de Stats por Imprint",
+       "Maior = mais bÃ´nus de stats ao completar 100% de imprint.",
        "baby_imprinting_stat_scale_multiplier",
        gs.baby_imprinting_stat_scale_multiplier)
     _af("Velocidade de Perda do Imprint",
-        "Maior = o imprint perde qualidade mais rápido quando o pedido é ignorado.",
+        "Maior = o imprint perde qualidade mais rÃ¡pido quando o pedido Ã© ignorado.",
         "baby_cuddle_lose_imprint_quality_speed_multiplier",
         adv.baby_cuddle_lose_imprint_quality_speed_multiplier)
-    _b("Desativar Bônus de Stats do Imprint",
+    _b("Desativar BÃ´nus de Stats do Imprint",
        "disable_imprint_dino_buff", gs.disable_imprint_dino_buff)
     _b("Qualquer Jogador Pode Fazer Imprint",
        "allow_anyone_baby_imprint_cuddle", gs.allow_anyone_baby_imprint_cuddle)
@@ -398,40 +404,40 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "allow_flying_stamina_recovery", gs.allow_flying_stamina_recovery)
     _ab("Upar Velocidade em Voadores (Game.ini)",
         "allow_flyer_speed_leveling", adv.allow_flyer_speed_leveling)
-    _af("Intervalo de Domesticação Passiva",
-        "Multiplicador do intervalo de domesticação passiva (comedouros). Menor = domestica mais rápido.",
+    _af("Intervalo de DomesticaÃ§Ã£o Passiva",
+        "Multiplicador do intervalo de domesticaÃ§Ã£o passiva (comedouros). Menor = domestica mais rÃ¡pido.",
         "passive_tame_interval_multiplier",
         adv.passive_tame_interval_multiplier)
-    _af("Consumo de Comida — Dino Selvagem [Game.ini]",
+    _af("Consumo de Comida â€” Dino Selvagem [Game.ini]",
         "Taxa de consumo de comida de dinos selvagens (Game.ini). Menor = esvaziam mais devagar.",
         "wild_dino_character_food_drain_multiplier",
         adv.wild_dino_character_food_drain_multiplier)
-    _af("Consumo de Comida — Dino Domesticado [Game.ini]",
+    _af("Consumo de Comida â€” Dino Domesticado [Game.ini]",
         "Taxa de consumo de comida de dinos domesticados (Game.ini). Complementa o campo GUS.",
         "tamed_dino_character_food_drain_multiplier",
         adv.tamed_dino_character_food_drain_multiplier)
-    _af("Recuperação de Torpor — Selvagem",
-        "Velocidade de recuperação de torpor de dinos selvagens. Menor = ficam dopados por mais tempo.",
+    _af("RecuperaÃ§Ã£o de Torpor â€” Selvagem",
+        "Velocidade de recuperaÃ§Ã£o de torpor de dinos selvagens. Menor = ficam dopados por mais tempo.",
         "wild_dino_torpor_drain_multiplier",
         adv.wild_dino_torpor_drain_multiplier)
-    _af("Recuperação de Torpor — Domesticado",
-        "Velocidade de recuperação de torpor de dinos domesticados.",
+    _af("RecuperaÃ§Ã£o de Torpor â€” Domesticado",
+        "Velocidade de recuperaÃ§Ã£o de torpor de dinos domesticados.",
         "tamed_dino_torpor_drain_multiplier",
         adv.tamed_dino_torpor_drain_multiplier)
 
-    _s("🌾  Coleta / Recursos")
+    _s("ðŸŒ¾  Coleta / Recursos")
     _f("Quantidade de Coleta",
-       "Mais recursos por coleta. Ex: 3.0 = 3× mais recursos.",
+       "Mais recursos por coleta. Ex: 3.0 = 3Ã— mais recursos.",
        "harvest_amount_multiplier", gs.harvest_amount_multiplier)
     _f("Durabilidade dos Recursos",
-       "Maior = rochas/árvores duram mais antes de destruir.",
+       "Maior = rochas/Ã¡rvores duram mais antes de destruir.",
        "harvest_health_multiplier", gs.harvest_health_multiplier)
     _f("Reaparecimento de Recursos",
-       "Menor = recursos reaparecem mais rápido no mapa.",
+       "Menor = recursos reaparecem mais rÃ¡pido no mapa.",
        "resource_respawn_period_multiplier",
        gs.resource_respawn_period_multiplier)
     _f("Velocidade de Crescimento das Plantas",
-       "Maior = plantas nas estufas crescem mais rápido.",
+       "Maior = plantas nas estufas crescem mais rÃ¡pido.",
        "crop_growth_speed_multiplier", gs.crop_growth_speed_multiplier)
     _f("Apodrecimento das Plantas",
        "Menor = plantas demoram mais para apodrecer.",
@@ -442,23 +448,23 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _f("Tempo de Estragamento",
        "Maior = comida demora mais para estragar.",
        "spoiling_time_multiplier", gs.spoiling_time_multiplier)
-    _f("Tempo de Decomposição de Itens",
-       "Maior = itens largados no chão demoram mais para sumir.",
+    _f("Tempo de DecomposiÃ§Ã£o de Itens",
+       "Maior = itens largados no chÃ£o demoram mais para sumir.",
        "item_decomposition_time_multiplier",
        gs.item_decomposition_time_multiplier)
     _f("Qualidade de Loot de Pesca",
        "Maior = itens de melhor qualidade ao pescar.",
        "fishing_loot_quality_multiplier", gs.fishing_loot_quality_multiplier)
 
-    _s("🏗️  Estruturas")
-    _f("Dano às Estruturas",
-       "Aumenta o dano causado às estruturas por jogadores/dinos.",
+    _s("ðŸ—ï¸  Estruturas")
+    _f("Dano Ã s Estruturas",
+       "Aumenta o dano causado Ã s estruturas por jogadores/dinos.",
        "structure_damage_multiplier", gs.structure_damage_multiplier)
-    _f("Resistência das Estruturas",
+    _f("ResistÃªncia das Estruturas",
        "Menor = estruturas mais resistentes (recebem menos dano).",
        "structure_resistance_multiplier", gs.structure_resistance_multiplier)
     _i("Cooldown de Reparo (s)",
-       "Segundos de espera para reparar após receber dano.",
+       "Segundos de espera para reparar apÃ³s receber dano.",
        "structure_damage_repair_cooldown",
        gs.structure_damage_repair_cooldown)
     _f("Decaimento de Estruturas (PvE)",
@@ -469,152 +475,152 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "Multiplica o limite de estruturas em platform saddles.",
        "per_platform_max_structures_multiplier",
        gs.per_platform_max_structures_multiplier)
-    _f("Área de Build em Saddles",
-       "Multiplica a área construível ao redor de platform saddles.",
+    _f("Ãrea de Build em Saddles",
+       "Multiplica a Ã¡rea construÃ­vel ao redor de platform saddles.",
        "platform_saddle_build_area_bounds_multiplier",
        gs.platform_saddle_build_area_bounds_multiplier)
 
-    _s("🏆  Tribal / Misc")
-    _i("Tamanho Máximo da Tribo",
-       "Número máximo de membros por tribo.",
+    _s("ðŸ†  Tribal / Misc")
+    _i("Tamanho MÃ¡ximo da Tribo",
+       "NÃºmero mÃ¡ximo de membros por tribo.",
        "max_tribe_size", gs.max_tribe_size)
     _f("Tempo para Expulsar AFK (s)",
-       "Segundos até expulsar jogadores inativos. 0 = desativado.",
+       "Segundos atÃ© expulsar jogadores inativos. 0 = desativado.",
        "kick_idle_players_period", gs.kick_idle_players_period, 0, 7200)
     _f("Cooldown para Renomear Tribo (s)",
        "Segundos que uma tribo deve esperar antes de poder renomear novamente. 0 = sem cooldown.",
        "tribe_name_change_cooldown", gs.tribe_name_change_cooldown, 0, 86400)
-    _b("Permitir Alianças entre Tribos",
+    _b("Permitir AlianÃ§as entre Tribos",
        "allow_tribe_alliances", gs.allow_tribe_alliances)
 
-    _s("🔢  Teto de Níveis")
+    _s("ðŸ”¢  Teto de NÃ­veis")
     _player_levels()
-    _i("XP Máximo do Dino (Override)",
-       "Substitui o valor de XP máximo acumulável por dinos domesticados. 0 = padrão ARK.",
+    _i("XP MÃ¡ximo do Dino (Override)",
+       "Substitui o valor de XP mÃ¡ximo acumulÃ¡vel por dinos domesticados. 0 = padrÃ£o ARK.",
        "override_max_experience_points_dino", gs.override_max_experience_points_dino)
-    _lcap("Nível Máximo do Dino",
-          "Nível máximo que dinos podem atingir ao acumular XP."
-          " 0 = padrão ARK.",
+    _lcap("NÃ­vel MÃ¡ximo do Dino",
+          "NÃ­vel mÃ¡ximo que dinos podem atingir ao acumular XP."
+          " 0 = padrÃ£o ARK.",
           "dino_level_cap", gs.dino_level_cap)
 
-    _s("🎮  Opções do Servidor")
+    _s("ðŸŽ®  OpÃ§Ãµes do Servidor")
     _b("PvP Ativado",                              "server_pvp",                  gs.server_pvp)
     _b("Modo Hardcore (morte permanente)",         "server_hardcore",             gs.server_hardcore)
     _b("Dinos Voadores Carregam Jogadores (PvE)",  "allow_flyer_carry_pve",       gs.allow_flyer_carry_pve)
     _b("Terceira Pessoa Permitida",                "allow_third_person_player",   gs.allow_third_person_player)
-    _b("Mostrar Localização no Mapa",              "show_map_player_location",    gs.show_map_player_location)
+    _b("Mostrar LocalizaÃ§Ã£o no Mapa",              "show_map_player_location",    gs.show_map_player_location)
     _b("Desativar Decaimento de Estruturas (PvE)", "disable_structure_decay_pve", gs.disable_structure_decay_pve)
     _b("Desativar Decaimento de Dinos (PvE)",      "disable_dino_decay_pve",      gs.disable_dino_decay_pve)
     _b("Desativar Decaimento de Dinos (PvP)",      "disable_dino_decay_pvp",      gs.disable_dino_decay_pvp)
-    _b("Auto-destruir Dinos Decaídos",             "auto_destroy_decayed_dinos",  gs.auto_destroy_decayed_dinos)
+    _b("Auto-destruir Dinos DecaÃ­dos",             "auto_destroy_decayed_dinos",  gs.auto_destroy_decayed_dinos)
     _f("Multiplicador de Decaimento de Dinos (PvE)",
-       "Multiplica o tempo para dinos sem dono decaírem em PvE.",
+       "Multiplica o tempo para dinos sem dono decaÃ­rem em PvE.",
        "pve_dino_decay_period_multiplier", gs.pve_dino_decay_period_multiplier)
-    _b("Proteção Offline (ORP)",                         "prevent_offline_pvp",                   gs.prevent_offline_pvp)
-    _f("Intervalo da Proteção Offline (s)",
-       "Tempo em segundos que o jogador fica invulnerável após desconectar com ORP ativo. 0 = imediato.",
+    _b("ProteÃ§Ã£o Offline (ORP)",                         "prevent_offline_pvp",                   gs.prevent_offline_pvp)
+    _f("Intervalo da ProteÃ§Ã£o Offline (s)",
+       "Tempo em segundos que o jogador fica invulnerÃ¡vel apÃ³s desconectar com ORP ativo. 0 = imediato.",
        "prevent_offline_pvp_interval", gs.prevent_offline_pvp_interval, 0, 3600)
     _b("Bloquear Downloads de Tributos",                 "no_tribute_downloads",                  gs.no_tribute_downloads)
     _b("Notificar quando Jogador Entrar",                "always_notify_player_joined",           gs.always_notify_player_joined)
     _b("Notificar quando Jogador Sair",                  "always_notify_player_left",             gs.always_notify_player_left)
     _b("Suprimir Notif. de Entrada (duplicado)",         "dont_always_notify_player_joined",      gs.dont_always_notify_player_joined)
-    _b("PvP — Desativar Canto (Gamma)",                  "allow_pvp_gamma",                       gs.allow_pvp_gamma)
-    _b("PvE — Desativar Canto (Gamma)",                  "allow_pve_gamma",                       gs.allow_pve_gamma)
+    _b("PvP â€” Desativar Canto (Gamma)",                  "allow_pvp_gamma",                       gs.allow_pvp_gamma)
+    _b("PvE â€” Desativar Canto (Gamma)",                  "allow_pve_gamma",                       gs.allow_pve_gamma)
     _b("Mostrar Marcadores de Dano (Hit Markers)",       "allow_hit_markers",                     gs.allow_hit_markers)
-    _b("Permitir Múltiplos C4 por Dino",                 "allow_multiple_attached_c4",            gs.allow_multiple_attached_c4)
-    _b("Construção em Cavernas (PvE)",                   "allow_cave_building_pve",               gs.allow_cave_building_pve)
+    _b("Permitir MÃºltiplos C4 por Dino",                 "allow_multiple_attached_c4",            gs.allow_multiple_attached_c4)
+    _b("ConstruÃ§Ã£o em Cavernas (PvE)",                   "allow_cave_building_pve",               gs.allow_cave_building_pve)
     _b("Estruturas sobre Supply Drops (PvE)",            "pve_allow_structures_at_supply_drops",  gs.pve_allow_structures_at_supply_drops)
-    _b("Volume Extra de Prevenção de Estruturas",        "enable_extra_structure_prevention_volumes", gs.enable_extra_structure_prevention_volumes)
+    _b("Volume Extra de PrevenÃ§Ã£o de Estruturas",        "enable_extra_structure_prevention_volumes", gs.enable_extra_structure_prevention_volumes)
     _b("Limitar Dano de Coleta de Recursos",             "clamp_resource_harvest_damage",         gs.clamp_resource_harvest_damage)
     _b("Decaimento de Estruturas (PvP)",                 "pvp_structure_decay",                   gs.pvp_structure_decay)
-    _b("Ignorar Prevenção de Plataforma (Override)",     "override_structure_platform_prevention",gs.override_structure_platform_prevention)
-    _b("Doenças Habilitadas",                            "enable_diseases",                       gs.enable_diseases)
-    _b("Doenças Não Permanentes",                        "non_permanent_diseases",                gs.non_permanent_diseases)
-    _b("Clima — Desativar Névoa",                        "disable_weather_fog",                   gs.disable_weather_fog)
+    _b("Ignorar PrevenÃ§Ã£o de Plataforma (Override)",     "override_structure_platform_prevention",gs.override_structure_platform_prevention)
+    _b("DoenÃ§as Habilitadas",                            "enable_diseases",                       gs.enable_diseases)
+    _b("DoenÃ§as NÃ£o Permanentes",                        "non_permanent_diseases",                gs.non_permanent_diseases)
+    _b("Clima â€” Desativar NÃ©voa",                        "disable_weather_fog",                   gs.disable_weather_fog)
 
-    _s("🏗️  Estruturas")
+    _s("ðŸ—ï¸  Estruturas")
     _b("Permitir Recolher Estruturas",
        "always_allow_structure_pickup", gs.always_allow_structure_pickup)
-    _i("Máx. Estruturas Visíveis",
-       "Número máximo de estruturas dentro do raio de renderização. Padrão ARK: 10500.",
+    _i("MÃ¡x. Estruturas VisÃ­veis",
+       "NÃºmero mÃ¡ximo de estruturas dentro do raio de renderizaÃ§Ã£o. PadrÃ£o ARK: 10500.",
        "max_structures_visible", gs.max_structures_visible)
-    _i("Máx. Estruturas em Selas de Plataforma",
-       "Limite global de estruturas em todas as selas de plataforma do servidor. Padrão: 130.",
+    _i("MÃ¡x. Estruturas em Selas de Plataforma",
+       "Limite global de estruturas em todas as selas de plataforma do servidor. PadrÃ£o: 130.",
        "max_platform_saddle_structure_limit", gs.max_platform_saddle_structure_limit)
-    _f("Multiplicador de Auto-destruição de Estruturas",
-       "Multiplica a velocidade de auto-destruição de estruturas antigas. 0 = desativado.",
+    _f("Multiplicador de Auto-destruiÃ§Ã£o de Estruturas",
+       "Multiplica a velocidade de auto-destruiÃ§Ã£o de estruturas antigas. 0 = desativado.",
        "auto_destroy_old_structures_multiplier", gs.auto_destroy_old_structures_multiplier, 0, 10)
-    _f("Período de Destruição de Decay (PvE)",
-       "Multiplicador do período que estruturas decaídas ficam antes de serem destruídas (PvE).",
+    _f("PerÃ­odo de DestruiÃ§Ã£o de Decay (PvE)",
+       "Multiplicador do perÃ­odo que estruturas decaÃ­das ficam antes de serem destruÃ­das (PvE).",
        "pve_structure_decay_destruction_period", gs.pve_structure_decay_destruction_period, 0, 10)
-    _b("Destruir Estruturas Núcleo Desconectadas Rapidamente",
+    _b("Destruir Estruturas NÃºcleo Desconectadas Rapidamente",
        "fast_decay_unsnapped_core_structures", gs.fast_decay_unsnapped_core_structures)
-    _b("Auto-destruição Somente em Estruturas Núcleo",
+    _b("Auto-destruiÃ§Ã£o Somente em Estruturas NÃºcleo",
        "only_auto_destroy_core_structures", gs.only_auto_destroy_core_structures)
-    _b("Decay Somente em Estruturas Núcleo Desconectadas",
+    _b("Decay Somente em Estruturas NÃºcleo Desconectadas",
        "only_decay_unsnapped_core_structures", gs.only_decay_unsnapped_core_structures)
-    _b("Destruir Canos d'Água Desconectados",
+    _b("Destruir Canos d'Ãgua Desconectados",
        "destroy_unconnected_water_pipes", gs.destroy_unconnected_water_pipes)
 
-    _s("🌅  Ciclo Dia / Noite")
+    _s("ðŸŒ…  Ciclo Dia / Noite")
     _f("Velocidade do Ciclo Dia/Noite",
-       "Multiplica a velocidade completa do ciclo. 1.0 = padrão. 2.0 = dia/noite duas vezes mais rápidos.",
+       "Multiplica a velocidade completa do ciclo. 1.0 = padrÃ£o. 2.0 = dia/noite duas vezes mais rÃ¡pidos.",
        "day_cycle_speed_scale", gs.day_cycle_speed_scale, 0.1, 5.0)
-    _f("Velocidade do Período Diurno",
-       "Multiplica exclusivamente a duração do dia. 1.0 = padrão.",
+    _f("Velocidade do PerÃ­odo Diurno",
+       "Multiplica exclusivamente a duraÃ§Ã£o do dia. 1.0 = padrÃ£o.",
        "day_time_speed_scale", gs.day_time_speed_scale, 0.1, 5.0)
-    _f("Velocidade do Período Noturno",
-       "Multiplica exclusivamente a duração da noite. 1.0 = padrão.",
+    _f("Velocidade do PerÃ­odo Noturno",
+       "Multiplica exclusivamente a duraÃ§Ã£o da noite. 1.0 = padrÃ£o.",
        "night_time_speed_scale", gs.night_time_speed_scale, 0.1, 5.0)
 
-    _s("📡  NPC Network Stasis")
-    _b("Ativar Escala de Stasis Dinâmica (NPC)",
+    _s("ðŸ“¡  NPC Network Stasis")
+    _b("Ativar Escala de Stasis DinÃ¢mica (NPC)",
        "override_npc_network_stasis_range_scale", gs.override_npc_network_stasis_range_scale)
-    _i("Contagem de Jogadores — Início da Escala",
-       "Número de jogadores online a partir do qual a escala de stasis começa a ser aplicada.",
+    _i("Contagem de Jogadores â€” InÃ­cio da Escala",
+       "NÃºmero de jogadores online a partir do qual a escala de stasis comeÃ§a a ser aplicada.",
        "npc_network_stasis_range_scale_player_count_start",
        gs.npc_network_stasis_range_scale_player_count_start)
-    _i("Contagem de Jogadores — Fim da Escala",
-       "Número de jogadores online em que a escala de stasis atinge o valor mínimo definido.",
+    _i("Contagem de Jogadores â€” Fim da Escala",
+       "NÃºmero de jogadores online em que a escala de stasis atinge o valor mÃ­nimo definido.",
        "npc_network_stasis_range_scale_player_count_end",
        gs.npc_network_stasis_range_scale_player_count_end)
-    _f("Percentual Mínimo do Raio de Stasis",
-       "Fração do raio original de stasis aplicada quando o servidor está cheio. Ex: 0.5 = 50%.",
+    _f("Percentual MÃ­nimo do Raio de Stasis",
+       "FraÃ§Ã£o do raio original de stasis aplicada quando o servidor estÃ¡ cheio. Ex: 0.5 = 50%.",
        "npc_network_stasis_range_scale_percent_end",
        gs.npc_network_stasis_range_scale_percent_end, 0.01, 1.0)
     _save()
 
-    # ── Despacho em chunks via after(0) ───────────────────────────────────
-    # Lotes de 6 tasks — cada after(0) cede o controle ao event loop antes
-    # do próximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
+    # â”€â”€ Despacho em chunks via after(0) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Lotes de 6 tasks â€” cada after(0) cede o controle ao event loop antes
+    # do prÃ³ximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
     _CHUNK = 6
 
-    # ── Nomes e descrições dos stats (índices 0-11) ───────────────────────
+    # â”€â”€ Nomes e descriÃ§Ãµes dos stats (Ã­ndices 0-11) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _PLSM_STATS = [
-        (0,  "❤️",  "Vida",               "HP máx. por ponto. Padrão ARK ≈ +10 HP base por nível."),
-        (1,  "⚡",  "Stamina",            "Stamina por ponto. Padrão ≈ +10 stamina por nível."),
-        (2,  "💤",  "Torpor",             "Resistência ao torpor. Principalmente relevante para dinos selvagens."),
-        (3,  "🫧",  "Oxigênio",           "Oxigênio por ponto. Relevante para dinos aquáticos."),
-        (4,  "🍖",  "Comida",             "Capacidade de comida por ponto."),
-        (5,  "💧",  "Água",               "Capacidade de água. Relevante principalmente para jogadores."),
-        (6,  "🌡️", "Temperatura",        "Resistência à temperatura (raramente ajustado)."),
-        (7,  "⚖️", "Peso",               "Carga por ponto. Padrão ≈ +10 por nível."),
-        (8,  "⚔️", "Dano Corpo a Corpo", "Dano melee por ponto. Padrão ≈ +2% por nível."),
-        (9,  "🏃",  "Velocidade",         "Velocidade de movimento por ponto. Padrão ≈ +1% por nível."),
-        (10, "🛡️", "Fortitude",          "Resistência ao frio/calor. Relevante para jogadores."),
-        (11, "🔨",  "Craft Skill",        "Habilidade de fabricação. Melhora receitas customizadas."),
+        (0,  "â¤ï¸",  "Vida",               "HP mÃ¡x. por ponto. PadrÃ£o ARK â‰ˆ +10 HP base por nÃ­vel."),
+        (1,  "âš¡",  "Stamina",            "Stamina por ponto. PadrÃ£o â‰ˆ +10 stamina por nÃ­vel."),
+        (2,  "ðŸ’¤",  "Torpor",             "ResistÃªncia ao torpor. Principalmente relevante para dinos selvagens."),
+        (3,  "ðŸ«§",  "OxigÃªnio",           "OxigÃªnio por ponto. Relevante para dinos aquÃ¡ticos."),
+        (4,  "ðŸ–",  "Comida",             "Capacidade de comida por ponto."),
+        (5,  "ðŸ’§",  "Ãgua",               "Capacidade de Ã¡gua. Relevante principalmente para jogadores."),
+        (6,  "ðŸŒ¡ï¸", "Temperatura",        "ResistÃªncia Ã  temperatura (raramente ajustado)."),
+        (7,  "âš–ï¸", "Peso",               "Carga por ponto. PadrÃ£o â‰ˆ +10 por nÃ­vel."),
+        (8,  "âš”ï¸", "Dano Corpo a Corpo", "Dano melee por ponto. PadrÃ£o â‰ˆ +2% por nÃ­vel."),
+        (9,  "ðŸƒ",  "Velocidade",         "Velocidade de movimento por ponto. PadrÃ£o â‰ˆ +1% por nÃ­vel."),
+        (10, "ðŸ›¡ï¸", "Fortitude",          "ResistÃªncia ao frio/calor. Relevante para jogadores."),
+        (11, "ðŸ”¨",  "Craft Skill",        "Habilidade de fabricaÃ§Ã£o. Melhora receitas customizadas."),
     ]
 
     def _build_plsm_table(rn: int) -> None:
-        """Constrói a tabela PerLevelStatsMultiplier (Dino Domado / Selvagem / Jogador)."""
+        """ConstrÃ³i a tabela PerLevelStatsMultiplier (Dino Domado / Selvagem / Jogador)."""
         outer = ctk.CTkFrame(_cur_body[0], fg_color=_CARD_BG, corner_radius=10)
         outer.grid(row=rn, column=0, columnspan=4, padx=12, pady=(0, 8), sticky="ew")
         outer.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
             outer,
-            text="Multiplica o ganho de cada stat a cada ponto investido ao subir nível."
-                 "  1.0 = padrão ARK  •  2.0 = dobro do ganho  •  0.0 = desativa o stat.",
+            text="Multiplica o ganho de cada stat a cada ponto investido ao subir nÃ­vel."
+                 "  1.0 = padrÃ£o ARK  â€¢  2.0 = dobro do ganho  â€¢  0.0 = desativa o stat.",
             text_color="gray50", font=ctk.CTkFont(size=10), justify="left",
         ).grid(row=0, column=0, padx=14, pady=(10, 4), sticky="w")
 
@@ -627,14 +633,14 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         tbl.grid_columnconfigure(4, minsize=82)
         tbl.grid_columnconfigure(5, minsize=82)
 
-        # Cabeçalho
+        # CabeÃ§alho
         ctk.CTkLabel(tbl, text="Stat", anchor="w",
                      text_color="gray55",
                      font=ctk.CTkFont(size=10, weight="bold")).grid(
             row=0, column=0, padx=(8, 4), pady=(0, 2), sticky="w")
         for col_i, (col_txt, col_color) in enumerate([
             ("Domado (IdM)",       "#4fc3f7"),
-            ("Dom. Bônus (TaM)",  "#ce93d8"),
+            ("Dom. BÃ´nus (TaM)",  "#ce93d8"),
             ("Dom. Afinid. (TmM)", "#f48fb1"),
             ("Selvagem (IwM)",     "#a5d6a7"),
             ("Jogador",            "#ffcc80"),
@@ -651,7 +657,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         for i, (stat_idx, emoji, stat_name, stat_hint) in enumerate(_PLSM_STATS):
             tr = stat_idx + 2
             app._register_config_item(
-                srv.id, f"{stat_name} — Stats/Nível", stat_hint, "Jogo")
+                srv.id, f"{stat_name} â€” Stats/NÃ­vel", stat_hint, "Jogo")
 
             stripe = "#1c1c2e" if i % 2 == 0 else "#13131c"
             row_fr = ctk.CTkFrame(tbl, fg_color=stripe, corner_radius=4)
@@ -703,7 +709,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                 ent.bind("<Return>",   _cb)
 
     def _make_section(text: str) -> tk.Frame:
-        """Cria uma seção colapsável (accordion) e retorna seu body frame."""
+        """Cria uma seÃ§Ã£o colapsÃ¡vel (accordion) e retorna seu body frame."""
         _SEC_BG  = "#0d0d1e"
         _HEAD_BG = "#141428"
         _BDR     = "#2a2a45"
@@ -716,7 +722,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         header = tk.Frame(sec, bg=_HEAD_BG, cursor="hand2")
         header.pack(fill="x")
 
-        arrow = tk.Label(header, text="▼", bg=_HEAD_BG, fg=_GREEN,
+        arrow = tk.Label(header, text="â–¼", bg=_HEAD_BG, fg=_GREEN,
                          font=ctk.CTkFont(size=11))
         arrow.pack(side="left", padx=(10, 6), pady=7)
 
@@ -733,10 +739,10 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
             expanded[0] = not expanded[0]
             if expanded[0]:
                 body.pack(fill="x", padx=4, pady=(2, 6))
-                arrow.configure(text="▼")
+                arrow.configure(text="â–¼")
             else:
                 body.pack_forget()
-                arrow.configure(text="▶")
+                arrow.configure(text="â–¶")
 
         header.bind("<Button-1>", _toggle)
         for child in header.winfo_children():
@@ -787,7 +793,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
             lr = rn - _sec_start_r[0]
             ctk.CTkButton(
                 _cur_body[0],
-                text="🧮  Calculadora de Breeding",
+                text="ðŸ§®  Calculadora de Breeding",
                 width=230,
                 fg_color="#2d4a6f",
                 hover_color="#1b2d45",
@@ -810,6 +816,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     def _exec_chunk(idx: int) -> None:
         for task in _tasks[idx: idx + _CHUNK]:
             _dispatch_task(task)
+
         nxt = idx + _CHUNK
         if nxt < len(_tasks):
             app.after(0, lambda i=nxt: _exec_chunk(i))
@@ -820,4 +827,4 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                 app._set_config_editable(srv.id, False)
 
     app.after(0, lambda: _exec_chunk(0))
-
+    app.after(0, lambda: _exec_chunk(0))

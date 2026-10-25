@@ -1,24 +1,24 @@
 from __future__ import annotations
 
+import logging
 import os
 import tkinter as tk
 from tkinter import messagebox
 from typing import TYPE_CHECKING
-import pathlib
 
-from pathlib import Path
-import time
-
-from ..server_config import SERVER_STATUS_STOPPED
-from ..change_logger import snapshot_server, diff_snapshots
-from ..ui_constants import _ARK_EVENT_LABEL_TO_ID, normalize_active_event
 from ..ark_ini import ArkIniManager
+from ..change_logger import diff_snapshots, snapshot_server
+from ..server_config import SERVER_STATUS_STOPPED
+from ..ui_constants import _ARK_EVENT_LABEL_TO_ID, normalize_active_event
 
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
-def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool = False, force: bool = False) -> None:
+LOGGER = logging.getLogger("arkland")
+
+
+def save_server_config(app: ARKServerManagerApp, server_id: str, silent: bool = False, force: bool = False) -> None:
 
     """Lê todos os widgets do servidor, salva no config e escreve os .ini."""
     srv = app.config_manager.get_server(server_id)
@@ -49,7 +49,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
             _new_sp = int(w["server_port"].get())
             _new_qp = int(w["query_port"].get())
             _new_rp = int(w["rcon_port"].get())
-            _port_errs = app._validate_server_ports(server_id, _new_sp, _new_qp, _new_rp)
+            _port_errs = app._validate_server_ports(server_id, _new_sp, _new_qp, _new_rp)  # type: ignore[attr-defined]
             if _port_errs:
                 if not silent:
                     messagebox.showerror(
@@ -205,8 +205,8 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
                     "action": _al_inv.get(rd["action"].get(), rd["action"].get()),
                     "warn_minutes": int(rd["warn"].get() or "0"),
                 })
-            except Exception:
-                pass
+            except (TypeError, ValueError, KeyError, AttributeError):
+                LOGGER.debug("Linha de agendamento inválida ignorada em '%s'", srv.name, exc_info=True)
         srv.scheduled_tasks = _new_tasks
 
     # Preserva as configurações de backup (gerenciadas pela aba Backup)
@@ -225,6 +225,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "player_character_food_drain_multiplier",
         "player_character_health_recovery_multiplier",
         "player_character_stamina_drain_multiplier",
+        "max_fall_speed_multiplier",
         "dino_damage_multiplier", "dino_resistance_multiplier",
         "dino_character_health_recovery_multiplier",
         "dino_character_food_drain_multiplier",
@@ -295,8 +296,8 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         if key in w:
             try:
                 setattr(gs, f, bool(w[key].get()))
-            except (Exception):
-                pass
+            except (TypeError, ValueError, AttributeError, tk.TclError):
+                LOGGER.debug("Falha ao converter bool de game setting '%s' em '%s'", f, srv.name, exc_info=True)
 
     from ..ui.player_level_panel import apply_classic_player_level_to_gs
     apply_classic_player_level_to_gs(w, gs)
@@ -368,8 +369,8 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         if f"adv_{f}" in w:
             try:
                 setattr(adv, f, bool(w[f"adv_{f}"].get()))
-            except Exception:
-                pass
+            except (TypeError, ValueError, AttributeError, tk.TclError):
+                LOGGER.debug("Falha ao converter bool de advanced setting '%s' em '%s'", f, srv.name, exc_info=True)
     for f in adv_float:
         if f"adv_{f}" in w:
             try:
@@ -560,9 +561,9 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
     if "dynamic_config_enabled" in w:
         srv.dynamic_config_enabled = bool(w["dynamic_config_enabled"].get())
     if srv.dynamic_config_enabled:
-        app._push_dynamic_config(srv.id)
+        app._push_dynamic_config(srv.id)  # type: ignore[attr-defined]
     else:
-        app._dynamic_config_server.remove(srv.id)
+        app._dynamic_config_server.remove(srv.id)  # type: ignore[attr-defined]
         url_var = w.get("_dyn_url_var")
         if url_var:
             url_var.set("—")
@@ -576,19 +577,18 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         from ..diagnostics.events import CAT_SAVE, diag_event
         diag_event(CAT_SAVE, "Salvar perfil clássico", server=srv.name, server_id=srv.id,
                    map=srv.map, install_dir=srv.install_dir, silent=silent, force=force)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception:
+        LOGGER.debug("Falha ao registrar evento de save para '%s'", srv.name, exc_info=True)
     app.config_manager.update_server(srv)
     app.server_manager.update_server_config(srv)
 
     # Registra alterações no histórico
     try:
         _snap_after = snapshot_server(srv)
-        _chg_logger = app._get_change_logger(server_id)
+        _chg_logger = app._get_change_logger(server_id)  # type: ignore[attr-defined]
         diff_snapshots(_chg_logger, _snap_before, _snap_after)
     except Exception:
-        import logging
-        logging.getLogger("arkland").warning("Histórico de alterações falhou para '%s'", srv.name, exc_info=True)
+        LOGGER.warning("Histórico de alterações falhou para '%s'", srv.name, exc_info=True)
 
     # Escreve .ini se o diretório existir
     if srv.install_dir and os.path.isdir(srv.install_dir):
@@ -598,11 +598,10 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
             try:
                 from ..diagnostics.events import CAT_INI, diag_event
                 diag_event(CAT_INI, "save_all (clássico) ok", server=srv.name, install_dir=srv.install_dir)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception:
+                LOGGER.debug("Falha ao registrar evento CAT_INI para '%s'", srv.name, exc_info=True)
         except Exception as exc:
-            import logging
-            logging.getLogger("arkland").exception("Erro ao salvar .ini para '%s'", srv.name)
+            LOGGER.exception("Erro ao salvar .ini para '%s'", srv.name)
             app._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
         # Grava AllowedCheaterSteamIDs.txt (ShooterGame/Saved/)
@@ -616,7 +615,5 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
 
     app._rebuild_server_sidebar()
     app._refresh_dashboard()
-
     if not silent:
         messagebox.showinfo("Salvo", f"Configurações de '{srv.name}' salvas!", parent=app)
-

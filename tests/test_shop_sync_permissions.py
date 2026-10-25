@@ -588,6 +588,7 @@ def test_sync_plugin_at_path_propagates_new_kit_from_master(tmp_path, monkeypatc
     assert saved["SharedCatalogPath"] == str(shared_path)
     assert saved["CrossChat"]["ServerId"] == "Mapa1"
 
+
 def test_apply_shared_sections_crosschat_master_wins_without_server_id():
     catalog = {
         "CrossChat": {

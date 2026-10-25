@@ -1,7 +1,7 @@
 """Testes da rampa de XP e cap efetivo do jogador."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.player_engram_points import build_engram_points_ini_lines
 from src.player_level_ascension import (
@@ -28,7 +28,6 @@ from src.player_level_ramp import (
     override_max_xp_from_ramp,
     parse_ramp_from_text,
     populate_player_ramp_from_game_ini,
-    resolve_effective_ingame_cap,
     sync_config_player_level,
     total_ramp_slots,
     vanilla_xp_cap_for_base,

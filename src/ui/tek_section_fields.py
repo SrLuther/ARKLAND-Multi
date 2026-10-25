@@ -89,6 +89,7 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "xp_multiplier", "player_damage_multiplier", "player_resistance_multiplier",
         "player_water_drain_multiplier", "player_food_drain_multiplier",
         "player_stamina_drain_multiplier", "player_health_recovery_multiplier",
+        "player_max_fall_speed_multiplier",
         "player_harvesting_damage_multiplier", "crafting_skill_bonus_multiplier",
         "enable_flyer_carry", "override_max_xp_player",
         "craft_xp_multiplier", "generic_xp_multiplier", "harvest_xp_multiplier",

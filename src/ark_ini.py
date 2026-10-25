@@ -29,6 +29,7 @@ _GUS_SERVER_SETTINGS = [
     ("player_character_food_drain_multiplier",   "ServerSettings", "PlayerCharacterFoodDrainMultiplier",    float),
     ("player_character_health_recovery_multiplier","ServerSettings","PlayerCharacterHealthRecoveryMultiplier",float),
     ("player_character_stamina_drain_multiplier","ServerSettings", "PlayerCharacterStaminaDrainMultiplier",  float),
+    ("max_fall_speed_multiplier",              "ServerSettings", "MaxFallSpeedMultiplier",                 float),
     ("dino_damage_multiplier",                "ServerSettings", "DinoDamageMultiplier",                  float),
     ("dino_resistance_multiplier",            "ServerSettings", "DinoResistanceMultiplier",              float),
     ("dino_character_health_recovery_multiplier","ServerSettings","DinoCharacterHealthRecoveryMultiplier",  float),
@@ -959,9 +960,9 @@ def _parse_npc_spawn_entry(text: str):
     if text.startswith("(") and text.endswith(")"):
         text = text[1:-1]
 
-    m_name   = re.search(r'AnEntryName\s*=\s*"([^"]*)"', text)
+    m_name = re.search(r'AnEntryName\s*=\s*"([^"]*)"', text)
     m_weight = re.search(r'EntryWeight\s*=\s*([\d.]+)', text)
-    name   = m_name.group(1)   if m_name   else ""
+    name = m_name.group(1) if m_name else ""
     try:
         weight = float(m_weight.group(1)) if m_weight else 1.0
     except ValueError:

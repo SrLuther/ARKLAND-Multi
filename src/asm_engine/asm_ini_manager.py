@@ -101,6 +101,7 @@ INI_MAP: dict[str, tuple] = {
     "player_food_drain_multiplier":         ("GUS","ServerSettings","PlayerCharacterFoodDrainMultiplier",      {}),
     "player_stamina_drain_multiplier":      ("GUS","ServerSettings","PlayerCharacterStaminaDrainMultiplier",   {}),
     "player_health_recovery_multiplier":    ("GUS","ServerSettings","PlayerCharacterHealthRecoveryMultiplier", {}),
+    "player_max_fall_speed_multiplier":     ("GUS","ServerSettings","MaxFallSpeedMultiplier",                  {}),
     "player_harvesting_damage_multiplier":  ("GUS","ServerSettings","PlayerHarvestingDamageMultiplier",        {}),
     "crafting_skill_bonus_multiplier":      ("GUS","ServerSettings","CraftingSkillBonusMultiplier",            {}),
     "enable_flyer_carry":                   ("GUS","ServerSettings","AllowFlyerCarryPVE",                      {}),

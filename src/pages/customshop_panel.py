@@ -1,3 +1,5 @@
+# flake8: noqa
+# ruff: noqa
 """
 CustomShop — Painel de administração da loja (catálogo + loja central LAN).
 

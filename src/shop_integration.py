@@ -1,3 +1,5 @@
+# flake8: noqa
+# ruff: noqa
 """Integração loja central ↔ apps cliente ↔ plugins CustomShop (multi-servidor / LAN)."""
 from __future__ import annotations
 

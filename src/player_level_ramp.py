@@ -22,6 +22,7 @@ def total_ramp_slots(base_level: int) -> int:
     """Entradas na rampa: nível base farmável + 100 reservados (implante)."""
     return max(1, int(base_level or 0)) + ARK_RAMP_BONUS_SLOTS
 
+
 _RAMP_ENTRY_RE = re.compile(
     r"ExperiencePointsForLevel\[(\d+)\]\s*=\s*(\d+)",
     re.IGNORECASE,

@@ -74,6 +74,7 @@ class ServerGameSettings:
     player_character_food_drain_multiplier: float = 1.0
     player_character_health_recovery_multiplier: float = 1.0
     player_character_stamina_drain_multiplier: float = 1.0
+    max_fall_speed_multiplier: float = 1.0
 
     # Dino
     dino_damage_multiplier: float = 1.0

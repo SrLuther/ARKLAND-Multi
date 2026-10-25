@@ -153,6 +153,7 @@ class AsmServerConfig:
     player_food_drain_multiplier:        float = 1.0
     player_stamina_drain_multiplier:     float = 1.0
     player_health_recovery_multiplier:   float = 1.0
+    player_max_fall_speed_multiplier:    float = 1.0
     player_harvesting_damage_multiplier: float = 1.0
     crafting_skill_bonus_multiplier:     float = 1.0
     enable_flyer_carry:                  bool  = False

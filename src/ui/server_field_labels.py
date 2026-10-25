@@ -10,6 +10,7 @@ from typing import Literal, Optional
 
 from ..asm_engine.asm_server_config import AsmServerConfig
 from ..asm_engine.asm_ini_manager import INI_MAP
+from .field_i18n_extra import EXTRA_HINTS, EXTRA_PT_OVERRIDES, EXTRA_SEARCH_KEYWORDS
 
 try:
     from .legacy_pt_labels import LEGACY_PT_LABELS
@@ -115,6 +116,7 @@ _PT_OVERRIDES: dict[str, str] = {
     "player_food_drain_multiplier": "Consumo de comida",
     "player_stamina_drain_multiplier": "Consumo de stamina",
     "player_health_recovery_multiplier": "Recuperação de vida",
+    "player_max_fall_speed_multiplier": "Velocidade máxima de queda",
     "player_harvesting_damage_multiplier": "Dano de coleta",
     "crafting_skill_bonus_multiplier": "Bônus de skill de crafting",
     "enable_flyer_carry": "Permitir carregar com voador (PvE)",
@@ -218,8 +220,6 @@ _PT_OVERRIDES: dict[str, str] = {
     "per_level_dino_tamed_affinity": "Stats por nível — Dino (bônus de domesticação)",
 }
 
-from .field_i18n_extra import EXTRA_HINTS, EXTRA_PT_OVERRIDES, EXTRA_SEARCH_KEYWORDS
-
 _PT_OVERRIDES.update(EXTRA_PT_OVERRIDES)
 
 # ── Hints (tooltips) ──────────────────────────────────────────────────────────
@@ -288,6 +288,7 @@ _SECTION_BY_FIELD: dict[str, str] = {
     "player_food_drain_multiplier": "Configurações do Jogador",
     "player_stamina_drain_multiplier": "Configurações do Jogador",
     "player_health_recovery_multiplier": "Configurações do Jogador",
+    "player_max_fall_speed_multiplier": "Configurações do Jogador",
     "player_harvesting_damage_multiplier": "Configurações do Jogador",
     "crafting_skill_bonus_multiplier": "Configurações do Jogador",
     "enable_flyer_carry": "Configurações do Jogador",

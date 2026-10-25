@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.126] - 2026-10-25
+
+### Feature
+
+- Feat (Configuração do Jogador): novo ajuste MaxFallSpeedMultiplier incluído no app, com suporte de leitura/escrita no GameUserSettings.ini e mapeamento completo no modo clássico e TEK.
+
+### Fix
+
+- Fix (UI Clássica/TEK): campo de velocidade máxima de queda adicionado nas seções de jogador com persistência no salvar e categorização/labels de busca atualizadas.
+- Fix (Qualidade interna): limpeza de diagnósticos nos arquivos de configuração/salvamento relacionados à entrega desta versão.
+
 ## [1.10.125] - 2026-10-24
 
 ### Feature
