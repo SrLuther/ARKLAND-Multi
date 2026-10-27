@@ -28,6 +28,28 @@
 
 namespace {
 
+void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMode::Type);
+void CmdCloudUploadSlot(AShooterPlayerController* controller, int slot);
+void CmdCloudUploadSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudUploadSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudUploadSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudDownload(AShooterPlayerController* controller, FString*, EChatSendMode::Type);
+void CmdCloudDownloadSlot(AShooterPlayerController* controller, int slot);
+void CmdCloudDownloadSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudDownloadSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudDownloadSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMode::Type);
+void CmdCloudStatusSlot(AShooterPlayerController* controller, int slot);
+void CmdCloudStatusSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudStatusSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudStatusSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudClearSlot(AShooterPlayerController* controller, int slot);
+void CmdCloudClearPending(AShooterPlayerController* controller, int slot);
+void CmdCloudClearPendingLegacy(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudClearPendingSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudClearPendingSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+void CmdCloudClearPendingSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
+
 // Split FString by space using std::string (avoids TCHAR type issues)
 std::vector<std::string> SplitCmd(FString* cmd_str) {
     std::vector<std::string> parts;
@@ -117,29 +139,95 @@ FLinearColor CloudResultColor(CustomShop::CloudResult /*result*/) {
 }
 
 void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    CmdCloudUploadSlot(controller, 0);
+}
+
+void CmdCloudUploadSlot(AShooterPlayerController* controller, int slot) {
     if (!controller) return;
-    const auto result = CustomShop::ShopCloudInventory::Get().Upload(controller);
+    const auto result = CustomShop::ShopCloudInventory::Get().Upload(controller, slot);
     const int count = CustomShop::ShopCloudInventory::Get().LastOperationCount();
     const int diag = CustomShop::ShopCloudInventory::Get().LastDiagnosticCount();
     const int msg_count = (result == CustomShop::CloudResult::TooManyItems) ? diag : count;
     std::string msg = FormatCloudMessage(result, msg_count);
     if (result == CustomShop::CloudResult::Ok)
         msg = std::to_string(count)
-            + " pilhas salvas. Itens transferiveis removidos do inventario.";
+            + " pilhas salvas no slot " + CustomShop::ShopCloudInventory::SlotLabel(slot)
+            + ". Itens transferiveis removidos do inventario.";
     SendMsg(controller, CloudResultColor(result), msg);
 }
 
 void CmdCloudDownload(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    CmdCloudDownloadSlot(controller, 0);
+}
+
+void CmdCloudDownloadSlot(AShooterPlayerController* controller, int slot) {
     if (!controller) return;
-    const auto result = CustomShop::ShopCloudInventory::Get().Download(controller);
+    const auto result = CustomShop::ShopCloudInventory::Get().Download(controller, slot);
     const int count = CustomShop::ShopCloudInventory::Get().LastOperationCount();
     std::string msg = FormatCloudMessage(result, count);
     if (result == CustomShop::CloudResult::Ok)
-        msg = std::to_string(count) + " itens devolvidos ao seu inventario.";
+        msg = std::to_string(count) + " itens devolvidos ao seu inventario no slot "
+            + CustomShop::ShopCloudInventory::SlotLabel(slot) + ".";
     SendMsg(controller, CloudResultColor(result), msg);
 }
 
+void CmdCloudUploadSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudUploadSlot(controller, 1);
+}
+
+void CmdCloudUploadSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudUploadSlot(controller, 2);
+}
+
+void CmdCloudUploadSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudUploadSlot(controller, 3);
+}
+
+void CmdCloudDownloadSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudDownloadSlot(controller, 1);
+}
+
+void CmdCloudDownloadSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudDownloadSlot(controller, 2);
+}
+
+void CmdCloudDownloadSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudDownloadSlot(controller, 3);
+}
+
+void CmdCloudStatusSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudStatusSlot(controller, 1);
+}
+
+void CmdCloudStatusSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudStatusSlot(controller, 2);
+}
+
+void CmdCloudStatusSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudStatusSlot(controller, 3);
+}
+
+void CmdCloudClearPendingLegacy(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudClearPending(controller, 0);
+}
+
+void CmdCloudClearPendingSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudClearPending(controller, 1);
+}
+
+void CmdCloudClearPendingSlot2(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudClearPending(controller, 2);
+}
+
+void CmdCloudClearPendingSlot3(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode) {
+    CmdCloudClearPending(controller, 3);
+}
+
 void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    CmdCloudStatusSlot(controller, 0);
+}
+
+void CmdCloudStatusSlot(AShooterPlayerController* controller, int slot) {
     if (!controller) return;
 
     if (!CustomShop::ShopConfig::Get().CloudEnabled()) {
@@ -149,14 +237,18 @@ void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMod
     }
 
     const CustomShop::CloudStatusInfo status =
-        CustomShop::ShopCloudInventory::Get().QueryStatus(controller);
+        CustomShop::ShopCloudInventory::Get().QueryStatus(controller, slot);
+
+    const std::string label = CustomShop::ShopCloudInventory::SlotLabel(slot);
+    std::string slot_prefix = "Slot " + label + ": ";
+    if (slot == 0) slot_prefix = "Padrao: ";
 
     if (status.blob_count <= 0) {
         std::string msg =
-            "Vazio. Inventario local: " + std::to_string(status.local_occupied)
+            slot_prefix + "Vazio. Inventario local: " + std::to_string(status.local_occupied)
             + "/" + std::to_string(status.local_capacity) + " pilhas.";
         if (status.local_occupied > 0)
-            msg += " Use /upload para enviar.";
+            msg += " Use /upload" + (slot == 0 ? "" : std::to_string(slot)) + " para enviar.";
         SendMsg(controller, FColorList::Yellow, msg);
         return;
     }
@@ -168,13 +260,68 @@ void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMod
     }
 
     std::string msg =
-        std::to_string(status.blob_count)
+        slot_prefix + std::to_string(status.blob_count)
         + " pilha(s) armazenada(s). Slots livres no inventario: "
         + std::to_string(status.local_free) + "/" + std::to_string(status.local_capacity)
-        + ". Use /download para recuperar.";
+        + ". Use /download" + (slot == 0 ? "" : std::to_string(slot)) + " para recuperar.";
     if (status.local_free < status.blob_count)
         msg += " ATENCAO: libere espaco antes do download.";
     SendMsg(controller, FColorList::Green, msg);
+}
+
+void CmdCloudClearSlot(AShooterPlayerController* controller, int slot) {
+    if (!controller) return;
+    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
+    if (sid.empty()) return;
+
+    const int normalized = CustomShop::ShopCloudInventory::NormalizeSlot(slot);
+    const std::string label = CustomShop::ShopCloudInventory::SlotLabel(normalized);
+    const auto result = CustomShop::ShopCloudInventory::Get().ClearSlot(controller, normalized);
+    if (result == CustomShop::CloudResult::Ok) {
+        SendMsg(controller, FColorList::Green,
+                "Slot " + label + " da nuvem limpo com sucesso.");
+        return;
+    }
+    if (result == CustomShop::CloudResult::NothingStored) {
+        SendMsg(controller, FColorList::Yellow,
+                "O slot " + label + " da nuvem ja esta vazio.");
+        return;
+    }
+    SendMsg(controller, FColorList::Red, FormatCloudMessage(result, 0));
+}
+
+void CmdCloudClearPending(AShooterPlayerController* controller, int slot) {
+    if (!controller) return;
+    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
+    if (sid.empty()) return;
+    const int normalized = CustomShop::ShopCloudInventory::NormalizeSlot(slot);
+    CustomShop::ShopCloudInventory::QueueClearPending(sid, normalized);
+    SendMsg(controller, FColorList::Yellow,
+            "Limpeza do slot " + CustomShop::ShopCloudInventory::SlotLabel(normalized)
+            + " agendada. Digite /confirmar para confirmar a limpeza da nuvem.");
+}
+
+int ParseCloudSlotFromText(const std::string& msg, const std::string& prefix) {
+    if (msg == prefix) return 0;
+    if (msg.size() > prefix.size() && msg.compare(0, prefix.size(), prefix) == 0) {
+        const std::string suffix = msg.substr(prefix.size());
+        if (suffix.empty()) return 0;
+        if (suffix[0] == ' ') {
+            const std::string trimmed = suffix.substr(1);
+            if (!trimmed.empty()) {
+                try {
+                    const int value = std::stoi(trimmed);
+                    return CustomShop::ShopCloudInventory::NormalizeSlot(value);
+                } catch (...) {}
+            }
+            return 0;
+        }
+        try {
+            const int value = std::stoi(suffix);
+            return CustomShop::ShopCloudInventory::NormalizeSlot(value);
+        } catch (...) {}
+    }
+    return -1;
 }
 
 bool MatchCloudChat(const std::string& msg, const char* cmd) {
@@ -187,18 +334,51 @@ bool OnCloudChatMessage(AShooterPlayerController* player, FString* message,
                         EChatSendMode::Type mode, bool /*spam_check*/, bool command_executed) {
     if (command_executed || !player || !message)
         return false;
+
     const std::string msg = message->ToString();
+    if (msg == "/confirmar" || MatchCloudChat(msg, "/confirmar")) {
+        const std::string sid = CustomShop::Bridge::GetSteamId(player);
+        if (!sid.empty() && CustomShop::ShopCloudInventory::HasClearPending(sid)) {
+            int slot = 0;
+            if (CustomShop::ShopCloudInventory::TryConsumeClearPending(sid, &slot)) {
+                CmdCloudClearSlot(player, slot);
+                return true;
+            }
+        }
+    }
+
     if (MatchCloudChat(msg, "/upload")) {
-        CmdCloudUpload(player, message, mode);
-        return true;
+        const int slot = ParseCloudSlotFromText(msg, "/upload");
+        if (slot >= 0) {
+            CmdCloudUploadSlot(player, slot);
+            return true;
+        }
     }
     if (MatchCloudChat(msg, "/download")) {
-        CmdCloudDownload(player, message, mode);
-        return true;
+        const int slot = ParseCloudSlotFromText(msg, "/download");
+        if (slot >= 0) {
+            CmdCloudDownloadSlot(player, slot);
+            return true;
+        }
     }
     if (MatchCloudChat(msg, "/nuvem") || MatchCloudChat(msg, "/cloud")) {
-        CmdCloudStatus(player, message, mode);
-        return true;
+        const int slot = ParseCloudSlotFromText(msg, "/nuvem");
+        if (slot >= 0) {
+            CmdCloudStatusSlot(player, slot);
+            return true;
+        }
+        const int cloud_slot = ParseCloudSlotFromText(msg, "/cloud");
+        if (cloud_slot >= 0) {
+            CmdCloudStatusSlot(player, cloud_slot);
+            return true;
+        }
+    }
+    if (MatchCloudChat(msg, "/limparnuvem")) {
+        const int slot = ParseCloudSlotFromText(msg, "/limparnuvem");
+        if (slot >= 0) {
+            CmdCloudClearPending(player, slot);
+            return true;
+        }
     }
     return false;
 }
@@ -895,9 +1075,22 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/shop debug",    &CmdShopDebugSelf);
     ArkApi::GetCommands().AddChatCommand("/shopdebug",     &CmdShopDebugLog);
     ArkApi::GetCommands().AddChatCommand("/upload",        &CmdCloudUpload);
+    ArkApi::GetCommands().AddChatCommand("/upload1",       &CmdCloudUploadSlot1);
+    ArkApi::GetCommands().AddChatCommand("/upload2",       &CmdCloudUploadSlot2);
+    ArkApi::GetCommands().AddChatCommand("/upload3",       &CmdCloudUploadSlot3);
     ArkApi::GetCommands().AddChatCommand("/download",     &CmdCloudDownload);
+    ArkApi::GetCommands().AddChatCommand("/download1",    &CmdCloudDownloadSlot1);
+    ArkApi::GetCommands().AddChatCommand("/download2",    &CmdCloudDownloadSlot2);
+    ArkApi::GetCommands().AddChatCommand("/download3",    &CmdCloudDownloadSlot3);
     ArkApi::GetCommands().AddChatCommand("/nuvem",         &CmdCloudStatus);
+    ArkApi::GetCommands().AddChatCommand("/nuvem1",        &CmdCloudStatusSlot1);
+    ArkApi::GetCommands().AddChatCommand("/nuvem2",        &CmdCloudStatusSlot2);
+    ArkApi::GetCommands().AddChatCommand("/nuvem3",        &CmdCloudStatusSlot3);
     ArkApi::GetCommands().AddChatCommand("/cloud",         &CmdCloudStatus);
+    ArkApi::GetCommands().AddChatCommand("/limparnuvem",   &CmdCloudClearPendingLegacy);
+    ArkApi::GetCommands().AddChatCommand("/limparnuvem1",  &CmdCloudClearPendingSlot1);
+    ArkApi::GetCommands().AddChatCommand("/limparnuvem2",  &CmdCloudClearPendingSlot2);
+    ArkApi::GetCommands().AddChatCommand("/limparnuvem3",  &CmdCloudClearPendingSlot3);
     ArkApi::GetCommands().AddChatCommand("/engramas",      &CmdEngramas);
     ArkApi::GetCommands().AddChatCommand("/notas",         &CmdNotas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
@@ -937,8 +1130,21 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/shop debug");
     ArkApi::GetCommands().RemoveChatCommand("/shopdebug");
     ArkApi::GetCommands().RemoveChatCommand("/upload");
+    ArkApi::GetCommands().RemoveChatCommand("/upload1");
+    ArkApi::GetCommands().RemoveChatCommand("/upload2");
+    ArkApi::GetCommands().RemoveChatCommand("/upload3");
     ArkApi::GetCommands().RemoveChatCommand("/download");
+    ArkApi::GetCommands().RemoveChatCommand("/download1");
+    ArkApi::GetCommands().RemoveChatCommand("/download2");
+    ArkApi::GetCommands().RemoveChatCommand("/download3");
     ArkApi::GetCommands().RemoveChatCommand("/nuvem");
+    ArkApi::GetCommands().RemoveChatCommand("/nuvem1");
+    ArkApi::GetCommands().RemoveChatCommand("/nuvem2");
+    ArkApi::GetCommands().RemoveChatCommand("/nuvem3");
+    ArkApi::GetCommands().RemoveChatCommand("/limparnuvem");
+    ArkApi::GetCommands().RemoveChatCommand("/limparnuvem1");
+    ArkApi::GetCommands().RemoveChatCommand("/limparnuvem2");
+    ArkApi::GetCommands().RemoveChatCommand("/limparnuvem3");
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ShopMarket::UnregisterCommands();
     CustomShop::Teams::UnregisterCommands();

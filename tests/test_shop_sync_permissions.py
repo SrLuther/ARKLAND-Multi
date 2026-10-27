@@ -288,6 +288,7 @@ def test_initialize_customshop_setup_creates_clean_base_when_no_source(tmp_path,
     assert shared["Kits"] == {}
     local_cfg = json.loads(Path(result["local_config_path"]).read_text(encoding="utf-8"))
     assert local_cfg["SharedCatalogPath"] == str(Path(result["shared_path"]))
+    assert set(["PointPackages", "Downloads", "CrossChat", "TimedPointsReward", "FeaturedMaps", "Settings"]).issubset(local_cfg.keys())
 
 
 def test_initialize_customshop_setup_splits_wrapped_full_json_source(tmp_path, monkeypatch):

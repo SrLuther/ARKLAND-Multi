@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.45] - 2026-10-27
+
+### Fix
+
+- Fix (CustomShop / Vinculação Discord): alinha a lógica de sincronização e validação de vinculação com a versão do app, preservando o comportamento de cargo e a regra de vínculo único por conta Steam/Discord sem afetar o restante do fluxo de loja.
+
+### Rebuild
+
+A DLL 1.10.45 só vale depois que o mapa recarregar o plugin.
+
 ## [1.10.44] - 2026-10-04
 
 ### Feature
@@ -241,6 +251,7 @@ Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (Version
 ### Rebuild
 
 Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (VersionLabel 1.10.23) em cada mapa.
+
 ## [1.10.22] - 2026-07-15
 
 ### Fix
@@ -265,7 +276,7 @@ Recompilar CustomShop e substituir `CustomShop.dll` + `PluginInfo.json` (Version
 
 ### Melhoria
 
-- **TimedPoints**: mensagem de chat ao receber Âmbar inclui a URL da loja (`Settings.WebsiteUrl`, fallback `WebApiUrl`) — ex.: «Acesse a loja: https://arkland.com.br».
+- **TimedPoints**: mensagem de chat ao receber Âmbar inclui a URL da loja (`Settings.WebsiteUrl`, fallback `WebApiUrl`) — ex.: «Acesse a loja: <https://arkland.com.br>».
 
 ### Rebuild
 

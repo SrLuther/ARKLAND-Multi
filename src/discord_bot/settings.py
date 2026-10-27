@@ -149,6 +149,8 @@ class BotSettings:
     lobby_channel_id: int = 0
     logs_channel_id: int = 0
     quarantine_role_id: int = 0
+    validation_channel_id: int = 0
+    validation_role_id: int = 0
     command_prefix: str = DEFAULT_PREFIX
     enable_voice: bool = True
     enable_moderation: bool = True
@@ -163,6 +165,8 @@ class BotSettings:
             lobby_channel_id=parse_discord_id(getattr(cfg, "lobby_channel_id", "")),
             logs_channel_id=parse_discord_id(getattr(cfg, "logs_channel_id", "")),
             quarantine_role_id=parse_discord_id(getattr(cfg, "quarantine_role_id", "")),
+            validation_channel_id=parse_discord_id(getattr(cfg, "validation_channel_id", "")),
+            validation_role_id=parse_discord_id(getattr(cfg, "validation_role_id", "")),
             command_prefix=prefix,
             enable_voice=bool(getattr(cfg, "enable_voice", True)),
             enable_moderation=bool(getattr(cfg, "enable_moderation", True)),

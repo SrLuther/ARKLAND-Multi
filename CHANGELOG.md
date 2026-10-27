@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.128] - 2026-10-27
+
+### Feature
+
+- Feat (Release / Publicação): prepara a entrega da build 1.10.128 com artefatos atualizados, sincronização de versionamento e link de download da release.
+
+### Fix
+
+- Fix (Discord / Vinculação): corrige a validação de expiração e confirmação do código de vínculo do Discord, normalizando datas UTC/SQLite sem quebrar o fluxo de login e atualização do cargo.
+- Fix (Release / Atualização): mantém o processo de release e do updater compatível com a versão publicada e com a URL de download da build atual.
+
+## [1.10.127] - 2026-10-27
+
+### Fix
+
+- Fix (Discord / Vinculação): corrige a validação de expiração e confirmação do código de vínculo do Discord, normalizando datas UTC/SQLite sem quebrar o fluxo de login e atualização do cargo.
+- Fix (Release / Atualização): mantém o processo de release e do updater compatível com a versão publicada e com a URL de download da build atual.
+
 ## [1.10.126] - 2026-10-25
 
 ### Feature

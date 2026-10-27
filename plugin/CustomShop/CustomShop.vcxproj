@@ -53,22 +53,25 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <ExceptionHandling>Sync</ExceptionHandling>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>ArkApi.lib;libmysql.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ArkApi.lib;libmysql.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ArkApiDir)\out_lib;$(ArkApiDir)\lib;$(MSBuildThisFileDirectory)mysql\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <!-- C++ plugin sources -->
   <ItemGroup>
     <ClCompile Include="src\Main.cpp" />
+    <ClCompile Include="src\HttpClient.cpp" />
     <ClCompile Include="src\ShopBridge.cpp" />
     <ClCompile Include="src\ShopConfig.cpp" />
     <ClCompile Include="src\ShopData.cpp" />
+    <ClCompile Include="src\ShopDebug.cpp" />
     <ClCompile Include="src\ShopPerms.cpp" />
     <ClCompile Include="src\ShopPoints.cpp" />
     <ClCompile Include="src\ShopStore.cpp" />
@@ -79,17 +82,21 @@
     <ClCompile Include="src\ShopCloudInventory.cpp" />
     <ClCompile Include="src\ShopCryoDino.cpp" />
     <ClCompile Include="src\ShopCryoReader.cpp" />
+    <ClCompile Include="src\ShopCrossChat.cpp" />
     <ClCompile Include="src\ShopMarket.cpp" />
     <ClCompile Include="src\ShopEngrams.cpp" />
     <ClCompile Include="src\ShopNotes.cpp" />
+    <ClCompile Include="src\ShopTeams.cpp" />
     <ClCompile Include="src\ShopTribeSync.cpp" />
     <ClCompile Include="src\ShopVitrine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\HttpClient.h" />
     <ClInclude Include="src\ShopBridge.h" />
     <ClInclude Include="src\ShopConfig.h" />
     <ClInclude Include="src\ShopData.h" />
+    <ClInclude Include="src\ShopDebug.h" />
     <ClInclude Include="src\ShopPerms.h" />
     <ClInclude Include="src\ShopPoints.h" />
     <ClInclude Include="src\ShopStore.h" />
@@ -99,9 +106,11 @@
     <ClInclude Include="src\ShopCloudInventory.h" />
     <ClInclude Include="src\ShopCryoDino.h" />
     <ClInclude Include="src\ShopCryoReader.h" />
+    <ClInclude Include="src\ShopCrossChat.h" />
     <ClInclude Include="src\ShopMarket.h" />
     <ClInclude Include="src\ShopEngrams.h" />
     <ClInclude Include="src\ShopNotes.h" />
+    <ClInclude Include="src\ShopTeams.h" />
     <ClInclude Include="src\ShopTribeSync.h" />
     <ClInclude Include="src\ShopVitrine.h" />
     <ClInclude Include="src\Commands.h" />

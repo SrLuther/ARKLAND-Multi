@@ -228,6 +228,7 @@ class ShopGlobalConfig:
     webstore_steam_api_key: str = ""      # Steam Web API — nicknames admin/site (≠ steam_api_key global/mods)
     delivery_mode: str = "plugin"         # plugin | rcon
     catalog_config_path: str = ""         # catálogo mestre Items/Kits
+    local_config_path: str = ""           # config local do plugin CustomShop/config.json
     machine_label: str = ""               # ex: "Maquina-A"
     auto_sync_on_save: bool = True
     cross_chat_enabled: bool = False         # CrossChat integrado desativado — use plugin de terceiros

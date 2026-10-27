@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from src.config_manager import ShopGlobalConfig
 from src.shop_integration import (
     canonical_master_catalog_path,
@@ -161,7 +159,29 @@ def test_canonical_master_catalog_path_uses_environment(tmp_path, monkeypatch):
         "src.arkland_environment.try_load_environment_paths",
         lambda: env,
     )
-    assert canonical_master_catalog_path() == root / "CustomShop" / "catalog.json"
+    assert canonical_master_catalog_path() == root / "CustomShop" / "catalogo.json"
+
+
+def test_canonical_master_catalog_path_falls_back_to_dev_when_environment_is_missing(
+    tmp_path, monkeypatch
+):
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    env = EnvironmentPaths(root=root)
+    dev_master = tmp_path / "repo" / "plugin" / "CustomShop" / "catalogo.json"
+    dev_master.parent.mkdir(parents=True)
+    dev_master.write_text('{"Items": {}}', encoding="utf-8")
+
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: env,
+    )
+    monkeypatch.setattr("src.shop_integration._DEFAULT_CATALOG_CANON", dev_master)
+    monkeypatch.setattr("src.shop_integration._DEFAULT_CATALOG", dev_master.parent.parent / "catalog.json")
+    monkeypatch.setattr("src.shop_integration._DEFAULT_CATALOG_LEGACY", dev_master.parent / "configs" / "config.json")
+
+    assert canonical_master_catalog_path() == dev_master
 
 
 def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch):
@@ -347,7 +367,7 @@ def test_migrate_catalog_to_canonical_from_webstore(tmp_path, monkeypatch):
     )
 
     canonical = migrate_catalog_to_canonical(force=True)
-    assert canonical == root / "CustomShop" / "catalog.json"
+    assert canonical == root / "CustomShop" / "catalogo.json"
     assert canonical.is_file()
     assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) == 11
 

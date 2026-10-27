@@ -1,10 +1,10 @@
 {
-    "version": "1.10.126",
-    "date": "2026-10-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.126/ARKLAND-Multi-Setup-v1.10.126.exe",
+    "version": "1.10.128",
+    "date": "2026-10-27",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.128/ARKLAND-Multi-Setup-v1.10.128.exe",
     "changelog": [
-        "Feat (Configuração do Jogador): novo ajuste MaxFallSpeedMultiplier incluído no app, com suporte de leitura/escrita no GameUserSettings.ini e mapeamento completo no modo clássico e TEK.",
-        "Fix (UI Clássica/TEK): campo de velocidade máxima de queda adicionado nas seções de jogador com persistência no salvar e categorização/labels de busca atualizadas.",
-        "Fix (Qualidade interna): limpeza de diagnósticos nos arquivos de configuração/salvamento relacionados à entrega desta versão."
+        "Feat (Release / Publicação): prepara a entrega da build 1.10.128 com artefatos atualizados, sincronização de versionamento e link de download da release.",
+        "Fix (Discord / Vinculação): corrige a validação de expiração e confirmação do código de vínculo do Discord, normalizando datas UTC/SQLite sem quebrar o fluxo de login e atualização do cargo.",
+        "Fix (Release / Atualização): mantém o processo de release e do updater compatível com a versão publicada e com a URL de download da build atual."
     ]
 }

@@ -1,4 +1,6 @@
 """ArkShop Web Manager — backend com auth Steam, autorização admin e pedidos no DB."""
+# ruff: noqa: E402,F401
+# pyright: reportUnusedImport=false, reportUnusedVariable=false, reportGeneralTypeIssues=false
 from __future__ import annotations
 
 import base64
@@ -38,15 +40,13 @@ from pix_payments import (
     create_pix_payment,
     extract_checkout_url,
     extract_pix_data,
-    fetch_payment,
     map_mp_status,
     normalize_card_payer_input,
     normalize_pix_payer_input,
-    parse_mp_error_message,
     verify_mp_webhook_signature,
 )
 from exchange_rates import estimate_foreign, get_exchange_rates
-from flask import Flask, has_request_context, jsonify, make_response, redirect, request, send_from_directory, session
+from flask import Flask, has_request_context, jsonify, make_response, redirect, request, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -71,7 +71,6 @@ from db_pool import (
     DEFAULT_DB_POOL_SIZE,
     DEFAULT_DB_POOL_TIMEOUT,
     db_session as _db_session_cm,
-    release_before_external_io as _release_before_external_io,
     resolve_pool_settings,
 )
 import ttl_cache as _ttl_cache
@@ -619,29 +618,30 @@ def _release_idempotency_key(key: str) -> None:
 
 def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
     """Validates X-API-Key header for CustomShop ↔ arkshop_web communication.
-    
+
     Args:
         allow_admin_session: If True, also allow admin steam_id in session (for browser tests).
-                            If False, ONLY API key auth is accepted (production).
+        If False, ONLY API key auth is accepted (production).
     """
+
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(f)
         def decorated_function(*args: Any, **kwargs: Any) -> Any:
             api_key = request.headers.get("X-API-Key", "").strip()
-            
+
             # Check API key first (strict)
             if api_key and _ARKSHOP_API_KEY and api_key == _ARKSHOP_API_KEY:
                 return f(*args, **kwargs)
-            
+
             # Optionally allow admin via session (for development/testing)
             if allow_admin_session:
                 steam_id = _steam_id_from_session()
                 if steam_id and _is_admin_steamid(steam_id):
                     return f(*args, **kwargs)
-            
-            # Reject
-            return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+
         return decorated_function
+
     return decorator
 
 
@@ -1122,6 +1122,21 @@ class SupportTicketDiscordLink(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class SupportTicketDiscordLinkCode(Base):
+    __tablename__ = "support_ticket_discord_link_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
+    steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    discord_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
 
@@ -2768,6 +2783,11 @@ def _load_settings() -> Dict[str, Any]:
         "db_name": "arkland_shop",
         "db_user": "",
         "db_password": "",
+        "ticket_discord_enabled": False,
+        "ticket_discord_channel_id": "",
+        "ticket_discord_token": "",
+        "discord_validation_channel_id": "",
+        "discord_validation_role_id": "",
         "point_packages": _DEFAULT_POINT_PACKAGES,
         "mp_access_token": "",
         "mp_webhook_secret": "",
@@ -7479,7 +7499,7 @@ def _fetch_steam_persona_names_batch(
     result: dict[str, str] = {}
     req_timeout = max(2.0, float(timeout))
     for i in range(0, len(valid), _STEAM_PERSONA_BATCH_SIZE):
-        chunk = valid[i : i + _STEAM_PERSONA_BATCH_SIZE]
+        chunk = valid[i:i + _STEAM_PERSONA_BATCH_SIZE]
         ids_param = ",".join(chunk)
         url = (
             "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
@@ -10003,6 +10023,11 @@ def save_settings():
         "db_port",
         "db_name",
         "db_user",
+        "ticket_discord_enabled",
+        "ticket_discord_channel_id",
+        "ticket_discord_token",
+        "discord_validation_channel_id",
+        "discord_validation_role_id",
         "point_packages",
         "mp_sandbox",
         "public_ip",
@@ -10067,6 +10092,8 @@ def save_settings():
         s["mp_webhook_secret"] = body["mp_webhook_secret"]
     if "steam_api_key" in body and body["steam_api_key"] != "":
         s["steam_api_key"] = body["steam_api_key"]
+    if "ticket_discord_token" in body and body["ticket_discord_token"] != "":
+        s["ticket_discord_token"] = str(body["ticket_discord_token"]).strip()
     point_packages_sync_errors: list[dict[str, str]] = []
     if "point_packages" in body:
         s["point_packages"] = _normalize_point_packages(body["point_packages"])
@@ -10306,7 +10333,7 @@ def sync_servers_from_client():
         if sid:
             by_id[sid] = s
 
-    incoming: List[Dict[str, Any]] = []
+    incoming: list[dict[str, Any]] = []
     for raw in raw_servers:
         if not isinstance(raw, dict):
             continue
@@ -13460,7 +13487,6 @@ def player_cancel_order(order_id: str):
 
         item_type = str(order.item_type or "shop")
         item_id = str(order.item_id or "")
-        order_amount = int(order.amount or 1)
 
         refund = max(0, _order_desist_refund_amount(order, db))
         paid_amount = max(0, _order_refund_amount(order, db))

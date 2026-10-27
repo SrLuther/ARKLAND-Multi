@@ -15,6 +15,7 @@ namespace {
 constexpr size_t kMaxItemHexChars = 32u * 1024u * 1024u * 2u;
 
 std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_cloud_cooldown;
+std::unordered_map<std::string, int> g_cloud_clear_pending;
 std::unordered_set<std::string> g_cloud_in_progress;
 std::mutex g_cloud_mutex;
 
@@ -186,21 +187,65 @@ bool ShopCloudInventory::Exec(const char* sql) {
     return true;
 }
 
-bool ShopCloudInventory::CheckCooldown(const std::string& steam_id) {
+bool ShopCloudInventory::CheckCooldown(const std::string& storage_key) {
     const int secs = ShopConfig::Get().CloudCooldownSeconds();
     if (secs <= 0) return true;
     const auto now = std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(g_cloud_mutex);
-    const auto it = g_cloud_cooldown.find(steam_id);
+    const auto it = g_cloud_cooldown.find(storage_key);
     if (it == g_cloud_cooldown.end()) return true;
     const auto elapsed =
         std::chrono::duration_cast<std::chrono::seconds>(now - it->second).count();
     return elapsed >= secs;
 }
 
-void ShopCloudInventory::TouchCooldown(const std::string& steam_id) {
+void ShopCloudInventory::TouchCooldown(const std::string& storage_key) {
     std::lock_guard<std::mutex> lock(g_cloud_mutex);
-    g_cloud_cooldown[steam_id] = std::chrono::steady_clock::now();
+    g_cloud_cooldown[storage_key] = std::chrono::steady_clock::now();
+}
+
+int ShopCloudInventory::NormalizeSlot(int slot) {
+    if (slot < 0) return 0;
+    if (slot >= 1 && slot <= 3) return slot;
+    return 0;
+}
+
+std::string ShopCloudInventory::SlotLabel(int slot) {
+    switch (NormalizeSlot(slot)) {
+    case 1: return "1";
+    case 2: return "2";
+    case 3: return "3";
+    default: return "padrao";
+    }
+}
+
+std::string ShopCloudInventory::StorageKeyForSteamSlot(const std::string& steam_id, int slot) {
+    if (steam_id.empty()) return "";
+    const int normalized = NormalizeSlot(slot);
+    if (normalized == 0) return steam_id;
+    return steam_id + ":slot" + std::to_string(normalized);
+}
+
+bool ShopCloudInventory::HasClearPending(const std::string& steam_id) {
+    if (steam_id.empty()) return false;
+    std::lock_guard<std::mutex> lock(g_cloud_mutex);
+    return g_cloud_clear_pending.find(steam_id) != g_cloud_clear_pending.end();
+}
+
+void ShopCloudInventory::QueueClearPending(const std::string& steam_id, int slot) {
+    if (steam_id.empty()) return;
+    std::lock_guard<std::mutex> lock(g_cloud_mutex);
+    g_cloud_clear_pending[steam_id] = NormalizeSlot(slot);
+}
+
+bool ShopCloudInventory::TryConsumeClearPending(const std::string& steam_id, int* out_slot) {
+    if (steam_id.empty()) return false;
+    std::lock_guard<std::mutex> lock(g_cloud_mutex);
+    const auto it = g_cloud_clear_pending.find(steam_id);
+    if (it == g_cloud_clear_pending.end()) return false;
+    if (out_slot) *out_slot = it->second;
+    g_cloud_clear_pending.erase(it);
+    return true;
 }
 
 void ShopCloudInventory::ClearOperationInProgress(const std::string& steam_id) {
@@ -233,12 +278,13 @@ bool ShopCloudInventory::HasCloudLicense(const std::string& steam_id,
 }
 
 ShopCloudInventory::CloudSnapshot ShopCloudInventory::QueryCloudSnapshot(
-    const std::string& steam_id) const {
+    const std::string& steam_id, int slot) const {
     CloudSnapshot snap;
     if (!db_ || steam_id.empty()) return snap;
 
-    char buf[64];
-    if (!Escape(steam_id, buf, sizeof(buf))) return snap;
+    const std::string storage_key = StorageKeyForSteamSlot(steam_id, slot);
+    char buf[128];
+    if (!Escape(storage_key, buf, sizeof(buf))) return snap;
 
     const std::string header_sql =
         "SELECT item_count FROM player_cloud_inventory WHERE steam_id = '"
@@ -270,28 +316,32 @@ ShopCloudInventory::CloudSnapshot ShopCloudInventory::QueryCloudSnapshot(
     return snap;
 }
 
-bool ShopCloudInventory::HasStoredItems(const std::string& steam_id) {
-    return GetStoredBlobCount(steam_id) > 0;
+bool ShopCloudInventory::HasStoredItems(const std::string& steam_id, int slot) {
+    return GetStoredBlobCount(steam_id, slot) > 0;
 }
 
-int ShopCloudInventory::GetStoredBlobCount(const std::string& steam_id) {
-    return QueryCloudSnapshot(steam_id).blob_count;
+int ShopCloudInventory::GetStoredBlobCount(const std::string& steam_id, int slot) {
+    return QueryCloudSnapshot(steam_id, slot).blob_count;
 }
 
-int ShopCloudInventory::GetStoredItemCount(const std::string& steam_id) {
-    const CloudSnapshot snap = QueryCloudSnapshot(steam_id);
+int ShopCloudInventory::GetStoredItemCount(const std::string& steam_id, int slot) {
+    const CloudSnapshot snap = QueryCloudSnapshot(steam_id, slot);
     if (snap.blob_count > 0) return snap.blob_count;
     return snap.header_count;
 }
 
-bool ShopCloudInventory::PurgeCloudRecord(const std::string& steam_id) {
+bool ShopCloudInventory::PurgeCloudRecord(const std::string& steam_id, int slot) {
     if (!db_ || steam_id.empty()) return false;
-    char buf[64];
-    if (!Escape(steam_id, buf, sizeof(buf))) return false;
+    const std::string storage_key = StorageKeyForSteamSlot(steam_id, slot);
+    char buf[128];
+    if (!Escape(storage_key, buf, sizeof(buf))) return false;
     const std::string sid(buf);
-    if (!Exec(("DELETE FROM player_cloud_items WHERE steam_id = '" + sid + "';").c_str()))
+    const int normalized_slot = NormalizeSlot(slot);
+    if (!Exec(("DELETE FROM player_cloud_items WHERE steam_id = '" + sid + "' AND slot = "
+               + std::to_string(normalized_slot) + ";").c_str()))
         return false;
-    return Exec(("DELETE FROM player_cloud_inventory WHERE steam_id = '" + sid + "';").c_str());
+    return Exec(("DELETE FROM player_cloud_inventory WHERE steam_id = '" + sid + "' AND slot = "
+                 + std::to_string(normalized_slot) + ";").c_str());
 }
 
 std::vector<ShopCloudInventory::UploadEntry> ShopCloudInventory::CollectUploadableItems(
@@ -357,7 +407,9 @@ std::vector<ShopCloudInventory::UploadEntry> ShopCloudInventory::CollectUploadab
 }
 
 int ShopCloudInventory::CountOccupiedSlots(UPrimalInventoryComponent* inv,
-                                             const std::string& steam_id) const {
+                                             const std::string& steam_id,
+                                             int slot) const {
+    (void)slot;
     return static_cast<int>(CollectUploadableItems(inv, steam_id).size());
 }
 
@@ -502,14 +554,14 @@ int ShopCloudInventory::RestoreItemsFromBytes(
 }
 
 CloudStatusInfo ShopCloudInventory::QueryStatus(
-    AShooterPlayerController* controller) const {
+    AShooterPlayerController* controller, int slot) const {
     CloudStatusInfo info;
     if (!controller) return info;
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return info;
 
-    const CloudSnapshot snap = QueryCloudSnapshot(steam_id);
+    const CloudSnapshot snap = QueryCloudSnapshot(steam_id, slot);
     info.has_header = snap.has_header;
     info.header_count = snap.header_count;
     info.blob_count = snap.blob_count;
@@ -517,34 +569,36 @@ CloudStatusInfo ShopCloudInventory::QueryStatus(
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
     if (inv) {
         info.local_capacity = InventoryCapacity(inv);
-        info.local_occupied = CountOccupiedSlots(inv, steam_id);
+        info.local_occupied = CountOccupiedSlots(inv, steam_id, slot);
         info.local_free = std::max(0, info.local_capacity - info.local_occupied);
     }
 
     return info;
 }
 
-CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
+CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller, int slot) {
     if (!db_ || !controller) return CloudResult::DbError;
     if (!ShopConfig::Get().CloudEnabled()) return CloudResult::Disabled;
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return CloudResult::DbError;
+    const int normalized_slot = NormalizeSlot(slot);
+    const std::string storage_key = StorageKeyForSteamSlot(steam_id, normalized_slot);
 
     CloudOperationGuard op_guard(steam_id);
     if (!op_guard.acquired()) return CloudResult::OperationInProgress;
 
-    if (!CheckCooldown(steam_id)) return CloudResult::Cooldown;
+    if (!CheckCooldown(storage_key)) return CloudResult::Cooldown;
     if (!IsPlayerReady(controller)) return CloudResult::PlayerBusy;
     if (!HasCloudLicense(steam_id, true)) return CloudResult::NoLicense;
 
-    const CloudSnapshot existing = QueryCloudSnapshot(steam_id);
+    const CloudSnapshot existing = QueryCloudSnapshot(steam_id, normalized_slot);
     if (existing.blob_count > 0) return CloudResult::AlreadyStored;
     if (existing.has_header && existing.blob_count == 0) {
         Log::GetLog()->warn(
-            "ShopCloudInventory: orphan header steam={} — purging before upload",
-            steam_id);
-        PurgeCloudRecord(steam_id);
+            "ShopCloudInventory: orphan header steam={} slot={} — purging before upload",
+            steam_id, SlotLabel(normalized_slot));
+        PurgeCloudRecord(steam_id, normalized_slot);
     }
 
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
@@ -596,7 +650,7 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
 
     SyncInventoryToClient(inv, controller);
 
-    const int remaining = CountOccupiedSlots(inv, steam_id);
+    const int remaining = CountOccupiedSlots(inv, steam_id, normalized_slot);
     if (remaining > 0) {
         Log::GetLog()->warn(
             "ShopCloudInventory: upload steam={} removed={} but {} uploadable remain — rolling back",
@@ -625,8 +679,9 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
     }
 
     const std::string header_sql =
-        "INSERT INTO player_cloud_inventory (steam_id, item_count, source_map) VALUES ('"
+        "INSERT INTO player_cloud_inventory (steam_id, slot, item_count, source_map) VALUES ('"
         + std::string(buf_id) + "', "
+        + std::to_string(normalized_slot) + ", "
         + std::to_string(static_cast<int>(entries.size())) + ", '"
         + std::string(buf_map) + "');";
 
@@ -640,8 +695,9 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
 
     for (size_t i = 0; i < entries.size(); ++i) {
         const std::string item_sql =
-            "INSERT INTO player_cloud_items (steam_id, sort_order, item_blob) VALUES ('"
+            "INSERT INTO player_cloud_items (steam_id, slot, sort_order, item_blob) VALUES ('"
             + std::string(buf_id) + "', "
+            + std::to_string(normalized_slot) + ", "
             + std::to_string(static_cast<int>(i)) + ", UNHEX('"
             + entries[i].hex + "'));";
         if (!Exec(item_sql.c_str())) {
@@ -657,36 +713,38 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
         return CloudResult::DbError;
     }
 
-    TouchCooldown(steam_id);
+    TouchCooldown(storage_key);
     last_op_count_ = static_cast<int>(entries.size());
     SyncInventoryToClient(inv, controller);
     Log::GetLog()->info(
-        "ShopCloudInventory: upload ok steam={} items={} map='{}'",
-        steam_id, entries.size(), map_name);
+        "ShopCloudInventory: upload ok steam={} slot={} items={} map='{}'",
+        steam_id, SlotLabel(normalized_slot), entries.size(), map_name);
     return CloudResult::Ok;
 }
 
-CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
+CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, int slot) {
     if (!db_ || !controller) return CloudResult::DbError;
     if (!ShopConfig::Get().CloudEnabled()) return CloudResult::Disabled;
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return CloudResult::DbError;
+    const int normalized_slot = NormalizeSlot(slot);
+    const std::string storage_key = StorageKeyForSteamSlot(steam_id, normalized_slot);
 
     CloudOperationGuard op_guard(steam_id);
     if (!op_guard.acquired()) return CloudResult::OperationInProgress;
 
-    if (!CheckCooldown(steam_id)) return CloudResult::Cooldown;
+    if (!CheckCooldown(storage_key)) return CloudResult::Cooldown;
     if (!IsPlayerReady(controller)) return CloudResult::PlayerBusy;
     if (!HasCloudLicense(steam_id, false)) return CloudResult::NoLicense;
 
-    const CloudSnapshot snap = QueryCloudSnapshot(steam_id);
+    const CloudSnapshot snap = QueryCloudSnapshot(steam_id, normalized_slot);
     if (snap.blob_count <= 0) {
         if (snap.has_header) {
             Log::GetLog()->warn(
-                "ShopCloudInventory: header without blobs steam={} — purging",
-                steam_id);
-            PurgeCloudRecord(steam_id);
+                "ShopCloudInventory: header without blobs steam={} slot={} — purging",
+                steam_id, SlotLabel(normalized_slot));
+            PurgeCloudRecord(steam_id, normalized_slot);
         }
         return CloudResult::NothingStored;
     }
@@ -705,7 +763,7 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
     AShooterCharacter* character = controller->GetPlayerCharacter();
 
     const int capacity = InventoryCapacity(inv);
-    const int occupied = CountOccupiedSlots(inv, steam_id);
+    const int occupied = CountOccupiedSlots(inv, steam_id, normalized_slot);
     const int free_slots = std::max(0, capacity - occupied);
     last_free_slots_ = free_slots;
 
@@ -715,7 +773,8 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
     // Leitura binaria — HEX() trunca blobs grandes e gera "dados inconsistentes".
     const std::string select_sql =
         "SELECT item_blob FROM player_cloud_items WHERE steam_id = '"
-        + std::string(buf_id) + "' ORDER BY sort_order ASC;";
+        + std::string(buf_id) + "' AND slot = "
+        + std::to_string(normalized_slot) + " ORDER BY sort_order ASC;";
 
     if (mysql_query(db_, select_sql.c_str()) != 0) return CloudResult::DbError;
     MYSQL_RES* res = mysql_store_result(db_);
@@ -777,10 +836,10 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
     if (restore_rows.empty()) {
         if (skipped_implants > 0 && skipped_bad_blob == 0) {
             Log::GetLog()->warn(
-                "ShopCloudInventory: cloud only had specimen implants steam={} count={} — purging",
-                steam_id, skipped_implants);
-            PurgeCloudRecord(steam_id);
-            TouchCooldown(steam_id);
+                "ShopCloudInventory: cloud only had specimen implants steam={} slot={} count={} — purging",
+                steam_id, SlotLabel(normalized_slot), skipped_implants);
+            PurgeCloudRecord(steam_id, normalized_slot);
+            TouchCooldown(storage_key);
             last_op_count_ = 0;
             return CloudResult::Ok;
         }
@@ -845,19 +904,47 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
         return CloudResult::PartialRestore;
     }
 
-    if (!PurgeCloudRecord(steam_id)) {
+    if (!PurgeCloudRecord(steam_id, normalized_slot)) {
         Log::GetLog()->error(
-            "ShopCloudInventory: purge failed after restore steam={} — keeping cloud intact",
-            steam_id);
+            "ShopCloudInventory: purge failed after restore steam={} slot={} — keeping cloud intact",
+            steam_id, SlotLabel(normalized_slot));
         for (UPrimalItem* rollback_item : added_items)
             RemoveUploadedItem(rollback_item, inv, controller);
         return CloudResult::PartialRestore;
     }
 
-    TouchCooldown(steam_id);
+    TouchCooldown(storage_key);
     last_op_count_ = restored;
     SyncInventoryToClient(inv, controller);
-    Log::GetLog()->info("ShopCloudInventory: download ok steam={} items={}", steam_id, restored);
+    Log::GetLog()->info("ShopCloudInventory: download ok steam={} slot={} items={}",
+                       steam_id, SlotLabel(normalized_slot), restored);
+    return CloudResult::Ok;
+}
+
+CloudResult ShopCloudInventory::ClearSlot(AShooterPlayerController* controller, int slot) {
+    if (!db_ || !controller) return CloudResult::DbError;
+    if (!ShopConfig::Get().CloudEnabled()) return CloudResult::Disabled;
+
+    const std::string steam_id = Bridge::GetSteamId(controller);
+    if (steam_id.empty()) return CloudResult::DbError;
+
+    const int normalized_slot = NormalizeSlot(slot);
+    const std::string storage_key = StorageKeyForSteamSlot(steam_id, normalized_slot);
+    if (!CheckCooldown(storage_key)) return CloudResult::Cooldown;
+    if (!IsPlayerReady(controller)) return CloudResult::PlayerBusy;
+
+    const CloudSnapshot snap = QueryCloudSnapshot(steam_id, normalized_slot);
+    if (snap.blob_count <= 0 && !snap.has_header) {
+        return CloudResult::NothingStored;
+    }
+    if (!PurgeCloudRecord(steam_id, normalized_slot)) {
+        Log::GetLog()->error(
+            "ShopCloudInventory: clear failed steam={} slot={}",
+            steam_id, SlotLabel(normalized_slot));
+        return CloudResult::DbError;
+    }
+
+    TouchCooldown(storage_key);
     return CloudResult::Ok;
 }
 

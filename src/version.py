@@ -4,13 +4,30 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.126"
-BUILD_DATE: str = "2026-10-25"
+APP_VERSION: str = "1.10.128"
+BUILD_DATE: str = "2026-10-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.128",
+        "date": "2026-10-27",
+        "changes": [
+            "Feat (Release / Publicação): prepara a entrega da build 1.10.128 com artefatos atualizados, sincronização de versionamento e link de download da release.",
+            "Fix (Discord / Vinculação): corrige a validação de expiração e confirmação do código de vínculo do Discord, normalizando datas UTC/SQLite sem quebrar o fluxo de login e atualização do cargo.",
+            "Fix (Release / Atualização): mantém o processo de release e do updater compatível com a versão publicada e com a URL de download da build atual.",
+        ],
+    },
+    {
+        "version": "1.10.127",
+        "date": "2026-10-27",
+        "changes": [
+            "Fix (Discord / Vinculação): corrige a validação de expiração e confirmação do código de vínculo do Discord, normalizando datas UTC/SQLite sem quebrar o fluxo de login e atualização do cargo.",
+            "Fix (Release / Atualização): mantém o processo de release e do updater compatível com a versão publicada e com a URL de download da build atual.",
+        ],
+    },
     {
         "version": "1.10.126",
         "date": "2026-10-25",

@@ -125,6 +125,9 @@ def _load_config(path: Path) -> Dict[str, Any]:
             },
             "Items": {},
             "Kits": {},
+            "PointPackages": [],
+            "Downloads": [],
+            "CrossChat": {},
             "TimedPointsReward": {
                 "Enabled": True,
                 "Interval": 30,
@@ -136,6 +139,7 @@ def _load_config(path: Path) -> Dict[str, Any]:
                     "Alfa": {"Amount": 75},
                 },
             },
+            "FeaturedMaps": [],
             "Database": {
                 "Host": "127.0.0.1",
                 "Port": 3306,
@@ -255,6 +259,12 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
     shop_cfg.catalog_config_path = str(cfg_path)
     data: Dict[str, Any] = _load_config(cfg_path)
     path_var = tk.StringVar(value=str(cfg_path))
+    catalog_path_var = tk.StringVar(value=str(shop_cfg.catalog_config_path or canonical_master_catalog_path()))
+    local_config_path_var = tk.StringVar(
+        value=str(
+            shop_cfg.local_config_path or default_customshop_path(str(Path(canonical_master_catalog_path()).parent))
+        )
+    )
 
     # ── Barra de ações no topo ────────────────────────────────────────────
     top_bar = tk.Frame(parent, bg=_BG, height=52)
@@ -263,6 +273,8 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
 
     def _persist_shop_globals() -> None:
         shop_cfg.catalog_config_path = str(canonical_master_catalog_path())
+        if local_config_path_var.get().strip():
+            shop_cfg.local_config_path = local_config_path_var.get().strip()
         app.config_manager.save()
 
     def _do_save() -> None:
@@ -603,6 +615,28 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                 value=str(s.get("MarketCryoMinDaysRemaining", 20))),
             "MarketCryoDebug":      tk.BooleanVar(value=bool(s.get("MarketCryoDebug", False))),
         })
+
+        def _choose_path(var: tk.StringVar, title: str, filetypes: tuple[tuple[str, str], ...]) -> None:
+            from tkinter import filedialog
+            chosen = filedialog.askopenfilename(title=title, filetypes=list(filetypes), initialfile=Path(var.get()).name if var.get() else "")
+            if chosen:
+                var.set(chosen)
+                if title.lower().startswith("catalogo"):
+                    shop_cfg.catalog_config_path = chosen
+                    catalog_path_var.set(chosen)
+                else:
+                    shop_cfg.local_config_path = chosen
+                    local_config_path_var.set(chosen)
+                app.config_manager.save()
+
+        _field_row(card_cfg, "Caminho do catalogo.json", catalog_path_var, bg=_INNER,
+                   hint="Arquivo compartilhado com Items/Kits (padrão: CustomShop/catalogo.json)", width=420)
+        ctk.CTkButton(card_cfg, text="Procurar", width=110, fg_color="#3a3a6a", hover_color="#4a4a8a",
+                      command=lambda: _choose_path(catalog_path_var, "Selecionar catalogo.json", (("JSON", "*.json"), ("Todos", "*.*")))).pack(anchor="w", padx=10, pady=(0, 6))
+        _field_row(card_cfg, "Caminho do config.json", local_config_path_var, bg=_INNER,
+                   hint="Arquivo local do mapa/com plugin CustomShop/config.json", width=420)
+        ctk.CTkButton(card_cfg, text="Procurar", width=110, fg_color="#3a3a6a", hover_color="#4a4a8a",
+                      command=lambda: _choose_path(local_config_path_var, "Selecionar config.json", (("JSON", "*.json"), ("Todos", "*.*")))).pack(anchor="w", padx=10, pady=(0, 8))
 
         _field_row(card_cfg, "Nome exibido (portal)", _sv["ShopName"],       bg=_INNER)
         _field_row(card_cfg, "Tecla do Menu (UiKey)", _sv["UiKey"],         bg=_INNER,

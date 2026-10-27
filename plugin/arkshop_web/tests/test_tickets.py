@@ -15,8 +15,11 @@ from ticket_service import (
     add_ticket_reply,
     attend_ticket,
     close_ticket,
+    confirm_discord_link_code,
     create_ticket,
     ensure_ticket_schema,
+    generate_discord_link_code,
+    get_discord_link,
     get_ticket_detail,
     get_ticket_history,
     list_tickets_admin,
@@ -93,6 +96,59 @@ def test_ticket_meta():
     assert "priorities" in meta
     assert "statuses" in meta
     assert any(c["id"] == "suporte" for c in meta["categories"])
+
+
+def test_generate_and_confirm_discord_link_code(ticket_db):
+    out = generate_discord_link_code(
+        ticket_db,
+        steam_id=USER_STEAM,
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+    assert out["ok"] is True
+    assert len(out["code"]) >= 6
+
+    duplicate = generate_discord_link_code(
+        ticket_db,
+        steam_id=USER_STEAM,
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+    assert duplicate["ok"] is True
+    assert duplicate["pending"] is True
+
+    confirm = confirm_discord_link_code(
+        ticket_db,
+        out["code"],
+        steam_id=USER_STEAM,
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+    assert confirm["ok"] is True
+    saved = get_discord_link(ticket_db, USER_STEAM)
+    assert saved is not None
+    assert saved["discord_user_id"] == "987654321"
+    assert saved["link_method"] == "ingame_code"
+
+
+def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):
+    first = save_discord_link(
+        ticket_db,
+        steam_id=USER_STEAM,
+        discord_user_id="111222333",
+        discord_username="alice",
+        link_method="manual",
+    )
+    assert first["steam_id"] == USER_STEAM
+
+    generated = generate_discord_link_code(
+        ticket_db,
+        steam_id=ADMIN_STEAM,
+        discord_user_id="111222333",
+        discord_username="alice",
+    )
+    assert generated["ok"] is False
+    assert "já está vinculado" in generated["error"].lower()
 
 
 def test_create_and_list_ticket(ticket_db):

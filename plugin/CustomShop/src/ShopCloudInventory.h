@@ -39,15 +39,24 @@ class ShopCloudInventory {
 public:
     static ShopCloudInventory& Get();
 
+    static int NormalizeSlot(int slot);
+    static std::string SlotLabel(int slot);
+    static std::string StorageKeyForSteamSlot(const std::string& steam_id, int slot);
+    static bool HasClearPending(const std::string& steam_id);
+    static void QueueClearPending(const std::string& steam_id, int slot);
+    static bool TryConsumeClearPending(const std::string& steam_id, int* out_slot);
+    static void ClearOperationInProgress(const std::string& steam_id);
+
     void SetDb(MYSQL* db);
 
-    bool HasStoredItems(const std::string& steam_id);
-    int  GetStoredItemCount(const std::string& steam_id);
-    int  GetStoredBlobCount(const std::string& steam_id);
+    bool HasStoredItems(const std::string& steam_id, int slot = 0);
+    int  GetStoredBlobCount(const std::string& steam_id, int slot = 0);
+    int  GetStoredItemCount(const std::string& steam_id, int slot = 0);
 
-    CloudResult Upload(AShooterPlayerController* controller);
-    CloudResult Download(AShooterPlayerController* controller);
-    CloudStatusInfo QueryStatus(AShooterPlayerController* controller) const;
+    CloudResult Upload(AShooterPlayerController* controller, int slot = 0);
+    CloudResult Download(AShooterPlayerController* controller, int slot = 0);
+    CloudResult ClearSlot(AShooterPlayerController* controller, int slot = 0);
+    CloudStatusInfo QueryStatus(AShooterPlayerController* controller, int slot = 0) const;
 
     bool HasCloudLicense(const std::string& steam_id, bool for_upload) const;
     bool RemovePlayerItem(UPrimalItem* item,
@@ -59,8 +68,6 @@ public:
     int LastFreeSlots() const { return last_free_slots_; }
 
     static const char* ResultMessage(CloudResult result, int item_count = 0);
-
-    static void ClearOperationInProgress(const std::string& steam_id);
 
 private:
     ShopCloudInventory() = default;
@@ -79,9 +86,10 @@ private:
     static std::vector<UploadEntry> CollectUploadableItems(UPrimalInventoryComponent* inv,
                                                            const std::string& steam_id);
 
-    CloudSnapshot QueryCloudSnapshot(const std::string& steam_id) const;
+    CloudSnapshot QueryCloudSnapshot(const std::string& steam_id, int slot = 0) const;
     int  CountOccupiedSlots(UPrimalInventoryComponent* inv,
-                            const std::string& steam_id) const;
+                            const std::string& steam_id,
+                            int slot = 0) const;
     int  InventoryCapacity(UPrimalInventoryComponent* inv) const;
     bool RemoveUploadedItem(UPrimalItem* item,
                             UPrimalInventoryComponent* inv,
@@ -98,12 +106,12 @@ private:
     int  RestoreItemsFromBytes(UPrimalInventoryComponent* inv,
                                const std::vector<std::vector<unsigned char>>& blob_rows,
                                AShooterCharacter* character) const;
-    bool PurgeCloudRecord(const std::string& steam_id);
+    bool PurgeCloudRecord(const std::string& steam_id, int slot = 0);
 
     bool Exec(const char* sql);
     bool Escape(const std::string& in, char* out, size_t out_size) const;
-    bool CheckCooldown(const std::string& steam_id);
-    void TouchCooldown(const std::string& steam_id);
+    bool CheckCooldown(const std::string& storage_key);
+    void TouchCooldown(const std::string& storage_key);
     bool IsPlayerReady(AShooterPlayerController* controller) const;
 
     MYSQL* db_ = nullptr;

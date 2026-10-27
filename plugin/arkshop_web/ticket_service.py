@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -76,6 +76,14 @@ _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _as_utc_datetime(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def ticket_meta() -> dict[str, Any]:
@@ -264,6 +272,18 @@ def ensure_ticket_schema(engine: Engine) -> None:
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS support_ticket_discord_link_codes (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              code VARCHAR(16) NOT NULL UNIQUE,
+              steam_id VARCHAR(32) NOT NULL,
+              discord_user_id VARCHAR(32) NULL,
+              discord_username VARCHAR(128) NULL,
+              expires_at DATETIME NULL,
+              used_at DATETIME NULL,
+              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS support_ticket_history (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               ticket_id INTEGER NOT NULL,
@@ -341,6 +361,23 @@ def ensure_ticket_schema(engine: Engine) -> None:
               linked_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
               updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
                 ON UPDATE CURRENT_TIMESTAMP(3)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS support_ticket_discord_link_codes (
+              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              code VARCHAR(16) NOT NULL UNIQUE,
+              steam_id VARCHAR(32) NOT NULL,
+              discord_user_id VARCHAR(32) NULL,
+              discord_username VARCHAR(128) NULL,
+              expires_at DATETIME(3) NULL,
+              used_at DATETIME(3) NULL,
+              created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+              KEY idx_discord_code_steam (steam_id),
+              KEY idx_discord_code_discord (discord_user_id),
+              KEY idx_discord_code_used (used_at),
+              KEY idx_discord_code_expiry (expires_at),
+              KEY idx_discord_code_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
             """
@@ -595,6 +632,161 @@ def get_discord_link(db: Any, steam_id: str) -> dict[str, Any] | None:
     }
 
 
+def _normalized_discord_user_id(value: str | None) -> str | None:
+    ident = (value or "").strip()
+    return ident or None
+
+
+def _find_discord_owner(db: Any, discord_user_id: str | None) -> str | None:
+    if not discord_user_id:
+        return None
+    from app import SupportTicketDiscordLink
+
+    row = (
+        db.query(SupportTicketDiscordLink)
+        .filter(SupportTicketDiscordLink.discord_user_id == discord_user_id)
+        .first()
+    )
+    return row.steam_id if row else None
+
+
+def _find_pending_discord_code(db: Any, steam_id: str) -> dict[str, Any] | None:
+    from app import SupportTicketDiscordLinkCode
+
+    row = (
+        db.query(SupportTicketDiscordLinkCode)
+        .filter(
+            SupportTicketDiscordLinkCode.steam_id == steam_id,
+            SupportTicketDiscordLinkCode.used_at.is_(None),
+        )
+        .order_by(SupportTicketDiscordLinkCode.expires_at.desc())
+        .first()
+    )
+    if not row:
+        return None
+    return {
+        "code": row.code,
+        "steam_id": row.steam_id,
+        "discord_user_id": row.discord_user_id,
+        "discord_username": row.discord_username,
+        "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def generate_discord_link_code(
+    db: Any,
+    *,
+    steam_id: str,
+    discord_user_id: str | None = None,
+    discord_username: str | None = None,
+    expires_minutes: int = 10,
+) -> dict[str, Any]:
+    from app import SupportTicketDiscordLinkCode
+
+    sid = str(steam_id or "").strip()
+    did = _normalized_discord_user_id(discord_user_id)
+    if not sid:
+        return {"ok": False, "error": "Steam ID ausente."}
+    if not did:
+        return {"ok": False, "error": "Discord ID ausente."}
+
+    current_owner = _find_discord_owner(db, did)
+    if current_owner and current_owner != sid:
+        return {
+            "ok": False,
+            "error": "Este Discord já está vinculado a outra conta Steam.",
+            "discord_user_id": did,
+            "linked_steam_id": current_owner,
+        }
+
+    pending = _find_pending_discord_code(db, sid)
+    if pending:
+        return {
+            "ok": True,
+            "code": pending["code"],
+            "expires_at": pending["expires_at"],
+            "pending": True,
+            "discord_user_id": did,
+            "discord_username": discord_username or pending.get("discord_username") or "",
+        }
+
+    now = _utcnow()
+    for _ in range(20):
+        code = uuid.uuid4().hex[:8].upper()
+        existing = db.query(SupportTicketDiscordLinkCode).filter_by(code=code).first()
+        if existing is None:
+            row = SupportTicketDiscordLinkCode(
+                code=code,
+                steam_id=sid,
+                discord_user_id=did,
+                discord_username=(discord_username or "")[:128] or None,
+                expires_at=now + timedelta(minutes=max(1, int(expires_minutes))),
+                created_at=now,
+                used_at=None,
+            )
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return {
+                "ok": True,
+                "code": row.code,
+                "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+                "pending": True,
+                "discord_user_id": row.discord_user_id,
+                "discord_username": row.discord_username,
+            }
+    return {"ok": False, "error": "Não foi possível gerar um código de validação. Tente novamente."}
+
+
+def confirm_discord_link_code(
+    db: Any,
+    code: str,
+    *,
+    steam_id: str,
+    discord_user_id: str | None = None,
+    discord_username: str | None = None,
+) -> dict[str, Any]:
+    from app import SupportTicketDiscordLink, SupportTicketDiscordLinkCode
+
+    sid = str(steam_id or "").strip()
+    did = _normalized_discord_user_id(discord_user_id)
+    token = (code or "").strip().upper()
+    if not sid or not did or not token:
+        return {"ok": False, "error": "Dados de confirmação inválidos."}
+
+    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).first()
+    if row is None:
+        return {"ok": False, "error": "Código inválido ou expirado."}
+    if row.steam_id != sid:
+        return {"ok": False, "error": "Este código não pertence a esta conta Steam."}
+    if row.discord_user_id != did:
+        return {"ok": False, "error": "Código incompatível com este Discord."}
+    if row.used_at is not None:
+        return {"ok": False, "error": "Este código já foi utilizado."}
+    expires_at = _as_utc_datetime(row.expires_at)
+    if expires_at and expires_at < _utcnow():
+        return {"ok": False, "error": "Código expirado. Gere outro código."}
+
+    if conflict := _find_discord_owner(db, did):
+        if conflict != sid:
+            return {"ok": False, "error": "Este Discord já está vinculado a outra conta Steam."}
+
+    saved = save_discord_link(
+        db,
+        steam_id=sid,
+        discord_user_id=did,
+        discord_username=discord_username or row.discord_username,
+        link_method="ingame_code",
+    )
+    if not saved or saved.get("error"):
+        return {"ok": False, "error": saved.get("error") if isinstance(saved, dict) else "Falha ao salvar vínculo."}
+
+    row.used_at = _utcnow()
+    db.commit()
+    return {"ok": True, "steam_id": sid, "discord_user_id": did, "link_method": "ingame_code"}
+
+
 def save_discord_link(
     db: Any,
     *,
@@ -605,28 +797,43 @@ def save_discord_link(
 ) -> dict[str, Any]:
     from app import SupportTicketDiscordLink
 
+    sid = str(steam_id or "").strip()
+    did = _normalized_discord_user_id(discord_user_id)
+    if not sid:
+        return {"ok": False, "error": "Steam ID ausente."}
+
+    if did:
+        current_owner = _find_discord_owner(db, did)
+        if current_owner and current_owner != sid:
+            return {
+                "ok": False,
+                "error": "Este Discord já está vinculado a outra conta Steam.",
+                "discord_user_id": did,
+                "linked_steam_id": current_owner,
+            }
+
     now = _utcnow()
-    row = db.get(SupportTicketDiscordLink, steam_id)
+    row = db.get(SupportTicketDiscordLink, sid)
     if row is None:
         row = SupportTicketDiscordLink(
-            steam_id=steam_id,
-            discord_user_id=(discord_user_id or None),
-            discord_username=(discord_username or None),
+            steam_id=sid,
+            discord_user_id=did,
+            discord_username=(discord_username or "")[:128] or None,
             link_method=link_method or "manual",
             linked_at=now,
             updated_at=now,
         )
         db.add(row)
     else:
-        if discord_user_id is not None:
-            row.discord_user_id = discord_user_id or None
+        if did is not None:
+            row.discord_user_id = did
         if discord_username is not None:
-            row.discord_username = discord_username or None
+            row.discord_username = (discord_username or "")[:128] or None
         row.link_method = link_method or row.link_method or "manual"
         row.updated_at = now
     db.commit()
     db.refresh(row)
-    return get_discord_link(db, steam_id) or {}
+    return get_discord_link(db, sid) or {}
 
 
 def create_ticket(

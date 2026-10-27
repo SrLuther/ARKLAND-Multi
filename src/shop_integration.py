@@ -443,14 +443,12 @@ def find_cross_chat_collisions(
         if _looks_like_shared_catalog_path(path):
             errors.append(
                 f"customshop_config_path aponta para o catálogo partilhado em: "
-                f"{', '.join(names)} ({path}) — use o config.json local de cada mapa "
-                f"e defina SharedCatalogPath → CustomShop/catalog.json."
+                f"{', '.join(names)} ({path}) — use o config.json local de cada mapa."
             )
             continue
         errors.append(
             f"config.json CustomShop compartilhado entre: {', '.join(names)} ({path}) — "
-            "cada mapa precisa do seu config local em ArkApi/Plugins/CustomShop/ "
-            "(o catálogo Items/Kits fica em CustomShop/catalog.json via SharedCatalogPath)."
+            "cada mapa precisa do seu config local em ArkApi/Plugins/CustomShop/."
         )
     return errors
 
@@ -462,6 +460,8 @@ def apply_shared_sections_to_plugin(
 ) -> None:
     """Copia seções compartilhadas do mestre; CrossChat.ServerId é definido por mapa no sync."""
     for key in SHARED_SYNC_TOP_LEVEL_KEYS:
+        if key in {"Items", "Kits"}:
+            continue
         if key not in catalog:
             continue
         if key == "CrossChat":
@@ -478,8 +478,27 @@ def merge_catalog_into_plugin_config(
     existing: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Mescla catálogo mestre no config de um mapa (admin web / sync)."""
-    merged = deepcopy(existing) if existing else deepcopy(catalog)
+    merged = deepcopy(existing) if existing else {}
+    if not merged:
+        merged = deepcopy(catalog)
+
+    # Preserve local shop data when the master asset is partial/legacy; only replace
+    # the shared catalog sections that are explicitly present in the master.
+    if isinstance(catalog, dict):
+        for key in ("Items", "Kits"):
+            if key in catalog:
+                merged[key] = deepcopy(catalog[key])
+            elif key in existing:
+                merged[key] = deepcopy(existing[key])
+
     apply_shared_sections_to_plugin(merged, catalog, existing)
+    if "Items" in existing and "Items" not in catalog:
+        merged["Items"] = deepcopy(existing["Items"])
+    if "Kits" in existing and "Kits" not in catalog:
+        merged["Kits"] = deepcopy(existing["Kits"])
+
+    shared_path = str((existing or {}).get(SHARED_CATALOG_PATH_KEY) or canonical_master_catalog_path())
+    merged[SHARED_CATALOG_PATH_KEY] = shared_path
     if not merged.get("Database") and existing.get("Database"):
         merged["Database"] = deepcopy(existing["Database"])
     merged_db = merged.get("Database") or {}
@@ -493,16 +512,20 @@ def merge_catalog_into_plugin_config(
 
 
 def canonical_master_catalog_path() -> Path:
-    """Caminho canônico do catálogo partilhado (fonte de verdade Items/Kits).
+    r"""Caminho canônico do catálogo partilhado (fonte de verdade Items/Kits).
 
     Ambiente ARKLAND: ``ARKLAND SERVER/CustomShop/catalogo.json``
     Instalado sem ambiente: ``%APPDATA%/ARKLAND-ServerManager/CustomShop/catalogo.json``
     Desenvolvimento: ``plugin/CustomShop/catalogo.json`` (fallback: ``catalog.json`` legado)
+
+    Só respeita o ambiente ARKLAND quando a raiz configurada existe no sistema. Quando o
+    ambiente Windows está definido mas a pasta não existe (desenvolvimento / máquina local),
+    o app cai para o repositório local em vez de bloquear em ``C:\ARKLAND SERVER``.
     """
     from .arkland_environment import try_load_environment_paths
 
     env = try_load_environment_paths()
-    if env is not None:
+    if env is not None and env.root.exists():
         return env.customshop_master
     if getattr(sys, "frozen", False):
         return (
@@ -516,6 +539,8 @@ def canonical_master_catalog_path() -> Path:
         return _DEFAULT_CATALOG_CANON
     if _DEFAULT_CATALOG_LEGACY.is_file():
         return _DEFAULT_CATALOG_CANON
+    if env is not None:
+        return env.customshop_master
     return _DEFAULT_CATALOG_CANON
 
 
@@ -524,7 +549,7 @@ def legacy_master_catalog_path() -> Path:
     from .arkland_environment import try_load_environment_paths
 
     env = try_load_environment_paths()
-    if env is not None:
+    if env is not None and env.root.exists():
         legacy = env.customshop_master_legacy
         if legacy.is_file():
             return legacy
@@ -1223,11 +1248,11 @@ def propagate_master_catalog(
     rcon_reload: bool = False,
     write_ui_catalog_to_master: bool = True,
 ) -> Tuple[List[str], List[str]]:
-    """ÚNICO fluxo seguro: catalog.json → stub local por mapa + espelho WEBSTORE/bin.
+    """ÚNICO fluxo seguro: catalog.json → config completo por mapa + espelho WEBSTORE/bin.
 
     - Fonte: sempre ``canonical_master_catalog_path()`` (= CustomShop/catalog.json).
     - NÃO faz reconcile WEBSTORE→mestre (era a principal fonte de poluição/confusão).
-    - Em cada mapa: stub local (ServerId, DB, URLs, SharedCatalogPath); Items/Kits no catalog.json.
+    - Em cada mapa: config completo (Items/Kits + Settings/DB/ServerId).
     """
     from .catalog_sync import apply_catalog_sync
 
@@ -1340,7 +1365,7 @@ def propagate_master_catalog(
             maps_ok += 1
             for note in notes:
                 ok.append(note)
-            ok.append(f"Mapa stub ← catalog.json: {getattr(srv, 'name', plugin_path)}")
+            ok.append(f"Mapa atualizado ← catalog.json: {getattr(srv, 'name', plugin_path)}")
         except Exception as exc:
             errors.append(f"{getattr(srv, 'name', plugin_path)}: {exc}")
 
@@ -2828,7 +2853,7 @@ def initialize_customshop_setup(
     """Cria a estrutura inicial explícita do CustomShop.
 
     - catálogo compartilhado (CustomShop/catalogo.json)
-    - stub local do plugin (CustomShop/config.json)
+    - config local completo do plugin (CustomShop/config.json)
 
     Se ``source_json`` for informado, tenta importar o JSON completo como base do catálogo
     compartilhado; em caso de ausência, cria um catálogo limpo e um stub básico.
@@ -2866,11 +2891,19 @@ def initialize_customshop_setup(
 
     save_plugin_config(shared, final_catalog)
 
-    local_cfg = build_local_plugin_config(
-        {},
-        final_catalog,
-        shared_catalog_path=str(shared),
-    )
+    local_cfg = merge_catalog_into_plugin_config(final_catalog, {})
+    local_cfg.pop("Items", None)
+    local_cfg.pop("Kits", None)
+    local_cfg.setdefault("Settings", {})
+    local_cfg.setdefault("PointPackages", [])
+    local_cfg.setdefault("Downloads", [])
+    local_cfg.setdefault("CrossChat", {})
+    local_cfg.setdefault("TimedPointsReward", {"Enabled": True, "Interval": 30, "StackRewards": True, "Groups": {}})
+    local_cfg.setdefault("FeaturedMaps", [])
+    # Preserve map-local config while keeping Items/Kits as shared catalog data only.
+    for key in ("Items", "Kits"):
+        local_cfg.pop(key, None)
+    local_cfg[SHARED_CATALOG_PATH_KEY] = str(shared)
     cfg_path = plugin_root / "config.json"
     save_plugin_config(cfg_path, local_cfg)
     return {
@@ -2891,7 +2924,7 @@ def ensure_customshop_files_for_install(
 
     - catálogo compartilhado em ``CustomShop/catalogo.json``
     - config local do mapa em ``.../CustomShop/config.json``
-    - se houver um ``catalog.json`` legado na mesma pasta, ele é lido e partido entre os dois arquivos.
+    - se houver um ``catalog.json`` legado na mesma pasta, ele é usado como base para o config local.
     """
     ok: List[str] = []
     notes: List[str] = []
@@ -2944,35 +2977,21 @@ def ensure_customshop_files_for_install(
                 cc.pop("ServerId", None)
                 local_seed["CrossChat"] = cc
             try:
-                stub = build_local_plugin_config(
-                    local_seed,
-                    base_source,
-                    shared_catalog_path=str(shared),
-                )
-                save_plugin_config(cfg_dest, stub)
+                merged = merge_catalog_into_plugin_config(base_source, local_seed)
+                save_plugin_config(cfg_dest, merged)
                 ok.append(f"config.json (migrado do catalog.json legado) → {cfg_dest}")
             except Exception as exc:
                 notes.append(f"config.json não pôde ser criado a partir do legacy catalog.json: {exc}")
         else:
-            stub: Dict[str, Any] = {
-                SHARED_CATALOG_PATH_KEY: str(shared),
-                "Settings": {},
-                "Debug": {"Enabled": False, "Level": "INFO"},
-            }
+            merged: Dict[str, Any] = merge_catalog_into_plugin_config(
+                load_plugin_config(shared) if shared.is_file() else {"Items": {}, "Kits": {}},
+                {},
+            )
             try:
-                save_plugin_config(cfg_dest, stub)
-                ok.append(f"config.json (stub padrão) → {cfg_dest}")
+                save_plugin_config(cfg_dest, merged)
+                ok.append(f"config.json (padrão completo) → {cfg_dest}")
             except Exception as exc:
                 notes.append(f"config.json não pôde ser criado: {exc}")
-    else:
-        try:
-            existing_cfg = load_plugin_config(cfg_dest)
-            if not str(existing_cfg.get(SHARED_CATALOG_PATH_KEY) or "").strip():
-                existing_cfg[SHARED_CATALOG_PATH_KEY] = str(shared)
-                save_plugin_config(cfg_dest, existing_cfg)
-                ok.append(f"SharedCatalogPath injetado → {shared}")
-        except Exception as exc:
-            notes.append(f"SharedCatalogPath: {exc}")
 
     return ok, notes
 
@@ -3041,11 +3060,12 @@ def install_customshop_to_server(
             shared = str(canonical_master_catalog_path())
         except Exception:
             shared = str(canonical_master_catalog_path())
-        stub: Dict[str, Any] = {
-            SHARED_CATALOG_PATH_KEY: shared,
-            "Settings": {},
-            "Debug": {"Enabled": False, "Level": "INFO"},
-        }
+        merged: Dict[str, Any] = {"Items": {}, "Kits": {}, "Settings": {}, "Debug": {"Enabled": False, "Level": "INFO"}}
+        if Path(shared).is_file():
+            try:
+                merged = merge_catalog_into_plugin_config(load_plugin_config(shared), {})
+            except Exception:
+                pass
         # Se ainda não há catalog.json, cai no template monolítico legado.
         if not Path(shared).is_file():
             template = _default_config_template()
@@ -3053,25 +3073,12 @@ def install_customshop_to_server(
                 shutil.copy2(template, cfg_dest)
                 ok.append("config.json (padrão monolítico — catalog.json ainda ausente)")
             else:
-                save_plugin_config(cfg_dest, stub)
-                ok.append("config.json (stub mínimo)")
+                save_plugin_config(cfg_dest, merged)
+                ok.append("config.json (padrão mínimo)")
                 notes.append("config.json padrão / catalog.json não encontrados no app")
         else:
-            save_plugin_config(cfg_dest, stub)
-            ok.append(f"config.json (stub + SharedCatalogPath → {shared})")
-    else:
-        # Garantir SharedCatalogPath em installs antigos sem forçar strip do catálogo
-        # (o strip acontece em sync_plugin_at_path / propagate).
-        try:
-            existing_cfg = load_plugin_config(cfg_dest)
-            if not str(existing_cfg.get(SHARED_CATALOG_PATH_KEY) or "").strip():
-                shared = str(canonical_master_catalog_path())
-                if Path(shared).is_file():
-                    existing_cfg[SHARED_CATALOG_PATH_KEY] = shared
-                    save_plugin_config(cfg_dest, existing_cfg)
-                    ok.append(f"SharedCatalogPath injetado → {shared}")
-        except Exception as exc:
-            notes.append(f"SharedCatalogPath: {exc}")
+            save_plugin_config(cfg_dest, merged)
+            ok.append("config.json (completo a partir do catálogo)")
 
     perm_notes = _ensure_permissions_config_on_server(install_dir, shop=shop)
     ok.extend(perm_notes[0])
@@ -4284,6 +4291,11 @@ def save_plugin_config(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(data, dict):
         strip_breeding_pack10_kits(data)
+    # Preserve previous config as a safety backup before replacing it. This is expected
+    # by the legacy plugin workflow and by the stub-sync tests for config.json.
+    backup_path = path.with_suffix(f"{path.suffix}.bak") if path.suffix else path.with_suffix(".bak")
+    if path.exists():
+        backup_path.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
@@ -4545,11 +4557,7 @@ def sync_plugin_at_path(
     shop: Optional["ShopGlobalConfig"] = None,
     srv: Any = None,
 ) -> List[str]:
-    """Sincroniza config local do mapa + aponta SharedCatalogPath para o catálogo partilhado.
-
-    O ficheiro local deixa de guardar Items/Kits (ficam em catalog.json).
-    Compat: se o path do catálogo partilhado for o próprio plugin_path, faz merge monolítico legado.
-    """
+    """Sincroniza config local do mapa a partir do catálogo mestre (config completo)."""
     existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
     perm_notes: List[str] = []
     label = server_name or plugin_path.parent.parent.name or str(plugin_path)
@@ -4561,69 +4569,48 @@ def sync_plugin_at_path(
         logger.info("CustomShop sync Permissions [%s] %s", label, note)
 
     old_url = str((existing.get("Settings") or {}).get("WebsiteUrl") or "").strip()
-    shared_path = str(canonical_master_catalog_path())
-
-    # Evitar stub se o "plugin_path" for o próprio catálogo partilhado.
-    same_as_shared = False
-    try:
-        same_as_shared = plugin_path.resolve() == Path(shared_path).resolve()
-    except OSError:
-        same_as_shared = str(plugin_path).lower() == shared_path.lower()
-
-    if same_as_shared:
-        merged = merge_catalog_into_plugin_config(catalog, existing)
-        merge_settings_from_catalog(
-            merged, catalog, existing,
-            website_url=website_url, api_url=api_url, api_key=api_key,
+    merged = merge_catalog_into_plugin_config(catalog, existing)
+    merge_settings_from_catalog(
+        merged, catalog, existing,
+        website_url=website_url, api_url=api_url, api_key=api_key,
+    )
+    if db_settings:
+        merged["Database"] = deepcopy(db_settings)
+    merged[SHARED_CATALOG_PATH_KEY] = str(canonical_master_catalog_path())
+    if shop is not None and srv is not None:
+        merged["CrossChat"] = build_cross_chat_settings(
+            shop, srv,
+            catalog_cc=catalog.get("CrossChat") or {},
+            existing_cc=merged.get("CrossChat") or {},
         )
-        if db_settings:
-            merged["Database"] = deepcopy(db_settings)
-        if shop is not None and srv is not None:
-            merged["CrossChat"] = build_cross_chat_settings(
-                shop, srv,
-                catalog_cc=catalog.get("CrossChat") or {},
-                existing_cc=merged.get("CrossChat") or {},
-            )
-            merged.setdefault("Settings", {})["ServerId"] = _cross_chat_server_label(srv)
-        save_plugin_config(plugin_path, merged)
-        after_ni, after_nk = catalog_entry_counts(merged)
-    else:
-        # Backup one-shot do monolítico local antes de encolher para stub.
-        if before_ni + before_nk > 0 and SHARED_CATALOG_PATH_KEY not in existing:
-            bak = plugin_path.with_suffix(plugin_path.suffix + ".bak")
-            if not bak.is_file():
-                try:
-                    shutil.copy2(plugin_path, bak)
-                    logger.info("CustomShop: backup monolítico → %s", bak)
-                    perm_notes.append(f"{label}: backup → {bak.name}")
-                except OSError as exc:
-                    logger.warning("CustomShop: falha backup %s: %s", bak, exc)
-
-        local = build_local_plugin_config(
-            existing,
-            catalog,
-            shared_catalog_path=shared_path,
-            website_url=website_url,
-            api_url=api_url,
-            api_key=api_key,
-            db_settings=db_settings or None,
-            shop=shop,
-            srv=srv,
-        )
-        if shop is not None and srv is not None:
-            map_sid = _cross_chat_server_label(srv)
-            logger.info(
-                "CustomShop sync ServerId [%s]: Settings/CrossChat.ServerId=%r (cross_chat=%s)",
-                label,
-                map_sid,
-                "on" if is_cross_chat_enabled(shop) else "off",
-            )
-        save_plugin_config(plugin_path, local)
-        after_ni, after_nk = 0, 0  # local stub sem catálogo
+        merged.setdefault("Settings", {})["ServerId"] = _cross_chat_server_label(srv)
+        map_sid = _cross_chat_server_label(srv)
         logger.info(
-            "CustomShop sync stub [%s]: SharedCatalogPath=%s (mestre %d itens / %d kits)",
-            label, shared_path, master_ni, master_nk,
+            "CustomShop sync ServerId [%s]: Settings/CrossChat.ServerId=%r (cross_chat=%s)",
+            label,
+            map_sid,
+            "on" if is_cross_chat_enabled(shop) else "off",
         )
+
+    # The per-map config file should keep only local map state and the master catalog pointer.
+    # Shared catalog sections remain in the canonical catalog JSON, not in the stub config.
+    for key in tuple(merged.keys()):
+        if key in SHARED_SYNC_TOP_LEVEL_KEYS and key != "CrossChat":
+            merged.pop(key, None)
+
+    # Keep only local map-level settings in the stub; content metadata (ShopName, branding,
+    # item/kits and timed rewards) lives in the shared catalog JSON managed by the cluster.
+    settings = merged.get("Settings") or {}
+    if isinstance(settings, dict):
+        filtered = {
+            k: deepcopy(v)
+            for k, v in settings.items()
+            if k in TEK_MANAGED_SETTINGS_KEYS or k in {"WebsiteUrl", "WebApiUrl", "WebApiKey"}
+        }
+        merged["Settings"] = filtered
+
+    save_plugin_config(plugin_path, merged)
+    after_ni, after_nk = catalog_entry_counts(merged)
 
     logger.info(
         "CustomShop sync catálogo [%s]: itens locais %d→%d kits %d→%d (mestre %d/%d) → %s",
@@ -4638,7 +4625,7 @@ def sync_plugin_at_path(
         saved = load_plugin_config(plugin_path)
         new_url = str((saved.get("Settings") or {}).get("WebsiteUrl") or "").strip()
         tp = saved.get("TimedPointsReward") or {}
-        if not tp and not same_as_shared:
+        if not tp:
             tp = catalog.get("TimedPointsReward") or {}
         tp_groups = tp.get("Groups") or {}
         logger.info(
