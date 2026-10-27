@@ -8149,8 +8149,23 @@
         <div class="card">
           <div class="form-grid">
             <div class="form-group" style="grid-column:1/-1;">
-              <label>Caminho para config.json do CustomShop (catálogo mestre)</label>
+              <label>Caminho para catalogo.json do CustomShop (catálogo mestre)</label>
+              <input id="s-catalog-path" type="text" placeholder="C:\ARKLAND SERVER\CustomShop\catalogo.json" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Caminho compatível legado (config_path)</label>
               <input id="s-config-path" type="text" placeholder="C:\ARK\...\CustomShop\config.json" />
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">
+                Compatibilidade: este valor é sincronizado com o caminho do catálogo mestre.
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Discord validação — ID do canal</label>
+              <input id="s-discord-validation-channel-id" type="text" placeholder="123456789012345678" />
+            </div>
+            <div class="form-group">
+              <label>Discord validação — ID do cargo</label>
+              <input id="s-discord-validation-role-id" type="text" placeholder="123456789012345678" />
             </div>
             <div class="form-group">
               <label>Server ID padrão</label>
@@ -9381,6 +9396,26 @@
               </div>
             </div>
             <div id="myarea-market-status" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
+          </div>
+          <div id="myarea-discord-link" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div class="card-title" style="font-size:14px;margin-bottom:10px;">🔗 Vínculo Discord</div>
+            <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
+              Vincule seu Discord para agilizar o suporte e validações no site.
+            </p>
+            <div class="form-grid" style="margin-top:0;">
+              <div class="form-group">
+                <label>Discord — usuário</label>
+                <input id="myarea-discord-username" type="text" placeholder="nick#0000 ou @usuario" />
+              </div>
+              <div class="form-group">
+                <label>Discord — ID (opcional)</label>
+                <input id="myarea-discord-id" type="text" placeholder="123456789012345678" />
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center;">
+              <button class="btn btn-ghost btn-sm" onclick="ticketsSaveDiscordLink()">💾 Salvar Discord</button>
+              <span id="myarea-discord-status" style="font-size:11px;color:var(--text2);">Carregando vínculo…</span>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -15961,6 +15996,7 @@ async function loadMyArea(opts) {
   }
 
   await Promise.all([
+    loadMyAreaDiscordLink(),
     loadMyAreaLottery(),
     loadMyAreaLicenses(),
     loadMyAreaDinoOrders(),
@@ -15970,6 +16006,49 @@ async function loadMyArea(opts) {
     }).catch(() => {}),
   ]);
   _navPageMark("myarea");
+}
+
+function _applyDiscordLinkToInputs(link) {
+  const username = (link && link.discord_username) ? String(link.discord_username) : "";
+  const userId = (link && link.discord_user_id) ? String(link.discord_user_id) : "";
+  const tUser = document.getElementById("tickets-discord-username");
+  const tId = document.getElementById("tickets-discord-id");
+  const mUser = document.getElementById("myarea-discord-username");
+  const mId = document.getElementById("myarea-discord-id");
+  if (tUser) tUser.value = username;
+  if (tId) tId.value = userId;
+  if (mUser) mUser.value = username;
+  if (mId) mId.value = userId;
+}
+
+function _setMyAreaDiscordStatus(message, color) {
+  const statusEl = document.getElementById("myarea-discord-status");
+  if (!statusEl) return;
+  statusEl.style.color = color || "var(--text2)";
+  statusEl.textContent = message || "";
+}
+
+async function loadMyAreaDiscordLink() {
+  if (!_auth.authenticated) return;
+  try {
+    const d = await fetchJson("/api/tickets/discord-link", {
+      timeoutMs: 12000,
+      retries: 0,
+    });
+    if (!d.ok) {
+      _setMyAreaDiscordStatus(d.error || "Não foi possível carregar o vínculo.", "var(--danger)");
+      return;
+    }
+    const link = d.link || {};
+    _applyDiscordLinkToInputs(link);
+    if (link.discord_username || link.discord_user_id) {
+      _setMyAreaDiscordStatus("Discord vinculado.", "var(--success)");
+    } else {
+      _setMyAreaDiscordStatus("Discord ainda não vinculado.", "var(--text2)");
+    }
+  } catch (e) {
+    _setMyAreaDiscordStatus("Erro ao carregar vínculo Discord.", "var(--danger)");
+  }
 }
 
 async function loadMyAreaMarketProfile() {
@@ -16357,7 +16436,7 @@ async function loadConfig() {
       const msg = data.error
         || (pathHint
           ? `config.json vazio ou em falta: ${pathHint}`
-          : "config.json sem itens/kits — verifique Configurações → caminho do catálogo");
+          : "config.json sem itens/kits — verifique Configurações → caminho do catálogo (catalogo.json)");
       setStatus(false, "Erro: " + msg);
       toast(msg, "error");
       setAdminShopLoading(msg + " — clique em ↺ Recarregar");
@@ -20130,10 +20209,7 @@ async function loadTicketsPlayer() {
     }
     if (_ticketsPlayerPage.offset === 0) {
       const link = d.discord_link || {};
-      const du = document.getElementById("tickets-discord-username");
-      const di = document.getElementById("tickets-discord-id");
-      if (du && link.discord_username) du.value = link.discord_username;
-      if (di && link.discord_user_id) di.value = link.discord_user_id;
+      _applyDiscordLinkToInputs(link);
     }
     if (!_ticketsPlayerList.length) {
       const emptyMsg = status === "encerrados"
@@ -20161,9 +20237,13 @@ async function loadTicketsPlayer() {
 
 async function ticketsSaveDiscordLink() {
   if (!_auth.authenticated) { promptLogin("vincular Discord"); return; }
+  const myAreaUsername = (document.getElementById("myarea-discord-username")?.value || "").trim();
+  const myAreaId = (document.getElementById("myarea-discord-id")?.value || "").trim();
+  const ticketsUsername = (document.getElementById("tickets-discord-username")?.value || "").trim();
+  const ticketsId = (document.getElementById("tickets-discord-id")?.value || "").trim();
   const body = {
-    discord_username: (document.getElementById("tickets-discord-username")?.value || "").trim(),
-    discord_user_id: (document.getElementById("tickets-discord-id")?.value || "").trim(),
+    discord_username: myAreaUsername || ticketsUsername,
+    discord_user_id: myAreaId || ticketsId,
   };
   try {
     const d = await fetchJson("/api/tickets/discord-link", {
@@ -20173,6 +20253,8 @@ async function ticketsSaveDiscordLink() {
       timeoutMs: 12000,
     });
     if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
+    _applyDiscordLinkToInputs(d.link || body);
+    _setMyAreaDiscordStatus("Discord vinculado.", "var(--success)");
     toast("Discord vinculado.", "success");
   } catch (e) { toast(String(e), "error"); }
 }
@@ -27027,7 +27109,11 @@ async function loadSettings() {
   try {
     const r = await fetch(API + "/api/settings");
     const s = await r.json();
-    document.getElementById("s-config-path").value    = s.config_path || "";
+    const catalogPath = s.catalog_path || s.config_path || "";
+    document.getElementById("s-catalog-path").value   = catalogPath;
+    document.getElementById("s-config-path").value    = s.config_path || catalogPath;
+    document.getElementById("s-discord-validation-channel-id").value = s.discord_validation_channel_id || "";
+    document.getElementById("s-discord-validation-role-id").value = s.discord_validation_role_id || "";
     document.getElementById("s-server-id").value      = s.server_id || "default";
     document.getElementById("s-retry-max").value      = s.retry_max_attempts || 10;
     document.getElementById("s-join-host").value    = s.join_host || "";
@@ -27129,8 +27215,13 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
+  const catalogPath = (document.getElementById("s-catalog-path")?.value || "").trim();
+  const legacyConfigPath = (document.getElementById("s-config-path")?.value || "").trim();
   const body = {
-    config_path: document.getElementById("s-config-path").value,
+    catalog_path: catalogPath,
+    config_path: catalogPath || legacyConfigPath,
+    discord_validation_channel_id: document.getElementById("s-discord-validation-channel-id")?.value.trim() || "",
+    discord_validation_role_id: document.getElementById("s-discord-validation-role-id")?.value.trim() || "",
     server_id:   document.getElementById("s-server-id").value,
     retry_max_attempts: parseInt(document.getElementById("s-retry-max").value),
     join_host:   document.getElementById("s-join-host").value.trim(),

@@ -4,13 +4,25 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.128"
+APP_VERSION: str = "1.10.129"
 BUILD_DATE: str = "2026-10-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.129",
+        "date": "2026-10-27",
+        "changes": [
+            "Feat (Web Store / Minha Área): nova seção de vinculação Discord visível para jogador com status do vínculo, campos de usuário/ID e fluxo de salvar integrado ao endpoint de tickets.",
+            "Feat (Web Store / Configurar Paths): painel de administração agora expõe e persiste os campos de validação Discord (canal e cargo), removendo a configuração oculta e facilitando suporte operacional.",
+            "Fix (Web Store / UX Discord): sincronização entre a tela de Tickets e a Minha Área para evitar divergência de dados no vínculo e reduzir retrabalho em suporte.",
+            "Fix (Web Store / Inicialização): ajustes de robustez no backend para evitar ruído de diagnóstico e melhorar legibilidade de configuração de porta/boot sem alterar comportamento funcional.",
+            "Fix (Qualidade / Testes Web): limpeza de diagnósticos de lint no módulo de testes da Web Store (imports, espaçamento e organização), estabilizando o pipeline local de validação.",
+            "Fix (Release / Notas): revisão do padrão de changelog para publicar notas mais úteis, com impacto funcional real por área (jogador, admin e operação), evitando entradas genéricas de release.",
+        ],
+    },
     {
         "version": "1.10.128",
         "date": "2026-10-27",

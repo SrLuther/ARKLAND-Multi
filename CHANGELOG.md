@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.129] - 2026-10-27
+
+### Feature
+
+- Feat (Web Store / Minha Área): nova seção de vinculação Discord visível para jogador com status do vínculo, campos de usuário/ID e fluxo de salvar integrado ao endpoint de tickets.
+- Feat (Web Store / Configurar Paths): painel de administração agora expõe e persiste os campos de validação Discord (canal e cargo), removendo a configuração oculta e facilitando suporte operacional.
+
+### Fix
+
+- Fix (Web Store / UX Discord): sincronização entre a tela de Tickets e a Minha Área para evitar divergência de dados no vínculo e reduzir retrabalho em suporte.
+- Fix (Web Store / Inicialização): ajustes de robustez no backend para evitar ruído de diagnóstico e melhorar legibilidade de configuração de porta/boot sem alterar comportamento funcional.
+- Fix (Qualidade / Testes Web): limpeza de diagnósticos de lint no módulo de testes da Web Store (imports, espaçamento e organização), estabilizando o pipeline local de validação.
+- Fix (Release / Notas): revisão do padrão de changelog para publicar notas mais úteis, com impacto funcional real por área (jogador, admin e operação), evitando entradas genéricas de release.
+
 ## [1.10.128] - 2026-10-27
 
 ### Feature

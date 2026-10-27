@@ -1,10 +1,13 @@
 {
-    "version": "1.10.128",
+    "version": "1.10.129",
     "date": "2026-10-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.128/ARKLAND-Multi-Setup-v1.10.128.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.129/ARKLAND-Multi-Setup-v1.10.129.exe",
     "changelog": [
-        "Feat (Release / Publicação): prepara a entrega da build 1.10.128 com artefatos atualizados, sincronização de versionamento e link de download da release.",
-        "Fix (Discord / Vinculação): corrige a validação de expiração e confirmação do código de vínculo do Discord, normalizando datas UTC/SQLite sem quebrar o fluxo de login e atualização do cargo.",
-        "Fix (Release / Atualização): mantém o processo de release e do updater compatível com a versão publicada e com a URL de download da build atual."
+        "Feat (Web Store / Minha Área): nova seção de vinculação Discord visível para jogador com status do vínculo, campos de usuário/ID e fluxo de salvar integrado ao endpoint de tickets.",
+        "Feat (Web Store / Configurar Paths): painel de administração agora expõe e persiste os campos de validação Discord (canal e cargo), removendo a configuração oculta e facilitando suporte operacional.",
+        "Fix (Web Store / UX Discord): sincronização entre a tela de Tickets e a Minha Área para evitar divergência de dados no vínculo e reduzir retrabalho em suporte.",
+        "Fix (Web Store / Inicialização): ajustes de robustez no backend para evitar ruído de diagnóstico e melhorar legibilidade de configuração de porta/boot sem alterar comportamento funcional.",
+        "Fix (Qualidade / Testes Web): limpeza de diagnósticos de lint no módulo de testes da Web Store (imports, espaçamento e organização), estabilizando o pipeline local de validação.",
+        "Fix (Release / Notas): revisão do padrão de changelog para publicar notas mais úteis, com impacto funcional real por área (jogador, admin e operação), evitando entradas genéricas de release."
     ]
 }

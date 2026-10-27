@@ -1,4 +1,5 @@
-"""Testes para ArkShop Web Manager."""
+﻿"""Testes para ArkShop Web Manager."""
+# flake8: noqa: W391
 from __future__ import annotations
 
 import json
@@ -11,7 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault("ARKSHOP_DATABASE_URL", "")
@@ -19,9 +22,9 @@ os.environ.setdefault("ARKSHOP_WEB_SECRET", "test-secret")
 os.environ.setdefault("ARKSHOP_RETRY_INTERVAL", "9999")
 os.environ.setdefault("ARKSHOP_SKIP_DB_BOOT", "1")
 
-import app as _app_module
-from app import app, _configure_database, _now
-from server_connect import ARK_ASE_STEAM_APP_ID
+import app as _app_module  # noqa: E402
+from app import app, _configure_database, _now  # noqa: E402
+from server_connect import ARK_ASE_STEAM_APP_ID  # noqa: E402
 
 ADMIN_STEAM = "76561198000000001"
 USER_STEAM  = "76561198000000002"
@@ -105,6 +108,13 @@ def client():
         yield c
 
 
+def test_unknown_frontend_route_serves_spa_shell(client):
+    r = client.get("/rota-qualquer-nao-existente")
+    assert r.status_code == 200
+    assert r.mimetype.startswith("text/html")
+    assert "<!DOCTYPE html>" in r.get_data(as_text=True)
+
+
 def _login(client, steam_id: str):
     with client.session_transaction() as sess:
         sess["steam_id"] = steam_id
@@ -178,7 +188,7 @@ def _create_donation_direct(
         db.close()
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestAuth:
     def test_me_unauthenticated(self, client):
@@ -390,7 +400,7 @@ class TestPointPackages:
         _app_module._invalidate_shop_config_cache()
 
     def test_get_config_empty_file_returns_error_not_silent_empty(self, client, tmp_path, monkeypatch):
-        """Admin «Nenhum item cadastrado» — path existe mas sem Items/Kits → error explícito."""
+        """Admin Â«Nenhum item cadastradoÂ» â€” path existe mas sem Items/Kits â†’ error explÃ­cito."""
         config_path = tmp_path / "shop_config.json"
         config_path.write_text(json.dumps({"Settings": {}, "Items": {}, "Kits": {}}), encoding="utf-8")
         _write_settings(tmp_path, config_path=str(config_path))
@@ -479,7 +489,7 @@ class TestPointPackages:
 
     def test_load_prefers_catalog_over_settings(self, client, tmp_path, monkeypatch):
         config_path = tmp_path / "shop_config.json"
-        catalog_pkgs = [{"id": "from_cfg", "label": "Do catálogo", "points": 100, "price_brl": 1.0}]
+        catalog_pkgs = [{"id": "from_cfg", "label": "Do catÃ¡logo", "points": 100, "price_brl": 1.0}]
         config_path.write_text(json.dumps({"PointPackages": catalog_pkgs}), encoding="utf-8")
         _write_settings(
             tmp_path,
@@ -525,7 +535,7 @@ class TestPointPackages:
         _write_settings(tmp_path, config_path=str(config_path))
         self._use_isolated_catalog(monkeypatch, config_path)
 
-        custom = [{"id": "only_one", "label": "Único", "points": 5000, "price_brl": 25.0, "note": "Teste"}]
+        custom = [{"id": "only_one", "label": "Ãšnico", "points": 5000, "price_brl": 25.0, "note": "Teste"}]
         _login(client, ADMIN_STEAM)
         r = client.post("/api/settings", json={"point_packages": custom})
         assert r.status_code == 200
@@ -728,7 +738,7 @@ class TestCatalogPathAlignment:
         assert meta.get("catalog_note")
 
 
-# ── Player summary & history ──────────────────────────────────────────────────
+# â”€â”€ Player summary & history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestPlayerHistory:
     def test_summary_empty(self, client):
@@ -809,7 +819,7 @@ class TestPlayerHistory:
         assert r.status_code == 401
 
 
-# ── Order detail ──────────────────────────────────────────────────────────────
+# â”€â”€ Order detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestOrderDetail:
     def test_detail_includes_attempts_and_disputes(self, client):
@@ -838,7 +848,7 @@ class TestOrderDetail:
         assert r.status_code == 404
 
 
-# ── Contest ───────────────────────────────────────────────────────────────────
+# â”€â”€ Contest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestContest:
     def test_contest_sets_status(self, client):
@@ -846,7 +856,7 @@ class TestContest:
         oid = _create_order_direct()
         r = client.post(
             f"/api/player/orders/{oid}/contest",
-            json={"reason": "não recebi o item no servidor após várias tentativas"},
+            json={"reason": "nÃ£o recebi o item no servidor apÃ³s vÃ¡rias tentativas"},
         )
         d = r.get_json()
         assert d["ok"] is True
@@ -869,7 +879,7 @@ class TestContest:
     def test_contest_creates_dispute_and_ticket(self, client):
         _login(client, USER_STEAM)
         oid = _create_order_direct()
-        reason = "Item não entregue após inventário livre e várias tentativas de /shop"
+        reason = "Item nÃ£o entregue apÃ³s inventÃ¡rio livre e vÃ¡rias tentativas de /shop"
         client.post(f"/api/player/orders/{oid}/contest", json={"reason": reason})
         db = _app_module._SessionLocal()
         try:
@@ -888,7 +898,7 @@ class TestContest:
             db.close()
 
 
-# ── Reemissão admin ───────────────────────────────────────────────────────────
+# â”€â”€ ReemissÃ£o admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestAdminReissue:
     def test_player_rebuy_forbidden(self, client):
@@ -902,7 +912,7 @@ class TestAdminReissue:
         oid = _create_order_direct(status="ENTREGUE")
         r = client.post(
             f"/api/admin/orders/{oid}/reissue",
-            json={"reason": "Teste reemissão", "force_reset": True},
+            json={"reason": "Teste reemissÃ£o", "force_reset": True},
         )
         d = r.get_json()
         assert d.get("ok") is True
@@ -917,7 +927,7 @@ class TestAdminReissue:
             ).first()
             assert reissue is not None
             assert reissue.admin_steam_id == ADMIN_STEAM
-            assert reissue.reason == "Teste reemissão"
+            assert reissue.reason == "Teste reemissÃ£o"
         finally:
             db.close()
 
@@ -941,7 +951,7 @@ class TestAudit:
         d = r.get_json()
         assert d.get("ok") is True
         assert "items" in d
-        # Hot path: sem COUNT(*) — total null, has_more via LIMIT+1.
+        # Hot path: sem COUNT(*) â€” total null, has_more via LIMIT+1.
         assert d.get("total") is None
         assert "has_more" in d
 
@@ -1001,7 +1011,7 @@ class TestAudit:
         assert any(e.get("order_id") == "ord-by-id-test" for e in d["items"])
 
 
-# ── Idempotência ──────────────────────────────────────────────────────────────
+# â”€â”€ IdempotÃªncia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestIdempotency:
     def test_delivered_order_skipped_on_retry(self, client):
@@ -1012,7 +1022,7 @@ class TestIdempotency:
         assert result["status"] == "ENTREGUE"
 
 
-# ── Servers CRUD ──────────────────────────────────────────────────────────────
+# â”€â”€ Servers CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestServers:
     def test_list_empty(self, client):
@@ -1155,7 +1165,7 @@ class TestServers:
         assert r.status_code == 403
 
 
-# ── Entrega via fila do plugin ───────────────────────────────────────────────
+# â”€â”€ Entrega via fila do plugin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestPluginDeliveryQueue:
     def test_process_order_queues_without_rcon(self, client):
@@ -1283,7 +1293,7 @@ class TestPendingDeliveries:
                 "Items": {
                     "licenca_gamma": {
                         "Type": "license",
-                        "Description": "Licença Gamma (30 dias)",
+                        "Description": "LicenÃ§a Gamma (30 dias)",
                     },
                 },
                 "Kits": {},
@@ -1301,7 +1311,7 @@ class TestPendingDeliveries:
         self._write_license_catalog(tmp_path, monkeypatch)
         oid = _create_order_direct(item_id="licenca_gamma", status="PENDENTE")
 
-        # Fulfilled = entitlement deste pedido (source=order_id), não só grupo activo.
+        # Fulfilled = entitlement deste pedido (source=order_id), nÃ£o sÃ³ grupo activo.
         monkeypatch.setattr(
             _app_module,
             "_get_player_entitlements",
@@ -1372,7 +1382,7 @@ class TestPendingDeliveries:
             db.close()
 
 
-# ── Delivery com RCON por servidor (modo legado) ─────────────────────────────
+# â”€â”€ Delivery com RCON por servidor (modo legado) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestServerRconRouting:
     def test_delivery_uses_server_specific_rcon(self, client, tmp_path):
@@ -1386,6 +1396,7 @@ class TestServerRconRouting:
         })
 
         calls = []
+
         def fake_rcon(host, port, password, command, timeout=5.0):
             calls.append({"host": host, "port": port, "password": password})
             return "ok"
@@ -1399,15 +1410,15 @@ class TestServerRconRouting:
         assert calls[0]["password"] == "pvp_secret"
 
 
-# ── Concorrência ──────────────────────────────────────────────────────────────
+# â”€â”€ ConcorrÃªncia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestConcurrency:
     def test_concurrent_delivery_does_not_duplicate(self, tmp_path):
         """
-        WITH FOR UPDATE garante idempotência em MySQL/MariaDB.
-        SQLite não suporta row-level lock, então este teste valida apenas
-        que o status final é ENTREGUE (sem duplicatas de status, mesmo que
-        múltiplas tentativas ocorram).
+        WITH FOR UPDATE garante idempotÃªncia em MySQL/MariaDB.
+        SQLite nÃ£o suporta row-level lock, entÃ£o este teste valida apenas
+        que o status final Ã© ENTREGUE (sem duplicatas de status, mesmo que
+        mÃºltiplas tentativas ocorram).
         """
         _write_settings(tmp_path, delivery_mode="rcon")
         oid = _create_order_direct(status="PENDENTE")
@@ -1436,7 +1447,7 @@ class TestConcurrency:
             db.close()
 
 
-# ── RCON (reload + comandos in-game) ─────────────────────────────────────────
+# â”€â”€ RCON (reload + comandos in-game) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestRconScope:
     def test_rcon_blocks_shop_points(self, client):
@@ -1463,7 +1474,7 @@ class TestRconScope:
         assert r.get_json()["results"][0]["queued"] is True
 
 
-# ── Admin gestão de jogadores ───────────────────────────────────────────────────
+# â”€â”€ Admin gestÃ£o de jogadores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _seed_store_user(
     steam_id: str,
@@ -1648,7 +1659,7 @@ class TestAdminPlayers:
 
 
 class TestAdminCatalogDeliver:
-    """Admin Gerenciar Jogadores — entrega de todo o catálogo resgatável."""
+    """Admin Gerenciar Jogadores â€” entrega de todo o catÃ¡logo resgatÃ¡vel."""
 
     def _mock_full_catalog(self, monkeypatch, tmp_path):
         config = {
@@ -1674,13 +1685,13 @@ class TestAdminCatalogDeliver:
                 },
                 "rex_l50": {
                     "Type": "dino",
-                    "Description": "Rex Nível 50",
+                    "Description": "Rex NÃ­vel 50",
                     "Price": 900,
                     "Dinos": [{"Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP", "Level": 50}],
                 },
                 "licenca_gamma": {
                     "Type": "license",
-                    "Description": "Licença Gamma",
+                    "Description": "LicenÃ§a Gamma",
                     "LicenseGrant": {"Group": "Gamma", "Days": 30},
                 },
             },
@@ -1731,13 +1742,13 @@ class TestAdminCatalogDeliver:
         cat = d.get("deliver_catalog") or {}
         assert any(i["item_id"] == "metal_ingot" for i in cat.get("items") or [])
         assert any(i["item_id"] == "rex_l1" for i in cat.get("dinos") or [])
-        # Categoria única «Dinos»: L1 e L200 (e qualquer outro nível) na mesma lista.
+        # Categoria Ãºnica Â«DinosÂ»: L1 e L200 (e qualquer outro nÃ­vel) na mesma lista.
         l200 = [i for i in cat.get("dinos") or [] if i["item_id"] == "rex_l200"]
         assert l200 and l200[0]["dino_level"] == 200
         # Alias legado para clientes antigos.
         assert any(i["item_id"] == "rex_l200" for i in cat.get("dinos200") or [])
         assert any(i["item_id"] == "starter" for i in cat.get("kits") or [])
-        # Licenças ficam no bloco separado — não no seletor de entrega.
+        # LicenÃ§as ficam no bloco separado â€” nÃ£o no seletor de entrega.
         assert not any(i["item_id"] == "licenca_gamma" for i in cat.get("items") or [])
 
     def test_admin_deliver_shop_item(self, client, monkeypatch, tmp_path):
@@ -1852,7 +1863,7 @@ class TestAdminPoints:
         assert r.status_code == 403
 
 
-# ── Admin reprocess ───────────────────────────────────────────────────────────
+# â”€â”€ Admin reprocess â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestAdminReprocess:
     def test_reprocess_erro_order(self, client):
@@ -1871,7 +1882,7 @@ class TestAdminReprocess:
         assert r.status_code == 400
 
 
-# ── Admin orders list ─────────────────────────────────────────────────────────
+# â”€â”€ Admin orders list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestAdminOrdersList:
     def test_admin_orders_forbidden_for_player(self, client):
@@ -1880,7 +1891,7 @@ class TestAdminOrdersList:
         assert r.status_code in (401, 403)
 
     def test_admin_orders_list_default_skips_total(self, client):
-        """Hot path: sem COUNT(*) — total null, has_more via LIMIT+1."""
+        """Hot path: sem COUNT(*) â€” total null, has_more via LIMIT+1."""
         _login(client, ADMIN_STEAM)
         _create_order_direct(status="ENTREGUE")
         _create_order_direct(status="PENDENTE")
@@ -1943,7 +1954,7 @@ class TestAdminOrdersList:
         assert all(o["status"] == "PENDENTE" for o in d["items"])
 
 
-# ── Admin order actions (refund / resend / cancel / details) ─────────────────
+# â”€â”€ Admin order actions (refund / resend / cancel / details) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestAdminOrderActions:
     def test_admin_refund_credits_player(self, client):
@@ -1952,7 +1963,7 @@ class TestAdminOrderActions:
         oid = _create_order_direct(status="ENTREGUE", points_spent=50)
         r = client.post(
             f"/api/admin/orders/{oid}/refund",
-            json={"reason": "Não entregue"},
+            json={"reason": "NÃ£o entregue"},
         )
         d = r.get_json()
         assert d["ok"] is True
@@ -2095,7 +2106,7 @@ class TestAdminOrderActions:
         assert d["new_balance"] == 175
 
 
-# ── Licença Nuvem / entitlements ─────────────────────────────────────────────
+# â”€â”€ LicenÃ§a Nuvem / entitlements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _seed_player_points(steam_id: str, points: int) -> None:
     from sqlalchemy import text
@@ -2152,7 +2163,7 @@ class TestCloudLicensePurchase:
         assert any(e["group"] == "keyvault" for e in ents)
 
     def test_keyvault_renewal_extends_expires_not_replace(self, monkeypatch):
-        """Renovação de keyvault soma dias ao residual (spec: renovação soma)."""
+        """RenovaÃ§Ã£o de keyvault soma dias ao residual (spec: renovaÃ§Ã£o soma)."""
         from datetime import datetime, timedelta, timezone
 
         db = _app_module._SessionLocal()
@@ -2190,7 +2201,7 @@ class TestCloudLicensePurchase:
         if getattr(exp, "tzinfo", None) is None:
             exp = exp.replace(tzinfo=timezone.utc)
         remaining = (exp - datetime.now(timezone.utc)).total_seconds()
-        # ~17 + 30 = ~47 dias (±2 dias de tolerância)
+        # ~17 + 30 = ~47 dias (Â±2 dias de tolerÃ¢ncia)
         assert remaining >= 44 * 86400
         assert remaining <= 50 * 86400
 
@@ -2243,7 +2254,7 @@ class TestCloudLicensePurchase:
         assert _app_module._ENTITLEMENTS_SCHEMA_READY is True
 
 
-# ── Doações — cartão Mercado Pago ─────────────────────────────────────────────
+# â”€â”€ DoaÃ§Ãµes â€” cartÃ£o Mercado Pago â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class TestDonationPublicUrl:
     def test_shop_public_base_url_defaults_to_arkland(self, tmp_path, monkeypatch):
@@ -2301,7 +2312,7 @@ class TestCardCheckout:
                     "package_id": "p10000",
                     "payer": {
                         "email": "player@example.com",
-                        "full_name": "João Silva",
+                        "full_name": "JoÃ£o Silva",
                         "cpf": "529.982.247-25",
                     },
                 },
@@ -2337,7 +2348,7 @@ class TestCardCheckout:
                 "package_id": "invalid_pkg",
                 "payer": {
                     "email": "player@example.com",
-                    "full_name": "João Silva",
+                    "full_name": "JoÃ£o Silva",
                     "cpf": "529.982.247-25",
                 },
             },
@@ -2491,7 +2502,7 @@ class TestCardCheckout:
             db.close()
 
     def test_status_polls_mp_for_abandoned_pix_payment(self, client, tmp_path, monkeypatch):
-        """ABANDONADO não deve bloquear reconciliação — jogador pode pagar após fechar o modal."""
+        """ABANDONADO nÃ£o deve bloquear reconciliaÃ§Ã£o â€” jogador pode pagar apÃ³s fechar o modal."""
         self._enable_mp(tmp_path, monkeypatch)
         _login(client, USER_STEAM)
         payment_id = str(uuid.uuid4())
@@ -2523,7 +2534,7 @@ class TestCardCheckout:
             import background_tasks as _bg
             _bg.set_inline_mode(True)
             r = client.get(f"/api/player/pix/{payment_id}/status")
-            # Snapshot pré-job; 2.º poll (inline já creditou) confirma APROVADO.
+            # Snapshot prÃ©-job; 2.Âº poll (inline jÃ¡ creditou) confirma APROVADO.
             r2 = client.get(f"/api/player/pix/{payment_id}/status")
         d = r.get_json()
         assert d["ok"] is True, d.get("error")
@@ -2542,8 +2553,6 @@ class TestCardCheckout:
             assert row.status == "APROVADO"
         finally:
             db.close()
-
-
 
 
 class TestBoletoCheckout:
@@ -2584,7 +2593,7 @@ class TestBoletoCheckout:
                     "package_id": "p10000",
                     "payer": {
                         "email": "player@example.com",
-                        "full_name": "João Silva",
+                        "full_name": "JoÃ£o Silva",
                         "cpf": "529.982.247-25",
                         "phone": "(11) 98765-4321",
                     },
@@ -2626,7 +2635,7 @@ class TestBoletoCheckout:
                 "package_id": "p10000",
                 "payer": {
                     "email": "player@example.com",
-                    "full_name": "João Silva",
+                    "full_name": "JoÃ£o Silva",
                     "cpf": "529.982.247-25",
                     "phone": "11987654321",
                 },
@@ -2681,6 +2690,7 @@ class TestBoletoCheckout:
             assert row.payment_method == "boleto"
         finally:
             db.close()
+
 
 class TestKitRedemptionLimit:
     def _mock_kit_catalog(self, monkeypatch, tmp_path):
@@ -2783,7 +2793,7 @@ class TestKitRedemptionLimit:
         assert starter["effective_remaining"] == 0
 
     def test_player_kit_limits_error_returns_partial_not_empty_success(self, client, monkeypatch, tmp_path):
-        """Fail-open não deve marcar limites prontos quando a API falha (kits=[])."""
+        """Fail-open nÃ£o deve marcar limites prontos quando a API falha (kits=[])."""
         _mock_display_name_ok(monkeypatch)
         self._mock_kit_catalog(monkeypatch, tmp_path)
         _login(client, USER_STEAM)
@@ -2801,7 +2811,7 @@ class TestKitRedemptionLimit:
         assert d.get("kits") == []
 
     def test_pending_kit_counts_survive_many_other_orders(self, tmp_path, monkeypatch):
-        """GROUP BY não perde pendentes do kit alvo quando há milhares de outros pedidos."""
+        """GROUP BY nÃ£o perde pendentes do kit alvo quando hÃ¡ milhares de outros pedidos."""
         catalog = tmp_path / "shop.json"
         kits = {
             "target_kit": {"Description": "Target", "DefaultAmount": 1, "Price": 0},
@@ -3077,7 +3087,7 @@ class TestLicenseRenewalKitReset:
     def test_license_renewal_restores_kit_despite_pending_order(
         self, client, monkeypatch, tmp_path,
     ):
-        """Pedido PENDENTE antigo não deve bloquear o novo período pós-renovação."""
+        """Pedido PENDENTE antigo nÃ£o deve bloquear o novo perÃ­odo pÃ³s-renovaÃ§Ã£o."""
         _mock_display_name_ok(monkeypatch)
         self._mock_license_kit_catalog(monkeypatch, tmp_path)
         self._seed_player_license(USER_STEAM, "Alfa")
@@ -3100,7 +3110,7 @@ class TestLicenseRenewalKitReset:
         assert renew.get_json()["ok"] is True
 
         stash = self._read_player_kits(USER_STEAM)
-        # DefaultAmount(1) + 1 pending → effective_remaining = 1
+        # DefaultAmount(1) + 1 pending â†’ effective_remaining = 1
         assert stash["kit_alfa"]["Amount"] == 2
 
         retry = client.post(
@@ -3179,7 +3189,7 @@ class TestRegulamento:
             json={
                 "category": "geral",
                 "subject": "teste aceite",
-                "body": "mensagem após regulamento",
+                "body": "mensagem apÃ³s regulamento",
             },
         )
         assert r.status_code == 201
@@ -3187,7 +3197,7 @@ class TestRegulamento:
 
 class TestAdminPlayersSteamBackfill:
     def test_stale_display_name_overwritten_on_login(self, client, monkeypatch):
-        """Ciano_STAFF em display_name/market_display_name deve ser substituído pelo nick Steam."""
+        """Ciano_STAFF em display_name/market_display_name deve ser substituÃ­do pelo nick Steam."""
         _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
         db = _app_module._SessionLocal()
         try:
@@ -3202,18 +3212,18 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(
             _app_module,
             "_fetch_steam_persona_names_batch",
-            lambda ids, timeout=12.0: {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {},
+            lambda ids, timeout=12.0: {USER_STEAM: "CyanÃ¸"} if USER_STEAM in ids else {},
         )
         _login(client, USER_STEAM)
         _app_module._touch_store_user_login(USER_STEAM)
         d = client.get("/api/auth/me").get_json()
-        assert d["steam_persona"] == "Cyanø"
-        assert d["display_name"] == "Cyanø"
+        assert d["steam_persona"] == "CyanÃ¸"
+        assert d["display_name"] == "CyanÃ¸"
         db = _app_module._SessionLocal()
         try:
             row = db.get(_app_module.StoreUser, USER_STEAM)
-            assert row.steam_persona == "Cyanø"
-            assert row.display_name == "Cyanø"
+            assert row.steam_persona == "CyanÃ¸"
+            assert row.display_name == "CyanÃ¸"
         finally:
             db.close()
 
@@ -3259,7 +3269,7 @@ class TestAdminPlayersSteamBackfill:
 
         def _fake_fetch(ids, timeout=12.0):
             calls.append(list(ids))
-            return {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {}
+            return {USER_STEAM: "CyanÃ¸"} if USER_STEAM in ids else {}
 
         monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _fake_fetch)
         d = client.get("/api/admin/players").get_json()
@@ -3270,7 +3280,7 @@ class TestAdminPlayersSteamBackfill:
         assert d.get("steam_persona_warning") in (None, "")
 
     def test_list_players_uses_cached_persona_without_sync(self, client, monkeypatch):
-        """Lista NÃO chama Steam no request — só cache; backfill é background."""
+        """Lista NÃƒO chama Steam no request â€” sÃ³ cache; backfill Ã© background."""
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
@@ -3295,7 +3305,7 @@ class TestAdminPlayersSteamBackfill:
         assert d.get("timing") is not None
 
     def test_list_players_slow_steam_does_not_block(self, client, monkeypatch):
-        """Steam lento (15s+) não pode estourar o timeout do frontend na lista."""
+        """Steam lento (15s+) nÃ£o pode estourar o timeout do frontend na lista."""
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
@@ -3305,7 +3315,7 @@ class TestAdminPlayersSteamBackfill:
             return {USER_STEAM: "TooLate"} if USER_STEAM in ids else {}
 
         monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", _slow_fetch)
-        # Não agenda bg real — só prova que o path HTTP não chama fetch.
+        # NÃ£o agenda bg real â€” sÃ³ prova que o path HTTP nÃ£o chama fetch.
         monkeypatch.setattr(_app_module, "_schedule_steam_persona_backfill", lambda _ids: None)
         t0 = time.perf_counter()
         d = client.get("/api/admin/players").get_json()
@@ -3326,7 +3336,7 @@ class TestAdminPlayersSteamBackfill:
         assert d.get("steam_persona_warning")
 
     def test_list_players_missing_persona_no_sync_warning_when_api_configured(self, client, monkeypatch):
-        """Com API key, lista não espera fetch — sem warning de falha síncrona."""
+        """Com API key, lista nÃ£o espera fetch â€” sem warning de falha sÃ­ncrona."""
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
@@ -3388,7 +3398,7 @@ class TestAdminPlayersSteamBackfill:
         assert calls == []
 
     def test_player_detail_skips_steam_api_even_when_persona_missing(self, client, monkeypatch):
-        """Detalhe nunca chama Steam — timeout 15s do frontend vs API lenta era a falha."""
+        """Detalhe nunca chama Steam â€” timeout 15s do frontend vs API lenta era a falha."""
         _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.setenv("STEAM_API_KEY", "test-key")
@@ -3422,7 +3432,7 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["display_name"] == USER_STEAM
 
     def test_player_detail_essential_defers_heavy_sections(self, client, monkeypatch):
-        """Essencial devolve o cartão barato + entitlements; pedidos/doações/kits/
+        """Essencial devolve o cartÃ£o barato + entitlements; pedidos/doaÃ§Ãµes/kits/
         listings ficam para o /heavy (partial_reason='deferred')."""
         _seed_store_user(USER_STEAM, display_name="Rapido", steam_persona="Rapido")
         _login(client, ADMIN_STEAM)
@@ -3431,7 +3441,7 @@ class TestAdminPlayersSteamBackfill:
         assert d.get("partial") is True
         assert d.get("partial_reason") == "deferred"
         assert d["player"]["steam_persona"] == "Rapido"
-        # Secções pesadas vazias/adiadas no essencial.
+        # SecÃ§Ãµes pesadas vazias/adiadas no essencial.
         assert d["recent_orders"] == []
         assert d["recent_donations"] == []
         assert d["player"]["kit_limits"] == []
@@ -3444,13 +3454,13 @@ class TestAdminPlayersSteamBackfill:
         }
 
     def test_player_detail_essential_skips_big_tables(self, client, monkeypatch):
-        """O essencial NUNCA varre orders/point_payments/market_listings — mesmo que
-        essas queries falhem, o cartão do jogador pesado carrega <8s."""
+        """O essencial NUNCA varre orders/point_payments/market_listings â€” mesmo que
+        essas queries falhem, o cartÃ£o do jogador pesado carrega <8s."""
         _seed_store_user(USER_STEAM, display_name="Pesado", steam_persona="Pesado")
         _login(client, ADMIN_STEAM)
 
         def _boom(*_a, **_k):
-            raise AssertionError("essencial não pode tocar a tabela grande")
+            raise AssertionError("essencial nÃ£o pode tocar a tabela grande")
 
         monkeypatch.setattr(_app_module, "_build_player_kit_limits", _boom)
         t0 = time.perf_counter()
@@ -3460,7 +3470,7 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["steam_persona"] == "Pesado"
 
     def test_player_detail_budget_returns_partial_when_slow(self, client, monkeypatch):
-        """Detalhe lento além do budget → resposta parcial rápida, nunca 15s."""
+        """Detalhe lento alÃ©m do budget â†’ resposta parcial rÃ¡pida, nunca 15s."""
         _seed_store_user(USER_STEAM, display_name="Lento", steam_persona="Lento")
         _login(client, ADMIN_STEAM)
         monkeypatch.setattr(_app_module, "_ADMIN_DETAIL_BUDGET_MS", 150)
@@ -3486,15 +3496,15 @@ class TestAdminPlayersSteamBackfill:
         assert r.status_code == 200
         assert d["ok"] is True
         assert d.get("partial") is True
-        assert elapsed < 3.0  # respondeu pelo path parcial, não esperou o lento
+        assert elapsed < 3.0  # respondeu pelo path parcial, nÃ£o esperou o lento
         # Campos essenciais presentes mesmo em modo parcial.
         assert d["player"]["steam_id"] == USER_STEAM
         assert d["player"]["steam_persona"] == "Lento"
         assert "license_catalog" in d
 
     def test_player_detail_missing_indexes_still_serves_essential(self, client, monkeypatch):
-        """Índices ainda a criar NÃO degradam o essencial (ele já não toca as tabelas
-        grandes): agenda o self-heal para o /heavy e devolve o cartão na hora."""
+        """Ãndices ainda a criar NÃƒO degradam o essencial (ele jÃ¡ nÃ£o toca as tabelas
+        grandes): agenda o self-heal para o /heavy e devolve o cartÃ£o na hora."""
         _seed_store_user(USER_STEAM, display_name="DDL", steam_persona="DDL")
         _login(client, ADMIN_STEAM)
         monkeypatch.setattr(_app_module, "_HOT_PATH_INDEXES_READY", False)
@@ -3511,7 +3521,7 @@ class TestAdminPlayersSteamBackfill:
         assert d["ok"] is True
         assert d["partial"] is True
         assert d["partial_reason"] == "deferred"
-        # Cartão essencial servido mesmo com índices em falta.
+        # CartÃ£o essencial servido mesmo com Ã­ndices em falta.
         assert d["player"]["steam_persona"] == "DDL"
         # Self-heal agendado para o caminho pesado.
         assert starts == ["admin_player_detail"]
@@ -3535,7 +3545,7 @@ class TestAdminPlayersSteamBackfill:
         assert d["recent_donations"][0]["points"] == 500
 
     def test_player_detail_budget_disabled_runs_inline(self, client, monkeypatch):
-        """Budget<=0 corre o essencial direto (sem thread); ainda adia as secções
+        """Budget<=0 corre o essencial direto (sem thread); ainda adia as secÃ§Ãµes
         pesadas para o /heavy (partial_reason='deferred')."""
         _seed_store_user(USER_STEAM, display_name="Inline", steam_persona="Inline")
         _login(client, ADMIN_STEAM)
@@ -3595,11 +3605,11 @@ class TestAdminPlayersSteamBackfill:
         assert first == second
         assert kits_a == kits_b
         assert any(e["group"] == "Gamma" for e in first)
-        # 2ª chamada de license + kit options não reparseia candidatos.
+        # 2Âª chamada de license + kit options nÃ£o reparseia candidatos.
         assert len(loads) <= 1
 
     def test_build_player_kit_limits_uses_single_pending_query(self, tmp_path, monkeypatch):
-        """~40 kits com DefaultAmount não podem disparar N×SELECT em orders."""
+        """~40 kits com DefaultAmount nÃ£o podem disparar NÃ—SELECT em orders."""
         catalog = tmp_path / "shop.json"
         kits = {
             f"kit_{i}": {"Description": f"Kit {i}", "DefaultAmount": 1, "Price": 0}
@@ -3678,7 +3688,7 @@ class TestAdminPlayersSteamBackfill:
         assert elapsed < 3.0
 
     def test_entitlements_hot_path_queries_when_table_exists(self, monkeypatch):
-        """Migrate async: flag False mas tabela existente → bootstrap NÃO devolve []."""
+        """Migrate async: flag False mas tabela existente â†’ bootstrap NÃƒO devolve []."""
         _app_module._ENTITLEMENTS_SCHEMA_READY = False
         _app_module._clear_table_exists_cache()
         db = _app_module._SessionLocal()
@@ -3715,7 +3725,7 @@ class TestAdminPlayersSteamBackfill:
         assert d["kits"] == []
 
     def test_bootstrap_auth_me_reuses_shared_db_for_admin_check(self, client, monkeypatch):
-        """Bootstrap com sessão partilhada não deve abrir 2.º checkout para ShopAdmin."""
+        """Bootstrap com sessÃ£o partilhada nÃ£o deve abrir 2.Âº checkout para ShopAdmin."""
         _seed_store_user(USER_STEAM, display_name="AdminBoot", steam_persona="AdminBoot")
         _login(client, USER_STEAM)
         db = _app_module._SessionLocal()
@@ -3739,7 +3749,7 @@ class TestAdminPlayersSteamBackfill:
         assert merge_calls == []
 
     def test_build_player_kit_limits_accepts_preloaded_config(self, tmp_path, monkeypatch):
-        """shop_config evita _read_shop_config enquanto a sessão DB está aberta."""
+        """shop_config evita _read_shop_config enquanto a sessÃ£o DB estÃ¡ aberta."""
         catalog = tmp_path / "shop.json"
         catalog.write_text(
             json.dumps({
@@ -3754,7 +3764,7 @@ class TestAdminPlayersSteamBackfill:
 
         def _boom_read():
             read_during_session.append("read")
-            raise AssertionError("catálogo não deve ser relido com shop_config")
+            raise AssertionError("catÃ¡logo nÃ£o deve ser relido com shop_config")
 
         monkeypatch.setattr(_app_module, "_read_shop_config", _boom_read)
         db = _app_module._SessionLocal()
@@ -3769,7 +3779,7 @@ class TestAdminPlayersSteamBackfill:
             _app_module._release_db_session(db)
 
     def test_ensure_store_users_schema_skips_after_ready(self, monkeypatch):
-        """Lista admin não deve repetir SHOW COLUMNS / PRAGMA em cada request."""
+        """Lista admin nÃ£o deve repetir SHOW COLUMNS / PRAGMA em cada request."""
         engine = _app_module._ENGINE
         assert engine is not None
         _app_module._STORE_USERS_SCHEMA_READY = False
@@ -3802,7 +3812,7 @@ class TestAdminPlayersSteamBackfill:
             return real_inspect(bind)
 
         monkeypatch.setattr(sa, "inspect", _counting_inspect)
-        # Re-import path uses sqlalchemy.inspect inside function — patch where used.
+        # Re-import path uses sqlalchemy.inspect inside function â€” patch where used.
         monkeypatch.setattr(
             "sqlalchemy.inspect",
             _counting_inspect,
@@ -3820,7 +3830,7 @@ class TestAdminPlayersSteamBackfill:
         assert _app_module._HOT_PATH_INDEXES_READY is True
 
     def test_ensure_hot_path_indexes_ready_only_when_all_present(self, monkeypatch):
-        """P0: falha no CREATE NÃO marca READY — senão nunca re-tenta e detalhe full-scan."""
+        """P0: falha no CREATE NÃƒO marca READY â€” senÃ£o nunca re-tenta e detalhe full-scan."""
         engine = _app_module._ENGINE
         assert engine is not None
         _app_module._HOT_PATH_INDEXES_READY = False
@@ -3831,9 +3841,9 @@ class TestAdminPlayersSteamBackfill:
         monkeypatch.setattr(_app_module, "_hot_path_indexes_all_present", _fail_all_present)
         _app_module._ensure_hot_path_indexes(engine)
         assert _app_module._HOT_PATH_INDEXES_READY is False
-        # ensure() aplica backoff — limpar para o detalhe poder agendar self-heal.
+        # ensure() aplica backoff â€” limpar para o detalhe poder agendar self-heal.
         _app_module._HOT_PATH_INDEXES_NEXT_TRY_AT = 0.0
-        # Self-heal no detalhe: agenda DDL async e não bloqueia request.
+        # Self-heal no detalhe: agenda DDL async e nÃ£o bloqueia request.
         starts: list[str] = []
         monkeypatch.setattr(
             _app_module,
@@ -3846,7 +3856,7 @@ class TestAdminPlayersSteamBackfill:
         assert _app_module._HOT_PATH_INDEXES_READY is False
 
     def test_ddl_engine_omits_short_read_timeout(self, monkeypatch):
-        """DDL MySQL não herda read_timeout=12s do pool HTTP; usa password real."""
+        """DDL MySQL nÃ£o herda read_timeout=12s do pool HTTP; usa password real."""
         captured: dict[str, Any] = {}
 
         def _fake_create_engine(url, **kwargs):
@@ -3878,7 +3888,7 @@ class TestAdminPlayersSteamBackfill:
         assert "***" not in captured["url"].split("@", 1)[0]
 
     def test_ddl_engine_uses_render_not_masked_str(self, monkeypatch):
-        """P0: str(engine.url) mascara password → 1045; render_as_string(False) corrige."""
+        """P0: str(engine.url) mascara password â†’ 1045; render_as_string(False) corrige."""
         from sqlalchemy.engine import make_url
 
         captured: list[str] = []
@@ -3905,7 +3915,7 @@ class TestAdminPlayersSteamBackfill:
         assert "***" not in captured[0].split("@", 1)[0]
 
     def test_hot_path_indexes_backoff_on_auth_failure(self, monkeypatch):
-        """Falha 1045 não spamma retry — agenda backoff."""
+        """Falha 1045 nÃ£o spamma retry â€” agenda backoff."""
         engine = _app_module._ENGINE
         assert engine is not None
         _app_module._HOT_PATH_INDEXES_READY = False
@@ -3925,7 +3935,7 @@ class TestAdminPlayersSteamBackfill:
         assert _app_module._HOT_PATH_INDEXES_READY is False
         assert _app_module._HOT_PATH_INDEXES_FAIL_STREAK >= 1
         assert _app_module._HOT_PATH_INDEXES_NEXT_TRY_AT >= time.time() + 250
-        # Segunda chamada imediata não re-tenta
+        # Segunda chamada imediata nÃ£o re-tenta
         before = _app_module._HOT_PATH_INDEXES_FAIL_STREAK
         _app_module._ensure_hot_path_indexes(engine)
         assert _app_module._HOT_PATH_INDEXES_FAIL_STREAK == before
@@ -3957,4 +3967,3 @@ class TestAdminPlayersSteamBackfill:
         for sql in count_sqls:
             assert "JOIN players" not in sql
             assert "market_player_profile" not in sql
-
