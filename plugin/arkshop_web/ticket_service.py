@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -72,6 +73,18 @@ _MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 _ALLOWED_MIME_PREFIXES = ("image/",)
 _ALLOWED_MIME_EXACT = frozenset({"application/pdf"})
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
+DISCORD_LINK_CODE_RE = re.compile(r"^ARKLAND-[xX]{10}-\d{10}-[xX0-9]{16}-Discord$")
+
+
+def _build_discord_link_code() -> str:
+    part_a = "".join(secrets.choice("xX") for _ in range(10))
+    part_b = "".join(secrets.choice("0123456789") for _ in range(10))
+    part_c = "".join(secrets.choice("xX0123456789") for _ in range(16))
+    return f"ARKLAND-{part_a}-{part_b}-{part_c}-Discord"
+
+
+def _is_valid_discord_link_code(value: str | None) -> bool:
+    return bool(DISCORD_LINK_CODE_RE.fullmatch((value or "").strip()))
 
 
 def _utcnow() -> datetime:
@@ -198,6 +211,21 @@ def _migrate_ticket_columns(conn: Any, *, is_sqlite: bool) -> None:
         alters.append(
             "ALTER TABLE support_tickets ADD COLUMN market_trace_id VARCHAR(64) NULL"
         )
+    if not is_sqlite and _column_exists(conn, "support_ticket_discord_link_codes", "code", is_sqlite=False):
+        col = conn.execute(
+            text("SHOW COLUMNS FROM `support_ticket_discord_link_codes` LIKE 'code'"),
+        ).fetchone()
+        col_type = str(col[1]).lower() if col and len(col) > 1 else ""
+        if col_type.startswith("varchar("):
+            try:
+                current = int(col_type.split("varchar(", 1)[1].split(")", 1)[0])
+            except (TypeError, ValueError):
+                current = 0
+            if current < 96:
+                alters.append(
+                    "ALTER TABLE support_ticket_discord_link_codes "
+                    "MODIFY COLUMN code VARCHAR(96) NOT NULL"
+                )
     for stmt in alters:
         conn.execute(text(stmt))
 
@@ -274,7 +302,7 @@ def ensure_ticket_schema(engine: Engine) -> None:
             """
             CREATE TABLE IF NOT EXISTS support_ticket_discord_link_codes (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
-              code VARCHAR(16) NOT NULL UNIQUE,
+                            code VARCHAR(96) NOT NULL UNIQUE,
               steam_id VARCHAR(32) NOT NULL,
               discord_user_id VARCHAR(32) NULL,
               discord_username VARCHAR(128) NULL,
@@ -366,7 +394,7 @@ def ensure_ticket_schema(engine: Engine) -> None:
             """
             CREATE TABLE IF NOT EXISTS support_ticket_discord_link_codes (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-              code VARCHAR(16) NOT NULL UNIQUE,
+                            code VARCHAR(96) NOT NULL UNIQUE,
               steam_id VARCHAR(32) NOT NULL,
               discord_user_id VARCHAR(32) NULL,
               discord_username VARCHAR(128) NULL,
@@ -681,6 +709,7 @@ def generate_discord_link_code(
     discord_user_id: str | None = None,
     discord_username: str | None = None,
     expires_minutes: int = 10,
+    force_new: bool = False,
 ) -> dict[str, Any]:
     from app import SupportTicketDiscordLinkCode
 
@@ -700,20 +729,40 @@ def generate_discord_link_code(
             "linked_steam_id": current_owner,
         }
 
-    pending = _find_pending_discord_code(db, sid)
-    if pending:
-        return {
-            "ok": True,
-            "code": pending["code"],
-            "expires_at": pending["expires_at"],
-            "pending": True,
-            "discord_user_id": did,
-            "discord_username": discord_username or pending.get("discord_username") or "",
-        }
+    if force_new:
+        now = _utcnow()
+        pending_rows = (
+            db.query(SupportTicketDiscordLinkCode)
+            .filter(
+                SupportTicketDiscordLinkCode.steam_id == sid,
+                SupportTicketDiscordLinkCode.used_at.is_(None),
+            )
+            .all()
+        )
+        for pending_row in pending_rows:
+            pending_row.expires_at = now - timedelta(seconds=1)
+        if pending_rows:
+            db.commit()
+    else:
+        pending = _find_pending_discord_code(db, sid)
+        expires_at_pending = _as_utc_datetime(
+            datetime.fromisoformat(str(pending.get("expires_at")))
+            if pending and pending.get("expires_at")
+            else None
+        )
+        if pending and not (expires_at_pending and expires_at_pending < _utcnow()):
+            return {
+                "ok": True,
+                "code": pending["code"],
+                "expires_at": pending["expires_at"],
+                "pending": True,
+                "discord_user_id": did,
+                "discord_username": discord_username or pending.get("discord_username") or "",
+            }
 
     now = _utcnow()
     for _ in range(20):
-        code = uuid.uuid4().hex[:8].upper()
+        code = _build_discord_link_code()
         existing = db.query(SupportTicketDiscordLinkCode).filter_by(code=code).first()
         if existing is None:
             row = SupportTicketDiscordLinkCode(
@@ -739,6 +788,66 @@ def generate_discord_link_code(
     return {"ok": False, "error": "Não foi possível gerar um código de validação. Tente novamente."}
 
 
+def get_discord_link_verification_status(db: Any, steam_id: str) -> dict[str, Any]:
+    sid = str(steam_id or "").strip()
+    if not sid:
+        return {"pending": False}
+    pending = _find_pending_discord_code(db, sid)
+    if not pending:
+        return {"pending": False}
+    expires_at = _as_utc_datetime(
+        datetime.fromisoformat(str(pending.get("expires_at")))
+        if pending.get("expires_at")
+        else None
+    )
+    now = _utcnow()
+    is_expired = bool(expires_at and expires_at < now)
+    return {
+        "pending": not is_expired,
+        "code": pending.get("code") if not is_expired else "",
+        "expires_at": pending.get("expires_at"),
+        "expired": is_expired,
+    }
+
+
+def list_discord_link_audit(db: Any, steam_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    from app import SupportTicketDiscordLinkCode
+
+    sid = str(steam_id or "").strip()
+    if not sid:
+        return []
+
+    rows = (
+        db.query(SupportTicketDiscordLinkCode)
+        .filter(SupportTicketDiscordLinkCode.steam_id == sid)
+        .order_by(SupportTicketDiscordLinkCode.created_at.desc())
+        .limit(max(1, min(int(limit), 100)))
+        .all()
+    )
+    now = _utcnow()
+    events: list[dict[str, Any]] = []
+    for row in rows:
+        expires_at = _as_utc_datetime(row.expires_at)
+        used_at = _as_utc_datetime(row.used_at)
+        if used_at:
+            state = "utilizado"
+        elif expires_at and expires_at < now:
+            state = "expirado"
+        else:
+            state = "pendente"
+        events.append({
+            "id": int(row.id),
+            "code": row.code,
+            "discord_user_id": row.discord_user_id,
+            "discord_username": row.discord_username,
+            "state": state,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+            "used_at": row.used_at.isoformat() if row.used_at else None,
+        })
+    return events
+
+
 def confirm_discord_link_code(
     db: Any,
     code: str,
@@ -747,13 +856,15 @@ def confirm_discord_link_code(
     discord_user_id: str | None = None,
     discord_username: str | None = None,
 ) -> dict[str, Any]:
-    from app import SupportTicketDiscordLink, SupportTicketDiscordLinkCode
+    from app import SupportTicketDiscordLinkCode
 
     sid = str(steam_id or "").strip()
     did = _normalized_discord_user_id(discord_user_id)
-    token = (code or "").strip().upper()
+    token = (code or "").strip()
     if not sid or not did or not token:
         return {"ok": False, "error": "Dados de confirmação inválidos."}
+    if not _is_valid_discord_link_code(token):
+        return {"ok": False, "error": "Formato de código inválido."}
 
     row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).first()
     if row is None:
@@ -785,6 +896,65 @@ def confirm_discord_link_code(
     row.used_at = _utcnow()
     db.commit()
     return {"ok": True, "steam_id": sid, "discord_user_id": did, "link_method": "ingame_code"}
+
+
+def confirm_discord_link_code_for_discord_user(
+    db: Any,
+    code: str,
+    *,
+    discord_user_id: str | None = None,
+    discord_username: str | None = None,
+) -> dict[str, Any]:
+    from app import SupportTicketDiscordLinkCode
+
+    did = _normalized_discord_user_id(discord_user_id)
+    token = (code or "").strip()
+    if not did or not token:
+        return {"ok": False, "error": "Dados de confirmação inválidos."}
+    if not _is_valid_discord_link_code(token):
+        return {"ok": False, "error": "Formato de código inválido."}
+
+    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).first()
+    if row is None:
+        return {"ok": False, "error": "Código inválido ou expirado."}
+    if row.used_at is not None:
+        return {"ok": False, "error": "Este código já foi utilizado."}
+    expires_at = _as_utc_datetime(row.expires_at)
+    if expires_at and expires_at < _utcnow():
+        return {"ok": False, "error": "Código expirado. Gere outro código."}
+    if row.discord_user_id and row.discord_user_id != did:
+        return {"ok": False, "error": "Este código pertence a outro usuário Discord."}
+
+    sid = str(row.steam_id or "").strip()
+    if not sid:
+        return {"ok": False, "error": "Código inválido sem vínculo Steam."}
+
+    if conflict := _find_discord_owner(db, did):
+        if conflict != sid:
+            return {"ok": False, "error": "Este Discord já está vinculado a outra conta Steam."}
+
+    saved = save_discord_link(
+        db,
+        steam_id=sid,
+        discord_user_id=did,
+        discord_username=discord_username or row.discord_username,
+        link_method="ingame_code",
+    )
+    if not saved or saved.get("error"):
+        return {
+            "ok": False,
+            "error": saved.get("error") if isinstance(saved, dict) else "Falha ao salvar vínculo.",
+        }
+
+    row.used_at = _utcnow()
+    db.commit()
+    return {
+        "ok": True,
+        "steam_id": sid,
+        "discord_user_id": did,
+        "discord_username": saved.get("discord_username") if isinstance(saved, dict) else None,
+        "link_method": "ingame_code",
+    }
 
 
 def save_discord_link(
@@ -1461,7 +1631,6 @@ def request_player_close(
         note=msg_note[:500],
         created_at=now,
     )
-    old_status = _normalize_status(ticket.status) or ticket.status or "AGUARDANDO_SUPORTE"
     ticket.updated_at = now
     db.commit()
     db.refresh(ticket)

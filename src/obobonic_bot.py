@@ -39,8 +39,17 @@ _RUNNER_ATTR = "_obobonic_runner"
 TEXT_FIELDS: Tuple[str, ...] = (
     "token", "client_id", "guild_id", "command_prefix",
     "lobby_channel_id", "logs_channel_id", "quarantine_role_id",
+    "validation_channel_id", "validation_role_id",
 )
-_ID_FIELDS = ("client_id", "guild_id", "lobby_channel_id", "logs_channel_id", "quarantine_role_id")
+_ID_FIELDS = (
+    "client_id",
+    "guild_id",
+    "lobby_channel_id",
+    "logs_channel_id",
+    "quarantine_role_id",
+    "validation_channel_id",
+    "validation_role_id",
+)
 _FIELD_LABELS = {
     "token": "Token do bot",
     "client_id": "Client ID",
@@ -49,6 +58,8 @@ _FIELD_LABELS = {
     "lobby_channel_id": "Lobby de voz",
     "logs_channel_id": "Canal de logs",
     "quarantine_role_id": "Cargo de quarentena",
+    "validation_channel_id": "Canal de validação",
+    "validation_role_id": "Cargo de validação",
 }
 
 

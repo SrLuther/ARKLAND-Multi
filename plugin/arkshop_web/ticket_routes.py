@@ -1,8 +1,9 @@
 """Rotas HTTP do sistema de tickets (1.9.153)."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from flask import Flask, jsonify, request, send_file
 
@@ -10,11 +11,15 @@ from ticket_service import (
     add_ticket_reply,
     attend_ticket,
     close_ticket,
+    confirm_discord_link_code_for_discord_user,
     create_ticket,
+    generate_discord_link_code,
     get_attachment_for_download,
     get_discord_link,
+    get_discord_link_verification_status,
     get_ticket_detail,
     get_ticket_history,
+    list_discord_link_audit,
     list_tickets_admin,
     list_tickets_for_player,
     request_player_close,
@@ -42,6 +47,7 @@ def register_ticket_routes(
     regulamento_guard: Callable[[str], Any] | None = None,
     uploads_dir: Path,
     limiter: Any | None = None,
+    api_key_required: Callable[..., Any] | None = None,
     load_settings: Callable[[], dict[str, Any]] | None = None,
     save_settings: Callable[[dict[str, Any]], None] | None = None,
 ) -> None:
@@ -66,7 +72,138 @@ def register_ticket_routes(
         db = session_factory()
         try:
             link = get_discord_link(db, steam_id)
-            return jsonify({"ok": True, "link": link, "oauth_available": False})
+            verification = get_discord_link_verification_status(db, steam_id)
+            audit = list_discord_link_audit(db, steam_id, limit=20)
+            return jsonify({
+                "ok": True,
+                "link": link,
+                "verification": verification,
+                "audit": audit,
+                "instructions": {
+                    "summary": "Envie somente o código no canal de validação Discord (sem texto adicional).",
+                    "steps": [
+                        "Clique em Gerar código de verificação.",
+                        "Copie o código gerado na Minha Área.",
+                        "Envie o código no canal de validação do Discord do servidor.",
+                        "Clique em Revalidar para gerar outro código, se necessário.",
+                    ],
+                    "format": "ARKLAND-xxxXxxXXxX-0000000000-x0X0x0X0x0X0x-Discord",
+                },
+                "oauth_available": False,
+            })
+        finally:
+            db.close()
+
+    if api_key_required:
+        @app.route("/api/internal/tickets/discord-link/confirm", methods=["POST"])
+        @api_key_required(False)
+        @_limit("120 per minute")
+        def internal_tickets_discord_confirm_code():
+            if not db_ready():
+                return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+            body = request.get_json(force=True, silent=True) or {}
+            code = str(body.get("code") or "").strip()
+            discord_user_id = str(body.get("discord_user_id") or "").strip() or None
+            discord_username = str(body.get("discord_username") or "").strip() or None
+
+            if not code or not discord_user_id:
+                return jsonify({
+                    "ok": False,
+                    "error": "code e discord_user_id são obrigatórios.",
+                }), 400
+
+            db = session_factory()
+            try:
+                out = confirm_discord_link_code_for_discord_user(
+                    db,
+                    code,
+                    discord_user_id=discord_user_id,
+                    discord_username=discord_username,
+                )
+                if not out.get("ok"):
+                    return jsonify(out), 400
+                return jsonify({"ok": True, **out})
+            finally:
+                db.close()
+
+    @app.route("/api/tickets/discord-link/code", methods=["POST"])
+    @login_required
+    @_limit("20 per minute")
+    def tickets_discord_generate_code():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        steam_id = str(steam_id_from_session())
+        body = request.get_json(force=True, silent=True) or {}
+        discord_user_id = str(body.get("discord_user_id") or "").strip() or None
+        discord_username = str(body.get("discord_username") or "").strip() or None
+        db = session_factory()
+        try:
+            link = get_discord_link(db, steam_id) or {}
+            did = discord_user_id or (str(link.get("discord_user_id") or "").strip() or None)
+            duser = discord_username or (str(link.get("discord_username") or "").strip() or None)
+            if not did:
+                return jsonify({
+                    "ok": False,
+                    "error": "Informe o ID do Discord para gerar o código de verificação.",
+                }), 400
+            out = generate_discord_link_code(
+                db,
+                steam_id=steam_id,
+                discord_user_id=did,
+                discord_username=duser,
+                expires_minutes=10,
+                force_new=False,
+            )
+            if not out.get("ok"):
+                return jsonify(out), 400
+            return jsonify({"ok": True, **out})
+        finally:
+            db.close()
+
+    @app.route("/api/tickets/discord-link/revalidate", methods=["POST"])
+    @login_required
+    @_limit("20 per minute")
+    def tickets_discord_revalidate_code():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        steam_id = str(steam_id_from_session())
+        body = request.get_json(force=True, silent=True) or {}
+        discord_user_id = str(body.get("discord_user_id") or "").strip() or None
+        discord_username = str(body.get("discord_username") or "").strip() or None
+        db = session_factory()
+        try:
+            link = get_discord_link(db, steam_id) or {}
+            did = discord_user_id or (str(link.get("discord_user_id") or "").strip() or None)
+            duser = discord_username or (str(link.get("discord_username") or "").strip() or None)
+            if not did:
+                return jsonify({
+                    "ok": False,
+                    "error": "Informe o ID do Discord para revalidar com um novo código.",
+                }), 400
+            out = generate_discord_link_code(
+                db,
+                steam_id=steam_id,
+                discord_user_id=did,
+                discord_username=duser,
+                expires_minutes=10,
+                force_new=True,
+            )
+            if not out.get("ok"):
+                return jsonify(out), 400
+            return jsonify({"ok": True, **out})
+        finally:
+            db.close()
+
+    @app.route("/api/tickets/discord-link/audit", methods=["GET"])
+    @login_required
+    def tickets_discord_audit():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        steam_id = str(steam_id_from_session())
+        db = session_factory()
+        try:
+            audit = list_discord_link_audit(db, steam_id, limit=50)
+            return jsonify({"ok": True, "audit": audit})
         finally:
             db.close()
 
@@ -138,9 +275,8 @@ def register_ticket_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session())
-        if regulamento_guard:
-            if (reg_err := regulamento_guard(steam_id)) is not None:
-                return reg_err
+        if regulamento_guard and (reg_err := regulamento_guard(steam_id)) is not None:
+            return reg_err
         body = request.get_json(force=True, silent=True) or {}
         db = session_factory()
         try:
@@ -182,7 +318,7 @@ def register_ticket_routes(
     def tickets_detail_player(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin, is_staff = _viewer_context()
+        steam_id, _is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             detail = get_ticket_detail(
@@ -203,7 +339,7 @@ def register_ticket_routes(
     def tickets_history_player(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin, is_staff = _viewer_context()
+        steam_id, _is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             data = get_ticket_history(
@@ -284,7 +420,7 @@ def register_ticket_routes(
     def tickets_upload_player(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin, is_staff = _viewer_context()
+        steam_id, _is_admin, is_staff = _viewer_context()
         file_obj = request.files.get("file")
         message_id_raw = request.form.get("message_id")
         message_id = int(message_id_raw) if message_id_raw else None
@@ -314,7 +450,7 @@ def register_ticket_routes(
     def tickets_download_attachment(attachment_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin, is_staff = _viewer_context()
+        steam_id, _is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             meta = get_attachment_for_download(

@@ -65,6 +65,8 @@ _FIELD_ROWS = (
     ("lobby_channel_id", "Lobby de voz", False, "entrar cria uma sala própria"),
     ("logs_channel_id", "Canal de logs", False, "moderação / admin"),
     ("quarantine_role_id", "Cargo de quarentena", False, "usado por !limpezageral"),
+    ("validation_channel_id", "Canal de validação", False, "aceita somente códigos ARKLAND-*"),
+    ("validation_role_id", "Cargo de validação", False, "opcional: aplica ao validar"),
 )
 
 

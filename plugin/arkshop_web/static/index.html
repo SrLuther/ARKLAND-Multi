@@ -6888,6 +6888,9 @@
     <div class="nav-item support-staff-only" data-page="tickets-admin" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets — Suporte
     </div>
+    <div class="nav-item admin-only" data-page="discord-link-admin" onclick="nav(this)">
+      <span class="nav-icon">🔗</span> Discord — Vinculação
+    </div>
     <div class="nav-item admin-only" data-page="polls-admin" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
     </div>
@@ -8001,32 +8004,6 @@
           </div>
           <div id="support-staff-roster" style="font-size:12px;color:var(--text2);">Carregando equipe…</div>
         </div>
-        <div class="card admin-only" style="margin-bottom:16px;" id="tickets-discord-card">
-          <div class="card-title">🔔 Discord — atualizações de tickets</div>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
-            O bot envia uma mensagem no canal sempre que um ticket é criado, respondido, alterado ou encerrado.
-            Informe o token do bot Discord dedicado a estas notificações.
-          </p>
-          <div id="tickets-discord-status" style="font-size:12px;margin-bottom:12px;"></div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
-            <div class="form-group" style="margin:0;">
-              <label><input type="checkbox" id="tickets-discord-enabled" /> Ativar notificações Discord</label>
-            </div>
-            <div class="form-group" style="margin:0;min-width:200px;">
-              <label>ID do canal Discord</label>
-              <input id="tickets-discord-channel" type="text" placeholder="123456789012345678" />
-            </div>
-            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
-              <label>Token do bot (deixe vazio para manter)</label>
-              <input id="tickets-discord-token" type="password" placeholder="••••••••" autocomplete="new-password" />
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="saveTicketsDiscord()">Salvar Discord</button>
-          </div>
-          <p style="font-size:11px;color:var(--text2);margin-top:10px;">
-            Variáveis de ambiente opcionais: <code>ARKSHOP_TICKET_DISCORD_ENABLED</code>,
-            <code>ARKSHOP_TICKET_DISCORD_CHANNEL_ID</code>, <code>ARKSHOP_TICKET_DISCORD_TOKEN</code>.
-          </p>
-        </div>
         <div class="card" style="margin-bottom:16px;">
           <!-- tickets queue -->
         <div id="tickets-admin-queue" style="color:var(--text2);padding:12px;">Carregando fila…</div>
@@ -8146,6 +8123,14 @@
         <div id="topbar">
           <div class="page-title">Configurar Paths</div>
         </div>
+        <div class="card" style="margin-bottom:16px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="font-size:13px;color:var(--text2);line-height:1.5;">
+              Configurações de <strong>vinculação Discord</strong> foram movidas para uma página dedicada.
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage('discord-link-admin')">Abrir Discord — Vinculação</button>
+          </div>
+        </div>
         <div class="card">
           <div class="form-grid">
             <div class="form-group" style="grid-column:1/-1;">
@@ -8158,14 +8143,6 @@
               <div style="font-size:11px;color:var(--text2);margin-top:4px;">
                 Compatibilidade: este valor é sincronizado com o caminho do catálogo mestre.
               </div>
-            </div>
-            <div class="form-group">
-              <label>Discord validação — ID do canal</label>
-              <input id="s-discord-validation-channel-id" type="text" placeholder="123456789012345678" />
-            </div>
-            <div class="form-group">
-              <label>Discord validação — ID do cargo</label>
-              <input id="s-discord-validation-role-id" type="text" placeholder="123456789012345678" />
             </div>
             <div class="form-group">
               <label>Server ID padrão</label>
@@ -8419,6 +8396,62 @@
             </button>
           </div>
           <div id="catalog-import-results" class="hidden" style="margin-top:14px;"></div>
+        </div>
+      </div>
+
+      <!-- PAGE: Discord Vinculação (admin) -->
+      <div id="page-discord-link-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Discord — Vinculação</div>
+          <div class="topbar-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" onclick="loadDiscordLinkAdmin()">↺ Recarregar</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🔒 Canal de validação do vínculo</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            Configuração usada pelo bot para aceitar somente códigos de vinculação Discord e (opcionalmente) aplicar cargo após validar.
+          </p>
+          <div id="discord-link-validation-status" style="font-size:12px;margin-bottom:12px;color:var(--text2);"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;min-width:220px;">
+              <label>ID do canal de validação</label>
+              <input id="discord-link-validation-channel-id" type="text" placeholder="123456789012345678" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:220px;">
+              <label>ID do cargo pós-validação (opcional)</label>
+              <input id="discord-link-validation-role-id" type="text" placeholder="123456789012345678" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveDiscordLinkValidationSettings()">Salvar validação</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;" id="tickets-discord-card">
+          <div class="card-title">🔔 Discord — notificações de tickets</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            O bot envia uma mensagem no canal sempre que um ticket é criado, respondido, alterado ou encerrado.
+            Informe o token do bot dedicado a estas notificações.
+          </p>
+          <div id="tickets-discord-status" style="font-size:12px;margin-bottom:12px;"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+              <label><input type="checkbox" id="tickets-discord-enabled" /> Ativar notificações Discord</label>
+            </div>
+            <div class="form-group" style="margin:0;min-width:200px;">
+              <label>ID do canal Discord</label>
+              <input id="tickets-discord-channel" type="text" placeholder="123456789012345678" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+              <label>Token do bot (deixe vazio para manter)</label>
+              <input id="tickets-discord-token" type="password" placeholder="••••••••" autocomplete="new-password" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveTicketsDiscord()">Salvar notificações</button>
+          </div>
+          <p style="font-size:11px;color:var(--text2);margin-top:10px;">
+            Variáveis de ambiente opcionais: <code>ARKSHOP_TICKET_DISCORD_ENABLED</code>,
+            <code>ARKSHOP_TICKET_DISCORD_CHANNEL_ID</code>, <code>ARKSHOP_TICKET_DISCORD_TOKEN</code>.
+          </p>
         </div>
       </div>
 
@@ -9414,8 +9447,12 @@
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center;">
               <button class="btn btn-ghost btn-sm" onclick="ticketsSaveDiscordLink()">💾 Salvar Discord</button>
+              <button class="btn btn-primary btn-sm" onclick="myAreaGenerateDiscordCode(false)">🔐 Gerar código de verificação</button>
+              <button class="btn btn-ghost btn-sm" onclick="myAreaGenerateDiscordCode(true)">♻️ Revalidar</button>
               <span id="myarea-discord-status" style="font-size:11px;color:var(--text2);">Carregando vínculo…</span>
             </div>
+            <div id="myarea-discord-verification" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
+            <div id="myarea-discord-audit" style="margin-top:10px;"></div>
           </div>
         </div>
         <div class="card">
@@ -12200,6 +12237,7 @@ function nav(el) {
   }
   if (page === "regulamento") loadRegulamentoPage();
   if (page === "settings" && _auth.is_admin) loadSettings();
+  if (page === "discord-link-admin" && _auth.is_admin) loadDiscordLinkAdmin();
   if (page === "servers" && _auth.is_admin) loadServers();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
@@ -12228,7 +12266,6 @@ function nav(el) {
     document.getElementById("tickets-admin-detail")?.classList.add("hidden");
     if (_auth.is_admin) {
       loadSupportStaffRoster();
-      loadTicketsDiscord();
     }
     loadTicketsAdmin();
   }
@@ -16028,6 +16065,75 @@ function _setMyAreaDiscordStatus(message, color) {
   statusEl.textContent = message || "";
 }
 
+function _renderMyAreaDiscordVerification(payload) {
+  const host = document.getElementById("myarea-discord-verification");
+  if (!host) return;
+  const verification = payload?.verification || {};
+  const instructions = payload?.instructions || {};
+  const code = verification.code ? String(verification.code) : "";
+  const expiresAt = verification.expires_at ? escHtml(String(verification.expires_at)) : "—";
+  const summary = instructions.summary || "Envie somente o código no canal de validação Discord configurado pela staff.";
+  const steps = Array.isArray(instructions.steps) ? instructions.steps : [];
+
+  const codeBox = code
+    ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+         <span style="font-size:11px;color:var(--text2);">Código ativo:</span>
+         <code style="font-size:14px;font-weight:700;letter-spacing:1px;">${escHtml(code)}</code>
+         <button class="btn btn-ghost btn-sm" onclick="copyMyAreaDiscordCode()">Copiar</button>
+         <span style="font-size:11px;color:var(--text2);">Expira: ${expiresAt}</span>
+       </div>`
+    : `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Nenhum código ativo no momento.</div>`;
+
+  host.innerHTML = `
+    ${codeBox}
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">${escHtml(summary)}</div>
+    ${steps.length ? `<ol style="margin:0;padding-left:18px;font-size:11px;color:var(--text2);line-height:1.5;">${steps.map(s => `<li>${escHtml(String(s))}</li>`).join("")}</ol>` : ""}
+  `;
+}
+
+function _renderMyAreaDiscordAudit(rows) {
+  const host = document.getElementById("myarea-discord-audit");
+  if (!host) return;
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    host.innerHTML = `<div style="font-size:11px;color:var(--text2);">Auditoria do vínculo: sem eventos recentes.</div>`;
+    return;
+  }
+  host.innerHTML = `
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Auditoria do vínculo (últimos eventos):</div>
+    <div style="display:grid;gap:6px;">
+      ${list.slice(0, 10).map(ev => {
+        const state = String(ev.state || "").toLowerCase();
+        let color = "var(--text2)";
+        if (state === "utilizado") color = "var(--success)";
+        else if (state === "pendente") color = "var(--amber)";
+        else if (state === "expirado") color = "var(--danger)";
+        const stamp = ev.used_at || ev.expires_at || ev.created_at || "—";
+        return `<div style="font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);">
+          <strong style="color:${color};text-transform:capitalize;">${escHtml(String(ev.state || "evento"))}</strong>
+          · código <code>${escHtml(String(ev.code || "—"))}</code>
+          <div style="color:var(--text2);margin-top:2px;">${escHtml(String(stamp))}</div>
+        </div>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+async function copyMyAreaDiscordCode() {
+  const codeEl = document.querySelector("#myarea-discord-verification code");
+  const code = codeEl ? String(codeEl.textContent || "").trim() : "";
+  if (!code) {
+    toast("Nenhum código disponível para copiar.", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(code);
+    toast("Código copiado. Envie somente o código no canal de validação do Discord.", "success");
+  } catch (e) {
+    toast("Não foi possível copiar automaticamente. Copie manualmente.", "warning");
+  }
+}
+
 async function loadMyAreaDiscordLink() {
   if (!_auth.authenticated) return;
   try {
@@ -16041,13 +16147,49 @@ async function loadMyAreaDiscordLink() {
     }
     const link = d.link || {};
     _applyDiscordLinkToInputs(link);
+    _renderMyAreaDiscordVerification(d);
+    _renderMyAreaDiscordAudit(d.audit || []);
     if (link.discord_username || link.discord_user_id) {
       _setMyAreaDiscordStatus("Discord vinculado.", "var(--success)");
     } else {
       _setMyAreaDiscordStatus("Discord ainda não vinculado.", "var(--text2)");
     }
   } catch (e) {
+    _renderMyAreaDiscordVerification({});
+    _renderMyAreaDiscordAudit([]);
     _setMyAreaDiscordStatus("Erro ao carregar vínculo Discord.", "var(--danger)");
+  }
+}
+
+async function myAreaGenerateDiscordCode(forceRevalidate) {
+  if (!_auth.authenticated) {
+    promptLogin("gerar código de verificação");
+    return;
+  }
+  const username = (document.getElementById("myarea-discord-username")?.value || "").trim();
+  const userId = (document.getElementById("myarea-discord-id")?.value || "").trim();
+  const endpoint = forceRevalidate
+    ? "/api/tickets/discord-link/revalidate"
+    : "/api/tickets/discord-link/code";
+  try {
+    const d = await fetchJson(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ discord_username: username, discord_user_id: userId }),
+      timeoutMs: 12000,
+      retries: 0,
+    });
+    if (!d.ok) {
+      toast(d.error || "Falha ao gerar código", "error");
+      return;
+    }
+    const msg = forceRevalidate
+      ? "Código revalidado. Envie somente o código no canal de validação do Discord."
+      : "Código gerado. Envie somente o código no canal de validação do Discord.";
+    toast(msg, "success");
+    await loadMyAreaDiscordLink();
+  } catch (e) {
+    toast(String(e), "error");
   }
 }
 
@@ -20255,6 +20397,7 @@ async function ticketsSaveDiscordLink() {
     if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
     _applyDiscordLinkToInputs(d.link || body);
     _setMyAreaDiscordStatus("Discord vinculado.", "var(--success)");
+    await loadMyAreaDiscordLink();
     toast("Discord vinculado.", "success");
   } catch (e) { toast(String(e), "error"); }
 }
@@ -20382,6 +20525,53 @@ async function ticketsUploadFile(input) {
     ticketsOpenDetail(_ticketsSelectedId);
   } catch (e) { toast(String(e), "error"); }
   input.value = "";
+}
+
+async function loadDiscordLinkAdmin() {
+  if (!_auth.is_admin) return;
+  const statusEl = document.getElementById("discord-link-validation-status");
+  try {
+    const r = await fetch(API + "/api/settings");
+    const s = await r.json();
+    const ch = document.getElementById("discord-link-validation-channel-id");
+    const role = document.getElementById("discord-link-validation-role-id");
+    if (ch) ch.value = s.discord_validation_channel_id || "";
+    if (role) role.value = s.discord_validation_role_id || "";
+    if (statusEl) {
+      const hasChannel = !!String(s.discord_validation_channel_id || "").trim();
+      const hasRole = !!String(s.discord_validation_role_id || "").trim();
+      statusEl.innerHTML = hasChannel
+        ? `🟢 Canal de validação configurado${hasRole ? " · cargo pós-validação ativo" : " · sem cargo pós-validação"}`
+        : "🟡 Canal de validação não configurado.";
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = "⚠️ Falha ao carregar configurações de validação.";
+  }
+  await loadTicketsDiscord();
+}
+
+async function saveDiscordLinkValidationSettings() {
+  if (!_auth.is_admin) return;
+  const body = {
+    discord_validation_channel_id: document.getElementById("discord-link-validation-channel-id")?.value.trim() || "",
+    discord_validation_role_id: document.getElementById("discord-link-validation-role-id")?.value.trim() || "",
+  };
+  try {
+    const r = await fetch(API + "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      toast("Erro: " + (data.error || "Falha ao salvar"), "error");
+      return;
+    }
+    toast("Configuração de validação Discord salva.", "success");
+    await loadDiscordLinkAdmin();
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
 }
 
 async function loadTicketsDiscord() {
@@ -27112,8 +27302,6 @@ async function loadSettings() {
     const catalogPath = s.catalog_path || s.config_path || "";
     document.getElementById("s-catalog-path").value   = catalogPath;
     document.getElementById("s-config-path").value    = s.config_path || catalogPath;
-    document.getElementById("s-discord-validation-channel-id").value = s.discord_validation_channel_id || "";
-    document.getElementById("s-discord-validation-role-id").value = s.discord_validation_role_id || "";
     document.getElementById("s-server-id").value      = s.server_id || "default";
     document.getElementById("s-retry-max").value      = s.retry_max_attempts || 10;
     document.getElementById("s-join-host").value    = s.join_host || "";
@@ -27220,8 +27408,6 @@ async function saveSettings() {
   const body = {
     catalog_path: catalogPath,
     config_path: catalogPath || legacyConfigPath,
-    discord_validation_channel_id: document.getElementById("s-discord-validation-channel-id")?.value.trim() || "",
-    discord_validation_role_id: document.getElementById("s-discord-validation-role-id")?.value.trim() || "",
     server_id:   document.getElementById("s-server-id").value,
     retry_max_attempts: parseInt(document.getElementById("s-retry-max").value),
     join_host:   document.getElementById("s-join-host").value.trim(),

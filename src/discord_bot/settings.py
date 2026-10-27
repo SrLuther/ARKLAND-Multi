@@ -7,11 +7,14 @@ no mesmo ``config.json`` onde o app já guarda os demais segredos (``discord_bot
 from __future__ import annotations
 
 import base64
+import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 DEFAULT_PREFIX = "!"
 
@@ -154,6 +157,102 @@ class BotSettings:
     command_prefix: str = DEFAULT_PREFIX
     enable_voice: bool = True
     enable_moderation: bool = True
+
+
+@dataclass(frozen=True)
+class DiscordLinkValidationResult:
+    ok: bool
+    status_code: int
+    message: str
+    steam_id: str = ""
+    discord_user_id: str = ""
+
+
+class DiscordLinkValidatorClient:
+    """Cliente HTTP simples para confirmar código de vínculo no backend da loja."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout_seconds: float = 8.0) -> None:
+        self.base_url = (base_url or "").rstrip("/")
+        self.api_key = (api_key or "").strip()
+        self.timeout_seconds = max(1.0, float(timeout_seconds or 8.0))
+
+    @classmethod
+    def from_env(cls) -> "DiscordLinkValidatorClient":
+        base_url = (
+            os.environ.get("ARKSHOP_WEB_URL", "")
+            or os.environ.get("ARKSHOP_WEBSTORE_URL", "")
+            or os.environ.get("ARKLAND_WEB_URL", "")
+            or "http://127.0.0.1:27199"
+        )
+        api_key = os.environ.get("ARKSHOP_API_KEY", "")
+        return cls(base_url=base_url, api_key=api_key)
+
+    def configured(self) -> bool:
+        return bool(self.base_url and self.api_key)
+
+    def confirm_code(
+        self,
+        *,
+        code: str,
+        discord_user_id: str,
+        discord_username: str,
+    ) -> DiscordLinkValidationResult:
+        if not self.configured():
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="Integração não configurada (ARKSHOP_WEB_URL/ARKSHOP_API_KEY).",
+            )
+
+        endpoint = f"{self.base_url}/api/internal/tickets/discord-link/confirm"
+        payload = {
+            "code": (code or "").strip(),
+            "discord_user_id": (discord_user_id or "").strip(),
+            "discord_username": (discord_username or "").strip(),
+        }
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib_request.Request(
+            endpoint,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": self.api_key,
+            },
+        )
+
+        try:
+            with urllib_request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                status_code = int(getattr(resp, "status", 200) or 200)
+                raw = resp.read().decode("utf-8", errors="replace")
+                data = json.loads(raw or "{}") if raw else {}
+                ok = bool(data.get("ok"))
+                return DiscordLinkValidationResult(
+                    ok=ok,
+                    status_code=status_code,
+                    message=str(data.get("error") or data.get("message") or ("OK" if ok else "Falha")),
+                    steam_id=str(data.get("steam_id") or ""),
+                    discord_user_id=str(data.get("discord_user_id") or payload["discord_user_id"]),
+                )
+        except urllib_error.HTTPError as exc:
+            status_code = int(exc.code or 0)
+            try:
+                raw = exc.read().decode("utf-8", errors="replace")
+                data = json.loads(raw or "{}") if raw else {}
+                message = str(data.get("error") or data.get("message") or "Falha na validação")
+            except Exception:
+                message = f"Falha na validação (HTTP {status_code})."
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=status_code,
+                message=message,
+            )
+        except Exception as exc:
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message=f"Falha de comunicação com web store: {exc}",
+            )
 
     @classmethod
     def from_config(cls, cfg: Any, data_dir: Optional[Path] = None) -> "BotSettings":

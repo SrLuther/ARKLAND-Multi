@@ -156,6 +156,8 @@ class ObobonicBotConfig:
     lobby_channel_id: str = ""     # lobby das salas de voz temporárias
     logs_channel_id: str = ""      # logs de moderação/admin
     quarantine_role_id: str = ""   # cargo aplicado por !limpezageral
+    validation_channel_id: str = ""  # canal exclusivo de validação de vínculo Discord
+    validation_role_id: str = ""     # cargo opcional aplicado após validação
     # ── Migração (config antiga com pasta externa) ────────────────────────────
     legacy_project_path: str = ""  # só para OFERECER importar uma vez; nunca usado em runtime
     legacy_import_done: bool = False

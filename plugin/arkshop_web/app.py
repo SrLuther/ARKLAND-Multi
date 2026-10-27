@@ -1129,7 +1129,7 @@ class SupportTicketDiscordLinkCode(Base):
     __tablename__ = "support_ticket_discord_link_codes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(96), unique=True, index=True)
     steam_id: Mapped[str] = mapped_column(String(32), index=True)
     discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     discord_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -17079,6 +17079,7 @@ register_ticket_routes(
     regulamento_guard=_guard_regulamento_accepted,
     uploads_dir=_TICKET_UPLOADS_DIR,
     limiter=limiter,
+    api_key_required=api_key_required,
     load_settings=_load_settings,
     save_settings=_save_settings,
 )

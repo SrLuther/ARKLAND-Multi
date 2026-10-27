@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.129"
+APP_VERSION: str = "1.10.130"
 BUILD_DATE: str = "2026-10-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.130",
+        "date": "2026-10-27",
+        "changes": [
+            "Feat (Web Store / Discord — Vinculação): nova página administrativa dedicada para centralizar toda a configuração de vínculo Discord em um único lugar no site.",
+            "Fix (Web Store / Configurar Paths): removidos os campos de validação Discord desta tela e adicionado atalho explícito para a página dedicada, reduzindo confusão operacional.",
+            "Fix (Web Store / Tickets Admin): configurações de notificações/vinculação Discord foram retiradas da aba de tickets e consolidadas no painel dedicado.",
+            "Fix (Web Store / Navegação): menu admin passa a carregar e recarregar corretamente a página Discord — Vinculação com persistência de canal/cargo de validação e notificações do bot.",
+        ],
+    },
     {
         "version": "1.10.129",
         "date": "2026-10-27",

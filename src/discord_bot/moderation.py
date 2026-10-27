@@ -26,6 +26,7 @@ from .logic import (
     compile_badwords,
     limpezageral_limit_ok,
 )
+from .settings import DiscordLinkValidatorClient
 
 log = logging.getLogger("arkland.obobonic")
 
@@ -34,6 +35,8 @@ class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
         self._settings: Any = getattr(bot, "settings")
+        self._validator = DiscordLinkValidatorClient.from_env()
+        self._validation_instruction_sent = False
         self._compile_badwords()
         # Regex pré-compilada para convites (melhor performance)
         self.invite_regex = INVITE_REGEX
@@ -68,6 +71,93 @@ class Moderation(commands.Cog):
             await message.delete()
         except (discord.NotFound, discord.Forbidden):
             pass
+
+    async def _maybe_send_validation_instruction(self) -> None:
+        channel_id = int(getattr(self._settings, "validation_channel_id", 0) or 0)
+        if not channel_id or self._validation_instruction_sent:
+            return
+        channel = self.bot.get_channel(channel_id)
+        if not isinstance(channel, discord.TextChannel):
+            return
+        content = (
+            "🔒 **Vinculação Discord • ARKLAND**\n"
+            "Envie **somente** o seu código de validação neste formato:\n"
+            "`ARKLAND-xxxXxxXXxX-0000000000-x0X0x0X0x0X0x-Discord`\n"
+            "Mensagens fora do padrão serão removidas automaticamente."
+        )
+        try:
+            await channel.send(content)
+            self._validation_instruction_sent = True
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+    async def _apply_validation_role(
+        self,
+        guild: discord.Guild,
+        member: discord.Member,
+    ) -> None:
+        role_id = int(getattr(self._settings, "validation_role_id", 0) or 0)
+        if not role_id:
+            return
+        role = guild.get_role(role_id)
+        if role is None:
+            return
+        try:
+            await member.add_roles(role, reason="Vínculo Discord validado")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+    async def _handle_validation_channel(self, message: discord.Message) -> bool:
+        validation_channel_id = int(getattr(self._settings, "validation_channel_id", 0) or 0)
+        if not validation_channel_id or int(message.channel.id) != validation_channel_id:
+            return False
+
+        token = (message.content or "").strip()
+        if not token:
+            await self._safe_delete(message)
+            return True
+
+        if not token.startswith("ARKLAND-") or not token.endswith("-Discord"):
+            await self._safe_delete(message)
+            try:
+                await message.channel.send(
+                    f"{message.author.mention} aqui só é aceito o código de validação ARKLAND.",
+                    delete_after=8,
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+            return True
+
+        result = self._validator.confirm_code(
+            code=token,
+            discord_user_id=str(message.author.id),
+            discord_username=str(message.author),
+        )
+        await self._safe_delete(message)
+        if result.ok:
+            if isinstance(message.author, discord.Member):
+                await self._apply_validation_role(message.guild, message.author)
+            try:
+                await message.channel.send(
+                    f"✅ {message.author.mention} vínculo confirmado com sucesso.",
+                    delete_after=12,
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+            return True
+
+        try:
+            await message.channel.send(
+                f"❌ {message.author.mention} {result.message}",
+                delete_after=12,
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        return True
+
+    @commands.Cog.listener()
+    async def on_ready(self) -> None:
+        await self._maybe_send_validation_instruction()
 
     @commands.command(name="faxina", aliases=['purgeall'])
     @commands.has_permissions(manage_messages=True)
@@ -210,6 +300,9 @@ class Moderation(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot or message.guild is None:
+            return
+
+        if await self._handle_validation_channel(message):
             return
 
         violation = classify_message(message.content, self.badwords_regex, self.invite_regex)
