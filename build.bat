@@ -228,7 +228,7 @@ if !errorlevel! neq 0 (
 
 :: -- Sincroniza CHANGELOG.md com src/version.py -------------------------------
 echo [3b/4] Sincronizando CHANGELOG.md...
-"%PYTHON%" "%~dp0scripts\sync_changelog_md.py"
+"%PYTHON%" "%~dp0scripts\sync_changelog_md.py" --render-only
 if !errorlevel! neq 0 (
     echo [AVISO] sync_changelog_md.py falhou — CHANGELOG.md pode estar desatualizado.
 )

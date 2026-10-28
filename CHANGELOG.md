@@ -1,15 +1,9 @@
 # Changelog
 
-<!-- Gerado: 2026-10-28 09:57:41 -->
-<!-- Total de versões: 491 | Primeira: 1.10.136 -->
+<!-- Gerado: 2026-10-28 09:58:55 -->
+<!-- Total de versões: 490 | Primeira: 1.10.135 -->
 
 <!-- markdownlint-disable MD024 -->
-
-## [1.10.136] - 2026-10-28
-
-### Fix
-
-- fix release v1.10.134 changelog encoding
 
 ## [1.10.135] - 2026-10-28
 
