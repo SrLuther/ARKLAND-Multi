@@ -144,7 +144,7 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     assert saved["link_method"] == "ingame_code"
 
 
-def test_discord_link_admin_audit_forces_common_mysql_collation():
+def test_discord_link_admin_audit_converts_mixed_mysql_charsets_before_collation():
     class Result:
         def mappings(self):
             return self
@@ -162,8 +162,8 @@ def test_discord_link_admin_audit_forces_common_mysql_collation():
 
     db = FakeMySQLSession()
     assert list_discord_link_admin_audit(db) == []
-    assert "l.steam_id COLLATE utf8mb4_unicode_ci = a.steam_id COLLATE utf8mb4_unicode_ci" in db.statement
-    assert "l.discord_user_id COLLATE utf8mb4_unicode_ci = a.discord_user_id COLLATE utf8mb4_unicode_ci" in db.statement
+    assert "CONVERT(l.steam_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(a.steam_id USING utf8mb4) COLLATE utf8mb4_unicode_ci" in db.statement
+    assert "CONVERT(l.discord_user_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(a.discord_user_id USING utf8mb4) COLLATE utf8mb4_unicode_ci" in db.statement
 
 
 def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):

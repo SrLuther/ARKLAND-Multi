@@ -890,16 +890,17 @@ def list_discord_link_admin_audit(db: Any, *, limit: int = 500) -> list[dict[str
     bind = getattr(db, "bind", None)
     dialect = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect in {"mysql", "mariadb"}:
-        # Existing installations may have these IDs with different collations.
-        # Force a common collation in the JOIN and CASE comparison so the audit
-        # endpoint works even before/if schema normalization is applied.
+        # Existing installations may store these IDs under different character
+        # sets (including latin1) as well as different collations. Convert both
+        # sides before applying the shared collation; COLLATE alone fails with
+        # MariaDB error 1253 when the source column is latin1.
         steam_id_match = (
-            "l.steam_id COLLATE utf8mb4_unicode_ci = "
-            "a.steam_id COLLATE utf8mb4_unicode_ci"
+            "CONVERT(l.steam_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = "
+            "CONVERT(a.steam_id USING utf8mb4) COLLATE utf8mb4_unicode_ci"
         )
         discord_id_match = (
-            "l.discord_user_id COLLATE utf8mb4_unicode_ci = "
-            "a.discord_user_id COLLATE utf8mb4_unicode_ci"
+            "CONVERT(l.discord_user_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = "
+            "CONVERT(a.discord_user_id USING utf8mb4) COLLATE utf8mb4_unicode_ci"
         )
     else:
         steam_id_match = "l.steam_id = a.steam_id"

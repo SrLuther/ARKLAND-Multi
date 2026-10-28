@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-28 09:58:55 -->
-<!-- Total de versões: 490 | Primeira: 1.10.135 -->
+<!-- Gerado: 2026-10-28 13:54:34 -->
+<!-- Total de versões: 491 | Primeira: 1.10.136 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.10.136] - 2026-10-28
+
+### Other
+
+- Web Store: corrige erro 1253 na auditoria Discord convertendo IDs latin1/utf8mb4 antes da comparação.
 
 ## [1.10.135] - 2026-10-28
 

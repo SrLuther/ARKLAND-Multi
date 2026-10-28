@@ -1,8 +1,8 @@
 {
-    "version": "1.10.135",
+    "version": "1.10.136",
     "date": "2026-10-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.135/ARKLAND-Multi-Setup-v1.10.135.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.136/ARKLAND-Multi-Setup-v1.10.136.exe",
     "changelog": [
-        "Web Store: corrige erro 500 na auditoria do Discord causado por collations divergentes no MariaDB."
+        "Web Store: corrige erro 1253 na auditoria Discord convertendo IDs latin1/utf8mb4 antes da comparação."
     ]
 }
