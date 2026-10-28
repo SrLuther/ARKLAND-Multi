@@ -1341,6 +1341,7 @@ _STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
     ("support_tickets", "assigned_admin_steam_id"),
     ("support_ticket_messages", "author_steam_id"),
     ("support_ticket_discord_links", "steam_id"),
+    ("support_ticket_discord_link_audit", "steam_id"),
 )
 
 

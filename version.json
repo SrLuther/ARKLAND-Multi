@@ -1,10 +1,8 @@
 {
-    "version": "1.10.134",
+    "version": "1.10.135",
     "date": "2026-10-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.134/ARKLAND-Multi-Setup-v1.10.134.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.135/ARKLAND-Multi-Setup-v1.10.135.exe",
     "changelog": [
-        "CustomShop: corrige a migração do inventário em nuvem para manter a chave composta Steam ID + slot sem avisos recorrentes.",
-        "Discord: ao iniciar, limpa o canal de validação e publica uma instrução renovada; a confirmação informa o bônus de 10.000 Âmbares quando creditado.",
-        "Auditoria Discord: organiza o histórico, destaca créditos de Âmbares e permite desfazer somente vínculos ainda ativos."
+        "Web Store: corrige erro 500 na auditoria do Discord causado por collations divergentes no MariaDB."
     ]
 }

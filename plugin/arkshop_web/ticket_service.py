@@ -887,11 +887,28 @@ def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
 
 
 def list_discord_link_admin_audit(db: Any, *, limit: int = 500) -> list[dict[str, Any]]:
-    rows = db.execute(text("""SELECT a.id,a.event_type,a.steam_id,a.steam_name,a.discord_user_id,
+    bind = getattr(db, "bind", None)
+    dialect = getattr(getattr(bind, "dialect", None), "name", "")
+    if dialect in {"mysql", "mariadb"}:
+        # Existing installations may have these IDs with different collations.
+        # Force a common collation in the JOIN and CASE comparison so the audit
+        # endpoint works even before/if schema normalization is applied.
+        steam_id_match = (
+            "l.steam_id COLLATE utf8mb4_unicode_ci = "
+            "a.steam_id COLLATE utf8mb4_unicode_ci"
+        )
+        discord_id_match = (
+            "l.discord_user_id COLLATE utf8mb4_unicode_ci = "
+            "a.discord_user_id COLLATE utf8mb4_unicode_ci"
+        )
+    else:
+        steam_id_match = "l.steam_id = a.steam_id"
+        discord_id_match = "l.discord_user_id = a.discord_user_id"
+    rows = db.execute(text(f"""SELECT a.id,a.event_type,a.steam_id,a.steam_name,a.discord_user_id,
         a.discord_username,a.actor_steam_id,a.actor_name,a.code,a.amber_delta,a.note,a.created_at,
-        CASE WHEN l.steam_id IS NOT NULL AND l.discord_user_id=a.discord_user_id THEN 1 ELSE 0 END AS is_active
+        CASE WHEN l.steam_id IS NOT NULL AND {discord_id_match} THEN 1 ELSE 0 END AS is_active
         FROM support_ticket_discord_link_audit a
-        LEFT JOIN support_ticket_discord_links l ON l.steam_id=a.steam_id
+        LEFT JOIN support_ticket_discord_links l ON {steam_id_match}
         ORDER BY a.id DESC LIMIT :lim"""),
         {"lim": max(1, min(int(limit), 2000))}).mappings().all()
     return [dict(row) for row in rows]

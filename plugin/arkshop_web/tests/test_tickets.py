@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -141,6 +142,28 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     assert saved is not None
     assert saved["discord_user_id"] == "987654321"
     assert saved["link_method"] == "ingame_code"
+
+
+def test_discord_link_admin_audit_forces_common_mysql_collation():
+    class Result:
+        def mappings(self):
+            return self
+
+        def all(self):
+            return []
+
+    class FakeMySQLSession:
+        bind = SimpleNamespace(dialect=SimpleNamespace(name="mysql"))
+        statement = ""
+
+        def execute(self, statement, _params):
+            self.statement = str(statement)
+            return Result()
+
+    db = FakeMySQLSession()
+    assert list_discord_link_admin_audit(db) == []
+    assert "l.steam_id COLLATE utf8mb4_unicode_ci = a.steam_id COLLATE utf8mb4_unicode_ci" in db.statement
+    assert "l.discord_user_id COLLATE utf8mb4_unicode_ci = a.discord_user_id COLLATE utf8mb4_unicode_ci" in db.statement
 
 
 def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):

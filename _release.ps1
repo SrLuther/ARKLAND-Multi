@@ -175,7 +175,7 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_plugin_versions.py --all fal
 Write-Ok "PluginInfo.json  →  sincronizado com plugin_version.txt (CustomShop + CustomDinoDeliver + ArkPlayer + ArkEventHunt + EngramLevel)"
 
 # CHANGELOG.md gerado a partir de version.py
-& $python (Join-Path $root "scripts\sync_changelog_md.py")
+& $python (Join-Path $root "scripts\sync_changelog_md.py") --render-only
 if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_changelog_md.py falhou" }
 Write-Ok "CHANGELOG.md    →  sincronizado com src\version.py"
 

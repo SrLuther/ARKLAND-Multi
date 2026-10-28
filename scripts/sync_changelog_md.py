@@ -234,6 +234,13 @@ def main() -> int:
         print(f"   Início do arquivo: {verificacao[:300]}")
         return 1
 
+    # The release pipeline sets APP_VERSION and its changelog entry before
+    # rendering. Do not interpret those not-yet-released commits as a second
+    # release while _release.ps1 is in progress.
+    if "--render-only" in sys.argv[1:]:
+        print("\nℹ️ Render-only: nenhuma versão automática será criada.")
+        return 0
+
     commits_git = _get_git_commits()
     existentes = set()
     for versao in entries:

@@ -1,9 +1,21 @@
 # Changelog
 
-<!-- Gerado: 2026-10-28 03:36:24 -->
-<!-- Total de versões: 489 | Primeira: 1.10.134 -->
+<!-- Gerado: 2026-10-28 09:57:41 -->
+<!-- Total de versões: 491 | Primeira: 1.10.136 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.10.136] - 2026-10-28
+
+### Fix
+
+- fix release v1.10.134 changelog encoding
+
+## [1.10.135] - 2026-10-28
+
+### Other
+
+- Web Store: corrige erro 500 na auditoria do Discord causado por collations divergentes no MariaDB.
 
 ## [1.10.134] - 2026-10-28
 
