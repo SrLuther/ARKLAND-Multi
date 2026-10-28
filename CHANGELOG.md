@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-10-28 02:15:00 -->
-<!-- Total de versões: 488 | Primeira: 1.10.133 -->
+<!-- Gerado: 2026-10-28 03:28:13 -->
+<!-- Total de versões: 489 | Primeira: 1.10.134 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.10.134] - 2026-10-28
+
+### Other
+
+- CustomShop: corrige a migra??o do invent?rio em nuvem para manter a chave composta Steam ID + slot sem avisos recorrentes.
+- Discord: ao iniciar, limpa o canal de valida??o e publica uma instru??o renovada; a confirma??o informa o b?nus de 10.000 ?mbares quando creditado.
+- Auditoria Discord: organiza o hist?rico, destaca cr?ditos de ?mbares e permite desfazer somente v?nculos ainda ativos.
 
 ## [1.10.133] - 2026-10-28
 

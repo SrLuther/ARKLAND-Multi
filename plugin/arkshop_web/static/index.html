@@ -20566,7 +20566,18 @@ async function loadDiscordLinkAdminAudit() {
     if (!data.ok) throw new Error(data.error || "Falha ao carregar auditoria");
     const rows = data.events || [];
     if (!rows.length) { host.innerHTML = "<div style='color:var(--text2)'>Nenhum evento registrado ainda.</div>"; return; }
-    host.innerHTML = `<table class="table"><thead><tr><th>Data</th><th>Evento</th><th>Steam</th><th>Discord</th><th>Responsável</th><th>Âmbares</th><th></th></tr></thead><tbody>${rows.map(e => `<tr><td>${escHtml(e.created_at || "")}</td><td>${escHtml(e.event_type || "")}</td><td>${escHtml(e.steam_name || "")}<br><small>${escHtml(e.steam_id || "")}</small></td><td>${escHtml(e.discord_username || "")}<br><small>${escHtml(e.discord_user_id || "")}</small></td><td>${escHtml(e.actor_name || "")}<br><small>${escHtml(e.actor_steam_id || "")}</small></td><td>${Number(e.amber_delta || 0).toLocaleString("pt-BR")}</td><td>${e.event_type === "link_confirmed" ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer vínculo</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+    const eventLabels = { link_confirmed: "Vínculo confirmado", unlink_admin: "Vínculo removido pela administração" };
+    host.innerHTML = `<div class="tbl-scroll-host"><table class="tbl" style="min-width:1050px"><thead><tr><th>Data e hora</th><th>Evento</th><th>Conta Steam</th><th>Conta Discord</th><th>Responsável</th><th>Crédito de Âmbares</th><th>Ação</th></tr></thead><tbody>${rows.map(e => {
+      const delta = Number(e.amber_delta || 0);
+      const credit = delta > 0
+        ? `<strong style="color:var(--success,#65c987)">+${delta.toLocaleString("pt-BR")} Âmbares</strong>`
+        : `<span style="color:var(--text3)">Sem bônus nesta confirmação</span>`;
+      const actor = e.actor_name || (e.event_type === "link_confirmed" ? "Jogador (código)" : "Administração");
+      const action = e.is_active && e.event_type === "link_confirmed"
+        ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer vínculo</button>`
+        : `<span style="color:var(--text3)">${e.event_type === "link_confirmed" ? "Vínculo encerrado" : "—"}</span>`;
+      return `<tr><td>${escHtml(e.created_at || "")}</td><td><strong>${escHtml(eventLabels[e.event_type] || e.event_type || "Evento")}</strong><br><small>${escHtml(e.note || "")}</small></td><td><strong>${escHtml(e.steam_name || "Nome não disponível")}</strong><br><small>${escHtml(e.steam_id || "")}</small></td><td><strong>${escHtml(e.discord_username || "Nome não disponível")}</strong><br><small>${escHtml(e.discord_user_id || "")}</small></td><td>${escHtml(actor)}<br><small>${escHtml(e.actor_steam_id || "")}</small></td><td>${credit}</td><td>${action}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
   } catch (e) { host.textContent = String(e); }
 }
 

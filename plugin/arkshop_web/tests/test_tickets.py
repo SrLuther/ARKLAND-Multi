@@ -22,6 +22,7 @@ from ticket_service import (
     get_discord_link,
     get_ticket_detail,
     get_ticket_history,
+    list_discord_link_admin_audit,
     list_tickets_admin,
     list_tickets_for_player,
     request_player_close,
@@ -130,6 +131,12 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
         discord_username="nick_teste",
     )
     assert confirm["ok"] is True
+    assert confirm["first_link_bonus"] == 10_000
+    balance = ticket_db.execute(text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}).scalar_one()
+    assert balance == 10_000
+    audit = list_discord_link_admin_audit(ticket_db)
+    assert audit[0]["amber_delta"] == 10_000
+    assert audit[0]["is_active"] == 1
     saved = get_discord_link(ticket_db, USER_STEAM)
     assert saved is not None
     assert saved["discord_user_id"] == "987654321"

@@ -887,9 +887,12 @@ def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
 
 
 def list_discord_link_admin_audit(db: Any, *, limit: int = 500) -> list[dict[str, Any]]:
-    rows = db.execute(text("""SELECT id,event_type,steam_id,steam_name,discord_user_id,
-        discord_username,actor_steam_id,actor_name,code,amber_delta,note,created_at
-        FROM support_ticket_discord_link_audit ORDER BY id DESC LIMIT :lim"""),
+    rows = db.execute(text("""SELECT a.id,a.event_type,a.steam_id,a.steam_name,a.discord_user_id,
+        a.discord_username,a.actor_steam_id,a.actor_name,a.code,a.amber_delta,a.note,a.created_at,
+        CASE WHEN l.steam_id IS NOT NULL AND l.discord_user_id=a.discord_user_id THEN 1 ELSE 0 END AS is_active
+        FROM support_ticket_discord_link_audit a
+        LEFT JOIN support_ticket_discord_links l ON l.steam_id=a.steam_id
+        ORDER BY a.id DESC LIMIT :lim"""),
         {"lim": max(1, min(int(limit), 2000))}).mappings().all()
     return [dict(row) for row in rows]
 

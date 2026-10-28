@@ -8,6 +8,16 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.47] - 2026-10-28
+
+### Fix
+
+- Evita tentar remover e recriar a chave prim?ria do invent?rio em toda inicializa??o. A migra??o agora compara as colunas existentes antes de alterar a tabela e mant?m a chave composta Steam ID + slot com as chaves estrangeiras compat?veis.
+
+### Rebuild
+
+A DLL 1.10.47 s? vale depois que o mapa recarregar o plugin.
+
 ## [1.10.46] - 2026-10-28
 
 ### Fix

@@ -79,17 +79,53 @@ class Moderation(commands.Cog):
         channel = self.bot.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
             return
-        content = (
-            "🔒 **Vinculação Discord • ARKLAND**\n"
-            "Envie **somente** o seu código de validação neste formato:\n"
-            "`ARKLAND-xxxXxxXXxX-0000000000-x0X0x0X0x0X0x-Discord`\n"
-            "Mensagens fora do padrão serão removidas automaticamente."
-        )
         try:
-            await channel.send(content)
+            # O canal e dedicado a validacao: limpar inclusive mensagens antigas,
+            # fora da janela de 14 dias do apagamento em lote do Discord.
+            deleted = await channel.purge(
+                limit=None,
+                bulk=False,
+                reason="Atualizacao da mensagem de vinculacao ARKLAND",
+            )
+            embed = discord.Embed(
+                title="Vincule sua conta Discord à ARKLAND",
+                description=(
+                    "Vincule sua conta Discord ao perfil ARKLAND usando o c?digo gerado na sua ?rea de conta "
+                    "para confirmar sua identidade com seguran?a."
+                ),
+                color=discord.Color.from_rgb(218, 164, 65),
+            )
+            embed.add_field(
+                name="Como fazer",
+                value=(
+                    "**1.** Entre no site ARKLAND com sua conta Steam.\n"
+                    "**2.** Abra sua área de conta e escolha **Vincular Discord**.\n"
+                    "**3.** Gere o código e envie **somente o código** neste canal."
+                ),
+                inline=False,
+            )
+            embed.add_field(
+                name="Formato aceito",
+                value="`ARKLAND-xxxxxxxxxx-0000000000-xxxxxxxxxxxxxxxx-Discord`",
+                inline=False,
+            )
+            embed.add_field(
+                name="Bônus da primeira vinculação",
+                value="**10.000 Âmbares** creditados automaticamente após a confirmação.",
+                inline=False,
+            )
+            embed.set_footer(
+                text="Codigo pessoal, de uso único e com validade limitada. Nunca compartilhe fora deste canal."
+            )
+            await channel.send(embed=embed)
             self._validation_instruction_sent = True
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+            log.info("Canal de validacao %s limpo (%s mensagens) e instrucao publicada.", channel_id, len(deleted))
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            log.error(
+                "Nao foi possivel atualizar o canal de validacao %s; confira as permissoes Gerenciar mensagens e Ver historico: %s",
+                channel_id,
+                exc,
+            )
 
     async def _apply_validation_role(
         self,
@@ -137,9 +173,14 @@ class Moderation(commands.Cog):
         if result.ok:
             if isinstance(message.author, discord.Member):
                 await self._apply_validation_role(message.guild, message.author)
+            bonus_text = (
+                f" Bônus de {result.first_link_bonus:,} Âmbares creditado!".replace(",", ".")
+                if result.first_link_bonus > 0
+                else " Esta confirmação não gerou bônus de Âmbares."
+            )
             try:
                 await message.channel.send(
-                    f"✅ {message.author.mention} vínculo confirmado com sucesso.",
+                    f"✅ {message.author.mention} vínculo confirmado com sucesso.{bonus_text}",
                     delete_after=12,
                 )
             except (discord.Forbidden, discord.HTTPException):

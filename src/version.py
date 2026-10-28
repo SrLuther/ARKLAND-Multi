@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.133"
+APP_VERSION: str = "1.10.134"
 BUILD_DATE: str = "2026-10-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.134",
+        "date": "2026-10-28",
+        "changes": [
+            "CustomShop: corrige a migra??o do invent?rio em nuvem para manter a chave composta Steam ID + slot sem avisos recorrentes.",
+            "Discord: ao iniciar, limpa o canal de valida??o e publica uma instru??o renovada; a confirma??o informa o b?nus de 10.000 ?mbares quando creditado.",
+            "Auditoria Discord: organiza o hist?rico, destaca cr?ditos de ?mbares e permite desfazer somente v?nculos ainda ativos.",
+        ]
+    },
     {
         "version": "1.10.133",
         "date": "2026-10-28",

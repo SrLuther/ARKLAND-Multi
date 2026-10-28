@@ -89,21 +89,24 @@ CREATE TABLE IF NOT EXISTS player_entitlements (
 
 -- Inventário na nuvem (CustomShop /upload /download)
 CREATE TABLE IF NOT EXISTS player_cloud_inventory (
-  steam_id     VARCHAR(20) PRIMARY KEY NOT NULL,
+  steam_id     VARCHAR(20) NOT NULL,
+  slot         TINYINT NOT NULL DEFAULT 0,
   item_count   INT NOT NULL DEFAULT 0,
   uploaded_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   source_map   VARCHAR(128) DEFAULT NULL,
+  PRIMARY KEY (steam_id, slot),
   INDEX idx_uploaded (uploaded_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS player_cloud_items (
   id           BIGINT AUTO_INCREMENT PRIMARY KEY,
   steam_id     VARCHAR(20) NOT NULL,
+  slot         TINYINT NOT NULL DEFAULT 0,
   sort_order   INT NOT NULL,
   item_blob    MEDIUMBLOB NOT NULL,
-  INDEX idx_steam_order (steam_id, sort_order),
-  CONSTRAINT fk_cloud_steam
-    FOREIGN KEY (steam_id) REFERENCES player_cloud_inventory(steam_id)
+  INDEX idx_steam_slot_order (steam_id, slot, sort_order),
+  CONSTRAINT fk_cloud_steam_slot
+    FOREIGN KEY (steam_id, slot) REFERENCES player_cloud_inventory(steam_id, slot)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

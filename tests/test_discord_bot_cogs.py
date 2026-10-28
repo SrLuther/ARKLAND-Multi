@@ -96,6 +96,28 @@ class TestModerationCog:
             (tmp_path / storage.BADWORDS_FILENAME).write_text("\n".join(words) + "\n", encoding="utf-8")
         return Moderation(bot), bot  # type: ignore[arg-type]
 
+    def test_restart_clears_validation_channel_then_posts_rich_instruction(self, tmp_path):
+        s = _settings(tmp_path, validation_channel_id=456)
+        channel = MagicMock(spec=discord.TextChannel)
+        channel.purge = AsyncMock(return_value=[object(), object()])
+        channel.send = AsyncMock()
+        bot = _fake_bot(s)
+        bot.get_channel = lambda channel_id: channel if channel_id == 456 else None
+        cog = Moderation(bot)  # type: ignore[arg-type]
+
+        async def scenario():
+            await cog.on_ready()
+            await cog.on_ready()  # reconnects in the same process do not purge again
+
+        run(scenario())
+        channel.purge.assert_awaited_once_with(
+            limit=None, bulk=False, reason="Atualizacao da mensagem de vinculacao ARKLAND"
+        )
+        channel.send.assert_awaited_once()
+        embed = channel.send.await_args.kwargs["embed"]
+        assert "Vincule sua conta" in embed.title
+        assert any("10.000" in field.value for field in embed.fields)
+
     def test_loads_badwords_from_app_data_dir(self, tmp_path):
         cog, _ = self._cog(tmp_path, ["idiota", "burro"])
         assert cog.badwords_count == 2

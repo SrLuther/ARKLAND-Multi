@@ -199,6 +199,7 @@ class DiscordLinkValidationResult:
     message: str
     steam_id: str = ""
     discord_user_id: str = ""
+    first_link_bonus: int = 0
 
 
 class DiscordLinkValidatorClient:
@@ -266,6 +267,7 @@ class DiscordLinkValidatorClient:
                     message=str(data.get("error") or data.get("message") or ("OK" if ok else "Falha")),
                     steam_id=str(data.get("steam_id") or ""),
                     discord_user_id=str(data.get("discord_user_id") or payload["discord_user_id"]),
+                    first_link_bonus=int(data.get("first_link_bonus") or 0),
                 )
         except urllib_error.HTTPError as exc:
             status_code = int(exc.code or 0)
