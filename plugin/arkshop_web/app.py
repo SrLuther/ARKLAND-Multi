@@ -1,4 +1,4 @@
-﻿"""ArkShop Web Manager — backend com auth Steam, autorização admin e pedidos no DB."""
+"""ArkShop Web Manager â€” backend com auth Steam, autorizaÃ§Ã£o admin e pedidos no DB."""
 # flake8: noqa: E402
 # ruff: noqa
 # pyright: reportUnusedImport=false, reportUnusedVariable=false, reportGeneralTypeIssues=false
@@ -42,6 +42,7 @@ from pix_payments import (
     create_pix_payment,
     extract_checkout_url,
     extract_pix_data,
+    fetch_payment,
     map_mp_status,
     normalize_card_payer_input,
     normalize_pix_payer_input,
@@ -114,6 +115,7 @@ from src.shop_integration import (
     default_customshop_path,
     is_ephemeral_pyinstaller_path,
     looks_like_customshop_catalog,
+    load_plugin_config,
     slugify_server_id,
     merge_catalog_into_plugin_config,
     push_catalog_to_webstore,
@@ -122,7 +124,7 @@ from src.shop_integration import (
     write_and_propagate_master_catalog,
 )
 
-# â”€â”€ Logging estruturado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Logging estruturado Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _LOG_LEVEL = (os.environ.get("ARKSHOP_LOG_LEVEL", "INFO") or "INFO").upper()
 
@@ -296,7 +298,7 @@ def _audit_row_dict(row: AuditEvent) -> dict[str, Any]:
     }
 
 
-# â”€â”€ Paths (dev vs PyInstaller) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Paths (dev vs PyInstaller) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _bundle_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -311,7 +313,7 @@ def _data_dir() -> Path:
 _BUNDLE_DIR = _bundle_dir()
 _DATA_DIR = _data_dir()
 
-# â”€â”€ Load environment variables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Load environment variables Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 # Resolve .env: raiz do projeto (dev), pasta do exe (PyInstaller) e dados persistentes (TEK)
 _PROJECT_ROOT = _BUNDLE_DIR.parent.parent if not getattr(sys, "frozen", False) else _BUNDLE_DIR
@@ -326,7 +328,7 @@ for _env_candidate in _ENV_CANDIDATES:
         load_dotenv(dotenv_path=_env_candidate, override=False)
 
 
-# â”€â”€ App setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ App setup Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _CORS_ORIGINS = [
     "https://arkland.com.br",
@@ -379,9 +381,9 @@ _SCHEDULER_OUTBOX_BATCH = max(1, int(os.environ.get("ARKSHOP_SCHEDULER_OUTBOX_BA
 _SCHEDULER_JOB_PAUSE_SEC = float(os.environ.get("ARKSHOP_SCHEDULER_JOB_PAUSE", "0.5") or "0.5")
 _SCHEDULER_TICK_LOCK = threading.Lock()
 
-# â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Security Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-# Secret: env â†’ ficheiro persistente (resolve_web_secret) â†’ sÃ³ entÃ£o falha em produÃ§Ã£o.
+# Secret: env Ã¢â€ â€™ ficheiro persistente (resolve_web_secret) Ã¢â€ â€™ sÃ³ entÃ£o falha em produÃ§Ã£o.
 # Evita ARKLAND-WebStore.exe a morrer no arranque quando o TEK nÃ£o injectou ARKSHOP_WEB_SECRET.
 _is_production = os.environ.get("ARKSHOP_ENV", "").strip().lower() == "production"
 _is_frozen = getattr(sys, "frozen", False)
@@ -457,27 +459,14 @@ def _ensure_support_steamids_file() -> None:
 
 _ensure_support_steamids_file()
 
-# API Key for CustomShop â†” arkshop_web internal communication
+# API Key for CustomShop Ã¢â€ â€ arkshop_web internal communication
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
 _SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token")
 
-_DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
-    {"id": "p10000", "label": "10.000 Ã‚mbares", "points": 10000, "price_brl": 5.0, "note": "Primeiro passo â€” ideal para conhecer a loja"},
-    {"id": "p20500", "label": "20.500 Ã‚mbares", "points": 20500, "price_brl": 10.0, "note": "+2,5% bÃ´nus vs pacote inicial"},
-    {"id": "p42000", "label": "42.000 Ã‚mbares", "points": 42000, "price_brl": 20.0, "note": "+5% bÃ´nus â€” dobro com vantagem"},
-    {"id": "p75000", "label": "75.000 Ã‚mbares", "points": 75000, "price_brl": 35.0, "note": "Melhor custo-benefÃ­cio entre R$ 20 e R$ 50"},
-    {"id": "p110000", "label": "110.000 Ã‚mbares", "points": 110000, "price_brl": 50.0, "note": "Pacote popular â€” equilÃ­brio ideal"},
-    {"id": "p170000", "label": "170.000 Ã‚mbares", "points": 170000, "price_brl": 75.0, "note": "+13% bÃ´nus vs pacote de R$ 50"},
-    {"id": "p230000", "label": "230.000 Ã‚mbares", "points": 230000, "price_brl": 100.0, "note": "Impulsione seu progresso no cluster"},
-    {"id": "p625000", "label": "625.000 Ã‚mbares", "points": 625000, "price_brl": 250.0, "note": "+25% bÃ´nus â€” apoio premium ao servidor"},
-    {"id": "p1300000", "label": "1.300.000 Ã‚mbares", "points": 1300000, "price_brl": 500.0, "note": "Melhor valor por Ã‚mbar acima de R$ 250"},
-    {"id": "p2700000", "label": "2.700.000 Ã‚mbares", "points": 2700000, "price_brl": 1000.0, "note": "+35% bÃ´nus â€” mÃ¡ximo incentivo ARKLAND"},
-]
-
-_AMBER_SINGULAR = "Ã‚mbar"
-_AMBER_PLURAL = "Ã‚mbares"
+_AMBER_SINGULAR = "Ambar"
+_AMBER_PLURAL = "Ambares"
 _AMBER_ICON_URL = "/ambar.png"
 _DEFAULT_PUBLIC_BRAND = "ARKLAND DONATIONS"
 
@@ -499,6 +488,12 @@ def _is_api_request() -> bool:
 def _api_http_exception_handler(exc: HTTPException):
     """Rotas /api/* sempre respondem JSON â€” evita HTML do Werkzeug/limiter no fetch()."""
     if not _is_api_request():
+        if (
+            exc.code == 404
+            and request.method in ("GET", "HEAD")
+            and "." not in Path(request.path).name
+        ):
+            return index()
         return exc
     msg = exc.description or exc.name or "Erro HTTP"
     if exc.code == 429:
@@ -568,7 +563,7 @@ def _decrypt_value(ciphertext: str) -> str:
         return ciphertext
 
 
-# â”€â”€ Idempotency â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Idempotency Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _used_idempotency_keys: dict[str, datetime] = {}
 _IDEMPOTENCY_EXPIRE_SECONDS = 3600
@@ -616,10 +611,10 @@ def _release_idempotency_key(key: str) -> None:
     _used_idempotency_keys.pop(key, None)
 
 
-# â”€â”€ API Key auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ API Key auth Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
-    """Validates X-API-Key header for CustomShop â†” arkshop_web communication.
+    """Validates X-API-Key header for CustomShop Ã¢â€ â€ arkshop_web communication.
 
     Args:
         allow_admin_session: If True, also allow admin steam_id in session (for browser tests).
@@ -640,6 +635,8 @@ def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
                 steam_id = _steam_id_from_session()
                 if steam_id and _is_admin_steamid(steam_id):
                     return f(*args, **kwargs)
+
+            return jsonify({"ok": False, "error": "Unauthorized"}), 401
         return decorated_function
 
     return decorator
@@ -679,7 +676,7 @@ _ADMIN_HEAVY_EXECUTOR = ThreadPoolExecutor(
 )
 
 
-# â”€â”€ ORM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ ORM Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 class Base(DeclarativeBase):
     pass
@@ -750,7 +747,7 @@ class ShopAdmin(Base):
 
 
 class ShopSupport(Base):
-    """Equipe de suporte â€” acesso Ã  fila de tickets sem permissÃµes de admin."""
+    """Equipe de suporte â€” acesso ÃƒÂ  fila de tickets sem permissÃµes de admin."""
 
     __tablename__ = "shop_support"
 
@@ -882,7 +879,7 @@ class MarketSpeciesStatMultiplier(Base):
 
 
 class MarketSpeciesAlias(Base):
-    """Variantes de loja/blueprint que compartilham a mesma economia (ex.: Rex Tek â†’ rex)."""
+    """Variantes de loja/blueprint que compartilham a mesma economia (ex.: Rex Tek Ã¢â€ â€™ rex)."""
     __tablename__ = "market_species_aliases"
     __table_args__ = (
         UniqueConstraint("catalog_item_id", name="uq_market_species_alias_catalog"),
@@ -1029,7 +1026,7 @@ class MarketClaim(Base):
 
 
 class SupportTicket(Base):
-    """Ticket de suporte â€” jogador â†” admin (MVP 1.9.149)."""
+    """Ticket de suporte â€” jogador Ã¢â€ â€ admin (MVP 1.9.149)."""
 
     __tablename__ = "support_tickets"
 
@@ -1187,10 +1184,10 @@ class MarketAuditEvent(Base):
     )
 
 
-# â”€â”€ DB setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ DB setup Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 # Fase 1: defaults em db_pool.py (pool_size=20, overflow=10, recycle=1800).
-# Waitress threads devem ficar â‰¤ pool_size (ideal 4â€“8 â€” outro agente).
-# PROIBIDO segurar sessÃ£o durante RCON/Steam/MP â†’ _release_db_session(..., force=True)
+# Waitress threads devem ficar Ã¢â€°Â¤ pool_size (ideal 4â€“8 â€” outro agente).
+# PROIBIDO segurar sessÃ£o durante RCON/Steam/MP Ã¢â€ â€™ _release_db_session(..., force=True)
 # ou helpers _db_session_cm / _release_before_external_io.
 _DEFAULT_DB_POOL_SIZE = DEFAULT_DB_POOL_SIZE
 _DEFAULT_DB_MAX_OVERFLOW = DEFAULT_DB_MAX_OVERFLOW
@@ -1489,7 +1486,7 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
     ("orders", "ix_orders_steam_type_status", "(steam_id, item_type, status)"),
     ("orders", "ix_orders_status_created", "(status, created_at)"),
     ("orders", "ix_orders_steam_status", "(steam_id, status)"),
-    # Pagamentos / doaÃ§Ãµes
+    # Pagamentos / DpaÃ§Ãµes
     ("point_payments", "ix_point_payments_steam_created", "(steam_id, created_at)"),
     ("point_payments", "ix_point_payments_status_created", "(status, created_at)"),
     # Mercado (listings / claims / txs)
@@ -1511,7 +1508,7 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
 def _ddl_database_url(engine: Any) -> Any:
     """URL object com password real â€” NUNCA str(engine.url) (mascara como ***).
 
-    SQLAlchemy 2: str(URL) / repr ocultam a password â†’ create_engine autentica
+    SQLAlchemy 2: str(URL) / repr ocultam a password Ã¢â€ â€™ create_engine autentica
     com '***' e MySQL devolve 1045, enquanto o pool principal (URL original) OK.
     """
     active = (_ACTIVE_DATABASE_URL or "").strip()
@@ -1592,7 +1589,7 @@ def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -
     _HOT_PATH_INDEXES_FAIL_STREAK = min(12, int(_HOT_PATH_INDEXES_FAIL_STREAK) + 1)
     err = str(exc or "").strip()
     is_auth = "1045" in err or "access denied for user" in err.lower()
-    # 30s â†’ 60s â†’ 120s â†’ 240s â†’ 300s. Auth 1045: cooldown fixo 5min.
+    # 30s Ã¢â€ â€™ 60s Ã¢â€ â€™ 120s Ã¢â€ â€™ 240s Ã¢â€ â€™ 300s. Auth 1045: cooldown fixo 5min.
     delay = (
         _HOT_PATH_INDEXES_AUTH_COOLDOWN_S
         if is_auth
@@ -1615,7 +1612,7 @@ def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -
 
 
 def _ensure_hot_path_indexes(engine: Any) -> None:
-    """Ãndices compostos para detalhe/lista admin.
+    """ÃƒÂndices compostos para detalhe/lista admin.
 
     SÃ³ marca `_HOT_PATH_INDEXES_READY` quando TODOS os Ã­ndices estÃ£o confirmados.
     Falha parcial (ex.: read_timeout no CREATE) NÃƒO marca READY â€” re-tenta com
@@ -1862,7 +1859,7 @@ def _ensure_orders_original_order_id_width(conn: Any) -> None:
     """Alarga orders.original_order_id para IDs SeasonLand + prefixo skip-kit.
 
     Prod: sp:season-delta-â€¦:dino:â€¦ (~67) e __admin_skip_kit_limit__|sp:â€¦:kit:â€¦ (~84)
-    estouavam VARCHAR(64) â†’ DataError 1406 no claim.
+    estouavam VARCHAR(64) Ã¢â€ â€™ DataError 1406 no claim.
     """
     row = conn.execute(
         text("SHOW COLUMNS FROM `orders` LIKE 'original_order_id'")
@@ -1875,7 +1872,7 @@ def _ensure_orders_original_order_id_width(conn: Any) -> None:
         return
     null_sql = "NULL" if str(row[2] or "").upper() == "YES" else "NOT NULL"
     log.warning(
-        "Migrando orders â€” original_order_id %s â†’ VARCHAR(%s)",
+        "Migrando orders â€” original_order_id %s Ã¢â€ â€™ VARCHAR(%s)",
         col_type or "?",
         _ORDERS_ORIGINAL_ORDER_ID_WIDTH,
     )
@@ -1896,7 +1893,7 @@ def _ensure_blueprint_index(engine: Any) -> None:
         ensure_blueprint_index_schema(engine)
         sync_blueprint_index(engine)
     except Exception as exc:
-        log.warning("Ãndice de blueprints: migrate falhou: %s", exc)
+        log.warning("ÃƒÂndice de blueprints: migrate falhou: %s", exc)
 
 
 def _migrate_schema(engine: Any) -> None:
@@ -1933,7 +1930,7 @@ def _migrate_schema(engine: Any) -> None:
 
             ensure_amber_schema(engine)
         except Exception as exc:
-            log.warning("Ã‚mbarÃ´metro (sqlite dev): migrate falhou: %s", exc)
+            log.warning("AmbarÃ´metro (sqlite dev): migrate falhou: %s", exc)
         try:
             from arkbank_service import ensure_arkbank_schema
 
@@ -1979,7 +1976,7 @@ def _migrate_schema(engine: Any) -> None:
 
             ensure_tribe_schema(engine)
         except Exception as exc:
-            log.warning("Ãrea de Tribo (sqlite dev): migrate falhou: %s", exc)
+            log.warning("ÃƒÂrea de Tribo (sqlite dev): migrate falhou: %s", exc)
         try:
             from team_service import ensure_team_schema
 
@@ -2132,7 +2129,7 @@ def _migrate_schema(engine: Any) -> None:
 
         ensure_amber_schema(engine)
     except Exception as exc:
-        log.warning("Ã‚mbarÃ´metro: migrate falhou: %s", exc)
+        log.warning("AmbarÃ´metro: migrate falhou: %s", exc)
     try:
         from arkbank_service import ensure_arkbank_schema
 
@@ -2178,7 +2175,7 @@ def _migrate_schema(engine: Any) -> None:
 
         ensure_tribe_schema(engine)
     except Exception as exc:
-        log.warning("Ãrea de Tribo: migrate falhou: %s", exc)
+        log.warning("ÃƒÂrea de Tribo: migrate falhou: %s", exc)
     try:
         from team_service import ensure_team_schema
 
@@ -2255,9 +2252,12 @@ def _configure_database_locked(normalized: str) -> None:
     global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS, _MIGRATE_ASYNC_STARTED
     global _ENTITLEMENTS_RECONCILE_STARTED
 
-    # URL mudou de verdade â†’ permite novo migrate; senÃ£o mantÃ©m flags do pid.
+    # URL mudou de verdade Ã¢â€ â€™ permite novo migrate; senÃ£o mantÃ©m flags do pid.
     url_changed = normalized != _ACTIVE_DATABASE_URL
     if url_changed:
+        # These caches are keyed by Steam ID, not by engine. A new DB may have
+        # different orders for the same player, so never carry them across.
+        _invalidate_pending_delivery_cache()
         _MIGRATE_ASYNC_STARTED = False
         _ENTITLEMENTS_RECONCILE_STARTED = False
         try:
@@ -2479,7 +2479,7 @@ def _initialize_database_if_needed() -> None:
             log.warning("DB lazy initialization failed: %s", exc)
 
 
-# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -2543,7 +2543,7 @@ def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
 
 
 def _short_db_session(*, commit: bool = False):
-    """Context manager: abrir â†’ query â†’ devolver ao pool (force release).
+    """Context manager: abrir Ã¢â€ â€™ query Ã¢â€ â€™ devolver ao pool (force release).
 
     Usar em blocos curtos antes de RCON/Steam/MP. Ver db_pool.db_session.
     """
@@ -2567,11 +2567,11 @@ def _require_db():
         rem = float(st.get("cooldown_remaining_s") or st.get("retry_after_s") or 0)
         rem_i = max(0, int(rem + 0.999))  # ceil
         user_msg = (
-            f"Base de dados temporariamente indisponÃ­vel (proteÃ§Ã£o automÃ¡tica). "
+            f"Base de dados temporariamente indisponível (proteção automática). "
             f"Tente novamente em ~{rem_i}s."
             if rem_i > 0
             else (
-                "Base de dados temporariamente indisponÃ­vel (proteÃ§Ã£o automÃ¡tica). "
+                "Base de dados temporariamente indisponível (proteção automática). "
                 "A recuperar â€” tente novamente em alguns segundos."
             )
         )
@@ -2774,7 +2774,7 @@ def _load_settings() -> dict[str, Any]:
         "retry_max_attempts": 10,
         # Shop/kit (plugin): minutos para reabrir ENTREGANDO preso (0 = off).
         "shop_stale_entregando_minutes": 5,
-        # ApÃ³s N releases com o mesmo fail_reason â†’ ERRO (nÃ£o reabrir forever).
+        # ApÃ³s N releases com o mesmo fail_reason Ã¢â€ â€™ ERRO (nÃ£o reabrir forever).
         "shop_identical_fail_max": 5,
         "database_url": "",
         "db_host": "",
@@ -2787,7 +2787,7 @@ def _load_settings() -> dict[str, Any]:
         "ticket_discord_token": "",
         "discord_validation_channel_id": "",
         "discord_validation_role_id": "",
-        "point_packages": _DEFAULT_POINT_PACKAGES,
+        "point_packages": [],
         "mp_access_token": "",
         "mp_webhook_secret": "",
         "steam_api_key": "",
@@ -3159,7 +3159,7 @@ def _list_admin_players(
             persona = cached_persona
             if not persona:
                 missing_persona.append(sid)
-            # Cache miss de nick â†’ SteamID placeholder; linha do jogador SEMPRE presente.
+            # Cache miss de nick Ã¢â€ â€™ SteamID placeholder; linha do jogador SEMPRE presente.
             label = persona or store_name or sid
             ents = ents_by_sid.get(sid) or []
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
@@ -3254,7 +3254,7 @@ def _get_admin_player_detail(
         # player_entitlements por unique key, market_profile PK). NUNCA varre as
         # tabelas grandes orders/point_payments/market_listings nem o pending de
         # kits â€” isso escala com o VOLUME do jogador (griao com 10k pedidos) e
-        # estourava o budget â†’ parcial eterno. Pedidos, doaÃ§Ãµes, listings e limites
+        # estourava o budget Ã¢â€ â€™ parcial eterno. Pedidos, DpaÃ§Ãµes, listings e limites
         # de kits ficam no endpoint /heavy (lazy). Assim o essencial responde <8s
         # SEMPRE, mesmo para jogadores pesados, independente dos Ã­ndices hot-path.
         cached_persona = None
@@ -3319,7 +3319,7 @@ def _get_admin_player_detail(
 
 
 # Budget curto do detalhe admin â€” o frontend aborta aos 15s. Preferimos SEMPRE uma
-# resposta parcial rÃ¡pida a segurar o worker atÃ© o browser desistir (200 Ã³rfÃ£o â†’
+# resposta parcial rÃ¡pida a segurar o worker atÃ© o browser desistir (200 Ã³rfÃ£o Ã¢â€ â€™
 # Â«Falha ao carregarÂ»). Override por env; <=0 desliga o budget.
 _ADMIN_DETAIL_BUDGET_MS = max(0, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BUDGET_MS", "9000") or 0))
 _ADMIN_DETAIL_HEAVY_BUDGET_MS = max(
@@ -3658,7 +3658,7 @@ def _get_admin_player_detail_heavy_budgeted(steam_id: str) -> dict[str, Any]:
 def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
     """Corre o detalhe completo com deadline; se estourar, devolve parcial rÃ¡pido.
 
-    ApÃ³s o budget: `cancel` pede Ã  thread Ã³rfÃ£ para libertar a scoped_session entre
+    ApÃ³s o budget: `cancel` pede ÃƒÂ  thread Ã³rfÃ£ para libertar a scoped_session entre
     queries (nÃ£o segura o pool para sempre). Slots limitados evitam tempestade de
     Ã³rfÃ£s sob carga.
     """
@@ -3982,7 +3982,7 @@ def _catalog_entry_dino_level(entry: dict[str, Any]) -> int:
 
 
 def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
-    """SKUs resgatÃ¡veis do catÃ¡logo Items, alinhados Ã s abas Itens / Dinos (todos os nÃ­veis).
+    """SKUs resgatÃ¡veis do catÃ¡logo Items, alinhados ÃƒÂ s abas Itens / Dinos (todos os nÃ­veis).
 
     ``dinos200`` Ã© alias legado (subconjunto de ``dinos`` com nÃ­vel 200) para clientes antigos.
     """
@@ -4109,7 +4109,7 @@ def _admin_player_points_adjust(
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("Ã‚mbarÃ´metro admin player hook: %s", amber_exc)
+                log.warning("AmbarÃ´metro admin player hook: %s", amber_exc)
         _audit_event(
             event_type,
             actor_type="admin",
@@ -4118,7 +4118,7 @@ def _admin_player_points_adjust(
             amount=after,
             status_before=str(before),
             status_after=str(after),
-            message=reason or f"Saldo: {before} â†’ {after}",
+            message=reason or f"Saldo: {before} Ã¢â€ â€™ {after}",
             mode=mode,
             delta=delta,
         )
@@ -5132,7 +5132,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
     if not steam_id:
         return {"ok": False, "error": "SteamID64 Ã© obrigatÃ³rio"}
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado. Configure as credenciais em ConfiguraÃ§Ãµes â†’ DB."}
+        return {"ok": False, "error": "Banco nÃ£o configurado. Configure as credenciais em ConfiguraÃ§Ãµes Ã¢â€ â€™ DB."}
 
     db = _SessionLocal()
     try:
@@ -5161,7 +5161,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("Ã‚mbarÃ´metro admin points add hook: %s", amber_exc)
+                log.warning("AmbarÃ´metro admin points add hook: %s", amber_exc)
             _audit_event(
                 "admin_points_add",
                 actor_type="admin",
@@ -5174,7 +5174,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                 "ok": True,
                 "steam_id": steam_id,
                 "points": new_balance,
-                "response": f"+{amount:,} â†’ saldo {new_balance:,}".replace(",", "."),
+                "response": f"+{amount:,} Ã¢â€ â€™ saldo {new_balance:,}".replace(",", "."),
             }
         if action == "set":
             if amount < 0:
@@ -5195,7 +5195,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                         commit=True,
                     )
                 except Exception as amber_exc:
-                    log.warning("Ã‚mbarÃ´metro admin points set hook: %s", amber_exc)
+                    log.warning("AmbarÃ´metro admin points set hook: %s", amber_exc)
             _audit_event(
                 "admin_points_set",
                 actor_type="admin",
@@ -5231,7 +5231,7 @@ _HEAL_RICHEST_CACHE: dict[str, Any] = {"expires": 0.0, "path": ""}
 _TIMED_POINTS_AMOUNTS_CACHE: dict[str, Any] = {"fingerprint": "", "amounts": None}
 
 # Home pÃºblica: payload partilhado (sem PII) â€” evita 50s+ sob fila Waitress.
-# CRÃTICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
+# CRÃƒÂTICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
 _PUBLIC_HOME_CACHE_TTL_SEC = float(os.environ.get("ARKSHOP_HOME_CACHE_TTL_SEC", "45") or 45)
 _PUBLIC_HOME_STALE_MAX_SEC = float(os.environ.get("ARKSHOP_HOME_STALE_MAX_SEC", "300") or 300)
 _PUBLIC_HOME_CACHE_LOCK = threading.Lock()
@@ -5582,7 +5582,7 @@ def _resolve_shop_catalog(
         if items_n + kits_n == 0:
             note = (
                 f"config.json sem itens/kits em {preferred}. "
-                "Verifique ConfiguraÃ§Ãµes â†’ caminho do catÃ¡logo ou restaure o mestre CustomShop."
+                "Verifique ConfiguraÃ§Ãµes Ã¢â€ â€™ caminho do catÃ¡logo ou restaure o mestre CustomShop."
             )
             record_event(
                 "catalog_empty",
@@ -5680,7 +5680,7 @@ LICENSE_TIMED_BONUS = {
     "Moderacao": 500,
     "STAFF": 1000,
 }
-# RenovaÃ§Ã£o recente (âˆ’10%) atÃ© N dias apÃ³s expirar; antecipada (âˆ’20%) via SKU *_renovacao.
+# RenovaÃ§Ã£o recente (Ã¢Ë†â€™10%) atÃ© N dias apÃ³s expirar; antecipada (Ã¢Ë†â€™20%) via SKU *_renovacao.
 LICENSE_RECENT_RENEWAL_DAYS = 7
 LICENSE_RECENT_RENEWAL_FACTOR = 0.90
 STAFF_ROLE_GROUPS = frozenset({"Moderacao", "Mod", "STAFF"})
@@ -5809,7 +5809,7 @@ def _resolve_kit_id_in_catalog(kit_id: str, kits: dict[str, Any]) -> str:
 
 
 def _resolve_catalog_item_id(item_type: str, item_id: str) -> str:
-    """Resolve aliases (ex.: Gamma â†’ licenca_gamma) para o ID canÃ´nico no config."""
+    """Resolve aliases (ex.: Gamma Ã¢â€ â€™ licenca_gamma) para o ID canÃ´nico no config."""
     item_id = str(item_id or "").strip()
     if not item_id:
         return item_id
@@ -6122,7 +6122,7 @@ def _license_group_from_item_id(item_id: str) -> str:
 
 
 def _fold_entitlement_group_key(group: str) -> str:
-    """lower + sem acentos + espaÃ§os/hÃ­fens â†’ underscore (Â«LicenÃ§a DeltaÂ» â†’ licenca_delta)."""
+    """lower + sem acentos + espaÃ§os/hÃ­fens Ã¢â€ â€™ underscore (Â«LicenÃ§a DeltaÂ» Ã¢â€ â€™ licenca_delta)."""
     import unicodedata
 
     folded = unicodedata.normalize("NFKD", str(group or ""))
@@ -6131,7 +6131,7 @@ def _fold_entitlement_group_key(group: str) -> str:
 
 
 def _normalize_entitlement_group(group: str) -> str:
-    """SKU `licenca_delta` / aliases â†’ PermissionGroup canÃ³nico (`Delta`).
+    """SKU `licenca_delta` / aliases Ã¢â€ â€™ PermissionGroup canÃ³nico (`Delta`).
 
     `group_name` em player_entitlements deve ser o grupo Permissions/TimedPoints,
     nunca o ID de catÃ¡logo. keyvault e cargos ficam intactos. Rows legadas podem
@@ -6198,7 +6198,7 @@ def _timed_points_bonus_for_group(
     *,
     amounts: dict[str, int] | None = None,
 ) -> int:
-    """BÃ³nus Ã‚/ciclo do grupo (SKU normalizado). keyvault sem TimedPoints â†’ 0."""
+    """BÃ³nus Ã‚/ciclo do grupo (SKU normalizado). keyvault sem TimedPoints Ã¢â€ â€™ 0."""
     canonical = _normalize_entitlement_group(group)
     if not canonical:
         return 0
@@ -6209,7 +6209,7 @@ def _timed_points_bonus_for_group(
 
 
 def _repair_entitlement_sku_group_names(engine: Any) -> int:
-    """Migra group_name SKU (`licenca_*`) â†’ PermissionGroup; funde se jÃ¡ existir canÃ³nico."""
+    """Migra group_name SKU (`licenca_*`) Ã¢â€ â€™ PermissionGroup; funde se jÃ¡ existir canÃ³nico."""
     if engine is None:
         return 0
     repaired = 0
@@ -6294,7 +6294,7 @@ def _repair_entitlement_sku_group_names(engine: Any) -> int:
                     )
                 repaired += 1
                 log.info(
-                    "entitlement SKU repair: %s %r â†’ %r",
+                    "entitlement SKU repair: %s %r Ã¢â€ â€™ %r",
                     steam_id, raw_group, canonical,
                 )
     except Exception as exc:
@@ -6335,7 +6335,7 @@ def _days_since_license_expiry(steam_id: str, group: str) -> int | None:
                 return None
         now_ts = _now().timestamp() if hasattr(_now(), "timestamp") else float(__import__("time").time())
         if exp_ts > now_ts:
-            return None  # ainda ativa â€” use SKU *_renovacao (âˆ’20%)
+            return None  # ainda ativa â€” use SKU *_renovacao (Ã¢Ë†â€™20%)
         return max(0, int((now_ts - exp_ts) // 86400))
     except Exception:
         return None
@@ -6349,9 +6349,9 @@ def _effective_license_price(
     item_id: str,
     amount: int = 1,
 ) -> int:
-    """PreÃ§o de licenÃ§a com renovaÃ§Ã£o recente âˆ’10% (0â€“7 dias apÃ³s expirar).
+    """PreÃ§o de licenÃ§a com renovaÃ§Ã£o recente Ã¢Ë†â€™10% (0â€“7 dias apÃ³s expirar).
 
-    RenovaÃ§Ã£o antecipada âˆ’20% usa IDs `licenca_*_renovacao` no catÃ¡logo (jÃ¡ com preÃ§o).
+    RenovaÃ§Ã£o antecipada Ã¢Ë†â€™20% usa IDs `licenca_*_renovacao` no catÃ¡logo (jÃ¡ com preÃ§o).
     """
     base = _catalog_price(entry, amount)
     key = str(item_id or "").strip().lower()
@@ -6467,7 +6467,7 @@ def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
 def _can_accept_paid_license_tx(
     db: Any, steam_id: str, group: str,
 ) -> tuple[bool, str]:
-    """Sempre aceita: tiers distintos ilimitados; mesmo tier â†’ renovaÃ§Ã£o/stack."""
+    """Sempre aceita: tiers distintos ilimitados; mesmo tier Ã¢â€ â€™ renovaÃ§Ã£o/stack."""
     return True, ""
 
 
@@ -6719,7 +6719,7 @@ def _compute_timed_points_total(groups: list[str]) -> int:
     """Soma Amount de todos os grupos activos (igual a StackRewards=true no C++).
 
     Default + staff/MOD + keyvault (se Amount>0) + todos os tiers pagos.
-    Ex.: Alfa+Delta â†’ 25+75+5 = 105. StackRewards=false no plugin usa sÃ³ o
+    Ex.: Alfa+Delta Ã¢â€ â€™ 25+75+5 = 105. StackRewards=false no plugin usa sÃ³ o
     maior absoluto â€” a UI da loja reflecte o modo stack (default de produÃ§Ã£o).
     """
     amounts = _timed_points_groups_amounts()
@@ -6733,7 +6733,7 @@ def _compute_timed_points_total(groups: list[str]) -> int:
 
 
 def _schedule_entitlements_reconcile() -> None:
-    """Ao subir a web store, reconcilia entitlements â†” ark_permission em background."""
+    """Ao subir a web store, reconcilia entitlements Ã¢â€ â€ ark_permission em background."""
     global _ENTITLEMENTS_RECONCILE_STARTED
     done_key = _reconcile_done_env_key()
     if os.environ.get(done_key) == "1":
@@ -6756,7 +6756,7 @@ def _schedule_entitlements_reconcile() -> None:
             os.environ[done_key] = "1"
             if res.get("ok"):
                 log.info(
-                    "ReconciliaÃ§Ã£o entitlementsâ†’ark_permission: verificados=%s irregulares=%s corrigidos=%s",
+                    "ReconciliaÃ§Ã£o entitlementsÃ¢â€ â€™ark_permission: verificados=%s irregulares=%s corrigidos=%s",
                     res.get("checked", 0),
                     res.get("irregular", 0),
                     res.get("synced", 0),
@@ -6825,7 +6825,7 @@ def _check_entry_permissions(steam_id: str, entry: dict[str, Any]) -> tuple[bool
     """Gate de licenÃ§a na loja â€” ignora Admins/Staff (sÃ³ tiers pagos / keyvault)."""
     groups = license_permission_groups(entry)
     if not groups:
-        # SÃ³ staff/Default no campo, ou vazio â†’ aberto para jogadores.
+        # SÃ³ staff/Default no campo, ou vazio Ã¢â€ â€™ aberto para jogadores.
         return True, []
     mode = str(entry.get("PermissionsMode", "any")).strip().lower()
     active = [g for g in groups if _player_has_license(steam_id, g)]
@@ -7057,13 +7057,7 @@ def _revoke_entitlement_for_order(steam_id: str, order_id: str, db: Any | None =
 def _load_point_packages() -> list[dict[str, Any]]:
     cfg = _read_shop_config()
     packages = cfg.get("PointPackages")
-    if isinstance(packages, list):
-        return packages
-    s = _load_settings()
-    stored = s.get("point_packages")
-    if isinstance(stored, list):
-        return stored
-    return _DEFAULT_POINT_PACKAGES
+    return packages if isinstance(packages, list) else []
 
 
 def _normalize_point_packages(raw: Any) -> list[dict[str, Any]]:
@@ -7136,7 +7130,7 @@ DEFAULT_PAYPAL_INSTRUCTIONS = (
     "â€¢ Comprovante ou print do pagamento\n"
     "â€¢ Seu SteamID\n"
     "â€¢ Valor doado\n\n"
-    "Um administrador creditarÃ¡ Ã‚mbares manualmente (R$ 1 = 1.000 Ã‚mbares). "
+    "Um administrador creditarÃ¡ Ambares manualmente (R$ 1 = 1.000 Ambares). "
     "DoaÃ§Ã£o definitiva â€” sem reembolso."
 )
 DEFAULT_BOLETO_MANUAL_INSTRUCTIONS = (
@@ -7146,7 +7140,7 @@ DEFAULT_BOLETO_MANUAL_INSTRUCTIONS = (
     "â€¢ Comprovante do pagamento\n"
     "â€¢ Seu SteamID\n"
     "â€¢ Valor doado\n\n"
-    "Um administrador creditarÃ¡ Ã‚mbares manualmente (R$ 1 = 1.000 Ã‚mbares). "
+    "Um administrador creditarÃ¡ Ambares manualmente (R$ 1 = 1.000 Ambares). "
     "DoaÃ§Ã£o definitiva â€” sem reembolso. CompensaÃ§Ã£o de boleto pode levar 1â€“3 dias Ãºteis."
 )
 
@@ -7307,7 +7301,7 @@ def _mp_webhook_strict_signature() -> bool:
 
 
 def _mp_auto_reconcile_enabled() -> bool:
-    """Varredura periÃ³dica de doaÃ§Ãµes pendentes/abandonadas (desligada por padrÃ£o)."""
+    """Varredura periÃ³dica de DpaÃ§Ãµes pendentes/abandonadas (desligada por padrÃ£o)."""
     raw = _load_settings().get("mp_auto_reconcile")
     if raw is None:
         raw = os.environ.get("MP_AUTO_RECONCILE", "")
@@ -7360,7 +7354,7 @@ def _build_base_url() -> str:
     return public
 
 
-# â”€â”€ Servers registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Servers registry Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _load_servers(*, decrypt_secrets: bool = True) -> list[dict[str, Any]]:
     """Carrega servers.json. Home pÃºblica usa decrypt_secrets=False (sem Fernet)."""
@@ -7404,7 +7398,7 @@ def _get_server_settings(server_id: str) -> dict[str, Any]:
     return base
 
 
-# â”€â”€ Steam OpenID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Steam OpenID Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _verify_steam_openid(query_params: dict[str, str]) -> bool:
     payload = {k: v for k, v in query_params.items() if k.startswith("openid.")}
@@ -7440,9 +7434,9 @@ _STEAM_PERSONA_BATCH_SIZE = 100
 _STEAM_API_KEY_WARNED = False
 _STEAM_PERSONA_ADMIN_WARNING = (
     "Nicknames Steam indisponÃ­veis â€” configure a Chave Steam Web API no TEK "
-    "(CustomShop â†’ Web Store) ou em ConfiguraÃ§Ãµes do admin web "
+    "(CustomShop Ã¢â€ â€™ Web Store) ou em ConfiguraÃ§Ãµes do admin web "
     "(https://steamcommunity.com/dev/apikey) e reinicie a Web Store. "
-    "Verifique GET /api/health â†’ steam_api_configured."
+    "Verifique GET /api/health Ã¢â€ â€™ steam_api_configured."
 )
 _STEAM_PERSONA_FETCH_WARNING = (
     "A Steam Web API nÃ£o retornou nicknames para esta pÃ¡gina â€” perfis privados, "
@@ -7458,7 +7452,7 @@ def _warn_steam_api_key_missing(context: str = "") -> None:
     suffix = f" ({context})" if context else ""
     log.warning(
         "STEAM_API_KEY nÃ£o configurada â€” nicknames Steam indisponÃ­veis%s. "
-        "Configure no TEK (CustomShop â†’ Web Store) ou em https://steamcommunity.com/dev/apikey",
+        "Configure no TEK (CustomShop Ã¢â€ â€™ Web Store) ou em https://steamcommunity.com/dev/apikey",
         suffix,
     )
 
@@ -7762,7 +7756,7 @@ def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | No
     return None
 
 
-# â”€â”€ Auth decorators â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Auth decorators Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def login_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(fn)
@@ -7937,13 +7931,13 @@ def _guard_regulamento_accepted(steam_id: str) -> Any:
 
 
 def _guard_player_commerce(steam_id: str) -> Any:
-    """Regulamento aceito + nome de exibiÃ§Ã£o (mercado/resgates/doaÃ§Ãµes)."""
+    """Regulamento aceito + nome de exibiÃ§Ã£o (mercado/resgates/DpaÃ§Ãµes)."""
     if (reg_err := _guard_regulamento_accepted(steam_id)) is not None:
         return reg_err
     return _guard_player_display_name(steam_id)
 
 
-# â”€â”€ RCON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ RCON Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _rcon_command(
     host: str,
@@ -8510,7 +8504,7 @@ def _attempt_delivery(order: Order, settings: dict[str, Any]) -> tuple[bool, str
         return False, None, str(exc), command
 
 
-# â”€â”€ Order core â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Order core Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
                   original_order_id: str | None = None,
@@ -8570,7 +8564,7 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
     if not _db_ready():
         return {"ok": False, "error": "Banco nÃ£o configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}
 
-    # â”€â”€ Fase 1: claim curto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 1: claim curto Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     db = _SessionLocal()
     try:
         order = db.query(Order).filter(Order.order_id == order_id).with_for_update().first()
@@ -8607,7 +8601,7 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
             status=order.status,
             retry_count=int(order.retry_count or 0),
         )
-        # Marca ENTREGANDO e COMMIT imediato â†’ liberta FOR UPDATE antes do RCON.
+        # Marca ENTREGANDO e COMMIT imediato Ã¢â€ â€™ liberta FOR UPDATE antes do RCON.
         order.status = "ENTREGANDO"
         order.updated_at = _now()
         db.commit()
@@ -8620,10 +8614,10 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
     finally:
         _release_db_session(db, force=True)
 
-    # â”€â”€ Fase 2: RCON sem conexÃ£o do pool â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 2: RCON sem conexÃ£o do pool Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     success, response, error, command = _attempt_delivery(order_snap, server_settings)
 
-    # â”€â”€ Fase 3: persistir resultado (sessÃ£o curta) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 3: persistir resultado (sessÃ£o curta) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     db2 = _SessionLocal()
     try:
         order2 = db2.query(Order).filter(Order.order_id == order_id).with_for_update().first()
@@ -8677,7 +8671,7 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
         _release_db_session(db2, force=True)
 
 
-# â”€â”€ Background retry scheduler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Background retry scheduler Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _scheduler_thread: threading.Thread | None = None
 _scheduler_stop = threading.Event()
@@ -8888,7 +8882,7 @@ def _initialize_scheduler_if_needed() -> None:
         _SCHEDULER_INITIALIZED = True
 
 
-# â”€â”€ CustomShop internal API (requires X-API-Key header) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ CustomShop internal API (requires X-API-Key header) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _pending_items_json(items: list[dict[str, Any]]) -> Any:
     """Resposta JSON padronizada para fila de entregas (nunca corpo vazio)."""
@@ -9006,7 +9000,7 @@ def get_shop_stale_entregando_minutes() -> int:
 
 
 def get_shop_identical_fail_max() -> int:
-    """ApÃ³s N releases com o mesmo fail_reason â†’ ERRO (0 = nunca)."""
+    """ApÃ³s N releases com o mesmo fail_reason Ã¢â€ â€™ ERRO (0 = nunca)."""
     raw = _load_settings().get(
         "shop_identical_fail_max", SHOP_IDENTICAL_FAIL_MAX_DEFAULT
     )
@@ -9024,7 +9018,7 @@ def recover_stale_entregando_shop_orders(
 ) -> int:
     """Reabre pedidos shop/kit (incl. SeasonLand sp:) ENTREGANDO cujo claim expirou.
 
-    Espelha custom_dino: ENTREGANDO â†’ PENDENTE + last_error + retry_count++ + audit.
+    Espelha custom_dino: ENTREGANDO Ã¢â€ â€™ PENDENTE + last_error + retry_count++ + audit.
     NÃ£o toca item_type=custom_dino (rota prÃ³pria).
     Fast-path: SELECT 1 LIMIT 1 antes do SELECT completo + UPDATE.
     """
@@ -9086,7 +9080,7 @@ def recover_stale_entregando_shop_orders(
         return 0
 
     # Commit ANTES do audit / force-release: sem isto o UPDATE era rollback
-    # no finally do caller (pending_jobs usa force=True â†’ rollback).
+    # no finally do caller (pending_jobs usa force=True Ã¢â€ â€™ rollback).
     db.commit()
 
     _invalidate_pending_delivery_cache(sid)
@@ -9133,7 +9127,7 @@ def _maybe_recover_stale_on_claim(db: Any, steam_id: str) -> int:
     """Safety net: se o scheduler ~10s estiver morto, recover neste claim.
 
     Hot path feliz (scheduler vivo) NÃƒO chama recover â€” evita trabalho extra
-    em cada poll do plugin. Chicken-egg / INLINE / crash da thread â†’ recupera.
+    em cada poll do plugin. Chicken-egg / INLINE / crash da thread Ã¢â€ â€™ recupera.
     """
     if _pending_stale_scheduler_healthy():
         return 0
@@ -9434,7 +9428,7 @@ def pending_batch_status():
 def release_pending_orders():
     """Reabre pedidos ENTREGANDO apÃ³s falha na entrega pelo plugin.
 
-    Body opcional: errors=[{order_id, fail_reason}] â€” apÃ³s N falhas idÃªnticas â†’ ERRO.
+    Body opcional: errors=[{order_id, fail_reason}] â€” apÃ³s N falhas idÃªnticas Ã¢â€ â€™ ERRO.
     """
     if (err := _require_db()) is not None:
         return err
@@ -9704,7 +9698,7 @@ def mark_pending_delivered(steam_id: str, order_id: str):
         _release_db_session(db)
 
 
-# â”€â”€ Auth routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Auth routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _web_build_id() -> str:
     """VersÃ£o do app para cache-bust de assets estÃ¡ticos (?v=)."""
@@ -9729,13 +9723,25 @@ def index():
     return resp
 
 
+
+@app.route("/<path:frontend_path>", methods=["GET", "HEAD"])
+def frontend_spa_fallback(frontend_path: str):
+    if frontend_path.startswith("api/"):
+        return jsonify({
+            "ok": False,
+            "error": "Endpoint n?o encontrado. Atualize a loja web se o erro persistir.",
+        }), 404
+    if "." in Path(frontend_path).name:
+        return "Not Found", 404
+    return index()
+
 @app.route("/dinos200")
 @app.route("/dinos-200")
 @app.route("/dinos_200")
 @app.route("/loja/dinos200")
 @app.route("/catalogo/dinos200")
 def legacy_dinos200_redirect():
-    """URLs antigas da aba Â«Dinos 200Â» â†’ Dinos com filtro de nÃ­vel 200 (SPA lÃª ?tab=&nivel=)."""
+    """URLs antigas da aba Â«Dinos 200Â» Ã¢â€ â€™ Dinos com filtro de nÃ­vel 200 (SPA lÃª ?tab=&nivel=)."""
     from dino_levels import LEGACY_DINOS200_LEVEL
 
     return redirect(f"/?tab=dinos&nivel={LEGACY_DINOS200_LEVEL}", code=301)
@@ -9973,7 +9979,7 @@ def auth_me():
     return jsonify(_build_auth_me_payload())
 
 
-# â”€â”€ Settings routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Settings routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/settings", methods=["GET"])
 @admin_required
@@ -10153,7 +10159,7 @@ def save_settings():
     }), 200 if ok else 500
 
 
-# â”€â”€ Servers routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Servers routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/servers", methods=["GET"])
 @admin_required
@@ -10396,7 +10402,7 @@ def sync_servers_from_client():
     return jsonify({"ok": True, "registered": registered, "total": len(by_id)})
 
 
-# â”€â”€ Players routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Players routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/players", methods=["GET"])
 @admin_required
@@ -10443,7 +10449,7 @@ def delete_player(steam_id: str):
     return jsonify({"ok": True, "removed": len(players) - len(kept)})
 
 
-# â”€â”€ Config routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Config routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _normalize_config_to_web(data: dict) -> dict:
     """Normaliza config.json (CustomShop: 'Items') para o formato web (ShopItems).
@@ -10469,7 +10475,7 @@ def _normalize_config_to_file(data: dict) -> dict:
     except Exception:
         pass
     try:
-        # Dinos: Level explÃ­cito + categoria Â«Dinos 200Â» â†’ Â«DinosÂ» (idempotente).
+        # Dinos: Level explÃ­cito + categoria Â«Dinos 200Â» Ã¢â€ â€™ Â«DinosÂ» (idempotente).
         from dino_levels import migrate_catalog_dinos
 
         migrate_catalog_dinos(data)
@@ -10600,12 +10606,12 @@ def _heal_empty_shop_config_path(preferred: Path) -> tuple[Path, dict[str, Any] 
             return preferred, data, None
         return preferred, data, (
             f"config.json sem itens/kits em {preferred}. "
-            "Verifique ConfiguraÃ§Ãµes â†’ caminho do catÃ¡logo (catalog_path) ou restaure o mestre CustomShop."
+            "Verifique ConfiguraÃ§Ãµes Ã¢â€ â€™ caminho do catÃ¡logo (catalog_path) ou restaure o mestre CustomShop."
         )
 
     return preferred, {}, (
         f"config.json em falta: {preferred}. "
-        "Defina o caminho em ConfiguraÃ§Ãµes â†’ caminho do catÃ¡logo (catalog_path)."
+        "Defina o caminho em ConfiguraÃ§Ãµes Ã¢â€ â€™ caminho do catÃ¡logo (catalog_path)."
     )
 
 
@@ -10653,7 +10659,7 @@ def get_config():
             data["error"] = (
                 note
                 or f"config.json sem itens/kits em {healed_path}. "
-                "Defina o caminho em ConfiguraÃ§Ãµes â†’ config_path."
+                "Defina o caminho em ConfiguraÃ§Ãµes Ã¢â€ â€™ config_path."
             )
             _log(
                 "get_config_empty",
@@ -10776,7 +10782,7 @@ def _persist_shop_catalog(
     }, 200
 
 
-# â”€â”€ AÃ§Ãµes em lote â€” Itens da Loja (admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ AÃ§Ãµes em lote â€” Itens da Loja (admin) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 # Para estender (ex.: Â«alterar categoriaÂ» em lote): escreva um ``apply(items, key, entry, params)``
 # que muta ``items`` e devolva o status curto, e registre em ``_SHOP_BULK_ACTIONS``.
 SHOP_BULK_MAX_IDS = 200
@@ -11002,9 +11008,9 @@ def admin_shop_items_bulk():
 @app.route("/api/admin/catalog/import", methods=["POST"])
 @admin_required
 def admin_catalog_import():
-    """Upload de config.json â†’ mestre canÃ´nico â†’ mapas + WEBSTORE â†’ Shop.Reload RCON.
+    """Upload de config.json Ã¢â€ â€™ mestre canÃ´nico Ã¢â€ â€™ mapas + WEBSTORE Ã¢â€ â€™ Shop.Reload RCON.
 
-    Mesma semÃ¢ntica do TEK Â«Propagar mestre â†’ mapas + lojaÂ» (sem WEBSTOREâ†’mestre).
+    Mesma semÃ¢ntica do TEK Â«Propagar mestre Ã¢â€ â€™ mapas + lojaÂ» (sem WEBSTOREÃ¢â€ â€™mestre).
     Resposta inclui stages, maps (ficheiro) e rcon (por mapa) para auditoria.
     """
     stages: list[dict[str, Any]] = []
@@ -11309,7 +11315,7 @@ def admin_catalog_import():
     })
 
 
-# â”€â”€ DB test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ DB test Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/db/test", methods=["POST"])
 @admin_required
@@ -11330,7 +11336,7 @@ def test_db_connection():
         return jsonify({"ok": False, "error": str(exc)}), 200
 
 
-# â”€â”€ PÃºblico (home + catÃ¡logo sem login) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ PÃºblico (home + catÃ¡logo sem login) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _catalog_public_stats(data: dict[str, Any]) -> dict[str, int]:
     """Contagens pÃºblicas do catÃ¡logo para a home."""
@@ -11374,32 +11380,32 @@ def _public_brand_name(raw: str) -> str:
 
 def _default_amber_lore() -> dict[str, Any]:
     return {
-        "title": "A Lenda do Ã‚mbar de Arkland",
+        "title": "A Lenda do Ambar de Arkland",
         "sections": [
             {
                 "paragraphs": [
-                    "Antes dos sobreviventes erguerem muralhas, antes das tribos dominarem os cÃ©us "
-                    "com Wyverns e os mares com Mosassauros, existia apenas o silÃªncio.",
-                    "Dizem que, quando os primeiros Obeliscos surgiram sobre Arkland, uma chuva dourada "
-                    "caiu dos cÃ©us durante sete dias e sete noites. NÃ£o era fogo, nem cristal. Eram "
-                    "fragmentos de uma substÃ¢ncia desconhecida que brilhava como o sol ao amanhecer.",
-                    "Os sobreviventes que encontraram esses fragmentos perceberam algo estranho. "
-                    "Dentro deles havia memÃ³rias.",
-                    "Alguns continham folhas de Ã¡rvores extintas. Outros guardavam insetos ancestrais. "
-                    "Os mais raros aprisionavam fragmentos da essÃªncia das criaturas primordiais.",
-                    "Um caÃ§ador encontrou um pedaÃ§o tÃ£o puro que dentro dele podia ser visto o crÃ¢nio "
-                    "de um Rex ancestral.",
-                    "Quando o fragmento foi levado atÃ© o Grande Obelisco, o cristal reagiu. "
-                    "A luz dos Obeliscos reconhecia aquela substÃ¢ncia.",
-                    "Naquele momento nasceu o nome que atravessaria geraÃ§Ãµes: Ã‚mbar.",
-                    "Os sÃ¡bios de Arkland descobriram que cada pedaÃ§o de Ã‚mbar continha energia "
-                    "ancestral condensada durante milhares de anos. NÃ£o era apenas uma pedra. "
-                    "Era tempo solidificado. Era a memÃ³ria viva do mundo primitivo.",
-                    "Por isso nenhuma tribo ousava destruÃ­-lo. Nenhum comerciante recusava recebÃª-lo. "
-                    "Nenhum governante conseguia ignorar seu valor.",
-                    "Com o passar dos anos, o Ã‚mbar tornou-se a moeda oficial de Arkland. "
-                    "NÃ£o porque alguÃ©m decretou. Mas porque todos concordaram que nada era mais valioso "
-                    "do que a prÃ³pria histÃ³ria do mundo.",
+                "Antes dos sobreviventes erguerem muralhas, antes das tribos dominarem os cÃ©us "
+                "com Wyverns e os mares com Mosassauros, existia apenas o silÃªncio.",
+                "Dizem que, quando os primeiros Obeliscos surgiram sobre Arkland, uma chuva dourada "
+                "caiu dos cÃ©us durante sete dias e sete noites. NÃ£o era fogo, nem cristal. Eram "
+                "fragmentos de uma substÃ¢ncia desconhecida que brilhava como o sol ao amanhecer.",
+                "Os sobreviventes que encontraram esses fragmentos perceberam algo estranho. "
+                "Dentro deles havia memÃ³rias.",
+                "Alguns continham folhas de Ã¡rvores extintas. Outros guardavam insetos ancestrais. "
+                "Os mais raros aprisionavam fragmentos da essÃªncia das criaturas primordiais.",
+                "Um caÃ§ador encontrou um pedaÃ§o tÃ£o puro que dentro dele podia ser visto o crÃ¢nio "
+                "de um Rex ancestral.",
+                "Quando o fragmento foi levado atÃ© o Grande Obelisco, o cristal reagiu. "
+                "A luz dos Obeliscos reconhecia aquela substÃ¢ncia.",
+                "Naquele momento nasceu o nome que atravessaria geraÃ§Ãµes: Ã‚mbar.",
+                "Os sÃ¡bios de Arkland descobriram que cada pedaÃ§o de Ã‚mbar continha energia "
+                "ancestral condensada durante milhares de anos. NÃ£o era apenas uma pedra. "
+                "Era tempo solidificado. Era a memÃ³ria viva do mundo primitivo.",
+                "Por isso nenhuma tribo ousava destruÃ­-lo. Nenhum comerciante recusava recebÃª-lo. "
+                "Nenhum governante conseguia ignorar seu valor.",
+                "Com o passar dos anos, o Ã‚mbar tornou-se a moeda oficial de Arkland. "
+                "NÃ£o porque alguÃ©m decretou. Mas porque todos concordaram que nada era mais valioso "
+                "do que a prÃ³pria histÃ³ria do mundo.",
                 ],
             },
             {
@@ -11416,7 +11422,7 @@ def _default_amber_lore() -> dict[str, Any]:
                 ],
             },
             {
-                "heading": "A Coroa de Ã‚mbar",
+                "heading": "A Coroa de Ambar",
                 "paragraphs": [
                     "Entre todas as moedas jÃ¡ cunhadas, existe uma categoria lendÃ¡ria. "
                     "As Coroas de Ã‚mbar.",
@@ -11429,24 +11435,24 @@ def _default_amber_lore() -> dict[str, Any]:
                 "blockquote": (
                     "O ouro compra ferramentas.\n"
                     "O cristal compra poder.\n"
-                    "Mas o Ã‚mbar compra o respeito do tempo."
+                    "Mas o Ambar compra o respeito do tempo."
                 ),
                 "blockquote_attribution": "Uma antiga inscriÃ§Ã£o encontrada em uma ruÃ­na",
             },
         ],
         "quote": {
             "label": "Frase oficial da moeda",
-            "title": "Ã‚mbar",
+            "title": "Ambar",
             "text": (
                 "Quando os dinossauros desaparecerem, quando as tribos ruÃ­rem e quando os obeliscos "
-                "se apagarem, o Ã‚mbar ainda contarÃ¡ a histÃ³ria de quem viveu aqui."
+                "se apagarem, o Ambar ainda contarÃ¡ a histÃ³ria de quem viveu aqui."
             ),
         },
     }
 
 
 def _amber_lore_block(settings_block: dict[str, Any]) -> dict[str, Any]:
-    """Lore do Ã‚mbar â€” editÃ¡vel via Settings.AmberLore / AmberLoreTitle no config da loja."""
+    """Lore do Ambar â€” editÃ¡vel via Settings.AmberLore / AmberLoreTitle no config da loja."""
     default = _default_amber_lore()
     title = str(settings_block.get("AmberLoreTitle") or default["title"]).strip()
     raw = str(settings_block.get("AmberLore") or "").strip()
@@ -11642,12 +11648,7 @@ def _build_public_home_payload() -> dict[str, Any]:
         servers.append(entry)
 
     packages_raw = data.get("PointPackages")
-    if isinstance(packages_raw, list):
-        packages = packages_raw
-    elif isinstance(s.get("point_packages"), list):
-        packages = s["point_packages"]
-    else:
-        packages = _DEFAULT_POINT_PACKAGES
+    packages = packages_raw if isinstance(packages_raw, list) else []
 
     utilities = [
         d for d in (data.get("Downloads") or [])
@@ -11671,8 +11672,8 @@ def _build_public_home_payload() -> dict[str, Any]:
     default_description = (
         "O ARKLAND Ã© um ecossistema de servidores ARK: Survival Evolved pensado para "
         "comunidades que jogam em cluster, com loja integrada, entrega automÃ¡tica in-game "
-        "e suporte a doaÃ§Ãµes voluntÃ¡rias via PIX. Aqui vocÃª apoia o servidor e resgata "
-        "recompensas simbÃ³licas em Ã‚mbares â€” itens, dinos e kits entregues quando vocÃª conecta."
+        "e suporte a DpaÃ§Ãµes voluntÃ¡rias via PIX. Aqui vocÃª apoia o servidor e resgata "
+        "recompensas simbÃ³licas em Ambares â€” itens, dinos e kits entregues quando vocÃª conecta."
     )
 
     mp_token = str(s.get("mp_access_token") or "").strip() or os.environ.get(
@@ -11716,7 +11717,7 @@ def _build_public_home_payload() -> dict[str, Any]:
         "servers": servers,
         "stats": stats,
         "tagline": (
-            "DoaÃ§Ãµes voluntÃ¡rias Â· Ã‚mbar simbÃ³lico Â· Entrega automÃ¡tica no ARK"
+            "DpaÃ§Ãµes voluntÃ¡rias Â· Ambar simbÃ³lico Â· Entrega automÃ¡tica no ARK"
         ),
         "description": (
             str(settings_block.get("HomeDescription") or "").strip()
@@ -11814,7 +11815,7 @@ def _public_home_mural() -> dict[str, Any]:
 @app.route("/api/public/amber-stats", methods=["GET"])
 @limiter.limit("120 per minute; 2000 per hour", override_defaults=True)
 def public_amber_stats():
-    """Totais pÃºblicos do Ã‚mbarÃ´metro (sem PII)."""
+    """Totais pÃºblicos do AmbarÃ´metro (sem PII)."""
     from amber_ledger import degraded_public_stats, get_public_stats
 
     _kick_background_db_init()
@@ -11854,14 +11855,14 @@ def public_amber_stats():
 @app.route("/api/public/exchange-rates", methods=["GET"])
 @limiter.limit("120 per minute; 2000 per hour", override_defaults=True)
 def public_exchange_rates():
-    """CotaÃ§Ãµes BRL â†’ USD/EUR para estimativas na UI (cache 1h no servidor)."""
+    """CotaÃ§Ãµes BRL Ã¢â€ â€™ USD/EUR para estimativas na UI (cache 1h no servidor)."""
     payload = get_exchange_rates()
     resp = make_response(jsonify({"ok": True, **payload}))
     resp.headers["Cache-Control"] = "public, max-age=300"
     return resp
 
 
-# â”€â”€ Catalog (pÃºblico, sem autenticaÃ§Ã£o) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Catalog (pÃºblico, sem autenticaÃ§Ã£o) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _public_catalog_sources_fingerprint() -> str:
     """Invalida cache se o catalog.json configurado ou settings.json mudarem."""
@@ -12236,7 +12237,7 @@ def store_bootstrap():
     - catÃ¡logo primeiro (cache TTL partilhado; zero DB / zero I/O externo bloqueante)
     - 1 sessÃ£o DB para me + entitlements + kit_limits (sem DDL, sem Steam API;
       shop_config prÃ©-lido â€” sem I/O de catÃ¡logo com sessÃ£o aberta)
-    - budget ~2.5s â†’ devolve parcial em vez de long_transaction 24â€“170s
+    - budget ~2.5s Ã¢â€ â€™ devolve parcial em vez de long_transaction 24â€“170s
     """
     t0 = time.perf_counter()
     timing: dict[str, int] = {}
@@ -12351,7 +12352,7 @@ def store_bootstrap():
     return resp
 
 
-# â”€â”€ Downloads (pÃºblico + admin CRUD) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Downloads (pÃºblico + admin CRUD) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _VERSION_JSON = _BUNDLE_DIR / "version.json"
 if not _VERSION_JSON.is_file() and not getattr(sys, "frozen", False):
@@ -12388,7 +12389,7 @@ def _save_downloads(downloads: list) -> None:
 
 _DEFAULT_FEATURED_MAPS_INTRO = (
     "O ARKLAND nÃ£o Ã© sÃ³ mais um cluster â€” somos um ecossistema construÃ­do em torno de mapas MOD "
-    "de alta qualidade. A maioria dos nossos servidores roda cenÃ¡rios customizados, curados Ã  mÃ£o "
+    "de alta qualidade. A maioria dos nossos servidores roda cenÃ¡rios customizados, curados ÃƒÂ  mÃ£o "
     "para PvE/PvP, performance em dedicado e integraÃ§Ã£o total com eventos sazonais."
 )
 
@@ -12411,7 +12412,7 @@ def _guess_mod_map(server_map: str, display_name: str = "") -> bool:
 
 
 def _featured_slug_keys(raw: str) -> set[str]:
-    """Variantes de slug para casar label curta (CRYSTAL) â†” Crystal Isles / crystal_isles."""
+    """Variantes de slug para casar label curta (CRYSTAL) Ã¢â€ â€ Crystal Isles / crystal_isles."""
     from src.server_config_snapshot import norm_slug
 
     slug = norm_slug(str(raw or ""))
@@ -12453,7 +12454,7 @@ def _featured_map_overrides_index(
     *,
     include_disabled: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
-    """Ãndice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
+    """ÃƒÂndice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
     by_id: dict[str, dict[str, Any]] = {}
     by_slug: dict[str, dict[str, Any]] = {}
     for m in manual_maps:
@@ -13030,7 +13031,7 @@ def delete_download(dl_id: str):
     return jsonify({"ok": True})
 
 
-# â”€â”€ VersÃ£o / release info (pÃºblico) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ VersÃ£o / release info (pÃºblico) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/version", methods=["GET"])
 def get_version():
@@ -13038,7 +13039,7 @@ def get_version():
     return jsonify(_get_project_release())
 
 
-# â”€â”€ Admin: pontos e entregas (banco + fila plugin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin: pontos e entregas (banco + fila plugin) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/admin/points", methods=["POST"])
 @admin_required
@@ -13164,7 +13165,7 @@ def _admin_deliver_order():
     return jsonify(result), 200 if result.get("ok") else 500
 
 
-# â”€â”€ Player routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Player routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _purchase_user_message(
     result: dict[str, Any],
@@ -13189,14 +13190,14 @@ def _purchase_user_message(
     if "limite" in low or "sem_usos" in low or "kit_limit" in low:
         return err or "VocÃª jÃ¡ usou todos os resgates disponÃ­veis deste kit."
     if "saldo" in low or "insufficient" in low or "afford" in low:
-        return err or "Saldo de Ã‚mbares insuficiente para este resgate."
+        return err or "Saldo de Ambares insuficiente para este resgate."
     if "licen" in low or "permission" in low:
         return err or "VocÃª nÃ£o possui a licenÃ§a necessÃ¡ria para este item ou kit."
     if "nÃ£o encontrado" in low or "not found" in low or "unknown" in low:
         label = "Kit" if item_type == "kit" else "Item"
         return err or f"{label} Â«{item_id}Â» nÃ£o encontrado no catÃ¡logo da loja."
     if "duplicad" in low or "idempotency" in low:
-        return "Este resgate jÃ¡ foi processado â€” verifique Minha Ãrea."
+        return "Este resgate jÃ¡ foi processado â€” verifique Minha ÃƒÂrea."
     if "rcon" in low or "connection" in low or "timeout" in low:
         return (
             "Servidor indisponÃ­vel no momento. Seu pedido ficou pendente â€” "
@@ -13207,7 +13208,7 @@ def _purchase_user_message(
     if err:
         return err
     if price > 0:
-        return f"NÃ£o foi possÃ­vel concluir o resgate de Â«{item_id}Â». Verifique Minha Ãrea ou contate um admin."
+        return f"NÃ£o foi possÃ­vel concluir o resgate de Â«{item_id}Â». Verifique Minha ÃƒÂrea ou contate um admin."
     return f"Falha ao resgatar Â«{item_id}Â». Tente novamente ou contate um admin."
 
 
@@ -13374,7 +13375,7 @@ def player_purchase():
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("Ã‚mbarÃ´metro shop debit hook: %s", amber_exc)
+                log.warning("AmbarÃ´metro shop debit hook: %s", amber_exc)
             try:
                 from arkbank_service import credit_catalog_spend
 
@@ -13472,7 +13473,7 @@ def player_purchase():
 @login_required
 @limiter.limit("20 per minute")
 def player_cancel_order(order_id: str):
-    """DesistÃªncia â€” cancela pedido PENDENTE e reembolsa Ã‚mbar."""
+    """DesistÃªncia â€” cancela pedido PENDENTE e reembolsa Ambar."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -13531,7 +13532,7 @@ def player_cancel_order(order_id: str):
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("Ã‚mbarÃ´metro order_cancel hook: %s", amber_exc)
+                log.warning("AmbarÃ´metro order_cancel hook: %s", amber_exc)
             try:
                 from arkbank_service import debit_catalog_refund_clawback
 
@@ -13566,7 +13567,7 @@ def player_cancel_order(order_id: str):
         status_before="PENDENTE",
         status_after="CANCELADO",
         message=(
-            f"DesistÃªncia â€” reembolso de {refund} Ã‚mbar "
+            f"DesistÃªncia â€” reembolso de {refund} Ambar "
             f"(90% de {paid_amount}; retenÃ§Ã£o 10%)"
             if refund > 0
             else "DesistÃªncia â€” cancelado sem reembolso"
@@ -13702,7 +13703,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
             amount=payment.points,
             status_before=old_status,
             status_after=mapped,
-            message=f"DoaÃ§Ã£o {old_status} â†’ {mapped}",
+            message=f"DoaÃ§Ã£o {old_status} Ã¢â€ â€™ {mapped}",
             source=source,
             mp_payment_id=payment.mp_payment_id,
             mp_status_raw=mp_status,
@@ -13758,7 +13759,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                     points=int(payment.points),
                 )
             except Exception as amber_exc:
-                log.warning("Ã‚mbarÃ´metro donation hook: %s", amber_exc)
+                log.warning("AmbarÃ´metro donation hook: %s", amber_exc)
             try:
                 from lottery_service import on_donation_credited
 
@@ -13792,7 +13793,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 item_id=payment.package_id,
                 amount=payment.points,
                 status_after=mapped,
-                message=f"Falha ao creditar Ã‚mbares: {exc}",
+                message=f"Falha ao creditar Ambares: {exc}",
                 source=source,
                 mp_payment_id=payment.mp_payment_id,
                 amount_brl=payment.amount_brl,
@@ -14634,7 +14635,7 @@ def player_summary():
 @login_required
 @limiter.limit("30 per minute; 300 per hour", override_defaults=True)
 def player_myarea():
-    """Agregado Minha Ãrea â€” summary + 1Âª pÃ¡gina histÃ³rico/doaÃ§Ãµes (menos fan-out HTTP)."""
+    """Agregado Minha ÃƒÂrea â€” summary + 1Âª pÃ¡gina histÃƒÂ³rico/DpaÃ§Ãµes (menos fan-out HTTP)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14814,7 +14815,7 @@ def player_history():
 @app.route("/api/player/donations", methods=["GET"])
 @login_required
 def player_donations():
-    """HistÃ³rico de doaÃ§Ãµes do jogador (PIX ou cartÃ£o â€” recompensa em pontos)."""
+    """HistÃ³rico de DpaÃ§Ãµes do jogador (PIX ou cartÃ£o â€” recompensa em pontos)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14854,7 +14855,7 @@ def player_donations():
         })
     except Exception as exc:
         _log_error("player_donations", steam_id=steam_id, error=str(exc))
-        return jsonify({"ok": False, "error": f"Erro ao consultar doaÃ§Ãµes: {exc}"}), 500
+        return jsonify({"ok": False, "error": f"Erro ao consultar DpaÃ§Ãµes: {exc}"}), 500
     finally:
         _release_db_session(db)
 
@@ -15038,16 +15039,16 @@ def player_rebuy(order_id: str):
     """Desativado â€” reemissÃ£o apenas por admin."""
     return jsonify({
         "ok": False,
-        "error": "ReemissÃ£o disponÃ­vel apenas para administradores. Use ContestaÃ§Ã£o (âš ï¸) ou contate um admin.",
+        "error": "ReemissÃ£o disponÃ­vel apenas para administradores. Use ContestaÃ§Ã£o (Ã¢Å¡Â Ã¯Â¸Â) ou contate um admin.",
     }), 403
 
 
-# â”€â”€ Admin order routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin order routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
 
 # DesistÃªncia do jogador: licenÃ§as irrevogÃ¡veis; demais itens sÃ³ apÃ³s 24h.
-# Pedidos PENDENTE (nÃ£o licenÃ§a) sem resgate â‰¥48h â†’ cancelamento + reembolso automÃ¡tico (80%).
+# Pedidos PENDENTE (nÃ£o licenÃ§a) sem resgate Ã¢â€°Â¥48h Ã¢â€ â€™ cancelamento + reembolso automÃ¡tico (80%).
 # RetenÃ§Ã£o 20% â€” destino ARKBANK quando o ledger existir (docs/ARKBANK_SPEC.md Â§6.1).
 # Reembolso integral (100%) do catÃ¡logo: apenas via contestaÃ§Ã£o + ticket + decisÃ£o admin.
 _ORDER_CANCEL_COOLDOWN_HOURS = 24
@@ -15160,7 +15161,7 @@ def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[s
         reason_code = "season_pass_irrevocable"
         reason = (
             "Recompensas do SeasonLand nÃ£o podem ser canceladas nem "
-            "reembolsadas em Ã‚mbar."
+            "reembolsadas em Ambar."
         )
     elif age < cooldown:
         reason_code = "cooldown_24h"
@@ -15202,14 +15203,14 @@ def _season_pass_cancel_blocked_response():
         "ok": False,
         "error": (
             "Recompensas do SeasonLand nÃ£o podem ser canceladas nem "
-            "reembolsadas em Ã‚mbar."
+            "reembolsadas em Ambar."
         ),
         "code": "season_pass_irrevocable",
     }), 403
 
 
 def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, Any]:
-    """Cancela + reembolsa pedidos PENDENTE (nÃ£o licenÃ§a) com idade â‰¥ 48h. Idempotente."""
+    """Cancela + reembolsa pedidos PENDENTE (nÃ£o licenÃ§a) com idade Ã¢â€°Â¥ 48h. Idempotente."""
     now = _now()
     cutoff = now - timedelta(hours=_ORDER_AUTO_EXPIRE_HOURS)
     candidates = (
@@ -15278,7 +15279,7 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("Ã‚mbarÃ´metro order_auto_cancel hook: %s", amber_exc)
+                log.warning("AmbarÃ´metro order_auto_cancel hook: %s", amber_exc)
             try:
                 from arkbank_service import debit_catalog_refund_clawback
 
@@ -15304,7 +15305,7 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
             status_after="CANCELADO",
             message=(
                 f"Auto-cancelamento apÃ³s {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate â€” "
-                f"reembolso de {refund} Ã‚mbar (80% de {paid_amount}; retenÃ§Ã£o 20%)"
+                f"reembolso de {refund} Ambar (80% de {paid_amount}; retenÃ§Ã£o 20%)"
                 if refund > 0
                 else f"Auto-cancelamento apÃ³s {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate"
             ),
@@ -15338,7 +15339,7 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
 
 
 def _order_refund_amount(order: Order, db: Any | None = None) -> int:
-    """Valor pago em Ã‚mbar (points_spent â†’ catÃ¡logo â†’ auditoria). Usado em reembolso admin 100%."""
+    """Valor pago em Ambar (points_spent Ã¢â€ â€™ catÃ¡logo Ã¢â€ â€™ auditoria). Usado em reembolso admin 100%."""
     # SeasonLand: recompensa gratuita â€” nunca usar preÃ§o de catÃ¡logo como Â«pagoÂ».
     if _is_order_season_pass(order):
         return 0
@@ -15390,7 +15391,7 @@ def _credit_order_refund_tx(db: Any, steam_id: str, refund: int) -> int:
     after = _add_player_points_tx(db, steam_id, refund)
     if after < before + refund:
         raise RuntimeError(
-            f"Reembolso nÃ£o creditado (saldo {before} â†’ {after}, esperado +{refund})"
+            f"Reembolso nÃ£o creditado (saldo {before} Ã¢â€ â€™ {after}, esperado +{refund})"
         )
     return after
 
@@ -15524,7 +15525,7 @@ def admin_list_orders():
     milhares de claims SP) antes de devolver 25â€“50 linhas. O frontend jÃ¡ pedia
     ``limit``/``offset``, mas o COUNT tornava a 1.Âª pÃ¡gina O(N).
 
-    Agora: ``load_only`` (sem ``payload_json``), ``LIMIT+1`` â†’ ``has_more``,
+    Agora: ``load_only`` (sem ``payload_json``), ``LIMIT+1`` Ã¢â€ â€™ ``has_more``,
     ``total`` sÃ³ com ``include_total=1`` (ou SteamID completo, barato via Ã­ndice);
     default ``limit=10``.
     """
@@ -15546,7 +15547,7 @@ def admin_list_orders():
     include_total_arg = str(request.args.get("include_total", "")).strip().lower()
     limit = max(1, min(100, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
-    # SteamID completo â†’ COUNT barato (ix steam_id); senÃ£o COUNT Ã© opt-in.
+    # SteamID completo Ã¢â€ â€™ COUNT barato (ix steam_id); senÃ£o COUNT Ã© opt-in.
     q_is_full_steam = bool(q_text.isdigit() and len(q_text) >= 17)
     if include_total_arg in ("1", "true", "yes", "on"):
         want_total = True
@@ -15610,7 +15611,7 @@ def admin_list_orders():
                 pass
         sort_col = Order.created_at if sort == "created_at" else Order.created_at
         order_by = sort_col.asc() if order_dir == "asc" else sort_col.desc()
-        # LIMIT+1 â†’ has_more sem COUNT(*) (MySQL pode parar cedo no Ã­ndice created_at).
+        # LIMIT+1 Ã¢â€ â€™ has_more sem COUNT(*) (MySQL pode parar cedo no Ã­ndice created_at).
         rows = query.order_by(order_by).offset(offset).limit(limit + 1).all()
         has_more = len(rows) > limit
         page_rows = rows[:limit]
@@ -15660,7 +15661,7 @@ def admin_list_orders():
 @app.route("/api/admin/orders/<order_id>/refund", methods=["POST"])
 @admin_required
 def admin_refund_order(order_id: str):
-    """Reembolsa Ã‚mbar ao jogador quando o resgate nÃ£o foi entregue (ou contestado)."""
+    """Reembolsa Ambar ao jogador quando o resgate nÃ£o foi entregue (ou contestado)."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -15696,7 +15697,7 @@ def admin_refund_order(order_id: str):
             return jsonify({
                 "ok": False,
                 "error": (
-                    "Valor do reembolso Ã© zero â€” o pedido nÃ£o tem Ã‚mbares registrados. "
+                    "Valor do reembolso Ã© zero â€” o pedido nÃ£o tem Ambares registrados. "
                     "Use Â«Ajustar saldoÂ» no jogador se precisar devolver manualmente."
                 ),
             }), 400
@@ -15721,11 +15722,11 @@ def admin_refund_order(order_id: str):
                 commit=True,
             )
         except Exception as amber_exc:
-            log.warning("Ã‚mbarÃ´metro admin_refund hook: %s", amber_exc)
+            log.warning("AmbarÃ´metro admin_refund hook: %s", amber_exc)
         try:
             from arkbank_service import debit_catalog_refund_clawback
 
-            # Reembolso admin 100% â†’ zera o efeito do catalog_spend no banco.
+            # Reembolso admin 100% Ã¢â€ â€™ zera o efeito do catalog_spend no banco.
             debit_catalog_refund_clawback(
                 db,
                 order_id=order_id,
@@ -15753,7 +15754,7 @@ def admin_refund_order(order_id: str):
         item_id=item_id,
         status_before=status_before,
         status_after="REEMBOLSADO",
-        message=f"Admin reembolsou {refund} Ã‚mbar â€” pedido {order_id[:8]}â€¦",
+        message=f"Admin reembolsou {refund} Ambar â€” pedido {order_id[:8]}â€¦",
         reason=reason,
         refunded=refund,
         disputes_closed=closed,
@@ -15861,7 +15862,7 @@ def admin_resend_order(order_id: str):
 @app.route("/api/admin/orders/<order_id>/cancel", methods=["POST"])
 @admin_required
 def admin_cancel_order(order_id: str):
-    """Marca pedido como cancelado sem reembolsar Ã‚mbar."""
+    """Marca pedido como cancelado sem reembolsar Ambar."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -16114,7 +16115,7 @@ def admin_reissue_order(order_id: str):
     return jsonify(result), 200 if result.get("ok") else 500
 
 
-# â”€â”€ Admin audit routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin audit routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _pix_payment_row_dict(row: PointPayment) -> dict[str, Any]:
     return {
@@ -16253,7 +16254,7 @@ def admin_pix_reconcile(payment_id: str):
 @app.route("/api/admin/pix/audit", methods=["GET"])
 @admin_required
 def admin_pix_audit():
-    """Log completo de doaÃ§Ãµes (PIX e cartÃ£o) para suporte â€” tentativas, concluÃ­das e canceladas."""
+    """Log completo de DpaÃ§Ãµes (PIX e cartÃ£o) para suporte â€” tentativas, concluÃ­das e canceladas."""
     if (err := _require_db()) is not None:
         return err
     status = str(request.args.get("status", "")).strip().upper()
@@ -16379,7 +16380,7 @@ def admin_pix_audit():
 def admin_list_audit():
     """Lista audit paginada â€” COUNT(*) sÃ³ com ``include_total=1`` (padrÃ£o Pedidos).
 
-    Default antigo (COUNT ligado) + ``audit_events`` grande â†’ Waitress/proxy
+    Default antigo (COUNT ligado) + ``audit_events`` grande Ã¢â€ â€™ Waitress/proxy
     devolvia HTML/DOCTYPE e a UI rebentava com Unexpected token '<'.
     """
     if (err := _require_db()) is not None:
@@ -16495,7 +16496,7 @@ def admin_order_timeline(order_id: str):
         _release_db_session(db)
 
 
-# â”€â”€ Admin: gestÃ£o de jogadores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin: gestÃ£o de jogadores Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/admin/license-catalog", methods=["GET"])
 @admin_required
@@ -16744,7 +16745,7 @@ def admin_metrics():
 @admin_required
 @limiter.limit("12 per hour")
 def admin_sync_all_permissions():
-    """Reconcilia player_entitlements â†” ark_permission (job em background)."""
+    """Reconcilia player_entitlements Ã¢â€ â€ ark_permission (job em background)."""
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
@@ -16911,7 +16912,7 @@ def admin_player_catalog_deliver(steam_id: str):
     return jsonify(result), status
 
 
-# â”€â”€ Admin admins routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin admins routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/admin/admins", methods=["GET"])
 @admin_required
@@ -16968,7 +16969,7 @@ def admin_remove_admin(steam_id: str):
     return jsonify({"ok": True})
 
 
-# â”€â”€ Admin support staff routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin support staff routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/admin/support-staff", methods=["GET"])
 @admin_required
@@ -17696,7 +17697,7 @@ from ticket_notify import configure_ticket_notify
 
 configure_ticket_notify(load_settings=_load_settings)
 
-# â”€â”€ Ãrea de Tribo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ ÃƒÂrea de Tribo Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 from tribe_routes import register_tribe_routes
 
 register_tribe_routes(
@@ -17713,7 +17714,7 @@ register_tribe_routes(
     load_servers=_load_servers,
 )
 
-# â”€â”€ Modo Equipe (substitui Tribo na UI jogador; flag teams_enabled, default on) â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ Modo Equipe (substitui Tribo na UI jogador; flag teams_enabled, default on) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 from team_routes import register_team_routes
 from team_service import configure_team_service
 
@@ -17735,7 +17736,7 @@ register_team_routes(
     limiter=limiter,
 )
 
-# â”€â”€ ArkEventHunt (Mode A MVP â€” caÃ§a de evento nas pÃ¡ginas Equipes) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Ã¢â€â‚¬Ã¢â€â‚¬ ArkEventHunt (Mode A MVP â€” caÃ§a de evento nas pÃ¡ginas Equipes) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 from event_hunt_routes import register_event_hunt_routes
 from event_hunt_service import configure_event_hunt_service
 
@@ -17792,7 +17793,7 @@ if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
         os.environ[_boot_env] = "1"
         _kick_background_db_init()
         # P0: schedulers NÃƒO podem depender do 1.Âº request "real".
-        # TEK health usa /api/auth/me (skip list) â†’ chicken-egg sem isto:
+        # TEK health usa /api/auth/me (skip list) Ã¢â€ â€™ chicken-egg sem isto:
         # ENTREGANDO stale / retry PIX / market claims nunca corriam.
         try:
             _start_runtime_workers_once()
@@ -17988,5 +17989,6 @@ if __name__ == "__main__":
                 exc,
             )
         raise
+
 
 

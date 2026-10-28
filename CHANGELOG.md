@@ -1,9 +1,84 @@
 # Changelog
 
-<!-- Gerado por scripts/sync_changelog_md.py — não edite manualmente. -->
-<!-- Fonte: src/version.py -->
+<!-- Gerado: 2026-10-28 02:15:00 -->
+<!-- Total de versões: 488 | Primeira: 1.10.133 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.10.133] - 2026-10-28
+
+### Other
+
+- CustomShop: corrige os slots do inventário na nuvem para permitir vários slots por Steam ID; confirmação de limpeza usa /conf com validade de dois minutos.
+- Web Store: vinculação do Discord somente por código, bônus de 10.000 Ambares na primeira vinculação e auditoria administrativa com opção de desfazer o vínculo.
+
+## [1.10.132] - 2026-10-27
+
+### Feature
+
+- feat(Web Store): referência de Color IDs na loja
+- feat: Encomenda Dino MVP, sugestões, tutoriais e curva XP legada
+- feat(Eventos Sazonais): backup zip, emergência, setores 5x e broadcast
+
+### Fix
+
+- Fix P0: Crystal Isles/Gen2 já não expandem mapa via ActiveMods[0].
+- Fix (Eventos Globais): devolver rates temporários via abas.
+- fix(Eventos Sazonais): ressincronizar perfil TEK após restaurar backup INI
+
+### Other
+
+- release: v1.10.82 — desligamento/reinício programado (min+s)
+- release(1.10.81): TimedPoints soma licenças, ArkPlayer install, scroll DB
+- perf(entregas): cache fila vazia, batch status e recover rápido
+- release(1.10.80): auditoria ARKLAND — perf e segurança (5 fases)
+- release: v1.10.3 — hotfix /dinolab chat handler
+
+## [1.10.131] - 2026-10-27
+
+### Feature
+
+- Feat (Encomenda): vitrine 5x3 com 15 slots rotativos.
+- feat(Web Store): referência de Color IDs na loja
+- feat: Encomenda Dino MVP, sugestões, tutoriais e curva XP legada
+- feat(Eventos Sazonais): backup zip, emergência, setores 5x e broadcast
+- feat(web): relatorio admin do sorteio com participantes e nicks Steam
+- feat(web): sorteio doacoes MVP, midias, notificacoes e correcoes
+
+### Fix
+
+- fix(release): version.json 1.10.103 + remove empty Unreleased
+- Fix (Encomenda): completar vitrine rotativa ate 15 no fallback de porte.
+- Fix admin vitrine timeout: UI paginada, testes e notas Unreleased.
+- Fix P0: Crystal Isles/Gen2 já não expandem mapa via ActiveMods[0].
+- Fix (Eventos Globais): devolver rates temporários via abas.
+- Fix ArkPlayer install: copy default config.json when missing.
+- fix: align version.json with v1.10.60 asset
+- fix: align version.json with latest release asset
+- fix: point version.json at v1.10.60 installer asset
+- fix(Eventos Sazonais): ressincronizar perfil TEK após restaurar backup INI
+- fix: corrigir blueprint paths de criaturas Abyssal (segmento /Abyssal/)
+- fix(web): sorteio 500 em listagem de participantes
+- fix(web): sorteio 500 em schema parcial; notas Fjordur
+- fix: alinhar version.json e APP_VERSION com release v1.9.195
+- fix(CustomShop): rebuild DLL com /mercado_admin para v1.9.188
+
+### Refactor
+
+- docs: alinhar changelog v1.9.199 com fix Game.ini ShooterGameMode
+- test(arkshop_web): align tests with steam_persona refactor
+
+### Other
+
+- release: v1.10.82 — desligamento/reinício programado (min+s)
+- release(1.10.81): TimedPoints soma licenças, ArkPlayer install, scroll DB
+- perf(entregas): cache fila vazia, batch status e recover rápido
+- release(1.10.80): auditoria ARKLAND — perf e segurança (5 fases)
+- chore: align metadata with v1.10.54
+- chore: finalize v1.10.53 release log
+- Add catalog auto-feed with strong deduplication for market and DinoLab
+- chore: remove debug script left from release tooling
+- release: v1.10.3 — hotfix /dinolab chat handler
 
 ## [1.10.130] - 2026-10-27
 
@@ -439,11 +514,14 @@
 - Fix (Web Store / SeasonLand Ops): fila e claims deixam de rebentar com «Unexpected token < / DOCTYPE» — sem COUNT(*) pesado (has_more), fetchJson com retry e include_total=0 no audit.
 - Fix P0 (Web Store / Admin Auditoria): COUNT(*) opt-in (include_total=1); UI loadAudit com fetchJson + has_more — alinhado a Pedidos.
 
-### Other
+### Refactor
 
 - Docs (Web Store / DB): plano verificável docs/WEBSTORE_DB_PERF_PLAN.md (inventário honesto, P0–P2, critérios de sucesso, anti-padrões).
-- Perf (Web Store / Catálogo): paginação DOM 20 cards/página em Itens, Dinos, Dinos 200, Kits e Licenças — filtros/pesquisa/categoria resetam à pág. 1; /api/catalog mantém full payload + cache/ETag/SWR (gargalo era layout/paint, não o JSON).
 - Test (Web Store / SeasonLand): asserts UI do grant picker em index.html.
+
+### Other
+
+- Perf (Web Store / Catálogo): paginação DOM 20 cards/página em Itens, Dinos, Dinos 200, Kits e Licenças — filtros/pesquisa/categoria resetam à pág. 1; /api/catalog mantém full payload + cache/ETag/SWR (gargalo era layout/paint, não o JSON).
 
 ## [1.10.91] - 2026-07-22
 
@@ -473,7 +551,7 @@
 
 - Feat (Web Store / ARKBANK): extrato da tesouraria com filtro por Steam ID, intervalo de datas e coluna Jogador (nick Steam).
 
-### Other
+### Refactor
 
 - Test (ARKBANK): list_transactions filtra steam_id/data e enriquece player_name a partir de store_users.
 
@@ -493,7 +571,7 @@
 
 - Fix (Web Store / Encomenda): fallback de porte da vitrine completa sempre até 15 slots rotativos com ACTIVE restantes (antes podia ficar em 10 após permanentes ou mix curto); ensure faz top-up sem reiniciar o timer; header admin mostra contagem real; galeria pública usa o mesmo ensure.
 
-### Other
+### Refactor
 
 - Test (Web Store / Vitrine): fallback 9+3+3 incompleto com pool ≥15 → len==15; top-up após permanentes; pool <15.
 
@@ -509,7 +587,7 @@
 
 - Fix (Web Store / Admin Dino Lab): GET /api/admin/dino-order/vitrine deixava de responder em 15s — causa: list_candidate_species → list_species_public (multipliers + economia completa + imagens + get_registry_entry O(n) por espécie) e payload com todo o catálogo. Agora: query leve (load_only, sem multipliers/imagens), índice O(1) no registry, imagens só nos ≤15 slots, cache TTL 30s, candidatos paginados (q/limit/offset, default 100) + filtro no select admin.
 
-### Other
+### Refactor
 
 - Test (Web Store / Vitrine): page_candidates; snapshot paginado; loader leve; get_registry_entry indexado.
 
@@ -524,7 +602,7 @@
 - Fix P0 (TEK / Launch): mapas vanilla/DLC (CrystalIsles, Gen2, TheIsland, …) com ActiveMods já não expandem para /Game/Mods/{ActiveMods[0]}/MapName — o 1.10.72 fazia isso para Amissa e quebrava Crystal/Gen2 (ActiveMods[0]=S+/stack); CLI volta a CrystalIsles?listen… e MaxPlayers da config.
 - Fix (TEK / Painel): «Todas as opções» deixa de sobrescrever StringVars da Administração (mapa, slots, portas…) — edits não salvos já não revertiam ao valor antigo do perfil.
 
-### Other
+### Refactor
 
 - Test (TEK / Launch): regressão CrystalIsles/Gen2 + ActiveMods; expansão Amissa só quando o .mod declara o mapa.
 
@@ -537,11 +615,14 @@
 - Fix (ArkPlayer C++): config.json ausente → warning + defaults embutidos em vez de critical fail no init.
 - Fix (Web Store / Admin Pedidos): «Carregando…» longo — causa raiz: COUNT(*) + exclusão SeasonLand (NOT LIKE sp:) em toda a tabela orders antes de devolver 1 página; frontend já paginava mas o COUNT era O(N). Agora LIMIT+1→has_more, load_only (sem payload_json), total só com include_total=1 (ou SteamID completo); UI timeout 15s + prev/next sem total; default 10/página.
 
-### Other
+### Refactor
 
 - Test (TEK): deploy ArkPlayer preserva config existente e resolve template do bundle.
-- Perf (Web Store / UI): padroniza listagens paginadas a 10 por página; Anterior/Próxima só actualiza o container da tabela (beginTablePageFetch + abort); Pedidos, PIX/Audit, SeasonLand Ops, Players, Market browse/admin, Minha Área, tickets player/admin, Dino Lab history/block, ARKBANK extrato, sugestões, plugin-debug, dino-order.
 - Test (Web Store / Admin Pedidos): hot path sem total; has_more; include_total=1; default limit=10.
+
+### Other
+
+- Perf (Web Store / UI): padroniza listagens paginadas a 10 por página; Anterior/Próxima só actualiza o container da tabela (beginTablePageFetch + abort); Pedidos, PIX/Audit, SeasonLand Ops, Players, Market browse/admin, Minha Área, tickets player/admin, Dino Lab history/block, ARKBANK extrato, sugestões, plugin-debug, dino-order.
 
 ## [1.10.82] - 2026-07-20
 
@@ -550,7 +631,7 @@
 - Fix (TEK / Desligamento programado): diálogo voltou a pedir minutos + segundos (preview do total) — digitar «5» deixava de significar 5s e passa a 5 min; o timer wall-clock já respeitava o deadline, mas a unidade do campo personalizado induzia desligamento precoce.
 - Fix (TEK / Reinício programado): `_asm_do_scheduled_restart` respeita `restart_countdown_minutes` (espera real + avisos RCON em milestones) em vez de anunciar N min e reiniciar no `after(0)`; guarda once-per-day no scheduler.
 
-### Other
+### Refactor
 
 - Test (TEK): countdown de reinício e conversão min+s do diálogo de desligamento programado.
 
@@ -567,12 +648,15 @@
 - Fix (CustomShop 1.10.30 / TimedPoints): fold UTF-8 em NormalizeEntitlementGroup + SyncPlayerOnJoin canónico + HasActive fallback — rows legadas «licença_delta» deixam de dar +0 no bónus Delta (+5); recompilar DLL nos mapas.
 - Fix (Web Store + CustomShop 1.10.31 / TimedPoints): _compute_timed_points_total e StackRewards=true somam Amount de todas as licenças activas (Default+Alfa+Delta=105); false = só o maior; Minha Área / regulamento deixam de dizer «vence o maior» / «não soma».
 
+### Refactor
+
+- Test (Web Store / Entregas): test_pending_delivery_optimizations.
+
 ### Other
 
 - Perf (Web Store / Entregas): cache curto de fila vazia por steam_id (TTL 8s, ARKSHOP_PENDING_EMPTY_CACHE_TTL_SEC) em GET/claim pending — reduz DB quando não há pedidos; invalida ao criar/reabrir Order PENDENTE.
 - Perf (Web Store / Entregas): GET /api/pending load_only + snapshot TTL 3s (ARKSHOP_PENDING_GET_CACHE_TTL_SEC); header X-Pending-Cache.
 - Perf (Web Store / Entregas): recover_stale_entregando fast-path SELECT 1 LIMIT 1; scheduler RCON documenta uso de ix_orders_status_created.
-- Test (Web Store / Entregas): test_pending_delivery_optimizations.
 
 ## [1.10.80] - 2026-07-20
 
@@ -593,6 +677,10 @@
 - Fix (Web Store / Boot): warn/fail se ARKSHOP_API_KEY ausente em produção (ARKSHOP_REQUIRE_API_KEY / ARKSHOP_API_KEY_FAIL_BOOT).
 - Fix (Web Store / Saldo): débito players.points atómico WHERE points >= price (defer optimistic lock version).
 
+### Refactor
+
+- Test (Web Store): test_audit_optimizations, test_mp_webhook_signature; test_pwa service-worker v5.
+
 ### Other
 
 - Perf (Web Store / DB): índice hot-path ix_orders_status_created (status, created_at).
@@ -606,7 +694,6 @@
 - Perf (Web Store / Âmbarômetro): TTL in-memory 60→120s (ARKSHOP_AMBER_STATS_CACHE_TTL_SEC).
 - Perf (Web Store / Catálogo): paginação DOM itens 48 cards/página.
 - Other: script k6 smoke tools/k6/webstore_smoke.js + docs/load_test_k6.md.
-- Test (Web Store): test_audit_optimizations, test_mp_webhook_signature; test_pwa service-worker v5.
 
 ## [1.10.79] - 2026-07-19
 
@@ -622,13 +709,16 @@
 - Fix (Web Store / Equipes): freeze pós-confirmação do sorteio bloqueia só kick (não joins); novo membro recebe +N números.
 - Fix P0 (Web Store / Catálogo): resposta HTML/DOCTYPE (Waitress/proxy saturado) já não rebenta com «Unexpected token <»; mensagem clara em PT + retry 1× em fetchJson, /api/catalog e aba Disponível.
 
+### Refactor
+
+- Test (Web Store / Home): cache HIT/MISS, invalidate catálogo/admin card, sem decrypt RCON na home.
+- Test (Web Store / Catalog): cache HIT/MISS, bootstrap reutiliza cache, invalidate via shop_config.
+
 ### Other
 
 - Perf (Web Store / Waitress): default threads 8→32, channel_timeout 180s, connection_limit 500 (ARKSHOP_HTTP_THREADS / ARKSHOP_CHANNEL_TIMEOUT / ARKSHOP_CONNECTION_LIMIT; cap pool só com ARKSHOP_HTTP_THREADS_CAP_TO_POOL=1).
 - Perf P1 (Web Store / Home): GET /api/public/home — cache in-memory TTL 45s + build numa passagem (1× catálogo, 1× servers sem decrypt RCON, sessão DB mural com force release); invalida em catálogo/mural; log duration_ms + X-Home-Cache; alvo <2–3s típico (hit ~ms) vs 50s+ sob fila Waitress.
-- Test (Web Store / Home): cache HIT/MISS, invalidate catálogo/admin card, sem decrypt RCON na home.
 - Perf P1 (Web Store / Catalog+Bootstrap): GET /api/catalog e parte partilhada de /api/store/bootstrap — cache in-memory TTL 45s (single-flight); invalida em catálogo/settings; X-Catalog-Cache; bootstrap pré-lê shop_config antes da sessão DB + force release; alvo hit ~ms vs enrich O(n) sob fila.
-- Test (Web Store / Catalog): cache HIT/MISS, bootstrap reutiliza cache, invalidate via shop_config.
 - Perf P1 (Web Store / Scheduler): skip-if-busy + pausa entre jobs + batches menores (auto_cancel/claims/outbox); claims commit por linha e outbox commit_every — evita long_transaction / pool starvation sob carga MySQL.
 
 ## [1.10.78] - 2026-07-19
@@ -638,16 +728,19 @@
 - Feat (Web Store + CustomShop 1.10.29 / Licenças): remove o limite de 2 tiers pagos activos — jogador pode resgatar/manter todos os tiers distintos; mesmo SKU continua a empilhar +30d; keyvault independente. TimedPoints: entre pagos vence o maior; Default/staff empilham.
 - Feat (Season Pass): escolha licença↔Â só por tier superior (já não bloqueia por slots cheios).
 
-### Other
+### Refactor
 
 - Docs: REGULAMENTO §8.5 / Season Pass / ECONOMIA / ARKBANK — sem teto de 2 licenças.
 - Docs: backlog pesquisa GitHub topic arksurvivalevolved (docs/PESQUISA_ARK_GITHUB.md).
 - Test: multi-license aceita 3+ tiers; season_pass sem slots_full; perm sync mantém todos os pagos.
+- Test (Web Store / Nav): TTL cache, revalidate sem bootstrap, SW v5.
+
+### Other
+
 - Perf (Web Store / Nav): TTL cache por página (home/catálogo/season/sorteio/midias/polls/myarea/equipes) — troca de aba instantânea sem refetch se fresco; botões ↺ forçam reload.
 - Perf (Web Store / Catalogo): revalidate em background usa só /api/catalog (TTL 5min) em vez de /api/store/bootstrap completo a cada visita ao Catálogo; saldo sem force em cada apply.
 - Perf (Web Store / Boot): não pré-carrega Minha Área nem settings/players/servers; config.json só no boot com modo staff activo (senão ao abrir shop/kits); admin pages on-demand na nav.
 - Perf (Web Store / Sorteio): number-grid + participants em paralelo; regulamento meta+content em paralelo.
-- Test (Web Store / Nav): TTL cache, revalidate sem bootstrap, SW v5.
 
 ## [1.10.77] - 2026-07-19
 
@@ -663,7 +756,7 @@
 
 - Fix (Equipes / armazém): ícones element_ore ↔ element_dust — retry (1.10.76 ainda errado por cache PWA); ?v=hash + SW network-only em team/*.png.
 
-### Other
+### Refactor
 
 - Docs (Web Store / Equipes): Regras do Modo Equipe — docs/REGULAMENTO_MODO_EQUIPE.md + /regulamento_modo_equipe.html; defaults do sistema (membros, taxa fundação, sorteio freeze, /marco, armazém, split, ranking, etc.) explícitos como regras; §8.14 no regulamento oficial v1.4.
 - Test (Web Store / Equipes): readers de settings; rejeita depósito over-cap; lottery numbers_per_member na confirmação.
@@ -685,7 +778,7 @@
 
 - Fix (Equipes / armazém): ícones element_ore ↔ element_dust (Minério / Pó) estavam invertidos.
 
-### Other
+### Refactor
 
 - Test (Web Store / SeasonLand): 10 testes Phase A/B — stale shop/kit, ERRO após N, flags queued, available status, partial, sku sync, metrics, reclaim missing.
 
@@ -698,7 +791,7 @@
 - Feat (Web Store / SeasonLand): admin reenvio de recompensas claimed — POST /api/admin/season-pass/resend (Â só / item|kit|dino só / ambos); Â = re-grant com confirm; catálogo = ENTREGUE|ERRO→PENDENTE ou cria pedido sp:…; audit season_pass_admin_resend; UI admin Reenviar Â/item/tudo.
 - Feat (Web Store / Equipes): UI do marco atual deixa explícito o que completa entrega (+% Â TimedPoints, cap de membros, descrição) e separa requisitos (Â / XP / recursos a depositar); lista admin da trilha com linha «entrega».
 
-### Other
+### Refactor
 
 - Test (Web Store / Equipes): assume DISBANDED solo-left, rejeição Q2, SUSPENDED, reclaim owner.
 - Test (Web Store / SeasonLand): resend amber-only, catalog ENTREGUE→PENDENTE, catalog missing→create, both.
@@ -715,7 +808,7 @@
 
 - Fix P0 (Web Store / SeasonLand): claim kit/dino com season_id longo — orders.original_order_id VARCHAR(64)→255 (migrate no boot); evita DataError 1406 e toast SQL no RESGATAR.
 
-### Other
+### Refactor
 
 - Test (Web Store): SCHEMA_CONTRACTS — asserts len(ID)≤Column.type.length (SQLite ignora VARCHAR); fixtures SeasonLand longas + prefixo __admin_skip_kit_limit__|.
 
@@ -750,7 +843,7 @@
 
 - Fix (Equipes / armazém): catálogo — Substrato Absorvente (substrate_absorbent; alias absorbent_polymer) e label «Pó de Elemento».
 
-### Other
+### Refactor
 
 - Docs: Modo Equipe §5.5 — /marco in-game marcado como implementado.
 
@@ -817,7 +910,7 @@
 - Fix P0 (Admin / Players): lista sem Steam/DDL no request (já em 1.10.65) — Sleep MySQL 400s+ é pool idle (wait_timeout), não causa do catálogo vazio.
 - Fix (Web Store / PWA): SW v4 — HTML/API network-only; /species/icons e thumbs network-only (não Cache Storage); não explica catálogo vazio (correlação temporal); lazy+decoding=async nas thumbs.
 
-### Other
+### Refactor
 
 - Test: config empty/heal; SW species icons; bootstrap/kit-limits.
 
@@ -834,7 +927,7 @@
 - Fix P0 (Web Store / Auth): /api/auth/me e bootstrap usam só cache DB para nick Steam; backfill em background.
 - Fix (Web Store / PWA): cache-bust estáticos ?v=__WEB_BUILD__.
 
-### Other
+### Refactor
 
 - Test (Web Store): Steam lento não bloqueia lista admin; PayPal asset estático.
 
@@ -869,7 +962,7 @@
 - Fix (Web Store / Poll): /api/player/points 120/min·3000/h + cooldown UI 30s; unread/amber menos agressivos.
 - Fix (Web Store / Boot): instance lock + migrate single-flight; TEK não lança 2ª instância se porta ocupada.
 
-### Other
+### Refactor
 
 - Test (Web Store): DDL sem ***; backoff 1045; gate warmup.
 
@@ -886,7 +979,7 @@
 - Fix P0 (Web Store / DB): defaults agressivos — ARKSHOP_DB_READ_TIMEOUT=3s, pool_timeout=5s, pool_recycle=600, keepalive wait_timeout; Waitress threads default 8 (cap pool_size); circuit breaker quando DB degrada.
 - Fix (Web Store / DB): list_species_public batch (fim N+1); vitrine candidates cache TTL 30s; arkbank schema guard; permission_entitlements_sync engines singleton pool_size=1.
 
-### Other
+### Refactor
 
 - Test (Web Store): diagnostics pool_wait vs query_ms; bootstrap; vitrine rotate.
 
@@ -900,7 +993,7 @@
 
 - Fix (Web Store / Mercado API): pair_mate e pair_breakdown incluem stats completos.
 
-### Other
+### Refactor
 
 - Test (Web Store / Mercado): payload single/pair com stats.
 
@@ -916,7 +1009,7 @@
 
 - Fix (Web Store / PWA): service worker stale-while-revalidate só em /api/catalog; bootstrap/mutações network-only; assets estáticos cache-first.
 
-### Other
+### Refactor
 
 - Test (Web Store / Warmup): bootstrap anónimo, overlay, cache keys, SW não cacheia bootstrap.
 
@@ -935,7 +1028,7 @@
 - Fix (Web Store / DB): list_species_public batch (fim N+1); vitrine reutiliza candidates + cache TTL 30s; arkbank schema guard por engine; permission_entitlements_sync engines singleton pool_size=1.
 - Fix P0 (Web Store / Catálogo): kit com DefaultAmount esgotado mostrava resgates restantes errados — cadeado + botão desabilitado com effective_remaining <= 0; kit-limits GROUP BY; reload junto ao catálogo.
 
-### Other
+### Refactor
 
 - Test (Web Store): diagnostics pool_wait vs query_ms; kit-limits; bootstrap/PWA; market stats; vitrine rotate.
 
@@ -948,7 +1041,7 @@
 - Fix (Web Store / DB): contagem de pedidos de kit pendentes (_pending_kit_order_counts) ganhou LIMIT rígido (ARKSHOP_PENDING_KIT_ORDERS_CAP=500) — fetchall sem teto escalava com jogadores muito ativos e segurava o worker.
 - Fix (Web Store / Admin UI): painel mostra «Carregando pedidos, doações e limites de kits…» (neutro) durante o lazy load normal; o aviso âmbar «servidor sob carga» fica reservado para pressão real de budget/índices. Timeout frontend mantido em 15s.
 
-### Other
+### Refactor
 
 - Test (Web Store / Admin): essencial adia secções pesadas (partial_reason='deferred'), nunca varre tabelas grandes nem depende de índices; endpoint /heavy completa pedidos/doações/kits; cap de pending kits.
 
@@ -960,7 +1053,7 @@
 - Fix (Web Store / Admin): pedidos, doações, entitlements, listings e limites de kits foram movidos para endpoint heavy/lazy com budget próprio; painel completa automaticamente após os índices ficarem prontos e o botão Recarregar tenta só o complemento.
 - Fix (Web Store / DB): self-heal de índices hot-path tem single-flight, READY apenas após confirmação e logs explícitos de start/done/failure; MySQL nunca roda DDL longo no request crítico.
 
-### Other
+### Refactor
 
 - Test (Web Store / Admin+DB): detalhe parcial não executa consultas lentas no fallback; índices ausentes retornam parcial sem chamar full path; endpoint heavy completa pedidos/doações/kits.
 
@@ -976,10 +1069,13 @@
 - Fix (Web Store / Admin): detalhe combina points+kits numa query; budget backend de 9s com no máximo 2 workers, cancelamento entre queries e resposta parcial quando a DB ultrapassa o budget. Timeout frontend permanece 15s.
 - Fix (Web Store / PWA): service worker nunca armazena /api/* nem HTML autenticado — APIs network-only; navegação sem Cache Storage; só assets estáticos usam cache.
 
+### Refactor
+
+- Test (Web Store / Admin+DB+PWA): READY só com índices presentes; DDL omite read_timeout; detalhe rápido/completo, fallback parcial e budget desligado; manifest, service worker, rotas de ícones e instalação.
+
 ### Other
 
 - Build (Web Store): manifest, service worker, pwa-install.js e ícones (192/512/apple-touch) no bundle frozen via static/.
-- Test (Web Store / Admin+DB+PWA): READY só com índices presentes; DDL omite read_timeout; detalhe rápido/completo, fallback parcial e budget desligado; manifest, service worker, rotas de ícones e instalação.
 - Nota: guards de I/O externo (RCON async/pool, MP throttle, câmbio SWR, Discord ticket async, Steam 5s) já na 1.10.53 — esta build inclui esse código + PWA + fix hot-path.
 
 ## [1.10.53] - 2026-07-17
@@ -1002,7 +1098,7 @@
 - Fix (Web Store / I/O externo): grant/revoke de licença com rcon_async (fan-out RCON em background); exchange_rates/PIX/Discord/RCON bridge com timeouts e sem I/O síncrono bloqueante nos hot-paths HTTP do jogador.
 - Fix (Web Store / Frontend): timeout de detalhe admin mantido em 15s; saldo com cooldown 10s + dedup/abort; catálogo e lista admin com AbortController; Minha Área carrega secções em paralelo (Promise.all); mutações admin sem tempestade list+detail; Âmbarômetro com timeout 12s via fetchJson.
 
-### Other
+### Refactor
 
 - Test (Web Store / I/O externo): guards — compra usa rcon_async; fan-out paralelo 6 mapas <1×timeout; deadline corta retries zombie no rcon_bridge; throttle MP por pagamento + timeout 8s propagado; câmbio stale sem bloquear + single-flight; Discord de ticket fora da thread do request.
 - Test (Web Store / Admin+DB): kit_limits 1 query pending; store_users schema skip; table_exists cache; collation JOIN pós-normalize; hot_path indexes idempotente; COUNT lista sem JOIN desnecessário.
@@ -1015,7 +1111,7 @@
 - Fix (Web Store / Admin): «Falha ao carregar detalhes» — evidência em webstore.log: GET /api/admin/players/<id> devolvia 200 (sem exception), mas o frontend abortava aos 15s. Sob carga o detalhe demorava dezenas de segundos porque (1) reparseava config.json ~1.1MB em todos os mapas via _read_richest_license_catalog_config a cada clique, (2) abria sessões MySQL extra para points/entitlements, (3) podia chamar Steam mesmo com nick em cache; CrossChat Discord ainda spamava ~2s no processo antigo (230 avisos vs 41 HTTP na janela 18:1x). Fix: detalhe só lê steam_persona do DB (zero Steam), reutiliza 1 sessão DB, cache mtime do catálogo de licenças/kits; UI mostra a mensagem real de timeout e não re-dispara detalhe a cada reload da lista.
 - Fix (Web Store): /api/auth/me forçava Steam GetPlayerSummaries (timeout 12s, ignora cache) em toda navegação via _refresh_steam_persona — causa partilhada de fila no Werkzeug threaded. Passa a cache-first (_backfill_steam_personas) como a lista admin.
 
-### Other
+### Refactor
 
 - Test (Web Store / Admin): detalhe sem Steam API; auth/me cache-first; _catalog_license_options/_catalog_kit_options cacheados por fingerprint mtime.
 
@@ -1027,7 +1123,7 @@
 - Fix (Web Store / Admin): Gerenciar Jogadores — «Falha ao carregar detalhes» ao abrir um jogador: o detalhe ainda consultava a Steam API de forma síncrona (timeout 12s) mesmo com nick em cache, estourando os 15s do frontend. Detalhe agora usa cache de nick Steam (API só para missing, timeout 4s), como a lista na 1.10.50.
 - Fix (Web Store / Licenças + TimedPoints): «licenca_delta +0» persistia na 1.10.50 — rows legadas com acento/caixa/espaços («licença_delta», «LICENCA_DELTA») escapavam da normalização SKU→PermissionGroup; fold Unicode no lookup (UI, migrate repair, grant). Sync ark_permission (permission_entitlements_sync) também normaliza: reconcile detecta e reescreve TimedPermissionGroups com SKU cru (plugin dava +0 no bónus Delta=5), grant/revoke migram alias legado. keyvault segue +0 por design (só recursos de nuvem).
 
-### Other
+### Refactor
 
 - Test (Web Store / Licenças): variantes legadas acentuadas → Delta; endpoint /api/player/entitlements com row `licenca_delta` devolve Delta +5 e total 30; reconcile ark_permission marca SKU cru como irregular.
 
@@ -1102,7 +1198,7 @@
 - Fix (TEK): defer de notify RUNNING/STOPPED para fora do lock no attach e no reconcile de ghosts; mantém scan multi-estratégia.
 - Fix (TEK / UI): pós-reconnect volta ao refresh leve (sem destruir todos os cards) — evita widgets mortos sob clique.
 
-### Other
+### Refactor
 
 - Test (TEK): regressão de deadlock status-callback+lock no scan/reconcile.
 
@@ -1117,7 +1213,7 @@
 - Fix (CustomShop / Catalogo): dinos isolados (L1+L200) e pack10 cujos BPs estao em kit_gamma/beta/alfa passam a exigir o mesmo Permissions do kit de entrada (Gamma/Beta/Alfa); abyss e resto do catalogo ficam abertos. Script tools/lock_license_kit_dinos.py.
 - Fix (Web Store / Licenças + TimedPoints): UI «licenca_delta +0» — group_name SKU era tratado como PermissionGroup; normaliza licenca_*→Delta…Exotico no grant/UI, bónus lido de TimedPointsReward.Groups, migrate repara rows legadas; keyvault continua +0. CustomShop 1.10.22 Grant/HasActive idem.
 
-### Other
+### Refactor
 
 - Test (TEK): fixture .bug 6/6 via portas; ghost RUNNING→0; estratégias exe/cmdline.
 - Test (Web Store / Dino Lab): regressao Manticora canonical alto-bit + preview/upload sem identidade.
@@ -1141,7 +1237,7 @@
 - Fix (TEK / Reconnect): count_running e log de boot usam status RUNNING real (sem falso «detectou N»); scans de boot em 0,5/2,5/8 s; após reconnect dispara _asm_status_tick.
 - Fix (TEK / Players): após reconnect, tick rico sonda A2S fresco no query_port (bind + 127.0.0.1) e atualiza inst.a2s_players; fallback RCON ListPlayers — caminho em app_tek._asm_status_tick.
 
-### Other
+### Refactor
 
 - Test (TEK): fixture .bug (exe+cmdline vazios → 0/6 clássico, 6/6 com portas); count_running; milestones/broadcasts do desligamento programado.
 - Test (Web Store / Dino Lab Encomendas): cobertura snapshot, nick, origem no Histórico, reenvio+estorno a partir de FALHA.
@@ -1158,7 +1254,7 @@
 - Fix (TEK): colapsa barras repetidas no install_dir (D:\\ARK → d:/ark) para não falhar match com paths Windows escapados.
 - Fix (TEK): mantém poll AccessDenied≠morto (de 1.10.41) e register_servers + retentativas de scan no boot.
 
-### Other
+### Refactor
 
 - Test (TEK): cobertura do baseline 1.10.36 (exe+install_dir), shared install+porta, fallback por porta, normalize de barras duplas.
 
@@ -1173,7 +1269,7 @@
 - Fix (TEK): reconnect pós-restart — a v1.10.40 só casava por exe/cmdline; se ambos vierem vazios o mapa ficava PARADO. Agora casa também por portas TCP/UDP (server/query/RCON) via psutil.net_connections + netstat -ano, título da janela RunServer e QueryFullProcessImageName.
 - Fix (TEK): _PsutilProcessWrapper.poll deixa de tratar exceções de permissão (ex. AccessDenied) como processo morto — evitava ONLINE→TRAVADO após reconnect.
 
-### Other
+### Refactor
 
 - Test (TEK): modo de falha v1.10.40 (exe+cmdline vazios), multi-mapa mesmo install_dir só por portas, parser netstat, poll com permissão negada.
 
@@ -1183,7 +1279,7 @@
 
 - Fix (TEK): após restart do app, mapas/servidores ShooterGameServer já em execução são reconectados — matching por install_dir na cmdline (exe vazio), QueryPort, mapa e retentativas de scan no boot.
 
-### Other
+### Refactor
 
 - Test (TEK): cobertura de _process_matches_cfg e relê de cmdline via psutil.Process(pid).
 
@@ -1199,7 +1295,7 @@
 - Fix (Web Store / Encomenda): quote com floor_quality B=0 restaurado a partir de defaults do repo quando live stale; payment_status_label na API.
 - Fix (Web Store / Dino Lab Encomendas): estorno PENDENTE/FALHA → CANCELADO + credito Âmbar; UI Rejeitar/Estornar/Reenviar ligada; fluxo ops E2E completo.
 
-### Other
+### Refactor
 
 - Test (Web Store / Dino Lab Encomendas): cobertura fila, historico, payment_status, estorno e reenvio (25 testes).
 
@@ -1213,7 +1309,7 @@
 
 - Melhoria (Web Store / SeasonLand): MAX_XP dinamico da curva; API/admin expoe xp_cap + xp_curve; UI mostra cap live em vez de 4.875 fixo.
 
-### Other
+### Refactor
 
 - Test (Web Store / SeasonLand): cobertura da curva progressiva, Free milestones e freeze @ 9.682.
 - Docs: ARKBANK_SPEC 0.5.11 — curva B=3 locked, tabela Free, pacing 5 h/dia (250 XP/dia).
@@ -1237,9 +1333,12 @@
 - Fix (CustomShop / Licenças): ShopEntitlements::Grant reseta players.kits dos kits DefaultAmount do grupo (paridade web). Bump CustomShop v1.10.18 → v1.10.19.
 - Fix (Web Store / UI): overflow horizontal em SeasonLand/home no mobile (overflow-x + overflow-wrap); carrossel com alturas/nav responsivos.
 
-### Other
+### Refactor
 
 - Docs: ARKBANK_SPEC §15.12 checklist ops readiness + passos deploy/activação SeasonLand; regulamentos / economia alinhados.
+
+### Other
+
 - Note (ops): go-live — redeploy webstore, CustomShop 1.10.19 com outbox TimedPoints, preencher SKUs nos grants admin, depois «Iniciar season».
 
 ## [1.10.36] - 2026-07-14
@@ -1254,7 +1353,7 @@
 
 - Melhoria (Web Store / Admin mural): dimensões 1200 × 675 px (16:9) em destaque — banner, helper no upload, placeholder e validação client-side ao escolher ficheiro.
 
-### Other
+### Refactor
 
 - Docs: actualizações ARKBANK_SPEC + regulamentos Season Pass / servidor.
 
@@ -1299,7 +1398,7 @@
 
 - Melhoria (Nível do jogador): curva geométrica custom default 70×1.05^i (antes 1.15); presets Hard/Extreme suavizados (mult≤1.08); hints UI. Preferir vanilla. Mapas existentes: regenerar rampa no gerador e salvar perfil — sem migração automática de asm_servers.json. Docs PLAYER_MAX_LEVEL_SPEC.
 
-### Other
+### Refactor
 
 - Docs: ARKBANK v0.4 MVP — inflow doações PIX/cartão confirmadas (R$ 1,00 = 1.000 Âmbar na tesouraria, paralelo ao pacote/pote) + retenção catálogo 20% → banco; hooks em `_finalize_pix_payment`.
 
@@ -1310,7 +1409,7 @@
 - Fix (Web Store / Mercado): card de casal — breakdown claro (Macho/Fêmea pedido+sugerido → Isolados → Preço do casal Y); input da Minha Loja edita só o pedido individual (`asking_price`), nunca Y; sem misturar Y nos Pedidos.
 - Fix (Web Store / Encomenda): imagens da vitrine passam a preencher a área do card (deixam de ficar em ~64px no centro).
 
-### Other
+### Refactor
 
 - Docs: ARKBANK planning spec (`docs/ARKBANK_SPEC.md`).
 
@@ -1338,7 +1437,7 @@
 - Fix (Web Store / Encomenda): cotação no wizard — debounce 280ms + abort de pedidos antigos; quote deixa de re-listar todo o catálogo (timeout 15s ao mexer nos sliders); rate limit 90/min.
 - Fix (Web Store / Encomenda): nomes amigáveis na galeria e Dino Lab — defaults/catálogo primeiro (Shadowmane, Small Manticore, Meraxes); remove «Nível 200» e ids crus (lionfishlion, sb_*_200, meraxes_femea).
 
-### Other
+### Refactor
 
 - Docs (Área da Tribo): decisões finais Jul/2026 — limites de construção adiados (sem enforcement); breeding só regulamento; 1 pessoa=1 Principal; logs do grupo para todos; admin (exceto support) no painel/códigos; §20.8 + regulamento §8.10.1 v1.3.
 - Docs (Área da Tribo): PROJETO_AREA_TRIBO.md §20 (cluster/códigos/Principal-Fob); regulamento §8.10.1 + ponteiro em §4.2; bump regulamento 1.2.
@@ -1361,7 +1460,7 @@
 - Fix (CustomShop): dinos *_l200 com sexo aleatório — remove Gender (plugin não força male/female); Name/Description sem «Fêmea»; apply_shop_l200_prices.py e docs/SHOP_L200_PRICING.md.
 - Fix (Plugins / Debug ARKLAND): pasta logs/ + README + boot em arkland_debug.log sempre no arranque; TribeSync avisa se ServerId/MySQL offline. Bump CustomShop v1.10.15 → v1.10.16; CustomDinoDeliver v1.10.13 → v1.10.15. Docs/ARKLAND_PLUGIN_DEBUG.md.
 
-### Other
+### Refactor
 
 - Docs (Regulamento v1.1): §3.5 aconselha não doar entre jogadores e proíbe doar recursos/dinos/itens que exigem licença ativa (punição administrativa); §8.4 desistência 90%/contestação+ticket; §8.7 casal 60% + contribuição sorteio; solteiros claim integral.
 
@@ -1692,7 +1791,7 @@
 - Feature (Plugin CustomDinoDeliver): DLL separada do CustomShop — spawn, cores Obelisk, cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinolab (chat).
 - Feature (TEK / Loja): botao Instalar Dino Lab em todos os servidores, sync WebApiUrl/WebApiKey, reload RCON conjunto Shop + Dino Lab; build.bat e ARKLAND-Multi.spec empacotam CustomDinoDeliver.dll.
 
-### Other
+### Refactor
 
 - Docs: guia operacional docs/DINO_LAB_GUIA.md e spec DINO_LAB_SPEC.md atualizada para MVP operacional.
 
@@ -2574,7 +2673,7 @@
 
 - Feat (Web Store): ícones SVG originais ARKLAND por espécie (154 criaturas) — silhuetas procedurais em static/species/icons/; catálogo e Comércio P2P usam registro com fallback por tier; sem wiki/Dododex/arkids.
 
-### Other
+### Refactor
 
 - Docs: ATTRIBUTION.md com pesquisa legal (Fandom CC BY-NC-SA, Fan Content Guidelines, arkids.net) e guia admin; tools/generate_species_icons.py para regenerar bundle.
 
@@ -3032,7 +3131,7 @@
 - Novo (Comercio): editor por especie com override de peso e modo legacy_multipliers.
 - Novo (Comercio): Comercio admin — botao Economia substitui Mult.; link direto ao editor.
 
-### Other
+### Refactor
 
 - Docs: secao 5.8.2 modos de preco e weight_override.
 
@@ -3043,7 +3142,7 @@
 - Novo (Comercio): editor por especie na Economia Comercio (dieta, porte, stats enabled).
 - Novo (Comercio): tabela publica mostra piso, porte, teto e stats — breakdown com espaco bonus.
 
-### Other
+### Refactor
 
 - Docs: PROJETO_MERCADO_CRYOPOD secao 5.7–5.8 atualizada para modelo proporcional.
 
@@ -3305,7 +3404,7 @@
 - Fix (CustomShop / DB): senha MySQL não é mais gravada no catálogo nem sobrescrita com placeholder changeme ao salvar ou sincronizar plugins.
 - Fix (Loja): resolve_shop_db_password — senha efetiva vem do DB Manager / Banco de Pedidos; placeholders (changeme, SUA_SENHA_AQUI) são ignorados.
 
-### Other
+### Refactor
 
 - Docs: projeto Inventário na Nuvem (upload/download) documentado para discussão antes da implementação.
 
@@ -3735,7 +3834,7 @@
 
 - Fix (ASM/launch): SessionName removido da CLI em todos os casos; o nome da sessão agora é persistido somente no GameUserSettings.ini para evitar parsing inconsistente no Windows.
 
-### Other
+### Refactor
 
 - Docs: ARK_SERVER_CONFIG_REFERENCE.md alinhado ao comportamento atual de launch (SessionName apenas no INI, AltSaveDirectoryName e -clusterid corrigidos no mapeamento).
 
@@ -4475,7 +4574,7 @@
 
 ### Other
 
-- Nova aba ‘������ Crashes’: exibe histórico completo de crashes do servidor lidos de ShooterGame/Saved/Crashes/, com diagnóstico interpretado (culpado, mensagem, call stack) e botões para abrir pasta ou apagar registros individualmente.
+- Nova aba ‘?? Crashes’: exibe histórico completo de crashes do servidor lidos de ShooterGame/Saved/Crashes/, com diagnóstico interpretado (culpado, mensagem, call stack) e botões para abrir pasta ou apagar registros individualmente.
 - Discord — mensagens redesenhadas: cada evento (iniciando, online, encerrando, encerrado, crash) agora usa description do embed como mensagem principal; campos Mapa e Porta como inline para starting/running; Uptime em stopped; diagnóstico do crash em bloco de código para crashed; removido o campo ‘Dica’ genérico de todos os eventos.
 - Discord — crash agora inclui diagnóstico real: server_manager armazena o resultado de _read_crash_info() na instância antes de disparar o evento, e o notificador inclui o trecho no embed.
 

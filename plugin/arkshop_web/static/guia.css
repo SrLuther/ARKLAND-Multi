@@ -61,8 +61,8 @@
   margin: 12px 0 0;
 }
 /* Ficha e busca de blueprints: o miolo usa a largura da área ao lado do menu. */
-#page-primal-fear-ficha,
-#page-blueprint-index {
+.kb-page#page-primal-fear-ficha,
+.kb-page#page-blueprint-index {
   min-width: 0;
   max-width: 100%;
 }

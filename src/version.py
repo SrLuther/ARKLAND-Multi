@@ -4,13 +4,76 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.130"
-BUILD_DATE: str = "2026-10-27"
+APP_VERSION: str = "1.10.133"
+BUILD_DATE: str = "2026-10-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.133",
+        "date": "2026-10-28",
+        "changes": [
+            "CustomShop: corrige os slots do inventário na nuvem para permitir vários slots por Steam ID; confirmação de limpeza usa /conf com validade de dois minutos.",
+            "Web Store: vinculação do Discord somente por código, bônus de 10.000 Ambares na primeira vinculação e auditoria administrativa com opção de desfazer o vínculo.",
+        ]
+    },
+    {
+        "version": "1.10.132",
+        "date": "2026-10-27",
+        "changes": [
+            "Fix P0: Crystal Isles/Gen2 já não expandem mapa via ActiveMods[0].",
+            "Fix (Eventos Globais): devolver rates temporários via abas.",
+            "release: v1.10.82 — desligamento/reinício programado (min+s)",
+            "release(1.10.81): TimedPoints soma licenças, ArkPlayer install, scroll DB",
+            "perf(entregas): cache fila vazia, batch status e recover rápido",
+            "release(1.10.80): auditoria ARKLAND — perf e segurança (5 fases)",
+            "fix(Eventos Sazonais): ressincronizar perfil TEK após restaurar backup INI",
+            "feat(Web Store): referência de Color IDs na loja",
+            "feat: Encomenda Dino MVP, sugestões, tutoriais e curva XP legada",
+            "feat(Eventos Sazonais): backup zip, emergência, setores 5x e broadcast",
+            "release: v1.10.3 — hotfix /dinolab chat handler"
+        ]
+    },
+    {
+        "version": "1.10.131",
+        "date": "2026-10-27",
+        "changes": [
+            "fix(release): version.json 1.10.103 + remove empty Unreleased",
+            "Fix (Encomenda): completar vitrine rotativa ate 15 no fallback de porte.",
+            "Feat (Encomenda): vitrine 5x3 com 15 slots rotativos.",
+            "Fix admin vitrine timeout: UI paginada, testes e notas Unreleased.",
+            "Fix P0: Crystal Isles/Gen2 já não expandem mapa via ActiveMods[0].",
+            "Fix (Eventos Globais): devolver rates temporários via abas.",
+            "Fix ArkPlayer install: copy default config.json when missing.",
+            "release: v1.10.82 — desligamento/reinício programado (min+s)",
+            "release(1.10.81): TimedPoints soma licenças, ArkPlayer install, scroll DB",
+            "perf(entregas): cache fila vazia, batch status e recover rápido",
+            "release(1.10.80): auditoria ARKLAND — perf e segurança (5 fases)",
+            "fix: align version.json with v1.10.60 asset",
+            "fix: align version.json with latest release asset",
+            "fix: point version.json at v1.10.60 installer asset",
+            "chore: align metadata with v1.10.54",
+            "chore: finalize v1.10.53 release log",
+            "fix(Eventos Sazonais): ressincronizar perfil TEK após restaurar backup INI",
+            "fix: corrigir blueprint paths de criaturas Abyssal (segmento /Abyssal/)",
+            "Add catalog auto-feed with strong deduplication for market and DinoLab",
+            "feat(Web Store): referência de Color IDs na loja",
+            "feat: Encomenda Dino MVP, sugestões, tutoriais e curva XP legada",
+            "chore: remove debug script left from release tooling",
+            "feat(Eventos Sazonais): backup zip, emergência, setores 5x e broadcast",
+            "release: v1.10.3 — hotfix /dinolab chat handler",
+            "feat(web): relatorio admin do sorteio com participantes e nicks Steam",
+            "fix(web): sorteio 500 em listagem de participantes",
+            "fix(web): sorteio 500 em schema parcial; notas Fjordur",
+            "feat(web): sorteio doacoes MVP, midias, notificacoes e correcoes",
+            "docs: alinhar changelog v1.9.199 com fix Game.ini ShooterGameMode",
+            "test(arkshop_web): align tests with steam_persona refactor",
+            "fix: alinhar version.json e APP_VERSION com release v1.9.195",
+            "fix(CustomShop): rebuild DLL com /mercado_admin para v1.9.188"
+        ]
+    },
     {
         "version": "1.10.130",
         "date": "2026-10-27",

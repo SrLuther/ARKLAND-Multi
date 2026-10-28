@@ -57,7 +57,7 @@ def recover_stale_entregando_global() -> int:
         return 0
 
     from datetime import timedelta
-    from sqlalchemy import text
+    from sqlalchemy import DateTime, bindparam, text
 
     cutoff = app_mod._now() - timedelta(minutes=minutes)
     if getattr(cutoff, "tzinfo", None) is not None:
@@ -70,6 +70,8 @@ def recover_stale_entregando_global() -> int:
                 "SELECT DISTINCT steam_id FROM orders "
                 "WHERE status = 'ENTREGANDO' AND item_type != 'custom_dino' "
                 "AND updated_at < :cutoff LIMIT 80"
+            ).bindparams(
+                bindparam("cutoff", type_=DateTime()),
             ),
             {"cutoff": cutoff},
         ).fetchall()

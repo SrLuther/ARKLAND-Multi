@@ -145,7 +145,12 @@ def test_pix_checkout_after_donor_data(client, monkeypatch):
     monkeypatch.setattr(
         _app_module,
         "_load_point_packages",
-        lambda: _app_module._DEFAULT_POINT_PACKAGES,
+        lambda: [{
+            "id": "p10000",
+            "label": "Pacote de teste",
+            "points": 10000,
+            "price_brl": 5.0,
+        }],
     )
     fake_mp = {
         "id": "mp_pix_001",

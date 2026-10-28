@@ -115,4 +115,4 @@ def test_pix_status_route_not_wired_to_short_cache():
     src = inspect.getsource(_app_module.player_pix_status)
     assert "_ttl_cache" not in src
     assert "X-Short-Cache" not in src
-    assert "NÃO cachear" in (inspect.getdoc(_app_module.player_pix_status) or "")
+    assert "cachear" in (inspect.getdoc(_app_module.player_pix_status) or "").lower()

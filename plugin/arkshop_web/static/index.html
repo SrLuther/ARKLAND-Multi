@@ -8427,6 +8427,12 @@
           </div>
         </div>
 
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Auditoria de vínculos Discord</div>
+          <p style="font-size:12px;color:var(--text2);">Histórico de vínculos, bônus e remoções administrativas. Remover um vínculo permite novo código e novo bônus após confirmação.</p>
+          <div id="discord-link-admin-audit" style="overflow:auto;"></div>
+        </div>
+
         <div class="card" style="margin-bottom:16px;" id="tickets-discord-card">
           <div class="card-title">🔔 Discord — notificações de tickets</div>
           <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
@@ -10949,7 +10955,7 @@
       </div>
 
       <!-- PAGE: Ficha Primal Fear (admin) -->
-      <div id="page-primal-fear-ficha" class="page admin-only">
+      <div id="page-primal-fear-ficha" class="page admin-only kb-page">
         <div class="kb-wrap">
           <header class="kb-article-h">
             <p class="kb-kicker">Admin</p>
@@ -10964,7 +10970,7 @@
       </div>
 
       <!-- PAGE: Busca de blueprints (admin) -->
-      <div id="page-blueprint-index" class="page admin-only">
+      <div id="page-blueprint-index" class="page admin-only kb-page">
         <div class="kb-wrap">
           <header class="kb-article-h">
             <p class="kb-kicker">Admin</p>
@@ -20548,6 +20554,30 @@ async function loadDiscordLinkAdmin() {
     if (statusEl) statusEl.textContent = "⚠️ Falha ao carregar configurações de validação.";
   }
   await loadTicketsDiscord();
+  await loadDiscordLinkAdminAudit();
+}
+
+async function loadDiscordLinkAdminAudit() {
+  if (!_auth.is_admin) return;
+  const host = document.getElementById("discord-link-admin-audit");
+  if (!host) return;
+  try {
+    const data = await fetchJson("/api/admin/discord-link/audit", { timeoutMs: 15000 });
+    if (!data.ok) throw new Error(data.error || "Falha ao carregar auditoria");
+    const rows = data.events || [];
+    if (!rows.length) { host.innerHTML = "<div style='color:var(--text2)'>Nenhum evento registrado ainda.</div>"; return; }
+    host.innerHTML = `<table class="table"><thead><tr><th>Data</th><th>Evento</th><th>Steam</th><th>Discord</th><th>Responsável</th><th>Âmbares</th><th></th></tr></thead><tbody>${rows.map(e => `<tr><td>${escHtml(e.created_at || "")}</td><td>${escHtml(e.event_type || "")}</td><td>${escHtml(e.steam_name || "")}<br><small>${escHtml(e.steam_id || "")}</small></td><td>${escHtml(e.discord_username || "")}<br><small>${escHtml(e.discord_user_id || "")}</small></td><td>${escHtml(e.actor_name || "")}<br><small>${escHtml(e.actor_steam_id || "")}</small></td><td>${Number(e.amber_delta || 0).toLocaleString("pt-BR")}</td><td>${e.event_type === "link_confirmed" ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer vínculo</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+  } catch (e) { host.textContent = String(e); }
+}
+
+async function adminUnlinkDiscord(steamId) {
+  if (!steamId || !confirm(`Desfazer o vínculo Discord da Steam ${steamId}? O usuário poderá confirmar um novo vínculo e receber novamente o bônus.`)) return;
+  try {
+    const data = await fetchJson(`/api/admin/discord-link/${encodeURIComponent(steamId)}/unlink`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!data.ok) { toast(data.error || "Falha ao desfazer vínculo", "error"); return; }
+    toast("Vínculo removido. A próxima confirmação poderá gerar novo bônus.", "success");
+    await loadDiscordLinkAdminAudit();
+  } catch (e) { toast(String(e), "error"); }
 }
 
 async function saveDiscordLinkValidationSettings() {
@@ -25148,7 +25178,7 @@ function renderMarketEconomyCaps(cfg) {
         <label>β serviço <input id="me-fq-beta" type="number" step="0.01" value="${beta}" style="width:72px;margin-left:8px;" /></label>
         <label>Ref. pts <input id="me-pts-ref" type="number" value="${cfg.pts_reference || 254}" style="width:80px;margin-left:8px;" /></label>
       </div>
-      <p style="font-size:12px;color:var(--text2);padding:0 16px 14px;margin:0;">Estes caps são o piso antigo do comércio. Não definem o Price do catálogo. O preço da criatura está na aba Precificação: 10.000 × coeficiente × índice, sem teto de 275.000 na encomenda.</p>
+      <p style="font-size:12px;color:var(--text2);padding:0 16px 14px;margin:0;">Estes caps são o piso antigo do comércio. Não definem o Price do catálogo. O preço da criatura está na aba Precificação: 10.000 × coeficiente × índice, sem teto de 275.000 na encomenda. O fator Primal Fear não multiplica o piso antigo.</p>
     </div>
     <div class="card">
       <div class="card-title">Pesos do índice Q por papel (dino_role)</div>

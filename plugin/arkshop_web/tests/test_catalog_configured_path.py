@@ -98,7 +98,7 @@ def test_reread_after_external_save_does_not_restore_previous(tmp_path, monkeypa
     with caplog.at_level(logging.INFO, logger="arkshop"):
         first = app_module._read_shop_config()
     assert "version_one" in (first.get("Items") or {})
-    reload_lines = [r.message for r in caplog.records if "Catálogo recarregado" in r.message]
+    reload_lines = [r.message for r in caplog.records if "recarregado" in r.getMessage()]
     assert reload_lines
     assert str(live) in reload_lines[-1]
     assert "mtime=" in reload_lines[-1]

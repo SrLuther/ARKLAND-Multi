@@ -197,6 +197,46 @@ bool ShopPoints::Open() {
             return false;
         }
     }
+
+    // Some older installs have a separate UNIQUE(steam_id) index. Dropping
+    // only the old primary key does not remove that constraint, so additional
+    // slots still fail with duplicate key 'steam_id'. Keep composite unique
+    // indexes intact and remove only single-column unique indexes on steam_id.
+    const char* cloud_unique_sql =
+        "SELECT INDEX_NAME FROM information_schema.statistics "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'player_cloud_inventory' "
+        "AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY' "
+        "GROUP BY INDEX_NAME "
+        "HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'steam_id';";
+    if (mysql_query(db_, cloud_unique_sql) != 0) {
+        Log::GetLog()->error("ShopPoints::cloud inventory unique-index lookup failed: {}", mysql_error(db_));
+        return false;
+    }
+    MYSQL_RES* cloud_unique_res = mysql_store_result(db_);
+    if (!cloud_unique_res) {
+        Log::GetLog()->error("ShopPoints::cloud inventory unique-index lookup returned no result: {}", mysql_error(db_));
+        return false;
+    }
+    std::vector<std::string> legacy_steam_indexes;
+    MYSQL_ROW cloud_index_row;
+    while ((cloud_index_row = mysql_fetch_row(cloud_unique_res))) {
+        if (cloud_index_row[0]) legacy_steam_indexes.emplace_back(cloud_index_row[0]);
+    }
+    mysql_free_result(cloud_unique_res);
+    for (const auto& index_name : legacy_steam_indexes) {
+        std::string quoted_index;
+        quoted_index.reserve(index_name.size() + 2);
+        quoted_index.push_back('`');
+        for (char c : index_name) {
+            if (c == '`') quoted_index.push_back('`');
+            quoted_index.push_back(c);
+        }
+        quoted_index.push_back('`');
+        const std::string drop_index_sql =
+            "ALTER TABLE player_cloud_inventory DROP INDEX " + quoted_index + ";";
+        if (!Exec(drop_index_sql.c_str())) return false;
+    }
+
     if (mysql_query(db_, "ALTER TABLE player_cloud_inventory DROP PRIMARY KEY") != 0) {
         const unsigned err = mysql_errno(db_);
         if (err != 1091 && err != 1068) {

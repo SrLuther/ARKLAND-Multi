@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 import app as _app_module
-from app import Order, app
+from app import Order, StoreUser, app
 from ticket_service import (
     TICKET_CATEGORIES,
     add_ticket_reply,
@@ -41,6 +41,11 @@ def ticket_db(tmp_path):
     path = tmp_path / "tickets.db"
     engine = create_engine(f"sqlite:///{path}", future=True)
     ensure_ticket_schema(engine)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE players (steam_id TEXT PRIMARY KEY, points INTEGER NOT NULL DEFAULT 0, kits TEXT NOT NULL DEFAULT '{}')"))
+    StoreUser.__table__.create(engine, checkfirst=True)
+    from amber_ledger import ensure_amber_schema
+    ensure_amber_schema(engine, run_backfill=False)
     Session = sessionmaker(bind=engine)
     db = Session()
     try:
@@ -132,13 +137,14 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
 
 
 def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):
-    first = save_discord_link(
+    first_code = generate_discord_link_code(
         ticket_db,
         steam_id=USER_STEAM,
         discord_user_id="111222333",
         discord_username="alice",
-        link_method="manual",
     )
+    first = confirm_discord_link_code(ticket_db, first_code["code"], steam_id=USER_STEAM,
+        discord_user_id="111222333", discord_username="alice")
     assert first["steam_id"] == USER_STEAM
 
     generated = generate_discord_link_code(
@@ -442,14 +448,15 @@ def test_legacy_status_migration(ticket_db):
     assert row[0] == "AGUARDANDO_SUPORTE"
 
 
-def test_discord_link_manual(ticket_db):
+def test_discord_link_manual_is_disabled(ticket_db):
     link = save_discord_link(
         ticket_db,
         steam_id=USER_STEAM,
         discord_user_id="123456789012345678",
         discord_username="player#0001",
     )
-    assert link["discord_username"] == "player#0001"
+    assert link["ok"] is False
+    assert "código" in link["error"].lower()
 
 
 def test_invalid_category_normalized(ticket_db):

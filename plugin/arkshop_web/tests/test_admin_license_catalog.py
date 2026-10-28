@@ -40,7 +40,7 @@ def _write_catalog(path, items: dict) -> None:
     )
 
 
-def test_catalog_license_options_lists_all_license_types(tmp_path, monkeypatch):
+def test_catalog_license_options_uses_only_configured_catalog(tmp_path, monkeypatch):
     full = tmp_path / "full.json"
     stub = tmp_path / "stub.json"
     _write_catalog(
@@ -93,12 +93,8 @@ def test_catalog_license_options_lists_all_license_types(tmp_path, monkeypatch):
 
     opts = _app_module._catalog_license_options()
     groups = {o["group"] for o in opts}
-    assert groups == {"Gamma", "keyvault", "VIPBronze"}
-    gamma = next(o for o in opts if o["group"] == "Gamma")
-    assert gamma["label"].startswith("Licença Gamma")
-    assert gamma["item_id"] == "licenca_gamma"
-    assert gamma["days"] == 30
-
+    assert groups == {"VIPBronze", "VIPPrata"}
+    assert {o["item_id"] for o in opts} == {"licenca_vip_bronze", "licenca_vip_prata"}
 
 def test_catalog_license_group_from_type_without_grant():
     entry = {

@@ -3,12 +3,12 @@
 ; Requer: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Antes de gerar o installer, rode build.bat para criar o .exe
 ;
-; InstalaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o silenciosa:
+; Instalação silenciosa:
 ;   ARKLAND-ServerManager-Setup-vX.Y.Z.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 ; ============================================================
 
 ; Atualizado automaticamente por _release.ps1
-#define ReleaseVersion "1.10.130"
+#define ReleaseVersion "1.10.133"
 
 [Setup]
 AppName=ARKLAND - Server Manager
@@ -24,7 +24,7 @@ OutputBaseFilename=ARKLAND-Multi-Setup-v{#ReleaseVersion}
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
-; NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o exige UAC (instala por usuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio se nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o admin)
+; Não exige UAC (instala por usuário se não admin)
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 UninstallDisplayName=ARKLAND - Server Manager
@@ -35,7 +35,7 @@ WizardImageStretch=no
 DisableWelcomePage=no
 DisableDirPage=auto
 DisableProgramGroupPage=yes
-; Fecha instÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ncia anterior automaticamente durante atualizaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o
+; Fecha instância anterior automaticamente durante atualização
 CloseApplications=yes
 CloseApplicationsFilter=*ARKLAND*.exe
 RestartApplications=yes
@@ -55,14 +55,14 @@ Name: "{group}\ARKLAND - Server Manager";       Filename: "{app}\ARKLAND-ServerM
 Name: "{userdesktop}\ARKLAND - Server Manager"; Filename: "{app}\ARKLAND-ServerManager.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Criar atalho na ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rea de trabalho"; GroupDescription: "Atalhos:"
+Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos:"
 
 [Run]
-; Abre o app ao final da instalaÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o (sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ no modo nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o-silencioso)
+; Abre o app ao final da instalação (só no modo não-silencioso)
 Filename: "{app}\ARKLAND-ServerManager.exe"; \
   Description: "Iniciar ARKLAND - Server Manager agora"; \
   Flags: nowait postinstall skipifsilent shellexec runascurrentuser
 
 [UninstallDelete]
-; Remove dados do usuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio ao desinstalar (sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ se o usuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio confirmar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â use comentÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rio para remover)
+; Remove dados do usuário ao desinstalar (só se o usuário confirmar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â use comentário para remover)
 ; Type: filesandordirs; Name: "{userappdata}\ARKLAND-ServerManager"

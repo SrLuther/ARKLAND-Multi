@@ -103,7 +103,7 @@ PREVIEW = sys.argv[6].lower() == "true"
 
 VIP_RE = re.compile(r"^VIP", re.I)
 MOD_ALIASES = {
-    "moderacao", "moderação", "modera????o", "moderaã§ã£o", "moderaÃ§Ã£o",
+    "moderacao", "moderação", "modera????o", "moderaã§ã£o", "moderação",
 }
 
 DELETE_IDS = {6, 7, 10, 11, 12, 13, 29, 70}  # Moderacao* + VIP* (print TEK)
@@ -113,7 +113,7 @@ def _is_mod_alias(part: str) -> bool:
     low = part.lower()
     if low in MOD_ALIASES or part == "Moderacao":
         return True
-    # Modera????o, ModeraÃ§Ã£o, etc.
+    # Modera????o, Moderação, etc.
     return low.startswith("modera") and part != "Mod"
 
 

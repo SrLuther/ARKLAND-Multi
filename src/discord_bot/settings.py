@@ -158,7 +158,40 @@ class BotSettings:
     enable_voice: bool = True
     enable_moderation: bool = True
 
+    @classmethod
+    def from_config(cls, cfg: Any, data_dir: Optional[Path] = None) -> "BotSettings":
+        prefix = (getattr(cfg, "command_prefix", "") or "").strip() or DEFAULT_PREFIX
+        return cls(
+            token=(getattr(cfg, "token", "") or "").strip(),
+            data_dir=Path(data_dir) if data_dir else default_data_dir(),
+            guild_id=parse_discord_id(getattr(cfg, "guild_id", "")),
+            lobby_channel_id=parse_discord_id(getattr(cfg, "lobby_channel_id", "")),
+            logs_channel_id=parse_discord_id(getattr(cfg, "logs_channel_id", "")),
+            quarantine_role_id=parse_discord_id(getattr(cfg, "quarantine_role_id", "")),
+            validation_channel_id=parse_discord_id(getattr(cfg, "validation_channel_id", "")),
+            validation_role_id=parse_discord_id(getattr(cfg, "validation_role_id", "")),
+            command_prefix=prefix,
+            enable_voice=bool(getattr(cfg, "enable_voice", True)),
+            enable_moderation=bool(getattr(cfg, "enable_moderation", True)),
+        )
+    def problems(self) -> List[str]:
+        """Pendências bloqueantes (impedem iniciar)."""
+        out: List[str] = []
+        ok, msg = validate_token_value(self.token)
+        if not ok:
+            out.append(msg)
+        return out
 
+    def warnings(self) -> List[str]:
+        """Avisos não bloqueantes."""
+        out: List[str] = []
+        if self.enable_voice and not self.lobby_channel_id:
+            out.append("Lobby de voz não configurado — salas temporárias desativadas.")
+        if self.enable_moderation and not self.logs_channel_id:
+            out.append("Canal de logs não configurado — moderação não registrará logs.")
+        if self.enable_moderation and not self.quarantine_role_id:
+            out.append("Cargo de quarentena não configurado — !limpezageral não isola o usuário.")
+        return out
 @dataclass(frozen=True)
 class DiscordLinkValidationResult:
     ok: bool
@@ -254,45 +287,7 @@ class DiscordLinkValidatorClient:
                 message=f"Falha de comunicação com web store: {exc}",
             )
 
-    @classmethod
-    def from_config(cls, cfg: Any, data_dir: Optional[Path] = None) -> "BotSettings":
-        prefix = (getattr(cfg, "command_prefix", "") or "").strip() or DEFAULT_PREFIX
-        return cls(
-            token=(getattr(cfg, "token", "") or "").strip(),
-            data_dir=Path(data_dir) if data_dir else default_data_dir(),
-            guild_id=parse_discord_id(getattr(cfg, "guild_id", "")),
-            lobby_channel_id=parse_discord_id(getattr(cfg, "lobby_channel_id", "")),
-            logs_channel_id=parse_discord_id(getattr(cfg, "logs_channel_id", "")),
-            quarantine_role_id=parse_discord_id(getattr(cfg, "quarantine_role_id", "")),
-            validation_channel_id=parse_discord_id(getattr(cfg, "validation_channel_id", "")),
-            validation_role_id=parse_discord_id(getattr(cfg, "validation_role_id", "")),
-            command_prefix=prefix,
-            enable_voice=bool(getattr(cfg, "enable_voice", True)),
-            enable_moderation=bool(getattr(cfg, "enable_moderation", True)),
-        )
-
-    def problems(self) -> List[str]:
-        """Pendências bloqueantes (impedem iniciar)."""
-        out: List[str] = []
-        ok, msg = validate_token_value(self.token)
-        if not ok:
-            out.append(msg)
-        return out
-
-    def warnings(self) -> List[str]:
-        """Avisos não bloqueantes."""
-        out: List[str] = []
-        if self.enable_voice and not self.lobby_channel_id:
-            out.append("Lobby de voz não configurado — salas temporárias desativadas.")
-        if self.enable_moderation and not self.logs_channel_id:
-            out.append("Canal de logs não configurado — moderação não registrará logs.")
-        if self.enable_moderation and not self.quarantine_role_id:
-            out.append("Cargo de quarentena não configurado — !limpezageral não isola o usuário.")
-        return out
-
-
 _ID_RE = re.compile(r"^\d{5,25}$")
-
 
 def is_valid_discord_id(value: str) -> bool:
     """True para vazio (opcional) ou um snowflake plausível."""

@@ -119,7 +119,7 @@ def test_panel_has_no_external_folder_controls(fake_app):
 def test_save_fields_from_panel_persists_token_and_ids(fake_app, tmp_path, monkeypatch):
     frame = _build(fake_app)
     entries = _widgets(frame, ctk.CTkEntry)
-    assert len(entries) == 7
+    assert len(entries) == 9
     token = "fake.discord.token-for-tests"
     entries[0].delete(0, "end")
     entries[0].insert(0, token)

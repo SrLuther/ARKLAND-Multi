@@ -337,4 +337,4 @@ def test_economy_page_shows_pf_columns_beside_the_floor():
         assert f'class="{cell}"' in fn
     assert "preço ÷ nível" in fn
     assert "600.000" in fn
-    assert "Não multiplica o piso" in html
+    assert "multiplica o piso antigo" in html.lower()

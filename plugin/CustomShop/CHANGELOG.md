@@ -8,6 +8,17 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.46] - 2026-10-28
+
+### Fix
+
+- **Inventário na nuvem:** migra o identificador para Steam ID + slot e remove índices únicos legados somente de Steam ID, permitindo manter slots distintos para a mesma conta sem erro de chave duplicada.
+- **Limpeza de slot:** a confirmação agora usa `/conf` e expira após dois minutos, evitando colisão com outros comandos `/confirmar`.
+
+### Rebuild
+
+A DLL 1.10.46 só vale depois que o mapa recarregar o plugin.
+
 ## [1.10.45] - 2026-10-27
 
 ### Fix

@@ -298,7 +298,19 @@ void CmdCloudClearPending(AShooterPlayerController* controller, int slot) {
     CustomShop::ShopCloudInventory::QueueClearPending(sid, normalized);
     SendMsg(controller, FColorList::Yellow,
             "Limpeza do slot " + CustomShop::ShopCloudInventory::SlotLabel(normalized)
-            + " agendada. Digite /confirmar para confirmar a limpeza da nuvem.");
+            + " agendada. Digite /conf em ate 2 minutos para confirmar a limpeza da nuvem.");
+}
+
+void CmdCloudConfirm(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
+    int slot = 0;
+    if (sid.empty() || !CustomShop::ShopCloudInventory::TryConsumeClearPending(sid, &slot)) {
+        SendMsg(controller, FColorList::Yellow,
+                "Voce nao tem uma limpeza de nuvem pendente ou a confirmacao expirou.");
+        return;
+    }
+    CmdCloudClearSlot(controller, slot);
 }
 
 int ParseCloudSlotFromText(const std::string& msg, const std::string& prefix) {
@@ -336,17 +348,6 @@ bool OnCloudChatMessage(AShooterPlayerController* player, FString* message,
         return false;
 
     const std::string msg = message->ToString();
-    if (msg == "/confirmar" || MatchCloudChat(msg, "/confirmar")) {
-        const std::string sid = CustomShop::Bridge::GetSteamId(player);
-        if (!sid.empty() && CustomShop::ShopCloudInventory::HasClearPending(sid)) {
-            int slot = 0;
-            if (CustomShop::ShopCloudInventory::TryConsumeClearPending(sid, &slot)) {
-                CmdCloudClearSlot(player, slot);
-                return true;
-            }
-        }
-    }
-
     if (MatchCloudChat(msg, "/upload")) {
         const int slot = ParseCloudSlotFromText(msg, "/upload");
         if (slot >= 0) {
@@ -1091,6 +1092,7 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/limparnuvem1",  &CmdCloudClearPendingSlot1);
     ArkApi::GetCommands().AddChatCommand("/limparnuvem2",  &CmdCloudClearPendingSlot2);
     ArkApi::GetCommands().AddChatCommand("/limparnuvem3",  &CmdCloudClearPendingSlot3);
+    ArkApi::GetCommands().AddChatCommand("/conf",          &CmdCloudConfirm);
     ArkApi::GetCommands().AddChatCommand("/engramas",      &CmdEngramas);
     ArkApi::GetCommands().AddChatCommand("/notas",         &CmdNotas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
@@ -1145,6 +1147,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/limparnuvem1");
     ArkApi::GetCommands().RemoveChatCommand("/limparnuvem2");
     ArkApi::GetCommands().RemoveChatCommand("/limparnuvem3");
+    ArkApi::GetCommands().RemoveChatCommand("/conf");
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ShopMarket::UnregisterCommands();
     CustomShop::Teams::UnregisterCommands();

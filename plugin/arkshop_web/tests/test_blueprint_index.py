@@ -251,7 +251,7 @@ def test_fontes_do_repositorio():
 
 def test_pagina_admin_e_rota():
     html = _HTML.read_text(encoding="utf-8")
-    assert 'id="page-blueprint-index" class="page admin-only"' in html
+    assert 'id="page-blueprint-index" class="page admin-only kb-page"' in html
     assert 'data-page="blueprint-index"' in html
     assert "admin-only" in html.split('data-page="blueprint-index"')[0][-80:]
     assert "Busca de blueprints" in html

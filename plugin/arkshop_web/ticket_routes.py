@@ -20,6 +20,8 @@ from ticket_service import (
     get_ticket_detail,
     get_ticket_history,
     list_discord_link_audit,
+    list_discord_link_admin_audit,
+    admin_unlink_discord,
     list_tickets_admin,
     list_tickets_for_player,
     request_player_close,
@@ -211,31 +213,30 @@ def register_ticket_routes(
     @login_required
     @_limit("20 per minute")
     def tickets_discord_save():
-        """Vincula Discord manualmente (OAuth stub para versão futura)."""
+        return jsonify({"ok": False, "error": "Manual link disabled; use Discord verification code."}), 410
+
+    @app.route("/api/admin/discord-link/audit", methods=["GET"])
+    @admin_required
+    def admin_discord_link_audit():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        body = request.get_json(force=True, silent=True) or {}
-        if body.get("oauth"):
-            return jsonify({
-                "ok": False,
-                "error": "OAuth Discord ainda não disponível — use vínculo manual.",
-                "oauth_available": False,
-            }), 501
-        steam_id = str(steam_id_from_session())
-        discord_user_id = str(body.get("discord_user_id") or "").strip() or None
-        discord_username = str(body.get("discord_username") or "").strip() or None
-        if not discord_user_id and not discord_username:
-            return jsonify({"ok": False, "error": "Informe usuário ou ID do Discord"}), 400
         db = session_factory()
         try:
-            link = save_discord_link(
-                db,
-                steam_id=steam_id,
-                discord_user_id=discord_user_id,
-                discord_username=discord_username,
-                link_method="manual",
-            )
-            return jsonify({"ok": True, "link": link})
+            return jsonify({"ok": True, "events": list_discord_link_admin_audit(db, limit=1000)})
+        finally:
+            db.close()
+
+    @app.route("/api/admin/discord-link/<steam_id>/unlink", methods=["POST"])
+    @admin_required
+    def admin_discord_link_unlink(steam_id: str):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        actor = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            result = admin_unlink_discord(db, steam_id=steam_id, actor_steam_id=actor,
+                actor_name=resolve_player_name(db, actor) if actor else "")
+            return jsonify(result), (200 if result.get("ok") else 404)
         finally:
             db.close()
 

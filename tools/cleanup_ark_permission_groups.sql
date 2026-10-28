@@ -37,7 +37,7 @@ UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'Moder
 UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',Moderacao,', ',Mod,');
 UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',Moderacao', ',Mod');
 
--- Os 8 selecionados: 6 Moderacao, 7 Modera????o, 10-13 VIP*, 29 ModeraÃ§Ã£o, 70 VIPDoacao
+-- Os 8 selecionados: 6 Moderacao, 7 Modera????o, 10-13 VIP*, 29 Moderação, 70 VIPDoacao
 DELETE FROM permissiongroups WHERE Id IN (6, 7, 10, 11, 12, 13, 29, 70);
 
 SELECT Id, GroupName FROM permissiongroups ORDER BY Id;

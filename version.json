@@ -1,11 +1,9 @@
 {
-    "version": "1.10.130",
-    "date": "2026-10-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.130/ARKLAND-Multi-Setup-v1.10.130.exe",
+    "version": "1.10.133",
+    "date": "2026-10-28",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.133/ARKLAND-Multi-Setup-v1.10.133.exe",
     "changelog": [
-        "Feat (Web Store / Discord — Vinculação): nova página administrativa dedicada para centralizar toda a configuração de vínculo Discord em um único lugar no site.",
-        "Fix (Web Store / Configurar Paths): removidos os campos de validação Discord desta tela e adicionado atalho explícito para a página dedicada, reduzindo confusão operacional.",
-        "Fix (Web Store / Tickets Admin): configurações de notificações/vinculação Discord foram retiradas da aba de tickets e consolidadas no painel dedicado.",
-        "Fix (Web Store / Navegação): menu admin passa a carregar e recarregar corretamente a página Discord — Vinculação com persistência de canal/cargo de validação e notificações do bot."
+        "CustomShop: corrige os slots do inventário na nuvem para permitir vários slots por Steam ID; confirmação de limpeza usa /conf com validade de dois minutos.",
+        "Web Store: vinculação do Discord somente por código, bônus de 10.000 Ambares na primeira vinculação e auditoria administrativa com opção de desfazer o vínculo."
     ]
 }

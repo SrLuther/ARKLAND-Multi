@@ -74,6 +74,7 @@ _ALLOWED_MIME_PREFIXES = ("image/",)
 _ALLOWED_MIME_EXACT = frozenset({"application/pdf"})
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
 DISCORD_LINK_CODE_RE = re.compile(r"^ARKLAND-[xX]{10}-\d{10}-[xX0-9]{16}-Discord$")
+DISCORD_FIRST_LINK_BONUS = 10_000
 
 
 def _build_discord_link_code() -> str:
@@ -312,6 +313,16 @@ def ensure_ticket_schema(engine: Engine) -> None:
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS support_ticket_discord_link_audit (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, event_type VARCHAR(32) NOT NULL,
+              steam_id VARCHAR(32) NOT NULL, steam_name VARCHAR(128) NOT NULL DEFAULT '',
+              discord_user_id VARCHAR(32) NULL, discord_username VARCHAR(128) NOT NULL DEFAULT '',
+              actor_steam_id VARCHAR(32) NULL, actor_name VARCHAR(128) NOT NULL DEFAULT '',
+              code VARCHAR(96) NULL, amber_delta INTEGER NOT NULL DEFAULT 0,
+              note TEXT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS support_ticket_history (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               ticket_id INTEGER NOT NULL,
@@ -406,6 +417,17 @@ def ensure_ticket_schema(engine: Engine) -> None:
               KEY idx_discord_code_used (used_at),
               KEY idx_discord_code_expiry (expires_at),
               KEY idx_discord_code_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS support_ticket_discord_link_audit (
+              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, event_type VARCHAR(32) NOT NULL,
+              steam_id VARCHAR(32) NOT NULL, steam_name VARCHAR(128) NOT NULL DEFAULT '',
+              discord_user_id VARCHAR(32) NULL, discord_username VARCHAR(128) NOT NULL DEFAULT '',
+              actor_steam_id VARCHAR(32) NULL, actor_name VARCHAR(128) NOT NULL DEFAULT '',
+              code VARCHAR(96) NULL, amber_delta INT NOT NULL DEFAULT 0,
+              note TEXT NULL, created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+              KEY idx_discord_audit_steam (steam_id), KEY idx_discord_audit_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
             """
@@ -848,6 +870,46 @@ def list_discord_link_audit(db: Any, steam_id: str, *, limit: int = 20) -> list[
     return events
 
 
+def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
+        steam_name: str = "", discord_user_id: str | None = None, discord_username: str = "",
+        actor_steam_id: str | None = None, actor_name: str = "", code: str | None = None,
+        amber_delta: int = 0, note: str = "") -> None:
+    db.execute(text("""INSERT INTO support_ticket_discord_link_audit
+        (event_type, steam_id, steam_name, discord_user_id, discord_username, actor_steam_id,
+         actor_name, code, amber_delta, note, created_at)
+        VALUES (:event_type,:steam_id,:steam_name,:discord_user_id,:discord_username,:actor_steam_id,
+         :actor_name,:code,:amber_delta,:note,:created_at)"""), {
+        "event_type": event_type, "steam_id": steam_id, "steam_name": steam_name[:128],
+        "discord_user_id": discord_user_id, "discord_username": discord_username[:128],
+        "actor_steam_id": actor_steam_id, "actor_name": actor_name[:128], "code": code,
+        "amber_delta": int(amber_delta), "note": note, "created_at": _utcnow(),
+    })
+
+
+def list_discord_link_admin_audit(db: Any, *, limit: int = 500) -> list[dict[str, Any]]:
+    rows = db.execute(text("""SELECT id,event_type,steam_id,steam_name,discord_user_id,
+        discord_username,actor_steam_id,actor_name,code,amber_delta,note,created_at
+        FROM support_ticket_discord_link_audit ORDER BY id DESC LIMIT :lim"""),
+        {"lim": max(1, min(int(limit), 2000))}).mappings().all()
+    return [dict(row) for row in rows]
+
+
+def admin_unlink_discord(db: Any, *, steam_id: str, actor_steam_id: str,
+        actor_name: str = "", steam_name: str = "") -> dict[str, Any]:
+    from app import SupportTicketDiscordLink
+    sid = str(steam_id or "").strip()
+    link = db.get(SupportTicketDiscordLink, sid) if sid else None
+    if not link:
+        return {"ok": False, "error": "Vínculo ativo não encontrado."}
+    _record_discord_link_event(db, event_type="unlink_admin", steam_id=sid,
+        steam_name=steam_name or sid, discord_user_id=link.discord_user_id,
+        discord_username=link.discord_username or "", actor_steam_id=actor_steam_id,
+        actor_name=actor_name, note="Vínculo removido pela administração; bônus elegível em novo vínculo.")
+    db.delete(link)
+    db.commit()
+    return {"ok": True}
+
+
 def confirm_discord_link_code(
     db: Any,
     code: str,
@@ -866,7 +928,7 @@ def confirm_discord_link_code(
     if not _is_valid_discord_link_code(token):
         return {"ok": False, "error": "Formato de código inválido."}
 
-    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).first()
+    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).with_for_update().first()
     if row is None:
         return {"ok": False, "error": "Código inválido ou expirado."}
     if row.steam_id != sid:
@@ -883,19 +945,35 @@ def confirm_discord_link_code(
         if conflict != sid:
             return {"ok": False, "error": "Este Discord já está vinculado a outra conta Steam."}
 
+    from app import SupportTicketDiscordLink
+    was_first_link = db.get(SupportTicketDiscordLink, sid) is None
     saved = save_discord_link(
         db,
         steam_id=sid,
         discord_user_id=did,
         discord_username=discord_username or row.discord_username,
         link_method="ingame_code",
+        commit=False,
     )
     if not saved or saved.get("error"):
         return {"ok": False, "error": saved.get("error") if isinstance(saved, dict) else "Falha ao salvar vínculo."}
 
+    if was_first_link:
+        from app import _add_player_points_tx
+        from amber_ledger import record_admin_adjust
+        _add_player_points_tx(db, sid, DISCORD_FIRST_LINK_BONUS)
+        record_admin_adjust(db, steam_id=sid, delta=DISCORD_FIRST_LINK_BONUS,
+            event_type="discord_first_link_bonus", idempotency_key=f"discord:first_link:{token}",
+            metadata={"note": "Bônus pela primeira vinculação confirmada do Discord"})
+    _record_discord_link_event(db, event_type="link_confirmed", steam_id=sid,
+        steam_name=resolve_player_name(db, sid), discord_user_id=did,
+        discord_username=discord_username or row.discord_username or "", code=token,
+        amber_delta=DISCORD_FIRST_LINK_BONUS if was_first_link else 0,
+        note="Código confirmado no Discord" + ("; bônus creditado" if was_first_link else ""))
     row.used_at = _utcnow()
     db.commit()
-    return {"ok": True, "steam_id": sid, "discord_user_id": did, "link_method": "ingame_code"}
+    return {"ok": True, "steam_id": sid, "discord_user_id": did, "link_method": "ingame_code",
+            "first_link_bonus": DISCORD_FIRST_LINK_BONUS if was_first_link else 0}
 
 
 def confirm_discord_link_code_for_discord_user(
@@ -914,7 +992,7 @@ def confirm_discord_link_code_for_discord_user(
     if not _is_valid_discord_link_code(token):
         return {"ok": False, "error": "Formato de código inválido."}
 
-    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).first()
+    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).with_for_update().first()
     if row is None:
         return {"ok": False, "error": "Código inválido ou expirado."}
     if row.used_at is not None:
@@ -933,12 +1011,15 @@ def confirm_discord_link_code_for_discord_user(
         if conflict != sid:
             return {"ok": False, "error": "Este Discord já está vinculado a outra conta Steam."}
 
+    from app import SupportTicketDiscordLink
+    was_first_link = db.get(SupportTicketDiscordLink, sid) is None
     saved = save_discord_link(
         db,
         steam_id=sid,
         discord_user_id=did,
         discord_username=discord_username or row.discord_username,
         link_method="ingame_code",
+        commit=False,
     )
     if not saved or saved.get("error"):
         return {
@@ -946,6 +1027,18 @@ def confirm_discord_link_code_for_discord_user(
             "error": saved.get("error") if isinstance(saved, dict) else "Falha ao salvar vínculo.",
         }
 
+    if was_first_link:
+        from app import _add_player_points_tx
+        from amber_ledger import record_admin_adjust
+        _add_player_points_tx(db, sid, DISCORD_FIRST_LINK_BONUS)
+        record_admin_adjust(db, steam_id=sid, delta=DISCORD_FIRST_LINK_BONUS,
+            event_type="discord_first_link_bonus", idempotency_key=f"discord:first_link:{token}",
+            metadata={"note": "Bônus pela primeira vinculação confirmada do Discord"})
+    _record_discord_link_event(db, event_type="link_confirmed", steam_id=sid,
+        steam_name=resolve_player_name(db, sid), discord_user_id=did,
+        discord_username=discord_username or row.discord_username or "", code=token,
+        amber_delta=DISCORD_FIRST_LINK_BONUS if was_first_link else 0,
+        note="Código confirmado no Discord" + ("; bônus creditado" if was_first_link else ""))
     row.used_at = _utcnow()
     db.commit()
     return {
@@ -954,6 +1047,7 @@ def confirm_discord_link_code_for_discord_user(
         "discord_user_id": did,
         "discord_username": saved.get("discord_username") if isinstance(saved, dict) else None,
         "link_method": "ingame_code",
+        "first_link_bonus": DISCORD_FIRST_LINK_BONUS if was_first_link else 0,
     }
 
 
@@ -964,6 +1058,7 @@ def save_discord_link(
     discord_user_id: str | None = None,
     discord_username: str | None = None,
     link_method: str = "manual",
+    commit: bool = True,
 ) -> dict[str, Any]:
     from app import SupportTicketDiscordLink
 
@@ -971,6 +1066,8 @@ def save_discord_link(
     did = _normalized_discord_user_id(discord_user_id)
     if not sid:
         return {"ok": False, "error": "Steam ID ausente."}
+    if link_method != "ingame_code" or not did:
+        return {"ok": False, "error": "Vínculo Discord deve ser confirmado pelo código no Discord."}
 
     if did:
         current_owner = _find_discord_owner(db, did)
@@ -1001,8 +1098,9 @@ def save_discord_link(
             row.discord_username = (discord_username or "")[:128] or None
         row.link_method = link_method or row.link_method or "manual"
         row.updated_at = now
-    db.commit()
-    db.refresh(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
     return get_discord_link(db, sid) or {}
 
 

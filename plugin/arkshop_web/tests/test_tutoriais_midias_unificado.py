@@ -44,7 +44,7 @@ def test_sidebar_sem_item_midias_publico(html):
 def test_sidebar_ordem_utilidades_tutoriais_votacoes(html):
     pages = [p for p, _ in _nav_items(html)]
     i = pages.index("downloads")
-    assert pages[i : i + 3] == ["downloads", "tutoriais", "polls"]
+    assert pages[i : i + 4] == ["downloads", "tutoriais", "guia", "polls"]
 
 
 def test_pagina_midias_removida_e_admin_preservado(html):

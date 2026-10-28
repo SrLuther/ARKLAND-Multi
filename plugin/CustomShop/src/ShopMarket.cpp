@@ -100,7 +100,7 @@ void SendEconomyBreakdown(AShooterPlayerController* player, const nlohmann::json
     const int total = json.value("computed_base_value", 0);
     if (total > 0)
         SendMsg(player, FColorList::Yellow,
-                "Como calculamos â€” sugerido: " + FormatAmbar(total) + " Ambar");
+                "Como calculamos — sugerido: " + FormatAmbar(total) + " Ambar");
     const auto& rows = json.value("calculation_breakdown", nlohmann::json::array());
     int lines = 0;
     for (const auto& row : rows) {
@@ -123,7 +123,7 @@ void SendEconomyBreakdown(AShooterPlayerController* player, const nlohmann::json
     }
 }
 
-/** Chat in-game nao suporta UTF-8 â€” mensagens da web precisam ir em ASCII. */
+/** Chat in-game nao suporta UTF-8 — mensagens da web precisam ir em ASCII. */
 
 std::string CommerceNotReadyMessage() {
     return "Defina seu nome de exibicao em Minha Area (web) antes de usar /enviar.";
@@ -721,7 +721,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         if (unlocked > 0)
             msg += " (" + std::to_string(unlocked) + " novos)";
         if (price > 0)
-            msg += " â€” " + std::to_string(price) + " ambares debitados.";
+            msg += " — " + std::to_string(price) + " ambares debitados.";
         SendMsg(player, FColorList::Green, msg);
         return;
     }
@@ -1047,7 +1047,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
         // Sem dinos: tenta recursos da Vitrine (DeliverMarketClaims lista e entrega).
         if (Vitrine::DeliverMarketClaims(player)) return;
         SendMsg(player, FColorList::Yellow,
-                "Nenhum dino pendente no Comercio (ou resgate expirado â€” reembolso automatico).");
+                "Nenhum dino pendente no Comercio (ou resgate expirado — reembolso automatico).");
         return;
     }
 
@@ -1106,7 +1106,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
             SendMsg(player, FColorList::Red,
                     SanitizeForGameChat(claim_json.value(
                         "error",
-                        std::string("Resgate expirado ou indisponivel â€” reembolso automatico."))));
+                        std::string("Resgate expirado ou indisponivel — reembolso automatico."))));
             return;
         }
         claimed_ids.push_back(claim_id);
@@ -1165,7 +1165,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                     || spawn_err.find("retries") != std::string::npos) {
                     SendMsg(player, FColorList::Red,
                             "Falha ao spawnar dino (ID duplicado). "
-                            "Resgate liberado â€” tente novamente ou contate admin.");
+                            "Resgate liberado — tente novamente ou contate admin.");
                 } else {
                     SendMsg(player, FColorList::Red,
                             "Falha ao spawnar dino do Comercio. "
@@ -1175,7 +1175,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                 return;
             }
 
-            // Spawn consumiu/invalidou a cryopod transiente â€” nao destruir de novo.
+            // Spawn consumiu/invalidou a cryopod transiente — nao destruir de novo.
             item = nullptr;
 
             bool soul_trap_ok = false;
@@ -1197,7 +1197,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                         "Dino spawnado ao seu lado + 1 Soul Trap vazia no inventario.");
             } else if (!soul_trap_bp.empty()) {
                 SendMsg(player, FColorList::Yellow,
-                        "Dino spawnado ao seu lado (Soul Trap bonus indisponivel â€” libere espaco?).");
+                        "Dino spawnado ao seu lado (Soul Trap bonus indisponivel — libere espaco?).");
             } else {
                 SendMsg(player, FColorList::Green, "Dino spawnado ao seu lado.");
             }

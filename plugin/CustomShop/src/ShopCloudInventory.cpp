@@ -15,7 +15,11 @@ namespace {
 constexpr size_t kMaxItemHexChars = 32u * 1024u * 1024u * 2u;
 
 std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_cloud_cooldown;
-std::unordered_map<std::string, int> g_cloud_clear_pending;
+struct CloudClearPending {
+    int slot = 0;
+    std::chrono::steady_clock::time_point expires_at;
+};
+std::unordered_map<std::string, CloudClearPending> g_cloud_clear_pending;
 std::unordered_set<std::string> g_cloud_in_progress;
 std::mutex g_cloud_mutex;
 
@@ -229,13 +233,20 @@ std::string ShopCloudInventory::StorageKeyForSteamSlot(const std::string& steam_
 bool ShopCloudInventory::HasClearPending(const std::string& steam_id) {
     if (steam_id.empty()) return false;
     std::lock_guard<std::mutex> lock(g_cloud_mutex);
-    return g_cloud_clear_pending.find(steam_id) != g_cloud_clear_pending.end();
+    const auto it = g_cloud_clear_pending.find(steam_id);
+    if (it == g_cloud_clear_pending.end()) return false;
+    if (std::chrono::steady_clock::now() >= it->second.expires_at) {
+        g_cloud_clear_pending.erase(it);
+        return false;
+    }
+    return true;
 }
 
 void ShopCloudInventory::QueueClearPending(const std::string& steam_id, int slot) {
     if (steam_id.empty()) return;
     std::lock_guard<std::mutex> lock(g_cloud_mutex);
-    g_cloud_clear_pending[steam_id] = NormalizeSlot(slot);
+    g_cloud_clear_pending[steam_id] = CloudClearPending{
+        NormalizeSlot(slot), std::chrono::steady_clock::now() + std::chrono::minutes(2)};
 }
 
 bool ShopCloudInventory::TryConsumeClearPending(const std::string& steam_id, int* out_slot) {
@@ -243,7 +254,11 @@ bool ShopCloudInventory::TryConsumeClearPending(const std::string& steam_id, int
     std::lock_guard<std::mutex> lock(g_cloud_mutex);
     const auto it = g_cloud_clear_pending.find(steam_id);
     if (it == g_cloud_clear_pending.end()) return false;
-    if (out_slot) *out_slot = it->second;
+    if (std::chrono::steady_clock::now() >= it->second.expires_at) {
+        g_cloud_clear_pending.erase(it);
+        return false;
+    }
+    if (out_slot) *out_slot = it->second.slot;
     g_cloud_clear_pending.erase(it);
     return true;
 }
@@ -282,13 +297,14 @@ ShopCloudInventory::CloudSnapshot ShopCloudInventory::QueryCloudSnapshot(
     CloudSnapshot snap;
     if (!db_ || steam_id.empty()) return snap;
 
-    const std::string storage_key = StorageKeyForSteamSlot(steam_id, slot);
+    const int normalized_slot = NormalizeSlot(slot);
     char buf[128];
-    if (!Escape(storage_key, buf, sizeof(buf))) return snap;
+    if (!Escape(steam_id, buf, sizeof(buf))) return snap;
 
     const std::string header_sql =
         "SELECT item_count FROM player_cloud_inventory WHERE steam_id = '"
-        + std::string(buf) + "' LIMIT 1;";
+        + std::string(buf) + "' AND slot = "
+        + std::to_string(normalized_slot) + " LIMIT 1;";
     if (mysql_query(db_, header_sql.c_str()) == 0) {
         MYSQL_RES* hres = mysql_store_result(db_);
         if (hres) {
@@ -302,7 +318,8 @@ ShopCloudInventory::CloudSnapshot ShopCloudInventory::QueryCloudSnapshot(
 
     const std::string blob_sql =
         "SELECT COUNT(*) FROM player_cloud_items WHERE steam_id = '"
-        + std::string(buf) + "';";
+        + std::string(buf) + "' AND slot = "
+        + std::to_string(normalized_slot) + ";";
     if (mysql_query(db_, blob_sql.c_str()) == 0) {
         MYSQL_RES* bres = mysql_store_result(db_);
         if (bres) {
@@ -332,9 +349,8 @@ int ShopCloudInventory::GetStoredItemCount(const std::string& steam_id, int slot
 
 bool ShopCloudInventory::PurgeCloudRecord(const std::string& steam_id, int slot) {
     if (!db_ || steam_id.empty()) return false;
-    const std::string storage_key = StorageKeyForSteamSlot(steam_id, slot);
     char buf[128];
-    if (!Escape(storage_key, buf, sizeof(buf))) return false;
+    if (!Escape(steam_id, buf, sizeof(buf))) return false;
     const std::string sid(buf);
     const int normalized_slot = NormalizeSlot(slot);
     if (!Exec(("DELETE FROM player_cloud_items WHERE steam_id = '" + sid + "' AND slot = "

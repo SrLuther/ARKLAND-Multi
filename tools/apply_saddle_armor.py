@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Define Armor em selas e BPs de selas no catÃƒÆ’Ã‚Â¡logo CustomShop (config.json)."""
+"""Define Armor em selas e BPs de selas no catálogo CustomShop (config.json)."""
 from __future__ import annotations
 
 import argparse
@@ -36,7 +36,7 @@ _PLAYER_ARMOR_PATH_PARTS = (
     "/Roupa_Tek/",
 )
 
-# Substrings no nome do asset que indicam peÃƒÆ’Ã‚Â§a de armadura (nÃƒÆ’Ã‚Â£o sela).
+# Substrings no nome do asset que indicam peça de armadura (não sela).
 _PLAYER_ARMOR_NAME_PARTS = (
     "Helmet",
     "Shirt",
@@ -195,13 +195,13 @@ def main() -> int:
         "config",
         nargs="*",
         type=Path,
-        help="Caminho(s) do config.json (padrÃƒÆ’Ã‚Â£o: configs/ e bin/)",
+        help="Caminho(s) do config.json (padrão: configs/ e bin/)",
     )
     parser.add_argument(
         "--armor",
         type=float,
         default=350,
-        help="Valor de Armor a aplicar (padrÃƒÆ’Ã‚Â£o: 350)",
+        help="Valor de Armor a aplicar (padrão: 350)",
     )
     parser.add_argument(
         "--dry-run",
@@ -211,7 +211,7 @@ def main() -> int:
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="Sai com cÃƒÆ’Ã‚Â³digo 1 se alguma sela nÃƒÆ’Ã‚Â£o tiver o Armor esperado",
+        help="Sai com código 1 se alguma sela não tiver o Armor esperado",
     )
     args = parser.parse_args()
 
@@ -220,7 +220,7 @@ def main() -> int:
 
     for config_path in config_paths:
         if not config_path.is_file():
-            print(f"Arquivo nÃƒÆ’Ã‚Â£o encontrado: {config_path}", file=sys.stderr)
+            print(f"Arquivo não encontrado: {config_path}", file=sys.stderr)
             exit_code = 1
             continue
 
@@ -263,7 +263,7 @@ def main() -> int:
             print(f"  ... e mais {len(paths) - 8}")
 
         if args.dry_run:
-            print("(dry-run ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â arquivo nÃƒÆ’Ã‚Â£o alterado)")
+            print("(dry-run ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â arquivo não alterado)")
             continue
 
         config_path.write_text(

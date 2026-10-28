@@ -210,9 +210,11 @@ Write-Ok "Size gate OK ($installerMb MB <= 150 MB)"
 
 # ── 7) Git commit + push ──────────────────────────────────────────────────────
 Write-Step 4 7 "Commitando alteracoes..."
+# Stage apenas arquivos já versionados. Artefatos, backups e dados de usuário
+# soltos na pasta não devem entrar no commit automático do release.
 # Redirect stderr→stdout: git CRLF warnings viram NativeCommandError com
 # $ErrorActionPreference=Stop / StrictMode e abortam o release a meio.
-cmd /c "git add -A 2>&1"
+cmd /c "git add -u 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
 # catalog.json do usuário: tira do stage sem alterar o working tree.
 cmd /c "git reset HEAD -- plugin/CustomShop/catalog.json 2>&1"

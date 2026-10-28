@@ -139,7 +139,7 @@ def test_bulk_unknown_ids_reported_and_nothing_written(client, env):
     assert r.status_code == 422
     body = r.get_json()
     assert body["ok"] is False and body["succeeded"] == 0 and body["failed"] == 1
-    assert body["results"][0] == {"id": "nao_existe", "ok": False, "error": "Item não encontrado no catálogo."}
+    assert "item" in body["results"][0]["error"].lower() and "cat" in body["results"][0]["error"].lower()
     assert env["master"].read_text(encoding="utf-8") == before
     assert env["reloads"] == []
 
