@@ -15,9 +15,9 @@ CHANGELOG: list[dict] = [
         "version": "1.10.134",
         "date": "2026-10-28",
         "changes": [
-            "CustomShop: corrige a migra??o do invent?rio em nuvem para manter a chave composta Steam ID + slot sem avisos recorrentes.",
-            "Discord: ao iniciar, limpa o canal de valida??o e publica uma instru??o renovada; a confirma??o informa o b?nus de 10.000 ?mbares quando creditado.",
-            "Auditoria Discord: organiza o hist?rico, destaca cr?ditos de ?mbares e permite desfazer somente v?nculos ainda ativos.",
+            'CustomShop: corrige a migração do inventário em nuvem para manter a chave composta Steam ID + slot sem avisos recorrentes.',
+            'Discord: ao iniciar, limpa o canal de validação e publica uma instrução renovada; a confirmação informa o bônus de 10.000 Âmbares quando creditado.',
+            'Auditoria Discord: organiza o histórico, destaca créditos de Âmbares e permite desfazer somente vínculos ainda ativos.',
         ]
     },
     {
