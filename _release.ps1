@@ -81,35 +81,7 @@ if ($versionPyRaw -notmatch ('"version"\s*:\s*"' + [regex]::Escape($Version) + '
 }
 Write-Ok "Entrada de changelog encontrada para v$Version"
 
-# ── 2) Extrair changelog via Python (AST) ─────────────────────────────────────
-$extractScript = @"
-import ast, json, sys, io
-# Força stdout UTF-8 para suportar emojis e caracteres especiais no changelog
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-with open('src/version.py', encoding='utf-8-sig') as f:
-    src = f.read()
-tree = ast.parse(src)
-for node in ast.walk(tree):
-    # Suporta tanto 'CHANGELOG = [...]' (Assign) quanto 'CHANGELOG: list[dict] = [...]' (AnnAssign)
-    value_node = None
-    if isinstance(node, ast.Assign):
-        for t in node.targets:
-            if isinstance(t, ast.Name) and t.id == 'CHANGELOG':
-                value_node = node.value
-    elif isinstance(node, ast.AnnAssign):
-        if isinstance(node.target, ast.Name) and node.target.id == 'CHANGELOG' and node.value:
-            value_node = node.value
-    if value_node is not None:
-        for entry in ast.literal_eval(value_node):
-            if entry['version'] == '$Version':
-                print(json.dumps(entry['changes'], ensure_ascii=False))
-                sys.exit(0)
-print('[]')
-"@
-# Garante que o PowerShell leia o stdout do Python como UTF-8
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$changelogJson = & $python -c $extractScript
-$changes = $changelogJson | ConvertFrom-Json
+# Changelog e metadados sao lidos/gravados diretamente pelo Python em UTF-8.
 
 # ── 3) Atualizar APP_VERSION em src/version.py ───────────────────────────────
 Write-Step 2 7 "Atualizando arquivos de versao..."
@@ -120,24 +92,32 @@ Write-Ok "src\version.py  →  APP_VERSION = `"$Version`""
 
 # ── 4) Atualizar version.json ─────────────────────────────────────────────────
 $downloadUrl = "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v$Version/ARKLAND-Multi-Setup-v$Version.exe"
-# PS5.1: ConvertTo-Json serializa arrays em hashtables como {value:[...],Count:n}
-# → geramos o JSON manualmente para garantir um array JSON puro no campo changelog.
-$date        = Get-Date -Format "yyyy-MM-dd"
-$escapedItems = $changes | ForEach-Object {
-    '"' + ($_ -replace '\\', '\\' -replace '"', '\"') + '"'
-}
-$changelogInline = $escapedItems -join ",`n        "
-$versionJsonStr = @"
-{
-    "version": "$Version",
-    "date": "$date",
-    "download_url": "$downloadUrl",
-    "changelog": [
-        $changelogInline
-    ]
-}
+$date = Get-Date -Format "yyyy-MM-dd"
+# Gera version.json no Python para nao passar acentos por stdout/ConvertFrom-Json
+# do Windows PowerShell, que pode substitui-los por '?'.
+$versionJsonScript = @"
+import ast, json
+from pathlib import Path
+
+source = Path('src/version.py').read_text(encoding='utf-8-sig')
+tree = ast.parse(source)
+entries = None
+for node in tree.body:
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == 'CHANGELOG':
+        entries = ast.literal_eval(node.value)
+        break
+    if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'CHANGELOG' for t in node.targets):
+        entries = ast.literal_eval(node.value)
+        break
+entry = next((item for item in entries or [] if item.get('version') == '$Version'), None)
+if entry is None:
+    raise SystemExit('CHANGELOG entry not found')
+payload = {'version': '$Version', 'date': '$date', 'download_url': '$downloadUrl', 'changelog': entry.get('changes', [])}
+Path('version.json').write_text(json.dumps(payload, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+print('version.json written as UTF-8')
 "@
-[System.IO.File]::WriteAllText((Join-Path $root "version.json"), $versionJsonStr, $utf8NoBOM)
+& $python -c $versionJsonScript
+if ($LASTEXITCODE -ne 0) { Write-Fail "version.json generation failed" }
 Write-Ok "version.json    →  version = `"$Version`""
 
 # ── 5) Atualizar setup.iss ────────────────────────────────────────────────────

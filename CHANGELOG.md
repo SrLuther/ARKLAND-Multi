@@ -1,6 +1,6 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 08:18:12 -->
+<!-- Gerado: 2026-10-29 08:24:46 -->
 <!-- Total de versões: 493 | Primeira: 1.11.0 -->
 
 <!-- markdownlint-disable MD024 -->
@@ -9,14 +9,14 @@
 
 ### Other
 
-- Gerenciador ASE: reestrutura??o das configura??es com cat?logo de 321 op??es para GameUserSettings.ini/Game.ini e 114 argumentos de inicializa??o.
-- INI: edi??o ordenada e segura, somente com linhas de configura??o; sincroniza??o por se??es com compara??o, backup e rollback.
-- Progress?es: editor de n?veis de jogador e dinossauros com valida??o de XP e persist?ncia das rampas.
-- Saves: backup e restaura??o com valida??o de integridade e recupera??o segura.
-- Discord: v?nculo por c?digo, b?nus inicial de 10.000 ?mbares e auditoria administrativa paginada; bot com instru??es completas e bot?o para o site.
+- Gerenciador ASE: reestruturação das configurações com catálogo de 321 opções para GameUserSettings.ini/Game.ini e 114 argumentos de inicialização.
+- INI: edição ordenada e segura, somente com linhas de configuração; sincronização por seções com comparação, backup e rollback.
+- Progressões: editor de níveis de jogador e dinossauros com validação de XP e persistência das rampas.
+- Saves: backup e restauração com validação de integridade e recuperação segura.
+- Discord: vínculo por código, bônus inicial de 10.000 Âmbares e auditoria administrativa paginada; bot com instruções completas e botão para o site.
 - Web Store: nuvens separadas por chave de compartilhamento, quatro slots e painel administrativo; controles remotos de servidor para equipe autorizada.
-- CustomShop 1.10.48: migra??o cloud idempotente, recupera??o de cabe?alhos sem apagar blobs e corre??o do relacionamento por grupo/SteamID/slot.
-- Corre??es de textos corrompidos, mensagens e apresenta??o dos pain?is administrativos.
+- CustomShop 1.10.48: migração cloud idempotente, recuperação de cabeçalhos sem apagar blobs e correção do relacionamento por grupo/SteamID/slot.
+- Correções de textos corrompidos, mensagens e apresentação dos painéis administrativos.
 
 ## [1.10.137] - 2026-10-28
 
