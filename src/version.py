@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.136"
+APP_VERSION: str = "1.10.137"
 BUILD_DATE: str = "2026-10-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.137",
+        "date": "2026-10-28",
+        "changes": [
+            "Bot Discord: corrige acentua\u00e7\u00e3o da mensagem de vincula\u00e7\u00e3o e adiciona bot\u00e3o para acessar www.arkland.com.br.",
+        ]
+    },
     {
         "version": "1.10.136",
         "date": "2026-10-28",

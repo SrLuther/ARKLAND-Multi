@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-28 13:54:34 -->
-<!-- Total de versões: 491 | Primeira: 1.10.136 -->
+<!-- Gerado: 2026-10-28 22:09:17 -->
+<!-- Total de versões: 492 | Primeira: 1.10.137 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.10.137] - 2026-10-28
+
+### Other
+
+- Bot Discord: corrige acentuação da mensagem de vinculação e adiciona botão para acessar www.arkland.com.br.
 
 ## [1.10.136] - 2026-10-28
 

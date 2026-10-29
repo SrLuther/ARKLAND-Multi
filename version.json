@@ -1,8 +1,8 @@
 {
-    "version": "1.10.136",
+    "version": "1.10.137",
     "date": "2026-10-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.136/ARKLAND-Multi-Setup-v1.10.136.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.137/ARKLAND-Multi-Setup-v1.10.137.exe",
     "changelog": [
-        "Web Store: corrige erro 1253 na auditoria Discord convertendo IDs latin1/utf8mb4 antes da comparação."
+        "Bot Discord: corrige acentuação da mensagem de vinculação e adiciona botão para acessar www.arkland.com.br."
     ]
 }

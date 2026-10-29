@@ -115,8 +115,13 @@ class TestModerationCog:
         )
         channel.send.assert_awaited_once()
         embed = channel.send.await_args.kwargs["embed"]
+        view = channel.send.await_args.kwargs["view"]
         assert "Vincule sua conta" in embed.title
+        assert "c\u00f3digo" in embed.description
+        assert "\u00e1rea" in embed.description
         assert any("10.000" in field.value for field in embed.fields)
+        assert view.children[0].label == "Acessar site ARKLAND"
+        assert view.children[0].url == "https://www.arkland.com.br"
 
     def test_loads_badwords_from_app_data_dir(self, tmp_path):
         cog, _ = self._cog(tmp_path, ["idiota", "burro"])

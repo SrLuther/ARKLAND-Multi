@@ -90,16 +90,16 @@ class Moderation(commands.Cog):
             embed = discord.Embed(
                 title="Vincule sua conta Discord à ARKLAND",
                 description=(
-                    "Vincule sua conta Discord ao perfil ARKLAND usando o c?digo gerado na sua ?rea de conta "
-                    "para confirmar sua identidade com seguran?a."
+                    "Conecte sua conta Discord ao perfil ARKLAND com o código gerado na área da sua conta. "
+                    "Assim, confirmamos sua identidade com segurança."
                 ),
                 color=discord.Color.from_rgb(218, 164, 65),
             )
             embed.add_field(
                 name="Como fazer",
                 value=(
-                    "**1.** Entre no site ARKLAND com sua conta Steam.\n"
-                    "**2.** Abra sua área de conta e escolha **Vincular Discord**.\n"
+                    "**1.** Acesse o site ARKLAND e entre com sua conta Steam.\n"
+                    "**2.** Abra a área da sua conta e selecione **Vincular Discord**.\n"
                     "**3.** Gere o código e envie **somente o código** neste canal."
                 ),
                 inline=False,
@@ -115,9 +115,15 @@ class Moderation(commands.Cog):
                 inline=False,
             )
             embed.set_footer(
-                text="Codigo pessoal, de uso único e com validade limitada. Nunca compartilhe fora deste canal."
+                text="Código pessoal, de uso único e com validade limitada. Nunca o compartilhe fora deste canal."
             )
-            await channel.send(embed=embed)
+            view = discord.ui.View(timeout=None)
+            view.add_item(discord.ui.Button(
+                label="Acessar site ARKLAND",
+                style=discord.ButtonStyle.link,
+                url="https://www.arkland.com.br",
+            ))
+            await channel.send(embed=embed, view=view)
             self._validation_instruction_sent = True
             log.info("Canal de validacao %s limpo (%s mensagens) e instrucao publicada.", channel_id, len(deleted))
         except (discord.Forbidden, discord.HTTPException) as exc:
