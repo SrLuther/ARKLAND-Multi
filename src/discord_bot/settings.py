@@ -214,6 +214,7 @@ class DiscordLinkValidationResult:
     steam_id: str = ""
     discord_user_id: str = ""
     first_link_bonus: int = 0
+    reference_id: str = ""
 
 
 class DiscordLinkValidatorClient:
@@ -278,30 +279,85 @@ class DiscordLinkValidatorClient:
                 return DiscordLinkValidationResult(
                     ok=ok,
                     status_code=status_code,
-                    message=str(data.get("error") or data.get("message") or ("OK" if ok else "Falha")),
+                    message=str(data.get("error") or data.get("message") or (
+                        "Vínculo confirmado." if ok else
+                        self._http_failure_reason(status_code)
+                    )),
                     steam_id=str(data.get("steam_id") or ""),
                     discord_user_id=str(data.get("discord_user_id") or payload["discord_user_id"]),
                     first_link_bonus=int(data.get("first_link_bonus") or 0),
                 )
         except urllib_error.HTTPError as exc:
             status_code = int(exc.code or 0)
+            data: dict[str, Any] = {}
             try:
                 raw = exc.read().decode("utf-8", errors="replace")
                 data = json.loads(raw or "{}") if raw else {}
-                message = str(data.get("error") or data.get("message") or "Falha na validação")
+                message = str(data.get("error") or data.get("message") or "").strip()
             except Exception:
-                message = f"Falha na validação (HTTP {status_code})."
+                message = ""
+            if status_code >= 500:
+                # Server error bodies may contain tracebacks or configuration details.
+                # Keep the player-facing response actionable without leaking internals.
+                message = self._http_failure_reason(status_code)
+            if not message:
+                message = self._http_failure_reason(status_code)
+            elif message.strip().casefold() in {"falha", "falha na validação", "falha na validacao"}:
+                message = self._http_failure_reason(status_code)
+            message = " ".join(message.split())[:320]
+            reference_id = str(data.get("reference") or data.get("error_id") or "").strip()[:32]
+            if reference_id:
+                message = f"{message} Referência para suporte: {reference_id}."
             return DiscordLinkValidationResult(
                 ok=False,
                 status_code=status_code,
-                message=message,
+                message=f"{message} (HTTP {status_code}).",
+                reference_id=reference_id,
             )
-        except Exception as exc:
+        except urllib_error.URLError as exc:
+            reason = getattr(exc, "reason", None)
+            if isinstance(reason, TimeoutError) or "timed out" in str(reason).lower():
+                message = "A Web Store demorou para responder. Tente novamente em instantes."
+            else:
+                message = "Não foi possível conectar à Web Store. Confira se a URL está acessível pelo computador do bot."
             return DiscordLinkValidationResult(
                 ok=False,
                 status_code=0,
-                message=f"Falha de comunicação com web store: {exc}",
+                message=message,
             )
+        except TimeoutError:
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="A Web Store demorou para responder. Tente novamente em instantes.",
+            )
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="A Web Store respondeu em um formato inesperado. Verifique os logs do serviço.",
+            )
+        except Exception:
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="Ocorreu uma falha inesperada na comunicação com a Web Store. Verifique os logs do serviço.",
+            )
+
+    @staticmethod
+    def _http_failure_reason(status_code: int) -> str:
+        """Translate common HTTP failures into safe, actionable Discord messages."""
+        if status_code in (401, 403):
+            return "A Web Store recusou a autenticação. Confira se a chave da API do bot é igual à chave configurada na Web Store."
+        if status_code == 404:
+            return "O endereço configurado não encontrou a rota de validação. Confira a URL base da Web Store e a versão instalada."
+        if status_code == 429:
+            return "Muitas tentativas de validação em pouco tempo. Aguarde um minuto e tente novamente."
+        if status_code >= 500:
+            return "A Web Store encontrou um erro interno ao validar o código. Confira os logs do serviço e tente novamente."
+        if status_code == 400:
+            return "A Web Store rejeitou o código, que pode estar incorreto, expirado ou já utilizado. Gere um novo código no site."
+        return "A Web Store rejeitou a validação. Confira os logs do serviço para identificar o motivo."
 
 _ID_RE = re.compile(r"^\d{5,25}$")
 

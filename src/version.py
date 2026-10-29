@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.1"
+APP_VERSION: str = "1.11.2"
 BUILD_DATE: str = "2026-10-29"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.2",
+        "date": "2026-10-29",
+        "changes": [
+            "Controle remoto: agente lista servidores ASE configurados inclusive parados e encaminha iniciar/parar/reiniciar ao gerenciador correto; status online do agente independe do estado dos mapas.",
+            "Discord: mensagens de falha na vinculação agora informam a causa acionável (código, autenticação, URL, limite ou serviço indisponível); erros internos incluem referência para localizar o detalhe no log da Web Store.",
+            "Web Store: erros internos da API recebem identificador de referência registrado junto ao traceback para facilitar a investigação sem expor detalhes internos no Discord.",
+        ]
+    },
     {
         "version": "1.11.1",
         "date": "2026-10-29",

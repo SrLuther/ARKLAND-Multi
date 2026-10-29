@@ -772,6 +772,40 @@ class AsmServerManager:
     def get_instance(self, server_id: str) -> Optional[AsmServerInstance]:
         return self._instances.get(server_id)
 
+    def get_all_instances(self) -> List[AsmServerInstance]:
+        """Return every configured server instance, including stopped/offline ones."""
+        with self._lock:
+            return list(self._instances.values())
+
+    def start_server(self, server_id: str) -> bool:
+        """Remote-agent compatible start; configured stopped servers remain addressable."""
+        inst = self.get_instance(server_id)
+        if inst is None:
+            return False
+        if inst.status not in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
+            return False
+        self.start(inst.cfg)
+        return True
+
+    def stop_server(self, server_id: str, force: bool = False) -> bool:
+        """Remote-agent compatible stop, using ASE's safe PID validation path."""
+        del force  # ASE stop always validates the process before terminating it.
+        inst = self.get_instance(server_id)
+        if inst is None:
+            return False
+        if inst.status == ASM_STATUS_STOPPED:
+            return True
+        self.stop(server_id)
+        return True
+
+    def restart_server(self, server_id: str) -> bool:
+        """Remote-agent compatible restart for a configured ASE server."""
+        inst = self.get_instance(server_id)
+        if inst is None:
+            return False
+        self.restart(inst.cfg)
+        return True
+
     def get_status(self, server_id: str) -> str:
         inst = self._instances.get(server_id)
         return inst.status if inst else ASM_STATUS_STOPPED

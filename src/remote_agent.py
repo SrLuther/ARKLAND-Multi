@@ -165,14 +165,17 @@ class RemoteAgent:
                 return {}
 
             def _inst_info(self, inst: Any) -> dict:
+                cfg = getattr(inst, "config", None) or getattr(inst, "cfg", None)
+                if cfg is None:
+                    return {}
                 return {
-                    "id":     inst.config.id,
-                    "name":   inst.config.name,
-                    "map":    inst.config.map,
-                    "port":   inst.config.port,
-                    "status": inst.status,
-                    "uptime": inst.uptime,
-                    "pid":    inst.pid,
+                    "id":     cfg.id,
+                    "name":   cfg.name,
+                    "map":    getattr(cfg, "map", None) or getattr(cfg, "server_map", ""),
+                    "port":   getattr(cfg, "port", None) or getattr(cfg, "server_port", 0),
+                    "status": str(getattr(inst, "status", "stopped")).lower(),
+                    "uptime": getattr(inst, "uptime", "—"),
+                    "pid":    getattr(inst, "pid", None),
                 }
 
             def do_GET(self) -> None:
@@ -418,10 +421,14 @@ class RemoteAgent:
                             try:
                                 from .rcon_client import RconClient
                                 from .rcon_util import sanitize_rcon_password
-                                pwd = sanitize_rcon_password(inst.config.admin_password)
+                                cfg = getattr(inst, "config", None) or getattr(inst, "cfg", None)
+                                if cfg is None:
+                                    self._json(500, {"error": "Server configuration unavailable"})
+                                    return
+                                pwd = sanitize_rcon_password(cfg.admin_password)
                                 client = RconClient(
                                     host="127.0.0.1",
-                                    port=inst.config.rcon_port,
+                                    port=cfg.rcon_port,
                                     password=pwd,
                                 )
                                 client.connect()

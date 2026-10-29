@@ -1,9 +1,10 @@
 {
-    "version": "1.11.1",
+    "version": "1.11.2",
     "date": "2026-10-29",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.1/ARKLAND-Multi-Setup-v1.11.1.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.2/ARKLAND-Multi-Setup-v1.11.2.exe",
     "changelog": [
-        "Discord: aceita códigos de vinculação com um ou dois hífens após ARKLAND, compatível com os formatos mostrados pelo site e pelo bot.",
-        "Servidores: configuração da URL e do token do agente na tela Controle de servidores, restrita a administradores e com token protegido no armazenamento do site."
+        "Controle remoto: agente lista servidores ASE configurados inclusive parados e encaminha iniciar/parar/reiniciar ao gerenciador correto; status online do agente independe do estado dos mapas.",
+        "Discord: mensagens de falha na vinculação agora informam a causa acionável (código, autenticação, URL, limite ou serviço indisponível); erros internos incluem referência para localizar o detalhe no log da Web Store.",
+        "Web Store: erros internos da API recebem identificador de referência registrado junto ao traceback para facilitar a investigação sem expor detalhes internos no Discord."
     ]
 }

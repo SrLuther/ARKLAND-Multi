@@ -510,10 +510,12 @@ def _api_unhandled_exception_handler(exc: Exception):
         return _api_http_exception_handler(exc)
     if not _is_api_request():
         raise exc
-    log.exception("api_unhandled path=%s", getattr(request, "path", "?"))
+    error_id = uuid.uuid4().hex[:12]
+    log.exception("api_unhandled error_id=%s path=%s", error_id, getattr(request, "path", "?"))
     return jsonify({
         "ok": False,
         "error": "Erro interno temporário. Tente novamente em instantes.",
+        "reference": error_id,
         "degraded": True,
     }), 500
 

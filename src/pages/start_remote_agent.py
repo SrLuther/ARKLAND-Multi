@@ -29,8 +29,15 @@ def start_remote_agent(app: "ARKServerManagerApp") -> None:
 
     try:
         name = cfg.remote_agent_name or _hostname()
+        # In TEK mode the profiles and instances live in AsmServerManager.
+        # Passing the legacy ServerManager made /ping succeed while /servers
+        # silently returned an empty list.
+        remote_server_manager = (
+            getattr(app, "asm_server_manager", None)
+            or app.server_manager
+        )
         app._remote_agent = RemoteAgent(
-            server_manager=app.server_manager,
+            server_manager=remote_server_manager,
             sync_engine=app._sync_engine,
             port=cfg.remote_agent_port,
             token=cfg.remote_agent_token,

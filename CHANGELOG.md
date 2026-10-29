@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 09:02:25 -->
-<!-- Total de versões: 494 | Primeira: 1.11.1 -->
+<!-- Gerado: 2026-10-29 13:54:32 -->
+<!-- Total de versões: 495 | Primeira: 1.11.2 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.2] - 2026-10-29
+
+### Other
+
+- Controle remoto: agente lista servidores ASE configurados inclusive parados e encaminha iniciar/parar/reiniciar ao gerenciador correto; status online do agente independe do estado dos mapas.
+- Discord: mensagens de falha na vinculação agora informam a causa acionável (código, autenticação, URL, limite ou serviço indisponível); erros internos incluem referência para localizar o detalhe no log da Web Store.
+- Web Store: erros internos da API recebem identificador de referência registrado junto ao traceback para facilitar a investigação sem expor detalhes internos no Discord.
 
 ## [1.11.1] - 2026-10-29
 
