@@ -38,6 +38,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $python = Join-Path $root ".python-full\python.exe"
+if (-not (Test-Path $python)) {
+    $python = Join-Path $root ".python-full\Scripts\python.exe"
+}
+if (-not (Test-Path $python)) {
+    $python = Join-Path $root ".venv\Scripts\python.exe"
+}
+if (-not (Test-Path $python)) {
+    $python = (Get-Command python -ErrorAction Stop).Source
+}
 $utf8NoBOM = New-Object System.Text.UTF8Encoding $false
 
 function Write-Step($n, $total, $text) {

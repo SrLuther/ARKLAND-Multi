@@ -8127,6 +8127,17 @@
       <!-- PAGE: Controle de servidores para staff -->
       <div id="page-game-servers-staff" class="page support-staff-only">
         <div id="topbar"><div class="page-title">Controle de servidores</div></div>
+        <div id="staff-server-agent-admin" class="admin-only card" style="margin-bottom:16px;">
+          <div class="card-title">Configuração do agente (administração)</div>
+          <p style="color:var(--text2);font-size:12px;line-height:1.5;">Configure a conexão com o agente do Server Manager. O token é armazenado protegido e nunca é exibido novamente. Esta configuração fica disponível apenas para administradores.</p>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="form-group" style="margin:0;min-width:260px;flex:1;"><label>URL do agente</label><input id="staff-server-agent-url" type="url" placeholder="http://127.0.0.1:32440" autocomplete="url" /></div>
+            <div class="form-group" style="margin:0;min-width:260px;flex:1;"><label>Token do agente</label><input id="staff-server-agent-token" type="password" placeholder="Informe para substituir; vazio mantém o token atual" autocomplete="new-password" /></div>
+            <button class="btn btn-primary" onclick="saveStaffServerAgentConfig()">Salvar conexão</button>
+            <button class="btn btn-ghost" onclick="testStaffServerAgentConnection()">Testar conexão</button>
+          </div>
+          <div id="staff-server-agent-config-status" style="margin-top:10px;color:var(--text2);font-size:12px;"></div>
+        </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">Operações de suporte</div>
           <p style="color:var(--text2);font-size:13px;line-height:1.5;">Iniciar, parar ou reiniciar mapas e consultar jogadores conectados. Acesso limitado à administração e à equipe de suporte. A conexão é feita pelo agente do Server Manager.</p>
@@ -27996,10 +28007,68 @@ async function sendRcon() {
 
 // ── Servers ───────────────────────────────────────────────────────────────────
 let _staffGameServers = [];
-async function loadStaffServers() {
+async function loadStaffServerAgentConfig() {
+  if (!_auth?.is_admin) return;
+  const status = document.getElementById("staff-server-agent-config-status");
+  try {
+    const d = await fetchJson("/api/admin/server-agent/config");
+    if (!d.ok) throw new Error(d.error || "Não foi possível carregar a configuração.");
+    const url = document.getElementById("staff-server-agent-url");
+    const token = document.getElementById("staff-server-agent-token");
+    if (url) url.value = d.url || "";
+    if (token) token.value = "";
+    if (token) token.placeholder = d.token_set ? "Token salvo; preencha apenas para substituí-lo" : "Cole o token do Acesso Remoto";
+    if (status) status.textContent = d.configured
+      ? `Conexão configurada (${d.source === "site" ? "salva nesta tela" : "variáveis de ambiente"}). Use “Testar conexão” para validar.`
+      : "Conexão ainda não configurada. Informe URL e token e salve.";
+  } catch (e) {
+    if (status) status.textContent = e.message || "Erro ao carregar a configuração do agente.";
+  }
+}
+
+async function saveStaffServerAgentConfig() {
+  if (!_auth?.is_admin) return toast("Apenas administradores podem alterar essa configuração.", "error");
+  const status = document.getElementById("staff-server-agent-config-status");
+  const url = document.getElementById("staff-server-agent-url")?.value.trim() || "";
+  const token = document.getElementById("staff-server-agent-token")?.value || "";
+  if (!url) return toast("Informe a URL do agente.", "warning");
+  if (status) status.textContent = "Salvando configuração...";
+  try {
+    const d = await fetchJson("/api/admin/server-agent/config", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({url, token}), retries: 0,
+    });
+    if (!d.ok) throw new Error(d.error || "Não foi possível salvar a configuração.");
+    const input = document.getElementById("staff-server-agent-token");
+    if (input) { input.value = ""; input.placeholder = d.token_set ? "Token salvo; preencha apenas para substituí-lo" : "Cole o token do Acesso Remoto"; }
+    if (status) status.textContent = d.configured
+      ? "Conexão salva. Testando agente..."
+      : "URL salva, mas ainda falta configurar um token.";
+    toast("Configuração do agente salva.", "success");
+    await loadStaffServers(false);
+  } catch (e) {
+    if (status) status.textContent = e.message || "Erro ao salvar a configuração.";
+    toast(e.message || "Falha ao salvar a configuração.", "error");
+  }
+}
+
+async function testStaffServerAgentConnection() {
+  const status = document.getElementById("staff-server-agent-config-status");
+  if (status) status.textContent = "Testando conexão com o agente...";
+  await loadStaffServers(false);
+  const result = document.getElementById("staff-server-status")?.textContent || "";
+  if (status) status.textContent = _staffGameServers.length
+    ? `Conexão testada: agente respondeu e listou ${_staffGameServers.length} servidor(es).`
+    : (/n[aã]o informou servidores/i.test(result)
+      ? "Conexão testada: o agente respondeu, mas não retornou servidores."
+      : `Falha no teste de conexão: ${result || "sem resposta do agente"}`);
+}
+
+async function loadStaffServers(refreshAgentConfig = true) {
   const select = document.getElementById("staff-server-select");
   const status = document.getElementById("staff-server-status");
   if (!select) return;
+  if (refreshAgentConfig && _auth?.is_admin) await loadStaffServerAgentConfig();
   if (status) status.textContent = "Consultando agente de servidores…";
   try {
     const d = await fetchJson("/api/staff/game-servers");

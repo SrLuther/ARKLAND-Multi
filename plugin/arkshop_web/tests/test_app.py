@@ -205,6 +205,55 @@ def test_support_server_page_is_staff_only_and_lists_agent_servers(client, monke
     assert response.get_json()["servers"][0]["status"] == "running"
 
 
+def test_server_agent_settings_are_admin_only_and_encrypt_token(client, monkeypatch):
+    monkeypatch.delenv("ARKSHOP_SERVER_AGENT_URL", raising=False)
+    monkeypatch.delenv("ARKSHOP_SERVER_AGENT_TOKEN", raising=False)
+    monkeypatch.delenv("ARKSHOP_TRIBE_LOG_REMOTE_URL", raising=False)
+    monkeypatch.delenv("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN", raising=False)
+    app.secret_key = "server-agent-settings-test-secret-0123456789"
+
+    _login(client, USER_STEAM)
+    assert client.get("/api/admin/server-agent/config").status_code == 403
+    assert client.post("/api/admin/server-agent/config", json={
+        "url": "http://127.0.0.1:32440", "token": "should-not-save",
+    }).status_code == 403
+
+    with client.session_transaction() as sess:
+        sess["steam_id"] = ADMIN_STEAM
+    saved = client.post("/api/admin/server-agent/config", json={
+        "url": "http://127.0.0.1:32440", "token": "agent-secret-token",
+    })
+    assert saved.status_code == 200
+    assert saved.get_json() == {
+        "ok": True, "url": "http://127.0.0.1:32440", "token_set": True, "configured": True,
+    }
+    raw_settings = json.loads(_app_module._STATE_FILE.read_text(encoding="utf-8"))
+    assert raw_settings["server_agent_token"].startswith("ENC:")
+    assert "agent-secret-token" not in json.dumps(raw_settings)
+    loaded = client.get("/api/admin/server-agent/config").get_json()
+    assert loaded["token_set"] is True
+    assert "token" not in loaded
+    general_settings = client.get("/api/settings").get_json()
+    assert "server_agent_token" not in general_settings
+    assert general_settings["server_agent_token_set"] is True
+    assert _app_module._server_agent_config() == ("http://127.0.0.1:32440", "agent-secret-token")
+
+    # Empty password preserves an existing token when the URL is edited.
+    updated = client.post("/api/admin/server-agent/config", json={
+        "url": "http://192.168.1.10:32440", "token": "",
+    })
+    assert updated.status_code == 200
+    assert _app_module._server_agent_config() == ("http://192.168.1.10:32440", "agent-secret-token")
+
+
+def test_server_agent_settings_reject_invalid_url(client):
+    _login(client, ADMIN_STEAM)
+    response = client.post("/api/admin/server-agent/config", json={
+        "url": "file:///etc/passwd", "token": "secret",
+    })
+    assert response.status_code == 400
+
+
 def test_support_server_action_is_allowlisted_and_targets_agent(client, monkeypatch):
     _login(client, ADMIN_STEAM)
     calls = []

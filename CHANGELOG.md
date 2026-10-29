@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 08:24:46 -->
-<!-- Total de versões: 493 | Primeira: 1.11.0 -->
+<!-- Gerado: 2026-10-29 09:02:25 -->
+<!-- Total de versões: 494 | Primeira: 1.11.1 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.1] - 2026-10-29
+
+### Other
+
+- Discord: aceita códigos de vinculação com um ou dois hífens após ARKLAND, compatível com os formatos mostrados pelo site e pelo bot.
+- Servidores: configuração da URL e do token do agente na tela Controle de servidores, restrita a administradores e com token protegido no armazenamento do site.
 
 ## [1.11.0] - 2026-10-29
 
