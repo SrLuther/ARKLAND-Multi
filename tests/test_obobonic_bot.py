@@ -364,6 +364,24 @@ class TestSettingsHelpers:
         assert "C\u00f3digo expirado" in result.message
         assert "HTTP 400" in result.message
 
+    def test_validator_explains_http_400_without_api_reason(self, monkeypatch):
+        import io
+        from urllib.error import HTTPError
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test", api_key="secret")
+
+        def reject_without_json(*_args, **_kwargs):
+            raise HTTPError("https://store.example.test/confirm", 400, "Bad Request", {}, io.BytesIO(b""))
+
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", reject_without_json)
+        result = client.confirm_code(code="ARKLAND-valid-looking", discord_user_id="123456789", discord_username="Tester")
+        assert not result.ok
+        assert result.status_code == 400
+        assert "sem informar o motivo" in result.message
+        assert "mesma Web Store" in result.message
+
     def test_validator_explains_web_store_internal_errors(self, monkeypatch):
         import io
         import json

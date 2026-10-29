@@ -8,7 +8,7 @@
 ; ============================================================
 
 ; Atualizado automaticamente por _release.ps1
-#define ReleaseVersion "1.11.2"
+#define ReleaseVersion "1.11.3"
 
 [Setup]
 AppName=ARKLAND - Server Manager

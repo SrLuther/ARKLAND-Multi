@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 13:54:32 -->
-<!-- Total de versões: 495 | Primeira: 1.11.2 -->
+<!-- Gerado: 2026-10-29 14:29:18 -->
+<!-- Total de versões: 496 | Primeira: 1.11.3 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.3] - 2026-10-29
+
+### Other
+
+- Discord: falha HTTP 400 sem motivo estruturado agora orienta verificar se o bot consulta a mesma Web Store e o mesmo banco em que o código foi gerado.
 
 ## [1.11.2] - 2026-10-29
 

@@ -290,9 +290,10 @@ class DiscordLinkValidatorClient:
         except urllib_error.HTTPError as exc:
             status_code = int(exc.code or 0)
             data: dict[str, Any] = {}
+            response_text = ""
             try:
-                raw = exc.read().decode("utf-8", errors="replace")
-                data = json.loads(raw or "{}") if raw else {}
+                response_text = exc.read().decode("utf-8", errors="replace").strip()
+                data = json.loads(response_text or "{}") if response_text else {}
                 message = str(data.get("error") or data.get("message") or "").strip()
             except Exception:
                 message = ""
@@ -301,7 +302,17 @@ class DiscordLinkValidatorClient:
                 # Keep the player-facing response actionable without leaking internals.
                 message = self._http_failure_reason(status_code)
             if not message:
-                message = self._http_failure_reason(status_code)
+                if status_code == 400:
+                    # A normal validation rejection from our API is JSON with a
+                    # concrete reason. Empty/non-JSON bodies usually mean the
+                    # bot reached a different service or reverse-proxy instance.
+                    message = (
+                        "A Web Store respondeu HTTP 400 sem informar o motivo. "
+                        "Confira se ARKSHOP_WEB_URL aponta para a mesma Web Store "
+                        "e banco de dados onde o código foi gerado."
+                    )
+                else:
+                    message = self._http_failure_reason(status_code)
             elif message.strip().casefold() in {"falha", "falha na validação", "falha na validacao"}:
                 message = self._http_failure_reason(status_code)
             message = " ".join(message.split())[:320]
