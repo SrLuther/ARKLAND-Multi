@@ -73,7 +73,10 @@ _MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 _ALLOWED_MIME_PREFIXES = ("image/",)
 _ALLOWED_MIME_EXACT = frozenset({"application/pdf"})
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
-DISCORD_LINK_CODE_RE = re.compile(r"^ARKLAND-[xX]{10}-\d{10}-[xX0-9]{16}-Discord$")
+# Accept the original single-hyphen format and the double-hyphen format shown
+# by older/live Discord instructions. Codes are looked up verbatim afterward,
+# so both stored forms remain compatible without changing code generation.
+DISCORD_LINK_CODE_RE = re.compile(r"^ARKLAND--?[xX]{10}-\d{10}-[xX0-9]{16}-Discord$")
 DISCORD_FIRST_LINK_BONUS = 10_000
 
 

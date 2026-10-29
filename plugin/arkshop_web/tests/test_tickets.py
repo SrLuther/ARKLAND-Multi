@@ -176,6 +176,27 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     ]
 
 
+def test_confirm_discord_link_code_accepts_legacy_double_hyphen(ticket_db):
+    from app import SupportTicketDiscordLinkCode
+
+    generated = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    assert generated["ok"] is True
+    legacy_code = generated["code"].replace("ARKLAND-", "ARKLAND--", 1)
+    row = ticket_db.query(SupportTicketDiscordLinkCode).filter_by(code=generated["code"]).one()
+    row.code = legacy_code
+    ticket_db.commit()
+
+    confirmed = confirm_discord_link_code_for_discord_user(
+        ticket_db,
+        legacy_code,
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+
+    assert confirmed["ok"] is True
+    assert confirmed["first_link_bonus"] == 10_000
+
+
 def test_discord_link_admin_audit_converts_mixed_mysql_charsets_before_collation():
     class Result:
         def mappings(self):
