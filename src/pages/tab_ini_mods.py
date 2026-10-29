@@ -50,13 +50,13 @@ def build_tab_ini_mods(app: "ARKServerManagerApp", parent, srv: "ServerConfig") 
                       command=lambda fk=file_key, sid=srv.id:
                           app._ini_add_section(sid, fk)).pack(side="left", padx=(0, 4))
 
-        ctk.CTkButton(bar, text="� Colar Seção", width=115, height=28,
+        ctk.CTkButton(bar, text="📋 Colar Seção", width=115, height=28,
                       fg_color="#3a2a5a", hover_color="#4e3a7a",
                       font=ctk.CTkFont(size=11),
                       command=lambda fk=file_key, sid=srv.id:
                           app._ini_paste_section(sid, fk)).pack(side="left", padx=(0, 4))
 
-        ctk.CTkButton(bar, text="�🔁 Atualizar", width=100, height=28,
+        ctk.CTkButton(bar, text="🔁 Atualizar", width=100, height=28,
                       fg_color="#2a2a2a", hover_color="#404040",
                       font=ctk.CTkFont(size=11),
                       command=lambda fk=file_key, sid=srv.id:

@@ -38,6 +38,8 @@ a = Analysis(
         ('plugin/Permissions/configs/config.json',   'Permissions/configs'),
         ('config/mapas_cross_chat_ids.json',         'config'),
         ('src/data/nivel200.txt',                    'src/data'),
+        ('src/data/ark_ase_server_ini_catalog.json', 'src/data'),
+        ('src/data/ark_ase_server_cli_catalog.json', 'src/data'),
     ] + ctk_datas + pil_datas + tray_datas + dpy_datas + aio_datas,
     hiddenimports=[
         # customtkinter

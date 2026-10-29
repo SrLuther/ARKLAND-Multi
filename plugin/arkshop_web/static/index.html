@@ -6856,6 +6856,9 @@
     <div class="nav-item admin-only" data-page="kits" onclick="nav(this)">
       <span class="nav-icon">🎁</span> Kits
     </div>
+    <div class="nav-item admin-only" data-page="cloud-admin" onclick="nav(this)">
+      <span class="nav-icon">☁️</span> Nuvem dos jogadores
+    </div>
     <div class="nav-item admin-only" data-page="recharge-admin" onclick="nav(this)">
       <span class="nav-icon">💳</span> Doações (PIX / Cartão)
     </div>
@@ -6885,6 +6888,9 @@
       <span class="nav-icon">⚙️</span> Configurações
     </div>
     <div class="nav-section support-staff-only">Suporte</div>
+    <div class="nav-item support-staff-only" data-page="game-servers-staff" onclick="nav(this)">
+      <span class="nav-icon">🛠️</span> Servidores — Suporte
+    </div>
     <div class="nav-item support-staff-only" data-page="tickets-admin" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets — Suporte
     </div>
@@ -8118,6 +8124,46 @@
         </div>
       </div>
 
+      <!-- PAGE: Controle de servidores para staff -->
+      <div id="page-game-servers-staff" class="page support-staff-only">
+        <div id="topbar"><div class="page-title">Controle de servidores</div></div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Operações de suporte</div>
+          <p style="color:var(--text2);font-size:13px;line-height:1.5;">Iniciar, parar ou reiniciar mapas e consultar jogadores conectados. Acesso limitado à administração e à equipe de suporte. A conexão é feita pelo agente do Server Manager.</p>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="form-group" style="margin:0;min-width:240px;flex:1;"><label>Servidor</label><select id="staff-server-select" onchange="loadStaffServerPlayers()"><option value="">Selecione</option></select></div>
+            <button class="btn btn-ghost" onclick="loadStaffServers()">Atualizar status</button>
+            <button class="btn btn-success" onclick="staffServerAction('start')">Iniciar</button>
+            <button class="btn btn-danger" onclick="staffServerAction('stop')">Parar</button>
+            <button class="btn btn-primary" onclick="staffServerAction('restart')">Reiniciar</button>
+          </div>
+          <div id="staff-server-status" style="margin-top:12px;color:var(--text2);font-size:13px;"></div>
+        </div>
+        <div class="card"><div class="card-title">Jogadores conectados</div><div id="staff-server-players" style="overflow-x:auto;"><div class="empty-state">Selecione um servidor.</div></div></div>
+      </div>
+
+      <!-- PAGE: Administracao da nuvem de inventario -->
+      <div id="page-cloud-admin" class="page admin-only">
+        <div id="topbar"><div class="page-title">Nuvem dos jogadores</div></div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Armazenamento compartilhado</div>
+          <p style="color:var(--text2);font-size:13px;line-height:1.5;">Consulte os quatro slots por grupo de mapas e SteamID. O site mostra quantidade e tamanho dos itens; os blobs sao dados binarios do ARK e nao podem ser convertidos em nomes fora do jogo. Remover apaga os quatro slots daquele jogador apenas no grupo selecionado.</p>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="form-group" style="margin:0;min-width:180px;"><label>Grupo de mapas</label><select id="cloud-admin-group"><option value="">Todos</option></select></div>
+            <div class="form-group" style="margin:0;min-width:220px;"><label>SteamID64</label><input id="cloud-admin-steam" inputmode="numeric" placeholder="7656119..." onkeydown="if(event.key==='Enter')loadCloudAdmin(1)" /></div>
+            <button class="btn btn-primary" onclick="loadCloudAdmin(1)">Buscar</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('cloud-admin-steam').value='';document.getElementById('cloud-admin-group').value='';loadCloudAdmin(1)">Limpar filtros</button>
+          </div>
+        </div>
+        <div class="card"><div id="cloud-admin-result" style="overflow-x:auto;"><div class="empty-state">Carregue para consultar a nuvem.</div></div>
+          <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="loadCloudAdmin(Math.max(1,_cloudAdminPage-1))">Anterior</button>
+            <span id="cloud-admin-pages" style="font-size:12px;color:var(--text2);"></span>
+            <button class="btn btn-ghost btn-sm" onclick="loadCloudAdmin(_cloudAdminPage+1)">Proxima</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PAGE: Settings (admin) -->
       <div id="page-settings" class="page admin-only">
         <div id="topbar">
@@ -9164,20 +9210,7 @@
             <div class="card-title">Seu perfil</div>
           </div>
           <div id="tickets-player-profile" style="font-size:13px;color:var(--text2);"></div>
-          <div class="form-grid" style="margin-top:12px;">
-            <div class="form-group">
-              <label>Discord — usuário</label>
-              <input id="tickets-discord-username" type="text" placeholder="nick#0000 ou @usuario" />
-            </div>
-            <div class="form-group">
-              <label>Discord — ID (opcional)</label>
-              <input id="tickets-discord-id" type="text" placeholder="123456789012345678" />
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            <button class="btn btn-ghost btn-sm" onclick="ticketsSaveDiscordLink()">💾 Salvar Discord</button>
-            <span style="font-size:11px;color:var(--text2);align-self:center;">OAuth Discord em breve — MVP: vínculo manual</span>
-          </div>
+          <p style="font-size:12px;color:var(--text2);margin:10px 0 0;">Vincule o Discord exclusivamente pelo código de verificação disponível na área da sua conta ARKLAND.</p>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
           <button class="btn btn-ghost tickets-tab-btn active" data-tickets-tab="open" onclick="ticketsSwitchTab('open')">Abertos</button>
@@ -9441,21 +9474,11 @@
             <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
               Vincule seu Discord para agilizar o suporte e validações no site.
             </p>
-            <div class="form-grid" style="margin-top:0;">
-              <div class="form-group">
-                <label>Discord — usuário</label>
-                <input id="myarea-discord-username" type="text" placeholder="nick#0000 ou @usuario" />
-              </div>
-              <div class="form-group">
-                <label>Discord — ID (opcional)</label>
-                <input id="myarea-discord-id" type="text" placeholder="123456789012345678" />
-              </div>
-            </div>
+            <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">Gere um código e envie-o no canal de validação do Discord. O vínculo usará a conta que enviar o código.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center;">
-              <button class="btn btn-ghost btn-sm" onclick="ticketsSaveDiscordLink()">💾 Salvar Discord</button>
-              <button class="btn btn-primary btn-sm" onclick="myAreaGenerateDiscordCode(false)">🔐 Gerar código de verificação</button>
-              <button class="btn btn-ghost btn-sm" onclick="myAreaGenerateDiscordCode(true)">♻️ Revalidar</button>
-              <span id="myarea-discord-status" style="font-size:11px;color:var(--text2);">Carregando vínculo…</span>
+              <button class="btn btn-primary btn-sm" onclick="myAreaGenerateDiscordCode(false)">Gerar código de verificação</button>
+              <button class="btn btn-ghost btn-sm" onclick="myAreaGenerateDiscordCode(true)">Gerar novo código</button>
+              <span id="myarea-discord-status" style="font-size:11px;color:var(--text2);">Carregando vínculo...</span>
             </div>
             <div id="myarea-discord-verification" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
             <div id="myarea-discord-audit" style="margin-top:10px;"></div>
@@ -12281,6 +12304,8 @@ function nav(el) {
       initRconConsole();
     });
   }
+  if (page === "cloud-admin") loadCloudAdmin(1);
+  if (page === "game-servers-staff") loadStaffServers();
   if (_auth.authenticated) refreshPlayerBalance();
   if (page === "sugestoes") {
     try { history.replaceState({}, "", window.location.pathname + "#/sugestoes"); } catch (_) {}
@@ -16051,19 +16076,6 @@ async function loadMyArea(opts) {
   _navPageMark("myarea");
 }
 
-function _applyDiscordLinkToInputs(link) {
-  const username = (link && link.discord_username) ? String(link.discord_username) : "";
-  const userId = (link && link.discord_user_id) ? String(link.discord_user_id) : "";
-  const tUser = document.getElementById("tickets-discord-username");
-  const tId = document.getElementById("tickets-discord-id");
-  const mUser = document.getElementById("myarea-discord-username");
-  const mId = document.getElementById("myarea-discord-id");
-  if (tUser) tUser.value = username;
-  if (tId) tId.value = userId;
-  if (mUser) mUser.value = username;
-  if (mId) mId.value = userId;
-}
-
 function _setMyAreaDiscordStatus(message, color) {
   const statusEl = document.getElementById("myarea-discord-status");
   if (!statusEl) return;
@@ -16152,7 +16164,6 @@ async function loadMyAreaDiscordLink() {
       return;
     }
     const link = d.link || {};
-    _applyDiscordLinkToInputs(link);
     _renderMyAreaDiscordVerification(d);
     _renderMyAreaDiscordAudit(d.audit || []);
     if (link.discord_username || link.discord_user_id) {
@@ -16172,8 +16183,6 @@ async function myAreaGenerateDiscordCode(forceRevalidate) {
     promptLogin("gerar código de verificação");
     return;
   }
-  const username = (document.getElementById("myarea-discord-username")?.value || "").trim();
-  const userId = (document.getElementById("myarea-discord-id")?.value || "").trim();
   const endpoint = forceRevalidate
     ? "/api/tickets/discord-link/revalidate"
     : "/api/tickets/discord-link/code";
@@ -16181,7 +16190,7 @@ async function myAreaGenerateDiscordCode(forceRevalidate) {
     const d = await fetchJson(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ discord_username: username, discord_user_id: userId }),
+      body: JSON.stringify({}),
       timeoutMs: 12000,
       retries: 0,
     });
@@ -20355,10 +20364,6 @@ async function loadTicketsPlayer() {
     if (prof && _ticketsPlayerPage.offset === 0) {
       prof.innerHTML = `Steam: <strong>${escHtml(d.player_name || _auth.steam_id)}</strong> · <code>${escHtml(_auth.steam_id)}</code>`;
     }
-    if (_ticketsPlayerPage.offset === 0) {
-      const link = d.discord_link || {};
-      _applyDiscordLinkToInputs(link);
-    }
     if (!_ticketsPlayerList.length) {
       const emptyMsg = status === "encerrados"
         ? "Nenhum ticket encerrado. Tickets resolvidos pelo suporte aparecem aqui."
@@ -20381,31 +20386,6 @@ async function loadTicketsPlayer() {
     if (isStaleTableAbort(e)) return;
     el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
-}
-
-async function ticketsSaveDiscordLink() {
-  if (!_auth.authenticated) { promptLogin("vincular Discord"); return; }
-  const myAreaUsername = (document.getElementById("myarea-discord-username")?.value || "").trim();
-  const myAreaId = (document.getElementById("myarea-discord-id")?.value || "").trim();
-  const ticketsUsername = (document.getElementById("tickets-discord-username")?.value || "").trim();
-  const ticketsId = (document.getElementById("tickets-discord-id")?.value || "").trim();
-  const body = {
-    discord_username: myAreaUsername || ticketsUsername,
-    discord_user_id: myAreaId || ticketsId,
-  };
-  try {
-    const d = await fetchJson("/api/tickets/discord-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      timeoutMs: 12000,
-    });
-    if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
-    _applyDiscordLinkToInputs(d.link || body);
-    _setMyAreaDiscordStatus("Discord vinculado.", "var(--success)");
-    await loadMyAreaDiscordLink();
-    toast("Discord vinculado.", "success");
-  } catch (e) { toast(String(e), "error"); }
 }
 
 async function ticketsCreateNew() {
@@ -20557,30 +20537,60 @@ async function loadDiscordLinkAdmin() {
   await loadDiscordLinkAdminAudit();
 }
 
-async function loadDiscordLinkAdminAudit() {
+let _discordLinkAuditPage = 1;
+async function loadDiscordLinkAdminAudit(page = _discordLinkAuditPage) {
   if (!_auth.is_admin) return;
   const host = document.getElementById("discord-link-admin-audit");
   if (!host) return;
+  const pageSize = 50;
+  const requestedPage = Math.max(1, Number(page) || 1);
   try {
-    const data = await fetchJson("/api/admin/discord-link/audit", { timeoutMs: 15000 });
+    const data = await fetchJson(`/api/admin/discord-link/audit?page=${requestedPage}&page_size=${pageSize}`, { timeoutMs: 15000 });
     if (!data.ok) throw new Error(data.error || "Falha ao carregar auditoria");
     const rows = data.events || [];
-    if (!rows.length) { host.innerHTML = "<div style='color:var(--text2)'>Nenhum evento registrado ainda.</div>"; return; }
-    const eventLabels = { link_confirmed: "Vínculo confirmado", unlink_admin: "Vínculo removido pela administração" };
-    host.innerHTML = `<div class="tbl-scroll-host"><table class="tbl" style="min-width:1050px"><thead><tr><th>Data e hora</th><th>Evento</th><th>Conta Steam</th><th>Conta Discord</th><th>Responsável</th><th>Crédito de Âmbares</th><th>Ação</th></tr></thead><tbody>${rows.map(e => {
+    const total = Number(data.total || 0);
+    const currentPage = Math.max(1, Number(data.page || requestedPage));
+    const pages = Math.max(1, Number(data.pages || 1));
+    if (currentPage > pages) return loadDiscordLinkAdminAudit(pages);
+    _discordLinkAuditPage = currentPage;
+    const activeLinks = new Set(rows.filter(e => Number(e.is_active) === 1).map(e => String(e.steam_id || "")).filter(Boolean));
+    const bonusEvents = rows.filter(e => e.event_type === "bonus_credited" && Number(e.amber_delta || 0) > 0);
+    const bonusTotal = bonusEvents.reduce((sum, e) => sum + Number(e.amber_delta || 0), 0);
+    const summary = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:14px;">
+      <div style="border:1px solid var(--border,#3a3020);border-radius:12px;padding:14px 16px;background:var(--card,#100d08);"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;">V?nculos ativos nesta p?gina</div><strong style="display:block;font-size:24px;margin-top:5px;">${activeLinks.size}</strong></div>
+      <div style="border:1px solid var(--border,#3a3020);border-radius:12px;padding:14px 16px;background:var(--card,#100d08);"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;">B?nus registrados nesta p?gina</div><strong style="display:block;font-size:21px;color:var(--success,#65c987);margin-top:5px;">${bonusTotal.toLocaleString("pt-BR")} ?mbares</strong><small style="color:var(--text2);">${bonusEvents.length} cr?dito(s) confirmado(s)</small></div>
+      <div style="border:1px solid var(--border,#3a3020);border-radius:12px;padding:14px 16px;background:var(--card,#100d08);"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;">Eventos no hist?rico</div><strong style="display:block;font-size:24px;margin-top:5px;">${total.toLocaleString("pt-BR")}</strong></div>
+    </div>`;
+    if (!rows.length) {
+      host.innerHTML = summary + `<div style="color:var(--text2);padding:12px 2px;">Nenhum evento registrado nesta p?gina.</div>`;
+      return;
+    }
+    const eventLabels = { link_confirmed: "V?nculo confirmado", bonus_credited: "B?nus de 10.000 ?mbares entregue", unlink_admin: "V?nculo removido pela administra??o" };
+    const cards = rows.map(e => {
       const delta = Number(e.amber_delta || 0);
+      const isPlayerEvent = e.event_type === "link_confirmed" || e.event_type === "bonus_credited";
+      const actor = e.actor_name || (isPlayerEvent ? "Jogador (c?digo)" : "Administra??o");
       const credit = delta > 0
-        ? `<strong style="color:var(--success,#65c987)">+${delta.toLocaleString("pt-BR")} Âmbares</strong>`
-        : `<span style="color:var(--text3)">Sem bônus nesta confirmação</span>`;
-      const actor = e.actor_name || (e.event_type === "link_confirmed" ? "Jogador (código)" : "Administração");
-      const action = e.is_active && e.event_type === "link_confirmed"
-        ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer vínculo</button>`
-        : `<span style="color:var(--text3)">${e.event_type === "link_confirmed" ? "Vínculo encerrado" : "—"}</span>`;
-      return `<tr><td>${escHtml(e.created_at || "")}</td><td><strong>${escHtml(eventLabels[e.event_type] || e.event_type || "Evento")}</strong><br><small>${escHtml(e.note || "")}</small></td><td><strong>${escHtml(e.steam_name || "Nome não disponível")}</strong><br><small>${escHtml(e.steam_id || "")}</small></td><td><strong>${escHtml(e.discord_username || "Nome não disponível")}</strong><br><small>${escHtml(e.discord_user_id || "")}</small></td><td>${escHtml(actor)}<br><small>${escHtml(e.actor_steam_id || "")}</small></td><td>${credit}</td><td>${action}</td></tr>`;
-    }).join("")}</tbody></table></div>`;
+        ? `<div style="font-size:17px;font-weight:700;color:var(--success,#65c987);">+${delta.toLocaleString("pt-BR")} ?mbares</div><small style="color:var(--text2);">Cr?dito confirmado</small>`
+        : `<span style="font-size:12px;color:var(--text2);">Sem cr?dito neste evento</span>`;
+      const action = Number(e.is_active) === 1 && e.event_type === "link_confirmed"
+        ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer v?nculo</button>`
+        : `<span style="font-size:12px;color:var(--text2);">${e.event_type === "link_confirmed" ? "V?nculo encerrado" : "?"}</span>`;
+      const eventColor = delta > 0 ? "var(--success,#65c987)" : e.event_type === "unlink_admin" ? "var(--danger,#d95b5b)" : "var(--accent,#d6a443)";
+      return `<article style="border:1px solid var(--border,#3a3020);border-left:4px solid ${eventColor};border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--card,#100d08);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;"><div><strong style="font-size:15px;">${escHtml(eventLabels[e.event_type] || e.event_type || "Evento")}</strong><div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(e.created_at || "Data indispon?vel")}</div></div><div style="text-align:right;">${credit}</div></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:14px;">
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--text2);letter-spacing:.08em;">Conta Steam</div><strong>${escHtml(e.steam_name || "Nome n?o dispon?vel")}</strong><div style="font-size:12px;color:var(--text2);word-break:break-all;">${escHtml(e.steam_id || "")}</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--text2);letter-spacing:.08em;">Conta Discord</div><strong>${escHtml(e.discord_username || "Nome n?o dispon?vel")}</strong><div style="font-size:12px;color:var(--text2);word-break:break-all;">${escHtml(e.discord_user_id || "")}</div></div>
+          <div><div style="font-size:10px;text-transform:uppercase;color:var(--text2);letter-spacing:.08em;">Respons?vel</div><strong>${escHtml(actor)}</strong><div style="font-size:12px;color:var(--text2);word-break:break-all;">${escHtml(e.actor_steam_id || "")}</div></div>
+        </div>
+        ${e.note ? `<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border,#3a3020);margin-top:12px;padding-top:10px;">${escHtml(e.note)}</div>` : ""}
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;">${action}</div>
+      </article>`;
+    }).join("");
+    host.innerHTML = summary + cards + `<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 2px;"><button class="btn btn-ghost btn-sm" ${currentPage <= 1 ? "disabled" : ""} onclick="loadDiscordLinkAdminAudit(${currentPage - 1})">Anterior</button><span style="font-size:12px;color:var(--text2);">P?gina ${currentPage} de ${pages} ? ${total.toLocaleString("pt-BR")} eventos</span><button class="btn btn-ghost btn-sm" ${currentPage >= pages ? "disabled" : ""} onclick="loadDiscordLinkAdminAudit(${currentPage + 1})">Pr?xima</button></div>`;
   } catch (e) { host.textContent = String(e); }
 }
-
 async function adminUnlinkDiscord(steamId) {
   if (!steamId || !confirm(`Desfazer o vínculo Discord da Steam ${steamId}? O usuário poderá confirmar um novo vínculo e receber novamente o bônus.`)) return;
   try {
@@ -27985,6 +27995,127 @@ async function sendRcon() {
 }
 
 // ── Servers ───────────────────────────────────────────────────────────────────
+let _staffGameServers = [];
+async function loadStaffServers() {
+  const select = document.getElementById("staff-server-select");
+  const status = document.getElementById("staff-server-status");
+  if (!select) return;
+  if (status) status.textContent = "Consultando agente de servidores…";
+  try {
+    const d = await fetchJson("/api/staff/game-servers");
+    _staffGameServers = d.servers || [];
+    const current = select.value;
+    select.innerHTML = '<option value="">Selecione</option>' + _staffGameServers.map(s => `<option value="${escHtml(s.server_id)}">${escHtml(s.name)} · ${escHtml(s.status)}</option>`).join("");
+    if (_staffGameServers.some(s => s.server_id === current)) select.value = current;
+    if (status) status.textContent = _staffGameServers.length ? `${_staffGameServers.length} servidor(es) registrado(s) no agente.` : "O agente não informou servidores.";
+    await loadStaffServerPlayers();
+  } catch (e) {
+    if (status) status.textContent = e.message || "Falha ao consultar o agente.";
+    document.getElementById("staff-server-players").innerHTML = '<div class="empty-state">Agente de servidores indisponível.</div>';
+  }
+}
+
+async function loadStaffServerPlayers() {
+  const sid = document.getElementById("staff-server-select")?.value || "";
+  const el = document.getElementById("staff-server-players");
+  const server = _staffGameServers.find(s => s.server_id === sid);
+  if (!el) return;
+  if (!sid) { el.innerHTML = '<div class="empty-state">Selecione um servidor.</div>'; return; }
+  el.innerHTML = '<div class="empty-state">Carregando jogadores…</div>';
+  const meta = document.getElementById("staff-server-status");
+  if (meta) meta.textContent = `${server?.name || sid} · status: ${server?.status || "desconhecido"}${server?.pid ? ` · PID ${server.pid}` : ""}`;
+  try {
+    const d = await fetchJson(`/api/staff/game-servers/${encodeURIComponent(sid)}/players`);
+    if (!d.ok) throw new Error(d.error || "RCON indisponível");
+    el.innerHTML = d.players?.length ? `<table class="pkg-admin-table"><thead><tr><th>Jogador</th><th>SteamID</th><th></th></tr></thead><tbody>${d.players.map(p => `<tr><td>${escHtml(p.name)}</td><td><code>${escHtml(p.steam_id)}</code></td><td><button class="btn btn-danger btn-sm" onclick="staffKickPlayer('${escHtml(sid)}','${escHtml(p.steam_id)}','${escHtml(p.name)}')">Expulsar</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty-state">Nenhum jogador conectado.</div>';
+  } catch (e) { el.innerHTML = `<div class="empty-state">${escHtml(e.message || "Não foi possível carregar jogadores")}</div>`; }
+}
+
+async function staffServerAction(action) {
+  const sid = document.getElementById("staff-server-select")?.value || "";
+  if (!sid) return toast("Selecione um servidor.", "warning");
+  const server = _staffGameServers.find(s => s.server_id === sid);
+  const label = server?.name || sid;
+  const prompts = {start:`Iniciar ${label}?`, stop:`Parar ${label}? Jogadores conectados serão desconectados.`, restart:`Reiniciar ${label}? Jogadores conectados serão desconectados.`};
+  if (!confirm(prompts[action] || "Confirmar operação?")) return;
+  try {
+    const d = await fetchJson(`/api/staff/game-servers/${encodeURIComponent(sid)}/action`, {method:"POST", body:{action}});
+    if (!d.ok) throw new Error(d.error || "Operação não concluída.");
+    toast(`Comando ${action} enviado para ${label}.`, "success");
+    setTimeout(loadStaffServers, 2500);
+  } catch (e) { toast(e.message || "Falha ao controlar o servidor.", "error"); }
+}
+
+async function staffKickPlayer(serverId, steamId, playerName) {
+  if (!confirm(`Expulsar ${playerName} (${steamId}) deste servidor?`)) return;
+  try {
+    const d = await fetchJson(`/api/staff/game-servers/${encodeURIComponent(serverId)}/kick`, {method:"POST", body:{steam_id:steamId}});
+    if (!d.ok) throw new Error(d.error || "Kick não confirmado pelo servidor.");
+    toast(`${playerName} foi expulso.`, "success");
+    loadStaffServerPlayers();
+  } catch (e) { toast(e.message || "Falha no kick.", "error"); }
+}
+
+let _cloudAdminPage = 1;
+async function loadCloudAdmin(page) {
+  _cloudAdminPage = Math.max(1, Number(page) || 1);
+  const result = document.getElementById("cloud-admin-result");
+  if (!result) return;
+  result.innerHTML = '<div class="empty-state">Carregando nuvens...</div>';
+  const params = new URLSearchParams({page:String(_cloudAdminPage), page_size:"50"});
+  const group = document.getElementById("cloud-admin-group")?.value || "";
+  const steam = document.getElementById("cloud-admin-steam")?.value.trim() || "";
+  if (group) params.set("group", group);
+  if (steam) params.set("steam_id", steam);
+  try {
+    const d = await fetchJson("/api/admin/cloud-inventory?" + params.toString());
+    const sel = document.getElementById("cloud-admin-group");
+    if (sel) {
+      const current = group;
+      sel.innerHTML = '<option value="">Todos os grupos</option>' + (d.groups || []).map(g => `<option value="${escHtml(g)}">${escHtml(g)}</option>`).join("");
+      sel.value = current;
+    }
+    const items = d.items || [];
+    result.innerHTML = items.length ? `<table class="pkg-admin-table"><thead><tr><th>Grupo</th><th>SteamID</th><th>Slot</th><th>Itens</th><th>Dados</th><th>Mapa de origem</th><th>Enviado em</th><th></th></tr></thead><tbody>${items.map(x => `<tr><td>${escHtml(x.cloud_group)}</td><td><code>${escHtml(x.steam_id)}</code></td><td>${x.slot === 0 ? "Padrão" : x.slot}</td><td>${x.blob_count}/${x.item_count}</td><td>${(Number(x.bytes_total||0)/1024).toFixed(1)} KB</td><td>${escHtml(x.source_map||"—")}</td><td>${escHtml(x.uploaded_at||"—")}</td><td><button class="btn btn-ghost btn-sm" onclick="showCloudSlot('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}',${Number(x.slot)})">Detalhes</button> <button class="btn btn-danger btn-sm" onclick="purgeCloudSlot('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}',${Number(x.slot)})">Apagar slot</button> <button class="btn btn-danger btn-sm" onclick="purgeCloudAdmin('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}')">Apagar jogador</button></td></tr>`).join("")}</tbody></table><div id="cloud-admin-slot-detail" style="margin-top:12px;"></div>` : '<div class="empty-state">Nenhum slot encontrado.</div>';
+    const pages = Math.max(1, Math.ceil(Number(d.total||0) / Number(d.page_size||50)));
+    document.getElementById("cloud-admin-pages").textContent = `Página ${_cloudAdminPage} de ${pages} · ${d.total||0} slot(s)`;
+  } catch (e) {
+    result.innerHTML = `<div class="empty-state">${escHtml(e.message || "Falha ao carregar a nuvem")}</div>`;
+  }
+}
+
+async function purgeCloudAdmin(group, steamId) {
+  if (!confirm(`Apagar todos os slots da nuvem de ${steamId} no grupo “${group}”? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const r = await fetch(API + "/api/admin/cloud-inventory/" + encodeURIComponent(group) + "/" + encodeURIComponent(steamId), {method:"DELETE"});
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao apagar nuvem");
+    toast(`${d.slots_deleted || 0} slot(s) apagado(s).`, "success");
+    loadCloudAdmin(_cloudAdminPage);
+  } catch (e) { toast(e.message || "Falha ao apagar nuvem", "error"); }
+}
+
+async function showCloudSlot(group, steamId, slot) {
+  const box = document.getElementById("cloud-admin-slot-detail");
+  if (!box) return;
+  box.innerHTML = '<div class="empty-state">Lendo os blobs...</div>';
+  try {
+    const d = await fetchJson(`/api/admin/cloud-inventory/${encodeURIComponent(group)}/${encodeURIComponent(steamId)}/slot/${slot}`);
+    box.innerHTML = `<div class="card" style="padding:12px;"><strong>${escHtml(group)} · ${escHtml(steamId)} · slot ${slot}</strong><table class="pkg-admin-table" style="margin-top:8px;"><thead><tr><th>Ordem</th><th>Tamanho</th><th>Prévia binária (hex)</th></tr></thead><tbody>${(d.items||[]).map(i=>`<tr><td>${i.sort_order}</td><td>${i.bytes} bytes</td><td><code>${escHtml(i.hex_preview||"")}</code></td></tr>`).join("")}</tbody></table><div style="color:var(--text2);font-size:11px;margin-top:8px;">A prévia serve para diagnóstico; não identifica nome, qualidade ou blueprint do item.</div></div>`;
+  } catch (e) { box.innerHTML = `<div class="empty-state">${escHtml(e.message||"Falha ao ler slot")}</div>`; }
+}
+
+async function purgeCloudSlot(group, steamId, slot) {
+  if (!confirm(`Apagar somente o slot ${slot} de ${steamId} no grupo ${group}? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const r = await fetch(API + `/api/admin/cloud-inventory/${encodeURIComponent(group)}/${encodeURIComponent(steamId)}/slot/${slot}`, {method:"DELETE"});
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao apagar slot");
+    toast(d.slots_deleted ? "Slot apagado." : "O slot já estava vazio.", "success");
+    loadCloudAdmin(_cloudAdminPage);
+  } catch (e) { toast(e.message || "Falha ao apagar slot", "error"); }
+}
+
 let _servers = [];
 
 async function loadServers() {

@@ -11,6 +11,7 @@ Mudanças em relação ao original (apenas adaptação ao bot embutido):
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime
 from typing import Any, List, Optional, cast
 
@@ -35,7 +36,10 @@ class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
         self._settings: Any = getattr(bot, "settings")
-        self._validator = DiscordLinkValidatorClient.from_env()
+        self._validator = DiscordLinkValidatorClient(
+            base_url=self._settings.arkshop_web_url or os.environ.get("ARKSHOP_WEB_URL", ""),
+            api_key=self._settings.arkshop_api_key or os.environ.get("ARKSHOP_API_KEY", ""),
+        )
         self._validation_instruction_sent = False
         self._compile_badwords()
         # Regex pré-compilada para convites (melhor performance)

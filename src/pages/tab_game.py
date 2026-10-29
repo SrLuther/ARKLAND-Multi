@@ -186,14 +186,14 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         def _update_xp_preview(*_):
             try:
                 lvl = int(w[f"gs_{field}"].get())
-                xp_lbl.configure(text="(padrão ARK)" if lvl <= 0 else f"â†’ {_l2xp(lvl):,} XP")
+                xp_lbl.configure(text="(padrão ARK)" if lvl <= 0 else f"→ {_l2xp(lvl):,} XP")
             except (ValueError, TypeError):
                 xp_lbl.configure(text="")
 
         w[f"gs_{field}"].trace_add("write", _update_xp_preview)
         _update_xp_preview()
 
-    # â”€â”€ Coleta de tasks com row pré-calculado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Coleta de tasks com row pré-calculado ─────────────────────────────
     # Em vez de criar todos os ~350 widgets de uma vez (freeze de ~500ms),
     # as tasks são despachadas em lotes de 6 via after(0), cedendo o
     # controle ao event loop entre cada lote.
@@ -253,8 +253,8 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         _tasks.append(("plsm", r))
         r += 1
 
-    # â”€â”€ Definição das rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    _s("âš™ï¸  Dificuldade")
+    # ── Definição das rows ────────────────────────────────────────────────
+    _s("Dificuldade")
     _f("Nível de Dificuldade",
        "Padrão: 0.20 — Aumentar eleva o nível máximo dos dinos selvagens.",
        "difficulty_offset", gs.difficulty_offset, 0, 1)
@@ -289,7 +289,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _f("Resistência do Jogador",
        "Reduz o dano recebido. Menor = mais resistente ao dano.",
        "player_resistance_multiplier", gs.player_resistance_multiplier)
-    _f("Consumo de Ãgua",
+    _f("Consumo de \u00c1gua",
        "Taxa de consumo de água. Menor = seca mais devagar.",
        "player_character_water_drain_multiplier",
        gs.player_character_water_drain_multiplier)
@@ -456,9 +456,9 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "Maior = itens de melhor qualidade ao pescar.",
        "fishing_loot_quality_multiplier", gs.fishing_loot_quality_multiplier)
 
-    _s("ðŸ—ï¸  Estruturas")
-    _f("Dano Ã s Estruturas",
-       "Aumenta o dano causado Ã s estruturas por jogadores/dinos.",
+    _s("Estruturas")
+    _f("Dano às Estruturas",
+       "Aumenta o dano causado às estruturas por jogadores/dinos.",
        "structure_damage_multiplier", gs.structure_damage_multiplier)
     _f("Resistência das Estruturas",
        "Menor = estruturas mais resistentes (recebem menos dano).",
@@ -475,12 +475,12 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "Multiplica o limite de estruturas em platform saddles.",
        "per_platform_max_structures_multiplier",
        gs.per_platform_max_structures_multiplier)
-    _f("Ãrea de Build em Saddles",
+    _f("\u00c1rea de Build em Saddles",
        "Multiplica a área construível ao redor de platform saddles.",
        "platform_saddle_build_area_bounds_multiplier",
        gs.platform_saddle_build_area_bounds_multiplier)
 
-    _s("ðŸ†  Tribal / Misc")
+    _s("Tribal / Misc")
     _i("Tamanho Máximo da Tribo",
        "Número máximo de membros por tribo.",
        "max_tribe_size", gs.max_tribe_size)
@@ -538,7 +538,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _b("Doenças Não Permanentes",                        "non_permanent_diseases",                gs.non_permanent_diseases)
     _b("Clima — Desativar Névoa",                        "disable_weather_fog",                   gs.disable_weather_fog)
 
-    _s("ðŸ—ï¸  Estruturas")
+    _s("Estruturas")
     _b("Permitir Recolher Estruturas",
        "always_allow_structure_pickup", gs.always_allow_structure_pickup)
     _i("Máx. Estruturas Visíveis",
@@ -559,7 +559,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "only_auto_destroy_core_structures", gs.only_auto_destroy_core_structures)
     _b("Decay Somente em Estruturas Núcleo Desconectadas",
        "only_decay_unsnapped_core_structures", gs.only_decay_unsnapped_core_structures)
-    _b("Destruir Canos d'Ãgua Desconectados",
+    _b("Destruir Canos d'\u00c1gua Desconectados",
        "destroy_unconnected_water_pipes", gs.destroy_unconnected_water_pipes)
 
     _s("🌅  Ciclo Dia / Noite")
@@ -590,24 +590,24 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        gs.npc_network_stasis_range_scale_percent_end, 0.01, 1.0)
     _save()
 
-    # â”€â”€ Despacho em chunks via after(0) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Despacho em chunks via after(0) ───────────────────────────────────
     # Lotes de 6 tasks — cada after(0) cede o controle ao event loop antes
     # do próximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
     _CHUNK = 6
 
-    # â”€â”€ Nomes e descrições dos stats (índices 0-11) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Nomes e descrições dos stats (índices 0-11) ───────────────────────
     _PLSM_STATS = [
-        (0,  "â¤ï¸",  "Vida",               "HP máx. por ponto. Padrão ARK â‰ˆ +10 HP base por nível."),
-        (1,  "âš¡",  "Stamina",            "Stamina por ponto. Padrão â‰ˆ +10 stamina por nível."),
+        (0,  "\u2764\ufe0f",  "Vida",               "HP m\u00e1x. por ponto. Padr\u00e3o ARK \u2248 +10 HP base por n\u00edvel."),
+        (1,  "⚡",  "Stamina",            "Stamina por ponto. Padrão ≈ +10 stamina por nível."),
         (2,  "💤",  "Torpor",             "Resistência ao torpor. Principalmente relevante para dinos selvagens."),
         (3,  "🫧",  "Oxigênio",           "Oxigênio por ponto. Relevante para dinos aquáticos."),
-        (4,  "ðŸ–",  "Comida",             "Capacidade de comida por ponto."),
-        (5,  "💧",  "Ãgua",               "Capacidade de água. Relevante principalmente para jogadores."),
-        (6,  "ðŸŒ¡ï¸", "Temperatura",        "Resistência Ã  temperatura (raramente ajustado)."),
-        (7,  "âš–ï¸", "Peso",               "Carga por ponto. Padrão â‰ˆ +10 por nível."),
-        (8,  "âš”ï¸", "Dano Corpo a Corpo", "Dano melee por ponto. Padrão â‰ˆ +2% por nível."),
-        (9,  "ðŸƒ",  "Velocidade",         "Velocidade de movimento por ponto. Padrão â‰ˆ +1% por nível."),
-        (10, "ðŸ›¡ï¸", "Fortitude",          "Resistência ao frio/calor. Relevante para jogadores."),
+        (4,  "\U0001f356",  "Comida",             "Capacidade de comida por ponto."),
+        (5,  "\U0001f4a7",  "\u00c1gua",               "Capacidade de \u00e1gua. Relevante principalmente para jogadores."),
+        (6,  "\U0001f321\ufe0f", "Temperatura",        "Resist\u00eancia \u00e0 temperatura (raramente ajustado)."),
+        (7,  "\u2696\ufe0f", "Peso",               "Carga por ponto. Padr\u00e3o \u2248 +10 por n\u00edvel."),
+        (8,  "\u2694\ufe0f", "Dano Corpo a Corpo", "Dano melee por ponto. Padr\u00e3o \u2248 +2% por n\u00edvel."),
+        (9,  "\U0001f3c3",  "Velocidade",         "Velocidade de movimento por ponto. Padr\u00e3o \u2248 +1% por n\u00edvel."),
+        (10, "\U0001f6e1\ufe0f", "Fortitude",          "Resist\u00eancia ao frio/calor. Relevante para jogadores."),
         (11, "🔨",  "Craft Skill",        "Habilidade de fabricação. Melhora receitas customizadas."),
     ]
 
@@ -722,7 +722,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         header = tk.Frame(sec, bg=_HEAD_BG, cursor="hand2")
         header.pack(fill="x")
 
-        arrow = tk.Label(header, text="â–¼", bg=_HEAD_BG, fg=_GREEN,
+        arrow = tk.Label(header, text="▼", bg=_HEAD_BG, fg=_GREEN,
                          font=ctk.CTkFont(size=11))
         arrow.pack(side="left", padx=(10, 6), pady=7)
 
@@ -739,10 +739,10 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
             expanded[0] = not expanded[0]
             if expanded[0]:
                 body.pack(fill="x", padx=4, pady=(2, 6))
-                arrow.configure(text="â–¼")
+                arrow.configure(text="▼")
             else:
                 body.pack_forget()
-                arrow.configure(text="â–¶")
+                arrow.configure(text="▶")
 
         header.bind("<Button-1>", _toggle)
         for child in header.winfo_children():

@@ -739,8 +739,6 @@ def generate_discord_link_code(
     did = _normalized_discord_user_id(discord_user_id)
     if not sid:
         return {"ok": False, "error": "Steam ID ausente."}
-    if not did:
-        return {"ok": False, "error": "Discord ID ausente."}
 
     current_owner = _find_discord_owner(db, did)
     if current_owner and current_owner != sid:
@@ -778,8 +776,8 @@ def generate_discord_link_code(
                 "code": pending["code"],
                 "expires_at": pending["expires_at"],
                 "pending": True,
-                "discord_user_id": did,
-                "discord_username": discord_username or pending.get("discord_username") or "",
+                "discord_user_id": pending.get("discord_user_id"),
+                "discord_username": pending.get("discord_username") or "",
             }
 
     now = _utcnow()
@@ -886,7 +884,7 @@ def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
     })
 
 
-def list_discord_link_admin_audit(db: Any, *, limit: int = 500) -> list[dict[str, Any]]:
+def list_discord_link_admin_audit(db: Any, *, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
     bind = getattr(db, "bind", None)
     dialect = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect in {"mysql", "mariadb"}:
@@ -910,9 +908,13 @@ def list_discord_link_admin_audit(db: Any, *, limit: int = 500) -> list[dict[str
         CASE WHEN l.steam_id IS NOT NULL AND {discord_id_match} THEN 1 ELSE 0 END AS is_active
         FROM support_ticket_discord_link_audit a
         LEFT JOIN support_ticket_discord_links l ON {steam_id_match}
-        ORDER BY a.id DESC LIMIT :lim"""),
-        {"lim": max(1, min(int(limit), 2000))}).mappings().all()
+        ORDER BY a.id DESC LIMIT :lim OFFSET :off"""),
+        {"lim": max(1, min(int(limit), 200)), "off": max(0, int(offset))}).mappings().all()
     return [dict(row) for row in rows]
+
+
+def count_discord_link_admin_audit(db: Any) -> int:
+    return int(db.execute(text("SELECT COUNT(*) FROM support_ticket_discord_link_audit")).scalar() or 0)
 
 
 def admin_unlink_discord(db: Any, *, steam_id: str, actor_steam_id: str,
@@ -929,72 +931,6 @@ def admin_unlink_discord(db: Any, *, steam_id: str, actor_steam_id: str,
     db.delete(link)
     db.commit()
     return {"ok": True}
-
-
-def confirm_discord_link_code(
-    db: Any,
-    code: str,
-    *,
-    steam_id: str,
-    discord_user_id: str | None = None,
-    discord_username: str | None = None,
-) -> dict[str, Any]:
-    from app import SupportTicketDiscordLinkCode
-
-    sid = str(steam_id or "").strip()
-    did = _normalized_discord_user_id(discord_user_id)
-    token = (code or "").strip()
-    if not sid or not did or not token:
-        return {"ok": False, "error": "Dados de confirmação inválidos."}
-    if not _is_valid_discord_link_code(token):
-        return {"ok": False, "error": "Formato de código inválido."}
-
-    row = db.query(SupportTicketDiscordLinkCode).filter_by(code=token).with_for_update().first()
-    if row is None:
-        return {"ok": False, "error": "Código inválido ou expirado."}
-    if row.steam_id != sid:
-        return {"ok": False, "error": "Este código não pertence a esta conta Steam."}
-    if row.discord_user_id != did:
-        return {"ok": False, "error": "Código incompatível com este Discord."}
-    if row.used_at is not None:
-        return {"ok": False, "error": "Este código já foi utilizado."}
-    expires_at = _as_utc_datetime(row.expires_at)
-    if expires_at and expires_at < _utcnow():
-        return {"ok": False, "error": "Código expirado. Gere outro código."}
-
-    if conflict := _find_discord_owner(db, did):
-        if conflict != sid:
-            return {"ok": False, "error": "Este Discord já está vinculado a outra conta Steam."}
-
-    from app import SupportTicketDiscordLink
-    was_first_link = db.get(SupportTicketDiscordLink, sid) is None
-    saved = save_discord_link(
-        db,
-        steam_id=sid,
-        discord_user_id=did,
-        discord_username=discord_username or row.discord_username,
-        link_method="ingame_code",
-        commit=False,
-    )
-    if not saved or saved.get("error"):
-        return {"ok": False, "error": saved.get("error") if isinstance(saved, dict) else "Falha ao salvar vínculo."}
-
-    if was_first_link:
-        from app import _add_player_points_tx
-        from amber_ledger import record_admin_adjust
-        _add_player_points_tx(db, sid, DISCORD_FIRST_LINK_BONUS)
-        record_admin_adjust(db, steam_id=sid, delta=DISCORD_FIRST_LINK_BONUS,
-            event_type="discord_first_link_bonus", idempotency_key=f"discord:first_link:{token}",
-            metadata={"note": "Bônus pela primeira vinculação confirmada do Discord"})
-    _record_discord_link_event(db, event_type="link_confirmed", steam_id=sid,
-        steam_name=resolve_player_name(db, sid), discord_user_id=did,
-        discord_username=discord_username or row.discord_username or "", code=token,
-        amber_delta=DISCORD_FIRST_LINK_BONUS if was_first_link else 0,
-        note="Código confirmado no Discord" + ("; bônus creditado" if was_first_link else ""))
-    row.used_at = _utcnow()
-    db.commit()
-    return {"ok": True, "steam_id": sid, "discord_user_id": did, "link_method": "ingame_code",
-            "first_link_bonus": DISCORD_FIRST_LINK_BONUS if was_first_link else 0}
 
 
 def confirm_discord_link_code_for_discord_user(
@@ -1058,8 +994,14 @@ def confirm_discord_link_code_for_discord_user(
     _record_discord_link_event(db, event_type="link_confirmed", steam_id=sid,
         steam_name=resolve_player_name(db, sid), discord_user_id=did,
         discord_username=discord_username or row.discord_username or "", code=token,
-        amber_delta=DISCORD_FIRST_LINK_BONUS if was_first_link else 0,
+        amber_delta=0,
         note="Código confirmado no Discord" + ("; bônus creditado" if was_first_link else ""))
+    if was_first_link:
+        _record_discord_link_event(db, event_type="bonus_credited", steam_id=sid,
+            steam_name=resolve_player_name(db, sid), discord_user_id=did,
+            discord_username=discord_username or row.discord_username or "", code=token,
+            amber_delta=DISCORD_FIRST_LINK_BONUS,
+            note="First-link bonus credited to the player's Amber balance.")
     row.used_at = _utcnow()
     db.commit()
     return {

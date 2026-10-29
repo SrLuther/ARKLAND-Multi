@@ -10,7 +10,7 @@ import base64
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 from urllib import error as urllib_error
@@ -154,6 +154,8 @@ class BotSettings:
     quarantine_role_id: int = 0
     validation_channel_id: int = 0
     validation_role_id: int = 0
+    arkshop_web_url: str = ""
+    arkshop_api_key: str = field(default="", repr=False)
     command_prefix: str = DEFAULT_PREFIX
     enable_voice: bool = True
     enable_moderation: bool = True
@@ -170,6 +172,16 @@ class BotSettings:
             quarantine_role_id=parse_discord_id(getattr(cfg, "quarantine_role_id", "")),
             validation_channel_id=parse_discord_id(getattr(cfg, "validation_channel_id", "")),
             validation_role_id=parse_discord_id(getattr(cfg, "validation_role_id", "")),
+            arkshop_web_url=(
+                (getattr(cfg, "arkshop_web_url", "") or "").strip()
+                or os.environ.get("ARKSHOP_WEB_URL", "").strip()
+                or os.environ.get("ARKSHOP_WEBSTORE_URL", "").strip()
+                or os.environ.get("ARKLAND_WEB_URL", "").strip()
+            ),
+            arkshop_api_key=(
+                (getattr(cfg, "arkshop_api_key", "") or "").strip()
+                or os.environ.get("ARKSHOP_API_KEY", "").strip()
+            ),
             command_prefix=prefix,
             enable_voice=bool(getattr(cfg, "enable_voice", True)),
             enable_moderation=bool(getattr(cfg, "enable_moderation", True)),
@@ -191,6 +203,8 @@ class BotSettings:
             out.append("Canal de logs não configurado — moderação não registrará logs.")
         if self.enable_moderation and not self.quarantine_role_id:
             out.append("Cargo de quarentena não configurado — !limpezageral não isola o usuário.")
+        if not self.arkshop_web_url or not self.arkshop_api_key:
+            out.append("Integração da Web Store não configurada — códigos de vínculo Discord não serão confirmados.")
         return out
 @dataclass(frozen=True)
 class DiscordLinkValidationResult:

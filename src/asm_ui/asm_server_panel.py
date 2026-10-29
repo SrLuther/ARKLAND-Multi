@@ -1679,8 +1679,32 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         _str_entry(
             sf, None, "additional_args", srv, vars_ref, _cli_next + 1, accent, wide=True
         )
+        def _open_cli_catalog() -> None:
+            from ..ui.server_cli_catalog import open_server_cli_catalog
 
-        _pers_row = _cli_next + 2
+            args_var = vars_ref.get("additional_args")
+            if args_var is None:
+                return
+
+            def _append_cli_argument(argument: str) -> None:
+                import shlex
+
+                current = str(args_var.get() or "").strip()
+                args_var.set(f"{current} {shlex.quote(argument)}".strip())
+
+            open_server_cli_catalog(sf, _append_cli_argument)
+
+        ctk.CTkButton(
+            sf,
+            text="Catálogo de argumentos ASE",
+            width=205,
+            height=28,
+            fg_color="#334155",
+            hover_color="#475569",
+            command=_open_cli_catalog,
+        ).grid(row=_cli_next + 2, column=1, padx=(0, 8), pady=(2, 5), sticky="w")
+
+        _pers_row = _cli_next + 3
         _section_label(sf, "Personalização do Card", _pers_row, accent)
         _str_entry(
             sf,
@@ -3492,7 +3516,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         for i in range(max_lvl):
             xp = int(xp_base * (xp_mult**i))
             lines.append(
-                f"DinoMaxLevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp})"
+                f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp})"
             )
         return "\n".join(lines)
 
@@ -3516,7 +3540,17 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         text="⚡ Gerador rápido",
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=accent,
-    ).grid(row=0, column=0, columnspan=8, padx=12, pady=(8, 2), sticky="w")
+    ).grid(row=0, column=0, columnspan=6, padx=12, pady=(8, 2), sticky="w")
+    from ..ui.level_progression_editor import open_level_progression_editor
+
+    ctk.CTkButton(
+        gen_card,
+        text="Editar tabela Player/Dino",
+        width=190,
+        height=28,
+        command=lambda: open_level_progression_editor(sf, srv, vars_ref),
+    ).grid(row=0, column=6, columnspan=2, padx=12, pady=(6, 2), sticky="e")
+
     ctk.CTkLabel(
         gen_card,
         text="Curva geométrica: default mult=1.05 (máx. recomendado ~1.08). "
@@ -3941,7 +3975,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     _section_label(sf, "Override de Nível do Dino (Game.ini)", 4, accent)
     ctk.CTkLabel(
         sf,
-        text="DinoMaxLevelExperienceRampOverrides=(...)",
+        text="LevelExperienceRampOverrides=(...)",
         font=ctk.CTkFont(size=10),
         text_color="#7ab8c8",
     ).grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
@@ -3956,7 +3990,24 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         text="⚡ Gerador rápido",
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=accent,
-    ).grid(row=0, column=0, columnspan=6, padx=12, pady=(8, 4), sticky="w")
+    ).grid(row=0, column=0, columnspan=3, padx=12, pady=(8, 4), sticky="w")
+
+    dino_progressions_var = tk.BooleanVar(
+        value=bool(getattr(srv, "dino_level_progressions_enabled", False))
+    )
+    vars_ref["dino_level_progressions_enabled"] = dino_progressions_var
+
+    def _toggle_dino_progressions():
+        srv.dino_level_progressions_enabled = bool(dino_progressions_var.get())
+
+    ctk.CTkCheckBox(
+        gen_card_d,
+        text="Ativar tabela de niveis do Dino",
+        variable=dino_progressions_var,
+        command=_toggle_dino_progressions,
+        font=ctk.CTkFont(size=10),
+        text_color=accent,
+    ).grid(row=0, column=3, columnspan=3, padx=12, pady=(8, 4), sticky="e")
 
     _fields_d = [
         ("Nível máx.", "150"),
@@ -4015,7 +4066,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             )
             return
         normalized = normalize_ramp_override_line(
-            text, key="DinoMaxLevelExperienceRampOverrides"
+            text, key="LevelExperienceRampOverrides"
         )
         if not normalized:
             messagebox.showwarning(
@@ -4035,7 +4086,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         if not clip:
             return
         normalized = normalize_ramp_override_line(
-            clip, key="DinoMaxLevelExperienceRampOverrides"
+            clip, key="LevelExperienceRampOverrides"
         )
         if not normalized:
             messagebox.showwarning(
@@ -4083,12 +4134,12 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         custom_text = str(dino_line_var.get() or "").strip()
         if custom_text:
             normalized = normalize_ramp_override_line(
-                custom_text, key="DinoMaxLevelExperienceRampOverrides"
+                custom_text, key="LevelExperienceRampOverrides"
             )
             if not normalized:
                 messagebox.showwarning(
                     "Linha inválida",
-                    "A linha do dino informada não contém um formato válido de DinoMaxLevelExperienceRampOverrides.",
+                    "A linha do dino informada não contém um formato válido de LevelExperienceRampOverrides.",
                 )
                 return
             if max_xp > 0:
@@ -4097,7 +4148,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                 for idx, value in parsed.get("slots", {}).items():
                     ordered[int(idx)] = min(int(value), max_xp)
                 text = (
-                    "DinoMaxLevelExperienceRampOverrides=("
+                    "LevelExperienceRampOverrides=("
                     + ",".join(
                         f"ExperiencePointsForLevel[{idx}]={int(value)}"
                         for idx, value in enumerate(ordered)
@@ -4112,13 +4163,15 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                 xp = int(xp_base * (xp_mult**i))
                 capped.append(min(xp, max_xp))
             text = "\n".join(
-                f"DinoMaxLevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp})"
+                f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp})"
                 for i, xp in enumerate(capped)
             )
         box_d.configure(state="normal")
         box_d.delete("1.0", "end")
         box_d.insert("1.0", text)
         srv.dino_level_stats_raw = text
+        srv.dino_level_progressions_enabled = True
+        dino_progressions_var.set(True)
 
     ctk.CTkButton(
         gen_card_d,
@@ -4661,6 +4714,9 @@ def _build_stack_overrides(sf, srv, vars_ref, bg, accent):
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=accent,
     ).grid(row=0, column=0, columnspan=6, padx=12, pady=(8, 4), sticky="w")
+
+
+
 
     item_v = tk.StringVar()
     qty_v = tk.StringVar(value="500")
@@ -5435,6 +5491,28 @@ def _build_ini_editor(
         _render_sections()
         _render_items()
 
+    def _open_documented_catalog():
+        from ..ui.server_ini_catalog import open_server_ini_catalog
+
+        file_name = "GameUserSettings.ini" if "gus" in raw_key.casefold() else "Game.ini"
+
+        def _add_setting(section: str, key: str, value: str, repeatable: bool) -> None:
+            rows = sections.setdefault(section, [])
+            existing = None if repeatable else next(
+                (index for index, (old_key, _old_value) in enumerate(rows)
+                 if old_key.casefold() == key.casefold()), None,
+            )
+            if existing is None:
+                rows.append((key, value))
+            else:
+                rows[existing] = (rows[existing][0], value)
+            sel_section[0] = section
+            _flush()
+            _render_sections()
+            _render_items()
+
+        open_server_ini_catalog(sf.winfo_toplevel(), file_name, _add_setting)
+
     # ── Ações itens ───────────────────────────────────────────────────────────
 
     def _add_item():
@@ -5571,6 +5649,7 @@ def _build_ini_editor(
         ).pack(side="left", padx=2, pady=2)
 
     for label, cmd, fg, hv in [
+        ("Catálogo ASE", _open_documented_catalog, _BTN_IMP, _BTN_IMP_H),
         ("Recarregar", _refresh_sections, _BTN_NEU, _BTN_NEU_H),
         ("Nova seção", _add_section, _BTN_ADD_G, _BTN_ADD_GH),
         ("Colar seções…", _open_paste_dialog, _BTN_IMP, _BTN_IMP_H),

@@ -4,13 +4,27 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.10.137"
-BUILD_DATE: str = "2026-10-28"
+APP_VERSION: str = "1.11.0"
+BUILD_DATE: str = "2026-10-29"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.0",
+        "date": "2026-10-29",
+        "changes": [
+            "Gerenciador ASE: reestrutura??o das configura??es com cat?logo de 321 op??es para GameUserSettings.ini/Game.ini e 114 argumentos de inicializa??o.",
+            "INI: edi??o ordenada e segura, somente com linhas de configura??o; sincroniza??o por se??es com compara??o, backup e rollback.",
+            "Progress?es: editor de n?veis de jogador e dinossauros com valida??o de XP e persist?ncia das rampas.",
+            "Saves: backup e restaura??o com valida??o de integridade e recupera??o segura.",
+            "Discord: v?nculo por c?digo, b?nus inicial de 10.000 ?mbares e auditoria administrativa paginada; bot com instru??es completas e bot?o para o site.",
+            "Web Store: nuvens separadas por chave de compartilhamento, quatro slots e painel administrativo; controles remotos de servidor para equipe autorizada.",
+            "CustomShop 1.10.48: migra??o cloud idempotente, recupera??o de cabe?alhos sem apagar blobs e corre??o do relacionamento por grupo/SteamID/slot.",
+            "Corre??es de textos corrompidos, mensagens e apresenta??o dos pain?is administrativos."
+        ]
+    },
     {
         "version": "1.10.137",
         "date": "2026-10-28",

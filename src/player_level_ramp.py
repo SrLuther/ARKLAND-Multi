@@ -549,6 +549,12 @@ def get_ramp_values_from_cfg(cfg: object) -> list[int]:
     """Valores da rampa: vazio no modo simples; senão nível base tem prioridade."""
     if not is_player_level_progressions_enabled(cfg):
         return []
+    custom_thresholds = getattr(cfg, "player_level_xp_thresholds", None)
+    if isinstance(custom_thresholds, list) and custom_thresholds:
+        try:
+            return [int(value) for value in custom_thresholds]
+        except (TypeError, ValueError):
+            pass
     from .player_level_200 import is_level_200_base, level_200_ramp_values
 
     base = _resolve_base_level(cfg)
@@ -596,20 +602,38 @@ def get_ramp_entry_count(cfg: object) -> int:
 
 
 def populate_player_ramp_from_game_ini(cfg: object, game_path) -> None:
-    """Lê rampa do Game.ini e popula campos de contagem no cfg."""
+    """Read the player and tame ramp occurrences from Game.ini."""
     from pathlib import Path
 
     path = Path(game_path)
     if not path.exists():
         return
     try:
-        text = path.read_text(encoding="utf-16")
-    except (UnicodeDecodeError, UnicodeError, OSError):
-        try:
-            text = path.read_text(encoding="utf-8-sig")
-        except OSError:
-            return
-    parsed = parse_ramp_from_text(text)
+        from .asm_engine.ini_document import IniDocument
+        document = IniDocument.parse(path.read_bytes())
+    except (OSError, UnicodeError, ValueError):
+        return
+
+    section = "/Script/ShooterGame.ShooterGameMode"
+    player_ramps = document.find_values(section, "LevelExperienceRampOverrides")
+    legacy_dino_ramps = document.find_values(section, "DinoMaxLevelExperienceRampOverrides")
+    engram_raw = document.find_values(section, "OverridePlayerLevelEngramPoints")
+    if hasattr(cfg, "player_engram_points"):
+        parsed_points = []
+        for value in engram_raw:
+            try:
+                parsed_points.append(int(value.strip()))
+            except (TypeError, ValueError):
+                parsed_points.append(0)
+        cfg.player_engram_points = parsed_points
+    player_raw = player_ramps[0] if player_ramps else ""
+    # ARK uses the first directive for players and the second for tamed creatures.
+    # Import the former app spelling as a compatibility fallback.
+    dino_raw = player_ramps[1] if len(player_ramps) > 1 else (
+        legacy_dino_ramps[0] if legacy_dino_ramps else ""
+    )
+
+    parsed = parse_ramp_from_text(player_raw)
     count = int(parsed.get("entry_count", 0) or 0)
     max_index = int(parsed.get("max_index", -1) or -1)
     if hasattr(cfg, "player_ramp_entry_count"):
@@ -623,12 +647,10 @@ def populate_player_ramp_from_game_ini(cfg: object, game_path) -> None:
         values = ramp_slots_to_values(parsed["slots"], count)
         if hasattr(cfg, "player_level_stats_raw"):
             cfg.player_level_stats_raw = export_ramp_raw(values)
+        if hasattr(cfg, "player_level_xp_thresholds"):
+            cfg.player_level_xp_thresholds = list(values)
         apply_inferred_xp_curve(cfg, values)
 
-        # A rampa no disco não é a preferência do admin. Perfis que já têm o
-        # campo (mesmo False) não podem ser religados só porque o Game.ini
-        # ainda contém LevelExperienceRampOverrides — isso acontecia no boot,
-        # via read_ini do snapshot, e o checkbox voltava marcado ao reabrir o app.
         if not hasattr(cfg, "player_level_progressions_enabled"):
             setattr(cfg, "player_level_progressions_enabled", True)
 
@@ -637,6 +659,11 @@ def populate_player_ramp_from_game_ini(cfg: object, game_path) -> None:
             inferred_base = max(1, count - ARK_RAMP_BONUS_SLOTS)
             if hasattr(cfg, "player_base_level"):
                 cfg.player_base_level = inferred_base
+
+    if hasattr(cfg, "dino_level_stats_raw"):
+        cfg.dino_level_stats_raw = dino_raw
+    if hasattr(cfg, "dino_level_progressions_enabled"):
+        cfg.dino_level_progressions_enabled = bool(dino_raw)
 
 
 def _curve_params_from_cfg(cfg: object | None) -> dict[str, Any]:
@@ -668,8 +695,10 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
 
     progressions = is_player_level_progressions_enabled(cfg)
     base = _resolve_base_level(cfg)
-    level_200 = progressions and is_level_200_base(base)
-    if progressions and not level_200:
+    custom_values = getattr(cfg, "player_level_xp_thresholds", None)
+    has_custom_values = bool(progressions and isinstance(custom_values, list) and custom_values)
+    level_200 = progressions and is_level_200_base(base) and not has_custom_values
+    if progressions and not level_200 and not has_custom_values:
         detect_and_apply_legacy_curve(cfg)
     ramp_base = base if base > 0 else max(
         get_ramp_entry_count(cfg) - ARK_RAMP_BONUS_SLOTS,
@@ -680,8 +709,11 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
     theoretical = calc_max_total_level(ramp_base if base <= 0 else base)
     asc_bonus = ARK_TOTAL_BONUS_LEVELS
 
-    if level_200:
-        # Tabela fixa (nivel200): não regenerar 70×1.05^i nem last+1.
+    if has_custom_values:
+        values = [int(value) for value in custom_values]
+        existing_xp = _read_override_xp_from_cfg(cfg)
+        override_xp = max(existing_xp, (values[-1] + 1) if values else 0)
+    elif level_200:
         values = level_200_ramp_values()
         override_xp = level_200_override_max_xp()
     elif progressions:
@@ -818,7 +850,8 @@ def build_player_ramp_ini_lines(cfg: object) -> list[str]:
         return build_ramp_ini_lines(get_ramp_values_from_cfg(cfg))
     values = get_ramp_values_from_cfg(cfg)
     expected = total_ramp_slots(base) if base > 0 else 0
-    if not values or (expected > 0 and len(values) < expected):
+    has_custom_values = bool(getattr(cfg, "player_level_xp_thresholds", None))
+    if not values or (not has_custom_values and expected > 0 and len(values) < expected):
         curve = _curve_params_from_cfg(cfg)
         values = build_ramp_values(
             base,

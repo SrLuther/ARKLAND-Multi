@@ -65,19 +65,26 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
         progressions = is_player_level_progressions_enabled(cfg)
 
     from ..player_level_ramp import base_requires_game_ini_progressions
+    custom_values = getattr(cfg, "player_level_xp_thresholds", None) if cfg is not None else None
+    has_custom_values = bool(progressions and isinstance(custom_values, list) and custom_values)
 
     if cfg is not None:
         if hasattr(cfg, "player_base_level"):
             cfg.player_base_level = base
         if hasattr(cfg, "player_level_progressions_enabled"):
             cfg.player_level_progressions_enabled = progressions
-        if progressions and not is_level_200_base(base):
+        if progressions and not is_level_200_base(base) and not has_custom_values:
             detect_and_apply_legacy_curve(cfg)
 
     total = calc_max_total_level(base)
-    level_200 = progressions and is_level_200_base(base)
+    level_200 = progressions and is_level_200_base(base) and not has_custom_values
     preset_error = level_200_preset_error() if level_200 else None
-    if level_200 and not preset_error:
+    if has_custom_values:
+        ramp_values = [int(value) for value in custom_values]
+        existing_xp = int(getattr(cfg, "override_max_xp_player", 0) or 0)
+        xp = max(existing_xp, (ramp_values[-1] + 1) if ramp_values else 0)
+        ramp_entries = len(ramp_values)
+    elif level_200 and not preset_error:
         ramp_values = level_200_ramp_values()
         xp = level_200_override_max_xp()
         ramp_entries = len(ramp_values)

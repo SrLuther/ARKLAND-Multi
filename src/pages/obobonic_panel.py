@@ -67,6 +67,8 @@ _FIELD_ROWS = (
     ("quarantine_role_id", "Cargo de quarentena", False, "usado por !limpezageral"),
     ("validation_channel_id", "Canal de validação", False, "aceita somente códigos ARKLAND-*"),
     ("validation_role_id", "Cargo de validação", False, "opcional: aplica ao validar"),
+    ("arkshop_web_url", "URL da Web Store", False, "ex.: http://IP_DO_SERVIDOR:27199"),
+    ("arkshop_api_key", "Chave da API Web Store", True, "mesma ARKSHOP_API_KEY configurada na Web Store"),
 )
 
 
@@ -375,7 +377,7 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     fields_fr.pack(fill="x", padx=10, pady=(0, 8))
     fields_fr.grid_columnconfigure(1, weight=1)
     field_vars: Dict[str, tk.StringVar] = {}
-    token_entry: Dict[str, Any] = {}
+    secret_entries: Dict[str, Any] = {}
 
     for row_i, (key, label, secret, hint) in enumerate(_FIELD_ROWS):
         ctk.CTkLabel(fields_fr, text=label, text_color="gray60",
@@ -385,16 +387,17 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
         ent = ctk.CTkEntry(fields_fr, textvariable=var, height=28, show="•" if secret else "")
         ent.grid(row=row_i, column=1, sticky="ew", pady=3)
         if secret:
-            token_entry["w"] = ent
+            secret_entries[key] = ent
         ctk.CTkLabel(fields_fr, text=hint, text_color="gray45",
                      font=ctk.CTkFont(size=9)).grid(row=row_i, column=2, sticky="w", padx=(8, 0))
 
     show_token_var = tk.BooleanVar(value=False)
 
     def _toggle_token() -> None:
-        token_entry["w"].configure(show="" if show_token_var.get() else "•")
+        for entry in secret_entries.values():
+            entry.configure(show="" if show_token_var.get() else "•")
 
-    ctk.CTkCheckBox(cfg_inner, text="Mostrar token", variable=show_token_var,
+    ctk.CTkCheckBox(cfg_inner, text="Mostrar token e chaves secretas", variable=show_token_var,
                     command=_toggle_token, width=120,
                     fg_color=theme["accent_dark"]).pack(anchor="w", padx=10, pady=(0, 6))
 

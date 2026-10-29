@@ -180,12 +180,13 @@ bool ShopPoints::Open() {
 
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS player_cloud_inventory ("
+        "  cloud_group  VARCHAR(64) NOT NULL DEFAULT 'default',"
         "  steam_id     VARCHAR(20) NOT NULL,"
         "  slot         TINYINT NOT NULL DEFAULT 0,"
         "  item_count   INT NOT NULL DEFAULT 0,"
         "  uploaded_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
         "  source_map   VARCHAR(128) DEFAULT NULL,"
-        "  PRIMARY KEY (steam_id, slot),"
+        "  PRIMARY KEY (cloud_group, steam_id, slot),"
         "  INDEX idx_uploaded (uploaded_at)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
@@ -197,15 +198,20 @@ bool ShopPoints::Open() {
             return false;
         }
     }
+    if (mysql_query(db_, "ALTER TABLE player_cloud_inventory ADD COLUMN IF NOT EXISTS cloud_group VARCHAR(64) NOT NULL DEFAULT 'default'") != 0) {
+        const unsigned err = mysql_errno(db_);
+        if (err != 1060) { Log::GetLog()->error("ShopPoints::cloud inventory group migration failed: {}", mysql_error(db_)); return false; }
+    }
 
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS player_cloud_items ("
         "  id           BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  cloud_group  VARCHAR(64) NOT NULL DEFAULT 'default',"
         "  steam_id     VARCHAR(20) NOT NULL,"
         "  slot         TINYINT NOT NULL DEFAULT 0,"
         "  sort_order   INT NOT NULL,"
         "  item_blob    MEDIUMBLOB NOT NULL,"
-        "  INDEX idx_steam_slot_order (steam_id, slot, sort_order)"
+        "  INDEX idx_cloud_group_steam_slot_order (cloud_group, steam_id, slot, sort_order)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
 
@@ -216,11 +222,13 @@ bool ShopPoints::Open() {
             return false;
         }
     }
+    if (mysql_query(db_, "ALTER TABLE player_cloud_items ADD COLUMN IF NOT EXISTS cloud_group VARCHAR(64) NOT NULL DEFAULT 'default'") != 0) {
+        const unsigned err = mysql_errno(db_);
+        if (err != 1060) { Log::GetLog()->error("ShopPoints::cloud items group migration failed: {}", mysql_error(db_)); return false; }
+    }
 
-    // An old FK from player_cloud_items(steam_id) to the legacy single-column
-    // key blocks replacing that key with (steam_id, slot), yielding MySQL 1025.
-    // Preserve an already-correct composite FK; drop legacy/incompatible FKs
-    // before changing the referenced key, then recreate the composite FK below.
+    // FKs antigas com chave menor impedem a troca da PK e geram MySQL 1025.
+    // Remove FKs incompatíveis antes da alteração e recria a chave particionada.
     const char* cloud_fk_sql =
         "SELECT CONSTRAINT_NAME, "
         "GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION SEPARATOR ','), "
@@ -244,7 +252,7 @@ bool ShopPoints::Open() {
     while ((cloud_fk_row = mysql_fetch_row(cloud_fk_res))) {
         const std::string columns = cloud_fk_row[1] ? cloud_fk_row[1] : "";
         const std::string referenced = cloud_fk_row[2] ? cloud_fk_row[2] : "";
-        if (columns == "steam_id,slot" && referenced == "steam_id,slot") {
+        if (columns == "cloud_group,steam_id,slot" && referenced == "cloud_group,steam_id,slot") {
             cloud_fk_valid = true;
         } else if (cloud_fk_row[0]) {
             legacy_cloud_fks.emplace_back(cloud_fk_row[0]);
@@ -265,16 +273,14 @@ bool ShopPoints::Open() {
         if (!Exec(drop_fk_sql.c_str())) return false;
     }
 
-    // Some older installs have a separate UNIQUE(steam_id) index. Dropping
-    // only the old primary key does not remove that constraint, so additional
-    // slots still fail with duplicate key 'steam_id'. Keep composite unique
-    // indexes intact and remove only single-column unique indexes on steam_id.
+    // Chaves únicas antigas (steam_id ou steam_id+slot) impedem grupos separados.
+    // Mantém apenas o índice único equivalente à nova chave composta.
     const char* cloud_unique_sql =
         "SELECT INDEX_NAME FROM information_schema.statistics "
         "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'player_cloud_inventory' "
         "AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY' "
         "GROUP BY INDEX_NAME "
-        "HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME) = 'steam_id';";
+        "HAVING GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') <> 'cloud_group,steam_id,slot';";
     if (mysql_query(db_, cloud_unique_sql) != 0) {
         Log::GetLog()->error("ShopPoints::cloud inventory unique-index lookup failed: {}", mysql_error(db_));
         return false;
@@ -322,13 +328,13 @@ bool ShopPoints::Open() {
     const std::string cloud_pk_columns =
         cloud_pk_row && cloud_pk_row[0] ? cloud_pk_row[0] : "";
     mysql_free_result(cloud_pk_res);
-    if (cloud_pk_columns != "steam_id,slot") {
+    if (cloud_pk_columns != "cloud_group,steam_id,slot") {
         if (!cloud_pk_columns.empty() &&
             mysql_query(db_, "ALTER TABLE player_cloud_inventory DROP PRIMARY KEY") != 0) {
             Log::GetLog()->error("ShopPoints::cloud inventory PK drop failed: {}", mysql_error(db_));
             return false;
         }
-        if (mysql_query(db_, "ALTER TABLE player_cloud_inventory ADD PRIMARY KEY (steam_id, slot)") != 0) {
+        if (mysql_query(db_, "ALTER TABLE player_cloud_inventory ADD PRIMARY KEY (cloud_group, steam_id, slot)") != 0) {
             Log::GetLog()->error("ShopPoints::cloud inventory PK add failed: {}", mysql_error(db_));
             return false;
         }
@@ -339,17 +345,37 @@ bool ShopPoints::Open() {
             Log::GetLog()->warn("ShopPoints::cloud items index migration warn err={}", err);
         }
     }
-    if (mysql_query(db_, "CREATE INDEX idx_steam_slot_order ON player_cloud_items (steam_id, slot, sort_order)") != 0) {
+    if (mysql_query(db_, "DROP INDEX idx_steam_slot_order ON player_cloud_items") != 0) {
+        const unsigned err = mysql_errno(db_);
+        if (err != 1091) Log::GetLog()->warn("ShopPoints::cloud old index migration warn err={}", err);
+    }
+    if (mysql_query(db_, "CREATE INDEX idx_cloud_group_steam_slot_order ON player_cloud_items (cloud_group, steam_id, slot, sort_order)") != 0) {
         const unsigned err = mysql_errno(db_);
         if (err != 1061) {
             Log::GetLog()->warn("ShopPoints::cloud items index create warn err={}", err);
         }
     }
 
+    // Recupera cabecalhos ausentes sem descartar blobs que ainda podem ser baixados.
+    if (mysql_query(db_,
+        "INSERT IGNORE INTO player_cloud_inventory (cloud_group, steam_id, slot, item_count, source_map) "
+        "SELECT b.cloud_group, b.steam_id, b.slot, COUNT(*), NULL "
+        "FROM player_cloud_items b LEFT JOIN player_cloud_inventory h "
+        "ON h.cloud_group=b.cloud_group AND h.steam_id=b.steam_id AND h.slot=b.slot "
+        "WHERE h.steam_id IS NULL "
+        "GROUP BY b.cloud_group, b.steam_id, b.slot") != 0) {
+        Log::GetLog()->error("ShopPoints::cloud inventory orphan-header recovery failed: {}", mysql_error(db_));
+        return false;
+    }
+    const my_ulonglong recovered_cloud_headers = mysql_affected_rows(db_);
+    if (recovered_cloud_headers > 0) {
+        Log::GetLog()->warn("ShopPoints: recovered {} cloud inventory header(s) for existing blobs", recovered_cloud_headers);
+    }
+
     if (!cloud_fk_valid &&
         mysql_query(db_,
             "ALTER TABLE player_cloud_items ADD CONSTRAINT fk_cloud_steam_slot "
-            "FOREIGN KEY (steam_id, slot) REFERENCES player_cloud_inventory(steam_id, slot) "
+            "FOREIGN KEY (cloud_group, steam_id, slot) REFERENCES player_cloud_inventory(cloud_group, steam_id, slot) "
             "ON DELETE CASCADE") != 0) {
         Log::GetLog()->error("ShopPoints::cloud inventory FK add failed: {}", mysql_error(db_));
         return false;

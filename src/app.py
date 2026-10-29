@@ -130,7 +130,7 @@ def _safe_extract_zip(zf: "zipfile.ZipFile", dest: str) -> None:
     for member in zf.infolist():
         target = os.path.realpath(os.path.join(dest_real, member.filename))
         if not target.startswith(dest_real + os.sep) and target != dest_real:
-            raise ValueError(f"Membro inv�lido no ZIP (path traversal): {member.filename!r}")
+            raise ValueError(f"Membro inválido no ZIP (path traversal): {member.filename!r}")
         zf.extract(member, dest_real)
 
 
@@ -2311,10 +2311,10 @@ class ARKServerManagerApp(ctk.CTk):
         def _extract() -> None:
             try:
                 with zipfile.ZipFile(zip_path, "r") as zf:
-                    # Detectar se o ZIP j� tem uma subpasta raiz
+                    # Detectar se o ZIP já tem uma subpasta raiz
                     names = zf.namelist()
                     top_dirs = {n.split("/")[0] for n in names if "/" in n}
-                    # Se todos os membros est�o dentro de uma �nica pasta, extrai direto
+                    # Se todos os membros estão dentro de uma única pasta, extrai direto
                     if len(top_dirs) == 1:
                         _safe_extract_zip(zf, plugins_path)
                         plugin_name = list(top_dirs)[0]

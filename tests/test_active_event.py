@@ -89,6 +89,16 @@ def test_additional_args_active_event_does_not_override_profile():
     assert "ActiveEvent=Summer" not in joined
 
 
+def test_question_style_additional_arguments_are_attached_to_the_map_url():
+    cfg = AsmServerConfig()
+    cfg.server_map = "TheIsland"
+    cfg.additional_args = "?PreventTribeAlliances=True -crossplay"
+    args = build_launch_args(cfg)
+    assert "?PreventTribeAlliances=True" in args[0]
+    assert "?PreventTribeAlliances=True" not in args[1:]
+    assert "-crossplay" in args[1:]
+
+
 def test_server_config_launch_args_use_dash_easter():
     srv = ServerConfig()
     srv.active_event = "ARKEaster"

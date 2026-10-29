@@ -1,9 +1,22 @@
 # Changelog
 
-<!-- Gerado: 2026-10-28 22:09:17 -->
-<!-- Total de versões: 492 | Primeira: 1.10.137 -->
+<!-- Gerado: 2026-10-29 08:18:12 -->
+<!-- Total de versões: 493 | Primeira: 1.11.0 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.0] - 2026-10-29
+
+### Other
+
+- Gerenciador ASE: reestrutura??o das configura??es com cat?logo de 321 op??es para GameUserSettings.ini/Game.ini e 114 argumentos de inicializa??o.
+- INI: edi??o ordenada e segura, somente com linhas de configura??o; sincroniza??o por se??es com compara??o, backup e rollback.
+- Progress?es: editor de n?veis de jogador e dinossauros com valida??o de XP e persist?ncia das rampas.
+- Saves: backup e restaura??o com valida??o de integridade e recupera??o segura.
+- Discord: v?nculo por c?digo, b?nus inicial de 10.000 ?mbares e auditoria administrativa paginada; bot com instru??es completas e bot?o para o site.
+- Web Store: nuvens separadas por chave de compartilhamento, quatro slots e painel administrativo; controles remotos de servidor para equipe autorizada.
+- CustomShop 1.10.48: migra??o cloud idempotente, recupera??o de cabe?alhos sem apagar blobs e corre??o do relacionamento por grupo/SteamID/slot.
+- Corre??es de textos corrompidos, mensagens e apresenta??o dos pain?is administrativos.
 
 ## [1.10.137] - 2026-10-28
 

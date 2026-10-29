@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 
 
 def _saves_dir(srv: AsmServerConfig) -> Path:
-    return Path(srv.install_dir) / "ShooterGame" / "Saved" / "SavedArks"
+    from ..asm_engine.asm_savegame_manager import savegame_dir
+
+    return savegame_dir(srv)
 
 
 from ..arkland_environment import default_backups_saves_root
@@ -271,16 +273,30 @@ class _SaveRestoreWindow(ctk.CTkToplevel):
     def _backup_worker(self) -> None:
         srv = self._srv
         src = _saves_dir(srv)
-        ts  = time.strftime("%Y-%m-%d_%H-%M-%S")
+        ts  = time.strftime("%Y-%m-%d_%H-%M-%S") + f"_{time.time_ns() % 1_000_000_000:09d}"
         dst = _backups_root(srv) / ts
 
         self.after(0, lambda: self._log_line(f"Iniciando backup → {dst}"))
 
         try:
+            status = self._app.asm_server_manager.get_status(srv.id)
+            if status not in ("stopped", "crashed"):
+                raise RuntimeError("Desligue o servidor antes de criar um backup consistente dos saves.")
             if not src.exists():
                 raise FileNotFoundError(f"Pasta de saves não encontrada: {src}")
-            dst.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(str(src), str(dst / "SavedArks"), dirs_exist_ok=True)
+            if not src.is_dir():
+                raise FileNotFoundError(f"Pasta de saves não encontrada: {src}")
+            dst.mkdir(parents=True, exist_ok=False)
+            try:
+                backup_saves = dst / "SavedArks"
+                shutil.copytree(src, backup_saves)
+                from ..asm_engine.asm_savegame_manager import _tree_digest
+
+                if _tree_digest(src) != _tree_digest(backup_saves):
+                    raise OSError("A validação do backup falhou após a cópia.")
+            except Exception:
+                shutil.rmtree(dst, ignore_errors=True)
+                raise
             size = _backup_size_str(dst)
             self.after(0, lambda s=size, d=dst: self._on_backup_done(d.name, s))
         except Exception as exc:
@@ -340,49 +356,54 @@ class _SaveRestoreWindow(ctk.CTkToplevel):
         srv = self._srv
         src_saves = backup_path / "SavedArks"
         dst_saves = _saves_dir(srv)
+        mgr = self._app.asm_server_manager
+        was_running = False
 
-        self.after(0, lambda: self._log_line(f"Iniciando restauração de {backup_path.name}…"))
+        self.after(0, lambda: self._log_line(f"Iniciando restaura\u00e7\u00e3o de {backup_path.name}\u2026"))
 
         try:
-            # Para o servidor se estiver rodando
-            mgr = self._app.asm_server_manager
             was_running = mgr.get_status(srv.id) not in ("stopped", "crashed")
             if was_running:
-                self.after(0, lambda: self._log_line("Parando servidor…"))
+                self.after(0, lambda: self._log_line("Parando servidor\u2026"))
                 stop_event = threading.Event()
-                mgr.stop(srv.id, on_done=lambda ok, msg: stop_event.set())
-                stop_event.wait(timeout=60)
-                time.sleep(2)
+                stop_result: list[tuple[bool, str]] = []
 
-            if not src_saves.exists():
-                raise FileNotFoundError(f"Pasta de saves no backup não encontrada: {src_saves}")
+                def on_stopped(ok: bool, msg: str) -> None:
+                    stop_result.append((ok, msg))
+                    stop_event.set()
 
-            # Faz backup automático dos saves atuais antes de restaurar
-            if dst_saves.exists():
-                ts = time.strftime("%Y-%m-%d_%H-%M-%S")
-                pre_backup = _backups_root(srv) / f"{ts}_pre_restore"
-                pre_backup.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(str(dst_saves), str(pre_backup / "SavedArks"), dirs_exist_ok=True)
-                self.after(0, lambda: self._log_line(f"Saves atuais preservados em {pre_backup.name}"))
+                mgr.stop(srv.id, on_done=on_stopped)
+                if not stop_event.wait(timeout=60):
+                    raise TimeoutError("O servidor n\u00e3o confirmou o desligamento; o backup n\u00e3o foi restaurado.")
+                if not stop_result or not stop_result[0][0]:
+                    raise RuntimeError(stop_result[0][1] if stop_result else "Falha ao desligar o servidor.")
+                deadline = time.monotonic() + 15
+                while mgr.get_status(srv.id) not in ("stopped", "crashed") and time.monotonic() < deadline:
+                    time.sleep(0.25)
+                if mgr.get_status(srv.id) not in ("stopped", "crashed"):
+                    raise TimeoutError("O processo ainda consta ativo; o backup n\u00e3o foi restaurado.")
 
-            # Copia saves do backup para o destino
-            if dst_saves.exists():
-                shutil.rmtree(str(dst_saves))
-            shutil.copytree(str(src_saves), str(dst_saves))
-            self.after(0, lambda: self._log_line("✔ Saves restaurados.", color="#4ade80"))
+            if not src_saves.is_dir():
+                raise FileNotFoundError(f"Pasta de saves no backup n\u00e3o encontrada: {src_saves}")
 
-            # Reinicia se estava rodando
-            if was_running:
-                self.after(0, lambda: self._log_line("Reiniciando servidor…"))
-                mgr.start(srv, on_done=lambda ok, msg: None)
+            from ..asm_engine.asm_savegame_manager import restore_save_directory
 
-            self.after(0, lambda: self._set_busy(False))
+            pre_backup = restore_save_directory(src_saves, dst_saves, _backups_root(srv))
+            if pre_backup:
+                self.after(0, lambda p=pre_backup: self._log_line(f"Saves anteriores preservados em {p.parent}"))
+            self.after(0, lambda: self._log_line("\u2713 Saves restaurados e verificados.", color="#4ade80"))
             self.after(0, self._reload_list)
-
         except Exception as exc:
             self.after(0, lambda e=exc: self._on_error(str(e)))
-
-    # ── Deletar backup ────────────────────────────────────────────────────────
+        finally:
+            if was_running:
+                try:
+                    if mgr.get_status(srv.id) in ("stopped", "crashed"):
+                        self.after(0, lambda: self._log_line("Reiniciando servidor\u2026"))
+                        mgr.start(srv, on_done=lambda ok, msg: None)
+                except Exception as restart_exc:
+                    self.after(0, lambda e=restart_exc: self._on_error(f"Falha ao reiniciar: {e}"))
+            self.after(0, self._set_busy, False)
 
     def _confirm_delete(self, backup_path: Path) -> None:
         win = ctk.CTkToplevel(self)

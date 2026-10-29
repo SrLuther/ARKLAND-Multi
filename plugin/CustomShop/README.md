@@ -81,9 +81,26 @@ cmake --build build --config Release
 |---|---|
 | `Settings.WebApiUrl` | URL do arkshop_web (ex: `http://127.0.0.1:5177`) |
 | `Settings.WebApiKey` | Chave `X-API-Key` (mesmo valor de `ARKSHOP_API_KEY`) |
+| `Settings.CloudShareKey` | Grupo de compartilhamento dos 4 slots `/nuvem`; mapas com a mesma chave compartilham. Em branco usa `default`. |
 | `Settings.WebsiteUrl` | URL pública exibida ao jogador (`/shop`, licença Nuvem) — sincronizada pelo TEK a partir de **Domínio público da loja** |
 | `Items.<id>` | Itens entregáveis (web + admin) |
 | `Kits.<id>` | Kits com itens, dinos e comandos |
+
+`CloudShareKey` é um identificador, não uma senha. Use exatamente o mesmo valor nos mapas que devem compartilhar as nuvens e valores diferentes para separar grupos. O valor é aparado, convertido para minúsculas e limitado a 64 caracteres; letras, números, ponto, hífen e sublinhado são aceitos. Registros anteriores à partição permanecem no grupo `default`.
+
+Configure em cada `config.json` do CustomShop, dentro de `Settings`:
+
+```json
+{
+  "Settings": {
+    "CloudShareKey": "cluster_ragnarok_fjordur"
+  }
+}
+```
+
+Repita a mesma chave nos mapas que devem compartilhar os slots 0, 1, 2 e 3. Para separar os mapas, escolha outra chave; após a migração, cada partição nova começa vazia e os registros anteriores ficam em `default`.
+
+Na migração, se houver blobs sem cabeçalho correspondente, o plugin cria os cabeçalhos contando os blobs existentes antes de ativar a FK composta. Isso preserva os dados restauráveis e evita que a validação da FK impeça o plugin de iniciar.
 
 ---
 

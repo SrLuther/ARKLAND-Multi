@@ -1,4 +1,4 @@
-"""ArkShop Web Manager â€” backend com auth Steam, autorizaÃ§Ã£o admin e pedidos no DB."""
+"""ArkShop Web Manager — backend com auth Steam, autorização admin e pedidos no DB."""
 # flake8: noqa: E402
 # ruff: noqa
 # pyright: reportUnusedImport=false, reportUnusedVariable=false, reportGeneralTypeIssues=false
@@ -199,7 +199,7 @@ def _audit_event(
     persist: bool = True,
     **payload: Any,
 ) -> None:
-    """Grava evento estruturado no banco (se disponÃ­vel) e no log de arquivo."""
+    """Grava evento estruturado no banco (se disponível) e no log de arquivo."""
     ip, ua = _request_meta()
     payload_clean = {k: v for k, v in payload.items() if v is not None}
     payload_str: str | None = None
@@ -228,9 +228,9 @@ def _audit_event(
 
     if not persist or not _db_ready() or _SessionLocal is None:
         return
-    # SessÃ£o independente do scoped_session do request/job.
-    # Usar _SessionLocal() + remove() no finally matava a sessÃ£o do caller
-    # (recover_stale, payment jobs, admin writes) a meio da transaÃ§Ã£o.
+    # Sessão independente do scoped_session do request/job.
+    # Usar _SessionLocal() + remove() no finally matava a sessão do caller
+    # (recover_stale, payment jobs, admin writes) a meio da transação.
     maker = getattr(_SessionLocal, "session_factory", None)
     db = maker() if callable(maker) else _SessionLocal()
     try:
@@ -340,8 +340,8 @@ _CORS_ORIGINS = [
 app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path="")
 CORS(app, origins=_CORS_ORIGINS, supports_credentials=True)
 
-# Default sÃ³ quando settings.json nÃ£o tem config_path. NÃ£o migra nem copia outro
-# catalog.json por cima â€” isso reabria uma versÃ£o antiga mais Â«ricaÂ».
+# Default só quando settings.json não tem config_path. Não migra nem copia outro
+# catalog.json por cima — isso reabria uma versão antiga mais «rica».
 _env_catalog = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip()
 try:
     if _env_catalog and not is_ephemeral_pyinstaller_path(_env_catalog):
@@ -349,7 +349,7 @@ try:
     else:
         _DEFAULT_CONFIG_PATH = str(canonical_master_catalog_path())
 except Exception as _catalog_boot_exc:
-    log.warning("CatÃ¡logo mestre indisponÃ­vel no boot: %s", _catalog_boot_exc)
+    log.warning("Catálogo mestre indisponível no boot: %s", _catalog_boot_exc)
     _DEFAULT_CONFIG_PATH = _env_catalog
 _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
@@ -370,12 +370,12 @@ _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
 
 _DATABASE_URL = os.environ.get("ARKSHOP_DATABASE_URL", "").strip()
-_STEAM_SESSION_REQUIRED_MESSAGE = "FaÃ§a login com Steam para continuar"
+_STEAM_SESSION_REQUIRED_MESSAGE = "Faça login com Steam para continuar"
 _ACTIVE_DATABASE_URL = ""
 
 _RETRY_INTERVAL_SECONDS = int(os.environ.get("ARKSHOP_RETRY_INTERVAL", "60"))
 _RETRY_BATCH_SIZE = int(os.environ.get("ARKSHOP_RETRY_BATCH", "20"))
-# ManutenÃ§Ã£o do scheduler: batches menores + pausa entre jobs sob carga MySQL.
+# Manutenção do scheduler: batches menores + pausa entre jobs sob carga MySQL.
 _SCHEDULER_MAINT_BATCH = max(1, int(os.environ.get("ARKSHOP_SCHEDULER_MAINT_BATCH", "15") or 15))
 _SCHEDULER_OUTBOX_BATCH = max(1, int(os.environ.get("ARKSHOP_SCHEDULER_OUTBOX_BATCH", "40") or 40))
 _SCHEDULER_JOB_PAUSE_SEC = float(os.environ.get("ARKSHOP_SCHEDULER_JOB_PAUSE", "0.5") or "0.5")
@@ -383,8 +383,8 @@ _SCHEDULER_TICK_LOCK = threading.Lock()
 
 # Ã¢â€â‚¬Ã¢â€â‚¬ Security Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-# Secret: env Ã¢â€ â€™ ficheiro persistente (resolve_web_secret) Ã¢â€ â€™ sÃ³ entÃ£o falha em produÃ§Ã£o.
-# Evita ARKLAND-WebStore.exe a morrer no arranque quando o TEK nÃ£o injectou ARKSHOP_WEB_SECRET.
+# Secret: env → ficheiro persistente (resolve_web_secret) → só então falha em produção.
+# Evita ARKLAND-WebStore.exe a morrer no arranque quando o TEK não injectou ARKSHOP_WEB_SECRET.
 _is_production = os.environ.get("ARKSHOP_ENV", "").strip().lower() == "production"
 _is_frozen = getattr(sys, "frozen", False)
 _secret_from_env = os.environ.get("ARKSHOP_WEB_SECRET", "").strip()
@@ -394,18 +394,18 @@ if _secret_from_env:
 elif _is_production or _is_frozen:
     try:
         app.secret_key = resolve_web_secret()
-        log.info("ARKSHOP_WEB_SECRET resolvida via web_secret.txt / geraÃ§Ã£o automÃ¡tica")
+        log.info("ARKSHOP_WEB_SECRET resolvida via web_secret.txt / geração automática")
     except Exception as _sec_exc:
         log.error(
-            "ARKSHOP_WEB_SECRET indisponÃ­vel em produÃ§Ã£o/frozen â€” Web Store nÃ£o inicia: %s",
+            "ARKSHOP_WEB_SECRET indisponível em produção/frozen — Web Store não inicia: %s",
             _sec_exc,
         )
         sys.exit(1)
 else:
     app.secret_key = "arkshop-web-dev-secret-change-me-in-prod"
     log.warning(
-        "ARKSHOP_WEB_SECRET nÃ£o definida! Usando secret de desenvolvimento. "
-        "Defina a variÃ¡vel de ambiente ARKSHOP_WEB_SECRET em produÃ§Ã£o."
+        "ARKSHOP_WEB_SECRET não definida! Usando secret de desenvolvimento. "
+        "Defina a variável de ambiente ARKSHOP_WEB_SECRET em produção."
     )
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -415,7 +415,7 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=_session_days)
 
 
 def _ensure_admin_steamids_file() -> None:
-    """Garante admin_steamids.json no diretÃ³rio de dados (nÃ£o no repositÃ³rio)."""
+    """Garante admin_steamids.json no diretório de dados (não no repositório)."""
     if _ADMIN_FILE.exists():
         return
     _ADMIN_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -431,14 +431,14 @@ def _ensure_admin_steamids_file() -> None:
         _ADMIN_FILE.write_text(_ADMIN_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
     else:
         _ADMIN_FILE.write_text("[]\n", encoding="utf-8")
-    log.info("admin_steamids criado em %s â€” adicione seu SteamID64", _ADMIN_FILE)
+    log.info("admin_steamids criado em %s — adicione seu SteamID64", _ADMIN_FILE)
 
 
 _ensure_admin_steamids_file()
 
 
 def _ensure_support_steamids_file() -> None:
-    """Garante support_steamids.json no diretÃ³rio de dados (nÃ£o no repositÃ³rio)."""
+    """Garante support_steamids.json no diretório de dados (não no repositório)."""
     if _SUPPORT_FILE.exists():
         return
     _SUPPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -454,7 +454,7 @@ def _ensure_support_steamids_file() -> None:
         _SUPPORT_FILE.write_text(_SUPPORT_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
     else:
         _SUPPORT_FILE.write_text("[]\n", encoding="utf-8")
-    log.info("support_steamids criado em %s â€” cadastre SteamIDs da equipe de suporte", _SUPPORT_FILE)
+    log.info("support_steamids criado em %s — cadastre SteamIDs da equipe de suporte", _SUPPORT_FILE)
 
 
 _ensure_support_steamids_file()
@@ -470,8 +470,8 @@ _AMBER_PLURAL = "Ambares"
 _AMBER_ICON_URL = "/ambar.png"
 _DEFAULT_PUBLIC_BRAND = "ARKLAND DONATIONS"
 
-# Rate limiter â€” defaults generosos p/ SPA (vÃ¡rias APIs por navegaÃ§Ã£o).
-# Rotas sensÃ­veis usam @limiter.limit(..., override_defaults=True).
+# Rate limiter — defaults generosos p/ SPA (várias APIs por navegação).
+# Rotas sensíveis usam @limiter.limit(..., override_defaults=True).
 limiter = Limiter(
     get_remote_address,
     app=app,
@@ -486,7 +486,7 @@ def _is_api_request() -> bool:
 
 @app.errorhandler(HTTPException)
 def _api_http_exception_handler(exc: HTTPException):
-    """Rotas /api/* sempre respondem JSON â€” evita HTML do Werkzeug/limiter no fetch()."""
+    """Rotas /api/* sempre respondem JSON — evita HTML do Werkzeug/limiter no fetch()."""
     if not _is_api_request():
         if (
             exc.code == 404
@@ -499,13 +499,13 @@ def _api_http_exception_handler(exc: HTTPException):
     if exc.code == 429:
         msg = "Muitas tentativas. Aguarde um momento e tente novamente."
     elif exc.code == 404:
-        msg = "Endpoint nÃ£o encontrado. Atualize a loja web se o erro persistir."
+        msg = "Endpoint não encontrado. Atualize a loja web se o erro persistir."
     return jsonify({"ok": False, "error": str(msg)}), exc.code
 
 
 @app.errorhandler(Exception)
 def _api_unhandled_exception_handler(exc: Exception):
-    """500 em /api/* como JSON â€” sob saturaÃ§Ã£o o browser recebia HTML e o catÃ¡logo quebrava."""
+    """500 em /api/* como JSON — sob saturação o browser recebia HTML e o catálogo quebrava."""
     if isinstance(exc, HTTPException):
         return _api_http_exception_handler(exc)
     if not _is_api_request():
@@ -513,13 +513,13 @@ def _api_unhandled_exception_handler(exc: Exception):
     log.exception("api_unhandled path=%s", getattr(request, "path", "?"))
     return jsonify({
         "ok": False,
-        "error": "Erro interno temporÃ¡rio. Tente novamente em instantes.",
+        "error": "Erro interno temporário. Tente novamente em instantes.",
         "degraded": True,
     }), 500
 
 
 # Encryption key for sensitive settings (RCON passwords etc.)
-# Derived from app.secret_key â€” same key = same encryption
+# Derived from app.secret_key — same key = same encryption
 def _get_fernet() -> Optional[Fernet]:
     """Create a Fernet instance from app.secret_key.
     Returns None if secret_key is too short or unset."""
@@ -575,7 +575,7 @@ try:
     _IDEMPOTENCY_PERSIST = True
 except Exception as _idem_cfg_exc:
     _IDEMPOTENCY_PERSIST = False
-    log.warning("idempotency_store indisponÃ­vel â€” memÃ³ria only: %s", _idem_cfg_exc)
+    log.warning("idempotency_store indisponível — memória only: %s", _idem_cfg_exc)
 
 
 def _check_idempotency(key: str) -> bool:
@@ -614,12 +614,7 @@ def _release_idempotency_key(key: str) -> None:
 # Ã¢â€â‚¬Ã¢â€â‚¬ API Key auth Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
-    """Validates X-API-Key header for CustomShop Ã¢â€ â€ arkshop_web communication.
-
-    Args:
-        allow_admin_session: If True, also allow admin steam_id in session (for browser tests).
-        If False, ONLY API key auth is accepted (production).
-    """
+    """Validate the X-API-Key header for internal arkshop_web communication."""
 
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(f)
@@ -643,7 +638,7 @@ def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
 
 
 def _warn_missing_arkshop_api_key_on_boot() -> None:
-    """ProduÃ§Ã£o exige ARKSHOP_API_KEY â€” CustomShop nÃ£o autentica sem ela."""
+    """Production requires ARKSHOP_API_KEY; CustomShop must authenticate."""
     if os.environ.get("ARKSHOP_SKIP_DB_BOOT") == "1":
         return
     if _ARKSHOP_API_KEY:
@@ -658,7 +653,7 @@ def _warn_missing_arkshop_api_key_on_boot() -> None:
         "1", "true", "yes",
     )
     msg = (
-        "ARKSHOP_API_KEY nÃ£o definida â€” rotas internas /api/pending/* "
+        "ARKSHOP_API_KEY não definida — rotas internas /api/pending/* "
         "rejeitam o CustomShop (401)."
     )
     if require:
@@ -669,7 +664,7 @@ def _warn_missing_arkshop_api_key_on_boot() -> None:
         log.warning(msg)
 
 
-# Pool dedicado a operaÃ§Ãµes admin pesadas (sync-all, catalog-feed async).
+# Pool dedicado a operações admin pesadas (sync-all, catalog-feed async).
 _ADMIN_HEAVY_EXECUTOR = ThreadPoolExecutor(
     max_workers=max(1, min(4, int(os.environ.get("ARKSHOP_ADMIN_WORKERS", "2") or 2))),
     thread_name_prefix="arkshop-admin-heavy",
@@ -694,8 +689,8 @@ class Order(Base):
     amount: Mapped[int] = mapped_column(Integer, default=1)
     points_spent: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
-    # SeasonLand kits: `__admin_skip_kit_limit__|sp:{season}:{track}:{level}:â€¦`
-    # (prod IDs ~67â€“84 chars; 64 estourou â€” DataError 1406).
+    # SeasonLand kits: `__admin_skip_kit_limit__|sp:{season}:{track}:{level}:…`
+    # (prod IDs ~67–84 chars; 64 estourou — DataError 1406).
     original_order_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -747,7 +742,7 @@ class ShopAdmin(Base):
 
 
 class ShopSupport(Base):
-    """Equipe de suporte â€” acesso ÃƒÂ  fila de tickets sem permissÃµes de admin."""
+    """Equipe de suporte — acesso ? fila de tickets sem permissões de admin."""
 
     __tablename__ = "shop_support"
 
@@ -755,7 +750,7 @@ class ShopSupport(Base):
 
 
 class StoreUser(Base):
-    """Conta web â€” criada no primeiro login Steam; base do painel admin de jogadores."""
+    """Conta web — criada no primeiro login Steam; base do painel admin de jogadores."""
 
     __tablename__ = "store_users"
 
@@ -879,7 +874,7 @@ class MarketSpeciesStatMultiplier(Base):
 
 
 class MarketSpeciesAlias(Base):
-    """Variantes de loja/blueprint que compartilham a mesma economia (ex.: Rex Tek Ã¢â€ â€™ rex)."""
+    """Variantes de loja/blueprint que compartilham a mesma economia (ex.: Rex Tek → rex)."""
     __tablename__ = "market_species_aliases"
     __table_args__ = (
         UniqueConstraint("catalog_item_id", name="uq_market_species_alias_catalog"),
@@ -975,7 +970,7 @@ class MarketListing(Base):
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tribe_split_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     split_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Casal M+F (Â§8.7.3): vÃ­nculo bidirecional; primÃ¡rio = menor listing_id
+    # Casal M+F (§8.7.3): vínculo bidirecional; primário = menor listing_id
     pair_mate_listing_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     pair_group_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
@@ -1026,7 +1021,7 @@ class MarketClaim(Base):
 
 
 class SupportTicket(Base):
-    """Ticket de suporte â€” jogador Ã¢â€ â€ admin (MVP 1.9.149)."""
+    """Ticket de suporte: jogador para administrador (MVP 1.9.149)."""
 
     __tablename__ = "support_tickets"
 
@@ -1087,7 +1082,7 @@ class SupportTicketAttachment(Base):
 
 
 class SupportTicketHistory(Base):
-    """HistÃ³rico / trilha de auditoria de um ticket."""
+    """Histórico / trilha de auditoria de um ticket."""
 
     __tablename__ = "support_ticket_history"
 
@@ -1138,7 +1133,7 @@ class SupportTicketDiscordLinkCode(Base):
 
 
 class UserNotification(Base):
-    """NotificaÃ§Ã£o in-app para jogadores."""
+    """Notificação in-app para jogadores."""
 
     __tablename__ = "user_notifications"
 
@@ -1186,8 +1181,8 @@ class MarketAuditEvent(Base):
 
 # Ã¢â€â‚¬Ã¢â€â‚¬ DB setup Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 # Fase 1: defaults em db_pool.py (pool_size=20, overflow=10, recycle=1800).
-# Waitress threads devem ficar Ã¢â€°Â¤ pool_size (ideal 4â€“8 â€” outro agente).
-# PROIBIDO segurar sessÃ£o durante RCON/Steam/MP Ã¢â€ â€™ _release_db_session(..., force=True)
+# Waitress threads devem ficar ≤ pool_size (ideal 4–8 — outro agente).
+# PROIBIDO segurar sessão durante RCON/Steam/MP → _release_db_session(..., force=True)
 # ou helpers _db_session_cm / _release_before_external_io.
 _DEFAULT_DB_POOL_SIZE = DEFAULT_DB_POOL_SIZE
 _DEFAULT_DB_MAX_OVERFLOW = DEFAULT_DB_MAX_OVERFLOW
@@ -1226,7 +1221,7 @@ def _reset_schema_runtime_flags() -> None:
 
 
 def _db_table_exists(engine: Any, table_name: str) -> bool:
-    """Cacheia positivo e negativo â€” miss negativo sem cache re-inspeta o schema a cada request."""
+    """Cacheia positivo e negativo — miss negativo sem cache re-inspeta o schema a cada request."""
     if table_name in _TABLE_EXISTS_CACHE:
         return bool(_TABLE_EXISTS_CACHE[table_name])
     try:
@@ -1236,7 +1231,7 @@ def _db_table_exists(engine: Any, table_name: str) -> bool:
         _TABLE_EXISTS_CACHE[table_name] = bool(exists)
         return bool(exists)
     except Exception:
-        # NÃ£o cacheia falha transitÃ³ria â€” prÃ³ximo request pode retentar.
+        # Não cacheia falha transitória — próximo request pode retentar.
         return False
 
 
@@ -1301,15 +1296,15 @@ def _load_state_settings_snapshot() -> dict[str, Any]:
 
 def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
     # Se settings foram explicitamente fornecidas, tenta construir a URL a partir delas primeiro.
-    # Isso garante que 'save_settings' use as novas credenciais salvas, nÃ£o a env var antiga.
+    # Isso garante que 'save_settings' use as novas credenciais salvas, não a env var antiga.
     if settings is not None:
         url_from_settings = _build_database_url_from_settings(settings)
         if url_from_settings:
             return url_from_settings
-    # Fallback: env var de ambiente (definida no inÃ­cio do processo)
+    # Fallback: env var de ambiente (definida no início do processo)
     if _DATABASE_URL:
         return _DATABASE_URL
-    # Ãšltimo fallback: lÃª settings do disco
+    # Último fallback: lê settings do disco
     if settings is None:
         settings = _load_state_settings_snapshot()
     return _build_database_url_from_settings(settings)
@@ -1317,7 +1312,7 @@ def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
 
 _STEAM_ID_COLLATION = "utf8mb4_unicode_ci"
 
-# Colunas steam_id usadas em JOINs/comparaÃ§Ãµes entre tabelas (legado vs SQLAlchemy).
+# Colunas steam_id usadas em JOINs/comparações entre tabelas (legado vs SQLAlchemy).
 _STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
     ("store_users", "steam_id"),
     ("players", "steam_id"),
@@ -1346,10 +1341,10 @@ _STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
 
 
 def _steam_id_on_sql(left: str, right: str, *, mysql: bool = True) -> str:
-    """ComparaÃ§Ã£o steam_id segura quando collations divergem (general_ci vs unicode_ci).
+    """Comparação steam_id segura quando collations divergem (general_ci vs unicode_ci).
 
-    ApÃ³s `_ensure_steam_id_collation`, usa igualdade simples para o optimizer
-    conseguir usar Ã­ndices em JOINs (COLLATE nas duas pontas impede index lookup).
+    Após `_ensure_steam_id_collation`, usa igualdade simples para o optimizer
+    conseguir usar índices em JOINs (COLLATE nas duas pontas impede index lookup).
     """
     if not mysql or _STEAM_ID_COLLATION_NORMALIZED:
         return f"{left} = {right}"
@@ -1388,7 +1383,7 @@ def _build_steam_id_collation_modify_sql(
     key_flag: str,
     is_pk_column: bool,
 ) -> str:
-    """ALTER MODIFY sÃ³ para collation â€” nÃ£o redeclara PK existente (MariaDB erro 1068)."""
+    """ALTER MODIFY só para collation — não redeclara PK existente (MariaDB erro 1068)."""
     key_sql = ""
     if key_flag == "PRI" and not is_pk_column:
         key_sql = " PRIMARY KEY"
@@ -1435,7 +1430,7 @@ def _ensure_steam_id_collation(engine: Any) -> None:
             except Exception as exc:
                 if _is_multiple_primary_key_error(exc):
                     log.warning(
-                        "steam_id: %s.%s â€” retry MODIFY sem PRIMARY KEY (1068)",
+                        "steam_id: %s.%s — retry MODIFY sem PRIMARY KEY (1068)",
                         table,
                         column,
                     )
@@ -1487,7 +1482,7 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
     ("orders", "ix_orders_steam_type_status", "(steam_id, item_type, status)"),
     ("orders", "ix_orders_status_created", "(status, created_at)"),
     ("orders", "ix_orders_steam_status", "(steam_id, status)"),
-    # Pagamentos / DpaÃ§Ãµes
+    # Pagamentos / Dpações
     ("point_payments", "ix_point_payments_steam_created", "(steam_id, created_at)"),
     ("point_payments", "ix_point_payments_status_created", "(status, created_at)"),
     # Mercado (listings / claims / txs)
@@ -1499,7 +1494,7 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
     ("market_transactions", "idx_market_tx_seller_created", "(seller_steam_id, created_at)"),
     # Audit admin
     ("audit_events", "idx_audit_events_type_created", "(event_type, created_at)"),
-    # Tribos (tabelas criadas por ensure_tribe_schema â€” skip se ausentes)
+    # Tribos (tabelas criadas por ensure_tribe_schema — skip se ausentes)
     ("tribe_sync_requests", "ix_tribe_sync_req_steam_status", "(steam_id, status)"),
     ("tribe_logs", "ix_tribe_logs_server_captured", "(server_id, captured_at)"),
     ("tribe_join_requests", "ix_tribe_join_req_group_status", "(cluster_group_id, status)"),
@@ -1507,9 +1502,9 @@ _HOT_PATH_INDEX_SPECS: list[tuple[str, str, str]] = [
 
 
 def _ddl_database_url(engine: Any) -> Any:
-    """URL object com password real â€” NUNCA str(engine.url) (mascara como ***).
+    """URL object com password real — NUNCA str(engine.url) (mascara como ***).
 
-    SQLAlchemy 2: str(URL) / repr ocultam a password Ã¢â€ â€™ create_engine autentica
+    SQLAlchemy 2: str(URL) / repr ocultam a password → create_engine autentica
     com '***' e MySQL devolve 1045, enquanto o pool principal (URL original) OK.
     """
     active = (_ACTIVE_DATABASE_URL or "").strip()
@@ -1527,21 +1522,21 @@ def _ddl_database_url(engine: Any) -> Any:
 
 
 def _ddl_engine_for(engine: Any) -> Any:
-    """Engine DDL â€” mesmo host/user/password do pool; sem read_timeout curto HTTP.
+    """Engine DDL — mesmo host/user/password do pool; sem read_timeout curto HTTP.
 
-    PreferÃªncia: reutilizar engine principal quando possÃ­vel (zero reconstruÃ§Ã£o URL).
+    Preferência: reutilizar engine principal quando possível (zero reconstrução URL).
     """
     url_obj = getattr(engine, "url", None)
     if url_obj is None or "mysql" not in str(url_obj).lower():
         return engine
     ddl_url = _ddl_database_url(engine)
     if ddl_url is None:
-        log.warning("hot_path_indexes: sem URL DDL â€” a reutilizar engine principal")
+        log.warning("hot_path_indexes: sem URL DDL — a reutilizar engine principal")
         return engine
     url_s = ddl_url.render_as_string(hide_password=False)
     if "***" in url_s.split("@", 1)[0]:
         log.warning(
-            "hot_path_indexes: URL DDL com password mascarada â€” a reutilizar engine principal"
+            "hot_path_indexes: URL DDL com password mascarada — a reutilizar engine principal"
         )
         return engine
     connect_args: dict[str, Any] = {
@@ -1564,7 +1559,7 @@ def _ddl_engine_for(engine: Any) -> Any:
 
 
 def _hot_path_indexes_all_present(conn: Any, engine: Any, *, is_mysql: bool) -> bool:
-    """True sÃ³ se TODOS os Ã­ndices exigidos existem (tabelas em falta = skip, nÃ£o falha)."""
+    """True só se TODOS os índices exigidos existem (tabelas em falta = skip, não falha)."""
     for table, idx_name, _cols in _HOT_PATH_INDEX_SPECS:
         if not _db_table_exists(engine, table):
             continue
@@ -1585,12 +1580,12 @@ def _hot_path_indexes_all_present(conn: Any, engine: Any, *, is_mysql: bool) -> 
 
 
 def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -> None:
-    """Backoff exponencial apÃ³s falha (auth/permissÃ£o/DDL) â€” evita spam 1Ã—/s."""
+    """Backoff exponencial após falha (auth/permissão/DDL) — evita spam 1×/s."""
     global _HOT_PATH_INDEXES_NEXT_TRY_AT, _HOT_PATH_INDEXES_FAIL_STREAK, _HOT_PATH_INDEXES_LAST_ERROR
     _HOT_PATH_INDEXES_FAIL_STREAK = min(12, int(_HOT_PATH_INDEXES_FAIL_STREAK) + 1)
     err = str(exc or "").strip()
     is_auth = "1045" in err or "access denied for user" in err.lower()
-    # 30s Ã¢â€ â€™ 60s Ã¢â€ â€™ 120s Ã¢â€ â€™ 240s Ã¢â€ â€™ 300s. Auth 1045: cooldown fixo 5min.
+    # 30s → 60s → 120s → 240s → 300s. Auth 1045: cooldown fixo 5min.
     delay = (
         _HOT_PATH_INDEXES_AUTH_COOLDOWN_S
         if is_auth
@@ -1600,7 +1595,7 @@ def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -
     if err and err != _HOT_PATH_INDEXES_LAST_ERROR:
         _HOT_PATH_INDEXES_LAST_ERROR = err
         log.warning(
-            "hot_path_indexes: incompletos â€” READY NÃƒO marcado; prÃ³ximo try em %.0fs (%s)",
+            "hot_path_indexes: incompletos — READY NÃO marcado; próximo try em %.0fs (%s)",
             delay,
             err[:240],
         )
@@ -1613,11 +1608,11 @@ def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -
 
 
 def _ensure_hot_path_indexes(engine: Any) -> None:
-    """ÃƒÂndices compostos para detalhe/lista admin.
+    """?ndices compostos para detalhe/lista admin.
 
-    SÃ³ marca `_HOT_PATH_INDEXES_READY` quando TODOS os Ã­ndices estÃ£o confirmados.
-    Falha parcial (ex.: read_timeout no CREATE) NÃƒO marca READY â€” re-tenta com
-    backoff (self-heal). Auth/permissÃ£o nÃ£o degradam UX da loja.
+    Só marca `_HOT_PATH_INDEXES_READY` quando TODOS os índices estão confirmados.
+    Falha parcial (ex.: read_timeout no CREATE) NÃO marca READY — re-tenta com
+    backoff (self-heal). Auth/permissão não degradam UX da loja.
     """
     global _HOT_PATH_INDEXES_READY, _HOT_PATH_INDEXES_FAIL_STREAK, _HOT_PATH_INDEXES_NEXT_TRY_AT
     global _HOT_PATH_INDEXES_LAST_ERROR
@@ -1669,13 +1664,13 @@ def _ensure_hot_path_indexes(engine: Any) -> None:
                             )
                     if created:
                         conn.commit()
-                        log.info("hot_path_indexes: %s Ã­ndice(s) criados", created)
+                        log.info("hot_path_indexes: %s índice(s) criados", created)
                     all_present = _hot_path_indexes_all_present(
                         conn, engine, is_mysql=is_mysql
                     )
         except Exception as exc:
             last_exc = exc
-            # Log completo sÃ³ na 1Âª falha deste erro; retries vÃ£o para backoff/debug.
+            # Log completo só na 1ª falha deste erro; retries vão para backoff/debug.
             if str(exc) != _HOT_PATH_INDEXES_LAST_ERROR:
                 log.warning("hot_path_indexes: migrate falhou: %s", exc)
             all_present = False
@@ -1695,7 +1690,7 @@ def _ensure_hot_path_indexes(engine: Any) -> None:
 
 
 def _start_hot_path_indexes_self_heal(engine: Any, *, reason: str = "") -> bool:
-    """Agenda CREATE/validaÃ§Ã£o dos Ã­ndices hot-path sem bloquear request HTTP."""
+    """Agenda CREATE/validação dos índices hot-path sem bloquear request HTTP."""
     if _HOT_PATH_INDEXES_READY:
         return True
     if engine is None:
@@ -1748,7 +1743,7 @@ def _start_hot_path_indexes_self_heal(engine: Any, *, reason: str = "") -> bool:
 
 
 def _hot_path_indexes_ready_or_schedule(reason: str) -> bool:
-    """True se pronto; em MySQL agenda self-heal sem bloquear o request crÃ­tico."""
+    """True se pronto; em MySQL agenda self-heal sem bloquear o request crítico."""
     if _HOT_PATH_INDEXES_READY:
         return True
     if _ENGINE is None:
@@ -1767,7 +1762,7 @@ def _hot_path_indexes_ready_or_schedule(reason: str) -> bool:
 
 
 def _ensure_store_users_schema(engine: Any) -> None:
-    """Garante store_users e colunas â€” uma vez por processo (lista admin nÃ£o faz SHOW COLUMNS)."""
+    """Garante store_users e colunas — uma vez por processo (lista admin não faz SHOW COLUMNS)."""
     global _STORE_USERS_SCHEMA_READY
     if _STORE_USERS_SCHEMA_READY:
         return
@@ -1859,8 +1854,8 @@ _ORDERS_ORIGINAL_ORDER_ID_WIDTH = 255
 def _ensure_orders_original_order_id_width(conn: Any) -> None:
     """Alarga orders.original_order_id para IDs SeasonLand + prefixo skip-kit.
 
-    Prod: sp:season-delta-â€¦:dino:â€¦ (~67) e __admin_skip_kit_limit__|sp:â€¦:kit:â€¦ (~84)
-    estouavam VARCHAR(64) Ã¢â€ â€™ DataError 1406 no claim.
+    Prod: sp:season-delta-…:dino:… (~67) e __admin_skip_kit_limit__|sp:…:kit:… (~84)
+    estouavam VARCHAR(64) → DataError 1406 no claim.
     """
     row = conn.execute(
         text("SHOW COLUMNS FROM `orders` LIKE 'original_order_id'")
@@ -1873,7 +1868,7 @@ def _ensure_orders_original_order_id_width(conn: Any) -> None:
         return
     null_sql = "NULL" if str(row[2] or "").upper() == "YES" else "NOT NULL"
     log.warning(
-        "Migrando orders â€” original_order_id %s Ã¢â€ â€™ VARCHAR(%s)",
+        "Migrando orders — original_order_id %s → VARCHAR(%s)",
         col_type or "?",
         _ORDERS_ORIGINAL_ORDER_ID_WIDTH,
     )
@@ -1887,14 +1882,14 @@ def _ensure_orders_original_order_id_width(conn: Any) -> None:
 
 
 def _ensure_blueprint_index(engine: Any) -> None:
-    """Cria blueprint_index e sincroniza as fontes do projeto. NÃ£o altera outras tabelas."""
+    """Cria blueprint_index e sincroniza as fontes do projeto. Não altera outras tabelas."""
     try:
         from blueprint_index_service import ensure_blueprint_index_schema, sync_blueprint_index
 
         ensure_blueprint_index_schema(engine)
         sync_blueprint_index(engine)
     except Exception as exc:
-        log.warning("ÃƒÂndice de blueprints: migrate falhou: %s", exc)
+        log.warning("?ndice de blueprints: migrate falhou: %s", exc)
 
 
 def _migrate_schema(engine: Any) -> None:
@@ -1931,7 +1926,7 @@ def _migrate_schema(engine: Any) -> None:
 
             ensure_amber_schema(engine)
         except Exception as exc:
-            log.warning("AmbarÃ´metro (sqlite dev): migrate falhou: %s", exc)
+            log.warning("Ambarômetro (sqlite dev): migrate falhou: %s", exc)
         try:
             from arkbank_service import ensure_arkbank_schema
 
@@ -1977,7 +1972,7 @@ def _migrate_schema(engine: Any) -> None:
 
             ensure_tribe_schema(engine)
         except Exception as exc:
-            log.warning("ÃƒÂrea de Tribo (sqlite dev): migrate falhou: %s", exc)
+            log.warning("?rea de Tribo (sqlite dev): migrate falhou: %s", exc)
         try:
             from team_service import ensure_team_schema
 
@@ -2014,14 +2009,14 @@ def _migrate_schema(engine: Any) -> None:
             order_id_row = conn.execute(text("SHOW COLUMNS FROM `orders` LIKE 'order_id'")).fetchone()
             id_row = conn.execute(text("SHOW COLUMNS FROM `orders` LIKE 'id'")).fetchone()
             if order_id_row is None:
-                log.warning("Schema antigo detectado (orders sem order_id) â€” recriando tabelas")
+                log.warning("Schema antigo detectado (orders sem order_id) — recriando tabelas")
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
                 for tbl in ("order_attempts", "rebuys", "disputes", "point_payments", "orders"):
                     conn.execute(text(f"DROP TABLE IF EXISTS `{tbl}`"))
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
                 conn.commit()
             elif id_row is None:
-                log.warning("Schema legado (orders.order_id como PK, sem id) â€” migrando")
+                log.warning("Schema legado (orders.order_id como PK, sem id) — migrando")
                 conn.execute(text("ALTER TABLE `orders` DROP PRIMARY KEY"))
                 conn.execute(text(
                     "ALTER TABLE `orders` ADD COLUMN `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST"
@@ -2040,7 +2035,7 @@ def _migrate_schema(engine: Any) -> None:
                 "SHOW COLUMNS FROM `point_payments` LIKE 'payer_email'"
             )).fetchone()
             if payer_col is None:
-                log.warning("Migrando point_payments â€” adicionando payer_email")
+                log.warning("Migrando point_payments — adicionando payer_email")
                 conn.execute(text(
                     "ALTER TABLE `point_payments` ADD COLUMN `payer_email` VARCHAR(255) NULL"
                 ))
@@ -2049,7 +2044,7 @@ def _migrate_schema(engine: Any) -> None:
                 "SHOW COLUMNS FROM `point_payments` LIKE 'payment_method'"
             )).fetchone()
             if pm_col is None:
-                log.warning("Migrando point_payments â€” adicionando payment_method")
+                log.warning("Migrando point_payments — adicionando payment_method")
                 conn.execute(text(
                     "ALTER TABLE `point_payments` ADD COLUMN `payment_method` VARCHAR(16) NOT NULL DEFAULT 'pix'"
                 ))
@@ -2064,7 +2059,7 @@ def _migrate_schema(engine: Any) -> None:
                 "SHOW COLUMNS FROM `orders` LIKE 'points_spent'"
             )).fetchone()
             if pts_col is None:
-                log.warning("Migrando orders â€” adicionando points_spent")
+                log.warning("Migrando orders — adicionando points_spent")
                 conn.execute(text(
                     "ALTER TABLE `orders` ADD COLUMN `points_spent` INT NOT NULL DEFAULT 0"
                 ))
@@ -2073,7 +2068,7 @@ def _migrate_schema(engine: Any) -> None:
                 "SHOW COLUMNS FROM `orders` LIKE 'payload_json'"
             )).fetchone()
             if payload_col is None:
-                log.warning("Migrando orders â€” adicionando payload_json")
+                log.warning("Migrando orders — adicionando payload_json")
                 conn.execute(text(
                     "ALTER TABLE `orders` ADD COLUMN `payload_json` TEXT NULL"
                 ))
@@ -2094,7 +2089,7 @@ def _migrate_schema(engine: Any) -> None:
         _ensure_steam_id_collation(engine)
         _ensure_hot_path_indexes(engine)
     except Exception as exc:
-        log.warning("Mercado: migrate falhou (serÃ¡ retentado pelo watcher): %s", exc)
+        log.warning("Mercado: migrate falhou (será retentado pelo watcher): %s", exc)
     try:
         from ticket_service import ensure_ticket_schema
 
@@ -2106,31 +2101,31 @@ def _migrate_schema(engine: Any) -> None:
 
         ensure_notification_schema(engine)
     except Exception as exc:
-        log.warning("NotificaÃ§Ãµes: migrate falhou: %s", exc)
+        log.warning("Notificações: migrate falhou: %s", exc)
     try:
         from poll_service import ensure_poll_schema
 
         ensure_poll_schema(engine)
     except Exception as exc:
-        log.warning("VotaÃ§Ãµes: migrate falhou: %s", exc)
+        log.warning("Votações: migrate falhou: %s", exc)
     try:
         from suggestion_service import ensure_suggestion_schema
 
         ensure_suggestion_schema(engine)
     except Exception as exc:
-        log.warning("SugestÃµes: migrate falhou: %s", exc)
+        log.warning("Sugestões: migrate falhou: %s", exc)
     try:
         from media_service import ensure_media_schema
 
         ensure_media_schema(engine)
     except Exception as exc:
-        log.warning("MÃ­dias: migrate falhou: %s", exc)
+        log.warning("Mídias: migrate falhou: %s", exc)
     try:
         from amber_ledger import ensure_amber_schema
 
         ensure_amber_schema(engine)
     except Exception as exc:
-        log.warning("AmbarÃ´metro: migrate falhou: %s", exc)
+        log.warning("Ambarômetro: migrate falhou: %s", exc)
     try:
         from arkbank_service import ensure_arkbank_schema
 
@@ -2176,7 +2171,7 @@ def _migrate_schema(engine: Any) -> None:
 
         ensure_tribe_schema(engine)
     except Exception as exc:
-        log.warning("ÃƒÂrea de Tribo: migrate falhou: %s", exc)
+        log.warning("?rea de Tribo: migrate falhou: %s", exc)
     try:
         from team_service import ensure_team_schema
 
@@ -2213,26 +2208,26 @@ _db_reconnect_stop   = threading.Event()
 
 
 def _start_db_reconnect_watcher() -> None:
-    """Inicia um thread que fica tentando migrate_schema a cada 5 s atÃ© ter sucesso."""
+    """Inicia um thread que fica tentando migrate_schema a cada 5 s até ter sucesso."""
     global _db_reconnect_thread
 
     if _db_reconnect_thread is not None and _db_reconnect_thread.is_alive():
-        return  # jÃ¡ existe um watcher ativo
+        return  # já existe um watcher ativo
 
     _db_reconnect_stop.clear()
 
     def _watcher() -> None:
-        log.info("DB reconnect watcher iniciado â€” tentando a cada 5 sâ€¦")
+        log.info("DB reconnect watcher iniciado — tentando a cada 5 s…")
         while not _db_reconnect_stop.wait(5):
             engine = _ENGINE
             if engine is None:
                 continue
             try:
                 _migrate_schema(engine)
-                log.info("DB reconnect watcher: schema OK â€” encerrando")
+                log.info("DB reconnect watcher: schema OK — encerrando")
                 break
             except Exception as exc:
-                log.debug("DB reconnect watcher: ainda sem conexÃ£o (%s)", exc)
+                log.debug("DB reconnect watcher: ainda sem conexão (%s)", exc)
 
     _db_reconnect_thread = threading.Thread(
         target=_watcher, name="arkshop-db-reconnect", daemon=True
@@ -2241,7 +2236,7 @@ def _start_db_reconnect_watcher() -> None:
 
 
 def _configure_database(url: str) -> None:
-    """Configura engine/sessÃ£o. Single-flight por processo â€” evita migrate/reconcile duplicados."""
+    """Configura engine/sessão. Single-flight por processo — evita migrate/reconcile duplicados."""
     normalized = (url or "").strip()
     with _CONFIGURE_DB_LOCK:
         if normalized and normalized == _ACTIVE_DATABASE_URL and _SessionLocal is not None:
@@ -2253,7 +2248,7 @@ def _configure_database_locked(normalized: str) -> None:
     global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _DB_CONNECT_ARGS, _MIGRATE_ASYNC_STARTED
     global _ENTITLEMENTS_RECONCILE_STARTED
 
-    # URL mudou de verdade Ã¢â€ â€™ permite novo migrate; senÃ£o mantÃ©m flags do pid.
+    # URL mudou de verdade → permite novo migrate; senão mantém flags do pid.
     url_changed = normalized != _ACTIVE_DATABASE_URL
     if url_changed:
         # These caches are keyed by Steam ID, not by engine. A new DB may have
@@ -2267,7 +2262,7 @@ def _configure_database_locked(normalized: str) -> None:
         except Exception:
             pass
 
-    # Para o watcher de reconexÃ£o da URL anterior (se houver)
+    # Para o watcher de reconexão da URL anterior (se houver)
     _db_reconnect_stop.set()
 
     old_session = _SessionLocal
@@ -2291,7 +2286,7 @@ def _configure_database_locked(normalized: str) -> None:
         return
 
     # Timeouts: default 5s (antes 3s). MySQL remoto com jitter gerava falsos
-    # positivos no circuit breaker; pool_timeout continua a falhar rÃ¡pido no checkout.
+    # positivos no circuit breaker; pool_timeout continua a falhar rápido no checkout.
     # Override: ARKSHOP_DB_CONNECT_TIMEOUT / ARKSHOP_DB_READ_TIMEOUT / WRITE.
     connect_args: dict[str, Any] = {}
     if "mysql" in normalized.lower():
@@ -2301,7 +2296,7 @@ def _configure_database_locked(normalized: str) -> None:
             "connect_timeout": int(os.environ.get("ARKSHOP_DB_CONNECT_TIMEOUT", "5") or 5),
             "read_timeout": max(2, read_to),
             "write_timeout": max(2, write_to),
-            # Keepalive: evita conexÃµes stale que disparam pre_ping + read_timeout longo.
+            # Keepalive: evita conexões stale que disparam pre_ping + read_timeout longo.
             "init_command": (
                 "SET SESSION wait_timeout=600, interactive_timeout=600, net_read_timeout=30"
             ),
@@ -2326,8 +2321,8 @@ def _configure_database_locked(normalized: str) -> None:
     attach_engine_listeners(engine)
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
 
-    # Swap atÃ³mico: sÃ³ limpa o engine antigo DEPOIS do novo estar pronto
-    # (evita race onde outro thread vÃª _SessionLocal=None e reconfigura).
+    # Swap atómico: só limpa o engine antigo DEPOIS do novo estar pronto
+    # (evita race onde outro thread vê _SessionLocal=None e reconfigura).
     _ENGINE = engine
     _SessionLocal = session_local
     _ACTIVE_DATABASE_URL = normalized
@@ -2361,7 +2356,7 @@ def _configure_database_locked(normalized: str) -> None:
     if os.environ.get("ARKSHOP_SYNC_DB_MIGRATE") == "1":
         try:
             _migrate_schema(engine)
-            log.info("DB schema migrate concluÃ­do (sync)")
+            log.info("DB schema migrate concluído (sync)")
         except Exception as exc:
             log.warning(
                 "DB schema setup falhou (%s): %s",
@@ -2374,20 +2369,20 @@ def _configure_database_locked(normalized: str) -> None:
         global _MIGRATE_ASYNC_STARTED
         done_key = _migrate_done_env_key()
         if os.environ.get(done_key) == "1":
-            log.debug("DB schema migrate jÃ¡ concluÃ­do neste pid=%s â€” skip", os.getpid())
+            log.debug("DB schema migrate já concluído neste pid=%s — skip", os.getpid())
             return
         if _MIGRATE_ASYNC_STARTED:
-            log.debug("DB schema migrate jÃ¡ em curso (pid=%s) â€” skip", os.getpid())
+            log.debug("DB schema migrate já em curso (pid=%s) — skip", os.getpid())
             return
         _MIGRATE_ASYNC_STARTED = True
         try:
             _migrate_schema(engine)
             os.environ[done_key] = "1"
-            log.info("DB schema migrate concluÃ­do (pid=%s)", os.getpid())
+            log.info("DB schema migrate concluído (pid=%s)", os.getpid())
             _schedule_entitlements_reconcile()
         except Exception as exc:
             log.warning(
-                "DB schema setup falhou (%s): %s â€” background thread tentarÃ¡ reconectar",
+                "DB schema setup falhou (%s): %s — background thread tentará reconectar",
                 _safe_db_log_fields(normalized),
                 exc,
             )
@@ -2427,7 +2422,7 @@ def _reconcile_done_env_key() -> str:
 
 
 def _kick_background_db_init() -> None:
-    """Inicia configuraÃ§Ã£o do DB em thread â€” nunca bloqueia respostas HTTP."""
+    """Inicia configuração do DB em thread — nunca bloqueia respostas HTTP."""
     global _DB_BOOT_THREAD, _DB_BOOT_KICKED
     if _DB_INITIALIZED:
         return
@@ -2491,7 +2486,7 @@ def _db_ready() -> bool:
 
 
 def _db_session_factory():
-    """SessÃ£o SQLAlchemy atual â€” usado por market_routes (nÃ£o capturar _SessionLocal na importaÃ§Ã£o)."""
+    """Sessão SQLAlchemy atual — usado por market_routes (não capturar _SessionLocal na importação)."""
     mark_checkout_started()
     try:
         return _SessionLocal()
@@ -2515,11 +2510,11 @@ def _get_db_session():
 
 
 def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
-    """Devolve conexÃ£o ao pool.
+    """Devolve conexão ao pool.
 
-    Por omissÃ£o sÃ³ remove fora de request Flask (teardown cuida do fim do request).
-    `force=True` libera MESMO durante request â€” obrigatÃ³rio antes de I/O externo
-    (Steam/RCON/HTTP) para nÃ£o segurar conexÃ£o do pool 4â€“18s e provocar starvation.
+    Por omissão só remove fora de request Flask (teardown cuida do fim do request).
+    `force=True` libera MESMO durante request — obrigatório antes de I/O externo
+    (Steam/RCON/HTTP) para não segurar conexão do pool 4–18s e provocar starvation.
     Preferir `_release_before_external_io(_release_db_session, db)` ou
     `with _db_session_cm(_SessionLocal, release=_release_db_session): ...`.
     """
@@ -2544,7 +2539,7 @@ def _release_db_session(db: Any | None = None, *, force: bool = False) -> None:
 
 
 def _short_db_session(*, commit: bool = False):
-    """Context manager: abrir Ã¢â€ â€™ query Ã¢â€ â€™ devolver ao pool (force release).
+    """Context manager: abrir → query → devolver ao pool (force release).
 
     Usar em blocos curtos antes de RCON/Steam/MP. Ver db_pool.db_session.
     """
@@ -2560,7 +2555,7 @@ def _require_db():
     if not _db_ready():
         return jsonify({
             "ok": False,
-            "error": "Banco nÃ£o configurado. Configure as credenciais em ConfiguraÃ§Ãµes â†’ DB.",
+            "error": "Banco não configurado. Configure as credenciais em Configurações → DB.",
             "db_offline": True,
         }), 503
     if not circuit_allow_request():
@@ -2573,7 +2568,7 @@ def _require_db():
             if rem_i > 0
             else (
                 "Base de dados temporariamente indisponível (proteção automática). "
-                "A recuperar â€” tente novamente em alguns segundos."
+                "A recuperar — tente novamente em alguns segundos."
             )
         )
         return jsonify({
@@ -2600,10 +2595,10 @@ _PENDING_STALE_SCHEDULER_OK = False
 
 
 def _ensure_pending_stale_scheduler() -> None:
-    """DeliverPending stale ~10s â€” idempotente; retenta falha de boot e thread morta.
+    """DeliverPending stale ~10s — idempotente; retenta falha de boot e thread morta.
 
-    Sempre chama ``start_pending_stale_scheduler`` (lock + is_alive lÃ¡ dentro):
-    early-return sÃ³ com flag OK deixava thread morta sem restart.
+    Sempre chama ``start_pending_stale_scheduler`` (lock + is_alive lá dentro):
+    early-return só com flag OK deixava thread morta sem restart.
     """
     global _PENDING_STALE_SCHEDULER_OK
     try:
@@ -2613,7 +2608,7 @@ def _ensure_pending_stale_scheduler() -> None:
         )
 
         start_pending_stale_scheduler(interval_sec=10.0)
-        # Flag sÃ³ True se a thread estÃ¡ viva â€” INLINE em prod era "OK" mentiroso.
+        # Flag só True se a thread está viva — INLINE em prod era "OK" mentiroso.
         _PENDING_STALE_SCHEDULER_OK = bool(is_pending_stale_scheduler_alive())
     except Exception as exc:
         _PENDING_STALE_SCHEDULER_OK = False
@@ -2621,7 +2616,7 @@ def _ensure_pending_stale_scheduler() -> None:
 
 
 def _ensure_catalog_feed_scheduler() -> None:
-    """Catalog feed â€” retenta se o 1.Âº boot falhou (start_* jÃ¡ Ã© idempotente)."""
+    """Catalog feed — retenta se o 1.º boot falhou (start_* já é idempotente)."""
     try:
         from catalog_feed_service import start_catalog_feed_scheduler_if_needed
 
@@ -2631,7 +2626,7 @@ def _ensure_catalog_feed_scheduler() -> None:
 
 
 def _ensure_tribe_log_poller() -> None:
-    """Tribe log poller â€” retenta se o 1.Âº boot falhou."""
+    """Tribe log poller — retenta se o 1.º boot falhou."""
     try:
         from tribe_log_poller import start_tribe_log_poller_if_needed
 
@@ -2641,7 +2636,7 @@ def _ensure_tribe_log_poller() -> None:
 
 
 def _ensure_secondary_runtime_workers() -> None:
-    """Workers que podem falhar no 1.Âº request â€” re-tentar em requests seguintes."""
+    """Workers que podem falhar no 1.º request — re-tentar em requests seguintes."""
     _ensure_pending_stale_scheduler()
     _ensure_catalog_feed_scheduler()
     _ensure_tribe_log_poller()
@@ -2649,7 +2644,7 @@ def _ensure_secondary_runtime_workers() -> None:
 
 
 def _start_runtime_workers_once() -> None:
-    """Schedulers/pollers â€” idempotente (evita trabalho repetido em todo request)."""
+    """Schedulers/pollers — idempotente (evita trabalho repetido em todo request)."""
     global _RUNTIME_WORKERS_STARTED
     if _RUNTIME_WORKERS_STARTED:
         # Retenta retry-scheduler se a thread morreu + secondary workers.
@@ -2668,7 +2663,7 @@ def _start_runtime_workers_once() -> None:
 
 
 def _ensure_runtime_initialized_before_request() -> None:
-    """Nunca bloqueia em migrate/conexÃ£o MySQL â€” DB sobe em background."""
+    """Nunca bloqueia em migrate/conexão MySQL — DB sobe em background."""
     path = request.path or ""
     rid = set_request_context(endpoint=path or request.endpoint)
     steam_id = _steam_id_from_session()
@@ -2689,7 +2684,7 @@ app.before_request(_ensure_runtime_initialized_before_request)
 
 @app.after_request
 def _log_request_diagnostics(response: Any) -> Any:
-    """Log estruturado por request + detecÃ§Ã£o de falhas JSON em /api/*."""
+    """Log estruturado por request + detecção de falhas JSON em /api/*."""
     path = request.path or ""
     try:
         if steam_id := _steam_id_from_session():
@@ -2727,7 +2722,7 @@ def _log_request_diagnostics(response: Any) -> Any:
 
 @app.teardown_appcontext
 def _teardown_db_session(_exc: BaseException | None = None) -> None:
-    """Libera scoped_session por request â€” evita vazamento de conexÃµes entre threads Flask."""
+    """Libera scoped_session por request — evita vazamento de conexões entre threads Flask."""
     try:
         if _SessionLocal is not None:
             if _exc is not None:
@@ -2746,11 +2741,11 @@ def _teardown_db_session(_exc: BaseException | None = None) -> None:
 
 
 def _resolve_settings_catalog_path(configured: str = "") -> str:
-    """Path que a Web Store lÃª e grava: o ``config_path`` configurado.
+    """Path que a Web Store lê e grava: o ``config_path`` configurado.
 
-    NÃ£o chama ``resolve_persistent_catalog_path``. Essa funÃ§Ã£o (migraÃ§Ã£o do app
-    desktop) devolve o mestre canÃ´nico e, se o arquivo configurado parecer
-    Â«truncadoÂ» frente a outra cÃ³pia, copia a mais rica por cima do disco.
+    Não chama ``resolve_persistent_catalog_path``. Essa função (migração do app
+    desktop) devolve o mestre canônico e, se o arquivo configurado parecer
+    «truncado» frente a outra cópia, copia a mais rica por cima do disco.
     """
     raw = (configured or "").strip()
     if not raw:
@@ -2775,7 +2770,7 @@ def _load_settings() -> dict[str, Any]:
         "retry_max_attempts": 10,
         # Shop/kit (plugin): minutos para reabrir ENTREGANDO preso (0 = off).
         "shop_stale_entregando_minutes": 5,
-        # ApÃ³s N releases com o mesmo fail_reason Ã¢â€ â€™ ERRO (nÃ£o reabrir forever).
+        # Após N releases com o mesmo fail_reason → ERRO (não reabrir forever).
         "shop_identical_fail_max": 5,
         "database_url": "",
         "db_host": "",
@@ -2809,8 +2804,8 @@ def _load_settings() -> dict[str, Any]:
             for key in _SENSITIVE_SETTINGS_KEYS:
                 if key in data and isinstance(data[key], str):
                     data[key] = _decrypt_value(data[key])
-            # Stub sÃ³ com config_path: preenche defaults em memÃ³ria; no disco sÃ³
-            # atualiza o path (nÃ£o expandir stub e apagar credenciais do TEK sync).
+            # Stub só com config_path: preenche defaults em memória; no disco só
+            # atualiza o path (não expandir stub e apagar credenciais do TEK sync).
             merged = {**defaults, **data}
             cp = str(
                 data.get("catalog_path")
@@ -2855,13 +2850,13 @@ def _save_settings(data: dict[str, Any]) -> None:
         if key in safe_data:
             safe_data[key] = _encrypt_value(str(safe_data[key]))
     _STATE_FILE.write_text(json.dumps(safe_data, indent=2, ensure_ascii=False), encoding="utf-8")
-    # Fase 4 â€” configs sistema / status servidores (join_host, public_ip, â€¦)
+    # Fase 4 — configs sistema / status servidores (join_host, public_ip, …)
     _ttl_cache.system_config.invalidate()
     _ttl_cache.servers_status.invalidate()
 
 
 def _normalize_steam_id64(value: Any) -> str | None:
-    """SteamID64 canÃ´nico (strip + rejeita invÃ¡lidos)."""
+    """SteamID64 canônico (strip + rejeita inválidos)."""
     sid = str(value or "").strip()
     if sid.endswith(".0") and sid[:-2].isdigit():
         sid = sid[:-2]
@@ -2934,7 +2929,7 @@ def _resolve_player_display_name(
 
 
 def _touch_store_user_login(steam_id: str) -> None:
-    """Registra ou atualiza conta web no login Steam â€” sempre sobrescreve steam_persona."""
+    """Registra ou atualiza conta web no login Steam — sempre sobrescreve steam_persona."""
     if not _db_ready() or not _is_valid_steamid64(steam_id):
         return
     norm_sid = _normalize_steam_id64(steam_id) or steam_id
@@ -3064,13 +3059,13 @@ def _list_admin_players(
     offset: int = 0,
     limit: int = 50,
 ) -> dict[str, Any]:
-    """Lista admin completa (nome, Ã¢mbar, status, licenÃ§as, cargos, login).
+    """Lista admin completa (nome, âmbar, status, licenças, cargos, login).
 
-    Path HTTP: sÃ³ SQL (store_users + LEFT JOIN players + entitlements batch).
-    Fora do path: Steam API, DDL/self-heal, RCON â€” backfill de nick em background.
+    Path HTTP: só SQL (store_users + LEFT JOIN players + entitlements batch).
+    Fora do path: Steam API, DDL/self-heal, RCON — backfill de nick em background.
     """
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     limit = max(1, min(200, int(limit)))
     offset = max(0, int(offset))
     q = (q or "").strip()
@@ -3081,7 +3076,7 @@ def _list_admin_players(
     db = _SessionLocal()
     try:
         bind = db.get_bind()
-        # Sem DDL/self-heal aqui. Cache de existÃªncia (sem re-inspect a cada request).
+        # Sem DDL/self-heal aqui. Cache de existência (sem re-inspect a cada request).
         is_mysql = _is_mysql_engine(bind)
         has_market_profile = _db_table_exists(bind, "market_player_profile")
         params: dict[str, Any] = {"lim": limit, "off": offset}
@@ -3160,7 +3155,7 @@ def _list_admin_players(
             persona = cached_persona
             if not persona:
                 missing_persona.append(sid)
-            # Cache miss de nick Ã¢â€ â€™ SteamID placeholder; linha do jogador SEMPRE presente.
+            # Cache miss de nick → SteamID placeholder; linha do jogador SEMPRE presente.
             label = persona or store_name or sid
             ents = ents_by_sid.get(sid) or []
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
@@ -3218,10 +3213,10 @@ def _get_admin_player_detail(
     cancel: threading.Event | None = None,
 ) -> dict[str, Any]:
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if cancel is not None and cancel.is_set():
         return {"ok": False, "error": "cancelled", "cancelled": True}
     t0 = time.perf_counter()
@@ -3231,8 +3226,8 @@ def _get_admin_player_detail(
         if cancel is not None and cancel.is_set():
             return {"ok": False, "error": "cancelled", "cancelled": True}
         prof = _safe_market_profile(db, steam_id)
-        # Reutilizar a mesma sessÃ£o â€” evita 2â€“3 connects extra sob pressÃ£o do Werkzeug.
-        # points + kits vÃªm da MESMA row de `players` numa Ãºnica query (menos 1 round-trip).
+        # Reutilizar a mesma sessão — evita 2–3 connects extra sob pressão do Werkzeug.
+        # points + kits vêm da MESMA row de `players` numa única query (menos 1 round-trip).
         points = 0
         kit_stash: dict[str, Any] = {}
         try:
@@ -3251,13 +3246,13 @@ def _get_admin_player_detail(
         entitlements = _get_player_entitlements(steam_id, db=db)
         if cancel is not None and cancel.is_set():
             return {"ok": False, "error": "cancelled", "cancelled": True}
-        # ESSENCIAL = sÃ³ leituras baratas por PK/Ã­ndice (StoreUser PK, players PK,
+        # ESSENCIAL = só leituras baratas por PK/índice (StoreUser PK, players PK,
         # player_entitlements por unique key, market_profile PK). NUNCA varre as
         # tabelas grandes orders/point_payments/market_listings nem o pending de
-        # kits â€” isso escala com o VOLUME do jogador (griao com 10k pedidos) e
-        # estourava o budget Ã¢â€ â€™ parcial eterno. Pedidos, DpaÃ§Ãµes, listings e limites
+        # kits — isso escala com o VOLUME do jogador (griao com 10k pedidos) e
+        # estourava o budget → parcial eterno. Pedidos, Dpações, listings e limites
         # de kits ficam no endpoint /heavy (lazy). Assim o essencial responde <8s
-        # SEMPRE, mesmo para jogadores pesados, independente dos Ã­ndices hot-path.
+        # SEMPRE, mesmo para jogadores pesados, independente dos índices hot-path.
         cached_persona = None
         if su and su.steam_persona:
             cached_persona = str(su.steam_persona).strip() or None
@@ -3266,7 +3261,7 @@ def _get_admin_player_detail(
         persona = cached_persona
         display_name = _admin_player_persona_label(steam_id, steam_persona=persona)
         reg_fields = _auth_regulamento_fields(steam_id, db=db)
-        # CatÃ¡logos vÃªm de cache em memÃ³ria (mtime) â€” sem reparsear 1MBÃ—N mapas.
+        # Catálogos vêm de cache em memória (mtime) — sem reparsear 1MB×N mapas.
         result = {
             "ok": True,
             "partial": True,
@@ -3319,23 +3314,23 @@ def _get_admin_player_detail(
         _release_db_session(db, force=True)
 
 
-# Budget curto do detalhe admin â€” o frontend aborta aos 15s. Preferimos SEMPRE uma
-# resposta parcial rÃ¡pida a segurar o worker atÃ© o browser desistir (200 Ã³rfÃ£o Ã¢â€ â€™
-# Â«Falha ao carregarÂ»). Override por env; <=0 desliga o budget.
+# Budget curto do detalhe admin — o frontend aborta aos 15s. Preferimos SEMPRE uma
+# resposta parcial rápida a segurar o worker até o browser desistir (200 órfão →
+# «Falha ao carregar»). Override por env; <=0 desliga o budget.
 _ADMIN_DETAIL_BUDGET_MS = max(0, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BUDGET_MS", "9000") or 0))
 _ADMIN_DETAIL_HEAVY_BUDGET_MS = max(
     1000,
     int(os.environ.get("ARKSHOP_ADMIN_DETAIL_HEAVY_BUDGET_MS", "12000") or 12000),
 )
-# Bootstrap / kit-limits: alvo <2â€“3s. Frontend mantÃ©m timeout 15s â€” nunca aumentar.
+# Bootstrap / kit-limits: alvo <2–3s. Frontend mantém timeout 15s — nunca aumentar.
 _STORE_BOOTSTRAP_BUDGET_MS = max(
     0, int(os.environ.get("ARKSHOP_STORE_BOOTSTRAP_BUDGET_MS", "2500") or 0)
 )
 _KIT_LIMITS_BUDGET_MS = max(
     0, int(os.environ.get("ARKSHOP_KIT_LIMITS_BUDGET_MS", "2500") or 0)
 )
-# Limita threads Ã³rfÃ£s do detalhe apÃ³s budget â€” cada uma pode segurar 1 conexÃ£o do pool
-# atÃ© o cancel libertar a sessÃ£o entre queries.
+# Limita threads órfãs do detalhe após budget — cada uma pode segurar 1 conexão do pool
+# até o cancel libertar a sessão entre queries.
 _ADMIN_DETAIL_BG_SLOTS = threading.BoundedSemaphore(
     max(1, int(os.environ.get("ARKSHOP_ADMIN_DETAIL_BG_SLOTS", "2") or 2))
 )
@@ -3351,9 +3346,9 @@ def _admin_player_detail_partial(
 ) -> dict[str, Any]:
     """Payload essencial e barato para quando o detalhe completo estoura o budget.
 
-    SÃ³ toca em queries baratas (PK get + points/kits por steam_id). Qualquer secÃ§Ã£o que
-    possa esperar Ã­ndice/scan fica para o endpoint heavy, evitando somar 9s de budget
-    + consultas lentas atÃ© bater no abort de 15s do browser.
+    Só toca em queries baratas (PK get + points/kits por steam_id). Qualquer secção que
+    possa esperar índice/scan fica para o endpoint heavy, evitando somar 9s de budget
+    + consultas lentas até bater no abort de 15s do browser.
     """
     steam_id = str(steam_id or "").strip()
     su = None
@@ -3429,12 +3424,12 @@ def _get_admin_player_detail_heavy(
     *,
     cancel: threading.Event | None = None,
 ) -> dict[str, Any]:
-    """SecÃ§Ãµes pesadas do detalhe admin, chamadas depois do essencial."""
+    """Secções pesadas do detalhe admin, chamadas depois do essencial."""
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not _hot_path_indexes_ready_or_schedule("admin_player_detail_heavy"):
         return {
             "ok": True,
@@ -3657,19 +3652,19 @@ def _get_admin_player_detail_heavy_budgeted(steam_id: str) -> dict[str, Any]:
 
 
 def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
-    """Corre o detalhe completo com deadline; se estourar, devolve parcial rÃ¡pido.
+    """Corre o detalhe completo com deadline; se estourar, devolve parcial rápido.
 
-    ApÃ³s o budget: `cancel` pede ÃƒÂ  thread Ã³rfÃ£ para libertar a scoped_session entre
-    queries (nÃ£o segura o pool para sempre). Slots limitados evitam tempestade de
-    Ã³rfÃ£s sob carga.
+    Após o budget: `cancel` pede ? thread órfã para libertar a scoped_session entre
+    queries (não segura o pool para sempre). Slots limitados evitam tempestade de
+    órfãs sob carga.
     """
     budget_ms = _ADMIN_DETAIL_BUDGET_MS
     if budget_ms <= 0:
         return _get_admin_player_detail(steam_id)
-    # SÃ³ AGENDA o self-heal dos Ã­ndices (necessÃ¡rios ao /heavy) â€” NÃƒO bloqueia o
-    # essencial: este caminho jÃ¡ nÃ£o toca nas tabelas grandes, logo Ã© rÃ¡pido mesmo
-    # com Ã­ndices ainda a criar. Antes devolvia o parcial mÃ­nimo e o admin ficava
-    # sem o cartÃ£o do jogador enquanto o DDL corria.
+    # Só AGENDA o self-heal dos índices (necessários ao /heavy) — NÃO bloqueia o
+    # essencial: este caminho já não toca nas tabelas grandes, logo é rápido mesmo
+    # com índices ainda a criar. Antes devolvia o parcial mínimo e o admin ficava
+    # sem o cartão do jogador enquanto o DDL corria.
     if not _HOT_PATH_INDEXES_READY:
         _hot_path_indexes_ready_or_schedule("admin_player_detail")
 
@@ -3750,7 +3745,7 @@ def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
                     pass
             return result
         return {"ok": False, "error": str(box.get("error") or "detail_failed")}
-    # Budget esgotado: cancela a Ã³rfÃ£ (liberta sessÃ£o no prÃ³ximo checkpoint) e
+    # Budget esgotado: cancela a órfã (liberta sessão no próximo checkpoint) e
     # responde parcial na thread do request.
     cancel.set()
     _log(
@@ -3821,7 +3816,7 @@ _LICENSE_ID_GROUP_FALLBACK: dict[str, str] = {
 
 
 def _is_catalog_license_item(entry: dict[str, Any], item_id: str = "") -> bool:
-    """Item concedÃ­vel como licenÃ§a â€” alinhado ao editor/catÃ¡logo pÃºblico."""
+    """Item concedível como licença — alinhado ao editor/catálogo público."""
     from catalog_enrich import _is_license_entry
 
     return _is_license_entry(entry, item_id or "item")
@@ -3876,7 +3871,7 @@ _SHOP_DELIVER_OPTIONS_CACHE: dict[str, Any] = {"fingerprint": "", "data": None}
 
 
 def _catalog_files_fingerprint() -> str:
-    """mtime+size dos configs candidatos â€” barato; evita reparse JSON de 1MBÃ—N mapas."""
+    """mtime+size dos configs candidatos — barato; evita reparse JSON de 1MB×N mapas."""
     parts: list[str] = []
     try:
         s = _load_settings()
@@ -3901,10 +3896,10 @@ def _catalog_files_fingerprint() -> str:
 
 
 def _read_richest_license_catalog_config() -> dict[str, Any]:
-    """LicenÃ§as do catalog.json configurado.
+    """Licenças do catalog.json configurado.
 
-    Antes varria mapas/repo e ficava com o arquivo que tinha mais licenÃ§as â€”
-    a loja mostrava itens de uma cÃ³pia antiga.
+    Antes varria mapas/repo e ficava com o arquivo que tinha mais licenças —
+    a loja mostrava itens de uma cópia antiga.
     """
     data = _read_shop_config()
     return data if isinstance(data, dict) else {}
@@ -3976,16 +3971,16 @@ def _catalog_kit_options() -> list[dict[str, Any]]:
 
 
 def _catalog_entry_dino_level(entry: dict[str, Any]) -> int:
-    """NÃ­vel do dino no catÃ¡logo (Dinos[0].Level; tolerante a catÃ¡logos antigos)."""
+    """Nível do dino no catálogo (Dinos[0].Level; tolerante a catálogos antigos)."""
     from dino_levels import entry_dino_level
 
     return entry_dino_level(entry)
 
 
 def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
-    """SKUs resgatÃ¡veis do catÃ¡logo Items, alinhados ÃƒÂ s abas Itens / Dinos (todos os nÃ­veis).
+    """SKUs resgatáveis do catálogo Items, alinhados ?s abas Itens / Dinos (todos os níveis).
 
-    ``dinos200`` Ã© alias legado (subconjunto de ``dinos`` com nÃ­vel 200) para clientes antigos.
+    ``dinos200`` é alias legado (subconjunto de ``dinos`` com nível 200) para clientes antigos.
     """
     fingerprint = _catalog_files_fingerprint()
     cached = _SHOP_DELIVER_OPTIONS_CACHE.get("data")
@@ -4033,7 +4028,7 @@ def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
 
 
 def _admin_deliver_catalog_payload() -> dict[str, Any]:
-    """Payload Ãºnico para o seletor admin: itens, dinos, dinos200 e kits."""
+    """Payload único para o seletor admin: itens, dinos, dinos200 e kits."""
     shop = _catalog_shop_deliver_options()
     kits = [
         {
@@ -4070,9 +4065,9 @@ def _admin_player_points_adjust(
 ) -> dict[str, Any]:
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     mode = str(mode or "add").strip().lower()
     amount = int(amount or 0)
     db = _SessionLocal()
@@ -4090,11 +4085,11 @@ def _admin_player_points_adjust(
             event_type = "admin_player_points_subtract"
         elif mode == "set":
             if amount < 0:
-                return {"ok": False, "error": "Saldo nÃ£o pode ser negativo"}
+                return {"ok": False, "error": "Saldo não pode ser negativo"}
             after = _set_player_points_tx(db, steam_id, amount)
             event_type = "admin_player_points_set"
         else:
-            return {"ok": False, "error": f"Modo invÃ¡lido: {mode}"}
+            return {"ok": False, "error": f"Modo inválido: {mode}"}
         db.commit()
         delta = after - before
         if delta != 0:
@@ -4110,7 +4105,7 @@ def _admin_player_points_adjust(
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("AmbarÃ´metro admin player hook: %s", amber_exc)
+                log.warning("Ambarômetro admin player hook: %s", amber_exc)
         _audit_event(
             event_type,
             actor_type="admin",
@@ -4119,7 +4114,7 @@ def _admin_player_points_adjust(
             amount=after,
             status_before=str(before),
             status_after=str(after),
-            message=reason or f"Saldo: {before} Ã¢â€ â€™ {after}",
+            message=reason or f"Saldo: {before} → {after}",
             mode=mode,
             delta=delta,
         )
@@ -4134,11 +4129,11 @@ def _admin_player_points_adjust(
 def _admin_player_ban(steam_id: str, *, blocked: bool, reason: str = "") -> dict[str, Any]:
     steam_id = str(steam_id or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if _is_admin_steamid(steam_id):
-        return {"ok": False, "error": "NÃ£o Ã© possÃ­vel bloquear um administrador"}
+        return {"ok": False, "error": "Não é possível bloquear um administrador"}
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     db = _SessionLocal()
     try:
         row = db.get(StoreUser, steam_id)
@@ -4183,17 +4178,17 @@ def _admin_player_license(
     steam_id = str(steam_id or "").strip()
     group = _normalize_entitlement_group(str(group or "").strip())
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not group:
-        return {"ok": False, "error": "Grupo de licenÃ§a obrigatÃ³rio"}
+        return {"ok": False, "error": "Grupo de licença obrigatório"}
     if _is_staff_role_group(group):
         return {
             "ok": False,
-            "error": "MOD/STAFF sÃ£o cargos da equipe â€” use a seÃ§Ã£o Cargos no painel do jogador.",
+            "error": "MOD/STAFF são cargos da equipe — use a seção Cargos no painel do jogador.",
         }
     action = str(action or "grant").strip().lower()
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     admin_sid = str(_steam_id_from_session() or "")
     perm_sync: list[dict[str, Any]] = []
     try:
@@ -4215,7 +4210,7 @@ def _admin_player_license(
                 target_steam_id=steam_id,
                 item_id=group,
                 amount=int(days),
-                message=reason or f"LicenÃ§a {group} concedida",
+                message=reason or f"Licença {group} concedida",
             )
         elif action == "revoke":
             _revoke_player_entitlement_by_group(steam_id, group)
@@ -4228,10 +4223,10 @@ def _admin_player_license(
                 actor_steam_id=admin_sid,
                 target_steam_id=steam_id,
                 item_id=group,
-                message=reason or f"LicenÃ§a {group} revogada",
+                message=reason or f"Licença {group} revogada",
             )
         else:
-            return {"ok": False, "error": f"AÃ§Ã£o invÃ¡lida: {action}"}
+            return {"ok": False, "error": f"Ação inválida: {action}"}
         return {
             "ok": True,
             "steam_id": steam_id,
@@ -4333,7 +4328,7 @@ def _entitlement_hours_remaining(
     fallback_days: int = 30,
     entitlements: list[dict[str, Any]] | None = None,
 ) -> int:
-    """Horas restantes da licenÃ§a em player_entitlements (apÃ³s renovaÃ§Ã£o com soma)."""
+    """Horas restantes da licença em player_entitlements (após renovação com soma)."""
     ents = entitlements if entitlements is not None else _get_player_entitlements(steam_id)
     for ent in ents:
         if str(ent.get("group") or "") != str(group):
@@ -4355,10 +4350,10 @@ def _rcon_permission_fanout(
     settings: dict[str, Any] | None = None,
     servers: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Envia comando Permissions.* a todos os mapas em PARALELO (nÃ£o sequencial).
+    """Envia comando Permissions.* a todos os mapas em PARALELO (não sequencial).
 
-    Cada mapa Ã© limitado pelo timeout do rcon_command; com N mapas offline o
-    pior caso Ã© ~1Ã—timeout (paralelo) em vez de NÃ—timeout (sequencial).
+    Cada mapa é limitado pelo timeout do rcon_command; com N mapas offline o
+    pior caso é ~1×timeout (paralelo) em vez de N×timeout (sequencial).
     """
     settings = settings if settings is not None else _load_settings()
     servers = servers if servers is not None else _load_servers()
@@ -4366,7 +4361,7 @@ def _rcon_permission_fanout(
 
     def _one(srv: dict[str, Any] | None) -> dict[str, Any]:
         sid = str(srv.get("server_id") or "").strip() if srv else None
-        label = str(srv.get("label") or sid or "padrÃ£o") if srv else "padrÃ£o"
+        label = str(srv.get("label") or sid or "padrão") if srv else "padrão"
         host, port, password, _ = _resolve_rcon_target(sid, settings)
         if not password:
             return {
@@ -4407,7 +4402,7 @@ def _rcon_permission_fanout(
 
 
 def _rcon_permission_fanout_background(cmd: str, *, context: str = "") -> None:
-    """Fan-out RCON em thread daemon â€” hot paths (compra/claim) nÃ£o esperam RCON."""
+    """Fan-out RCON em thread daemon — hot paths (compra/claim) não esperam RCON."""
     settings = _load_settings()
     servers = _load_servers()
 
@@ -4440,13 +4435,13 @@ def _sync_license_permissions_all_servers(
     days: int = 0,
     rcon_async: bool = False,
 ) -> list[dict[str, Any]]:
-    """Sincroniza licenÃ§a no Permissions (MySQL directo + RCON nos mapas).
+    """Sincroniza licença no Permissions (MySQL directo + RCON nos mapas).
 
-    Em grant temporÃ¡rio usa horas restantes de player_entitlements (apÃ³s renovaÃ§Ã£o
-    que soma dias) â€” nÃ£o sÃ³ days*24 a partir de agora.
+    Em grant temporário usa horas restantes de player_entitlements (após renovação
+    que soma dias) — não só days*24 a partir de agora.
 
-    rcon_async=True (hot paths de jogador): MySQL sÃ­ncrono (fonte de verdade do
-    plugin), fan-out RCON em background â€” request nÃ£o espera mapas offline.
+    rcon_async=True (hot paths de jogador): MySQL síncrono (fonte de verdade do
+    plugin), fan-out RCON em background — request não espera mapas offline.
     """
     results: list[dict[str, Any]] = []
     shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
@@ -4525,7 +4520,7 @@ def _license_perm_sync_spec(steam_id: str, group: str, days: int) -> dict[str, A
 
 
 def _flush_deferred_license_perm_syncs(specs: list[dict[str, Any]]) -> None:
-    """Sync ark_permission + RCON fora de sessÃ£o web â€” evita pool starvation."""
+    """Sync ark_permission + RCON fora de sessão web — evita pool starvation."""
     for spec in specs:
         try:
             _sync_license_permissions_all_servers(
@@ -4554,14 +4549,14 @@ def _admin_player_staff_role(
     steam_id = str(steam_id or "").strip()
     group = str(group or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not group:
-        return {"ok": False, "error": "Cargo obrigatÃ³rio"}
+        return {"ok": False, "error": "Cargo obrigatório"}
     if not _is_staff_role_group(group):
-        return {"ok": False, "error": f"Cargo invÃ¡lido: {group}"}
+        return {"ok": False, "error": f"Cargo inválido: {group}"}
     action = str(action or "grant").strip().lower()
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     admin_sid = str(_steam_id_from_session() or "")
     try:
         if action == "grant":
@@ -4593,7 +4588,7 @@ def _admin_player_staff_role(
             )
             perm_sync = _sync_permissions_all_servers(steam_id, group, grant=False)
         else:
-            return {"ok": False, "error": f"AÃ§Ã£o invÃ¡lida: {action}"}
+            return {"ok": False, "error": f"Ação inválida: {action}"}
         return {
             "ok": True,
             "steam_id": steam_id,
@@ -4619,16 +4614,16 @@ def _admin_player_kit(
     amount = max(1, int(amount or 1))
     mode = str(mode or "deliver").strip().lower()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not kit_id:
-        return {"ok": False, "error": "kit_id obrigatÃ³rio"}
+        return {"ok": False, "error": "kit_id obrigatório"}
     entry = _catalog_entry("kit", kit_id)
     if not entry:
-        return {"ok": False, "error": f"Kit Â«{kit_id}Â» nÃ£o encontrado no catÃ¡logo"}
+        return {"ok": False, "error": f"Kit «{kit_id}» não encontrado no catálogo"}
     admin_sid = str(_steam_id_from_session() or "")
     if mode == "stash":
         if not _db_ready():
-            return {"ok": False, "error": "Banco nÃ£o configurado"}
+            return {"ok": False, "error": "Banco não configurado"}
         db = _SessionLocal()
         try:
             row = db.execute(
@@ -4700,7 +4695,7 @@ def _admin_player_kit(
         )
         result["order_id"] = order.order_id
         return result
-    return {"ok": False, "error": f"Modo invÃ¡lido: {mode}"}
+    return {"ok": False, "error": f"Modo inválido: {mode}"}
 
 
 def _admin_player_catalog_deliver(
@@ -4711,16 +4706,16 @@ def _admin_player_catalog_deliver(
     amount: int = 1,
     reason: str = "",
 ) -> dict[str, Any]:
-    """Enfileira entrega admin de qualquer SKU resgatÃ¡vel (itens, dinos, dinos200, kits)."""
+    """Enfileira entrega admin de qualquer SKU resgatável (itens, dinos, dinos200, kits)."""
     steam_id = str(steam_id or "").strip()
     item_id = str(item_id or "").strip()
     amount = max(1, int(amount or 1))
     category = str(category or "").strip().lower()
     reason = str(reason or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not item_id:
-        return {"ok": False, "error": "item_id obrigatÃ³rio"}
+        return {"ok": False, "error": "item_id obrigatório"}
 
     if category in ("kit", "kits"):
         return _admin_player_kit(
@@ -4737,24 +4732,24 @@ def _admin_player_catalog_deliver(
     if category == "dinos200":
         category = "dinos"  # alias legado: categoria Dinos 200 foi unificada em Dinos
     if category not in ("items", "dinos"):
-        return {"ok": False, "error": f"Categoria invÃ¡lida: {category}"}
+        return {"ok": False, "error": f"Categoria inválida: {category}"}
 
     entry = _catalog_entry("shop", item_id)
     if not entry:
-        return {"ok": False, "error": f"SKU Â«{item_id}Â» nÃ£o encontrado no catÃ¡logo"}
+        return {"ok": False, "error": f"SKU «{item_id}» não encontrado no catálogo"}
 
     typ = str(entry.get("Type") or "item").lower()
     if category == "dinos":
-        # Categoria Ãºnica Â«DinosÂ»: qualquer nÃ­vel vÃ¡lido do catÃ¡logo (sem trava L1/L200).
+        # Categoria única «Dinos»: qualquer nível válido do catálogo (sem trava L1/L200).
         if typ != "dino":
-            return {"ok": False, "error": f"Â«{item_id}Â» nÃ£o Ã© um dino do catÃ¡logo"}
+            return {"ok": False, "error": f"«{item_id}» não é um dino do catálogo"}
     else:
         if typ == "dino":
             return {"ok": False, "error": "Use a categoria Dinos"}
         if _is_catalog_license_item(entry, item_id):
             return {
                 "ok": False,
-                "error": "Use o bloco LicenÃ§a para conceder/revogar licenÃ§as",
+                "error": "Use o bloco Licença para conceder/revogar licenças",
             }
 
     admin_sid = str(_steam_id_from_session() or "")
@@ -4811,7 +4806,7 @@ def _load_admin_steamids_from_file() -> set[str]:
 
 
 def _merge_admin_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
-    """Mescla admins do MySQL com timeout â€” nunca bloqueia a thread HTTP por mais que timeout."""
+    """Mescla admins do MySQL com timeout — nunca bloqueia a thread HTTP por mais que timeout."""
     if not _db_ready() or _SessionLocal is None:
         return ids
     now = time.monotonic()
@@ -4840,7 +4835,7 @@ def _merge_admin_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
     if not done.wait(timeout):
         _ADMIN_STEAMIDS_CACHE["db_skip_until"] = now + _ADMIN_STEAMIDS_DB_BACKOFF
         log.warning(
-            "ShopAdmin timeout (%ss) â€” usando admins do arquivo por %ss",
+            "ShopAdmin timeout (%ss) — usando admins do arquivo por %ss",
             timeout,
             int(_ADMIN_STEAMIDS_DB_BACKOFF),
         )
@@ -4848,7 +4843,7 @@ def _merge_admin_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
     if err[0] is not None:
         _ADMIN_STEAMIDS_CACHE["db_skip_until"] = now + _ADMIN_STEAMIDS_DB_BACKOFF
         log.warning(
-            "ShopAdmin indisponÃ­vel â€” usando admins do arquivo por %ss",
+            "ShopAdmin indisponível — usando admins do arquivo por %ss",
             int(_ADMIN_STEAMIDS_DB_BACKOFF),
         )
         return ids
@@ -4866,7 +4861,7 @@ def _admin_steamids_file_cache_key() -> str:
 
 
 def _load_admin_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> set[str]:
-    """Lista admins â€” arquivo primeiro; DB opcional com cache, backoff e timeout."""
+    """Lista admins — arquivo primeiro; DB opcional com cache, backoff e timeout."""
     now = time.monotonic()
     cached = _ADMIN_STEAMIDS_CACHE.get("ids")
     file_key = _admin_steamids_file_cache_key()
@@ -4954,7 +4949,7 @@ def _merge_support_steamids_from_db(ids: set[str], *, timeout: float) -> set[str
     if not done.wait(timeout):
         _SUPPORT_STEAMIDS_CACHE["db_skip_until"] = now + _SUPPORT_STEAMIDS_DB_BACKOFF
         log.warning(
-            "ShopSupport timeout (%ss) â€” usando suporte do arquivo por %ss",
+            "ShopSupport timeout (%ss) — usando suporte do arquivo por %ss",
             timeout,
             int(_SUPPORT_STEAMIDS_DB_BACKOFF),
         )
@@ -4962,7 +4957,7 @@ def _merge_support_steamids_from_db(ids: set[str], *, timeout: float) -> set[str
     if err[0] is not None:
         _SUPPORT_STEAMIDS_CACHE["db_skip_until"] = now + _SUPPORT_STEAMIDS_DB_BACKOFF
         log.warning(
-            "ShopSupport indisponÃ­vel â€” usando suporte do arquivo por %ss",
+            "ShopSupport indisponível — usando suporte do arquivo por %ss",
             int(_SUPPORT_STEAMIDS_DB_BACKOFF),
         )
         return ids
@@ -5070,7 +5065,7 @@ def _player_points_tx(db: Any, steam_id: str) -> int:
 
 
 def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
-    """Credita pontos na sessÃ£o atual (sem commit)."""
+    """Credita pontos na sessão atual (sem commit)."""
     if amount <= 0:
         raise ValueError("amount must be positive")
     if _is_mysql_engine(db):
@@ -5100,7 +5095,7 @@ def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
 
 
 def _set_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
-    """Define saldo absoluto na sessÃ£o atual (sem commit)."""
+    """Define saldo absoluto na sessão atual (sem commit)."""
     amount = max(0, int(amount))
     if _is_mysql_engine(db):
         db.execute(
@@ -5131,9 +5126,9 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
     """Consulta, credita ou define pontos diretamente no banco central."""
     steam_id = str(steam_id or "").strip()
     if not steam_id:
-        return {"ok": False, "error": "SteamID64 Ã© obrigatÃ³rio"}
+        return {"ok": False, "error": "SteamID64 é obrigatório"}
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado. Configure as credenciais em ConfiguraÃ§Ãµes Ã¢â€ â€™ DB."}
+        return {"ok": False, "error": "Banco não configurado. Configure as credenciais em Configurações → DB."}
 
     db = _SessionLocal()
     try:
@@ -5162,24 +5157,24 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("AmbarÃ´metro admin points add hook: %s", amber_exc)
+                log.warning("Ambarômetro admin points add hook: %s", amber_exc)
             _audit_event(
                 "admin_points_add",
                 actor_type="admin",
                 actor_steam_id=str(_steam_id_from_session() or ""),
                 target_steam_id=steam_id,
                 amount=amount,
-                message=f"Saldo apÃ³s crÃ©dito: {new_balance}",
+                message=f"Saldo após crédito: {new_balance}",
             )
             return {
                 "ok": True,
                 "steam_id": steam_id,
                 "points": new_balance,
-                "response": f"+{amount:,} Ã¢â€ â€™ saldo {new_balance:,}".replace(",", "."),
+                "response": f"+{amount:,} → saldo {new_balance:,}".replace(",", "."),
             }
         if action == "set":
             if amount < 0:
-                return {"ok": False, "error": "Saldo nÃ£o pode ser negativo"}
+                return {"ok": False, "error": "Saldo não pode ser negativo"}
             new_balance = _set_player_points_tx(db, steam_id, amount)
             db.commit()
             delta = new_balance - before_balance
@@ -5196,7 +5191,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                         commit=True,
                     )
                 except Exception as amber_exc:
-                    log.warning("AmbarÃ´metro admin points set hook: %s", amber_exc)
+                    log.warning("Ambarômetro admin points set hook: %s", amber_exc)
             _audit_event(
                 "admin_points_set",
                 actor_type="admin",
@@ -5211,7 +5206,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                 "points": new_balance,
                 "response": f"Saldo definido: {new_balance:,}".replace(",", "."),
             }
-        return {"ok": False, "error": f"AÃ§Ã£o invÃ¡lida: {action}"}
+        return {"ok": False, "error": f"Ação inválida: {action}"}
     except Exception as exc:
         db.rollback()
         _log_error("admin_points", action=action, steam_id=steam_id, amount=amount, error=str(exc))
@@ -5231,8 +5226,8 @@ _RESOLVED_CATALOG_CACHE: dict[str, Any] = {
 _HEAL_RICHEST_CACHE: dict[str, Any] = {"expires": 0.0, "path": ""}
 _TIMED_POINTS_AMOUNTS_CACHE: dict[str, Any] = {"fingerprint": "", "amounts": None}
 
-# Home pÃºblica: payload partilhado (sem PII) â€” evita 50s+ sob fila Waitress.
-# CRÃƒÂTICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
+# Home pública: payload partilhado (sem PII) — evita 50s+ sob fila Waitress.
+# CR?TICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
 _PUBLIC_HOME_CACHE_TTL_SEC = float(os.environ.get("ARKSHOP_HOME_CACHE_TTL_SEC", "45") or 45)
 _PUBLIC_HOME_STALE_MAX_SEC = float(os.environ.get("ARKSHOP_HOME_STALE_MAX_SEC", "300") or 300)
 _PUBLIC_HOME_CACHE_LOCK = threading.Lock()
@@ -5246,8 +5241,8 @@ _PUBLIC_HOME_CACHE: dict[str, Any] = {
     "built_at": 0.0,
 }
 
-# CatÃ¡logo pÃºblico (/api/catalog + parte partilhada do bootstrap) â€” enrich O(n) caro.
-# Fase 4: TTL default 15s (faixa 5â€“15); override via ARKSHOP_CATALOG_CACHE_TTL_SEC.
+# Catálogo público (/api/catalog + parte partilhada do bootstrap) — enrich O(n) caro.
+# Fase 4: TTL default 15s (faixa 5–15); override via ARKSHOP_CATALOG_CACHE_TTL_SEC.
 _PUBLIC_CATALOG_CACHE_TTL_SEC = float(
     os.environ.get("ARKSHOP_CATALOG_CACHE_TTL_SEC", "15") or 15
 )
@@ -5265,7 +5260,7 @@ _PUBLIC_CATALOG_CACHE: dict[str, Any] = {
     "built_at": 0.0,
 }
 
-# MÃ©tricas leves p/ /api/admin/metrics (observabilidade).
+# Métricas leves p/ /api/admin/metrics (observabilidade).
 _PUBLIC_CACHE_METRICS_LOCK = threading.Lock()
 _PUBLIC_CACHE_METRICS: dict[str, int] = {
     "home_hits": 0,
@@ -5285,7 +5280,7 @@ _ENTITLEMENTS_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 # Fila de entregas (plugin): cache curto de fila vazia + snapshot GET.
 # Invalidar ao criar Order PENDENTE (e ao reabrir PENDENTE). Multi-worker:
-# TTL baixo mitiga stale entre processos (mesmo padrÃ£o dos outros caches).
+# TTL baixo mitiga stale entre processos (mesmo padrão dos outros caches).
 _PENDING_EMPTY_CACHE_TTL_SEC = float(
     os.environ.get("ARKSHOP_PENDING_EMPTY_CACHE_TTL_SEC", "8") or 8
 )
@@ -5295,7 +5290,7 @@ _PENDING_GET_CACHE_TTL_SEC = float(
 _PENDING_CACHE_LOCK = threading.Lock()
 # steam_id -> expires_mono (fila vazia confirmada)
 _PENDING_EMPTY_CACHE: dict[str, float] = {}
-# steam_id -> (expires_mono, items) â€” sÃ³ GET; claim nunca usa snapshot
+# steam_id -> (expires_mono, items) — só GET; claim nunca usa snapshot
 _PENDING_GET_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 _PENDING_BATCH_MAX_STEAM_IDS = 64
 
@@ -5463,7 +5458,7 @@ def _invalidate_shop_config_cache() -> None:
     _TIMED_POINTS_AMOUNTS_CACHE.update({"fingerprint": "", "amounts": None})
     _invalidate_public_home_cache()
     _invalidate_public_catalog_cache()
-    # Fase 4 â€” caches curtos (produtos / config sistema)
+    # Fase 4 — caches curtos (produtos / config sistema)
     _ttl_cache.products.invalidate()
     _ttl_cache.system_config.invalidate()
 
@@ -5480,7 +5475,7 @@ def _catalog_file_token(path: Path) -> tuple[int, int]:
 
 
 def _configured_catalog_fingerprint_part() -> str:
-    """Path configurado + mtime + tamanho, lidos do disco (nÃ£o do cache em memÃ³ria)."""
+    """Path configurado + mtime + tamanho, lidos do disco (não do cache em memória)."""
     try:
         s = _load_settings()
         path = Path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH))
@@ -5531,7 +5526,7 @@ def _remember_resolved_catalog(
         "note": note,
     })
     log.info(
-        "CatÃ¡logo recarregado path=%s mtime=%s size=%s",
+        "Catálogo recarregado path=%s mtime=%s size=%s",
         resolved,
         mtime_ns,
         size,
@@ -5543,11 +5538,11 @@ def _resolve_shop_catalog(
     persist_healed_path: bool = False,
     copy: bool = True,
 ) -> tuple[Path, dict[str, Any], str | None]:
-    """LÃª o catalog.json de ``config_path``.
+    """Lê o catalog.json de ``config_path``.
 
-    Cache em memÃ³ria vale sÃ³ enquanto mtime e tamanho nÃ£o mudam. Arquivo
-    configurado que existe nunca Ã© trocado por outra cÃ³pia. `copy=False`
-    devolve a referÃªncia em cache (sÃ³ leitura).
+    Cache em memória vale só enquanto mtime e tamanho não mudam. Arquivo
+    configurado que existe nunca é trocado por outra cópia. `copy=False`
+    devolve a referência em cache (só leitura).
     """
     s = _load_settings()
     preferred = Path(str(s.get("config_path") or _DEFAULT_CONFIG_PATH))
@@ -5583,7 +5578,7 @@ def _resolve_shop_catalog(
         if items_n + kits_n == 0:
             note = (
                 f"config.json sem itens/kits em {preferred}. "
-                "Verifique ConfiguraÃ§Ãµes Ã¢â€ â€™ caminho do catÃ¡logo ou restaure o mestre CustomShop."
+                "Verifique Configurações → caminho do catálogo ou restaure o mestre CustomShop."
             )
             record_event(
                 "catalog_empty",
@@ -5643,7 +5638,7 @@ def _read_shop_config() -> dict[str, Any]:
 
 
 def _peek_shop_config() -> dict[str, Any]:
-    """CatÃ¡logo em cache para leitura â€” sem shallow-copy do JSON completo."""
+    """Catálogo em cache para leitura — sem shallow-copy do JSON completo."""
     _, data, _ = _resolve_shop_catalog(persist_healed_path=False, copy=False)
     return data if isinstance(data, dict) else {}
 
@@ -5662,7 +5657,7 @@ PAID_LICENSE_GROUPS = frozenset({
     "Imaterial",
     "Exotico",
 })
-# Sem limite de tiers pagos distintos activos; renovar o mesmo SKU sÃ³ empilha +N dias.
+# Sem limite de tiers pagos distintos activos; renovar o mesmo SKU só empilha +N dias.
 # keyvault (Nuvem) continua independente e fora de PAID_LICENSE_GROUPS.
 LICENSE_TIMED_BONUS = {
     "Default": 25,
@@ -5681,7 +5676,7 @@ LICENSE_TIMED_BONUS = {
     "Moderacao": 500,
     "STAFF": 1000,
 }
-# RenovaÃ§Ã£o recente (Ã¢Ë†â€™10%) atÃ© N dias apÃ³s expirar; antecipada (Ã¢Ë†â€™20%) via SKU *_renovacao.
+# Renovação recente (−10%) até N dias após expirar; antecipada (−20%) via SKU *_renovacao.
 LICENSE_RECENT_RENEWAL_DAYS = 7
 LICENSE_RECENT_RENEWAL_FACTOR = 0.90
 STAFF_ROLE_GROUPS = frozenset({"Moderacao", "Mod", "STAFF"})
@@ -5702,7 +5697,7 @@ def _parse_permissions_field(entry: dict[str, Any]) -> list[str]:
 
 
 def _license_grant_from_commands(entry: dict[str, Any]) -> dict[str, Any] | None:
-    """Fallback legado: licenÃ§as Type command com Permissions.AddTimed no catÃ¡logo."""
+    """Fallback legado: licenças Type command com Permissions.AddTimed no catálogo."""
     commands = entry.get("Commands")
     if not isinstance(commands, list):
         return None
@@ -5777,7 +5772,7 @@ _MIGRATION_ALIASES_CACHE: dict[str, Any] = {"mtime": None, "data": {}}
 
 
 def _catalog_id_migration_aliases() -> dict[str, str]:
-    """Aliases de IDs antigos da loja (migraÃ§Ã£o L1 por blueprint)."""
+    """Aliases de IDs antigos da loja (migração L1 por blueprint)."""
     path = Path(__file__).resolve().parents[2] / "tools" / "catalog_id_migration.json"
     if not path.is_file():
         return {}
@@ -5800,7 +5795,7 @@ def _catalog_id_migration_aliases() -> dict[str, str]:
 
 
 def _resolve_kit_id_in_catalog(kit_id: str, kits: dict[str, Any]) -> str:
-    """Alias de kit no catÃ¡logo jÃ¡ carregado â€” sem reler ficheiro."""
+    """Alias de kit no catálogo já carregado — sem reler ficheiro."""
     if kit_id in kits:
         return kit_id
     lower = kit_id.lower()
@@ -5810,7 +5805,7 @@ def _resolve_kit_id_in_catalog(kit_id: str, kits: dict[str, Any]) -> str:
 
 
 def _resolve_catalog_item_id(item_type: str, item_id: str) -> str:
-    """Resolve aliases (ex.: Gamma Ã¢â€ â€™ licenca_gamma) para o ID canÃ´nico no config."""
+    """Resolve aliases (ex.: Gamma → licenca_gamma) para o ID canônico no config."""
     item_id = str(item_id or "").strip()
     if not item_id:
         return item_id
@@ -5851,7 +5846,7 @@ def _catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
 
 
 def _player_kit_remaining(db, steam_id: str, kit_id: str, entry: dict[str, Any]) -> int:
-    """Resgates restantes do kit (DefaultAmount na 1Âª vez; depois players.kits)."""
+    """Resgates restantes do kit (DefaultAmount na 1ª vez; depois players.kits)."""
     if not kit_has_limit(entry):
         return 999_999
     row = db.execute(
@@ -5870,13 +5865,13 @@ def _pending_kit_order_counts(
 ) -> dict[str, int]:
     """Uma query agregada: pedidos kit PENDENTE/ENTREGANDO por item_id resolvido.
 
-    GROUP BY evita fetchall sem teto (jogadores com milhares de pedidos) e tambÃ©m
-    corrige regressÃ£o do LIMIT/CAP â€” pendentes fora do cap nÃ£o podem sumir do restante.
-    MySQL: MAX_EXECUTION_TIME evita scan de 2+ minutos se o Ã­ndice hot-path faltar.
+    GROUP BY evita fetchall sem teto (jogadores com milhares de pedidos) e também
+    corrige regressão do LIMIT/CAP — pendentes fora do cap não podem sumir do restante.
+    MySQL: MAX_EXECUTION_TIME evita scan de 2+ minutos se o índice hot-path faltar.
     """
     is_mysql = _is_mysql_engine(db)
-    # 2.5s â€” alinhado ao budget do bootstrap/kit-limits; melhor falhar rÃ¡pido que
-    # segurar o worker atÃ© o abort de 15s do browser.
+    # 2.5s — alinhado ao budget do bootstrap/kit-limits; melhor falhar rápido que
+    # segurar o worker até o abort de 15s do browser.
     max_ms = max(500, int(os.environ.get("ARKSHOP_KIT_PENDING_MAX_MS", "2500") or 2500))
     hint = f"/*+ MAX_EXECUTION_TIME({max_ms}) */ " if is_mysql else ""
     try:
@@ -5890,7 +5885,7 @@ def _pending_kit_order_counts(
             {"sid": str(steam_id)},
         ).fetchall()
     except Exception as exc:
-        # Timeout / lock / tabela em falta â€” nÃ£o derruba bootstrap.
+        # Timeout / lock / tabela em falta — não derruba bootstrap.
         _log_error("pending_kit_order_counts", steam_id=str(steam_id), error=str(exc))
         try:
             db.rollback()
@@ -5923,7 +5918,7 @@ def _count_pending_kit_orders(
     *,
     pending_counts: dict[str, int] | None = None,
 ) -> int:
-    """Pedidos de kit ainda nÃ£o entregues â€” reservam slot de resgate."""
+    """Pedidos de kit ainda não entregues — reservam slot de resgate."""
     resolved = _resolve_catalog_item_id("kit", kit_id)
     if pending_counts is not None:
         return int(pending_counts.get(resolved, 0))
@@ -5972,7 +5967,7 @@ def _save_player_kit_stash(db, steam_id: str, stash: dict[str, Any]) -> None:
 
 
 def _reset_dependent_kit_limits_tx(db: Any, steam_id: str, license_group: str) -> list[str]:
-    """Na renovaÃ§Ã£o de licenÃ§a, restaura resgates dos kits que dependem dela."""
+    """Na renovação de licença, restaura resgates dos kits que dependem dela."""
     data = _read_shop_config()
     kits = data.get("Kits") or {}
     if not isinstance(kits, dict) or not kits:
@@ -6019,19 +6014,19 @@ def _build_player_kit_limits(
 ) -> list[dict[str, Any]]:
     """Lista kits com DefaultAmount > 0 e contagem usada/limite.
 
-    Path quente: 1Ã— SELECT players.kits + 1Ã— GROUP BY orders (sem N+1, sem DDL).
-    `shop_config` opcional â€” evita I/O de catÃ¡logo enquanto a sessÃ£o DB estÃ¡ aberta.
+    Path quente: 1× SELECT players.kits + 1× GROUP BY orders (sem N+1, sem DDL).
+    `shop_config` opcional — evita I/O de catálogo enquanto a sessão DB está aberta.
     """
     data = shop_config if shop_config is not None else _read_shop_config()
     kits = data.get("Kits") or {}
     stash = kit_stash if kit_stash is not None else _load_player_kit_stash(db, steam_id)
-    # Uma query de pending para todos os kits â€” evita NÃ—SELECT (hÃ¡ ~40 kits com limite).
+    # Uma query de pending para todos os kits — evita N×SELECT (há ~40 kits com limite).
     pending_counts = _pending_kit_order_counts(db, steam_id, kits_catalog=kits)
     out: list[dict[str, Any]] = []
     for kit_id, entry in kits.items():
         if not isinstance(entry, dict) or not kit_has_limit(entry):
             continue
-        # Chave do catÃ¡logo jÃ¡ Ã© canÃ³nica â€” resolve sÃ³ aliases em pending_counts.
+        # Chave do catálogo já é canónica — resolve só aliases em pending_counts.
         resolved = str(kit_id)
         pending = int(pending_counts.get(resolved, 0))
         if pending == 0:
@@ -6062,19 +6057,19 @@ def _admin_revoke_kit_limit(
     steam_id = str(steam_id or "").strip()
     kit_id = str(kit_id or "").strip()
     if not _is_valid_steamid64(steam_id):
-        return {"ok": False, "error": "SteamID64 invÃ¡lido"}
+        return {"ok": False, "error": "SteamID64 inválido"}
     if not kit_id:
-        return {"ok": False, "error": "kit_id obrigatÃ³rio"}
+        return {"ok": False, "error": "kit_id obrigatório"}
     entry = _catalog_entry("kit", kit_id)
     if not entry:
-        return {"ok": False, "error": f"Kit Â«{kit_id}Â» nÃ£o encontrado no catÃ¡logo"}
+        return {"ok": False, "error": f"Kit «{kit_id}» não encontrado no catálogo"}
     if not kit_has_limit(entry):
         return {
             "ok": False,
-            "error": "Este kit nÃ£o possui limite de resgates (DefaultAmount=0).",
+            "error": "Este kit não possui limite de resgates (DefaultAmount=0).",
         }
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado"}
+        return {"ok": False, "error": "Banco não configurado"}
     resolved = _resolve_catalog_item_id("kit", kit_id)
     admin_sid = str(_steam_id_from_session() or "")
     db = _SessionLocal()
@@ -6123,7 +6118,7 @@ def _license_group_from_item_id(item_id: str) -> str:
 
 
 def _fold_entitlement_group_key(group: str) -> str:
-    """lower + sem acentos + espaÃ§os/hÃ­fens Ã¢â€ â€™ underscore (Â«LicenÃ§a DeltaÂ» Ã¢â€ â€™ licenca_delta)."""
+    """lower + sem acentos + espaços/hífens → underscore («Licença Delta» → licenca_delta)."""
     import unicodedata
 
     folded = unicodedata.normalize("NFKD", str(group or ""))
@@ -6132,11 +6127,11 @@ def _fold_entitlement_group_key(group: str) -> str:
 
 
 def _normalize_entitlement_group(group: str) -> str:
-    """SKU `licenca_delta` / aliases Ã¢â€ â€™ PermissionGroup canÃ³nico (`Delta`).
+    """SKU `licenca_delta` / aliases → PermissionGroup canónico (`Delta`).
 
     `group_name` em player_entitlements deve ser o grupo Permissions/TimedPoints,
-    nunca o ID de catÃ¡logo. keyvault e cargos ficam intactos. Rows legadas podem
-    vir com acento/caixa (Â«LicenÃ§a_DeltaÂ») â€” fold antes do lookup.
+    nunca o ID de catálogo. keyvault e cargos ficam intactos. Rows legadas podem
+    vir com acento/caixa («Licença_Delta») — fold antes do lookup.
     """
     g = str(group or "").strip()
     if not g:
@@ -6159,7 +6154,7 @@ def _normalize_entitlement_group(group: str) -> str:
     mapped = _LICENSE_ID_GROUP_FALLBACK.get(key)
     if mapped:
         return mapped
-    # Caixa errada do grupo canÃ³nico (ex.: Â«deltaÂ», Â«IMATERIALÂ»).
+    # Caixa errada do grupo canónico (ex.: «delta», «IMATERIAL»).
     for canonical in PAID_LICENSE_GROUPS:
         if key == canonical.lower():
             return canonical
@@ -6199,7 +6194,7 @@ def _timed_points_bonus_for_group(
     *,
     amounts: dict[str, int] | None = None,
 ) -> int:
-    """BÃ³nus Ã‚/ciclo do grupo (SKU normalizado). keyvault sem TimedPoints Ã¢â€ â€™ 0."""
+    """Bónus Â/ciclo do grupo (SKU normalizado). keyvault sem TimedPoints → 0."""
     canonical = _normalize_entitlement_group(group)
     if not canonical:
         return 0
@@ -6210,7 +6205,7 @@ def _timed_points_bonus_for_group(
 
 
 def _repair_entitlement_sku_group_names(engine: Any) -> int:
-    """Migra group_name SKU (`licenca_*`) Ã¢â€ â€™ PermissionGroup; funde se jÃ¡ existir canÃ³nico."""
+    """Migra group_name SKU (`licenca_*`) → PermissionGroup; funde se já existir canónico."""
     if engine is None:
         return 0
     repaired = 0
@@ -6237,7 +6232,7 @@ def _repair_entitlement_sku_group_names(engine: Any) -> int:
                     {"sid": steam_id, "grp": canonical},
                 ).fetchone()
                 if existing:
-                    # MantÃ©m o expires mais tarde (None = permanente vence).
+                    # Mantém o expires mais tarde (None = permanente vence).
                     keep_exp = existing[0]
                     sku_exp = expires
                     if keep_exp is None:
@@ -6257,7 +6252,7 @@ def _repair_entitlement_sku_group_names(engine: Any) -> int:
                             },
                         )
                     else:
-                        # Compara como string ISO / datetime â€” GREATEST no SQL.
+                        # Compara como string ISO / datetime — GREATEST no SQL.
                         conn.execute(
                             text(
                                 "UPDATE player_entitlements SET "
@@ -6295,7 +6290,7 @@ def _repair_entitlement_sku_group_names(engine: Any) -> int:
                     )
                 repaired += 1
                 log.info(
-                    "entitlement SKU repair: %s %r Ã¢â€ â€™ %r",
+                    "entitlement SKU repair: %s %r → %r",
                     steam_id, raw_group, canonical,
                 )
     except Exception as exc:
@@ -6307,7 +6302,7 @@ def _repair_entitlement_sku_group_names(engine: Any) -> int:
 
 
 def _days_since_license_expiry(steam_id: str, group: str) -> int | None:
-    """Dias desde o vencimento da Ãºltima entitlement do grupo; None se nunca teve / ainda ativa."""
+    """Dias desde o vencimento da última entitlement do grupo; None se nunca teve / ainda ativa."""
     if not group or not _db_ready():
         return None
     db = _SessionLocal()
@@ -6336,7 +6331,7 @@ def _days_since_license_expiry(steam_id: str, group: str) -> int | None:
                 return None
         now_ts = _now().timestamp() if hasattr(_now(), "timestamp") else float(__import__("time").time())
         if exp_ts > now_ts:
-            return None  # ainda ativa â€” use SKU *_renovacao (Ã¢Ë†â€™20%)
+            return None  # ainda ativa — use SKU *_renovacao (−20%)
         return max(0, int((now_ts - exp_ts) // 86400))
     except Exception:
         return None
@@ -6350,9 +6345,9 @@ def _effective_license_price(
     item_id: str,
     amount: int = 1,
 ) -> int:
-    """PreÃ§o de licenÃ§a com renovaÃ§Ã£o recente Ã¢Ë†â€™10% (0â€“7 dias apÃ³s expirar).
+    """Preço de licença com renovação recente −10% (0–7 dias após expirar).
 
-    RenovaÃ§Ã£o antecipada Ã¢Ë†â€™20% usa IDs `licenca_*_renovacao` no catÃ¡logo (jÃ¡ com preÃ§o).
+    Renovação antecipada −20% usa IDs `licenca_*_renovacao` no catálogo (já com preço).
     """
     base = _catalog_price(entry, amount)
     key = str(item_id or "").strip().lower()
@@ -6406,7 +6401,7 @@ def _entitlements_ddl_sqlite() -> str:
 
 
 def _ensure_entitlements_schema(conn: Any) -> None:
-    """Cria player_entitlements uma Ãºnica vez â€” DDL repetido bloqueava o MySQL para todos."""
+    """Cria player_entitlements uma única vez — DDL repetido bloqueava o MySQL para todos."""
     global _ENTITLEMENTS_SCHEMA_READY
     if _ENTITLEMENTS_SCHEMA_READY:
         return
@@ -6421,7 +6416,7 @@ def _ensure_entitlements_schema(conn: Any) -> None:
 
 
 def _entitlements_query_allowed(db: Any) -> bool:
-    """Hot path: flag False durante migrate async NÃƒO implica tabela ausente."""
+    """Hot path: flag False durante migrate async; N\u00c3O implica tabela ausente."""
     global _ENTITLEMENTS_SCHEMA_READY
     if _ENTITLEMENTS_SCHEMA_READY:
         return True
@@ -6447,7 +6442,7 @@ def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
         if _is_mysql_engine(db)
         else "(expires IS NULL OR expires > datetime('now'))"
     )
-    # Inclui SKUs legado (`licenca_delta`) â€” normaliza para o PermissionGroup.
+    # Inclui SKUs legado (`licenca_delta`) — normaliza para o PermissionGroup.
     rows = db.execute(
         text(
             "SELECT group_name FROM player_entitlements "
@@ -6468,7 +6463,7 @@ def _active_paid_license_groups_tx(db: Any, steam_id: str) -> set[str]:
 def _can_accept_paid_license_tx(
     db: Any, steam_id: str, group: str,
 ) -> tuple[bool, str]:
-    """Sempre aceita: tiers distintos ilimitados; mesmo tier Ã¢â€ â€™ renovaÃ§Ã£o/stack."""
+    """Sempre aceita: tiers distintos ilimitados; mesmo tier → renovação/stack."""
     return True, ""
 
 
@@ -6485,7 +6480,7 @@ def _apply_entitlement_grant_tx(
     _ensure_entitlements_schema(db)
     group = _normalize_entitlement_group(str(group))
     if not group:
-        raise ValueError("Grupo de licenÃ§a invÃ¡lido ou vazio")
+        raise ValueError("Grupo de licença inválido ou vazio")
     ok_slot, slot_err = _can_accept_paid_license_tx(db, str(steam_id), group)
     if not ok_slot:
         raise ValueError(slot_err)
@@ -6554,7 +6549,7 @@ def _entitlement_rows_to_list(
     group_idx: int = 0,
     timed_amounts: dict[str, int] | None = None,
 ) -> list[dict[str, Any]]:
-    """Dedup por grupo canÃ³nico (legado com SKU `licenca_*` + tier correcto)."""
+    """Dedup por grupo canónico (legado com SKU `licenca_*` + tier correcto)."""
     amounts = timed_amounts if timed_amounts is not None else _timed_points_groups_amounts()
     by_group: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -6631,7 +6626,7 @@ def _get_player_entitlements_uncached(
         if allow_ddl:
             _ensure_entitlements_schema(db)
         elif not _entitlements_query_allowed(db):
-            # Tabela ainda nÃ£o existe â€” bootstrap/self-heal em curso.
+            # Tabela ainda não existe — bootstrap/self-heal em curso.
             return []
         expires_clause = (
             "(expires IS NULL OR expires > NOW())"
@@ -6662,7 +6657,7 @@ def _get_player_entitlements_batch(
     *,
     allow_ddl: bool = True,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Entitlements activos para vÃ¡rios SteamIDs numa Ãºnica query (lista admin)."""
+    """Entitlements activos para vários SteamIDs numa única query (lista admin)."""
     out: dict[str, list[dict[str, Any]]] = {}
     norm_ids: list[str] = []
     for raw in steam_ids:
@@ -6720,8 +6715,8 @@ def _compute_timed_points_total(groups: list[str]) -> int:
     """Soma Amount de todos os grupos activos (igual a StackRewards=true no C++).
 
     Default + staff/MOD + keyvault (se Amount>0) + todos os tiers pagos.
-    Ex.: Alfa+Delta Ã¢â€ â€™ 25+75+5 = 105. StackRewards=false no plugin usa sÃ³ o
-    maior absoluto â€” a UI da loja reflecte o modo stack (default de produÃ§Ã£o).
+    Ex.: Alfa+Delta → 25+75+5 = 105. StackRewards=false no plugin usa só o
+    maior absoluto — a UI da loja reflecte o modo stack (default de produção).
     """
     amounts = _timed_points_groups_amounts()
     total = int(amounts.get("Default", LICENSE_TIMED_BONUS.get("Default", 25)) or 25)
@@ -6734,7 +6729,7 @@ def _compute_timed_points_total(groups: list[str]) -> int:
 
 
 def _schedule_entitlements_reconcile() -> None:
-    """Ao subir a web store, reconcilia entitlements Ã¢â€ â€ ark_permission em background."""
+    """Ao subir a Web Store, reconcilia entitlements com ark_permission em background."""
     global _ENTITLEMENTS_RECONCILE_STARTED
     done_key = _reconcile_done_env_key()
     if os.environ.get(done_key) == "1":
@@ -6757,15 +6752,15 @@ def _schedule_entitlements_reconcile() -> None:
             os.environ[done_key] = "1"
             if res.get("ok"):
                 log.info(
-                    "ReconciliaÃ§Ã£o entitlementsÃ¢â€ â€™ark_permission: verificados=%s irregulares=%s corrigidos=%s",
+                    "Reconciliação entitlements→ark_permission: verificados=%s irregulares=%s corrigidos=%s",
                     res.get("checked", 0),
                     res.get("irregular", 0),
                     res.get("synced", 0),
                 )
             else:
-                log.warning("ReconciliaÃ§Ã£o entitlements falhou: %s", res.get("error"))
+                log.warning("Reconciliação entitlements falhou: %s", res.get("error"))
         except Exception as exc:
-            log.warning("ReconciliaÃ§Ã£o entitlements exceÃ§Ã£o: %s", exc)
+            log.warning("Reconciliação entitlements exceção: %s", exc)
 
     threading.Thread(
         target=_worker, daemon=True, name="entitlements-reconcile",
@@ -6775,7 +6770,7 @@ def _schedule_entitlements_reconcile() -> None:
 def _reconcile_all_entitlements_to_permission_db(*, dry_run: bool = False) -> dict[str, Any]:
     shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
     if not shop_url or "sqlite" in shop_url.lower():
-        return {"ok": False, "error": "Banco MySQL nÃ£o configurado"}
+        return {"ok": False, "error": "Banco MySQL não configurado"}
     try:
         from permission_db_sync import reconcile_entitlements_with_permission_db
 
@@ -6823,10 +6818,10 @@ def _player_has_license(steam_id: str, group: str) -> bool:
 
 
 def _check_entry_permissions(steam_id: str, entry: dict[str, Any]) -> tuple[bool, list[str]]:
-    """Gate de licenÃ§a na loja â€” ignora Admins/Staff (sÃ³ tiers pagos / keyvault)."""
+    """Gate de licença na loja — ignora Admins/Staff (só tiers pagos / keyvault)."""
     groups = license_permission_groups(entry)
     if not groups:
-        # SÃ³ staff/Default no campo, ou vazio Ã¢â€ â€™ aberto para jogadores.
+        # Só staff/Default no campo, ou vazio → aberto para jogadores.
         return True, []
     mode = str(entry.get("PermissionsMode", "any")).strip().lower()
     active = [g for g in groups if _player_has_license(steam_id, g)]
@@ -6854,9 +6849,9 @@ def _order_license_group(order: Order) -> str | None:
 
 
 def _order_license_already_fulfilled(order: Order) -> bool:
-    """True sÃ³ se ESTE pedido jÃ¡ gravou o entitlement (source=order_id).
+    """True só se ESTE pedido já gravou o entitlement (source=order_id).
 
-    Ter o grupo activo por residual antigo NÃƒO conta â€” renovaÃ§Ã£o deve
+    Ter o grupo activo por residual antigo NÃO conta — renovação deve
     sincronizar Permissions / AddTimed com o novo expires.
     """
     group = _order_license_group(order)
@@ -6876,7 +6871,7 @@ def _finalize_license_order_if_fulfilled(
     reason: str,
     deferred_perm_syncs: list[dict[str, Any]] | None = None,
 ) -> bool:
-    """Marca ENTREGUE quando o entitlement deste pedido jÃ¡ existe; re-sync Permissions."""
+    """Marca ENTREGUE quando o entitlement deste pedido já existe; re-sync Permissions."""
     if not _order_license_already_fulfilled(order):
         return False
     group = _order_license_group(order) or ""
@@ -6896,7 +6891,7 @@ def _finalize_license_order_if_fulfilled(
         amount=order.amount,
         status_before=before,
         status_after="ENTREGUE",
-        message=f"LicenÃ§a jÃ¡ activa neste pedido; finalizado ({reason})",
+        message=f"Licença já activa neste pedido; finalizado ({reason})",
         reason=reason,
     )
     if group:
@@ -6933,7 +6928,7 @@ def _finalize_license_order_if_fulfilled(
 
 
 def _ensure_license_entitlement_for_order(order: Order, *, reason: str = "") -> bool:
-    """Garante player_entitlements para pedidos de licenÃ§a (reparo pÃ³s-entrega)."""
+    """Garante player_entitlements para pedidos de licença (reparo pós-entrega)."""
     item_type = str(order.item_type or "shop")
     item_id = str(order.item_id or "")
     entry = _catalog_entry(
@@ -7038,7 +7033,7 @@ def _revoke_player_entitlement_by_group(
 
 
 def _revoke_entitlement_for_order(steam_id: str, order_id: str, db: Any | None = None) -> None:
-    """Remove entitlement vinculado ao pedido. Se `db` for passado, usa a sessÃ£o atual."""
+    """Remove entitlement vinculado ao pedido. Se `db` for passado, usa a sessão atual."""
     sql = text(
         "DELETE FROM player_entitlements "
         "WHERE steam_id = :sid AND source = :oid"
@@ -7089,7 +7084,7 @@ def _persist_point_packages_to_catalog(
     packages: list[dict[str, Any]],
     settings: dict[str, Any],
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Grava PointPackages no catÃ¡logo mestre e destinos de sync do CustomShop."""
+    """Grava PointPackages no catálogo mestre e destinos de sync do CustomShop."""
     master_path = _resolve_settings_catalog_path(
         str(settings.get("config_path") or _DEFAULT_CONFIG_PATH)
     )
@@ -7117,7 +7112,7 @@ def _persist_point_packages_to_catalog(
 def _package_label(package_id: str) -> str:
     pid = str(package_id or "").strip()
     if not pid:
-        return "DoaÃ§Ã£o PIX"
+        return "Doação PIX"
     for pkg in _load_point_packages():
         if str(pkg.get("id", "")).strip() == pid:
             return str(pkg.get("label") or pkg.get("name") or pid)
@@ -7126,23 +7121,23 @@ def _package_label(package_id: str) -> str:
 
 DEFAULT_PAYPAL_QR_PATH = "/paypal-qr.jpeg"
 DEFAULT_PAYPAL_INSTRUCTIONS = (
-    "DoaÃ§Ã£o livre via PayPal â€” escolha o valor que desejar.\n\n"
-    "ApÃ³s pagar, abra um ticket (categoria Â«DoaÃ§Ã£oÂ») informando:\n"
-    "â€¢ Comprovante ou print do pagamento\n"
-    "â€¢ Seu SteamID\n"
-    "â€¢ Valor doado\n\n"
-    "Um administrador creditarÃ¡ Ambares manualmente (R$ 1 = 1.000 Ambares). "
-    "DoaÃ§Ã£o definitiva â€” sem reembolso."
+    "Doação livre via PayPal — escolha o valor que desejar.\n\n"
+    "Após pagar, abra um ticket (categoria «Doação») informando:\n"
+    "• Comprovante ou print do pagamento\n"
+    "• Seu SteamID\n"
+    "• Valor doado\n\n"
+    "Um administrador creditará Ambares manualmente (R$ 1 = 1.000 Ambares). "
+    "Doação definitiva — sem reembolso."
 )
 DEFAULT_BOLETO_MANUAL_INSTRUCTIONS = (
-    "DoaÃ§Ã£o via boleto bancÃ¡rio (depÃ³sito manual).\n\n"
-    "Use os dados bancÃ¡rios / PIX da conta informada pela staff abaixo (ou no ticket).\n"
-    "ApÃ³s pagar o boleto ou transferÃªncia, abra um ticket (categoria Â«DoaÃ§Ã£oÂ») com:\n"
-    "â€¢ Comprovante do pagamento\n"
-    "â€¢ Seu SteamID\n"
-    "â€¢ Valor doado\n\n"
-    "Um administrador creditarÃ¡ Ambares manualmente (R$ 1 = 1.000 Ambares). "
-    "DoaÃ§Ã£o definitiva â€” sem reembolso. CompensaÃ§Ã£o de boleto pode levar 1â€“3 dias Ãºteis."
+    "Doação via boleto bancário (depósito manual).\n\n"
+    "Use os dados bancários / PIX da conta informada pela staff abaixo (ou no ticket).\n"
+    "Após pagar o boleto ou transferência, abra um ticket (categoria «Doação») com:\n"
+    "• Comprovante do pagamento\n"
+    "• Seu SteamID\n"
+    "• Valor doado\n\n"
+    "Um administrador creditará Ambares manualmente (R$ 1 = 1.000 Ambares). "
+    "Doação definitiva — sem reembolso. Compensação de boleto pode levar 1–3 dias úteis."
 )
 
 
@@ -7156,7 +7151,7 @@ def _get_mp_access_token() -> str:
 
 
 def _get_mp_webhook_secret() -> str:
-    """Secret HMAC do webhook MP â€” painel MP > Webhooks > Revelar assinatura."""
+    """Secret HMAC do webhook MP — painel MP > Webhooks > Revelar assinatura."""
     settings_secret = str(_load_settings().get("mp_webhook_secret", "")).strip()
     env_secret = os.environ.get("MP_WEBHOOK_SECRET", "").strip()
     if settings_secret:
@@ -7216,7 +7211,7 @@ def _steam_id_from_session() -> str | None:
 
 
 def _shop_public_base_url() -> str:
-    """URL pÃºblica HTTPS da loja â€” usada em callbacks Mercado Pago (nÃ£o localhost)."""
+    """URL pública HTTPS da loja — usada em callbacks Mercado Pago (não localhost)."""
     s = _load_settings()
     configured = str(s.get("public_url") or "").strip().rstrip("/")
     if configured:
@@ -7235,10 +7230,10 @@ def _mp_webhook_expected_url() -> str:
 
 
 def _mp_notification_url() -> str:
-    """``notification_url`` explÃ­cita enviada ao MP (opcional; vazia = usa o painel MP).
+    """``notification_url`` explícita enviada ao MP (opcional; vazia = usa o painel MP).
 
     Configure em settings (``mp_notification_url``) ou env ``MP_NOTIFICATION_URL``.
-    URL nÃ£o pÃºblica (localhost/IP privado/http) Ã© descartada com aviso â€” o MP nÃ£o alcanÃ§a.
+    URL não pública (localhost/IP privado/http) é descartada com aviso — o MP não alcança.
     """
     explicit = str(
         _load_settings().get("mp_notification_url") or os.environ.get("MP_NOTIFICATION_URL") or ""
@@ -7247,8 +7242,8 @@ def _mp_notification_url() -> str:
     if not is_public_https_url(expected) and expected not in _MP_WEBHOOK_PUBLIC_WARNED:
         _MP_WEBHOOK_PUBLIC_WARNED.add(expected)
         log.warning(
-            "URL do webhook MP (%s) nÃ£o Ã© pÃºblica/HTTPS â€” o Mercado Pago nÃ£o conseguirÃ¡ notificar. "
-            "Ajuste public_url nas configuraÃ§Ãµes da Web Store.", expected,
+            "URL do webhook MP (%s) não é pública/HTTPS — o Mercado Pago não conseguirá notificar. "
+            "Ajuste public_url nas configurações da Web Store.", expected,
         )
     if not explicit:
         return ""
@@ -7257,14 +7252,14 @@ def _mp_notification_url() -> str:
     if explicit not in _MP_WEBHOOK_PUBLIC_WARNED:
         _MP_WEBHOOK_PUBLIC_WARNED.add(explicit)
         log.warning(
-            "mp_notification_url NÃƒO Ã© pÃºblica (HTTPS/host pÃºblico) â€” ignorada: o Mercado Pago "
-            "nÃ£o conseguiria notificar. Corrija em settings/MP_NOTIFICATION_URL."
+            "mp_notification_url NÃO é pública (HTTPS/host público) — ignorada: o Mercado Pago "
+            "não conseguiria notificar. Corrija em settings/MP_NOTIFICATION_URL."
         )
     return ""
 
 
 def _mp_webhook_diagnostics() -> dict[str, Any]:
-    """Estado da integraÃ§Ã£o de notificaÃ§Ãµes MP (sem expor segredos)."""
+    """Estado da integração de notificações MP (sem expor segredos)."""
     expected = _mp_webhook_expected_url()
     explicit = str(
         _load_settings().get("mp_notification_url") or os.environ.get("MP_NOTIFICATION_URL") or ""
@@ -7272,12 +7267,12 @@ def _mp_webhook_diagnostics() -> dict[str, Any]:
     warnings: list[str] = []
     if not is_public_https_url(expected):
         warnings.append(
-            f"URL pÃºblica da loja ({expected}) nÃ£o Ã© HTTPS/pÃºblica â€” o Mercado Pago nÃ£o conseguirÃ¡ notificar."
+            f"URL pública da loja ({expected}) não é HTTPS/pública — o Mercado Pago não conseguirá notificar."
         )
     if explicit and not is_public_https_url(explicit):
-        warnings.append("mp_notification_url configurada nÃ£o Ã© pÃºblica (HTTPS) e estÃ¡ sendo ignorada.")
+        warnings.append("mp_notification_url configurada não é pública (HTTPS) e está sendo ignorada.")
     if not _get_mp_webhook_secret():
-        warnings.append("Secret do webhook nÃ£o configurado: assinatura x-signature nÃ£o Ã© validada.")
+        warnings.append("Secret do webhook não configurado: assinatura x-signature não é validada.")
     if not _get_mp_access_token():
         warnings.append("Access Token do Mercado Pago ausente: nenhum pagamento pode ser confirmado.")
     return {
@@ -7294,7 +7289,7 @@ def _mp_webhook_diagnostics() -> dict[str, Any]:
 
 
 def _mp_webhook_strict_signature() -> bool:
-    """Assinatura invÃ¡lida => 401? PadrÃ£o NÃƒO: o pagamento Ã© sempre re-lido do MP com o token."""
+    """Assinatura inv?lida => 401? Padr?o N?O: o pagamento ? sempre relido do MP com o token."""
     raw = _load_settings().get("mp_webhook_strict_signature")
     if raw is None:
         raw = os.environ.get("MP_WEBHOOK_STRICT_SIGNATURE", "")
@@ -7302,7 +7297,7 @@ def _mp_webhook_strict_signature() -> bool:
 
 
 def _mp_auto_reconcile_enabled() -> bool:
-    """Varredura periÃ³dica de DpaÃ§Ãµes pendentes/abandonadas (desligada por padrÃ£o)."""
+    """Varredura periódica de Dpações pendentes/abandonadas (desligada por padrão)."""
     raw = _load_settings().get("mp_auto_reconcile")
     if raw is None:
         raw = os.environ.get("MP_AUTO_RECONCILE", "")
@@ -7322,7 +7317,7 @@ def _mp_auto_reconcile_tick() -> None:
 
 
 def _start_mp_auto_reconcile_worker() -> None:
-    """Agenda a reconciliaÃ§Ã£o periÃ³dica (idempotente por nome; cheio de no-op se desligada)."""
+    """Agenda a reconciliação periódica (idempotente por nome; cheio de no-op se desligada)."""
     try:
         from background_tasks import start_interval_worker
 
@@ -7332,11 +7327,11 @@ def _start_mp_auto_reconcile_worker() -> None:
             name="mp-auto-reconcile",
         )
     except Exception as exc:
-        log.warning("mp auto reconcile worker nÃ£o iniciou: %s", exc)
+        log.warning("mp auto reconcile worker não iniciou: %s", exc)
 
 
 def _build_base_url() -> str:
-    """URL base para redirects (Steam login, MP). PreferÃªncia: settings > proxy > fallback pÃºblico."""
+    """URL base para redirects (Steam login, MP). Preferência: settings > proxy > fallback público."""
     public = _shop_public_base_url()
     proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "https").split(",")[0].strip()
     host = (
@@ -7358,7 +7353,7 @@ def _build_base_url() -> str:
 # Ã¢â€â‚¬Ã¢â€â‚¬ Servers registry Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _load_servers(*, decrypt_secrets: bool = True) -> list[dict[str, Any]]:
-    """Carrega servers.json. Home pÃºblica usa decrypt_secrets=False (sem Fernet)."""
+    """Carrega servers.json. Home pública usa decrypt_secrets=False (sem Fernet)."""
     if not _SERVERS_FILE.exists():
         return []
     try:
@@ -7420,7 +7415,7 @@ def _extract_steam_id_from_claimed_id(claimed_id: str) -> str | None:
 
 
 def _get_steam_api_key() -> str:
-    """Chave Steam Web API â€” settings.json (TEK/admin UI) > env STEAM_API_KEY."""
+    """Chave Steam Web API — settings.json (TEK/admin UI) > env STEAM_API_KEY."""
     settings_key = str(_load_settings().get("steam_api_key", "")).strip()
     if settings_key:
         return settings_key
@@ -7434,14 +7429,14 @@ def _steam_api_key_configured() -> bool:
 _STEAM_PERSONA_BATCH_SIZE = 100
 _STEAM_API_KEY_WARNED = False
 _STEAM_PERSONA_ADMIN_WARNING = (
-    "Nicknames Steam indisponÃ­veis â€” configure a Chave Steam Web API no TEK "
-    "(CustomShop Ã¢â€ â€™ Web Store) ou em ConfiguraÃ§Ãµes do admin web "
+    "Nicknames Steam indisponíveis — configure a Chave Steam Web API no TEK "
+    "(CustomShop → Web Store) ou em Configurações do admin web "
     "(https://steamcommunity.com/dev/apikey) e reinicie a Web Store. "
-    "Verifique GET /api/health Ã¢â€ â€™ steam_api_configured."
+    "Verifique GET /api/health → steam_api_configured."
 )
 _STEAM_PERSONA_FETCH_WARNING = (
-    "A Steam Web API nÃ£o retornou nicknames para esta pÃ¡gina â€” perfis privados, "
-    "rede bloqueada ou chave invÃ¡lida. Veja webstore.log."
+    "A Steam Web API não retornou nicknames para esta página — perfis privados, "
+    "rede bloqueada ou chave inválida. Veja webstore.log."
 )
 
 
@@ -7452,8 +7447,8 @@ def _warn_steam_api_key_missing(context: str = "") -> None:
     _STEAM_API_KEY_WARNED = True
     suffix = f" ({context})" if context else ""
     log.warning(
-        "STEAM_API_KEY nÃ£o configurada â€” nicknames Steam indisponÃ­veis%s. "
-        "Configure no TEK (CustomShop Ã¢â€ â€™ Web Store) ou em https://steamcommunity.com/dev/apikey",
+        "STEAM_API_KEY não configurada — nicknames Steam indisponíveis%s. "
+        "Configure no TEK (CustomShop → Web Store) ou em https://steamcommunity.com/dev/apikey",
         suffix,
     )
 
@@ -7476,7 +7471,7 @@ def _admin_steam_persona_meta(
     if missing:
         meta["steam_persona_warning"] = (
             f"Nick Steam parcial: {len(fetched)}/{len(requested_ids)} obtidos via API. "
-            "Perfis privados ou indisponÃ­veis exibem â€¦Ãºltimos dÃ­gitos do SteamID."
+            "Perfis privados ou indisponíveis exibem …últimos dígitos do SteamID."
         )
     return meta
 
@@ -7486,7 +7481,7 @@ def _fetch_steam_persona_names_batch(
     *,
     timeout: float = 12.0,
 ) -> dict[str, str]:
-    """Persona Steam em lote (atÃ© 100 por request); requer STEAM_API_KEY."""
+    """Persona Steam em lote (até 100 por request); requer STEAM_API_KEY."""
     api_key = _get_steam_api_key()
     if not api_key:
         _warn_steam_api_key_missing("GetPlayerSummaries")
@@ -7544,7 +7539,7 @@ def _fetch_steam_persona_names_batch(
 
 
 def _persist_steam_personas(db: Any, persona_map: dict[str, str]) -> None:
-    """Grava nick Steam em store_users.steam_persona (fonte Ãºnica de exibiÃ§Ã£o)."""
+    """Grava nick Steam em store_users.steam_persona (fonte única de exibição)."""
     if not persona_map:
         return
     for sid, persona in persona_map.items():
@@ -7562,7 +7557,7 @@ def _persist_steam_personas(db: Any, persona_map: dict[str, str]) -> None:
 
 
 def _persist_steam_personas_isolated(persona_map: dict[str, str]) -> None:
-    """Persiste personas em sessÃ£o prÃ³pria â€” evita conflito com SELECT raw do admin."""
+    """Persiste personas em sessão própria — evita conflito com SELECT raw do admin."""
     if not persona_map or not _db_ready():
         return
     db = _SessionLocal()
@@ -7582,7 +7577,7 @@ def _refresh_steam_personas(
     return_status: bool = False,
     timeout: float = 12.0,
 ) -> dict[str, str] | tuple[dict[str, str], dict[str, Any]]:
-    """Consulta Steam API e persiste â€” ignora cache DB (lista admin)."""
+    """Consulta Steam API e persiste — ignora cache DB (lista admin)."""
     valid_ids: list[str] = []
     seen: set[str] = set()
     for raw in steam_ids:
@@ -7607,8 +7602,8 @@ def _refresh_steam_personas(
 def _refresh_steam_persona(steam_id: str, *, db: Any | None = None) -> str | None:
     """Atualiza steam_persona de um jogador via Steam API (login).
 
-    Timeout curto (5s): Steam fora do ar nÃ£o pode segurar o callback de login;
-    em falha cai no nick em cache do DB. I/O Steam NUNCA com sessÃ£o web aberta.
+    Timeout curto (5s): Steam fora do ar não pode segurar o callback de login;
+    em falha cai no nick em cache do DB. I/O Steam NUNCA com sessão web aberta.
     """
     norm_sid = _normalize_steam_id64(steam_id)
     if not norm_sid:
@@ -7637,7 +7632,7 @@ _STEAM_PERSONA_BG_RUNNING = False
 
 
 def _schedule_steam_persona_backfill(steam_ids: list[str]) -> None:
-    """Fila refresh Steam em background â€” nunca bloqueia HTTP (lista/auth/bootstrap)."""
+    """Fila refresh Steam em background — nunca bloqueia HTTP (lista/auth/bootstrap)."""
     global _STEAM_PERSONA_BG_RUNNING
     if not steam_ids or not _steam_api_key_configured() or not _db_ready():
         return
@@ -7681,7 +7676,7 @@ def _backfill_steam_personas(
     *,
     return_status: bool = False,
 ) -> dict[str, str] | tuple[dict[str, str], dict[str, Any]]:
-    """Admin list: usa cache DB; sÃ³ chama Steam API para IDs sem persona vÃ¡lida (timeout curto)."""
+    """Admin list: usa cache DB; só chama Steam API para IDs sem persona válida (timeout curto)."""
     cached: dict[str, str] = {}
     missing: list[str] = []
     seen: set[str] = set()
@@ -7719,7 +7714,7 @@ def _backfill_steam_personas(
             if still_missing:
                 meta["steam_persona_warning"] = (
                     f"Nick Steam parcial: {len(fetched)}/{len(missing)} obtidos via API. "
-                    "Perfis privados ou indisponÃ­veis exibem â€¦Ãºltimos dÃ­gitos do SteamID."
+                    "Perfis privados ou indisponíveis exibem …últimos dígitos do SteamID."
                 )
     return (resolved, meta) if return_status else resolved
 
@@ -7738,7 +7733,7 @@ def _steam_persona_label(steam_id: str, persona: str | None) -> str | None:
 
 
 def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | None:
-    """Nick Steam para header â€” apenas steam_persona, nunca market_display_name."""
+    """Nick Steam para header — apenas steam_persona, nunca market_display_name."""
     if enrich:
         persona = _refresh_steam_persona(steam_id)
         label = _steam_persona_label(steam_id, persona)
@@ -7764,11 +7759,11 @@ def login_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     def _wrapper(*args: Any, **kwargs: Any):
         steam_id = _steam_id_from_session()
         if not steam_id:
-            return jsonify({"ok": False, "error": "NÃ£o autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
+            return jsonify({"ok": False, "error": "Não autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
         if _is_player_site_blocked(steam_id):
             return jsonify({
                 "ok": False,
-                "error": "Seu acesso ao site foi bloqueado. Contate a administraÃ§Ã£o.",
+                "error": "Seu acesso ao site foi bloqueado. Contate a administração.",
                 "site_access_blocked": True,
             }), 403
         return fn(*args, **kwargs)
@@ -7777,7 +7772,7 @@ def login_required(fn: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def _local_preview_enabled() -> bool:
-    """Preview local. ProduÃ§Ã£o nÃ£o define ARKLAND_LOCAL_PREVIEW."""
+    """Preview local. Produção não define ARKLAND_LOCAL_PREVIEW."""
     return (os.environ.get("ARKLAND_LOCAL_PREVIEW") or "").strip().lower() in {
         "1",
         "true",
@@ -7793,9 +7788,9 @@ _LOCAL_PREVIEW_API_PATHS = frozenset({
 
 
 def _local_preview_api_bypass() -> bool:
-    """Libera sÃ³ a busca de blueprints, e sÃ³ neste processo.
+    """Libera só a busca de blueprints, e só neste processo.
 
-    A ficha Primal Fear Ã© JSON estÃ¡tico. Equipes, pontos e o resto do admin
+    A ficha Primal Fear é JSON estático. Equipes, pontos e o resto do admin
     continuam em admin_required.
     """
     if not _local_preview_enabled() or not has_request_context():
@@ -7811,7 +7806,7 @@ def admin_required(fn: Callable[..., Any]) -> Callable[..., Any]:
             return fn(*args, **kwargs)
         steam_id = _steam_id_from_session()
         if not steam_id:
-            return jsonify({"ok": False, "error": "NÃ£o autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
+            return jsonify({"ok": False, "error": "Não autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
         if not _is_admin_steamid(steam_id):
             return jsonify({"ok": False, "error": "Acesso negado"}), 403
         return fn(*args, **kwargs)
@@ -7825,7 +7820,7 @@ def ticket_staff_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     def _wrapper(*args: Any, **kwargs: Any):
         steam_id = _steam_id_from_session()
         if not steam_id:
-            return jsonify({"ok": False, "error": "NÃ£o autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
+            return jsonify({"ok": False, "error": "Não autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
         if not _can_manage_tickets(steam_id):
             return jsonify({"ok": False, "error": "Acesso negado"}), 403
         return fn(*args, **kwargs)
@@ -7834,7 +7829,7 @@ def ticket_staff_required(fn: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def _safe_market_profile(db: Any, steam_id: str) -> Any | None:
-    """Perfil de comÃ©rcio ou None se tabela/DB indisponÃ­vel."""
+    """Perfil de comércio ou None se tabela/DB indisponível."""
     from market_listings import get_profile
     from sqlalchemy.exc import OperationalError
 
@@ -7850,7 +7845,7 @@ def _auth_display_name_fields(
     *,
     db: Any | None = None,
 ) -> dict[str, Any]:
-    """Campos de /api/auth/me â€” usa cache DB e tenta resolver Steam API se faltar persona."""
+    """Campos de /api/auth/me — usa cache DB e tenta resolver Steam API se faltar persona."""
     persona: str | None = None
     owns_session = db is None and _db_ready()
     if owns_session:
@@ -7884,7 +7879,7 @@ def _auth_display_name_fields(
 
 
 def _guard_player_display_name(steam_id: str) -> Any:
-    """Removido: nick Steam vem da API, nÃ£o hÃ¡ nome editÃ¡vel separado."""
+    """Removido: nick Steam vem da API, não há nome editável separado."""
     return None
 
 
@@ -7916,7 +7911,7 @@ def _auth_regulamento_fields_offline() -> dict[str, Any]:
 
 
 def _guard_regulamento_accepted(steam_id: str) -> Any:
-    """Bloqueia aÃ§Ãµes sem aceite do regulamento vigente."""
+    """Bloqueia ações sem aceite do regulamento vigente."""
     if not _db_ready():
         return None
     from regulamento_service import guard_regulamento_accepted
@@ -7932,7 +7927,7 @@ def _guard_regulamento_accepted(steam_id: str) -> Any:
 
 
 def _guard_player_commerce(steam_id: str) -> Any:
-    """Regulamento aceito + nome de exibiÃ§Ã£o (mercado/resgates/DpaÃ§Ãµes)."""
+    """Regulamento aceito + nome de exibição (mercado/resgates/Dpações)."""
     if (reg_err := _guard_regulamento_accepted(steam_id)) is not None:
         return reg_err
     return _guard_player_display_name(steam_id)
@@ -7960,7 +7955,7 @@ def _rcon_command(
     )
 
 
-# Comandos que o painel web / banco central jÃ¡ cobrem â€” nÃ£o devem ir via RCON.
+# Comandos que o painel web / banco central já cobrem — não devem ir via RCON.
 _RCON_BLOCKED_COMMANDS = frozenset({
     "shop.addpoints",
     "shop.setpoints",
@@ -7974,7 +7969,7 @@ def _rcon_command_blocked_reason(command: str) -> str | None:
     token = (command.strip().split() or [""])[0].lower()
     if token in _RCON_BLOCKED_COMMANDS:
         return (
-            "Este comando Ã© gerenciado fora do jogo (banco central / painel web). "
+            "Este comando é gerenciado fora do jogo (banco central / painel web). "
             "Use Gerenciar Jogadores para pontos e entregas."
         )
     return None
@@ -7984,7 +7979,7 @@ def _resolve_rcon_target(
     server_id: str | None,
     settings: dict[str, Any],
 ) -> tuple[str, int, str, str]:
-    """Resolve host, porta, senha e label para RCON (servidor especÃ­fico ou fallback global)."""
+    """Resolve host, porta, senha e label para RCON (servidor específico ou fallback global)."""
     if server_id:
         for srv in _load_servers():
             if str(srv.get("server_id", "")).strip() == str(server_id).strip():
@@ -8000,7 +7995,7 @@ def _resolve_rcon_target(
         str(settings.get("rcon_host") or "127.0.0.1"),
         int(settings.get("rcon_port") or 27020),
         sanitize_rcon_password(str(settings.get("rcon_password") or "")),
-        "padrÃ£o",
+        "padrão",
     )
 
 
@@ -8024,7 +8019,7 @@ def _rcon_hosts_to_try(srv: dict[str, Any], settings: dict[str, Any]) -> list[st
 
 
 def _load_manager_app_config() -> Any:
-    """LÃª config.json do Server Manager (machine_public_ip, shop.public_ip)."""
+    """Lê config.json do Server Manager (machine_public_ip, shop.public_ip)."""
     cfg_path = Path(os.environ.get("APPDATA", "")) / "ARKLAND-ServerManager" / "config.json"
     if not cfg_path.is_file():
         return None
@@ -8144,7 +8139,7 @@ def _server_dict_from_classic_raw(
 
 
 def _discover_local_rcon_servers() -> list[dict[str, Any]]:
-    """LÃª asm_servers.json e servers.json do Server Manager (host local)."""
+    """Lê asm_servers.json e servers.json do Server Manager (host local)."""
     cfg_dir = Path(os.environ.get("APPDATA", "")) / "ARKLAND-ServerManager"
     if not cfg_dir.is_dir():
         return []
@@ -8199,7 +8194,7 @@ def _merge_rcon_server_entry(existing: dict[str, Any], incoming: dict[str, Any])
 
 
 def _resolve_rcon_reload_targets(settings: dict[str, Any]) -> list[dict[str, Any]]:
-    """Servidores para Shop.Reload â€” servers.json da web + descoberta local ASM."""
+    """Servidores para Shop.Reload — servers.json da web + descoberta local ASM."""
     by_id: dict[str, dict[str, Any]] = {}
     for srv in _load_servers():
         if not isinstance(srv, dict):
@@ -8248,7 +8243,7 @@ def _classify_rcon_error(exc: BaseException | str) -> str:
 
 
 def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
-    """Shop.Reload num mapa â€” relatÃ³rio detalhado (conectividade + comando)."""
+    """Shop.Reload num mapa — relatório detalhado (conectividade + comando)."""
     sid = str(srv.get("server_id") or "server")
     label = str(srv.get("label") or sid)
     plugin_path = str(srv.get("plugin_config_path") or srv.get("customshop_config_path") or "")
@@ -8278,8 +8273,8 @@ def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> di
         base.update({
             "status": "skipped",
             "connectivity": "skipped",
-            "reason": "excluÃ­do da loja",
-            "error": "excluÃ­do da loja",
+            "reason": "excluído da loja",
+            "error": "excluído da loja",
         })
         return base
     if srv.get("rcon_enabled") is False:
@@ -8298,16 +8293,16 @@ def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> di
         base.update({
             "status": "skipped",
             "connectivity": "skipped",
-            "reason": "senha RCON nÃ£o configurada (cadastre em Servidores ou ASM)",
-            "error": "senha RCON nÃ£o configurada (cadastre em Servidores ou ASM)",
+            "reason": "senha RCON não configurada (cadastre em Servidores ou ASM)",
+            "error": "senha RCON não configurada (cadastre em Servidores ou ASM)",
         })
         return base
     if port <= 0:
         base.update({
             "status": "skipped",
             "connectivity": "skipped",
-            "reason": "porta RCON invÃ¡lida",
-            "error": "porta RCON invÃ¡lida",
+            "reason": "porta RCON inválida",
+            "error": "porta RCON inválida",
         })
         return base
 
@@ -8335,7 +8330,7 @@ def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> di
                 kind = _classify_rcon_error(exc)
                 last_conn = kind
                 last_err = f"{host}:{port} {cmd}: {exc}"
-                # Auth fail no primeiro host: nÃ£o adianta tentar outros comandos no mesmo host
+                # Auth fail no primeiro host: não adianta tentar outros comandos no mesmo host
                 if kind == "auth_fail":
                     break
 
@@ -8363,7 +8358,7 @@ def _tribe_sync_rcon_one(srv: dict[str, Any], settings: dict[str, Any]) -> dict[
             "server_id": sid,
             "label": label,
             "ok": False,
-            "error": "senha RCON nÃ£o configurada",
+            "error": "senha RCON não configurada",
         }
     last_err = ""
     for host in _rcon_hosts_to_try(srv, settings):
@@ -8420,7 +8415,7 @@ def _trigger_tribe_sync_rcon_all() -> list[dict[str, Any]]:
 
 
 def _enqueue_tribe_sync_rcon() -> list[dict[str, Any]]:
-    """Agenda TribeSync RCON em background â€” request HTTP nÃ£o espera mapas offline."""
+    """Agenda TribeSync RCON em background — request HTTP não espera mapas offline."""
     from background_tasks import submit as _bg_submit
 
     queued = _bg_submit(
@@ -8513,12 +8508,12 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
                   *,
                   admin_skip_kit_limit: bool = False) -> tuple[Order | None, str | None]:
     if not _db_ready():
-        return None, "Banco nÃ£o configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"
+        return None, "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"
 
     if not _is_valid_steamid64(steam_id):
-        return None, "SteamID64 invÃ¡lido"
+        return None, "SteamID64 inválido"
     if not item_id:
-        return None, "item_id Ã© obrigatÃ³rio"
+        return None, "item_id é obrigatório"
     if amount <= 0:
         return None, "amount deve ser maior que zero"
 
@@ -8556,21 +8551,21 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
 
 
 def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[str, Any]:
-    """Entrega pedido via RCON sem segurar FOR UPDATE / conexÃ£o durante I/O externo.
+    """Entrega pedido via RCON sem segurar FOR UPDATE / conexão durante I/O externo.
 
-    Fase 1 (curta): claim row + liberta sessÃ£o.
+    Fase 1 (curta): claim row + liberta sessão.
     Fase 2 (sem DB): RCON.
     Fase 3 (curta): grava resultado.
     """
     if not _db_ready():
-        return {"ok": False, "error": "Banco nÃ£o configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}
+        return {"ok": False, "error": "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}
 
     # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 1: claim curto Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     db = _SessionLocal()
     try:
         order = db.query(Order).filter(Order.order_id == order_id).with_for_update().first()
         if not order:
-            return {"ok": False, "error": "Pedido nÃ£o encontrado"}
+            return {"ok": False, "error": "Pedido não encontrado"}
 
         if order.status == "ENTREGUE":
             return {"ok": True, "order_id": order.order_id, "status": order.status, "skipped": True}
@@ -8591,7 +8586,7 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
                 "delivery_mode": "plugin",
             }
 
-        # Snapshot para RCON fora da transaÃ§Ã£o â€” NÃƒO segurar lock durante rede.
+        # Snapshot para RCON fora da transação — NÃO segurar lock durante rede.
         order_snap = Order(
             order_id=order.order_id,
             steam_id=order.steam_id,
@@ -8602,7 +8597,7 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
             status=order.status,
             retry_count=int(order.retry_count or 0),
         )
-        # Marca ENTREGANDO e COMMIT imediato Ã¢â€ â€™ liberta FOR UPDATE antes do RCON.
+        # Marca ENTREGANDO e COMMIT imediato → liberta FOR UPDATE antes do RCON.
         order.status = "ENTREGANDO"
         order.updated_at = _now()
         db.commit()
@@ -8615,15 +8610,15 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
     finally:
         _release_db_session(db, force=True)
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 2: RCON sem conexÃ£o do pool Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 2: RCON sem conexão do pool Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     success, response, error, command = _attempt_delivery(order_snap, server_settings)
 
-    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 3: persistir resultado (sessÃ£o curta) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+    # Ã¢â€â‚¬Ã¢â€â‚¬ Fase 3: persistir resultado (sessão curta) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     db2 = _SessionLocal()
     try:
         order2 = db2.query(Order).filter(Order.order_id == order_id).with_for_update().first()
         if not order2:
-            return {"ok": False, "error": "Pedido nÃ£o encontrado apÃ³s entrega"}
+            return {"ok": False, "error": "Pedido não encontrado após entrega"}
 
         attempt = OrderAttempt(
             order_id=order2.order_id,
@@ -8679,7 +8674,7 @@ _scheduler_stop = threading.Event()
 
 
 def _scheduler_pool_busy(*, threshold: float = 0.7) -> bool:
-    """True se o pool MySQL estÃ¡ sob pressÃ£o â€” jobs de manutenÃ§Ã£o devem ceder."""
+    """True se o pool MySQL está sob pressão — jobs de manutenção devem ceder."""
     if _ENGINE is None:
         return False
     try:
@@ -8839,7 +8834,7 @@ def _retry_worker() -> None:
                 _release_db_session(db)
 
             if order_ids:
-                # Usa ix_orders_status_created (status, created_at) â€” PENDENTE + ORDER BY created_at.
+                # Usa ix_orders_status_created (status, created_at) — PENDENTE + ORDER BY created_at.
                 _log("scheduler_retry_batch", count=len(order_ids))
                 for oid in order_ids:
                     if _scheduler_stop.is_set() or _scheduler_pool_busy():
@@ -8854,7 +8849,7 @@ _SCHEDULER_INITIALIZED = False
 
 
 def _start_scheduler() -> None:
-    """Arranca (ou re-arranca) a thread arkshop-retry se nÃ£o estiver viva."""
+    """Arranca (ou re-arranca) a thread arkshop-retry se não estiver viva."""
     global _scheduler_thread
     if _scheduler_thread is not None and _scheduler_thread.is_alive():
         return
@@ -8864,7 +8859,7 @@ def _start_scheduler() -> None:
 
 
 def _initialize_scheduler_if_needed() -> None:
-    """Idempotente; retenta se a thread morreu (mesmo padrÃ£o de pending_stale)."""
+    """Idempotente; retenta se a thread morreu (mesmo padrão de pending_stale)."""
     global _SCHEDULER_INITIALIZED
     if (
         _SCHEDULER_INITIALIZED
@@ -8892,7 +8887,7 @@ def _pending_items_json(items: list[dict[str, Any]]) -> Any:
 
 @app.after_request
 def _api_pending_never_empty_body(response: Any) -> Any:
-    """Garante JSON vÃ¡lido nas rotas /api/pending/* (evita parse error no plugin)."""
+    """Garante JSON válido nas rotas /api/pending/* (evita parse error no plugin)."""
     path = request.path or ""
     if not path.startswith("/api/pending/"):
         return response
@@ -8910,14 +8905,14 @@ def _api_pending_never_empty_body(response: Any) -> Any:
 def get_pending_deliveries(steam_id: str):
     """Fetch pending orders for a player (legado / ops).
 
-    CustomShop 1.10+ usa sÃ³ POST /api/pending/claim (sem GET prÃ©vio).
+    CustomShop 1.10+ usa só POST /api/pending/claim (sem GET prévio).
     Cache: fila vazia TTL ~8s; snapshot GET com itens TTL ~3s.
     """
     if (err := _require_db()) is not None:
         return err
     sid = str(steam_id or "").strip()
     if not sid or not _is_valid_steamid64(sid):
-        return jsonify({"ok": False, "error": "steam_id invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "steam_id inválido"}), 400
 
     if _pending_empty_cache_hit(sid):
         _record_public_cache_metric("pending_empty_hits")
@@ -8936,7 +8931,7 @@ def get_pending_deliveries(steam_id: str):
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
     try:
-        # Colunas mÃ­nimas â€” plugin/ops sÃ³ precisam destes campos.
+        # Colunas mínimas — plugin/ops só precisam destes campos.
         orders = (
             db.query(Order)
             .options(
@@ -9001,7 +8996,7 @@ def get_shop_stale_entregando_minutes() -> int:
 
 
 def get_shop_identical_fail_max() -> int:
-    """ApÃ³s N releases com o mesmo fail_reason Ã¢â€ â€™ ERRO (0 = nunca)."""
+    """Após N releases com o mesmo fail_reason → ERRO (0 = nunca)."""
     raw = _load_settings().get(
         "shop_identical_fail_max", SHOP_IDENTICAL_FAIL_MAX_DEFAULT
     )
@@ -9019,8 +9014,8 @@ def recover_stale_entregando_shop_orders(
 ) -> int:
     """Reabre pedidos shop/kit (incl. SeasonLand sp:) ENTREGANDO cujo claim expirou.
 
-    Espelha custom_dino: ENTREGANDO Ã¢â€ â€™ PENDENTE + last_error + retry_count++ + audit.
-    NÃ£o toca item_type=custom_dino (rota prÃ³pria).
+    Espelha custom_dino: ENTREGANDO → PENDENTE + last_error + retry_count++ + audit.
+    Não toca item_type=custom_dino (rota própria).
     Fast-path: SELECT 1 LIMIT 1 antes do SELECT completo + UPDATE.
     """
     stale_minutes = (
@@ -9038,7 +9033,7 @@ def recover_stale_entregando_shop_orders(
         now_naive = now
 
     sid = str(steam_id)
-    # Fast-path: maioria dos polls nÃ£o tem ENTREGANDO stale.
+    # Fast-path: maioria dos polls não tem ENTREGANDO stale.
     has_stale = db.execute(
         text(
             "SELECT 1 FROM orders "
@@ -9081,7 +9076,7 @@ def recover_stale_entregando_shop_orders(
         return 0
 
     # Commit ANTES do audit / force-release: sem isto o UPDATE era rollback
-    # no finally do caller (pending_jobs usa force=True Ã¢â€ â€™ rollback).
+    # no finally do caller (pending_jobs usa force=True → rollback).
     db.commit()
 
     _invalidate_pending_delivery_cache(sid)
@@ -9113,7 +9108,7 @@ def recover_stale_entregando_shop_orders(
 
 
 def _pending_stale_scheduler_healthy() -> bool:
-    """True se o recover ENTREGANDO periÃ³dico estÃ¡ de facto a correr."""
+    """True se o recover ENTREGANDO periódico está de facto a correr."""
     if not _PENDING_STALE_SCHEDULER_OK:
         return False
     try:
@@ -9127,8 +9122,8 @@ def _pending_stale_scheduler_healthy() -> bool:
 def _maybe_recover_stale_on_claim(db: Any, steam_id: str) -> int:
     """Safety net: se o scheduler ~10s estiver morto, recover neste claim.
 
-    Hot path feliz (scheduler vivo) NÃƒO chama recover â€” evita trabalho extra
-    em cada poll do plugin. Chicken-egg / INLINE / crash da thread Ã¢â€ â€™ recupera.
+    Hot path feliz (scheduler vivo) NÃO chama recover — evita trabalho extra
+    em cada poll do plugin. Chicken-egg / INLINE / crash da thread → recupera.
     """
     if _pending_stale_scheduler_healthy():
         return 0
@@ -9148,7 +9143,7 @@ def _maybe_recover_stale_on_claim(db: Any, steam_id: str) -> int:
 
 
 def _has_entregando_shop_orders(db: Any, steam_id: str) -> bool:
-    """True se hÃ¡ ENTREGANDO (nÃ£o custom_dino) â€” fila 'vazia' de PENDENTE Ã© mentirosa."""
+    """True se há ENTREGANDO (não custom_dino) — fila 'vazia' de PENDENTE é mentirosa."""
     try:
         row = db.execute(
             text(
@@ -9166,10 +9161,10 @@ def _has_entregando_shop_orders(db: Any, steam_id: str) -> bool:
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
 def claim_pending_orders():
-    """Reserva pedidos PENDENTE para entrega atÃ´mica (evita duplicar AddTimed).
+    """Reserva pedidos PENDENTE para entrega atômica (evita duplicar AddTimed).
 
-    Hot path do CustomShop (claim-only, sem GET prÃ©vio). Cache de fila vazia
-    evita DB+recover quando o jogador nÃ£o tem pedidos (TTL curto).
+    Hot path do CustomShop (claim-only, sem GET prévio). Cache de fila vazia
+    evita DB+recover quando o jogador não tem pedidos (TTL curto).
     """
     if (err := _require_db()) is not None:
         return err
@@ -9177,16 +9172,16 @@ def claim_pending_orders():
     steam_id = str(body.get("steam_id", "")).strip()
     raw_ids = body.get("order_ids") or []
     if not steam_id or not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "steam_id invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "steam_id inválido"}), 400
 
-    # order_ids explÃ­citos: nunca short-circuit (claim pontual).
+    # order_ids explícitos: nunca short-circuit (claim pontual).
     targets_pre = (
         [str(x).strip() for x in raw_ids if str(x).strip()]
         if isinstance(raw_ids, list) and raw_ids
         else None
     )
-    # Empty-cache sÃ³ Ã© seguro se o scheduler de stale estÃ¡ vivo â€” senÃ£o
-    # ENTREGANDO Ã³rfÃ£o ficava escondido para sempre (claim nunca via DB).
+    # Empty-cache só é seguro se o scheduler de stale está vivo — senão
+    # ENTREGANDO órfão ficava escondido para sempre (claim nunca via DB).
     if (
         not targets_pre
         and _pending_empty_cache_hit(steam_id)
@@ -9227,9 +9222,9 @@ def claim_pending_orders():
         pending = q.order_by(Order.created_at.asc()).all()
 
         # Fila PENDENTE vazia + ENTREGANDO stale: o scheduler pode estar
-        # "alive" mas saltar recover (pool_busy / circuit) â€” claim devolvia
+        # "alive" mas saltar recover (pool_busy / circuit) — claim devolvia
         # items=[] ("no pending deliveries") com UI ainda em ENTREGANDO.
-        # Fast-path do recover (SELECT 1) Ã© barato quando nÃ£o hÃ¡ stale.
+        # Fast-path do recover (SELECT 1) é barato quando não há stale.
         if not pending and not targets:
             try:
                 n_reopen = int(
@@ -9292,7 +9287,7 @@ def claim_pending_orders():
         if claimed:
             _invalidate_pending_delivery_cache(steam_id)
         elif _has_entregando_shop_orders(db, steam_id):
-            # HÃ¡ ENTREGANDO: NÃƒO cachear "vazio" â€” senÃ£o esconde recover futuro.
+            # Há ENTREGANDO: NÃO cachear "vazio" — senão esconde recover futuro.
             _invalidate_pending_delivery_cache(steam_id)
         else:
             _mark_pending_empty_cached(steam_id)
@@ -9313,11 +9308,11 @@ def claim_pending_orders():
 @api_key_required(allow_admin_session=False)
 @limiter.limit("30 per minute")
 def pending_batch_status():
-    """Consulta em lote: quais steam_ids tÃªm fila (status, sem claim).
+    """Consulta em lote: quais steam_ids têm fila (status, sem claim).
 
     Pensado para reduzir O(N) polls quando o plugin (C++) passar a enviar
     a lista de online duma vez. CustomShop actual continua claim-only por
-    jogador â€” este endpoint Ã© opt-in / forward-compatible.
+    jogador — este endpoint é opt-in / forward-compatible.
 
     Body: {steam_ids: [...], include_items?: bool}
     """
@@ -9327,7 +9322,7 @@ def pending_batch_status():
     raw_ids = body.get("steam_ids") or []
     include_items = bool(body.get("include_items"))
     if not isinstance(raw_ids, list) or not raw_ids:
-        return jsonify({"ok": False, "error": "steam_ids Ã© obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "steam_ids é obrigatório"}), 400
 
     steam_ids: list[str] = []
     seen: set[str] = set()
@@ -9340,7 +9335,7 @@ def pending_batch_status():
         if len(steam_ids) >= _PENDING_BATCH_MAX_STEAM_IDS:
             break
     if not steam_ids:
-        return jsonify({"ok": False, "error": "nenhum steam_id vÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "nenhum steam_id válido"}), 400
 
     results: dict[str, Any] = {}
     need_db: list[str] = []
@@ -9359,8 +9354,8 @@ def pending_batch_status():
             "ok": True,
             "results": results,
             "note": (
-                "batch status only â€” claim continua em POST /api/pending/claim; "
-                "plugin C++ precisa de mudanÃ§a para usar batch no poll online"
+                "batch status only — claim continua em POST /api/pending/claim; "
+                "plugin C++ precisa de mudança para usar batch no poll online"
             ),
         })
 
@@ -9412,8 +9407,8 @@ def pending_batch_status():
             "ok": True,
             "results": results,
             "note": (
-                "batch status only â€” claim continua em POST /api/pending/claim; "
-                "plugin C++ precisa de mudanÃ§a para usar batch no poll online"
+                "batch status only — claim continua em POST /api/pending/claim; "
+                "plugin C++ precisa de mudança para usar batch no poll online"
             ),
         })
     except Exception as exc:
@@ -9427,9 +9422,9 @@ def pending_batch_status():
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
 def release_pending_orders():
-    """Reabre pedidos ENTREGANDO apÃ³s falha na entrega pelo plugin.
+    """Reabre pedidos ENTREGANDO após falha na entrega pelo plugin.
 
-    Body opcional: errors=[{order_id, fail_reason}] â€” apÃ³s N falhas idÃªnticas Ã¢â€ â€™ ERRO.
+    Body opcional: errors=[{order_id, fail_reason}] — após N falhas idênticas → ERRO.
     """
     if (err := _require_db()) is not None:
         return err
@@ -9437,7 +9432,7 @@ def release_pending_orders():
     steam_id = str(body.get("steam_id", "")).strip()
     raw_ids = body.get("order_ids") or []
     if not steam_id or not isinstance(raw_ids, list) or not raw_ids:
-        return jsonify({"ok": False, "error": "steam_id e order_ids sÃ£o obrigatÃ³rios"}), 400
+        return jsonify({"ok": False, "error": "steam_id e order_ids são obrigatórios"}), 400
 
     fail_by_oid: dict[str, str] = {}
     raw_errors = body.get("errors") or []
@@ -9524,8 +9519,8 @@ def release_pending_orders():
                     status_before="ENTREGANDO",
                     status_after="ERRO",
                     message=(
-                        f"Pedido em ERRO apÃ³s {new_retry} falhas idÃªnticas "
-                        f"({fail_reason}) â€” staff: reenviar ou corrigir SKU"
+                        f"Pedido em ERRO após {new_retry} falhas idênticas "
+                        f"({fail_reason}) — staff: reenviar ou corrigir SKU"
                     ),
                     fail_reason=fail_reason,
                     retry_count=new_retry,
@@ -9546,7 +9541,7 @@ def release_pending_orders():
                     item_id=order.item_id,
                     status_before="ENTREGANDO",
                     status_after="PENDENTE",
-                    message=f"Release apÃ³s falha: {fail_reason}",
+                    message=f"Release após falha: {fail_reason}",
                     fail_reason=fail_reason,
                     retry_count=new_retry,
                     original_order_id=str(order.original_order_id or "") or None,
@@ -9573,7 +9568,7 @@ def release_pending_orders():
 @api_key_required(allow_admin_session=False)
 @limiter.limit("30 per minute")
 def mark_pending_delivered_batch():
-    """Marca vÃ¡rios pedidos como entregues (CustomShop plugin)."""
+    """Marca vários pedidos como entregues (CustomShop plugin)."""
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
@@ -9582,9 +9577,9 @@ def mark_pending_delivered_batch():
     deliveries = body.get("deliveries") or []
     dino_records = body.get("dino_records") or []
     if not steam_id or not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "steam_id invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "steam_id inválido"}), 400
     if not isinstance(order_ids, list) or not order_ids:
-        return jsonify({"ok": False, "error": "order_ids Ã© obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "order_ids é obrigatório"}), 400
 
     db = _get_db_session()
     if db is None:
@@ -9702,7 +9697,7 @@ def mark_pending_delivered(steam_id: str, order_id: str):
 # Ã¢â€â‚¬Ã¢â€â‚¬ Auth routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _web_build_id() -> str:
-    """VersÃ£o do app para cache-bust de assets estÃ¡ticos (?v=)."""
+    """Vers?o do app para cache-bust de assets est?ticos (?v=)."""
     rel = _get_project_release()
     v = str(rel.get("version") or "").strip()
     return v or "dev"
@@ -9730,7 +9725,7 @@ def frontend_spa_fallback(frontend_path: str):
     if frontend_path.startswith("api/"):
         return jsonify({
             "ok": False,
-            "error": "Endpoint n?o encontrado. Atualize a loja web se o erro persistir.",
+            "error": "Endpoint não encontrado. Atualize a loja web se o erro persistir.",
         }), 404
     if "." in Path(frontend_path).name:
         return "Not Found", 404
@@ -9742,7 +9737,7 @@ def frontend_spa_fallback(frontend_path: str):
 @app.route("/loja/dinos200")
 @app.route("/catalogo/dinos200")
 def legacy_dinos200_redirect():
-    """URLs antigas da aba Â«Dinos 200Â» Ã¢â€ â€™ Dinos com filtro de nÃ­vel 200 (SPA lÃª ?tab=&nivel=)."""
+    """URLs antigas da aba ?Dinos 200? ? Dinos com filtro de n?vel 200 (SPA l? ?tab=&nivel=)."""
     from dino_levels import LEGACY_DINOS200_LEVEL
 
     return redirect(f"/?tab=dinos&nivel={LEGACY_DINOS200_LEVEL}", code=301)
@@ -9812,7 +9807,7 @@ def auth_logout():
 
 
 def _kick_db_health_ping_if_stale() -> None:
-    """Dispara ping SELECT 1 em background â€” resposta de /api/health nunca espera."""
+    """Dispara ping SELECT 1 em background — resposta de /api/health nunca espera."""
     if not _db_ready() or _SessionLocal is None:
         _HEALTH_DB_CACHE["reachable"] = False
         _HEALTH_DB_CACHE["checked_at"] = time.monotonic()
@@ -9855,7 +9850,7 @@ def _kick_db_health_ping_if_stale() -> None:
 @app.route("/api/health", methods=["GET"])
 @limiter.limit("300 per minute; 10000 per hour", override_defaults=True)
 def health_check():
-    """Ping leve â€” zero I/O bloqueante; db_reachable vem de cache em background."""
+    """Ping leve — zero I/O bloqueante; db_reachable vem de cache em background."""
     if _db_ready():
         _kick_db_health_ping_if_stale()
     return jsonify({
@@ -9872,9 +9867,9 @@ def health_check():
 @admin_required
 @limiter.limit("30 per minute")
 def admin_diagnostics_database():
-    """Probe admin-only â€” prova connect_ms / pool_wait_ms / query_ms no host.
+    """Probe admin-only — prova connect_ms / pool_wait_ms / query_ms no host.
 
-    NÃ£o-destrutivo: SELECT 1, pool stats, fresh connect, slow fingerprints.
+    Não-destrutivo: SELECT 1, pool stats, fresh connect, slow fingerprints.
     Com DB vazio, se timeouts persistirem: olhe fresh_connect_ms e pool_wait_*.
     """
     if not _db_ready() or _ENGINE is None or _SessionLocal is None:
@@ -9906,8 +9901,8 @@ def admin_diagnostics_database():
 def _build_auth_me_payload(*, db: Any | None = None) -> dict[str, Any]:
     """Monta o payload de /api/auth/me (reutilizado pelo bootstrap agregado).
 
-    Com `db` partilhado (bootstrap): 1 sessÃ£o para persona + regulamento + ban.
-    Sem `db`: abre sessÃµes prÃ³prias (path /api/auth/me isolado).
+    Com `db` partilhado (bootstrap): 1 sessão para persona + regulamento + ban.
+    Sem `db`: abre sessões próprias (path /api/auth/me isolado).
     """
     steam_id = _steam_id_from_session()
     if not steam_id:
@@ -9928,11 +9923,11 @@ def _build_auth_me_payload(*, db: Any | None = None) -> dict[str, Any]:
         }
     file_admins = _load_admin_steamids_from_file()
     is_admin = steam_id in file_admins
-    # Timeout curto â€” cache de admins costuma bater; nÃ£o segurar bootstrap 1.5s+.
+    # Timeout curto — cache de admins costuma bater; não segurar bootstrap 1.5s+.
     admin_db_timeout = 0.4 if db is not None else 1.5
     if not is_admin and _db_ready():
         if db is not None:
-            # Bootstrap: reutiliza a sessÃ£o partilhada â€” evita 2.Âº checkout do pool.
+            # Bootstrap: reutiliza a sessão partilhada — evita 2.º checkout do pool.
             try:
                 is_admin = db.get(ShopAdmin, steam_id) is not None
             except Exception:
@@ -9985,7 +9980,7 @@ def auth_me():
 @app.route("/api/settings", methods=["GET"])
 @admin_required
 def get_settings():
-    """Configs do sistema â€” cache curto 5â€“15s (Fase 4). Sem DB no path tÃ­pico."""
+    """Configs do sistema — cache curto 5–15s (Fase 4). Sem DB no path típico."""
     cached = _ttl_cache.system_config.get("settings")
     if cached is not None:
         resp = jsonify(cached)
@@ -10114,7 +10109,7 @@ def save_settings():
     point_packages_sync_errors: list[dict[str, str]] = []
     if "point_packages" in body:
         s["point_packages"] = _normalize_point_packages(body["point_packages"])
-    # Compatibilidade: catÃ¡logo mestre sempre sincronizado entre catalog_path e config_path.
+    # Compatibilidade: catálogo mestre sempre sincronizado entre catalog_path e config_path.
     if "catalog_path" in body or "config_path" in body:
         chosen_path = str(
             body.get("catalog_path")
@@ -10150,7 +10145,7 @@ def save_settings():
     ok = reconnect_error is None and not point_packages_sync_errors
     error = reconnect_error
     if not error and point_packages_sync_errors:
-        error = point_packages_sync_errors[0].get("error") or "Falha ao gravar PointPackages no catÃ¡logo"
+        error = point_packages_sync_errors[0].get("error") or "Falha ao gravar PointPackages no catálogo"
     return jsonify({
         "ok": ok,
         "db_configured": _db_ready(),
@@ -10165,7 +10160,7 @@ def save_settings():
 @app.route("/api/servers", methods=["GET"])
 @admin_required
 def get_servers():
-    """Lista servidores â€” cache curto 5â€“15s (Fase 4)."""
+    """Lista servidores — cache curto 5–15s (Fase 4)."""
     cached = _ttl_cache.servers_status.get("list")
     if cached is not None:
         resp = jsonify(cached)
@@ -10191,7 +10186,7 @@ def upsert_server():
     body = request.get_json(force=True)
     server_id = str(body.get("server_id", "")).strip()
     if not server_id:
-        return jsonify({"ok": False, "error": "server_id Ã© obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "server_id é obrigatório"}), 400
 
     servers = _load_servers()
     entry: dict[str, Any] = {
@@ -10270,7 +10265,7 @@ def delete_server(server_id: str):
 @app.route("/api/servers/connect-status", methods=["GET"])
 @admin_required
 def servers_connect_status():
-    """DiagnÃ³stico admin: botÃµes Jogar/Copiar IP â€” cache curto 5â€“15s (Fase 4)."""
+    """Diagnóstico admin: botões Jogar/Copiar IP — cache curto 5–15s (Fase 4)."""
     cached = _ttl_cache.servers_status.get("connect_status")
     if cached is not None:
         resp = jsonify(cached)
@@ -10301,11 +10296,11 @@ def servers_connect_status():
 @app.route("/api/servers/runtime-status", methods=["POST"])
 @api_key_required(allow_admin_session=False)
 def servers_runtime_status_push():
-    """TEK envia PARADO/INICIANDO/ATUALIZANDO/ONLINE por server_id (home pÃºblica)."""
+    """TEK envia PARADO/INICIANDO/ATUALIZANDO/ONLINE por server_id (home pública)."""
     body = request.get_json(silent=True) or {}
     items = body.get("servers")
     if not isinstance(items, list):
-        return jsonify({"ok": False, "error": "servers[] obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "servers[] obrigatório"}), 400
     n = upsert_statuses(items)
     try:
         _invalidate_public_home_cache()
@@ -10316,7 +10311,7 @@ def servers_runtime_status_push():
 
 @app.route("/api/public/server-status", methods=["GET"])
 def public_server_status():
-    """Status pÃºblico leve para refresh da home (sem rebuild completo)."""
+    """Status público leve para refresh da home (sem rebuild completo)."""
     by_id = get_all_statuses(max_age_s=600.0)
     return jsonify({
         "ok": True,
@@ -10337,11 +10332,11 @@ def public_server_status():
 @app.route("/api/servers/sync", methods=["POST"])
 @api_key_required(allow_admin_session=False)
 def sync_servers_from_client():
-    """Recebe cadastro de servidores de uma mÃ¡quina cliente (modo cross / multi-host)."""
+    """Recebe cadastro de servidores de uma máquina cliente (modo cross / multi-host)."""
     body = request.get_json(force=True, silent=True) or {}
     machine_label = str(body.get("machine_label") or "").strip()
     if not machine_label:
-        return jsonify({"ok": False, "error": "machine_label Ã© obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "machine_label é obrigatório"}), 400
 
     raw_servers = body.get("servers") or []
     if not isinstance(raw_servers, list):
@@ -10417,7 +10412,7 @@ def upsert_player():
     body = request.get_json(force=True)
     steam_id = str(body.get("steam_id", "")).strip()
     if not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
 
     new_player = {
         "steam_id": steam_id,
@@ -10443,7 +10438,7 @@ def upsert_player():
 def delete_player(steam_id: str):
     steam_id = steam_id.strip()
     if not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
     players = _load_players()
     kept = [p for p in players if str(p.get("steam_id", "")).strip() != steam_id]
     _save_players(kept)
@@ -10454,13 +10449,13 @@ def delete_player(steam_id: str):
 
 def _normalize_config_to_web(data: dict) -> dict:
     """Normaliza config.json (CustomShop: 'Items') para o formato web (ShopItems).
-    Aceita ambos os formatos â€” nÃ£o destrÃ³i dados jÃ¡ no formato correto.
+    Aceita ambos os formatos — não destrói dados já no formato correto.
     """
     if "Items" in data and "ShopItems" not in data:
         data = dict(data)
         data["ShopItems"] = data.pop("Items")
     if "Kits" in data and not isinstance(data.get("Kits"), dict):
-        pass  # mantÃ©m como estÃ¡
+        pass  # mantém como está
     return data
 
 
@@ -10476,7 +10471,7 @@ def _normalize_config_to_file(data: dict) -> dict:
     except Exception:
         pass
     try:
-        # Dinos: Level explÃ­cito + categoria Â«Dinos 200Â» Ã¢â€ â€™ Â«DinosÂ» (idempotente).
+        # Dinos: Level explícito + categoria «Dinos 200» → «Dinos» (idempotente).
         from dino_levels import migrate_catalog_dinos
 
         migrate_catalog_dinos(data)
@@ -10526,7 +10521,7 @@ def _read_json_file(path: Path) -> dict[str, Any]:
 
 
 def _merge_catalog_into_plugin(existing: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:
-    """Mescla catÃ¡logo mestre no config de um servidor, preservando ServerId e senha DB locais."""
+    """Mescla catálogo mestre no config de um servidor, preservando ServerId e senha DB locais."""
     return merge_catalog_into_plugin_config(catalog, existing)
 
 
@@ -10537,7 +10532,7 @@ def _plugin_sync_targets(settings: dict[str, Any]) -> list[dict[str, str]]:
 
     master = _resolve_settings_catalog_path(str(settings.get("config_path") or _DEFAULT_CONFIG_PATH))
     if master:
-        targets.append({"label": "CatÃ¡logo mestre", "path": master, "kind": "master"})
+        targets.append({"label": "Catálogo mestre", "path": master, "kind": "master"})
         seen.add(master.lower())
 
     for srv in _load_servers():
@@ -10559,7 +10554,7 @@ def _plugin_sync_targets(settings: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _write_config_all_targets(body: dict[str, Any], settings: dict[str, Any]) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Grava catÃ¡logo em todos os destinos. Retorna (written, errors)."""
+    """Grava catálogo em todos os destinos. Retorna (written, errors)."""
     written: list[dict[str, str]] = []
     errors: list[dict[str, str]] = []
     file_body = _normalize_config_to_file(body)
@@ -10595,10 +10590,10 @@ def _catalog_shop_counts(data: dict[str, Any]) -> tuple[int, int]:
 
 
 def _heal_empty_shop_config_path(preferred: Path) -> tuple[Path, dict[str, Any] | None, str | None]:
-    """NÃ£o troca o path configurado e nÃ£o copia outro catalog.json por cima.
+    """Não troca o path configurado e não copia outro catalog.json por cima.
 
-    Arquivo ausente fica ausente. A cÃ³pia Â«mais ricaÂ» (mapa, repo, WEBSTORE)
-    regravava a versÃ£o antiga depois de um save menor.
+    Arquivo ausente fica ausente. A cópia «mais rica» (mapa, repo, WEBSTORE)
+    regravava a versão antiga depois de um save menor.
     """
     if preferred.is_file():
         data = _read_json_file(preferred)
@@ -10607,17 +10602,17 @@ def _heal_empty_shop_config_path(preferred: Path) -> tuple[Path, dict[str, Any] 
             return preferred, data, None
         return preferred, data, (
             f"config.json sem itens/kits em {preferred}. "
-            "Verifique ConfiguraÃ§Ãµes Ã¢â€ â€™ caminho do catÃ¡logo (catalog_path) ou restaure o mestre CustomShop."
+            "Verifique Configurações → caminho do catálogo (catalog_path) ou restaure o mestre CustomShop."
         )
 
     return preferred, {}, (
         f"config.json em falta: {preferred}. "
-        "Defina o caminho em ConfiguraÃ§Ãµes Ã¢â€ â€™ caminho do catÃ¡logo (catalog_path)."
+        "Defina o caminho em Configurações → caminho do catálogo (catalog_path)."
     )
 
 
 def _shop_config_ttl_fresh(payload: dict[str, Any]) -> bool:
-    """O TTL de /api/config nÃ£o pode devolver o JSON se o arquivo mudou."""
+    """O TTL de /api/config não pode devolver o JSON se o arquivo mudou."""
     path = Path(str(payload.get("_config_path") or ""))
     if not str(path):
         return False
@@ -10634,10 +10629,10 @@ def _shop_config_ttl_fresh(payload: dict[str, Any]) -> bool:
 @app.route("/api/config", methods=["GET"])
 @admin_required
 def get_config():
-    """Config admin (itens/kits) â€” ficheiro JSON, zero MySQL no path.
+    """Config admin (itens/kits) — ficheiro JSON, zero MySQL no path.
 
-    Cache curto 5â€“15s (Fase 4). Nunca devolve ShopItems/Kits vazios em silÃªncio
-    quando existe fonte recuperÃ¡vel.
+    Cache curto 5–15s (Fase 4). Nunca devolve ShopItems/Kits vazios em silêncio
+    quando existe fonte recuperável.
     """
     t0 = time.perf_counter()
     cached = _ttl_cache.system_config.get("shop_config")
@@ -10660,15 +10655,15 @@ def get_config():
             data["error"] = (
                 note
                 or f"config.json sem itens/kits em {healed_path}. "
-                "Defina o caminho em ConfiguraÃ§Ãµes Ã¢â€ â€™ config_path."
+                "Defina o caminho em Configurações → config_path."
             )
             _log(
                 "get_config_empty",
                 path=str(healed_path),
                 note=note,
             )
-            # 200 + error: UI lÃª a mensagem; nÃ£o fingir catÃ¡logo vazio Â«vÃ¡lidoÂ».
-            # NÃ£o cachear estados de erro/recuperaÃ§Ã£o.
+            # 200 + error: UI lê a mensagem; não fingir catálogo vazio «válido».
+            # Não cachear estados de erro/recuperação.
             return jsonify(data)
         if note:
             data["_config_healed"] = note
@@ -10710,9 +10705,9 @@ def _persist_shop_catalog(
     *,
     do_reload: bool = True,
 ) -> tuple[dict[str, Any], int]:
-    """Valida e grava o catÃ¡logo (formato web) em todos os destinos + caches/feed/reload.
+    """Valida e grava o catálogo (formato web) em todos os destinos + caches/feed/reload.
 
-    Fluxo Ãºnico usado por ``POST /api/config`` e pelas aÃ§Ãµes em lote de Itens da Loja
+    Fluxo único usado por ``POST /api/config`` e pelas ações em lote de Itens da Loja
     (``POST /api/admin/shop-items/bulk``). Retorna ``(payload_json, http_status)``.
     """
     settings = body.get("Settings")
@@ -10783,20 +10778,20 @@ def _persist_shop_catalog(
     }, 200
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ AÃ§Ãµes em lote â€” Itens da Loja (admin) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-# Para estender (ex.: Â«alterar categoriaÂ» em lote): escreva um ``apply(items, key, entry, params)``
+# Ã¢â€â‚¬Ã¢â€â‚¬ Ações em lote — Itens da Loja (admin) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Para estender (ex.: «alterar categoria» em lote): escreva um ``apply(items, key, entry, params)``
 # que muta ``items`` e devolva o status curto, e registre em ``_SHOP_BULK_ACTIONS``.
 SHOP_BULK_MAX_IDS = 200
 _SHOP_BULK_LOCK = threading.Lock()
 
 
 def _shop_bulk_is_dino(entry: Any) -> bool:
-    """Mesmo critÃ©rio de Â«dinossauroÂ» do prÃ©-cadastro/ComÃ©rcio e da aba Dinos: ``Type == dino``."""
+    """Mesmo critério de «dinossauro» do pré-cadastro/Comércio e da aba Dinos: ``Type == dino``."""
     return isinstance(entry, dict) and str(entry.get("Type") or "").strip().lower() == "dino"
 
 
 def _shop_bulk_apply_market_include(items: dict, key: str, entry: dict, params: dict) -> str:
-    entry["MarketInclude"] = True  # mesma flag do checkbox Â«Incluir no ComÃ©rcioÂ» (confirmItem)
+    entry["MarketInclude"] = True  # mesma flag do checkbox «Incluir no Comércio» (confirmItem)
     return "market_included"
 
 
@@ -10811,13 +10806,13 @@ def _shop_bulk_apply_delete(items: dict, key: str, entry: dict, params: dict) ->
 
 
 def _shop_bulk_after_market_include(keys: list[str], catalog: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """PrÃ©-cadastra a espÃ©cie no ComÃ©rcio (como o fluxo individual apÃ³s salvar)."""
+    """Pré-cadastra a espécie no Comércio (como o fluxo individual após salvar)."""
     extra: dict[str, dict[str, Any]] = {}
     if not keys:
         return extra
     if not _db_ready():
         for k in keys:
-            extra[k] = {"warning": "Banco nÃ£o configurado â€” flag gravada, prÃ©-cadastro do ComÃ©rcio pendente"}
+            extra[k] = {"warning": "Banco não configurado — flag gravada, pré-cadastro do Comércio pendente"}
         return extra
     from market_service import pre_register_catalog_item
 
@@ -10836,7 +10831,7 @@ def _shop_bulk_after_market_include(keys: list[str], catalog: dict[str, Any]) ->
                     db.expunge_all()
                 except Exception:
                     pass
-                extra[k] = {"warning": f"PrÃ©-cadastro do ComÃ©rcio falhou: {exc}"}
+                extra[k] = {"warning": f"Pré-cadastro do Comércio falhou: {exc}"}
     finally:
         db.close()
     return extra
@@ -10844,14 +10839,14 @@ def _shop_bulk_after_market_include(keys: list[str], catalog: dict[str, Any]) ->
 
 _SHOP_BULK_ACTIONS: dict[str, dict[str, Any]] = {
     "market_include": {
-        "label": "Incluir no ComÃ©rcio",
+        "label": "Incluir no Comércio",
         "dino_only": True,
         "destructive": False,
         "apply": _shop_bulk_apply_market_include,
         "after_save": _shop_bulk_after_market_include,
     },
     "market_exclude": {
-        "label": "Remover do ComÃ©rcio",
+        "label": "Remover do Comércio",
         "dino_only": True,
         "destructive": False,
         "apply": _shop_bulk_apply_market_exclude,
@@ -10870,31 +10865,31 @@ _SHOP_BULK_ACTIONS: dict[str, dict[str, Any]] = {
 @app.route("/api/admin/shop-items/bulk", methods=["POST"])
 @admin_required
 def admin_shop_items_bulk():
-    """AÃ§Ã£o em lote sobre itens do catÃ¡logo (hoje: sÃ³ dinos).
+    """Ação em lote sobre itens do catálogo (hoje: só dinos).
 
     Body: ``{"action": "market_include|market_exclude|delete", "ids": [...], "confirm": true, "reload": true}``.
-    ``confirm`` Ã© obrigatÃ³rio para aÃ§Ãµes destrutivas (delete). PersistÃªncia pelo mesmo fluxo de
+    ``confirm`` é obrigatório para ações destrutivas (delete). Persistência pelo mesmo fluxo de
     ``POST /api/config`` (todos os destinos + caches + feed + push WEBSTORE + Shop.Reload).
     """
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
-        return jsonify({"ok": False, "error": "Corpo JSON invÃ¡lido."}), 400
+        return jsonify({"ok": False, "error": "Corpo JSON inválido."}), 400
     action = str(body.get("action") or "").strip()
     spec = _SHOP_BULK_ACTIONS.get(action)
     if spec is None:
         return jsonify({
             "ok": False,
-            "error": f"AÃ§Ã£o invÃ¡lida: {action or '(vazia)'}.",
+            "error": f"Ação inválida: {action or '(vazia)'}.",
             "actions": sorted(_SHOP_BULK_ACTIONS),
         }), 400
     raw_ids = body.get("ids")
     if not isinstance(raw_ids, list) or not raw_ids:
-        return jsonify({"ok": False, "error": "Informe 'ids' (lista nÃ£o vazia de IDs de itens)."}), 400
+        return jsonify({"ok": False, "error": "Informe 'ids' (lista não vazia de IDs de itens)."}), 400
     ids: list[str] = []
     seen: set[str] = set()
     for raw in raw_ids:
         if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 200:
-            return jsonify({"ok": False, "error": "Cada ID deve ser um texto nÃ£o vazio (atÃ© 200 caracteres)."}), 400
+            return jsonify({"ok": False, "error": "Cada ID deve ser um texto não vazio (até 200 caracteres)."}), 400
         key = raw.strip()
         if key not in seen:
             seen.add(key)
@@ -10902,11 +10897,11 @@ def admin_shop_items_bulk():
     if len(ids) > SHOP_BULK_MAX_IDS:
         return jsonify({
             "ok": False,
-            "error": f"MÃ¡ximo de {SHOP_BULK_MAX_IDS} itens por requisiÃ§Ã£o (recebido: {len(ids)}).",
+            "error": f"Máximo de {SHOP_BULK_MAX_IDS} itens por requisição (recebido: {len(ids)}).",
             "max_ids": SHOP_BULK_MAX_IDS,
         }), 400
     if spec["destructive"] and body.get("confirm") is not True:
-        return jsonify({"ok": False, "error": "AÃ§Ã£o destrutiva: envie confirm=true."}), 400
+        return jsonify({"ok": False, "error": "Ação destrutiva: envie confirm=true."}), 400
     do_reload = body.get("reload", True)
     if not isinstance(do_reload, bool):
         do_reload = True
@@ -10917,13 +10912,13 @@ def admin_shop_items_bulk():
             _, raw_catalog, note = _resolve_shop_catalog(persist_healed_path=False)
         except Exception as exc:
             _log_error("shop_bulk_resolve", error=str(exc))
-            return jsonify({"ok": False, "error": f"Falha ao ler o catÃ¡logo: {exc}"}), 500
+            return jsonify({"ok": False, "error": f"Falha ao ler o catálogo: {exc}"}), 500
         catalog = _normalize_config_to_web(deepcopy(raw_catalog or {}))
         items = catalog.get("ShopItems")
         if not isinstance(items, dict) or not items:
             return jsonify({
                 "ok": False,
-                "error": note or "CatÃ¡logo vazio ou indisponÃ­vel â€” nada foi alterado.",
+                "error": note or "Catálogo vazio ou indisponível — nada foi alterado.",
             }), 409
 
         results: list[dict[str, Any]] = []
@@ -10931,10 +10926,10 @@ def admin_shop_items_bulk():
         for key in ids:
             entry = items.get(key)
             if not isinstance(entry, dict):
-                results.append({"id": key, "ok": False, "error": "Item nÃ£o encontrado no catÃ¡logo."})
+                results.append({"id": key, "ok": False, "error": "Item não encontrado no catálogo."})
                 continue
             if spec["dino_only"] and not _shop_bulk_is_dino(entry):
-                results.append({"id": key, "ok": False, "error": "Item nÃ£o Ã© dinossauro (Type != dino)."})
+                results.append({"id": key, "ok": False, "error": "Item não é dinossauro (Type != dino)."})
                 continue
             try:
                 status = spec["apply"](items, key, entry, body)
@@ -10948,10 +10943,10 @@ def admin_shop_items_bulk():
         if applied:
             payload, http_status = _persist_shop_catalog(catalog, s, do_reload=do_reload)
             if http_status != 200 or not payload.get("ok"):
-                err = payload.get("error") or "Falha ao gravar o catÃ¡logo."
+                err = payload.get("error") or "Falha ao gravar o catálogo."
                 for r in results:
                     if r["ok"]:
-                        r.update({"ok": False, "status": None, "error": f"NÃ£o gravado: {err}"})
+                        r.update({"ok": False, "status": None, "error": f"Não gravado: {err}"})
                 _log_error("shop_bulk_persist_failed", action=action, error=err)
                 return jsonify({
                     "ok": False,
@@ -11009,9 +11004,9 @@ def admin_shop_items_bulk():
 @app.route("/api/admin/catalog/import", methods=["POST"])
 @admin_required
 def admin_catalog_import():
-    """Upload de config.json Ã¢â€ â€™ mestre canÃ´nico Ã¢â€ â€™ mapas + WEBSTORE Ã¢â€ â€™ Shop.Reload RCON.
+    """Upload de config.json → mestre canônico → mapas + WEBSTORE → Shop.Reload RCON.
 
-    Mesma semÃ¢ntica do TEK Â«Propagar mestre Ã¢â€ â€™ mapas + lojaÂ» (sem WEBSTOREÃ¢â€ â€™mestre).
+    Mesma semântica do TEK «Propagar mestre → mapas + loja» (sem WEBSTORE→mestre).
     Resposta inclui stages, maps (ficheiro) e rcon (por mapa) para auditoria.
     """
     stages: list[dict[str, Any]] = []
@@ -11047,7 +11042,7 @@ def admin_catalog_import():
         return jsonify({
             "ok": False,
             "overall": "fail",
-            "error": "Ficheiro demasiado grande (mÃ¡x. 80 MB).",
+            "error": "Ficheiro demasiado grande (máx. 80 MB).",
             "stages": [{
                 "id": "parse",
                 "label": "Upload / parse JSON",
@@ -11067,7 +11062,7 @@ def admin_catalog_import():
         return jsonify({
             "ok": False,
             "overall": "fail",
-            "error": f"JSON invÃ¡lido: {exc}",
+            "error": f"JSON inválido: {exc}",
             "stages": [{
                 "id": "parse",
                 "label": "Upload / parse JSON",
@@ -11080,7 +11075,7 @@ def admin_catalog_import():
         return jsonify({
             "ok": False,
             "overall": "fail",
-            "error": "O ficheiro nÃ£o parece um catÃ¡logo CustomShop (faltam Items/ShopItems e Kits).",
+            "error": "O ficheiro não parece um catálogo CustomShop (faltam Items/ShopItems e Kits).",
             "stages": [{
                 "id": "parse",
                 "label": "Upload / parse JSON",
@@ -11099,7 +11094,7 @@ def admin_catalog_import():
         "id": "parse",
         "label": "Upload / parse JSON",
         "status": "ok",
-        "detail": f"JSON vÃ¡lido ({ni0} itens, {nk0} kits)",
+        "detail": f"JSON válido ({ni0} itens, {nk0} kits)",
         "items": ni0,
         "kits": nk0,
         "filename": getattr(upload, "filename", "") or "config.json",
@@ -11152,7 +11147,7 @@ def admin_catalog_import():
         return jsonify({
             "ok": False,
             "overall": "fail",
-            "error": (errors[0] if errors else "Falha na propagaÃ§Ã£o"),
+            "error": (errors[0] if errors else "Falha na propagação"),
             "errors": errors,
             "notes": notes,
             "master_path": master_path,
@@ -11323,11 +11318,11 @@ def admin_catalog_import():
 def test_db_connection():
     """Testa a conectividade com o banco de dados atual."""
     if not _db_ready():
-        return jsonify({"ok": False, "error": "Banco nÃ£o configurado. Preencha as credenciais em ConfiguraÃ§Ãµes."}), 200
+        return jsonify({"ok": False, "error": "Banco não configurado. Preencha as credenciais em Configurações."}), 200
     try:
         session = _get_db_session()
         if session is None:
-            return jsonify({"ok": False, "error": "SessionLocal nÃ£o inicializado."}), 200
+            return jsonify({"ok": False, "error": "SessionLocal não inicializado."}), 200
         session.execute(text("SELECT 1")).fetchone()
         _release_db_session(session)
         db_info = _safe_db_log_fields(_ACTIVE_DATABASE_URL)
@@ -11337,10 +11332,10 @@ def test_db_connection():
         return jsonify({"ok": False, "error": str(exc)}), 200
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ PÃºblico (home + catÃ¡logo sem login) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ Público (home + catálogo sem login) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _catalog_public_stats(data: dict[str, Any]) -> dict[str, int]:
-    """Contagens pÃºblicas do catÃ¡logo para a home."""
+    """Contagens públicas do catálogo para a home."""
     items_map = data.get("Items") or data.get("ShopItems") or {}
     items_n = dinos_n = 0
     for entry in items_map.values():
@@ -11363,7 +11358,7 @@ def _public_currency() -> dict[str, str]:
 
 
 def _public_brand_name(raw: str) -> str:
-    """Nome pÃºblico do portal â€” nunca exibe 'Shop' (evita conotaÃ§Ã£o de loja comercial)."""
+    """Nome público do portal — nunca exibe 'Shop' (evita conotação de loja comercial)."""
     name = str(raw or "").strip()
     if not name:
         return _DEFAULT_PUBLIC_BRAND
@@ -11385,28 +11380,28 @@ def _default_amber_lore() -> dict[str, Any]:
         "sections": [
             {
                 "paragraphs": [
-                "Antes dos sobreviventes erguerem muralhas, antes das tribos dominarem os cÃ©us "
-                "com Wyverns e os mares com Mosassauros, existia apenas o silÃªncio.",
+                "Antes dos sobreviventes erguerem muralhas, antes das tribos dominarem os céus "
+                "com Wyverns e os mares com Mosassauros, existia apenas o silêncio.",
                 "Dizem que, quando os primeiros Obeliscos surgiram sobre Arkland, uma chuva dourada "
-                "caiu dos cÃ©us durante sete dias e sete noites. NÃ£o era fogo, nem cristal. Eram "
-                "fragmentos de uma substÃ¢ncia desconhecida que brilhava como o sol ao amanhecer.",
+                "caiu dos céus durante sete dias e sete noites. Não era fogo, nem cristal. Eram "
+                "fragmentos de uma substância desconhecida que brilhava como o sol ao amanhecer.",
                 "Os sobreviventes que encontraram esses fragmentos perceberam algo estranho. "
-                "Dentro deles havia memÃ³rias.",
-                "Alguns continham folhas de Ã¡rvores extintas. Outros guardavam insetos ancestrais. "
-                "Os mais raros aprisionavam fragmentos da essÃªncia das criaturas primordiais.",
-                "Um caÃ§ador encontrou um pedaÃ§o tÃ£o puro que dentro dele podia ser visto o crÃ¢nio "
+                "Dentro deles havia memórias.",
+                "Alguns continham folhas de árvores extintas. Outros guardavam insetos ancestrais. "
+                "Os mais raros aprisionavam fragmentos da essência das criaturas primordiais.",
+                "Um caçador encontrou um pedaço tão puro que dentro dele podia ser visto o crânio "
                 "de um Rex ancestral.",
-                "Quando o fragmento foi levado atÃ© o Grande Obelisco, o cristal reagiu. "
-                "A luz dos Obeliscos reconhecia aquela substÃ¢ncia.",
-                "Naquele momento nasceu o nome que atravessaria geraÃ§Ãµes: Ã‚mbar.",
-                "Os sÃ¡bios de Arkland descobriram que cada pedaÃ§o de Ã‚mbar continha energia "
-                "ancestral condensada durante milhares de anos. NÃ£o era apenas uma pedra. "
-                "Era tempo solidificado. Era a memÃ³ria viva do mundo primitivo.",
-                "Por isso nenhuma tribo ousava destruÃ­-lo. Nenhum comerciante recusava recebÃª-lo. "
+                "Quando o fragmento foi levado até o Grande Obelisco, o cristal reagiu. "
+                "A luz dos Obeliscos reconhecia aquela substância.",
+                "Naquele momento nasceu o nome que atravessaria gerações: Âmbar.",
+                "Os sábios de Arkland descobriram que cada pedaço de Âmbar continha energia "
+                "ancestral condensada durante milhares de anos. Não era apenas uma pedra. "
+                "Era tempo solidificado. Era a memória viva do mundo primitivo.",
+                "Por isso nenhuma tribo ousava destruí-lo. Nenhum comerciante recusava recebê-lo. "
                 "Nenhum governante conseguia ignorar seu valor.",
-                "Com o passar dos anos, o Ã‚mbar tornou-se a moeda oficial de Arkland. "
-                "NÃ£o porque alguÃ©m decretou. Mas porque todos concordaram que nada era mais valioso "
-                "do que a prÃ³pria histÃ³ria do mundo.",
+                "Com o passar dos anos, o Âmbar tornou-se a moeda oficial de Arkland. "
+                "Não porque alguém decretou. Mas porque todos concordaram que nada era mais valioso "
+                "do que a própria história do mundo.",
                 ],
             },
             {
@@ -11416,44 +11411,44 @@ def _default_amber_lore() -> dict[str, Any]:
                     "Ouro representa riqueza.",
                     "Cristais representam tecnologia.",
                     "Elemento representa poder.",
-                    "Mas o Ã‚mbar representa algo maior: Legado.",
-                    "Cada moeda Ã© considerada um fragmento preservado da Era Primitiva.",
-                    "Ao trocar Ã‚mbares, os sobreviventes acreditam estar transferindo parte da "
-                    "histÃ³ria de Arkland para outra pessoa.",
+                    "Mas o Âmbar representa algo maior: Legado.",
+                    "Cada moeda é considerada um fragmento preservado da Era Primitiva.",
+                    "Ao trocar Âmbares, os sobreviventes acreditam estar transferindo parte da "
+                    "história de Arkland para outra pessoa.",
                 ],
             },
             {
                 "heading": "A Coroa de Ambar",
                 "paragraphs": [
-                    "Entre todas as moedas jÃ¡ cunhadas, existe uma categoria lendÃ¡ria. "
-                    "As Coroas de Ã‚mbar.",
-                    "Produzidas apenas pelos GuardiÃµes dos Obeliscos, elas utilizam os fragmentos "
-                    "mais puros jÃ¡ encontrados.",
-                    "Acredita-se que cada Coroa de Ã‚mbar contenha a essÃªncia de um Alfa ancestral.",
-                    "Possuir uma delas nÃ£o significa apenas riqueza. Significa prestÃ­gio. "
-                    "Significa que o prÃ³prio Ark reconheceu seu valor.",
+                    "Entre todas as moedas já cunhadas, existe uma categoria lendária. "
+                    "As Coroas de Âmbar.",
+                    "Produzidas apenas pelos Guardiões dos Obeliscos, elas utilizam os fragmentos "
+                    "mais puros já encontrados.",
+                    "Acredita-se que cada Coroa de Âmbar contenha a essência de um Alfa ancestral.",
+                    "Possuir uma delas não significa apenas riqueza. Significa prestígio. "
+                    "Significa que o próprio Ark reconheceu seu valor.",
                 ],
                 "blockquote": (
                     "O ouro compra ferramentas.\n"
                     "O cristal compra poder.\n"
                     "Mas o Ambar compra o respeito do tempo."
                 ),
-                "blockquote_attribution": "Uma antiga inscriÃ§Ã£o encontrada em uma ruÃ­na",
+                "blockquote_attribution": "Uma antiga inscrição encontrada em uma ruína",
             },
         ],
         "quote": {
             "label": "Frase oficial da moeda",
             "title": "Ambar",
             "text": (
-                "Quando os dinossauros desaparecerem, quando as tribos ruÃ­rem e quando os obeliscos "
-                "se apagarem, o Ambar ainda contarÃ¡ a histÃ³ria de quem viveu aqui."
+                "Quando os dinossauros desaparecerem, quando as tribos ruírem e quando os obeliscos "
+                "se apagarem, o Ambar ainda contará a história de quem viveu aqui."
             ),
         },
     }
 
 
 def _amber_lore_block(settings_block: dict[str, Any]) -> dict[str, Any]:
-    """Lore do Ambar â€” editÃ¡vel via Settings.AmberLore / AmberLoreTitle no config da loja."""
+    """Lore do Ambar — editável via Settings.AmberLore / AmberLoreTitle no config da loja."""
     default = _default_amber_lore()
     title = str(settings_block.get("AmberLoreTitle") or default["title"]).strip()
     raw = str(settings_block.get("AmberLore") or "").strip()
@@ -11476,9 +11471,9 @@ def _amber_lore_block(settings_block: dict[str, Any]) -> dict[str, Any]:
 
 @app.route("/api/public/home", methods=["GET"])
 def public_home():
-    """Dados pÃºblicos para a pÃ¡gina inicial (sem autenticaÃ§Ã£o).
+    """Dados públicos para a página inicial (sem autenticação).
 
-    Cache in-memory TTL ~45s + stale-while-revalidate â€” sob saturaÃ§Ã£o Waitress
+    Cache in-memory TTL ~45s + stale-while-revalidate — sob saturação Waitress
     evita rebuilds empilhados no lock (antes 50s+ na fila; hit/stale ~ms).
     """
     _kick_background_db_init()
@@ -11532,7 +11527,7 @@ def _store_public_home_payload(payload: dict[str, Any], built_ms: int) -> dict[s
 
 
 def _get_cached_public_home_payload() -> tuple[dict[str, Any], str]:
-    """HIT / STALE / MISS â€” build sempre fora do lock (single-flight + SWR)."""
+    """HIT / STALE / MISS — build sempre fora do lock (single-flight + SWR)."""
     now = time.monotonic()
     fp = _public_home_sources_fingerprint()
     with _PUBLIC_HOME_CACHE_LOCK:
@@ -11588,7 +11583,7 @@ def _get_cached_public_home_payload() -> tuple[dict[str, Any], str]:
                 cached = _PUBLIC_HOME_CACHE.get("payload")
                 if isinstance(cached, dict):
                     return cached, "STALE"
-            # Ãšltimo recurso: build sem slot (evita home vazia permanente).
+            # Último recurso: build sem slot (evita home vazia permanente).
             t_build = time.perf_counter()
             payload = _build_public_home_payload()
             return _store_public_home_payload(
@@ -11605,7 +11600,7 @@ def _get_cached_public_home_payload() -> tuple[dict[str, Any], str]:
 
 
 def _build_public_home_payload() -> dict[str, Any]:
-    """Monta o JSON da home numa passagem â€” sem NÃ— catÃ¡logo / NÃ— settings / NÃ— servers."""
+    """Monta o JSON da home numa passagem — sem N× catálogo / N× settings / N× servers."""
     s = _load_settings()
     data = _peek_shop_config()
     settings_block = data.get("Settings") if isinstance(data.get("Settings"), dict) else {}
@@ -11671,10 +11666,10 @@ def _build_public_home_payload() -> dict[str, Any]:
     ).strip()
 
     default_description = (
-        "O ARKLAND Ã© um ecossistema de servidores ARK: Survival Evolved pensado para "
-        "comunidades que jogam em cluster, com loja integrada, entrega automÃ¡tica in-game "
-        "e suporte a DpaÃ§Ãµes voluntÃ¡rias via PIX. Aqui vocÃª apoia o servidor e resgata "
-        "recompensas simbÃ³licas em Ambares â€” itens, dinos e kits entregues quando vocÃª conecta."
+        "O ARKLAND é um ecossistema de servidores ARK: Survival Evolved pensado para "
+        "comunidades que jogam em cluster, com loja integrada, entrega automática in-game "
+        "e suporte a Dpações voluntárias via PIX. Aqui você apoia o servidor e resgata "
+        "recompensas simbólicas em Ambares — itens, dinos e kits entregues quando você conecta."
     )
 
     mp_token = str(s.get("mp_access_token") or "").strip() or os.environ.get(
@@ -11693,7 +11688,7 @@ def _build_public_home_payload() -> dict[str, Any]:
         or DEFAULT_BOLETO_MANUAL_INSTRUCTIONS
     )
 
-    # Mapas + mural: ficheiros jÃ¡ em memÃ³ria; DB sÃ³ no mural (sessÃ£o curta + force release).
+    # Mapas + mural: ficheiros já em memória; DB só no mural (sessão curta + force release).
     featured_maps = _load_featured_maps_public(servers=servers_raw, catalog=data)
     featured_section = _featured_maps_section_meta(catalog=data)
     mural = _public_home_mural()
@@ -11718,7 +11713,7 @@ def _build_public_home_payload() -> dict[str, Any]:
         "servers": servers,
         "stats": stats,
         "tagline": (
-            "DpaÃ§Ãµes voluntÃ¡rias Â· Ambar simbÃ³lico Â· Entrega automÃ¡tica no ARK"
+            "Dpações voluntárias · Ambar simbólico · Entrega automática no ARK"
         ),
         "description": (
             str(settings_block.get("HomeDescription") or "").strip()
@@ -11754,14 +11749,14 @@ def _build_public_home_payload() -> dict[str, Any]:
             "title": "Eventos Sazonais",
             "description": (
                 "Utilizamos um sistema de Eventos Sazonais semelhante ao dos servidores oficiais da Wildcard. "
-                "Em cada ciclo, um evento sazonal Ã© definido para o cluster â€” Fear Evolved, Winter Wonderland, "
-                "Summer Bash e outros â€” e todos os mapas passam a operar com rates e regras especÃ­ficas "
+                "Em cada ciclo, um evento sazonal é definido para o cluster — Fear Evolved, Winter Wonderland, "
+                "Summer Bash e outros — e todos os mapas passam a operar com rates e regras específicas "
                 "ajustadas periodicamente de acordo com o evento ativo."
             ),
             "highlights": [
-                "Rates de XP, reproduÃ§Ã£o, consumo e coleta calibrados por evento, em todos os mapas do cluster.",
-                "RotaÃ§Ã£o periÃ³dica â€” a experiÃªncia muda ao longo da temporada, como nos servidores oficiais.",
-                "AnÃºncios no Discord e neste portal quando um novo evento entra em vigor.",
+                "Rates de XP, reprodução, consumo e coleta calibrados por evento, em todos os mapas do cluster.",
+                "Rotação periódica — a experiência muda ao longo da temporada, como nos servidores oficiais.",
+                "Anúncios no Discord e neste portal quando um novo evento entra em vigor.",
             ],
         },
         "featured_maps": featured_maps,
@@ -11771,7 +11766,7 @@ def _build_public_home_payload() -> dict[str, Any]:
 
 
 def _public_home_mural() -> dict[str, Any]:
-    """Mural da home (aviso legado + cards) numa Ãºnica sessÃ£o DB â€” evita empty-state falso."""
+    """Mural da home (aviso legado + cards) numa única sessão DB — evita empty-state falso."""
     empty_notice: dict[str, Any] = {
         "title": "",
         "body": "",
@@ -11784,7 +11779,7 @@ def _public_home_mural() -> dict[str, Any]:
             "home_notice": empty_notice,
             "home_cards": [],
             "home_mural_degraded": True,
-            "home_mural_message": "Carrossel indisponÃ­vel â€” banco ainda inicializando.",
+            "home_mural_message": "Carrossel indisponível — banco ainda inicializando.",
         }
     db = _SessionLocal()
     try:
@@ -11806,17 +11801,17 @@ def _public_home_mural() -> dict[str, Any]:
             "home_notice": empty_notice,
             "home_cards": [],
             "home_mural_degraded": True,
-            "home_mural_message": "NÃ£o foi possÃ­vel carregar o mural agora.",
+            "home_mural_message": "Não foi possível carregar o mural agora.",
         }
     finally:
-        # force=True: devolve conexÃ£o ao pool antes do jsonify/serializaÃ§Ã£o.
+        # force=True: devolve conexão ao pool antes do jsonify/serialização.
         _release_db_session(db, force=True)
 
 
 @app.route("/api/public/amber-stats", methods=["GET"])
 @limiter.limit("120 per minute; 2000 per hour", override_defaults=True)
 def public_amber_stats():
-    """Totais pÃºblicos do AmbarÃ´metro (sem PII)."""
+    """Totais públicos do Ambarômetro (sem PII)."""
     from amber_ledger import degraded_public_stats, get_public_stats
 
     _kick_background_db_init()
@@ -11843,7 +11838,7 @@ def public_amber_stats():
         except Exception as retry_exc:
             _log_error("public_amber_stats_retry", error=str(retry_exc))
             payload = degraded_public_stats(
-                message="Erro ao carregar estatÃ­sticas",
+                message="Erro ao carregar estatísticas",
                 currency=_public_currency(),
             )
     finally:
@@ -11856,14 +11851,14 @@ def public_amber_stats():
 @app.route("/api/public/exchange-rates", methods=["GET"])
 @limiter.limit("120 per minute; 2000 per hour", override_defaults=True)
 def public_exchange_rates():
-    """CotaÃ§Ãµes BRL Ã¢â€ â€™ USD/EUR para estimativas na UI (cache 1h no servidor)."""
+    """Cotações BRL → USD/EUR para estimativas na UI (cache 1h no servidor)."""
     payload = get_exchange_rates()
     resp = make_response(jsonify({"ok": True, **payload}))
     resp.headers["Cache-Control"] = "public, max-age=300"
     return resp
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Catalog (pÃºblico, sem autenticaÃ§Ã£o) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ Catalog (público, sem autenticação) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _public_catalog_sources_fingerprint() -> str:
     """Invalida cache se o catalog.json configurado ou settings.json mudarem."""
@@ -11875,7 +11870,7 @@ def _public_catalog_sources_fingerprint() -> str:
 
 
 def _get_cached_catalog_payload() -> tuple[dict[str, Any], str]:
-    """HIT / STALE / MISS â€” enrich O(n) fora do lock (single-flight + SWR)."""
+    """HIT / STALE / MISS — enrich O(n) fora do lock (single-flight + SWR)."""
     now = time.monotonic()
     fp = _public_catalog_sources_fingerprint()
     with _PUBLIC_CATALOG_CACHE_LOCK:
@@ -11961,7 +11956,7 @@ def _store_catalog_payload(payload: dict[str, Any], built_ms: int) -> dict[str, 
 
 
 def _build_catalog_payload() -> dict:
-    """Monta o catÃ¡logo pÃºblico (itens, kits, pacotes) â€” reutilizado pelo bootstrap."""
+    """Monta o catálogo público (itens, kits, pacotes) — reutilizado pelo bootstrap."""
     from ark_species_registry import TIER_ICON_URLS
     from catalog_enrich import CATEGORY_ICONS, enrich_catalog_payload
 
@@ -12065,7 +12060,7 @@ def _build_catalog_payload() -> dict:
 
 
 def _catalog_fingerprint(catalog: dict) -> str:
-    """ImpressÃ£o digital barata para invalidar cache local do catÃ¡logo."""
+    """Impressão digital barata para invalidar cache local do catálogo."""
     meta = catalog.get("catalog_meta") or {}
     basis = "|".join(str(x) for x in (
         meta.get("items_count"),
@@ -12082,7 +12077,7 @@ def _catalog_fingerprint(catalog: dict) -> str:
 
 @app.route("/api/catalog/dino-levels", methods=["GET"])
 def get_catalog_dino_levels():
-    """NÃ­veis existentes no catÃ¡logo (chips dinÃ¢micos da aba Dinos) + teto de cadastro."""
+    """Níveis existentes no catálogo (chips dinâmicos da aba Dinos) + teto de cadastro."""
     catalog, _status = _get_cached_catalog_payload()
     meta = (catalog or {}).get("catalog_meta") or {}
     return jsonify({
@@ -12094,9 +12089,9 @@ def get_catalog_dino_levels():
 
 @app.route("/api/catalog", methods=["GET"])
 def get_catalog():
-    """Retorna catÃ¡logo pÃºblico (itens, kits, pacotes de doaÃ§Ã£o).
+    """Retorna catálogo público (itens, kits, pacotes de doação).
 
-    Cache in-memory TTL ~15s (Fase 4, faixa 5â€“15) + SWR â€” evita enrich O(n)
+    Cache in-memory TTL ~15s (Fase 4, faixa 5–15) + SWR — evita enrich O(n)
     repetido sob fila Waitress. Lista de produtos da loja.
     """
     t0 = time.perf_counter()
@@ -12128,7 +12123,7 @@ def get_catalog():
 @app.route("/api/public/catalog-dinos", methods=["GET"])
 @limiter.limit("60 per minute")
 def public_catalog_dinos():
-    """Auditoria pÃºblica: dinos (qualquer nÃ­vel) gerados via catÃ¡logo (sem Steam ID cru)."""
+    """Auditoria pública: dinos (qualquer nível) gerados via catálogo (sem Steam ID cru)."""
     if (err := _require_db()) is not None:
         return err
     level_raw = str(request.args.get("level") or "").strip()
@@ -12194,7 +12189,7 @@ def plugin_catalog_dino_lookup():
             or request.args.get("canonical")
             or request.args.get("id"),
         }
-    # Prefer parse flexÃ­vel do Lab (par / canonical / hex colado).
+    # Prefer parse flexível do Lab (par / canonical / hex colado).
     from dino_lab_block_service import parse_dino_id_input
 
     pair = parse_dino_id_input(body)
@@ -12232,13 +12227,13 @@ def plugin_catalog_dino_lookup():
 @app.route("/api/store/bootstrap", methods=["GET"])
 @limiter.limit("60 per minute; 1200 per hour", override_defaults=True)
 def store_bootstrap():
-    """Warmup agregado: catÃ¡logo + me + kit_limits + entitlements num Ãºnico JSON.
+    """Warmup agregado: catálogo + me + kit_limits + entitlements num único JSON.
 
     Path quente:
-    - catÃ¡logo primeiro (cache TTL partilhado; zero DB / zero I/O externo bloqueante)
-    - 1 sessÃ£o DB para me + entitlements + kit_limits (sem DDL, sem Steam API;
-      shop_config prÃ©-lido â€” sem I/O de catÃ¡logo com sessÃ£o aberta)
-    - budget ~2.5s Ã¢â€ â€™ devolve parcial em vez de long_transaction 24â€“170s
+    - catálogo primeiro (cache TTL partilhado; zero DB / zero I/O externo bloqueante)
+    - 1 sessão DB para me + entitlements + kit_limits (sem DDL, sem Steam API;
+      shop_config pré-lido — sem I/O de catálogo com sessão aberta)
+    - budget ~2.5s → devolve parcial em vez de long_transaction 24–170s
     """
     t0 = time.perf_counter()
     timing: dict[str, int] = {}
@@ -12250,7 +12245,7 @@ def store_bootstrap():
     timing["catalog_ms"] = int((time.perf_counter() - t_cat) * 1000)
     timing["catalog_cache_hit"] = 1 if catalog_cache_status == "HIT" else 0
     timing["catalog_cache_status"] = catalog_cache_status
-    # PrÃ©-ler catÃ¡logo para kit_limits â€” evita I/O com sessÃ£o MySQL aberta.
+    # Pré-ler catálogo para kit_limits — evita I/O com sessão MySQL aberta.
     shop_config = _peek_shop_config()
 
     kit_limits = None
@@ -12264,7 +12259,7 @@ def store_bootstrap():
     elif not _db_ready():
         me = _build_auth_me_payload()
     else:
-        # Self-heal de Ã­ndices em background â€” nunca no path HTTP.
+        # Self-heal de índices em background — nunca no path HTTP.
         _hot_path_indexes_ready_or_schedule("store_bootstrap")
         db = _SessionLocal()
         try:
@@ -12353,7 +12348,7 @@ def store_bootstrap():
     return resp
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Downloads (pÃºblico + admin CRUD) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ Downloads (público + admin CRUD) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 _VERSION_JSON = _BUNDLE_DIR / "version.json"
 if not _VERSION_JSON.is_file() and not getattr(sys, "frozen", False):
@@ -12361,7 +12356,7 @@ if not _VERSION_JSON.is_file() and not getattr(sys, "frozen", False):
 
 
 def _get_project_release() -> dict:
-    """LÃª version.json e retorna os dados da versÃ£o atual do projeto."""
+    """Lê version.json e retorna os dados da versão atual do projeto."""
     try:
         if _VERSION_JSON.exists():
             return json.loads(_VERSION_JSON.read_text(encoding="utf-8"))
@@ -12379,22 +12374,22 @@ def _load_downloads() -> list:
 
 
 def _save_downloads(downloads: list) -> None:
-    """Persiste a lista de downloads no catÃ¡logo mestre (com sync aos mapas)."""
+    """Persiste a lista de downloads no catálogo mestre (com sync aos mapas)."""
     data = _read_catalog_data()
     if not data:
         return
     data["Downloads"] = downloads
     if not _write_catalog_data(data):
-        log.error("Erro ao salvar downloads no catÃ¡logo mestre")
+        log.error("Erro ao salvar downloads no catálogo mestre")
 
 
 _DEFAULT_FEATURED_MAPS_INTRO = (
-    "O ARKLAND nÃ£o Ã© sÃ³ mais um cluster â€” somos um ecossistema construÃ­do em torno de mapas MOD "
-    "de alta qualidade. A maioria dos nossos servidores roda cenÃ¡rios customizados, curados ÃƒÂ  mÃ£o "
-    "para PvE/PvP, performance em dedicado e integraÃ§Ã£o total com eventos sazonais."
+    "O ARKLAND não é só mais um cluster — somos um ecossistema construído em torno de mapas MOD "
+    "de alta qualidade. A maioria dos nossos servidores roda cenários customizados, curados ? mão "
+    "para PvE/PvP, performance em dedicado e integração total com eventos sazonais."
 )
 
-# Mapas oficiais vanilla â€” demais nomes sÃ£o tratados como MOD na home.
+# Mapas oficiais vanilla — demais nomes são tratados como MOD na home.
 _OFFICIAL_ARK_MAP_SLUGS = frozenset({
     "the_island", "the_center", "scorched_earth", "ragnarok", "aberration",
     "extinction", "valguero", "genesis", "genesis_1", "genesis_2", "genesis2",
@@ -12413,7 +12408,7 @@ def _guess_mod_map(server_map: str, display_name: str = "") -> bool:
 
 
 def _featured_slug_keys(raw: str) -> set[str]:
-    """Variantes de slug para casar label curta (CRYSTAL) Ã¢â€ â€ Crystal Isles / crystal_isles."""
+    """Variantes de slug para casar label curta (CRYSTAL) com Crystal Isles / crystal_isles."""
     from src.server_config_snapshot import norm_slug
 
     slug = norm_slug(str(raw or ""))
@@ -12431,7 +12426,7 @@ def _featured_slug_keys(raw: str) -> set[str]:
         if parts[-1].isdigit():
             keys.add(f"{parts[0]}{parts[-1]}")
             keys.add(f"{parts[0]}_{parts[-1]}")
-    # Aliases curtos usados como label na home (GEN2, VOLCANO, â€¦)
+    # Aliases curtos usados como label na home (GEN2, VOLCANO, …)
     aliases = {
         "gen2": ("genesis_2", "genesis2"),
         "genesis2": ("genesis_2", "gen2"),
@@ -12455,7 +12450,7 @@ def _featured_map_overrides_index(
     *,
     include_disabled: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
-    """ÃƒÂndice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
+    """?ndice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
     by_id: dict[str, dict[str, Any]] = {}
     by_slug: dict[str, dict[str, Any]] = {}
     for m in manual_maps:
@@ -12466,14 +12461,14 @@ def _featured_map_overrides_index(
             by_id[sid] = m
         for key in (m.get("name"), m.get("id")):
             for slug in _featured_slug_keys(str(key or "")):
-                # Preferir chave mais longa jÃ¡ indexada; nÃ£o sobrescrever com token curto
+                # Preferir chave mais longa já indexada; não sobrescrever com token curto
                 prev = by_slug.get(slug)
                 if prev is None:
                     by_slug[slug] = m
                 elif slug in _featured_slug_keys(str(prev.get("id") or "")) or slug in _featured_slug_keys(
                     str(prev.get("name") or "")
                 ):
-                    # mesma famÃ­lia â€” manter entrada com descriÃ§Ã£o mais completa
+                    # mesma família — manter entrada com descrição mais completa
                     if str(m.get("description") or "").strip() and not str(prev.get("description") or "").strip():
                         by_slug[slug] = m
     return by_id, by_slug
@@ -12512,7 +12507,7 @@ def _featured_description_fallback(
     *,
     defaults: list[dict[str, Any]] | None = None,
 ) -> str:
-    """DescriÃ§Ã£o do override, ou default do mapa quando o match/admin veio sem texto."""
+    """Descrição do override, ou default do mapa quando o match/admin veio sem texto."""
     if ov:
         desc = str(ov.get("description") or "").strip()
         if desc:
@@ -12540,8 +12535,8 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "name": "Brighamia",
             "mod_map": True,
             "description": (
-                "Mapa mod de alta qualidade â€” paisagens Ãºnicas, exploraÃ§Ã£o recompensadora e "
-                "Ã³timo desempenho em servidor dedicado. Uma das joias do nosso cluster."
+                "Mapa mod de alta qualidade — paisagens únicas, exploração recompensadora e "
+                "ótimo desempenho em servidor dedicado. Uma das joias do nosso cluster."
             ),
             "sort_order": 0,
             "enabled": True,
@@ -12551,8 +12546,8 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "name": "Alps",
             "mod_map": True,
             "description": (
-                "Mapa mod alpino com biomas dramÃ¡ticos, rotas de voo desafiadoras e bases "
-                "espetaculares. Excelente para tribos que buscam cenÃ¡rio Ã©pico e variedade."
+                "Mapa mod alpino com biomas dramáticos, rotas de voo desafiadoras e bases "
+                "espetaculares. Excelente para tribos que buscam cenário épico e variedade."
             ),
             "sort_order": 1,
             "enabled": True,
@@ -12562,7 +12557,7 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "name": "The Volcano",
             "mod_map": True,
             "description": (
-                "Mapa mod vulcÃ¢nico com biomas extremos, recursos Ãºnicos e desafio constante â€” "
+                "Mapa mod vulcânico com biomas extremos, recursos únicos e desafio constante — "
                 "ideal para tribos que buscam risco e recompensa."
             ),
             "sort_order": 2,
@@ -12573,7 +12568,7 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "name": "Amissa",
             "mod_map": True,
             "description": (
-                "Mapa mod com paisagens variadas e exploraÃ§Ã£o profunda, integrado ao cluster "
+                "Mapa mod com paisagens variadas e exploração profunda, integrado ao cluster "
                 "com rates e eventos sazonais do ARKLAND."
             ),
             "sort_order": 3,
@@ -12585,7 +12580,7 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "mod_map": False,
             "description": (
                 "Mapa oficial com ilhas flutuantes, biomas cristalinos e criaturas exclusivas. "
-                "Um dos cenÃ¡rios vanilla mais impressionantes â€” integrado ao cluster com rates ARKLAND."
+                "Um dos cenários vanilla mais impressionantes — integrado ao cluster com rates ARKLAND."
             ),
             "sort_order": 4,
             "enabled": True,
@@ -12595,8 +12590,8 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "name": "Genesis 2",
             "mod_map": False,
             "description": (
-                "Mapa oficial de endgame com bioma espacial, missÃµes e conteÃºdo Tek avanÃ§ado. "
-                "Complementa o cluster com a progressÃ£o completa da expansÃ£o Genesis Part 2."
+                "Mapa oficial de endgame com bioma espacial, missões e conteúdo Tek avançado. "
+                "Complementa o cluster com a progressão completa da expansão Genesis Part 2."
             ),
             "sort_order": 5,
             "enabled": True,
@@ -12605,19 +12600,19 @@ def _default_featured_maps() -> list[dict[str, Any]]:
 
 
 def _read_catalog_data() -> dict[str, Any]:
-    """LÃª catÃ¡logo via _resolve_shop_catalog â€” alinhado ao admin/loja pÃºblica."""
+    """Lê catálogo via _resolve_shop_catalog — alinhado ao admin/loja pública."""
     _, data, _ = _resolve_shop_catalog(persist_healed_path=False)
     return dict(data or {})
 
 
 def _write_catalog_data(data: dict[str, Any]) -> bool:
-    """Grava catÃ¡logo no mestre canÃ³nico e destinos CustomShop (servers.json)."""
+    """Grava catálogo no mestre canónico e destinos CustomShop (servers.json)."""
     s = _load_settings()
     written, errors = _write_config_all_targets(data, s)
     _invalidate_shop_config_cache()
     if not written:
         if errors:
-            log.error("Erro ao salvar config catÃ¡logo: %s", errors[0].get("error"))
+            log.error("Erro ao salvar config catálogo: %s", errors[0].get("error"))
         return False
     try:
         from src.shop_integration import push_catalog_to_webstore
@@ -12630,12 +12625,12 @@ def _write_catalog_data(data: dict[str, Any]) -> bool:
     except Exception:
         pass
     if errors:
-        log.warning("CatÃ¡logo gravado parcialmente: %s", errors)
+        log.warning("Catálogo gravado parcialmente: %s", errors)
     return True
 
 
 def _load_featured_maps_raw(catalog: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    """Overrides gravados no catÃ¡logo (texto, badge, ativo). Sem defaults embutidos."""
+    """Overrides gravados no catálogo (texto, badge, ativo). Sem defaults embutidos."""
     data = catalog if isinstance(catalog, dict) else _read_catalog_data()
     raw = data.get("FeaturedMaps")
     if not isinstance(raw, list) or not raw:
@@ -12682,11 +12677,11 @@ def _reconcile_featured_maps(
     servers: list[dict[str, Any]] | None = None,
     catalog: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Lista da pÃ¡gina Mapas da Home: sÃ³ servidores syncados agora.
+    """Lista da página Mapas da Home: só servidores syncados agora.
 
-    Texto promocional, badge Mod/oficial, ordem e Â«ativoÂ» salvos para um mapa
-    que ainda existe sÃ£o preservados. Entrada antiga do catÃ¡logo ou default
-    embutido que nÃ£o casa com um servidor atual nÃ£o volta para a lista.
+    Texto promocional, badge Mod/oficial, ordem e «ativo» salvos para um mapa
+    que ainda existe são preservados. Entrada antiga do catálogo ou default
+    embutido que não casa com um servidor atual não volta para a lista.
     """
     home_servers = _home_servers_for_featured(servers)
     stored = _load_featured_maps_raw(catalog)
@@ -12833,7 +12828,7 @@ def save_featured_maps_settings():
     body = request.get_json(force=True, silent=True) or {}
     data = _read_catalog_data()
     if not data:
-        return jsonify({"ok": False, "error": "config.json nÃ£o encontrado"}), 400
+        return jsonify({"ok": False, "error": "config.json não encontrado"}), 400
     settings = data.setdefault("Settings", {})
     if "title" in body:
         settings["HomeMapsTitle"] = str(body.get("title") or "").strip()
@@ -12850,7 +12845,7 @@ def create_featured_map():
     body = request.get_json(force=True, silent=True) or {}
     name = str(body.get("name", "")).strip()
     if not name:
-        return jsonify({"ok": False, "error": "name Ã© obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "name é obrigatório"}), 400
     import uuid as _uuid
     maps = _load_featured_maps_raw()
     entry = {
@@ -12900,7 +12895,7 @@ def update_featured_map(map_id: str):
         None,
     )
     if not live:
-        return jsonify({"ok": False, "error": "Mapa nÃ£o encontrado"}), 404
+        return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
     entry = {
         "id": map_id,
         "name": str(body.get("name", live.get("name", ""))).strip(),
@@ -12929,7 +12924,7 @@ def delete_featured_map(map_id: str):
         None,
     )
     if live:
-        # Servidor ainda sincronizado: esconde da home pÃºblica e mantÃ©m o texto.
+        # Servidor ainda sincronizado: esconde da home pública e mantém o texto.
         found = False
         for i, m in enumerate(maps):
             if m.get("id") == map_id or m.get("id") == live.get("id"):
@@ -12955,7 +12950,7 @@ def delete_featured_map(map_id: str):
         return jsonify({"ok": True, "removed": 1, "enabled": False})
     new_list = [m for m in maps if m.get("id") != map_id]
     if len(new_list) == len(maps):
-        return jsonify({"ok": False, "error": "Mapa nÃ£o encontrado"}), 404
+        return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
     if not _save_featured_maps(new_list):
         return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
     _log("featured_map_deleted", id=map_id, admin=_steam_id_from_session())
@@ -12964,7 +12959,7 @@ def delete_featured_map(map_id: str):
 
 @app.route("/api/downloads", methods=["GET"])
 def get_downloads():
-    """Retorna links de download (pÃºblico)."""
+    """Retorna links de download (público)."""
     return jsonify({"ok": True, "downloads": _load_downloads()})
 
 
@@ -12976,7 +12971,7 @@ def create_download():
     label = str(body.get("label", "")).strip()
     url   = str(body.get("url",   "")).strip()
     if not label or not url:
-        return jsonify({"ok": False, "error": "label e url sÃ£o obrigatÃ³rios"}), 400
+        return jsonify({"ok": False, "error": "label e url são obrigatórios"}), 400
     import uuid as _uuid
     entry = {
         "id":          body.get("id") or _uuid.uuid4().hex[:8],
@@ -12987,7 +12982,7 @@ def create_download():
         "category":    str(body.get("category", "Geral")).strip() or "Geral",
     }
     downloads = _load_downloads()
-    # Garante que o id Ã© Ãºnico
+    # Garante que o id é único
     existing_ids = {d.get("id") for d in downloads}
     while entry["id"] in existing_ids:
         entry["id"] = _uuid.uuid4().hex[:8]
@@ -13016,7 +13011,7 @@ def update_download(dl_id: str):
             _save_downloads(downloads)
             _log("download_updated", id=dl_id, admin=_steam_id_from_session())
             return jsonify({"ok": True, "download": downloads[i]})
-    return jsonify({"ok": False, "error": "Download nÃ£o encontrado"}), 404
+    return jsonify({"ok": False, "error": "Download não encontrado"}), 404
 
 
 @app.route("/api/downloads/<dl_id>", methods=["DELETE"])
@@ -13026,17 +13021,17 @@ def delete_download(dl_id: str):
     downloads = _load_downloads()
     new_list = [d for d in downloads if d.get("id") != dl_id]
     if len(new_list) == len(downloads):
-        return jsonify({"ok": False, "error": "Download nÃ£o encontrado"}), 404
+        return jsonify({"ok": False, "error": "Download não encontrado"}), 404
     _save_downloads(new_list)
     _log("download_deleted", id=dl_id, admin=_steam_id_from_session())
     return jsonify({"ok": True})
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ VersÃ£o / release info (pÃºblico) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ Versão / release info (público) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/version", methods=["GET"])
 def get_version():
-    """Retorna a versÃ£o atual do projeto e o link de download do instalador."""
+    """Retorna a versão atual do projeto e o link de download do instalador."""
     return jsonify(_get_project_release())
 
 
@@ -13051,7 +13046,7 @@ def admin_points():
     steam_id = str(body.get("steam_id") or body.get("player") or "").strip()
     amount = int(body.get("amount", 0) or 0)
     result = _admin_points_action(action, steam_id, amount)
-    status = 200 if result.get("ok") else 400 if "invÃ¡lida" in str(result.get("error", "")).lower() else 500
+    status = 200 if result.get("ok") else 400 if "inválida" in str(result.get("error", "")).lower() else 500
     return jsonify(result), status
 
 
@@ -13077,6 +13072,242 @@ def rcon_status():
         "port": port,
         "message": message,
     }), 200 if ok else 503
+
+
+@app.route("/api/admin/cloud-inventory", methods=["GET"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_cloud_inventory_list():
+    """Lista slots da nuvem por grupo e SteamID; os blobs são opacos ao servidor web."""
+    if (err := _require_db()) is not None:
+        return err
+    group = str(request.args.get("group") or "").strip()[:64]
+    steam_id = str(request.args.get("steam_id") or "").strip()
+    if steam_id and not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+    try:
+        page = max(1, min(100000, int(request.args.get("page", "1"))))
+        page_size = max(1, min(100, int(request.args.get("page_size", "50"))))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Paginação inválida"}), 400
+    db = _SessionLocal()
+    try:
+        groups = [str(r[0]) for r in db.execute(text(
+            "SELECT DISTINCT cloud_group FROM player_cloud_inventory ORDER BY cloud_group"
+        )).fetchall()]
+        clauses, params = [], {}
+        if group:
+            clauses.append("i.cloud_group = :group_name")
+            params["group_name"] = group
+        if steam_id:
+            clauses.append("i.steam_id = :steam_id")
+            params["steam_id"] = steam_id
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        total = int(db.execute(text("SELECT COUNT(*) FROM player_cloud_inventory i" + where), params).scalar() or 0)
+        rows = db.execute(text(
+            "SELECT i.cloud_group, i.steam_id, i.slot, i.item_count, i.uploaded_at, i.source_map, "
+            "COUNT(b.id) AS blob_count, COALESCE(SUM(LENGTH(b.item_blob)), 0) AS bytes_total "
+            "FROM player_cloud_inventory i LEFT JOIN player_cloud_items b "
+            "ON b.cloud_group=i.cloud_group AND b.steam_id=i.steam_id AND b.slot=i.slot"
+            + where + " GROUP BY i.cloud_group, i.steam_id, i.slot, i.item_count, i.uploaded_at, i.source_map "
+            "ORDER BY i.uploaded_at DESC, i.steam_id, i.slot LIMIT :limit OFFSET :offset"
+        ), {**params, "limit": page_size, "offset": (page - 1) * page_size}).mappings().all()
+        payload = [{
+            "cloud_group": str(r["cloud_group"]), "steam_id": str(r["steam_id"]),
+            "slot": int(r["slot"]), "item_count": int(r["item_count"] or 0),
+            "blob_count": int(r["blob_count"] or 0), "bytes_total": int(r["bytes_total"] or 0),
+            "uploaded_at": str(r["uploaded_at"] or ""), "source_map": str(r["source_map"] or ""),
+        } for r in rows]
+        return jsonify({"ok": True, "groups": groups, "items": payload, "total": total,
+                        "page": page, "page_size": page_size})
+    except Exception as exc:
+        log.exception("cloud_inventory_admin_list_failed")
+        return jsonify({"ok": False, "error": "Não foi possível ler a nuvem. Confira se a migração cloud_group foi aplicada.",
+                        "detail": str(exc)[:240]}), 503
+    finally:
+        _release_db_session(db, force=True)
+
+
+@app.route("/api/admin/cloud-inventory/<cloud_group>/<steam_id>", methods=["DELETE"])
+@admin_required
+@limiter.limit("30 per hour")
+def admin_cloud_inventory_purge(cloud_group: str, steam_id: str):
+    """Remove os quatro slots do jogador somente dentro do grupo informado."""
+    if (err := _require_db()) is not None:
+        return err
+    cloud_group = str(cloud_group or "").strip()
+    steam_id = str(steam_id or "").strip()
+    if not cloud_group or len(cloud_group) > 64 or not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "Grupo ou SteamID inválido"}), 400
+    db = _SessionLocal()
+    try:
+        db.execute(text("DELETE FROM player_cloud_items WHERE cloud_group=:g AND steam_id=:s"), {"g": cloud_group, "s": steam_id})
+        result = db.execute(text("DELETE FROM player_cloud_inventory WHERE cloud_group=:g AND steam_id=:s"), {"g": cloud_group, "s": steam_id})
+        db.commit()
+        deleted = int(result.rowcount or 0)
+        _log("admin_cloud_inventory_purge", admin=_steam_id_from_session(), cloud_group=cloud_group,
+             steam_id=steam_id, slots_deleted=deleted)
+        return jsonify({"ok": True, "slots_deleted": deleted})
+    except Exception as exc:
+        db.rollback()
+        log.exception("cloud_inventory_admin_purge_failed")
+        return jsonify({"ok": False, "error": "Não foi possível remover os dados da nuvem. Confira a migração.",
+                        "detail": str(exc)[:240]}), 503
+    finally:
+        _release_db_session(db, force=True)
+
+
+@app.route("/api/admin/cloud-inventory/<cloud_group>/<steam_id>/slot/<int:slot>", methods=["GET", "DELETE"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_cloud_inventory_slot(cloud_group: str, steam_id: str, slot: int):
+    if (err := _require_db()) is not None:
+        return err
+    cloud_group, steam_id = str(cloud_group or "").strip(), str(steam_id or "").strip()
+    if not cloud_group or len(cloud_group) > 64 or not _is_valid_steamid64(steam_id) or slot not in range(4):
+        return jsonify({"ok": False, "error": "Grupo, SteamID ou slot inválido"}), 400
+    db = _SessionLocal()
+    try:
+        if request.method == "GET":
+            rows = db.execute(text(
+                "SELECT sort_order, LENGTH(item_blob) AS blob_size, HEX(SUBSTR(item_blob,1,24)) AS preview "
+                "FROM player_cloud_items WHERE cloud_group=:g AND steam_id=:s AND slot=:slot ORDER BY sort_order"
+            ), {"g": cloud_group, "s": steam_id, "slot": slot}).mappings().all()
+            return jsonify({"ok": True, "cloud_group": cloud_group, "steam_id": steam_id, "slot": slot,
+                            "items": [{"sort_order": int(r["sort_order"]), "bytes": int(r["blob_size"] or 0),
+                                       "hex_preview": str(r["preview"] or "")} for r in rows]})
+        db.execute(text("DELETE FROM player_cloud_items WHERE cloud_group=:g AND steam_id=:s AND slot=:slot"),
+                   {"g": cloud_group, "s": steam_id, "slot": slot})
+        result = db.execute(text("DELETE FROM player_cloud_inventory WHERE cloud_group=:g AND steam_id=:s AND slot=:slot"),
+                            {"g": cloud_group, "s": steam_id, "slot": slot})
+        db.commit()
+        deleted = int(result.rowcount or 0)
+        _log("admin_cloud_inventory_slot_purge", admin=_steam_id_from_session(), cloud_group=cloud_group,
+             steam_id=steam_id, slot=slot, deleted=deleted)
+        return jsonify({"ok": True, "slots_deleted": deleted})
+    except Exception as exc:
+        db.rollback()
+        log.exception("cloud_inventory_admin_slot_failed")
+        return jsonify({"ok": False, "error": "Não foi possível acessar esse slot. Confira a migração cloud_group.",
+                        "detail": str(exc)[:240]}), 503
+    finally:
+        _release_db_session(db, force=True)
+
+
+def _server_agent_config() -> tuple[str, str]:
+    return (
+        os.environ.get("ARKSHOP_SERVER_AGENT_URL", os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL", "")).strip().rstrip("/"),
+        os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN", os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN", "")).strip(),
+    )
+
+
+def _server_agent_request(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    base, token = _server_agent_config()
+    if not base or not token:
+        raise RuntimeError("Controle de servidores não configurado. Defina ARKSHOP_SERVER_AGENT_URL e ARKSHOP_SERVER_AGENT_TOKEN no ambiente do site.")
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(base + path, data=data, method=method, headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=8.0) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:300]
+        raise RuntimeError(f"Agente de servidores respondeu HTTP {exc.code}: {body}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("Resposta inválida do agente de servidores")
+    return data
+
+
+def _valid_agent_server_id(server_id: str) -> bool:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", server_id or ""):
+        return False
+    payload = _server_agent_request("GET", "/servers")
+    return any(str(s.get("id") or "") == server_id for s in payload.get("servers", []) if isinstance(s, dict))
+
+
+def _parse_agent_list_players(response: str) -> list[dict[str, str]]:
+    players = []
+    for line in str(response or "").splitlines():
+        match = re.search(r"^\s*\d+\.\s*(.+?),\s*(\d{17})\b", line.strip())
+        if match:
+            players.append({"name": match.group(1).strip(), "steam_id": match.group(2)})
+    return players
+
+
+@app.route("/api/staff/game-servers", methods=["GET"])
+@ticket_staff_required
+@limiter.limit("60 per minute")
+def staff_game_servers():
+    try:
+        data = _server_agent_request("GET", "/servers")
+        servers = data.get("servers", [])
+        return jsonify({"ok": True, "servers": [{
+            "server_id": str(s.get("id") or ""), "name": str(s.get("name") or s.get("map") or s.get("id") or "Servidor"),
+            "map": str(s.get("map") or ""), "status": str(s.get("status") or "unknown"),
+            "players": s.get("players"), "pid": s.get("pid"),
+        } for s in servers if isinstance(s, dict) and s.get("id")]})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+
+
+@app.route("/api/staff/game-servers/<server_id>/players", methods=["GET"])
+@ticket_staff_required
+@limiter.limit("60 per minute")
+def staff_game_server_players(server_id: str):
+    try:
+        if not _valid_agent_server_id(server_id):
+            return jsonify({"ok": False, "error": "Servidor não encontrado no agente"}), 404
+        data = _server_agent_request("POST", f"/server/{urllib.parse.quote(server_id, safe='')}/rcon", {"command": "ListPlayers"})
+        response = str(data.get("response") or "")
+        players = _parse_agent_list_players(response)
+        return jsonify({"ok": bool(data.get("ok")), "players": players, "raw": response})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+
+
+@app.route("/api/staff/game-servers/<server_id>/action", methods=["POST"])
+@ticket_staff_required
+@limiter.limit("12 per hour")
+def staff_game_server_action(server_id: str):
+    body = request.get_json(silent=True) or {}
+    action = str(body.get("action") or "").strip().lower()
+    paths = {"start": "start", "stop": "stop", "restart": "restart"}
+    if action not in paths:
+        return jsonify({"ok": False, "error": "Ação inválida"}), 400
+    try:
+        if not _valid_agent_server_id(server_id):
+            return jsonify({"ok": False, "error": "Servidor não encontrado no agente"}), 404
+        data = _server_agent_request("POST", f"/server/{urllib.parse.quote(server_id, safe='')}/{paths[action]}")
+        ok = bool(data.get("ok"))
+        _log("staff_game_server_action", staff=_steam_id_from_session(), server_id=server_id, action=action, ok=ok)
+        return jsonify({"ok": ok, "action": action, "result": data}), 200 if ok else 503
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+
+
+@app.route("/api/staff/game-servers/<server_id>/kick", methods=["POST"])
+@ticket_staff_required
+@limiter.limit("30 per hour")
+def staff_game_server_kick(server_id: str):
+    body = request.get_json(silent=True) or {}
+    steam_id = str(body.get("steam_id") or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+    try:
+        if not _valid_agent_server_id(server_id):
+            return jsonify({"ok": False, "error": "Servidor não encontrado no agente"}), 404
+        root = f"/server/{urllib.parse.quote(server_id, safe='')}/rcon"
+        listed = _server_agent_request("POST", root, {"command": "ListPlayers"})
+        if not listed.get("ok") or steam_id not in {p["steam_id"] for p in _parse_agent_list_players(str(listed.get("response") or ""))}:
+            return jsonify({"ok": False, "error": "Esse jogador não consta como conectado nesse servidor"}), 409
+        result = _server_agent_request("POST", root, {"command": f"KickPlayer {steam_id}"})
+        ok = bool(result.get("ok"))
+        _log("staff_game_server_kick", staff=_steam_id_from_session(), server_id=server_id, target_steam_id=steam_id, ok=ok)
+        return jsonify({"ok": ok, "response": result.get("response", "")}), 200 if ok else 503
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
 
 
 @app.route("/api/rcon/reload", methods=["POST"])
@@ -13116,7 +13347,7 @@ def rcon_points():
         str(body.get("player") or body.get("steam_id") or "").strip(),
         int(body.get("amount", 0) or 0),
     )
-    status = 200 if result.get("ok") else 400 if "invÃ¡lida" in str(result.get("error", "")).lower() else 500
+    status = 200 if result.get("ok") else 400 if "inválida" in str(result.get("error", "")).lower() else 500
     return jsonify(result), status
 
 
@@ -13175,42 +13406,42 @@ def _purchase_user_message(
     item_id: str,
     price: int,
 ) -> str:
-    """Mensagem amigÃ¡vel em PT-BR para o jogador apÃ³s tentativa de resgate."""
+    """Mensagem amigável em PT-BR para o jogador após tentativa de resgate."""
     if result.get("ok"):
         if result.get("queued"):
             kind = "kit" if item_type == "kit" else "item"
             return (
-                f"Resgate de {kind} Â«{item_id}Â» registrado! Entre no servidor ARKLAND â€” "
-                "os itens serÃ£o entregues automaticamente na Nuvem (/shop)."
+                f"Resgate de {kind} «{item_id}» registrado! Entre no servidor ARKLAND — "
+                "os itens serão entregues automaticamente na Nuvem (/shop)."
             )
         if result.get("skipped"):
-            return "Este pedido jÃ¡ foi entregue anteriormente."
-        return f"Resgate concluÃ­do: {item_id}."
+            return "Este pedido já foi entregue anteriormente."
+        return f"Resgate concluído: {item_id}."
     err = str(result.get("error") or "").strip()
     low = err.lower()
     if "limite" in low or "sem_usos" in low or "kit_limit" in low:
-        return err or "VocÃª jÃ¡ usou todos os resgates disponÃ­veis deste kit."
+        return err or "Você já usou todos os resgates disponíveis deste kit."
     if "saldo" in low or "insufficient" in low or "afford" in low:
         return err or "Saldo de Ambares insuficiente para este resgate."
     if "licen" in low or "permission" in low:
-        return err or "VocÃª nÃ£o possui a licenÃ§a necessÃ¡ria para este item ou kit."
-    if "nÃ£o encontrado" in low or "not found" in low or "unknown" in low:
+        return err or "Você não possui a licença necessária para este item ou kit."
+    if "não encontrado" in low or "not found" in low or "unknown" in low:
         label = "Kit" if item_type == "kit" else "Item"
-        return err or f"{label} Â«{item_id}Â» nÃ£o encontrado no catÃ¡logo da loja."
+        return err or f"{label} «{item_id}» não encontrado no catálogo da loja."
     if "duplicad" in low or "idempotency" in low:
-        return "Este resgate jÃ¡ foi processado â€” verifique Minha ÃƒÂrea."
+        return "Este resgate j\u00e1 foi processado \u2014 verifique Minha \u00c1rea."
     if "rcon" in low or "connection" in low or "timeout" in low:
         return (
-            "Servidor indisponÃ­vel no momento. Seu pedido ficou pendente â€” "
+            "Servidor indisponível no momento. Seu pedido ficou pendente — "
             "entre no jogo ou tente novamente em alguns minutos."
         )
     if "invent" in low or "weight" in low or "encumber" in low:
-        return "InventÃ¡rio cheio ou sobrecarregado â€” libere espaÃ§o e entre no servidor."
+        return "Inventário cheio ou sobrecarregado — libere espaço e entre no servidor."
     if err:
         return err
     if price > 0:
-        return f"NÃ£o foi possÃ­vel concluir o resgate de Â«{item_id}Â». Verifique Minha ÃƒÂrea ou contate um admin."
-    return f"Falha ao resgatar Â«{item_id}Â». Tente novamente ou contate um admin."
+        return f"N\u00e3o foi poss\u00edvel concluir o resgate de \xab{item_id}\xbb. Verifique Minha \u00c1rea ou contate um admin."
+    return f"Falha ao resgatar «{item_id}». Tente novamente ou contate um admin."
 
 
 @app.route("/api/player/purchase", methods=["POST"])
@@ -13233,7 +13464,7 @@ def player_purchase():
         if not _check_idempotency(idempotency_key):
             _log("purchase_duplicate_idempotency", steam_id=str(steam_id),
                  idempotency_key=idempotency_key)
-            return jsonify({"ok": False, "error": "Pedido duplicado â€” este resgate jÃ¡ foi processado",
+            return jsonify({"ok": False, "error": "Pedido duplicado — este resgate já foi processado",
                            "idempotency_key": idempotency_key}), 409
 
     entry = _catalog_entry("kit" if item_type == "kit" else "shop", item_id)
@@ -13241,8 +13472,8 @@ def player_purchase():
         if idempotency_key:
             _release_idempotency_key(idempotency_key)
         resolved = _resolve_catalog_item_id(item_type, item_id)
-        hint = f" (tentou tambÃ©m '{resolved}')" if resolved != item_id else ""
-        return jsonify({"ok": False, "error": f"Item nÃ£o encontrado no catÃ¡logo{hint}"}), 404
+        hint = f" (tentou também '{resolved}')" if resolved != item_id else ""
+        return jsonify({"ok": False, "error": f"Item não encontrado no catálogo{hint}"}), 404
 
     lic = _get_license_grant(entry, item_id)
     if str(entry.get("Type", "")).strip().lower() == "license" and not lic:
@@ -13250,13 +13481,13 @@ def player_purchase():
             _release_idempotency_key(idempotency_key)
         return jsonify({
             "ok": False,
-            "error": "Item de licenÃ§a mal configurado (sem LicenseGrant no catÃ¡logo). Contate um admin.",
+            "error": "Item de licença mal configurado (sem LicenseGrant no catálogo). Contate um admin.",
         }), 500
 
     if lic and (lic.get("AdminOnly") or lic.get("Redeemable") is False):
         if idempotency_key:
             _release_idempotency_key(idempotency_key)
-        return jsonify({"ok": False, "error": "Esta licenÃ§a nÃ£o pode ser resgatada na loja"}), 403
+        return jsonify({"ok": False, "error": "Esta licença não pode ser resgatada na loja"}), 403
 
     can_buy, missing = _check_entry_permissions(str(steam_id), entry)
     if not can_buy:
@@ -13265,7 +13496,7 @@ def player_purchase():
         need = ", ".join(missing)
         return jsonify({
             "ok": False,
-            "error": f"LicenÃ§a necessÃ¡ria: {need}",
+            "error": f"Licença necessária: {need}",
             "missing_licenses": missing,
         }), 403
 
@@ -13282,7 +13513,7 @@ def player_purchase():
             return jsonify({
                 "ok": False,
                 "error": (
-                    f"VocÃª jÃ¡ usou todos os resgates disponÃ­veis do kit Â«{resolved_kit}Â». "
+                    f"Você já usou todos os resgates disponíveis do kit «{resolved_kit}». "
                     "Contate um admin se precisar de ajuda."
                 ),
                 "kit_limit_reached": True,
@@ -13298,7 +13529,7 @@ def player_purchase():
                 _release_idempotency_key(idempotency_key)
             return jsonify({
                 "ok": False,
-                "error": f"Saldo insuficiente ({balance} pts, necessÃ¡rio {price} pts)",
+                "error": f"Saldo insuficiente ({balance} pts, necessário {price} pts)",
             }), 402
 
     order, error = _create_order(str(steam_id), item_type, item_id, amount, points_spent=price)
@@ -13351,7 +13582,7 @@ def player_purchase():
                     _release_idempotency_key(idempotency_key)
                 return jsonify({
                     "ok": False,
-                    "error": f"Saldo insuficiente ({balance_now} pts, necessÃ¡rio {price} pts)",
+                    "error": f"Saldo insuficiente ({balance_now} pts, necessário {price} pts)",
                 }), 402
 
         if lic and lic.get("Redeemable", True):
@@ -13376,7 +13607,7 @@ def player_purchase():
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("AmbarÃ´metro shop debit hook: %s", amber_exc)
+                log.warning("Ambarômetro shop debit hook: %s", amber_exc)
             try:
                 from arkbank_service import credit_catalog_spend
 
@@ -13408,8 +13639,8 @@ def player_purchase():
         return jsonify({
             "ok": False,
             "error": (
-                "NÃ£o foi possÃ­vel concluir o resgate da licenÃ§a. "
-                "Seu saldo nÃ£o foi alterado â€” tente novamente em instantes."
+                "Não foi possível concluir o resgate da licença. "
+                "Seu saldo não foi alterado — tente novamente em instantes."
             ),
             "detail": purchase_db_error,
         }), 500
@@ -13474,7 +13705,7 @@ def player_purchase():
 @login_required
 @limiter.limit("20 per minute")
 def player_cancel_order(order_id: str):
-    """DesistÃªncia â€” cancela pedido PENDENTE e reembolsa Ambar."""
+    """Desistência — cancela pedido PENDENTE e reembolsa Ambar."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -13494,7 +13725,7 @@ def player_cancel_order(order_id: str):
             .first()
         )
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
 
         policy = _order_cancel_policy(order)
         if not policy["can_cancel"]:
@@ -13502,7 +13733,7 @@ def player_cancel_order(order_id: str):
             status = 409 if code == "not_pending" else 403
             return jsonify({
                 "ok": False,
-                "error": policy.get("cancel_blocked_reason") or "NÃ£o Ã© possÃ­vel desistir deste pedido",
+                "error": policy.get("cancel_blocked_reason") or "Não é possível desistir deste pedido",
                 "code": code,
                 "cancel_available_at": policy.get("cancel_available_at"),
                 "is_license": bool(policy.get("is_license")),
@@ -13533,7 +13764,7 @@ def player_cancel_order(order_id: str):
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("AmbarÃ´metro order_cancel hook: %s", amber_exc)
+                log.warning("Ambarômetro order_cancel hook: %s", amber_exc)
             try:
                 from arkbank_service import debit_catalog_refund_clawback
 
@@ -13568,10 +13799,10 @@ def player_cancel_order(order_id: str):
         status_before="PENDENTE",
         status_after="CANCELADO",
         message=(
-            f"DesistÃªncia â€” reembolso de {refund} Ambar "
-            f"(90% de {paid_amount}; retenÃ§Ã£o 10%)"
+            f"Desistência — reembolso de {refund} Ambar "
+            f"(90% de {paid_amount}; retenção 10%)"
             if refund > 0
-            else "DesistÃªncia â€” cancelado sem reembolso"
+            else "Desistência — cancelado sem reembolso"
         ),
         price=refund,
         points_after=new_balance,
@@ -13611,7 +13842,7 @@ def player_points():
     if not _db_ready():
         return jsonify({
             "ok": False,
-            "error": "Banco temporariamente indisponÃ­vel. Recarregue em alguns segundos.",
+            "error": "Banco temporariamente indisponível. Recarregue em alguns segundos.",
             "db_offline": True,
         }), 503
     try:
@@ -13620,13 +13851,13 @@ def player_points():
         _log_error("player_points", steam_id=steam_id, error=str(exc))
         return jsonify({
             "ok": False,
-            "error": "NÃ£o foi possÃ­vel consultar seu saldo. Tente novamente.",
+            "error": "Não foi possível consultar seu saldo. Tente novamente.",
             "db_offline": True,
         }), 503
     if balance is None:
         return jsonify({
             "ok": False,
-            "error": "Saldo indisponÃ­vel no momento. Tente novamente.",
+            "error": "Saldo indisponível no momento. Tente novamente.",
             "db_offline": True,
         }), 503
     return jsonify({"ok": True, "steam_id": steam_id, "points": balance})
@@ -13662,7 +13893,7 @@ def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
 
 
 def _resolve_payment_method(row: PointPayment) -> str:
-    """Retorna 'pix', 'card' ou 'boleto' â€” usa coluna persistida ou infere por dados legados."""
+    """Retorna 'pix', 'card' ou 'boleto' — usa coluna persistida ou infere por dados legados."""
     pm = str(row.payment_method or "").strip().lower()
     if pm in ("pix", "card", "boleto"):
         return pm
@@ -13689,8 +13920,8 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
     old_status = payment.status
     if payment.status == "ABANDONADO" and mapped == "PENDENTE":
         return
-    # DoaÃ§Ã£o jÃ¡ paga/creditada: notificaÃ§Ã£o tardia de OUTRA tentativa (recusada/expirada/
-    # pendente) nÃ£o pode rebaixar o status â€” sÃ³ estorno altera uma doaÃ§Ã£o aprovada.
+    # Doação já paga/creditada: notificação tardia de OUTRA tentativa (recusada/expirada/
+    # pendente) não pode rebaixar o status — só estorno altera uma doação aprovada.
     if (payment.credited or old_status == "APROVADO") and mapped in ("PENDENTE", "RECUSADO", "EXPIRADO"):
         return
     payment.status = mapped
@@ -13704,7 +13935,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
             amount=payment.points,
             status_before=old_status,
             status_after=mapped,
-            message=f"DoaÃ§Ã£o {old_status} Ã¢â€ â€™ {mapped}",
+            message=f"Doação {old_status} → {mapped}",
             source=source,
             mp_payment_id=payment.mp_payment_id,
             mp_status_raw=mp_status,
@@ -13734,7 +13965,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 item_id=payment.package_id,
                 amount=payment.points,
                 status_after="APROVADO",
-                message=f"DoaÃ§Ã£o creditada ({pm}) â€” {_package_label(payment.package_id)}",
+                message=f"Doação creditada ({pm}) — {_package_label(payment.package_id)}",
                 source=source,
                 mp_payment_id=payment.mp_payment_id,
                 amount_brl=payment.amount_brl,
@@ -13760,7 +13991,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                     points=int(payment.points),
                 )
             except Exception as amber_exc:
-                log.warning("AmbarÃ´metro donation hook: %s", amber_exc)
+                log.warning("Ambarômetro donation hook: %s", amber_exc)
             try:
                 from lottery_service import on_donation_credited
 
@@ -13961,7 +14192,7 @@ def player_pix_payer_form():
 @app.route("/api/player/card/payer-form", methods=["GET"])
 @login_required
 def player_card_payer_form():
-    """Campos para checkout com cartÃ£o (internacional â€” documento opcional)."""
+    """Campos para checkout com cartão (internacional — documento opcional)."""
     return jsonify({"ok": True, "fields": CARD_PAYER_FORM})
 
 
@@ -13975,14 +14206,14 @@ def player_pix_checkout():
     if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     if not _pix_enabled():
-        return jsonify({"ok": False, "error": "DoaÃ§Ã£o PIX nÃ£o configurada (indisponÃ­vel)"}), 503
+        return jsonify({"ok": False, "error": "Doação PIX não configurada (indisponível)"}), 503
 
     body = request.get_json(force=True, silent=True) or {}
     package_id = str(body.get("package_id", "")).strip()
     packages = _load_point_packages()
     package = next((p for p in packages if str(p.get("id")) == package_id), None)
     if not package:
-        return jsonify({"ok": False, "error": "Pacote de pontos invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "Pacote de pontos inválido"}), 400
 
     try:
         payer = normalize_pix_payer_input(body.get("payer"))
@@ -13997,7 +14228,7 @@ def player_pix_checkout():
     steam_id = str(_steam_id_from_session())
     payment_id = str(uuid.uuid4())
     label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
-    description = f"DoaÃ§Ã£o ARKLAND â€” {label} ({steam_id})"
+    description = f"Doação ARKLAND — {label} ({steam_id})"
 
     try:
         mp_resp = create_pix_payment(
@@ -14025,7 +14256,7 @@ def player_pix_checkout():
 
     mp_id, qr_b64, copy_paste = extract_pix_data(mp_resp)
     if not mp_id:
-        return jsonify({"ok": False, "error": "Resposta PIX invÃ¡lida do Mercado Pago"}), 502
+        return jsonify({"ok": False, "error": "Resposta PIX inválida do Mercado Pago"}), 502
 
     payment_status = map_mp_status(str(mp_resp.get("status", "pending")))
     db = _SessionLocal()
@@ -14054,7 +14285,7 @@ def player_pix_checkout():
             item_id=package_id,
             amount=points,
             status_after=payment_status,
-            message=f"Tentativa PIX â€” {label} â€” R$ {price_brl:.2f}",
+            message=f"Tentativa PIX — {label} — R$ {price_brl:.2f}",
             amount_brl=price_brl,
             mp_payment_id=mp_id,
             payer_email=payer.get("email"),
@@ -14082,13 +14313,13 @@ def player_pix_checkout():
 
 
 def _resolve_point_package(package_id: str) -> tuple[dict[str, Any] | None, str | None]:
-    """Resolve pacote pelo id â€” preÃ§o e pontos sempre do servidor."""
+    """Resolve pacote pelo id — preço e pontos sempre do servidor."""
     pid = str(package_id or "").strip()
     if not pid:
-        return None, "Pacote de pontos invÃ¡lido"
+        return None, "Pacote de pontos inválido"
     package = next((p for p in _load_point_packages() if str(p.get("id")) == pid), None)
     if not package:
-        return None, "Pacote de pontos invÃ¡lido"
+        return None, "Pacote de pontos inválido"
     points = int(package.get("points", 0) or 0)
     price_brl = float(package.get("price_brl", 0) or 0)
     if points <= 0 or price_brl <= 0:
@@ -14106,7 +14337,7 @@ def player_card_checkout():
     if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     if not _payments_enabled():
-        return jsonify({"ok": False, "error": "DoaÃ§Ã£o por cartÃ£o nÃ£o configurada (indisponÃ­vel)"}), 503
+        return jsonify({"ok": False, "error": "Doação por cartão não configurada (indisponível)"}), 503
 
     body = request.get_json(force=True, silent=True) or {}
     package_id = str(body.get("package_id", "")).strip()
@@ -14123,7 +14354,7 @@ def player_card_checkout():
     price_brl = float(package.get("price_brl", 0) or 0)
     payment_id = str(uuid.uuid4())
     label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
-    description = f"DoaÃ§Ã£o ARKLAND â€” {label} ({steam_id})"
+    description = f"Doação ARKLAND — {label} ({steam_id})"
     base = _shop_public_base_url()
     back_urls = {
         "success": f"{base}/?mp_card_return=success",
@@ -14148,7 +14379,7 @@ def player_card_checkout():
             actor_steam_id=steam_id,
             item_id=package_id,
             amount=points,
-            message=f"Mercado Pago recusou checkout cartÃ£o: {exc}",
+            message=f"Mercado Pago recusou checkout cartão: {exc}",
             amount_brl=price_brl,
             package_label=label,
             error=str(exc),
@@ -14157,7 +14388,7 @@ def player_card_checkout():
 
     checkout_url = extract_checkout_url(mp_resp, sandbox=_mp_sandbox())
     if not checkout_url:
-        return jsonify({"ok": False, "error": "Resposta de checkout invÃ¡lida do Mercado Pago"}), 502
+        return jsonify({"ok": False, "error": "Resposta de checkout inválida do Mercado Pago"}), 502
 
     db = _SessionLocal()
     try:
@@ -14183,7 +14414,7 @@ def player_card_checkout():
             item_id=package_id,
             amount=points,
             status_after=row.status,
-            message=f"Tentativa cartÃ£o â€” {label} â€” R$ {price_brl:.2f}",
+            message=f"Tentativa cartão — {label} — R$ {price_brl:.2f}",
             amount_brl=price_brl,
             payer_email=payer.get("email"),
             package_label=label,
@@ -14217,7 +14448,7 @@ def player_boleto_checkout():
     if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     if not _boleto_mp_enabled():
-        return jsonify({"ok": False, "error": "DoaÃ§Ã£o por boleto nÃ£o configurada (indisponÃ­vel)"}), 503
+        return jsonify({"ok": False, "error": "Doação por boleto não configurada (indisponível)"}), 503
 
     body = request.get_json(force=True, silent=True) or {}
     package_id = str(body.get("package_id", "")).strip()
@@ -14226,7 +14457,7 @@ def player_boleto_checkout():
         return jsonify({"ok": False, "error": pkg_err}), 400
 
     try:
-        # Mesmos campos do PIX (CPF obrigatÃ³rio) â€” Checkout Pro boleto exige documento.
+        # Mesmos campos do PIX (CPF obrigatório) — Checkout Pro boleto exige documento.
         payer = normalize_pix_payer_input(body.get("payer"))
     except PayerValidationError as exc:
         return jsonify({"ok": False, "error": str(exc), "field": exc.field}), 400
@@ -14235,7 +14466,7 @@ def player_boleto_checkout():
     price_brl = float(package.get("price_brl", 0) or 0)
     payment_id = str(uuid.uuid4())
     label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
-    description = f"DoaÃ§Ã£o ARKLAND â€” {label} ({steam_id})"
+    description = f"Doação ARKLAND — {label} ({steam_id})"
     base = _shop_public_base_url()
     back_urls = {
         "success": f"{base}/?mp_boleto_return=success",
@@ -14269,7 +14500,7 @@ def player_boleto_checkout():
 
     checkout_url = extract_checkout_url(mp_resp, sandbox=_mp_sandbox())
     if not checkout_url:
-        return jsonify({"ok": False, "error": "Resposta de checkout invÃ¡lida do Mercado Pago"}), 502
+        return jsonify({"ok": False, "error": "Resposta de checkout inválida do Mercado Pago"}), 502
 
     db = _SessionLocal()
     try:
@@ -14295,7 +14526,7 @@ def player_boleto_checkout():
             item_id=package_id,
             amount=points,
             status_after=row.status,
-            message=f"Tentativa boleto â€” {label} â€” R$ {price_brl:.2f}",
+            message=f"Tentativa boleto — {label} — R$ {price_brl:.2f}",
             amount_brl=price_brl,
             payer_email=payer.get("email"),
             package_label=label,
@@ -14319,9 +14550,9 @@ def player_boleto_checkout():
         _release_db_session(db)
 
 
-# Throttle de poll externo ao Mercado Pago por pagamento â€” o frontend re-polla
-# a cada poucos segundos; sem isto cada poll fazia HTTP sÃ­ncrono (30s timeout)
-# segurando worker + sessÃ£o MySQL durante instabilidade do MP.
+# Throttle de poll externo ao Mercado Pago por pagamento — o frontend re-polla
+# a cada poucos segundos; sem isto cada poll fazia HTTP síncrono (30s timeout)
+# segurando worker + sessão MySQL durante instabilidade do MP.
 _PIX_MP_POLL_MIN_INTERVAL = 8.0
 _PIX_MP_POLL_TIMEOUT = 8.0
 _MP_WEBHOOK_FETCH_TIMEOUT = 8.0
@@ -14331,7 +14562,7 @@ _PIX_MP_POLL_LOCK = threading.Lock()
 
 
 def _payment_needs_mp_poll(payment: PointPayment) -> bool:
-    """True se vale consultar o MP â€” inclui ABANDONADO (jogador pode ter pago apÃ³s fechar o modal)."""
+    """True se vale consultar o MP — inclui ABANDONADO (jogador pode ter pago após fechar o modal)."""
     if payment.credited or payment.status == "APROVADO":
         return False
     if payment.status in _PIX_TERMINAL_STATUSES:
@@ -14340,7 +14571,7 @@ def _payment_needs_mp_poll(payment: PointPayment) -> bool:
 
 
 def _pix_mp_poll_allowed(payment_id: str) -> bool:
-    """True se jÃ¡ passou o intervalo mÃ­nimo desde o Ãºltimo fetch MP deste pagamento."""
+    """True se já passou o intervalo mínimo desde o último fetch MP deste pagamento."""
     now = time.monotonic()
     with _PIX_MP_POLL_LOCK:
         last = _PIX_MP_POLL_LAST.get(payment_id, 0.0)
@@ -14358,7 +14589,7 @@ def _pix_mp_poll_allowed(payment_id: str) -> bool:
 @login_required
 @limiter.limit("20 per minute; 300 per hour", override_defaults=True)
 def player_pix_status(payment_id: str):
-    """Status PIX â€” tempo-real; NÃƒO cachear (Fase 4). ConfirmaÃ§Ã£o MP em background."""
+    """Status PIX — tempo-real; NÃO cachear (Fase 4). Confirmação MP em background."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14381,7 +14612,7 @@ def player_pix_status(payment_id: str):
             PointPayment.steam_id == steam_id,
         ).first()
         if not payment:
-            return jsonify({"ok": False, "error": "DoaÃ§Ã£o nÃ£o encontrada"}), 404
+            return jsonify({"ok": False, "error": "Doação não encontrada"}), 404
 
         if mp_id_hint and not payment.mp_payment_id:
             payment.mp_payment_id = mp_id_hint
@@ -14413,7 +14644,7 @@ def player_pix_status(payment_id: str):
     if needs_mp_poll and not already_credited and not resp_credited:
         token = _get_mp_access_token()
         if not token:
-            poll_error = "Access Token do Mercado Pago nÃ£o configurado"
+            poll_error = "Access Token do Mercado Pago não configurado"
         elif mp_payment_id and _pix_mp_poll_allowed(payment_id):
             try:
                 from payment_jobs import enqueue_mp_payment_confirm
@@ -14444,7 +14675,7 @@ def player_pix_status(payment_id: str):
 @login_required
 @limiter.limit("30 per hour")
 def player_pix_abandon(payment_id: str):
-    """Jogador fechou o modal PIX sem concluir a doaÃ§Ã£o â€” rastreio para suporte."""
+    """Jogador fechou o modal PIX sem concluir a doação — rastreio para suporte."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14455,7 +14686,7 @@ def player_pix_abandon(payment_id: str):
             PointPayment.steam_id == steam_id,
         ).first()
         if not payment:
-            return jsonify({"ok": False, "error": "DoaÃ§Ã£o PIX nÃ£o encontrada"}), 404
+            return jsonify({"ok": False, "error": "Doação PIX não encontrada"}), 404
         if payment.credited or payment.status == "APROVADO":
             return jsonify({"ok": True, "ignored": True, "status": payment.status})
         if payment.status == "ABANDONADO":
@@ -14476,7 +14707,7 @@ def player_pix_abandon(payment_id: str):
             amount=payment.points,
             status_before=old_status,
             status_after="ABANDONADO",
-            message=f"DoaÃ§Ã£o PIX abandonada pelo jogador â€” {_package_label(payment.package_id)}",
+            message=f"Doação PIX abandonada pelo jogador — {_package_label(payment.package_id)}",
             amount_brl=payment.amount_brl,
             mp_payment_id=payment.mp_payment_id,
             package_label=_package_label(payment.package_id),
@@ -14493,18 +14724,18 @@ def player_pix_abandon(payment_id: str):
 @app.route("/api/payments/webhook", methods=["GET", "POST"])
 @limiter.limit("3000 per hour; 300 per minute", override_defaults=True)
 def payments_webhook():
-    """Webhook Mercado Pago â€” ACK imediato; fetch+crÃ©dito em background.
+    """Webhook Mercado Pago — ACK imediato; fetch+crédito em background.
 
-    SeguranÃ§a: o corpo da notificaÃ§Ã£o NUNCA define status/valor â€” o pagamento Ã© sempre
-    re-lido do MP com o Access Token. Por isso assinatura invÃ¡lida sÃ³ bloqueia em modo
-    estrito (``mp_webhook_strict_signature``); no padrÃ£o Ã© registrada e o fluxo segue,
-    evitando perder doaÃ§Ã£o paga por secret/relÃ³gio errado.
+    Segurança: o corpo da notificação NUNCA define status/valor — o pagamento é sempre
+    re-lido do MP com o Access Token. Por isso assinatura inválida só bloqueia em modo
+    estrito (``mp_webhook_strict_signature``); no padrão é registrada e o fluxo segue,
+    evitando perder doação paga por secret/relógio errado.
     """
     body = request.get_json(force=True, silent=True) if request.method == "POST" else None
     body = body if isinstance(body, dict) else {}
     topic, mp_id = classify_mp_notification(body, request.args)
     if request.method == "GET" and not mp_id:
-        # ValidaÃ§Ã£o de URL no painel MP.
+        # Validação de URL no painel MP.
         return jsonify({"ok": True}), 200
 
     sig_problem = ""
@@ -14520,7 +14751,7 @@ def payments_webhook():
             )
         except WebhookSignatureError as exc:
             sig_problem = str(exc)
-            log.warning("webhook MP assinatura invÃ¡lida: %s (topic=%s id=%s)", exc, topic, mp_id)
+            log.warning("webhook MP assinatura inválida: %s (topic=%s id=%s)", exc, topic, mp_id)
     notif = {
         "topic": topic,
         "data_id": mp_id or None,
@@ -14540,10 +14771,10 @@ def payments_webhook():
     if not mp_id:
         return jsonify({"ok": True, "ignored": True})
     if topic != "payment":
-        # merchant_order etc.: o id NÃƒO Ã© de pagamento â€” consultar /v1/payments daria 404.
+        # merchant_order etc.: o id NÃO é de pagamento — consultar /v1/payments daria 404.
         _audit_event(
             "mp_webhook_ignored", source="webhook",
-            message=f"Webhook MP ignorado (tÃ³pico {topic})", **notif,
+            message=f"Webhook MP ignorado (tópico {topic})", **notif,
         )
         return jsonify({"ok": True, "ignored": True, "topic": topic})
 
@@ -14553,7 +14784,7 @@ def payments_webhook():
             "mp_webhook_rejected", severity="error", source="webhook",
             message="Webhook MP recebido mas Access Token ausente", **notif,
         )
-        return jsonify({"ok": False, "error": "Pagamentos nÃ£o configurados"}), 503
+        return jsonify({"ok": False, "error": "Pagamentos não configurados"}), 503
 
     try:
         from payment_jobs import enqueue_mp_payment_confirm
@@ -14585,7 +14816,7 @@ def player_summary():
     steam_id = str(_steam_id_from_session())
     db = _SessionLocal()
     try:
-        # Uma query agregada em vez de 6 COUNT(*) separados (+ sessÃ£o extra de points).
+        # Uma query agregada em vez de 6 COUNT(*) separados (+ sessão extra de points).
         order_stats = db.execute(
             text(
                 "SELECT "
@@ -14624,7 +14855,7 @@ def player_summary():
         _log_error("player_summary", steam_id=steam_id, error=str(exc))
         err_str = str(exc)
         if "10061" in err_str or "Can't connect" in err_str or "Connection refused" in err_str:
-            msg = "Banco de dados temporariamente offline. Aguarde alguns segundos e recarregue a pÃ¡gina."
+            msg = "Banco de dados temporariamente offline. Aguarde alguns segundos e recarregue a página."
         else:
             msg = f"Erro ao consultar banco: {exc}"
         return jsonify({"ok": False, "error": msg, "db_offline": "10061" in err_str}), 503
@@ -14636,7 +14867,7 @@ def player_summary():
 @login_required
 @limiter.limit("30 per minute; 300 per hour", override_defaults=True)
 def player_myarea():
-    """Agregado Minha ÃƒÂrea â€” summary + 1Âª pÃ¡gina histÃƒÂ³rico/DpaÃ§Ãµes (menos fan-out HTTP)."""
+    """Agregado Minha \u00c1rea \u2014 resumo + primeira p\u00e1gina do hist\u00f3rico de doa\u00e7\u00f5es (menos fan-out HTTP)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14808,7 +15039,7 @@ def player_history():
         )
     except Exception as exc:
         _log_error("player_history", steam_id=steam_id, error=str(exc))
-        return jsonify({"ok": False, "error": f"Erro ao consultar histÃ³rico: {exc}"}), 500
+        return jsonify({"ok": False, "error": f"Erro ao consultar histórico: {exc}"}), 500
     finally:
         _release_db_session(db)
 
@@ -14816,7 +15047,7 @@ def player_history():
 @app.route("/api/player/donations", methods=["GET"])
 @login_required
 def player_donations():
-    """HistÃ³rico de DpaÃ§Ãµes do jogador (PIX ou cartÃ£o â€” recompensa em pontos)."""
+    """Histórico de Dpações do jogador (PIX ou cartão — recompensa em pontos)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14856,7 +15087,7 @@ def player_donations():
         })
     except Exception as exc:
         _log_error("player_donations", steam_id=steam_id, error=str(exc))
-        return jsonify({"ok": False, "error": f"Erro ao consultar DpaÃ§Ãµes: {exc}"}), 500
+        return jsonify({"ok": False, "error": f"Erro ao consultar Dpações: {exc}"}), 500
     finally:
         _release_db_session(db)
 
@@ -14871,7 +15102,7 @@ def player_order_detail(order_id: str):
     try:
         order = db.query(Order).filter(Order.order_id == order_id, Order.steam_id == steam_id).first()
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
 
         attempts = (
             db.query(OrderAttempt)
@@ -14933,7 +15164,7 @@ def player_order_detail(order_id: str):
 @app.route("/api/player/orders/<order_id>/contest", methods=["POST"])
 @login_required
 def player_contest(order_id: str):
-    """Contesta pedido: motivo obrigatÃ³rio + abre ticket vinculado (caminho para reembolso 100%)."""
+    """Contesta pedido: motivo obrigatório + abre ticket vinculado (caminho para reembolso 100%)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -14944,7 +15175,7 @@ def player_contest(order_id: str):
     if not reason:
         return jsonify({
             "ok": False,
-            "error": "Motivo Ã© obrigatÃ³rio â€” explique o problema no ticket de contestaÃ§Ã£o",
+            "error": "Motivo é obrigatório — explique o problema no ticket de contestação",
             "code": "reason_required",
         }), 400
     if len(reason) < _CONTEST_REASON_MIN_LEN:
@@ -14952,7 +15183,7 @@ def player_contest(order_id: str):
             "ok": False,
             "error": (
                 f"Explique o motivo com pelo menos {_CONTEST_REASON_MIN_LEN} caracteres. "
-                "A contestaÃ§Ã£o abre um ticket de suporte obrigatÃ³rio."
+                "A contestação abre um ticket de suporte obrigatório."
             ),
             "code": "reason_too_short",
             "min_length": _CONTEST_REASON_MIN_LEN,
@@ -14962,7 +15193,7 @@ def player_contest(order_id: str):
     try:
         order = db.query(Order).filter(Order.order_id == order_id, Order.steam_id == steam_id).first()
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         if _is_order_season_pass(order):
             return _season_pass_cancel_blocked_response()
 
@@ -14986,7 +15217,7 @@ def player_contest(order_id: str):
             db,
             steam_id=steam_id,
             player_name=str(player_name),
-            subject=f"ContestaÃ§Ã£o do pedido {short}â€¦",
+            subject=f"Contestação do pedido {short}…",
             body=reason,
             category="resgate",
             priority="urgente",
@@ -14996,11 +15227,11 @@ def player_contest(order_id: str):
             db.rollback()
             return jsonify({
                 "ok": False,
-                "error": ticket_result.get("error") or "Falha ao abrir ticket de contestaÃ§Ã£o",
+                "error": ticket_result.get("error") or "Falha ao abrir ticket de contestação",
                 "code": "ticket_required",
             }), 400
 
-        # create_ticket jÃ¡ fez commit (pedido contestado + ticket)
+        # create_ticket já fez commit (pedido contestado + ticket)
         final_status = "CONTESTADO"
         ticket_id = (ticket_result.get("ticket") or {}).get("id")
         _audit_event(
@@ -15013,7 +15244,7 @@ def player_contest(order_id: str):
             item_id=order.item_id,
             status_before=status_before,
             status_after="CONTESTADO",
-            message=f"Jogador contestou pedido {short}â€¦ (ticket #{ticket_id})",
+            message=f"Jogador contestou pedido {short}… (ticket #{ticket_id})",
             reason=reason,
             ticket_id=ticket_id,
         )
@@ -15022,8 +15253,8 @@ def player_contest(order_id: str):
             "status": final_status,
             "ticket_id": ticket_id,
             "message": (
-                "ContestaÃ§Ã£o registrada. Foi aberto um ticket de suporte â€” "
-                "acompanhe em Tickets. Reembolso integral sÃ³ apÃ³s anÃ¡lise da equipe."
+                "Contestação registrada. Foi aberto um ticket de suporte — "
+                "acompanhe em Tickets. Reembolso integral só após análise da equipe."
             ),
         })
     except Exception as exc:
@@ -15037,10 +15268,10 @@ def player_contest(order_id: str):
 @app.route("/api/player/orders/<order_id>/rebuy", methods=["POST"])
 @login_required
 def player_rebuy(order_id: str):
-    """Desativado â€” reemissÃ£o apenas por admin."""
+    """Desativado — reemissão apenas por admin."""
     return jsonify({
         "ok": False,
-        "error": "ReemissÃ£o disponÃ­vel apenas para administradores. Use ContestaÃ§Ã£o (Ã¢Å¡Â Ã¯Â¸Â) ou contate um admin.",
+        "error": "Reemiss?o dispon?vel apenas para administradores. Use Contesta??o (\u26a0\ufe0f) ou contate um admin.",
     }), 403
 
 
@@ -15048,10 +15279,10 @@ def player_rebuy(order_id: str):
 
 _ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
 
-# DesistÃªncia do jogador: licenÃ§as irrevogÃ¡veis; demais itens sÃ³ apÃ³s 24h.
-# Pedidos PENDENTE (nÃ£o licenÃ§a) sem resgate Ã¢â€°Â¥48h Ã¢â€ â€™ cancelamento + reembolso automÃ¡tico (80%).
-# RetenÃ§Ã£o 20% â€” destino ARKBANK quando o ledger existir (docs/ARKBANK_SPEC.md Â§6.1).
-# Reembolso integral (100%) do catÃ¡logo: apenas via contestaÃ§Ã£o + ticket + decisÃ£o admin.
+# Desistência do jogador: licenças irrevogáveis; demais itens só após 24h.
+# Pedidos PENDENTE (não licença) sem resgate ≥48h → cancelamento + reembolso automático (80%).
+# Retenção 20% — destino ARKBANK quando o ledger existir (docs/ARKBANK_SPEC.md §6.1).
+# Reembolso integral (100%) do catálogo: apenas via contestação + ticket + decisão admin.
 _ORDER_CANCEL_COOLDOWN_HOURS = 24
 _ORDER_AUTO_EXPIRE_HOURS = 48
 _ORDER_DESIST_REFUND_FACTOR = 0.80
@@ -15067,7 +15298,7 @@ def _datetime_as_utc(dt: datetime | None) -> datetime | None:
 
 
 def _is_order_license(order: Order) -> bool:
-    """True para Type license / licenca_* / entrada de catÃ¡logo de licenÃ§a."""
+    """True para Type license / licenca_* / entrada de catálogo de licença."""
     item_id = str(order.item_id or "").strip()
     item_type = str(order.item_type or "shop")
     key = item_id.lower()
@@ -15088,7 +15319,7 @@ def _season_pass_idem_from_original(original_order_id: str | None) -> str:
 
 
 def _season_pass_original_order_clause():
-    """Filtro SQLAlchemy: pedidos SeasonLand (sp:â€¦ ou skip-kit|sp:â€¦)."""
+    """Filtro SQLAlchemy: pedidos SeasonLand (sp:… ou skip-kit|sp:…)."""
     return or_(
         Order.original_order_id.like("sp:%"),
         Order.original_order_id.like("__admin_skip_kit_limit__|sp:%"),
@@ -15098,7 +15329,7 @@ def _season_pass_original_order_clause():
 def _exclude_season_pass_orders_clause():
     """Exclui SeasonLand sem dropar pedidos com original_order_id NULL.
 
-    Em SQL, ``NOT (NULL LIKE â€¦)`` Ã© NULL â€” por isso o ``IS NULL`` explÃ­cito.
+    Em SQL, ``NOT (NULL LIKE …)`` é NULL — por isso o ``IS NULL`` explícito.
     """
     return or_(
         Order.original_order_id.is_(None),
@@ -15110,10 +15341,10 @@ def _exclude_season_pass_orders_clause():
 
 
 def _is_order_season_pass(order: Order) -> bool:
-    """True para pedidos enfileirados por claim SeasonLand (recompensa, nÃ£o compra).
+    """True para pedidos enfileirados por claim SeasonLand (recompensa, não compra).
 
-    Marcador: original_order_id `sp:{season}:{track}:{level}:â€¦` (kits usam
-    prefixo `__admin_skip_kit_limit__|sp:â€¦`).
+    Marcador: original_order_id `sp:{season}:{track}:{level}:…` (kits usam
+    prefixo `__admin_skip_kit_limit__|sp:…`).
     """
     return _season_pass_idem_from_original(
         getattr(order, "original_order_id", None)
@@ -15132,7 +15363,7 @@ def _format_duration_short(delta: timedelta) -> str:
 
 
 def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[str, Any]:
-    """Regras de desistÃªncia/cancelamento para UI e API do jogador."""
+    """Regras de desistência/cancelamento para UI e API do jogador."""
     now_utc = _datetime_as_utc(now) or _now()
     created = _datetime_as_utc(order.created_at) or now_utc
     age = now_utc - created
@@ -15149,26 +15380,26 @@ def _order_cancel_policy(order: Order, *, now: datetime | None = None) -> dict[s
     if str(order.status or "") != "PENDENTE":
         reason_code = "not_pending"
         reason = (
-            "SÃ³ Ã© possÃ­vel desistir de resgates ainda pendentes "
+            "Só é possível desistir de resgates ainda pendentes "
             "(aguardando entrada no servidor)"
         )
     elif is_license:
         reason_code = "license_irrevocable"
         reason = (
-            "LicenÃ§as nÃ£o podem ser canceladas nem reembolsadas â€” "
-            "a activaÃ§Ã£o Ã© irrevogÃ¡vel."
+            "Licenças não podem ser canceladas nem reembolsadas — "
+            "a activação é irrevogável."
         )
     elif is_season_pass:
         reason_code = "season_pass_irrevocable"
         reason = (
-            "Recompensas do SeasonLand nÃ£o podem ser canceladas nem "
+            "Recompensas do SeasonLand não podem ser canceladas nem "
             "reembolsadas em Ambar."
         )
     elif age < cooldown:
         reason_code = "cooldown_24h"
         remaining = cooldown - age
         reason = (
-            f"SÃ³ Ã© possÃ­vel desistir apÃ³s {_ORDER_CANCEL_COOLDOWN_HOURS}h da compra. "
+            f"Só é possível desistir após {_ORDER_CANCEL_COOLDOWN_HOURS}h da compra. "
             f"Aguarde mais {_format_duration_short(remaining)}."
         )
     else:
@@ -15192,8 +15423,8 @@ def _license_cancel_blocked_response():
     return jsonify({
         "ok": False,
         "error": (
-            "LicenÃ§as nÃ£o podem ser canceladas nem reembolsadas â€” "
-            "a activaÃ§Ã£o Ã© irrevogÃ¡vel."
+            "Licenças não podem ser canceladas nem reembolsadas — "
+            "a activação é irrevogável."
         ),
         "code": "license_irrevocable",
     }), 403
@@ -15203,7 +15434,7 @@ def _season_pass_cancel_blocked_response():
     return jsonify({
         "ok": False,
         "error": (
-            "Recompensas do SeasonLand nÃ£o podem ser canceladas nem "
+            "Recompensas do SeasonLand não podem ser canceladas nem "
             "reembolsadas em Ambar."
         ),
         "code": "season_pass_irrevocable",
@@ -15211,7 +15442,7 @@ def _season_pass_cancel_blocked_response():
 
 
 def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, Any]:
-    """Cancela + reembolsa pedidos PENDENTE (nÃ£o licenÃ§a) com idade Ã¢â€°Â¥ 48h. Idempotente."""
+    """Cancela + reembolsa pedidos PENDENTE (não licença) com idade ≥ 48h. Idempotente."""
     now = _now()
     cutoff = now - timedelta(hours=_ORDER_AUTO_EXPIRE_HOURS)
     candidates = (
@@ -15280,7 +15511,7 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
                     commit=True,
                 )
             except Exception as amber_exc:
-                log.warning("AmbarÃ´metro order_auto_cancel hook: %s", amber_exc)
+                log.warning("Ambarômetro order_auto_cancel hook: %s", amber_exc)
             try:
                 from arkbank_service import debit_catalog_refund_clawback
 
@@ -15305,10 +15536,10 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
             status_before="PENDENTE",
             status_after="CANCELADO",
             message=(
-                f"Auto-cancelamento apÃ³s {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate â€” "
-                f"reembolso de {refund} Ambar (80% de {paid_amount}; retenÃ§Ã£o 20%)"
+                f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate — "
+                f"reembolso de {refund} Ambar (80% de {paid_amount}; retenção 20%)"
                 if refund > 0
-                else f"Auto-cancelamento apÃ³s {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate"
+                else f"Auto-cancelamento após {_ORDER_AUTO_EXPIRE_HOURS}h sem resgate"
             ),
             price=refund,
             points_after=new_balance,
@@ -15340,8 +15571,8 @@ def expire_stale_pending_orders(db: Any, *, batch_size: int = 50) -> dict[str, A
 
 
 def _order_refund_amount(order: Order, db: Any | None = None) -> int:
-    """Valor pago em Ambar (points_spent Ã¢â€ â€™ catÃ¡logo Ã¢â€ â€™ auditoria). Usado em reembolso admin 100%."""
-    # SeasonLand: recompensa gratuita â€” nunca usar preÃ§o de catÃ¡logo como Â«pagoÂ».
+    """Valor pago em Ambar (points_spent → catálogo → auditoria). Usado em reembolso admin 100%."""
+    # SeasonLand: recompensa gratuita — nunca usar preço de catálogo como «pago».
     if _is_order_season_pass(order):
         return 0
     refund = int(order.points_spent or 0)
@@ -15379,20 +15610,20 @@ def _order_refund_amount(order: Order, db: Any | None = None) -> int:
 
 
 def _order_desist_refund_amount(order: Order, db: Any | None = None) -> int:
-    """Reembolso de desistÃªncia/auto-cancel do catÃ¡logo: 80% do valor pago (retenÃ§Ã£o 20%)."""
+    """Reembolso de desistência/auto-cancel do catálogo: 80% do valor pago (retenção 20%)."""
     paid = max(0, _order_refund_amount(order, db))
     return int(round(paid * _ORDER_DESIST_REFUND_FACTOR))
 
 
 def _credit_order_refund_tx(db: Any, steam_id: str, refund: int) -> int:
-    """Credita reembolso e confirma que o saldo subiu na mesma transaÃ§Ã£o."""
+    """Credita reembolso e confirma que o saldo subiu na mesma transação."""
     if refund <= 0:
         return _player_points_tx(db, steam_id)
     before = _player_points_tx(db, steam_id)
     after = _add_player_points_tx(db, steam_id, refund)
     if after < before + refund:
         raise RuntimeError(
-            f"Reembolso nÃ£o creditado (saldo {before} Ã¢â€ â€™ {after}, esperado +{refund})"
+            f"Reembolso não creditado (saldo {before} → {after}, esperado +{refund})"
         )
     return after
 
@@ -15519,15 +15750,15 @@ def admin_retry_pending():
 @app.route("/api/admin/orders", methods=["GET"])
 @admin_required
 def admin_list_orders():
-    """Lista admin paginada â€” 1 pÃ¡gina sÃ³ (LIMIT), sem COUNT(*) no hot path.
+    """Lista admin paginada — 1 página só (LIMIT), sem COUNT(*) no hot path.
 
-    Causa raiz do Â«Carregandoâ€¦Â» longo: ``query.count()`` + exclusÃ£o SeasonLand
-    (``NOT LIKE 'sp:%'``) forÃ§ava full scan de *toda* a tabela ``orders`` (incl.
-    milhares de claims SP) antes de devolver 25â€“50 linhas. O frontend jÃ¡ pedia
-    ``limit``/``offset``, mas o COUNT tornava a 1.Âª pÃ¡gina O(N).
+    Causa raiz do «Carregando…» longo: ``query.count()`` + exclusão SeasonLand
+    (``NOT LIKE 'sp:%'``) forçava full scan de *toda* a tabela ``orders`` (incl.
+    milhares de claims SP) antes de devolver 25–50 linhas. O frontend já pedia
+    ``limit``/``offset``, mas o COUNT tornava a 1.ª página O(N).
 
-    Agora: ``load_only`` (sem ``payload_json``), ``LIMIT+1`` Ã¢â€ â€™ ``has_more``,
-    ``total`` sÃ³ com ``include_total=1`` (ou SteamID completo, barato via Ã­ndice);
+    Agora: ``load_only`` (sem ``payload_json``), ``LIMIT+1`` → ``has_more``,
+    ``total`` só com ``include_total=1`` (ou SteamID completo, barato via índice);
     default ``limit=10``.
     """
     if (err := _require_db()) is not None:
@@ -15538,7 +15769,7 @@ def admin_list_orders():
     order_dir = str(request.args.get("order", "desc")).strip().lower()
     date_from = str(request.args.get("date_from", "")).strip()
     date_to = str(request.args.get("date_to", "")).strip()
-    # SeasonLand fica fora de Pedidos por omissÃ£o â€” ver /api/admin/season-pass/orders.
+    # SeasonLand fica fora de Pedidos por omissão — ver /api/admin/season-pass/orders.
     include_sp = str(request.args.get("include_season_pass", "0")).strip().lower() in (
         "1", "true", "yes", "on",
     )
@@ -15548,7 +15779,7 @@ def admin_list_orders():
     include_total_arg = str(request.args.get("include_total", "")).strip().lower()
     limit = max(1, min(100, int(request.args.get("limit", 10))))
     offset = max(0, int(request.args.get("offset", 0)))
-    # SteamID completo Ã¢â€ â€™ COUNT barato (ix steam_id); senÃ£o COUNT Ã© opt-in.
+    # SteamID completo → COUNT barato (ix steam_id); senão COUNT é opt-in.
     q_is_full_steam = bool(q_text.isdigit() and len(q_text) >= 17)
     if include_total_arg in ("1", "true", "yes", "on"):
         want_total = True
@@ -15612,7 +15843,7 @@ def admin_list_orders():
                 pass
         sort_col = Order.created_at if sort == "created_at" else Order.created_at
         order_by = sort_col.asc() if order_dir == "asc" else sort_col.desc()
-        # LIMIT+1 Ã¢â€ â€™ has_more sem COUNT(*) (MySQL pode parar cedo no Ã­ndice created_at).
+        # LIMIT+1 → has_more sem COUNT(*) (MySQL pode parar cedo no índice created_at).
         rows = query.order_by(order_by).offset(offset).limit(limit + 1).all()
         has_more = len(rows) > limit
         page_rows = rows[:limit]
@@ -15662,7 +15893,7 @@ def admin_list_orders():
 @app.route("/api/admin/orders/<order_id>/refund", methods=["POST"])
 @admin_required
 def admin_refund_order(order_id: str):
-    """Reembolsa Ambar ao jogador quando o resgate nÃ£o foi entregue (ou contestado)."""
+    """Reembolsa Ambar ao jogador quando o resgate não foi entregue (ou contestado)."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -15678,7 +15909,7 @@ def admin_refund_order(order_id: str):
             .first()
         )
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         if _is_order_license(order):
             return _license_cancel_blocked_response()
         if _is_order_season_pass(order):
@@ -15686,7 +15917,7 @@ def admin_refund_order(order_id: str):
         if order.status in _ADMIN_TERMINAL_STATUSES:
             return jsonify({
                 "ok": False,
-                "error": f"Pedido jÃ¡ estÃ¡ {order.status} â€” nÃ£o Ã© possÃ­vel reembolsar novamente",
+                "error": f"Pedido já está {order.status} — não é possível reembolsar novamente",
             }), 409
 
         status_before = order.status
@@ -15698,8 +15929,8 @@ def admin_refund_order(order_id: str):
             return jsonify({
                 "ok": False,
                 "error": (
-                    "Valor do reembolso Ã© zero â€” o pedido nÃ£o tem Ambares registrados. "
-                    "Use Â«Ajustar saldoÂ» no jogador se precisar devolver manualmente."
+                    "Valor do reembolso é zero — o pedido não tem Ambares registrados. "
+                    "Use «Ajustar saldo» no jogador se precisar devolver manualmente."
                 ),
             }), 400
 
@@ -15723,11 +15954,11 @@ def admin_refund_order(order_id: str):
                 commit=True,
             )
         except Exception as amber_exc:
-            log.warning("AmbarÃ´metro admin_refund hook: %s", amber_exc)
+            log.warning("Ambarômetro admin_refund hook: %s", amber_exc)
         try:
             from arkbank_service import debit_catalog_refund_clawback
 
-            # Reembolso admin 100% Ã¢â€ â€™ zera o efeito do catalog_spend no banco.
+            # Reembolso admin 100% → zera o efeito do catalog_spend no banco.
             debit_catalog_refund_clawback(
                 db,
                 order_id=order_id,
@@ -15755,7 +15986,7 @@ def admin_refund_order(order_id: str):
         item_id=item_id,
         status_before=status_before,
         status_after="REEMBOLSADO",
-        message=f"Admin reembolsou {refund} Ambar â€” pedido {order_id[:8]}â€¦",
+        message=f"Admin reembolsou {refund} Ambar — pedido {order_id[:8]}…",
         reason=reason,
         refunded=refund,
         disputes_closed=closed,
@@ -15773,7 +16004,7 @@ def admin_refund_order(order_id: str):
 @app.route("/api/admin/orders/<order_id>/resend", methods=["POST"])
 @admin_required
 def admin_resend_order(order_id: str):
-    """Reabre o pedido como PENDENTE para resgate via /shop in-game (sem novo dÃ©bito)."""
+    """Reabre o pedido como PENDENTE para resgate via /shop in-game (sem novo débito)."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -15789,16 +16020,16 @@ def admin_resend_order(order_id: str):
             .first()
         )
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         if order.status == "PENDENTE":
             return jsonify({
                 "ok": False,
-                "error": "Pedido jÃ¡ estÃ¡ pendente â€” aguardando resgate no jogo",
+                "error": "Pedido já está pendente — aguardando resgate no jogo",
             }), 409
         if order.status == "REEMBOLSADO":
             return jsonify({
                 "ok": False,
-                "error": "Pedido reembolsado â€” use um novo resgate ou reembolso reverso manual",
+                "error": "Pedido reembolsado — use um novo resgate ou reembolso reverso manual",
             }), 409
         if order.status == "REEMITIDO":
             reissue = (
@@ -15809,10 +16040,10 @@ def admin_resend_order(order_id: str):
             )
             hint = ""
             if reissue:
-                hint = f" Use o pedido substituto {reissue.new_order_id[:8]}â€¦"
+                hint = f" Use o pedido substituto {reissue.new_order_id[:8]}…"
             return jsonify({
                 "ok": False,
-                "error": f"Pedido substituÃ­do por reemissÃ£o anterior.{hint}",
+                "error": f"Pedido substituído por reemissão anterior.{hint}",
             }), 409
 
         status_before = order.status
@@ -15848,7 +16079,7 @@ def admin_resend_order(order_id: str):
         amount=resend_amount,
         status_before=status_before,
         status_after="PENDENTE",
-        message=f"Admin reenviou pedido {order_id[:8]}â€¦ para fila /shop",
+        message=f"Admin reenviou pedido {order_id[:8]}… para fila /shop",
         reason=reason,
     )
     return jsonify({
@@ -15879,13 +16110,13 @@ def admin_cancel_order(order_id: str):
             .first()
         )
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         if _is_order_license(order):
             return _license_cancel_blocked_response()
         if order.status in _ADMIN_TERMINAL_STATUSES:
             return jsonify({
                 "ok": False,
-                "error": f"Pedido jÃ¡ estÃ¡ {order.status}",
+                "error": f"Pedido já está {order.status}",
             }), 409
 
         status_before = order.status
@@ -15915,7 +16146,7 @@ def admin_cancel_order(order_id: str):
         item_id=item_id,
         status_before=status_before,
         status_after="CANCELADO",
-        message=f"Admin cancelou pedido {order_id[:8]}â€¦ (sem reembolso)",
+        message=f"Admin cancelou pedido {order_id[:8]}… (sem reembolso)",
         reason=reason,
         disputes_closed=closed,
     )
@@ -15930,14 +16161,14 @@ def admin_cancel_order(order_id: str):
 @app.route("/api/admin/orders/<order_id>/details", methods=["GET"])
 @admin_required
 def admin_order_details(order_id: str):
-    """Detalhes completos do pedido â€” timeline, tentativas, disputas e reemissÃµes."""
+    """Detalhes completos do pedido — timeline, tentativas, disputas e reemissões."""
     if (err := _require_db()) is not None:
         return err
     db = _SessionLocal()
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         payload = _build_admin_order_details(db, order)
         return jsonify({"ok": True, **payload})
     except Exception as exc:
@@ -15950,7 +16181,7 @@ def admin_order_details(order_id: str):
 @app.route("/api/admin/orders/<order_id>/repair-license", methods=["POST"])
 @admin_required
 def admin_repair_order_license(order_id: str):
-    """Recria player_entitlements para pedido de licenÃ§a jÃ¡ entregue sem grant no banco."""
+    """Recria player_entitlements para pedido de licença já entregue sem grant no banco."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -15960,7 +16191,7 @@ def admin_repair_order_license(order_id: str):
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         repaired = _ensure_license_entitlement_for_order(order, reason="admin_repair")
         entitlements = _get_player_entitlements(str(order.steam_id))
         _audit_event(
@@ -15971,7 +16202,7 @@ def admin_repair_order_license(order_id: str):
             order_id=order_id,
             item_type=order.item_type,
             item_id=order.item_id,
-            message="LicenÃ§a reparada no banco" if repaired else "Nada a reparar ou item sem LicenseGrant",
+            message="Licença reparada no banco" if repaired else "Nada a reparar ou item sem LicenseGrant",
             repaired=repaired,
         )
     finally:
@@ -16003,11 +16234,11 @@ def admin_reprocess_order(order_id: str):
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         status_before = order.status
         player_steam = order.steam_id
         if order.status == "ENTREGUE" and not force_reset:
-            return jsonify({"ok": False, "error": "Pedido jÃ¡ entregue â€” use force_reset=1 para reabrir"}), 400
+            return jsonify({"ok": False, "error": "Pedido já entregue — use force_reset=1 para reabrir"}), 400
         order.status = "PENDENTE"
         order.last_error = None
         order.updated_at = _now()
@@ -16024,7 +16255,7 @@ def admin_reprocess_order(order_id: str):
         order_id=order_id,
         status_before=status_before,
         status_after="PENDENTE",
-        message=f"Admin reprocessou pedido {order_id[:8]}â€¦",
+        message=f"Admin reprocessou pedido {order_id[:8]}…",
         force_rcon=force_rcon,
         force_reset=force_reset,
     )
@@ -16035,7 +16266,7 @@ def admin_reprocess_order(order_id: str):
 @app.route("/api/admin/orders/<order_id>/reissue", methods=["POST"])
 @admin_required
 def admin_reissue_order(order_id: str):
-    """ReemissÃ£o admin â€” cria novo pedido PENDENTE sem debitar pontos."""
+    """Reemissão admin — cria novo pedido PENDENTE sem debitar pontos."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -16043,14 +16274,14 @@ def admin_reissue_order(order_id: str):
     reason = str(body.get("reason", "")).strip()
     force_reset = bool(body.get("force_reset", True))
     if not reason:
-        return jsonify({"ok": False, "error": "Motivo da reemissÃ£o Ã© obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "Motivo da reemissão é obrigatório"}), 400
 
     db = _SessionLocal()
     new_order_id: str | None = None
     try:
         original = db.query(Order).filter(Order.order_id == order_id).first()
         if not original:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
 
         before = original.status
         new_order = Order(
@@ -16144,7 +16375,7 @@ _PIX_MP_EVENT_TYPES = (
 
 
 def _pix_last_mp_events(db: Any, payment_ids: list[str]) -> dict[str, dict[str, Any]]:
-    """Ãšltimo evento MP (notificaÃ§Ã£o/consulta/rejeiÃ§Ã£o) por doaÃ§Ã£o â€” para o log de suporte."""
+    """Último evento MP (notificação/consulta/rejeição) por doação — para o log de suporte."""
     ids = [p for p in payment_ids if p]
     if not ids:
         return {}
@@ -16180,7 +16411,7 @@ def _pix_last_mp_events(db: Any, payment_ids: list[str]) -> dict[str, dict[str, 
 @app.route("/api/admin/pix/webhook-diagnostics", methods=["GET"])
 @admin_required
 def admin_pix_webhook_diagnostics():
-    """Config de notificaÃ§Ãµes MP (sem segredos) + Ãºltimas chamadas recebidas do webhook."""
+    """Config de notificações MP (sem segredos) + últimas chamadas recebidas do webhook."""
     if (err := _require_db()) is not None:
         return err
     diag = _mp_webhook_diagnostics()
@@ -16224,19 +16455,19 @@ def admin_pix_webhook_diagnostics():
 def admin_pix_reconcile(payment_id: str):
     """Reconsulta o Mercado Pago (GET somente leitura) e aplica o fluxo idempotente.
 
-    Credita Ã¢mbares SOMENTE se o MP retornar approved com valor >= pacote e a doaÃ§Ã£o
-    ainda nÃ£o estiver creditada (trava FOR UPDATE + flag ``credited``). Exige ``confirm``.
+    Credita âmbares SOMENTE se o MP retornar approved com valor >= pacote e a doação
+    ainda não estiver creditada (trava FOR UPDATE + flag ``credited``). Exige ``confirm``.
     """
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
     if body.get("confirm") is not True:
-        return jsonify({"ok": False, "error": "ConfirmaÃ§Ã£o obrigatÃ³ria (confirm=true)"}), 400
+        return jsonify({"ok": False, "error": "Confirmação obrigatória (confirm=true)"}), 400
     admin_id = str(_steam_id_from_session())
     pid = str(payment_id or "").strip()
     _audit_event(
         "pix_admin_reconcile", source="admin", actor_type="admin", actor_steam_id=admin_id,
-        order_id=pid, message="Admin solicitou reconsulta da doaÃ§Ã£o no Mercado Pago",
+        order_id=pid, message="Admin solicitou reconsulta da doação no Mercado Pago",
     )
     try:
         from payment_jobs import reconcile_payment
@@ -16255,14 +16486,14 @@ def admin_pix_reconcile(payment_id: str):
 @app.route("/api/admin/pix/audit", methods=["GET"])
 @admin_required
 def admin_pix_audit():
-    """Log completo de DpaÃ§Ãµes (PIX e cartÃ£o) para suporte â€” tentativas, concluÃ­das e canceladas."""
+    """Log completo de Dpações (PIX e cartão) para suporte — tentativas, concluídas e canceladas."""
     if (err := _require_db()) is not None:
         return err
     status = str(request.args.get("status", "")).strip().upper()
     steam_id = str(request.args.get("steam_id", "")).strip()
     payment_id = str(request.args.get("payment_id", "")).strip()
     q = str(request.args.get("q", "")).strip().lower()
-    # Hot path: 20â€“50; max 100. Sem pix_qr/copy_paste (TEXT grande).
+    # Hot path: 20–50; max 100. Sem pix_qr/copy_paste (TEXT grande).
     limit = max(1, min(100, int(request.args.get("limit", 25))))
     offset = max(0, int(request.args.get("offset", 0)))
     include_total_arg = str(request.args.get("include_total", "")).strip().lower()
@@ -16331,7 +16562,7 @@ def admin_pix_audit():
 
         stats: dict[str, int] | None = None
         if want_stats:
-            # 1 agregaÃ§Ã£o em vez de 8 COUNT(*) separados.
+            # 1 agregação em vez de 8 COUNT(*) separados.
             stats_row = db.execute(
                 text(
                     "SELECT COUNT(*) AS total, "
@@ -16379,9 +16610,9 @@ def admin_pix_audit():
 @app.route("/api/admin/audit", methods=["GET"])
 @admin_required
 def admin_list_audit():
-    """Lista audit paginada â€” COUNT(*) sÃ³ com ``include_total=1`` (padrÃ£o Pedidos).
+    """Lista audit paginada — COUNT(*) só com ``include_total=1`` (padrão Pedidos).
 
-    Default antigo (COUNT ligado) + ``audit_events`` grande Ã¢â€ â€™ Waitress/proxy
+    Default antigo (COUNT ligado) + ``audit_events`` grande → Waitress/proxy
     devolvia HTML/DOCTYPE e a UI rebentava com Unexpected token '<'.
     """
     if (err := _require_db()) is not None:
@@ -16395,7 +16626,7 @@ def admin_list_audit():
     limit = max(1, min(100, int(request.args.get("limit", 25))))
     offset = max(0, int(request.args.get("offset", 0)))
     include_total_arg = str(request.args.get("include_total", "")).strip().lower()
-    # Opt-in (igual admin_list_orders) â€” hot path sem COUNT(*) em audit_events.
+    # Opt-in (igual admin_list_orders) — hot path sem COUNT(*) em audit_events.
     want_total = include_total_arg in ("1", "true", "yes", "on")
 
     db = _SessionLocal()
@@ -16472,7 +16703,7 @@ def admin_audit_detail(event_id: int):
     try:
         row = db.query(AuditEvent).filter(AuditEvent.id == event_id).first()
         if not row:
-            return jsonify({"ok": False, "error": "Evento nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Evento não encontrado"}), 404
         return jsonify({"ok": True, "event": _audit_row_dict(row)})
     finally:
         _release_db_session(db)
@@ -16481,14 +16712,14 @@ def admin_audit_detail(event_id: int):
 @app.route("/api/admin/orders/<order_id>/timeline", methods=["GET"])
 @admin_required
 def admin_order_timeline(order_id: str):
-    """Alias legado â€” mesmos dados de /details."""
+    """Alias legado — mesmos dados de /details."""
     if (err := _require_db()) is not None:
         return err
     db = _SessionLocal()
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
-            return jsonify({"ok": False, "error": "Pedido nÃ£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         return jsonify({"ok": True, **_build_admin_order_details(db, order)})
     except Exception as exc:
         _log_error("admin_order_timeline", order_id=order_id, error=str(exc))
@@ -16497,7 +16728,7 @@ def admin_order_timeline(order_id: str):
         _release_db_session(db)
 
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Admin: gestÃ£o de jogadores Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ Admin: gestão de jogadores Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 @app.route("/api/admin/license-catalog", methods=["GET"])
 @admin_required
@@ -16526,7 +16757,7 @@ def admin_players_list():
 def admin_player_detail(steam_id: str):
     result = _get_admin_player_detail_budgeted(steam_id.strip())
     if not result.get("ok"):
-        code = 404 if "invÃ¡lido" in str(result.get("error", "")).lower() else 500
+        code = 404 if "inválido" in str(result.get("error", "")).lower() else 500
         return jsonify(result), code
     return jsonify(result)
 
@@ -16536,7 +16767,7 @@ def admin_player_detail(steam_id: str):
 def admin_player_detail_heavy(steam_id: str):
     result = _get_admin_player_detail_heavy_budgeted(steam_id.strip())
     if not result.get("ok"):
-        code = 404 if "invÃ¡lido" in str(result.get("error", "")).lower() else 500
+        code = 404 if "inválido" in str(result.get("error", "")).lower() else 500
         return jsonify(result), code
     return jsonify(result)
 
@@ -16644,7 +16875,7 @@ def _sync_all_permissions_job_snapshot() -> dict[str, Any]:
 
 
 def _start_sync_all_permissions_job(*, dry_run: bool = False) -> dict[str, Any]:
-    """ReconciliaÃ§Ã£o pesada em background â€” nÃ£o segura o worker HTTP."""
+    """Reconciliação pesada em background — não segura o worker HTTP."""
     with _SYNC_ALL_PERM_LOCK:
         if _SYNC_ALL_PERM_JOB.get("running"):
             return {
@@ -16696,7 +16927,7 @@ def _start_sync_all_permissions_job(*, dry_run: bool = False) -> dict[str, Any]:
 @admin_required
 @limiter.limit("30 per minute", override_defaults=True)
 def admin_metrics():
-    """Observabilidade: pool DB, cache pÃºblico, queries lentas (Prometheus-friendly JSON)."""
+    """Observabilidade: pool DB, cache público, queries lentas (Prometheus-friendly JSON)."""
     from db_diagnostics import aggregate_stats, recent_slow_queries, top_slow_fingerprints
 
     agg = aggregate_stats()
@@ -16746,12 +16977,12 @@ def admin_metrics():
 @admin_required
 @limiter.limit("12 per hour")
 def admin_sync_all_permissions():
-    """Reconcilia player_entitlements Ã¢â€ â€ ark_permission (job em background)."""
+    """Reconcilia player_entitlements com ark_permission (job em background)."""
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
     dry_run = bool(body.get("dry_run"))
-    # sync=true mantÃ©m comportamento antigo (bloqueante) p/ scripts/testes.
+    # sync=true mantém comportamento antigo (bloqueante) p/ scripts/testes.
     if bool(body.get("sync")):
         result = _reconcile_all_entitlements_to_permission_db(dry_run=dry_run)
         status = 200 if result.get("ok") else 500
@@ -16764,7 +16995,7 @@ def admin_sync_all_permissions():
 @admin_required
 @limiter.limit("60 per minute")
 def admin_sync_all_permissions_status():
-    """Resultado de sync recente â€” cache curto sÃ³ quando o job NÃƒO estÃ¡ a correr."""
+    """Resultado de sync recente — cache curto só quando o job NÃO está a correr."""
     snap = _sync_all_permissions_job_snapshot()
     if snap.get("running"):
         # Em curso: sem cache (progresso tempo-quase-real).
@@ -16779,7 +17010,7 @@ def admin_sync_all_permissions_status():
 
     result = snap.get("result")
     if isinstance(result, dict) and not snap.get("running"):
-        # ExpÃµe campos do reconcile no topo p/ a UI de poll.
+        # Expõe campos do reconcile no topo p/ a UI de poll.
         out = {**snap, **{k: v for k, v in result.items() if k != "ok"}}
         out["ok"] = bool(result.get("ok", True)) and not snap.get("error")
         if snap.get("error") and not result.get("error"):
@@ -16798,12 +17029,12 @@ def admin_sync_all_permissions_status():
 @admin_required
 @limiter.limit("60 per hour")
 def admin_player_sync_permissions(steam_id: str):
-    """ReconstrÃ³i ark_permission.players a partir de player_entitlements (reparo)."""
+    """Reconstrói ark_permission.players a partir de player_entitlements (reparo)."""
     if (err := _require_db()) is not None:
         return err
     sid = str(steam_id or "").strip()
     if not _is_valid_steamid64(sid):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
     entitlements = _get_player_entitlements(sid)
     perm_sync = _sync_player_entitlements_to_permission_db(sid, entitlements)
     mysql_ok = bool(perm_sync and perm_sync[0].get("ok"))
@@ -16870,7 +17101,7 @@ def player_kit_limits():
         )
         return jsonify({
             "ok": False,
-            "error": "NÃ£o foi possÃ­vel carregar limites de kits. Tente novamente.",
+            "error": "Não foi possível carregar limites de kits. Tente novamente.",
             "kits": [],
             "partial": True,
             "partial_reason": "error",
@@ -16900,7 +17131,7 @@ def admin_player_kits(steam_id: str):
 @admin_required
 @limiter.limit("120 per hour")
 def admin_player_catalog_deliver(steam_id: str):
-    """Entrega admin de qualquer SKU do catÃ¡logo (itens, dinos, dinos200, kits)."""
+    """Entrega admin de qualquer SKU do catálogo (itens, dinos, dinos200, kits)."""
     body = request.get_json(force=True, silent=True) or {}
     result = _admin_player_catalog_deliver(
         steam_id.strip(),
@@ -16928,7 +17159,7 @@ def admin_add_admin():
     body = request.get_json(force=True)
     steam_id = str(body.get("steam_id", "")).strip()
     if not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
 
     if _db_ready():
         db = _SessionLocal()
@@ -16952,7 +17183,7 @@ def admin_add_admin():
 def admin_remove_admin(steam_id: str):
     steam_id = steam_id.strip()
     if not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
 
     if _db_ready():
         db = _SessionLocal()
@@ -16985,11 +17216,11 @@ def admin_add_support_staff():
     body = request.get_json(force=True)
     steam_id = str(body.get("steam_id", "")).strip()
     if not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
     if _is_admin_steamid(steam_id):
         return jsonify({
             "ok": False,
-            "error": "Este SteamID jÃ¡ Ã© administrador â€” nÃ£o precisa ser cadastrado como suporte.",
+            "error": "Este SteamID já é administrador — não precisa ser cadastrado como suporte.",
         }), 400
 
     if _db_ready():
@@ -17015,7 +17246,7 @@ def admin_add_support_staff():
 def admin_remove_support_staff(steam_id: str):
     steam_id = steam_id.strip()
     if not _is_valid_steamid64(steam_id):
-        return jsonify({"ok": False, "error": "SteamID64 invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
 
     if _db_ready():
         db = _SessionLocal()
@@ -17150,12 +17381,12 @@ def _season_pass_queue_catalog_order(
     amount: int,
     original_order_id: str,
 ) -> str:
-    """Cria pedido PENDENTE na mesma sessÃ£o (fila plugin CustomShop)."""
+    """Cria pedido PENDENTE na mesma sessão (fila plugin CustomShop)."""
     idem = str(original_order_id or "").strip()
     if not idem:
-        raise ValueError("original_order_id obrigatÃ³rio")
-    # Kits do Pass ignoram DefaultAmount (mesmo padrÃ£o lottery/admin).
-    # Lookup cobre ambas as formas â€” evita duplicar se o prefixo mudar.
+        raise ValueError("original_order_id obrigatório")
+    # Kits do Pass ignoram DefaultAmount (mesmo padrão lottery/admin).
+    # Lookup cobre ambas as formas — evita duplicar se o prefixo mudar.
     skip_key = f"__admin_skip_kit_limit__|{idem}"
     existing = db.execute(
         text(
@@ -17172,8 +17403,8 @@ def _season_pass_queue_catalog_order(
     if not entry:
         kind = "kit" if item_type == "kit" else "item/dino"
         raise ValueError(
-            f"sku_missing: {kind} Â«{item_id}Â» (resolvido Â«{resolved}Â») "
-            "nÃ£o existe no catÃ¡logo web â€” preenche o ID correcto no admin "
+            f"sku_missing: {kind} «{item_id}» (resolvido «{resolved}») "
+            "não existe no catálogo web — preenche o ID correcto no admin "
             "SeasonLand ou sincroniza o config.json."
         )
     order_id = str(uuid.uuid4())
@@ -17200,7 +17431,7 @@ def _season_pass_queue_catalog_order(
 
 
 def _season_pass_reset_order_to_pending(db: Any, order_id: str) -> None:
-    """Espelha admin_resend_order â€” reabre fila /shop sem novo dÃ©bito."""
+    """Espelha admin_resend_order — reabre fila /shop sem novo débito."""
     order = (
         db.query(Order)
         .filter(Order.order_id == str(order_id))
@@ -17208,7 +17439,7 @@ def _season_pass_reset_order_to_pending(db: Any, order_id: str) -> None:
         .first()
     )
     if not order:
-        raise ValueError(f"Pedido nÃ£o encontrado: {order_id}")
+        raise ValueError(f"Pedido não encontrado: {order_id}")
     _close_order_disputes(db, str(order_id))
     order.status = "PENDENTE"
     order.contested = False
@@ -17247,7 +17478,7 @@ def _season_pass_sync_license_permissions(steam_id: str, group: str, days: int) 
 
 
 def _season_pass_license_catalog_price(group: str) -> int:
-    """PreÃ§o Ã‚ de catÃ¡logo da licenÃ§a (30d) para opÃ§Ã£o fallback no claim."""
+    """Preço Â de catálogo da licença (30d) para opção fallback no claim."""
     for opt in _catalog_license_options():
         if str(opt.get("group") or "") == str(group):
             entry = _catalog_entry("shop", str(opt.get("item_id") or ""))
@@ -17386,7 +17617,7 @@ def _lottery_resolve_catalog_prize(kind: str, item_id: str) -> dict[str, Any] | 
 
 
 def _lottery_prize_options() -> dict[str, Any]:
-    """Lista kits e licenÃ§as do catÃ¡logo CustomShop para o admin do sorteio."""
+    """Lista kits e licenças do catálogo CustomShop para o admin do sorteio."""
     kits: list[dict[str, Any]] = []
     licenses: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -17426,7 +17657,7 @@ def _lottery_deliver_catalog_prize(
     campaign_id: int,
     winning_number: int,
 ) -> dict[str, Any]:
-    """Cria pedido PENDENTE (fila da loja) e activa entitlement de licenÃ§a se aplicÃ¡vel."""
+    """Cria pedido PENDENTE (fila da loja) e activa entitlement de licença se aplicável."""
     kind = str(prize.get("kind") or "").strip().lower()
     item_id = str(prize.get("item_id") or "").strip()
     amount = max(1, int(prize.get("amount") or 1))
@@ -17438,7 +17669,7 @@ def _lottery_deliver_catalog_prize(
     order_id = str(uuid.uuid4())
     now = _now()
     server_id = str(_load_settings().get("server_id", "default"))
-    # Kits de prÃ©mio ignoram DefaultAmount (mesmo padrÃ£o que entrega admin)
+    # Kits de prémio ignoram DefaultAmount (mesmo padrão que entrega admin)
     original = idem if kind == "license" else f"__admin_skip_kit_limit__|{idem}"
     existing = db.execute(
         text(
@@ -17581,7 +17812,7 @@ def admin_arkbank_transactions():
 @app.route("/api/admin/arkbank/adjust", methods=["POST"])
 @admin_required
 def admin_arkbank_adjust():
-    """Top-up / correÃ§Ã£o manual com motivo obrigatÃ³rio."""
+    """Top-up / correção manual com motivo obrigatório."""
     if (err := _require_db()) is not None:
         return err
     admin_id = str(_steam_id_from_session())
@@ -17589,12 +17820,12 @@ def admin_arkbank_adjust():
     try:
         amount = int(body.get("amount") or 0)
     except (TypeError, ValueError):
-        return jsonify({"ok": False, "error": "amount invÃ¡lido"}), 400
+        return jsonify({"ok": False, "error": "amount inválido"}), 400
     reason = str(body.get("reason") or "").strip()
     if not reason:
-        return jsonify({"ok": False, "error": "Motivo obrigatÃ³rio"}), 400
+        return jsonify({"ok": False, "error": "Motivo obrigatório"}), 400
     if amount == 0:
-        return jsonify({"ok": False, "error": "amount nÃ£o pode ser zero"}), 400
+        return jsonify({"ok": False, "error": "amount não pode ser zero"}), 400
     db = _SessionLocal()
     try:
         from arkbank_service import admin_adjust, ensure_arkbank_schema
@@ -17698,7 +17929,7 @@ from ticket_notify import configure_ticket_notify
 
 configure_ticket_notify(load_settings=_load_settings)
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ ÃƒÂrea de Tribo Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ ?rea de Tribo Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 from tribe_routes import register_tribe_routes
 
 register_tribe_routes(
@@ -17737,7 +17968,7 @@ register_team_routes(
     limiter=limiter,
 )
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ ArkEventHunt (Mode A MVP â€” caÃ§a de evento nas pÃ¡ginas Equipes) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# Ã¢â€â‚¬Ã¢â€â‚¬ ArkEventHunt (Mode A MVP — caça de evento nas páginas Equipes) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 from event_hunt_routes import register_event_hunt_routes
 from event_hunt_service import configure_event_hunt_service
 
@@ -17788,13 +18019,13 @@ register_diagnostics_routes(
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
-    # Guard de processo: import duplo (__main__ + app) no mesmo pid nÃ£o re-dispara boot.
+    # Guard de processo: import duplo (__main__ + app) no mesmo pid não re-dispara boot.
     _boot_env = f"ARKSHOP_DB_BOOT_KICKED_{os.getpid()}"
     if os.environ.get(_boot_env) != "1":
         os.environ[_boot_env] = "1"
         _kick_background_db_init()
-        # P0: schedulers NÃƒO podem depender do 1.Âº request "real".
-        # TEK health usa /api/auth/me (skip list) Ã¢â€ â€™ chicken-egg sem isto:
+        # P0: schedulers NÃO podem depender do 1.º request "real".
+        # TEK health usa /api/auth/me (skip list) → chicken-egg sem isto:
         # ENTREGANDO stale / retry PIX / market claims nunca corriam.
         try:
             _start_runtime_workers_once()
@@ -17802,7 +18033,7 @@ if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
             log.warning("runtime_workers boot start failed: %s", _boot_workers_exc)
 
 # Espelha o catalog.json configurado para WEBSTORE/config.json.
-# NÃ£o usa ensure/resolve: esses copiavam a fonte mais rica por cima do mestre.
+# Não usa ensure/resolve: esses copiavam a fonte mais rica por cima do mestre.
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
     try:
         _boot_settings = _load_settings()
@@ -17845,7 +18076,7 @@ def _log_boot_snapshot() -> None:
             http_cfg["threads"]
         ):
             log.warning(
-                "ARKSHOP_HTTP_THREADS=%s capado a %s (pool_size=%s headroom) â€” "
+                "ARKSHOP_HTTP_THREADS=%s capado a %s (pool_size=%s headroom) — "
                 "FORCE=1 esgota o pool com pool_timeout=5s",
                 http_cfg.get("threads_raw"),
                 http_cfg["threads"],
@@ -17853,16 +18084,16 @@ def _log_boot_snapshot() -> None:
             )
         if os.environ.get("ARKSHOP_HTTP_THREADS_CAP_TO_POOL") == "0":
             log.warning(
-                "ARKSHOP_HTTP_THREADS_CAP_TO_POOL=0 â€” threads podem exceder o pool "
+                "ARKSHOP_HTTP_THREADS_CAP_TO_POOL=0 — threads podem exceder o pool "
                 "(QueuePool timeout em 5s sob carga)"
             )
         if os.environ.get("ARKSHOP_BG_INLINE", "").strip().lower() in ("1", "true", "yes"):
             log.warning(
-                "ARKSHOP_BG_INLINE estÃ¡ definido â€” em production Ã© ignorado; "
+                "ARKSHOP_BG_INLINE está definido — em production é ignorado; "
                 "em dev bloqueia HTTP e mata interval workers"
             )
     except Exception as exc:
-        log.warning("boot_snapshot indisponÃ­vel: %s", exc)
+        log.warning("boot_snapshot indisponível: %s", exc)
 
 
 try:
@@ -17895,7 +18126,7 @@ def _pid_is_alive(pid: int) -> bool:
 
 
 def _acquire_webstore_instance_lock() -> bool:
-    """Evita duas instÃ¢ncias Web Store no mesmo host (dobra pools/migrate/workers)."""
+    """Evita duas instâncias Web Store no mesmo host (dobra pools/migrate/workers)."""
     pid = os.getpid()
     try:
         _DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -17907,7 +18138,7 @@ def _acquire_webstore_instance_lock() -> bool:
             old_pid = int(raw) if raw.isdigit() else 0
             if old_pid and old_pid != pid and _pid_is_alive(old_pid):
                 log.error(
-                    "Outra instÃ¢ncia Web Store jÃ¡ estÃ¡ ativa (pid=%s). Encerrando pid=%s.",
+                    "Outra instância Web Store já está ativa (pid=%s). Encerrando pid=%s.",
                     old_pid,
                     pid,
                 )
@@ -17915,7 +18146,7 @@ def _acquire_webstore_instance_lock() -> bool:
         _INSTANCE_LOCK_PATH.write_text(str(pid), encoding="utf-8")
         return True
     except Exception as exc:
-        log.warning("instance lock indisponÃ­vel (%s) â€” continua", exc)
+        log.warning("instance lock indisponível (%s) — continua", exc)
         return True
 
 
@@ -17936,7 +18167,7 @@ if __name__ == "__main__":
         raise SystemExit(1)
     atexit.register(_release_webstore_instance_lock)
     port = int(os.environ.get("PORT", "5177"))
-    # Fase 5: threads = clamp((CPUÃ—2)+1, 4â€“8), cap ao pool_size (Fase 1 = 20).
+    # Fase 5: threads = clamp((CPU×2)+1, 4–8), cap ao pool_size (Fase 1 = 20).
     # Override: ARKSHOP_HTTP_THREADS; FORCE=1 desliga cap; CAP_TO_POOL=0 legado.
     pool_size_cfg = resolve_pool_settings()["pool_size"]
     http_cfg = _resolve_http_threads(pool_size=pool_size_cfg)
@@ -17958,7 +18189,7 @@ if __name__ == "__main__":
     )
     try:
         # Waitress: 1 processo + N threads (sem multi-worker). Werkzeug threaded
-        # satura sob RCON/DB lentos e enfileira handlers atÃ© timeout no browser.
+        # satura sob RCON/DB lentos e enfileira handlers até timeout no browser.
         try:
             from waitress import serve as _waitress_serve  # pyright: ignore[reportMissingModuleSource]
 
@@ -17975,16 +18206,16 @@ if __name__ == "__main__":
             )
         except ImportError:
             log.warning(
-                "waitress nÃ£o instalado â€” fallback Flask threaded "
+                "waitress não instalado — fallback Flask threaded "
                 "(pip install waitress recomendado)"
             )
             app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
     except OSError as exc:
-        # Porta ocupada: se jÃ¡ hÃ¡ loja a responder, nÃ£o Ã© crash fatal do TEK.
+        # Porta ocupada: se já há loja a responder, não é crash fatal do TEK.
         err = str(exc).lower()
-        if "address already in use" in err or "10048" in err or "apenas uma utilizaÃ§Ã£o" in err:
+        if "address already in use" in err or "10048" in err or "apenas uma utilização" in err:
             log.error(
-                "Porta %d ocupada â€” outra instÃ¢ncia da Web Store pode jÃ¡ estar a correr. "
+                "Porta %d ocupada — outra instância da Web Store pode já estar a correr. "
                 "Pare o processo antigo ou mude a porta no TEK. Detalhe: %s",
                 port,
                 exc,

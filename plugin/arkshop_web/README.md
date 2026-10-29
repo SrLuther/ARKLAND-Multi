@@ -39,6 +39,10 @@ Por padrão (`delivery_mode: plugin`), compras ficam **PENDENTE** no banco e o *
 
 RCON (`Shop.Deliver`) permanece disponível como modo legado (`delivery_mode: rcon`) ou forçado pelo admin (`/api/admin/orders/{id}/reprocess?force_rcon=1`).
 
+## Controles de servidores pelo site
+
+A página **Servidores — Suporte** usa o agente já integrado ao Server Manager. No ambiente do processo Web Store, configure `ARKSHOP_SERVER_AGENT_URL` com a URL LAN do agente (por exemplo, `http://192.168.1.10:32440`) e `ARKSHOP_SERVER_AGENT_TOKEN` com o token configurado no painel remoto do Server Manager. Mantenha a porta acessível somente pela rede administrativa e reinicie a Web Store após alterar as variáveis. Sem as duas variáveis, o painel mostra que o agente não está configurado e não executa operações. Administradores e suporte podem listar jogadores, kickar SteamID conectado e iniciar/parar/reiniciar servidores registrados no agente.
+
 ## Estrutura do config.json (ArkShop 3.x)
 
 ```json

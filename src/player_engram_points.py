@@ -68,6 +68,10 @@ def build_engram_points_ini_lines(cfg: object) -> list[str]:
     """
     if not should_apply_engram_overrides(cfg):
         return []
+    custom_points = getattr(cfg, "player_engram_points", None)
+    if isinstance(custom_points, list) and custom_points:
+        values = [max(0, int(value)) for value in custom_points]
+        return [f"OverridePlayerLevelEngramPoints={value}" for value in values]
     from .player_level_200 import is_level_200_base, level_200_engram_points
     from .player_level_ramp import _resolve_base_level
 

@@ -140,10 +140,12 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
                 dst_game = get_ini_path(target_srv.install_dir, "Game.ini")
                 if p_gus.exists() and dst_gus.resolve() != p_gus.resolve():
                     dst_gus.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(str(p_gus), str(dst_gus))
+                    from ..asm_engine.ini_document import sanitize_ini_bytes
+                    dst_gus.write_bytes(sanitize_ini_bytes(p_gus.read_bytes()))
                 if p_game.exists() and dst_game.resolve() != p_game.resolve():
                     dst_game.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(str(p_game), str(dst_game))
+                    from ..asm_engine.ini_document import sanitize_ini_bytes
+                    dst_game.write_bytes(sanitize_ini_bytes(p_game.read_bytes()))
 
         # Desabilita o botão de importar e mostra feedback visual
         import_btn.configure(state="disabled", text="⏳  Importando...")

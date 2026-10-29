@@ -30,9 +30,16 @@ REPEATED_KEY_PREFIXES: tuple[str, ...] = (
     "configsubtractnpcspawnentriescontainer",
     "configoverridenpcspawnentriescontainer",
     "configoverridesupplycrateitems",
+    "engramentryautounlocks",
+    "npcreplacements",
+    "overrideengramentries",
+    "tameddinoclassspeedmultipliers",
+    "tameddinoclassstaminamultipliers",
     "overrideplayerlevelengrampoints",
     "levelexperiencerampoverrides",
+    "dinomaxlevelexperiencerampoverrides",
     "overridenamedengramentries",
+    "modids",
 )
 
 _STRIP_RE = re.compile(
@@ -120,6 +127,20 @@ def _lines_from_raw_text(raw: str) -> list[str]:
     return lines
 
 
+def _lines_from_raw_section(raw: str, target_section: str) -> list[str]:
+    lines: list[str] = []
+    current_section = _GAME_MODE_SECTION
+    for raw_line in raw.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith((";", "#")):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current_section = line[1:-1].strip()
+        elif current_section.casefold() == target_section.casefold() and "=" in line:
+            lines.append(line)
+    return lines
+
+
 def build_repeated_game_lines(cfg: "AsmServerConfig") -> list[str]:
     """Gera linhas Game.ini com chaves repetidas a partir do cfg."""
     lines: list[str] = []
@@ -163,13 +184,16 @@ def build_repeated_game_lines(cfg: "AsmServerConfig") -> list[str]:
         cfg.stack_size_overrides_raw,
         cfg.npc_spawn_overrides_raw,
         cfg.supply_crate_overrides_raw,
-        cfg.custom_game_ini_raw,
     ):
         for line in _lines_from_raw_text(raw):
             # OverrideNamedEngramEntries repete. Entra no bloco abaixo, senão
             # o dict do INI fica só com a última linha.
             if line.lower().startswith("overridenamedengramentries="):
                 continue
+            lines.append(line)
+
+    for line in _lines_from_raw_section(cfg.custom_game_ini_raw, _GAME_MODE_SECTION):
+        if not line.casefold().startswith("overridenamedengramentries="):
             lines.append(line)
 
     from .asm_engram_entries import merged_engram_ini_lines
@@ -179,12 +203,46 @@ def build_repeated_game_lines(cfg: "AsmServerConfig") -> list[str]:
     )
 
     from ..player_engram_points import build_engram_points_ini_lines
-    from ..player_level_ramp import build_player_ramp_ini_lines
+    from ..player_level_ramp import (
+        build_player_ramp_ini_lines,
+        parse_ramp_from_text,
+        ramp_slots_to_values,
+    )
 
     lines.extend(build_player_ramp_ini_lines(cfg))
     lines.extend(build_engram_points_ini_lines(cfg))
+    if getattr(cfg, "dino_level_progressions_enabled", False):
+        dino_raw = str(getattr(cfg, "dino_level_stats_raw", "") or "")
+        dino_ramp = parse_ramp_from_text(dino_raw)
+        dino_count = int(dino_ramp.get("entry_count", 0) or 0)
+        if dino_count and dino_ramp.get("slots"):
+            dino_values = ramp_slots_to_values(dino_ramp["slots"], dino_count)
+            from ..player_level_ramp import export_ramp_raw
+
+            lines.append(export_ramp_raw(dino_values))
 
     return lines
+
+
+def build_custom_repeated_game_sections(cfg: "AsmServerConfig") -> dict[str, list[str]]:
+    """Collect repeated directives from custom Game.ini raw text by section."""
+    sections: dict[str, list[str]] = {}
+    current_section = _GAME_MODE_SECTION
+    for raw_line in str(getattr(cfg, "custom_game_ini_raw", "") or "").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith((";", "#")):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current_section = line[1:-1].strip()
+            continue
+        key, separator, _value = line.partition("=")
+        key = key.strip()
+        if (
+            separator and key and is_repeated_game_ini_key(key)
+            and current_section.casefold() != _GAME_MODE_SECTION.casefold()
+        ):
+            sections.setdefault(current_section, []).append(line)
+    return sections
 
 
 def populate_lists_from_game_ini(cfg: "AsmServerConfig", game_path: Path) -> None:
@@ -296,35 +354,48 @@ def _insert_lines_in_ini_section(text: str, section: str, block: str) -> str | N
     return text + block
 
 
-def patch_game_ini_repeated_lines(path: Path, new_lines: list[str]) -> None:
+def patch_game_ini_repeated_lines(
+    path: Path,
+    new_lines: list[str],
+    *,
+    section: str = _GAME_MODE_SECTION,
+) -> None:
     """Remove chaves repetidas antigas e reinsere dentro de ShooterGameMode."""
     if not path.exists():
         return
     try:
-        text = _read_text(path)
+        from .ini_document import IniDocument
+
+        document = IniDocument.parse(path.read_bytes())
     except OSError:
         return
 
-    text = _STRIP_RE.sub("", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    if not new_lines:
-        path.write_bytes(b"\xff\xfe" + text.encode("utf-16-le"))
-        return
-
-    section_header = f"[{_GAME_MODE_SECTION}]"
-    block = "".join(ln + "\r\n" for ln in new_lines)
-
-    inserted = _insert_lines_in_ini_section(text, _GAME_MODE_SECTION, block)
-    if inserted is not None:
-        text = inserted
-    elif section_header.lower() not in text.lower():
-        if not text.endswith("\r\n"):
-            text += "\r\n"
-        text += f"{section_header}\r\n{block}"
+    # Work on ordered source lines so comments, unrelated keys, duplicate
+    # section blocks and the original encoding survive this focused update.
+    if section.casefold() == _GAME_MODE_SECTION.casefold():
+        document.remove_keys(section, REPEATED_KEY_PREFIXES)
     else:
-        if not text.endswith("\r\n"):
-            text += "\r\n"
-        text += block
+        document.remove_keys(section, {
+            raw_line.partition("=")[0].strip()
+            for raw_line in new_lines if "=" in raw_line
+        })
+    occurrences: dict[str, int] = {}
+    for raw_line in new_lines:
+        key, separator, value = raw_line.partition("=")
+        key = key.strip()
+        if not separator or not key:
+            continue
+        folded = key.casefold()
+        occurrence = occurrences.get(folded, 0)
+        document.set_value(
+            section,
+            key,
+            value,
+            occurrence=occurrence,
+            section_occurrence=0,
+        )
+        occurrences[folded] = occurrence + 1
 
-    path.write_bytes(b"\xff\xfe" + text.encode("utf-16-le"))
+    # The ARK config files must contain configuration directives only.
+    # Keep repeated ramp entries, but discard comments and non-config lines.
+    path.write_bytes(document.to_config_bytes())

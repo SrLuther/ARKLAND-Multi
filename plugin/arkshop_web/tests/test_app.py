@@ -124,6 +124,129 @@ def _login(client, steam_id: str):
         sess["steam_id"] = steam_id
 
 
+def _create_cloud_fixture_tables():
+    from sqlalchemy import text
+    db = _app_module._SessionLocal()
+    try:
+        db.execute(text("CREATE TABLE player_cloud_inventory (cloud_group VARCHAR(64), steam_id VARCHAR(20), slot INTEGER, item_count INTEGER, uploaded_at TEXT, source_map TEXT, PRIMARY KEY(cloud_group, steam_id, slot))"))
+        db.execute(text("CREATE TABLE player_cloud_items (id INTEGER PRIMARY KEY AUTOINCREMENT, cloud_group VARCHAR(64), steam_id VARCHAR(20), slot INTEGER, sort_order INTEGER, item_blob BLOB)"))
+        db.execute(text("INSERT INTO player_cloud_inventory VALUES ('cluster-a', :sid, 0, 2, '2026-10-29', 'Alps')"), {"sid": USER_STEAM})
+        db.execute(text("INSERT INTO player_cloud_inventory VALUES ('cluster-b', :sid, 0, 1, '2026-10-29', 'Ragnarok')"), {"sid": USER_STEAM})
+        db.execute(text("INSERT INTO player_cloud_items (cloud_group,steam_id,slot,sort_order,item_blob) VALUES ('cluster-a',:sid,0,0,:blob),('cluster-a',:sid,0,1,:blob),('cluster-b',:sid,0,0,:blob)"), {"sid": USER_STEAM, "blob": b"\x01\x02\x03"})
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_cloud_inventory_admin_requires_admin(client):
+    _login(client, USER_STEAM)
+    response = client.get("/api/admin/cloud-inventory")
+    assert response.status_code == 403
+
+
+def test_cloud_inventory_admin_lists_grouped_slots_and_sizes(client):
+    _create_cloud_fixture_tables()
+    _login(client, ADMIN_STEAM)
+    response = client.get("/api/admin/cloud-inventory?group=cluster-a")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["groups"] == ["cluster-a", "cluster-b"]
+    assert data["total"] == 1
+    assert data["items"][0]["steam_id"] == USER_STEAM
+    assert data["items"][0]["blob_count"] == 2
+    assert data["items"][0]["bytes_total"] == 6
+
+
+def test_cloud_inventory_admin_purge_is_scoped_to_one_group(client):
+    from sqlalchemy import text
+    _create_cloud_fixture_tables()
+    _login(client, ADMIN_STEAM)
+    response = client.delete(f"/api/admin/cloud-inventory/cluster-a/{USER_STEAM}")
+    assert response.status_code == 200
+    assert response.get_json()["slots_deleted"] == 1
+    db = _app_module._SessionLocal()
+    try:
+        rows = db.execute(text("SELECT cloud_group, COUNT(*) FROM player_cloud_inventory GROUP BY cloud_group ORDER BY cloud_group")).all()
+        assert rows == [("cluster-b", 1)]
+        blob_count = db.execute(text("SELECT COUNT(*) FROM player_cloud_items WHERE cloud_group='cluster-a'")).scalar()
+        assert blob_count == 0
+    finally:
+        db.close()
+
+
+def test_cloud_inventory_admin_slot_details_and_delete_are_scoped(client):
+    from sqlalchemy import text
+    _create_cloud_fixture_tables()
+    _login(client, ADMIN_STEAM)
+    detail = client.get(f"/api/admin/cloud-inventory/cluster-a/{USER_STEAM}/slot/0")
+    assert detail.status_code == 200
+    assert detail.get_json()["items"] == [
+        {"sort_order": 0, "bytes": 3, "hex_preview": "010203"},
+        {"sort_order": 1, "bytes": 3, "hex_preview": "010203"},
+    ]
+    deleted = client.delete(f"/api/admin/cloud-inventory/cluster-a/{USER_STEAM}/slot/0")
+    assert deleted.status_code == 200
+    db = _app_module._SessionLocal()
+    try:
+        assert db.execute(text("SELECT COUNT(*) FROM player_cloud_inventory WHERE cloud_group='cluster-b'")).scalar() == 1
+        assert db.execute(text("SELECT COUNT(*) FROM player_cloud_items WHERE cloud_group='cluster-b'")).scalar() == 1
+    finally:
+        db.close()
+
+
+def test_support_server_page_is_staff_only_and_lists_agent_servers(client, monkeypatch):
+    _login(client, ADMIN_STEAM)
+    monkeypatch.setattr(_app_module, "_server_agent_request", lambda method, path, body=None: {
+        "servers": [{"id": "map-01", "name": "Alps", "map": "Alps", "status": "running", "pid": 42}]
+    })
+    response = client.get("/api/staff/game-servers")
+    assert response.status_code == 200
+    assert response.get_json()["servers"][0]["server_id"] == "map-01"
+    assert response.get_json()["servers"][0]["status"] == "running"
+
+
+def test_support_server_action_is_allowlisted_and_targets_agent(client, monkeypatch):
+    _login(client, ADMIN_STEAM)
+    calls = []
+    def fake_request(method, path, body=None):
+        calls.append((method, path, body))
+        if path == "/servers":
+            return {"servers": [{"id": "map-01"}]}
+        return {"ok": True}
+    monkeypatch.setattr(_app_module, "_server_agent_request", fake_request)
+    invalid = client.post("/api/staff/game-servers/map-01/action", json={"action": "shell"})
+    assert invalid.status_code == 400
+    assert calls == []
+    response = client.post("/api/staff/game-servers/map-01/action", json={"action": "restart"})
+    assert response.status_code == 200
+    assert calls[-1] == ("POST", "/server/map-01/restart", None)
+
+
+def test_support_server_kick_requires_online_exact_steam_id(client, monkeypatch):
+    _login(client, ADMIN_STEAM)
+    calls = []
+    def fake_request(method, path, body=None):
+        calls.append((method, path, body))
+        if path == "/servers":
+            return {"servers": [{"id": "map-01"}]}
+        if body and body.get("command") == "ListPlayers":
+            return {"ok": True, "response": f"0. TestPlayer, {USER_STEAM}"}
+        return {"ok": True, "response": "kicked"}
+    monkeypatch.setattr(_app_module, "_server_agent_request", fake_request)
+    response = client.post("/api/staff/game-servers/map-01/kick", json={"steam_id": USER_STEAM})
+    assert response.status_code == 200
+    assert calls[-1][2] == {"command": f"KickPlayer {USER_STEAM}"}
+
+
+def test_support_server_kick_does_not_kick_offline_player(client, monkeypatch):
+    _login(client, ADMIN_STEAM)
+    def fake_request(method, path, body=None):
+        return {"servers": [{"id": "map-01"}]} if path == "/servers" else {"ok": True, "response": "No Players Connected"}
+    monkeypatch.setattr(_app_module, "_server_agent_request", fake_request)
+    response = client.post("/api/staff/game-servers/map-01/kick", json={"steam_id": USER_STEAM})
+    assert response.status_code == 409
+
+
 def _write_settings(tmp_path, **overrides):
     data = {
         "delivery_mode": "plugin",
@@ -192,7 +315,7 @@ def _create_donation_direct(
         db.close()
 
 
-# â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Auth ──────────────────────────────────────────────────────────────────────
 
 class TestAuth:
     def test_me_unauthenticated(self, client):
@@ -404,7 +527,7 @@ class TestPointPackages:
         _app_module._invalidate_shop_config_cache()
 
     def test_get_config_empty_file_returns_error_not_silent_empty(self, client, tmp_path, monkeypatch):
-        """Admin «Nenhum item cadastrado» — path existe mas sem Items/Kits â†’ error explícito."""
+        """Admin «Nenhum item cadastrado» — path existe mas sem Items/Kits → error explícito."""
         config_path = tmp_path / "shop_config.json"
         config_path.write_text(json.dumps({"Settings": {}, "Items": {}, "Kits": {}}), encoding="utf-8")
         _write_settings(tmp_path, config_path=str(config_path))
@@ -756,7 +879,7 @@ class TestCatalogPathAlignment:
         assert meta.get("catalog_note")
 
 
-# â”€â”€ Player summary & history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Player summary & history ──────────────────────────────────────────────────
 
 class TestPlayerHistory:
     def test_summary_empty(self, client):
@@ -837,7 +960,7 @@ class TestPlayerHistory:
         assert r.status_code == 401
 
 
-# â”€â”€ Order detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Order detail ──────────────────────────────────────────────────────────────
 
 class TestOrderDetail:
     def test_detail_includes_attempts_and_disputes(self, client):
@@ -866,7 +989,7 @@ class TestOrderDetail:
         assert r.status_code == 404
 
 
-# â”€â”€ Contest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Contest ───────────────────────────────────────────────────────────────────
 
 class TestContest:
     def test_contest_sets_status(self, client):
@@ -916,7 +1039,7 @@ class TestContest:
             db.close()
 
 
-# â”€â”€ Reemissão admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Reemissão admin ───────────────────────────────────────────────────────────
 
 class TestAdminReissue:
     def test_player_rebuy_forbidden(self, client):
@@ -1029,7 +1152,7 @@ class TestAudit:
         assert any(e.get("order_id") == "ord-by-id-test" for e in d["items"])
 
 
-# â”€â”€ Idempotência â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Idempotência ──────────────────────────────────────────────────────────────
 
 class TestIdempotency:
     def test_delivered_order_skipped_on_retry(self, client):
@@ -1040,7 +1163,7 @@ class TestIdempotency:
         assert result["status"] == "ENTREGUE"
 
 
-# â”€â”€ Servers CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Servers CRUD ──────────────────────────────────────────────────────────────
 
 class TestServers:
     def test_list_empty(self, client):
@@ -1183,7 +1306,7 @@ class TestServers:
         assert r.status_code == 403
 
 
-# â”€â”€ Entrega via fila do plugin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Entrega via fila do plugin ───────────────────────────────────────────────
 
 class TestPluginDeliveryQueue:
     def test_process_order_queues_without_rcon(self, client):
@@ -1400,7 +1523,7 @@ class TestPendingDeliveries:
             db.close()
 
 
-# â”€â”€ Delivery com RCON por servidor (modo legado) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Delivery com RCON por servidor (modo legado) ─────────────────────────────
 
 class TestServerRconRouting:
     def test_delivery_uses_server_specific_rcon(self, client, tmp_path):
@@ -1428,7 +1551,7 @@ class TestServerRconRouting:
         assert calls[0]["password"] == "pvp_secret"
 
 
-# â”€â”€ Concorrência â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Concorrência ──────────────────────────────────────────────────────────────
 
 class TestConcurrency:
     def test_concurrent_delivery_does_not_duplicate(self, tmp_path):
@@ -1465,7 +1588,7 @@ class TestConcurrency:
             db.close()
 
 
-# â”€â”€ RCON (reload + comandos in-game) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── RCON (reload + comandos in-game) ─────────────────────────────────────────
 
 class TestRconScope:
     def test_rcon_blocks_shop_points(self, client):
@@ -1492,7 +1615,7 @@ class TestRconScope:
         assert r.get_json()["results"][0]["queued"] is True
 
 
-# â”€â”€ Admin gestão de jogadores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Admin gestão de jogadores ───────────────────────────────────────────────────
 
 def _seed_store_user(
     steam_id: str,
@@ -1881,7 +2004,7 @@ class TestAdminPoints:
         assert r.status_code == 403
 
 
-# â”€â”€ Admin reprocess â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Admin reprocess ───────────────────────────────────────────────────────────
 
 class TestAdminReprocess:
     def test_reprocess_erro_order(self, client):
@@ -1900,7 +2023,7 @@ class TestAdminReprocess:
         assert r.status_code == 400
 
 
-# â”€â”€ Admin orders list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Admin orders list ─────────────────────────────────────────────────────────
 
 class TestAdminOrdersList:
     def test_admin_orders_forbidden_for_player(self, client):
@@ -1972,7 +2095,7 @@ class TestAdminOrdersList:
         assert all(o["status"] == "PENDENTE" for o in d["items"])
 
 
-# â”€â”€ Admin order actions (refund / resend / cancel / details) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Admin order actions (refund / resend / cancel / details) ─────────────────
 
 class TestAdminOrderActions:
     def test_admin_refund_credits_player(self, client):
@@ -2124,7 +2247,7 @@ class TestAdminOrderActions:
         assert d["new_balance"] == 175
 
 
-# â”€â”€ Licença Nuvem / entitlements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Licença Nuvem / entitlements ─────────────────────────────────────────────
 
 def _seed_player_points(steam_id: str, points: int) -> None:
     from sqlalchemy import text
@@ -3161,7 +3284,7 @@ class TestLicenseRenewalKitReset:
         assert renew.get_json()["ok"] is True
 
         stash = self._read_player_kits(USER_STEAM)
-        # DefaultAmount(1) + 1 pending â†’ effective_remaining = 1
+        # DefaultAmount(1) + 1 pending → effective_remaining = 1
         assert stash["kit_alfa"]["Amount"] == 2
 
         retry = client.post(
@@ -3521,7 +3644,7 @@ class TestAdminPlayersSteamBackfill:
         assert d["player"]["steam_persona"] == "Pesado"
 
     def test_player_detail_budget_returns_partial_when_slow(self, client, monkeypatch):
-        """Detalhe lento além do budget â†’ resposta parcial rápida, nunca 15s."""
+        """Detalhe lento além do budget → resposta parcial rápida, nunca 15s."""
         _seed_store_user(USER_STEAM, display_name="Lento", steam_persona="Lento")
         _login(client, ADMIN_STEAM)
         monkeypatch.setattr(_app_module, "_ADMIN_DETAIL_BUDGET_MS", 150)
@@ -3554,7 +3677,7 @@ class TestAdminPlayersSteamBackfill:
         assert "license_catalog" in d
 
     def test_player_detail_missing_indexes_still_serves_essential(self, client, monkeypatch):
-        """Ãndices ainda a criar NÃO degradam o essencial (ele já não toca as tabelas
+        """?ndices ainda a criar NÃO degradam o essencial (ele já não toca as tabelas
         grandes): agenda o self-heal para o /heavy e devolve o cartão na hora."""
         _seed_store_user(USER_STEAM, display_name="DDL", steam_persona="DDL")
         _login(client, ADMIN_STEAM)
@@ -3739,7 +3862,7 @@ class TestAdminPlayersSteamBackfill:
         assert elapsed < 3.0
 
     def test_entitlements_hot_path_queries_when_table_exists(self, monkeypatch):
-        """Migrate async: flag False mas tabela existente â†’ bootstrap NÃO devolve []."""
+        """Migrate async: flag False mas tabela existente → bootstrap NÃO devolve []."""
         _app_module._ENTITLEMENTS_SCHEMA_READY = False
         _app_module._clear_table_exists_cache()
         db = _app_module._SessionLocal()
@@ -3939,7 +4062,7 @@ class TestAdminPlayersSteamBackfill:
         assert "***" not in captured["url"].split("@", 1)[0]
 
     def test_ddl_engine_uses_render_not_masked_str(self, monkeypatch):
-        """P0: str(engine.url) mascara password â†’ 1045; render_as_string(False) corrige."""
+        """P0: str(engine.url) mascara password → 1045; render_as_string(False) corrige."""
         from sqlalchemy.engine import make_url
 
         captured: list[str] = []

@@ -40,6 +40,7 @@ TEXT_FIELDS: Tuple[str, ...] = (
     "token", "client_id", "guild_id", "command_prefix",
     "lobby_channel_id", "logs_channel_id", "quarantine_role_id",
     "validation_channel_id", "validation_role_id",
+    "arkshop_web_url", "arkshop_api_key",
 )
 _ID_FIELDS = (
     "client_id",
@@ -60,6 +61,8 @@ _FIELD_LABELS = {
     "quarantine_role_id": "Cargo de quarentena",
     "validation_channel_id": "Canal de validação",
     "validation_role_id": "Cargo de validação",
+    "arkshop_web_url": "URL da Web Store",
+    "arkshop_api_key": "Chave da API Web Store",
 }
 
 
@@ -109,6 +112,12 @@ def validate_bot_fields(values: Dict[str, str]) -> List[str]:
     for key in _ID_FIELDS:
         if not is_valid_discord_id(values.get(key, "")):
             errors.append(f"{_FIELD_LABELS[key]}: use somente números (ID do Discord).")
+    web_url = (values.get("arkshop_web_url") or "").strip()
+    if web_url:
+        from urllib.parse import urlsplit
+        parsed = urlsplit(web_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            errors.append(f"{_FIELD_LABELS['arkshop_web_url']}: informe uma URL http:// ou https:// válida.")
     prefix = (values.get("command_prefix") or "").strip()
     if values.get("command_prefix") is not None and (not prefix or len(prefix) > 5 or " " in prefix):
         errors.append(f"{_FIELD_LABELS['command_prefix']}: 1 a 5 caracteres, sem espaços.")

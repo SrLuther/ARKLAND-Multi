@@ -225,9 +225,9 @@ std::string ShopCloudInventory::SlotLabel(int slot) {
 
 std::string ShopCloudInventory::StorageKeyForSteamSlot(const std::string& steam_id, int slot) {
     if (steam_id.empty()) return "";
+    const std::string group = ShopConfig::Get().CloudShareKey();
     const int normalized = NormalizeSlot(slot);
-    if (normalized == 0) return steam_id;
-    return steam_id + ":slot" + std::to_string(normalized);
+    return group + ":" + steam_id + (normalized == 0 ? "" : ":slot" + std::to_string(normalized));
 }
 
 bool ShopCloudInventory::HasClearPending(const std::string& steam_id) {
@@ -298,12 +298,13 @@ ShopCloudInventory::CloudSnapshot ShopCloudInventory::QueryCloudSnapshot(
     if (!db_ || steam_id.empty()) return snap;
 
     const int normalized_slot = NormalizeSlot(slot);
-    char buf[128];
-    if (!Escape(steam_id, buf, sizeof(buf))) return snap;
+    char buf[128], group_buf[256];
+    const std::string group = ShopConfig::Get().CloudShareKey();
+    if (!Escape(steam_id, buf, sizeof(buf)) || !Escape(group, group_buf, sizeof(group_buf))) return snap;
 
     const std::string header_sql =
-        "SELECT item_count FROM player_cloud_inventory WHERE steam_id = '"
-        + std::string(buf) + "' AND slot = "
+        "SELECT item_count FROM player_cloud_inventory WHERE cloud_group = '"
+        + std::string(group_buf) + "' AND steam_id = '" + std::string(buf) + "' AND slot = "
         + std::to_string(normalized_slot) + " LIMIT 1;";
     if (mysql_query(db_, header_sql.c_str()) == 0) {
         MYSQL_RES* hres = mysql_store_result(db_);
@@ -317,8 +318,8 @@ ShopCloudInventory::CloudSnapshot ShopCloudInventory::QueryCloudSnapshot(
     }
 
     const std::string blob_sql =
-        "SELECT COUNT(*) FROM player_cloud_items WHERE steam_id = '"
-        + std::string(buf) + "' AND slot = "
+        "SELECT COUNT(*) FROM player_cloud_items WHERE cloud_group = '"
+        + std::string(group_buf) + "' AND steam_id = '" + std::string(buf) + "' AND slot = "
         + std::to_string(normalized_slot) + ";";
     if (mysql_query(db_, blob_sql.c_str()) == 0) {
         MYSQL_RES* bres = mysql_store_result(db_);
@@ -349,14 +350,15 @@ int ShopCloudInventory::GetStoredItemCount(const std::string& steam_id, int slot
 
 bool ShopCloudInventory::PurgeCloudRecord(const std::string& steam_id, int slot) {
     if (!db_ || steam_id.empty()) return false;
-    char buf[128];
-    if (!Escape(steam_id, buf, sizeof(buf))) return false;
+    char buf[128], group_buf[256];
+    const std::string group = ShopConfig::Get().CloudShareKey();
+    if (!Escape(steam_id, buf, sizeof(buf)) || !Escape(group, group_buf, sizeof(group_buf))) return false;
     const std::string sid(buf);
     const int normalized_slot = NormalizeSlot(slot);
-    if (!Exec(("DELETE FROM player_cloud_items WHERE steam_id = '" + sid + "' AND slot = "
+    if (!Exec(("DELETE FROM player_cloud_items WHERE cloud_group = '" + std::string(group_buf) + "' AND steam_id = '" + sid + "' AND slot = "
                + std::to_string(normalized_slot) + ";").c_str()))
         return false;
-    return Exec(("DELETE FROM player_cloud_inventory WHERE steam_id = '" + sid + "' AND slot = "
+    return Exec(("DELETE FROM player_cloud_inventory WHERE cloud_group = '" + std::string(group_buf) + "' AND steam_id = '" + sid + "' AND slot = "
                  + std::to_string(normalized_slot) + ";").c_str());
 }
 
@@ -678,13 +680,14 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller, int
         return CloudResult::RemovalFailed;
     }
 
-    char buf_id[64], buf_map[256];
+    char buf_id[64], buf_map[256], buf_group[256];
     if (!Escape(steam_id, buf_id, sizeof(buf_id))) {
         RestoreItemsFromHex(inv, removed_hexes, character);
         return CloudResult::DbError;
     }
     const std::string map_name = CurrentMapName();
-    if (!Escape(map_name, buf_map, sizeof(buf_map))) {
+    const std::string cloud_group = ShopConfig::Get().CloudShareKey();
+    if (!Escape(map_name, buf_map, sizeof(buf_map)) || !Escape(cloud_group, buf_group, sizeof(buf_group))) {
         RestoreItemsFromHex(inv, removed_hexes, character);
         return CloudResult::DbError;
     }
@@ -695,8 +698,8 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller, int
     }
 
     const std::string header_sql =
-        "INSERT INTO player_cloud_inventory (steam_id, slot, item_count, source_map) VALUES ('"
-        + std::string(buf_id) + "', "
+        "INSERT INTO player_cloud_inventory (cloud_group, steam_id, slot, item_count, source_map) VALUES ('"
+        + std::string(buf_group) + "', '" + std::string(buf_id) + "', "
         + std::to_string(normalized_slot) + ", "
         + std::to_string(static_cast<int>(entries.size())) + ", '"
         + std::string(buf_map) + "');";
@@ -711,8 +714,8 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller, int
 
     for (size_t i = 0; i < entries.size(); ++i) {
         const std::string item_sql =
-            "INSERT INTO player_cloud_items (steam_id, slot, sort_order, item_blob) VALUES ('"
-            + std::string(buf_id) + "', "
+            "INSERT INTO player_cloud_items (cloud_group, steam_id, slot, sort_order, item_blob) VALUES ('"
+            + std::string(buf_group) + "', '" + std::string(buf_id) + "', "
             + std::to_string(normalized_slot) + ", "
             + std::to_string(static_cast<int>(i)) + ", UNHEX('"
             + entries[i].hex + "'));";
@@ -783,13 +786,14 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, i
     const int free_slots = std::max(0, capacity - occupied);
     last_free_slots_ = free_slots;
 
-    char buf_id[64];
-    if (!Escape(steam_id, buf_id, sizeof(buf_id))) return CloudResult::DbError;
+    char buf_id[64], buf_group[256];
+    const std::string cloud_group = ShopConfig::Get().CloudShareKey();
+    if (!Escape(steam_id, buf_id, sizeof(buf_id)) || !Escape(cloud_group, buf_group, sizeof(buf_group))) return CloudResult::DbError;
 
     // Leitura binaria — HEX() trunca blobs grandes e gera "dados inconsistentes".
     const std::string select_sql =
-        "SELECT item_blob FROM player_cloud_items WHERE steam_id = '"
-        + std::string(buf_id) + "' AND slot = "
+        "SELECT item_blob FROM player_cloud_items WHERE cloud_group = '"
+        + std::string(buf_group) + "' AND steam_id = '" + std::string(buf_id) + "' AND slot = "
         + std::to_string(normalized_slot) + " ORDER BY sort_order ASC;";
 
     if (mysql_query(db_, select_sql.c_str()) != 0) return CloudResult::DbError;

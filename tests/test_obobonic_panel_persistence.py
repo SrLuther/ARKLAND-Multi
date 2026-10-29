@@ -119,15 +119,21 @@ def test_panel_has_no_external_folder_controls(fake_app):
 def test_save_fields_from_panel_persists_token_and_ids(fake_app, tmp_path, monkeypatch):
     frame = _build(fake_app)
     entries = _widgets(frame, ctk.CTkEntry)
-    assert len(entries) == 9
+    assert len(entries) == 11
     token = "fake.discord.token-for-tests"
     entries[0].delete(0, "end")
     entries[0].insert(0, token)
     entries[2].delete(0, "end")
     entries[2].insert(0, "123456789")
+    entries[9].delete(0, "end")
+    entries[9].insert(0, "https://store.example.test")
+    entries[10].delete(0, "end")
+    entries[10].insert(0, "store-api-test-key")
     save_btn = next(b for b in _widgets(frame, ctk.CTkButton) if "Salvar configuração" in b.cget("text"))
     save_btn.invoke()
     fake_app.update()
     monkeypatch.setenv("APPDATA", str(tmp_path))
     o = ConfigManager().config.obobonic
     assert o.token == token and o.guild_id == "123456789"
+    assert o.arkshop_web_url == "https://store.example.test"
+    assert o.arkshop_api_key == "store-api-test-key"

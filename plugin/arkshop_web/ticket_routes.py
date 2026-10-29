@@ -12,6 +12,7 @@ from ticket_service import (
     attend_ticket,
     close_ticket,
     confirm_discord_link_code_for_discord_user,
+    count_discord_link_admin_audit,
     create_ticket,
     generate_discord_link_code,
     get_attachment_for_download,
@@ -135,24 +136,11 @@ def register_ticket_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session())
-        body = request.get_json(force=True, silent=True) or {}
-        discord_user_id = str(body.get("discord_user_id") or "").strip() or None
-        discord_username = str(body.get("discord_username") or "").strip() or None
         db = session_factory()
         try:
-            link = get_discord_link(db, steam_id) or {}
-            did = discord_user_id or (str(link.get("discord_user_id") or "").strip() or None)
-            duser = discord_username or (str(link.get("discord_username") or "").strip() or None)
-            if not did:
-                return jsonify({
-                    "ok": False,
-                    "error": "Informe o ID do Discord para gerar o código de verificação.",
-                }), 400
             out = generate_discord_link_code(
                 db,
                 steam_id=steam_id,
-                discord_user_id=did,
-                discord_username=duser,
                 expires_minutes=10,
                 force_new=False,
             )
@@ -169,24 +157,11 @@ def register_ticket_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session())
-        body = request.get_json(force=True, silent=True) or {}
-        discord_user_id = str(body.get("discord_user_id") or "").strip() or None
-        discord_username = str(body.get("discord_username") or "").strip() or None
         db = session_factory()
         try:
-            link = get_discord_link(db, steam_id) or {}
-            did = discord_user_id or (str(link.get("discord_user_id") or "").strip() or None)
-            duser = discord_username or (str(link.get("discord_username") or "").strip() or None)
-            if not did:
-                return jsonify({
-                    "ok": False,
-                    "error": "Informe o ID do Discord para revalidar com um novo código.",
-                }), 400
             out = generate_discord_link_code(
                 db,
                 steam_id=steam_id,
-                discord_user_id=did,
-                discord_username=duser,
                 expires_minutes=10,
                 force_new=True,
             )
@@ -220,9 +195,21 @@ def register_ticket_routes(
     def admin_discord_link_audit():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        try:
+            page = max(1, min(int(request.args.get("page", "1")), 100000))
+            page_size = max(1, min(int(request.args.get("page_size", "50")), 100))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Paginação inválida"}), 400
         db = session_factory()
         try:
-            return jsonify({"ok": True, "events": list_discord_link_admin_audit(db, limit=1000)})
+            total = count_discord_link_admin_audit(db)
+            pages = max(1, (total + page_size - 1) // page_size)
+            page = min(page, pages)
+            events = list_discord_link_admin_audit(
+                db, limit=page_size, offset=(page - 1) * page_size
+            )
+            return jsonify({"ok": True, "events": events, "total": total,
+                            "page": page, "page_size": page_size, "pages": pages})
         finally:
             db.close()
 
@@ -235,7 +222,8 @@ def register_ticket_routes(
         db = session_factory()
         try:
             result = admin_unlink_discord(db, steam_id=steam_id, actor_steam_id=actor,
-                actor_name=resolve_player_name(db, actor) if actor else "")
+                actor_name=resolve_player_name(db, actor) if actor else "",
+                steam_name=resolve_player_name(db, steam_id))
             return jsonify(result), (200 if result.get("ok") else 404)
         finally:
             db.close()

@@ -178,6 +178,40 @@ def test_patch_accepts_single_line_ramp(tmp_path):
     assert count_ramp_lines_in_section(text, _GAME_MODE_SECTION) == 5
 
 
+def test_patch_preserves_unmanaged_lines_duplicate_sections_and_utf8_encoding(tmp_path):
+    path = _game_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    original = (
+        "; keep header\n"
+        f"[{_GAME_MODE_SECTION}]\n"
+        "# keep comment\n"
+        "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=1)\n"
+        "Unknown=preserve\n"
+        f"[{_GAME_MODE_SECTION}]\n"
+        "Other=also-preserve\n"
+        "[/Script/Engine.GameSession]\n"
+        "MaxPlayers=70\n"
+    ).encode("utf-8")
+    path.write_bytes(original)
+
+    patch_game_ini_repeated_lines(
+        path,
+        [
+            "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=10)",
+            "LevelExperienceRampOverrides=(ExperiencePointsForLevel[1]=20)",
+        ],
+    )
+
+    result = path.read_bytes().decode("utf-8")
+    assert "; keep header" not in result
+    assert "# keep comment" not in result
+    assert "Unknown=preserve\n" in result
+    assert "Other=also-preserve\n" in result
+    assert "MaxPlayers=70\n" in result
+    assert result.count("[" + _GAME_MODE_SECTION + "]") == 1
+    assert count_ramp_lines_in_section(result, _GAME_MODE_SECTION) == 2
+
+
 def test_write_ini_base_160_progressions_off_clears_game_ini_overrides(tmp_path):
     """Base >105 com toggle OFF: limpa rampa/OverrideMaxXP/engrams; remove GUS legado."""
     cfg = AsmServerConfig()

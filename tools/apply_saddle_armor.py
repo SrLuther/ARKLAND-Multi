@@ -21,7 +21,7 @@ CONFIG_PATHS = [
     ROOT / "plugin" / "CustomShop" / "bin" / "config.json",
 ]
 
-# Pastas de armadura de jogador ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â nunca selas.
+# Player armor folders; never saddles.
 _PLAYER_ARMOR_PATH_PARTS = (
     "/Armor/Leather/",
     "/Armor/Metal/",
@@ -263,7 +263,7 @@ def main() -> int:
             print(f"  ... e mais {len(paths) - 8}")
 
         if args.dry_run:
-            print("(dry-run ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â arquivo não alterado)")
+            print("(dry-run - file unchanged)")
             continue
 
         config_path.write_text(

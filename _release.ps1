@@ -216,6 +216,30 @@ Write-Step 4 7 "Commitando alteracoes..."
 # $ErrorActionPreference=Stop / StrictMode e abortam o release a meio.
 cmd /c "git add -u 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
+# Fontes novas da reestruturação não aparecem em `git add -u`; liste-as
+# explicitamente para que o código-fonte do release corresponda ao executável.
+$releaseNewFiles = @(
+    "docs/ARKLAND_AUDITORIA_TECNICA_COMPLETA_2026-10-28.md",
+    "docs/ESCOPO_RELEASE_1.11.0.md",
+    "src/asm_engine/ini_document.py",
+    "src/asm_engine/level_progression.py",
+    "src/data/ark_ase_server_cli_catalog.json",
+    "src/data/ark_ase_server_ini_catalog.json",
+    "src/ini_sync.py",
+    "src/ui/level_progression_editor.py",
+    "src/ui/server_cli_catalog.py",
+    "src/ui/server_ini_catalog.py",
+    "tests/test_ark_ini_config_only_writer.py",
+    "tests/test_asm_ini_lossless_writer.py",
+    "tests/test_ini_document.py",
+    "tests/test_ini_sync.py",
+    "tests/test_level_progression_models.py",
+    "tests/test_server_ini_catalog.py",
+    "tests/test_update_ark_ase_config_catalog.py",
+    "tools/update_ark_ase_config_catalog.py"
+)
+cmd /c "git add -- $($releaseNewFiles -join ' ') 2>&1"
+if ($LASTEXITCODE -ne 0) { Write-Fail "git add de fontes novas falhou (exit $LASTEXITCODE)" }
 # catalog.json do usuário: tira do stage sem alterar o working tree.
 cmd /c "git reset HEAD -- plugin/CustomShop/catalog.json 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do catalog.json falhou (exit $LASTEXITCODE)" }
@@ -228,6 +252,10 @@ foreach ($name in @($stagedNames)) {
     if ($norm -like "_release_*.log" -or $norm -like "*/_release_*.log") { $drop = $true }
     if ($norm -eq "catalog.json" -or $norm -like "*/catalog.json") { $drop = $true }
     if ($norm -eq "ig/betland.jpg") { $drop = $true }
+    # Objetos e executaveis de teste do MSVC sao artefatos locais do build.
+    if ($norm -like "plugin/CustomShop/obj/*") { $drop = $true }
+    # Proposta comercial independente, fora do escopo funcional deste release.
+    if ($norm -eq "docs/LICENCAS_PRECOS_PROPOSTA.md") { $drop = $true }
     if ($drop) {
         cmd /c "git reset HEAD -- `"$name`" 2>&1"
         if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel tirar $name do stage" }

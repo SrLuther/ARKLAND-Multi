@@ -5,6 +5,7 @@ Suporta GameUserSettings.ini e Game.ini.
 from __future__ import annotations
 
 import configparser
+import io
 from pathlib import Path
 from typing import Optional
 
@@ -320,6 +321,15 @@ def _write_encoding(path: Path) -> str:
         if detected:
             return detected
     return "utf-8"
+
+
+def _write_config_only_ini(path: Path, text: str) -> None:
+    """Write ARK INI configuration only: no comments, blank or malformed lines."""
+    from .asm_engine.ini_document import sanitize_ini_bytes
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = text.encode(_write_encoding(path))
+    path.write_bytes(sanitize_ini_bytes(encoded))
 
 
 # ── Funções de população de config a partir de parsers já carregados ─────────
@@ -1500,8 +1510,9 @@ class ArkIniManager:
         from .ark_ini_fields import ensure_gus_ark_skeleton
         ensure_gus_ark_skeleton(parser)
 
-        with open(str(path), "w", encoding=_write_encoding(path)) as fh:
-            parser.write(fh)
+        buf = io.StringIO()
+        parser.write(buf)
+        _write_config_only_ini(path, buf.getvalue())
 
     def save_game_ini(self, config: ServerConfig) -> None:
         """Escreve Game.ini com os valores de ServerConfig.advanced_settings."""
@@ -1719,8 +1730,7 @@ class ArkIniManager:
         # ── Remove linhas em branco extras deixadas pela substituição ────────
         ini_text = _re.sub(r'\n{3,}', '\n\n', ini_text)
 
-        with open(str(path), "w", encoding=_write_encoding(path)) as fh:
-            fh.write(ini_text)
+        _write_config_only_ini(path, ini_text)
 
     def save_all(self, config: ServerConfig) -> None:
         """Salva GameUserSettings.ini e Game.ini de uma vez."""
@@ -1771,4 +1781,4 @@ class ArkIniManager:
                 )
                 content += block
 
-            path.write_text(content, encoding=_write_encoding(path))
+            _write_config_only_ini(path, content)

@@ -19,6 +19,7 @@ from src.asm_engine.asm_savegame_manager import (
     load_save,
     map_save_basename,
     parse_dated_backup_filename,
+    restore_save_directory,
     savegame_dir,
 )
 from src.asm_engine.asm_server_config import (
@@ -177,6 +178,37 @@ def test_load_save_creates_safety_backup_and_replaces_active(tmp_path: Path):
     names = {p.name for p in safety}
     assert "Alps_01.07.2026_12.00.00.ark" in names
     assert any(n != "Alps_01.07.2026_12.00.00.ark" and n.endswith(".ark") for n in names)
+
+
+def test_restore_directory_uses_configured_save_path_and_preserves_current_tree(tmp_path: Path):
+    source = tmp_path / "backup" / "SavedArks"
+    destination = tmp_path / "server" / "ShooterGame" / "Saved" / "cluster04"
+    backup_root = tmp_path / "persistent-backups"
+    (source / "worlds").mkdir(parents=True)
+    destination.mkdir(parents=True)
+    (source / "worlds" / "Alps.ark").write_bytes(b"new-world")
+    (destination / "old.ark").write_bytes(b"old-world")
+
+    safety = restore_save_directory(source, destination, backup_root, timestamp="test")
+
+    assert (destination / "worlds" / "Alps.ark").read_bytes() == b"new-world"
+    assert safety == backup_root / "test_pre_restore" / "SavedArks"
+    assert (safety / "old.ark").read_bytes() == b"old-world"
+    assert not list(destination.parent.glob(".*.restore_tmp"))
+    assert not list(destination.parent.glob(".*.previous"))
+
+
+def test_restore_directory_rejects_empty_source_without_touching_destination(tmp_path: Path):
+    source = tmp_path / "empty"
+    destination = tmp_path / "active"
+    source.mkdir()
+    destination.mkdir()
+    (destination / "keep.ark").write_bytes(b"keep")
+
+    with pytest.raises(ValueError, match="não contém arquivos"):
+        restore_save_directory(source, destination, tmp_path / "backups")
+
+    assert (destination / "keep.ark").read_bytes() == b"keep"
 
 
 def test_create_manual_backup(tmp_path: Path):

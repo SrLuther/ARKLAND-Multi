@@ -168,8 +168,11 @@ class AsmServerConfig:
     player_xp_curve_formula:            str   = "base * (mult ** i)"
     player_ramp_entry_count:            int   = 0   # lido do Game.ini ou derivado no save
     player_ramp_max_index:              int   = -1
+    player_level_xp_thresholds:         List[int] = field(default_factory=list)
+    player_engram_points:                List[int] = field(default_factory=list)
     # False = modo simples ASM (EnableLevelProgressions=false): só cap GUS, sem rampa/engrams no Game.ini
     player_level_progressions_enabled:  bool  = False
+    dino_level_progressions_enabled:    bool  = False
 
     # ── Dinos ─────────────────────────────────────────────────────────────────
     dino_damage_multiplier:              float = 1.0
@@ -449,6 +452,10 @@ class AsmServerConfig:
             migrate_player_level_dict(data, pl)
         if "player_level_progressions_enabled" not in data:
             data["player_level_progressions_enabled"] = infer_player_level_progressions_enabled(data)
+        if "dino_level_progressions_enabled" not in data:
+            data["dino_level_progressions_enabled"] = bool(
+                str(data.get("dino_level_stats_raw", "") or "").strip()
+            )
 
         field_map = {f.name: f for f in fields(cls)}
         defaults = cls()

@@ -313,6 +313,21 @@ std::string ShopConfig::WebApiKey() const {
     return settings_.value("WebApiKey", "");
 }
 
+std::string ShopConfig::CloudShareKey() const {
+    std::string key = settings_.value("CloudShareKey", "");
+    const auto first = key.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return "default";
+    const auto last = key.find_last_not_of(" \t\r\n");
+    key = key.substr(first, last - first + 1);
+    if (key.size() > 64) key.resize(64);
+    for (char& c : key) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+        const bool allowed = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+        if (!allowed) c = '_';
+    }
+    return key.empty() ? "default" : key;
+}
+
 bool ShopConfig::DisableSell() const {
     return settings_.value("DisableSellButton", true);
 }

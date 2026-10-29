@@ -725,6 +725,8 @@ def write_ini(cfg: AsmServerConfig) -> None:
         ("per_level_dino_tamed_affinity", "PerLevelStatsMultiplier_DinoTamed_Affinity"),
     ]
     game_mode_sec = game.setdefault(_GAME_MODE_SECTION, {})
+    if not getattr(cfg, "dino_level_progressions_enabled", False):
+        game_mode_sec.pop("OverrideMaxExperiencePointsDino", None)
     for _attr, _prefix in _PERLEVEL_MAP:
         _values: list = getattr(cfg, _attr, [])
         for _idx, _val in enumerate(_values):
@@ -747,10 +749,15 @@ def write_ini(cfg: AsmServerConfig) -> None:
 
     from .asm_game_list_ini import (
         build_repeated_game_lines,
+        build_custom_repeated_game_sections,
         patch_game_ini_repeated_lines,
     )
+    repeated_sections = build_custom_repeated_game_sections(cfg)
     repeated_lines = build_repeated_game_lines(cfg)
+    repeated_lines.extend(repeated_sections.pop(_GAME_MODE_SECTION, []))
     patch_game_ini_repeated_lines(_game_path, repeated_lines)
+    for section, section_lines in repeated_sections.items():
+        patch_game_ini_repeated_lines(_game_path, section_lines, section=section)
     _assert_game_ini_ramp_written(_game_path, cfg, repeated_lines)
 
     # Engine.ini (apenas raw)
@@ -771,50 +778,55 @@ def _write_ini_file(
     *,
     remove_options: list[tuple[str, str]] | None = None,
 ) -> None:
-    """Escreve um arquivo INI preservando seções existentes não gerenciadas."""
+    """Aplica o patch do gerenciador sem reserializar o INI inteiro."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    from .ini_document import IniDocument
 
-    # Lê o arquivo existente (se houver) para preservar seções não mapeadas
-    parser = configparser.RawConfigParser()
-    parser.optionxform = str  # type: ignore[assignment]  # preserva case
-    if path.exists():
-        for enc in ("utf-16", "utf-8-sig", "utf-8", "latin-1"):
-            try:
-                with open(path, "r", encoding=enc) as fh:
-                    parser.read_file(fh)
-                break
-            except (UnicodeDecodeError, UnicodeError):
-                continue
-            except Exception:
-                _LOG.warning("INI existente ilegível (%s); seções não gerenciadas podem se perder: %s",
-                             enc, path, exc_info=True)
-                break
+    document = (
+        IniDocument.parse(path.read_bytes())
+        if path.exists()
+        else IniDocument.parse(b"\xff\xfe")
+    )
 
-    # Injeta / substitui as seções gerenciadas
+    # Atualiza a primeira ocorrência da chave no local original e remove
+    # duplicatas da mesma opção gerenciada. Comentários, linhas raw, opções
+    # desconhecidas e duplicatas não gerenciadas permanecem intactas.
     for section, kvs in sections.items():
-        if not parser.has_section(section):
-            parser.add_section(section)
         for key, value in kvs.items():
-            parser.set(section, key, value)
+            quoted = _ini_quote_value(value)
+            matches = document.find_values(section, key)
+            if matches:
+                document.set_value(section, key, quoted)
+                while len(matches) > 1:
+                    document.remove_values(section, key, occurrence=1)
+                    matches = matches[:1] + matches[2:]
+            else:
+                document.set_value(section, key, quoted, section_occurrence=0)
 
     for section, key in remove_options or []:
-        if parser.has_section(section) and parser.has_option(section, key):
-            parser.remove_option(section, key)
+        document.remove_values(section, key)
 
     if path.name.lower() == "gameusersettings.ini":
-        from ..ark_ini_fields import ensure_gus_ark_skeleton, GUS_SECTION_ORDER
-        ensure_gus_ark_skeleton(parser)
-        _section_order = GUS_SECTION_ORDER
-    else:
-        _section_order = None
+        # Mantém as seções mínimas exigidas pelo ASE sem reconstruir o arquivo.
+        from ..ark_ini_fields import GUS_SECTION_ORDER
 
-    # ARK no Windows lê os INIs em UTF-16 LE com BOM.
-    # configparser.write() não cita valores com '[' — o ARK interpreta como seção nova.
+        for section in GUS_SECTION_ORDER:
+            document.ensure_section(section)
+        version_values = document.find_values(
+            GUS_SECTION_ORDER[0], "Version", case_sensitive=True
+        )
+        if not version_values:
+            document.set_value(
+                GUS_SECTION_ORDER[0], "Version", "5", section_occurrence=0,
+                case_sensitive=True,
+            )
+
+    # The ARK parser accepts only configuration entries here: comments, blank
+    # lines and malformed/raw text are filtered out before the atomic write.
+    # Existing files keep their encoding/BOM; new ARK INIs use UTF-16 LE BOM.
     tmp = path.with_suffix(".tmp")
-    text = _render_ini_text(parser, section_order=_section_order)
     with open(tmp, "wb") as fh:
-        fh.write(b"\xff\xfe")
-        fh.write(text.encode("utf-16-le"))
+        fh.write(document.to_config_bytes())
     tmp.replace(path)
 
 
@@ -826,7 +838,10 @@ def read_ini(cfg: AsmServerConfig) -> None:
 
     parsers: dict[str, configparser.RawConfigParser] = {}
     for fk in ("GUS", "Game"):
-        p = configparser.RawConfigParser()
+        # ARK permits repeated keys and section blocks (notably level ramps
+        # and per-level engram rewards). Keep the last value for scalar lookups;
+        # specialized readers below consume repeated lines in source order.
+        p = configparser.RawConfigParser(strict=False)
         p.optionxform = str  # type: ignore[assignment]
         fp = _ini_path_for_cfg(cfg, fk, write=False)
         if fp.exists():
@@ -961,7 +976,8 @@ def read_ini_from_paths(
     path_map: dict[str, str | None] = {"GUS": gus_path, "Game": game_path}
 
     for fk, fp_str in path_map.items():
-        p = configparser.RawConfigParser()
+        # Match read_ini(): real ARK files contain repeated configuration keys.
+        p = configparser.RawConfigParser(strict=False)
         p.optionxform = str  # type: ignore[assignment]
         if fp_str:
             fp = Path(fp_str)
@@ -1046,6 +1062,10 @@ def read_ini_from_paths(
 
         populate_lists_from_game_ini(cfg, Path(game_path))
         populate_player_ramp_from_game_ini(cfg, Path(game_path))
+        # Importing an INI is an explicit request to adopt its configured
+        # player progression; read_ini() keeps persisted user opt-outs intact.
+        if cfg.player_ramp_entry_count > 0:
+            cfg.player_level_progressions_enabled = True
 
 
 def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
@@ -1202,10 +1222,10 @@ def _launch_dash_flags(cfg: AsmServerConfig) -> list[str]:
     return flags
 
 
-def _append_additional_args(flags: list[str], extra: str) -> None:
+def _additional_arg_tokens(extra: str) -> list[str]:
     raw = extra.strip()
     if not raw:
-        return
+        return []
     import shlex
     from ..ui_constants import is_active_event_cli_token
     try:
@@ -1213,10 +1233,12 @@ def _append_additional_args(flags: list[str], extra: str) -> None:
     except Exception:
         tokens = [raw]
     # Perfil active_event prevalece — remove -ActiveEvent= / ?ActiveEvent= de Additional Args
-    for token in tokens:
-        if is_active_event_cli_token(token):
-            continue
-        flags.append(token)
+    return [token for token in tokens if not is_active_event_cli_token(token)]
+
+
+def _append_additional_args(flags: list[str], extra: str) -> None:
+    """Append extra dash-style args; Unreal travel parameters belong on the map URL."""
+    flags.extend(token for token in _additional_arg_tokens(extra) if not token.startswith("?"))
 
 
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
@@ -1226,8 +1248,10 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     Na travel URL entra ?SessionName= apenas para nomes simples (A-Za-z0-9_-).
     """
     params = _launch_url_params(cfg)
+    extra_args = _additional_arg_tokens(cfg.additional_args)
+    params.extend(token for token in extra_args if token.startswith("?"))
     flags = _launch_dash_flags(cfg)
-    _append_additional_args(flags, cfg.additional_args)
+    flags.extend(token for token in extra_args if not token.startswith("?"))
 
     # O ARK usa o parser do Unreal Engine que lê o command line raw.
     # Aspas ao redor do MAP?params fazem o UE incluí-las no token, quebrando

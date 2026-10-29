@@ -8,15 +8,26 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.48] - 2026-10-29
+
+### Feature
+
+- **Nuvem compartilhada por grupo:** `Settings.CloudShareKey` isola ou compartilha os quatro slots entre mapas que usam a mesma chave. O banco migra os registros existentes para o grupo `default` e aplica a chave composta `(cloud_group, steam_id, slot)`.
+- A migração recompõe cabeçalhos ausentes a partir dos blobs existentes antes de criar a FK, preservando conteúdo restaurável e evitando falha por registros órfãos.
+
+### Rebuild
+
+A DLL 1.10.48 só vale depois que o mapa recarregar o plugin.
+
 ## [1.10.47] - 2026-10-28
 
 ### Fix
 
-- Evita tentar remover e recriar a chave prim?ria do invent?rio em toda inicializa??o. A migra??o agora compara as colunas existentes antes de alterar a tabela e mant?m a chave composta Steam ID + slot com as chaves estrangeiras compat?veis.
+- Evita tentar remover e recriar a chave primária do inventário em toda inicialização. A migração compara as colunas existentes antes de alterar a tabela e mantém a chave composta Steam ID + slot com as chaves estrangeiras compatíveis.
 
 ### Rebuild
 
-A DLL 1.10.47 s? vale depois que o mapa recarregar o plugin.
+A DLL 1.10.47 só vale depois que o mapa recarregar o plugin.
 
 ## [1.10.46] - 2026-10-28
 

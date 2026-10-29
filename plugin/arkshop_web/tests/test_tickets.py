@@ -14,9 +14,10 @@ from app import Order, StoreUser, app
 from ticket_service import (
     TICKET_CATEGORIES,
     add_ticket_reply,
+    admin_unlink_discord,
     attend_ticket,
     close_ticket,
-    confirm_discord_link_code,
+    confirm_discord_link_code_for_discord_user,
     create_ticket,
     ensure_ticket_schema,
     generate_discord_link_code,
@@ -109,8 +110,6 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     out = generate_discord_link_code(
         ticket_db,
         steam_id=USER_STEAM,
-        discord_user_id="987654321",
-        discord_username="nick_teste",
     )
     assert out["ok"] is True
     assert len(out["code"]) >= 6
@@ -118,16 +117,13 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     duplicate = generate_discord_link_code(
         ticket_db,
         steam_id=USER_STEAM,
-        discord_user_id="987654321",
-        discord_username="nick_teste",
     )
     assert duplicate["ok"] is True
     assert duplicate["pending"] is True
 
-    confirm = confirm_discord_link_code(
+    confirm = confirm_discord_link_code_for_discord_user(
         ticket_db,
         out["code"],
-        steam_id=USER_STEAM,
         discord_user_id="987654321",
         discord_username="nick_teste",
     )
@@ -135,13 +131,49 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     assert confirm["first_link_bonus"] == 10_000
     balance = ticket_db.execute(text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}).scalar_one()
     assert balance == 10_000
+    replay = confirm_discord_link_code_for_discord_user(
+        ticket_db,
+        out["code"],
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+    assert replay["ok"] is False
+    balance = ticket_db.execute(text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}).scalar_one()
+    assert balance == 10_000
     audit = list_discord_link_admin_audit(ticket_db)
+    assert audit[0]["event_type"] == "bonus_credited"
     assert audit[0]["amber_delta"] == 10_000
+    assert audit[1]["event_type"] == "link_confirmed"
+    assert audit[1]["amber_delta"] == 0
     assert audit[0]["is_active"] == 1
     saved = get_discord_link(ticket_db, USER_STEAM)
     assert saved is not None
     assert saved["discord_user_id"] == "987654321"
     assert saved["link_method"] == "ingame_code"
+
+    removed = admin_unlink_discord(
+        ticket_db,
+        steam_id=USER_STEAM,
+        actor_steam_id=ADMIN_STEAM,
+        actor_name="Admin",
+    )
+    assert removed["ok"] is True
+    second_code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    relink = confirm_discord_link_code_for_discord_user(
+        ticket_db,
+        second_code["code"],
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+    assert relink["first_link_bonus"] == 10_000
+    balance = ticket_db.execute(
+        text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}
+    ).scalar_one()
+    assert balance == 20_000
+    audit = list_discord_link_admin_audit(ticket_db)
+    assert [event["event_type"] for event in audit[:4]] == [
+        "bonus_credited", "link_confirmed", "unlink_admin", "bonus_credited"
+    ]
 
 
 def test_discord_link_admin_audit_converts_mixed_mysql_charsets_before_collation():
@@ -166,25 +198,88 @@ def test_discord_link_admin_audit_converts_mixed_mysql_charsets_before_collation
     assert "CONVERT(l.discord_user_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(a.discord_user_id USING utf8mb4) COLLATE utf8mb4_unicode_ci" in db.statement
 
 
+def test_discord_link_admin_audit_route_returns_link_bonus_and_unlink_events(ticket_db, tmp_path):
+    from flask import Flask, session
+    from ticket_routes import register_ticket_routes
+
+    Session = sessionmaker(bind=ticket_db.get_bind())
+    code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    confirm = confirm_discord_link_code_for_discord_user(
+        ticket_db, code["code"], discord_user_id="555123456", discord_username="Ciano"
+    )
+    assert confirm["ok"] is True
+    assert admin_unlink_discord(
+        ticket_db, steam_id=USER_STEAM, actor_steam_id=ADMIN_STEAM, actor_name="Admin"
+    )["ok"] is True
+
+    route_app = Flask("discord-audit-test")
+    route_app.secret_key = "test-secret"
+
+    def admin_required(fn):
+        return fn
+
+    register_ticket_routes(
+        route_app,
+        db_ready=lambda: True,
+        session_factory=Session,
+        login_required=lambda fn: fn,
+        admin_required=admin_required,
+        ticket_staff_required=lambda fn: fn,
+        steam_id_from_session=lambda: session.get("steam_id"),
+        is_admin_steamid=lambda sid: sid == ADMIN_STEAM,
+        can_manage_tickets=lambda sid: sid == ADMIN_STEAM,
+        uploads_dir=tmp_path,
+    )
+    with route_app.test_client() as route_client:
+        with route_client.session_transaction() as sess:
+            sess["steam_id"] = ADMIN_STEAM
+        response = route_client.get("/api/admin/discord-link/audit")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["ok"] is True
+    assert payload["total"] == 3
+    assert payload["page"] == 1
+    assert payload["pages"] == 1
+    assert [event["event_type"] for event in payload["events"][:3]] == [
+        "unlink_admin", "bonus_credited", "link_confirmed"
+    ]
+    assert payload["events"][1]["discord_username"] == "Ciano"
+    assert payload["events"][1]["discord_user_id"] == "555123456"
+    assert payload["events"][1]["amber_delta"] == 10_000
+
+    second_page = route_client.get("/api/admin/discord-link/audit?page=2&page_size=2").get_json()
+    assert second_page["total"] == 3
+    assert second_page["pages"] == 2
+    assert [event["event_type"] for event in second_page["events"]] == ["link_confirmed"]
+    clamped_page = route_client.get("/api/admin/discord-link/audit?page=999&page_size=2").get_json()
+    assert clamped_page["page"] == 2
+    assert len(clamped_page["events"]) == 1
+    invalid_page = route_client.get("/api/admin/discord-link/audit?page=invalid")
+    assert invalid_page.status_code == 400
+
+
 def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):
     first_code = generate_discord_link_code(
         ticket_db,
         steam_id=USER_STEAM,
-        discord_user_id="111222333",
-        discord_username="alice",
     )
-    first = confirm_discord_link_code(ticket_db, first_code["code"], steam_id=USER_STEAM,
+    first = confirm_discord_link_code_for_discord_user(ticket_db, first_code["code"],
         discord_user_id="111222333", discord_username="alice")
     assert first["steam_id"] == USER_STEAM
 
     generated = generate_discord_link_code(
         ticket_db,
         steam_id=ADMIN_STEAM,
+    )
+    assert generated["ok"] is True
+    conflict = confirm_discord_link_code_for_discord_user(
+        ticket_db,
+        generated["code"],
         discord_user_id="111222333",
         discord_username="alice",
     )
-    assert generated["ok"] is False
-    assert "já está vinculado" in generated["error"].lower()
+    assert conflict["ok"] is False
 
 
 def test_create_and_list_ticket(ticket_db):

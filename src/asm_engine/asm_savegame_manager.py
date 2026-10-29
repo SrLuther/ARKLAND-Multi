@@ -7,6 +7,7 @@ do diretório savegame — sem copiar para pastas externas.
 from __future__ import annotations
 
 import os
+import hashlib
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -153,6 +154,79 @@ def map_save_basename(srv: AsmServerConfig) -> str:
 def active_save_path(srv: AsmServerConfig) -> Path:
     """Caminho completo do save ativo ({mapa}.ark)."""
     return savegame_dir(srv) / f"{map_save_basename(srv)}.ark"
+
+
+def _tree_digest(root: Path) -> tuple[tuple[str, int, str], ...]:
+    """Return a stable manifest of relative file names, sizes and SHA-256 hashes."""
+    manifest = []
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        manifest.append((path.relative_to(root).as_posix(), path.stat().st_size, digest.hexdigest()))
+    return tuple(manifest)
+
+
+def restore_save_directory(
+    source_dir: Path,
+    destination_dir: Path,
+    backup_root: Path,
+    *,
+    timestamp: str | None = None,
+) -> Path | None:
+    """Restore a complete save directory with verified backup and rollback.
+
+    The existing destination is copied to a persistent backup and verified before
+    staging the restore. Replacement uses same-volume renames, so a failed swap
+    can put the original directory back without deleting it first.
+    """
+    source = Path(source_dir).resolve()
+    destination = Path(destination_dir).resolve()
+    if not source.is_dir():
+        raise FileNotFoundError(f"Pasta do backup não encontrada: {source}")
+    if source == destination:
+        raise ValueError("A origem e o destino do restore são a mesma pasta.")
+    if not any(p.is_file() for p in source.rglob("*")):
+        raise ValueError("O backup não contém arquivos para restaurar.")
+
+    stamp = timestamp or datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    backup_path: Path | None = None
+    if destination.exists():
+        backup_path = Path(backup_root) / f"{stamp}_pre_restore" / "SavedArks"
+        backup_path.parent.mkdir(parents=True, exist_ok=False)
+        shutil.copytree(destination, backup_path)
+        if _tree_digest(destination) != _tree_digest(backup_path):
+            raise OSError(f"A validação do backup de segurança falhou: {backup_path}")
+
+    stage = destination.parent / f".{destination.name}.{stamp}.restore_tmp"
+    previous = destination.parent / f".{destination.name}.{stamp}.previous"
+    if stage.exists() or previous.exists():
+        raise FileExistsError("Já existe uma operação temporária de restauração com este identificador.")
+    try:
+        shutil.copytree(source, stage)
+        if _tree_digest(source) != _tree_digest(stage):
+            raise OSError("A validação do backup selecionado falhou após a cópia.")
+
+        had_destination = destination.exists()
+        if had_destination:
+            os.replace(destination, previous)
+        try:
+            os.replace(stage, destination)
+        except Exception:
+            if had_destination and previous.exists():
+                os.replace(previous, destination)
+            raise
+        if previous.exists():
+            shutil.rmtree(previous, ignore_errors=True)
+        return backup_path
+    except Exception:
+        if stage.exists():
+            shutil.rmtree(stage, ignore_errors=True)
+        if previous.exists() and not destination.exists():
+            os.replace(previous, destination)
+        raise
 
 
 def parse_dated_backup_filename(name: str) -> Optional[datetime]:

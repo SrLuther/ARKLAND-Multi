@@ -158,6 +158,8 @@ class ObobonicBotConfig:
     quarantine_role_id: str = ""   # cargo aplicado por !limpezageral
     validation_channel_id: str = ""  # canal exclusivo de validação de vínculo Discord
     validation_role_id: str = ""     # cargo opcional aplicado após validação
+    arkshop_web_url: str = ""        # URL base da Web Store usada pelo código de vínculo
+    arkshop_api_key: str = ""        # segredo da API interna da Web Store
     # ── Migração (config antiga com pasta externa) ────────────────────────────
     legacy_project_path: str = ""  # só para OFERECER importar uma vez; nunca usado em runtime
     legacy_import_done: bool = False

@@ -1,8 +1,15 @@
 {
-    "version": "1.10.137",
-    "date": "2026-10-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.137/ARKLAND-Multi-Setup-v1.10.137.exe",
+    "version": "1.11.0",
+    "date": "2026-10-29",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.0/ARKLAND-Multi-Setup-v1.11.0.exe",
     "changelog": [
-        "Bot Discord: corrige acentuação da mensagem de vinculação e adiciona botão para acessar www.arkland.com.br."
+        "Gerenciador ASE: reestrutura??o das configura??es com cat?logo de 321 op??es para GameUserSettings.ini/Game.ini e 114 argumentos de inicializa??o.",
+        "INI: edi??o ordenada e segura, somente com linhas de configura??o; sincroniza??o por se??es com compara??o, backup e rollback.",
+        "Progress?es: editor de n?veis de jogador e dinossauros com valida??o de XP e persist?ncia das rampas.",
+        "Saves: backup e restaura??o com valida??o de integridade e recupera??o segura.",
+        "Discord: v?nculo por c?digo, b?nus inicial de 10.000 ?mbares e auditoria administrativa paginada; bot com instru??es completas e bot?o para o site.",
+        "Web Store: nuvens separadas por chave de compartilhamento, quatro slots e painel administrativo; controles remotos de servidor para equipe autorizada.",
+        "CustomShop 1.10.48: migra??o cloud idempotente, recupera??o de cabe?alhos sem apagar blobs e corre??o do relacionamento por grupo/SteamID/slot.",
+        "Corre??es de textos corrompidos, mensagens e apresenta??o dos pain?is administrativos."
     ]
 }

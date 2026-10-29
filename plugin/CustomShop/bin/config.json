@@ -4270,6 +4270,7 @@
     }
   ],
   "Settings": {
+    "CloudShareKey": "default",
     "CryoLimitedTime": false,
     "DeliverDinosInCryopods": true,
     "DisableSellButton": true,

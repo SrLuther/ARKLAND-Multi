@@ -245,11 +245,13 @@ class TestBotFields:
         assert validate_bot_fields({"token": FAKE_TOKEN, "guild_id": "123456789", "command_prefix": "!"}) == []
         errs = validate_bot_fields({"token": "curto", "guild_id": "abc", "command_prefix": "a b"})
         assert len(errs) == 3
+        assert validate_bot_fields({"arkshop_web_url": "not-a-url"})
 
     def test_save_bot_fields_persists_and_strips(self, cm, tmp_path, monkeypatch):
         errors = save_bot_fields(
             cm,
             {"token": f"  {FAKE_TOKEN} ", "guild_id": " 123456789 ", "command_prefix": "?",
+             "arkshop_web_url": " https://store.example.test ", "arkshop_api_key": " secret-key ",
              "lobby_channel_id": "", "logs_channel_id": "987654321", "quarantine_role_id": "", "client_id": ""},
             enable_voice=False, enable_moderation=True,
         )
@@ -257,6 +259,7 @@ class TestBotFields:
         monkeypatch.setenv("APPDATA", str(tmp_path))
         o = ConfigManager().config.obobonic
         assert o.token == FAKE_TOKEN and o.guild_id == "123456789"
+        assert o.arkshop_web_url == "https://store.example.test" and o.arkshop_api_key == "secret-key"
         assert o.command_prefix == "?" and o.enable_voice is False and o.enable_moderation is True
 
     def test_save_bot_fields_rejects_without_writing(self, cm, tmp_path):
@@ -303,8 +306,25 @@ class TestSettingsHelpers:
         assert s.problems()
         s = BotSettings.from_config(ObobonicBotConfig(token=FAKE_TOKEN), data_dir=tmp_path)
         assert s.problems() == []
-        assert len(s.warnings()) == 3
+        assert len(s.warnings()) == 4
         assert s.command_prefix == "!"
+
+    def test_web_store_settings_are_passed_to_validator_client(self, monkeypatch):
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        cfg = ObobonicBotConfig(
+            token=FAKE_TOKEN,
+            arkshop_web_url="https://store.example.test/",
+            arkshop_api_key="private-key",
+        )
+        settings = BotSettings.from_config(cfg)
+        client = DiscordLinkValidatorClient(
+            base_url=settings.arkshop_web_url,
+            api_key=settings.arkshop_api_key,
+        )
+        assert client.base_url == "https://store.example.test"
+        assert client.configured()
+        assert "private-key" not in repr(settings)
 
 
 # ── Ciclo de vida no app ─────────────────────────────────────────────────────
