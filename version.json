@@ -1,8 +1,8 @@
 {
-    "version": "1.11.3",
+    "version": "1.11.4",
     "date": "2026-10-29",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.3/ARKLAND-Multi-Setup-v1.11.3.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.4/ARKLAND-Multi-Setup-v1.11.4.exe",
     "changelog": [
-        "Discord: falha HTTP 400 sem motivo estruturado agora orienta verificar se o bot consulta a mesma Web Store e o mesmo banco em que o código foi gerado."
+        "Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP público e duplicar configurações manuais."
     ]
 }

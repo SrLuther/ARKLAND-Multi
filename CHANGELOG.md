@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 14:29:18 -->
-<!-- Total de versões: 496 | Primeira: 1.11.3 -->
+<!-- Gerado: 2026-10-29 20:16:31 -->
+<!-- Total de versões: 497 | Primeira: 1.11.4 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.4] - 2026-10-29
+
+### Other
+
+- Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP público e duplicar configurações manuais.
 
 ## [1.11.3] - 2026-10-29
 

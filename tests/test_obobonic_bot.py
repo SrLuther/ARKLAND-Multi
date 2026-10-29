@@ -326,6 +326,20 @@ class TestSettingsHelpers:
         assert client.configured()
         assert "private-key" not in repr(settings)
 
+    def test_embedded_bot_uses_canonical_host_shop_connection(self, tmp_path):
+        from types import SimpleNamespace
+
+        cfg = ObobonicBotConfig(
+            token=FAKE_TOKEN,
+            arkshop_web_url="http://179.185.19.88:27199",
+            arkshop_api_key="stale-manual-key",
+        )
+        shop = SimpleNamespace(mode="host", port=27199, api_key="canonical-shop-key")
+        settings = BotSettings.from_config(cfg, data_dir=tmp_path, shop_config=shop)
+
+        assert settings.arkshop_web_url == "http://127.0.0.1:27199"
+        assert settings.arkshop_api_key == "canonical-shop-key"
+
     def test_validator_reports_actionable_http_failures_without_leaking_body(self, monkeypatch):
         import io
         from urllib.error import HTTPError

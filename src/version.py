@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.3"
+APP_VERSION: str = "1.11.4"
 BUILD_DATE: str = "2026-10-29"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.4",
+        "date": "2026-10-29",
+        "changes": [
+            "Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP público e duplicar configurações manuais.",
+        ]
+    },
     {
         "version": "1.11.3",
         "date": "2026-10-29",

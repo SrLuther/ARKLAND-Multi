@@ -161,8 +161,44 @@ class BotSettings:
     enable_moderation: bool = True
 
     @classmethod
-    def from_config(cls, cfg: Any, data_dir: Optional[Path] = None) -> "BotSettings":
+    def from_config(
+        cls,
+        cfg: Any,
+        data_dir: Optional[Path] = None,
+        shop_config: Any = None,
+    ) -> "BotSettings":
         prefix = (getattr(cfg, "command_prefix", "") or "").strip() or DEFAULT_PREFIX
+        web_url = (
+            (getattr(cfg, "arkshop_web_url", "") or "").strip()
+            or os.environ.get("ARKSHOP_WEB_URL", "").strip()
+            or os.environ.get("ARKSHOP_WEBSTORE_URL", "").strip()
+            or os.environ.get("ARKLAND_WEB_URL", "").strip()
+        )
+        api_key = (
+            (getattr(cfg, "arkshop_api_key", "") or "").strip()
+            or os.environ.get("ARKSHOP_API_KEY", "").strip()
+        )
+        if shop_config is not None:
+            # The embedded bot and Web Store are managed by the same app.
+            # Reuse the canonical Shop settings to avoid stale/manual endpoints
+            # (notably public-IP hairpin requests from the host itself).
+            configured_key = (getattr(shop_config, "api_key", "") or "").strip()
+            if configured_key:
+                api_key = configured_key
+            mode = (getattr(shop_config, "mode", "client") or "client").strip().lower()
+            if mode == "host":
+                try:
+                    from ..shop_integration import DEFAULT_SHOP_PORT
+                    port = max(1, int(getattr(shop_config, "port", 0) or DEFAULT_SHOP_PORT))
+                    web_url = f"http://127.0.0.1:{port}"
+                except (TypeError, ValueError):
+                    pass
+            else:
+                try:
+                    from ..shop_integration import resolve_plugin_api_url
+                    web_url = resolve_plugin_api_url(shop_config) or web_url
+                except Exception:
+                    pass
         return cls(
             token=(getattr(cfg, "token", "") or "").strip(),
             data_dir=Path(data_dir) if data_dir else default_data_dir(),
@@ -172,16 +208,8 @@ class BotSettings:
             quarantine_role_id=parse_discord_id(getattr(cfg, "quarantine_role_id", "")),
             validation_channel_id=parse_discord_id(getattr(cfg, "validation_channel_id", "")),
             validation_role_id=parse_discord_id(getattr(cfg, "validation_role_id", "")),
-            arkshop_web_url=(
-                (getattr(cfg, "arkshop_web_url", "") or "").strip()
-                or os.environ.get("ARKSHOP_WEB_URL", "").strip()
-                or os.environ.get("ARKSHOP_WEBSTORE_URL", "").strip()
-                or os.environ.get("ARKLAND_WEB_URL", "").strip()
-            ),
-            arkshop_api_key=(
-                (getattr(cfg, "arkshop_api_key", "") or "").strip()
-                or os.environ.get("ARKSHOP_API_KEY", "").strip()
-            ),
+            arkshop_web_url=web_url,
+            arkshop_api_key=api_key,
             command_prefix=prefix,
             enable_voice=bool(getattr(cfg, "enable_voice", True)),
             enable_moderation=bool(getattr(cfg, "enable_moderation", True)),
