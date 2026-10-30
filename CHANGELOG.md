@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 23:33:54 -->
-<!-- Total de versões: 498 | Primeira: 1.11.5 -->
+<!-- Gerado: 2026-10-30 02:31:08 -->
+<!-- Total de versões: 499 | Primeira: 1.11.6 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.6] - 2026-10-30
+
+### Other
+
+- Discord — Vinculação: auditoria compacta e responsiva, com textos corrigidos e identificação clara de bônus e eventos.
 
 ## [1.11.5] - 2026-10-29
 

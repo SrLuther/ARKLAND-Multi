@@ -20604,39 +20604,40 @@ async function loadDiscordLinkAdminAudit(page = _discordLinkAuditPage) {
     const activeLinks = new Set(rows.filter(e => Number(e.is_active) === 1).map(e => String(e.steam_id || "")).filter(Boolean));
     const bonusEvents = rows.filter(e => e.event_type === "bonus_credited" && Number(e.amber_delta || 0) > 0);
     const bonusTotal = bonusEvents.reduce((sum, e) => sum + Number(e.amber_delta || 0), 0);
-    const summary = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:14px;">
-      <div style="border:1px solid var(--border,#3a3020);border-radius:12px;padding:14px 16px;background:var(--card,#100d08);"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;">V?nculos ativos nesta p?gina</div><strong style="display:block;font-size:24px;margin-top:5px;">${activeLinks.size}</strong></div>
-      <div style="border:1px solid var(--border,#3a3020);border-radius:12px;padding:14px 16px;background:var(--card,#100d08);"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;">B?nus registrados nesta p?gina</div><strong style="display:block;font-size:21px;color:var(--success,#65c987);margin-top:5px;">${bonusTotal.toLocaleString("pt-BR")} ?mbares</strong><small style="color:var(--text2);">${bonusEvents.length} cr?dito(s) confirmado(s)</small></div>
-      <div style="border:1px solid var(--border,#3a3020);border-radius:12px;padding:14px 16px;background:var(--card,#100d08);"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;">Eventos no hist?rico</div><strong style="display:block;font-size:24px;margin-top:5px;">${total.toLocaleString("pt-BR")}</strong></div>
+    const summary = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="badge">Vínculos ativos nesta página: <strong>${activeLinks.size}</strong></span>
+      <span class="badge" style="color:var(--success,#65c987);">Bônus nesta página: <strong>${bonusTotal.toLocaleString("pt-BR")} Âmbares</strong> (${bonusEvents.length})</span>
+      <span class="badge">${total.toLocaleString("pt-BR")} eventos no histórico</span>
     </div>`;
     if (!rows.length) {
-      host.innerHTML = summary + `<div style="color:var(--text2);padding:12px 2px;">Nenhum evento registrado nesta p?gina.</div>`;
+      host.innerHTML = summary + `<div style="color:var(--text2);padding:8px 2px;">Nenhum evento registrado nesta página.</div>`;
       return;
     }
-    const eventLabels = { link_confirmed: "V?nculo confirmado", bonus_credited: "B?nus de 10.000 ?mbares entregue", unlink_admin: "V?nculo removido pela administra??o" };
+    const eventLabels = { link_confirmed: "Vínculo confirmado", bonus_credited: "Bônus de 10.000 Âmbares", unlink_admin: "Vínculo removido pela administração" };
     const cards = rows.map(e => {
       const delta = Number(e.amber_delta || 0);
       const isPlayerEvent = e.event_type === "link_confirmed" || e.event_type === "bonus_credited";
-      const actor = e.actor_name || (isPlayerEvent ? "Jogador (c?digo)" : "Administra??o");
+      const actor = e.actor_name || (isPlayerEvent ? "Jogador (código)" : "Administração");
       const credit = delta > 0
-        ? `<div style="font-size:17px;font-weight:700;color:var(--success,#65c987);">+${delta.toLocaleString("pt-BR")} ?mbares</div><small style="color:var(--text2);">Cr?dito confirmado</small>`
-        : `<span style="font-size:12px;color:var(--text2);">Sem cr?dito neste evento</span>`;
+        ? `<strong style="color:var(--success,#65c987);white-space:nowrap;">+${delta.toLocaleString("pt-BR")} Âmbares</strong>`
+        : `<span style="font-size:11px;color:var(--text2);">Sem crédito</span>`;
       const action = Number(e.is_active) === 1 && e.event_type === "link_confirmed"
-        ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer v?nculo</button>`
-        : `<span style="font-size:12px;color:var(--text2);">${e.event_type === "link_confirmed" ? "V?nculo encerrado" : "?"}</span>`;
+        ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer vínculo</button>`
+        : `<span style="font-size:11px;color:var(--text2);">${e.event_type === "link_confirmed" ? "Vínculo encerrado" : "—"}</span>`;
       const eventColor = delta > 0 ? "var(--success,#65c987)" : e.event_type === "unlink_admin" ? "var(--danger,#d95b5b)" : "var(--accent,#d6a443)";
-      return `<article style="border:1px solid var(--border,#3a3020);border-left:4px solid ${eventColor};border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--card,#100d08);">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;"><div><strong style="font-size:15px;">${escHtml(eventLabels[e.event_type] || e.event_type || "Evento")}</strong><div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(e.created_at || "Data indispon?vel")}</div></div><div style="text-align:right;">${credit}</div></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:14px;">
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--text2);letter-spacing:.08em;">Conta Steam</div><strong>${escHtml(e.steam_name || "Nome n?o dispon?vel")}</strong><div style="font-size:12px;color:var(--text2);word-break:break-all;">${escHtml(e.steam_id || "")}</div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--text2);letter-spacing:.08em;">Conta Discord</div><strong>${escHtml(e.discord_username || "Nome n?o dispon?vel")}</strong><div style="font-size:12px;color:var(--text2);word-break:break-all;">${escHtml(e.discord_user_id || "")}</div></div>
-          <div><div style="font-size:10px;text-transform:uppercase;color:var(--text2);letter-spacing:.08em;">Respons?vel</div><strong>${escHtml(actor)}</strong><div style="font-size:12px;color:var(--text2);word-break:break-all;">${escHtml(e.actor_steam_id || "")}</div></div>
-        </div>
-        ${e.note ? `<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border,#3a3020);margin-top:12px;padding-top:10px;">${escHtml(e.note)}</div>` : ""}
-        <div style="display:flex;justify-content:flex-end;margin-top:12px;">${action}</div>
+      const rawNote = String(e.note || "");
+      const note = /first-link bonus credited to the player's amber balance\./i.test(rawNote)
+        ? "Bônus inicial creditado no saldo de Âmbares."
+        : rawNote;
+      return `<article style="display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(150px,1fr) minmax(150px,1fr) minmax(120px,.8fr) auto;align-items:center;gap:10px;border:1px solid var(--border,#3a3020);border-left:3px solid ${eventColor};border-radius:8px;padding:8px 10px;margin-bottom:6px;background:var(--card,#100d08);">
+        <div><strong style="font-size:12px;">${escHtml(eventLabels[e.event_type] || e.event_type || "Evento")}</strong><div style="font-size:10px;color:var(--text2);margin-top:2px;">${escHtml(e.created_at || "Data indisponível")}</div></div>
+        <div style="min-width:0;"><small style="display:block;color:var(--text2);font-size:9px;text-transform:uppercase;">Steam</small><strong style="font-size:11px;">${escHtml(e.steam_name || "Nome indisponível")}</strong><div style="font-size:10px;color:var(--text2);overflow-wrap:anywhere;">${escHtml(e.steam_id || "")}</div></div>
+        <div style="min-width:0;"><small style="display:block;color:var(--text2);font-size:9px;text-transform:uppercase;">Discord</small><strong style="font-size:11px;">${escHtml(e.discord_username || "Nome indisponível")}</strong><div style="font-size:10px;color:var(--text2);overflow-wrap:anywhere;">${escHtml(e.discord_user_id || "")}</div></div>
+        <div><small style="display:block;color:var(--text2);font-size:9px;text-transform:uppercase;">Responsável</small><span style="font-size:11px;">${escHtml(actor)}</span><div style="font-size:10px;">${credit}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">${action}${note ? `<details style="font-size:10px;color:var(--text2);"><summary style="cursor:pointer;">Detalhes</summary><span>${escHtml(note)}</span></details>` : ""}</div>
       </article>`;
     }).join("");
-    host.innerHTML = summary + cards + `<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 2px;"><button class="btn btn-ghost btn-sm" ${currentPage <= 1 ? "disabled" : ""} onclick="loadDiscordLinkAdminAudit(${currentPage - 1})">Anterior</button><span style="font-size:12px;color:var(--text2);">P?gina ${currentPage} de ${pages} ? ${total.toLocaleString("pt-BR")} eventos</span><button class="btn btn-ghost btn-sm" ${currentPage >= pages ? "disabled" : ""} onclick="loadDiscordLinkAdminAudit(${currentPage + 1})">Pr?xima</button></div>`;
+    host.innerHTML = `<style>@media(max-width:760px){#discord-link-admin-audit article{grid-template-columns:1fr 1fr!important;}#discord-link-admin-audit article>div:first-child{grid-column:1/-1;}#discord-link-admin-audit article>div:last-child{align-items:flex-start!important;}}</style>` + summary + cards + `<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:6px 2px;"><button class="btn btn-ghost btn-sm" ${currentPage <= 1 ? "disabled" : ""} onclick="loadDiscordLinkAdminAudit(${currentPage - 1})">Anterior</button><span style="font-size:11px;color:var(--text2);">Página ${currentPage} de ${pages} · ${total.toLocaleString("pt-BR")} eventos</span><button class="btn btn-ghost btn-sm" ${currentPage >= pages ? "disabled" : ""} onclick="loadDiscordLinkAdminAudit(${currentPage + 1})">Próxima</button></div>`;
   } catch (e) { host.textContent = String(e); }
 }
 async function adminUnlinkDiscord(steamId) {
