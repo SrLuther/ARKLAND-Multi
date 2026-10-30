@@ -8524,6 +8524,10 @@
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">Auditoria de vínculos Discord</div>
           <p style="font-size:12px;color:var(--text2);">Histórico de vínculos, bônus e remoções administrativas. Remover um vínculo permite novo código e novo bônus após confirmação.</p>
+          <div style="display:flex;gap:8px;align-items:center;margin:10px 0;max-width:620px;">
+            <input id="discord-link-audit-search" type="search" placeholder="Buscar nick Steam, nick Discord, ID Steam ou ID Discord" aria-label="Buscar auditoria de vinculos Discord" oninput="scheduleDiscordLinkAuditSearch()" />
+            <button class="btn btn-ghost btn-sm" onclick="clearDiscordLinkAuditSearch()">Limpar</button>
+          </div>
           <div id="discord-link-admin-audit" style="overflow:auto;"></div>
         </div>
 
@@ -20586,14 +20590,26 @@ async function loadDiscordLinkAdmin() {
 }
 
 let _discordLinkAuditPage = 1;
+let _discordLinkAuditSearchTimer = null;
+function scheduleDiscordLinkAuditSearch() {
+  if (_discordLinkAuditSearchTimer) clearTimeout(_discordLinkAuditSearchTimer);
+  _discordLinkAuditSearchTimer = setTimeout(() => loadDiscordLinkAdminAudit(1), 300);
+}
+function clearDiscordLinkAuditSearch() {
+  const input = document.getElementById("discord-link-audit-search");
+  if (input) input.value = "";
+  loadDiscordLinkAdminAudit(1);
+}
 async function loadDiscordLinkAdminAudit(page = _discordLinkAuditPage) {
   if (!_auth.is_admin) return;
   const host = document.getElementById("discord-link-admin-audit");
   if (!host) return;
   const pageSize = 50;
   const requestedPage = Math.max(1, Number(page) || 1);
+  const query = String(document.getElementById("discord-link-audit-search")?.value || "").trim();
   try {
-    const data = await fetchJson(`/api/admin/discord-link/audit?page=${requestedPage}&page_size=${pageSize}`, { timeoutMs: 15000 });
+    const params = new URLSearchParams({ page: String(requestedPage), page_size: String(pageSize), q: query });
+    const data = await fetchJson(`/api/admin/discord-link/audit?${params}`, { timeoutMs: 15000 });
     if (!data.ok) throw new Error(data.error || "Falha ao carregar auditoria");
     const rows = data.events || [];
     const total = Number(data.total || 0);

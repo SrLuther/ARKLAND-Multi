@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-30 02:31:08 -->
-<!-- Total de versões: 499 | Primeira: 1.11.6 -->
+<!-- Gerado: 2026-10-30 08:40:24 -->
+<!-- Total de versões: 500 | Primeira: 1.11.7 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.7] - 2026-10-30
+
+### Other
+
+- Discord: busca administrativa na auditoria por nick Steam, nick Discord, ID Steam e ID Discord, com filtro aplicado ao histórico inteiro.
 
 ## [1.11.6] - 2026-10-30
 

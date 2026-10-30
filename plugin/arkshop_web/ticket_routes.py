@@ -206,11 +206,12 @@ def register_ticket_routes(
             return jsonify({"ok": False, "error": "Paginação inválida"}), 400
         db = session_factory()
         try:
-            total = count_discord_link_admin_audit(db)
+            query = str(request.args.get("q", "")).strip()[:128]
+            total = count_discord_link_admin_audit(db, query=query)
             pages = max(1, (total + page_size - 1) // page_size)
             page = min(page, pages)
             events = list_discord_link_admin_audit(
-                db, limit=page_size, offset=(page - 1) * page_size
+                db, limit=page_size, offset=(page - 1) * page_size, query=query
             )
             return jsonify({"ok": True, "events": events, "total": total,
                             "page": page, "page_size": page_size, "pages": pages})

@@ -1,8 +1,8 @@
 {
-    "version": "1.11.6",
+    "version": "1.11.7",
     "date": "2026-10-30",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.6/ARKLAND-Multi-Setup-v1.11.6.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.7/ARKLAND-Multi-Setup-v1.11.7.exe",
     "changelog": [
-        "Discord — Vinculação: auditoria compacta e responsiva, com textos corrigidos e identificação clara de bônus e eventos."
+        "Discord: busca administrativa na auditoria por nick Steam, nick Discord, ID Steam e ID Discord, com filtro aplicado ao histórico inteiro."
     ]
 }

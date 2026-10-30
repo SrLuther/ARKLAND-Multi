@@ -312,6 +312,20 @@ def test_discord_link_admin_audit_route_returns_link_bonus_and_unlink_events(tic
     assert payload["events"][1]["discord_user_id"] == "555123456"
     assert payload["events"][1]["amber_delta"] == 10_000
 
+    ticket_db.execute(
+        text("UPDATE support_ticket_discord_link_audit SET steam_name='Player Alpha' WHERE steam_id=:sid"),
+        {"sid": USER_STEAM},
+    )
+    ticket_db.commit()
+    for term in ("Player Alpha", "ciano", USER_STEAM, "555123456"):
+        filtered = route_client.get(
+            "/api/admin/discord-link/audit", query_string={"q": term, "page_size": 1}
+        ).get_json()
+        assert filtered["ok"] is True
+        assert filtered["total"] >= 1, term
+        assert len(filtered["events"]) == 1
+        assert filtered["pages"] == filtered["total"]
+
     second_page = route_client.get("/api/admin/discord-link/audit?page=2&page_size=2").get_json()
     assert second_page["total"] == 3
     assert second_page["pages"] == 2
