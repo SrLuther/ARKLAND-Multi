@@ -1067,7 +1067,20 @@ def save_discord_link(
     if commit:
         db.commit()
         db.refresh(row)
-    return get_discord_link(db, sid) or {}
+    else:
+        # The caller may still have bonus/audit work in the same transaction.
+        # Flush the pending link before reading it; without this, a first-time
+        # link could look empty on databases/sessions that do not expose pending
+        # objects through Session.get(), producing ok=false with no useful error.
+        db.flush()
+    return {
+        "steam_id": row.steam_id,
+        "discord_user_id": row.discord_user_id,
+        "discord_username": row.discord_username,
+        "link_method": row.link_method,
+        "linked_at": row.linked_at.isoformat() if row.linked_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
 
 
 def create_ticket(

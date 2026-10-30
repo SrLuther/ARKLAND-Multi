@@ -140,10 +140,20 @@ class _Bundle:
 
 def _add_logs(b: _Bundle, budget: int, warnings: List[str]) -> None:
     logs = paths.logs_dir()
-    names = [paths.LOG_FILE_NAME] + [f"{paths.LOG_FILE_NAME}.{i}" for i in range(1, 8)]
+    sources: List[Tuple[str, Path]] = []
+    try:
+        # The Web Store runs in a separate process; its request log is essential
+        # for diagnosing API failures that the manager log can only summarize.
+        from ..shop_integration import webstore_data_dir
+        sources.append(("webstore.log", webstore_data_dir() / "webstore.log"))
+    except Exception as exc:  # noqa: BLE001 - diagnostics must continue without it
+        warnings.append(f"LocalizaÃ§Ã£o do log da Web Store indisponÃ­vel: {type(exc).__name__}")
+    sources.extend(
+        (name, logs / name)
+        for name in [paths.LOG_FILE_NAME] + [f"{paths.LOG_FILE_NAME}.{i}" for i in range(1, 8)]
+    )
     remaining = budget
-    for name in names:
-        p = logs / name
+    for name, p in sources:
         if remaining <= 0:
             break
         try:

@@ -4995,6 +4995,46 @@
       color: var(--text2);
       margin-top: 4px;
     }
+    .staff-server-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
+      gap: 12px;
+    }
+    .staff-server-card {
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid var(--border-g);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, var(--surface3), var(--surface2));
+      transition: border-color .18s, box-shadow .18s, transform .18s;
+    }
+    .staff-server-card:hover { border-color: rgba(255,153,40,.48); transform: translateY(-1px); }
+    .staff-server-card.is-selected {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 1px rgba(255,153,40,.22), 0 8px 24px rgba(0,0,0,.2);
+    }
+    .staff-server-card__select {
+      display: block;
+      width: 100%;
+      padding: 0;
+      color: inherit;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .staff-server-card__name { color: var(--text); font-weight: 700; font-size: 14px; }
+    .staff-server-card__map { margin-top: 4px; color: var(--text2); font-size: 12px; }
+    .staff-server-card__id { margin-top: 7px; color: var(--text2); font: 10px 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+    .staff-server-card__meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; }
+    .staff-server-card__state { font-size: 12px; font-weight: 700; }
+    .staff-server-card__state--running { color: #22c55e; }
+    .staff-server-card__state--stopped { color: #a1a1aa; }
+    .staff-server-card__state--busy { color: #f59e0b; }
+    .staff-server-card__state--unknown { color: var(--text2); }
+    .staff-server-card__actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .staff-server-card__actions .btn { flex: 1 1 72px; }
+    .staff-server-card__actions .btn:disabled { opacity: .42; cursor: not-allowed; }
     .home-section--connect {
       border: 1px solid rgba(0,200,255,.2);
       background: linear-gradient(135deg, rgba(0,200,255,.06) 0%, var(--surface2) 100%);
@@ -8141,13 +8181,10 @@
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">Operações de suporte</div>
           <p style="color:var(--text2);font-size:13px;line-height:1.5;">Iniciar, parar ou reiniciar mapas e consultar jogadores conectados. Acesso limitado à administração e à equipe de suporte. A conexão é feita pelo agente do Server Manager.</p>
-          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-            <div class="form-group" style="margin:0;min-width:240px;flex:1;"><label>Servidor</label><select id="staff-server-select" onchange="loadStaffServerPlayers()"><option value="">Selecione</option></select></div>
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
             <button class="btn btn-ghost" onclick="loadStaffServers()">Atualizar status</button>
-            <button class="btn btn-success" onclick="staffServerAction('start')">Iniciar</button>
-            <button class="btn btn-danger" onclick="staffServerAction('stop')">Parar</button>
-            <button class="btn btn-primary" onclick="staffServerAction('restart')">Reiniciar</button>
           </div>
+          <div id="staff-server-cards" class="staff-server-grid"><div class="empty-state">Carregando servidores do agente...</div></div>
           <div id="staff-server-status" style="margin-top:12px;color:var(--text2);font-size:13px;"></div>
         </div>
         <div class="card"><div class="card-title">Jogadores conectados</div><div id="staff-server-players" style="overflow-x:auto;"><div class="empty-state">Selecione um servidor.</div></div></div>
@@ -28007,6 +28044,7 @@ async function sendRcon() {
 
 // ── Servers ───────────────────────────────────────────────────────────────────
 let _staffGameServers = [];
+let _staffSelectedServerId = "";
 async function loadStaffServerAgentConfig() {
   if (!_auth?.is_admin) return;
   const status = document.getElementById("staff-server-agent-config-status");
@@ -28065,27 +28103,79 @@ async function testStaffServerAgentConnection() {
 }
 
 async function loadStaffServers(refreshAgentConfig = true) {
-  const select = document.getElementById("staff-server-select");
+  const cards = document.getElementById("staff-server-cards");
   const status = document.getElementById("staff-server-status");
-  if (!select) return;
+  if (!cards) return;
   if (refreshAgentConfig && _auth?.is_admin) await loadStaffServerAgentConfig();
-  if (status) status.textContent = "Consultando agente de servidores…";
+  if (status) status.textContent = "Consultando agente de servidores...";
   try {
     const d = await fetchJson("/api/staff/game-servers");
     _staffGameServers = d.servers || [];
-    const current = select.value;
-    select.innerHTML = '<option value="">Selecione</option>' + _staffGameServers.map(s => `<option value="${escHtml(s.server_id)}">${escHtml(s.name)} · ${escHtml(s.status)}</option>`).join("");
-    if (_staffGameServers.some(s => s.server_id === current)) select.value = current;
-    if (status) status.textContent = _staffGameServers.length ? `${_staffGameServers.length} servidor(es) registrado(s) no agente.` : "O agente não informou servidores.";
+    if (!_staffGameServers.some(s => s.server_id === _staffSelectedServerId)) {
+      _staffSelectedServerId = _staffGameServers[0]?.server_id || "";
+    }
+    renderStaffServerCards();
+    if (status) status.textContent = _staffGameServers.length
+      ? `${_staffGameServers.length} servidor(es) registrado(s) no agente.`
+      : "O agente nao informou servidores.";
     await loadStaffServerPlayers();
   } catch (e) {
     if (status) status.textContent = e.message || "Falha ao consultar o agente.";
-    document.getElementById("staff-server-players").innerHTML = '<div class="empty-state">Agente de servidores indisponível.</div>';
+    cards.innerHTML = `<div class="empty-state">${escHtml(e.message || "Agente de servidores indisponivel.")}</div>`;
+    document.getElementById("staff-server-players").innerHTML = '<div class="empty-state">Agente de servidores indisponivel.</div>';
   }
 }
 
+function staffServerState(server) {
+  const raw = String(server?.status || "unknown").toLowerCase();
+  if (["running", "online", "ativo", "executando"].includes(raw)) return {key:"running", label:"Online"};
+  if (["stopped", "offline", "parado", "crashed", "encerrado"].includes(raw)) return {key:"stopped", label:raw === "crashed" ? "Falha / parado" : "Offline"};
+  if (["starting", "stopping", "updating", "iniciando", "parando", "atualizando"].includes(raw)) return {key:"busy", label:raw};
+  return {key:"unknown", label:raw === "unknown" ? "Status desconhecido" : raw};
+}
+
+function renderStaffServerCards() {
+  const cards = document.getElementById("staff-server-cards");
+  if (!cards) return;
+  if (!_staffGameServers.length) {
+    cards.innerHTML = '<div class="empty-state">Nenhum servidor foi retornado pelo agente.</div>';
+    return;
+  }
+  cards.innerHTML = _staffGameServers.map(server => {
+    const sid = String(server.server_id || "");
+    const state = staffServerState(server);
+    const selected = sid === _staffSelectedServerId;
+    const busy = state.key === "busy";
+    const knownStopped = state.key === "stopped";
+    const knownRunning = state.key === "running";
+    const players = Number(server.players);
+    const playerCount = server.players !== null && server.players !== undefined && Number.isFinite(players)
+      ? `${players} jogador(es)` : "Jogadores: consultar";
+    return `<article class="staff-server-card${selected ? " is-selected" : ""}">
+      <button type="button" class="staff-server-card__select" onclick="selectStaffServer('${escHtml(sid)}')" aria-pressed="${selected}">
+        <div class="staff-server-card__name">${escHtml(server.name || sid)}</div>
+        ${server.map ? `<div class="staff-server-card__map">Mapa: ${escHtml(server.map)}</div>` : ""}
+        <div class="staff-server-card__id">ID: ${escHtml(sid)}</div>
+      </button>
+      <div class="staff-server-card__meta"><span class="staff-server-card__state staff-server-card__state--${state.key}">&#9679; ${escHtml(state.label)}</span><span style="color:var(--text2);font-size:11px;">${escHtml(playerCount)}</span></div>
+      ${server.pid ? `<div style="margin-top:5px;color:var(--text2);font-size:11px;">PID ${escHtml(server.pid)}</div>` : ""}
+      <div class="staff-server-card__actions">
+        <button class="btn btn-success btn-sm" onclick="staffServerAction('start','${escHtml(sid)}')" ${busy || !knownStopped ? "disabled" : ""}>Iniciar</button>
+        <button class="btn btn-danger btn-sm" onclick="staffServerAction('stop','${escHtml(sid)}')" ${busy || !knownRunning ? "disabled" : ""}>Parar</button>
+        <button class="btn btn-primary btn-sm" onclick="staffServerAction('restart','${escHtml(sid)}')" ${busy || !knownRunning ? "disabled" : ""}>Reiniciar</button>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function selectStaffServer(serverId) {
+  _staffSelectedServerId = String(serverId || "");
+  renderStaffServerCards();
+  loadStaffServerPlayers();
+}
+
 async function loadStaffServerPlayers() {
-  const sid = document.getElementById("staff-server-select")?.value || "";
+  const sid = _staffSelectedServerId;
   const el = document.getElementById("staff-server-players");
   const server = _staffGameServers.find(s => s.server_id === sid);
   if (!el) return;
@@ -28100,8 +28190,8 @@ async function loadStaffServerPlayers() {
   } catch (e) { el.innerHTML = `<div class="empty-state">${escHtml(e.message || "Não foi possível carregar jogadores")}</div>`; }
 }
 
-async function staffServerAction(action) {
-  const sid = document.getElementById("staff-server-select")?.value || "";
+async function staffServerAction(action, serverId = "") {
+  const sid = serverId || _staffSelectedServerId;
   if (!sid) return toast("Selecione um servidor.", "warning");
   const server = _staffGameServers.find(s => s.server_id === sid);
   const label = server?.name || sid;

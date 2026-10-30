@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.4"
+APP_VERSION: str = "1.11.5"
 BUILD_DATE: str = "2026-10-29"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.5",
+        "date": "2026-10-29",
+        "changes": [
+            "Discord: corrigida a confirmação do primeiro vínculo quando a sessão do banco usa autoflush desativado; o vínculo e o bônus de 10.000 Âmbares são confirmados na mesma transação.",
+            "Discord: respostas internas de falha sem justificativa agora recebem uma mensagem acionável em vez de HTTP 400 sem motivo.",
+            "Controle de servidores: servidores exibidos em cards com status, jogadores e ações adequadas ao estado (iniciar, parar e reiniciar).",
+            "Diagnóstico: pacote de suporte passa a incluir o log da Web Store com os segredos ocultados.",
+        ]
+    },
     {
         "version": "1.11.4",
         "date": "2026-10-29",

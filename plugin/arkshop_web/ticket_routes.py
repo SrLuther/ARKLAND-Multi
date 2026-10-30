@@ -124,7 +124,11 @@ def register_ticket_routes(
                     discord_username=discord_username,
                 )
                 if not out.get("ok"):
-                    return jsonify(out), 400
+                    reason = str(out.get("error") or out.get("message") or "").strip()
+                    if not reason:
+                        reason = "A Web Store recusou a vinculação sem informar o motivo. Consulte o log da Web Store."
+                        app.logger.error("discord_link_confirmation_rejected_without_reason")
+                    return jsonify({**out, "ok": False, "error": reason}), 400
                 return jsonify({"ok": True, **out})
             finally:
                 db.close()

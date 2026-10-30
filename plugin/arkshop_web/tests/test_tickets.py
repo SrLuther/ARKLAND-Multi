@@ -176,6 +176,49 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     ]
 
 
+def test_save_discord_link_without_commit_flushes_and_returns_pending_link(ticket_db):
+    from app import SupportTicketDiscordLink
+
+    ticket_db.autoflush = False
+    result = save_discord_link(
+        ticket_db,
+        steam_id=USER_STEAM,
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+        link_method="ingame_code",
+        commit=False,
+    )
+
+    assert result["steam_id"] == USER_STEAM
+    assert result["discord_user_id"] == "987654321"
+    assert ticket_db.query(SupportTicketDiscordLink).filter_by(steam_id=USER_STEAM).one()
+    assert ticket_db.in_transaction()
+
+
+def test_confirm_discord_link_survives_empty_readback_after_save(ticket_db, monkeypatch):
+    import ticket_service
+
+    # Match the production session factory in app.py, which disables autoflush.
+    ticket_db.autoflush = False
+    generated = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    assert generated["ok"] is True
+    monkeypatch.setattr(ticket_service, "get_discord_link", lambda *_args: None)
+
+    confirmed = confirm_discord_link_code_for_discord_user(
+        ticket_db,
+        generated["code"],
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+
+    assert confirmed["ok"] is True
+    assert confirmed["first_link_bonus"] == 10_000
+    balance = ticket_db.execute(
+        text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}
+    ).scalar_one()
+    assert balance == 10_000
+
+
 def test_confirm_discord_link_code_accepts_legacy_double_hyphen(ticket_db):
     from app import SupportTicketDiscordLinkCode
 

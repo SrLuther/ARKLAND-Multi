@@ -1,8 +1,11 @@
 {
-    "version": "1.11.4",
+    "version": "1.11.5",
     "date": "2026-10-29",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.4/ARKLAND-Multi-Setup-v1.11.4.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.5/ARKLAND-Multi-Setup-v1.11.5.exe",
     "changelog": [
-        "Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP público e duplicar configurações manuais."
+        "Discord: corrigida a confirmação do primeiro vínculo quando a sessão do banco usa autoflush desativado; o vínculo e o bônus de 10.000 Âmbares são confirmados na mesma transação.",
+        "Discord: respostas internas de falha sem justificativa agora recebem uma mensagem acionável em vez de HTTP 400 sem motivo.",
+        "Controle de servidores: servidores exibidos em cards com status, jogadores e ações adequadas ao estado (iniciar, parar e reiniciar).",
+        "Diagnóstico: pacote de suporte passa a incluir o log da Web Store com os segredos ocultados."
     ]
 }

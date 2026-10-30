@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 20:16:31 -->
-<!-- Total de versões: 497 | Primeira: 1.11.4 -->
+<!-- Gerado: 2026-10-29 23:33:54 -->
+<!-- Total de versões: 498 | Primeira: 1.11.5 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.5] - 2026-10-29
+
+### Other
+
+- Discord: corrigida a confirmação do primeiro vínculo quando a sessão do banco usa autoflush desativado; o vínculo e o bônus de 10.000 Âmbares são confirmados na mesma transação.
+- Discord: respostas internas de falha sem justificativa agora recebem uma mensagem acionável em vez de HTTP 400 sem motivo.
+- Controle de servidores: servidores exibidos em cards com status, jogadores e ações adequadas ao estado (iniciar, parar e reiniciar).
+- Diagnóstico: pacote de suporte passa a incluir o log da Web Store com os segredos ocultados.
 
 ## [1.11.4] - 2026-10-29
 
