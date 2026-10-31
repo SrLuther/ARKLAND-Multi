@@ -140,7 +140,11 @@ def register_ticket_routes(
                     discord_username=discord_username,
                 )
                 if not out.get("ok"):
-                    return jsonify(out), 400
+                    reason = str(out.get("error") or out.get("message") or "").strip()
+                    if not reason:
+                        reason = "A Web Store recusou a vinculação sem informar o motivo. Consulte o log da Web Store."
+                        app.logger.error("discord_link_confirmation_rejected_without_reason")
+                    return jsonify({**out, "ok": False, "error": reason}), 400
                 return jsonify({"ok": True, **out})
             finally:
                 db.close()
@@ -228,11 +232,12 @@ def register_ticket_routes(
         search = str(request.args.get("q") or "").strip()[:120]
         db = session_factory()
         try:
-            total = count_discord_link_admin_audit(db, search=search)
+            query = str(request.args.get("q", "")).strip()[:128]
+            total = count_discord_link_admin_audit(db, query=query)
             pages = max(1, (total + page_size - 1) // page_size)
             page = min(page, pages)
             events = list_discord_link_admin_audit(
-                db, limit=page_size, offset=(page - 1) * page_size, search=search
+                db, limit=page_size, offset=(page - 1) * page_size, query=query
             )
             return jsonify({"ok": True, "events": events, "total": total,
                             "page": page, "page_size": page_size, "pages": pages,

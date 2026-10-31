@@ -4,7 +4,7 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.5"
+APP_VERSION: str = "1.11.8"
 BUILD_DATE: str = "2026-10-31"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,45 +12,69 @@ BUILD_DATE: str = "2026-10-31"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
-        "version": "1.11.5",
+        "version": "1.11.8",
         "date": "2026-10-31",
         "changes": [
             "Web Store: auditoria Discord pesquis\u00e1vel por nick Steam, nick Discord, SteamID ou DiscordID; identidade Discord aparece no perfil junto do nick Steam.",
-            "Servidores: Membros por mapa inclui identidades sem SteamID e identifica IDs do TribeSync fora do cadastro; lista jogadores online por mapa via RCON com atualiza\u00e7\u00e3o a cada 30 segundos.",
-            "Navega\u00e7\u00e3o: BetLand recebe identidade visual pr\u00f3pria; Guia, Equipes, Com\u00e9rcio e Regulamento foram reorganizados; Minha \u00c1rea e a tela inicial ganharam layout mais compacto.",
+            "Servidores: Membros por mapa inclui identidades sem SteamID, identifica IDs do TribeSync fora do cadastro e mostra jogadores online por mapa via RCON com atualiza\u00e7\u00e3o a cada 30 segundos.",
+            "Navega\u00e7\u00e3o: BetLand recebe identidade visual pr\u00f3pria; Guia, Equipes, Com\u00e9rcio e Regulamento foram reorganizados; Minha\u00a0\u00c1rea e a tela inicial ganharam layout mais compacto.",
             "Conte\u00fado: removidas op\u00e7\u00f5es antigas sem efeito e corrigidos textos corrompidos encontrados nas p\u00e1ginas administrativas.",
         ],
+    },
+    {
+        "version": "1.11.7",
+        "date": "2026-10-30",
+        "changes": [
+            "Discord: busca administrativa na auditoria por nick Steam, nick Discord, ID Steam e ID Discord, com filtro aplicado ao histórico inteiro.",
+        ],
+    },
+    {
+        "version": "1.11.6",
+        "date": "2026-10-30",
+        "changes": [
+            "Discord \u2014 Vincula\u00e7\u00e3o: auditoria compacta e responsiva, com textos corrigidos e identifica\u00e7\u00e3o clara de b\u00f4nus e eventos.",
+        ],
+    },
+    {
+        "version": "1.11.5",
+        "date": "2026-10-29",
+        "changes": [
+            "Discord: corrigida a confirmação do primeiro vínculo quando a sessão do banco usa autoflush desativado; o vínculo e o bônus de 10.000 Âmbares são confirmados na mesma transação.",
+            "Discord: respostas internas de falha sem justificativa agora recebem uma mensagem acionável em vez de HTTP 400 sem motivo.",
+            "Controle de servidores: servidores exibidos em cards com status, jogadores e ações adequadas ao estado (iniciar, parar e reiniciar).",
+            "Diagnóstico: pacote de suporte passa a incluir o log da Web Store com os segredos ocultados.",
+        ]
     },
     {
         "version": "1.11.4",
         "date": "2026-10-29",
         "changes": [
-            "Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP p\u00fablico e duplicar configura\u00e7\u00f5es manuais.",
-        ],
+            "Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP público e duplicar configurações manuais.",
+        ]
     },
     {
         "version": "1.11.3",
         "date": "2026-10-29",
         "changes": [
-            "Discord: falha HTTP 400 sem motivo estruturado agora orienta verificar se o bot consulta a mesma Web Store e o mesmo banco em que o c\u00f3digo foi gerado.",
-        ],
+            "Discord: falha HTTP 400 sem motivo estruturado agora orienta verificar se o bot consulta a mesma Web Store e o mesmo banco em que o código foi gerado.",
+        ]
     },
     {
         "version": "1.11.2",
         "date": "2026-10-29",
         "changes": [
             "Controle remoto: agente lista servidores ASE configurados inclusive parados e encaminha iniciar/parar/reiniciar ao gerenciador correto; status online do agente independe do estado dos mapas.",
-            "Discord: mensagens de falha na vincula\u00e7\u00e3o agora informam a causa acion\u00e1vel (c\u00f3digo, autentica\u00e7\u00e3o, URL, limite ou servi\u00e7o indispon\u00edvel); erros internos incluem refer\u00eancia para localizar o detalhe no log da Web Store.",
-            "Web Store: erros internos da API recebem identificador de refer\u00eancia registrado junto ao traceback para facilitar a investiga\u00e7\u00e3o sem expor detalhes internos no Discord.",
-        ],
+            "Discord: mensagens de falha na vinculação agora informam a causa acionável (código, autenticação, URL, limite ou serviço indisponível); erros internos incluem referência para localizar o detalhe no log da Web Store.",
+            "Web Store: erros internos da API recebem identificador de referência registrado junto ao traceback para facilitar a investigação sem expor detalhes internos no Discord.",
+        ]
     },
     {
         "version": "1.11.1",
         "date": "2026-10-29",
         "changes": [
-            "Discord: aceita c\u00f3digos de vincula\u00e7\u00e3o com um ou dois h\u00edfens ap\u00f3s ARKLAND, compat\u00edvel com os formatos mostrados pelo site e pelo bot.",
-            "Servidores: configura\u00e7\u00e3o da URL e do token do agente na tela Controle de servidores, restrita a administradores e com token protegido no armazenamento do site.",
-        ],
+            "Discord: aceita códigos de vinculação com um ou dois hífens após ARKLAND, compatível com os formatos mostrados pelo site e pelo bot.",
+            "Servidores: configuração da URL e do token do agente na tela Controle de servidores, restrita a administradores e com token protegido no armazenamento do site.",
+        ]
     },
     {
         "version": "1.11.0",

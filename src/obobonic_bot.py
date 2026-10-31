@@ -151,14 +151,16 @@ def save_bot_fields(
 def start_embedded_bot(app: Any) -> Tuple[bool, str]:
     """Inicia o bot embutido com a config atual do app."""
     cfg = live_config(app)
-    settings = BotSettings.from_config(cfg)
+    app_config = getattr(getattr(app, "config_manager", None), "config", None)
+    settings = BotSettings.from_config(cfg, shop_config=getattr(app_config, "shop", None))
     runner = get_runner(app)
     return runner.start(settings, auto_restart=cfg.auto_restart_on_crash)
 
 
 def restart_embedded_bot(app: Any) -> Tuple[bool, str]:
     cfg = live_config(app)
-    settings = BotSettings.from_config(cfg)
+    app_config = getattr(getattr(app, "config_manager", None), "config", None)
+    settings = BotSettings.from_config(cfg, shop_config=getattr(app_config, "shop", None))
     return get_runner(app).restart(settings, auto_restart=cfg.auto_restart_on_crash)
 
 

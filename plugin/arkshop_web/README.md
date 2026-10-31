@@ -41,7 +41,7 @@ RCON (`Shop.Deliver`) permanece disponível como modo legado (`delivery_mode: rc
 
 ## Controles de servidores pelo site
 
-A página **Servidores — Suporte** usa o agente já integrado ao Server Manager. No ambiente do processo Web Store, configure `ARKSHOP_SERVER_AGENT_URL` com a URL LAN do agente (por exemplo, `http://192.168.1.10:32440`) e `ARKSHOP_SERVER_AGENT_TOKEN` com o token configurado no painel remoto do Server Manager. Mantenha a porta acessível somente pela rede administrativa e reinicie a Web Store após alterar as variáveis. Sem as duas variáveis, o painel mostra que o agente não está configurado e não executa operações. Administradores e suporte podem listar jogadores, kickar SteamID conectado e iniciar/parar/reiniciar servidores registrados no agente.
+A página **Controle de servidores** usa o agente integrado ao Server Manager. Administradores configuram URL e token na própria tela; a equipe de suporte vê apenas os controles operacionais. O token fica protegido no `settings.json` da Web Store e não é devolvido pela API. Como alternativa, as variáveis `ARKSHOP_SERVER_AGENT_URL` e `ARKSHOP_SERVER_AGENT_TOKEN` continuam aceitas. No Server Manager instalado no Windows, o `.env` persistente pode ser criado em `%APPDATA%\ARKLAND-ServerManager\arkshop_web\.env`; o diretório é criado pela instalação/execução da Web Store. Após editar esse arquivo, reinicie a Web Store. Mantenha a porta do agente acessível somente pela rede administrativa. Administradores e suporte podem listar jogadores, kickar SteamID conectado e iniciar/parar/reiniciar servidores registrados no agente.
 
 ## Estrutura do config.json (ArkShop 3.x)
 

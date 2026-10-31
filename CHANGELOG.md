@@ -1,18 +1,39 @@
 # Changelog
 
-<!-- Gerado: 2026-10-31 01:17:38 -->
-<!-- Total de versões: 498 | Primeira: 1.11.5 -->
+<!-- Gerado: 2026-10-31 01:20:45 -->
+<!-- Total de versões: 501 | Primeira: 1.11.8 -->
 
 <!-- markdownlint-disable MD024 -->
 
-## [1.11.5] - 2026-10-31
+## [1.11.8] - 2026-10-31
 
 ### Other
 
 - Web Store: auditoria Discord pesquisável por nick Steam, nick Discord, SteamID ou DiscordID; identidade Discord aparece no perfil junto do nick Steam.
-- Servidores: Membros por mapa inclui identidades sem SteamID e identifica IDs do TribeSync fora do cadastro; lista jogadores online por mapa via RCON com atualização a cada 30 segundos.
-- Navegação: BetLand recebe identidade visual própria; Guia, Equipes, Comércio e Regulamento foram reorganizados; Minha Área e a tela inicial ganharam layout mais compacto.
+- Servidores: Membros por mapa inclui identidades sem SteamID, identifica IDs do TribeSync fora do cadastro e mostra jogadores online por mapa via RCON com atualização a cada 30 segundos.
+- Navegação: BetLand recebe identidade visual própria; Guia, Equipes, Comércio e Regulamento foram reorganizados; Minha Área e a tela inicial ganharam layout mais compacto.
 - Conteúdo: removidas opções antigas sem efeito e corrigidos textos corrompidos encontrados nas páginas administrativas.
+
+## [1.11.7] - 2026-10-30
+
+### Other
+
+- Discord: busca administrativa na auditoria por nick Steam, nick Discord, ID Steam e ID Discord, com filtro aplicado ao histórico inteiro.
+
+## [1.11.6] - 2026-10-30
+
+### Other
+
+- Discord — Vinculação: auditoria compacta e responsiva, com textos corrigidos e identificação clara de bônus e eventos.
+
+## [1.11.5] - 2026-10-29
+
+### Other
+
+- Discord: corrigida a confirmação do primeiro vínculo quando a sessão do banco usa autoflush desativado; o vínculo e o bônus de 10.000 Âmbares são confirmados na mesma transação.
+- Discord: respostas internas de falha sem justificativa agora recebem uma mensagem acionável em vez de HTTP 400 sem motivo.
+- Controle de servidores: servidores exibidos em cards com status, jogadores e ações adequadas ao estado (iniciar, parar e reiniciar).
+- Diagnóstico: pacote de suporte passa a incluir o log da Web Store com os segredos ocultados.
 
 ## [1.11.4] - 2026-10-29
 

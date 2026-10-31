@@ -62,8 +62,15 @@ def env(tmp_path, monkeypatch):
         f"2026-01-01 | INFO | password={SECRET_SMTP}\n"
         f"2026-01-01 | INFO | chave solta no meio do texto {SECRET_API_KEY} fim\n",
         encoding="utf-8")
+    webstore_logs = tmp_path / "webstore"
+    webstore_logs.mkdir()
+    (webstore_logs / "webstore.log").write_text(
+        f'2026-10-29T22:37:00Z route="/api/internal/tickets/discord-link/confirm" status=400 api_error="cÃ³digo invÃ¡lido" token={SECRET_API_KEY}\n',
+        encoding="utf-8")
+    monkeypatch.setenv("ARKSHOP_DATA_DIR", str(webstore_logs))
     out = tmp_path / "out"
-    return {"cdir": cdir, "inst": inst, "out": out, "tmp": tmp_path}
+    return {"cdir": cdir, "inst": inst, "out": out, "tmp": tmp_path,
+            "webstore_logs": webstore_logs}
 
 
 def _collect(env, **kw):
@@ -89,7 +96,7 @@ def test_zip_contem_arquivos_esperados(env):
     entries = _read_all(res.path)
     names = set(entries)
     for expected in ("app_info.json", "README.txt", "redaction_info.json", "doctor.json", "doctor.txt",
-                     "events.json", "logs/arkland.log", "config/config.json"):
+                     "events.json", "logs/arkland.log", "logs/webstore.log", "config/config.json"):
         assert expected in names, expected
     assert any(n.endswith("/state.json") for n in names)
     assert any(n.endswith("/ini/GameUserSettings.ini") for n in names)
@@ -131,6 +138,13 @@ def test_varredura_por_valor_pega_segredo_solto_no_log(env):
     """O valor de api_key aparece no log sem a chave ao lado — só a varredura por valor pega."""
     text = _find(_read_all(_collect(env).path), "logs/arkland.log")
     assert SECRET_API_KEY not in text and "linha normal" in text and REDACTED in text
+
+
+def test_log_da_webstore_entra_no_pacote_com_segredos_mascarados(env):
+    text = _find(_read_all(_collect(env).path), "logs/webstore.log")
+    assert "discord-link/confirm" in text and "status=400" in text
+    assert "cÃ³digo invÃ¡lido" in text
+    assert SECRET_API_KEY not in text and REDACTED in text
 
 
 def test_arquivos_com_nome_sensivel_sao_pulados(env):

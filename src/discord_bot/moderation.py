@@ -179,6 +179,14 @@ class Moderation(commands.Cog):
             discord_user_id=str(message.author.id),
             discord_username=str(message.author),
         )
+        if not result.ok:
+            # Keep diagnosis useful without recording the one-time code or API key.
+            log.warning(
+                "Discord link validation failed: http_status=%s discord_user_id=%s reason=%s",
+                result.status_code or "connection_error",
+                message.author.id,
+                result.message[:320],
+            )
         await self._safe_delete(message)
         if result.ok:
             if isinstance(message.author, discord.Member):

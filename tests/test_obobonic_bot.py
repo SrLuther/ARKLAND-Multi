@@ -326,6 +326,143 @@ class TestSettingsHelpers:
         assert client.configured()
         assert "private-key" not in repr(settings)
 
+    def test_embedded_bot_uses_canonical_host_shop_connection(self, tmp_path):
+        from types import SimpleNamespace
+
+        cfg = ObobonicBotConfig(
+            token=FAKE_TOKEN,
+            arkshop_web_url="http://179.185.19.88:27199",
+            arkshop_api_key="stale-manual-key",
+        )
+        shop = SimpleNamespace(mode="host", port=27199, api_key="canonical-shop-key")
+        settings = BotSettings.from_config(cfg, data_dir=tmp_path, shop_config=shop)
+
+        assert settings.arkshop_web_url == "http://127.0.0.1:27199"
+        assert settings.arkshop_api_key == "canonical-shop-key"
+
+    def test_validator_reports_actionable_http_failures_without_leaking_body(self, monkeypatch):
+        import io
+        from urllib.error import HTTPError
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test", api_key="secret")
+
+        def fail_auth(*_args, **_kwargs):
+            raise HTTPError("https://store.example.test/confirm", 401, "Unauthorized", {}, io.BytesIO(b"{}"))
+
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", fail_auth)
+        result = client.confirm_code(code="ARKLAND-invalid", discord_user_id="123456789", discord_username="Tester")
+        assert not result.ok
+        assert result.status_code == 401
+        assert "chave da API" in result.message
+        assert "secret" not in result.message
+
+    def test_validator_preserves_backend_validation_reason(self, monkeypatch):
+        import io
+        import json
+        from urllib.error import HTTPError
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test", api_key="secret")
+
+        def reject_code(*_args, **_kwargs):
+            body = json.dumps({"ok": False, "error": "Código expirado. Gere outro."}).encode("utf-8")
+            raise HTTPError("https://store.example.test/confirm", 400, "Bad Request", {}, io.BytesIO(body))
+
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", reject_code)
+        result = client.confirm_code(code="ARKLAND-invalid", discord_user_id="123456789", discord_username="Tester")
+        assert not result.ok
+        assert result.status_code == 400
+        assert "C\u00f3digo expirado" in result.message
+        assert "HTTP 400" in result.message
+
+    def test_validator_explains_http_400_without_api_reason(self, monkeypatch):
+        import io
+        from urllib.error import HTTPError
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test", api_key="secret")
+
+        def reject_without_json(*_args, **_kwargs):
+            raise HTTPError("https://store.example.test/confirm", 400, "Bad Request", {}, io.BytesIO(b""))
+
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", reject_without_json)
+        result = client.confirm_code(code="ARKLAND-valid-looking", discord_user_id="123456789", discord_username="Tester")
+        assert not result.ok
+        assert result.status_code == 400
+        assert "sem informar o motivo" in result.message
+        assert "mesma Web Store" in result.message
+
+    def test_validator_explains_web_store_internal_errors(self, monkeypatch):
+        import io
+        import json
+        from urllib.error import HTTPError
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test", api_key="secret")
+
+        def fail_server(*_args, **_kwargs):
+            body = json.dumps({"ok": False, "error": "Erro interno temporário.", "reference": "abc123def456"}).encode("utf-8")
+            raise HTTPError("https://store.example.test/confirm", 500, "Internal Server Error", {}, io.BytesIO(body))
+
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", fail_server)
+        result = client.confirm_code(code="ARKLAND-invalid", discord_user_id="123456789", discord_username="Tester")
+        assert not result.ok
+        assert result.status_code == 500
+        assert "erro interno" in result.message
+        assert "abc123def456" in result.message
+        assert result.reference_id == "abc123def456"
+
+    def test_validator_explains_connection_failure(self, monkeypatch):
+        from urllib.error import URLError
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test", api_key="secret")
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(URLError("offline")))
+        result = client.confirm_code(code="ARKLAND-invalid", discord_user_id="123456789", discord_username="Tester")
+        assert not result.ok
+        assert result.status_code == 0
+        assert "Confira se a URL está acessível" in result.message
+
+    def test_validator_returns_success_and_first_link_bonus(self, monkeypatch):
+        import io
+        import json
+        from src.discord_bot import settings as bot_settings
+        from src.discord_bot.settings import DiscordLinkValidatorClient
+
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return json.dumps({"ok": True, "steam_id": "76561198171864983", "first_link_bonus": 10000}).encode()
+
+        captured = {}
+
+        def succeed(req, **_kwargs):
+            captured["url"] = req.full_url
+            captured["api_key"] = req.get_header("X-api-key")
+            return Response()
+
+        monkeypatch.setattr(bot_settings.urllib_request, "urlopen", succeed)
+        client = DiscordLinkValidatorClient(base_url="https://store.example.test/", api_key="secret")
+        result = client.confirm_code(code="ARKLAND-code", discord_user_id="123456789", discord_username="Tester")
+        assert result.ok
+        assert result.first_link_bonus == 10000
+        assert result.steam_id == "76561198171864983"
+        assert captured["url"] == "https://store.example.test/api/internal/tickets/discord-link/confirm"
+        assert captured["api_key"] == "secret"
+
 
 # ── Ciclo de vida no app ─────────────────────────────────────────────────────
 class TestAppLifecycle:

@@ -463,7 +463,7 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token")
 
 _AMBER_SINGULAR = "Ambar"
 _AMBER_PLURAL = "Ambares"
@@ -510,10 +510,12 @@ def _api_unhandled_exception_handler(exc: Exception):
         return _api_http_exception_handler(exc)
     if not _is_api_request():
         raise exc
-    log.exception("api_unhandled path=%s", getattr(request, "path", "?"))
+    error_id = uuid.uuid4().hex[:12]
+    log.exception("api_unhandled error_id=%s path=%s", error_id, getattr(request, "path", "?"))
     return jsonify({
         "ok": False,
         "error": "Erro interno temporário. Tente novamente em instantes.",
+        "reference": error_id,
         "degraded": True,
     }), 500
 
@@ -2781,6 +2783,8 @@ def _load_settings() -> dict[str, Any]:
         "ticket_discord_enabled": False,
         "ticket_discord_channel_id": "",
         "ticket_discord_token": "",
+        "server_agent_url": "",
+        "server_agent_token": "",
         "discord_validation_channel_id": "",
         "discord_validation_role_id": "",
         "discord_engagement_guild_id": "",
@@ -9997,13 +10001,14 @@ def get_settings():
         return resp
 
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
     safe["mp_webhook_secret_set"] = bool(_get_mp_webhook_secret())
     safe["steam_api_key_set"] = bool(_get_steam_api_key())
     safe["ticket_discord_token_set"] = bool(s.get("ticket_discord_token"))
+    safe["server_agent_token_set"] = bool(s.get("server_agent_token"))
     safe["pix_enabled"] = _pix_enabled()
     safe["card_enabled"] = _payments_enabled()
     safe["paypal_enabled"] = _paypal_enabled()
@@ -13270,10 +13275,59 @@ def admin_cloud_inventory_slot(cloud_group: str, steam_id: str, slot: int):
 
 
 def _server_agent_config() -> tuple[str, str]:
+    settings = _load_settings()
     return (
-        os.environ.get("ARKSHOP_SERVER_AGENT_URL", os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL", "")).strip().rstrip("/"),
-        os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN", os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN", "")).strip(),
+        str(settings.get("server_agent_url") or os.environ.get("ARKSHOP_SERVER_AGENT_URL") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL") or "").strip().rstrip("/"),
+        str(settings.get("server_agent_token") or os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN") or "").strip(),
     )
+
+
+@app.route("/api/admin/server-agent/config", methods=["GET"])
+@admin_required
+@limiter.limit("60 per minute")
+def admin_get_server_agent_config():
+    settings = _load_settings()
+    env_url = os.environ.get("ARKSHOP_SERVER_AGENT_URL") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL") or ""
+    env_token = os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN") or ""
+    saved_url = str(settings.get("server_agent_url") or "").strip().rstrip("/")
+    saved_token = str(settings.get("server_agent_token") or "").strip()
+    url = saved_url or str(env_url).strip().rstrip("/")
+    token_set = bool(saved_token or env_token)
+    return jsonify({
+        "ok": True,
+        "url": url,
+        "token_set": token_set,
+        "configured": bool(url and token_set),
+        "source": "site" if saved_url or saved_token else ("environment" if env_url or env_token else "none"),
+    })
+
+
+@app.route("/api/admin/server-agent/config", methods=["POST"])
+@admin_required
+@limiter.limit("20 per hour")
+def admin_save_server_agent_config():
+    body = request.get_json(silent=True) or {}
+    url = str(body.get("url") or "").strip().rstrip("/")
+    token = str(body.get("token") or "").strip()
+    clear_token = bool(body.get("clear_token"))
+    if len(url) > 500 or len(token) > 2048:
+        return jsonify({"ok": False, "error": "URL ou token excede o tamanho permitido."}), 400
+    if url:
+        parsed = urllib.parse.urlsplit(url)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username or parsed.password or parsed.query or parsed.fragment
+                or parsed.path not in {"", "/"}):
+            return jsonify({"ok": False, "error": "Informe uma URL http(s) com host e porta opcionais, sem caminho, usuário ou parâmetros."}), 400
+    settings = _load_settings()
+    settings["server_agent_url"] = url
+    if clear_token:
+        settings["server_agent_token"] = ""
+    elif token:
+        settings["server_agent_token"] = token
+    _save_settings(settings)
+    saved_token = str(settings.get("server_agent_token") or "").strip()
+    _log("server_agent_config_saved", admin=_steam_id_from_session(), configured=bool(url and saved_token), token_changed=bool(token or clear_token))
+    return jsonify({"ok": True, "url": url, "token_set": bool(saved_token), "configured": bool(url and saved_token)})
 
 
 def _server_agent_request(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:

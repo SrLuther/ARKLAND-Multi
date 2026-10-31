@@ -903,7 +903,22 @@ def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
     })
 
 
-def list_discord_link_admin_audit(db: Any, *, limit: int = 100, offset: int = 0, search: str = "") -> list[dict[str, Any]]:
+def _discord_link_audit_search_filter(query: str | None) -> tuple[str, dict[str, str]]:
+    value = str(query or "").strip().casefold()
+    if not value:
+        return "", {}
+    value = value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    fields = ("steam_name", "discord_username", "steam_id", "discord_user_id")
+    clause = " OR ".join(
+        f"LOWER(COALESCE(a.{field}, '')) LIKE :audit_query ESCAPE '!'"
+        for field in fields
+    )
+    return f" WHERE ({clause})", {"audit_query": f"%{value}%"}
+
+
+def list_discord_link_admin_audit(
+    db: Any, *, limit: int = 100, offset: int = 0, query: str | None = None
+) -> list[dict[str, Any]]:
     bind = getattr(db, "bind", None)
     dialect = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect in {"mysql", "mariadb"}:
@@ -922,33 +937,23 @@ def list_discord_link_admin_audit(db: Any, *, limit: int = 100, offset: int = 0,
     else:
         steam_id_match = "l.steam_id = a.steam_id"
         discord_id_match = "l.discord_user_id = a.discord_user_id"
-    search = str(search or "").strip()[:120]
-    where = ""
-    params: dict[str, Any] = {"lim": max(1, min(int(limit), 200)), "off": max(0, int(offset))}
-    if search:
-        where = "WHERE LOWER(COALESCE(a.steam_name, '')) LIKE LOWER(:q) OR LOWER(COALESCE(a.discord_username, '')) LIKE LOWER(:q) OR CAST(a.steam_id AS CHAR) LIKE :q OR CAST(a.discord_user_id AS CHAR) LIKE :q"
-        params["q"] = f"%{search}%"
+    search_sql, search_params = _discord_link_audit_search_filter(query)
     rows = db.execute(text(f"""SELECT a.id,a.event_type,a.steam_id,a.steam_name,a.discord_user_id,
         a.discord_username,a.actor_steam_id,a.actor_name,a.code,a.amber_delta,a.note,a.created_at,
         CASE WHEN l.steam_id IS NOT NULL AND {discord_id_match} THEN 1 ELSE 0 END AS is_active
         FROM support_ticket_discord_link_audit a
         LEFT JOIN support_ticket_discord_links l ON {steam_id_match}
-        {where}
-        ORDER BY a.id DESC LIMIT :lim OFFSET :off"""), params).mappings().all()
+        {search_sql}
+        ORDER BY a.id DESC LIMIT :lim OFFSET :off"""),
+        {**search_params, "lim": max(1, min(int(limit), 200)), "off": max(0, int(offset))}).mappings().all()
     return [dict(row) for row in rows]
 
 
-def count_discord_link_admin_audit(db: Any, *, search: str = "") -> int:
-    search = str(search or "").strip()[:120]
-    if not search:
-        return int(db.execute(text("SELECT COUNT(*) FROM support_ticket_discord_link_audit")).scalar() or 0)
-    return int(db.execute(text("""
-        SELECT COUNT(*) FROM support_ticket_discord_link_audit a
-        WHERE LOWER(COALESCE(a.steam_name, '')) LIKE LOWER(:q)
-           OR LOWER(COALESCE(a.discord_username, '')) LIKE LOWER(:q)
-           OR CAST(a.steam_id AS CHAR) LIKE :q
-           OR CAST(a.discord_user_id AS CHAR) LIKE :q
-    """), {"q": f"%{search}%"}).scalar() or 0)
+def count_discord_link_admin_audit(db: Any, *, query: str | None = None) -> int:
+    search_sql, search_params = _discord_link_audit_search_filter(query)
+    return int(db.execute(text(
+        f"SELECT COUNT(*) FROM support_ticket_discord_link_audit a{search_sql}"
+    ), search_params).scalar() or 0)
 
 
 def admin_unlink_discord(db: Any, *, steam_id: str, actor_steam_id: str,
@@ -1098,7 +1103,20 @@ def save_discord_link(
     if commit:
         db.commit()
         db.refresh(row)
-    return get_discord_link(db, sid) or {}
+    else:
+        # The caller may still have bonus/audit work in the same transaction.
+        # Flush the pending link before reading it; without this, a first-time
+        # link could look empty on databases/sessions that do not expose pending
+        # objects through Session.get(), producing ok=false with no useful error.
+        db.flush()
+    return {
+        "steam_id": row.steam_id,
+        "discord_user_id": row.discord_user_id,
+        "discord_username": row.discord_username,
+        "link_method": row.link_method,
+        "linked_at": row.linked_at.isoformat() if row.linked_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
 
 
 def create_ticket(

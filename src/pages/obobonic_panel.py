@@ -67,8 +67,8 @@ _FIELD_ROWS = (
     ("quarantine_role_id", "Cargo de quarentena", False, "usado por !limpezageral"),
     ("validation_channel_id", "Canal de validação", False, "aceita somente códigos ARKLAND-*"),
     ("validation_role_id", "Cargo de validação", False, "opcional: aplica ao validar"),
-    ("arkshop_web_url", "URL da Web Store", False, "ex.: http://IP_DO_SERVIDOR:27199"),
-    ("arkshop_api_key", "Chave da API Web Store", True, "mesma ARKSHOP_API_KEY configurada na Web Store"),
+    ("arkshop_web_url", "URL da Web Store (fallback)", False, "usa automaticamente Loja/CustomShop; este campo só vale sem URL central"),
+    ("arkshop_api_key", "Chave da API Web Store (fallback)", True, "usa automaticamente a chave Loja/CustomShop; este campo só vale sem chave central"),
 )
 
 
@@ -547,7 +547,10 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
 
     # ── Status / validação ────────────────────────────────────────────────
     def _refresh_validation() -> None:
-        settings = BotSettings.from_config(live_config(app))
+        app_config = getattr(getattr(app, "config_manager", None), "config", None)
+        settings = BotSettings.from_config(
+            live_config(app), shop_config=getattr(app_config, "shop", None)
+        )
         problems = settings.problems()
         parts = []
         if problems:
@@ -555,6 +558,8 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
             val_lbl.configure(text="  ·  ".join(parts), text_color=_AMBER)
             return
         parts.append("✅ Bot embutido no app · token válido")
+        if settings.arkshop_web_url:
+            parts.append(f"Web Store do bot: {settings.arkshop_web_url}")
         for w in settings.warnings():
             parts.append("⚠ " + w)
         val_lbl.configure(text="  ·  ".join(parts), text_color=_GREEN if len(parts) == 1 else _AMBER)

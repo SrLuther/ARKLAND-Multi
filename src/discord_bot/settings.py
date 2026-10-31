@@ -161,8 +161,44 @@ class BotSettings:
     enable_moderation: bool = True
 
     @classmethod
-    def from_config(cls, cfg: Any, data_dir: Optional[Path] = None) -> "BotSettings":
+    def from_config(
+        cls,
+        cfg: Any,
+        data_dir: Optional[Path] = None,
+        shop_config: Any = None,
+    ) -> "BotSettings":
         prefix = (getattr(cfg, "command_prefix", "") or "").strip() or DEFAULT_PREFIX
+        web_url = (
+            (getattr(cfg, "arkshop_web_url", "") or "").strip()
+            or os.environ.get("ARKSHOP_WEB_URL", "").strip()
+            or os.environ.get("ARKSHOP_WEBSTORE_URL", "").strip()
+            or os.environ.get("ARKLAND_WEB_URL", "").strip()
+        )
+        api_key = (
+            (getattr(cfg, "arkshop_api_key", "") or "").strip()
+            or os.environ.get("ARKSHOP_API_KEY", "").strip()
+        )
+        if shop_config is not None:
+            # The embedded bot and Web Store are managed by the same app.
+            # Reuse the canonical Shop settings to avoid stale/manual endpoints
+            # (notably public-IP hairpin requests from the host itself).
+            configured_key = (getattr(shop_config, "api_key", "") or "").strip()
+            if configured_key:
+                api_key = configured_key
+            mode = (getattr(shop_config, "mode", "client") or "client").strip().lower()
+            if mode == "host":
+                try:
+                    from ..shop_integration import DEFAULT_SHOP_PORT
+                    port = max(1, int(getattr(shop_config, "port", 0) or DEFAULT_SHOP_PORT))
+                    web_url = f"http://127.0.0.1:{port}"
+                except (TypeError, ValueError):
+                    pass
+            else:
+                try:
+                    from ..shop_integration import resolve_plugin_api_url
+                    web_url = resolve_plugin_api_url(shop_config) or web_url
+                except Exception:
+                    pass
         return cls(
             token=(getattr(cfg, "token", "") or "").strip(),
             data_dir=Path(data_dir) if data_dir else default_data_dir(),
@@ -172,16 +208,8 @@ class BotSettings:
             quarantine_role_id=parse_discord_id(getattr(cfg, "quarantine_role_id", "")),
             validation_channel_id=parse_discord_id(getattr(cfg, "validation_channel_id", "")),
             validation_role_id=parse_discord_id(getattr(cfg, "validation_role_id", "")),
-            arkshop_web_url=(
-                (getattr(cfg, "arkshop_web_url", "") or "").strip()
-                or os.environ.get("ARKSHOP_WEB_URL", "").strip()
-                or os.environ.get("ARKSHOP_WEBSTORE_URL", "").strip()
-                or os.environ.get("ARKLAND_WEB_URL", "").strip()
-            ),
-            arkshop_api_key=(
-                (getattr(cfg, "arkshop_api_key", "") or "").strip()
-                or os.environ.get("ARKSHOP_API_KEY", "").strip()
-            ),
+            arkshop_web_url=web_url,
+            arkshop_api_key=api_key,
             command_prefix=prefix,
             enable_voice=bool(getattr(cfg, "enable_voice", True)),
             enable_moderation=bool(getattr(cfg, "enable_moderation", True)),
@@ -214,6 +242,7 @@ class DiscordLinkValidationResult:
     steam_id: str = ""
     discord_user_id: str = ""
     first_link_bonus: int = 0
+    reference_id: str = ""
 
 
 class DiscordLinkValidatorClient:
@@ -278,30 +307,96 @@ class DiscordLinkValidatorClient:
                 return DiscordLinkValidationResult(
                     ok=ok,
                     status_code=status_code,
-                    message=str(data.get("error") or data.get("message") or ("OK" if ok else "Falha")),
+                    message=str(data.get("error") or data.get("message") or (
+                        "Vínculo confirmado." if ok else
+                        self._http_failure_reason(status_code)
+                    )),
                     steam_id=str(data.get("steam_id") or ""),
                     discord_user_id=str(data.get("discord_user_id") or payload["discord_user_id"]),
                     first_link_bonus=int(data.get("first_link_bonus") or 0),
                 )
         except urllib_error.HTTPError as exc:
             status_code = int(exc.code or 0)
+            data: dict[str, Any] = {}
+            response_text = ""
             try:
-                raw = exc.read().decode("utf-8", errors="replace")
-                data = json.loads(raw or "{}") if raw else {}
-                message = str(data.get("error") or data.get("message") or "Falha na validação")
+                response_text = exc.read().decode("utf-8", errors="replace").strip()
+                data = json.loads(response_text or "{}") if response_text else {}
+                message = str(data.get("error") or data.get("message") or "").strip()
             except Exception:
-                message = f"Falha na validação (HTTP {status_code})."
+                message = ""
+            if status_code >= 500:
+                # Server error bodies may contain tracebacks or configuration details.
+                # Keep the player-facing response actionable without leaking internals.
+                message = self._http_failure_reason(status_code)
+            if not message:
+                if status_code == 400:
+                    # A normal validation rejection from our API is JSON with a
+                    # concrete reason. Empty/non-JSON bodies usually mean the
+                    # bot reached a different service or reverse-proxy instance.
+                    message = (
+                        "A Web Store respondeu HTTP 400 sem informar o motivo. "
+                        "Confira se ARKSHOP_WEB_URL aponta para a mesma Web Store "
+                        "e banco de dados onde o código foi gerado."
+                    )
+                else:
+                    message = self._http_failure_reason(status_code)
+            elif message.strip().casefold() in {"falha", "falha na validação", "falha na validacao"}:
+                message = self._http_failure_reason(status_code)
+            message = " ".join(message.split())[:320]
+            reference_id = str(data.get("reference") or data.get("error_id") or "").strip()[:32]
+            if reference_id:
+                message = f"{message} Referência para suporte: {reference_id}."
             return DiscordLinkValidationResult(
                 ok=False,
                 status_code=status_code,
-                message=message,
+                message=f"{message} (HTTP {status_code}).",
+                reference_id=reference_id,
             )
-        except Exception as exc:
+        except urllib_error.URLError as exc:
+            reason = getattr(exc, "reason", None)
+            if isinstance(reason, TimeoutError) or "timed out" in str(reason).lower():
+                message = "A Web Store demorou para responder. Tente novamente em instantes."
+            else:
+                message = "Não foi possível conectar à Web Store. Confira se a URL está acessível pelo computador do bot."
             return DiscordLinkValidationResult(
                 ok=False,
                 status_code=0,
-                message=f"Falha de comunicação com web store: {exc}",
+                message=message,
             )
+        except TimeoutError:
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="A Web Store demorou para responder. Tente novamente em instantes.",
+            )
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="A Web Store respondeu em um formato inesperado. Verifique os logs do serviço.",
+            )
+        except Exception:
+            return DiscordLinkValidationResult(
+                ok=False,
+                status_code=0,
+                message="Ocorreu uma falha inesperada na comunicação com a Web Store. Verifique os logs do serviço.",
+            )
+
+    @staticmethod
+    def _http_failure_reason(status_code: int) -> str:
+        """Translate common HTTP failures into safe, actionable Discord messages."""
+        if status_code in (401, 403):
+            return "A Web Store recusou a autenticação. Confira se a chave da API do bot é igual à chave configurada na Web Store."
+        if status_code == 404:
+            return "O endereço configurado não encontrou a rota de validação. Confira a URL base da Web Store e a versão instalada."
+        if status_code == 429:
+            return "Muitas tentativas de validação em pouco tempo. Aguarde um minuto e tente novamente."
+        if status_code >= 500:
+            return "A Web Store encontrou um erro interno ao validar o código. Confira os logs do serviço e tente novamente."
+        if status_code == 400:
+            return "A Web Store rejeitou o código, que pode estar incorreto, expirado ou já utilizado. Gere um novo código no site."
+        return "A Web Store rejeitou a validação. Confira os logs do serviço para identificar o motivo."
 
 _ID_RE = re.compile(r"^\d{5,25}$")
 
