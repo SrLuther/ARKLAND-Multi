@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.9"
+APP_VERSION: str = "1.11.10"
 BUILD_DATE: str = "2026-10-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.10",
+        "date": "2026-10-31",
+        "changes": [
+            "Perfil: nick Steam em destaque, nick Discord em segundo plano e SteamID/DiscordID sempre vis?veis, completos e em linhas separadas.",
+        ],
+    },
     {
         "version": "1.11.9",
         "date": "2026-10-31",

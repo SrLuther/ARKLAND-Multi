@@ -271,15 +271,21 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .auth-profile__discord-name {
+      margin-top: -2px;
+      color: var(--text2);
+      font-size: 11px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
     .auth-profile__steamid {
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
       font-weight: 500;
       line-height: 1.35;
       color: var(--text2);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow-wrap: anywhere;
       max-width: 100%;
     }
     .auth-profile__steamid-label {
@@ -13206,21 +13212,20 @@ function renderAuthUserLine() {
   }
   const nick = (_auth.steam_persona || _auth.display_name || "").trim();
   const sid = _auth.steam_id || "";
-  const steamRow = sid
-    ? `<div class="auth-profile__steamid" title="SteamID: ${escHtml(sid)}"><span class="auth-profile__steamid-label">SteamID:</span> ${escHtml(sid)}</div>`
-    : "";
+  const steamRow = `<div class="auth-profile__steamid" title="SteamID: ${escHtml(sid || "—")}"><span class="auth-profile__steamid-label">SteamID:</span> ${escHtml(sid || "—")}</div>`;
   const roleRow = `<div class="${roleClass}">${escHtml(role)}</div>`;
   const discordName = String(_auth.discord_username || "").trim();
   const discordId = String(_auth.discord_user_id || "").trim();
-  const discordRow = discordId
-    ? `<div class="auth-profile__steamid" title="Discord: ${escHtml(discordName || discordId)} · ID ${escHtml(discordId)}"><span class="auth-profile__steamid-label">Discord:</span> ${escHtml(discordName || "Vinculado")} <span class="auth-profile__steamid-label">(${escHtml(discordId)})</span></div>`
+  const discordNameRow = discordName
+    ? `<div class="auth-profile__discord-name" title="Discord: ${escHtml(discordName)}">${escHtml(discordName)}</div>`
     : "";
+  const discordIdRow = `<div class="auth-profile__steamid" title="DiscordID: ${escHtml(discordId || "—")}"><span class="auth-profile__steamid-label">DiscordID:</span> ${escHtml(discordId || "—")}</div>`;
   if (nick) {
     userLine.innerHTML =
-      `<div class="auth-profile"><div class="auth-profile__nick" title="${escHtml(nick)}">${escHtml(nick)}</div>${steamRow}${discordRow}${roleRow}</div>`;
+      `<div class="auth-profile"><div class="auth-profile__nick" title="${escHtml(nick)}">${escHtml(nick)}</div>${discordNameRow}${steamRow}${discordIdRow}${roleRow}</div>`;
   } else {
     userLine.innerHTML =
-      `<div class="auth-profile">${steamRow || `<div class="auth-profile__steamid">SteamID: —</div>`}${discordRow}${roleRow}</div>`;
+      `<div class="auth-profile">${discordNameRow}${steamRow}${discordIdRow}${roleRow}</div>`;
   }
 }
 

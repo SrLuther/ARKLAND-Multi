@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-10-31 07:55:54 -->
-<!-- Total de versões: 502 | Primeira: 1.11.9 -->
+<!-- Gerado: 2026-10-31 08:07:31 -->
+<!-- Total de versões: 503 | Primeira: 1.11.10 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.10] - 2026-10-31
+
+### Other
+
+- Perfil: nick Steam em destaque, nick Discord em segundo plano e SteamID/DiscordID sempre vis?veis, completos e em linhas separadas.
 
 ## [1.11.9] - 2026-10-31
 
