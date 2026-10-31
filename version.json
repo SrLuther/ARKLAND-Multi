@@ -1,8 +1,11 @@
 {
-    "version": "1.11.7",
-    "date": "2026-10-30",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.7/ARKLAND-Multi-Setup-v1.11.7.exe",
+    "version": "1.11.8",
+    "date": "2026-10-31",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.8/ARKLAND-Multi-Setup-v1.11.8.exe",
     "changelog": [
-        "Discord: busca administrativa na auditoria por nick Steam, nick Discord, ID Steam e ID Discord, com filtro aplicado ao histórico inteiro."
+        "Web Store: auditoria Discord pesquisável por nick Steam, nick Discord, SteamID ou DiscordID; identidade Discord aparece no perfil junto do nick Steam.",
+        "Servidores: Membros por mapa inclui identidades sem SteamID, identifica IDs do TribeSync fora do cadastro e mostra jogadores online por mapa via RCON com atualização a cada 30 segundos.",
+        "Navegação: BetLand recebe identidade visual própria; Guia, Equipes, Comércio e Regulamento foram reorganizados; Minha Área e a tela inicial ganharam layout mais compacto.",
+        "Conteúdo: removidas opções antigas sem efeito e corrigidos textos corrompidos encontrados nas páginas administrativas."
     ]
 }
