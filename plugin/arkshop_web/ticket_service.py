@@ -833,7 +833,22 @@ def get_discord_link_verification_status(db: Any, steam_id: str) -> dict[str, An
     }
 
 
-def list_discord_link_audit(db: Any, steam_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
+def count_discord_link_audit(db: Any, steam_id: str) -> int:
+    from app import SupportTicketDiscordLinkCode
+
+    sid = str(steam_id or "").strip()
+    if not sid:
+        return 0
+    return int(
+        db.query(SupportTicketDiscordLinkCode.id)
+        .filter(SupportTicketDiscordLinkCode.steam_id == sid)
+        .count()
+    )
+
+
+def list_discord_link_audit(
+    db: Any, steam_id: str, *, limit: int = 20, offset: int = 0,
+) -> list[dict[str, Any]]:
     from app import SupportTicketDiscordLinkCode
 
     sid = str(steam_id or "").strip()
@@ -845,6 +860,7 @@ def list_discord_link_audit(db: Any, steam_id: str, *, limit: int = 20) -> list[
         .filter(SupportTicketDiscordLinkCode.steam_id == sid)
         .order_by(SupportTicketDiscordLinkCode.created_at.desc())
         .limit(max(1, min(int(limit), 100)))
+        .offset(max(0, int(offset)))
         .all()
     )
     now = _utcnow()
@@ -887,7 +903,7 @@ def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
     })
 
 
-def list_discord_link_admin_audit(db: Any, *, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+def list_discord_link_admin_audit(db: Any, *, limit: int = 100, offset: int = 0, search: str = "") -> list[dict[str, Any]]:
     bind = getattr(db, "bind", None)
     dialect = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect in {"mysql", "mariadb"}:
@@ -906,18 +922,33 @@ def list_discord_link_admin_audit(db: Any, *, limit: int = 100, offset: int = 0)
     else:
         steam_id_match = "l.steam_id = a.steam_id"
         discord_id_match = "l.discord_user_id = a.discord_user_id"
+    search = str(search or "").strip()[:120]
+    where = ""
+    params: dict[str, Any] = {"lim": max(1, min(int(limit), 200)), "off": max(0, int(offset))}
+    if search:
+        where = "WHERE LOWER(COALESCE(a.steam_name, '')) LIKE LOWER(:q) OR LOWER(COALESCE(a.discord_username, '')) LIKE LOWER(:q) OR CAST(a.steam_id AS CHAR) LIKE :q OR CAST(a.discord_user_id AS CHAR) LIKE :q"
+        params["q"] = f"%{search}%"
     rows = db.execute(text(f"""SELECT a.id,a.event_type,a.steam_id,a.steam_name,a.discord_user_id,
         a.discord_username,a.actor_steam_id,a.actor_name,a.code,a.amber_delta,a.note,a.created_at,
         CASE WHEN l.steam_id IS NOT NULL AND {discord_id_match} THEN 1 ELSE 0 END AS is_active
         FROM support_ticket_discord_link_audit a
         LEFT JOIN support_ticket_discord_links l ON {steam_id_match}
-        ORDER BY a.id DESC LIMIT :lim OFFSET :off"""),
-        {"lim": max(1, min(int(limit), 200)), "off": max(0, int(offset))}).mappings().all()
+        {where}
+        ORDER BY a.id DESC LIMIT :lim OFFSET :off"""), params).mappings().all()
     return [dict(row) for row in rows]
 
 
-def count_discord_link_admin_audit(db: Any) -> int:
-    return int(db.execute(text("SELECT COUNT(*) FROM support_ticket_discord_link_audit")).scalar() or 0)
+def count_discord_link_admin_audit(db: Any, *, search: str = "") -> int:
+    search = str(search or "").strip()[:120]
+    if not search:
+        return int(db.execute(text("SELECT COUNT(*) FROM support_ticket_discord_link_audit")).scalar() or 0)
+    return int(db.execute(text("""
+        SELECT COUNT(*) FROM support_ticket_discord_link_audit a
+        WHERE LOWER(COALESCE(a.steam_name, '')) LIKE LOWER(:q)
+           OR LOWER(COALESCE(a.discord_username, '')) LIKE LOWER(:q)
+           OR CAST(a.steam_id AS CHAR) LIKE :q
+           OR CAST(a.discord_user_id AS CHAR) LIKE :q
+    """), {"q": f"%{search}%"}).scalar() or 0)
 
 
 def admin_unlink_discord(db: Any, *, steam_id: str, actor_steam_id: str,
@@ -1004,7 +1035,7 @@ def confirm_discord_link_code_for_discord_user(
             steam_name=resolve_player_name(db, sid), discord_user_id=did,
             discord_username=discord_username or row.discord_username or "", code=token,
             amber_delta=DISCORD_FIRST_LINK_BONUS,
-            note="First-link bonus credited to the player's Amber balance.")
+            note="Bônus inicial creditado no saldo de Âmbares do jogador.")
     row.used_at = _utcnow()
     db.commit()
     return {

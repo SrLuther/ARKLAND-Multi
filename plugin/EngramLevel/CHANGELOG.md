@@ -1,5 +1,9 @@
 # Changelog — EngramLevel
 
+## [0.1.2] - 2026-10-30
+
+- `/ae` restaura e replica os pontos livres e totais de engrama após cada lote, evitando que a interface do jogador fique em zero depois do desbloqueio automático.
+
 ## [0.1.1] - 2026-10-04
 
 - `/autoengram` liga o automático daquele SteamID (default desligado). Ao ligar, põe na fila os não tek já devidos até o nível atual: 10 engramas por bloco, 1 segundo entre blocos. O primeiro bloco sai 1 segundo depois. Com o automático ligado, aplicar nível faz a mesma releitura 1 segundo depois, fora do `ServerApplyLevelUp`. `/ae` só reforça essa fila com `/autoengram` ligado; desligado, não solta nada. Desligar apaga a fila. Testado in-game: ficou excelente.

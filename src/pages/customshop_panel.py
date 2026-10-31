@@ -113,14 +113,10 @@ def _load_config(path: Path) -> Dict[str, Any]:
                 "EngramasCommandPrice": 5000,
                 "NotasCommandPrice": 5000,
                 "NotasCommandEnabled": True,
-                "DisableSellButton": True,
                 "DisableTradeButton": False,
                 "WebsiteUrl": "",
                 "DiscordUrl": "",
-                "VoteRewards": False,
-                "HideBuffIcon": False,
                 "OverrideCurrencyIcon": "",
-                "UseSteamOverlay": False,
                 "OverrideLabels": [],
             },
             "Items": {},
@@ -604,11 +600,7 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
             "WebsiteUrl":           tk.StringVar(value=str(s.get("WebsiteUrl", ""))),
             "DiscordUrl":           tk.StringVar(value=str(s.get("DiscordUrl", ""))),
             "OverrideCurrencyIcon": tk.StringVar(value=str(s.get("OverrideCurrencyIcon", ""))),
-            "DisableSellButton":    tk.BooleanVar(value=bool(s.get("DisableSellButton", True))),
             "DisableTradeButton":   tk.BooleanVar(value=bool(s.get("DisableTradeButton", False))),
-            "VoteRewards":          tk.BooleanVar(value=bool(s.get("VoteRewards", False))),
-            "HideBuffIcon":         tk.BooleanVar(value=bool(s.get("HideBuffIcon", False))),
-            "UseSteamOverlay":      tk.BooleanVar(value=bool(s.get("UseSteamOverlay", False))),
             "MarketCryoRequireMinDays": tk.BooleanVar(
                 value=bool(s.get("MarketCryoRequireMinDays", False))),
             "MarketCryoMinDaysRemaining": tk.StringVar(
@@ -655,11 +647,7 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                    hint="Blueprint path do ícone customizado (vazio = padrão)")
 
         tk.Frame(card_cfg, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
-        _bool_row(card_cfg, "Desativar Botão de Vender",  _sv["DisableSellButton"],  bg=_INNER)
-        _bool_row(card_cfg, "Desativar Botão de Trocar",  _sv["DisableTradeButton"], bg=_INNER)
-        _bool_row(card_cfg, "Recompensas de Votação",     _sv["VoteRewards"],        bg=_INNER)
-        _bool_row(card_cfg, "Ocultar Ícone de Buff",      _sv["HideBuffIcon"],       bg=_INNER)
-        _bool_row(card_cfg, "Usar Steam Overlay",         _sv["UseSteamOverlay"],    bg=_INNER)
+        _bool_row(card_cfg, "Desativar transferência de Âmbares (Shop.Trade)", _sv["DisableTradeButton"], bg=_INNER)
 
         tk.Frame(card_cfg, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
         _head(card_cfg, "🛒  Comércio P2P — Cryopod (/enviar)")
@@ -827,11 +815,9 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
             s_out["WebsiteUrl"]           = _sv["WebsiteUrl"].get()
             s_out["DiscordUrl"]           = _sv["DiscordUrl"].get()
             s_out["OverrideCurrencyIcon"] = _sv["OverrideCurrencyIcon"].get()
-            s_out["DisableSellButton"]    = _sv["DisableSellButton"].get()
             s_out["DisableTradeButton"]   = _sv["DisableTradeButton"].get()
-            s_out["VoteRewards"]          = _sv["VoteRewards"].get()
-            s_out["HideBuffIcon"]         = _sv["HideBuffIcon"].get()
-            s_out["UseSteamOverlay"]      = _sv["UseSteamOverlay"].get()
+            for obsolete_key in ("DisableSellButton", "VoteRewards", "HideBuffIcon", "UseSteamOverlay"):
+                s_out.pop(obsolete_key, None)
             s_out["MarketCryoRequireMinDays"] = _sv["MarketCryoRequireMinDays"].get()
             s_out["MarketCryoMinDaysRemaining"] = _safe_int(
                 _sv["MarketCryoMinDaysRemaining"].get(), 20)

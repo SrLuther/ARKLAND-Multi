@@ -13,6 +13,7 @@ from ticket_service import (
     close_ticket,
     confirm_discord_link_code_for_discord_user,
     count_discord_link_admin_audit,
+    count_discord_link_audit,
     create_ticket,
     generate_discord_link_code,
     get_attachment_for_download,
@@ -76,12 +77,27 @@ def register_ticket_routes(
         try:
             link = get_discord_link(db, steam_id)
             verification = get_discord_link_verification_status(db, steam_id)
-            audit = list_discord_link_audit(db, steam_id, limit=20)
+            try:
+                audit_page = max(1, min(int(request.args.get("page", "1")), 100000))
+            except (TypeError, ValueError):
+                audit_page = 1
+            audit_page_size = 5
+            audit_total = count_discord_link_audit(db, steam_id)
+            audit_pages = max(1, (audit_total + audit_page_size - 1) // audit_page_size)
+            audit_page = min(audit_page, audit_pages)
+            audit = list_discord_link_audit(
+                db, steam_id, limit=audit_page_size,
+                offset=(audit_page - 1) * audit_page_size,
+            )
             return jsonify({
                 "ok": True,
                 "link": link,
                 "verification": verification,
                 "audit": audit,
+                "audit_page": audit_page,
+                "audit_page_size": audit_page_size,
+                "audit_total": audit_total,
+                "audit_pages": audit_pages,
                 "instructions": {
                     "summary": "Envie somente o código no canal de validação Discord (sem texto adicional).",
                     "steps": [
@@ -179,8 +195,17 @@ def register_ticket_routes(
         steam_id = str(steam_id_from_session())
         db = session_factory()
         try:
-            audit = list_discord_link_audit(db, steam_id, limit=50)
-            return jsonify({"ok": True, "audit": audit})
+            try:
+                page = max(1, min(int(request.args.get("page", "1")), 100000))
+            except (TypeError, ValueError):
+                page = 1
+            page_size = 5
+            total = count_discord_link_audit(db, steam_id)
+            pages = max(1, (total + page_size - 1) // page_size)
+            page = min(page, pages)
+            audit = list_discord_link_audit(db, steam_id, limit=page_size, offset=(page - 1) * page_size)
+            return jsonify({"ok": True, "audit": audit, "page": page,
+                            "page_size": page_size, "total": total, "pages": pages})
         finally:
             db.close()
 
@@ -200,16 +225,18 @@ def register_ticket_routes(
             page_size = max(1, min(int(request.args.get("page_size", "50")), 100))
         except (TypeError, ValueError):
             return jsonify({"ok": False, "error": "Paginação inválida"}), 400
+        search = str(request.args.get("q") or "").strip()[:120]
         db = session_factory()
         try:
-            total = count_discord_link_admin_audit(db)
+            total = count_discord_link_admin_audit(db, search=search)
             pages = max(1, (total + page_size - 1) // page_size)
             page = min(page, pages)
             events = list_discord_link_admin_audit(
-                db, limit=page_size, offset=(page - 1) * page_size
+                db, limit=page_size, offset=(page - 1) * page_size, search=search
             )
             return jsonify({"ok": True, "events": events, "total": total,
-                            "page": page, "page_size": page_size, "pages": pages})
+                            "page": page, "page_size": page_size, "pages": pages,
+                            "search": search})
         finally:
             db.close()
 

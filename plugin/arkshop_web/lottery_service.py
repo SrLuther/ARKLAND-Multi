@@ -2165,7 +2165,7 @@ def create_campaign_draft(db: Session, *, data: dict[str, Any], admin_steam_id: 
             ),
             {
                 "seq": seq,
-                "title": str(data.get("title") or f"Sorteio ARKLAND #{seq}"),
+                "title": str(data.get("title") or f"BetLand ARKLAND #{seq}"),
                 "draw": _naive(draw_at),
                 "starts": _naive(starts_at),
                 "wnc": max(1, min(5, int(data.get("winning_numbers_count") or 1))),
@@ -2197,7 +2197,7 @@ def create_campaign_draft(db: Session, *, data: dict[str, Any], admin_steam_id: 
             ),
             {
                 "seq": seq,
-                "title": str(data.get("title") or f"Sorteio ARKLAND #{seq}"),
+                "title": str(data.get("title") or f"BetLand ARKLAND #{seq}"),
                 "draw": _naive(draw_at),
                 "starts": _naive(starts_at),
                 "wnc": max(1, min(5, int(data.get("winning_numbers_count") or 1))),
@@ -2885,7 +2885,7 @@ def _create_chained_campaign(db: Session, prev_row: Any, rollover_in: int) -> in
             ),
             {
                 "seq": seq,
-                "title": f"Sorteio ARKLAND #{seq}",
+                "title": f"BetLand ARKLAND #{seq}",
                 "draw": _naive(draw_at),
                 "starts": _naive(starts_at),
                 "wnc": int(prev_row.winning_numbers_count or 1),
@@ -2916,7 +2916,7 @@ def _create_chained_campaign(db: Session, prev_row: Any, rollover_in: int) -> in
             ),
             {
                 "seq": seq,
-                "title": f"Sorteio ARKLAND #{seq}",
+                "title": f"BetLand ARKLAND #{seq}",
                 "draw": _naive(draw_at),
                 "starts": _naive(starts_at),
                 "wnc": int(prev_row.winning_numbers_count or 1),

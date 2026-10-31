@@ -1,9 +1,45 @@
 # Changelog
 
-<!-- Gerado: 2026-10-29 08:24:46 -->
-<!-- Total de versões: 493 | Primeira: 1.11.0 -->
+<!-- Gerado: 2026-10-31 01:17:38 -->
+<!-- Total de versões: 498 | Primeira: 1.11.5 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.5] - 2026-10-31
+
+### Other
+
+- Web Store: auditoria Discord pesquisável por nick Steam, nick Discord, SteamID ou DiscordID; identidade Discord aparece no perfil junto do nick Steam.
+- Servidores: Membros por mapa inclui identidades sem SteamID e identifica IDs do TribeSync fora do cadastro; lista jogadores online por mapa via RCON com atualização a cada 30 segundos.
+- Navegação: BetLand recebe identidade visual própria; Guia, Equipes, Comércio e Regulamento foram reorganizados; Minha Área e a tela inicial ganharam layout mais compacto.
+- Conteúdo: removidas opções antigas sem efeito e corrigidos textos corrompidos encontrados nas páginas administrativas.
+
+## [1.11.4] - 2026-10-29
+
+### Other
+
+- Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP público e duplicar configurações manuais.
+
+## [1.11.3] - 2026-10-29
+
+### Other
+
+- Discord: falha HTTP 400 sem motivo estruturado agora orienta verificar se o bot consulta a mesma Web Store e o mesmo banco em que o código foi gerado.
+
+## [1.11.2] - 2026-10-29
+
+### Other
+
+- Controle remoto: agente lista servidores ASE configurados inclusive parados e encaminha iniciar/parar/reiniciar ao gerenciador correto; status online do agente independe do estado dos mapas.
+- Discord: mensagens de falha na vinculação agora informam a causa acionável (código, autenticação, URL, limite ou serviço indisponível); erros internos incluem referência para localizar o detalhe no log da Web Store.
+- Web Store: erros internos da API recebem identificador de referência registrado junto ao traceback para facilitar a investigação sem expor detalhes internos no Discord.
+
+## [1.11.1] - 2026-10-29
+
+### Other
+
+- Discord: aceita códigos de vinculação com um ou dois hífens após ARKLAND, compatível com os formatos mostrados pelo site e pelo bot.
+- Servidores: configuração da URL e do token do agente na tela Controle de servidores, restrita a administradores e com token protegido no armazenamento do site.
 
 ## [1.11.0] - 2026-10-29
 

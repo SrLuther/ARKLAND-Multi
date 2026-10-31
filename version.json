@@ -1,15 +1,11 @@
 {
-    "version": "1.11.0",
-    "date": "2026-10-29",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.0/ARKLAND-Multi-Setup-v1.11.0.exe",
+    "version": "1.11.5",
+    "date": "2026-10-31",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.5/ARKLAND-Multi-Setup-v1.11.5.exe",
     "changelog": [
-        "Gerenciador ASE: reestruturação das configurações com catálogo de 321 opções para GameUserSettings.ini/Game.ini e 114 argumentos de inicialização.",
-        "INI: edição ordenada e segura, somente com linhas de configuração; sincronização por seções com comparação, backup e rollback.",
-        "Progressões: editor de níveis de jogador e dinossauros com validação de XP e persistência das rampas.",
-        "Saves: backup e restauração com validação de integridade e recuperação segura.",
-        "Discord: vínculo por código, bônus inicial de 10.000 Âmbares e auditoria administrativa paginada; bot com instruções completas e botão para o site.",
-        "Web Store: nuvens separadas por chave de compartilhamento, quatro slots e painel administrativo; controles remotos de servidor para equipe autorizada.",
-        "CustomShop 1.10.48: migração cloud idempotente, recuperação de cabeçalhos sem apagar blobs e correção do relacionamento por grupo/SteamID/slot.",
-        "Correções de textos corrompidos, mensagens e apresentação dos painéis administrativos."
+        "Web Store: auditoria Discord pesquisável por nick Steam, nick Discord, SteamID ou DiscordID; identidade Discord aparece no perfil junto do nick Steam.",
+        "Servidores: Membros por mapa inclui identidades sem SteamID e identifica IDs do TribeSync fora do cadastro; lista jogadores online por mapa via RCON com atualização a cada 30 segundos.",
+        "Navegação: BetLand recebe identidade visual própria; Guia, Equipes, Comércio e Regulamento foram reorganizados; Minha Área e a tela inicial ganharam layout mais compacto.",
+        "Conteúdo: removidas opções antigas sem efeito e corrigidos textos corrompidos encontrados nas páginas administrativas."
     ]
 }

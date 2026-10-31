@@ -52,7 +52,6 @@ def list_members_for_server(
                    player_data_id, last_seen_at
             FROM tribe_members
             WHERE server_id = :svid
-              AND steam_id NOT LIKE 'pdid:%'
             ORDER BY
               CASE WHEN last_seen_at IS NULL THEN 1 ELSE 0 END,
               last_seen_at DESC,
@@ -65,7 +64,7 @@ def list_members_for_server(
     total_row = db.execute(
         text("""
             SELECT COUNT(DISTINCT steam_id) FROM tribe_members
-            WHERE server_id = :svid AND steam_id NOT LIKE 'pdid:%'
+            WHERE server_id = :svid
         """),
         {"svid": sid},
     ).fetchone()
@@ -86,6 +85,7 @@ def list_members_for_server(
             "player_data_id": _as_int(r[4]),
             "last_seen_at": str(r[5]) if r[5] else None,
             "source": "members",
+            "is_offline_identity": steam.startswith("pdid:"),
         })
         if len(items) >= limit:
             break
@@ -98,7 +98,6 @@ def list_members_for_server(
                 FROM tribe_presences
                 WHERE server_id = :svid
                   AND tribe_id IS NOT NULL
-                  AND steam_id NOT LIKE 'pdid:%'
                 ORDER BY captured_at DESC
                 LIMIT :lim OFFSET :off
             """),
@@ -117,13 +116,13 @@ def list_members_for_server(
                 "player_data_id": None,
                 "last_seen_at": str(r[3]) if r[3] else None,
                 "source": "presence",
+                "is_offline_identity": steam.startswith("pdid:"),
             })
         total_p = db.execute(
             text("""
                 SELECT COUNT(DISTINCT steam_id) FROM tribe_presences
                 WHERE server_id = :svid
                   AND tribe_id IS NOT NULL
-                  AND steam_id NOT LIKE 'pdid:%'
             """),
             {"svid": sid},
         ).fetchone()
@@ -185,7 +184,6 @@ def get_member_detail(
             SELECT server_id, tribe_id, tribe_name, character_name, last_seen_at
             FROM tribe_members
             WHERE steam_id = :sid AND server_id != :svid
-              AND steam_id NOT LIKE 'pdid:%'
             ORDER BY last_seen_at DESC
         """),
         {"sid": sid, "svid": svid},
@@ -259,6 +257,16 @@ def build_map_members_payload(
         for s in servers
         if str(s.get("server_id") or "").strip()
     }
+    latest_map_names: dict[str, str] = {}
+    for row in db.execute(text("""
+        SELECT server_id, map_name FROM tribe_presences
+        WHERE COALESCE(server_id, '') != ''
+        ORDER BY captured_at DESC
+    """)).fetchall():
+        discovered_id = str(row[0] or "").strip()
+        map_name = str(row[1] or "").strip()
+        if discovered_id and map_name and discovered_id not in latest_map_names:
+            latest_map_names[discovered_id] = map_name
     target_ids: list[str]
     if server_id:
         target_ids = [str(server_id).strip()]
@@ -269,12 +277,26 @@ def build_map_members_payload(
             if str(s.get("server_id") or "").strip()
         ]
 
+        # TribeSync grava usando Settings.ServerId/CrossChat.ServerId do plugin.
+        # Se esse valor divergir do cadastro da Web Store, os registros não podem
+        # desaparecer silenciosamente: inclui os IDs realmente encontrados.
+        discovered = db.execute(text("""
+            SELECT server_id FROM tribe_members WHERE COALESCE(server_id, '') != ''
+            UNION
+            SELECT server_id FROM tribe_presences WHERE COALESCE(server_id, '') != ''
+        """)).fetchall()
+        for row in discovered:
+            discovered_id = str(row[0] or "").strip()
+            if discovered_id and discovered_id not in target_ids:
+                target_ids.append(discovered_id)
+
     maps_out: list[dict[str, Any]] = []
     for sid in target_ids:
         block = list_members_for_server(db, server_id=sid, limit=limit, offset=offset)
         maps_out.append({
             "server_id": sid,
-            "label": _label_for(sid, labels),
+            "label": labels.get(sid) or latest_map_names.get(sid) or sid,
+            "registered": sid in labels,
             "total": block["total"],
             "limit": block["limit"],
             "offset": block["offset"],

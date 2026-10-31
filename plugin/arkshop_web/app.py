@@ -742,7 +742,7 @@ class ShopAdmin(Base):
 
 
 class ShopSupport(Base):
-    """Equipe de suporte — acesso ? fila de tickets sem permissões de admin."""
+    """Equipe de suporte — acesso à fila de tickets sem permissões de admin."""
 
     __tablename__ = "shop_support"
 
@@ -1608,7 +1608,7 @@ def _hot_path_indexes_schedule_backoff(exc: BaseException | str | None = None) -
 
 
 def _ensure_hot_path_indexes(engine: Any) -> None:
-    """?ndices compostos para detalhe/lista admin.
+    """Índices compostos para detalhe/lista admin.
 
     Só marca `_HOT_PATH_INDEXES_READY` quando TODOS os índices estão confirmados.
     Falha parcial (ex.: read_timeout no CREATE) NÃO marca READY — re-tenta com
@@ -1889,7 +1889,7 @@ def _ensure_blueprint_index(engine: Any) -> None:
         ensure_blueprint_index_schema(engine)
         sync_blueprint_index(engine)
     except Exception as exc:
-        log.warning("?ndice de blueprints: migrate falhou: %s", exc)
+        log.warning("Índice de blueprints: migrate falhou: %s", exc)
 
 
 def _migrate_schema(engine: Any) -> None:
@@ -2171,7 +2171,7 @@ def _migrate_schema(engine: Any) -> None:
 
         ensure_tribe_schema(engine)
     except Exception as exc:
-        log.warning("?rea de Tribo: migrate falhou: %s", exc)
+        log.warning("Área de Tribo: migrate falhou: %s", exc)
     try:
         from team_service import ensure_team_schema
 
@@ -2783,6 +2783,15 @@ def _load_settings() -> dict[str, Any]:
         "ticket_discord_token": "",
         "discord_validation_channel_id": "",
         "discord_validation_role_id": "",
+        "discord_engagement_guild_id": "",
+        "discord_engagement_text_channel_ids": "",
+        "discord_engagement_voice_reward": 0,
+        "discord_engagement_voice_interval_minutes": 30,
+        "discord_engagement_voice_daily_cap": 0,
+        "discord_engagement_text_reward": 0,
+        "discord_engagement_text_daily_cap": 0,
+        "discord_engagement_text_min_chars": 20,
+        "discord_engagement_text_cooldown_minutes": 5,
         "point_packages": [],
         "mp_access_token": "",
         "mp_webhook_secret": "",
@@ -3654,7 +3663,7 @@ def _get_admin_player_detail_heavy_budgeted(steam_id: str) -> dict[str, Any]:
 def _get_admin_player_detail_budgeted(steam_id: str) -> dict[str, Any]:
     """Corre o detalhe completo com deadline; se estourar, devolve parcial rápido.
 
-    Após o budget: `cancel` pede ? thread órfã para libertar a scoped_session entre
+    Após o budget: `cancel` solicita à thread órfã a liberação da scoped_session entre
     queries (não segura o pool para sempre). Slots limitados evitam tempestade de
     órfãs sob carga.
     """
@@ -3978,7 +3987,7 @@ def _catalog_entry_dino_level(entry: dict[str, Any]) -> int:
 
 
 def _catalog_shop_deliver_options() -> dict[str, list[dict[str, Any]]]:
-    """SKUs resgatáveis do catálogo Items, alinhados ?s abas Itens / Dinos (todos os níveis).
+    """SKUs resgatáveis do catálogo Items, alinhados às abas Itens / Dinos (todos os níveis).
 
     ``dinos200`` é alias legado (subconjunto de ``dinos`` com nível 200) para clientes antigos.
     """
@@ -5227,7 +5236,7 @@ _HEAL_RICHEST_CACHE: dict[str, Any] = {"expires": 0.0, "path": ""}
 _TIMED_POINTS_AMOUNTS_CACHE: dict[str, Any] = {"fingerprint": "", "amounts": None}
 
 # Home pública: payload partilhado (sem PII) — evita 50s+ sob fila Waitress.
-# CR?TICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
+# CRÍTICO: build NUNCA dentro do lock (antes empilhava todas as threads Waitress).
 _PUBLIC_HOME_CACHE_TTL_SEC = float(os.environ.get("ARKSHOP_HOME_CACHE_TTL_SEC", "45") or 45)
 _PUBLIC_HOME_STALE_MAX_SEC = float(os.environ.get("ARKSHOP_HOME_STALE_MAX_SEC", "300") or 300)
 _PUBLIC_HOME_CACHE_LOCK = threading.Lock()
@@ -7289,7 +7298,7 @@ def _mp_webhook_diagnostics() -> dict[str, Any]:
 
 
 def _mp_webhook_strict_signature() -> bool:
-    """Assinatura inv?lida => 401? Padr?o N?O: o pagamento ? sempre relido do MP com o token."""
+    """Assinatura inválida não encerra a validação: o pagamento é relido do MP com o token."""
     raw = _load_settings().get("mp_webhook_strict_signature")
     if raw is None:
         raw = os.environ.get("MP_WEBHOOK_STRICT_SIGNATURE", "")
@@ -9697,7 +9706,7 @@ def mark_pending_delivered(steam_id: str, order_id: str):
 # Ã¢â€â‚¬Ã¢â€â‚¬ Auth routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 def _web_build_id() -> str:
-    """Vers?o do app para cache-bust de assets est?ticos (?v=)."""
+    """Versão do app para cache-bust de assets estáticos (?v=)."""
     rel = _get_project_release()
     v = str(rel.get("version") or "").strip()
     return v or "dev"
@@ -9737,7 +9746,7 @@ def frontend_spa_fallback(frontend_path: str):
 @app.route("/loja/dinos200")
 @app.route("/catalogo/dinos200")
 def legacy_dinos200_redirect():
-    """URLs antigas da aba ?Dinos 200? ? Dinos com filtro de n?vel 200 (SPA l? ?tab=&nivel=)."""
+    """URLs antigas da aba “Dinos 200” → Dinos com filtro de nível 200 (SPA lê ?tab=&nivel=)."""
     from dino_levels import LEGACY_DINOS200_LEVEL
 
     return redirect(f"/?tab=dinos&nivel={LEGACY_DINOS200_LEVEL}", code=301)
@@ -10040,6 +10049,15 @@ def save_settings():
         "ticket_discord_token",
         "discord_validation_channel_id",
         "discord_validation_role_id",
+        "discord_engagement_guild_id",
+        "discord_engagement_text_channel_ids",
+        "discord_engagement_voice_reward",
+        "discord_engagement_voice_interval_minutes",
+        "discord_engagement_voice_daily_cap",
+        "discord_engagement_text_reward",
+        "discord_engagement_text_daily_cap",
+        "discord_engagement_text_min_chars",
+        "discord_engagement_text_cooldown_minutes",
         "point_packages",
         "mp_sandbox",
         "public_ip",
@@ -10327,6 +10345,63 @@ def public_server_status():
             for sid, row in sorted(by_id.items())
         ],
     })
+
+
+@app.route("/api/admin/map-members/online", methods=["GET"])
+@admin_required
+@limiter.limit("6 per minute")
+def admin_map_members_online():
+    """Lista nomes conectados por mapa via RCON, sem persistir dados de jogador."""
+    settings = _load_settings()
+    targets = [s for s in _load_servers() if isinstance(s, dict) and str(s.get("server_id") or "").strip()]
+
+    def query_server(server: dict[str, Any]) -> dict[str, Any]:
+        server_id = str(server.get("server_id") or "").strip()
+        label = str(server.get("label") or server_id)
+        cfg = _get_server_settings(server_id)
+        try:
+            port = int(server.get("rcon_port") or cfg.get("rcon_port") or 27020)
+        except (TypeError, ValueError):
+            port = 27020
+        password = sanitize_rcon_password(str(server.get("rcon_password") or cfg.get("rcon_password") or ""))
+        if not password:
+            return {"server_id": server_id, "label": label, "status": "unavailable", "players": [], "error": "Senha RCON não configurada."}
+
+        last_error: BaseException | None = None
+        for host in _rcon_hosts_to_try(server, cfg):
+            try:
+                response = _rcon_command(host, port, password, "ListPlayers", timeout=8.0, connect_retries=1)
+                return {
+                    "server_id": server_id,
+                    "label": label,
+                    "status": "online",
+                    "players": _parse_agent_list_players(response),
+                }
+            except Exception as exc:
+                last_error = exc
+
+        reason = _classify_rcon_error(last_error or "falha RCON")
+        if reason == "refused":
+            status, error = "offline", "Servidor offline ou RCON recusou a conexão."
+        elif reason == "auth_fail":
+            status, error = "unavailable", "Autenticação RCON recusada; confira a senha configurada."
+        elif reason == "timeout":
+            status, error = "unavailable", "Tempo de resposta RCON excedido."
+        else:
+            status, error = "unavailable", "Não foi possível consultar o RCON deste mapa."
+        return {"server_id": server_id, "label": label, "status": status, "players": [], "error": error}
+
+    results: list[dict[str, Any]] = []
+    if targets:
+        with ThreadPoolExecutor(max_workers=min(8, len(targets)), thread_name_prefix="map-online") as pool:
+            futures = [pool.submit(query_server, server) for server in targets]
+            for future in as_completed(futures):
+                try:
+                    results.append(future.result())
+                except Exception as exc:
+                    log.warning("map-members online query failed: %s", exc)
+    results.sort(key=lambda item: str(item.get("label") or item.get("server_id") or "").casefold())
+    return jsonify({"ok": True, "updated_at": datetime.now(UTC).isoformat(), "servers": results})
 
 
 @app.route("/api/servers/sync", methods=["POST"])
@@ -12385,7 +12460,7 @@ def _save_downloads(downloads: list) -> None:
 
 _DEFAULT_FEATURED_MAPS_INTRO = (
     "O ARKLAND não é só mais um cluster — somos um ecossistema construído em torno de mapas MOD "
-    "de alta qualidade. A maioria dos nossos servidores roda cenários customizados, curados ? mão "
+    "de alta qualidade. A maioria dos nossos servidores roda cenários customizados, curados à mão "
     "para PvE/PvP, performance em dedicado e integração total com eventos sazonais."
 )
 
@@ -12450,7 +12525,7 @@ def _featured_map_overrides_index(
     *,
     include_disabled: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
-    """?ndice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
+    """Índice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
     by_id: dict[str, dict[str, Any]] = {}
     by_slug: dict[str, dict[str, Any]] = {}
     for m in manual_maps:
@@ -14894,6 +14969,12 @@ def player_myarea():
             {"sid": steam_id},
         ).fetchone()
         balance = _get_player_points(steam_id, db=db)
+        try:
+            from amber_ledger import player_amber_totals
+            amber_totals = player_amber_totals(db, steam_id)
+        except Exception as amber_exc:
+            log.warning("myarea amber totals indisponíveis sid=%s: %s", steam_id, amber_exc)
+            amber_totals = None
         summary = {
             "ok": True,
             "steam_id": steam_id,
@@ -14906,6 +14987,7 @@ def player_myarea():
                 "donations_total": int(donation_stats[0] or 0) if donation_stats else 0,
                 "donations_credited": int(donation_stats[1] or 0) if donation_stats else 0,
             },
+            "amber_totals": amber_totals,
         }
 
         hist_params: dict[str, Any] = {"sid": steam_id, "lim": limit, "off": 0}
@@ -15271,7 +15353,7 @@ def player_rebuy(order_id: str):
     """Desativado — reemissão apenas por admin."""
     return jsonify({
         "ok": False,
-        "error": "Reemiss?o dispon?vel apenas para administradores. Use Contesta??o (\u26a0\ufe0f) ou contate um admin.",
+        "error": "Reemissão disponível apenas para administradores. Use Contestações (⚠️) ou contate um admin.",
     }), 403
 
 
@@ -18016,6 +18098,19 @@ register_diagnostics_routes(
     admin_required=admin_required,
     limiter=limiter,
     data_dir=_DATA_DIR,
+)
+
+from discord_engagement_routes import register_discord_engagement_routes
+
+register_discord_engagement_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    api_key_required=api_key_required,
+    admin_required=admin_required,
+    load_settings=_load_settings,
+    add_points_tx=_add_player_points_tx,
+    limiter=limiter,
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":

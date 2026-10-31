@@ -22,6 +22,7 @@ _PACKAGE = __name__.rsplit(".", 1)[0]
 # (módulo, nome amigável, flag em BotSettings ou None = sempre)
 COG_MODULES = (
     ("admin", "admin", None),
+    ("activity_rewards", "activity_rewards", None),
     ("voice_manager", "voicemanager", "enable_voice"),
     ("moderation", "moderation", "enable_moderation"),
 )

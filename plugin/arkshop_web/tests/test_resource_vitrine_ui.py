@@ -82,7 +82,11 @@ def test_legacy_sell_removed_but_config_flags_kept(html):
     ):
         assert needle not in html, needle
     # config continua legível/gravável (sem quebrar quem lê)
-    assert "DisableSellButton" in html and 'id="g-disable-sell"' in html
+    assert 'id="g-disable-sell"' not in html
+    assert 'id="g-disable-trade"' in html
+    assert 'id="g-vote-rewards"' not in html
+    assert 'id="g-hide-buff"' not in html
+    assert 'id="g-steam-overlay"' not in html
 
 
 def test_legacy_sell_redirects_to_market(html):

@@ -662,6 +662,108 @@ def _sum_channel_all_time(db: Session) -> dict[str, int]:
     return {str(r.channel): int(r.total) for r in rows}
 
 
+def player_amber_totals(db: Session, steam_id: str) -> dict[str, Any]:
+    """Resumo por origem para Minha Área, usando apenas movimentos auditados.
+
+    Os valores são créditos/débitos registrados, não saldo atual. A renda
+    in-game vem das transações ``timed_reward`` do ARKBANK associadas ao SteamID;
+    as demais fontes vêm do ledger. Categorias não registradas não são estimadas.
+    """
+    sid = str(steam_id or "").strip()
+    empty = {
+        "in_game": 0,
+        "site_spent": 0,
+        "discord_link": 0,
+        "donations": 0,
+        "admin": 0,
+        "market": 0,
+        "seasonland": 0,
+        "lottery": 0,
+        "suggestions": 0,
+        "votes": 0,
+        "other": 0,
+        "coverage": {"in_game": False, "ledger": False},
+    }
+    if not sid:
+        return empty
+
+    ledger_known = True
+    try:
+        rows = db.execute(text(
+            "SELECT channel, event_type, signed_delta FROM amber_ledger "
+            "WHERE steam_id = :sid"
+        ), {"sid": sid}).fetchall()
+    except Exception:
+        db.rollback()
+        rows = []
+        ledger_known = False
+
+    totals = {key: 0 for key in (
+        "in_game", "site_spent", "discord_link", "market", "seasonland",
+        "lottery", "suggestions", "votes", "donations", "admin", "other",
+    )}
+    discord_events = {
+        "discord_first_link_bonus", "discord_voice_reward", "discord_text_reward",
+    }
+    for row in rows:
+        channel = str(row[0] or "")
+        event = str(row[1] or "")
+        delta = int(row[2] or 0)
+        event_key = event.strip().lower()
+        channel_key = channel.strip().lower()
+        if delta < 0:
+            # Débitos do jogador contam como gasto do site; correções de
+            # administração são exibidas no card administrativo, não como compra.
+            if channel_key != "admin":
+                totals["site_spent"] += -delta
+            continue
+        if delta <= 0:
+            continue
+        if event_key in discord_events:
+            totals["discord_link"] += delta
+        elif channel_key == "donation" or event_key == "lottery_donation_amber_credited":
+            totals["donations"] += delta
+        elif channel_key == "admin":
+            totals["admin"] += delta
+        elif channel_key == "market" and event_key.endswith("_seller"):
+            totals["market"] += delta
+        elif channel_key == "lottery" and event_key == "lottery_prize_credited":
+            totals["lottery"] += delta
+        elif channel_key == "community" and event_key == "poll_reward":
+            totals["votes"] += delta
+        elif channel_key == "shop_web" and event_key in {
+            "order_cancelled", "order_auto_cancelled", "admin_refund",
+        }:
+            # Reembolsos reduzem o gasto líquido na loja em vez de aparecerem
+            # como uma nova origem de Âmbares.
+            totals["site_spent"] = max(0, totals["site_spent"] - delta)
+        elif channel_key == "seasonland" or "seasonland" in event_key:
+            totals["seasonland"] += delta
+        elif channel_key in {"suggestions", "suggestion"} or "suggestion" in event_key:
+            totals["suggestions"] += delta
+        else:
+            totals["other"] += delta
+
+    # A tabela de transações ARKBANK registra os ciclos efetivamente processados
+    # como timed_reward (débito do cofre que financia o crédito ao jogador).
+    # Somamos o valor absoluto porque o sinal representa a saída do cofre.
+    in_game_known = False
+    try:
+        row = db.execute(text(
+            "SELECT COALESCE(SUM(ABS(amount)), 0) FROM arkbank_transactions "
+            "WHERE steam_id = :sid AND tx_type = 'timed_reward'"
+        ), {"sid": sid}).fetchone()
+        totals["in_game"] = int(row[0] or 0) if row else 0
+        in_game_known = True
+    except Exception:
+        db.rollback()
+
+    return {
+        **totals,
+        "coverage": {"in_game": in_game_known, "ledger": ledger_known},
+    }
+
+
 def _ensure_schema_ready(db: Session) -> None:
     """Garante tabelas do Âmbarômetro (corrige corrida com migrate assíncrono no boot)."""
     engine = db.get_bind()

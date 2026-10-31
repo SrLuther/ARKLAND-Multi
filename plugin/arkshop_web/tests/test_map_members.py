@@ -219,6 +219,37 @@ def test_build_payload_all_servers(db):
     assert by_id[SERVER_ALPS]["total"] >= 1
 
 
+def test_offline_player_data_identity_is_visible(db):
+    db.execute(text("""
+        INSERT INTO tribe_members
+          (server_id, tribe_id, tribe_name, steam_id, character_name, is_owner,
+           rank_name, player_data_id, joined_at, last_seen_at, updated_at)
+        VALUES ('alps', 9, 'Offline Tribe', 'pdid:54321', 'Offline Player', 0,
+                'Member', 54321, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """))
+    db.commit()
+    result = list_members_for_server(db, server_id=SERVER_ALPS)
+    player = next(item for item in result["items"] if item["steam_id"] == "pdid:54321")
+    assert player["character_name"] == "Offline Player"
+    assert player["player_data_id"] == 54321
+    assert player["is_offline_identity"] is True
+
+
+def test_payload_surfaces_plugin_server_ids_missing_from_catalog(db):
+    db.execute(text("""
+        INSERT INTO tribe_members
+          (server_id, tribe_id, tribe_name, steam_id, character_name, is_owner,
+           rank_name, player_data_id, joined_at, last_seen_at, updated_at)
+        VALUES ('plugin-only-map-id', 10, 'Tribe', 'pdid:12345', 'Player', 0,
+                'Member', 12345, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """))
+    db.commit()
+    payload = build_map_members_payload(db, servers=[{"server_id": SERVER_BR, "label": "Brighamia"}])
+    unknown = next(item for item in payload["maps"] if item["server_id"] == "plugin-only-map-id")
+    assert unknown["registered"] is False
+    assert unknown["total"] == 1
+
+
 def test_api_requires_admin(client):
     r = client.get("/api/admin/map-members")
     assert r.status_code in (401, 403)
@@ -283,3 +314,28 @@ def test_api_admin_list_and_detail(client, db, monkeypatch, engine):
     assert d2["ok"] is True
     assert d2["player_data_id"] == 543086853
     assert any(m["server_id"] == SERVER_ALPS for m in d2["associated_maps"])
+
+
+def test_admin_live_players_uses_read_only_rcon_and_labels_map(client, monkeypatch):
+    _login(client, ADMIN_STEAM)
+    monkeypatch.setattr(_app_module, "_load_servers", lambda: [
+        {"server_id": SERVER_BR, "label": "Brighamia", "rcon_host": "127.0.0.1", "rcon_port": 27020, "rcon_password": "secret"},
+    ])
+    monkeypatch.setattr(_app_module, "_load_settings", lambda: {})
+    monkeypatch.setattr(_app_module, "_get_server_settings", lambda _sid: {"rcon_password": "secret", "rcon_port": 27020})
+    monkeypatch.setattr(_app_module, "_rcon_hosts_to_try", lambda *_args: ["127.0.0.1"])
+    calls = []
+
+    def fake_rcon(host, port, password, command, **_kwargs):
+        calls.append((host, port, password, command))
+        return "0. Ciano, 76561198000000011"
+
+    monkeypatch.setattr(_app_module, "_rcon_command", fake_rcon)
+    response = client.get("/api/admin/map-members/online")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["ok"] is True
+    assert payload["servers"][0]["label"] == "Brighamia"
+    assert payload["servers"][0]["status"] == "online"
+    assert payload["servers"][0]["players"] == [{"name": "Ciano", "steam_id": "76561198000000011"}]
+    assert calls == [("127.0.0.1", 27020, "secret", "ListPlayers")]

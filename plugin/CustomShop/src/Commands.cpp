@@ -531,7 +531,6 @@ void CmdGetPoints(APlayerController* pc, FString*, bool) {
 }
 
 void CmdSellItem(APlayerController* pc, FString*, bool) {
-    // Sell is disabled by default (DisableSellButton=true in config).
     // This handler exists as a safety net in case the button is enabled
     // but no sell logic is implemented yet.
     auto* c = static_cast<AShooterPlayerController*>(pc);

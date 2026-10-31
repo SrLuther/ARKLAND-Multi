@@ -328,10 +328,6 @@ std::string ShopConfig::CloudShareKey() const {
     return key.empty() ? "default" : key;
 }
 
-bool ShopConfig::DisableSell() const {
-    return settings_.value("DisableSellButton", true);
-}
-
 bool ShopConfig::DisableTrade() const {
     return settings_.value("DisableTradeButton", true);
 }

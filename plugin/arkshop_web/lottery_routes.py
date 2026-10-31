@@ -47,7 +47,7 @@ def _lottery_purchase_error_response(code: str, *, number: int | None = None) ->
     if code == "confirmation_deadline_passed":
         status = 403
     msgs = {
-        "lottery_disabled": "Sorteio desabilitado.",
+        "lottery_disabled": "BetLand está desativada.",
         "no_active_campaign": "Nenhuma campanha ativa.",
         "random_limit_reached": "Limite de compras aleatórias atingido.",
         "insufficient_balance": "Saldo insuficiente.",
@@ -186,7 +186,7 @@ def register_lottery_routes(
         return jsonify({
             "ok": True,
             "version": LOTTERY_REGULAMENTO_VERSION,
-            "title": "Regulamento do Sorteio de Doações ARKLAND",
+            "title": "Regulamento BetLand ARKLAND",
             "updated_at": "2026-07-05",
             "html": lottery_regulamento_html(),
         })

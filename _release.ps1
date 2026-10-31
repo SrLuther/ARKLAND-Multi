@@ -209,6 +209,9 @@ $releaseNewFiles = @(
     "src/ui/level_progression_editor.py",
     "src/ui/server_cli_catalog.py",
     "src/ui/server_ini_catalog.py",
+    "plugin/arkshop_web/discord_engagement_routes.py",
+    "plugin/arkshop_web/static/betland.jpg",
+    "src/discord_bot/activity_rewards.py",
     "tests/test_ark_ini_config_only_writer.py",
     "tests/test_asm_ini_lossless_writer.py",
     "tests/test_ini_document.py",
@@ -230,7 +233,7 @@ foreach ($name in @($stagedNames)) {
     $norm = ([string]$name -replace '\\', '/')
     $drop = $false
     if ($norm -like "_release_*.log" -or $norm -like "*/_release_*.log") { $drop = $true }
-    if ($norm -eq "catalog.json" -or $norm -like "*/catalog.json") { $drop = $true }
+    if ($norm -eq "catalog.json" -or $norm -like "*/catalog.json" -or $norm -eq "catalogo.json" -or $norm -like "*/catalogo.json") { $drop = $true }
     if ($norm -eq "ig/betland.jpg") { $drop = $true }
     # Objetos e executaveis de teste do MSVC sao artefatos locais do build.
     if ($norm -like "plugin/CustomShop/obj/*") { $drop = $true }

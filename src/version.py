@@ -4,13 +4,54 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.0"
-BUILD_DATE: str = "2026-10-29"
+APP_VERSION: str = "1.11.5"
+BUILD_DATE: str = "2026-10-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.5",
+        "date": "2026-10-31",
+        "changes": [
+            "Web Store: auditoria Discord pesquis\u00e1vel por nick Steam, nick Discord, SteamID ou DiscordID; identidade Discord aparece no perfil junto do nick Steam.",
+            "Servidores: Membros por mapa inclui identidades sem SteamID e identifica IDs do TribeSync fora do cadastro; lista jogadores online por mapa via RCON com atualiza\u00e7\u00e3o a cada 30 segundos.",
+            "Navega\u00e7\u00e3o: BetLand recebe identidade visual pr\u00f3pria; Guia, Equipes, Com\u00e9rcio e Regulamento foram reorganizados; Minha \u00c1rea e a tela inicial ganharam layout mais compacto.",
+            "Conte\u00fado: removidas op\u00e7\u00f5es antigas sem efeito e corrigidos textos corrompidos encontrados nas p\u00e1ginas administrativas.",
+        ],
+    },
+    {
+        "version": "1.11.4",
+        "date": "2026-10-29",
+        "changes": [
+            "Discord: bot integrado reutiliza automaticamente URL, porta e chave da Loja/CustomShop; no modo Host chama a Web Store local por loopback, evitando depender do IP p\u00fablico e duplicar configura\u00e7\u00f5es manuais.",
+        ],
+    },
+    {
+        "version": "1.11.3",
+        "date": "2026-10-29",
+        "changes": [
+            "Discord: falha HTTP 400 sem motivo estruturado agora orienta verificar se o bot consulta a mesma Web Store e o mesmo banco em que o c\u00f3digo foi gerado.",
+        ],
+    },
+    {
+        "version": "1.11.2",
+        "date": "2026-10-29",
+        "changes": [
+            "Controle remoto: agente lista servidores ASE configurados inclusive parados e encaminha iniciar/parar/reiniciar ao gerenciador correto; status online do agente independe do estado dos mapas.",
+            "Discord: mensagens de falha na vincula\u00e7\u00e3o agora informam a causa acion\u00e1vel (c\u00f3digo, autentica\u00e7\u00e3o, URL, limite ou servi\u00e7o indispon\u00edvel); erros internos incluem refer\u00eancia para localizar o detalhe no log da Web Store.",
+            "Web Store: erros internos da API recebem identificador de refer\u00eancia registrado junto ao traceback para facilitar a investiga\u00e7\u00e3o sem expor detalhes internos no Discord.",
+        ],
+    },
+    {
+        "version": "1.11.1",
+        "date": "2026-10-29",
+        "changes": [
+            "Discord: aceita c\u00f3digos de vincula\u00e7\u00e3o com um ou dois h\u00edfens ap\u00f3s ARKLAND, compat\u00edvel com os formatos mostrados pelo site e pelo bot.",
+            "Servidores: configura\u00e7\u00e3o da URL e do token do agente na tela Controle de servidores, restrita a administradores e com token protegido no armazenamento do site.",
+        ],
+    },
     {
         "version": "1.11.0",
         "date": "2026-10-29",

@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.49] - 2026-10-31
+
+### Improvement
+
+- Remove the obsolete `DisableSellButton` accessor from the current CustomShop configuration API.
+
 ## [1.10.48] - 2026-10-29
 
 ### Feature

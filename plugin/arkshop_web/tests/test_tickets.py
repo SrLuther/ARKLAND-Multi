@@ -232,6 +232,8 @@ def test_discord_link_admin_audit_route_returns_link_bonus_and_unlink_events(tic
     assert admin_unlink_discord(
         ticket_db, steam_id=USER_STEAM, actor_steam_id=ADMIN_STEAM, actor_name="Admin"
     )["ok"] is True
+    ticket_db.execute(text("UPDATE support_ticket_discord_link_audit SET steam_name='CianoSteam' WHERE steam_id=:sid"), {"sid": USER_STEAM})
+    ticket_db.commit()
 
     route_app = Flask("discord-audit-test")
     route_app.secret_key = "test-secret"
@@ -268,6 +270,14 @@ def test_discord_link_admin_audit_route_returns_link_bonus_and_unlink_events(tic
     assert payload["events"][1]["discord_username"] == "Ciano"
     assert payload["events"][1]["discord_user_id"] == "555123456"
     assert payload["events"][1]["amber_delta"] == 10_000
+
+    for query in ("CianoSteam", "Ciano", USER_STEAM, "555123456"):
+        filtered = route_client.get(f"/api/admin/discord-link/audit?q={query}").get_json()
+        assert filtered["total"] > 0, f"No results for audit search {query}"
+        assert all(any(
+            query.lower() in str(event.get(field) or "").lower()
+            for field in ("steam_name", "discord_username", "steam_id", "discord_user_id")
+        ) for event in filtered["events"])
 
     second_page = route_client.get("/api/admin/discord-link/audit?page=2&page_size=2").get_json()
     assert second_page["total"] == 3

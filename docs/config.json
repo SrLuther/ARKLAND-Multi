@@ -956,10 +956,8 @@
   "Settings": {
     "CryoLimitedTime": false,
     "DeliverDinosInCryopods": true,
-    "DisableSellButton": true,
     "DisableTradeButton": false,
     "DiscordUrl": "",
-    "HideBuffIcon": false,
     "MarketCryoDebug": false,
     "MarketCryoMinDaysRemaining": 20,
     "MarketCryoRequireMinDays": false,
@@ -968,8 +966,6 @@
     "ShopName": "ARKLAND Donations",
     "StartingPoints": 100,
     "UiKey": "F3",
-    "UseSteamOverlay": false,
-    "VoteRewards": false,
     "WebApiKey": "senhaextremamentelongaparaaloja",
     "WebApiUrl": "http://192.168.15.51:27199",
     "WebsiteUrl": "https://arkland.com.br"

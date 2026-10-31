@@ -48,7 +48,6 @@ public:
     std::string WebApiKey()          const;
     /** Nuvem: mapas com a mesma chave compartilham os 4 slots. Vazio usa o grupo legado "default". */
     std::string CloudShareKey()       const;
-    bool        DisableSell()        const;
     bool        DisableTrade()       const;
 
     // Cloud inventory (Nuvem)

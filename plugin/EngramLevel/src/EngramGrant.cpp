@@ -118,6 +118,10 @@ struct PointsGuard {
         if (!player_state) return;
         player_state->FreeEngramPointsField() = saved_free;
         player_state->TotalEngramPointsField() = saved_total;
+        // ServerUnlockEngram may trigger replication before the point snapshot
+        // is restored. Publish the restored balance so /ae cannot leave the
+        // client displaying the temporary zeroed value.
+        player_state->ForceNetUpdate(false, true, false);
     }
 };
 
