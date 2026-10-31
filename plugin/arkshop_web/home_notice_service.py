@@ -20,7 +20,7 @@ _MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _ALLOWED_IMAGE_MIME = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
 _SAFE_FILENAME = re.compile(r"^[a-zA-Z0-9._-]+$")
 _RECOMMENDED_WIDTH = 1200
-_RECOMMENDED_HEIGHT = 675
+_RECOMMENDED_HEIGHT = 200
 
 _uploads_dir: Path | None = None
 _image_url_prefix: str = "/api/public/home-card-images"
@@ -41,8 +41,8 @@ def home_cards_meta() -> dict[str, Any]:
     return {
         "recommended_width": _RECOMMENDED_WIDTH,
         "recommended_height": _RECOMMENDED_HEIGHT,
-        "recommended_aspect": "16:9",
-        "recommended_label": f"{_RECOMMENDED_WIDTH} × {_RECOMMENDED_HEIGHT} px (16:9)",
+        "recommended_aspect": "6:1",
+        "recommended_label": f"{_RECOMMENDED_WIDTH} × {_RECOMMENDED_HEIGHT} px (6:1)",
         "max_image_bytes": _MAX_IMAGE_BYTES,
         "allowed_mime": sorted(_ALLOWED_IMAGE_MIME),
     }

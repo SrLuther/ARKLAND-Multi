@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-10-31 01:36:19 -->
-<!-- Total de versões: 501 | Primeira: 1.11.8 -->
+<!-- Gerado: 2026-10-31 07:55:54 -->
+<!-- Total de versões: 502 | Primeira: 1.11.9 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.9] - 2026-10-31
+
+### Other
+
+- Cat?logo: atalho destacado para Com?rcio P2P junto ?s categorias; cabe?alho e avisos reorganizados para reduzir altura, facilitar navega??o e aproveitar melhor o espa?o em telas pequenas.
+- Avisos da home: banners recomendados em 1200 x 200 px (6:1); carrossel, pr?via e verifica??o de dimens?es alinhados ao formato exibido.
 
 ## [1.11.8] - 2026-10-31
 

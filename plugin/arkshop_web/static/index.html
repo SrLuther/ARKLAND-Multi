@@ -1927,6 +1927,96 @@
         linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
       box-shadow: 0 12px 40px rgba(0,0,0,.35);
     }
+    #page-catalog .catalog-hero {
+      align-items: center;
+      gap: 12px 20px;
+      margin-bottom: 12px;
+      padding: 16px 20px;
+    }
+    #page-catalog .catalog-hero__title { font-size: 23px; }
+    #page-catalog .catalog-hero__tagline { margin-top: 3px; max-width: 680px; }
+    #page-catalog .catalog-hero__meta { gap: 7px; }
+    #page-catalog .catalog-tabs {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      gap: 7px;
+      margin: 0 0 12px;
+      padding: 8px 0 10px;
+      background: linear-gradient(180deg, var(--bg) 75%, transparent);
+    }
+    #page-catalog .catalog-tabs .catalog-tab { padding: 8px 13px; }
+    #page-catalog .catalog-tab--market {
+      margin-left: auto;
+      color: #dffbff;
+      border-color: rgba(0,200,255,.42);
+      background: linear-gradient(135deg, rgba(0,200,255,.16), rgba(0,200,255,.06));
+    }
+    #page-catalog .catalog-tab--market:hover {
+      border-color: var(--tek);
+      background: rgba(0,200,255,.2);
+    }
+    #page-catalog .catalog-utility-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 16px;
+      flex-wrap: wrap;
+      margin: 0 0 12px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.018);
+      color: var(--text2);
+      font-size: 12px;
+    }
+    #page-catalog .catalog-utility-row__command { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    #page-catalog .catalog-utility-row__command strong { color: var(--text); }
+    #page-catalog .catalog-utility-row__command .ingame-cmds__chip { padding: 4px 10px; }
+    #page-catalog .catalog-utility-row__links { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #page-catalog .catalog-utility-row__links button {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--tek);
+      font: inherit;
+      cursor: pointer;
+    }
+    #page-catalog .catalog-utility-row__links button:hover { text-decoration: underline; }
+    #page-catalog .catalog-policy-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 16px;
+      margin: 0 0 12px;
+      padding: 8px 12px;
+      border: 1px solid rgba(232,120,32,.22);
+      border-radius: var(--radius);
+      background: rgba(232,120,32,.045);
+      color: var(--text2);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    #page-catalog .catalog-policy-strip strong { color: var(--text); }
+    #page-catalog .catalog-policy-strip button {
+      flex-shrink: 0;
+      border: 0;
+      background: none;
+      color: var(--amber);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    @media (max-width: 700px) {
+      #page-catalog .catalog-hero { padding: 13px 14px; }
+      #page-catalog .catalog-hero__meta { width: 100%; }
+      #page-catalog .catalog-hero__meta .btn { flex: 1; justify-content: center; }
+      #page-catalog .catalog-tabs { position: static; gap: 6px; }
+      #page-catalog .catalog-tabs .catalog-tab { flex: 1 1 auto; padding: 8px 10px; }
+      #page-catalog .catalog-tab--market { margin-left: 0; }
+      #page-catalog .catalog-utility-row,
+      #page-catalog .catalog-policy-strip { align-items: flex-start; }
+    }
     .catalog-hero__title {
       font-family: 'Cinzel', serif;
       font-size: 26px;
@@ -4477,9 +4567,9 @@
     .home-lobby__players { display:flex; align-items:center; gap:7px; color:var(--text); font-size:11px; }
     .home-notice-panel { min-width:0; padding:12px 14px 14px; border:1px solid var(--border); border-radius:14px; background:var(--surface2); }
     .home-section__eyebrow { color:var(--amber); font-size:10px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; margin-bottom:8px; }
-    .home-notice-panel .home-carousel { min-height:110px; }
-    .home-notice-panel .home-carousel__media { max-height:180px; overflow:hidden; }
-    .home-notice-panel .home-carousel__media img { max-height:180px; object-fit:cover; }
+    .home-notice-panel .home-carousel { aspect-ratio:6 / 1; min-height:110px; max-height:200px; }
+    .home-notice-panel .home-carousel__media { overflow:hidden; }
+    .home-notice-panel .home-carousel__media img { object-fit:cover; }
     .home-notice-panel .home-carousel__slide--text { min-height:110px; }
     .home-shortcuts { padding:22px; border:1px solid var(--border); border-radius:16px; background:linear-gradient(140deg,rgba(20,17,12,.95),rgba(10,11,11,.96)); }
     .home-lobby__section-head { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-bottom:14px; }
@@ -7216,41 +7306,20 @@
                 <span class="amber-unit-label balance-stack__unit">Âmbares</span>
               </div>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="openPolicyModal(false)">📜 Política</button>
             <button class="btn btn-ghost btn-sm" onclick="openRegulamentoPage()">📋 Regulamento</button>
-            <button class="btn btn-primary btn-sm" onclick="goToPage('market')">🦖 Comércio P2P</button>
             <button class="btn btn-ghost btn-sm" onclick="loadCatalog({ force: true })">↺ Atualizar</button>
           </div>
         </div>
-        <div class="donation-policy-banner" onclick="openPolicyModal(false)" role="button" tabindex="0">
-          <div class="donation-policy-banner__title">⚖️ Política de Doações — leia antes de doar ou resgatar</div>
-          <div class="donation-policy-banner__text">
-            As doações via PIX ou cartão são <strong>voluntárias</strong>. PIX exige CPF e telefone brasileiro; cartão aceita pagamento internacional (e-mail e nome — documento opcional). Dados repassados ao Mercado Pago — não usamos para marketing.
-            <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com Âmbar</strong>.
-          </div>
-          <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
+        <div class="catalog-policy-strip">
+          <span><strong>Doações voluntárias.</strong> PIX e cartão são processados pelo Mercado Pago; itens são resgatados com Âmbares. Não há reembolso.</span>
+          <button type="button" onclick="openPolicyModal(false)">Ler política completa →</button>
         </div>
-        <div class="ingame-cmds ingame-cmds--compact" data-scope="catalog" aria-label="Comandos in-game do catálogo">
-          <div class="ingame-cmds__head">
-            <div class="ingame-cmds__title">🎮 Comandos in-game</div>
-            <div class="ingame-cmds__sub">Receba itens, dinos e kits resgatados no catálogo</div>
-            <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
-          </div>
-          <div class="ingame-cmds__grid ingame-cmds__grid--single">
-            <div class="ingame-cmds__card ingame-cmds__card--focus">
-              <div class="ingame-cmds__card-label">Receber qualquer recurso do catálogo</div>
-              <div class="ingame-cmds__chips">
-                <button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/shop', this)" title="Copiar /shop">/shop</button>
-              </div>
-              <div class="ingame-cmds__hint">No chat global: entrega a fila pendente, mostra o saldo de Âmbar e o link da loja. Esteja online no cluster com o mesmo SteamID.</div>
-            </div>
-          </div>
-          <div class="ingame-cmds__footer">
-            <span class="ingame-cmds__footer-label">Outros:</span>
-            <button type="button" class="ingame-cmds__link" onclick="goToPage('market')">Comércio → /enviar · /mercado</button>
-            <button type="button" class="ingame-cmds__link" onclick="goToPage('market');setTimeout(function(){setMarketTab('encomenda');},200)">Encomenda → /dinolab</button>
-            <button type="button" class="ingame-cmds__link" onclick="goToPage('teams')">Equipe → /marco</button>
-          </div>
+        <div class="catalog-utility-row" aria-label="Ajuda rápida do catálogo">
+          <span class="catalog-utility-row__command"><strong>Resgatar no jogo</strong><button type="button" class="ingame-cmds__chip" onclick="copyIngameCmd('/shop', this)" title="Copiar /shop">/shop</button><span>Use no chat global para receber a fila pendente.</span></span>
+          <span class="catalog-utility-row__links">
+            <button type="button" onclick="goToPage('market');setTimeout(function(){setMarketTab('encomenda');},200)">Encomenda · /dinolab</button>
+            <button type="button" onclick="goToPage('teams')">Equipe · /marco</button>
+          </span>
         </div>
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
@@ -7260,6 +7329,7 @@
           <button type="button" class="catalog-tab" data-catalog-tab="audit-dinos" onclick="setCatalogTab('audit-dinos')">🔎 Auditoria Dinos</button>
           <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação</button>
           <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
+          <button type="button" class="catalog-tab catalog-tab--market" onclick="goToPage('market')">🛒 Comércio P2P</button>
         </div>
         <div id="catalog-category-doc" class="catalog-category-doc"></div>
         <div id="catalog-panel-items" class="catalog-panel active">
@@ -9384,11 +9454,10 @@
           </div>
         </div>
         <div class="home-card-dims-banner" role="note" aria-label="Dimensões recomendadas da imagem">
-          <span class="home-card-dims-banner__badge">1200 × 675 px · 16:9</span>
+          <span class="home-card-dims-banner__badge">1200 × 200 px · 6:1</span>
           <p class="home-card-dims-banner__text">
             Gerencie os <strong>cards do carrossel</strong> da home (rotação a cada 5&nbsp;s).
-            Envie imagens neste tamanho exacto para evitar corte —
-            o viewport usa <code>object-fit: cover</code>. Cards só com texto também são aceitos.
+            Formato recomendado para o banner horizontal. Em telas estreitas, a imagem pode ser recortada para caber; o viewport usa <code>object-fit: cover</code>. Cards só com texto também são aceitos.
           </p>
         </div>
         <div id="admin-home-cards-list"></div>
@@ -9403,9 +9472,9 @@
           </div>
           <div class="modal-body">
             <div class="home-card-dims-banner" style="margin-bottom:14px;" role="note">
-              <span class="home-card-dims-banner__badge">1200 × 675 px · 16:9</span>
+              <span class="home-card-dims-banner__badge">1200 × 200 px · 6:1</span>
               <p class="home-card-dims-banner__text">
-                Tamanho <strong>recomendado</strong> para a arte do card. Outras proporções serão recortadas no carrossel.
+                Tamanho <strong>recomendado</strong> para o banner. Outras proporções podem ser recortadas, principalmente em telas estreitas.
               </p>
             </div>
             <div class="form-grid">
@@ -9415,23 +9484,23 @@
               </div>
               <div class="form-group" style="grid-column:1/-1;">
                 <label>Texto / descrição</label>
-                <textarea id="hc-body" rows="5" maxlength="4000" placeholder="Mensagem do card (opcional se houver imagem 1200×675)"></textarea>
+                <textarea id="hc-body" rows="5" maxlength="4000" placeholder="Mensagem do card (opcional se houver imagem 1200×200)"></textarea>
               </div>
               <div class="form-group" style="grid-column:1/-1;">
                 <label>Imagem (upload)</label>
                 <div class="home-card-dims-hint">
-                  Dimensões recomendadas: <code>1200 × 675 px</code> (aspecto <code>16:9</code>).
+                  Dimensões recomendadas: <code>1200 × 200 px</code> (aspecto <code>6:1</code>).
                   Máx. 5&nbsp;MB · JPEG / PNG / WebP / GIF.
                 </div>
                 <input id="hc-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-top:8px;" />
                 <div id="hc-dims-check" class="home-card-dims-check" aria-live="polite"></div>
                 <div id="hc-preview-wrap" style="margin-top:8px;display:none;">
-                  <img id="hc-preview" class="home-card-admin-thumb" alt="Prévia" style="width:160px;height:90px;" />
+                  <img id="hc-preview" class="home-card-admin-thumb" alt="Prévia" style="width:240px;height:40px;" />
                 </div>
               </div>
               <div class="form-group" style="grid-column:1/-1;">
                 <label>URL da imagem (alternativa ao upload)</label>
-                <input id="hc-image-url" type="text" maxlength="512" placeholder="Arte 1200×675 — https://… ou /api/public/home-card-images/…" />
+                <input id="hc-image-url" type="text" maxlength="512" placeholder="Banner 1200×200 — https://… ou /api/public/home-card-images/…" />
               </div>
               <div class="form-group" style="grid-column:1/-1;">
                 <label>Link ao clicar (opcional)</label>
@@ -26288,7 +26357,7 @@ function renderAdminHomeCards(meta) {
   if (!el) return;
   const dims = (meta && meta.recommended_label)
     ? meta.recommended_label
-    : "1200 × 675 px (16:9)";
+    : "1200 × 200 px (6:1)";
   if (!_homeCardsAdmin.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">📢</div>
       <p>Nenhum card no carrossel</p>
@@ -26364,21 +26433,21 @@ function _checkHomeCardFileDims(file) {
   img.onload = () => {
     const w = img.naturalWidth || 0;
     const h = img.naturalHeight || 0;
-    if (w === 1200 && h === 675) {
-      _setHomeCardDimsCheck("ok", `✓ Dimensões ideais: ${w} × ${h} px (16:9).`);
+    if (w === 1200 && h === 200) {
+      _setHomeCardDimsCheck("ok", `✓ Dimensões ideais: ${w} × ${h} px (6:1).`);
       return;
     }
     const ratio = h ? (w / h) : 0;
-    const ratioOk = Math.abs(ratio - 16 / 9) < 0.03;
+    const ratioOk = Math.abs(ratio - 6) < 0.08;
     if (ratioOk) {
       _setHomeCardDimsCheck(
         "warn",
-        `Atenção: ${w} × ${h} px — proporção 16:9 OK, mas o ideal é exactamente 1200 × 675 px.`
+        `Atenção: ${w} × ${h} px — proporção 6:1 OK, mas o tamanho recomendado é 1200 × 200 px.`
       );
     } else {
       _setHomeCardDimsCheck(
         "warn",
-        `Atenção: ${w} × ${h} px — diferem de 1200 × 675 (16:9). A imagem será recortada no carrossel.`
+        `Atenção: ${w} × ${h} px — diferem de 1200 × 200 (6:1). A imagem poderá ser recortada no carrossel.`
       );
     }
   };

@@ -309,8 +309,8 @@ def test_index_has_notice_ui():
     assert "home-carousel" in html
     assert "_homeHeroCarouselHtml" in html
     assert "admin-home-notice" in html
-    assert "1200" in html and "675" in html
-    assert "1200 × 675" in html or "1200 × 675 px" in html
+    assert "1200" in html and "200" in html
+    assert "1200 × 200" in html or "1200 × 200 px" in html
     assert "home-card-dims-banner" in html
     assert "home-card-dims-hint" in html
     assert "_checkHomeCardFileDims" in html
