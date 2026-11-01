@@ -205,7 +205,7 @@ def test_public_and_admin_routes(client):
     assert cards_data["ok"] is True
     assert cards_data["cards"] == []
     assert cards_data["recommended_width"] == 1200
-    assert cards_data["recommended_height"] == 675
+    assert cards_data["recommended_height"] == 200
 
     with client.session_transaction() as sess:
         sess["steam_id"] = ADMIN_STEAM

@@ -13192,14 +13192,33 @@ def admin_cloud_inventory_list():
             + where + " GROUP BY i.cloud_group, i.steam_id, i.slot, i.item_count, i.uploaded_at, i.source_map "
             "ORDER BY i.uploaded_at DESC, i.steam_id, i.slot LIMIT :limit OFFSET :offset"
         ), {**params, "limit": page_size, "offset": (page - 1) * page_size}).mappings().all()
+        steam_ids = list(dict.fromkeys(str(r["steam_id"]) for r in rows))
+        cached_personas: dict[str, str | None] = {}
+        if steam_ids:
+            cached_personas = {
+                str(sid): str(persona) if persona else None
+                for sid, persona in db.query(StoreUser.steam_id, StoreUser.steam_persona)
+                .filter(StoreUser.steam_id.in_(steam_ids)).all()
+            }
+        # Finish the read transaction before the persona helper persists fetched
+        # names through its own session (important for SQLite installs).
+        db.commit()
+        personas, persona_meta = _backfill_steam_personas(
+            db,
+            [(sid, cached_personas.get(sid)) for sid in steam_ids],
+            return_status=True,
+        )
         payload = [{
             "cloud_group": str(r["cloud_group"]), "steam_id": str(r["steam_id"]),
+            "player_name": personas.get(str(r["steam_id"])),
             "slot": int(r["slot"]), "item_count": int(r["item_count"] or 0),
             "blob_count": int(r["blob_count"] or 0), "bytes_total": int(r["bytes_total"] or 0),
             "uploaded_at": str(r["uploaded_at"] or ""), "source_map": str(r["source_map"] or ""),
         } for r in rows]
         return jsonify({"ok": True, "groups": groups, "items": payload, "total": total,
-                        "page": page, "page_size": page_size})
+                        "page": page, "page_size": page_size,
+                        "steam_api_configured": persona_meta.get("steam_api_configured", False),
+                        "steam_persona_warning": persona_meta.get("steam_persona_warning")})
     except Exception as exc:
         log.exception("cloud_inventory_admin_list_failed")
         return jsonify({"ok": False, "error": "Não foi possível ler a nuvem. Confira se a migração cloud_group foi aplicada.",
@@ -18149,6 +18168,15 @@ from diagnostics_routes import register_diagnostics_routes
 register_diagnostics_routes(
     app,
     api_key_required=api_key_required,
+    admin_required=admin_required,
+    limiter=limiter,
+    data_dir=_DATA_DIR,
+)
+
+from client_error_routes import register_client_error_routes
+
+register_client_error_routes(
+    app,
     admin_required=admin_required,
     limiter=limiter,
     data_dir=_DATA_DIR,

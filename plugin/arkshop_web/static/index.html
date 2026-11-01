@@ -3701,18 +3701,22 @@
     /* ── Toast ────────────────────────────────────────────────────────────── */
     #toast-container {
       position: fixed;
-      bottom: 24px;
+      top: 20px;
       right: 24px;
       z-index: 9999;
       display: flex;
       flex-direction: column;
+      align-items: flex-end;
       gap: 8px;
+      max-width: min(420px, calc(100vw - 32px));
+      pointer-events: none;
     }
+    #toast-container.support-chat-open { max-height: min(42vh, 300px); overflow-y: auto; }
     .toast {
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 12px 18px;
+      padding: 12px 38px 12px 18px;
       min-width: 280px;
       box-shadow: var(--shadow);
       display: flex;
@@ -3721,7 +3725,11 @@
       font-size: 13px;
       font-weight: 600;
       animation: toastIn .2s ease;
+      position: relative;
+      max-width: 100%;
+      pointer-events: auto;
     }
+    .toast-dismiss { position:absolute; right:8px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:inherit; opacity:.72; font-size:18px; cursor:pointer; }
     @keyframes toastIn {
       from { transform: translateX(60px); opacity: 0; }
       to   { transform: none; opacity: 1; }
@@ -4419,8 +4427,9 @@
       #toast-container {
         left: 12px;
         right: 12px;
-        bottom: max(12px, env(safe-area-inset-bottom));
+        top: max(12px, env(safe-area-inset-top));
       }
+      #toast-container.support-chat-open { max-height: 35vh; }
       .toast {
         min-width: 0;
         width: 100%;
@@ -4573,7 +4582,7 @@
     .home-lobby__players { display:flex; align-items:center; gap:7px; color:var(--text); font-size:11px; }
     .home-notice-panel { min-width:0; padding:12px 14px 14px; border:1px solid var(--border); border-radius:14px; background:var(--surface2); }
     .home-section__eyebrow { color:var(--amber); font-size:10px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; margin-bottom:8px; }
-    .home-notice-panel .home-carousel { aspect-ratio:6 / 1; min-height:110px; max-height:200px; }
+    .home-notice-panel .home-carousel { aspect-ratio:6 / 1; }
     .home-notice-panel .home-carousel__media { overflow:hidden; }
     .home-notice-panel .home-carousel__media img { object-fit:cover; }
     .home-notice-panel .home-carousel__slide--text { min-height:110px; }
@@ -7001,7 +7010,7 @@
       box-shadow: 0 12px 32px rgba(0,0,0,.12);
     }
     .home-notice-panel { padding: 17px 18px 18px; }
-    .home-notice-panel .home-carousel { aspect-ratio: 6.6 / 1; min-height: 148px; max-height: 230px; }
+    .home-notice-panel .home-carousel { aspect-ratio: 6 / 1; }
     #home-connect-section { padding: 23px; background: linear-gradient(145deg, rgba(23,21,17,.97), rgba(13,14,13,.98)); }
     #home-connect-section .home-section__head { align-items: center; margin-bottom: 17px; }
     #home-connect-section .home-section__title { font-size: clamp(20px, 1.7vw, 25px); }
@@ -7285,7 +7294,7 @@
       background:linear-gradient(130deg,rgba(18,29,38,.98),rgba(11,18,25,.98));
     }
     .home-section__eyebrow { color:#82dcd2; letter-spacing:.2em; }
-    .home-notice-panel .home-carousel { aspect-ratio:7.5 / 1; min-height:154px; max-height:240px; }
+    .home-notice-panel .home-carousel { aspect-ratio:6 / 1; }
     #home-connect-section {
       order:4;
       grid-column:1 / -1;
@@ -7408,6 +7417,95 @@
       .brand-watermark { left:13vw; top:55%; width:88vw; height:68vh; opacity:.04; }
       .home-lobby__copy .home-hero__actions .btn-primary { width:100%; justify-content:center; }
     }
+    /* Catalogo redesenhado: hierarquia clara, filtros acessiveis e cards consistentes com a home. */
+    #page-catalog .catalog-hero {
+      position:relative; isolation:isolate; overflow:hidden; display:grid;
+      grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:24px;
+      min-height:224px; margin:0 0 18px; padding:30px clamp(22px,4vw,48px);
+      border:1px solid rgba(232,160,32,.28); border-radius:24px;
+      background:radial-gradient(ellipse at 78% 0%,rgba(0,200,255,.10),transparent 38%),
+        radial-gradient(ellipse at 12% 100%,rgba(232,120,32,.17),transparent 48%),
+        linear-gradient(125deg,#171b1d 0%,#10171b 54%,#0b1115 100%);
+      box-shadow:0 22px 55px rgba(0,0,0,.27),inset 0 1px rgba(255,255,255,.04);
+    }
+    #page-catalog .catalog-hero::after {
+      content:""; position:absolute; z-index:-1; inset:0 0 0 auto; width:38%; opacity:.28;
+      background:linear-gradient(135deg,transparent 48%,rgba(232,160,32,.10) 49%,transparent 50%),
+        linear-gradient(45deg,transparent 48%,rgba(0,200,255,.08) 49%,transparent 50%);
+      background-size:34px 34px; mask-image:linear-gradient(90deg,transparent,#000);
+      pointer-events:none;
+    }
+    #page-catalog .catalog-hero__copy { position:relative; z-index:1; max-width:760px; }
+    #page-catalog .catalog-hero__eyebrow { margin-bottom:9px; color:#f3bd65; font-size:10px; font-weight:800; letter-spacing:.24em; }
+    #page-catalog .catalog-hero__title { font-size:clamp(30px,4vw,46px); line-height:1.05; letter-spacing:.035em; text-shadow:0 5px 24px rgba(0,0,0,.5); }
+    #page-catalog .catalog-hero__tagline { max-width:590px; margin:12px 0 0; color:#bac7ca; font-size:14px; line-height:1.6; }
+    #page-catalog .catalog-hero__facts { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+    #page-catalog .catalog-hero__facts span { padding:6px 10px; border:1px solid rgba(255,255,255,.09); border-radius:999px; background:rgba(255,255,255,.035); color:#d2dcde; font-size:11px; font-weight:600; }
+    #page-catalog .catalog-hero__facts span::before { content:"✦"; margin-right:7px; color:#f1b34f; }
+    #page-catalog .catalog-hero__mark { position:absolute; right:28%; top:50%; color:rgba(232,160,32,.075); font-size:190px; line-height:1; transform:translateY(-50%); pointer-events:none; }
+    #page-catalog .catalog-hero__meta { position:relative; z-index:1; display:grid; justify-items:stretch; gap:9px; min-width:216px; }
+    #page-catalog .catalog-points { display:grid; grid-template-columns:auto auto 1fr; gap:7px 10px; align-items:center; padding:12px 14px; border-color:rgba(232,160,32,.42); border-radius:14px; background:linear-gradient(145deg,rgba(232,120,32,.16),rgba(8,13,16,.78)); }
+    #page-catalog .catalog-points__label { grid-column:1/-1; color:#b8c3c5; font-size:10px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
+    #page-catalog .catalog-points .balance-stack { align-items:flex-start; text-align:left; }
+    #page-catalog .catalog-points .balance-stack__value { font-size:22px; }
+    #page-catalog .catalog-hero__meta > .btn { min-height:38px; justify-content:center; border-radius:11px; }
+    #page-catalog .catalog-policy-strip { margin:0 0 12px; padding:10px 14px; border-radius:12px; }
+    #page-catalog .catalog-utility-row { margin-bottom:16px; padding:11px 14px; border-radius:12px; }
+    #page-catalog .catalog-tabs { position:sticky; top:0; z-index:30; display:flex; flex-wrap:nowrap; gap:8px; overflow-x:auto; margin:0 0 14px; padding:10px 2px 12px; border-bottom:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,var(--bg) 82%,rgba(0,0,0,0)); scrollbar-width:thin; }
+    #page-catalog .catalog-tabs .catalog-tab { flex:0 0 auto; min-height:40px; padding:9px 14px; border-radius:11px; white-space:nowrap; }
+    #page-catalog .catalog-tabs .catalog-tab.active { border-color:rgba(232,160,32,.5); background:linear-gradient(135deg,rgba(232,160,32,.20),rgba(232,120,32,.08)); box-shadow:inset 0 1px rgba(255,255,255,.05); }
+    #page-catalog .catalog-tab--market { margin-left:auto; }
+    #page-catalog .catalog-toolbar--sticky { top:61px; display:flex; gap:10px; margin:0 0 10px; padding:10px; border:1px solid rgba(255,255,255,.075); border-radius:14px; background:rgba(13,19,23,.94); box-shadow:0 10px 28px rgba(0,0,0,.18); }
+    #page-catalog .catalog-search-wrap input { min-height:44px; border-color:rgba(255,255,255,.10); border-radius:10px; background:#111a1e; }
+    #page-catalog .catalog-search-wrap input:focus { border-color:rgba(232,160,32,.58); box-shadow:0 0 0 3px rgba(232,160,32,.10); }
+    #page-catalog .catalog-sort-select { min-height:44px; border-radius:10px; }
+    #page-catalog .catalog-cats { gap:8px; margin:0 0 14px; padding:4px 2px 9px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:thin; }
+    #page-catalog .catalog-cat-chip { padding:8px 13px; border-radius:10px; background:rgba(255,255,255,.035); }
+    #page-catalog .catalog-cat-chip.active { border-color:rgba(232,160,32,.5); background:rgba(232,160,32,.14); }
+    #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
+    #page-catalog #catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid {
+      grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr)); gap:14px;
+    }
+    #page-catalog .item-card { min-height:0; flex-direction:column; border-color:rgba(255,255,255,.09); border-radius:16px; background:linear-gradient(145deg,rgba(24,32,36,.98),rgba(13,19,22,.98)); }
+    #page-catalog .item-card__thumb { width:100%; min-height:142px; height:142px; border-right:0; border-bottom:1px solid rgba(255,255,255,.075); background:radial-gradient(ellipse at 50% 45%,rgba(232,160,32,.16),transparent 62%),linear-gradient(180deg,#172126,#11181c); }
+    #page-catalog .item-card__thumb img { width:76px; height:76px; }
+    #page-catalog .item-card__icon { font-size:48px; }
+    #page-catalog .item-card__body { min-height:156px; padding:14px 15px 13px; }
+    #page-catalog .item-card__name { font-size:17px; }
+    #page-catalog .item-card__desc { font-size:12px; }
+    #page-catalog .item-card__footer { margin-top:auto; }
+    @media (max-width:900px) {
+      #page-catalog .catalog-hero { grid-template-columns:minmax(0,1fr) 190px; gap:16px; padding:24px; }
+      #page-catalog .catalog-hero__mark { right:24%; font-size:150px; }
+      #page-catalog .catalog-hero__meta { min-width:0; }
+      #page-catalog .catalog-hero__title { font-size:34px; }
+      #page-catalog .catalog-tab--market { margin-left:0; }
+    }
+    @media (max-width:700px) {
+      #page-catalog .catalog-hero { grid-template-columns:minmax(0,1fr); min-height:0; gap:18px; padding:23px 18px; border-radius:18px; }
+      #page-catalog .catalog-hero__mark { right:7%; top:32%; font-size:112px; }
+      #page-catalog .catalog-hero__copy { max-width:100%; }
+      #page-catalog .catalog-hero__title { font-size:32px; }
+      #page-catalog .catalog-hero__tagline { max-width:100%; font-size:13px; }
+      #page-catalog .catalog-hero__meta { display:flex; flex-wrap:wrap; }
+      #page-catalog .catalog-hero__meta > .btn { flex:1 1 130px; }
+      #page-catalog .catalog-tabs { position:relative; top:auto; margin-right:-12px; padding-right:12px; }
+      #page-catalog .catalog-tabs .catalog-tab { min-height:38px; padding:8px 11px; }
+      #page-catalog .catalog-toolbar--sticky { position:relative; top:auto; flex-direction:column; }
+      #page-catalog .catalog-search-wrap { width:100%; min-width:0; }
+      #page-catalog .catalog-sort-select { width:100%; }
+      #page-catalog .catalog-utility-row { align-items:flex-start; flex-direction:column; }
+      #page-catalog .catalog-utility-row__links { width:100%; justify-content:space-between; }
+      #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
+      #page-catalog #catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); }
+    }
+    @media (max-width:480px) {
+      #page-catalog .catalog-hero__facts { gap:6px; }
+      #page-catalog .catalog-hero__facts span { font-size:10px; }
+      #page-catalog .catalog-policy-strip { flex-direction:column; align-items:flex-start; }
+      #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
+      #page-catalog #catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:1fr; }
+    }
     .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; display:flex; align-items:center; gap:10px; border:1px solid rgba(91,163,184,.48); border-radius:999px; padding:11px 16px 11px 11px; color:#c6d8dc; background:linear-gradient(145deg,rgba(19,31,36,.98),rgba(8,15,19,.99)); box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.035); font:700 14px Rajdhani,sans-serif; cursor:pointer; transition:border-color .2s,box-shadow .2s,color .2s,transform .2s; }
     .support-fab:hover { color:#e0f4f7;border-color:rgba(105,203,221,.76);box-shadow:0 8px 30px rgba(0,0,0,.62),0 0 16px rgba(70,174,197,.13),inset 0 1px rgba(255,255,255,.05);transform:translateY(-2px); }
     .support-fab__icon { width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(91,163,184,.3);background:linear-gradient(145deg,rgba(71,155,177,.16),rgba(71,155,177,.045));color:#72c4d4;font-size:16px; }
@@ -7441,10 +7539,18 @@
     .support-model-controls button {border:1px solid rgba(91,163,184,.24);border-radius:8px;padding:6px 9px;background:#111c21;color:#a9c8ce;font:600 11px Rajdhani,sans-serif;cursor:pointer}
     .support-model-controls button:hover {border-color:rgba(105,203,221,.6);color:#d7f1f4}
     .support-model-controls button:disabled {opacity:.5;cursor:wait}
+    .support-model-controls button {font-size:12px;padding:8px 10px}
+    .support-model-controls .is-loading {opacity:.8}
+    .support-model-progress {height:3px;margin:0 15px 7px;border-radius:9px;background:rgba(91,163,184,.14);overflow:hidden}
+    .support-model-progress span {display:block;width:38%;height:100%;border-radius:inherit;background:#72c4d4;transform:translateX(-110%)}
+    .support-model-progress.active span {animation:supportModelProgress 1.1s ease-in-out infinite}
+    @keyframes supportModelProgress {to{transform:translateX(300%)}}
+    #support-model-status {min-height:32px;line-height:1.4}
     .support-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
     .support-demo-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
     .support-demo-reply textarea {width:100%;min-height:66px;resize:vertical;border:1px solid rgba(91,163,184,.2);border-radius:9px;padding:10px;background:#0b1418;color:#e4edf0;font:13px Rajdhani,sans-serif;opacity:.72}
     .support-status {padding:15px;text-align:center;color:#a9bec3;font-size:13px}
+    .support-inline-alert {padding:10px 12px;margin:0 0 10px;border:1px solid rgba(255,104,116,.38);border-left:3px solid var(--danger,#ff6874);border-radius:9px;background:rgba(140,32,43,.16);color:#ffd8dc;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
     @media(max-width:600px){.support-fab{right:14px;bottom:14px;padding:10px 14px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
@@ -7754,6 +7860,9 @@
     <div class="nav-item admin-only" data-page="plugin-debug" onclick="nav(this)">
       <span class="nav-icon">🐛</span> Debug Plugins
     </div>
+    <div class="nav-item admin-only" data-page="client-error-log" onclick="nav(this)">
+      <span class="nav-icon">⚠️</span> Registro de Erros do Site
+    </div>
     <div class="nav-section local-preview-only">Preview</div>
     <div class="nav-item admin-only local-preview-open" data-page="primal-fear-ficha" onclick="nav(this)">
       <span class="nav-icon">🦖</span> Ficha Primal Fear
@@ -7846,15 +7955,19 @@
       <!-- PAGE: Catálogo (público — login só para doar/resgatar) -->
       <div id="page-catalog" class="page">
         <div class="catalog-hero">
-          <div>
-            <div class="catalog-hero__title" id="catalog-shop-name">ARKLAND DONATIONS</div>
+          <div class="catalog-hero__mark" aria-hidden="true">✦</div>
+          <div class="catalog-hero__copy">
+            <div class="catalog-hero__eyebrow">CATÁLOGO DE RECOMPENSAS</div>
+            <div class="catalog-hero__title" id="catalog-shop-name" role="heading" aria-level="1">ARKLAND DONATIONS</div>
             <div class="catalog-hero__tagline" id="catalog-shop-url" style="display:none;font-size:12px;color:var(--tek);margin-top:4px;"></div>
             <div class="catalog-hero__tagline">
               Doe via PIX ou cartão e receba Âmbares como recompensa. Use o Âmbar para resgatar itens e kits no catálogo.
             </div>
+            <div class="catalog-hero__facts"><span>Itens, dinos, kits e licenças</span><span>Resgates direto no jogo</span></div>
           </div>
           <div class="catalog-hero__meta">
             <div id="catalog-points-pill" class="catalog-points hidden">
+              <span class="catalog-points__label">Seu saldo</span>
               <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="16" height="16" />
               <div class="balance-stack">
                 <span id="catalog-points-val" class="balance-stack__value">—</span>
@@ -9692,6 +9805,12 @@
                     <td>Iniciar desbloqueio de <strong>notas de explorador</strong> + runas Fjordur (custa Âmbar)</td>
                     <td>Comando ativo no servidor; estar vivo; saldo suficiente</td>
                     <td>Aviso de possível travamento → confirme com <code>/confirmar</code> em 2 min</td>
+                  </tr>
+                  <tr>
+                    <td><code>/homodeus</code></td>
+                    <td>Conceder de uma vez os desbloqueios Alpha de todos os chefes disponíveis (custa Âmbar)</td>
+                    <td>Estar vivo e ter saldo suficiente; o preço padrão é 20.000 Âmbares e pode ser alterado em <code>Settings.HomodeusCommandPrice</code></td>
+                    <td>Uma única chamada, sem iniciar lutas. Engramas Tek são liberados imediatamente; níveis extras podem exigir renascer ou reconectar, e o implante atualiza após a morte</td>
                   </tr>
                   <tr>
                     <td><code>/upload</code>, <code>/upload1</code>, <code>/upload2</code>, <code>/upload3</code></td>
@@ -12099,6 +12218,41 @@
         </div>
       </div>
 
+      <!-- PAGE: Registro de erros e avisos do site (admin) -->
+      <div id="page-client-error-log" class="page admin-only">
+        <div id="topbar">
+          <div>
+            <div class="page-title">Registro de Erros do Site</div>
+            <p style="font-size:12px;color:var(--text2);margin-top:6px;max-width:760px;">Erros e avisos coletados automaticamente das sessões dos visitantes. O painel atualiza sozinho e reúne contexto técnico para investigação. Parâmetros de URL, e-mails, Steam IDs e credenciais são ocultados; formulários e cookies nunca são enviados.</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadClientErrorLog()">↻ Atualizar agora</button>
+          </div>
+        </div>
+        <div class="grid-3" style="margin-bottom:16px;">
+          <div class="card"><div class="card-title">Erros registrados</div><strong id="client-error-total-errors">—</strong></div>
+          <div class="card"><div class="card-title">Avisos registrados</div><strong id="client-error-total-warnings">—</strong></div>
+          <div class="card"><div class="card-title">Última coleta</div><strong id="client-error-last-seen" style="font-size:14px;">Aguardando…</strong></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Filtrar registros</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select id="client-error-severity" class="btn btn-ghost" onchange="loadClientErrorLog()"><option value="">Erros e avisos</option><option value="error">Somente erros</option><option value="warning">Somente avisos</option></select>
+            <input id="client-error-query" type="search" class="btn btn-ghost" style="min-width:240px;flex:1;text-align:left;" placeholder="Buscar mensagem, página ou arquivo…" onkeydown="if(event.key==='Enter')loadClientErrorLog()">
+            <button class="btn btn-primary btn-sm" onclick="loadClientErrorLog()">Buscar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Changelog de ocorrências</div>
+          <div id="client-error-list" aria-live="polite" style="font-size:12px;color:var(--text2);">Carregando registros…</div>
+          <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            <span id="client-error-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="clientErrorLogPage(-1)">◀ Anterior</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="clientErrorLogPage(1)">Próxima ▶</button>
+          </div>
+        </div>
+      </div>
+
       <div id="modal-audit-detail" class="modal-backdrop hidden">
         <div class="modal" style="max-width:640px;">
           <div class="modal-header">
@@ -12598,6 +12752,63 @@ let _myDonationsPage = { offset: 0, limit: 10, total: 0 };
 
 const API = "";  // mesmo origin
 
+// Coleta técnica automática. Não envia corpo de formulários, cookies, tokens,
+// query strings ou identificadores de jogador; o servidor sanitiza novamente.
+const _clientIssueQueue = [];
+const _clientIssueRecent = new Map();
+let _clientIssueFlushTimer = 0, _clientIssueSending = false;
+function _clientIssueRedact(value) {
+  return String(value || "").replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g,"[email]")
+    .replace(/\b7656119\d{10}\b/g,"[steam-id]")
+    .replace(/(?:bearer\s+|token["']?\s*[:=]\s*["']?)[^\s,;"']+/ig,"[credential]")
+    .replace(/((?:https?:\/\/|\/)[^\s?#"']+)[?#][^\s"')]+/ig,"$1");
+}
+function _collectClientIssue(severity, category, message, details = {}) {
+  if (!/^(error|warning)$/.test(severity) || category === "client-error-log") return;
+  const now=Date.now(), safeMessage=_clientIssueRedact(message).slice(0,2000);
+  const source=_clientIssueRedact(details.source||"").split(/[?#]/,1)[0].slice(0,400);
+  const key=`${severity}|${category}|${safeMessage}|${source}`;
+  const previous=_clientIssueRecent.get(key);
+  if(previous && now-previous.time<30000&&!previous.event._sent){previous.event.occurrences=Math.min(1000,previous.event.occurrences+1);return;}
+  const event={severity,category,message:safeMessage,source,stack:_clientIssueRedact(details.stack||"").slice(0,5000),
+    path:location.pathname, user_agent:navigator.userAgent,
+    context:{method:details.method||"",http_status:details.status||"",app_build:document.querySelector('meta[name="arkland-web-build"]')?.content||"unknown",viewport:`${innerWidth}x${innerHeight}`,
+      language:navigator.language||"",online:navigator.onLine,visibility:document.visibilityState,
+      connection:navigator.connection?.effectiveType||""},occurrences:1};
+  _clientIssueQueue.push(event); if(_clientIssueQueue.length>300)_clientIssueQueue.shift();
+  _clientIssueRecent.set(key,{time:now,event});
+  for(const [k,v] of _clientIssueRecent)if(now-v.time>60000)_clientIssueRecent.delete(k);
+  try{sessionStorage.setItem("arkland-client-issues",JSON.stringify(_clientIssueQueue.slice(-100)));}catch(_){}
+  clearTimeout(_clientIssueFlushTimer);_clientIssueFlushTimer=setTimeout(_flushClientIssues,1800);
+}
+async function _flushClientIssues(useBeacon=false) {
+  if(_clientIssueSending||!_clientIssueQueue.length)return;
+  _clientIssueSending=true;const batch=_clientIssueQueue.splice(0,20), body=JSON.stringify({events:batch});
+  try{
+    if(useBeacon&&navigator.sendBeacon){const sent=navigator.sendBeacon("/api/client-errors",new Blob([body],{type:"application/json"}));if(!sent)throw new Error("beacon_rejected");}
+    else {const response=await fetch("/api/client-errors",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body,keepalive:true});if(!response.ok)throw new Error("collector_unavailable");}
+    for(const event of batch){const key=`${event.severity}|${event.category}|${event.message}|${event.source}`,recent=_clientIssueRecent.get(key);if(recent?.event===event)event._sent=true;}
+    try{sessionStorage.setItem("arkland-client-issues",JSON.stringify(_clientIssueQueue.slice(-100)));}catch(_){}
+  }catch(_){_clientIssueQueue.unshift(...batch);_clientIssueQueue.splice(300);}
+  finally{_clientIssueSending=false;if(_clientIssueQueue.length&&!useBeacon)_clientIssueFlushTimer=setTimeout(_flushClientIssues,10000);}
+}
+try{const pending=JSON.parse(sessionStorage.getItem("arkland-client-issues")||"[]");if(Array.isArray(pending))_clientIssueQueue.push(...pending.slice(-100));}catch(_){}
+if(_clientIssueQueue.length)setTimeout(_flushClientIssues,1200);
+window.addEventListener("error",event=>{const target=event.target&&event.target!==window?event.target:null;const source=target?.currentSrc||target?.src||target?.href||`${event.filename||""}:${event.lineno||0}:${event.colno||0}`;_collectClientIssue("error",target?"resource":"javascript",event.message||(target?"Falha ao carregar recurso":"Erro JavaScript"),{source,stack:event.error?.stack||""});},true);
+window.addEventListener("unhandledrejection",event=>{const reason=event.reason;_collectClientIssue("error","promise",reason?.message||reason||"Promise rejeitada",{source:"unhandledrejection",stack:reason?.stack||""});});
+for(const level of ["error","warn"]){const original=console[level].bind(console);console[level]=(...args)=>{try{const parts=args.map(v=>typeof v==="string"?v:(v instanceof Error?v.message:"" )).filter(Boolean);const err=args.find(v=>v instanceof Error);_collectClientIssue(level==="warn"?"warning":"error","console",parts.join(" ").slice(0,2000)||`console.${level}`,{source:"console",stack:err?.stack||""});}catch(_){}original(...args);};}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")_flushClientIssues(true);});
+window.addEventListener("pagehide",()=>_flushClientIssues(true));
+const _nativeClientFetch=window.fetch.bind(window);
+window.fetch=async function(input,init){
+  const options=init||{},fromFetchJson=!!options._arklandFetchJson,cleanOptions={...options};delete cleanOptions._arklandFetchJson;
+  let url;try{url=new URL(typeof input==="string"?input:input.url,location.href);}catch(_){return _nativeClientFetch(input,cleanOptions);}
+  const track=!fromFetchJson&&url.origin===location.origin&&url.pathname.startsWith("/api/")&&!/^\/api\/(client-errors|admin\/client-errors)(\/|$)/.test(url.pathname);
+  const method=String(cleanOptions.method||input?.method||"GET").toUpperCase();
+  try{const response=await _nativeClientFetch(input,cleanOptions);if(track&&!response.ok)_collectClientIssue(response.status>=500?"error":"warning","api",`HTTP ${response.status} em ${method} ${url.pathname}`,{source:url.pathname,method,status:response.status});return response;}
+  catch(error){if(track)_collectClientIssue("error","api",error?.message||"Falha de rede",{source:url.pathname,method,stack:error?.stack||""});throw error;}
+};
+
 let CURRENCY = { singular: "Âmbar", plural: "Âmbares", image_url: "/ambar.png" };
 
 function _httpStatusHint(status) {
@@ -12761,7 +12972,7 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
       signal.addEventListener("abort", onExternalAbort, { once: true });
     }
     try {
-      const opts = { method, signal: ctrl.signal, credentials: "same-origin" };
+      const opts = { method, signal: ctrl.signal, credentials: "same-origin", _arklandFetchJson: true };
       if (body != null) {
         opts.headers = { "Content-Type": "application/json", ...(headers || {}) };
         opts.body = typeof body === "string" ? body : JSON.stringify(body);
@@ -12806,7 +13017,12 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
       lastErr = e;
       if (e?.name === "AbortError" && e.stale) throw e;
       const retryable = _isNonJsonBodyError(e) || (e?.status >= 500 && e.status < 600);
-      if (!retryable || attempt >= maxAttempts - 1) throw e;
+      if (!retryable || attempt >= maxAttempts - 1) {
+        if (!String(path).startsWith("/api/client-errors") && !String(path).startsWith("/api/admin/client-errors")) {
+          _collectClientIssue(e?.status&&e.status<500?"warning":"error","api",e?.message||"Falha na requisição",{source:String(path).split("?")[0],method,status:e?.status||"",stack:e?.stack||""});
+        }
+        throw e;
+      }
       await new Promise((res) => setTimeout(res, 600));
     }
   }
@@ -13247,6 +13463,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "seasonland-ops") loadSeasonlandOps();
   if (page === "plugin-debug") loadPluginDebug();
+  if (page === "client-error-log" && _auth.is_admin) loadClientErrorLog();
   if (page === "primal-fear-ficha") openPrimalFearFicha();
   if (page === "blueprint-index") openBlueprintIndex();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); loadPlayers(); }
@@ -13524,7 +13741,7 @@ async function refreshNotifications() {
     _updateNotifBadge(d.unread_count);
     const panel = document.getElementById("notif-panel");
     if (panel && !panel.classList.contains("hidden")) {
-      _renderNotifList(d.items || [], d.unread_count);
+      _renderNotifList(d.items, d.unread_count);
     }
   } catch (_) {}
 }
@@ -13560,8 +13777,12 @@ async function loadNotificationsPanel() {
       if (el) el.innerHTML = _notifEmptyHtml("Erro ao carregar", d.error || "Tente novamente em instantes.", "⚠️");
       return;
     }
+    if (!Array.isArray(d.items)) {
+      if (el) el.innerHTML = _notifEmptyHtml("Erro ao carregar", "O servidor retornou uma lista de notificações inválida. Tente novamente.", "⚠️");
+      return;
+    }
     _updateNotifBadge(d.unread_count);
-    _renderNotifList(d.items || [], d.unread_count);
+    _renderNotifList(d.items, d.unread_count);
   } catch (e) {
     if (el) el.innerHTML = _notifEmptyHtml("Erro ao carregar", _notifErrorMessage(e), "⚠️");
   }
@@ -17570,6 +17791,7 @@ function extractApiError(data, response, fallback = "Operação falhou") {
 const _toastRecent = new Map(); // key -> timestamp ms
 function toast(msg, type = "success") {
   const text = String(msg || "");
+  if (type === "error" || type === "warning") _collectClientIssue(type, "notification", text);
   const key = type + "\0" + text;
   const now = Date.now();
   const prev = _toastRecent.get(key) || 0;
@@ -17585,10 +17807,12 @@ function toast(msg, type = "success") {
   const t = document.createElement("div");
   t.className = `toast ${type}`;
   const icon = type === "success" ? "✅" : type === "error" ? "❌" : "⚠️";
-  t.innerHTML = `<span>${icon}</span><span></span>`;
-  t.lastElementChild.textContent = text;
+  t.innerHTML = `<span>${icon}</span><span></span><button class="toast-dismiss" type="button" aria-label="Dispensar notificação">×</button>`;
+  t.children[1].textContent = text;
+  t.querySelector(".toast-dismiss").addEventListener("click", () => t.remove());
   c.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+  while (c.children.length > 3) c.firstElementChild.remove();
+  setTimeout(() => t.remove(), type === "error" ? 7000 : 3500);
 }
 
 // ── Modal helpers ─────────────────────────────────────────────────────────────
@@ -29291,7 +29515,8 @@ async function loadCloudAdmin(page) {
       sel.value = current;
     }
     const items = d.items || [];
-    result.innerHTML = items.length ? `<table class="pkg-admin-table"><thead><tr><th>Grupo</th><th>SteamID</th><th>Slot</th><th>Itens</th><th>Dados</th><th>Mapa de origem</th><th>Enviado em</th><th></th></tr></thead><tbody>${items.map(x => `<tr><td>${escHtml(x.cloud_group)}</td><td><code>${escHtml(x.steam_id)}</code></td><td>${x.slot === 0 ? "Padrão" : x.slot}</td><td>${x.blob_count}/${x.item_count}</td><td>${(Number(x.bytes_total||0)/1024).toFixed(1)} KB</td><td>${escHtml(x.source_map||"—")}</td><td>${escHtml(x.uploaded_at||"—")}</td><td><button class="btn btn-ghost btn-sm" onclick="showCloudSlot('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}',${Number(x.slot)})">Detalhes</button> <button class="btn btn-danger btn-sm" onclick="purgeCloudSlot('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}',${Number(x.slot)})">Apagar slot</button> <button class="btn btn-danger btn-sm" onclick="purgeCloudAdmin('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}')">Apagar jogador</button></td></tr>`).join("")}</tbody></table><div id="cloud-admin-slot-detail" style="margin-top:12px;"></div>` : '<div class="empty-state">Nenhum slot encontrado.</div>';
+    const steamWarning = d.steam_persona_warning ? `<div class="empty-state" style="margin-bottom:10px;">${escHtml(d.steam_persona_warning)}</div>` : "";
+    result.innerHTML = items.length ? `${steamWarning}<table class="pkg-admin-table"><thead><tr><th>Grupo</th><th>Jogador</th><th>SteamID</th><th>Slot</th><th>Itens</th><th>Dados</th><th>Mapa de origem</th><th>Enviado em</th><th></th></tr></thead><tbody>${items.map(x => `<tr><td>${escHtml(x.cloud_group)}</td><td>${escHtml(x.player_name || "Nick Steam indisponivel")}</td><td><code>${escHtml(x.steam_id)}</code></td><td>${x.slot === 0 ? "Padrão" : x.slot}</td><td>${x.blob_count}/${x.item_count}</td><td>${(Number(x.bytes_total||0)/1024).toFixed(1)} KB</td><td>${escHtml(x.source_map||"—")}</td><td>${escHtml(x.uploaded_at||"—")}</td><td><button class="btn btn-ghost btn-sm" onclick="showCloudSlot('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}',${Number(x.slot)})">Detalhes</button> <button class="btn btn-danger btn-sm" onclick="purgeCloudSlot('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}',${Number(x.slot)})">Apagar slot</button> <button class="btn btn-danger btn-sm" onclick="purgeCloudAdmin('${escHtml(x.cloud_group)}','${escHtml(x.steam_id)}')">Apagar jogador</button></td></tr>`).join("")}</tbody></table><div id="cloud-admin-slot-detail" style="margin-top:12px;"></div>` : '<div class="empty-state">Nenhum slot encontrado.</div>';
     const pages = Math.max(1, Math.ceil(Number(d.total||0) / Number(d.page_size||50)));
     document.getElementById("cloud-admin-pages").textContent = `Página ${_cloudAdminPage} de ${pages} · ${d.total||0} slot(s)`;
   } catch (e) {
@@ -30006,6 +30231,36 @@ async function loadPluginDebug() {
   }
 }
 
+const _clientErrorLog = { offset: 0, limit: 100, total: 0, events: [], timer: 0 };
+async function loadClientErrorLog(silent = false) {
+  const el=document.getElementById("client-error-list");
+  if(!el||!_auth.is_admin)return;
+  const severity=document.getElementById("client-error-severity")?.value||"";
+  const q=document.getElementById("client-error-query")?.value.trim()||"";
+  const params=new URLSearchParams({limit:String(_clientErrorLog.limit),offset:String(_clientErrorLog.offset)});
+  if(severity)params.set("severity",severity);if(q)params.set("q",q);
+  if(!silent)el.innerHTML='<div style="color:var(--text2);padding:12px 0">Carregando registros…</div>';
+  try{
+    const d=await fetchJson(`/api/admin/client-errors?${params.toString()}`,{retries:0});
+    if(!d.ok)throw new Error(d.error||"Falha ao carregar registros");
+    const events=d.events||[];_clientErrorLog.events=events;_clientErrorLog.total=Number(d.total)||0;
+    document.getElementById("client-error-total-errors").textContent=Number(d.summary?.errors||0).toLocaleString("pt-BR");
+    document.getElementById("client-error-total-warnings").textContent=Number(d.summary?.warnings||0).toLocaleString("pt-BR");
+    document.getElementById("client-error-last-seen").textContent=events.length?fmtDate(events[0].timestamp):"Nenhuma ocorrência";
+    document.getElementById("client-error-page-info").textContent=events.length?`${_clientErrorLog.offset+1}–${_clientErrorLog.offset+events.length} de ${_clientErrorLog.total}`:"0 ocorrências";
+    if(!events.length){el.innerHTML='<div style="color:var(--text2);padding:12px 0">Nenhum erro ou aviso encontrado com este filtro.</div>';}
+    else el.innerHTML=`<table class="tbl"><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Página</th><th>Mensagem</th><th>Repetições</th><th></th></tr></thead><tbody>${events.map((e,i)=>`<tr><td style="white-space:nowrap;font-size:11px">${fmtDate(e.timestamp)}</td><td><span class="badge ${e.severity==="error"?"badge-danger":"badge-warning"}">${escHtml(e.severity==="error"?"Erro":"Aviso")}</span></td><td>${escHtml(e.category||"client")}</td><td><code>${escHtml(e.page||"/")}</code></td><td style="max-width:380px;overflow-wrap:anywhere">${escHtml(e.message||"")}</td><td>${Number(e.occurrences||1)}</td><td><button class="btn btn-ghost btn-sm" onclick="viewClientErrorDetail(${i})">Detalhes</button></td></tr>`).join("")}</tbody></table><div id="client-error-detail" style="display:none;margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)"></div>`;
+    if(!_clientErrorLog.timer)_clientErrorLog.timer=setInterval(()=>{if(document.getElementById("page-client-error-log")?.classList.contains("active"))loadClientErrorLog(true);},15000);
+  }catch(err){el.innerHTML=`<div style="color:var(--danger)">${escHtml(err.message||"Não foi possível carregar os registros.")}</div>`;}
+}
+function clientErrorLogPage(direction){const next=_clientErrorLog.offset+direction*_clientErrorLog.limit;if(next<0||next>=_clientErrorLog.total)return;_clientErrorLog.offset=next;loadClientErrorLog();}
+function viewClientErrorDetail(index){
+  const event=_clientErrorLog.events[index],box=document.getElementById("client-error-detail");if(!event||!box)return;
+  box.style.display="block";
+  const context=JSON.stringify(event.context||{},null,2);
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><strong>Detalhes da ocorrência · ${escHtml(event.id||"")}</strong><button class="btn btn-ghost btn-sm" onclick="document.getElementById('client-error-detail').style.display='none'">Fechar</button></div><p><b>Data UTC:</b> ${escHtml(event.timestamp||"")} · <b>Fingerprint:</b> <code>${escHtml(event.fingerprint||"")}</code></p><p><b>Mensagem:</b> ${escHtml(event.message||"")}</p><p><b>Arquivo / origem:</b> <code>${escHtml(event.source||"não informado")}</code></p><p><b>User-Agent:</b> ${escHtml(event.user_agent||"não informado")}</p><p><b>Contexto técnico:</b></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(context)}</pre><details><summary>Stack trace</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(event.stack||"Stack não disponível")}</pre></details>`;
+}
+
 function viewPluginDebugDetail(idx) {
   const box = document.getElementById("plugin-debug-detail");
   const events = window.__pluginDebugEvents || [];
@@ -30313,6 +30568,7 @@ function renderAmberMeter(data) {
     ${data.coverage_note ? `<p class="amber-meter__note">${escHtml(data.coverage_note)}</p>` : ""}
     ${statusMsg}
   `;
+  window._scheduleSupportFabAvoidAmberMeter?.();
   const valEl = document.getElementById("amber-meter-value");
   if (valEl && total !== _amberMeterValue) {
     _animateAmberCounter(valEl, _amberMeterValue, total);
@@ -30333,6 +30589,7 @@ function renderAmberMeterPlaceholder(message) {
     <div class="amber-meter__sublabel">Âmbares movimentados</div>
     <p class="amber-meter__status">${escHtml(message || "Carregando estatísticas…")}</p>
   `;
+  window._scheduleSupportFabAvoidAmberMeter?.();
 }
 
 function _amberMeterRetryMessage() {
@@ -35033,8 +35290,9 @@ document.addEventListener("keydown", (e) => {
 <section id="support-window" class="support-window" role="dialog" aria-label="Atendimento ARKLAND">
   <header class="support-head"><div><strong>Atendimento ARKLAND</strong><small>Tickets e suporte do servidor</small></div><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></header>
   <nav class="support-tabs"><button id="support-tab-list" class="active" onclick="supportWidgetTab('list')">Meus tickets</button><button id="support-tab-new" onclick="supportWidgetTab('new')">+ Novo ticket</button><select id="support-language" class="support-language" aria-label="Idioma das traduções" onchange="supportWidgetSetLanguage(this.value)"><option value="en">English</option><option value="es">Español</option><option value="pt">Português</option></select></nav>
-  <div class="support-model-controls"><button id="support-model-check" type="button" onclick="supportWidgetModels(false)">↻ Verificar idiomas</button><button id="support-model-redownload" type="button" onclick="supportWidgetModels(true)">Baixar novamente</button></div>
-  <div id="support-model-status" style="padding:0 15px 8px;color:#91a6ac;font-size:10px">Modelos gratuitos: instalação automática e atualização semanal quando houver conexão.</div>
+  <div class="support-model-controls"><button id="support-model-check" type="button" onclick="supportWidgetModels(false)">↻ Verificar / atualizar modelos</button><button id="support-model-redownload" type="button" onclick="supportWidgetModels(true)">Reinstalar 4 modelos</button></div>
+  <div id="support-model-progress" class="support-model-progress" role="progressbar" aria-label="Operação dos modelos de tradução" aria-valuetext="Aguardando" hidden><span></span></div>
+  <div id="support-model-status" aria-live="polite" style="padding:0 15px 8px;color:#91a6ac;font-size:11px">4 modelos gratuitos permitem traduzir entre português, inglês e espanhol. A verificação pode levar alguns instantes; reinstalar baixa os arquivos novamente.</div>
   <div id="support-content" class="support-content"><div class="support-status">Abra o atendimento para carregar seus tickets.</div></div>
   <div id="support-reply" class="support-reply" style="display:none"></div>
 </section>
@@ -35044,13 +35302,58 @@ const _supportPreview = new URLSearchParams(location.search).has("preview");
 let _supportTab = "list", _supportSelected = null;
 let _supportLanguage = localStorage.getItem("arkland-support-language") || "en";
 document.getElementById("support-language").value = _supportLanguage;
+let _supportFabAvoidFrame = 0;
+function _scheduleSupportFabAvoidAmberMeter() {
+  if (_supportFabAvoidFrame) cancelAnimationFrame(_supportFabAvoidFrame);
+  _supportFabAvoidFrame = requestAnimationFrame(() => {
+    _supportFabAvoidFrame = 0;
+    const fab = document.getElementById("support-fab");
+    const meter = document.querySelector(".amber-meter:not(.amber-meter--hidden)");
+    if (!fab) return;
+    fab.style.removeProperty("top");
+    fab.style.removeProperty("bottom");
+    fab.style.removeProperty("visibility");
+    fab.removeAttribute("aria-hidden");
+    fab.removeAttribute("tabindex");
+    if (!meter) return;
+    const buttonRect = fab.getBoundingClientRect();
+    const meterRect = meter.getBoundingClientRect();
+    const overlaps = buttonRect.left < meterRect.right && buttonRect.right > meterRect.left
+      && buttonRect.top < meterRect.bottom && buttonRect.bottom > meterRect.top;
+    if (!overlaps) return;
+    const above = meterRect.top - buttonRect.height - 12;
+    const below = meterRect.bottom + 12;
+    if (above >= 12) {
+      fab.style.top = `${above}px`;
+      fab.style.bottom = "auto";
+    } else if (below + buttonRect.height <= window.innerHeight - 12) {
+      fab.style.top = `${below}px`;
+      fab.style.bottom = "auto";
+    } else {
+      fab.style.visibility = "hidden";
+      fab.setAttribute("aria-hidden", "true");
+      fab.tabIndex = -1;
+    }
+  });
+}
+window.addEventListener("scroll", _scheduleSupportFabAvoidAmberMeter, { passive: true });
+window.addEventListener("resize", _scheduleSupportFabAvoidAmberMeter);
+_scheduleSupportFabAvoidAmberMeter();
 function supportWidgetSetLanguage(language){if(!["pt","en","es"].includes(language))return;_supportLanguage=language;localStorage.setItem("arkland-support-language",language);}
-async function supportWidgetModels(redownload){if(_supportPreview){document.getElementById("support-model-status").textContent="Prévia: modelos gratuitos são instalados e verificados automaticamente no site.";return;}if(redownload&&!confirm("Baixar novamente os modelos gratuitos de português, inglês e espanhol? Pode consumir algumas centenas de MB de internet."))return;const status=document.getElementById("support-model-status"),buttons=[document.getElementById("support-model-check"),document.getElementById("support-model-redownload")];buttons.forEach(b=>b.disabled=true);status.textContent=redownload?"Baixando os modelos de tradução…":"Verificando e atualizando os modelos…";try{const d=await fetchJson("/api/translate/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({redownload:!!redownload}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na verificação");status.textContent=`Idiomas prontos: ${d.installed} modelos instalados${d.updated?`, ${d.updated} atualizado(s)`:""}.`;toast("Modelos de tradução verificados.","success");}catch(e){status.textContent=String(e);toast(String(e),"error");}finally{buttons.forEach(b=>b.disabled=false);}}
+async function supportWidgetModels(redownload){const status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),buttons=[document.getElementById("support-model-check"),document.getElementById("support-model-redownload")];if(redownload&&!_supportPreview&&!confirm("Reinstalar os 4 modelos gratuitos de tradução? Os arquivos serão baixados novamente."))return;buttons.forEach(b=>{b.disabled=true;b.classList.add("is-loading")});progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext",redownload?"Reinstalando os modelos":"Verificando atualizações");status.textContent=redownload?"Preparando reinstalação dos 4 modelos…":"Consultando atualizações dos modelos…";let stage=0;const stages=redownload?["Baixando modelos de português, inglês e espanhol…","Instalando e conferindo os arquivos…"]:["Consultando o catálogo oficial…","Comparando as versões instaladas…","Aplicando atualizações disponíveis…"];const stageTimer=setInterval(()=>{stage=Math.min(stage+1,stages.length-1);status.textContent=stages[stage];},3500);try{if(_supportPreview){await new Promise(resolve=>setTimeout(resolve,1200));status.textContent=redownload?"Prévia: os 4 modelos seriam baixados e reinstalados.":"Prévia: catálogo consultado; os 4 modelos estão prontos.";return;}const d=await fetchJson("/api/translate/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({redownload:!!redownload}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na verificação");if(redownload)status.textContent=`Reinstalação concluída: ${d.installed} modelos prontos.`;else if(!d.checked)status.textContent=`Tudo atualizado: ${d.installed} modelos prontos. Nenhum download foi necessário.`;else status.textContent=`Verificação concluída: ${d.installed} modelos prontos${d.updated?`; ${d.updated} atualizado(s)`:"; sem atualizações necessárias"}.`;toast(redownload?"Reinstalação dos modelos concluída.":"Verificação dos modelos concluída.","success");}catch(e){status.textContent="A operação não foi concluída. Confira a conexão e tente novamente.";supportWidgetError(e);}finally{clearInterval(stageTimer);buttons.forEach(b=>{b.disabled=false;b.classList.remove("is-loading")});progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
 function supportWidgetToggle(force) {
   const box=document.getElementById("support-window"), fab=document.getElementById("support-fab");
   const open=typeof force==="boolean"?force:!box.classList.contains("open");
   box.classList.toggle("open",open);fab.setAttribute("aria-expanded",String(open));
+  document.getElementById("toast-container")?.classList.toggle("support-chat-open",open);
   if(open) supportWidgetTab(_supportTab);
+}
+function supportWidgetError(error) {
+  const content=document.getElementById("support-content");
+  if(!content){toast(String(error),"error");return;}
+  let alert=content.querySelector(".support-inline-alert");
+  if(!alert){alert=document.createElement("div");alert.className="support-inline-alert";alert.setAttribute("role","alert");content.prepend(alert);}
+  alert.textContent=String(error||"Não foi possível concluir a operação.");
 }
 function supportWidgetLaunchNew() { supportWidgetToggle(true); supportWidgetTab("new"); }
 function supportWidgetTab(tab) {
@@ -35075,7 +35378,7 @@ async function supportWidgetCreate(event) {
   const btn=event.currentTarget.querySelector("button");btn.disabled=true;btn.textContent="Enviando…";
   try {const d=await fetchJson("/api/tickets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject,body,category:document.getElementById("sw-category").value,priority:"normal",links:[]}),timeoutMs:20000});
     if(!d.ok)throw new Error(d.error||"Falha ao criar ticket");toast("Ticket criado! O suporte responderá por aqui.","success");supportWidgetTab("list");
-  } catch(e){toast(String(e),"error");btn.disabled=false;btn.textContent="Enviar ticket";}
+  } catch(e){supportWidgetError(e);btn.disabled=false;btn.textContent="Enviar ticket";}
 }
 async function supportWidgetLoad() {
   const el=document.getElementById("support-content"),reply=document.getElementById("support-reply");reply.style.display="none";
@@ -35103,9 +35406,9 @@ async function supportWidgetDetail(id,demo=false) {
     if(canReply){reply.style.display="block";reply.innerHTML='<div class="support-form"><textarea id="sw-reply-body" placeholder="Escreva uma resposta…"></textarea><button class="support-submit" onclick="supportWidgetSendReply()">Enviar resposta</button></div>';}
   }catch(e){el.innerHTML=`<button class="support-back" onclick="supportWidgetLoad()">← Meus tickets</button><div class="support-status">${escHtml(String(e))}</div>`;}
 }
-async function supportWidgetSendReply(){const body=document.getElementById("sw-reply-body")?.value.trim();if(!body||!_supportSelected)return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body,links:[]}),timeoutMs:15000});if(!d.ok)throw new Error(d.error||"Falha ao enviar");toast("Resposta enviada.","success");supportWidgetDetail(_supportSelected);}catch(e){toast(String(e),"error");}}
-async function supportWidgetRequestClose(){if(!_supportSelected||!confirm("Confirmar que o problema foi resolvido e solicitar o encerramento deste ticket? A equipe ainda fará a confirmação final."))return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/request-close`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:12000});if(!d.ok)throw new Error(d.error||"Não foi possível solicitar o encerramento");toast("Pedido enviado à equipe de suporte.","success");supportWidgetDetail(_supportSelected);}catch(e){toast(String(e),"error");}}
-async function supportWidgetTranslate(button){const original=button.dataset.original||"",out=button.parentElement.querySelector(".support-translation");if(!original||!out)return;if(_supportPreview){const translations={en:["Hello! I have a question about progression on the server.","Hello! Can you tell us which map and situation this happened on? We’ll help you."],es:["¡Hola! Tengo una pregunta sobre la progresión en el servidor.","¡Hola! ¿Puedes decirnos en qué mapa y situación ocurrió? Te ayudaremos."]};const idx=[...document.querySelectorAll(".support-translate")].indexOf(button);out.textContent=(translations[_supportLanguage]||[])[idx]||original;return;}button.disabled=true;button.textContent="Preparando…";try{const d=await fetchJson("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:original,target:_supportLanguage}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na tradução");out.textContent=d.translated;button.textContent="Show original";button.onclick=()=>{out.textContent="";button.textContent="Translate";button.onclick=()=>supportWidgetTranslate(button);};}catch(e){toast(String(e),"error");button.textContent="Translate";}finally{button.disabled=false;}}
+async function supportWidgetSendReply(){const body=document.getElementById("sw-reply-body")?.value.trim();if(!body||!_supportSelected)return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body,links:[]}),timeoutMs:15000});if(!d.ok)throw new Error(d.error||"Falha ao enviar");toast("Resposta enviada.","success");supportWidgetDetail(_supportSelected);}catch(e){supportWidgetError(e);}}
+async function supportWidgetRequestClose(){if(!_supportSelected||!confirm("Confirmar que o problema foi resolvido e solicitar o encerramento deste ticket? A equipe ainda fará a confirmação final."))return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/request-close`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:12000});if(!d.ok)throw new Error(d.error||"Não foi possível solicitar o encerramento");toast("Pedido enviado à equipe de suporte.","success");supportWidgetDetail(_supportSelected);}catch(e){supportWidgetError(e);}}
+async function supportWidgetTranslate(button){const original=button.dataset.original||"",out=button.parentElement.querySelector(".support-translation");if(!original||!out)return;if(_supportPreview){const translations={en:["Hello! I have a question about progression on the server.","Hello! Can you tell us which map and situation this happened on? We’ll help you."],es:["¡Hola! Tengo una pregunta sobre la progresión en el servidor.","¡Hola! ¿Puedes decirnos en qué mapa y situación ocurrió? Te ayudaremos."]};const idx=[...document.querySelectorAll(".support-translate")].indexOf(button);out.textContent=(translations[_supportLanguage]||[])[idx]||original;return;}button.disabled=true;button.textContent="Preparando…";try{const d=await fetchJson("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:original,target:_supportLanguage}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na tradução");out.textContent=d.translated;button.textContent="Show original";button.onclick=()=>{out.textContent="";button.textContent="Translate";button.onclick=()=>supportWidgetTranslate(button);};}catch(e){supportWidgetError(e);button.textContent="Translate";}finally{button.disabled=false;}}
 </script>
 
 </body>

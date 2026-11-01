@@ -100,7 +100,10 @@ def register_ticket_routes(
         try:
             from translation_service import refresh_translation_models
 
-            result = refresh_translation_models(force_redownload=force_redownload, check_now=True)
+            # Respect the service's weekly index cache for routine checks. Forcing
+            # an index refresh on every button press made the 3/hour limiter easy
+            # to hit and did not improve already-installed models.
+            result = refresh_translation_models(force_redownload=force_redownload)
             return jsonify({"ok": True, **result})
         except Exception:
             logging.getLogger(__name__).exception("Falha ao verificar modelos locais de tradução")

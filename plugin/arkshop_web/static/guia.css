@@ -24,6 +24,18 @@
   line-height: 1.55;
   font-size: 14px;
 }
+.kb-update-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(232, 120, 32, .35);
+  border-left: 3px solid var(--amber, #e87820);
+  border-radius: 8px;
+  background: rgba(232, 120, 32, .08);
+  color: var(--text2, #c8b8a4);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.kb-update-note strong { color: var(--amber, #e87820); }
 .kb-index {
   display: grid;
   gap: 10px;
@@ -210,6 +222,26 @@
   background: rgba(0, 0, 0, .25);
 }
 .kb-table td { color: var(--text2, #c8b8a4); }
+.omega-guide-figure {
+  margin: 0 0 16px;
+  padding: 10px;
+  border: 1px solid var(--border, rgba(255, 255, 255, .1));
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .2);
+}
+.omega-guide-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.omega-guide-figure figcaption {
+  margin-top: 8px;
+  color: var(--text2, #c8b8a4);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.omega-guide-figure figcaption strong { color: var(--amber, #e87820); }
 .kb-search, .kb-input, .kb-select {
   width: 100%;
   margin: 0;

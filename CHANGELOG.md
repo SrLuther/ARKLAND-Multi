@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-10-31 23:04:56 -->
-<!-- Total de versões: 504 | Primeira: 1.11.11 -->
+<!-- Gerado: 2026-11-01 03:22:47 -->
+<!-- Total de versões: 505 | Primeira: 1.11.12 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.12] - 2026-10-31
+
+### Other
+
+- Web Store: administração da Nuvem exibe o nick Steam de cada jogador junto ao SteamID; consulta o cache e atualiza nomes disponíveis pela Steam Web API, com aviso quando a chave estiver ausente ou o perfil indisponível.
+- Web Store: carrossel de avisos alinhado ao formato recomendado 1200 × 200 px (6:1); botão flutuante de suporte reposicionado para não cobrir o Âmbarômetro.
+- Web Store: catálogo reconstruído com hierarquia visual mais clara, saldo de Âmbares em destaque e cards responsivos.
+- Web Store: notificações movidas para o topo à direita; erros e avisos passam a ser registrados com contexto técnico em uma página exclusiva para administradores.
+- Guia: nova seção Ark Omega com progressão, ranks, chefes e melhorias de criaturas; diagramas creditados a VZS e aviso de que o conteúdo pode receber atualizações.
+- Suporte: download dos modelos de tradução usa o espelho oficial Argos quando o host principal está indisponível.
 
 ## [1.11.11] - 2026-10-31
 

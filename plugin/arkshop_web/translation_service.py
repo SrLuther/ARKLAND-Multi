@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import json
+from urllib.parse import urlparse
 from pathlib import Path
 from threading import Lock
 from datetime import datetime, timedelta, timezone
@@ -43,6 +44,27 @@ def _installed_by_pair(argos_package):
         if (package.from_code, package.to_code) in _MODEL_PAIRS:
             installed.setdefault((package.from_code, package.to_code), []).append(package)
     return installed
+
+
+def _download_model(candidate) -> Path:
+    """Download a model, falling back to Argos' public package mirror.
+
+    Some hosting networks reject argos-net.com while allowing the official
+    data.argosopentech.com mirror. Argos' downloader does not retry alternate
+    hosts after an HTTP error, so retry the same package filename on that mirror.
+    """
+    try:
+        return candidate.download()
+    except Exception:
+        original_links = candidate.links
+        model_name = Path(urlparse(original_links[0]).path).name if original_links else ""
+        if not model_name.endswith(".argosmodel"):
+            raise
+        candidate.links = [f"https://data.argosopentech.com/argospm/v1/{model_name}"]
+        try:
+            return candidate.download()
+        finally:
+            candidate.links = original_links
 
 
 def refresh_translation_models(*, force_redownload: bool = False, check_now: bool = False) -> dict:
@@ -88,7 +110,7 @@ def refresh_translation_models(*, force_redownload: bool = False, check_now: boo
                 installed_count += 1
                 continue
 
-            downloaded = candidate.download()
+            downloaded = _download_model(candidate)
             argos_package.install_from_path(downloaded)
             Path(downloaded).unlink(missing_ok=True)
             refreshed = _installed_by_pair(argos_package).get(pair, [])

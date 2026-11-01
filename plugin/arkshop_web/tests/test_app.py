@@ -146,6 +146,16 @@ def test_cloud_inventory_admin_requires_admin(client):
 
 def test_cloud_inventory_admin_lists_grouped_slots_and_sizes(client):
     _create_cloud_fixture_tables()
+    db = _app_module._SessionLocal()
+    try:
+        user = db.get(_app_module.StoreUser, USER_STEAM)
+        if user is None:
+            user = _app_module.StoreUser(steam_id=USER_STEAM)
+            db.add(user)
+        user.steam_persona = "Nick Steam"
+        db.commit()
+    finally:
+        db.close()
     _login(client, ADMIN_STEAM)
     response = client.get("/api/admin/cloud-inventory?group=cluster-a")
     assert response.status_code == 200
@@ -153,6 +163,7 @@ def test_cloud_inventory_admin_lists_grouped_slots_and_sizes(client):
     assert data["groups"] == ["cluster-a", "cluster-b"]
     assert data["total"] == 1
     assert data["items"][0]["steam_id"] == USER_STEAM
+    assert data["items"][0]["player_name"] == "Nick Steam"
     assert data["items"][0]["blob_count"] == 2
     assert data["items"][0]["bytes_total"] == 6
 
