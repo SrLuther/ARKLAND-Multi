@@ -1001,6 +1001,20 @@
     }
     .card:hover { border-color: var(--border-g); }
 
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+    .grid-3 > .card { min-width: 0; margin-bottom: 0; }
+    @media (max-width: 900px) {
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .grid-3 { grid-template-columns: minmax(0, 1fr); }
+    }
+
     .card-header {
       display: flex;
       align-items: center;
@@ -4797,6 +4811,7 @@
     }
 
     .amber-meter {
+      display: none !important;
       margin-bottom: 24px;
       padding: 24px 20px;
       border-radius: var(--radius-lg);
@@ -12237,9 +12252,9 @@
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">Filtrar registros</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <select id="client-error-severity" class="btn btn-ghost" onchange="loadClientErrorLog()"><option value="">Erros e avisos</option><option value="error">Somente erros</option><option value="warning">Somente avisos</option></select>
-            <input id="client-error-query" type="search" class="btn btn-ghost" style="min-width:240px;flex:1;text-align:left;" placeholder="Buscar mensagem, página ou arquivo…" onkeydown="if(event.key==='Enter')loadClientErrorLog()">
-            <button class="btn btn-primary btn-sm" onclick="loadClientErrorLog()">Buscar</button>
+            <select id="client-error-severity" class="btn btn-ghost" onchange="resetClientErrorLogPage()"><option value="">Erros e avisos</option><option value="error">Somente erros</option><option value="warning">Somente avisos</option></select>
+            <input id="client-error-query" type="search" class="btn btn-ghost" style="min-width:240px;flex:1;text-align:left;" placeholder="Buscar mensagem, página ou arquivo…" onkeydown="if(event.key==='Enter')resetClientErrorLogPage()">
+            <button class="btn btn-primary btn-sm" onclick="resetClientErrorLogPage()">Buscar</button>
           </div>
         </div>
         <div class="card">
@@ -12247,8 +12262,8 @@
           <div id="client-error-list" aria-live="polite" style="font-size:12px;color:var(--text2);">Carregando registros…</div>
           <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;">
             <span id="client-error-page-info" style="font-size:12px;color:var(--text2);"></span>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="clientErrorLogPage(-1)">◀ Anterior</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="clientErrorLogPage(1)">Próxima ▶</button>
+            <button id="client-error-prev" type="button" class="btn btn-ghost btn-sm" onclick="clientErrorLogPage(-1)">◀ Anterior</button>
+            <button id="client-error-next" type="button" class="btn btn-ghost btn-sm" onclick="clientErrorLogPage(1)">Próxima ▶</button>
           </div>
         </div>
       </div>
@@ -12974,8 +12989,12 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
     try {
       const opts = { method, signal: ctrl.signal, credentials: "same-origin", _arklandFetchJson: true };
       if (body != null) {
-        opts.headers = { "Content-Type": "application/json", ...(headers || {}) };
-        opts.body = typeof body === "string" ? body : JSON.stringify(body);
+        const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+        opts.headers = isFormData
+          ? { ...(headers || {}) }
+          : { "Content-Type": "application/json", ...(headers || {}) };
+        // Let the browser add multipart boundaries. JSON.stringify(FormData) produces {}.
+        opts.body = isFormData ? body : (typeof body === "string" ? body : JSON.stringify(body));
       } else if (headers) {
         opts.headers = headers;
       }
@@ -30231,7 +30250,7 @@ async function loadPluginDebug() {
   }
 }
 
-const _clientErrorLog = { offset: 0, limit: 100, total: 0, events: [], timer: 0 };
+const _clientErrorLog = { offset: 0, limit: 10, total: 0, events: [], timer: 0, openDetail: null };
 async function loadClientErrorLog(silent = false) {
   const el=document.getElementById("client-error-list");
   if(!el||!_auth.is_admin)return;
@@ -30239,26 +30258,38 @@ async function loadClientErrorLog(silent = false) {
   const q=document.getElementById("client-error-query")?.value.trim()||"";
   const params=new URLSearchParams({limit:String(_clientErrorLog.limit),offset:String(_clientErrorLog.offset)});
   if(severity)params.set("severity",severity);if(q)params.set("q",q);
-  if(!silent)el.innerHTML='<div style="color:var(--text2);padding:12px 0">Carregando registros…</div>';
+  if(!silent&&!_clientErrorLog.openDetail)el.innerHTML='<div style="color:var(--text2);padding:12px 0">Carregando registros\u2026</div>';
   try{
     const d=await fetchJson(`/api/admin/client-errors?${params.toString()}`,{retries:0});
     if(!d.ok)throw new Error(d.error||"Falha ao carregar registros");
     const events=d.events||[];_clientErrorLog.events=events;_clientErrorLog.total=Number(d.total)||0;
     document.getElementById("client-error-total-errors").textContent=Number(d.summary?.errors||0).toLocaleString("pt-BR");
     document.getElementById("client-error-total-warnings").textContent=Number(d.summary?.warnings||0).toLocaleString("pt-BR");
-    document.getElementById("client-error-last-seen").textContent=events.length?fmtDate(events[0].timestamp):"Nenhuma ocorrência";
-    document.getElementById("client-error-page-info").textContent=events.length?`${_clientErrorLog.offset+1}–${_clientErrorLog.offset+events.length} de ${_clientErrorLog.total}`:"0 ocorrências";
+    document.getElementById("client-error-last-seen").textContent=events.length?fmtDate(events[0].timestamp):"Nenhuma ocorr\u00eancia";
+    const page=Math.floor(_clientErrorLog.offset/_clientErrorLog.limit)+1;
+    const pages=Math.max(1,Math.ceil(_clientErrorLog.total/_clientErrorLog.limit));
+    document.getElementById("client-error-page-info").textContent=events.length?`${_clientErrorLog.offset+1}\u2013${_clientErrorLog.offset+events.length} de ${_clientErrorLog.total} \u00b7 p\u00e1gina ${page} de ${pages}`:"0 ocorr\u00eancias";
+    const prev=document.getElementById("client-error-prev"),next=document.getElementById("client-error-next");
+    if(prev)prev.disabled=_clientErrorLog.offset<=0;
+    if(next)next.disabled=_clientErrorLog.offset+events.length>=_clientErrorLog.total;
     if(!events.length){el.innerHTML='<div style="color:var(--text2);padding:12px 0">Nenhum erro ou aviso encontrado com este filtro.</div>';}
-    else el.innerHTML=`<table class="tbl"><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Página</th><th>Mensagem</th><th>Repetições</th><th></th></tr></thead><tbody>${events.map((e,i)=>`<tr><td style="white-space:nowrap;font-size:11px">${fmtDate(e.timestamp)}</td><td><span class="badge ${e.severity==="error"?"badge-danger":"badge-warning"}">${escHtml(e.severity==="error"?"Erro":"Aviso")}</span></td><td>${escHtml(e.category||"client")}</td><td><code>${escHtml(e.page||"/")}</code></td><td style="max-width:380px;overflow-wrap:anywhere">${escHtml(e.message||"")}</td><td>${Number(e.occurrences||1)}</td><td><button class="btn btn-ghost btn-sm" onclick="viewClientErrorDetail(${i})">Detalhes</button></td></tr>`).join("")}</tbody></table><div id="client-error-detail" style="display:none;margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)"></div>`;
+    else el.innerHTML=`<table class="tbl"><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>P\u00e1gina</th><th>Mensagem</th><th>Repeti\u00e7\u00f5es</th><th></th></tr></thead><tbody>${events.map((e,i)=>`<tr><td style="white-space:nowrap;font-size:11px">${fmtDate(e.timestamp)}</td><td><span class="badge ${e.severity==="error"?"badge-danger":"badge-warning"}">${escHtml(e.severity==="error"?"Erro":"Aviso")}</span></td><td>${escHtml(e.category||"client")}</td><td><code>${escHtml(e.page||"/")}</code></td><td style="max-width:380px;overflow-wrap:anywhere">${escHtml(e.message||"")}</td><td>${Number(e.occurrences||1)}</td><td><button class="btn btn-ghost btn-sm" onclick="viewClientErrorDetail(${i})">Detalhes</button></td></tr>`).join("")}</tbody></table><div id="client-error-detail" style="display:none;margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)"></div>`;
+    // Table refresh replaces its markup. Keep selected details visible while reading.
+    if(_clientErrorLog.openDetail){
+      const index=events.findIndex(event=>event.id===_clientErrorLog.openDetail.id);
+      renderClientErrorDetail(index>=0?events[index]:_clientErrorLog.openDetail);
+    }
     if(!_clientErrorLog.timer)_clientErrorLog.timer=setInterval(()=>{if(document.getElementById("page-client-error-log")?.classList.contains("active"))loadClientErrorLog(true);},15000);
-  }catch(err){el.innerHTML=`<div style="color:var(--danger)">${escHtml(err.message||"Não foi possível carregar os registros.")}</div>`;}
+  }catch(err){if(_clientErrorLog.openDetail)return;el.innerHTML=`<div style="color:var(--danger)">${escHtml(err.message||"N\u00e3o foi poss\u00edvel carregar os registros.")}</div>`;}
 }
-function clientErrorLogPage(direction){const next=_clientErrorLog.offset+direction*_clientErrorLog.limit;if(next<0||next>=_clientErrorLog.total)return;_clientErrorLog.offset=next;loadClientErrorLog();}
-function viewClientErrorDetail(index){
-  const event=_clientErrorLog.events[index],box=document.getElementById("client-error-detail");if(!event||!box)return;
-  box.style.display="block";
+function clientErrorLogPage(direction){const next=_clientErrorLog.offset+direction*_clientErrorLog.limit;if(next<0||next>=_clientErrorLog.total)return;_clientErrorLog.offset=next;_clientErrorLog.openDetail=null;loadClientErrorLog();}
+function resetClientErrorLogPage(){_clientErrorLog.offset=0;_clientErrorLog.openDetail=null;loadClientErrorLog();}
+function viewClientErrorDetail(index){const event=_clientErrorLog.events[index];if(!event)return;_clientErrorLog.openDetail=event;renderClientErrorDetail(event);}
+function renderClientErrorDetail(event){
+  const box=document.getElementById("client-error-detail");if(!event||!box)return;
+  box.style.display="block";box.dataset.eventId=event.id||"";
   const context=JSON.stringify(event.context||{},null,2);
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><strong>Detalhes da ocorrência · ${escHtml(event.id||"")}</strong><button class="btn btn-ghost btn-sm" onclick="document.getElementById('client-error-detail').style.display='none'">Fechar</button></div><p><b>Data UTC:</b> ${escHtml(event.timestamp||"")} · <b>Fingerprint:</b> <code>${escHtml(event.fingerprint||"")}</code></p><p><b>Mensagem:</b> ${escHtml(event.message||"")}</p><p><b>Arquivo / origem:</b> <code>${escHtml(event.source||"não informado")}</code></p><p><b>User-Agent:</b> ${escHtml(event.user_agent||"não informado")}</p><p><b>Contexto técnico:</b></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(context)}</pre><details><summary>Stack trace</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(event.stack||"Stack não disponível")}</pre></details>`;
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><strong>Detalhes da ocorr\u00eancia \u00b7 ${escHtml(event.id||"")}</strong><button class="btn btn-ghost btn-sm" onclick="document.getElementById('client-error-detail').style.display='none';_clientErrorLog.openDetail=null">Fechar</button></div><p><b>Data UTC:</b> ${escHtml(event.timestamp||"")} \u00b7 <b>Fingerprint:</b> <code>${escHtml(event.fingerprint||"")}</code></p><p><b>Mensagem:</b> ${escHtml(event.message||"")}</p><p><b>Arquivo / origem:</b> <code>${escHtml(event.source||"n\u00e3o informado")}</code></p><p><b>User-Agent:</b> ${escHtml(event.user_agent||"n\u00e3o informado")}</p><p><b>Contexto t\u00e9cnico:</b></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(context)}</pre><details><summary>Stack trace</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(event.stack||"Stack n\u00e3o dispon\u00edvel")}</pre></details>`;
 }
 
 function viewPluginDebugDetail(idx) {
@@ -30447,7 +30478,6 @@ async function loadHome(opts) {
       _exchangeRates = d.exchange_rates.rates;
     }
     renderHomePage(d);
-    loadAmberMeter();
     _startHomeServerStatusPoll();
     _navPageMark("home");
     return true;

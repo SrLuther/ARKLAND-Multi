@@ -240,11 +240,6 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         _tasks.append(("lcap", r, label, hint, field, val))
         r += 1
 
-    def _player_levels() -> None:
-        nonlocal r
-        _tasks.append(("player_levels", r))
-        r += 1
-
     def _save() -> None:
         _tasks.append(("save", r + 1))
 
@@ -494,7 +489,6 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "allow_tribe_alliances", gs.allow_tribe_alliances)
 
     _s("🔢  Teto de Níveis")
-    _player_levels()
     _i("XP Máximo do Dino (Override)",
        "Substitui o valor de XP máximo acumulável por dinos domesticados. 0 = padrão ARK.",
        "override_max_experience_points_dino", gs.override_max_experience_points_dino)
@@ -776,14 +770,6 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
             _, rn, lbl, field, val = task
             lr = rn - _sec_start_r[0]
             adv_brow(lbl, field, val, lr)
-        elif kind == "player_levels":
-            _, rn = task
-            lr = rn - _sec_start_r[0]
-            from ..ui.player_level_panel import build_classic_player_level_panel
-            build_classic_player_level_panel(
-                _cur_body[0], lr, w, gs,
-                register_fn=lambda lbl, hint, sec: app._register_config_item(srv.id, lbl, hint, sec),
-            )
         elif kind == "lcap":
             _, rn, lbl, hint, field, val = task
             lr = rn - _sec_start_r[0]

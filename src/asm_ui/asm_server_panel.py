@@ -2619,6 +2619,7 @@ def _build_players(
             start=1,
         ):
             add_float_field(ctx, card, fld, i)
+        add_bool_field(ctx, card, "enable_flyer_carry", 12)
 
     def _card_xp() -> None:
         card = make_card(sf, 1, 1, ctx.theme)
@@ -2635,20 +2636,11 @@ def _build_players(
         ):
             add_float_field(ctx, card, fld, i)
 
-    def _card_lim() -> None:
-        from ..ui.player_level_panel import build_tek_player_level_section
-
-        card = make_card(sf, 2, 0, ctx.theme)
-        card.grid(columnspan=2, sticky="nsew")
-        add_card_header(card, "Nível máximo do jogador", accent)
-        next_row = build_tek_player_level_section(ctx, card, start_row=1)
-        add_bool_field(ctx, card, "enable_flyer_carry", next_row)
-
     def _accordion() -> None:
         build_per_level_accordion(
             ctx,
             sf,
-            3,
+            2,
             [("Pts/nível", "per_level_player")],
             "Quanto cada atributo cresce por ponto aplicado pelo jogador (1.0 = padrão).",
         )
@@ -2675,12 +2667,12 @@ def _build_players(
                     "Voadores podem carregar outros dinos em PvE.",
                 ),
             ],
-            4,
+            3,
         )
 
     run_ui_tasks_chunked(
         sf,
-        [_card_mult, _card_xp, _card_lim, _accordion, _help],
+        [_card_mult, _card_xp, _accordion, _help],
         on_done=on_done,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
@@ -3524,7 +3516,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     _section_label(sf, "Override de Nível do Jogador (Game.ini)", 0, accent)
     ctk.CTkLabel(
         sf,
-        text="Exportação da rampa (somente leitura). Edite nível base e curva em «Nível máximo do jogador».",
+        text="Ajuste aqui o n\u00edvel m\u00e1ximo e a curva de XP do jogador. Esta \u00e9 a tela exclusiva para essas configura\u00e7\u00f5es.",
         font=ctk.CTkFont(size=10),
         text_color="#7ab8c8",
         wraplength=520,
@@ -3533,7 +3525,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     # ── Gerador de Níveis — Jogador ───────────────────────────────────────────
     gen_card = ctk.CTkFrame(sf, fg_color="#0d1b2a", corner_radius=8)
     gen_card.grid(row=2, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="ew")
-    gen_card.grid_columnconfigure((1, 3, 5, 7), weight=1)
+    gen_card.grid_columnconfigure((1, 3, 5, 7, 9), weight=1)
 
     ctk.CTkLabel(
         gen_card,
@@ -3607,6 +3599,21 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     if _prefill_max <= 0:
         _prefill_max = ARK_DEFAULT_BASE_LEVEL
     pl_base_var = vars_ref.get("player_base_level")
+    if pl_base_var is None:
+        pl_base_var = tk.StringVar(value=str(_prefill_max))
+        vars_ref["player_base_level"] = pl_base_var
+    progressions_var = vars_ref.get("player_level_progressions_enabled")
+    if progressions_var is None:
+        progressions_var = tk.BooleanVar(value=bool(getattr(srv, "player_level_progressions_enabled", False)))
+        vars_ref["player_level_progressions_enabled"] = progressions_var
+
+    def _toggle_player_progressions() -> None:
+        srv.player_level_progressions_enabled = bool(progressions_var.get())
+
+    ctk.CTkCheckBox(
+        gen_card, text="Ativar progress\u00f5es do jogador", variable=progressions_var,
+        command=_toggle_player_progressions, font=ctk.CTkFont(size=10), text_color=accent,
+    ).grid(row=3, column=8, columnspan=2, padx=8, pady=(0, 4), sticky="w")
     if pl_base_var is not None:
         try:
             _prefill_max = max(1, int(float(pl_base_var.get())))
@@ -3614,17 +3621,24 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             pass
 
     _fields_p = [
-        ("Nível máx.", str(_prefill_max)),
-        ("XP base (lv0)", "70"),
-        ("Multiplicador XP", "1.05"),
-        ("XP máximo", "0"),
+        ("N\u00edvel m\u00e1x.", str(_prefill_max)),
+        ("XP base (lv0)", str(getattr(srv, "player_xp_curve_base", 70) or 70)),
+        ("Multiplicador XP", str(getattr(srv, "player_xp_curve_mult", 1.05) or 1.05)),
+        ("XP m\u00e1ximo", str(getattr(srv, "override_max_xp_player", 0) or 0)),
     ]
     _vars_p: list[tk.StringVar] = []
     for col, (lbl, default) in enumerate(_fields_p):
         ctk.CTkLabel(
             gen_card, text=lbl, font=ctk.CTkFont(size=10), text_color="#8899aa"
         ).grid(row=3, column=col * 2, padx=(12, 2), pady=(0, 4), sticky="e")
-        v = tk.StringVar(value=default)
+        if col == 0:
+            v = pl_base_var
+        else:
+            key = ("player_xp_curve_base", "player_xp_curve_mult", "override_max_xp_player")[col - 1]
+            v = vars_ref.get(key)
+            if v is None:
+                v = tk.StringVar(value=default)
+                vars_ref[key] = v
         _vars_p.append(v)
         ctk.CTkEntry(gen_card, textvariable=v, width=80, height=28).grid(
             row=3, column=col * 2 + 1, padx=(0, 8), pady=(0, 4), sticky="w"
@@ -3826,6 +3840,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         srv.player_xp_curve_mult = xp_mult
         srv.player_xp_curve_formula = formula or "base * (mult ** i)"
         srv.player_base_level = max_lvl
+        srv.override_max_xp_player = max_xp
         srv.player_level_stats_raw = text
         if pl_base_var is not None:
             pl_base_var.set(str(max_lvl))
@@ -5942,7 +5957,8 @@ def _sync_ui_to_cfg(app: AsmPanelApp, srv: AsmServerConfig) -> None:
         from ..player_level_ramp import sync_config_player_level
         from ..ui.player_level_panel import sync_player_level_vars
 
-        sync_player_level_vars(vars_ref, cfg=srv)
+        if vars_ref.get("_pl_total_var") is not None:
+            sync_player_level_vars(vars_ref, cfg=srv)
         try:
             srv.player_base_level = int(float(vars_ref["player_base_level"].get()))
         except (ValueError, TypeError, tk.TclError):

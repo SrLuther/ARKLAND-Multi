@@ -4,13 +4,24 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.15"
+APP_VERSION: str = "1.11.16"
 BUILD_DATE: str = "2026-11-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.16",
+        "date": "2026-11-01",
+        "changes": [
+            "Web Store: corrigido o envio manual dos arquivos .argosmodel; o upload agora preserva o multipart exigido para instalar o arquivo selecionado.",
+            "Administra\u00e7\u00e3o: Registro de Erros paginado em at\u00e9 10 ocorr\u00eancias por p\u00e1gina; detalhes permanecem abertos durante a atualiza\u00e7\u00e3o autom\u00e1tica.",
+            "Administra\u00e7\u00e3o: indicadores de erros, avisos e coleta organizados lado a lado; removido o cart\u00e3o do \u00c2mbar\u00f4metro encoberto pelo bot\u00e3o de suporte.",
+            "Suporte: modelos de tradu\u00e7\u00e3o podem ser baixados pelos links oficiais quando o cat\u00e1logo Argos falha; cat\u00e1logo parcial j\u00e1 n\u00e3o bloqueia os outros idiomas.",
+            "Configura\u00e7\u00f5es do jogador: n\u00edvel m\u00e1ximo e curva de XP agora s\u00e3o configurados apenas em Progress\u00e3o de N\u00edvel.",
+        ],
+    },
     {
         "version": "1.11.15",
         "date": "2026-11-01",

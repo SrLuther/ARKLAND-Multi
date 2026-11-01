@@ -1,9 +1,19 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 05:59:17 -->
-<!-- Total de versões: 508 | Primeira: 1.11.15 -->
+<!-- Gerado: 2026-11-01 15:36:30 -->
+<!-- Total de versões: 509 | Primeira: 1.11.16 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.16] - 2026-11-01
+
+### Other
+
+- Web Store: corrigido o envio manual dos arquivos .argosmodel; o upload agora preserva o multipart exigido para instalar o arquivo selecionado.
+- Administração: Registro de Erros paginado em até 10 ocorrências por página; detalhes permanecem abertos durante a atualização automática.
+- Administração: indicadores de erros, avisos e coleta organizados lado a lado; removido o cartão do Âmbarômetro encoberto pelo botão de suporte.
+- Suporte: modelos de tradução podem ser baixados pelos links oficiais quando o catálogo Argos falha; catálogo parcial já não bloqueia os outros idiomas.
+- Configurações do jogador: nível máximo e curva de XP agora são configurados apenas em Progressão de Nível.
 
 ## [1.11.15] - 2026-11-01
 

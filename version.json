@@ -1,11 +1,12 @@
 {
-    "version": "1.11.15",
+    "version": "1.11.16",
     "date": "2026-11-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.15/ARKLAND-Multi-Setup-v1.11.15.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.16/ARKLAND-Multi-Setup-v1.11.16.exe",
     "changelog": [
-        "Web Store: página administrativa dedicada registra erros e avisos com contexto técnico para agilizar o diagnóstico.",
-        "Guia Ark Omega: conteúdo de progressão, ranks e chefes traduzido; diagramas de evolução creditados a VZS. O material traduzido informa que a versão original está no jogo com F1 e que o guia pode receber atualizações.",
-        "Suporte: links oficiais dos modelos Argos e envio manual de arquivos .argosmodel para instalação no servidor, mantendo a instalação e atualização automáticas.",
-        "CustomShop: /homodeus informa o custo e exige confirmação por /concordo antes de conceder as ascensões Alpha; esclarece que engramas Tek não são entregues."
+        "Web Store: corrigido o envio manual dos arquivos .argosmodel; o upload agora preserva o multipart exigido para instalar o arquivo selecionado.",
+        "Administração: Registro de Erros paginado em até 10 ocorrências por página; detalhes permanecem abertos durante a atualização automática.",
+        "Administração: indicadores de erros, avisos e coleta organizados lado a lado; removido o cartão do Âmbarômetro encoberto pelo botão de suporte.",
+        "Suporte: modelos de tradução podem ser baixados pelos links oficiais quando o catálogo Argos falha; catálogo parcial já não bloqueia os outros idiomas.",
+        "Configurações do jogador: nível máximo e curva de XP agora são configurados apenas em Progressão de Nível."
     ]
 }
