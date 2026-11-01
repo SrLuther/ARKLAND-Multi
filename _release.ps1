@@ -122,7 +122,7 @@ entry = next((item for item in entries or [] if item.get('version') == '$Version
 if entry is None:
     raise SystemExit('CHANGELOG entry not found')
 payload = {'version': '$Version', 'date': '$date', 'download_url': '$downloadUrl', 'changelog': entry.get('changes', [])}
-Path('version.json').write_text(json.dumps(payload, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+Path('version.json').write_text(json.dumps(payload, ensure_ascii=False, indent=4) + chr(10), encoding='utf-8')
 print('version.json written as UTF-8')
 "@
 & $python -c $versionJsonScript
