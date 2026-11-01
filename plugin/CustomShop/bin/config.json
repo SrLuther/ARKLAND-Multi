@@ -4293,6 +4293,7 @@
     "HomeMapsTitle": "Meus Mapas",
     "HomeMapsIntro": "Intro customizada.",
     "EngramasCommandPrice": 5000,
+    "HomodeusCommandPrice": 20000,
     "NotasCommandPrice": 5000,
     "NotasCommandEnabled": true
   },

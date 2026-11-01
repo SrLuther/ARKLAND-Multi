@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.14"
+APP_VERSION: str = "1.11.15"
 BUILD_DATE: str = "2026-11-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.15",
+        "date": "2026-11-01",
+        "changes": [
+            "Web Store: página administrativa dedicada registra erros e avisos com contexto técnico para agilizar o diagnóstico.",
+            "Guia Ark Omega: conteúdo de progressão, ranks e chefes traduzido; diagramas de evolução creditados a VZS. O material traduzido informa que a versão original está no jogo com F1 e que o guia pode receber atualizações.",
+            "Suporte: links oficiais dos modelos Argos e envio manual de arquivos .argosmodel para instalação no servidor, mantendo a instalação e atualização automáticas.",
+            "CustomShop: /homodeus informa o custo e exige confirmação por /concordo antes de conceder as ascensões Alpha; esclarece que engramas Tek não são entregues.",
+        ],
+    },
     {
         "version": "1.11.14",
         "date": "2026-11-01",

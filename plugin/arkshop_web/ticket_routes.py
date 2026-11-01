@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -136,6 +137,46 @@ def register_ticket_routes(
                 ),
                 "reference": error_id,
             }), 503
+
+    @app.route("/api/translate/models/upload", methods=["POST"])
+    @login_required
+    @_limit("10 per hour")
+    def upload_translation_model():
+        """Install a model file that the player downloaded manually."""
+        file_obj = request.files.get("file")
+        if not file_obj or not file_obj.filename:
+            return jsonify({"ok": False, "error": "Selecione um arquivo .argosmodel."}), 400
+        if not file_obj.filename.lower().endswith(".argosmodel"):
+            return jsonify({"ok": False, "error": "O arquivo precisa ter a extensão .argosmodel."}), 400
+        if request.content_length and request.content_length > 105 * 1024 * 1024:
+            return jsonify({"ok": False, "error": "O envio excede o limite permitido de 100 MB."}), 413
+
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(prefix="argos-upload-", suffix=".argosmodel", delete=False) as temp:
+                temp_path = Path(temp.name)
+                total = 0
+                while True:
+                    chunk = file_obj.stream.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > 100 * 1024 * 1024:
+                        return jsonify({"ok": False, "error": "O arquivo excede o limite de 100 MB."}), 413
+                    temp.write(chunk)
+
+            from translation_service import install_translation_model
+
+            pair = install_translation_model(temp_path)
+            return jsonify({"ok": True, "installed": pair})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception:
+            logging.getLogger(__name__).exception("Falha ao instalar modelo Argos enviado manualmente")
+            return jsonify({"ok": False, "error": "Não foi possível instalar este modelo. Confira o arquivo e tente novamente."}), 400
+        finally:
+            if temp_path:
+                temp_path.unlink(missing_ok=True)
 
     @app.route("/api/tickets/meta", methods=["GET"])
     def tickets_meta():

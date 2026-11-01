@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.51] - 2026-11-01
+
+### Improvement
+
+- `/homodeus` agora informa o custo e exige confirmacao por `/concordo` antes de cobrar e conceder as ascensoes Alpha; a mensagem esclarece que engramas Tek nao sao entregues.
+
 ## [1.10.50] - 2026-11-01
 
 ### Feature

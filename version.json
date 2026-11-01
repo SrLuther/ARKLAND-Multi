@@ -1,8 +1,11 @@
 {
-    "version": "1.11.14",
+    "version": "1.11.15",
     "date": "2026-11-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.14/ARKLAND-Multi-Setup-v1.11.14.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.15/ARKLAND-Multi-Setup-v1.11.15.exe",
     "changelog": [
-        "Suporte: corrigido o limite compartilhado por IP ao verificar modelos de traducao; verificacoes agora sao independentes por conta, com consulta real do indice, espelho de contingencia e referencia de erro para diagnostico."
+        "Web Store: página administrativa dedicada registra erros e avisos com contexto técnico para agilizar o diagnóstico.",
+        "Guia Ark Omega: conteúdo de progressão, ranks e chefes traduzido; diagramas de evolução creditados a VZS. O material traduzido informa que a versão original está no jogo com F1 e que o guia pode receber atualizações.",
+        "Suporte: links oficiais dos modelos Argos e envio manual de arquivos .argosmodel para instalação no servidor, mantendo a instalação e atualização automáticas.",
+        "CustomShop: /homodeus informa o custo e exige confirmação por /concordo antes de conceder as ascensões Alpha; esclarece que engramas Tek não são entregues."
     ]
 }

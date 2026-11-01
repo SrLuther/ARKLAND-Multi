@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import json
+import zipfile
 import logging
 import urllib.request
 from urllib.parse import urlparse
@@ -90,6 +91,35 @@ def _model_directory() -> Path:
     from src.shop_integration import webstore_data_dir
 
     return Path(webstore_data_dir()) / "translation" / "argos-packages"
+
+
+def install_translation_model(path: str | Path) -> dict:
+    """Validate and install one manually uploaded Argos model package."""
+    package_path = Path(path)
+    if package_path.suffix.lower() != ".argosmodel" or package_path.stat().st_size > 100 * 1024 * 1024:
+        raise ValueError("Envie um arquivo .argosmodel de até 100 MB.")
+    with zipfile.ZipFile(package_path) as archive:
+        total_uncompressed = 0
+        metadata_item = None
+        for item in archive.infolist():
+            member = Path(item.filename.replace("\\", "/"))
+            if member.is_absolute() or ".." in member.parts:
+                raise ValueError("O pacote contém um caminho inválido.")
+            total_uncompressed += item.file_size
+            if total_uncompressed > 500 * 1024 * 1024:
+                raise ValueError("O pacote excede o tamanho máximo permitido após extração.")
+            if item.filename.endswith("metadata.json"):
+                metadata_item = item
+        if metadata_item is None:
+            raise ValueError("O pacote não contém metadata.json.")
+        metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
+    pair = (metadata.get("from_code"), metadata.get("to_code"))
+    if pair not in _MODEL_PAIRS:
+        raise ValueError("Este pacote não corresponde a um dos idiomas suportados.")
+    with _MODEL_LOCK:
+        argos_package, _argos_translate, _detect = _runtime_modules()
+        argos_package.install_from_path(package_path)
+    return {"from": pair[0], "to": pair[1]}
 
 
 def _installed_by_pair(argos_package):

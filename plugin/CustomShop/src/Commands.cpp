@@ -18,6 +18,10 @@
 #include "ShopNotes.h"
 #include "ShopDebug.h"
 
+#include <chrono>
+#include <mutex>
+#include <unordered_map>
+
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
 #undef max
@@ -27,6 +31,15 @@
 #endif
 
 namespace {
+
+struct PendingHomodeus {
+    int player_id = 0;
+    int price = 0;
+    std::chrono::steady_clock::time_point expires;
+};
+
+std::mutex g_homodeus_pending_mutex;
+std::unordered_map<std::string, PendingHomodeus> g_homodeus_pending;
 
 void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMode::Type);
 void CmdCloudUploadSlot(AShooterPlayerController* controller, int slot);
@@ -1093,26 +1106,82 @@ void CmdHomodeus(AShooterPlayerController* controller, FString*, EChatSendMode::
         return;
     }
 
-    if (!CustomShop::ShopPoints::Get().SpendPoints(steam_id, price)) {
+    PendingHomodeus pending;
+    pending.player_id = player_id;
+    pending.price = price;
+    pending.expires = std::chrono::steady_clock::now() + std::chrono::minutes(2);
+    {
+        std::lock_guard<std::mutex> lock(g_homodeus_pending_mutex);
+        g_homodeus_pending[steam_id] = pending;
+    }
+
+    SendMsg(controller, FColorList::Yellow,
+            "Custo: " + std::to_string(price) + " ambares. Seu saldo: "
+            + std::to_string(balance_before) + " ambares.");
+    SendMsg(controller, FColorList::Yellow,
+            "Digite /concordo em ate 2 minutos para confirmar as ascensoes Alpha. "
+            "Este comando nao entrega engramas Tek.");
+}
+
+void CmdHomodeusConfirm(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+
+    const std::string steam_id = CustomShop::Bridge::GetSteamId(controller);
+    PendingHomodeus pending;
+    {
+        std::lock_guard<std::mutex> lock(g_homodeus_pending_mutex);
+        const auto it = g_homodeus_pending.find(steam_id);
+        if (steam_id.empty() || it == g_homodeus_pending.end()) {
+            SendMsg(controller, FColorList::Red,
+                    "Nenhuma confirmacao /homodeus pendente. Use /homodeus primeiro.");
+            return;
+        }
+        pending = it->second;
+        g_homodeus_pending.erase(it);
+    }
+
+    if (std::chrono::steady_clock::now() > pending.expires) {
         SendMsg(controller, FColorList::Red,
-                "Nao foi possivel cobrar os ambares. Nenhuma ascensao foi concedida.");
+                "A confirmacao do /homodeus expirou. Use /homodeus novamente.");
+        return;
+    }
+    if (ArkApi::IApiUtils::IsPlayerDead(controller)
+        || controller->GetLinkedPlayerID() != pending.player_id) {
+        SendMsg(controller, FColorList::Red,
+                "Confirmacao cancelada. Voce precisa estar vivo com o mesmo personagem.");
+        return;
+    }
+
+    auto* cheat = static_cast<UShooterCheatManager*>(controller->CheatManagerField());
+    if (!cheat) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel acessar seu personagem. Nenhuma ascensao foi concedida.");
+        return;
+    }
+
+    const int balance_before = CustomShop::ShopPoints::Get().GetPoints(steam_id);
+    if (balance_before < pending.price
+        || (pending.price > 0
+            && !CustomShop::ShopPoints::Get().SpendPoints(steam_id, pending.price))) {
+        SendMsg(controller, FColorList::Red,
+                "Saldo insuficiente ou alterado. Custo: " + std::to_string(pending.price)
+                + " ambares; saldo atual: " + std::to_string(balance_before) + ".");
         return;
     }
 
     // One native call avoids a series of per-boss triggers/cutscenes.
-    cheat->DefeatAllBosses(player_id);
+    cheat->DefeatAllBosses(pending.player_id);
 
     const int balance_after = CustomShop::ShopPoints::Get().GetPoints(steam_id);
     CustomShop::ShopPoints::Get().LogTransaction(
         "ascension", steam_id, "", "homodeus_alpha_all", 1, balance_before, balance_after);
-
     SendMsg(controller, FColorList::Green,
-            "Homodeus: ascensoes Alpha concedidas para todos os chefes. Foram cobrados "
-            + std::to_string(price) + " ambares.");
+            "Homodeus: ascensoes Alpha concedidas. Foram cobrados "
+            + std::to_string(pending.price) + " ambares.");
     SendMsg(controller, FColorList::Yellow,
-            "Os engramas Tek ficam disponiveis imediatamente. Os niveis extras atualizam "
-            "ao renascer ou reconectar; o implante atualiza depois de morrer. "
-            "A concessao fica salva no personagem.");
+            "Apenas as ascensoes Alpha foram entregues; este comando nao entrega engramas Tek. "
+            "Os niveis extras atualizam ao renascer ou reconectar; o implante atualiza "
+            "depois de morrer. A concessao fica salva no personagem.");
 }
 
 } // anonymous namespace
@@ -1145,6 +1214,7 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/conf",          &CmdCloudConfirm);
     ArkApi::GetCommands().AddChatCommand("/engramas",      &CmdEngramas);
     ArkApi::GetCommands().AddChatCommand("/homodeus",      &CmdHomodeus);
+    ArkApi::GetCommands().AddChatCommand("/concordo",      &CmdHomodeusConfirm);
     ArkApi::GetCommands().AddChatCommand("/notas",         &CmdNotas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
         "CustomShopCloudChat", &OnCloudChatMessage);
@@ -1207,6 +1277,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveChatCommand("/engramas");
     ArkApi::GetCommands().RemoveChatCommand("/homodeus");
+    ArkApi::GetCommands().RemoveChatCommand("/concordo");
     ArkApi::GetCommands().RemoveChatCommand("/notas");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Upload");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Download");

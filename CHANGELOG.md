@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 04:37:59 -->
-<!-- Total de versões: 507 | Primeira: 1.11.14 -->
+<!-- Gerado: 2026-11-01 05:59:17 -->
+<!-- Total de versões: 508 | Primeira: 1.11.15 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.15] - 2026-11-01
+
+### Other
+
+- Web Store: página administrativa dedicada registra erros e avisos com contexto técnico para agilizar o diagnóstico.
+- Guia Ark Omega: conteúdo de progressão, ranks e chefes traduzido; diagramas de evolução creditados a VZS. O material traduzido informa que a versão original está no jogo com F1 e que o guia pode receber atualizações.
+- Suporte: links oficiais dos modelos Argos e envio manual de arquivos .argosmodel para instalação no servidor, mantendo a instalação e atualização automáticas.
+- CustomShop: /homodeus informa o custo e exige confirmação por /concordo antes de conceder as ascensões Alpha; esclarece que engramas Tek não são entregues.
 
 ## [1.11.14] - 2026-11-01
 
