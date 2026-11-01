@@ -10,4 +10,4 @@
         "Traduções: os arquivos .argosmodel colocados em translation/argos-packages passam a ser instalados pelo servidor na verificação seguinte, sem depender do upload do navegador.",
         "Web Store: sincronização preserva os pacotes de doação personalizados e só aplica os padrões quando PointPackages ainda não existe."
     ]
-}\n
+}
