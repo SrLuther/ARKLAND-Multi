@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.13"
+APP_VERSION: str = "1.11.14"
 BUILD_DATE: str = "2026-11-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.14",
+        "date": "2026-11-01",
+        "changes": [
+            "Suporte: corrigido o limite compartilhado por IP ao verificar modelos de traducao; verificacoes agora sao independentes por conta, com consulta real do indice, espelho de contingencia e referencia de erro para diagnostico.",
+        ],
+    },
     {
         "version": "1.11.13",
         "date": "2026-11-01",

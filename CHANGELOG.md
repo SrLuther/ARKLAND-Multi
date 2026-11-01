@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 04:08:56 -->
-<!-- Total de versões: 506 | Primeira: 1.11.13 -->
+<!-- Gerado: 2026-11-01 04:37:59 -->
+<!-- Total de versões: 507 | Primeira: 1.11.14 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.14] - 2026-11-01
+
+### Other
+
+- Suporte: corrigido o limite compartilhado por IP ao verificar modelos de traducao; verificacoes agora sao independentes por conta, com consulta real do indice, espelho de contingencia e referencia de erro para diagnostico.
 
 ## [1.11.13] - 2026-11-01
 

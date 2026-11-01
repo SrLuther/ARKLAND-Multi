@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 import json
+import logging
+import urllib.request
 from urllib.parse import urlparse
 from pathlib import Path
 from threading import Lock
@@ -10,6 +12,58 @@ from datetime import datetime, timedelta, timezone
 
 _MODEL_PAIRS = (("en", "pb"), ("pb", "en"), ("en", "es"), ("es", "en"))
 _MODEL_LOCK = Lock()
+_INDEX_MIRRORS = (
+    "https://cdn.jsdelivr.net/gh/argosopentech/argospm-index@main/index.json",
+)
+
+
+def _available_packages(argos_package):
+    """Refresh Argos' package index, with a CDN mirror and cached fallback."""
+    settings = getattr(argos_package, "settings", None)
+    if settings is None:
+        argos_package.update_package_index()
+        return argos_package.get_available_packages()
+    index_path = Path(settings.local_package_index)
+    urls = [str(settings.remote_package_index), *_INDEX_MIRRORS]
+    failures = []
+    for url in dict.fromkeys(urls):
+        try:
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "ARKLAND-WebStore/1.11.14"}
+            )
+            with urllib.request.urlopen(request, timeout=25) as response:
+                payload = response.read()
+            data = json.loads(payload)
+            if not isinstance(data, list) or not data:
+                raise ValueError("índice vazio ou inválido")
+            indexed_pairs = {
+                (item.get("from_code"), item.get("to_code"))
+                for item in data
+                if isinstance(item, dict)
+            }
+            if not set(_MODEL_PAIRS).issubset(indexed_pairs):
+                raise ValueError("índice não contém todos os modelos necessários")
+            index_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = index_path.with_suffix(index_path.suffix + ".tmp")
+            temporary.write_bytes(payload)
+            temporary.replace(index_path)
+            return argos_package.get_available_packages()
+        except Exception as exc:
+            failures.append(f"{urlparse(url).hostname or 'index'}: {type(exc).__name__}")
+
+    try:
+        cached = argos_package.get_available_packages()
+        if cached:
+            logging.getLogger(__name__).warning(
+                "Índice Argos indisponível nas fontes remotas; usando índice em cache (%s)",
+                "; ".join(failures),
+            )
+            return cached
+    except Exception as exc:
+        failures.append(f"cache: {type(exc).__name__}")
+    raise RuntimeError(
+        "Não foi possível obter o índice dos modelos Argos. " + "; ".join(failures)
+    )
 
 
 def _runtime_modules():
@@ -86,8 +140,7 @@ def refresh_translation_models(*, force_redownload: bool = False, check_now: boo
         if not force_redownload and not check_now and not missing and not due:
             return {"installed": len(_MODEL_PAIRS), "updated": 0, "checked": False}
 
-        argos_package.update_package_index()
-        available = argos_package.get_available_packages()
+        available = _available_packages(argos_package)
         installed_count = 0
         updated_count = 0
         from packaging.version import parse as parse_version

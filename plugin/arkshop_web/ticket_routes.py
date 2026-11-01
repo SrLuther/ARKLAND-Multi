@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +67,11 @@ def register_ticket_routes(
 
     @app.route("/api/translate", methods=["POST"])
     @login_required
-    @_limit("20 per minute")
+    @_limit(
+        "20 per minute",
+        key_func=lambda: str(steam_id_from_session() or request.remote_addr or "unknown"),
+        override_defaults=True,
+    )
     def translate_player_text():
         """Translate user-requested text with free local Argos models."""
         body = request.get_json(silent=True) or {}
@@ -84,15 +89,26 @@ def register_ticket_routes(
             translated = translate_offline(text, target)
             return jsonify({"ok": True, "translated": translated, "target": target})
         except Exception:
-            logging.getLogger(__name__).exception("Falha na tradução offline dos tickets")
+            error_id = uuid.uuid4().hex[:12]
+            logging.getLogger(__name__).exception(
+                "Falha na tradução offline dos tickets error_id=%s", error_id
+            )
             return jsonify({
                 "ok": False,
-                "error": "Não foi possível preparar a tradução local. Confira a conexão para baixar os modelos gratuitos e tente novamente.",
+                "error": (
+                    "Não foi possível preparar a tradução local. Confira a conexão para baixar os modelos gratuitos e tente novamente. "
+                    f"ID: {error_id}"
+                ),
+                "reference": error_id,
             }), 503
 
     @app.route("/api/translate/models", methods=["POST"])
     @login_required
-    @_limit("3 per hour")
+    @_limit(
+        "6 per hour",
+        key_func=lambda: str(steam_id_from_session() or request.remote_addr or "unknown"),
+        override_defaults=True,
+    )
     def manage_translation_models():
         """Let a signed-in player check, update or redownload the local free models."""
         body = request.get_json(silent=True) or {}
@@ -100,16 +116,25 @@ def register_ticket_routes(
         try:
             from translation_service import refresh_translation_models
 
-            # Respect the service's weekly index cache for routine checks. Forcing
-            # an index refresh on every button press made the 3/hour limiter easy
-            # to hit and did not improve already-installed models.
-            result = refresh_translation_models(force_redownload=force_redownload)
+            # The explicit button promises a fresh check. Account-scoped limiting
+            # prevents users behind a shared server IP from consuming each other's quota.
+            result = refresh_translation_models(
+                force_redownload=force_redownload,
+                check_now=True,
+            )
             return jsonify({"ok": True, **result})
         except Exception:
-            logging.getLogger(__name__).exception("Falha ao verificar modelos locais de tradução")
+            error_id = uuid.uuid4().hex[:12]
+            logging.getLogger(__name__).exception(
+                "Falha ao verificar modelos locais de tradução error_id=%s", error_id
+            )
             return jsonify({
                 "ok": False,
-                "error": "Não foi possível verificar os idiomas. Confira a conexão do servidor e tente novamente.",
+                "error": (
+                    "Não foi possível verificar os idiomas. Confira a conexão do servidor e tente novamente. "
+                    f"ID: {error_id}"
+                ),
+                "reference": error_id,
             }), 503
 
     @app.route("/api/tickets/meta", methods=["GET"])

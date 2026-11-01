@@ -1,8 +1,8 @@
 {
-    "version": "1.11.13",
+    "version": "1.11.14",
     "date": "2026-11-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.13/ARKLAND-Multi-Setup-v1.11.13.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.14/ARKLAND-Multi-Setup-v1.11.14.exe",
     "changelog": [
-        "CustomShop: comando /homodeus concede todos os desbloqueios Alpha do personagem por 20.000 ambares (preco configuravel), sem iniciar lutas ou cutscenes."
+        "Suporte: corrigido o limite compartilhado por IP ao verificar modelos de traducao; verificacoes agora sao independentes por conta, com consulta real do indice, espelho de contingencia e referencia de erro para diagnostico."
     ]
 }
