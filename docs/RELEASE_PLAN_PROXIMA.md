@@ -43,7 +43,7 @@ O app (`src/updater.py`) lê `version.json` de `raw.githubusercontent.com/SrLuth
 4. Reescreve `APP_VERSION`, `BUILD_DATE`, `version.json`, `setup.iss`.
 5. `scripts/sync_plugin_versions.py --all` e `scripts/sync_changelog_md.py`.
 6. Roda `build.bat` (ver 1.4) e exige `installer\ARKLAND-Multi-Setup-vX.Y.Z.exe`.
-7. **Size gate**: WebStore.exe ≤ 80 MB e instalador ≤ 150 MB (senão falha; histórico: v1.10.66 saiu com 427 MB por falta de exclusão no `ARKLAND-WebStore.spec`).
+7. **Size gate**: WebStore.exe ≤ 120 MB e instalador ≤ 200 MB (senão falha; histórico: v1.10.66 saiu com 427 MB por falta de exclusão no `ARKLAND-WebStore.spec`).
 8. **`git add -A` + `git commit -m "release: vX.Y.Z"` + `git push`** (irreversível sem force).
 9. Pega token do Windows Credential Manager e **cria a GitHub Release** `vX.Y.Z` com `version.json.changelog` como corpo e anexa o instalador.
 
@@ -240,7 +240,7 @@ foreach ($p in 'CustomShop','CustomDinoDeliver','ArkPlayer','ArkEventHunt') {
 ### 6.2 Depois do build
 
 - `python -m pytest tests/test_plugin_versions.py tests/test_plugin_release_gate.py -q` (usa o bin/ atual = mesmo que o EXE embute).
-- Tamanhos: `dist\ARKLAND-WebStore.exe` ≤ 80 MB, instalador ≤ 150 MB (o script já falha se estourar).
+- Tamanhos atuais: `dist\ARKLAND-WebStore.exe` ≤ 120 MB, instalador ≤ 200 MB (o script já falha se estourar). Esses limites foram ampliados na v1.11.11 para acomodar as dependências do tradutor offline.
 - Opcional: extrair o EXE com `pyi-archive_viewer dist\ARKLAND-ServerManager.exe` e conferir as entradas `plugins/*.dll`, `plugins/*/PluginInfo.json`.
 
 ### 6.3 Avisos do PyInstaller a procurar
