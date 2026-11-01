@@ -251,10 +251,11 @@ void ShopConfig::Load() {
         grp_summary.empty() ? "(none)" : grp_summary);
 
     Log::GetLog()->info(
-        "ShopConfig: chat commands /engramas price={} /notas enabled={} price={}",
+        "ShopConfig: chat commands /engramas price={} /notas enabled={} price={} /homodeus price={}",
         settings_.value("EngramasCommandPrice", 5000),
         settings_.value("NotasCommandEnabled", true) ? "yes" : "no",
-        settings_.value("NotasCommandPrice", 5000));
+        settings_.value("NotasCommandPrice", 5000),
+        settings_.value("HomodeusCommandPrice", 20000));
 }
 
 bool ShopConfig::MaybeReloadIfChanged() {
@@ -385,6 +386,10 @@ int ShopConfig::EngramasCommandPrice() const {
 
 int ShopConfig::NotasCommandPrice() const {
     return settings_.value("NotasCommandPrice", 5000);
+}
+
+int ShopConfig::HomodeusCommandPrice() const {
+    return settings_.value("HomodeusCommandPrice", 20000);
 }
 
 bool ShopConfig::NotasCommandEnabled() const {

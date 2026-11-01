@@ -1064,6 +1064,57 @@ void CmdEngramas(AShooterPlayerController* controller, FString*, EChatSendMode::
             "Digite /confirmar em ate 2 minutos para desbloquear todos os engramas.");
 }
 
+void CmdHomodeus(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+
+    if (ArkApi::IApiUtils::IsPlayerDead(controller)) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel conceder as ascensoes. Voce precisa estar vivo.");
+        return;
+    }
+
+    const std::string steam_id = CustomShop::Bridge::GetSteamId(controller);
+    const int player_id = controller->GetLinkedPlayerID();
+    auto* cheat = static_cast<UShooterCheatManager*>(controller->CheatManagerField());
+    if (steam_id.empty() || player_id <= 0 || !cheat) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel identificar seu personagem. Tente novamente ou contate a equipe.");
+        Log::GetLog()->error("CmdHomodeus: invalid player context steam_id='{}' player_id={} cheat={}",
+                             steam_id, player_id, cheat != nullptr);
+        return;
+    }
+
+    const int price = CustomShop::ShopConfig::Get().HomodeusCommandPrice();
+    const int balance_before = CustomShop::ShopPoints::Get().GetPoints(steam_id);
+    if (balance_before < price) {
+        SendMsg(controller, FColorList::Red,
+                "Saldo insuficiente. Custo: " + std::to_string(price)
+                + " ambares; seu saldo: " + std::to_string(balance_before) + ".");
+        return;
+    }
+
+    if (!CustomShop::ShopPoints::Get().SpendPoints(steam_id, price)) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel cobrar os ambares. Nenhuma ascensao foi concedida.");
+        return;
+    }
+
+    // One native call avoids a series of per-boss triggers/cutscenes.
+    cheat->DefeatAllBosses(player_id);
+
+    const int balance_after = CustomShop::ShopPoints::Get().GetPoints(steam_id);
+    CustomShop::ShopPoints::Get().LogTransaction(
+        "ascension", steam_id, "", "homodeus_alpha_all", 1, balance_before, balance_after);
+
+    SendMsg(controller, FColorList::Green,
+            "Homodeus: ascensoes Alpha concedidas para todos os chefes. Foram cobrados "
+            + std::to_string(price) + " ambares.");
+    SendMsg(controller, FColorList::Yellow,
+            "Os engramas Tek ficam disponiveis imediatamente. Os niveis extras atualizam "
+            "ao renascer ou reconectar; o implante atualiza depois de morrer. "
+            "A concessao fica salva no personagem.");
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -1093,6 +1144,7 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/limparnuvem3",  &CmdCloudClearPendingSlot3);
     ArkApi::GetCommands().AddChatCommand("/conf",          &CmdCloudConfirm);
     ArkApi::GetCommands().AddChatCommand("/engramas",      &CmdEngramas);
+    ArkApi::GetCommands().AddChatCommand("/homodeus",      &CmdHomodeus);
     ArkApi::GetCommands().AddChatCommand("/notas",         &CmdNotas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
         "CustomShopCloudChat", &OnCloudChatMessage);
@@ -1154,6 +1206,7 @@ void Unregister() {
     CustomShop::TribeSync::UnregisterChatCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveChatCommand("/engramas");
+    ArkApi::GetCommands().RemoveChatCommand("/homodeus");
     ArkApi::GetCommands().RemoveChatCommand("/notas");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Upload");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Download");

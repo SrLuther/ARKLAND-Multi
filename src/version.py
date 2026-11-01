@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.12"
+APP_VERSION: str = "1.11.13"
 BUILD_DATE: str = "2026-11-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.13",
+        "date": "2026-11-01",
+        "changes": [
+            "CustomShop: comando /homodeus concede todos os desbloqueios Alpha do personagem por 20.000 ambares (preco configuravel), sem iniciar lutas ou cutscenes.",
+        ],
+    },
     {
         "version": "1.11.12",
         "date": "2026-10-31",

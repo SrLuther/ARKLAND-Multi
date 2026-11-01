@@ -77,6 +77,9 @@ public:
     /** Custo em ambares do comando /notas (padrao 5000). */
     int         NotasCommandPrice() const;
 
+    /** Custo em ambares do comando unico /homodeus (padrao 20000). */
+    int         HomodeusCommandPrice() const;
+
     /** false = desativa /notas no jogo. */
     bool        NotasCommandEnabled() const;
 

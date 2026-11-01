@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.50] - 2026-11-01
+
+### Feature
+
+- **Comando `/homodeus`:** cobra `Settings.HomodeusCommandPrice` (padrão: 20000 Âmbares) e chama `DefeatAllBosses` uma vez para conceder todos os desbloqueios Alpha disponíveis ao personagem. Não inicia lutas nem cutscenes. Os níveis extras podem exigir renascimento ou reconexão; o implante atualiza após a morte.
+
 ## [1.10.49] - 2026-10-31
 
 ### Improvement

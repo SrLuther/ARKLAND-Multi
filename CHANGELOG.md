@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 03:22:47 -->
-<!-- Total de versões: 505 | Primeira: 1.11.12 -->
+<!-- Gerado: 2026-11-01 04:08:56 -->
+<!-- Total de versões: 506 | Primeira: 1.11.13 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.13] - 2026-11-01
+
+### Other
+
+- CustomShop: comando /homodeus concede todos os desbloqueios Alpha do personagem por 20.000 ambares (preco configuravel), sem iniciar lutas ou cutscenes.
 
 ## [1.11.12] - 2026-10-31
 
