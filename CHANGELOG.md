@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 15:36:30 -->
-<!-- Total de versões: 509 | Primeira: 1.11.16 -->
+<!-- Gerado: 2026-11-01 17:07:52 -->
+<!-- Total de versões: 510 | Primeira: 1.11.17 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.17] - 2026-11-01
+
+### Other
+
+- Web Store: a página inicial mostra os apelidos dos jogadores conectados agrupados por mapa, com atualização automática e sem expor IDs de conta.
 
 ## [1.11.16] - 2026-11-01
 

@@ -4609,6 +4609,27 @@
       background:linear-gradient(145deg,rgba(19,30,40,.98),rgba(11,18,25,.99));
       box-shadow:0 18px 46px rgba(0,0,0,.18);
     }
+    .home-community {
+      order:5;
+      grid-column:1 / -1;
+      padding:24px;
+      border:1px solid rgba(112,217,205,.2);
+      border-radius:20px;
+      background:linear-gradient(145deg,rgba(16,31,38,.98),rgba(10,19,27,.99));
+      box-shadow:0 18px 46px rgba(0,0,0,.18);
+    }
+    .home-community__head { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:15px; }
+    .home-community__title { margin:0; color:#ecf3f4; font:700 clamp(21px,2vw,27px) 'Rajdhani','Segoe UI',sans-serif; }
+    .home-community__summary { margin-top:4px; color:#9aadb8; font-size:12px; }
+    .home-community__grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); gap:10px; }
+    .home-community__map { min-width:0; padding:13px; border:1px solid rgba(137,173,189,.14); border-radius:13px; background:linear-gradient(155deg,rgba(28,44,54,.8),rgba(15,24,32,.94)); }
+    .home-community__map-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:9px; color:#e9f1f3; font-weight:800; font-size:13px; }
+    .home-community__count { color:#8ce6dc; font-size:11px; white-space:nowrap; }
+    .home-community__names { display:flex; flex-wrap:wrap; gap:6px; }
+    .home-community__name { max-width:100%; overflow:hidden; text-overflow:ellipsis; padding:4px 8px; border:1px solid rgba(112,217,205,.12); border-radius:999px; background:rgba(112,217,205,.07); color:#c7d8dd; font-size:11px; }
+    .home-community__empty,.home-community__privacy { color:#91a4ae; font-size:11px; }
+    .home-community__privacy { margin:12px 0 0; }
+    @media (max-width:760px) { .home-community { grid-column:1; padding:18px 14px; } .home-community__head { align-items:flex-start; flex-direction:column; } }
     .home-journey__intro { max-width:760px; margin:0 0 18px; color:#9aadb8; font-size:13px; line-height:1.6; }
     .home-journey__grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
     .home-journey__card { display:flex; flex-direction:column; min-height:200px; padding:17px; border:1px solid rgba(137,173,189,.14); border-radius:15px; background:linear-gradient(155deg,rgba(28,44,54,.86),rgba(15,24,32,.96)); }
@@ -30371,6 +30392,7 @@ function renderAmberLoreSection(lore) {
 let _homeLoadGen = 0;
 let _homeLoadAbort = null;
 let _homeStatusPollTimer = null;
+let _homeOnlinePlayersPollTimer = null;
 
 function _homePlayersLabel(row, st) {
   const status = String(st || "").trim().toUpperCase();
@@ -30434,6 +30456,52 @@ async function _refreshHomeServerStatuses() {
   }
 }
 
+async function _refreshHomeOnlinePlayers() {
+  const list = document.getElementById("home-community-list");
+  const summary = document.getElementById("home-community-summary");
+  if (!list || !summary) return;
+  if (new URLSearchParams(window.location.search).has("preview")) {
+    summary.textContent = "Prévia demonstrativa · 3 jogadores conectados em 2 mapas";
+    list.innerHTML = `
+      <article class="home-community__map"><div class="home-community__map-head"><span>The Island</span><span class="home-community__count">2 jogadores</span></div><div class="home-community__names"><span class="home-community__name">Sobrevivente Aurora</span><span class="home-community__name">RexRider</span></div></article>
+      <article class="home-community__map"><div class="home-community__map-head"><span>Ragnarok</span><span class="home-community__count">1 jogador</span></div><div class="home-community__names"><span class="home-community__name">Nômade</span></div></article>
+      <article class="home-community__map"><div class="home-community__map-head"><span>Fjordur</span><span class="home-community__count">0 jogadores</span></div><div class="home-community__empty">Ninguém conectado neste mapa agora.</div></article>`;
+    return;
+  }
+  try {
+    const response = await fetch(API + "/api/public/online-players");
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error("Lista temporariamente indisponível.");
+    const servers = Array.isArray(data.servers) ? data.servers : [];
+    const online = servers.filter(server => server.status === "online");
+    if (!servers.length) {
+      summary.textContent = "Nenhum mapa disponível no momento.";
+      list.innerHTML = '<div class="home-community__empty">Tente novamente mais tarde.</div>';
+      return;
+    }
+    if (!online.length) {
+      summary.textContent = "Status dos mapas indisponível agora.";
+      list.innerHTML = '<div class="home-community__empty">Não foi possível consultar os jogadores neste momento.</div>';
+      return;
+    }
+    const total = online.reduce((count, server) => count + (Array.isArray(server.players) ? server.players.length : 0), 0);
+    const mapCount = online.filter(server => (server.players || []).length > 0).length;
+    summary.textContent = total
+      ? `${total} ${total === 1 ? "jogador conectado" : "jogadores conectados"} em ${mapCount} ${mapCount === 1 ? "mapa" : "mapas"} · atualizado ${new Date(data.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+      : "Os mapas estão tranquilos agora. Seja o primeiro a entrar!";
+    list.innerHTML = online.map(server => {
+      const players = Array.isArray(server.players) ? server.players : [];
+      const names = players.length
+        ? `<div class="home-community__names">${players.map(player => `<span class="home-community__name" title="${escHtml(player.name || "Jogador")}">${escHtml(player.name || "Jogador")}</span>`).join("")}</div>`
+        : '<div class="home-community__empty">Ninguém conectado neste mapa agora.</div>';
+      return `<article class="home-community__map"><div class="home-community__map-head"><span>${escHtml(server.label || "Mapa")}</span><span class="home-community__count">${players.length} ${players.length === 1 ? "jogador" : "jogadores"}</span></div>${names}</article>`;
+    }).join("");
+  } catch (_) {
+    summary.textContent = "Não foi possível atualizar a lista agora.";
+    list.innerHTML = '<div class="home-community__empty">Tente novamente em instantes.</div>';
+  }
+}
+
 function _startHomeServerStatusPoll() {
   if (_homeStatusPollTimer) {
     clearInterval(_homeStatusPollTimer);
@@ -30445,6 +30513,13 @@ function _startHomeServerStatusPoll() {
     if (!home || !home.classList.contains("active")) return;
     _refreshHomeServerStatuses();
   }, 20000);
+  if (_homeOnlinePlayersPollTimer) clearInterval(_homeOnlinePlayersPollTimer);
+  _refreshHomeOnlinePlayers();
+  _homeOnlinePlayersPollTimer = setInterval(() => {
+    const home = document.getElementById("page-home");
+    if (!home || !home.classList.contains("active")) return;
+    _refreshHomeOnlinePlayers();
+  }, 30000);
 }
 
 async function loadHome(opts) {
@@ -31494,6 +31569,16 @@ function renderHomePage(d) {
       ${heroCarouselHtml ? `<section class="home-notice-panel" aria-label="Avisos da comunidade"><div class="home-section__eyebrow">Avisos e novidades</div>${heroCarouselHtml}</section>` : ""}
 
       ${connectSectionHtml}
+
+      <section id="home-community" class="home-community" aria-labelledby="home-community-title">
+        <div class="home-community__head">
+          <div><div class="home-section__eyebrow">A comunidade está jogando</div><h2 class="home-community__title" id="home-community-title">Quem está online agora?</h2>
+            <div class="home-community__summary" id="home-community-summary" aria-live="polite">Consultando os mapas…</div></div>
+          <button type="button" class="btn btn-primary" onclick="scrollToHomeConnect()">Junte-se a eles</button>
+        </div>
+        <div id="home-community-list" class="home-community__grid" aria-live="polite"><div class="home-community__empty">Carregando jogadores…</div></div>
+        <p class="home-community__privacy">Apelidos do jogo e mapa são exibidos publicamente; IDs de conta não são compartilhados.</p>
+      </section>
 
       <section class="home-journey" aria-labelledby="home-journey-title">
         <div class="home-lobby__section-head">

@@ -10352,6 +10352,72 @@ def public_server_status():
     })
 
 
+_PUBLIC_ONLINE_PLAYERS_LOCK = threading.Lock()
+_PUBLIC_ONLINE_PLAYERS_CACHE: dict[str, Any] = {"fetched_at": 0.0, "payload": None}
+
+
+def _public_online_players_snapshot() -> dict[str, Any]:
+    """Cached public view of connected character names, without account IDs."""
+    now = time.monotonic()
+    with _PUBLIC_ONLINE_PLAYERS_LOCK:
+        cached = _PUBLIC_ONLINE_PLAYERS_CACHE.get("payload")
+        if cached is not None and now - float(_PUBLIC_ONLINE_PLAYERS_CACHE.get("fetched_at") or 0.0) < 30.0:
+            return cached
+
+        targets = [s for s in _load_servers() if isinstance(s, dict) and str(s.get("server_id") or "").strip()]
+
+        def query_server(server: dict[str, Any]) -> dict[str, Any]:
+            server_id = str(server.get("server_id") or "").strip()
+            label = str(server.get("label") or server_id)
+            cfg = _get_server_settings(server_id)
+            try:
+                port = int(server.get("rcon_port") or cfg.get("rcon_port") or 27020)
+            except (TypeError, ValueError):
+                port = 27020
+            password = sanitize_rcon_password(str(server.get("rcon_password") or cfg.get("rcon_password") or ""))
+            if not password:
+                return {"label": label, "status": "unavailable", "players": []}
+
+            last_error: BaseException | None = None
+            for host in _rcon_hosts_to_try(server, cfg):
+                try:
+                    response = _rcon_command(host, port, password, "ListPlayers", timeout=6.0, connect_retries=1)
+                    # Nicknames are public in this list; SteamIDs and raw RCON output are never returned.
+                    players = [
+                        {"name": str(p.get("name") or "Jogador")[:48]}
+                        for p in _parse_agent_list_players(response)
+                    ]
+                    return {"label": label, "status": "online", "players": players}
+                except Exception as exc:
+                    last_error = exc
+            reason = _classify_rcon_error(last_error or "falha RCON")
+            return {"label": label, "status": "offline" if reason == "refused" else "unavailable", "players": []}
+
+        results: list[dict[str, Any]] = []
+        if targets:
+            with ThreadPoolExecutor(max_workers=min(8, len(targets)), thread_name_prefix="public-online") as pool:
+                futures = [pool.submit(query_server, server) for server in targets]
+                for future in as_completed(futures):
+                    try:
+                        results.append(future.result())
+                    except Exception as exc:
+                        log.warning("public online players query failed: %s", exc)
+        results.sort(key=lambda item: str(item.get("label") or "").casefold())
+        payload = {
+            "ok": True,
+            "updated_at": datetime.now(UTC).isoformat(),
+            "servers": results,
+        }
+        _PUBLIC_ONLINE_PLAYERS_CACHE.update({"fetched_at": time.monotonic(), "payload": payload})
+        return payload
+
+
+@app.route("/api/public/online-players", methods=["GET"])
+@limiter.limit("30 per minute")
+def public_online_players():
+    return jsonify(_public_online_players_snapshot())
+
+
 @app.route("/api/admin/map-members/online", methods=["GET"])
 @admin_required
 @limiter.limit("6 per minute")
