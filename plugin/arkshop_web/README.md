@@ -39,6 +39,12 @@ Por padrão (`delivery_mode: plugin`), compras ficam **PENDENTE** no banco e o *
 
 RCON (`Shop.Deliver`) permanece disponível como modo legado (`delivery_mode: rcon`) ou forçado pelo admin (`/api/admin/orders/{id}/reprocess?force_rcon=1`).
 
+## Tradução de tickets (offline e gratuita)
+
+O chat de suporte usa modelos locais do Argos Translate para português do Brasil, inglês e espanhol. O servidor baixa os modelos oficiais automaticamente na primeira tradução e verifica atualizações semanalmente quando estiver conectado à internet; depois de instalados, a tradução funciona sem internet. O jogador também pode usar **Verificar idiomas** ou **Baixar novamente** no balão de suporte. Os arquivos ficam em `translation/argos-packages` dentro do diretório persistente da Web Store.
+
+Os quatro pares de modelos usam inglês como idioma intermediário e ocupam algumas centenas de MB. A primeira instalação ou o redownload exige internet no servidor; os textos dos tickets não são enviados a serviços externos.
+
 ## Controles de servidores pelo site
 
 A página **Controle de servidores** usa o agente integrado ao Server Manager. Administradores configuram URL e token na própria tela; a equipe de suporte vê apenas os controles operacionais. O token fica protegido no `settings.json` da Web Store e não é devolvido pela API. Como alternativa, as variáveis `ARKSHOP_SERVER_AGENT_URL` e `ARKSHOP_SERVER_AGENT_TOKEN` continuam aceitas. No Server Manager instalado no Windows, o `.env` persistente pode ser criado em `%APPDATA%\ARKLAND-ServerManager\arkshop_web\.env`; o diretório é criado pela instalação/execução da Web Store. Após editar esse arquivo, reinicie a Web Store. Mantenha a porta do agente acessível somente pela rede administrativa. Administradores e suporte podem listar jogadores, kickar SteamID conectado e iniciar/parar/reiniciar servidores registrados no agente.

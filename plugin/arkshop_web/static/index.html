@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#060402" />
+  <meta name="theme-color" content="#080d13" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -4577,6 +4577,25 @@
     .home-notice-panel .home-carousel__media { overflow:hidden; }
     .home-notice-panel .home-carousel__media img { object-fit:cover; }
     .home-notice-panel .home-carousel__slide--text { min-height:110px; }
+    .home-journey {
+      order:5;
+      grid-column:1 / -1;
+      padding:24px;
+      border:1px solid rgba(137,173,189,.17);
+      border-radius:20px;
+      background:linear-gradient(145deg,rgba(19,30,40,.98),rgba(11,18,25,.99));
+      box-shadow:0 18px 46px rgba(0,0,0,.18);
+    }
+    .home-journey__intro { max-width:760px; margin:0 0 18px; color:#9aadb8; font-size:13px; line-height:1.6; }
+    .home-journey__grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .home-journey__card { display:flex; flex-direction:column; min-height:200px; padding:17px; border:1px solid rgba(137,173,189,.14); border-radius:15px; background:linear-gradient(155deg,rgba(28,44,54,.86),rgba(15,24,32,.96)); }
+    .home-journey__step { color:#87d9d1; font-size:10px; font-weight:800; letter-spacing:.15em; text-transform:uppercase; }
+    .home-journey__card h3 { margin:10px 0 7px; color:#ecf3f4; font:700 18px 'Rajdhani','Segoe UI',sans-serif; }
+    .home-journey__card p { margin:0 0 16px; color:#9aadb8; font-size:12px; line-height:1.6; }
+    .home-journey__action { align-self:flex-start; margin-top:auto; padding:8px 11px; border:1px solid rgba(210,180,119,.3); border-radius:9px; background:rgba(210,180,119,.08); color:#e3ca94; font-family:inherit; font-size:11px; font-weight:700; cursor:pointer; }
+    .home-journey__action:hover { border-color:rgba(140,230,220,.5); color:#baf3eb; }
+    @media (max-width:1100px) { .home-journey__grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:760px) { .home-journey { padding:18px 14px; } .home-journey__grid { grid-template-columns:1fr; gap:9px; } .home-journey__card { min-height:0; padding:15px; } }
     .home-shortcuts { padding:22px; border:1px solid var(--border); border-radius:16px; background:linear-gradient(140deg,rgba(20,17,12,.95),rgba(10,11,11,.96)); }
     .home-lobby__section-head { display:flex; justify-content:space-between; align-items:end; gap:12px; margin-bottom:14px; }
     .home-lobby__section-head h2 { margin:0; color:#f5e6c7; font:700 clamp(19px,3vw,25px) 'Cinzel',Georgia,serif; }
@@ -6898,6 +6917,535 @@
       border-radius: 50%;
       background: var(--amber);
     }
+    /* Home refresh: visual hierarchy and desktop-first composition. */
+    .home-root {
+      max-width: min(1440px, 100%);
+      padding: 8px clamp(12px, 1.8vw, 28px) 48px;
+    }
+    .home-lobby { gap: 20px; }
+    .home-hero--lobby {
+      position: relative;
+      isolation: isolate;
+      min-height: 278px;
+      padding: clamp(30px, 4vw, 54px);
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 310px);
+      gap: clamp(22px, 4vw, 56px);
+      border-color: rgba(226, 157, 66, .34);
+      border-radius: 22px;
+      background:
+        radial-gradient(ellipse 42% 130% at 100% 0%, rgba(34, 185, 190, .16), transparent 72%),
+        radial-gradient(ellipse 56% 90% at 0% 100%, rgba(246, 111, 28, .28), transparent 72%),
+        linear-gradient(112deg, #21170d 0%, #100e0b 53%, #101718 100%);
+      box-shadow: 0 24px 64px rgba(0,0,0,.28), inset 0 1px rgba(255,220,165,.08);
+    }
+    .home-hero--lobby::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 0 auto;
+      width: min(52%, 620px);
+      opacity: .18;
+      background:
+        radial-gradient(ellipse at 65% 52%, rgba(255,190,91,.32), transparent 35%),
+        repeating-linear-gradient(135deg, transparent 0 34px, rgba(255,211,145,.08) 35px 36px, transparent 37px 70px);
+      mask-image: linear-gradient(90deg, transparent, #000 48%);
+      pointer-events: none;
+    }
+    .home-lobby__copy .home-hero__eyebrow { letter-spacing: .17em; }
+    .home-lobby__copy .home-hero__title {
+      max-width: 760px;
+      font-size: clamp(36px, 4vw, 62px);
+      letter-spacing: .025em;
+      text-shadow: 0 5px 28px rgba(226,126,33,.22);
+    }
+    .home-lobby__copy .home-hero__tagline {
+      max-width: 620px;
+      color: #e1d9ca;
+      font-size: clamp(15px, 1.2vw, 17px);
+      line-height: 1.65;
+    }
+    .home-lobby__copy .home-hero__actions { gap: 10px; }
+    .home-lobby__copy .home-hero__actions .btn {
+      min-height: 44px;
+      border-radius: 10px;
+      font-weight: 750;
+    }
+    .home-lobby__cluster {
+      align-items: stretch;
+      padding: 22px;
+      border-color: rgba(99, 205, 198, .25);
+      border-radius: 18px;
+      background: linear-gradient(155deg, rgba(13,31,31,.91), rgba(9,13,14,.86));
+      box-shadow: inset 0 1px rgba(255,255,255,.045), 0 16px 38px rgba(0,0,0,.2);
+    }
+    .home-lobby__sigil { align-self: center; width: 68px; height: 62px; }
+    .home-lobby__cluster-label { font-size: 11px; }
+    .home-lobby__online {
+      justify-content: center;
+      gap: 9px;
+      width: 100%;
+      margin-top: 8px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(194,224,214,.12);
+      font-size: 12px;
+    }
+    .home-lobby__online strong { font-size: 32px; color: #ffe0a1; }
+    .home-lobby__players { justify-content: center; font-size: 12px; }
+    .home-lobby__microcopy { color: #b4aea3; font-size: 12px; }
+    .home-notice-panel,
+    #home-connect-section,
+    .home-shortcuts,
+    .home-donations {
+      border-color: rgba(226, 193, 143, .12);
+      border-radius: 17px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    }
+    .home-notice-panel { padding: 17px 18px 18px; }
+    .home-notice-panel .home-carousel { aspect-ratio: 6.6 / 1; min-height: 148px; max-height: 230px; }
+    #home-connect-section { padding: 23px; background: linear-gradient(145deg, rgba(23,21,17,.97), rgba(13,14,13,.98)); }
+    #home-connect-section .home-section__head { align-items: center; margin-bottom: 17px; }
+    #home-connect-section .home-section__title { font-size: clamp(20px, 1.7vw, 25px); }
+    #home-connect-section .home-section__subtitle { margin-top: 5px; font-size: 12px; }
+    #home-connect-section .home-servers-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    #home-connect-section .home-server-card {
+      display: flex;
+      min-height: 174px;
+      flex-direction: column;
+      padding: 17px;
+      border-color: rgba(223,196,151,.14);
+      border-radius: 13px;
+      background: linear-gradient(155deg, rgba(31,29,24,.94), rgba(17,17,15,.98));
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    #home-connect-section .home-server-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(231,163,66,.44);
+      box-shadow: 0 14px 32px rgba(0,0,0,.22);
+    }
+    #home-connect-section .home-server-card__name { font-size: 14px; line-height: 1.35; }
+    #home-connect-section .home-server-card__map { margin-top: 8px; color: #c6bdad; }
+    #home-connect-section .home-server-card__addr { margin-top: auto; padding-top: 14px; color: #e1c38f; font-variant-numeric: tabular-nums; }
+    #home-connect-section .home-server-card__actions { margin-top: 9px; }
+    #home-connect-section .home-server-card__actions .btn { width: 100%; justify-content: center; }
+    #home-connect-section .home-server-card__status { margin-top: 11px; font-size: 11px; }
+    .home-shortcuts { padding: clamp(20px, 2.4vw, 30px); }
+    .home-lobby__section-head h2 { font-size: clamp(21px, 2vw, 27px); }
+    .home-shortcuts__grid { gap: 12px; }
+    .home-shortcut {
+      min-height: 170px;
+      padding: 19px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(32,29,23,.98), rgba(16,17,16,.98));
+    }
+    .home-shortcut__icon { width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.06); }
+    .home-shortcut__title { font-size: 15px; }
+    .home-shortcut__text { font-size: 12px; }
+    .home-shortcut__arrow { font-size: 10px; }
+    .home-donations { padding: 22px; }
+    .home-donations .home-pkg-grid { gap: 12px; }
+    .home-lobby__footer-links { gap: 10px; padding-top: 0; }
+    .home-lobby__footer-links a {
+      min-height: 66px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: rgba(17,17,15,.8);
+      transition: border-color .18s ease, transform .18s ease;
+    }
+    .home-lobby__footer-links a:hover { transform: translateY(-2px); border-color: rgba(232,160,32,.35); }
+    .home-lobby__footer-links strong { font-size: 12px; }
+    .home-lobby__footer-links small { font-size: 11px; }
+    .home-lobby :focus-visible { outline: 2px solid #f1bc68; outline-offset: 3px; }
+    @media (max-width: 1200px) {
+      #home-connect-section .home-servers-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .home-shortcuts__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      .home-root { padding-inline: 10px; }
+      .home-hero--lobby { grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; padding: 28px; }
+      .home-lobby__cluster { padding: 17px; }
+      .home-lobby__footer-links { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .home-lobby__footer-links a { grid-template-columns: 26px 1fr; column-gap: 7px; padding: 11px; }
+    }
+    @media (max-width: 680px) {
+      .home-root { padding: 0 8px 32px; }
+      .home-lobby { gap: 13px; }
+      .home-hero--lobby { grid-template-columns: minmax(0, 1fr); min-height: 0; padding: 25px 20px; gap: 20px; }
+      .home-lobby__copy .home-hero__title { font-size: clamp(32px, 9vw, 46px); }
+      .home-lobby__copy .home-hero__tagline { font-size: 14px; margin-bottom: 15px; }
+      .home-lobby__microcopy { font-size: 11px; }
+      .home-lobby__cluster { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; text-align: left; padding: 12px; gap: 4px 12px; }
+      .home-lobby__sigil { grid-row: span 2; width: 46px; height: 42px; font-size: 14px; }
+      .home-lobby__cluster-label { align-self: end; }
+      .home-lobby__online { justify-content: flex-end; width: auto; grid-column: 3; grid-row: 1 / span 2; margin: 0; padding: 0; border: 0; }
+      .home-lobby__online strong { font-size: 27px; }
+      .home-lobby__players { justify-content: flex-start; grid-column: 2 / 4; font-size: 11px; }
+      .home-notice-panel { padding: 12px; }
+      .home-notice-panel .home-carousel { aspect-ratio: 2.2 / 1; min-height: 124px; }
+      #home-connect-section { padding: 17px 13px; }
+      #home-connect-section .home-section__head { align-items: flex-start; gap: 10px; }
+      #home-connect-section .home-section__head .btn { flex: none; padding: 8px 10px; }
+      #home-connect-section .home-server-card { min-height: 160px; padding: 13px; }
+      .home-shortcuts { padding: 18px 13px; }
+      .home-shortcut { min-height: 150px; padding: 14px; }
+      .home-donations { padding: 17px 13px; }
+      .home-lobby__footer-links { grid-template-columns: 1fr; }
+      .home-lobby__footer-links a { min-height: 58px; }
+    }
+    @media (max-width: 420px) {
+      .home-lobby__copy .home-hero__actions .btn { flex: 1 1 100%; }
+      .home-lobby__cluster { grid-template-columns: 42px minmax(0, 1fr); }
+      .home-lobby__online { grid-column: 2; grid-row: 2; justify-content: flex-start; }
+      .home-lobby__players { grid-column: 1 / -1; padding-left: 4px; }
+      #home-connect-section .home-section__head { flex-direction: column; }
+      #home-connect-section .home-servers-grid { grid-template-columns: minmax(0, 1fr); }
+      #home-connect-section .home-server-card { min-height: 0; }
+      .home-shortcuts__grid { gap: 8px; }
+      .home-shortcut { min-height: 150px; padding: 12px 10px; }
+      .home-shortcut__title { font-size: 12px; }
+      .home-shortcut__text { font-size: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .home-lobby *, .home-lobby *::before, .home-lobby *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+    /* ARKLAND / Nocturne: a new dark, cool-toned dashboard system. */
+    :root {
+      --bg: #080d13;
+      --surface: #0d141c;
+      --surface2: #121c26;
+      --surface3: #182531;
+      --border: #243541;
+      --border-g: #304754;
+      --amber: #70d9cd;
+      --amber-dim: rgba(112,217,205,.14);
+      --fire: #e99a68;
+      --fire-dim: rgba(233,154,104,.12);
+      --tek: #8eb9ef;
+      --tek-dim: rgba(142,185,239,.12);
+      --tek-glow: 0 0 22px rgba(112,217,205,.17);
+      --warning: #e9ad73;
+      --text: #e5edf2;
+      --text2: #8ea0ad;
+      --text3: #526472;
+      --accent: #70d9cd;
+      --accent2: #8eb9ef;
+      --radius: 11px;
+      --radius-lg: 18px;
+      --shadow: 0 18px 55px rgba(0,0,0,.38);
+    }
+    html, body { background: #080d13; }
+    body::before {
+      background:
+        radial-gradient(ellipse at 76% 8%, rgba(63,132,153,.10), transparent 34%),
+        radial-gradient(ellipse at 5% 94%, rgba(84,164,153,.07), transparent 30%),
+        linear-gradient(180deg,#080d13,#0a1017 55%,#080d13);
+    }
+    body::after {
+      height: 360px;
+      background: radial-gradient(ellipse 75% 60% at 55% 120%, rgba(79,190,177,.09), transparent 72%);
+    }
+    #shell { background: transparent; }
+    #sidebar {
+      width: 248px;
+      min-width: 248px;
+      border-right-color: #1e303b;
+      background:
+        linear-gradient(180deg,rgba(15,24,33,.97),rgba(9,15,22,.99)),
+        #0b1118;
+      background-image: linear-gradient(180deg,rgba(15,24,33,.97),rgba(9,15,22,.99));
+      box-shadow: 14px 0 48px rgba(0,0,0,.16);
+    }
+    .sidebar-logo {
+      padding: 24px 17px 19px;
+      border-bottom-color: rgba(132,175,187,.12);
+      background: linear-gradient(180deg,rgba(70,137,148,.10),transparent);
+    }
+    .logo-medallion {
+      border-color: rgba(112,217,205,.7);
+      box-shadow: 0 0 0 5px rgba(112,217,205,.05), 0 0 34px rgba(74,187,176,.2);
+    }
+    .logo-brand { text-shadow: 0 0 18px rgba(112,217,205,.26); }
+    .logo-divider::before,.logo-divider::after { background:linear-gradient(90deg,transparent,rgba(112,217,205,.35),transparent); }
+    .nav-section { color:#617987; letter-spacing:.19em; }
+    .nav-section::after { background:linear-gradient(90deg,rgba(112,217,205,.24),transparent); }
+    .nav-item {
+      margin: 2px 10px;
+      width: calc(100% - 20px);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: #a9bac4;
+      transition: background .18s,border-color .18s,color .18s,transform .18s;
+    }
+    .nav-item:hover {
+      color:#eaf4f5;
+      border-color:rgba(112,217,205,.13);
+      background:rgba(112,217,205,.07);
+      transform:translateX(2px);
+    }
+    .nav-item.active {
+      color:#dffaf5;
+      border-color:rgba(112,217,205,.28);
+      background:linear-gradient(100deg,rgba(75,176,166,.20),rgba(58,119,133,.08));
+      box-shadow:inset 3px 0 #70d9cd,0 8px 22px rgba(0,0,0,.14);
+    }
+    .nav-item.active::after { display:none; }
+    .nav-item.active .nav-icon,.nav-item.active .nav-icon--img { filter:drop-shadow(0 0 7px rgba(112,217,205,.55)); }
+    .home-root { max-width:min(1560px,100%); padding:20px clamp(18px,2.6vw,42px) 56px; }
+    .home-lobby {
+      display:grid;
+      grid-template-columns:repeat(12,minmax(0,1fr));
+      gap:20px;
+      align-items:stretch;
+    }
+    .home-hero--lobby {
+      order:1;
+      grid-column:span 8;
+      min-height:350px;
+      grid-template-columns:minmax(0,1fr) minmax(220px,280px);
+      gap:24px;
+      padding:clamp(30px,3vw,48px);
+      border:1px solid rgba(112,217,205,.2);
+      border-radius:24px;
+      background:
+        radial-gradient(ellipse 45% 100% at 100% 0%,rgba(55,146,161,.2),transparent 70%),
+        radial-gradient(ellipse 70% 100% at 0% 100%,rgba(191,116,67,.14),transparent 70%),
+        linear-gradient(135deg,#14212a 0%,#0d151d 53%,#101c22 100%);
+      box-shadow:0 25px 70px rgba(0,0,0,.3),inset 0 1px rgba(224,250,247,.07);
+    }
+    .home-hero--lobby::before {
+      width:55%;
+      opacity:.22;
+      background:
+        radial-gradient(ellipse at 62% 45%,rgba(112,217,205,.22),transparent 38%),
+        repeating-linear-gradient(135deg,transparent 0 44px,rgba(151,208,202,.055) 45px 46px,transparent 47px 90px);
+    }
+    .home-lobby__copy .home-hero__eyebrow { color:#8ce6dc; }
+    .home-lobby__copy .home-hero__title {
+      font-family:'Rajdhani','Segoe UI',sans-serif;
+      font-size:clamp(42px,5.5vw,76px);
+      font-weight:700;
+      line-height:.98;
+      letter-spacing:-.035em;
+      text-shadow:0 10px 45px rgba(67,191,182,.2);
+    }
+    .home-lobby__copy .home-hero__tagline { color:#c0d0d6; font-size:16px; max-width:540px; }
+    .home-lobby__copy .home-hero__actions .btn { min-height:46px; border-radius:11px; }
+    .home-lobby__cluster {
+      border:1px solid rgba(126,199,204,.23);
+      background:linear-gradient(155deg,rgba(24,48,56,.86),rgba(11,20,27,.88));
+      border-radius:17px;
+      box-shadow:inset 0 1px rgba(255,255,255,.055),0 16px 40px rgba(0,0,0,.2);
+    }
+    .home-lobby__sigil {
+      border-color:rgba(112,217,205,.58);
+      background:linear-gradient(145deg,#9ce8dc,#3a9995 50%,#205760);
+      color:#07191c;
+      box-shadow:0 0 32px rgba(72,200,188,.19),inset 0 1px rgba(255,255,255,.45);
+    }
+    .home-lobby__cluster-label { color:#a8e3dc; }
+    .home-lobby__cluster-label span { color:#8198a4; }
+    .home-lobby__online strong { color:#f0fbfa; }
+    .home-live-dot { background:#6de0bd; box-shadow:0 0 13px rgba(109,224,189,.62); }
+    .home-lobby__microcopy { color:#92a5af; }
+    .home-shortcuts {
+      order:2;
+      grid-column:span 4;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding:24px;
+      border:1px solid rgba(137,173,189,.16);
+      border-radius:22px;
+      background:linear-gradient(145deg,rgba(19,31,41,.98),rgba(12,19,27,.98));
+      box-shadow:0 20px 54px rgba(0,0,0,.2);
+    }
+    .home-shortcuts__grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .home-lobby__section-head { align-items:start; margin-bottom:18px; }
+    .home-lobby__section-head h2 { color:#ecf3f4; font-family:'Rajdhani','Segoe UI',sans-serif; font-size:26px; letter-spacing:.01em; }
+    .home-shortcut {
+      min-height:132px;
+      padding:14px;
+      border-color:rgba(139,178,190,.13);
+      border-radius:13px;
+      background:linear-gradient(145deg,rgba(29,45,55,.86),rgba(16,26,35,.96));
+    }
+    .home-shortcut:hover { border-color:rgba(112,217,205,.43); box-shadow:0 14px 34px rgba(0,0,0,.25); }
+    .home-shortcut__icon { background:rgba(112,217,205,.13); color:#8ce6dc; }
+    .home-shortcut--teal .home-shortcut__icon { background:rgba(142,185,239,.13); color:#a8cafa; }
+    .home-shortcut--violet .home-shortcut__icon { background:rgba(183,161,235,.13); color:#cab6f5; }
+    .home-shortcut--green .home-shortcut__icon { background:rgba(109,224,189,.12); color:#8de5c5; }
+    .home-shortcut__title { color:#eaf1f4; font-size:14px; }
+    .home-shortcut__text { color:#92a4af; font-size:11px; }
+    .home-shortcut__arrow { color:#8ce6dc; }
+    .home-notice-panel {
+      order:3;
+      grid-column:1 / -1;
+      padding:18px;
+      border:1px solid rgba(137,173,189,.15);
+      border-radius:18px;
+      background:linear-gradient(130deg,rgba(18,29,38,.98),rgba(11,18,25,.98));
+    }
+    .home-section__eyebrow { color:#82dcd2; letter-spacing:.2em; }
+    .home-notice-panel .home-carousel { aspect-ratio:7.5 / 1; min-height:154px; max-height:240px; }
+    #home-connect-section {
+      order:4;
+      grid-column:1 / -1;
+      padding:26px;
+      border:1px solid rgba(137,173,189,.17);
+      border-radius:20px;
+      background:linear-gradient(145deg,rgba(19,30,40,.98),rgba(11,18,25,.99));
+      box-shadow:0 20px 50px rgba(0,0,0,.19);
+    }
+    #home-connect-section .home-section__title { color:#e8f0f3; font-family:'Rajdhani','Segoe UI',sans-serif; font-size:28px; }
+    #home-connect-section .home-section__subtitle { color:#8fa2ae; font-size:13px; }
+    #home-connect-section .home-servers-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
+    #home-connect-section .home-server-card {
+      min-height:185px;
+      padding:19px;
+      border:1px solid rgba(133,179,191,.15);
+      border-radius:15px;
+      background:linear-gradient(155deg,rgba(28,44,54,.95),rgba(15,24,32,.98));
+      box-shadow:inset 0 1px rgba(255,255,255,.025);
+    }
+    #home-connect-section .home-server-card:hover { border-color:rgba(112,217,205,.46); transform:translateY(-4px); box-shadow:0 18px 36px rgba(0,0,0,.28); }
+    #home-connect-section .home-server-card__name { color:#edf5f5; font-size:16px; }
+    #home-connect-section .home-server-card__map { color:#95a9b4; }
+    #home-connect-section .home-server-card__addr { color:#9bded6; }
+    #home-connect-section .home-server-card__actions .btn { border-radius:9px; }
+    .home-donations {
+      order:6;
+      grid-column:1 / -1;
+      padding:25px;
+      border:1px solid rgba(137,173,189,.14);
+      border-radius:20px;
+      background:linear-gradient(145deg,rgba(18,29,38,.98),rgba(10,17,24,.98));
+    }
+    #home-lottery-teaser { order:5; grid-column:1 / -1; }
+    .home-lobby__footer-links { order:7; grid-column:1 / -1; gap:12px; }
+    .home-lobby__footer-links a { border-color:rgba(137,173,189,.15); border-radius:14px; background:rgba(13,22,30,.9); }
+    .home-lobby__footer-links a:hover { border-color:rgba(112,217,205,.36); }
+    .home-lobby__footer-links a>span { color:#84dcd2; }
+    .home-lobby :focus-visible { outline-color:#8ce6dc; }
+    @media (max-width: 1250px) {
+      .home-root { padding-inline:16px; }
+      .home-lobby { grid-template-columns:repeat(6,minmax(0,1fr)); gap:15px; }
+      .home-hero--lobby { grid-column:span 6; min-height:320px; }
+      .home-shortcuts { grid-column:span 6; }
+      .home-shortcuts__grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+      #home-connect-section .home-servers-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 760px) {
+      #sidebar { width:234px; min-width:234px; }
+      .home-root { padding:10px 10px 36px; }
+      .home-lobby { grid-template-columns:minmax(0,1fr); gap:13px; }
+      .home-hero--lobby,.home-shortcuts,#home-connect-section,.home-notice-panel,.home-donations,.home-lobby__footer-links { grid-column:1; }
+      .home-hero--lobby { min-height:0; grid-template-columns:minmax(0,1fr); padding:24px 19px; }
+      .home-lobby__copy .home-hero__title { font-size:clamp(40px,11vw,58px); }
+      .home-shortcuts { padding:18px 14px; }
+      .home-shortcuts__grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .home-notice-panel .home-carousel { aspect-ratio:2.2 / 1; min-height:125px; }
+      #home-connect-section { padding:17px 13px; }
+      #home-connect-section .home-section__title { font-size:22px; }
+      #home-connect-section .home-servers-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #home-connect-section .home-server-card { min-height:160px; padding:13px; }
+      .home-donations { padding:17px 13px; }
+      .home-lobby__footer-links { grid-template-columns:1fr; }
+    }
+    @media (max-width: 420px) {
+      .home-lobby__copy .home-hero__actions .btn { flex:1 1 100%; }
+      .home-lobby__cluster { display:grid; grid-template-columns:44px minmax(0,1fr); text-align:left; padding:12px; }
+      .home-lobby__sigil { grid-row:span 2; width:42px; height:40px; }
+      .home-lobby__online { grid-column:2; grid-row:2; justify-content:flex-start; margin:0; padding:0; border:0; }
+      .home-lobby__players { grid-column:1 / -1; justify-content:flex-start; }
+      #home-connect-section .home-servers-grid { grid-template-columns:minmax(0,1fr); }
+      #home-connect-section .home-server-card { min-height:0; }
+      .home-shortcuts__grid { gap:8px; }
+      .home-shortcut { min-height:140px; padding:12px 10px; }
+    }
+    :root { --gold:#d2b477; --gold-soft:rgba(210,180,119,.22); --gold-dim:rgba(210,180,119,.1); }
+    .brand-watermark {
+      position:fixed;
+      z-index:1;
+      pointer-events:none;
+      left:35vw;
+      top:50%;
+      width:min(72vw,1120px);
+      height:92vh;
+      transform:translateY(-50%);
+      background:url("/logo.png") center / contain no-repeat;
+      opacity:.055;
+      filter:grayscale(1) sepia(.9) saturate(1.35) brightness(1.45) contrast(.82)
+        drop-shadow(1px 1px 0 rgba(255,222,164,.3)) drop-shadow(-1px -1px 0 rgba(0,0,0,.75));
+      mix-blend-mode:screen;
+    }
+    .home-hero--lobby {
+      border-color:rgba(210,180,119,.28);
+      background:
+        radial-gradient(ellipse 42% 110% at 100% 0%,rgba(55,146,161,.2),transparent 70%),
+        radial-gradient(ellipse 70% 100% at 0% 100%,rgba(191,116,67,.13),transparent 70%),
+        linear-gradient(135deg,#17232a 0%,#0d151d 53%,#101c22 100%);
+      box-shadow:0 25px 70px rgba(0,0,0,.3),inset 0 1px rgba(230,207,161,.09);
+    }
+    .home-lobby__copy .home-hero__eyebrow { color:#dfc68f; }
+    .home-lobby__copy .home-hero__title { text-shadow:0 8px 42px rgba(210,180,119,.16); }
+    .home-lobby__copy .home-hero__actions .btn-primary {
+      color:#1b1b17;
+      border-color:#e3c88e;
+      background:linear-gradient(135deg,#e4cf9d,#b7985b);
+      box-shadow:0 8px 22px rgba(181,145,77,.18),inset 0 1px rgba(255,255,255,.4);
+    }
+    .home-lobby__copy .home-hero__actions .btn-primary:hover { filter:brightness(1.08); }
+    .home-section__eyebrow { color:#d2b477; }
+    .home-lobby__section-head h2 { color:#eee4cf; }
+    .home-shortcut__arrow { color:#d2b477; }
+    .home-shortcut { box-shadow:inset 0 1px rgba(255,255,255,.025),inset 0 2px rgba(210,180,119,.04); }
+    #home-connect-section .home-server-card { border-top-color:rgba(210,180,119,.32); }
+    #home-connect-section .home-server-card__addr { color:#ddc88e; }
+    .home-lobby__footer-links a>span { color:#d2b477; }
+    .home-lobby__footer-links a:hover { border-color:rgba(210,180,119,.34); }
+    .logo-medallion { border-color:rgba(210,180,119,.75); }
+    .logo-divider::before,.logo-divider::after { background:linear-gradient(90deg,transparent,rgba(210,180,119,.38),transparent); }
+    @media (max-width:760px) {
+      .brand-watermark { left:13vw; top:55%; width:88vw; height:68vh; opacity:.04; }
+      .home-lobby__copy .home-hero__actions .btn-primary { width:100%; justify-content:center; }
+    }
+    .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; display:flex; align-items:center; gap:10px; border:1px solid rgba(91,163,184,.48); border-radius:999px; padding:11px 16px 11px 11px; color:#c6d8dc; background:linear-gradient(145deg,rgba(19,31,36,.98),rgba(8,15,19,.99)); box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.035); font:700 14px Rajdhani,sans-serif; cursor:pointer; transition:border-color .2s,box-shadow .2s,color .2s,transform .2s; }
+    .support-fab:hover { color:#e0f4f7;border-color:rgba(105,203,221,.76);box-shadow:0 8px 30px rgba(0,0,0,.62),0 0 16px rgba(70,174,197,.13),inset 0 1px rgba(255,255,255,.05);transform:translateY(-2px); }
+    .support-fab__icon { width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(91,163,184,.3);background:linear-gradient(145deg,rgba(71,155,177,.16),rgba(71,155,177,.045));color:#72c4d4;font-size:16px; }
+    .support-window { position:fixed;z-index:10021;right:26px;bottom:84px;width:min(390px,calc(100vw - 28px));height:min(570px,calc(100dvh - 112px));display:none;flex-direction:column;overflow:hidden;border:1px solid rgba(91,163,184,.32);border-radius:18px;background:linear-gradient(160deg,#111e24,#080d11 75%);box-shadow:0 24px 80px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.04);color:#e4edf0; }
+    .support-window.open { display:flex;animation:supportPop .18s ease-out; }
+    @keyframes supportPop { from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none} }
+    .support-head { padding:17px 18px 14px;background:linear-gradient(110deg,rgba(71,155,177,.12),transparent);border-bottom:1px solid rgba(91,163,184,.16);display:flex;align-items:center;justify-content:space-between; }
+    .support-head strong { display:block;font:700 17px Cinzel,serif;color:#91d5df; }
+    .support-head small { color:#91a6ac;font-size:12px; }
+    .support-close { border:0;background:transparent;color:#9bb7bd;font-size:22px;cursor:pointer;padding:2px 6px; }
+    .support-tabs { display:flex;gap:7px;padding:12px 14px 8px; }
+    .support-language { margin-left:auto;max-width:110px;border:1px solid rgba(91,163,184,.2);border-radius:8px;padding:7px 8px;background:#111c21;color:#adc4ca;font:600 12px Rajdhani,sans-serif; }
+    .support-tabs button,.support-back { border:1px solid rgba(91,163,184,.2);background:#111c21;color:#adc4ca;border-radius:9px;padding:8px 11px;font:600 13px Rajdhani,sans-serif;cursor:pointer; }
+    .support-tabs button.active { color:#a8e3e9;border-color:rgba(105,203,221,.5);background:rgba(71,155,177,.11); }
+    .support-content { overflow:auto;flex:1;padding:8px 15px 16px; }
+    .support-note { padding:9px 10px;margin-bottom:10px;border-radius:9px;background:rgba(71,155,177,.08);color:#a9bec3;font-size:12px;line-height:1.45; }
+    .support-item { width:100%;text-align:left;padding:11px 12px;margin:0 0 8px;border:1px solid rgba(91,163,184,.16);border-radius:11px;background:rgba(255,255,255,.025);color:#e4edf0;cursor:pointer; }
+    .support-item:hover { border-color:rgba(105,203,221,.48);background:rgba(71,155,177,.07); }
+    .support-item b {display:block;font-size:13px;margin-bottom:4px}.support-item small{color:#91a6ac;font-size:11px}
+    .support-form label {display:block;margin:9px 0 5px;color:#adc4ca;font-size:12px}
+    .support-form input,.support-form select,.support-form textarea,.support-reply textarea {width:100%;border:1px solid rgba(91,163,184,.2);border-radius:9px;padding:10px;background:#0b1418;color:#e4edf0;font:13px Rajdhani,sans-serif;outline:none}
+    .support-form textarea,.support-reply textarea {resize:vertical;min-height:100px}
+    .support-submit {width:100%;margin-top:12px;padding:11px;border:1px solid rgba(105,203,221,.42);border-radius:9px;background:linear-gradient(135deg,#244650,#172d35);color:#c2edf1;font:700 14px Rajdhani,sans-serif;cursor:pointer}
+    .support-submit:disabled {opacity:.5;cursor:not-allowed}
+    .support-msg {max-width:88%;padding:10px 11px;margin:8px 0;border-radius:11px;background:#17252a;color:#dce8ea;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+    .support-msg.staff {margin-left:auto;background:rgba(71,155,177,.15);border:1px solid rgba(91,163,184,.16)}
+    .support-translate {display:block;margin:7px 0 0;padding:0;border:0;background:transparent;color:#75bfce;font:600 11px Rajdhani,sans-serif;cursor:pointer}
+    .support-translate:hover {color:#b5edf2;text-decoration:underline}
+    .support-translation {margin-top:6px;color:#c3d7dc;font-style:italic}
+    .support-model-controls {display:flex;gap:7px;flex-wrap:wrap;padding:0 14px 5px}
+    .support-model-controls button {border:1px solid rgba(91,163,184,.24);border-radius:8px;padding:6px 9px;background:#111c21;color:#a9c8ce;font:600 11px Rajdhani,sans-serif;cursor:pointer}
+    .support-model-controls button:hover {border-color:rgba(105,203,221,.6);color:#d7f1f4}
+    .support-model-controls button:disabled {opacity:.5;cursor:wait}
+    .support-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
+    .support-demo-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
+    .support-demo-reply textarea {width:100%;min-height:66px;resize:vertical;border:1px solid rgba(91,163,184,.2);border-radius:9px;padding:10px;background:#0b1418;color:#e4edf0;font:13px Rajdhani,sans-serif;opacity:.72}
+    .support-status {padding:15px;text-align:center;color:#a9bec3;font-size:13px}
+    @media(max-width:600px){.support-fab{right:14px;bottom:14px;padding:10px 14px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
   <link rel="stylesheet" href="guia.css?v=__WEB_BUILD__" />
@@ -7074,6 +7622,7 @@
   </div>
 </div>
 
+<div class="brand-watermark" aria-hidden="true"></div>
 <div id="shell">
 
   <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
@@ -7255,7 +7804,7 @@
     <div class="nav-item" data-page="sugestoes" onclick="nav(this)">
       <span class="nav-icon">💡</span> Sugestões
     </div>
-    <div class="nav-item" data-page="tickets" onclick="nav(this)">
+    <div class="nav-item" data-page="tickets" hidden aria-hidden="true" style="display:none !important;" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets
     </div>
     <!-- Minha Área: botão no card do utilizador (#auth-myarea-btn); nav-item oculto só para goToPage/nav -->
@@ -11565,7 +12114,7 @@
         <span aria-hidden="true">·</span>
         <a href="#" onclick="openPolicyModal(false); return false;">Política de Doações</a>
         <span aria-hidden="true">·</span>
-        <a href="#" onclick="goToTicketsPage(); return false;">Suporte / Tickets</a>
+        <a href="#" onclick="supportWidgetLaunchNew(); return false;">Suporte / Tickets</a>
         <button type="button" class="pwa-install-btn hidden" data-pwa-install>📲 Instalar app</button>
         <span class="pwa-ios-hint hidden" data-pwa-ios-hint>
           No iPhone/iPad: Safari → Compartilhar → <strong>Adicionar à Tela de Início</strong>
@@ -12516,7 +13065,16 @@ async function loadRegulamentoContent(targetId) {
       el.innerHTML = '<p style="color:var(--danger);">Regulamento indisponível.</p>';
     }
   } catch (_) {
-    el.innerHTML = '<p style="color:var(--danger);">Falha ao carregar regulamento.</p>';
+    try {
+      const response = await fetch("regulamento_v1_5.html", { cache: "no-store" });
+      if (!response.ok) throw new Error("Regulamento local indisponível");
+      const html = await response.text();
+      const verEl = document.getElementById("regulamento-page-version");
+      if (verEl) verEl.textContent = "Versão 1.5 · 31/10/2026 · prévia local";
+      el.innerHTML = `<div class="policy-modal-body regulamento-body">${html}</div>`;
+    } catch (_) {
+      el.innerHTML = '<p style="color:var(--danger);">Falha ao carregar regulamento.</p>';
+    }
   }
 }
 
@@ -29644,6 +30202,26 @@ async function loadHome(opts) {
       // Abort intencional (nova loadHome) — silencioso. Só timeout é falha real.
       if (!timedOut) return false;
     }
+    if (new URLSearchParams(window.location.search).has("preview")) {
+      renderHomePage({
+        preview_mode: true,
+        pix_enabled: false,
+        donation_packages: [],
+        discord_url: "https://discord.gg/7wPswZkb8z",
+        home_cards: [
+          { active: true, title: "Sua próxima aventura começa aqui", body: "Explore os mapas PvE do ARKLAND, construa sua base e avance no seu ritmo." },
+          { active: true, title: "Jogue junto. Evolua no seu ritmo.", body: "A comunidade pode ajudar — sem tirar de ninguém a chance de descobrir e conquistar cada etapa." },
+        ],
+        servers: [
+          { server_id: "preview-island", label: "The Island", map: "The Island", runtime_status: "PREVIEW" },
+          { server_id: "preview-ragnarok", label: "Ragnarok", map: "Ragnarok", runtime_status: "PREVIEW" },
+          { server_id: "preview-fjordur", label: "Fjordur", map: "Fjordur", runtime_status: "PREVIEW" },
+        ],
+      });
+      root.insertAdjacentHTML("afterbegin", '<div role="status" style="margin:0 0 18px;padding:10px 14px;border:1px solid rgba(218,169,95,.35);border-radius:12px;background:rgba(218,169,95,.08);color:var(--text2);font-size:12px;"><strong style="color:var(--amber);">Prévia visual.</strong> Dados de servidores, jogadores e avisos são demonstrativos; o site publicado consulta os dados reais.</div>');
+      _navPageMark("home");
+      return true;
+    }
     const errMsg = (e?.name === "AbortError" && timedOut)
       ? "Timeout (20s) ao carregar a home"
       : (e.message || "API indisponível");
@@ -30563,7 +31141,7 @@ function _renderHomeConnectSection(d) {
 
   return `<section id="home-connect-section" class="home-section home-section--connect" aria-labelledby="home-connect-title">
     <div class="home-section__head"><div><h2 class="home-section__title" id="home-connect-title">Servidores do cluster</h2>
-      <p class="home-section__subtitle">Estado em tempo real. Copie o endere&ccedil;o para conectar ao mapa.</p></div>
+      <p class="home-section__subtitle">${d.preview_mode ? "Dados demonstrativos; endere&ccedil;os e status reais carregam com o servidor." : "Estado em tempo real. Copie o endere&ccedil;o para conectar ao mapa."}</p></div>
       <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Guia de conex&atilde;o</button>
     </div>
     <div class="home-servers-grid">${gridHtml}</div>
@@ -30585,9 +31163,9 @@ function renderHomePage(d) {
   const connectSectionHtml = _renderHomeConnectSection(d);
 
   const authActions = auth
-    ? `<button class="btn btn-primary" onclick="goToPage('catalog')">Explorar cat&aacute;logo</button>
-       <button class="btn btn-ghost" onclick="goToPage('myarea')">Minha &aacute;rea</button>`
-    : `<button class="btn btn-primary" onclick="goToPage('catalog')">Ver cat&aacute;logo</button>
+    ? `<button class="btn btn-primary" onclick="scrollToHomeConnect()">Escolher servidor</button>
+       <button class="btn btn-ghost" onclick="goToPage('catalog')">Explorar cat&aacute;logo</button>`
+    : `<button class="btn btn-primary" onclick="scrollToHomeConnect()">Encontrar meu servidor</button>
        <button class="btn btn-ghost" onclick="loginWithSteam()">Entrar com Steam</button>`;
 
   const packages = pixOn ? (d.donation_packages || []).slice(0, 3) : [];
@@ -30611,18 +31189,17 @@ function renderHomePage(d) {
     <div class="home-lobby">
       <section class="home-hero home-hero--lobby">
         <div class="home-lobby__copy">
-          <div class="home-hero__eyebrow"><span class="home-live-dot"></span> Portal oficial do cluster</div>
-          <h1 class="home-hero__title">${escHtml(displayBrandName(d.shop_name))}</h1>
-          <p class="home-hero__tagline">Seu ponto de encontro com o cluster: servidores ao vivo, recompensas, com&eacute;rcio e comunidade.</p>
+          <div class="home-hero__eyebrow"><span class="home-live-dot"></span> Portal oficial da ARKLAND</div>
+          <h1 class="home-hero__title">A pr&oacute;xima aventura come&ccedil;a aqui.</h1>
+          <p class="home-hero__tagline">Encontre seu mapa, entre no cluster e descubra tudo o que a comunidade preparou para sua jornada.</p>
           <div class="home-hero__actions">${authActions}
-            <button class="btn btn-ghost" onclick="document.getElementById('home-connect-section')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver servidores</button>
           </div>
-          <div class="home-lobby__microcopy">Acompanhe os mapas, escolha seu pr&oacute;ximo destino e continue sua jornada.</div>
+          <div class="home-lobby__microcopy">Servidores, mapas e comunidade em um s&oacute; lugar.</div>
         </div>
         <aside class="home-lobby__cluster" aria-label="Resumo do cluster">
           <div class="home-lobby__sigil" aria-hidden="true" title="AM = Ambares">AM</div>
           <div class="home-lobby__cluster-label">ARKLAND <span>CLUSTER</span></div>
-          <div class="home-lobby__online"><strong id="home-online-count">&mdash;</strong><span>de <span id="home-server-count">${servers.length}</span> servidores online</span></div>
+          <div class="home-lobby__online"><strong id="home-online-count">&mdash;</strong><span>de <span id="home-server-count">${servers.length}</span> ${d.preview_mode ? "mapas demonstrativos" : "servidores online"}</span></div>
           <div class="home-lobby__players"><span class="home-live-dot"></span><span id="home-player-count">Consultando status...</span></div>
         </aside>
       </section>
@@ -30630,6 +31207,39 @@ function renderHomePage(d) {
       ${heroCarouselHtml ? `<section class="home-notice-panel" aria-label="Avisos da comunidade"><div class="home-section__eyebrow">Avisos e novidades</div>${heroCarouselHtml}</section>` : ""}
 
       ${connectSectionHtml}
+
+      <section class="home-journey" aria-labelledby="home-journey-title">
+        <div class="home-lobby__section-head">
+          <div><div class="home-section__eyebrow">Uma jornada no seu ritmo</div><h2 id="home-journey-title">Por onde come&ccedil;ar?</h2></div>
+        </div>
+        <p class="home-journey__intro">O ARKLAND &eacute; PvE e valoriza a coopera&ccedil;&atilde;o. Estes passos s&atilde;o sugest&otilde;es para facilitar sua chegada, n&atilde;o uma lista obrigat&oacute;ria de tarefas.</p>
+        <div class="home-journey__grid">
+          <article class="home-journey__card">
+            <span class="home-journey__step">01 &middot; Conectar</span>
+            <h3>Escolha seu mapa</h3>
+            <p>Veja os mapas do cluster, escolha onde quer jogar e confira como conectar.</p>
+            <button type="button" class="home-journey__action" onclick="scrollToHomeConnect()">Ver mapas <span aria-hidden="true">&rarr;</span></button>
+          </article>
+          <article class="home-journey__card">
+            <span class="home-journey__step">02 &middot; Conhecer</span>
+            <h3>Aprenda o essencial</h3>
+            <p>Encontre os primeiros passos, comandos e tutoriais para usar o portal e o cluster.</p>
+            <button type="button" class="home-journey__action" onclick="goToPage('tutoriais')">Abrir tutoriais <span aria-hidden="true">&rarr;</span></button>
+          </article>
+          <article class="home-journey__card">
+            <span class="home-journey__step">03 &middot; Progredir</span>
+            <h3>Jogue e coopere</h3>
+            <p>Ajude e receba ajuda. A coopera&ccedil;&atilde;o &eacute; bem-vinda enquanto n&atilde;o bloqueia nem tira de outros a oportunidade de progredir.</p>
+            <button type="button" class="home-journey__action" onclick="openRegulamentoPage()">Ver regras PvE <span aria-hidden="true">&rarr;</span></button>
+          </article>
+          <article class="home-journey__card">
+            <span class="home-journey__step">04 &middot; Resolver</span>
+            <h3>Teve uma perda?</h3>
+            <p>Abra um ticket para an&aacute;lise. Perdas por falha do servidor ou da administra&ccedil;&atilde;o t&ecirc;m compensa&ccedil;&atilde;o de 100% na melhor op&ccedil;&atilde;o poss&iacute;vel.</p>
+            <button type="button" class="home-journey__action" onclick="supportWidgetLaunchNew()">Pedir suporte <span aria-hidden="true">&rarr;</span></button>
+          </article>
+        </div>
+      </section>
 
       <section class="home-shortcuts" aria-labelledby="home-shortcuts-title">
         <div class="home-lobby__section-head"><div><div class="home-section__eyebrow">Explore ARKLAND</div><h2 id="home-shortcuts-title">O que voc&ecirc; quer fazer?</h2></div></div>
@@ -30655,7 +31265,7 @@ function renderHomePage(d) {
       <nav class="home-lobby__footer-links" aria-label="Ajuda e comunidade">
         <a href="#" onclick="event.preventDefault();goToPage('downloads')"><span>&#x1F4D6;</span><strong>Guia de conex&atilde;o</strong><small>Instala&ccedil;&atilde;o e acesso</small></a>
         <a href="${escHtml(d.discord_url || "https://discord.gg/7wPswZkb8z")}" target="_blank" rel="noopener"><span>&#x1F4AC;</span><strong>Comunidade Discord</strong><small>Converse com os jogadores</small></a>
-        <a href="#" onclick="event.preventDefault();goToPage('tickets')"><span>&#x1F3AB;</span><strong>Precisa de suporte?</strong><small>Abra um ticket</small></a>
+        <a href="#" onclick="event.preventDefault();supportWidgetLaunchNew()"><span>&#x1F3AB;</span><strong>Precisa de suporte?</strong><small>Abra um ticket</small></a>
       </nav>
     </div>`;
 
@@ -34415,6 +35025,88 @@ document.addEventListener("keydown", (e) => {
     </div>
   </div>
 </div>
+
+<!-- Atendimento rápido: widget flutuante de tickets -->
+<button id="support-fab" class="support-fab" type="button" onclick="supportWidgetToggle()" aria-expanded="false" aria-controls="support-window">
+  <span class="support-fab__icon">✉</span><span>Precisa de ajuda?</span>
+</button>
+<section id="support-window" class="support-window" role="dialog" aria-label="Atendimento ARKLAND">
+  <header class="support-head"><div><strong>Atendimento ARKLAND</strong><small>Tickets e suporte do servidor</small></div><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></header>
+  <nav class="support-tabs"><button id="support-tab-list" class="active" onclick="supportWidgetTab('list')">Meus tickets</button><button id="support-tab-new" onclick="supportWidgetTab('new')">+ Novo ticket</button><select id="support-language" class="support-language" aria-label="Idioma das traduções" onchange="supportWidgetSetLanguage(this.value)"><option value="en">English</option><option value="es">Español</option><option value="pt">Português</option></select></nav>
+  <div class="support-model-controls"><button id="support-model-check" type="button" onclick="supportWidgetModels(false)">↻ Verificar idiomas</button><button id="support-model-redownload" type="button" onclick="supportWidgetModels(true)">Baixar novamente</button></div>
+  <div id="support-model-status" style="padding:0 15px 8px;color:#91a6ac;font-size:10px">Modelos gratuitos: instalação automática e atualização semanal quando houver conexão.</div>
+  <div id="support-content" class="support-content"><div class="support-status">Abra o atendimento para carregar seus tickets.</div></div>
+  <div id="support-reply" class="support-reply" style="display:none"></div>
+</section>
+
+<script>
+const _supportPreview = new URLSearchParams(location.search).has("preview");
+let _supportTab = "list", _supportSelected = null;
+let _supportLanguage = localStorage.getItem("arkland-support-language") || "en";
+document.getElementById("support-language").value = _supportLanguage;
+function supportWidgetSetLanguage(language){if(!["pt","en","es"].includes(language))return;_supportLanguage=language;localStorage.setItem("arkland-support-language",language);}
+async function supportWidgetModels(redownload){if(_supportPreview){document.getElementById("support-model-status").textContent="Prévia: modelos gratuitos são instalados e verificados automaticamente no site.";return;}if(redownload&&!confirm("Baixar novamente os modelos gratuitos de português, inglês e espanhol? Pode consumir algumas centenas de MB de internet."))return;const status=document.getElementById("support-model-status"),buttons=[document.getElementById("support-model-check"),document.getElementById("support-model-redownload")];buttons.forEach(b=>b.disabled=true);status.textContent=redownload?"Baixando os modelos de tradução…":"Verificando e atualizando os modelos…";try{const d=await fetchJson("/api/translate/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({redownload:!!redownload}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na verificação");status.textContent=`Idiomas prontos: ${d.installed} modelos instalados${d.updated?`, ${d.updated} atualizado(s)`:""}.`;toast("Modelos de tradução verificados.","success");}catch(e){status.textContent=String(e);toast(String(e),"error");}finally{buttons.forEach(b=>b.disabled=false);}}
+function supportWidgetToggle(force) {
+  const box=document.getElementById("support-window"), fab=document.getElementById("support-fab");
+  const open=typeof force==="boolean"?force:!box.classList.contains("open");
+  box.classList.toggle("open",open);fab.setAttribute("aria-expanded",String(open));
+  if(open) supportWidgetTab(_supportTab);
+}
+function supportWidgetLaunchNew() { supportWidgetToggle(true); supportWidgetTab("new"); }
+function supportWidgetTab(tab) {
+  _supportTab=tab;_supportSelected=null;document.getElementById("support-reply").style.display="none";
+  document.getElementById("support-tab-list").classList.toggle("active",tab==="list");
+  document.getElementById("support-tab-new").classList.toggle("active",tab==="new");
+  if(tab==="new") supportWidgetRenderForm(); else supportWidgetLoad();
+}
+function supportWidgetRenderForm() {
+  const preview=_supportPreview;
+  document.getElementById("support-content").innerHTML=`${preview?'<div class="support-note">Prévia demonstrativa: o envio de tickets fica disponível no site com login conectado.</div>':''}<form class="support-form" onsubmit="supportWidgetCreate(event)">
+    <label for="sw-subject">Assunto</label><input id="sw-subject" maxlength="200" required placeholder="Ex.: problema com minha base" ${preview?'disabled':''}>
+    <label for="sw-category">Categoria</label><select id="sw-category" ${preview?'disabled':''}><option value="suporte">Suporte</option><option value="bug">Bug / erro</option><option value="resgate">Resgate / entrega</option><option value="doacao">Doação</option><option value="conta">Conta / acesso</option><option value="geral">Geral</option></select>
+    <label for="sw-body">Como podemos ajudar?</label><textarea id="sw-body" required placeholder="Conte o que aconteceu e quando…" ${preview?'disabled':''}></textarea>
+    <button class="support-submit" ${preview?'disabled':''}>Enviar ticket</button></form>`;
+}
+async function supportWidgetCreate(event) {
+  event.preventDefault(); if(_supportPreview)return;
+  if(!_auth.authenticated){promptLogin("abrir ticket");return;}
+  const subject=document.getElementById("sw-subject").value.trim(), body=document.getElementById("sw-body").value.trim();
+  if(!subject||!body)return;
+  const btn=event.currentTarget.querySelector("button");btn.disabled=true;btn.textContent="Enviando…";
+  try {const d=await fetchJson("/api/tickets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subject,body,category:document.getElementById("sw-category").value,priority:"normal",links:[]}),timeoutMs:20000});
+    if(!d.ok)throw new Error(d.error||"Falha ao criar ticket");toast("Ticket criado! O suporte responderá por aqui.","success");supportWidgetTab("list");
+  } catch(e){toast(String(e),"error");btn.disabled=false;btn.textContent="Enviar ticket";}
+}
+async function supportWidgetLoad() {
+  const el=document.getElementById("support-content"),reply=document.getElementById("support-reply");reply.style.display="none";
+  if(_supportPreview){el.innerHTML='<div class="support-note">Prévia demonstrativa — no site, seus tickets e respostas aparecem aqui.</div><button class="support-item" onclick="supportWidgetDetail(1042,true)"><b>#1042 · Dúvida sobre progressão</b><small>Suporte · Aguardando resposta · Atualizado hoje</small></button><button class="support-item" onclick="supportWidgetDetail(1038,true)"><b>#1038 · Perda após manutenção</b><small>Servidor · Em análise · Atualizado ontem</small></button>';return;}
+  if(!_auth.authenticated){el.innerHTML='<div class="support-status">Entre com sua conta Steam para consultar seus tickets ou abrir um novo atendimento.</div><button class="support-submit" onclick="promptLogin(\'consultar tickets\')">Entrar com Steam</button>';return;}
+  el.innerHTML='<div class="support-status">Carregando tickets…</div>';
+  try {const d=await fetchJson("/api/tickets?tab=abertos&limit=20&offset=0",{timeoutMs:15000,retries:0});if(!d.ok)throw new Error(d.error||"Não foi possível carregar");
+    const items=d.items||[];el.innerHTML=items.length?items.map(t=>`<button class="support-item" onclick="supportWidgetDetail(${Number(t.id)})"><b>#${Number(t.id)} · ${escHtml(t.subject||"Sem assunto")}</b><small>${escHtml(t.category||"Suporte")} · ${escHtml(t.status||"Aberto")} · ${escHtml(t.updated_at||"")}</small></button>`).join(""):'<div class="support-status">Você ainda não tem tickets abertos.<br>Se precisar de ajuda, use “Novo ticket”.</div>';
+  }catch(e){el.innerHTML=`<div class="support-status">${escHtml(String(e))}<br><br><button class="support-back" onclick="nav('tickets')">Abrir central de tickets</button></div>`;}
+}
+async function supportWidgetDetail(id,demo=false) {
+  _supportSelected=id;const el=document.getElementById("support-content"),reply=document.getElementById("support-reply");
+  if(demo){el.innerHTML=`<button class="support-back" onclick="supportWidgetLoad()">← Meus tickets</button><h3 style="margin:14px 0 8px;color:#91d5df">#${id} · ${id===1042?'Dúvida sobre progressão':'Perda após manutenção'}</h3><div class="support-msg">Olá! Gostaria de tirar uma dúvida sobre a progressão no servidor.<button class="support-translate" onclick="supportWidgetTranslate(this)" data-original="Olá! Gostaria de tirar uma dúvida sobre a progressão no servidor.">Translate</button><div class="support-translation"></div></div><div class="support-msg staff">Olá! Pode nos contar em qual mapa e situação aconteceu? Vamos ajudar você.<button class="support-translate" onclick="supportWidgetTranslate(this)" data-original="Olá! Pode nos contar em qual mapa e situação aconteceu? Vamos ajudar você.">Translate</button><div class="support-translation"></div></div><div class="support-note">Demonstração de conversa. Respostas reais aparecem quando conectado ao servidor.</div><button class="support-submit" disabled>✓ Solicitar encerramento</button><div class="support-note" style="margin-top:7px">No site conectado, o pedido é enviado à equipe para confirmação.</div>`;reply.style.display="block";reply.innerHTML='<div class="support-form"><textarea placeholder="Digite sua resposta…" disabled></textarea><button class="support-submit" disabled>Enviar resposta</button></div><div class="support-note" style="margin:7px 0 0">Campo demonstrativo — faça login no site para responder.</div>';return;}
+  el.innerHTML='<div class="support-status">Carregando conversa…</div>';
+  try {const d=await fetchJson(`/api/tickets/${id}`,{timeoutMs:15000});if(!d.ok)throw new Error(d.error||"Erro ao abrir ticket");const t=d.ticket;
+    const msgs=d.messages||[], history=d.history||[], perms=d.permissions||{};
+    const closeRequested=history.some(h=>h.event_type==="close_requested");
+    const isClosed=perms.is_closed===true||["ENCERRADO","CLOSED"].includes(String(t.status||"").toUpperCase());
+    const canRequest=perms.can_player_request_close===true&&!closeRequested&&!isClosed;
+    el.innerHTML=`<button class="support-back" onclick="supportWidgetLoad()">← Meus tickets</button><h3 style="margin:14px 0 8px;color:#91d5df">#${Number(t.id)} · ${escHtml(t.subject||"")}</h3><div class="support-note">${escHtml(t.status||"")} · ${escHtml(t.category||"Suporte")}</div>${msgs.map(m=>{const text=String(m.body||m.message||"");return `<div class="support-msg ${m.is_staff||m.author_type==='staff'?'staff':''}">${escHtml(text)}<button class="support-translate" onclick="supportWidgetTranslate(this)" data-original="${escHtml(text)}">Translate</button><div class="support-translation"></div></div>`;}).join("")||'<div class="support-status">Nenhuma mensagem ainda.</div>'}<div id="support-close-action"></div>`;
+    if(canRequest) document.getElementById("support-close-action").innerHTML='<button class="support-back" style="width:100%;margin-top:10px" onclick="supportWidgetRequestClose()">✓ Problema resolvido? Solicitar encerramento</button><div class="support-note" style="margin-top:7px">O ticket só será encerrado após confirmação da equipe.</div>';
+    else if(closeRequested&&!isClosed) document.getElementById("support-close-action").innerHTML='<div class="support-note" style="margin-top:10px">✓ Pedido de encerramento enviado. Aguardando confirmação da equipe.</div>';
+    else if(isClosed) document.getElementById("support-close-action").innerHTML='<div class="support-note" style="margin-top:10px">Este ticket foi encerrado pela equipe.</div>';
+    const canReply=(d.permissions||{}).can_player_reply!==false&&!(d.permissions||{}).is_closed&&!['ENCERRADO','CLOSED'].includes(String(t.status||'').toUpperCase());
+    if(canReply){reply.style.display="block";reply.innerHTML='<div class="support-form"><textarea id="sw-reply-body" placeholder="Escreva uma resposta…"></textarea><button class="support-submit" onclick="supportWidgetSendReply()">Enviar resposta</button></div>';}
+  }catch(e){el.innerHTML=`<button class="support-back" onclick="supportWidgetLoad()">← Meus tickets</button><div class="support-status">${escHtml(String(e))}</div>`;}
+}
+async function supportWidgetSendReply(){const body=document.getElementById("sw-reply-body")?.value.trim();if(!body||!_supportSelected)return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body,links:[]}),timeoutMs:15000});if(!d.ok)throw new Error(d.error||"Falha ao enviar");toast("Resposta enviada.","success");supportWidgetDetail(_supportSelected);}catch(e){toast(String(e),"error");}}
+async function supportWidgetRequestClose(){if(!_supportSelected||!confirm("Confirmar que o problema foi resolvido e solicitar o encerramento deste ticket? A equipe ainda fará a confirmação final."))return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/request-close`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:12000});if(!d.ok)throw new Error(d.error||"Não foi possível solicitar o encerramento");toast("Pedido enviado à equipe de suporte.","success");supportWidgetDetail(_supportSelected);}catch(e){toast(String(e),"error");}}
+async function supportWidgetTranslate(button){const original=button.dataset.original||"",out=button.parentElement.querySelector(".support-translation");if(!original||!out)return;if(_supportPreview){const translations={en:["Hello! I have a question about progression on the server.","Hello! Can you tell us which map and situation this happened on? We’ll help you."],es:["¡Hola! Tengo una pregunta sobre la progresión en el servidor.","¡Hola! ¿Puedes decirnos en qué mapa y situación ocurrió? Te ayudaremos."]};const idx=[...document.querySelectorAll(".support-translate")].indexOf(button);out.textContent=(translations[_supportLanguage]||[])[idx]||original;return;}button.disabled=true;button.textContent="Preparando…";try{const d=await fetchJson("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:original,target:_supportLanguage}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na tradução");out.textContent=d.translated;button.textContent="Show original";button.onclick=()=>{out.textContent="";button.textContent="Translate";button.onclick=()=>supportWidgetTranslate(button);};}catch(e){toast(String(e),"error");button.textContent="Translate";}finally{button.disabled=false;}}
+</script>
 
 </body>
 </html>

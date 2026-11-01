@@ -78,6 +78,39 @@ def _login(client, steam_id: str) -> None:
         sess["steam_id"] = steam_id
 
 
+def test_translate_route_uses_free_local_models_and_validates_input(client, monkeypatch):
+    import translation_service
+
+    _login(client, USER_STEAM)
+    assert client.post("/api/translate", json={"text": "", "target": "pt"}).status_code == 400
+    assert client.post("/api/translate", json={"text": "Hello", "target": "fr"}).status_code == 400
+    assert client.post("/api/translate", json={"text": "x" * 5001, "target": "pt"}).status_code == 413
+
+    calls = []
+    monkeypatch.setattr(
+        translation_service,
+        "translate_offline",
+        lambda text, target: calls.append((text, target)) or "Olá",
+    )
+    response = client.post("/api/translate", json={"text": "Hello", "target": "pt"})
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True, "translated": "Olá", "target": "pt"}
+    assert calls == [("Hello", "pt")]
+
+    model_actions = []
+    monkeypatch.setattr(
+        translation_service,
+        "refresh_translation_models",
+        lambda *, force_redownload=False, check_now=False: model_actions.append((force_redownload, check_now))
+        or {"installed": 4, "updated": 1, "checked": True},
+    )
+    checked = client.post("/api/translate/models", json={"redownload": False})
+    redownloaded = client.post("/api/translate/models", json={"redownload": True})
+    assert checked.status_code == redownloaded.status_code == 200
+    assert checked.get_json()["installed"] == 4
+    assert model_actions == [(False, True), (True, True)]
+
+
 def _seed_order(db, *, steam_id: str = USER_STEAM) -> str:
     bind = db.get_bind()
     Order.__table__.create(bind, checkfirst=True)

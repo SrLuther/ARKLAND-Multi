@@ -35,17 +35,21 @@ limiter_datas, limiter_binaries, limiter_hiddenimports = collect_all('flask_limi
 dotenv_datas, dotenv_binaries, dotenv_hiddenimports = collect_all('dotenv')
 crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography')
 discord_datas, discord_binaries, discord_hiddenimports = collect_all('discord')
+argos_datas, argos_binaries, argos_hiddenimports = collect_all('argostranslate')
+ctranslate_datas, ctranslate_binaries, ctranslate_hiddenimports = collect_all('ctranslate2')
+sentencepiece_datas, sentencepiece_binaries, sentencepiece_hiddenimports = collect_all('sentencepiece')
+langdetect_datas, langdetect_binaries, langdetect_hiddenimports = collect_all('langdetect')
 
 a = Analysis(
     ['plugin/arkshop_web/app.py'],
     pathex=[str(_project_root)],
-    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries + discord_binaries,
+    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries + discord_binaries + argos_binaries + ctranslate_binaries + sentencepiece_binaries + langdetect_binaries,
     datas=[
         *_collect_webstore_static_datas(),
         ('plugin/arkshop_web/data', 'data'),
         ('plugin/CustomShop/configs/config.json', 'CustomShop/configs'),
         ('version.json', '.'),
-    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas + discord_datas,
+    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas + discord_datas + argos_datas + ctranslate_datas + sentencepiece_datas + langdetect_datas,
     hiddenimports=[
         'flask',
         'flask_cors',
@@ -76,15 +80,30 @@ a = Analysis(
         'discord',
         'discord.ext.commands',
         'audioop',
-    ] + collect_submodules('sqlalchemy')
+        'argostranslate',
+        'argostranslate.package',
+        'argostranslate.translate',
+        'ctranslate2',
+        'sentencepiece',
+        'langdetect',
+    ] + collect_submodules('argostranslate')
+      + collect_submodules('langdetect')
+      + collect_submodules('sqlalchemy')
       + collect_submodules('discord')
       + flask_hiddenimports + cors_hiddenimports + limiter_hiddenimports
-      + dotenv_hiddenimports + crypto_hiddenimports + discord_hiddenimports,
+      + dotenv_hiddenimports + crypto_hiddenimports + discord_hiddenimports
+      + argos_hiddenimports + ctranslate_hiddenimports + sentencepiece_hiddenimports + langdetect_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
+    # Argos uses MiniSBD and CTranslate2 at runtime. Stanza, spaCy/Thinc,
+    # ONNX Runtime and Torch are optional model/tooling dependencies and would
+    # add hundreds of MB to the web-store executable without improving runtime
+    # translation.
     excludes=['matplotlib', 'numpy', 'scipy', 'pandas', 'PyQt5', 'PyQt6',
-              'customtkinter', 'PIL', 'pystray', 'pytest'],
+              'customtkinter', 'PIL', 'pystray', 'pytest', 'stanza', 'spacy',
+              'thinc', 'onnxruntime', 'tensorflow', 'torch', 'functorch',
+              'torchgen'],
     noarchive=False,
     optimize=1,
 )

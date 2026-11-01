@@ -1,0 +1,136 @@
+"""Free offline ticket translation backed by locally installed Argos models."""
+from __future__ import annotations
+
+import os
+import json
+from pathlib import Path
+from threading import Lock
+from datetime import datetime, timedelta, timezone
+
+_MODEL_PAIRS = (("en", "pb"), ("pb", "en"), ("en", "es"), ("es", "en"))
+_MODEL_LOCK = Lock()
+
+
+def _runtime_modules():
+    """Set the persistent model directory before Argos reads its settings."""
+    from src.shop_integration import webstore_data_dir
+
+    model_dir = Path(webstore_data_dir()) / "translation" / "argos-packages"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    # Use Argos' lightweight MiniSBD path; Stanza would pull a large optional
+    # Torch/SpaCy runtime that the Web Store does not need.
+    os.environ.setdefault("ARGOS_STANZA_AVAILABLE", "false")
+    os.environ.setdefault("ARGOS_PACKAGES_DIR", str(model_dir))
+    os.environ.setdefault("ARGOS_PACKAGE_DIR", str(model_dir))
+
+    import argostranslate.package as argos_package
+    import argostranslate.translate as argos_translate
+    from langdetect import DetectorFactory, detect
+
+    DetectorFactory.seed = 0
+    return argos_package, argos_translate, detect
+
+
+def _model_directory() -> Path:
+    from src.shop_integration import webstore_data_dir
+
+    return Path(webstore_data_dir()) / "translation" / "argos-packages"
+
+
+def _installed_by_pair(argos_package):
+    installed = {}
+    for package in argos_package.get_installed_packages():
+        if (package.from_code, package.to_code) in _MODEL_PAIRS:
+            installed.setdefault((package.from_code, package.to_code), []).append(package)
+    return installed
+
+
+def refresh_translation_models(*, force_redownload: bool = False, check_now: bool = False) -> dict:
+    """Check the official model index and install missing/newer models locally."""
+    with _MODEL_LOCK:
+        argos_package, _argos_translate, _detect = _runtime_modules()
+        installed = _installed_by_pair(argos_package)
+        model_dir = _model_directory()
+        checked_file = model_dir.parent / "last_checked.json"
+        try:
+            last_checked = datetime.fromisoformat(
+                json.loads(checked_file.read_text(encoding="utf-8")).get("checked_at", "")
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            last_checked = None
+
+        missing = [pair for pair in _MODEL_PAIRS if not installed.get(pair)]
+        due = last_checked is None or datetime.now(timezone.utc) - last_checked >= timedelta(days=7)
+        if not force_redownload and not check_now and not missing and not due:
+            return {"installed": len(_MODEL_PAIRS), "updated": 0, "checked": False}
+
+        argos_package.update_package_index()
+        available = argos_package.get_available_packages()
+        installed_count = 0
+        updated_count = 0
+        from packaging.version import parse as parse_version
+
+        for pair in _MODEL_PAIRS:
+            current = installed.get(pair, [])
+            candidate = next(
+                (item for item in available if (item.from_code, item.to_code) == pair),
+                None,
+            )
+            if candidate is None:
+                if current:
+                    installed_count += 1
+                    continue
+                raise RuntimeError(f"Modelo gratuito indisponível: {pair[0]} → {pair[1]}")
+
+            newest = max(current, key=lambda item: parse_version(item.package_version), default=None)
+            should_install = force_redownload or newest is None or parse_version(candidate.package_version) > parse_version(newest.package_version)
+            if not should_install:
+                installed_count += 1
+                continue
+
+            downloaded = candidate.download()
+            argos_package.install_from_path(downloaded)
+            Path(downloaded).unlink(missing_ok=True)
+            refreshed = _installed_by_pair(argos_package).get(pair, [])
+            newest_installed = max(
+                refreshed,
+                key=lambda item: parse_version(item.package_version),
+                default=None,
+            )
+            for old in current:
+                if newest_installed and old.package_path != newest_installed.package_path:
+                    argos_package.uninstall(old)
+            installed_count += 1
+            if newest is not None:
+                updated_count += 1
+
+        checked_file.parent.mkdir(parents=True, exist_ok=True)
+        checked_file.write_text(
+            json.dumps({"checked_at": datetime.now(timezone.utc).isoformat()}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return {"installed": installed_count, "updated": updated_count, "checked": True}
+
+
+def translate_offline(text: str, target: str) -> str:
+    """Translate among Portuguese, English and Spanish without sending text out."""
+    if target not in {"pt", "en", "es"}:
+        raise ValueError("Idioma de destino inválido")
+
+    argos_package, argos_translate, detect = _runtime_modules()
+    try:
+        refresh_translation_models()
+    except Exception:
+        # Once installed, keep translation available offline if the update source is down.
+        if len(_installed_by_pair(argos_package)) < len(_MODEL_PAIRS):
+            raise
+        source = detect(text)
+    else:
+        source = detect(text)
+    if source not in {"pt", "en", "es"}:
+        raise ValueError("O idioma de origem não é compatível")
+    argos_source = "pb" if source == "pt" else source
+    argos_target = "pb" if target == "pt" else target
+    if argos_source == argos_target:
+        return text
+    return argos_translate.translate(text, argos_source, argos_target)

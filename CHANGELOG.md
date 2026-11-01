@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-10-31 08:07:31 -->
-<!-- Total de versões: 503 | Primeira: 1.11.10 -->
+<!-- Gerado: 2026-10-31 23:04:56 -->
+<!-- Total de versões: 504 | Primeira: 1.11.11 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.11] - 2026-10-31
+
+### Other
+
+- Web Store: nova home responsiva com visual escuro, detalhes em ouro e marca d'água fixa; regulamento PvE 1.5 reorganizado e exibido na prévia.
+- Suporte: balão flutuante abre o chat de tickets, permite consultar e criar chamados, responder e solicitar encerramento; atalho duplicado removido da navegação.
+- Suporte: tradução gratuita e local para português, inglês e espanhol via Argos; modelos são instalados automaticamente, atualizados semanalmente quando há conexão e podem ser verificados ou baixados novamente pelo jogador.
 
 ## [1.11.10] - 2026-10-31
 

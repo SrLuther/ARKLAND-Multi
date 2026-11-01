@@ -1,778 +1,280 @@
-# Regulamento Oficial — Cluster ARKLAND
+# Regulamento ARKLAND
 
-| Campo | Valor |
-|-------|-------|
-| **Documento** | Regulamento do Servidor e Ecossistema Digital ARKLAND |
-| **Versão** | 1.4 |
-| **Última atualização** | 19 de julho de 2026 |
-| **Aplicável a** | Servidores PvE do cluster ARKLAND (ARK: Survival Evolved) e plataforma web associada |
-| **Idioma** | Português (Brasil) |
+**Versão 1.5 · Atualizado em 31 de outubro de 2026**
+**Aplica-se a:** servidores PvE ARKLAND e serviços digitais associados.
 
----
-
-## Aviso legal (disclaimer)
-
-Este regulamento complementa — e **não substitui** — os Termos de Serviço da Steam, o Acordo de Assinante da Steam e os termos da Studio Wildcard para ARK: Survival Evolved. Ao conectar-se ao cluster ARKLAND ou utilizar a Web Store, você declara ter lido, compreendido e aceito integralmente este documento.
-
-A administração ARKLAND reserva-se o direito de interpretar casos não previstos aqui, sempre com base na segurança da comunidade, na integridade técnica do servidor e na boa-fé. Decisões da equipe são finais no âmbito operacional, sem prejuízo do direito de recurso descrito na [Seção 9](#9-sistema-de-punições).
-
-O ecossistema ARKLAND inclui servidores de jogo **PvE** (Player versus Environment) e a plataforma web **ARKLAND Donations** (loja, mercado, suporte e ferramentas associadas). Itens, dinos e benefícios obtidos no jogo ou na web são **recompensas simbólicas** de uma comunidade privada; não constituem venda de conteúdo oficial da Studio Wildcard.
-
----
+Este regulamento complementa os termos da Steam e da Studio Wildcard; não os substitui. Ao entrar no cluster ou usar a Web Store, você aceita estas regras e a Política de Doações exibida no site. A administração decide casos não previstos considerando a segurança, a integridade do servidor e a boa-fé. Cabe recurso pelo canal indicado no item 10.
 
 ## Sumário
 
-1. [Introdução](#1-introdução)
-2. [Elegibilidade e idade mínima](#2-elegibilidade-e-idade-mínima)
-3. [Princípios gerais de convivência](#3-princípios-gerais-de-convivência)
-4. [Regras PvE — gameplay no servidor](#4-regras-pve--gameplay-no-servidor)
-5. [Conduta, chat e comunicação](#5-conduta-chat-e-comunicação)
-6. [Exploits, cheats e abuso técnico](#6-exploits-cheats-e-abuso-técnico)
-7. [Administração e equipe (staff)](#7-administração-e-equipe-staff)
-8. [Uso do site, loja e ecossistema digital](#8-uso-do-site-loja-e-ecossistema-digital)
-9. [Sistema de punições](#9-sistema-de-punições)
-10. [Denúncias e tickets de suporte](#10-denúncias-e-tickets-de-suporte)
-11. [Propriedade intelectual e conteúdo de terceiros](#11-propriedade-intelectual-e-conteúdo-de-terceiros)
-12. [Alterações deste regulamento](#12-alterações-deste-regulamento)
-13. [Contato e canais oficiais](#13-contato-e-canais-oficiais)
+1. [Sobre o ARKLAND e aceite](#1-sobre-o-arkland-e-aceite)
+2. [Quem pode participar](#2-quem-pode-participar)
+3. [Convivência e conduta](#3-convivência-e-conduta)
+4. [Regras de jogo PvE](#4-regras-de-jogo-pve)
+5. [Segurança e exploits](#5-segurança-e-exploits)
+6. [Equipe e administração](#6-equipe-e-administração)
+7. [Conta, doações e recompensas](#7-conta-doações-e-recompensas)
+8. [Mercado e serviços digitais](#8-mercado-e-serviços-digitais)
+9. [Punições](#9-punições)
+10. [Denúncias, suporte e recursos](#10-denúncias-suporte-e-recursos)
+11. [Conteúdo e propriedade intelectual](#11-conteúdo-e-propriedade-intelectual)
+12. [Atualizações e validade](#12-atualizações-e-validade)
+13. [Canais oficiais](#13-canais-oficiais)
 
-**Season Pass:** regras jogador-facing em detalhe — [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md) e [§8.13](#813-season-pass).
+Para detalhes completos sobre sistemas específicos, consulte também o [Regulamento do Season Pass](regulamento_season_pass.html) e as [Regras do Modo Equipe](regulamento_modo_equipe.html). Esses documentos complementam este regulamento.
 
-**Modo Equipe:** regras de sistema (defaults explícitos) — [`docs/REGULAMENTO_MODO_EQUIPE.md`](REGULAMENTO_MODO_EQUIPE.md) e [§8.14](#814-modo-equipe).
+## 1. Sobre o ARKLAND e aceite
 
----
+### 1.1 O que é
 
-## 1. Introdução
+1.1.1 O ARKLAND é uma comunidade privada de servidores PvE de ARK: Survival Evolved e serviços digitais associados, como Web Store, mercado entre jogadores, inventário na nuvem, tickets e Season Pass.
 
-### 1.1 O que é o ARKLAND
+1.1.2 Itens, dinos e benefícios são recompensas simbólicas da comunidade. Não são conteúdo oficial vendido pela Studio Wildcard.
 
-O **ARKLAND** é um cluster privado de servidores **PvE** de ARK: Survival Evolved, operado em ambiente **não dedicado** (host compartilhado / comunidade), com múltiplos mapas interligados por transferência de personagem e tribo. O cluster integra:
+### 1.2 Regras aplicáveis
 
-- **Servidores in-game** com plugin CustomShop e regras de comunidade;
-- **Web Store** ([arkland.com.br](https://arkland.com.br)) — autenticação Steam, catálogo, doações, resgates e Minha Área;
-- **Mercado P2P de dinos** — comércio entre jogadores exclusivamente em **Âmbares**;
-- **Encomenda de Dinos** — serviço pago sob demanda (vitrine + cotação) na Web Store;
-- **Season Pass** — progresso pessoal por temporada (XP = Timed Points; Premium em Âmbar) — [§8.13](#813-season-pass);
-- **Modo Equipe** — casa social da Web Store (fundação, banco, marcos, rankings) — [§8.14](#814-modo-equipe);
-- **Inventário na Nuvem** — cofre cluster-wide via comandos in-game;
-- **Sistema de tickets** — suporte, denúncias e recursos formais;
-- **Notificações in-app** — avisos sobre pedidos, mercado, tickets e eventos.
+1.2.1 Conectar-se ao cluster ou entrar na Web Store significa aceitar este regulamento e as políticas complementares exibidas no site.
 
-### 1.2 Aceite das regras
+1.2.2 Em caso de conflito, prevalecem nesta ordem: leis e termos das plataformas; este regulamento; políticas da Web Store; comunicados temporários da administração.
 
-A simples conexão a qualquer mapa do cluster ou login na Web Store implica aceite deste regulamento e das políticas complementares (incluindo a **Política de Doações** exibida no site). Ignorância das regras não isenta de punição.
-
-### 1.3 Hierarquia normativa
-
-Em caso de conflito interpretativo, prevalece nesta ordem:
-
-1. Leis aplicáveis e termos da Steam / Studio Wildcard;
-2. Este Regulamento do Servidor;
-3. Política de Doações e avisos publicados na Web Store;
-4. Comunicados pontuais da administração (eventos, manutenções, exceções temporárias).
-
----
-
-## 2. Elegibilidade e idade mínima
+## 2. Quem pode participar
 
 ### 2.1 Idade
 
-| Requisito | Detalhe |
-|-----------|---------|
-| **Proibido** | Jogadores com **menos de 16 anos** |
-| **Recomendado** | **18 anos ou mais** |
-| **Responsabilidade** | Pais ou responsáveis legais respondem por menores que utilizem a conta Steam em desacordo com esta cláusula |
+2.1.1 É proibido participar a menores de 16 anos. Recomenda-se idade mínima de 18 anos.
 
-O ARKLAND trata conteúdo de jogo com violência, criaturas, chat público não moderado em tempo real e interação com desconhecidos. A faixa etária mínima visa proteger menores e a comunidade.
+2.1.2 Pais ou responsáveis respondem pelo uso da conta por menores sob sua responsabilidade.
 
-### 2.2 Conta Steam
+### 2.2 Conta e acesso
 
-- Cada jogador deve usar **sua própria conta Steam** autêntica;
-- É proibido compartilhar credenciais, emprestar conta para terceiros evadirem punições ou acumular benefícios de forma fraudulenta;
-- A identidade oficial no cluster e na web é o **SteamID64** vinculado ao login OpenID.
+2.2.1 Use sua própria conta Steam legítima. O identificador oficial é o SteamID64 vinculado ao login Steam.
 
-### 2.3 Elegibilidade técnica
+2.2.2 Não compartilhe credenciais nem empreste contas para contornar punições, obter benefícios indevidos ou ocultar identidade.
 
-O jogador é responsável por possuir cópia legítima do ARK, instalar os mods exigidos pelo cluster e manter conexão estável. Problemas de hardware, mod local corrompido ou internet instável não geram compensação automática.
+2.2.3 Você é responsável pela segurança da conta e por manter jogo, mods oficiais e conexão funcionando. Perdas causadas por falhas locais não têm compensação automática e serão avaliadas caso a caso, conforme o item 4.4.
+
+## 3. Convivência e conduta
+
+### 3.1 Respeito
+
+3.1.1 Trate jogadores e equipe com respeito. Resolva conflitos por diálogo ou ticket; retaliação dentro do jogo é proibida.
+
+3.1.2 O idioma principal é português do Brasil. Outros idiomas são permitidos desde que respeitem estas regras.
+
+### 3.2 É proibido
+
+3.2.1 Discurso de ódio, discriminação, apologia à violência, ameaças, perseguição, assédio ou divulgação de dados pessoais.
+
+3.2.2 Conteúdo sexual explícito ou assédio sexual. Conteúdo sexual envolvendo menores resulta em tolerância zero.
+
+3.2.3 Spam, links maliciosos, golpes, personificação de jogador ou staff e propaganda não autorizada.
+
+3.2.4 Vender ou negociar itens, dinos, contas ou serviços do jogo por dinheiro real ou fora dos canais oficiais.
+
+3.2.5 O chat global pode ser retransmitido entre mapas e, quando configurado, no Discord. Mensagens enviadas podem ser vistas em outros canais da comunidade.
+
+### 3.3 Bens e licenças
+
+3.3.1 Ajudar outros jogadores é permitido e faz parte da comunidade PvE, desde que a ajuda não prejudique nem impeça a progressão deles ou de outros jogadores. A ajuda não pode envolver bloqueio de conteúdo, exploração de falhas, pressão ou violação de outra regra.
+
+3.3.2 A ajuda não pode servir para contornar requisitos de licença: é proibido transferir recursos, dinos ou itens cujo uso, posse ou obtenção exija licença ativa a quem não a possui. Quem recebe conscientemente também pode ser responsabilizado.
+
+3.3.3 Cada jogador continua responsável pelo que faz, aceita, recebe e transfere, mesmo quando age em grupo ou a pedido de outra pessoa. Bens obtidos por resgate oficial ou compra no mercado P2P seguem as regras desses sistemas.
+
+## 4. Regras de jogo PvE
+
+### 4.1 Regra geral
+
+4.1.1 O cluster é PvE. Não ataque personagens, dinos ou estruturas de outros jogadores. Exceções, eventos e zonas especiais só valem quando anunciados oficialmente.
+
+4.1.2 Respeite limites de tribo, alianças, estruturas, dinos, torretas e plataformas definidos pelo servidor. Não crie tribos falsas para contornar limites ou ocultar abusos.
+
+4.1.3 O PvE permite cooperação, mas cada jogador deve poder aproveitar sua própria progressão. Não bloqueie recursos, áreas, atividades ou recompensas para impedir o avanço de outros; ajudar é permitido conforme o item 3.3.
+
+### 4.2 Construções e áreas
+
+4.2.1 É proibido bloquear spawns, recursos, cavernas, obeliscos, artefatos ou arenas; fazer claim excessivo sem uso; usar spam de estruturas para causar lag; ou praticar griefing estrutural.
+
+4.2.2 Construções em cavernas devem respeitar a configuração vigente. Estruturas abandonadas podem ser removidas em casos extremos de desempenho.
+
+### 4.3 Dinos e conteúdo PvE
+
+4.3.1 Não roube ovos, filhotes, dinos em torpor, domados ou em cryopods de outra pessoa. Não destrua armadilhas ou áreas de breeding alheias.
+
+4.3.2 Não monopolize bosses ou cavernas nem sabote a tentativa de outros jogadores. Recompensas pertencem a quem concluiu a atividade, salvo acordo prévio.
+
+4.3.3 Transferências entre mapas seguem os timers e limites do cluster. É proibido usá-las para duplicar itens, escapar de punições ou contornar bloqueios.
+
+4.3.4 Rates e eventos podem mudar. Os valores vigentes são os comunicados pela Web Store ou pelos canais oficiais; não há garantia de rates permanentes.
+
+### 4.4 Responsabilidade e perdas
+
+4.4.1 Cada jogador é responsável por todas as ações e decisões que tomar dentro dos servidores, incluindo comandos, construções, transferências, uso de itens e dinos, acordos e compartilhamentos. Agir por pedido de outra pessoa não elimina essa responsabilidade.
+
+4.4.2 Perdas causadas por erro, descuido ou decisão do jogador podem receber reembolso ou compensação, total ou parcial, ou podem não ser reembolsadas. A administração avaliará cada caso individualmente, considerando as circunstâncias e as evidências disponíveis; não há garantia de compensação.
+
+4.4.3 Se a perda for causada por falha do servidor ou da administração, a administração reembolsará ou compensará 100% do que foi perdido, escolhendo a melhor opção possível nas circunstâncias. A forma de compensação pode ser a restauração do bem ou uma alternativa equivalente.
+
+4.4.4 Abra um ticket assim que possível, informando o ocorrido, o momento, o mapa e os bens perdidos. A administração analisará o caso individualmente e poderá consultar logs e outras evidências técnicas.
+
+### 4.5 Tribos e área da tribo
+
+4.5.1 Fusões, convites e expulsões são responsabilidade dos líderes. A administração intervém em caso de fraude ou violação grave.
+
+4.5.2 No painel web, cada pessoa pode ter um mapa Principal; os demais mapas associados são Fobs. Sair de uma Fob não remove a associação nos outros mapas.
+
+4.5.3 O painel identifica o proprietário conforme a tribo no jogo. Integrantes do grupo podem ver registros dos mapas associados. Compartilhar códigos de convite é responsabilidade do proprietário; códigos duram até 30 dias e pedidos exigem aprovação no site.
+
+4.5.4 Não existe limite técnico rígido de construções entre Principal e Fobs. Abusos, como tribos laranja e uso de Fobs para farm, podem ser avaliados caso a caso. Venda de tribo por dinheiro real resulta em ban permanente.
+
+## 5. Segurança e exploits
+
+### 5.1 Proibições
+
+5.1.1 São proibidos cheats, hacks, aimbots, ESP, duplicação, bots, macros de farm, arquivos modificados com vantagem e exploração intencional de falhas do jogo ou dos plugins.
+
+5.1.2 Use somente os mods oficiais. Itens, dinos e Âmbares obtidos por exploit podem ser removidos em todo o cluster; transações relacionadas podem ser revertidas.
+
+### 5.2 Comunicação de falhas
+
+5.2.1 Informe exploits ativos por ticket e não divulgue publicamente como executá-los.
+
+## 6. Equipe e administração
+
+### 6.1 Autoridade e limites
+
+6.1.1 A equipe pode intervir sem aviso em emergências, como exploits, riscos à comunidade ou problemas técnicos. Quando possível, as intervenções são registradas.
+
+6.1.2 Respeite a equipe durante atendimentos. Insultos, ameaças, obstrução ou pedido de favorecimento podem gerar sanção.
+
+6.1.3 Staff nunca solicita sua senha Steam, PIX ou dados bancários. Compensações só são feitas em canais oficiais e com registro.
+
+6.1.4 A equipe não pode usar privilégios para benefício pessoal. Denúncias de abuso de staff devem ser feitas por ticket e recebem análise prioritária.
+
+## 7. Conta, doações e recompensas
+
+### 7.1 Web Store e Âmbares
+
+7.1.1 O acesso à Web Store é feito por Steam OpenID. Uma conta web corresponde a um SteamID64.
+
+7.1.2 Âmbares são pontos simbólicos. Podem vir de doações voluntárias, tempo online, enquetes, eventos ou ajustes administrativos; não têm valor monetário nem podem ser convertidos em dinheiro.
+
+### 7.2 Doações
+
+7.2.1 PIX e cartão são doações voluntárias para manutenção do servidor, não compras. O reconhecimento é o crédito simbólico em Âmbares do pacote escolhido.
+
+7.2.2 Após confirmação, doações não são reembolsadas. Dados necessários ao pagamento são processados conforme a política exibida na Web Store.
+
+### 7.3 Resgates, licenças e nuvem
+
+7.3.1 Resgates usam Âmbares e são entregues no jogo conforme as instruções da Web Store. Confira requisitos, limites e descrição antes de confirmar.
+
+7.3.2 Se um resgate pendente for cancelado após o prazo indicado (em geral, 24 horas), o reembolso automático é de 80%. O auto cancelamento após 48 horas também devolve 80%. Para solicitar reembolso integral, abra ticket e explique o caso; a equipe analisa. Licenças não podem ser canceladas ou reembolsadas.
+
+7.3.3 Licenças são pessoais e intransferíveis. Tiers diferentes podem ficar ativos ao mesmo tempo; renovar o mesmo tier acrescenta 30 dias a partir da data mais distante entre hoje e o vencimento atual. O catálogo informa os benefícios e requisitos vigentes.
+
+7.3.4 A Licença Nuvem habilita o cofre cluster-wide. Comandos `/upload`, `/download` e `/nuvem` dependem da licença e das regras exibidas no sistema. Não use o cofre para explorar falhas ou transportar itens indevidamente.
+
+7.3.5 Compras in-game pelo `/shop`, notificações, enquetes e Minha Área seguem os limites e instruções exibidos na Web Store. Cada SteamID tem um voto por enquete, salvo configuração multiopção; fraude pode remover recompensas.
+
+### 7.4 Season Pass e Modo Equipe
+
+7.4.1 As regras detalhadas estão nos documentos próprios do [Season Pass](regulamento_season_pass.html) e do [Modo Equipe](regulamento_modo_equipe.html). Eles complementam este texto.
+
+7.4.2 O Season Pass tem temporadas de 30 dias; a administração inicia a temporada seguinte. Recompensas são resgatadas manualmente e claims antigos fecham quando a nova temporada começa.
+
+7.4.3 A Equipe da Web Store é independente da tribo do jogo. A filiação, banco, marcos, divisões e limites seguem os padrões e as configurações atuais descritos no regulamento próprio.
+
+## 8. Mercado e serviços digitais
+
+### 8.1 Mercado P2P de dinos
+
+8.1.1 O mercado entre jogadores usa somente Âmbares. Dinheiro real, auto compra, anúncio enganoso, conluio de preço, fraude e duplicação são proibidos.
+
+8.1.2 Para anunciar, o vendedor precisa de Licença Nuvem ativa, cryopod oficial, imprint de 100%, nome de exibição cadastrado e preço igual ou superior ao valor mínimo sugerido pelo sistema.
+
+8.1.3 Anúncios individuais são pagos pelo preço integral; sem divisão opcional de tribo, o vendedor recebe o valor integral. Não há contribuição automática ao sorteio.
+
+8.1.4 Casais devem ser um macho e uma fêmea da mesma espécie, ambos elegíveis. Se os preços individuais somam **S**, o comprador paga **60% de S**, o vendedor recebe esse valor e **40% de S** vai para o prêmio do sorteio ativo.
+
+8.1.5 Em venda individual, o comprador tem normalmente 24 horas para resgatar. Se desistir ou deixar o prazo expirar, recebe reembolso integral e o dino volta ao vendedor. Em venda de casal, o reembolso ao comprador é 60% do que pagou; os dinos voltam ao vendedor. A contribuição já lançada ao sorteio não é revertida.
+
+8.1.6 O envio é confirmado no jogo por `/enviar` e `/confirmar`; depois o anúncio é ativado na Minha Loja. O comprador resgata por `/mercado`. Anúncios ativos não têm expiração automática documentada.
+
+8.1.7 A Área da Tribo pode dividir o valor que cabe ao vendedor entre membros que aderiram ao pool. Sem adesão, o vendedor recebe 100% do valor que lhe cabe.
+
+### 8.2 Encomenda de dinos
+
+8.2.1 Só podem ser encomendadas espécies disponíveis na vitrine vigente. O preço é cotado em Âmbares e inclui stats, cores e taxa de serviço; pedidos acima do limite de aprovação automática podem exigir revisão.
+
+8.2.2 O jogador escolhe sexo, cores e pontos de stats conforme a interface. O nível é calculado automaticamente. A encomenda não replica mutações nem imprint de linhagens de jogadores.
+
+8.2.3 Dinos encomendados e sua genética derivada são bloqueados para venda no mercado P2P. Problemas de entrega ou especificação devem ser contestados por ticket; reembolso não é automático após pagamento.
+
+## 9. Punições
+
+### 9.1 Aplicação
+
+9.1.1 A administração considera gravidade, intenção, reincidência, dano causado e colaboração. As medidas podem incluir aviso, mute, suspensão temporária, restrição da conta web, remoção de bens ou ban permanente.
+
+9.1.2 Avisos podem ser cumulativos e não expiram automaticamente. Suspensões e seu escopo são comunicados ao jogador quando possível.
+
+### 9.2 Ban permanente
+
+9.2.1 Pode ser aplicado por cheats ou duplicação intencional, fraude financeira, evasão de ban, reincidência grave, discurso de ódio grave ou conteúdo sexual envolvendo menores.
+
+9.2.2 O ban permanente bloqueia o acesso ao cluster e à Web Store. Doações não são reembolsadas.
+
+### 9.3 Recurso
+
+9.3.1 É possível recorrer uma vez por decisão, pelo ticket “Recurso de banimento”. Informe SteamID, punição, motivo objetivo e provas de eventual erro.
+
+9.3.2 Recursos ofensivos, sem justificativa ou repetidos sem fatos novos podem ser encerrados. A decisão após recurso é final no âmbito da comunidade.
+
+## 10. Denúncias, suporte e recursos
+
+### 10.1 Como pedir ajuda
+
+10.1.1 Denúncias, disputas que exigem intervenção e recursos devem ser enviados por ticket na Web Store. Mensagens privadas, Discord ou chat do jogo não substituem o ticket.
+
+10.1.2 Escolha a categoria adequada: suporte; bug/erro; doação/pagamento; resgate/entrega; mercado; conta/acesso; recurso de banimento; ou geral/outro.
+
+10.1.3 Informe o que ocorreu, quando, onde e quem estava envolvido. Em denúncias, anexe imagem nítida ou vídeo contínuo com contexto. Sem prova, a denúncia pode ser arquivada, salvo evidência disponível em logs técnicos.
+
+10.1.4 Anexos de imagem têm limite de 5 MB por arquivo. Vídeos grandes devem ser enviados por link acessível.
+
+### 10.2 Atendimento e privacidade
+
+10.2.1 Seja objetivo e respeitoso e acompanhe as respostas no ticket. Denúncia falsa ou prova adulterada pode gerar punição.
+
+10.2.2 Logs e detalhes internos sobre outros jogadores não serão divulgados além do necessário para resolver o caso.
+
+## 11. Conteúdo e propriedade intelectual
+
+### 11.1 Direitos
+
+11.1.1 ARK, suas marcas e assets pertencem à Studio Wildcard e seus licenciantes. ARKLAND é uma comunidade independente, sem afiliação ou endosso oficial.
+
+11.1.2 Mods pertencem a seus autores. A marca ARKLAND, identidade visual e textos do projeto não podem ser usados sem autorização.
+
+11.1.3 A administração pode divulgar capturas, vídeos e transmissões do cluster, salvo oposição fundamentada do autor. Não publique obras de terceiros sem autorização.
+
+## 12. Atualizações e validade
+
+### 12.1 Mudanças
+
+12.1.1 O regulamento pode ser atualizado. A versão e a data vigentes aparecem no início do documento e mudanças relevantes podem ser anunciadas nos canais oficiais.
+
+12.1.2 A versão de número mais alto prevalece entre cópias. Mudanças não são aplicadas retroativamente para punir algo que era permitido, exceto em casos de fraude ou correção de exploit.
+
+## 13. Canais oficiais
+
+### 13.1 Atendimento
+
+13.1.1 Acesse [arkland.com.br](https://arkland.com.br) para Web Store, conta, mercado e tickets. O link oficial do Discord é divulgado no site ou no jogo.
+
+13.1.2 A equipe não presta suporte por mensagem privada em redes sociais, salvo anúncio oficial em contrário.
 
 ---
 
-## 3. Princípios gerais de convivência
-
-### 3.1 Respeito e boa-fé
-
-Trate todos os jogadores, membros da equipe e o ambiente do servidor com respeito. Disputas devem ser resolvidas por diálogo civilizado ou pelo sistema de tickets — não por retaliação in-game.
-
-### 3.2 Fair play
-
-O ARKLAND é **cooperativo (PvE)**. O objetivo é progressão, construção, breeding, exploração e comércio justo. Qualquer conduta que degrade a experiência alheia de forma intencional ou negligente é passível de sanção.
-
-### 3.3 Idioma
-
-O idioma principal da comunidade é o **português (Brasil)**. Mensagens em outros idiomas são permitidas desde que não violem as regras de conduta.
-
-### 3.4 Decisões da administração
-
-A equipe pode intervir em situações de emergência (duplicação, raid de estruturas por bug, chat criminoso, etc.) sem aviso prévio. Intervenções são registradas quando tecnicamente possível.
-
-### 3.5 Doações entre jogadores (recursos, dinos e itens)
-
-A administração **aconselha** que os jogadores **não façam nenhum tipo de doação** entre si (recursos, dinos, itens, cryopods ou equivalentes), para evitar disputas, prejuízo e burla de progressão.
-
-Independentemente desse aviso:
-
-| Conduta | Status |
-|---------|--------|
-| Doar, transferir ou ceder **recursos, dinos ou itens** cujo uso, posse ou obtenção **exige licença ativa** (Gamma, Beta, Alfa, Nuvem ou outra licença do catálogo) a quem **não** possui essa licença | **Proibido** |
-| Receber de forma consciente esses bens sem a licença exigida | **Proibido** (mesmo grau de responsabilidade, quando comprovado) |
-
-Violação sujeita a **punição administrativa** ([Seção 9](#9-sistema-de-punições)): remoção dos bens, advertência, ban temporário ou permanente conforme gravidade e reincidência. Comércio legítimo via **mercado P2P em Âmbares** ([§8.7](#87-mercado-p2p-de-dinos)) e resgates oficiais da Web Store **não** se confundem com doação informal in-game.
-
----
-
-## 4. Regras PvE — gameplay no servidor
-
-Esta seção reúne regras convencionais de servidores ARK **PvE não dedicados**, adaptadas ao cluster ARKLAND.
-
-### 4.1 Natureza PvE do cluster
-
-| Tema | Regra |
-|------|-------|
-| **Modo principal** | **PvE** — jogadores não podem danificar estruturas, dinos ou personagens de outros jogadores de forma hostil |
-| **PvP** | Desativado como regra geral do cluster; eventos ou zonas excepcionais serão comunicados explicitamente pela administração |
-| **Friendly fire PvE** | Permanece desativado salvo configuração temporária anunciada |
-| **Tribe War / alianças** | Permitidas apenas conforme configuração vigente do servidor; abuso para griefing estrutural é proibido |
-
-> **Nota:** Mesmo em PvE, mecânicas vanilla (danos de ambiente, torretas contra dinos selvagens, decay, limites de estruturas) continuam aplicáveis.
-
-### 4.2 Tribos e alianças
-
-- Respeite os limites de membros por tribo e de alianças configurados no servidor;
-- **Fusão, convite e expulsão** são responsabilidade dos líderes; a administração não medeia disputas internas de tribo salvo fraude ou violação grave deste regulamento;
-- É proibido criar tribos “laranjas” para burlar limites, acumular benefícios ou ocultar identidade em denúncias;
-- Nomes de tribo ofensivos, discriminatórios ou que imitem a equipe ARKLAND são proibidos;
-- Associação ao painel web da tribo (códigos `/tribe.CODE`, Principal/Fob): ver [§8.10.1](#8101-área-da-tribo-cluster-principal--fobs).
-
-### 4.3 Construções e estruturas
-
-| Conduta | Status |
-|---------|--------|
-| Bloquear spawns de recursos, cavernas, obeliscos, artefatos ou boss arenas | **Proibido** |
-| “Claim” excessivo de terreno sem uso real (land claim tóxico) | **Proibido** |
-| Spam de fundações, pilares flutuantes ou estruturas lag | **Proibido** |
-| Construir em cavernas quando `AllowCaveBuildingPvE` estiver restrito | **Proibido** |
-| Trapaças com portas, beacons ou griefing estrutural indireto | **Proibido** |
-| Abandonar bases gigantes sem manutenção (decay) | Permitido pelo jogo; admin pode remover em casos extremos de performance |
-
-Respeite os limites de estruturas visíveis, plataformas em saddles e torretas por área quando configurados.
-
-### 4.4 Dinos, breeding e taming
-
-- **Não roubar** ovos, bebês, dinos em torpor, vinculados (claimed) ou em cryopods alheios;
-- Não destruir purposefulmente gaiolas de breeding ou armadilhas de outro jogador;
-- Explorar bugs de line breeding, stat stacking ou duplicação é **proibido** (ver [Seção 6](#6-exploits-cheats-e-abuso-técnico));
-- Respeite limites de dinos pessoais domados (`MaxPersonalTamedDinos`) quando ativos;
-- Dinos em comércio P2P devem seguir as regras do mercado ([Seção 8.7](#87-mercado-p2p-de-dinos)).
-
-### 4.5 Bosses, cavernas e conteúdo PvE
-
-- Bosses e cavernas são de acesso livre salvo acordo entre jogadores; **monopolizar** indefinidamente com bloqueio físico é proibido;
-- Não sabotar tentativas de boss de outros jogadores (sumir com artefatos, fechar portas em terceiros, etc.);
-- Itens de tributo e recompensas obtidos por meios legítimos pertencem a quem realizou a run, salvo acordo prévio da tribo.
-
-### 4.6 Transferências entre mapas
-
-- Transferências de personagem, itens e dinos obedecem às regras do cluster e aos timers vanilla ou customizados;
-- É proibido explorar transferências para duplicar itens, escapar de punições ou burlar bloqueios de mapa;
-- Itens e dinos obtidos por exploit em um mapa estão sujeitos a remoção em **todo o cluster**.
-
-### 4.7 Eventos Sazonais e rates
-
-O cluster pode aplicar multiplicadores sazonais (XP, taming, harvest, maturação) ou eventos temáticos. Os valores vigentes são exibidos na Web Store e/ou comunicados no Discord. Não há direito adquirido a rates permanentes.
-
-### 4.8 Zonas PvP e exceções
-
-Salvo anúncio oficial em contrário:
-
-- **Não existem zonas PvP permanentes** no cluster ARKLAND;
-- Mecânicas vanilla pontuais (ex.: Cryo Sickness em contextos específicos) não convertem o servidor em PvP livre;
-- Qualquer evento PvP opcional exigirá regulamento próprio publicado antes do início.
-
----
-
-## 5. Conduta, chat e comunicação
-
-### 5.1 Chat in-game e Cross Chat
-
-O cluster pode retransmitir o **chat global** entre mapas (Cross Chat), com identificação `[Mapa] Jogador`. Mensagens podem ser espelhadas no Discord quando configurado. Comandos com `/` não são retransmitidos.
-
-### 5.2 Condutas proibidas (chat e voz)
-
-| Categoria | Exemplos |
-|-----------|----------|
-| **Discurso de ódio** | Racismo, xenofobia, homofobia, transfobia, misoginia, nazismo, apologia à violência |
-| **Assédio** | Perseguição repetida, insultos direcionados, doxxing, ameaças |
-| **Conteúdo sexual** | Assédio sexual, conteúdo explícito, menores em contexto sexual (tolerância zero) |
-| **Spam** | Flood, caps lock excessivo, links maliciosos, propaganda não autorizada |
-| **Divulgação** | Servidores concorrentes, vendas por dinheiro real, golpes |
-| **Personificação** | Fingir ser admin, staff ou outro jogador |
-
-### 5.3 Discord e comunidade externa
-
-Canais oficiais ou associados ao ARKLAND seguem as mesmas diretrizes de respeito. Denúncias graves originadas no Discord podem resultar em sanção no cluster quando houver identificação Steam e provas.
-
-### 5.4 Publicidade e comércio externo
-
-- É proibido negociar itens, dinos ou contas por **dinheiro real** ou fora dos sistemas oficiais (loja e mercado P2P em Âmbares);
-- Doações informais in-game de bens ligados a **licença** seguem a [§3.5](#35-doações-entre-jogadores-recursos-dinos-e-itens);
-- Divulgação de streams e conteúdo é bem-vinda quando não configurar spam.
-
----
-
-## 6. Exploits, cheats e abuso técnico
-
-### 6.1 Tolerância zero
-
-| Violação | Consequência típica |
-|----------|---------------------|
-| Cheats, hacks, aimbots, ESP, dupers | Ban permanente imediato |
-| Exploração intencional de bugs do jogo ou do plugin | Remoção de itens + ban temporário ou permanente |
-| Uso de macros/bots para farm ou chat | Ban conforme gravidade |
-| Engenharia social para obter itens ou credenciais | Ban permanente |
-
-### 6.2 Obrigação de reportar
-
-Jogadores que tomarem conhecimento de exploits ativos devem reportar via ticket ([Seção 10](#10-denúncias-e-tickets-de-suporte)), **sem divulgar publicamente** o método de exploração.
-
-### 6.3 Duplicação e economia
-
-Qualquer item ou Âmbar obtido por duplicação será removido. A administração pode reverter transações no mercado P2P envolvendo itens duplicados.
-
-### 6.4 Mods e arquivos
-
-Use apenas a lista oficial de mods do cluster. Arquivos modificados que concedam vantagem injusta são tratados como cheat.
-
----
-
-## 7. Administração e equipe (staff)
-
-### 7.1 Papéis
-
-| Papel | Função resumida |
-|-------|-----------------|
-| **Admin** | Gestão total do cluster, configuração, economia, punições, auditoria |
-| **MOD** | Moderação in-game e suporte; cargos concedidos pela administração (não são licenças resgatáveis) |
-| **STAFF** | Suporte a jogadores, triagem de tickets; cargo administrativo permanente |
-| **Suporte (tickets)** | Agentes autorizados a atender tickets na Web Store |
-
-### 7.2 Autoridade
-
-- Decisões de staff em servidores e na web devem ser respeitadas;
-- É proibido insultar, ameaçar ou obstruir a equipe durante atendimentos;
-- Pedidos de favorecimento (“privilégio de amigo”) não serão atendidos.
-
-### 7.3 Transparência e limites
-
-- Staff **não solicita** senha Steam, PIX ou dados bancários;
-- Compensações de itens ou Âmbares ocorrem apenas por canais oficiais e com registro em auditoria;
-- Jogadores podem questionar decisões via ticket de recurso ([Seção 9.5](#95-recursos-e-apelações)), com educação.
-
-### 7.4 Conflito de interesse
-
-Staff não deve usar privilégios administrativos para benefício pessoal in-game ou no mercado. Denúncias de abuso de staff são tratadas com prioridade elevada.
-
----
-
-## 8. Uso do site, loja e ecossistema digital
-
-A **Web Store ARKLAND** ([arkland.com.br](https://arkland.com.br)) é a plataforma oficial para doações, resgates, mercado, tickets e gestão de conta.
-
-### 8.1 Conta e autenticação Steam
-
-- Login exclusivo via **Steam OpenID**;
-- Uma conta web vincula-se a um SteamID64;
-- Contas bloqueadas administrativamente perdem acesso a resgates, mercado e tickets até revisão;
-- O jogador é responsável pela segurança da conta Steam e do dispositivo usado no navegador.
-
-### 8.2 Âmbares — moeda simbólica
-
-| Conceito | Regra |
-|----------|-------|
-| **O que são** | Pontos simbólicos do ecossistema ARKLAND |
-| **Como obter** | Doações voluntárias (PIX/cartão), recompensas por tempo online (Timed Points), enquetes, eventos e ajustes administrativos |
-| **Valor monetário** | **Nenhum** — não são conversíveis em dinheiro real |
-| **Transferência** | Mercado P2P e mecânicas in-game autorizadas; venda por dinheiro real é proibida |
-
-### 8.3 Doações e Política de Doações
-
-- Valores via PIX ou cartão são **doações voluntárias** para manutenção do servidor, **não compras**;
-- Como reconhecimento simbólico, o doador recebe Âmbares proporcionais ao pacote escolhido;
-- **Não há reembolso** de doações após confirmação do pagamento;
-- Dados de pagador exigidos pelo Mercado Pago são repassados ao processador conforme a Política de Doações do site;
-- Ao doar ou resgatar, o jogador aceita a política exibida na interface.
-
-### 8.4 Catálogo, resgates e entregas
-
-#### 8.4.1 Itens, dinos e kits
-
-- Resgates consomem **Âmbares** do saldo vinculado ao SteamID;
-- Entregas ocorrem **in-game** via fila de pedidos pendentes; o jogador deve estar online em um mapa do cluster e usar `/shop` no chat global quando orientado;
-- Cada resgate exige confirmação na interface e validação server-side (saldo, licenças, limites);
-- Falhas de entrega (inventário cheio, mapa offline, erro de spawn) devem ser reportadas por ticket na categoria **Resgate / entrega**;
-- Descrições, requisitos e avisos de cada item são exibidos no modal de resgate.
-
-#### 8.4.2 Desistência e reembolso (catálogo / Web Store)
-
-| Situação | Reembolso |
-|----------|-----------|
-| **Desistência** de resgate PENDENTE (após cooldown de 24h) | **80%** do valor pago (retenção de **20%**) |
-| **Auto-cancelamento** sem resgate (≥48h) | **80%** do valor pago (mesma retenção) |
-| **Reembolso integral (100%)** | Somente via **contestação** — o jogador **deve abrir ticket** e **explicar o motivo**; a equipe analisa e, se procedente, reembolsa 100% |
-| **Licenças** | Irrevogáveis — sem desistência nem reembolso |
-
-Texto ao jogador na desistência: o reembolso automático **não** é integral. Para pedir 100%, use contestação + ticket com explicação obrigatória. A retenção de **20%** permanece no ecossistema do cluster (quando a Tesouraria ARKBANK estiver ativa, esse valor alimenta a emissão por tempo — ver planeamento interno).
-
-#### 8.4.3 Kits e limites de resgate
-
-Alguns kits possuem **limite de resgates** (`DefaultAmount`). Quando o limite é atingido, novos resgates ficam bloqueados até renovação da licença vinculada ou intervenção administrativa. Ao **renovar** licenças Alfa, Beta ou Gamma, limites de kits associados ao mesmo grupo são restaurados conforme o catálogo vigente.
-
-#### 8.4.4 Compras in-game (`/shop`)
-
-O plugin CustomShop permite compras diretas no jogo com Âmbares, sujeitas aos mesmos princípios de saldo e auditoria.
-
-### 8.5 Licenças — Gamma, Beta, Alfa e Nuvem
-
-O ARKLAND utiliza o sistema de **licenças por tier** (não utiliza nomenclatura VIP/vipouro na documentação pública). Licenças concedem grupos de permissão temporários e benefícios de Timed Points empilháveis.
-
-| Licença | Duração típica | Custo em Âmbares (referência) | Bônus Timed Points | Grupo de permissão |
-|---------|----------------|-------------------------------|--------------------|--------------------|
-| **Gamma** | 30 dias | 50.000 | +25 Âmbar / intervalo | `Gamma` |
-| **Beta** | 30 dias | 75.000 | +50 Âmbar / intervalo | `Beta` |
-| **Alfa** | 30 dias | 100.000 | +75 Âmbar / intervalo | `Alfa` |
-| **Nuvem** | 30 dias | 5.000 | — | `keyvault` |
-
-> Valores e bônus podem ser ajustados no catálogo; prevalece o exibido na Web Store no momento do resgate.
-
-**Regras gerais de licenças:**
-
-- Licenças são **pessoais e intransferíveis**;
-- Podes ter **várias licenças de tier distintas** activas ao mesmo tempo (ex. Gamma + Alfa + Beta), cada uma com a sua data de expiração;
-- Comprar/renovar o **mesmo** tier de novo **só prolonga** a validade em **+30 dias** (a partir do maior entre agora e o fim actual);
-- Acesso a kits/itens: basta **qualquer** das licenças activas satisfazer o requisito; para bónus Timed Points, **todas** as licenças activas **somam** com o Default (e cargos staff/MOD, se tiverem Amount);
-- A **Licença Nuvem** (`keyvault`) é independente das licenças de tier;
-- Kits e itens podem exigir licença activa (cadeado no catálogo);
-- A **Licença Nuvem** habilita Inventário na Nuvem e envio ao mercado P2P;
-- Cargos **MOD** e **STAFF** são administrativos, distintos das licenças resgatáveis.
-
-### 8.6 Inventário na Nuvem
-
-Disponível com **Licença Nuvem** ativa:
-
-| Comando | Função |
-|---------|--------|
-| `/upload` | Salva até **250 itens** do inventário no cofre cluster-wide e esvazia o inventário |
-| `/download` | Restaura os itens em qualquer mapa do cluster |
-| `/nuvem` ou `/cloud` | Consulta quantidade armazenada |
-
-**Regras:**
-
-- Um snapshot por SteamID; novo upload é recusado se já houver cofre ativo;
-- Cooldown entre operações (ex.: 30 segundos) deve ser respeitado;
-- Licença expirada: política de bloqueio de upload e download conforme configuração vigente;
-- Abuso para transporte em massa com fins de exploit sujeita a sanções.
-
-### 8.7 Mercado P2P de dinos
-
-Marketplace **jogador contra jogador**, exclusivamente em **Âmbares** e **sem dinheiro real**.
-
-> **Estado das regras de casal (§8.7.3–8.7.4):** regras **aprovadas e normativas** neste regulamento. Implementação web: anúncio em casal (`pair_mate_listing_id`), checkout `Y` e crédito `prize_amber_from_market` na campanha ativa do Sorteio. Anúncios individuais (§8.7.2) continuam válidos.
-
-#### 8.7.1 Requisitos do vendedor
-
-- **Licença Nuvem** ativa;
-- Dino em **cryopod oficial** vanilla (não Soul Trap / mods de captura alternativos);
-- **Imprint 100%** obrigatório;
-- **Nome de exibição** cadastrado em Minha Área;
-- Preço de anúncio (pedido) **≥ valor sugerido** pelo sistema (piso econômico);
-- O valor sugerido é **referência**; o vendedor pode pedir acima do piso, sob seu risco de liquidez.
-
-#### 8.7.2 Anúncios individuais (solteiros)
-
-- Continuam **permitidos**;
-- O comprador paga o **preço de pedido integral** do anúncio;
-- **Taxa de transação:** `fee_amount = 0` — o vendedor recebe **100%** do valor pago (salvo repartição opcional de tribo, ver §8.7.7);
-- Não há contribuição automática ao prêmio dos sorteios em vendas individuais.
-
-#### 8.7.3 Venda em casal (bundle macho + fêmea)
-
-O vendedor pode **vincular um macho e uma fêmea da mesma espécie** num único anúncio de casal.
-
-| Regra | Detalhe |
-|-------|---------|
-| Elegibilidade | Mesma espécie; um macho + uma fêmea; ambos cumprem os requisitos de §8.7.1 |
-| Preço individual | Cada dino mantém um **preço de pedido** (`P_macho`, `P_fêmea`) definido pelo vendedor (≥ valor sugerido de cada um) |
-| Preço do casal (checkout) | `Y = (P_macho + P_fêmea) × 0,60` — o comprador paga **Y** |
-| Solteiros vs casal | Solteiro = preço de pedido integral; casal = checkout combinado a **60%** da soma dos pedidos |
-| Incentivo | O casal é **incentivado**; a UI deve distinguir claramente anúncio individual de anúncio em casal |
-| Desistência / claim expirado | **Em caso de desistência, o reembolso é de apenas 60% do valor pago** (60% de **Y**). O vendedor recupera os dinos e o crédito de **Y** é estornado. Anúncios **solteiros** (§8.7.2): na expiração do claim de 24h o comprador recebe reembolso **integral** do valor pago e o dino volta ao vendedor. Disputas de mercado / pedidos de exceção: ticket categoria **Mercado de dinos**. |
-
-**Exibição pública (card do anúncio):** mostra ambos os dinos, valores sugeridos pelo sistema (de cada um e/ou da soma) e o **preço final do casal Y**. A atratividade face aos sugeridos é implícita; a interface **pode omitir** badges do tipo “−40%”, “desconto” ou “taxa” no card — isso é decisão de produto/UI e **não** limita a transparência deste regulamento.
-
-#### 8.7.4 Contribuição ao prêmio dos sorteios (venda em casal)
-
-Em toda **venda de casal concluída**, parte do valor de referência do casal **reverte para o prêmio dos sorteios do cluster** (área `#/sorteio` / Sorteio de Doações — campanha ativa).
-
-Sejam `P1` e `P2` os preços de pedido dos dois dinos e `S = P1 + P2`:
-
-| Parte | Valor | Destino |
-|-------|-------|---------|
-| Comprador paga | `0,60 × S` (= **Y**) | Débito da carteira do comprador |
-| Vendedor recebe | `0,60 × S` | Crédito na carteira do vendedor (ou repartição de tribo sobre esse montante) |
-| Prêmio do sorteio | `0,40 × S` | Crédito de sistema ao **pote / prêmio** da campanha de sorteio ativa |
-
-**Incidência:** a parcela de **40%** é **receita não recebida** pelo vendedor (custo de oportunidade face a vender os dois dinos como solteiros). **Não** há débito extra na carteira do vendedor além do que deixou de receber; o sistema credita o pote com `0,40 × S`.
-
-**Exemplo canônico:** `S = 200` → comprador paga **120**, vendedor recebe **120**, sorteio **+80**.
-
-**Nota operacional (staff / auditoria):** em liquidação de casal, o ledger deve refletir débito do comprador = crédito ao vendedor = `Y`, e crédito ao pool do sorteio = `0,40 × S` (canal de sorteio / contribuição de mercado, conforme implementação). Em solteiros, `fee_amount` permanece **0** salvo decisão futura documentada. Em desistência/expiração de casal: crédito ao comprador = `round(0,60 × Y)`; estorno ao vendedor = `Y` (dinos de volta); parcela retida `0,40 × Y` permanece no sistema; **não** há estorno do crédito `0,40 × S` já lançado no pote.
-
-#### 8.7.5 Preços, tetos e limites
-
-| Regra | Estado |
-|-------|--------|
-| Moeda | Somente **Âmbares** |
-| Piso | Preço de pedido **≥ valor sugerido** (`computed_base_value`) |
-| Teto absoluto de referência econômica | Valor sugerido / modelo `floor_quality` limitado a cerca de **150.000 Âmbares** (`market_absolute_max`) |
-| Teto por tier (`_price_ceiling`) | **Desabilitado** em produção (`enabled: false`); não limita anúncios além do modelo vigente |
-| Auto-compra | **Proibida** — não é possível comprar o próprio anúncio |
-| Dinheiro real | **Proibido** (ver também [Seção 5](#5-conduta-chat-e-comunicação)) |
-
-#### 8.7.6 Fluxo in-game e prazos
-
-1. `/enviar` — preview do dino (cryopod permanece no inventário);
-2. `/confirmar` — dentro do prazo (ex.: 2 minutos); cryopod é **removida** do inventário; timer de cryopod, se houver, é **eliminado permanentemente**;
-3. Definir preço (e, quando disponível, vincular casal) e ativar na **Minha Loja** (web);
-4. Comprador paga em Âmbares; resgate via `/mercado`.
-
-**Resgate após compra:** o comprador tem tipicamente **24 horas** para resgatar in-game (`/mercado`). Se o prazo expirar sem resgate (ou em desistência equivalente): em **solteiro**, reembolso **integral** do valor pago e devolução do dino ao vendedor; em **casal**, aplica-se a regra de §8.7.3 — *Em caso de desistência, o reembolso é de apenas 60% do valor pago* — com devolução dos dinos ao vendedor.
-
-**Expiração de anúncios ACTIVE:** **não há**, neste momento, expiração automática documentada de anúncios à venda por tempo decorrido. Anúncios permanecem até venda, pausa ou retirada pelo vendedor (ou intervenção administrativa). Qualquer prazo futuro de expiração de listagem será anunciado com alteração deste regulamento.
-
-#### 8.7.7 Repartição de tribo (opcional)
-
-A **Área da Tribo** pode repartir o crédito recebido pelo vendedor entre membros que optaram pelo pool (default típico 60/40 — quem envia / demais do pool). Sem opt-in, o vendedor recebe **100%** do que lhe cabe na liquidação (em solteiro: o preço pago; em casal: `Y`). Detalhes operacionais: documentação interna de repartição de mercado.
-
-#### 8.7.8 Regras de conduta no mercado
-
-| Conduta | Status |
-|---------|--------|
-| Anunciar dino incorreto ou adulterado | **Proibido** — sanção + remoção |
-| Manipular preços em conluio | **Proibido** |
-| Tentativa de duplicação no envio | **Ban permanente** |
-| Comércio por dinheiro real | **Proibido** |
-| Assédio ou golpes em negociações | **Proibido** |
-| Comprar o próprio anúncio (wash trading) | **Proibido** — bloqueio técnico |
-
-Disputas de compra/venda usam ticket categoria **Mercado de dinos** ([Seção 10](#10-denúncias-e-tickets-de-suporte)).
-
-### 8.8 Notificações
-
-A Web Store envia **notificações in-app** sobre eventos relevantes (pedidos, mercado, tickets, etc.). O jogador deve consultá-las periodicamente; a ausência de leitura não invalida prazos ou entregas já disponibilizadas in-game.
-
-### 8.9 Enquetes (polls)
-
-Enquetes publicadas na web podem conceder Âmbares simbólicos por participação. Cada SteamID tem direito a **um voto** por enquete (salvo enquetes multi-opção configuradas). Fraude de votos resulta em perda de recompensa e possível sanção.
-
-### 8.10 Minha Área
-
-Central do jogador na web: saldo, licenças ativas, histórico de pedidos, perfil de mercado, tickets, notificações e **Área da Tribo**. Manter dados de exibição verdadeiros e atualizados é responsabilidade do jogador.
-
-### 8.10.1 Área da Tribo (cluster Principal + Fobs)
-
-A Área da Tribo no site agrega as tribos in-game por mapa num **grupo de cluster**:
-
-- **★ Principal** — mapa âncora do grupo. Regra: **1 pessoa = 1 Principal**; os demais mapas do grupo dessa pessoa são **Fob**. Breeding oficial da tribo (política do regulamento) e divisão de ganhos do mercado aplicam-se ao Principal.
-- **Fob** — demais mapas do mesmo grupo. Sair da tribo numa Fob **não** remove a associação nos outros mapas. Breeding em Fob **não** é bloqueado tecnicamente; o regulamento aconselha concentrar o breeding oficial no Principal.
-- O **proprietário do grupo** em cada mapa é o Proprietário in-game daquela tribo (rank Proprietário / `OwnerPlayerDataID`), não um Admin.
-- **Logs:** todos os integrantes do grupo veem os logs de **todos** os mapas do grupo (Principal + Fobs).
-
-#### Códigos de convite
-
-- O proprietário gera um código no site (comando in-game no formato `/tribe.CODIGO`).
-- Validade máxima: **30 dias**. Regenerar invalida o código anterior.
-- Digitar o código **não** entra automaticamente no painel web: cria um **pedido** que o proprietário deve **aceitar** ou **negar** no site.
-- Em caso de código vazado, o proprietário deve negar pedidos indevidos e regenerar o código. **Admins** do site (exceto papel **support**) podem intervir no painel Tribos / códigos por segurança ou abuso.
-- A partilha do código é responsabilidade do proprietário.
-
-#### Limites e conduta
-
-- **Limites de construção (Principal vs Fob) não são aplicados** como regra dura do sistema: com a lógica atual, dois membros do mesmo grupo podem ter cada um uma base Principal em mapas diferentes, o que torna o enforcement inviável. Conduta abusiva (bases laranja, farm de fobs, etc.) continua sujeita a sanção administrativa caso a caso.
-- **Não** existe exceção do tipo “dois donos / fob grande” para contornar limites de construção — esses limites simplesmente não são enforced.
-- **Venda de tribo por RMT** (dinheiro real): **banimento permanente**.
-- Outras formas de “venda” de tribo/posição: investigação administrativa caso a caso.
-- Transferência de ownership in-game atualiza o painel web; se o novo dono já tiver um mapa Principal noutro servidor, o mapa transferido torna-se Fob (mantém 1 pessoa = 1 Principal) e a staff é alertada.
-
-### 8.11 Auditoria e integridade
-
-Todas as transações críticas (doações, resgates, mercado, ajustes admin) geram registros de auditoria. Tentativas de fraude, chargeback abusivo ou falsificação de comprovantes PIX podem resultar em ban permanente e comunicação às autoridades quando cabível.
-
-### 8.12 Encomenda de Dinos (serviço pago sob demanda)
-
-Canal **jogador-facing** na Web Store (aba **Encomenda** do Mercado / Dino Lab) para solicitar um dino customizado (espécie, sexo, cores, pontos de stats) com cobrança em **Âmbares**, entregue via fila do plugin CustomDinoDeliver.
-
-#### 8.12.1 Vitrine e elegibilidade
-
-- Somente espécies exibidas na **vitrine rotativa** (slots rotativos + permanentes definidos pela administração) podem ser encomendadas no período vigente.
-- Espécies fora da vitrine **não** são encomendáveis, mesmo que existam no catálogo da loja ou no mercado P2P.
-- A encomenda **não substitui** o catálogo fixo nem o mercado P2P: é um serviço de manufatura sob demanda com prêmio de preço.
-
-#### 8.12.2 Preço e serviço
-
-- O preço é calculado em cotação: valor equivalente de mercado dos stats (modelo `floor_quality`) + componente de cores + **taxa base α** + **prêmio de serviço β**.
-- O total de encomenda deve ficar **acima** do equivalente P2P dos mesmos stats, como prêmio pelo serviço Lab.
-- Limites de valor, auto-aprovação e teto absoluto seguem a configuração econômica do servidor; pedidos acima do limiar de auto-aprovação passam por **revisão administrativa**.
-
-#### 8.12.3 Specs, nível e entrega
-
-- O jogador informa pontos desejados por stat (0–254). O **nível** é calculado automaticamente (`1 + soma dos pontos`) e não é editável manualmente.
-- A encomenda entrega um dino conforme a especificação paga (cores/stats/sexo). **Não** replica mutações de breeding nem imprint de linhagens de jogadores, salvo funcionalidade futura explicitamente anunciada.
-- Não há teto semanal de encomendas por jogador.
-- Dinos encomendados ou entregues via Dino Lab ficam **bloqueados por padrão** no mercado P2P — o próprio animal e a **genética derivada** (filhotes / linhagem). Destinam-se a uso próprio e breeding interno, não à revenda.
-
-#### 8.12.4 Contestação e suporte
-
-- Problemas de entrega, divergência de specs ou falhas técnicas: abra **ticket** na Web Store (categoria adequada — Mercado / suporte), com provas quando disponíveis.
-- Reembolsos de encomenda **não** são automáticos por desistência após pagamento; seguem análise administrativa e, quando aplicável, a mesma lógica de boa-fé e contestação com explicação obrigatória usada no ecossistema digital ([§8.4](#84-catálogo-resgates-e-entregas)).
-- Uso do Dino Lab **gratuito** pela staff para entregar o que o jogador deveria pagar por encomenda é proibido como prática rotineira (auditoria cruzada).
-
-### 8.13 Season Pass
-
-Progresso pessoal por temporada na Web Store (área **SeasonLand**). Texto completo jogador-facing: [`docs/REGULAMENTO_SEASON_PASS.md`](REGULAMENTO_SEASON_PASS.md). Resumo normativo:
-
-| Tema | Regra |
-|------|--------|
-| **Duração** | **30 dias** fixos; **fim automático**. A season seguinte **só começa** quando a administração **iniciar** manualmente. |
-| **XP** | Igual ao Âmbar do tick Timed Points, em **todos os mapas**. No nível 30 (XP máximo), Âmbar do tick **continua**; XP do Pass **congela**. |
-| **Premium** | Compra **só com Âmbar** (sem PIX/cartão), na área SeasonLand. Vale **só** a season actual. **100%** do valor paga o cofre da temporada. |
-| **Resgate** | **Sempre manual**. Comprar Premium a meio desbloqueia catch-up das caixas já desbloqueadas. |
-| **Não resgatadas (unclaimed)** | No fim dos 30 dias **não** se perdem de imediato. Continuam resgatáveis **até** a administração abrir a próxima season. Quando a próxima começa → claims da anterior **fecham** → o não resgatado fica **perdido**. |
-| **Licença no Pass** | Duração **normal de 30 dias** do tier da season. Podes ter **vários tiers** activos; renovar o mesmo empilha +30 dias. Se já tiver tier **superior**, no claim **escolhes** a licença **ou** o valor de catálogo em Âmbar. |
-| **Meta coletiva** | Ao completar, a administração **agenda** data de evento (não dispara sozinha). A meta **não** alonga a season. |
-
-Abuso ligado ao Season Pass segue [Seção 9](#9-sistema-de-punições).
-
-### 8.14 Modo Equipe
-
-Casa social da Web Store (**Minha Equipe** / **Equipes** / **Ranking**), independente da tribo in-game. Texto completo jogador-facing (defaults do sistema como regras): [`docs/REGULAMENTO_MODO_EQUIPE.md`](REGULAMENTO_MODO_EQUIPE.md) e página `/regulamento_modo_equipe.html`. Resumo normativo (valores **por omissão**; a staff pode alterar nas Configurações):
-
-| Tema | Regra |
-|------|--------|
-| **Filiação** | **1** equipe ACTIVE por jogador. Kick manual **imediato**. Auto-kick inatividade **desligado** por omissão (Owner pode ligar; Owner nunca auto-kick). |
-| **Fundação** | **1ª grátis**; 2ª+ **2500 Â**. Rename: cooldown **168 h**, custo **0 Â** por omissão. |
-| **Owner solo sai** | Equipe → **DISBANDED**. Staff: **ASSUMIR** restaura Owner; **REATIVAR** só muda status. |
-| **Membros** | Cap base **5**; marcos podem subir. Máx. **2** papéis especiais/membro. |
-| **Banco / armazém** | Doações sem reembolso; sem saque pessoal. Cap armazém **10 000**/recurso por omissão. |
-| **`/marco`** | Preview → `/confirmar` (TTL **60 s**); depósitos **sem reembolso**. |
-| **Bônus Â** | +**2** pp/marco se vazio; teto **20%** (aditivo à licença TimedPoints). |
-| **Split mercado** | **60%** vendedor / **40%** pool; mín. venda **1000 Â**. |
-| **Sorteio** | **N = 2** nº/membro; shortfall **5000 Â**/nº em falta ao banco. Pós-confirmação **freeze**: sem kick até o draw; joins OK (+N nº); saída perde N nº. Staff pode mudar a política. |
-| **Ranking** | Staff pode excluir do Top sem suspender. Prémios top 1–3 **desligados** por omissão (ref. 50k/25k/10k se activos). |
-
-Abuso ligado ao Modo Equipe segue [Seção 9](#9-sistema-de-punições).
-
----
-
-## 9. Sistema de punições
-
-A administração ARKLAND aplica sanções **progressivas**, proporcionais e documentadas. A gravidade, reincidência e intenção são consideradas em cada caso.
-
-### 9.1 Níveis de advertência (warnings)
-
-| Nível | Designação | Efeito típico |
-|-------|------------|---------------|
-| **1** | Advertência leve | Aviso formal registrado; orientação às regras |
-| **2** | Advertência grave | Nova infração após nível 1; possível mute temporário ou restrição de chat |
-| **3** | Advertência final | Último aviso antes de banimento temporário; registro visível à equipe |
-
-Advertências são **cumulativas por SteamID** e não expiram automaticamente, salvo decisão administrativa ou anistia em eventos especiais.
-
-### 9.2 Suspensões temporárias (ban temporário)
-
-Aplicadas após esgotamento das advertências ou por infração grave isolada:
-
-| Tipo | Duração típica | Escopo |
-|------|----------------|--------|
-| **Mute / chat** | 1 h a 7 dias | Bloqueio de chat in-game e/ou Cross Chat |
-| **Suspensão de conta** | 1 a 30 dias | Impossibilidade de conectar aos servidores |
-| **Suspensão web** | Paralela à conta | Bloqueio de resgates, mercado e tickets |
-
-Duração exata é comunicada ao jogador por ticket ou mensagem administrativa quando possível.
-
-### 9.3 Banimento permanente
-
-Aplicado em casos de:
-
-- Cheats, hacks ou duplicação intencional;
-- Discurso de ódio grave ou conteúdo sexual envolvendo menores;
-- Reincidência após advertência nível 3;
-- Fraude financeira (PIX falso, chargeback abusivo);
-- Evadir ban com contas alternativas.
-
-Ban permanente remove acesso ao cluster e à Web Store, sem reembolso de doações.
-
-### 9.4 Fatores agravantes e atenuantes
-
-| Agravante | Atenuante |
-|-----------|-----------|
-| Reincidência | Primeira infração leve |
-| Premeditação | Colaboração com a investigação |
-| Benefício econômico obtido | Reconhecimento espontâneo do erro |
-| Assédio a menores ou staff | Histórico limpo prolongado |
-
-### 9.5 Recursos e apelações
-
-Jogadores punidos podem abrir ticket na categoria **Recurso de banimento** ([Seção 10](#10-denúncias-e-tickets-de-suporte)), **uma vez por decisão**, apresentando:
-
-- SteamID;
-- Data e natureza da punição (se conhecida);
-- Argumentação objetiva;
-- **Provas** quando alegar erro administrativo.
-
-Recursos com insultos, sem fundamentação ou repetidos sem fatos novos podem ser arquivados. A decisão em segunda instância é **final** no âmbito da comunidade privada.
-
----
-
-## 10. Denúncias e tickets de suporte
-
-### 10.1 Canal oficial obrigatório
-
-**Toda denúncia de jogador, disputa que exija intervenção da equipe ou solicitação de punição a terceiros deve ser feita exclusivamente por ticket na Web Store.**
-
-Denúncias apenas por Discord, chat in-game ou mensagens privadas **não garantem** investigação e podem ser redirecionadas ao sistema de tickets.
-
-Acesse: **Web Store → Suporte / Tickets** (login Steam necessário).
-
-### 10.2 Prova obrigatória
-
-Denúncias de conduta in-game ou no ecossistema digital exigem **prova visual obrigatória**:
-
-| Formato aceito | Requisitos |
-|----------------|------------|
-| **Imagem** | Screenshot nítido com contexto (UI, nomes, data quando possível) |
-| **Vídeo** | Gravação contínua mostrando o ocorrido; links externos (YouTube, Medal, etc.) podem ser incluídos no corpo do ticket |
-
-**Denúncias sem imagem ou vídeo serão arquivadas sem investigação**, salvo casos técnicos com evidência em logs administrativos (ex.: cheat detectado por anti-cheat).
-
-Anexos diretos no ticket: imagens (até 5 MB por arquivo) e PDF. Vídeos volumosos devem ser hospedados externamente com link acessível no ticket.
-
-### 10.3 Como abrir um ticket eficaz
-
-1. Faça login com Steam na Web Store;
-2. Abra **Novo ticket**;
-3. Escolha a **categoria** adequada:
-
-| Categoria | Uso |
-|-----------|-----|
-| **Suporte** | Dúvidas gerais |
-| **Bug / erro** | Comportamento técnico anormal |
-| **Doação / Pagamento** | PIX, cartão, crédito de Âmbares |
-| **Resgate / entrega** | Item ou kit não entregue |
-| **Mercado de dinos** | Compra, venda, classificação, disputa P2P |
-| **Conta / acesso** | Login, bloqueio, perfil |
-| **Recurso de banimento** | Apelação de punição |
-| **Geral / Outro** | Casos não listados |
-
-4. Descreva **o que**, **quando**, **onde** (mapa/servidor) e **quem** (SteamID ou nome);
-5. Anexe **provas**;
-6. Acompanhe respostas em **Aguardando jogador** — tickets abandonados podem ser encerrados.
-
-### 10.4 Prazos e conduta no atendimento
-
-- Prazos variam conforme prioridade (urgente para perda de itens/cryo, normal para dúvidas);
-- Seja objetivo e respeitoso com a equipe;
-- **Falso testemunho** ou denúncia fraudulenta com provas adulteradas resulta em punição ao denunciante.
-
-### 10.5 Privacidade das investigações
-
-Detalhes de investigação, logs internos e decisões sobre terceiros **não são divulgados** ao denunciante além do necessário para resolução.
-
----
-
-## 11. Propriedade intelectual e conteúdo de terceiros
-
-### 11.1 ARK e Studio Wildcard
-
-ARK: Survival Evolved, logotipos, assets e marcas são propriedade da **Studio Wildcard** e licenciantes. O ARKLAND é um servidor comunitário não oficial, sem afiliação, endosso ou patrocínio da Studio Wildcard.
-
-### 11.2 Conteúdo de mods
-
-Mods instalados no cluster pertencem aos respectivos autores e estão sujeitos às suas licenças. O ARKLAND não reivindica propriedade sobre blueprints ou criaturas introduzidas por mods.
-
-### 11.3 Marca ARKLAND
-
-Nome, identidade visual TEK, textos do site e documentação do projeto são propriedade da administração ARKLAND. Uso não autorizado em outros servidores ou produtos é proibido.
-
-### 11.4 Conteúdo gerado por jogadores
-
-Screenshots, vídeos e streams do cluster podem ser usados pela administração para divulgação, salvo oposição fundamentada do autor. Não use obras de terceiros sem permissão em perfis ou anúncios do mercado.
-
----
-
-## 12. Alterações deste regulamento
-
-### 12.1 Atualizações
-
-Este documento pode ser alterado a qualquer momento. Mudanças entram em vigor na data publicada no cabeçalho, com comunicado na Web Store, Discord ou aviso in-game quando relevante.
-
-### 12.2 Versionamento
-
-A versão vigente está indicada no topo deste arquivo (`docs/REGULAMENTO_SERVIDOR.md` no repositório do projeto e cópia publicada no site quando disponível). Em caso de divergência entre cópias, prevalece a versão com **número de versão mais alto**.
-
-### 12.3 Irretroatividade
-
-Alterações não retroagem para punir condutas anteriores que eram permitidas, salvo correção de exploits ou fraude.
-
----
-
-## 13. Contato e canais oficiais
-
-| Canal | Uso | Observação |
-|-------|-----|------------|
-| **Web Store** | [https://arkland.com.br](https://arkland.com.br) | Loja, mercado, tickets, Minha Área |
-| **Tickets de suporte** | Web Store → Suporte | **Canal obrigatório** para denúncias e recursos |
-| **Discord** | Link divulgado no site ou in-game | Comunidade; não substitui tickets |
-| **E-mail** | Conforme publicado no site | Apenas se oficialmente listado pela ARKLAND |
-
-A administração **não atende** pedidos de suporte por mensagem privada em redes sociais de membros da equipe, salvo quando explicitamente designado.
-
----
-
-## Glossário rápido
-
-| Termo | Significado |
-|-------|-------------|
-| **Âmbar / Âmbares** | Moeda simbólica do ecossistema ARKLAND |
-| **Cluster** | Conjunto de mapas ARKLAND com transferência compartilhada |
-| **Cryopod** | Cápsula oficial de Extinction para transporte de dinos |
-| **Licença Alfa/Beta/Gamma** | Tier de benefícios temporários (Timed Points e acesso a kits) |
-| **Licença Nuvem** | Habilita cofre `/upload`/`/download` e envio ao mercado |
-| **Casal (mercado)** | Anúncio vinculado macho + fêmea da mesma espécie; checkout a 60% da soma dos pedidos |
-| **Encomenda de Dino** | Serviço pago sob demanda (vitrine + cotação α/β) — §8.12 |
-| **Season Pass** | Progresso pessoal por temporada (XP = Timed Points); Premium em Âmbar — §8.13 · `REGULAMENTO_SEASON_PASS.md` |
-| **Modo Equipe** | Casa social da Web Store (banco, marcos, rankings) — §8.14 · `REGULAMENTO_MODO_EQUIPE.md` |
-| **Sorteio** | Promoção contínua `#/sorteio` — prêmio em Âmbares; vendas em casal contribuem 40% de `S` ao pote |
-| **Timed Points** | Recompensa periódica de Âmbares por tempo online |
-| **Web Store** | Plataforma web ARKLAND Donations |
-| **Ticket** | Chamado formal de suporte ou denúncia na web |
-
----
-
-## Nota operacional — Broadcasts (staff)
-
-No painel **Broadcasts** do ARKLAND Server Manager (TEK), a administração pode carregar o **pacote Regulamento**: mensagens curtas (uma por regra de alto impacto) rotacionadas pelo intervalo do ciclo automático. Jogadores veem o aviso in-game via RCON; o texto completo permanece neste documento e na Web Store.
-
----
-
-*ARKLAND — Comunidade PvE ARK: Survival Evolved. Jogue limpo, respeite a comunidade, use tickets com provas.*
-
-**Fim do Regulamento — Versão 1.4**
+**ARKLAND — Comunidade PvE ARK: Survival Evolved. Jogue limpo, respeite a comunidade e use tickets para pedir ajuda.**

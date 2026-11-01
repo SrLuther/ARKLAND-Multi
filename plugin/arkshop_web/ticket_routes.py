@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +63,51 @@ def register_ticket_routes(
         admin = bool(sid and is_admin_steamid(sid))
         staff = bool(sid and can_manage_tickets(sid))
         return sid, admin, staff
+
+    @app.route("/api/translate", methods=["POST"])
+    @login_required
+    @_limit("20 per minute")
+    def translate_player_text():
+        """Translate user-requested text with free local Argos models."""
+        body = request.get_json(silent=True) or {}
+        text = str(body.get("text") or "").strip()
+        target = str(body.get("target") or "").strip().lower()
+        if not text:
+            return jsonify({"ok": False, "error": "Informe o texto que deseja traduzir."}), 400
+        if len(text) > 5000:
+            return jsonify({"ok": False, "error": "O limite por tradução é de 5.000 caracteres."}), 413
+        if target not in {"pt", "en", "es"}:
+            return jsonify({"ok": False, "error": "Idioma de destino inválido."}), 400
+        try:
+            from translation_service import translate_offline
+
+            translated = translate_offline(text, target)
+            return jsonify({"ok": True, "translated": translated, "target": target})
+        except Exception:
+            logging.getLogger(__name__).exception("Falha na tradução offline dos tickets")
+            return jsonify({
+                "ok": False,
+                "error": "Não foi possível preparar a tradução local. Confira a conexão para baixar os modelos gratuitos e tente novamente.",
+            }), 503
+
+    @app.route("/api/translate/models", methods=["POST"])
+    @login_required
+    @_limit("3 per hour")
+    def manage_translation_models():
+        """Let a signed-in player check, update or redownload the local free models."""
+        body = request.get_json(silent=True) or {}
+        force_redownload = bool(body.get("redownload"))
+        try:
+            from translation_service import refresh_translation_models
+
+            result = refresh_translation_models(force_redownload=force_redownload, check_now=True)
+            return jsonify({"ok": True, **result})
+        except Exception:
+            logging.getLogger(__name__).exception("Falha ao verificar modelos locais de tradução")
+            return jsonify({
+                "ok": False,
+                "error": "Não foi possível verificar os idiomas. Confira a conexão do servidor e tente novamente.",
+            }), 503
 
     @app.route("/api/tickets/meta", methods=["GET"])
     def tickets_meta():

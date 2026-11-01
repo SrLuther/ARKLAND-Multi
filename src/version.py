@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.10"
+APP_VERSION: str = "1.11.11"
 BUILD_DATE: str = "2026-10-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.11",
+        "date": "2026-10-31",
+        "changes": [
+            "Web Store: nova home responsiva com visual escuro, detalhes em ouro e marca d'água fixa; regulamento PvE 1.5 reorganizado e exibido na prévia.",
+            "Suporte: balão flutuante abre o chat de tickets, permite consultar e criar chamados, responder e solicitar encerramento; atalho duplicado removido da navegação.",
+            "Suporte: tradução gratuita e local para português, inglês e espanhol via Argos; modelos são instalados automaticamente, atualizados semanalmente quando há conexão e podem ser verificados ou baixados novamente pelo jogador.",
+        ],
+    },
     {
         "version": "1.11.10",
         "date": "2026-10-31",
