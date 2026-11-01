@@ -129,7 +129,7 @@ Resultado: `pytest tests/test_arkplayer_deploy.py tests/test_plugin_release_gate
 | Datas novos no app | Nenhum necessário (bot e diagnóstico não usam arquivos empacotados; dados vão para `%APPDATA%\ARKLAND-ServerManager\{obobonic,logs,diagnostics}`). |
 | `ARKLAND-WebStore.spec` | **Não mudou.** Já inclui `static/` inteiro (pega `index.html`, `redeem_docs.js`), `discord`. Os módulos novos (`dino_levels`, `diagnostics_routes`, `resource_vitrine_{migrate,routes,service}`, `market_fee`, `payment_jobs`…) são importados por `import` estático (dentro ou fora de funções) em `app.py`, então o PyInstaller os detecta; todos usam só flask/sqlalchemy/stdlib. Conferir no log do build que não há "missing module" desses nomes (ver 6.3). |
 | `plugin/arkshop_web/requirements.txt` | Não lista `discord.py`/`requests` (preexistente; `build.bat` instala o `requirements.txt` da raiz primeiro, então o build funciona). Opcional: adicionar `discord.py` ali para consistência. |
-| Peso do pacote | `discord`+`aiohttp` entram no EXE principal (~+10 MB estimado). O gate de 150 MB do instalador deve continuar passando (último: ver `_release_1.10.110.log`); conferir o tamanho final. |
+| Peso do pacote | `discord`+`aiohttp` entram no EXE principal (~+10 MB estimado). O gate atual de 200 MB do instalador deve continuar passando; conferir o tamanho final. |
 
 **Comando do PyInstaller (para quando for a hora; NÃO rodado agora):**
 
@@ -326,7 +326,7 @@ foreach ($p in 'CustomShop','CustomDinoDeliver','ArkPlayer','ArkEventHunt') {
 | R8 | Vitrine de Recursos (tabelas + plugin) ainda em andamento e sem linha no CHANGELOG | Esquecer bump do CustomShop / nota / backup do banco | A3 + B1; reconferir `plugin_version.txt` do CustomShop no fim |
 | R9 | Web Store e jogo reiniciando juntos | Jogadores sem loja/comandos durante o restart | Primeiro Web Store (rápido), depois mapas um a um, com aviso; entrega pendente é retomada (claims) |
 | R10 | Bot oBobonic embutido: primeira execução depende do usuário colocar token/IDs no painel | Bot parado após atualizar | Mencionar nas notas; usar «Importar dados do bot antigo» |
-| R11 | Instalador pode crescer (+discord/aiohttp no EXE principal) | Estourar gate de 150 MB (improvável) | Gate do script já falha antes de publicar; checar tamanho |
+| R11 | Instalador pode crescer (+discord/aiohttp no EXE principal) | Estourar gate atual de 200 MB (improvável) | Gate do script já falha antes de publicar; checar tamanho |
 
 ---
 
