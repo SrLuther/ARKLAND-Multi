@@ -151,7 +151,7 @@ def build_tab_game_primitive(app: "ARKServerManagerApp", parent, srv: ServerConf
          gs.player_character_stamina_drain_multiplier, r)
     r += 1
     frow("Velocidade Máxima de Queda",
-         "Ajusta o limite de velocidade em queda do jogador. 1.0 = padrão do ARK.",
+         "Define o limite de queda a partir do qual o jogador recebe dano. Valores maiores permitem cair por mais tempo sem dano. O app grava em GameUserSettings.ini e Game.ini; reinicie o mapa para aplicar. 1.0 = padrão do ARK.",
          "max_fall_speed_multiplier",
          gs.max_fall_speed_multiplier, r)
     r += 1

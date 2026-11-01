@@ -45,7 +45,7 @@ from .server_manager import ServerManager
 from .mod_manager import ModManager
 from .ark_ini import ArkIniManager
 from .rcon_client import RconClient, RconError
-from .updater import UpdateChecker
+from .updater import UpdateChecker, show_auto_confirm_update_dialog
 from .mod_auto_updater import ModAutoUpdater
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
 from .ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_EVENT_LABEL_TO_ID, _ARK_OFFICIAL_EVENTS, normalize_active_event
@@ -3872,13 +3872,7 @@ class ARKServerManagerApp(ctk.CTk):
             self._update_progress_label.configure(
                 text="✅  Agente iniciado. O app será fechado e a atualização instalada automaticamente.")
             self._update_progress_label.grid(row=4, column=0, columnspan=2, padx=18, sticky="w")
-            messagebox.showinfo(
-                "Atualização",
-                "O agente de atualização foi iniciado.\n\n"
-                "O ARKLAND será fechado agora. Quando a instalação terminar, o app reiniciará automaticamente.",
-                parent=self,
-            )
-            self._on_close()
+            show_auto_confirm_update_dialog(self, self._do_quit)
         else:
             self._check_update_btn.configure(state="normal")
             self._update_progress_label.configure(text=f"❌  Erro: {message}")

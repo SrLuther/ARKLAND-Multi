@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.17"
+APP_VERSION: str = "1.11.18"
 BUILD_DATE: str = "2026-11-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.18",
+        "date": "2026-11-01",
+        "changes": [
+            "Atualizador: a confirma\u00e7\u00e3o de in\u00edcio fecha automaticamente ap\u00f3s 5 segundos, para o instalador continuar sem bloqueio.",
+            "Progress\u00e3o de n\u00edvel: novo Recalcular tudo redistribui a curva existente pelo n\u00edvel e XP m\u00e1ximos; redistribui tamb\u00e9m os pontos de engrama, e importar uma tabela mant\u00e9m sua quantidade exata de n\u00edveis sem usar linhas extras de engrama.",
+            "Configura\u00e7\u00f5es do jogador: MaxFallSpeedMultiplier agora \u00e9 gravado tanto no GameUserSettings.ini quanto no Game.ini para compatibilidade com diferentes leituras do ARK.",
+            "Web Store: o n\u00famero de jogadores nos cards do cluster agora acompanha a mesma lista RCON que mostra os nomes, evitando contagens divergentes.",
+        ],
+    },
     {
         "version": "1.11.17",
         "date": "2026-11-01",

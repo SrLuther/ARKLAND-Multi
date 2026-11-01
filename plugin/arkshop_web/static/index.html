@@ -30473,6 +30473,15 @@ async function _refreshHomeOnlinePlayers() {
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error("Lista temporariamente indisponível.");
     const servers = Array.isArray(data.servers) ? data.servers : [];
+    const rconCounts = new Map(servers.filter(server => server.status === "online")
+      .map(server => [String(server.server_id || ""), Array.isArray(server.players) ? server.players.length : 0]));
+    document.querySelectorAll("[data-server-status]").forEach(el => {
+      const id = String(el.getAttribute("data-server-status") || "");
+      if (!rconCounts.has(id) || !el.classList.contains("home-server-card__status--online")) return;
+      // Mantém o total do card de servidores sincronizado com a mesma lista RCON
+      // que exibe os nomes no mural da comunidade.
+      el.textContent = el.textContent.replace(/\d+(?=\/\d+)/, String(rconCounts.get(id)));
+    });
     const online = servers.filter(server => server.status === "online");
     if (!servers.length) {
       summary.textContent = "Nenhum mapa disponível no momento.";

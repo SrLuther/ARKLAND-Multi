@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 17:07:52 -->
-<!-- Total de versões: 510 | Primeira: 1.11.17 -->
+<!-- Gerado: 2026-11-01 18:58:12 -->
+<!-- Total de versões: 511 | Primeira: 1.11.18 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.18] - 2026-11-01
+
+### Other
+
+- Atualizador: a confirmação de início fecha automaticamente após 5 segundos, para o instalador continuar sem bloqueio.
+- Progressão de nível: novo Recalcular tudo redistribui a curva existente pelo nível e XP máximos; redistribui também os pontos de engrama, e importar uma tabela mantém sua quantidade exata de níveis sem usar linhas extras de engrama.
+- Configurações do jogador: MaxFallSpeedMultiplier agora é gravado tanto no GameUserSettings.ini quanto no Game.ini para compatibilidade com diferentes leituras do ARK.
+- Web Store: o número de jogadores nos cards do cluster agora acompanha a mesma lista RCON que mostra os nomes, evitando contagens divergentes.
 
 ## [1.11.17] - 2026-11-01
 

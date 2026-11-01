@@ -24,6 +24,72 @@ except ImportError:
     _HAS_REQUESTS = False
 
 
+def show_auto_confirm_update_dialog(parent: Any, on_confirm: Callable[[], None]) -> None:
+    """Show a brief update notice and continue automatically after five seconds."""
+    import customtkinter as ctk
+
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title("Atualização")
+    dialog.geometry("440x190")
+    dialog.resizable(False, False)
+    dialog.transient(parent)
+
+    ctk.CTkLabel(
+        dialog,
+        text=(
+            "O agente de atualização foi iniciado. O ARKLAND será fechado agora.\n"
+            "Quando a instalação terminar, o aplicativo será iniciado novamente."
+        ),
+        wraplength=390,
+        justify="left",
+    ).pack(fill="x", padx=24, pady=(28, 12))
+
+    countdown = ctk.CTkLabel(dialog, text="Continuando automaticamente em 5 s…")
+    countdown.pack(padx=24, pady=(0, 16))
+
+    finished = False
+    timer_id: Optional[str] = None
+
+    def finish(*_args: Any) -> None:
+        nonlocal finished, timer_id
+        if finished:
+            return
+        finished = True
+        if timer_id is not None:
+            try:
+                dialog.after_cancel(timer_id)
+            except Exception:
+                pass
+        try:
+            dialog.grab_release()
+            dialog.destroy()
+        except Exception:
+            pass
+        on_confirm()
+
+    ctk.CTkButton(dialog, text="OK", command=finish, width=100).pack(pady=(0, 20))
+    dialog.protocol("WM_DELETE_WINDOW", finish)
+    dialog.bind("<Return>", finish)
+    dialog.bind("<Escape>", finish)
+
+    def update_countdown(seconds_left: int) -> None:
+        nonlocal timer_id
+        if finished:
+            return
+        if seconds_left <= 0:
+            finish()
+            return
+        countdown.configure(text=f"Continuando automaticamente em {seconds_left} s…")
+        timer_id = dialog.after(1000, lambda: update_countdown(seconds_left - 1))
+
+    dialog.update_idletasks()
+    x = parent.winfo_rootx() + max(0, (parent.winfo_width() - dialog.winfo_width()) // 2)
+    y = parent.winfo_rooty() + max(0, (parent.winfo_height() - dialog.winfo_height()) // 2)
+    dialog.geometry(f"+{x}+{y}")
+    dialog.grab_set()
+    update_countdown(5)
+
+
 @dataclass
 class UpdateInfo:
     version: str

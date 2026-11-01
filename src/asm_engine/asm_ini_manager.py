@@ -725,6 +725,10 @@ def write_ini(cfg: AsmServerConfig) -> None:
         ("per_level_dino_tamed_affinity", "PerLevelStatsMultiplier_DinoTamed_Affinity"),
     ]
     game_mode_sec = game.setdefault(_GAME_MODE_SECTION, {})
+    # Mantém MaxFallSpeedMultiplier nos dois INIs por compatibilidade.
+    game_mode_sec["MaxFallSpeedMultiplier"] = _format_value(
+        getattr(cfg, "player_max_fall_speed_multiplier", 1.0)
+    )
     if not getattr(cfg, "dino_level_progressions_enabled", False):
         game_mode_sec.pop("OverrideMaxExperiencePointsDino", None)
     for _attr, _prefix in _PERLEVEL_MAP:

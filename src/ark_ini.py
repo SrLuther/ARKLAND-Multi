@@ -137,6 +137,8 @@ _GAME_INI_GAME_SETTINGS = [
     ("lay_egg_interval_multiplier",            "LayEggIntervalMultiplier",              float),
     ("baby_imprinting_stat_scale_multiplier",  "BabyImprintingStatScaleMultiplier",     float),
     ("baby_cuddle_grace_period_multiplier",    "BabyCuddleGracePeriodMultiplier",       float),
+    # Espelha no Game.ini para cobrir versões/configuradores que leem a opção daqui.
+    ("max_fall_speed_multiplier",              "MaxFallSpeedMultiplier",                 float),
 ]
 
 # Campos da secao [SessionSettings] / [/Script/Engine.GameSession]

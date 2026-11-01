@@ -10376,7 +10376,7 @@ def _public_online_players_snapshot() -> dict[str, Any]:
                 port = 27020
             password = sanitize_rcon_password(str(server.get("rcon_password") or cfg.get("rcon_password") or ""))
             if not password:
-                return {"label": label, "status": "unavailable", "players": []}
+                return {"server_id": server_id, "label": label, "status": "unavailable", "players": []}
 
             last_error: BaseException | None = None
             for host in _rcon_hosts_to_try(server, cfg):
@@ -10387,11 +10387,11 @@ def _public_online_players_snapshot() -> dict[str, Any]:
                         {"name": str(p.get("name") or "Jogador")[:48]}
                         for p in _parse_agent_list_players(response)
                     ]
-                    return {"label": label, "status": "online", "players": players}
+                    return {"server_id": server_id, "label": label, "status": "online", "players": players}
                 except Exception as exc:
                     last_error = exc
             reason = _classify_rcon_error(last_error or "falha RCON")
-            return {"label": label, "status": "offline" if reason == "refused" else "unavailable", "players": []}
+            return {"server_id": server_id, "label": label, "status": "offline" if reason == "refused" else "unavailable", "players": []}
 
         results: list[dict[str, Any]] = []
         if targets:

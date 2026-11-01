@@ -52,6 +52,45 @@ def _validate(rows: list[tuple[int, int | None, int]], max_xp: int, *, player: b
     return None
 
 
+def _resample(values: list[int], count: int) -> list[int]:
+    """Redistribute a curve across a requested number of levels."""
+    if count <= 0:
+        return []
+    if not values:
+        return [0] * count
+    if count == 1 or len(values) == 1:
+        return [int(values[-1])] * count
+    if count == len(values):
+        return [int(value) for value in values]
+    result: list[int] = []
+    for index in range(count):
+        position = index * (len(values) - 1) / (count - 1)
+        lower = int(position)
+        upper = min(lower + 1, len(values) - 1)
+        fraction = position - lower
+        result.append(round(int(values[lower]) * (1 - fraction) + int(values[upper]) * fraction))
+    return result
+
+
+def _recalculate_xp_thresholds(values: list[int], level_count: int, max_xp: int) -> list[int]:
+    if level_count < 1:
+        raise ValueError("O nível máximo precisa ser pelo menos 1.")
+    if max_xp < 1:
+        raise ValueError("O XP máximo precisa ser maior que zero.")
+    source = [max(0, int(value)) for value in values]
+    if not source or source[-1] <= 0 or len(source) == 1 or source[-1] <= source[0]:
+        if level_count == 1:
+            return [max_xp]
+        return [round(max_xp * index / (level_count - 1)) for index in range(level_count)]
+    curve = _resample(source, level_count)
+    scale = max_xp / max(1, curve[-1])
+    recalculated = [max(0, round(value * scale)) for value in curve]
+    for index in range(1, len(recalculated)):
+        recalculated[index] = max(recalculated[index], recalculated[index - 1])
+    recalculated[-1] = max_xp
+    return recalculated
+
+
 def _replace_raw_widget(widget: Any, text: str) -> None:
     if widget is None:
         return
@@ -76,6 +115,7 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
     player_values = list(getattr(config, "player_level_xp_thresholds", []) or [])
     if not player_values:
         player_values = _raw_values(str(getattr(config, "player_level_stats_raw", "") or ""))
+    has_player_xp_table = bool(player_values)
     if not player_values:
         player_values = [0]
     player_points = list(getattr(config, "player_engram_points", []) or [])
@@ -85,9 +125,12 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
                 player_points.append(int(line.split("=", 1)[1]))
             except (IndexError, ValueError):
                 break
-    player_row_count = max(len(player_values), len(player_points))
+    # A loaded XP ramp determines the user's level count. Generated engram
+    # overrides may contain ARK's reserved bonus slots (base + 100).
+    player_row_count = len(player_values) if has_player_xp_table else max(len(player_values), len(player_points))
     player_values.extend([None] * (player_row_count - len(player_values)))
     player_points.extend([0] * (player_row_count - len(player_points)))
+    player_points = player_points[:player_row_count]
     dino_values = _raw_values(str(getattr(config, "dino_level_stats_raw", "") or ""))
 
     body = ttk.Frame(window, padding=12)
@@ -98,6 +141,7 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
     tables: dict[str, ttk.Treeview] = {}
     enabled_vars: dict[str, tk.BooleanVar] = {}
     max_vars: dict[str, tk.StringVar] = {}
+    level_vars: dict[str, tk.StringVar] = {}
 
     def create_table(parent_frame: ttk.Frame, key: str, title: str, rows: list[int | None], player: bool) -> None:
         parent_frame.columnconfigure(0, weight=1)
@@ -109,6 +153,9 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
             getattr(config, "player_level_progressions_enabled" if player else "dino_level_progressions_enabled", False)
         ))
         ttk.Checkbutton(controls, text="Habilitar", variable=enabled_vars[key]).pack(side="left")
+        ttk.Label(controls, text="Nível máximo:").pack(side="left", padx=(12, 4))
+        level_vars[key] = tk.StringVar(value=str(len(rows)))
+        ttk.Entry(controls, textvariable=level_vars[key], width=8).pack(side="left")
         ttk.Label(controls, text="XP máximo:").pack(side="left", padx=(16, 4))
         cap = int(getattr(config, "override_max_xp_player" if player else "override_max_xp_dino", 0) or 0)
         last_xp = next((value for value in reversed(rows) if value is not None), 0)
@@ -147,12 +194,14 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
             existing_ids = [int(value) for value in tree.get_children() if str(value).isdigit()]
             iid = str(max(existing_ids, default=0) + 1)
             tree.insert("", "end", iid=iid, values=values)
+            level_vars[key].set(str(count + 1))
             tree.see(iid)
 
         def remove_rows() -> None:
             for iid in tree.selection():
                 tree.delete(iid)
             renumber_rows(tree, player)
+            level_vars[key].set(str(len(tree.get_children())))
 
         def edit_cell(event: tk.Event) -> None:
             row_id = tree.identify_row(event.y)
@@ -200,12 +249,15 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
                 for i, item in enumerate(imported, start=1):
                     if isinstance(item, dict):
                         xp = int(item.get("xp_required", item.get("xp", 0)))
-                        points = int(item.get("engram_points", 0))
+                        default_points = player_points[i - 1] if player and i - 1 < len(player_points) else 0
+                        points = int(item.get("engram_points", default_points))
                     else:
-                        xp, points = int(item), 0
+                        xp = int(item)
+                        points = player_points[i - 1] if player and i - 1 < len(player_points) else 0
                     values = (i, xp, points, "") if player else (i, xp)
                     tree.insert("", "end", iid=str(i), values=values)
                 renumber_rows(tree, player)
+                level_vars[key].set(str(len(tree.get_children())))
             except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 messagebox.showerror("Importação", f"Não foi possível importar a tabela: {exc}", parent=window)
 
@@ -276,7 +328,7 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
                     pass
         if config.player_level_progressions_enabled:
             config.player_level_xp_thresholds = [row[1] for row in player_rows if row[1] is not None]
-            config.player_engram_points = [row[2] for row in player_rows]
+            config.player_engram_points = [row[2] for row in player_rows if row[1] is not None]
             config.player_level_stats_raw = export_ramp_raw(config.player_level_xp_thresholds)
             config.override_max_xp_player = player_cap
             _replace_raw_widget((vars_ref or {}).get("_raw_player_level_stats_raw"), config.player_level_stats_raw)
@@ -294,8 +346,42 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
         status.configure(text="Tabela aplicada ao perfil. Salve o perfil para gravar os arquivos Game.ini e GameUserSettings.ini.")
         messagebox.showinfo("Progressões", "As tabelas foram aplicadas ao perfil. Salve o servidor para gravar as configurações.", parent=window)
 
+    def recalculate_all() -> None:
+        try:
+            plans: list[tuple[str, bool, list[int], list[int]]] = []
+            for key, player in (("player", True), ("dino", False)):
+                tree = tables[key]
+                if not tree.get_children() and not enabled_vars[key].get():
+                    continue
+                level_count = int(level_vars[key].get().replace(",", "").strip())
+                max_xp = int(max_vars[key].get().replace(",", "").strip())
+                source_rows = _rows_from_tree(tree, player=player)
+                source_xp = [int(row[1]) for row in source_rows if row[1] is not None]
+                thresholds = _recalculate_xp_thresholds(source_xp, level_count, max_xp)
+                source_points = [int(row[2]) for row in source_rows if row[1] is not None] if player else []
+                points = _resample(source_points, level_count) if player else []
+                plans.append((key, player, thresholds, points))
+            for key, player, thresholds, points in plans:
+                tree = tables[key]
+                tree.delete(*tree.get_children())
+                accumulated = 0
+                for index, xp in enumerate(thresholds, start=1):
+                    if player:
+                        points_for_level = max(0, points[index - 1])
+                        tree.insert("", "end", iid=str(index), values=(index, xp, points_for_level, f"{accumulated:,}"))
+                        accumulated += points_for_level
+                    else:
+                        tree.insert("", "end", iid=str(index), values=(index, xp))
+                level_vars[key].set(str(level_count))
+                tree.yview_moveto(1.0)
+        except (ValueError, IndexError) as exc:
+            messagebox.showerror("Recalcular progressões", str(exc) or "Informe níveis e XP máximos válidos.", parent=window)
+            return
+        status.configure(text="Tabelas com níveis informados recalculadas. A curva de XP e os pontos foram redistribuídos; confira e clique em Aplicar ao perfil.")
+
     actions = ttk.Frame(body)
     actions.grid(row=3, column=0, columnspan=2, sticky="e", pady=(10, 0))
+    ttk.Button(actions, text="Recalcular tudo", command=recalculate_all).pack(side="right", padx=(8, 0))
     ttk.Button(actions, text="Aplicar ao perfil", command=apply).pack(side="right", padx=(8, 0))
     ttk.Button(actions, text="Fechar", command=window.destroy).pack(side="right")
 

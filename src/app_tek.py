@@ -22,7 +22,7 @@ from .asm_engine.asm_server_manager import AsmServerManager
 from .config_manager import ConfigManager
 from .server_manager import ServerManager
 from .sync_engine import SyncEngine
-from .updater import UpdateChecker
+from .updater import UpdateChecker, show_auto_confirm_update_dialog
 from .ui_constants import get_theme, set_tek_variant, get_tek_variant
 from .version import APP_VERSION
 
@@ -2105,13 +2105,7 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _on_download_done(self, ok: bool, msg: str) -> None:
         if ok:
-            messagebox.showinfo(
-                "Atualização",
-                "O agente de atualização foi iniciado.\n\n"
-                "O ARKLAND será fechado agora. Quando a instalação terminar, o app reiniciará automaticamente.",
-                parent=self,
-            )
-            self.destroy()
+            show_auto_confirm_update_dialog(self, self.destroy)
             return
         if self._install_update_btn:
             self._install_update_btn.configure(state="normal", text="⬇️  Baixar e Instalar")
