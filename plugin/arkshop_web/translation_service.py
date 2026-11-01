@@ -135,6 +135,40 @@ def _runtime_modules():
     import argostranslate.translate as argos_translate
     from langdetect import DetectorFactory, detect
 
+    # Allow production administrators to drop official .argosmodel archives
+    # into the persistent package directory when browser upload is unavailable.
+    for package_path in model_dir.glob("*.argosmodel"):
+        try:
+            with zipfile.ZipFile(package_path) as archive:
+                metadata_item = None
+                uncompressed_size = 0
+                for item in archive.infolist():
+                    member = Path(item.filename.replace("\\", "/"))
+                    if member.is_absolute() or ".." in member.parts:
+                        raise ValueError("caminho inválido no pacote")
+                    uncompressed_size += item.file_size
+                    if uncompressed_size > 500 * 1024 * 1024:
+                        raise ValueError("pacote excede o limite após extração")
+                    if item.filename.endswith("metadata.json"):
+                        metadata_item = item
+                if metadata_item is None:
+                    raise ValueError("metadata.json ausente")
+                metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
+            pair = (metadata.get("from_code"), metadata.get("to_code"))
+            if pair not in _MODEL_PAIRS:
+                raise ValueError(f"par de idiomas não suportado: {pair}")
+            argos_package.install_from_path(package_path)
+            package_path.unlink()
+            logging.getLogger(__name__).info(
+                "Installed manually staged Argos model %s (%s → %s)",
+                package_path.name, pair[0], pair[1],
+            )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "Could not install staged Argos model %s (%s)",
+                package_path.name, type(exc).__name__,
+            )
+
     DetectorFactory.seed = 0
     return argos_package, argos_translate, detect
 

@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 18:58:12 -->
-<!-- Total de versões: 511 | Primeira: 1.11.18 -->
+<!-- Gerado: 2026-11-01 19:51:27 -->
+<!-- Total de versões: 512 | Primeira: 1.11.19 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.19] - 2026-11-01
+
+### Other
+
+- Progressão de nível: corrigido o recálculo quando uma tabela de XP termina com valor abaixo dos níveis anteriores; o sistema recompõe uma curva crescente dentro do XP máximo e exibe a quantidade real de níveis recalculados.
+- Game.ini: salvar as progressões remove fragmentos antigos ExperiencePointsForLevel e elimina rampas duplicadas, mantendo apenas a tabela atual aplicada.
+- Plugins: a lista de servidores agora permite atualizar os cinco plugins ARKLAND em um mapa por vez; somente o alvo precisa estar parado.
+- Web Store: removido da interface o cartão do Âmbarômetro que ficava sob o botão flutuante de suporte.
+- Traduções: os arquivos .argosmodel colocados em translation/argos-packages passam a ser instalados pelo servidor na verificação seguinte, sem depender do upload do navegador.
+- Web Store: sincronização preserva os pacotes de doação personalizados e só aplica os padrões quando PointPackages ainda não existe.
 
 ## [1.11.18] - 2026-11-01
 

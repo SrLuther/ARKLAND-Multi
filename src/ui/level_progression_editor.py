@@ -75,18 +75,32 @@ def _resample(values: list[int], count: int) -> list[int]:
 def _recalculate_xp_thresholds(values: list[int], level_count: int, max_xp: int) -> list[int]:
     if level_count < 1:
         raise ValueError("O nível máximo precisa ser pelo menos 1.")
-    if max_xp < 1:
-        raise ValueError("O XP máximo precisa ser maior que zero.")
+    if max_xp < max(1, level_count - 1):
+        raise ValueError("O XP máximo precisa comportar ao menos 1 XP por nível.")
+    if level_count == 1:
+        return [max_xp]
     source = [max(0, int(value)) for value in values]
-    if not source or source[-1] <= 0 or len(source) == 1 or source[-1] <= source[0]:
-        if level_count == 1:
-            return [max_xp]
+    # Uma tabela importada pode terminar abaixo de níveis anteriores. Escalar
+    # essa curva pelo último valor produz limiares acima do XP máximo e depois
+    # um salto para trás no nível final. Nesse caso usamos uma curva linear.
+    monotonic_source = bool(source) and all(
+        source[index] <= source[index + 1] for index in range(len(source) - 1)
+    )
+    if not monotonic_source or len(source) < 2 or source[-1] <= source[0]:
         return [round(max_xp * index / (level_count - 1)) for index in range(level_count)]
     curve = _resample(source, level_count)
-    scale = max_xp / max(1, curve[-1])
-    recalculated = [max(0, round(value * scale)) for value in curve]
-    for index in range(1, len(recalculated)):
-        recalculated[index] = max(recalculated[index], recalculated[index - 1])
+    curve_span = curve[-1] - curve[0]
+    if curve_span <= 0:
+        return [round(max_xp * index / (level_count - 1)) for index in range(level_count)]
+
+    recalculated = [round((value - curve[0]) * max_xp / curve_span) for value in curve]
+    # Mantém limiares estritamente crescentes e reserva espaço para todos os
+    # níveis restantes, inclusive o último, que termina exatamente no XP máximo.
+    recalculated[0] = 0
+    for index in range(1, level_count - 1):
+        lower = recalculated[index - 1] + 1
+        upper = max_xp - (level_count - 1 - index)
+        recalculated[index] = min(max(recalculated[index], lower), upper)
     recalculated[-1] = max_xp
     return recalculated
 
@@ -373,11 +387,17 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
                     else:
                         tree.insert("", "end", iid=str(index), values=(index, xp))
                 level_vars[key].set(str(level_count))
+                if len(tree.get_children()) != level_count:
+                    raise RuntimeError("A tabela não foi redimensionada para o nível máximo informado.")
                 tree.yview_moveto(1.0)
         except (ValueError, IndexError) as exc:
             messagebox.showerror("Recalcular progressões", str(exc) or "Informe níveis e XP máximos válidos.", parent=window)
             return
-        status.configure(text="Tabelas com níveis informados recalculadas. A curva de XP e os pontos foram redistribuídos; confira e clique em Aplicar ao perfil.")
+        counts = ", ".join(
+            f"{'jogador' if key == 'player' else 'dino'}: {len(tables[key].get_children())} níveis"
+            for key, _, _, _ in plans
+        )
+        status.configure(text=f"Recalculado ({counts}). Confira a curva e clique em Aplicar ao perfil.")
 
     actions = ttk.Frame(body)
     actions.grid(row=3, column=0, columnspan=2, sticky="e", pady=(10, 0))

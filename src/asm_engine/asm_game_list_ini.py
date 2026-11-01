@@ -374,6 +374,16 @@ def patch_game_ini_repeated_lines(
     # section blocks and the original encoding survive this focused update.
     if section.casefold() == _GAME_MODE_SECTION.casefold():
         document.remove_keys(section, REPEATED_KEY_PREFIXES)
+        # Remove fragments legados como
+        # (ExperiencePointsForLevel[0]="10,...), que não são uma diretiva ARK.
+        document.lines[:] = [
+            line for line in document.lines
+            if not (
+                line.kind == "key"
+                and (line.section or "").casefold() == section.casefold()
+                and (line.key or "").casefold().startswith("(experiencepointsforlevel[")
+            )
+        ]
     else:
         document.remove_keys(section, {
             raw_line.partition("=")[0].strip()

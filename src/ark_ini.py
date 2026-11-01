@@ -1698,6 +1698,15 @@ class ArkIniManager:
             _re.IGNORECASE | _re.MULTILINE,
         )
         ini_text = _SPAWN_RE.sub("", ini_text)
+        # Limpa resquícios antigos/raw de ExperiencePointsForLevel soltos.
+        # A rampa válida do ARK deve ser escrita somente como
+        # LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=..., ...).
+        ini_text = _re.sub(
+            r"^\s*\(?\s*ExperiencePointsForLevel\[\d+\].*$",
+            "",
+            ini_text,
+            flags=_re.IGNORECASE | _re.MULTILINE,
+        )
 
         # ── Gera novas linhas de spawn e injeta antes da próxima seção ───────
         spawn_lines: list[str] = []

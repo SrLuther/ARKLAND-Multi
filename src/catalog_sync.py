@@ -286,7 +286,10 @@ def apply_catalog_sync(data: dict[str, Any]) -> tuple[list[str], list[str]]:
         if rep_items and isinstance(rep_items[0], dict):
             rep_items[0]["Blueprint"] = REPLICATOR_BP
 
-    data["PointPackages"] = deepcopy(POINT_PACKAGES)
+    # Preserve packages customized by the Web Store; defaults are only a seed
+    # for legacy catalogs that have never had PointPackages configured.
+    if "PointPackages" not in data:
+        data["PointPackages"] = deepcopy(POINT_PACKAGES)
     return cleared, kit_updates
 
 

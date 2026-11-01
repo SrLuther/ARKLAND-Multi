@@ -52,6 +52,11 @@ from ..shop_integration import (
     get_local_ip,
     get_shop_subprocess_env,
     initialize_customshop_setup,
+    install_customshop_to_server,
+    install_customdino_to_server,
+    install_arkplayer_to_server,
+    install_arkeventhunt_to_server,
+    install_engramlevel_to_server,
     install_customshop_all,
     install_customdino_all,
     install_arkplayer_all,
@@ -2190,6 +2195,58 @@ def _build_webstore_tab(
 
     _server_rows: list = []
 
+    def _install_plugins_for_server(kind: str, srv: Any) -> None:
+        """Atualiza apenas o servidor escolhido; os demais continuam online."""
+        from ..mod_server_bridge import mod_get_status
+        from ..server_config import SERVER_STATUS_STOPPED
+
+        name = getattr(srv, "name", "") or getattr(srv, "id", "Servidor")
+        if not getattr(srv, "install_dir", ""):
+            messagebox.showerror("Atualizar plugins", f"{name}: diretório de instalação não configurado.", parent=parent.winfo_toplevel())
+            return
+        status = mod_get_status(app, str(getattr(srv, "id", "") or ""))
+        if status != SERVER_STATUS_STOPPED:
+            messagebox.showwarning(
+                "Servidor precisa estar parado",
+                f"Pare somente {name} antes de substituir as DLLs. Os outros servidores podem continuar online.",
+                parent=parent.winfo_toplevel(),
+            )
+            return
+        if not messagebox.askyesno(
+            "Atualizar plugins deste servidor",
+            f"Atualizar os plugins ARKLAND somente em {name}?\n\n"
+            "Os demais servidores não serão alterados. Mantenha este mapa parado até a conclusão.",
+            parent=parent.winfo_toplevel(),
+        ):
+            return
+
+        shop_cfg = getattr(getattr(app.config_manager, "config", None), "shop", None)
+        installers = (
+            ("CustomShop", lambda: install_customshop_to_server(srv.install_dir, overwrite_dlls=True, shop=shop_cfg)),
+            ("Dino Lab", lambda: install_customdino_to_server(srv.install_dir, overwrite_dlls=True)),
+            ("ArkPlayer", lambda: install_arkplayer_to_server(srv.install_dir, overwrite_dlls=True)),
+            ("ArkEventHunt", lambda: install_arkeventhunt_to_server(srv.install_dir, overwrite_dlls=True)),
+            ("EngramLevel", lambda: install_engramlevel_to_server(srv.install_dir, overwrite_dlls=True)),
+        )
+        installed, errors = [], []
+        for plugin_name, installer in installers:
+            try:
+                copied, notes = installer()
+                if copied:
+                    installed.append(plugin_name)
+                if notes and not copied:
+                    errors.append(f"{plugin_name}: {'; '.join(notes)}")
+                elif notes:
+                    errors.extend(f"{plugin_name}: {note}" for note in notes)
+            except Exception as exc:
+                errors.append(f"{plugin_name}: {exc}")
+
+        _rebuild_server_rows()
+        summary = f"Atualizados em {name}: {', '.join(installed) or 'nenhum plugin'}"
+        if errors:
+            summary += "\n\nOcorrências:\n" + "\n".join(errors[:8])
+        messagebox.showinfo("Atualização isolada concluída", summary, parent=parent.winfo_toplevel())
+
     def _rebuild_server_rows() -> None:
         for w in srv_list.winfo_children():
             w.destroy()
@@ -2227,6 +2284,11 @@ def _build_webstore_tab(
                 checkbox_width=16, checkbox_height=16,
                 font=ctk.CTkFont(size=9),
             ).pack(side="left", padx=(2, 4))
+            ctk.CTkButton(
+                row, text="Atualizar plugins", width=128, height=24,
+                fg_color="#245b56", hover_color="#287568",
+                command=lambda k=kind, target=srv: _install_plugins_for_server(k, target),
+            ).pack(side="right", padx=(4, 6))
             path_row = tk.Frame(block, bg="#1a1a30")
             path_row.pack(fill="x", padx=(148, 4), pady=(0, 2))
             tk.Label(

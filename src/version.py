@@ -4,13 +4,25 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.18"
+APP_VERSION: str = "1.11.19"
 BUILD_DATE: str = "2026-11-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.19",
+        "date": "2026-11-01",
+        "changes": [
+            "Progress\u00e3o de n\u00edvel: corrigido o rec\u00e1lculo quando uma tabela de XP termina com valor abaixo dos n\u00edveis anteriores; o sistema recomp\u00f5e uma curva crescente dentro do XP m\u00e1ximo e exibe a quantidade real de n\u00edveis recalculados.",
+            "Game.ini: salvar as progress\u00f5es remove fragmentos antigos ExperiencePointsForLevel e elimina rampas duplicadas, mantendo apenas a tabela atual aplicada.",
+            "Plugins: a lista de servidores agora permite atualizar os cinco plugins ARKLAND em um mapa por vez; somente o alvo precisa estar parado.",
+            "Web Store: removido da interface o cart\u00e3o do \u00c2mbar\u00f4metro que ficava sob o bot\u00e3o flutuante de suporte.",
+            "Tradu\u00e7\u00f5es: os arquivos .argosmodel colocados em translation/argos-packages passam a ser instalados pelo servidor na verifica\u00e7\u00e3o seguinte, sem depender do upload do navegador.",
+            "Web Store: sincroniza\u00e7\u00e3o preserva os pacotes de doa\u00e7\u00e3o personalizados e s\u00f3 aplica os padr\u00f5es quando PointPackages ainda n\u00e3o existe.",
+        ],
+    },
     {
         "version": "1.11.18",
         "date": "2026-11-01",
