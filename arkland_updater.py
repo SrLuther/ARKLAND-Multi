@@ -15,18 +15,16 @@ from __future__ import annotations
 
 import argparse
 import ctypes
-import json
 import os
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen, urlretrieve
+from urllib.request import urlretrieve
 
 if TYPE_CHECKING:
     import customtkinter as ctk
@@ -44,18 +42,6 @@ _BG       = "#111118"
 _CARD_BG  = "#1e1e30"
 _GREEN    = "#4CAF50"
 
-_ARGOS_MODELS = (
-    ("translate-en_pb-1_9.argosmodel", "en", "pb", "1.9"),
-    ("translate-pb_en-1_9.argosmodel", "pb", "en", "1.9"),
-    ("translate-en_es-1_0.argosmodel", "en", "es", "1.0"),
-    ("translate-es_en-1_9.argosmodel", "es", "en", "1.9"),
-)
-_ARGOS_MODEL_BASES = (
-    "https://data.argosopentech.com/argospm/v1/",
-    "https://argos-net.com/v1/",
-)
-
-
 def _validate_url(url: str) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -63,15 +49,12 @@ def _validate_url(url: str) -> None:
 
 
 class UpdaterApp:
-    def __init__(self, url: str, pid: int, app_exe: str, version: str, models_dir: str = "") -> None:
+    def __init__(self, url: str, pid: int, app_exe: str, version: str) -> None:
         self._url     = url
         self._pid     = pid
         self._app_exe = app_exe
         self._version = version
-        self._models_dir = Path(models_dir) if models_dir else (
-            Path(os.environ.get("APPDATA", Path.home()))
-            / "ARKLAND-ServerManager" / "arkshop_web" / "translation" / "argos-packages"
-        )
+
 
         if _CTK:
             ctk.set_appearance_mode("dark")
@@ -180,9 +163,6 @@ class UpdaterApp:
             self._kill_lingering()
             time.sleep(0.5)
             self._set_progress(0.10)
-
-            # Deixar os modelos no destino persistente antes de instalar/reabrir o app.
-            self._prepare_translation_models()
 
             # 2. Baixar installer
             filename = self._url.split("/")[-1]
@@ -322,136 +302,6 @@ class UpdaterApp:
         urlretrieve(self._url, tmp_path, reporthook=_hook)
         return tmp_path
 
-    def _installed_model_pairs(self) -> set[tuple[str, str, str]]:
-        installed: set[tuple[str, str, str]] = set()
-        if not self._models_dir.exists():
-            return installed
-        for metadata_path in self._models_dir.glob("**/metadata.json"):
-            try:
-                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-                installed.add((
-                    str(metadata.get("from_code", "")),
-                    str(metadata.get("to_code", "")),
-                    str(metadata.get("package_version", "")),
-                ))
-            except (OSError, ValueError, TypeError):
-                continue
-        return installed
-
-    def _log_translation_step(self, message: str) -> None:
-        """Persist updater decisions so translation setup can be diagnosed after restart."""
-        try:
-            log_path = self._models_dir.parent / "updater-translation.log"
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            with log_path.open("a", encoding="utf-8") as stream:
-                stream.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} {message}\n")
-        except OSError:
-            pass
-
-    @staticmethod
-    def _validate_argos_archive(path: Path, source: str, target: str, version: str) -> None:
-        with zipfile.ZipFile(path) as archive:
-            metadata_item = None
-            expanded_size = 0
-            for item in archive.infolist():
-                member = Path(item.filename.replace("\\", "/"))
-                if member.is_absolute() or member.drive or ".." in member.parts:
-                    raise ValueError("o pacote contém um caminho inválido")
-                expanded_size += item.file_size
-                if expanded_size > 500 * 1024 * 1024:
-                    raise ValueError("o pacote excede 500 MB após extração")
-                if item.filename.endswith("metadata.json"):
-                    metadata_item = item
-            if metadata_item is None:
-                raise ValueError("metadata.json não encontrado no pacote")
-            metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
-            if (metadata.get("from_code"), metadata.get("to_code")) != (source, target):
-                raise ValueError("o par de idiomas do pacote não corresponde ao arquivo")
-            if str(metadata.get("package_version", "")) != version:
-                raise ValueError("a versão do pacote não corresponde ao arquivo")
-
-    def _download_argos_model(
-        self, filename: str, source: str, target: str, version: str, destination: Path
-    ) -> None:
-        errors = []
-        for base_url in _ARGOS_MODEL_BASES:
-            tmp_path = destination.with_suffix(destination.suffix + ".part")
-            try:
-                request = Request(base_url + filename, headers={"User-Agent": "ARKLAND-Updater/1.0"})
-                with urlopen(request, timeout=90) as response, tmp_path.open("wb") as output:
-                    total = int(response.headers.get("Content-Length", "0") or 0)
-                    received = 0
-                    while True:
-                        chunk = response.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        output.write(chunk)
-                        received += len(chunk)
-                        if total:
-                            fraction = min(1.0, received / total)
-                            pct = 0.10 + (self._model_index + fraction) / self._model_count * 0.52
-                            self._set_progress(pct)
-                            self._set_status(
-                                "Baixando pacotes de tradução...",
-                                f"{filename} — {received / 1048576:.0f} / {total / 1048576:.0f} MB",
-                            )
-                if not zipfile.is_zipfile(tmp_path):
-                    raise ValueError("o download não é um arquivo ZIP Argos válido")
-                self._set_status("Validando pacote de tradução...", filename)
-                self._validate_argos_archive(tmp_path, source, target, version)
-                tmp_path.replace(destination)
-                return
-            except Exception as exc:
-                errors.append(f"{base_url}: {exc}")
-                try:
-                    tmp_path.unlink(missing_ok=True)
-                except OSError:
-                    pass
-        raise RuntimeError(f"Não foi possível baixar {filename}. " + " | ".join(errors))
-
-    def _prepare_translation_models(self) -> None:
-        installed = self._installed_model_pairs()
-        missing = [model for model in _ARGOS_MODELS if (model[1], model[2], model[3]) not in installed]
-        self._log_translation_step(
-            f"start models_dir={self._models_dir} installed={len(installed)} missing={len(missing)}"
-        )
-        if not missing:
-            self._set_status("Pacotes de tradução já estão instalados.")
-            self._set_progress(0.62)
-            self._log_translation_step("skip all expected package versions are already installed")
-            return
-
-        self._models_dir.mkdir(parents=True, exist_ok=True)
-        stage_dir = Path(tempfile.mkdtemp(prefix=".argos-update-", dir=self._models_dir))
-        self._model_count = len(missing)
-        try:
-            for index, (filename, source, target, _version) in enumerate(missing):
-                self._model_index = index
-                self._log_translation_step(f"download start file={filename}")
-                self._set_status(
-                    "Preparando modelos de tradução antes de atualizar...",
-                    f"Pacote {index + 1} de {len(missing)}: {filename}",
-                )
-                self._download_argos_model(filename, source, target, _version, stage_dir / filename)
-                self._log_translation_step(f"download and validation succeeded file={filename}")
-
-            # Só publica os arquivos no destino quando todos os pacotes foram validados.
-            for filename, _source, _target, _version in missing:
-                (stage_dir / filename).replace(self._models_dir / filename)
-            self._set_progress(0.62)
-            self._set_status("Modelos preparados.", "A Web Store os instalará ao iniciar.")
-            self._log_translation_step("all archives staged; awaiting Web Store startup installation")
-        except Exception as exc:
-            self._log_translation_step(f"preparation failed type={type(exc).__name__} message={str(exc)[:500]}")
-            raise
-        finally:
-            try:
-                for child in stage_dir.iterdir():
-                    child.unlink(missing_ok=True)
-                stage_dir.rmdir()
-            except OSError:
-                pass
-
     def _free_updater_exe(self) -> None:
         """Renomeia o próprio .exe para liberar o arquivo para o installer.
 
@@ -509,7 +359,6 @@ def main() -> None:
     parser.add_argument("--pid",     required=True,  type=int, help="PID do app principal")
     parser.add_argument("--exe",     required=True,  help="Caminho do executável principal")
     parser.add_argument("--version", default="",     help="Número da versão a instalar")
-    parser.add_argument("--models-dir", default="", help="Pasta persistente dos pacotes Argos")
     args = parser.parse_args()
 
     app = UpdaterApp(
@@ -517,7 +366,6 @@ def main() -> None:
         pid=args.pid,
         app_exe=args.exe,
         version=args.version,
-        models_dir=args.models_dir,
     )
     app.run()
 

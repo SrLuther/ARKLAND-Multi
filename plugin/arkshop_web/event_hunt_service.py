@@ -2949,6 +2949,8 @@ def admin_list_instances(
     *,
     event_session_id: int | None = None,
     status: str | None = None,
+    server_id: str | None = None,
+    map_name: str | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
@@ -2963,6 +2965,12 @@ def admin_list_instances(
     if status:
         where.append("status = :st")
         params["st"] = str(status)
+    if server_id:
+        where.append("server_id = :server_id")
+        params["server_id"] = str(server_id).strip()
+    if map_name:
+        where.append("map_name = :map_name")
+        params["map_name"] = str(map_name).strip()
     wh = " AND ".join(where)
     total = db.execute(
         text(f"SELECT COUNT(*) FROM event_hunt_instances WHERE {wh}"), params

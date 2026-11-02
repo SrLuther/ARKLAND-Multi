@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-02 01:40:32 -->
-<!-- Total de versões: 515 | Primeira: 1.11.22 -->
+<!-- Gerado: 2026-11-02 05:32:21 -->
+<!-- Total de versões: 516 | Primeira: 1.11.23 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.23] - 2026-11-02
+
+### Other
+
+- Tradutor: painel administrativo permite configurar chave, região e endpoint Azure no site; a chave é armazenada protegida no backend e nunca devolvida ao navegador.
+- Tradutor: traduções e teste administrativo usam as credenciais salvas no painel; configuração regional pode ser validada diretamente na Web Store.
+- ArkEventHunt: corrigida a reconciliação de instâncias Mode B no arranque; a Web Store fornece endpoint autenticado por API key, filtrado por servidor/mapa e limitado a instâncias ALIVE.
+- Web Store: ajustes de migração do tradutor para Azure e remoção das dependências e downloads Argos legados.
 
 ## [1.11.22] - 2026-11-02
 

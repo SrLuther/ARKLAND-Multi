@@ -39,11 +39,13 @@ Por padrão (`delivery_mode: plugin`), compras ficam **PENDENTE** no banco e o *
 
 RCON (`Shop.Deliver`) permanece disponível como modo legado (`delivery_mode: rcon`) ou forçado pelo admin (`/api/admin/orders/{id}/reprocess?force_rcon=1`).
 
-## Tradução de tickets (offline e gratuita)
+## Tradução de tickets (Azure AI Translator)
 
-O chat de suporte usa modelos locais do Argos Translate para português do Brasil, inglês e espanhol. O servidor baixa os modelos oficiais automaticamente na primeira tradução e verifica atualizações semanalmente quando estiver conectado à internet; depois de instalados, a tradução funciona sem internet. O jogador também pode usar **Verificar idiomas** ou **Baixar novamente** no balão de suporte. Os arquivos ficam em `translation/argos-packages` dentro do diretório persistente da Web Store.
+A tradução é feita sob demanda no backend usando a API oficial Azure AI Translator (v3). O texto original continua preservado e disponível se o serviço estiver indisponível; traduzir é uma ação independente e não bloqueia a criação nem o envio de mensagens do ticket. Idiomas de destino: português, inglês e espanhol. Quando a origem não é informada, o Azure detecta o idioma.
 
-Os quatro pares de modelos usam inglês como idioma intermediário e ocupam algumas centenas de MB. A primeira instalação ou o redownload exige internet no servidor; os textos dos tickets não são enviados a serviços externos.
+Configure no ambiente da Web Store (por exemplo, no `.env` persistente) ou pelo painel administrativo do atendimento: `AZURE_TRANSLATOR_KEY` e, para recursos regionais, `AZURE_TRANSLATOR_REGION`. O painel permite salvar a chave, região e endpoint; a chave é armazenada protegida em `settings.json`, enviada somente ao backend e nunca devolvida pela API. A configuração do painel tem precedência sobre as variáveis de ambiente correspondentes. O endpoint é opcional e usa `https://api.cognitive.microsofttranslator.com` por padrão. O administrador também ajusta o teto mensal e os percentuais de alerta no painel; os valores iniciais podem vir de `AZURE_TRANSLATOR_MONTHLY_CHARACTER_LIMIT` (0 ou vazio desativa o teto) e `AZURE_TRANSLATOR_ALERT_THRESHOLDS` (padrão `70,85,95,100`). `AZURE_TRANSLATOR_MAX_RETRIES` limita novas tentativas (padrão `1`, máximo `2`).
+
+O painel administrativo do suporte mostra o estado de configuração e o uso mensal, e oferece um teste real da API. A métrica é persistida no banco de dados. O updater não baixa nem instala modelos de tradução. Pacotes Argos antigos no diretório persistente são deixados intactos e não são mais usados.
 
 ## Controles de servidores pelo site
 

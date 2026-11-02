@@ -183,7 +183,10 @@ def _field_row(parent: tk.Widget, label: str, var: tk.Variable,
                is_pass: bool = False) -> None:
     row = tk.Frame(parent, bg=bg)
     row.pack(fill="x", padx=10, pady=2)
-    row.columnconfigure(0, weight=1)
+    # Mantém os campos próximos aos rótulos em janelas largas. O layout antigo
+    # empurrava cada entrada até a borda direita e deixava um vazio excessivo.
+    row.columnconfigure(0, weight=2, uniform="shop_field_columns")
+    row.columnconfigure(1, weight=3, uniform="shop_field_columns")
     ctk.CTkLabel(row, text=label, anchor="w", text_color="gray65",
                  font=ctk.CTkFont(size=11, weight="bold")).grid(
         row=0, column=0, sticky="w", padx=(0, 8))
@@ -193,7 +196,7 @@ def _field_row(parent: tk.Widget, label: str, var: tk.Variable,
             row=1, column=0, sticky="w", padx=(0, 8))
     e = ctk.CTkEntry(row, textvariable=var, width=width, height=26,
                      show="*" if is_pass else "")
-    e.grid(row=0, column=1, rowspan=2 if hint else 1, padx=(0, 0), sticky="e")
+    e.grid(row=0, column=1, rowspan=2 if hint else 1, padx=(0, 8), sticky="w")
 
 
 def _bool_row(parent: tk.Widget, label: str, var: tk.BooleanVar,
@@ -406,11 +409,11 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                 amt = g_data.get("Amount", 25) if isinstance(g_data, dict) else 25
                 _tp_group_vars[g_name] = tk.StringVar(value=str(amt))
 
-        _reset_shop_tab("🛒  Itens")
-        _reset_shop_tab("🎁  Kits")
+        _reset_shop_tab("🛒 Itens")
+        _reset_shop_tab("🎁 Kits")
         if import_timed:
-            _reset_shop_tab("⏱️  Pontos Temporais")
-        if tabs.get() in ("🛒  Itens", "🎁  Kits", "⏱️  Pontos Temporais"):
+            _reset_shop_tab("⏱️ Pontos")
+        if tabs.get() in ("🛒 Itens", "🎁 Kits", "⏱️ Pontos"):
             _rebuild_shop_tab(tabs.get())
 
         msg = (
@@ -548,12 +551,12 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                           segmented_button_selected_color=_GREEN_DARK,
                           segmented_button_selected_hover_color=_GREEN_HOVER)
     tabs.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
-    tabs.add("⚙️  Configurações")
-    tabs.add("🛒  Itens")
-    tabs.add("🎁  Kits")
-    tabs.add("⏱️  Pontos Temporais")
-    tabs.add("🗄️  Database")
-    tabs.add("🌐  Web Store")
+    tabs.add("⚙️ Geral")
+    tabs.add("🛒 Itens")
+    tabs.add("🎁 Kits")
+    tabs.add("⏱️ Pontos")
+    tabs.add("🗄️ Banco")
+    tabs.add("🌐 Web Store")
 
     _built_shop_tabs: set[str] = set()
 
@@ -585,7 +588,7 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
     _tp_group_vars: Dict[str, tk.StringVar] = {}
 
     def _build_tab_cfg() -> None:
-        t_cfg = ctk.CTkScrollableFrame(tabs.tab("⚙️  Configurações"), fg_color=_BG)
+        t_cfg = ctk.CTkScrollableFrame(tabs.tab("⚙️ Geral"), fg_color=_BG)
         t_cfg.pack(fill="both", expand=True)
         card_cfg = tk.Frame(t_cfg, bg=_INNER, highlightthickness=1,
                             highlightbackground=_BDR)
@@ -690,7 +693,7 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
         )
 
     def _build_tab_timed() -> None:
-        t_timed = ctk.CTkScrollableFrame(tabs.tab("⏱️  Pontos Temporais"), fg_color=_BG)
+        t_timed = ctk.CTkScrollableFrame(tabs.tab("⏱️ Pontos"), fg_color=_BG)
         t_timed.pack(fill="both", expand=True)
         card_tp = tk.Frame(t_timed, bg=_INNER, highlightthickness=1,
                            highlightbackground=_BDR)
@@ -775,7 +778,7 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
                       command=_add_group).pack(side="left")
 
     def _build_tab_db() -> None:
-        t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
+        t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️ Banco"), fg_color=_BG)
         t_db.pack(fill="both", expand=True)
         card_db = tk.Frame(t_db, bg=_INNER, highlightthickness=1,
                            highlightbackground=_BDR)
@@ -886,13 +889,13 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
         return _save_config(path, data)
 
     _TAB_BUILDERS = {
-        "⚙️  Configurações": _build_tab_cfg,
-        "🛒  Itens": lambda: _build_items_tab(app, tabs.tab("🛒  Itens"), data),
-        "🎁  Kits": lambda: _build_kits_tab(app, tabs.tab("🎁  Kits"), data),
-        "⏱️  Pontos Temporais": _build_tab_timed,
-        "🗄️  Database": _build_tab_db,
-        "🌐  Web Store": lambda: _build_webstore_tab(
-            app, tabs.tab("🌐  Web Store"),
+        "⚙️ Geral": _build_tab_cfg,
+        "🛒 Itens": lambda: _build_items_tab(app, tabs.tab("🛒 Itens"), data),
+        "🎁 Kits": lambda: _build_kits_tab(app, tabs.tab("🎁 Kits"), data),
+        "⏱️ Pontos": _build_tab_timed,
+        "🗄️ Banco": _build_tab_db,
+        "🌐 Web Store": lambda: _build_webstore_tab(
+            app, tabs.tab("🌐 Web Store"),
             get_catalog=_memory_catalog,
             get_catalog_path=canonical_master_catalog_path,
             collect_catalog=_collect_all,
@@ -924,7 +927,7 @@ def _build_customshop_panel_inner(app: "ARKServerManagerApp", parent: tk.Widget)
         parent.after(0, _do_build)
 
     tabs.configure(command=_on_shop_tab_change)
-    _built_shop_tabs.add("⚙️  Configurações")
+    _built_shop_tabs.add("⚙️ Geral")
     _build_tab_cfg()
 
     def _reload() -> None:
@@ -1648,8 +1651,28 @@ def _build_webstore_tab(
     collect_catalog,
     persist_catalog,
 ) -> None:
-    scr = ctk.CTkScrollableFrame(parent, fg_color=_BG)
-    scr.pack(fill="both", expand=True)
+    # Divide a configuração longa da Web Store em áreas de trabalho claras,
+    # mantendo os mesmos widgets, variáveis e callbacks de cada seção.
+    web_tabs = ctk.CTkTabview(
+        parent,
+        fg_color=_BG,
+        segmented_button_fg_color="#141428",
+        segmented_button_selected_color=_GREEN_DARK,
+        segmented_button_selected_hover_color=_GREEN_HOVER,
+    )
+    web_tabs.pack(fill="both", expand=True)
+    for section_name in ("Conexão", "Serviço", "Banco de pedidos", "Servidores e acesso"):
+        web_tabs.add(section_name)
+    web_sections = {
+        section_name: ctk.CTkScrollableFrame(web_tabs.tab(section_name), fg_color=_BG)
+        for section_name in ("Conexão", "Serviço", "Banco de pedidos", "Servidores e acesso")
+    }
+    for section in web_sections.values():
+        section.pack(fill="both", expand=True)
+    scr = web_sections["Conexão"]
+    service_scr = web_sections["Serviço"]
+    orders_scr = web_sections["Banco de pedidos"]
+    servers_scr = web_sections["Servidores e acesso"]
 
     shop = app.config_manager.config.shop
     _port_var = tk.StringVar(value=str(shop.port or DEFAULT_SHOP_PORT))
@@ -1836,7 +1859,8 @@ def _build_webstore_tab(
     )
     pub_shop_row = tk.Frame(card_mode, bg=_INNER)
     pub_shop_row.pack(fill="x", padx=10, pady=(6, 2))
-    pub_shop_row.columnconfigure(0, weight=1)
+    pub_shop_row.columnconfigure(0, weight=2, uniform="shop_field_columns")
+    pub_shop_row.columnconfigure(1, weight=3, uniform="shop_field_columns")
     ctk.CTkLabel(pub_shop_row, text="Domínio público (jogadores / chat)", anchor="w",
                  text_color="gray65", font=ctk.CTkFont(size=11, weight="bold")).grid(
         row=0, column=0, sticky="w")
@@ -1847,7 +1871,7 @@ def _build_webstore_tab(
         anchor="w", text_color="gray40", font=ctk.CTkFont(size=9), wraplength=680,
     ).grid(row=1, column=0, sticky="w")
     ctk.CTkEntry(pub_shop_row, textvariable=_public_shop_url_var, width=360, height=26).grid(
-        row=0, column=1, rowspan=2, sticky="e", padx=(0, 6))
+        row=0, column=1, rowspan=2, sticky="w", padx=(0, 6))
     _shop_url_copy_btn = ctk.CTkButton(
         pub_shop_row, text="📋", width=36, height=26,
         fg_color="#2a2a2a", hover_color="#404040",
@@ -1860,7 +1884,8 @@ def _build_webstore_tab(
     )
     pub_row = tk.Frame(card_mode, bg=_INNER)
     pub_row.pack(fill="x", padx=10, pady=2)
-    pub_row.columnconfigure(0, weight=1)
+    pub_row.columnconfigure(0, weight=2, uniform="shop_field_columns")
+    pub_row.columnconfigure(1, weight=3, uniform="shop_field_columns")
     ctk.CTkLabel(pub_row, text="IP público (DNS / diagnóstico)", anchor="w", text_color="gray65",
                  font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
     ctk.CTkLabel(
@@ -1870,7 +1895,7 @@ def _build_webstore_tab(
         anchor="w", text_color="gray40", font=ctk.CTkFont(size=9),
     ).grid(row=1, column=0, sticky="w")
     ctk.CTkEntry(pub_row, textvariable=_public_ip_var, width=200, height=26).grid(
-        row=0, column=1, rowspan=2, sticky="e", padx=(0, 6))
+        row=0, column=1, rowspan=2, sticky="w", padx=(0, 6))
     _pub_detect_btn = ctk.CTkButton(
         pub_row, text="🔄 Detectar", width=90, height=26,
         fg_color="#2a3050", hover_color="#3a4060",
@@ -1960,7 +1985,7 @@ def _build_webstore_tab(
     _refresh_access_labels()
 
     # ── Status & processo (somente host) ──────────────────────────────────
-    card_status = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_status = tk.Frame(service_scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_status.pack(fill="x", padx=12, pady=6)
     _head(card_status, "▶  Processo da Web Store (modo Host)")
 
@@ -2131,7 +2156,7 @@ def _build_webstore_tab(
     _host_only_widgets.append(card_status)
 
     # ── Banco de pedidos ──────────────────────────────────────────────────
-    card_db = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_db = tk.Frame(orders_scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_db.pack(fill="x", padx=12, pady=6)
     _head(card_db, "🗄️  Banco de Pedidos (arkshop_web)")
 
@@ -2149,7 +2174,7 @@ def _build_webstore_tab(
              bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9)).pack(anchor="w", padx=10, pady=(0, 6))
 
     # ── Servidores deste app ──────────────────────────────────────────────
-    card_srv = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_srv = tk.Frame(servers_scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_srv.pack(fill="x", padx=12, pady=6)
     _head(card_srv, "🖧  Servidores ARK deste app")
 
@@ -2679,7 +2704,7 @@ def _build_webstore_tab(
                   command=_rebuild_server_rows).pack(side="left", padx=(10, 0))
 
     # ── Admins SteamID ────────────────────────────────────────────────────
-    card_admins = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_admins = tk.Frame(servers_scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_admins.pack(fill="x", padx=12, pady=6)
     _head(card_admins, "🔑  Admins da Web Store (SteamID64)")
 
@@ -2708,7 +2733,7 @@ def _build_webstore_tab(
                   command=_save_admins).pack(anchor="w", padx=10, pady=(0, 10))
 
     # ── Links de Download ──────────────────────────────────────────────────
-    card_dl = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_dl = tk.Frame(servers_scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_dl.pack(fill="x", padx=12, pady=6)
     _head(card_dl, "⬇️  Links de Download (visíveis na web store)")
 

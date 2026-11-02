@@ -1,449 +1,372 @@
-"""Free offline ticket translation backed by locally installed Argos models."""
+"""Provider-neutral ticket translation service with an Azure Translator adapter."""
 from __future__ import annotations
 
-import os
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+import http.client
 import json
-import zipfile
 import logging
-import urllib.request
-import tempfile
-from urllib.parse import urlparse
-from pathlib import Path
-from threading import Lock
-from datetime import datetime, timedelta, timezone
+import math
+import os
+import socket
+import time
+from typing import Callable
+from urllib.parse import urlencode, urlsplit
+import uuid
 
-_MODEL_PAIRS = (("en", "pb"), ("pb", "en"), ("en", "es"), ("es", "en"))
-_MODEL_LOCK = Lock()
-_INDEX_MIRRORS = (
-    "https://cdn.jsdelivr.net/gh/argosopentech/argospm-index@main/index.json",
-)
-_DIRECT_MODEL_FILES = {
-    ("en", "pb"): ("translate-en_pb-1_9.argosmodel", "1.9"),
-    ("pb", "en"): ("translate-pb_en-1_9.argosmodel", "1.9"),
-    ("en", "es"): ("translate-en_es-1_0.argosmodel", "1.0"),
-    ("es", "en"): ("translate-es_en-1_9.argosmodel", "1.9"),
-}
+_SUPPORTED_LANGUAGES = frozenset({"pt", "en", "es"})
+_logger = logging.getLogger(__name__)
 
 
 class TranslationServiceError(RuntimeError):
-    """Safe-to-return diagnostic metadata; the original exception stays in logs."""
+    """Safe diagnostic metadata; never contains request credentials or text."""
 
-    def __init__(self, code: str, stage: str, message: str, pair=None):
+    def __init__(self, code: str, stage: str, message: str,
+                 *, http_status: int | None = None, request_id: str | None = None,
+                 source_language: str | None = None,
+                 target_language: str | None = None):
         super().__init__(message)
         self.code = code
         self.stage = stage
-        self.pair = pair
+        self.http_status = http_status
+        self.request_id = request_id
+        self.source_language = source_language
+        self.target_language = target_language
 
 
-class _DirectModelCandidate:
-    """Known official Argos packages used when its index is unavailable."""
+@dataclass(frozen=True)
+class TranslationResult:
+    translated_text: str
+    source_language: str | None
+    target_language: str
+    provider: str
+    confidence: float | None
+    request_id: str | None
+    metered_characters: int | None
+    duration_ms: int
+    http_status: int | None
+    skipped: bool = False
 
-    def __init__(self, pair, filename, version):
-        self.from_code, self.to_code = pair
-        self.package_version = version
-        self.links = [f"https://data.argosopentech.com/argospm/v1/{filename}"]
-
-    def download(self):
-        request = urllib.request.Request(
-            self.links[0], headers={"User-Agent": "ARKLAND-WebStore/1.11.15"}
-        )
-        with urllib.request.urlopen(request, timeout=90) as response:
-            payload = response.read()
-        handle = tempfile.NamedTemporaryFile(
-            prefix="arkland-translate-", suffix=".argosmodel", delete=False
-        )
-        try:
-            handle.write(payload)
-            return Path(handle.name)
-        finally:
-            handle.close()
-
-
-def _direct_model_candidates():
-    return [
-        _DirectModelCandidate(pair, filename, version)
-        for pair, (filename, version) in _DIRECT_MODEL_FILES.items()
-    ]
+    def as_dict(self) -> dict:
+        return {
+            "translated_text": self.translated_text,
+            "source_language": self.source_language,
+            "target_language": self.target_language,
+            "provider": self.provider,
+            "confidence": self.confidence,
+            "request_id": self.request_id,
+            "metered_characters": self.metered_characters,
+            "duration_ms": self.duration_ms,
+            "http_status": self.http_status,
+            "skipped": self.skipped,
+        }
 
 
-def _available_packages(argos_package):
-    """Refresh Argos' package index, with a CDN mirror and cached fallback."""
-    settings = getattr(argos_package, "settings", None)
-    if settings is None:
-        try:
-            argos_package.update_package_index()
-            return argos_package.get_available_packages()
-        except Exception as exc:
-            logging.getLogger(__name__).warning(
-                "Argos index refresh failed (%s); using official package links",
-                type(exc).__name__,
-            )
-            return None
-    index_path = Path(settings.local_package_index)
-    urls = [str(settings.remote_package_index), *_INDEX_MIRRORS]
-    failures = []
-    for url in dict.fromkeys(urls):
-        try:
-            request = urllib.request.Request(
-                url, headers={"User-Agent": "ARKLAND-WebStore/1.11.14"}
-            )
-            with urllib.request.urlopen(request, timeout=25) as response:
-                payload = response.read()
-            data = json.loads(payload)
-            if not isinstance(data, list) or not data:
-                raise ValueError("índice vazio ou inválido")
-            indexed_pairs = {
-                (item.get("from_code"), item.get("to_code"))
-                for item in data
-                if isinstance(item, dict)
-            }
-            # Argos can temporarily remove a package pair from its catalog.
-            # Keep the usable catalog and let refresh_translation_models retain
-            # already-installed pairs while reporting only missing packages.
-            if not indexed_pairs.intersection(_MODEL_PAIRS):
-                raise ValueError("índice não contém modelos suportados")
-            index_path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = index_path.with_suffix(index_path.suffix + ".tmp")
-            temporary.write_bytes(payload)
-            temporary.replace(index_path)
-            return argos_package.get_available_packages()
-        except Exception as exc:
-            failures.append(f"{urlparse(url).hostname or 'index'}: {type(exc).__name__}")
-
-    try:
-        cached = argos_package.get_available_packages()
-        if cached:
-            present = {(item.from_code, item.to_code) for item in cached}
-            cached.extend(item for item in _direct_model_candidates() if (item.from_code, item.to_code) not in present)
-            logging.getLogger(__name__).warning(
-                "Argos index unavailable; using cache plus official package links (%s)",
-                "; ".join(failures),
-            )
-            return cached
-    except Exception as exc:
-        failures.append(f"cache: {type(exc).__name__}")
-    logging.getLogger(__name__).warning(
-        "Argos index and cache unavailable; using fixed official package links (%s)",
-        "; ".join(failures),
-    )
-    return None
-
-
-def _install_staged_models(argos_package, model_dir: Path) -> None:
-    """Install only missing supported pairs from the updater's persistent archive directory."""
-    installed_pairs = set(_installed_by_pair(argos_package))
-    for package_path in model_dir.glob("*.argosmodel"):
-        pair = None
-        try:
-            with zipfile.ZipFile(package_path) as archive:
-                metadata_item = None
-                uncompressed_size = 0
-                for item in archive.infolist():
-                    member = Path(item.filename.replace("\\", "/"))
-                    if member.is_absolute() or ".." in member.parts:
-                        raise ValueError("caminho inválido no pacote")
-                    uncompressed_size += item.file_size
-                    if uncompressed_size > 500 * 1024 * 1024:
-                        raise ValueError("pacote excede o limite após extração")
-                    if item.filename.endswith("metadata.json"):
-                        metadata_item = item
-                if metadata_item is None:
-                    raise ValueError("metadata.json ausente")
-                metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
-            pair = (metadata.get("from_code"), metadata.get("to_code"))
-            if pair not in _MODEL_PAIRS:
-                raise ValueError(f"par de idiomas não suportado: {pair}")
-            if pair in installed_pairs:
-                logging.getLogger(__name__).info(
-                    "[Translation] %s -> %s already installed; retaining staged archive",
-                    pair[0], pair[1],
-                )
-                continue
-            logging.getLogger(__name__).info(
-                "[Translation] Local package found for %s -> %s; installing",
-                pair[0], pair[1],
-            )
-            argos_package.install_from_path(package_path)
-            installed_pairs.add(pair)
-            package_path.unlink()
-            logging.getLogger(__name__).info(
-                "[Translation] %s -> %s installed successfully", pair[0], pair[1]
-            )
-        except Exception as exc:
-            logging.getLogger(__name__).warning(
-                "[Translation] Failed installing staged model pair=%s stage=local_install error_type=%s",
-                "_to_".join(pair) if pair else "unknown", type(exc).__name__, exc_info=True,
-            )
-
-
-def _runtime_modules():
-    """Set the persistent model directory before Argos reads its settings."""
-    from src.shop_integration import webstore_data_dir
-
-    model_dir = Path(webstore_data_dir()) / "translation" / "argos-packages"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    # Use Argos' lightweight MiniSBD path; Stanza would pull a large optional
-    # Torch/SpaCy runtime that the Web Store does not need.
-    os.environ.setdefault("ARGOS_STANZA_AVAILABLE", "false")
-    # Do not inherit a stale environment override from another service/app version.
-    os.environ["ARGOS_PACKAGES_DIR"] = str(model_dir)
-    os.environ["ARGOS_PACKAGE_DIR"] = str(model_dir)
-    logging.getLogger(__name__).info(
-        "[Translation] Persistent Argos package directory: %s", model_dir
-    )
-
-    try:
-        import argostranslate.package as argos_package
-        import argostranslate.translate as argos_translate
-        from langdetect import DetectorFactory, detect
-    except Exception as exc:
+def _config(config_override: dict | None = None) -> dict[str, str]:
+    override = config_override if isinstance(config_override, dict) else {}
+    key = (str(override.get("key") or "").strip()
+           or (os.environ.get("AZURE_TRANSLATOR_KEY") or "").strip())
+    endpoint = (str(override.get("endpoint") or "").strip()
+                or (os.environ.get("AZURE_TRANSLATOR_ENDPOINT") or
+                    "https://api.cognitive.microsofttranslator.com").strip()).rstrip("/")
+    region = (str(override.get("region") or "").strip()
+              or (os.environ.get("AZURE_TRANSLATOR_REGION") or "").strip())
+    version = (os.environ.get("AZURE_TRANSLATOR_API_VERSION") or "3.0").strip()
+    parts = urlsplit(endpoint)
+    if not key:
         raise TranslationServiceError(
-            "ARGOS_INIT_FAILED", "argos_init", "Não foi possível inicializar o Argos."
+            "AZURE_TRANSLATOR_NOT_CONFIGURED", "configuration",
+            "O Azure Translator não está configurado.",
+        )
+    if (parts.scheme != "https" or not parts.hostname or parts.username or parts.password
+            or parts.query or parts.fragment):
+        raise TranslationServiceError(
+            "AZURE_TRANSLATOR_NOT_CONFIGURED", "configuration",
+            "O endpoint do Azure Translator é inválido.",
+        )
+    try:
+        parts.port
+    except ValueError as exc:
+        raise TranslationServiceError(
+            "AZURE_TRANSLATOR_NOT_CONFIGURED", "configuration",
+            "A porta do endpoint do Azure Translator é inválida.",
         ) from exc
-
-    # The updater can stage packages before Web Store startup; install only missing pairs.
-    _install_staged_models(argos_package, model_dir)
-
-    DetectorFactory.seed = 0
-    return argos_package, argos_translate, detect
-
-
-def _model_directory() -> Path:
-    from src.shop_integration import webstore_data_dir
-
-    return Path(webstore_data_dir()) / "translation" / "argos-packages"
-
-
-def install_translation_model(path: str | Path) -> dict:
-    """Validate and install one manually uploaded Argos model package."""
-    package_path = Path(path)
-    if package_path.suffix.lower() != ".argosmodel" or package_path.stat().st_size > 350 * 1024 * 1024:
-        raise ValueError("Envie um arquivo .argosmodel de até 350 MiB.")
-    with zipfile.ZipFile(package_path) as archive:
-        total_uncompressed = 0
-        metadata_item = None
-        for item in archive.infolist():
-            member = Path(item.filename.replace("\\", "/"))
-            if member.is_absolute() or ".." in member.parts:
-                raise ValueError("O pacote contém um caminho inválido.")
-            total_uncompressed += item.file_size
-            if total_uncompressed > 500 * 1024 * 1024:
-                raise ValueError("O pacote excede o tamanho máximo permitido após extração.")
-            if item.filename.endswith("metadata.json"):
-                metadata_item = item
-        if metadata_item is None:
-            raise ValueError("O pacote não contém metadata.json.")
-        metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
-    pair = (metadata.get("from_code"), metadata.get("to_code"))
-    if pair not in _MODEL_PAIRS:
-        raise ValueError("Este pacote não corresponde a um dos idiomas suportados.")
-    with _MODEL_LOCK:
-        argos_package, _argos_translate, _detect = _runtime_modules()
-        argos_package.install_from_path(package_path)
-    return {"from": pair[0], "to": pair[1]}
-
-
-def _installed_by_pair(argos_package):
-    installed = {}
-    for package in argos_package.get_installed_packages():
-        if (package.from_code, package.to_code) in _MODEL_PAIRS:
-            installed.setdefault((package.from_code, package.to_code), []).append(package)
-    return installed
-
-
-def _download_model(candidate) -> Path:
-    """Download a model, falling back to Argos' public package mirror.
-
-    Some hosting networks reject argos-net.com while allowing the official
-    data.argosopentech.com mirror. Argos' downloader does not retry alternate
-    hosts after an HTTP error, so retry the same package filename on that mirror.
-    """
-    try:
-        return candidate.download()
-    except Exception:
-        original_links = candidate.links
-        model_name = Path(urlparse(original_links[0]).path).name if original_links else ""
-        if not model_name.endswith(".argosmodel"):
-            raise
-        candidate.links = [f"https://data.argosopentech.com/argospm/v1/{model_name}"]
-        try:
-            return candidate.download()
-        finally:
-            candidate.links = original_links
-
-
-def refresh_translation_models(*, force_redownload: bool = False, check_now: bool = False) -> dict:
-    """Check the official model index and install missing/newer models locally."""
-    with _MODEL_LOCK:
-        try:
-            argos_package, _argos_translate, _detect = _runtime_modules()
-            installed = _installed_by_pair(argos_package)
-        except TranslationServiceError:
-            raise
-        except Exception as exc:
-            raise TranslationServiceError(
-                "ARGOS_PACKAGE_SCAN_FAILED", "installed_models", "Não foi possível verificar os modelos instalados."
-            ) from exc
-        model_dir = _model_directory()
-        checked_file = model_dir.parent / "last_checked.json"
-        try:
-            last_checked = datetime.fromisoformat(
-                json.loads(checked_file.read_text(encoding="utf-8")).get("checked_at", "")
-            )
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            last_checked = None
-
-        missing = [pair for pair in _MODEL_PAIRS if not installed.get(pair)]
-        due = last_checked is None or datetime.now(timezone.utc) - last_checked >= timedelta(days=7)
-        if not force_redownload and not check_now and not missing and not due:
-            return {"installed": len(_MODEL_PAIRS), "updated": 0, "checked": False}
-
-        try:
-            available = _available_packages(argos_package)
-        except Exception as exc:
-            raise TranslationServiceError(
-                "ARGOS_INDEX_UNAVAILABLE", "index_update", "Não foi possível consultar o catálogo Argos."
-            ) from exc
-        if not available and not force_redownload and not missing:
-            logging.getLogger(__name__).warning(
-                "[Translation] Installed models remain usable; index unavailable stage=index_update"
-            )
-            return {
-                "installed": len(_MODEL_PAIRS), "updated": 0, "checked": False,
-                "warning_code": "ARGOS_INDEX_UNAVAILABLE",
-            }
-        if not available:
-            available = _direct_model_candidates()
-        present_pairs = {(item.from_code, item.to_code) for item in available}
-        available.extend(
-            item for item in _direct_model_candidates()
-            if (item.from_code, item.to_code) not in present_pairs
+    if not version:
+        raise TranslationServiceError(
+            "AZURE_TRANSLATOR_NOT_CONFIGURED", "configuration",
+            "A versão da API Azure Translator não está configurada.",
         )
-        installed_count = 0
-        updated_count = 0
-        from packaging.version import parse as parse_version
-
-        for pair in _MODEL_PAIRS:
-            current = installed.get(pair, [])
-            candidate = next(
-                (item for item in available if (item.from_code, item.to_code) == pair),
-                None,
-            )
-            if candidate is None:
-                if current:
-                    installed_count += 1
-                    continue
-                raise TranslationServiceError(
-                    "MODEL_NOT_FOUND", "catalog_lookup", "Modelo gratuito indisponível.", pair
-                )
-
-            newest = max(current, key=lambda item: parse_version(item.package_version), default=None)
-            if newest:
-                logging.getLogger(__name__).info(
-                    "[Translation] %s -> %s already installed version=%s",
-                    pair[0], pair[1], newest.package_version,
-                )
-            else:
-                logging.getLogger(__name__).info(
-                    "[Translation] %s -> %s missing", pair[0], pair[1]
-                )
-            should_install = force_redownload or newest is None or parse_version(candidate.package_version) > parse_version(newest.package_version)
-            if isinstance(candidate, _DirectModelCandidate) and newest is not None:
-                should_install = should_install and parse_version(candidate.package_version) >= parse_version(newest.package_version)
-            if not should_install:
-                installed_count += 1
-                continue
-
-            try:
-                downloaded = _download_model(candidate)
-            except Exception as exc:
-                raise TranslationServiceError(
-                    "MODEL_DOWNLOAD_FAILED", "download", "Não foi possível baixar o modelo.", pair
-                ) from exc
-            try:
-                # Verify the downloaded archive using the same archive safety rules as manual upload.
-                with zipfile.ZipFile(downloaded) as archive:
-                    total_uncompressed = 0
-                    metadata_item = None
-                    for item in archive.infolist():
-                        member = Path(item.filename.replace("\\", "/"))
-                        if member.is_absolute() or ".." in member.parts:
-                            raise ValueError("caminho inválido no pacote")
-                        total_uncompressed += item.file_size
-                        if total_uncompressed > 500 * 1024 * 1024:
-                            raise ValueError("pacote excede o limite após extração")
-                        if item.filename.endswith("metadata.json"):
-                            metadata_item = item
-                    if metadata_item is None:
-                        raise ValueError("metadata.json ausente")
-                    metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
-                    if (metadata.get("from_code"), metadata.get("to_code")) != pair:
-                        raise ValueError("par de idiomas divergente")
-            except Exception as exc:
-                Path(downloaded).unlink(missing_ok=True)
-                raise TranslationServiceError(
-                    "MODEL_VALIDATION_FAILED", "validation", "O pacote baixado não passou na validação.", pair
-                ) from exc
-            try:
-                argos_package.install_from_path(downloaded)
-            except Exception as exc:
-                raise TranslationServiceError(
-                    "MODEL_INSTALL_FAILED", "install", "Não foi possível instalar o modelo.", pair
-                ) from exc
-            Path(downloaded).unlink(missing_ok=True)
-            refreshed = _installed_by_pair(argos_package).get(pair, [])
-            newest_installed = max(
-                refreshed,
-                key=lambda item: parse_version(item.package_version),
-                default=None,
-            )
-            for old in current:
-                if newest_installed and old.package_path != newest_installed.package_path:
-                    argos_package.uninstall(old)
-            installed_count += 1
-            if newest is not None:
-                updated_count += 1
-
-        checked_file.parent.mkdir(parents=True, exist_ok=True)
-        checked_file.write_text(
-            json.dumps({"checked_at": datetime.now(timezone.utc).isoformat()}, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        return {"installed": installed_count, "updated": updated_count, "checked": True}
+    return {"key": key, "endpoint": endpoint, "region": region, "version": version}
 
 
-def translate_offline(text: str, target: str) -> str:
-    """Translate among Portuguese, English and Spanish without sending text out."""
-    if target not in {"pt", "en", "es"}:
-        raise ValueError("Idioma de destino inválido")
-
+def translator_status(*, limit_override=None, thresholds_override=None,
+                      config_override: dict | None = None) -> dict:
+    """Safe configuration view. The key itself is never returned."""
     try:
-        argos_package, argos_translate, detect = _runtime_modules()
+        config = _config(config_override)
+        key_set = bool(config["key"])
+        endpoint = config["endpoint"]
+        region = config["region"]
     except TranslationServiceError:
-        raise
-    except Exception as exc:
-        raise TranslationServiceError(
-            "ARGOS_INIT_FAILED", "argos_init", "Não foi possível inicializar o Argos."
-        ) from exc
+        override = config_override if isinstance(config_override, dict) else {}
+        key_set = bool(str(override.get("key") or os.environ.get("AZURE_TRANSLATOR_KEY") or "").strip())
+        endpoint = (str(override.get("endpoint") or os.environ.get("AZURE_TRANSLATOR_ENDPOINT") or
+                        "https://api.cognitive.microsofttranslator.com").strip().rstrip("/"))
+        region = str(override.get("region") or os.environ.get("AZURE_TRANSLATOR_REGION") or "").strip()
+    parts = urlsplit(endpoint)
     try:
-        refresh_translation_models()
-    except Exception:
-        # Once installed, keep translation available offline if the update source is down.
-        if len(_installed_by_pair(argos_package)) < len(_MODEL_PAIRS):
-            raise
-        source = detect(text)
+        valid_port = parts.port
+        port_valid = True
+    except ValueError:
+        valid_port = None
+        port_valid = False
+    valid_endpoint = (parts.scheme == "https" and bool(parts.hostname) and not parts.username
+                      and not parts.password and not parts.query and not parts.fragment and port_valid)
+    return {
+        "provider": "azure",
+        "configured": key_set and valid_endpoint,
+        "key_configured": key_set,
+        "endpoint": (f"https://{parts.hostname}" + (f":{valid_port}" if valid_port else "") + parts.path.rstrip("/")) if valid_endpoint else "inválido",
+        "region": region or None,
+        "api_version": (os.environ.get("AZURE_TRANSLATOR_API_VERSION") or "3.0").strip(),
+        "monthly_character_limit": monthly_character_limit(limit_override),
+        "limit_configured": monthly_character_limit(limit_override) > 0,
+        "alert_thresholds": alert_thresholds(thresholds_override),
+    }
+
+
+def monthly_character_limit(override=None) -> int:
+    raw = (os.environ.get("AZURE_TRANSLATOR_MONTHLY_CHARACTER_LIMIT") or "").strip() if override is None else override
+    if not raw:
+        return 0
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        _logger.error("Invalid AZURE_TRANSLATOR_MONTHLY_CHARACTER_LIMIT; monthly cap disabled")
+        return 0
+
+
+def alert_thresholds(override=None) -> list[int]:
+    raw = os.environ.get("AZURE_TRANSLATOR_ALERT_THRESHOLDS", "70,85,95,100") if override is None else override
+    if isinstance(raw, (list, tuple, set)):
+        raw = ",".join(str(value) for value in raw)
+    raw = str(raw or "")
+    values = set()
+    for part in raw.split(","):
+        try:
+            value = int(part.strip())
+        except (TypeError, ValueError):
+            continue
+        if 1 <= value <= 100:
+            values.add(value)
+    return sorted(values)
+
+
+def _path_for(endpoint: str, version: str, target: str, source: str | None) -> tuple[str, str, int]:
+    parts = urlsplit(endpoint)
+    base_path = parts.path.rstrip("/")
+    if base_path.endswith("/translator/text/v3.0"):
+        api_path = base_path + "/translate"
+    elif base_path.endswith("/translate"):
+        api_path = base_path
+    elif not base_path and (parts.hostname or "").endswith(".cognitiveservices.azure.com"):
+        api_path = "/translator/text/v3.0/translate"
     else:
-        source = detect(text)
-    if source not in {"pt", "en", "es"}:
-        raise ValueError("O idioma de origem não é compatível")
-    argos_source = "pb" if source == "pt" else source
-    argos_target = "pb" if target == "pt" else target
-    if argos_source == argos_target:
-        return text
+        api_path = base_path + "/translate"
+    query = {"api-version": version, "to": target}
+    if source:
+        query["from"] = source
+    return parts.hostname or "", api_path + "?" + urlencode(query), (parts.port or 443)
+
+
+def _retry_delay(value: str | None, attempt: int) -> float:
+    if value:
+        try:
+            return min(5.0, max(0.0, float(value)))
+        except ValueError:
+            try:
+                dt = parsedate_to_datetime(value)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return min(5.0, max(0.0, (dt - datetime.now(timezone.utc)).total_seconds()))
+            except (TypeError, ValueError, OverflowError):
+                pass
+    return min(1.5, 0.35 * (2 ** max(0, attempt - 1)))
+
+
+def _max_retries() -> int:
     try:
-        return argos_translate.translate(text, argos_source, argos_target)
-    except Exception as exc:
-        raise TranslationServiceError(
-            "MODEL_LOAD_FAILED", "translation", "Não foi possível carregar o par de tradução.",
-            (argos_source, argos_target),
-        ) from exc
+        return min(2, max(0, int(os.environ.get("AZURE_TRANSLATOR_MAX_RETRIES", "1"))))
+    except (TypeError, ValueError):
+        return 1
+
+
+class AzureTranslator:
+    """Azure Translator Text API v3 adapter."""
+
+    def translate(self, text: str, target_language: str,
+                  source_language: str | None = None, *,
+                  config_override: dict | None = None,
+                  trace_id: str | None = None,
+                  before_attempt: Callable[[int], bool] | None = None,
+                  after_attempt: Callable[[dict], None] | None = None) -> TranslationResult:
+        text = str(text or "")
+        target = str(target_language or "").strip().lower()
+        source = str(source_language or "").strip().lower() or None
+        if target not in _SUPPORTED_LANGUAGES:
+            raise TranslationServiceError("TRANSLATION_BAD_REQUEST", "validation",
+                                          "Idioma de destino não suportado.", target_language=target)
+        if source and source not in _SUPPORTED_LANGUAGES:
+            source = None
+        if not text.strip():
+            raise TranslationServiceError("TRANSLATION_BAD_REQUEST", "validation",
+                                          "O texto está vazio.", source_language=source,
+                                          target_language=target)
+        if len(text) > 5000:
+            raise TranslationServiceError("TRANSLATION_BAD_REQUEST", "validation",
+                                          "O limite por tradução é de 5.000 caracteres.",
+                                          source_language=source, target_language=target)
+        if source == target:
+            return TranslationResult(text, source, target, "none", 1.0, None, 0, 0, None, True)
+
+        config = _config(config_override)
+        host, path, port = _path_for(config["endpoint"], config["version"], target, source)
+        trace_id = trace_id or str(uuid.uuid4())
+        body = json.dumps([{"Text": text}], ensure_ascii=False).encode("utf-8")
+        headers = {
+            "Ocp-Apim-Subscription-Key": config["key"],
+            "Content-Type": "application/json; charset=UTF-8",
+            "Content-Length": str(len(body)),
+            "X-ClientTraceId": trace_id,
+        }
+        if config["region"]:
+            headers["Ocp-Apim-Subscription-Region"] = config["region"]
+
+        transient_statuses = {408, 429, 500, 502, 503, 504}
+        retries = _max_retries()
+        attempt = 0
+        while True:
+            attempt += 1
+            if before_attempt and not before_attempt(len(text)):
+                raise TranslationServiceError("AZURE_TRANSLATOR_MONTHLY_LIMIT", "quota",
+                                              "O limite mensal de tradução foi atingido.",
+                                              source_language=source, target_language=target)
+            started = time.monotonic()
+            response_headers: dict[str, str] = {}
+            status = 0
+            request_id = None
+            metered = None
+            try:
+                connection = http.client.HTTPSConnection(host, port=port, timeout=5)
+                try:
+                    connection.request("POST", path, body=body, headers=headers)
+                    if connection.sock:
+                        connection.sock.settimeout(15)
+                    response = connection.getresponse()
+                    status = int(response.status)
+                    response_headers = {k.lower(): v for k, v in response.getheaders()}
+                    request_id = response_headers.get("x-requestid") or response_headers.get("x-ms-request-id")
+                    raw = response.read(1024 * 1024)
+                finally:
+                    connection.close()
+                duration_ms = int((time.monotonic() - started) * 1000)
+                try:
+                    metered_raw = response_headers.get("x-metered-usage")
+                    metered = int(metered_raw) if metered_raw is not None else None
+                except (TypeError, ValueError):
+                    metered = None
+                if status in transient_statuses and attempt <= retries:
+                    if after_attempt:
+                        after_attempt({"success": False, "reserved_characters": len(text),
+                                       "metered_characters": metered, "http_status": status,
+                                       "request_id": request_id, "duration_ms": duration_ms,
+                                       "source_language": source, "target_language": target,
+                                       "error_code": "AZURE_TRANSLATOR_RATE_LIMITED" if status == 429 else "AZURE_TRANSLATOR_UNAVAILABLE"})
+                    time.sleep(_retry_delay(response_headers.get("retry-after"), attempt))
+                    continue
+                if status < 200 or status >= 300:
+                    code = {
+                        400: "AZURE_TRANSLATOR_BAD_REQUEST",
+                        401: "AZURE_TRANSLATOR_AUTH_FAILED",
+                        403: "AZURE_TRANSLATOR_FORBIDDEN",
+                        429: "AZURE_TRANSLATOR_RATE_LIMITED",
+                    }.get(status, "AZURE_TRANSLATOR_UNAVAILABLE" if status >= 500 or status == 408 else "TRANSLATION_FAILED")
+                    if after_attempt:
+                        after_attempt({"success": False, "reserved_characters": len(text),
+                                       "metered_characters": metered, "http_status": status,
+                                       "request_id": request_id, "duration_ms": duration_ms,
+                                       "source_language": source, "target_language": target,
+                                       "error_code": code})
+                    raise TranslationServiceError(code, "translate", "O Azure Translator recusou a requisição.",
+                                                  http_status=status, request_id=request_id,
+                                                  source_language=source, target_language=target)
+                try:
+                    payload = json.loads(raw.decode("utf-8"))
+                    result = payload[0]
+                    translation = result["translations"][0]["text"]
+                    detected = result.get("detectedLanguage") or {}
+                    detected_language = source or detected.get("language")
+                    confidence = detected.get("score")
+                    if not isinstance(detected_language, str) or not detected_language.strip():
+                        raise ValueError("Unsupported detected language")
+                    if not isinstance(translation, str) or not translation:
+                        raise ValueError("Missing translated text")
+                    if confidence is not None:
+                        confidence = float(confidence)
+                        if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+                            raise ValueError("Invalid language confidence")
+                except (ValueError, TypeError, KeyError, IndexError, UnicodeDecodeError) as exc:
+                    if after_attempt:
+                        after_attempt({"success": False, "reserved_characters": len(text),
+                                       "metered_characters": metered, "http_status": status,
+                                       "request_id": request_id, "duration_ms": duration_ms,
+                                       "source_language": source, "target_language": target,
+                                       "error_code": "AZURE_TRANSLATOR_INVALID_RESPONSE"})
+                    raise TranslationServiceError("AZURE_TRANSLATOR_INVALID_RESPONSE", "response",
+                                                  "A resposta do tradutor não pôde ser interpretada.",
+                                                  http_status=status, request_id=request_id,
+                                                  source_language=source, target_language=target) from exc
+                if after_attempt:
+                    after_attempt({"success": True, "reserved_characters": len(text),
+                                   "metered_characters": metered, "http_status": status,
+                                   "request_id": request_id, "duration_ms": duration_ms,
+                                   "source_language": detected_language, "target_language": target,
+                                   "error_code": None})
+                return TranslationResult(translation, detected_language, target, "azure",
+                                         confidence, request_id, metered, duration_ms, status)
+            except TranslationServiceError:
+                raise
+            except (socket.timeout, TimeoutError, http.client.HTTPException, OSError) as exc:
+                duration_ms = int((time.monotonic() - started) * 1000)
+                code = "AZURE_TRANSLATOR_TIMEOUT" if isinstance(exc, (socket.timeout, TimeoutError)) else "AZURE_TRANSLATOR_UNAVAILABLE"
+                if after_attempt:
+                    after_attempt({"success": False, "reserved_characters": len(text),
+                                   "metered_characters": None, "http_status": status or None,
+                                   "request_id": request_id, "duration_ms": duration_ms,
+                                   "source_language": source, "target_language": target,
+                                   "error_code": code})
+                if attempt <= retries:
+                    time.sleep(_retry_delay(None, attempt))
+                    continue
+                raise TranslationServiceError(code, "translate", "O Azure Translator está indisponível.",
+                                              http_status=status or None, request_id=request_id,
+                                              source_language=source, target_language=target) from exc
+
+
+class TranslationService:
+    """Application-facing abstraction; Azure is the currently selected provider."""
+    def __init__(self, provider: AzureTranslator | None = None):
+        self.provider = provider or AzureTranslator()
+
+    def translate(self, text: str, target_language: str,
+                  source_language: str | None = None, **kwargs) -> TranslationResult:
+        return self.provider.translate(text, target_language, source_language, **kwargs)
+
+
+_service = TranslationService()
+
+
+def translate(text: str, target_language: str,
+              source_language: str | None = None, **kwargs) -> TranslationResult:
+    return _service.translate(text, target_language, source_language, **kwargs)

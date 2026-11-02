@@ -4,7 +4,6 @@ from __future__ import annotations
 from collections.abc import Callable
 import logging
 import os
-import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -75,6 +74,85 @@ def register_ticket_routes(
             "commit": str(os.environ.get("ARKLAND_GIT_COMMIT") or "unknown"),
         }
 
+    def _translation_usage_store():
+        if not db_ready():
+            raise RuntimeError("central database unavailable")
+        db = session_factory()
+        try:
+            from translation_usage import TranslationUsage
+            return TranslationUsage(db.get_bind())
+        finally:
+            db.close()
+
+    def _translation_limits() -> tuple[int, list[int]]:
+        settings = load_settings() if load_settings else {}
+        limit_override = settings.get("azure_translator_monthly_character_limit")
+        thresholds_override = settings.get("azure_translator_alert_thresholds")
+        from translation_service import alert_thresholds, monthly_character_limit
+        return (monthly_character_limit(limit_override),
+                alert_thresholds(thresholds_override))
+
+    def _translation_config() -> dict[str, str]:
+        settings = load_settings() if load_settings else {}
+        return {
+            "key": str(settings.get("azure_translator_key") or "").strip(),
+            "region": str(settings.get("azure_translator_region") or "").strip(),
+            "endpoint": str(settings.get("azure_translator_endpoint") or "").strip(),
+        }
+
+    def _translate_text(text: str, target: str, source: str | None = None):
+        from translation_service import TranslationServiceError, translate
+        usage = _translation_usage_store()
+        limit, thresholds = _translation_limits()
+        periods: list[str] = []
+
+        def before_attempt(characters: int) -> bool:
+            allowed, _alerts, _used, period = usage.reserve(characters, limit, thresholds)
+            if allowed:
+                periods.append(period)
+            return allowed
+
+        def after_attempt(event: dict) -> None:
+            period = periods.pop(0) if periods else None
+            usage.finish(event, period)
+
+        try:
+            result = translate(
+                text, target, source, before_attempt=before_attempt,
+                after_attempt=after_attempt, config_override=_translation_config(),
+            )
+        except TranslationServiceError:
+            raise
+        return result
+
+    def _translation_error(exc: Exception, *, operation: str, text_length: int,
+                           target: str, source: str | None = None):
+        reference_id = uuid.uuid4().hex[:12]
+        code = getattr(exc, "code", "TRANSLATION_FAILED")
+        stage = getattr(exc, "stage", "translation")
+        status = getattr(exc, "http_status", None)
+        azure_request_id = getattr(exc, "request_id", None)
+        source_language = getattr(exc, "source_language", None) or source or "auto"
+        target_language = getattr(exc, "target_language", None) or target
+        logging.getLogger(__name__).error(
+            "[Translation] provider=azure operation=%s source=%s target=%s characters=%d "
+            "duration_ms=0 success=false error=%s stage=%s http_status=%s "
+            "azure_request_id=%s reference_id=%s build=%s",
+            operation, source_language, target_language, text_length, code, stage,
+            status, azure_request_id, reference_id, _translation_build_info(),
+        )
+        response_status = 429 if code in {
+            "AZURE_TRANSLATOR_RATE_LIMITED", "AZURE_TRANSLATOR_MONTHLY_LIMIT"
+        } else 503
+        return jsonify({
+            "ok": False,
+            "error_code": code,
+            "stage": stage,
+            "http_status": status,
+            "reference_id": reference_id,
+            "error": "Tradução temporariamente indisponível. A mensagem original continua disponível.",
+        }), response_status
+
     @app.route("/api/translate", methods=["POST"])
     @login_required
     @_limit(
@@ -83,178 +161,144 @@ def register_ticket_routes(
         override_defaults=True,
     )
     def translate_player_text():
-        """Translate user-requested text with free local Argos models."""
+        """Translate on demand; failure never affects ticket creation or replies."""
         body = request.get_json(silent=True) or {}
-        text = str(body.get("text") or "").strip()
+        source_text = str(body.get("text") or "").strip()
         target = str(body.get("target") or "").strip().lower()
-        if not text:
+        source = str(body.get("source") or "").strip().lower() or None
+        if not source_text:
             return jsonify({"ok": False, "error": "Informe o texto que deseja traduzir."}), 400
-        if len(text) > 5000:
+        if len(source_text) > 5000:
             return jsonify({"ok": False, "error": "O limite por tradução é de 5.000 caracteres."}), 413
         if target not in {"pt", "en", "es"}:
             return jsonify({"ok": False, "error": "Idioma de destino inválido."}), 400
         try:
-            from translation_service import translate_offline
-
-            translated = translate_offline(text, target)
-            return jsonify({"ok": True, "translated": translated, "target": target})
-        except Exception as exc:
-            error_id = uuid.uuid4().hex[:12]
-            code = getattr(exc, "code", "TRANSLATION_FAILED")
-            stage = getattr(exc, "stage", "translation")
-            pair = getattr(exc, "pair", None)
-            logging.getLogger(__name__).exception(
-                "Falha na tradução offline operation=translate stage=%s code=%s pair=%s reference_id=%s build=%s",
-                stage, code, pair, error_id, _translation_build_info(),
+            result = _translate_text(source_text, target, source)
+            logging.getLogger(__name__).info(
+                "[Translation] provider=%s source=%s target=%s characters=%d duration_ms=%d "
+                "success=true http_status=%s azure_request_id=%s",
+                result.provider, result.source_language or "unknown", result.target_language,
+                len(source_text), result.duration_ms, result.http_status, result.request_id,
             )
             return jsonify({
-                "ok": False,
-                "error_code": code,
-                "stage": stage,
-                "pair": "_to_".join(pair) if pair else None,
-                "error": (
-                    "Não foi possível preparar a tradução local. Confira a conexão para baixar os modelos gratuitos e tente novamente. "
-                    f"ID: {error_id}"
-                ),
-                "reference": error_id,
-                "reference_id": error_id,
-            }), 503
+                "ok": True,
+                "original": source_text,
+                "translated": result.translated_text,
+                "source_language": result.source_language,
+                "target_language": result.target_language,
+                "provider": result.provider,
+                "confidence": result.confidence,
+                "duration_ms": result.duration_ms,
+            })
+        except Exception as exc:
+            return _translation_error(exc, operation="translate", text_length=len(source_text),
+                                      target=target, source=source)
 
-    @app.route("/api/translate/models", methods=["POST"])
-    @login_required
-    @_limit(
-        "6 per hour",
-        key_func=lambda: str(steam_id_from_session() or request.remote_addr or "unknown"),
-        override_defaults=True,
-    )
-    def manage_translation_models():
-        """Let a signed-in player check, update or redownload the local free models."""
-        body = request.get_json(silent=True) or {}
-        force_redownload = bool(body.get("redownload"))
+    @app.route("/api/admin/translation/status", methods=["GET"])
+    @admin_required
+    def admin_translation_status():
+        from translation_service import translator_status
         try:
-            from translation_service import refresh_translation_models
-
-            # The explicit button promises a fresh check. Account-scoped limiting
-            # prevents users behind a shared server IP from consuming each other's quota.
-            result = refresh_translation_models(
-                force_redownload=force_redownload,
-                check_now=True,
-            )
-            return jsonify({"ok": True, **result})
-        except Exception as exc:
-            error_id = uuid.uuid4().hex[:12]
-            code = getattr(exc, "code", "TRANSLATION_PREPARATION_FAILED")
-            stage = getattr(exc, "stage", "preparation")
-            pair = getattr(exc, "pair", None)
+            limit, thresholds = _translation_limits()
+            usage = _translation_usage_store().snapshot(limit)
+        except Exception:
             logging.getLogger(__name__).exception(
-                "Falha ao verificar modelos operation=models_check stage=%s code=%s pair=%s reference_id=%s build=%s",
-                stage, code, pair, error_id, _translation_build_info(),
-            )
-            return jsonify({
-                "ok": False,
-                "error_code": code,
-                "stage": stage,
-                "pair": "_to_".join(pair) if pair else None,
-                "error": (
-                    "Não foi possível verificar os idiomas. Confira a conexão do servidor e tente novamente. "
-                    f"ID: {error_id}"
-                ),
-                "reference": error_id,
-                "reference_id": error_id,
-            }), 503
-
-    @app.route("/api/translate/models/upload", methods=["POST"])
-    @login_required
-    @_limit("10 per hour")
-    def upload_translation_model():
-        """Install a model file that the player downloaded manually."""
-        file_obj = request.files.get("file")
-        if not file_obj or not file_obj.filename:
-            error_id = uuid.uuid4().hex[:12]
-            logging.getLogger(__name__).warning(
-                "Upload Argos operation=manual_upload stage=multipart_parse error_code=UPLOAD_FILE_MISSING "
-                "reference_id=%s method=%s endpoint=%s content_type=%s content_length=%s "
-                "form_fields=%s file_fields=%s build=%s",
-                error_id,
-                request.method,
-                request.endpoint,
-                request.mimetype,
-                request.content_length,
-                sorted(request.form.keys()),
-                sorted(request.files.keys()),
+                "[Translation] provider=azure operation=admin_status error=USAGE_STORE_UNAVAILABLE build=%s",
                 _translation_build_info(),
             )
-            return jsonify({
-                "ok": False,
-                "error_code": "UPLOAD_FILE_MISSING",
-                "stage": "multipart_parse",
-                "reference": error_id,
-                "reference_id": error_id,
-                "error": "Selecione um arquivo .argosmodel.",
-            }), 400
-        if not file_obj.filename.lower().endswith(".argosmodel"):
-            return jsonify({
-                "ok": False, "error_code": "UPLOAD_INVALID_PACKAGE", "stage": "validation",
-                "error": "O arquivo precisa ter a extensão .argosmodel.",
-            }), 400
-        # The largest official Argos package is about 273 MiB; leave room for
-        # multipart framing while still keeping a bounded upload size.
-        max_upload_bytes = 350 * 1024 * 1024
-        if request.content_length and request.content_length > max_upload_bytes + 1024 * 1024:
-            return jsonify({
-                "ok": False, "error_code": "UPLOAD_TOO_LARGE", "stage": "receive",
-                "error": "O envio excede o limite permitido de 350 MiB.",
-            }), 413
+            return jsonify({"ok": False, "error_code": "TRANSLATION_METRICS_UNAVAILABLE"}), 503
+        return jsonify({"ok": True, "config": translator_status(
+            limit_override=limit, thresholds_override=thresholds,
+            config_override=_translation_config(),
+        ), "usage": usage})
 
-        temp_path = None
+    @app.route("/api/admin/translation/settings", methods=["POST"])
+    @admin_required
+    @_limit("20 per hour", key_func=lambda: str(steam_id_from_session() or "admin"), override_defaults=True)
+    def admin_translation_settings():
+        from translation_service import translator_status
+        if not load_settings or not save_settings:
+            return jsonify({"ok": False, "error_code": "TRANSLATION_SETTINGS_UNAVAILABLE"}), 503
+        body = request.get_json(silent=True) or {}
         try:
-            with tempfile.NamedTemporaryFile(prefix="argos-upload-", suffix=".argosmodel", delete=False) as temp:
-                temp_path = Path(temp.name)
-                total = 0
-                while True:
-                    chunk = file_obj.stream.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    total += len(chunk)
-                    if total > max_upload_bytes:
-                        return jsonify({
-                            "ok": False, "error_code": "UPLOAD_TOO_LARGE", "stage": "receive",
-                            "error": "O arquivo excede o limite de 350 MiB.",
-                        }), 413
-                    temp.write(chunk)
-
-            from translation_service import install_translation_model
-
-            pair = install_translation_model(temp_path)
-            return jsonify({"ok": True, "installed": pair})
-        except ValueError as exc:
-            message = str(exc)
-            code = "UNSUPPORTED_LANGUAGE_PAIR" if "idioma" in message.lower() or "idiomas" in message.lower() else "UPLOAD_INVALID_PACKAGE"
-            error_id = uuid.uuid4().hex[:12]
-            logging.getLogger(__name__).warning(
-                "Upload Argos rejected operation=manual_upload stage=validation error_code=%s reference_id=%s build=%s",
-                code, error_id, _translation_build_info(),
-            )
-            return jsonify({"ok": False, "error_code": code, "stage": "validation", "reference": error_id, "reference_id": error_id, "error": message}), 400
-        except Exception as exc:
-            error_id = uuid.uuid4().hex[:12]
-            code = getattr(exc, "code", "MODEL_INSTALL_FAILED")
-            stage = getattr(exc, "stage", "install")
-            pair = getattr(exc, "pair", None)
+            raw_limit = body.get("monthly_character_limit")
+            if isinstance(raw_limit, bool):
+                raise ValueError
+            limit = int(raw_limit)
+            if limit < 0 or limit > 10**12:
+                raise ValueError
+            raw_thresholds = body.get("alert_thresholds")
+            if not isinstance(raw_thresholds, list) or len(raw_thresholds) > 10:
+                raise ValueError
+            thresholds = sorted(set(int(value) for value in raw_thresholds))
+            if any(value < 1 or value > 100 for value in thresholds):
+                raise ValueError
+            key = body.get("translator_key", "")
+            region = body.get("region", "")
+            endpoint = body.get("endpoint", "")
+            clear_key = body.get("clear_key", False)
+            if (not isinstance(key, str) or len(key.strip()) > 512
+                    or not isinstance(region, str) or len(region.strip()) > 128
+                    or not isinstance(endpoint, str) or len(endpoint.strip()) > 512
+                    or not isinstance(clear_key, bool)):
+                raise ValueError
+            endpoint = endpoint.strip().rstrip("/")
+            if endpoint:
+                from urllib.parse import urlsplit
+                parsed_endpoint = urlsplit(endpoint)
+                if (parsed_endpoint.scheme != "https" or not parsed_endpoint.hostname
+                        or parsed_endpoint.username or parsed_endpoint.password
+                        or parsed_endpoint.query or parsed_endpoint.fragment):
+                    raise ValueError
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error_code": "TRANSLATION_SETTINGS_INVALID",
+                            "error": "Informe um limite mensal não negativo e alertas entre 1% e 100%."}), 400
+        settings = load_settings()
+        settings["azure_translator_monthly_character_limit"] = limit
+        settings["azure_translator_alert_thresholds"] = thresholds
+        settings["azure_translator_region"] = region.strip()
+        settings["azure_translator_endpoint"] = endpoint
+        if key.strip():
+            settings["azure_translator_key"] = key.strip()
+        elif clear_key:
+            settings["azure_translator_key"] = ""
+        try:
+            save_settings(settings)
+            usage = _translation_usage_store().snapshot(limit)
+        except Exception:
             logging.getLogger(__name__).exception(
-                "Falha ao instalar modelo operation=manual_upload stage=%s error_code=%s pair=%s reference_id=%s build=%s",
-                stage, code, pair, error_id, _translation_build_info(),
+                "[Translation] provider=azure operation=admin_settings error=SAVE_FAILED build=%s",
+                _translation_build_info(),
+            )
+            return jsonify({"ok": False, "error_code": "TRANSLATION_SETTINGS_SAVE_FAILED"}), 503
+        return jsonify({"ok": True, "config": translator_status(
+            limit_override=limit, thresholds_override=thresholds,
+            config_override=_translation_config(),
+        ), "usage": usage})
+
+    @app.route("/api/admin/translation/test", methods=["POST"])
+    @admin_required
+    @_limit("10 per hour", key_func=lambda: str(steam_id_from_session() or "admin"), override_defaults=True)
+    def admin_translation_test():
+        text_to_test = "Hello, I need help with my server."
+        try:
+            result = _translate_text(text_to_test, "pt")
+            logging.getLogger(__name__).info(
+                "[Translation] provider=%s operation=admin_test source=%s target=pt characters=%d "
+                "duration_ms=%d success=true http_status=%s azure_request_id=%s",
+                result.provider, result.source_language or "unknown", len(text_to_test),
+                result.duration_ms, result.http_status, result.request_id,
             )
             return jsonify({
-                "ok": False, "error_code": code, "stage": stage,
-                "pair": "_to_".join(pair) if pair else None,
-                "reference": error_id, "reference_id": error_id,
-                "error": "Não foi possível instalar este modelo. Confira o arquivo e tente novamente.",
-            }), 503
-        finally:
-            if temp_path:
-                temp_path.unlink(missing_ok=True)
-
+                "ok": True, "message": "Azure Translator funcionando.",
+                "source_language": result.source_language,
+                "target_language": result.target_language,
+                "translated": result.translated_text,
+                "confidence": result.confidence,
+                "duration_ms": result.duration_ms,
+            })
+        except Exception as exc:
+            return _translation_error(exc, operation="admin_test", text_length=len(text_to_test), target="pt")
     @app.route("/api/tickets/meta", methods=["GET"])
     def tickets_meta():
         return jsonify({"ok": True, **ticket_meta()})

@@ -7560,18 +7560,17 @@
     .support-translate {display:block;margin:7px 0 0;padding:0;border:0;background:transparent;color:#75bfce;font:600 11px Rajdhani,sans-serif;cursor:pointer}
     .support-translate:hover {color:#b5edf2;text-decoration:underline}
     .support-translation {margin-top:6px;color:#c3d7dc;font-style:italic}
-    .support-model-controls {display:flex;gap:7px;flex-wrap:wrap;padding:0 14px 5px}
-    .support-model-controls button {border:1px solid rgba(91,163,184,.24);border-radius:8px;padding:6px 9px;background:#111c21;color:#a9c8ce;font:600 11px Rajdhani,sans-serif;cursor:pointer}
-    .support-model-controls button:hover {border-color:rgba(105,203,221,.6);color:#d7f1f4}
-    .support-model-controls button:disabled {opacity:.5;cursor:wait}
-    .support-model-controls button {font-size:12px;padding:8px 10px}
-    .support-model-controls .is-loading {opacity:.8}
-    .support-model-progress {height:3px;margin:0 15px 7px;border-radius:9px;background:rgba(91,163,184,.14);overflow:hidden}
-    .support-model-progress span {display:block;width:38%;height:100%;border-radius:inherit;background:#72c4d4;transform:translateX(-110%)}
-    .support-model-progress.active span {animation:supportModelProgress 1.1s ease-in-out infinite}
-    @keyframes supportModelProgress {to{transform:translateX(300%)}}
-    #support-model-status {min-height:32px;line-height:1.4}
-    .support-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
+    .support-translation-admin { margin:0 14px 8px;padding:10px 11px;border:1px solid rgba(91,163,184,.2);border-radius:10px;background:rgba(71,155,177,.07);font-size:11px;line-height:1.5;color:#a9bec3; }
+    .support-translation-admin__title { color:#91d5df;font-weight:700;margin-bottom:4px; }
+    #support-translation-admin-test { margin-top:7px;border:1px solid rgba(91,163,184,.24);border-radius:8px;padding:6px 9px;background:#111c21;color:#a9c8ce;font:600 11px Rajdhani,sans-serif;cursor:pointer; }
+    .support-translation-admin__settings { display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px; }
+    .support-translation-admin__settings label { display:flex;flex-direction:column;gap:3px; }
+    .support-translation-admin__settings input { min-width:0;border:1px solid rgba(91,163,184,.24);border-radius:6px;padding:5px 7px;background:#0b1419;color:#dce9ec;font:500 11px Rajdhani,sans-serif; }
+    .support-translation-admin__wide { grid-column:1/-1; }
+    .support-translation-admin__clear { flex-direction:row!important;align-items:center;gap:6px!important; }
+    .support-translation-admin__clear input { width:auto; }
+    #support-translation-admin-save { margin-top:7px;border:1px solid rgba(91,163,184,.3);border-radius:8px;padding:6px 9px;background:#12313a;color:#c8edf1;font:600 11px Rajdhani,sans-serif;cursor:pointer; }
+    #support-translation-admin-test:disabled,#support-translation-admin-save:disabled { opacity:.5;cursor:wait; }    .support-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
     .support-demo-reply {padding:10px 14px 14px;border-top:1px solid rgba(91,163,184,.15)}
     .support-demo-reply textarea {width:100%;min-height:66px;resize:vertical;border:1px solid rgba(91,163,184,.2);border-radius:9px;padding:10px;background:#0b1418;color:#e4edf0;font:13px Rajdhani,sans-serif;opacity:.72}
     .support-status {padding:15px;text-align:center;color:#a9bec3;font-size:13px}
@@ -35553,11 +35552,20 @@ document.addEventListener("keydown", (e) => {
 <section id="support-window" class="support-window" role="dialog" aria-label="Atendimento ARKLAND">
   <header class="support-head"><div><strong>Atendimento ARKLAND</strong><small>Tickets e suporte do servidor</small></div><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></header>
   <nav class="support-tabs"><button id="support-tab-list" class="active" onclick="supportWidgetTab('list')">Meus tickets</button><button id="support-tab-new" onclick="supportWidgetTab('new')">+ Novo ticket</button><select id="support-language" class="support-language" aria-label="Idioma das traduções" onchange="supportWidgetSetLanguage(this.value)"><option value="en">English</option><option value="es">Español</option><option value="pt">Português</option></select></nav>
-  <div class="support-model-controls"><button id="support-model-check" type="button" onclick="supportWidgetModels(false)">↻ Verificar / atualizar modelos</button><button id="support-model-redownload" type="button" onclick="supportWidgetModels(true)">Reinstalar 4 modelos</button></div>
-  <details class="support-model-manual" style="margin:0 14px 8px;color:#91a6ac;font-size:11px"><summary style="cursor:pointer;color:#a9c8ce">Instalação manual dos modelos</summary><div style="padding:8px 0;line-height:1.7">Baixe os modelos oficiais Argos e envie os arquivos aqui. É necessário instalar os quatro para habilitar todas as traduções:<br><a href="https://data.argosopentech.com/argospm/v1/translate-en_pb-1_9.argosmodel" target="_blank" rel="noopener">Inglês → Português</a> · <a href="https://data.argosopentech.com/argospm/v1/translate-pb_en-1_9.argosmodel" target="_blank" rel="noopener">Português → Inglês</a><br><a href="https://data.argosopentech.com/argospm/v1/translate-en_es-1_0.argosmodel" target="_blank" rel="noopener">Inglês → Espanhol</a> · <a href="https://data.argosopentech.com/argospm/v1/translate-es_en-1_9.argosmodel" target="_blank" rel="noopener">Espanhol → Inglês</a><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:8px"><input id="support-model-file" type="file" accept=".argosmodel" style="max-width:220px;color:#a9c8ce;font:11px Rajdhani,sans-serif"><button type="button" id="support-model-upload" onclick="supportWidgetUploadModel()" style="border:1px solid rgba(91,163,184,.35);border-radius:7px;padding:6px 9px;background:#111c21;color:#a9c8ce;cursor:pointer">Enviar e instalar</button></div></div></details>
-  <div id="support-model-progress" class="support-model-progress" role="progressbar" aria-label="Operação dos modelos de tradução" aria-valuetext="Aguardando" hidden><span></span></div>
-  <div id="support-model-status" aria-live="polite" style="padding:0 15px 8px;color:#91a6ac;font-size:11px">4 modelos gratuitos permitem traduzir entre português, inglês e espanhol. A verificação pode levar alguns instantes; reinstalar baixa os arquivos novamente.</div>
-  <div id="support-content" class="support-content"><div class="support-status">Abra o atendimento para carregar seus tickets.</div></div>
+  <section id="support-translation-admin" class="support-translation-admin" hidden aria-label="Administração do tradutor">
+    <div class="support-translation-admin__title">Tradutor Azure</div>
+    <div id="support-translation-admin-status" class="support-translation-admin__status" aria-live="polite">Carregando estado…</div>
+    <div class="support-translation-admin__settings">
+      <label>Chave do Azure Translator<input id="support-translation-key" type="password" autocomplete="new-password" placeholder="Cole a chave; vazio mantém a atual"></label>
+      <label>Região<input id="support-translation-region" type="text" autocomplete="off" placeholder="Ex.: brazilsouth"></label>
+      <label class="support-translation-admin__wide">Endpoint<input id="support-translation-endpoint" type="url" autocomplete="url" placeholder="https://api.cognitive.microsofttranslator.com"></label>
+      <label>Limite mensal de caracteres<input id="support-translation-monthly-limit" type="number" min="0" step="1" value="0"></label>
+      <label>Alertas de uso (%)<input id="support-translation-alert-thresholds" type="text" value="70,85,95,100" placeholder="70,85,95,100"></label>
+      <label class="support-translation-admin__clear"><input id="support-translation-clear-key" type="checkbox"> Remover chave salva</label>
+    </div>
+    <button id="support-translation-admin-save" type="button" onclick="supportWidgetAzureSaveSettings()">Salvar configuração</button>
+    <button id="support-translation-admin-test" type="button" onclick="supportWidgetAzureStatus(true)">Testar Azure Translator</button>
+  </section>  <div id="support-content" class="support-content"><div class="support-status">Abra o atendimento para carregar seus tickets.</div></div>
   <div id="support-reply" class="support-reply" style="display:none"></div>
 </section>
 
@@ -35604,14 +35612,48 @@ window.addEventListener("scroll", _scheduleSupportFabAvoidAmberMeter, { passive:
 window.addEventListener("resize", _scheduleSupportFabAvoidAmberMeter);
 _scheduleSupportFabAvoidAmberMeter();
 function supportWidgetSetLanguage(language){if(!["pt","en","es"].includes(language))return;_supportLanguage=language;localStorage.setItem("arkland-support-language",language);}
-async function supportWidgetModels(redownload){const status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),buttons=[document.getElementById("support-model-check"),document.getElementById("support-model-redownload")];if(redownload&&!_supportPreview&&!confirm("Reinstalar os 4 modelos gratuitos de tradução? Os arquivos serão baixados novamente."))return;buttons.forEach(b=>{b.disabled=true;b.classList.add("is-loading")});progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext",redownload?"Reinstalando os modelos":"Verificando atualizações");status.textContent=redownload?"Preparando reinstalação dos 4 modelos…":"Consultando atualizações dos modelos…";let stage=0;const stages=redownload?["Baixando modelos de português, inglês e espanhol…","Instalando e conferindo os arquivos…"]:["Consultando o catálogo oficial…","Comparando as versões instaladas…","Aplicando atualizações disponíveis…"];const stageTimer=setInterval(()=>{stage=Math.min(stage+1,stages.length-1);status.textContent=stages[stage];},3500);try{if(_supportPreview){await new Promise(resolve=>setTimeout(resolve,1200));status.textContent=redownload?"Prévia: os 4 modelos seriam baixados e reinstalados.":"Prévia: catálogo consultado; os 4 modelos estão prontos.";return;}const d=await fetchJson("/api/translate/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({redownload:!!redownload}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na verificação");if(redownload)status.textContent=`Reinstalação concluída: ${d.installed} modelos prontos.`;else if(d.warning_code==="ARGOS_INDEX_UNAVAILABLE")status.textContent=`Os ${d.installed} modelos instalados continuam disponíveis, mas não foi possível consultar atualizações agora.`;else if(!d.checked)status.textContent=`Os ${d.installed} modelos estão prontos. Nenhuma atualização era necessária.`;else status.textContent=`Verificação concluída: ${d.installed} modelos prontos${d.updated?`; ${d.updated} atualizado(s)`:"; sem atualizações necessárias"}.`;toast(redownload?"Reinstalação dos modelos concluída.":"Verificação dos modelos concluída.","success");}catch(e){status.textContent="A operação não foi concluída. Confira a conexão e tente novamente.";supportWidgetError(e);}finally{clearInterval(stageTimer);buttons.forEach(b=>{b.disabled=false;b.classList.remove("is-loading")});progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
-async function supportWidgetUploadModel(){const input=document.getElementById("support-model-file"),button=document.getElementById("support-model-upload"),status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),file=input?.files?.[0];if(!file){status.textContent="Escolha um arquivo .argosmodel baixado dos links oficiais acima.";return;}if(!file.name.toLowerCase().endsWith(".argosmodel")){status.textContent="O arquivo precisa ter a extensão .argosmodel.";return;}if(file.size>350*1024*1024){status.textContent="O arquivo excede o limite de 350 MiB.";return;}if(_supportPreview){status.textContent="Prévia: o modelo selecionado seria enviado e instalado no servidor.";return;}button.disabled=true;button.classList.add("is-loading");progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext","Enviando modelo");status.textContent=`Enviando ${file.name} ao servidor para instalação…`;try{const form=new FormData();form.append("file",file);const d=await fetchJson("/api/translate/models/upload",{method:"POST",body:form,timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na instalação");status.textContent=`Modelo instalado: ${d.installed.from} → ${d.installed.to}.`;input.value="";toast("Modelo de tradução instalado.","success");}catch(e){status.textContent=`Não foi possível instalar o modelo: ${e.message||"erro na comunicação"}`;supportWidgetError(e);}finally{button.disabled=false;button.classList.remove("is-loading");progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
+async function supportWidgetAzureStatus(runTest){
+  const panel=document.getElementById("support-translation-admin"),status=document.getElementById("support-translation-admin-status"),button=document.getElementById("support-translation-admin-test");
+  if(!panel||_supportPreview)return;
+  try {
+    const d=await fetchJson("/api/admin/translation/status",{timeoutMs:12000,retries:0});
+    if(!d.ok){panel.hidden=true;return;}
+    panel.hidden=false;
+    const c=d.config||{},u=d.usage||{};
+    const limitInput=document.getElementById("support-translation-monthly-limit"),thresholdInput=document.getElementById("support-translation-alert-thresholds");
+    const regionInput=document.getElementById("support-translation-region"),endpointInput=document.getElementById("support-translation-endpoint");
+    if(limitInput)limitInput.value=String(c.monthly_character_limit||0);
+    if(thresholdInput)thresholdInput.value=(c.alert_thresholds||[]).join(",");
+    if(regionInput)regionInput.value=c.region||"";
+    if(endpointInput)endpointInput.value=c.endpoint||"https://api.cognitive.microsofttranslator.com";
+    status.textContent=`Provedor: Azure Translator ? Chave configurada: ${c.key_configured?"Sim":"N?o"} ? Regi?o: ${c.region||"Global/n?o informada"} ? Uso ${u.period||"neste m?s"}: ${Number(u.characters||0).toLocaleString("pt-BR")} caracteres ? ${u.limit_configured?`${Number(u.usage_percent||0).toLocaleString("pt-BR")}% de ${Number(u.limit||0).toLocaleString("pt-BR")}`:"limite mensal n?o configurado"} ? Chamadas: ${Number(u.requests||0).toLocaleString("pt-BR")} ? ?ltimo erro: ${u.last_error||"Nenhum"}`;
+    if(!runTest)return;
+    button.disabled=true;button.textContent="Testando?";
+    const result=await fetchJson("/api/admin/translation/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:35000,retries:0});
+    if(!result.ok)throw new Error(`${result.error_code||"TRANSLATION_FAILED"} ? ID ${result.reference_id||"indispon?vel"}`);
+    status.textContent+=` ? Teste OK: ${result.source_language||"auto"} ? pt (${result.duration_ms} ms)`;toast("Azure Translator funcionando.","success");
+  } catch(e) {
+    if(runTest)status.textContent=`Teste falhou: ${String(e.message||e)}`;else panel.hidden=true;
+  } finally { if(button){button.disabled=false;button.textContent="Testar Azure Translator";} }
+}
+async function supportWidgetAzureSaveSettings(){
+  const status=document.getElementById("support-translation-admin-status"),button=document.getElementById("support-translation-admin-save");
+  const limit=Number(document.getElementById("support-translation-monthly-limit")?.value),raw=(document.getElementById("support-translation-alert-thresholds")?.value||"").trim();
+  const thresholds=raw?raw.split(",").map(value=>Number(value.trim())):[];
+  const key=document.getElementById("support-translation-key")?.value||"",region=document.getElementById("support-translation-region")?.value||"",endpoint=document.getElementById("support-translation-endpoint")?.value||"";
+  const clearKey=!!document.getElementById("support-translation-clear-key")?.checked;
+  if(!Number.isSafeInteger(limit)||limit<0||thresholds.some(value=>!Number.isInteger(value)||value<1||value>100)){status.textContent="Confira o limite e os percentuais de alerta (1 a 100).";return;}
+  button.disabled=true;button.textContent="Salvando?";
+  try { const d=await fetchJson("/api/admin/translation/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({monthly_character_limit:limit,alert_thresholds:thresholds,translator_key:key,region,endpoint,clear_key:clearKey}),timeoutMs:15000,retries:0});if(!d.ok)throw new Error(d.error||d.error_code||"Falha ao salvar");document.getElementById("support-translation-key").value="";document.getElementById("support-translation-clear-key").checked=false;toast("Configuração do tradutor salva.","success");await supportWidgetAzureStatus(false); }
+  catch(e){status.textContent=`N?o foi poss?vel salvar: ${String(e.message||e)}`;}
+  finally{button.disabled=false;button.textContent="Salvar configuração";}
+}
 function supportWidgetToggle(force) {
   const box=document.getElementById("support-window"), fab=document.getElementById("support-fab");
   const open=typeof force==="boolean"?force:!box.classList.contains("open");
   box.classList.toggle("open",open);fab.setAttribute("aria-expanded",String(open));
   document.getElementById("toast-container")?.classList.toggle("support-chat-open",open);
-  if(open) supportWidgetTab(_supportTab);
+  if(open) { supportWidgetTab(_supportTab); supportWidgetAzureStatus(false); }
 }
 function supportWidgetError(error) {
   const content=document.getElementById("support-content");
@@ -35673,7 +35715,7 @@ async function supportWidgetDetail(id,demo=false) {
 }
 async function supportWidgetSendReply(){const body=document.getElementById("sw-reply-body")?.value.trim();if(!body||!_supportSelected)return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body,links:[]}),timeoutMs:15000});if(!d.ok)throw new Error(d.error||"Falha ao enviar");toast("Resposta enviada.","success");supportWidgetDetail(_supportSelected);}catch(e){supportWidgetError(e);}}
 async function supportWidgetRequestClose(){if(!_supportSelected||!confirm("Confirmar que o problema foi resolvido e solicitar o encerramento deste ticket? A equipe ainda fará a confirmação final."))return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/request-close`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:12000});if(!d.ok)throw new Error(d.error||"Não foi possível solicitar o encerramento");toast("Pedido enviado à equipe de suporte.","success");supportWidgetDetail(_supportSelected);}catch(e){supportWidgetError(e);}}
-async function supportWidgetTranslate(button){const original=button.dataset.original||"",out=button.parentElement.querySelector(".support-translation");if(!original||!out)return;if(_supportPreview){const translations={en:["Hello! I have a question about progression on the server.","Hello! Can you tell us which map and situation this happened on? We’ll help you."],es:["¡Hola! Tengo una pregunta sobre la progresión en el servidor.","¡Hola! ¿Puedes decirnos en qué mapa y situación ocurrió? Te ayudaremos."]};const idx=[...document.querySelectorAll(".support-translate")].indexOf(button);out.textContent=(translations[_supportLanguage]||[])[idx]||original;return;}button.disabled=true;button.textContent="Preparando…";try{const d=await fetchJson("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:original,target:_supportLanguage}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na tradução");out.textContent=d.translated;button.textContent="Show original";button.onclick=()=>{out.textContent="";button.textContent="Translate";button.onclick=()=>supportWidgetTranslate(button);};}catch(e){supportWidgetError(e);button.textContent="Translate";}finally{button.disabled=false;}}
+async function supportWidgetTranslate(button){const original=button.dataset.original||"",out=button.parentElement.querySelector(".support-translation");if(!original||!out)return;if(_supportPreview){const translations={en:["Hello! I have a question about progression on the server.","Hello! Can you tell us which map and situation this happened on? We’ll help you."],es:["¡Hola! Tengo una pregunta sobre la progresión en el servidor.","¡Hola! ¿Puedes decirnos en qué mapa y situación ocurrió? Te ayudaremos."]};const idx=[...document.querySelectorAll(".support-translate")].indexOf(button);out.textContent=(translations[_supportLanguage]||[])[idx]||original;return;}button.disabled=true;button.textContent="Traduzindo…";try{const d=await fetchJson("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:original,target:_supportLanguage}),timeoutMs:35000,retries:0});if(!d.ok)throw new Error(d.error||"Tradução temporariamente indisponível.");out.textContent=d.translated;button.textContent="Mostrar original";button.onclick=()=>{out.textContent="";button.textContent="Translate";button.onclick=()=>supportWidgetTranslate(button);};}catch(e){out.textContent="Tradução temporariamente indisponível. A mensagem original foi preservada.";button.textContent="Translate";}finally{button.disabled=false;}}
 </script>
 
 </body>

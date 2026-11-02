@@ -613,6 +613,35 @@ def register_event_hunt_routes(
 
     # ── Mode B — player UI ───────────────────────────────────────────────────
 
+    @app.route("/api/event-hunt/b/instances", methods=["GET"])
+    @api_key_required(allow_admin_session=False)
+    def event_hunt_b_plugin_instances():
+        """Return live Mode B instances for one authenticated game server."""
+        if not event_hunt_enabled():
+            return _fail("event_hunt_enabled=false", 403)
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        server_id = str(request.args.get("server_id") or "").strip()
+        if not server_id:
+            return _fail("server_id obrigatório", 400)
+        map_name = str(request.args.get("map_name") or "").strip()
+        db = _db()
+        try:
+            result = admin_list_instances(
+                db,
+                status="ALIVE",
+                server_id=server_id,
+                map_name=map_name or None,
+                page=1,
+                page_size=100,
+            )
+            # ArkEventHunt expects the array at the response root as "instances".
+            return _ok(instances=result["items"])
+        except Exception as exc:
+            return _handle(exc)
+        finally:
+            db.close()
+
     @app.route("/api/event-hunt/b/sessions/current", methods=["GET"])
     @login_required
     def event_hunt_b_current():

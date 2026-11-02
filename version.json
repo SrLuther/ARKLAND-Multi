@@ -1,10 +1,11 @@
 {
-    "version": "1.11.22",
+    "version": "1.11.23",
     "date": "2026-11-02",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.22/ARKLAND-Multi-Setup-v1.11.22.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.23/ARKLAND-Multi-Setup-v1.11.23.exe",
     "changelog": [
-        "ARK Server Manager: salvamento de asm_servers.json usa arquivos temporarios exclusivos e tenta novamente em bloqueios transitorios do Windows, preservando o perfil anterior se o bloqueio persistir.",
-        "Web Store: corrigida a documentacao de resgates que falhava ao iniciar por divergencia no nome da funcao de licencas; estilos dos diagramas Omega agora usam o prefixo isolado kb-.",
-        "Testes: corrigidas expectativas obsoletas do Discord e do Regulamento, e removido o limite fixo de caracteres na verificacao de loadHome."
+        "Tradutor: painel administrativo permite configurar chave, região e endpoint Azure no site; a chave é armazenada protegida no backend e nunca devolvida ao navegador.",
+        "Tradutor: traduções e teste administrativo usam as credenciais salvas no painel; configuração regional pode ser validada diretamente na Web Store.",
+        "ArkEventHunt: corrigida a reconciliação de instâncias Mode B no arranque; a Web Store fornece endpoint autenticado por API key, filtrado por servidor/mapa e limitado a instâncias ALIVE.",
+        "Web Store: ajustes de migração do tradutor para Azure e remoção das dependências e downloads Argos legados."
     ]
 }

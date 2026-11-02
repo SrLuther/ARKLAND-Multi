@@ -3,6 +3,13 @@
 Versões sincronizadas via `plugin_version.txt` +
 `python scripts/sync_plugin_versions.py --plugin ArkEventHunt`.
 
+## [0.5.5] - 2026-11-02
+
+- Fix Mode B startup reconciliation: add the API-key-authenticated
+  `/api/event-hunt/b/instances` endpoint expected by the plugin. It returns
+  only ALIVE instances scoped to the requesting server and map, in the JSON
+  shape consumed by ArkEventHunt.
+
 ## [0.5.4] - 2026-10-02
 
 - **Fix aviso falso "Permissions.dll não encontrado":** a Permissions era

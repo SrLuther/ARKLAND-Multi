@@ -77,7 +77,10 @@ Paths plugin (spec §9.2 / §9.3):
 - Mode A: `GET .../a/claims/by-code/<code>`, `POST .../spawned|complete|fail`
 - Mode B: `GET .../b/codes/<code>` (exige dino ON + sessão ACTIVE + sem ALIVE), `POST .../b/instances/spawned`, `POST .../b/instances/<id>/kill|expire`
 - Admin void (re-summon stuck): `POST /api/admin/event-hunt/b/instances/<id>/void`
-- Reconcile (best-effort): `GET .../b/instances?status=ALIVE&server_id=`
+- Reconcile (best-effort, `X-API-Key`):
+  `GET .../b/instances?status=ALIVE&server_id=<ServerId>&map_name=<Map>`;
+  the Web Store returns only live instances for that server/map in the
+  top-level `instances` array.
 - Membership: `GET /api/teams/plugin/membership/<steam_id>`
 
 Teste rápido a partir do **host do ARK** (não do PC do browser):

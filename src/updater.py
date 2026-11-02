@@ -216,19 +216,6 @@ class UpdateChecker:
 
         pid = os.getpid()
         app_exe = sys.executable
-        try:
-            from .shop_integration import webstore_data_dir
-
-            models_dir = str(webstore_data_dir() / "translation" / "argos-packages")
-        except Exception:
-            import os
-            from pathlib import Path
-
-            models_dir = str(
-                Path(os.environ.get("APPDATA", Path.home()))
-                / "ARKLAND-ServerManager" / "arkshop_web" / "translation" / "argos-packages"
-            )
-
         # ── Tenta usar ARKLAND-Updater.exe (só disponível no build frozen) ────
         if getattr(sys, "frozen", False):
             updater_exe = Path(sys.executable).parent / "ARKLAND-Updater.exe"
@@ -243,7 +230,6 @@ class UpdateChecker:
                         "--pid",     str(pid),
                         "--exe",     app_exe,
                         "--version", version,
-                        "--models-dir", models_dir,
                     ],
                     creationflags=(
                         subprocess.DETACHED_PROCESS
@@ -268,7 +254,6 @@ class UpdateChecker:
                         "--pid", str(pid),
                         "--exe", app_exe,
                         "--version", version,
-                        "--models-dir", models_dir,
                     ],
                     creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
                     close_fds=True,

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import io
 import uuid
 from types import SimpleNamespace
 
@@ -79,101 +78,96 @@ def _login(client, steam_id: str) -> None:
         sess["steam_id"] = steam_id
 
 
-def test_translate_route_uses_free_local_models_and_validates_input(client, monkeypatch):
-    import translation_service
-
+def test_translation_route_validates_without_touching_ticket_creation(client):
     _login(client, USER_STEAM)
     assert client.post("/api/translate", json={"text": "", "target": "pt"}).status_code == 400
     assert client.post("/api/translate", json={"text": "Hello", "target": "fr"}).status_code == 400
     assert client.post("/api/translate", json={"text": "x" * 5001, "target": "pt"}).status_code == 413
 
+
+def test_translation_admin_status_and_test_are_admin_only_and_never_return_key(client, ticket_db, monkeypatch):
+    import translation_service
+    from sqlalchemy.orm import sessionmaker
+
+    monkeypatch.setattr(_app_module, "_SessionLocal", sessionmaker(bind=ticket_db.get_bind()))
+    monkeypatch.setenv("AZURE_TRANSLATOR_KEY", "do-not-return-this-key")
     calls = []
-    monkeypatch.setattr(
-        translation_service,
-        "translate_offline",
-        lambda text, target: calls.append((text, target)) or "Olá",
-    )
-    response = client.post("/api/translate", json={"text": "Hello", "target": "pt"})
-    assert response.status_code == 200
-    assert response.get_json() == {"ok": True, "translated": "Olá", "target": "pt"}
-    assert calls == [("Hello", "pt")]
 
-    model_actions = []
-    monkeypatch.setattr(
-        translation_service,
-        "refresh_translation_models",
-        lambda *, force_redownload=False, check_now=False: model_actions.append((force_redownload, check_now))
-        or {"installed": 4, "updated": 1, "checked": True},
-    )
-    checked = client.post("/api/translate/models", json={"redownload": False})
-    redownloaded = client.post("/api/translate/models", json={"redownload": True})
-    assert checked.status_code == redownloaded.status_code == 200
-    assert checked.get_json()["installed"] == 4
-    assert model_actions == [(False, True), (True, True)]
-
-
-def test_translation_model_upload_receives_multipart_file(client, monkeypatch):
-    import translation_service
-
-    _login(client, USER_STEAM)
-    received = []
-    monkeypatch.setattr(
-        translation_service,
-        "install_translation_model",
-        lambda path: received.append(path.read_bytes()) or {"from": "en", "to": "pb"},
-    )
-
-    response = client.post(
-        "/api/translate/models/upload",
-        data={"file": (io.BytesIO(b"test-model-archive"), "translate-en_pb.argosmodel")},
-        content_type="multipart/form-data",
-    )
-
-    assert response.status_code == 200
-    assert response.get_json() == {"ok": True, "installed": {"from": "en", "to": "pb"}}
-    assert received == [b"test-model-archive"]
-
-
-def test_translation_model_upload_missing_file_has_safe_diagnostic(client, caplog):
-    _login(client, USER_STEAM)
-
-    response = client.post(
-        "/api/translate/models/upload",
-        data={"other": "value"},
-        content_type="multipart/form-data",
-    )
-
-    payload = response.get_json()
-    assert response.status_code == 400
-    assert payload["error_code"] == "UPLOAD_FILE_MISSING"
-    assert payload["stage"] == "multipart_parse"
-    assert payload["reference_id"]
-    assert "file_fields=[]" in caplog.text
-    assert "form_fields=['other']" in caplog.text
-    assert "endpoint=upload_translation_model" in caplog.text
-    assert "cookie" not in caplog.text.lower()
-
-
-def test_translation_model_check_returns_structured_stage_and_reference(client, monkeypatch, caplog):
-    import translation_service
-
-    _login(client, USER_STEAM)
-
-    def fail_check(**_kwargs):
-        raise translation_service.TranslationServiceError(
-            "ARGOS_INDEX_UNAVAILABLE", "index_update", "catalog unavailable", ("en", "pb")
+    def fake_translate(text, target, source=None, **kwargs):
+        calls.append((text, target, source, kwargs.get("config_override")))
+        kwargs["before_attempt"](len(text))
+        kwargs["after_attempt"]({
+            "reserved_characters": len(text), "metered_characters": len(text),
+            "success": True, "duration_ms": 12, "source_language": "en",
+            "target_language": target, "request_id": "azure-test-id",
+        })
+        return SimpleNamespace(
+            translated_text="Ol?, preciso de ajuda com meu servidor.",
+            source_language="en", target_language=target, provider="azure",
+            confidence=0.99, duration_ms=12, http_status=200, request_id="azure-test-id",
         )
 
-    monkeypatch.setattr(translation_service, "refresh_translation_models", fail_check)
-    response = client.post("/api/translate/models", json={"redownload": False})
+    monkeypatch.setattr(translation_service, "translate", fake_translate)
+    assert client.get("/api/admin/translation/status").status_code == 401
+    _login(client, USER_STEAM)
+    assert client.get("/api/admin/translation/status").status_code == 403
+    _login(client, ADMIN_STEAM)
+    status = client.get("/api/admin/translation/status")
+    assert status.status_code == 200
+    assert status.get_json()["config"]["key_configured"] is True
+    assert "do-not-return-this-key" not in status.get_data(as_text=True)
+    response = client.post("/api/admin/translation/test", json={})
+    assert response.status_code == 200
+    assert response.get_json()["translated"]
+    assert len(calls) == 1
+    assert client.get("/api/admin/translation/status").get_json()["usage"]["successful"] == 1
+    saved = client.post("/api/admin/translation/settings", json={
+        "monthly_character_limit": 5000, "alert_thresholds": [50, 90],
+        "translator_key": "site-admin-azure-key", "region": "brazilsouth",
+        "endpoint": "https://api.cognitive.microsofttranslator.com",
+    })
+    assert saved.status_code == 200
+    assert saved.get_json()["config"]["monthly_character_limit"] == 5000
+    assert saved.get_json()["config"]["alert_thresholds"] == [50, 90]
+    assert saved.get_json()["config"]["region"] == "brazilsouth"
+    assert "site-admin-azure-key" not in saved.get_data(as_text=True)
+    translated = client.post("/api/translate", json={
+        "text": "I need help with my server.", "target": "pt", "source": "en"
+    })
+    assert translated.status_code == 200
+    assert calls[-1][3] == {
+        "key": "site-admin-azure-key", "region": "brazilsouth",
+        "endpoint": "https://api.cognitive.microsofttranslator.com",
+    }
+    assert client.post("/api/admin/translation/settings", json={
+        "monthly_character_limit": -1, "alert_thresholds": [101]
+    }).status_code == 400
 
-    payload = response.get_json()
-    assert response.status_code == 503
-    assert payload["error_code"] == "ARGOS_INDEX_UNAVAILABLE"
-    assert payload["stage"] == "index_update"
-    assert payload["pair"] == "en_to_pb"
-    assert payload["reference_id"]
-    assert "build={'version':" in caplog.text
+
+def test_translation_provider_failure_does_not_block_ticket_creation(client, ticket_db, monkeypatch):
+    import translation_service
+    import regulamento_service
+    from sqlalchemy.orm import sessionmaker
+
+    monkeypatch.setattr(_app_module, "_SessionLocal", sessionmaker(bind=ticket_db.get_bind()))
+    monkeypatch.setattr(regulamento_service, "guard_regulamento_accepted", lambda *_args, **_kwargs: None)
+
+    def fail_translation(*_args, **_kwargs):
+        raise translation_service.TranslationServiceError(
+            "AZURE_TRANSLATOR_UNAVAILABLE", "translate", "safe error", http_status=503
+        )
+
+    monkeypatch.setattr(translation_service, "translate", fail_translation)
+    _login(client, USER_STEAM)
+    translated = client.post("/api/translate", json={"text": "I need help with my server.", "target": "pt"})
+    assert translated.status_code == 503
+    assert translated.get_json()["error_code"] == "AZURE_TRANSLATOR_UNAVAILABLE"
+
+    created = client.post("/api/tickets", json={
+        "subject": "Server support", "body": "I need help with my server.", "category": "suporte"
+    })
+    assert created.status_code == 201
+    assert created.get_json()["ok"] is True
 
 
 def _seed_order(db, *, steam_id: str = USER_STEAM) -> str:

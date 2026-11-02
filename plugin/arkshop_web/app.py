@@ -463,7 +463,7 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token", "azure_translator_key")
 
 _AMBER_SINGULAR = "Ambar"
 _AMBER_PLURAL = "Ambares"
