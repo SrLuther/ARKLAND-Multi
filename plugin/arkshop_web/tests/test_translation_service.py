@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+import json
+import zipfile
 
 import translation_service
 
@@ -14,7 +16,15 @@ class _AvailableModel:
 
     def download(self):
         path = self.root / f"{self.from_code}-{self.to_code}-{self.package_version}.argosmodel"
-        path.write_bytes(b"model")
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(
+                "metadata.json",
+                json.dumps({
+                    "from_code": self.from_code,
+                    "to_code": self.to_code,
+                    "package_version": self.package_version,
+                }),
+            )
         return path
 
 
@@ -78,3 +88,62 @@ def test_translation_models_install_automatically_update_weekly_and_redownload(t
     assert redownloaded["installed"] == 4
     assert len(fake.installed) == 4
     assert fake.index_updates == 3
+
+
+def test_installed_models_remain_usable_when_index_is_unavailable(tmp_path, monkeypatch):
+    fake = _FakeArgosPackage(translation_service._MODEL_PAIRS, tmp_path)
+    fake.installed = [
+        _InstalledModel(pair, "1.0", tmp_path / f"{pair[0]}-{pair[1]}-1.0")
+        for pair in translation_service._MODEL_PAIRS
+    ]
+    monkeypatch.setattr(
+        translation_service,
+        "_runtime_modules",
+        lambda: (fake, SimpleNamespace(), lambda _text: "pt"),
+    )
+    monkeypatch.setattr(translation_service, "_model_directory", lambda: tmp_path / "models")
+    monkeypatch.setattr(translation_service, "_available_packages", lambda _package: None)
+
+    result = translation_service.refresh_translation_models(check_now=True)
+
+    assert result == {
+        "installed": 4,
+        "updated": 0,
+        "checked": False,
+        "warning_code": "ARGOS_INDEX_UNAVAILABLE",
+    }
+    assert len(fake.installed) == 4
+
+
+def test_staged_packages_install_only_missing_pairs_idempotently(tmp_path):
+    installed_pair, missing_pair = translation_service._MODEL_PAIRS[:2]
+    already_installed = _InstalledModel(installed_pair, "1.0", tmp_path / "installed")
+
+    class PackageManager:
+        def __init__(self):
+            self.installed = [already_installed]
+            self.install_calls = []
+
+        def get_installed_packages(self):
+            return list(self.installed)
+
+        def install_from_path(self, path):
+            with zipfile.ZipFile(path) as archive:
+                metadata = json.loads(archive.read("metadata.json"))
+            pair = (metadata["from_code"], metadata["to_code"])
+            self.install_calls.append(pair)
+            self.installed.append(_InstalledModel(pair, "1.0", tmp_path / "newly-installed"))
+
+    manager = PackageManager()
+    paths = []
+    for pair in (installed_pair, missing_pair):
+        archive_path = tmp_path / f"{pair[0]}_{pair[1]}.argosmodel"
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            archive.writestr("metadata.json", json.dumps({"from_code": pair[0], "to_code": pair[1]}))
+        paths.append(archive_path)
+
+    translation_service._install_staged_models(manager, tmp_path)
+
+    assert manager.install_calls == [missing_pair]
+    assert paths[0].exists()  # Installed models are not reinstalled or deleted.
+    assert not paths[1].exists()  # Successfully installed staged archives are consumed.

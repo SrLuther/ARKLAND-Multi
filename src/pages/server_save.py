@@ -591,6 +591,7 @@ def save_server_config(app: ARKServerManagerApp, server_id: str, silent: bool = 
         LOGGER.warning("Histórico de alterações falhou para '%s'", srv.name, exc_info=True)
 
     # Escreve .ini se o diretório existir
+    ini_error = None
     if srv.install_dir and os.path.isdir(srv.install_dir):
         try:
             ini_mgr = ArkIniManager(srv.install_dir)
@@ -601,6 +602,7 @@ def save_server_config(app: ARKServerManagerApp, server_id: str, silent: bool = 
             except Exception:
                 LOGGER.debug("Falha ao registrar evento CAT_INI para '%s'", srv.name, exc_info=True)
         except Exception as exc:
+            ini_error = exc
             LOGGER.exception("Erro ao salvar .ini para '%s'", srv.name)
             app._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
@@ -616,4 +618,11 @@ def save_server_config(app: ARKServerManagerApp, server_id: str, silent: bool = 
     app._rebuild_server_sidebar()
     app._refresh_dashboard()
     if not silent:
-        messagebox.showinfo("Salvo", f"Configurações de '{srv.name}' salvas!", parent=app)
+        if ini_error is not None:
+            messagebox.showwarning(
+                "Perfil salvo; INI pendente",
+                f"O perfil de '{srv.name}' foi salvo, mas os arquivos INI falharam: {ini_error}",
+                parent=app,
+            )
+        else:
+            messagebox.showinfo("Salvo", f"Configurações de '{srv.name}' salvas!", parent=app)

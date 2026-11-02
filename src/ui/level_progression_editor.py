@@ -44,8 +44,8 @@ def _validate(rows: list[tuple[int, int | None, int]], max_xp: int, *, player: b
         if row[0] != expected:
             return "Os níveis precisam ser sequenciais, começando em 1."
         assert row[1] is not None
-        if row[1] < 0 or row[1] < last_xp:
-            return "Os limiares de XP precisam ser não negativos e crescentes."
+        if row[1] < 0 or (expected > 1 and row[1] <= last_xp):
+            return "Os limiares de XP precisam ser não negativos e estritamente crescentes."
         last_xp = row[1]
     if max_xp < xp_rows[-1][1]:
         return "O XP máximo precisa ser igual ou maior que o limiar do último nível."
@@ -159,7 +159,6 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
 
     def create_table(parent_frame: ttk.Frame, key: str, title: str, rows: list[int | None], player: bool) -> None:
         parent_frame.columnconfigure(0, weight=1)
-        parent_frame.rowconfigure(2, weight=1)
         ttk.Label(parent_frame, text=title, font=("Segoe UI", 12, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 8))
         controls = ttk.Frame(parent_frame)
         controls.grid(row=1, column=0, sticky="ew", pady=(0, 8))
@@ -167,7 +166,8 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
             getattr(config, "player_level_progressions_enabled" if player else "dino_level_progressions_enabled", False)
         ))
         ttk.Checkbutton(controls, text="Habilitar", variable=enabled_vars[key]).pack(side="left")
-        ttk.Label(controls, text="Nível máximo:").pack(side="left", padx=(12, 4))
+        level_label = "N\u00edvel m\u00e1ximo total:" if player else "N\u00edvel m\u00e1ximo:"
+        ttk.Label(controls, text=level_label).pack(side="left", padx=(12, 4))
         level_vars[key] = tk.StringVar(value=str(len(rows)))
         ttk.Entry(controls, textvariable=level_vars[key], width=8).pack(side="left")
         ttk.Label(controls, text="XP máximo:").pack(side="left", padx=(16, 4))
@@ -177,6 +177,29 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
             cap = int(last_xp) + 1
         max_vars[key] = tk.StringVar(value=str(cap))
         ttk.Entry(controls, textvariable=max_vars[key], width=16).pack(side="left")
+        if player:
+            breakdown = tk.StringVar()
+            ttk.Label(parent_frame, textvariable=breakdown, justify="left").grid(
+                row=2, column=0, sticky="w", pady=(0, 6)
+            )
+
+            def refresh_breakdown(*_args: object) -> None:
+                try:
+                    total_cap = int(level_vars[key].get().strip())
+                except ValueError:
+                    breakdown.set("Informe o nível máximo total para ver a divisão.")
+                    return
+                if total_cap < 101:
+                    breakdown.set("O cap total precisa reservar até 100 níveis de bônus.")
+                    return
+                base_cap = total_cap - 100
+                breakdown.set(
+                    f"Dentro do cap total {total_cap}: {base_cap} base + "
+                    "10 notas + 10 runas + 5 chibi + 75 de ascensões."
+                )
+
+            level_vars[key].trace_add("write", refresh_breakdown)
+            refresh_breakdown()
         columns = ("level", "xp", "engram", "total") if player else ("level", "xp")
         tree = ttk.Treeview(parent_frame, columns=columns, show="headings", selectmode="extended")
         labels = {"level": "Nível", "xp": "XP necessário", "engram": "Pontos de engrama", "total": "Total acumulado"}
@@ -186,8 +209,10 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
             tree.column(column, width=widths[column], anchor="center", stretch=column != "level")
         scrollbar = ttk.Scrollbar(parent_frame, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
-        tree.grid(row=2, column=0, sticky="nsew")
-        scrollbar.grid(row=2, column=1, sticky="ns")
+        tree_row = 3 if player else 2
+        parent_frame.rowconfigure(tree_row, weight=1)
+        tree.grid(row=tree_row, column=0, sticky="nsew")
+        scrollbar.grid(row=tree_row, column=1, sticky="ns")
         total = 0
         for index, xp in enumerate(rows, start=1):
             if player:
@@ -199,7 +224,7 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
         tables[key] = tree
 
         buttons = ttk.Frame(parent_frame)
-        buttons.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        buttons.grid(row=tree_row + 1, column=0, sticky="ew", pady=(8, 0))
 
         def add_row() -> None:
             count = len(tree.get_children())
@@ -303,20 +328,41 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
     create_table(left, "player", "Progressão do jogador", player_values, True)
     create_table(right, "dino", "Progressão do Dino", dino_values, False)
 
-    status = ttk.Label(body, text="Edite uma célula com duplo clique. A gravação no INI será feita pelo ARKLAND Multi.")
+    base_level = int(getattr(config, "player_base_level", 0) or 0)
+    ramp_note = (f" Jogador: n\u00edvel base salvo = {base_level}; a rampa pode ter {base_level + 100} entradas (100 slots reservados para b\u00f4nus)." if base_level > 0 else " Na tabela do jogador, o campo conta entradas da rampa; o n\u00edvel base é configurado no gerador r\u00e1pido.")
+    status = ttk.Label(body, text="Edite uma c\u00e9lula com duplo clique. A grava\u00e7\u00e3o no INI ser\u00e1 feita pelo ARKLAND Multi." + ramp_note)
     status.grid(row=2, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
     def apply() -> None:
         try:
             player_rows = _rows_from_tree(tables["player"], player=True)
             dino_rows = _rows_from_tree(tables["dino"], player=False)
-            player_cap = int(max_vars["player"].get().replace(",", "").strip() or "0")
+            player_xp_cap = int(max_vars["player"].get().replace(",", "").strip() or "0")
             dino_cap = int(max_vars["dino"].get().replace(",", "").strip() or "0")
         except ValueError:
             messagebox.showerror("Progressões", "XP máximo e valores das tabelas devem ser números inteiros.", parent=window)
             return
         if enabled_vars["player"].get():
-            error = _validate(player_rows, player_cap, player=True)
+            player_level_count = len([row for row in player_rows if row[1] is not None])
+            try:
+                requested_player_cap = int(level_vars["player"].get().replace(",", "").strip())
+            except ValueError:
+                requested_player_cap = 0
+            if requested_player_cap != player_level_count:
+                messagebox.showerror(
+                    "Progressão do jogador",
+                    "A quantidade de níveis da tabela não corresponde ao cap informado. Clique em Recalcular tudo antes de aplicar.",
+                    parent=window,
+                )
+                return
+            if player_level_count < 101:
+                messagebox.showerror(
+                    "Progressão do jogador",
+                    "O cap total precisa incluir os 100 níveis reservados para bônus; informe pelo menos 101 níveis.",
+                    parent=window,
+                )
+                return
+            error = _validate(player_rows, player_xp_cap, player=True)
             if error:
                 messagebox.showerror("Progressão do jogador", error, parent=window)
                 return
@@ -331,7 +377,7 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
         for name, value in (
             ("player_level_progressions_enabled", config.player_level_progressions_enabled),
             ("dino_level_progressions_enabled", config.dino_level_progressions_enabled),
-            ("override_max_xp_player", player_cap if config.player_level_progressions_enabled else 0),
+            ("override_max_xp_player", player_xp_cap if config.player_level_progressions_enabled else 0),
             ("override_max_xp_dino", dino_cap if config.dino_level_progressions_enabled else 0),
         ):
             variable = (vars_ref or {}).get(name)
@@ -341,10 +387,18 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
                 except Exception:
                     pass
         if config.player_level_progressions_enabled:
+            player_level_count = len([row for row in player_rows if row[1] is not None])
+            config.player_base_level = player_level_count - 100
+            variable = (vars_ref or {}).get("player_base_level")
+            if variable is not None and hasattr(variable, "set"):
+                variable.set(str(config.player_base_level))
+            cap_variable = (vars_ref or {}).get("_player_total_cap_var")
+            if cap_variable is not None and hasattr(cap_variable, "set"):
+                cap_variable.set(str(player_level_count))
             config.player_level_xp_thresholds = [row[1] for row in player_rows if row[1] is not None]
             config.player_engram_points = [row[2] for row in player_rows if row[1] is not None]
             config.player_level_stats_raw = export_ramp_raw(config.player_level_xp_thresholds)
-            config.override_max_xp_player = player_cap
+            config.override_max_xp_player = player_xp_cap
             _replace_raw_widget((vars_ref or {}).get("_raw_player_level_stats_raw"), config.player_level_stats_raw)
         else:
             config.player_level_xp_thresholds = []
@@ -357,7 +411,10 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
             config.dino_level_stats_raw = ""
             config.override_max_xp_dino = 0
         _replace_raw_widget((vars_ref or {}).get("_raw_dino_level_stats_raw"), config.dino_level_stats_raw)
-        status.configure(text="Tabela aplicada ao perfil. Salve o perfil para gravar os arquivos Game.ini e GameUserSettings.ini.")
+        if config.player_level_progressions_enabled:
+            status.configure(text=f"Cap total do jogador: {len(config.player_level_xp_thresholds)} níveis; {config.player_base_level} níveis base + 100 slots de bônus. XP máximo: {config.override_max_xp_player}. Salve o perfil para gravar Game.ini e GameUserSettings.ini.")
+        else:
+            status.configure(text="Tabela aplicada ao perfil. Salve o perfil para gravar os arquivos Game.ini e GameUserSettings.ini.")
         messagebox.showinfo("Progressões", "As tabelas foram aplicadas ao perfil. Salve o servidor para gravar as configurações.", parent=window)
 
     def recalculate_all() -> None:
@@ -369,6 +426,8 @@ def open_level_progression_editor(parent: tk.Misc, config: Any, vars_ref: dict |
                     continue
                 level_count = int(level_vars[key].get().replace(",", "").strip())
                 max_xp = int(max_vars[key].get().replace(",", "").strip())
+                if player and level_count < 101:
+                    raise ValueError("O cap total do jogador precisa ser de pelo menos 101 níveis (incluindo os bônus).")
                 source_rows = _rows_from_tree(tree, player=player)
                 source_xp = [int(row[1]) for row in source_rows if row[1] is not None]
                 thresholds = _recalculate_xp_thresholds(source_xp, level_count, max_xp)

@@ -74,7 +74,15 @@ def buff_start_server(app: Any, server_id: str) -> None:
         srv = asm_cm.get_server(server_id) if asm_cm else None
         if srv is not None:
             if hasattr(app, "_asm_persist_server"):
-                srv = app._asm_persist_server(srv)
+                try:
+                    srv = app._asm_persist_server(srv)
+                except Exception:
+                    import logging
+
+                    logging.getLogger("arkland").exception(
+                        "Buff n\u00e3o iniciou o servidor TEK porque o perfil n\u00e3o foi persistido"
+                    )
+                    return
             else:
                 srv = asm_cm.get_server(server_id) if asm_cm else srv
             app.asm_server_manager.start(

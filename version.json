@@ -1,9 +1,11 @@
 {
-    "version": "1.11.20",
-    "date": "2026-11-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.20/ARKLAND-Multi-Setup-v1.11.20.exe",
+    "version": "1.11.21",
+    "date": "2026-11-02",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.21/ARKLAND-Multi-Setup-v1.11.21.exe",
     "changelog": [
-        "Web Store: resumo por servidor com rates, níveis, crescimento, decay e horários; prévia demonstrativa fictícia disponível.",
-        "Web Store: removido o saldo duplicado de Âmbares da barra inferior, que ficava parcialmente encoberto pelo botão flutuante de suporte."
+        "Web Store: diagnostico do tradutor identifica codigo, etapa, par e referencia; modelos persistentes sao instalados somente quando ausentes e continuam utilizaveis sem o indice Argos.",
+        "Progressao de nivel: cap informado representa o nivel total alcancavel; perfis antigos do gerador anterior sao migrados sem restaurar o limite antigo apos reinicio.",
+        "Configuracoes: gravacao de perfis e INIs agora e atomica onde aplicavel, e falhas de persistencia sao informadas em vez de indicar sucesso falso.",
+        "Web Store: removida a contagem de jogadores dos cards do cluster para evitar divergencia com a lista publica de jogadores online."
     ]
 }

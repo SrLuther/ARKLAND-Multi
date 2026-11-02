@@ -712,7 +712,9 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
     if has_custom_values:
         values = [int(value) for value in custom_values]
         existing_xp = _read_override_xp_from_cfg(cfg)
-        override_xp = max(existing_xp, (values[-1] + 1) if values else 0)
+        # Keep the user's explicit XP cap (including a deliberate reduction),
+        # but never let it fall below the last configured level threshold.
+        override_xp = max(existing_xp, values[-1]) if values else existing_xp
     elif level_200:
         values = level_200_ramp_values()
         override_xp = level_200_override_max_xp()

@@ -30390,16 +30390,6 @@ let _homeStatusPollTimer = null;
 let _homeOnlinePlayersPollTimer = null;
 window.__homeServerConfigSnapshots = Object.create(null);
 
-function _homePlayersLabel(row, st) {
-  const status = String(st || "").trim().toUpperCase();
-  if (status !== "ONLINE" && status !== "INICIANDO") return "";
-  const p = row && row.players;
-  if (p == null || p === "") return "";
-  const m = row && row.max_players;
-  if (m != null && m !== "") return ` · ${p}/${m}`;
-  return ` · ${p}`;
-}
-
 function _applyHomeServerStatuses(items) {
   const byId = {};
   (items || []).forEach(it => {
@@ -30424,7 +30414,7 @@ function _applyHomeServerStatuses(items) {
     const meta = map[st];
     el.className = "home-server-card__status home-server-card__status--" + (meta ? meta.cls : "unknown");
     el.textContent = meta
-      ? `${meta.emoji} ${meta.label}${_homePlayersLabel(row, st)}`
+      ? `${meta.emoji} ${meta.label}`
       : "● Aguardando status do TEK…";
   });
   const visibleIds = Array.from(document.querySelectorAll("#home-connect-section .home-server-card[data-server-id]"))
@@ -30433,13 +30423,8 @@ function _applyHomeServerStatuses(items) {
   const onlineRows = visibleIds.map(id => byId[id]).filter(row => row && String(row.status || "").trim().toUpperCase() === "ONLINE");
   const onlineEl = document.getElementById("home-online-count");
   const totalEl = document.getElementById("home-server-count");
-  const playersEl = document.getElementById("home-player-count");
   if (onlineEl) onlineEl.textContent = String(onlineRows.length);
   if (totalEl) totalEl.textContent = String(visibleIds.length);
-  if (playersEl) {
-    const players = onlineRows.reduce((sum, row) => sum + (Number(row.players) || 0), 0);
-    playersEl.textContent = `${players} ${players === 1 ? "jogador" : "jogadores"} conectados`;
-  }
   const modal = document.getElementById("home-server-settings-modal");
   if (modal && !modal.classList.contains("hidden") && modal.dataset.serverId) {
     _renderHomeServerSettings(modal.dataset.serverId);
@@ -30451,15 +30436,10 @@ async function _refreshHomeServerStatuses() {
     const r = await fetch(API + "/api/public/server-status");
     const d = await r.json();
     if (!r.ok || !d.ok) {
-      const playersEl = document.getElementById("home-player-count");
-      if (playersEl) playersEl.textContent = "Status indispon\u00edvel";
       return;
     }
     _applyHomeServerStatuses(d.servers || []);
-  } catch (_) {
-    const playersEl = document.getElementById("home-player-count");
-    if (playersEl) playersEl.textContent = "Status indispon\u00edvel";
-  }
+  } catch (_) {}
 }
 
 async function _refreshHomeOnlinePlayers() {
@@ -30467,6 +30447,8 @@ async function _refreshHomeOnlinePlayers() {
   const summary = document.getElementById("home-community-summary");
   if (!list || !summary) return;
   if (new URLSearchParams(window.location.search).has("preview")) {
+    const homePlayerCount = document.getElementById("home-player-count");
+    if (homePlayerCount) homePlayerCount.textContent = "3 jogadores conectados (demonstracao)";
     summary.textContent = "Prévia demonstrativa · 3 jogadores conectados em 2 mapas";
     list.innerHTML = `
       <article class="home-community__map"><div class="home-community__map-head"><span>The Island</span><span class="home-community__count">2 jogadores</span></div><div class="home-community__names"><span class="home-community__name">Sobrevivente Aurora</span><span class="home-community__name">RexRider</span></div></article>
@@ -30479,28 +30461,25 @@ async function _refreshHomeOnlinePlayers() {
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error("Lista temporariamente indisponível.");
     const servers = Array.isArray(data.servers) ? data.servers : [];
-    const rconCounts = new Map(servers.filter(server => server.status === "online")
-      .map(server => [String(server.server_id || ""), Array.isArray(server.players) ? server.players.length : 0]));
-    document.querySelectorAll("[data-server-status]").forEach(el => {
-      const id = String(el.getAttribute("data-server-status") || "");
-      if (!rconCounts.has(id) || !el.classList.contains("home-server-card__status--online")) return;
-      // Mantém o total do card de servidores sincronizado com a mesma lista RCON
-      // que exibe os nomes no mural da comunidade.
-      el.textContent = el.textContent.replace(/\d+(?=\/\d+)/, String(rconCounts.get(id)));
-    });
     const online = servers.filter(server => server.status === "online");
     if (!servers.length) {
+      const homePlayerCount = document.getElementById("home-player-count");
+      if (homePlayerCount) homePlayerCount.textContent = "Lista temporariamente indisponivel";
       summary.textContent = "Nenhum mapa disponível no momento.";
       list.innerHTML = '<div class="home-community__empty">Tente novamente mais tarde.</div>';
       return;
     }
     if (!online.length) {
+      const homePlayerCount = document.getElementById("home-player-count");
+      if (homePlayerCount) homePlayerCount.textContent = "Status indisponivel";
       summary.textContent = "Status dos mapas indisponível agora.";
       list.innerHTML = '<div class="home-community__empty">Não foi possível consultar os jogadores neste momento.</div>';
       return;
     }
     const total = online.reduce((count, server) => count + (Array.isArray(server.players) ? server.players.length : 0), 0);
     const mapCount = online.filter(server => (server.players || []).length > 0).length;
+    const homePlayerCount = document.getElementById("home-player-count");
+    if (homePlayerCount) homePlayerCount.textContent = `${total} ${total === 1 ? "jogador" : "jogadores"} conectados`;
     summary.textContent = total
       ? `${total} ${total === 1 ? "jogador conectado" : "jogadores conectados"} em ${mapCount} ${mapCount === 1 ? "mapa" : "mapas"} · atualizado ${new Date(data.updated_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
       : "Os mapas estão tranquilos agora. Seja o primeiro a entrar!";
@@ -31508,6 +31487,20 @@ function _homeSettingsGroup(title, rows) {
   ).join("")}</section>`;
 }
 
+function _homeStructureDecayRows(snapshot) {
+  const disabled = Boolean(snapshot.structure_decay_disabled);
+  const rawRate = String(snapshot.structure_decay || "1x").replace(",", ".");
+  const parsedRate = Number.parseFloat(rawRate.replace(/[^\d.-]/g, ""));
+  const rate = Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : 1;
+  const baseDays = [["Palha", 4], ["Madeira", 8], ["Pedra", 12], ["Metal", 16], ["Tek", 20]];
+  return baseDays.map(([material, days]) => {
+    if (disabled) return [material, "Desativado"];
+    const duration = days * rate;
+    const formatted = Number.isInteger(duration) ? String(duration) : duration.toFixed(1).replace(/\.0$/, "");
+    return [material, `${formatted} ${duration === 1 ? "dia" : "dias"}`];
+  });
+}
+
 function _homeServerSchedule(name, serverId) {
   const normalized = `${String(name || "")} ${String(serverId || "")}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   let restart = "Horário não definido";
@@ -31545,6 +31538,12 @@ function _renderHomeServerSettings(serverId) {
       ["Experiência", snapshot.xp],
       ["Nível máximo do jogador", snapshot.max_player_level],
       ["Teto teórico com ascensões e bônus", snapshot.max_player_level_theoretical],
+      ["Composição do teto", (() => {
+        const total = Number(snapshot.max_player_level_theoretical || snapshot.max_player_level);
+        if (!Number.isFinite(total) || total <= 0) return null;
+        const base = Math.max(0, total - 100);
+        return `${base} base + 10 notas + 10 runas + 5 chibi + 75 ascensões de bosses (${total} total)`;
+      })()],
       ["Nível máximo de dino selvagem", snapshot.max_dino_level],
     ]),
     _homeSettingsGroup("Rates do servidor", [
@@ -31565,6 +31564,7 @@ function _renderHomeServerSettings(serverId) {
       ["Estruturas", snapshot.structure_decay_disabled ? "Desativado" : snapshot.structure_decay],
       ["Dinos", snapshot.dino_decay_disabled ? "Desativado" : snapshot.dino_decay],
     ]),
+    _homeSettingsGroup("Decay de estruturas - prazos base ARK", _homeStructureDecayRows(snapshot)),
     _homeSettingsGroup("Horários (UTC−3)", _homeServerSchedule(name, serverId)),
   ].join("");
   const updated = snapshot.updated_at ? new Date(snapshot.updated_at) : null;
@@ -31574,7 +31574,7 @@ function _renderHomeServerSettings(serverId) {
   if (subtitle) subtitle.textContent = snapshot.buff_active && snapshot.buff_name
     ? `${updatedLabel} · Evento ativo: ${snapshot.buff_name}`
     : updatedLabel;
-  body.innerHTML = `${details}<p class="home-server-settings__note">Rates, níveis e decay são lidos dos arquivos Game.ini e GameUserSettings.ini. Horários de limpeza e reinicialização seguem o cronograma do cluster. A sincronização automática dos INIs ocorre a cada 5 minutos.</p>`;
+  body.innerHTML = `${details}<p class="home-server-settings__note">Os prazos listados s&atilde;o os padr&otilde;es de auto-demoli&ccedil;&atilde;o PvE do ARK e variam conforme o multiplicador do servidor. Estruturas isoladas e alguns itens Tek podem ter tempos diferentes. Os valores configurados s&atilde;o lidos dos arquivos Game.ini e GameUserSettings.ini; os hor&aacute;rios seguem o cronograma do cluster. Sincroniza&ccedil;&atilde;o autom&aacute;tica dos INIs a cada 5 minutos.</p>`;
 }
 
 function openHomeServerSettings(button) {
@@ -31609,9 +31609,8 @@ function _homeRuntimeStatusHtml(s) {
     return `<div class="home-server-card__status home-server-card__status--unknown"
       data-server-status="${escHtml(s.server_id || "")}">● Aguardando status do TEK…</div>`;
   }
-  const players = escHtml(_homePlayersLabel(s, st));
   return `<div class="home-server-card__status home-server-card__status--${meta.cls}"
-    data-server-status="${escHtml(s.server_id || "")}">${meta.emoji} ${meta.label}${players}</div>`;
+    data-server-status="${escHtml(s.server_id || "")}">${meta.emoji} ${meta.label}</div>`;
 }
 
 function _homeHeroConnectHtml(connectable) {
@@ -35605,8 +35604,8 @@ window.addEventListener("scroll", _scheduleSupportFabAvoidAmberMeter, { passive:
 window.addEventListener("resize", _scheduleSupportFabAvoidAmberMeter);
 _scheduleSupportFabAvoidAmberMeter();
 function supportWidgetSetLanguage(language){if(!["pt","en","es"].includes(language))return;_supportLanguage=language;localStorage.setItem("arkland-support-language",language);}
-async function supportWidgetModels(redownload){const status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),buttons=[document.getElementById("support-model-check"),document.getElementById("support-model-redownload")];if(redownload&&!_supportPreview&&!confirm("Reinstalar os 4 modelos gratuitos de tradução? Os arquivos serão baixados novamente."))return;buttons.forEach(b=>{b.disabled=true;b.classList.add("is-loading")});progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext",redownload?"Reinstalando os modelos":"Verificando atualizações");status.textContent=redownload?"Preparando reinstalação dos 4 modelos…":"Consultando atualizações dos modelos…";let stage=0;const stages=redownload?["Baixando modelos de português, inglês e espanhol…","Instalando e conferindo os arquivos…"]:["Consultando o catálogo oficial…","Comparando as versões instaladas…","Aplicando atualizações disponíveis…"];const stageTimer=setInterval(()=>{stage=Math.min(stage+1,stages.length-1);status.textContent=stages[stage];},3500);try{if(_supportPreview){await new Promise(resolve=>setTimeout(resolve,1200));status.textContent=redownload?"Prévia: os 4 modelos seriam baixados e reinstalados.":"Prévia: catálogo consultado; os 4 modelos estão prontos.";return;}const d=await fetchJson("/api/translate/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({redownload:!!redownload}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na verificação");if(redownload)status.textContent=`Reinstalação concluída: ${d.installed} modelos prontos.`;else if(!d.checked)status.textContent=`Tudo atualizado: ${d.installed} modelos prontos. Nenhum download foi necessário.`;else status.textContent=`Verificação concluída: ${d.installed} modelos prontos${d.updated?`; ${d.updated} atualizado(s)`:"; sem atualizações necessárias"}.`;toast(redownload?"Reinstalação dos modelos concluída.":"Verificação dos modelos concluída.","success");}catch(e){status.textContent="A operação não foi concluída. Confira a conexão e tente novamente.";supportWidgetError(e);}finally{clearInterval(stageTimer);buttons.forEach(b=>{b.disabled=false;b.classList.remove("is-loading")});progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
-async function supportWidgetUploadModel(){const input=document.getElementById("support-model-file"),button=document.getElementById("support-model-upload"),status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),file=input?.files?.[0];if(!file){status.textContent="Escolha um arquivo .argosmodel baixado dos links oficiais acima.";return;}if(!file.name.toLowerCase().endsWith(".argosmodel")){status.textContent="O arquivo precisa ter a extensão .argosmodel.";return;}if(file.size>100*1024*1024){status.textContent="O arquivo excede o limite de 100 MB.";return;}if(_supportPreview){status.textContent="Prévia: o modelo selecionado seria enviado e instalado no servidor.";return;}button.disabled=true;button.classList.add("is-loading");progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext","Enviando modelo");status.textContent=`Enviando ${file.name} ao servidor para instalação…`;try{const form=new FormData();form.append("file",file);const d=await fetchJson("/api/translate/models/upload",{method:"POST",body:form,timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na instalação");status.textContent=`Modelo instalado: ${d.installed.from} → ${d.installed.to}.`;input.value="";toast("Modelo de tradução instalado.","success");}catch(e){status.textContent="Não foi possível instalar o modelo. Confira o arquivo e tente novamente.";supportWidgetError(e);}finally{button.disabled=false;button.classList.remove("is-loading");progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
+async function supportWidgetModels(redownload){const status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),buttons=[document.getElementById("support-model-check"),document.getElementById("support-model-redownload")];if(redownload&&!_supportPreview&&!confirm("Reinstalar os 4 modelos gratuitos de tradução? Os arquivos serão baixados novamente."))return;buttons.forEach(b=>{b.disabled=true;b.classList.add("is-loading")});progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext",redownload?"Reinstalando os modelos":"Verificando atualizações");status.textContent=redownload?"Preparando reinstalação dos 4 modelos…":"Consultando atualizações dos modelos…";let stage=0;const stages=redownload?["Baixando modelos de português, inglês e espanhol…","Instalando e conferindo os arquivos…"]:["Consultando o catálogo oficial…","Comparando as versões instaladas…","Aplicando atualizações disponíveis…"];const stageTimer=setInterval(()=>{stage=Math.min(stage+1,stages.length-1);status.textContent=stages[stage];},3500);try{if(_supportPreview){await new Promise(resolve=>setTimeout(resolve,1200));status.textContent=redownload?"Prévia: os 4 modelos seriam baixados e reinstalados.":"Prévia: catálogo consultado; os 4 modelos estão prontos.";return;}const d=await fetchJson("/api/translate/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({redownload:!!redownload}),timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na verificação");if(redownload)status.textContent=`Reinstalação concluída: ${d.installed} modelos prontos.`;else if(d.warning_code==="ARGOS_INDEX_UNAVAILABLE")status.textContent=`Os ${d.installed} modelos instalados continuam disponíveis, mas não foi possível consultar atualizações agora.`;else if(!d.checked)status.textContent=`Os ${d.installed} modelos estão prontos. Nenhuma atualização era necessária.`;else status.textContent=`Verificação concluída: ${d.installed} modelos prontos${d.updated?`; ${d.updated} atualizado(s)`:"; sem atualizações necessárias"}.`;toast(redownload?"Reinstalação dos modelos concluída.":"Verificação dos modelos concluída.","success");}catch(e){status.textContent="A operação não foi concluída. Confira a conexão e tente novamente.";supportWidgetError(e);}finally{clearInterval(stageTimer);buttons.forEach(b=>{b.disabled=false;b.classList.remove("is-loading")});progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
+async function supportWidgetUploadModel(){const input=document.getElementById("support-model-file"),button=document.getElementById("support-model-upload"),status=document.getElementById("support-model-status"),progress=document.getElementById("support-model-progress"),file=input?.files?.[0];if(!file){status.textContent="Escolha um arquivo .argosmodel baixado dos links oficiais acima.";return;}if(!file.name.toLowerCase().endsWith(".argosmodel")){status.textContent="O arquivo precisa ter a extensão .argosmodel.";return;}if(file.size>350*1024*1024){status.textContent="O arquivo excede o limite de 350 MiB.";return;}if(_supportPreview){status.textContent="Prévia: o modelo selecionado seria enviado e instalado no servidor.";return;}button.disabled=true;button.classList.add("is-loading");progress.hidden=false;progress.classList.add("active");progress.setAttribute("aria-valuetext","Enviando modelo");status.textContent=`Enviando ${file.name} ao servidor para instalação…`;try{const form=new FormData();form.append("file",file);const d=await fetchJson("/api/translate/models/upload",{method:"POST",body:form,timeoutMs:600000});if(!d.ok)throw new Error(d.error||"Falha na instalação");status.textContent=`Modelo instalado: ${d.installed.from} → ${d.installed.to}.`;input.value="";toast("Modelo de tradução instalado.","success");}catch(e){status.textContent=`Não foi possível instalar o modelo: ${e.message||"erro na comunicação"}`;supportWidgetError(e);}finally{button.disabled=false;button.classList.remove("is-loading");progress.hidden=true;progress.classList.remove("active");progress.setAttribute("aria-valuetext","Concluído");}}
 function supportWidgetToggle(force) {
   const box=document.getElementById("support-window"), fab=document.getElementById("support-fab");
   const open=typeof force==="boolean"?force:!box.classList.contains("open");

@@ -25,6 +25,16 @@ _DIRECT_MODEL_FILES = {
 }
 
 
+class TranslationServiceError(RuntimeError):
+    """Safe-to-return diagnostic metadata; the original exception stays in logs."""
+
+    def __init__(self, code: str, stage: str, message: str, pair=None):
+        super().__init__(message)
+        self.code = code
+        self.stage = stage
+        self.pair = pair
+
+
 class _DirectModelCandidate:
     """Known official Argos packages used when its index is unavailable."""
 
@@ -68,7 +78,7 @@ def _available_packages(argos_package):
                 "Argos index refresh failed (%s); using official package links",
                 type(exc).__name__,
             )
-            return _direct_model_candidates()
+            return None
     index_path = Path(settings.local_package_index)
     urls = [str(settings.remote_package_index), *_INDEX_MIRRORS]
     failures = []
@@ -116,28 +126,14 @@ def _available_packages(argos_package):
         "Argos index and cache unavailable; using fixed official package links (%s)",
         "; ".join(failures),
     )
-    return _direct_model_candidates()
+    return None
 
 
-def _runtime_modules():
-    """Set the persistent model directory before Argos reads its settings."""
-    from src.shop_integration import webstore_data_dir
-
-    model_dir = Path(webstore_data_dir()) / "translation" / "argos-packages"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    # Use Argos' lightweight MiniSBD path; Stanza would pull a large optional
-    # Torch/SpaCy runtime that the Web Store does not need.
-    os.environ.setdefault("ARGOS_STANZA_AVAILABLE", "false")
-    os.environ.setdefault("ARGOS_PACKAGES_DIR", str(model_dir))
-    os.environ.setdefault("ARGOS_PACKAGE_DIR", str(model_dir))
-
-    import argostranslate.package as argos_package
-    import argostranslate.translate as argos_translate
-    from langdetect import DetectorFactory, detect
-
-    # Allow production administrators to drop official .argosmodel archives
-    # into the persistent package directory when browser upload is unavailable.
+def _install_staged_models(argos_package, model_dir: Path) -> None:
+    """Install only missing supported pairs from the updater's persistent archive directory."""
+    installed_pairs = set(_installed_by_pair(argos_package))
     for package_path in model_dir.glob("*.argosmodel"):
+        pair = None
         try:
             with zipfile.ZipFile(package_path) as archive:
                 metadata_item = None
@@ -157,17 +153,56 @@ def _runtime_modules():
             pair = (metadata.get("from_code"), metadata.get("to_code"))
             if pair not in _MODEL_PAIRS:
                 raise ValueError(f"par de idiomas não suportado: {pair}")
+            if pair in installed_pairs:
+                logging.getLogger(__name__).info(
+                    "[Translation] %s -> %s already installed; retaining staged archive",
+                    pair[0], pair[1],
+                )
+                continue
+            logging.getLogger(__name__).info(
+                "[Translation] Local package found for %s -> %s; installing",
+                pair[0], pair[1],
+            )
             argos_package.install_from_path(package_path)
+            installed_pairs.add(pair)
             package_path.unlink()
             logging.getLogger(__name__).info(
-                "Installed manually staged Argos model %s (%s → %s)",
-                package_path.name, pair[0], pair[1],
+                "[Translation] %s -> %s installed successfully", pair[0], pair[1]
             )
         except Exception as exc:
             logging.getLogger(__name__).warning(
-                "Could not install staged Argos model %s (%s)",
-                package_path.name, type(exc).__name__,
+                "[Translation] Failed installing staged model pair=%s stage=local_install error_type=%s",
+                "_to_".join(pair) if pair else "unknown", type(exc).__name__, exc_info=True,
             )
+
+
+def _runtime_modules():
+    """Set the persistent model directory before Argos reads its settings."""
+    from src.shop_integration import webstore_data_dir
+
+    model_dir = Path(webstore_data_dir()) / "translation" / "argos-packages"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    # Use Argos' lightweight MiniSBD path; Stanza would pull a large optional
+    # Torch/SpaCy runtime that the Web Store does not need.
+    os.environ.setdefault("ARGOS_STANZA_AVAILABLE", "false")
+    # Do not inherit a stale environment override from another service/app version.
+    os.environ["ARGOS_PACKAGES_DIR"] = str(model_dir)
+    os.environ["ARGOS_PACKAGE_DIR"] = str(model_dir)
+    logging.getLogger(__name__).info(
+        "[Translation] Persistent Argos package directory: %s", model_dir
+    )
+
+    try:
+        import argostranslate.package as argos_package
+        import argostranslate.translate as argos_translate
+        from langdetect import DetectorFactory, detect
+    except Exception as exc:
+        raise TranslationServiceError(
+            "ARGOS_INIT_FAILED", "argos_init", "Não foi possível inicializar o Argos."
+        ) from exc
+
+    # The updater can stage packages before Web Store startup; install only missing pairs.
+    _install_staged_models(argos_package, model_dir)
 
     DetectorFactory.seed = 0
     return argos_package, argos_translate, detect
@@ -182,8 +217,8 @@ def _model_directory() -> Path:
 def install_translation_model(path: str | Path) -> dict:
     """Validate and install one manually uploaded Argos model package."""
     package_path = Path(path)
-    if package_path.suffix.lower() != ".argosmodel" or package_path.stat().st_size > 100 * 1024 * 1024:
-        raise ValueError("Envie um arquivo .argosmodel de até 100 MB.")
+    if package_path.suffix.lower() != ".argosmodel" or package_path.stat().st_size > 350 * 1024 * 1024:
+        raise ValueError("Envie um arquivo .argosmodel de até 350 MiB.")
     with zipfile.ZipFile(package_path) as archive:
         total_uncompressed = 0
         metadata_item = None
@@ -240,8 +275,15 @@ def _download_model(candidate) -> Path:
 def refresh_translation_models(*, force_redownload: bool = False, check_now: bool = False) -> dict:
     """Check the official model index and install missing/newer models locally."""
     with _MODEL_LOCK:
-        argos_package, _argos_translate, _detect = _runtime_modules()
-        installed = _installed_by_pair(argos_package)
+        try:
+            argos_package, _argos_translate, _detect = _runtime_modules()
+            installed = _installed_by_pair(argos_package)
+        except TranslationServiceError:
+            raise
+        except Exception as exc:
+            raise TranslationServiceError(
+                "ARGOS_PACKAGE_SCAN_FAILED", "installed_models", "Não foi possível verificar os modelos instalados."
+            ) from exc
         model_dir = _model_directory()
         checked_file = model_dir.parent / "last_checked.json"
         try:
@@ -256,7 +298,22 @@ def refresh_translation_models(*, force_redownload: bool = False, check_now: boo
         if not force_redownload and not check_now and not missing and not due:
             return {"installed": len(_MODEL_PAIRS), "updated": 0, "checked": False}
 
-        available = _available_packages(argos_package)
+        try:
+            available = _available_packages(argos_package)
+        except Exception as exc:
+            raise TranslationServiceError(
+                "ARGOS_INDEX_UNAVAILABLE", "index_update", "Não foi possível consultar o catálogo Argos."
+            ) from exc
+        if not available and not force_redownload and not missing:
+            logging.getLogger(__name__).warning(
+                "[Translation] Installed models remain usable; index unavailable stage=index_update"
+            )
+            return {
+                "installed": len(_MODEL_PAIRS), "updated": 0, "checked": False,
+                "warning_code": "ARGOS_INDEX_UNAVAILABLE",
+            }
+        if not available:
+            available = _direct_model_candidates()
         present_pairs = {(item.from_code, item.to_code) for item in available}
         available.extend(
             item for item in _direct_model_candidates()
@@ -276,9 +333,20 @@ def refresh_translation_models(*, force_redownload: bool = False, check_now: boo
                 if current:
                     installed_count += 1
                     continue
-                raise RuntimeError(f"Modelo gratuito indisponível: {pair[0]} → {pair[1]}")
+                raise TranslationServiceError(
+                    "MODEL_NOT_FOUND", "catalog_lookup", "Modelo gratuito indisponível.", pair
+                )
 
             newest = max(current, key=lambda item: parse_version(item.package_version), default=None)
+            if newest:
+                logging.getLogger(__name__).info(
+                    "[Translation] %s -> %s already installed version=%s",
+                    pair[0], pair[1], newest.package_version,
+                )
+            else:
+                logging.getLogger(__name__).info(
+                    "[Translation] %s -> %s missing", pair[0], pair[1]
+                )
             should_install = force_redownload or newest is None or parse_version(candidate.package_version) > parse_version(newest.package_version)
             if isinstance(candidate, _DirectModelCandidate) and newest is not None:
                 should_install = should_install and parse_version(candidate.package_version) >= parse_version(newest.package_version)
@@ -286,8 +354,42 @@ def refresh_translation_models(*, force_redownload: bool = False, check_now: boo
                 installed_count += 1
                 continue
 
-            downloaded = _download_model(candidate)
-            argos_package.install_from_path(downloaded)
+            try:
+                downloaded = _download_model(candidate)
+            except Exception as exc:
+                raise TranslationServiceError(
+                    "MODEL_DOWNLOAD_FAILED", "download", "Não foi possível baixar o modelo.", pair
+                ) from exc
+            try:
+                # Verify the downloaded archive using the same archive safety rules as manual upload.
+                with zipfile.ZipFile(downloaded) as archive:
+                    total_uncompressed = 0
+                    metadata_item = None
+                    for item in archive.infolist():
+                        member = Path(item.filename.replace("\\", "/"))
+                        if member.is_absolute() or ".." in member.parts:
+                            raise ValueError("caminho inválido no pacote")
+                        total_uncompressed += item.file_size
+                        if total_uncompressed > 500 * 1024 * 1024:
+                            raise ValueError("pacote excede o limite após extração")
+                        if item.filename.endswith("metadata.json"):
+                            metadata_item = item
+                    if metadata_item is None:
+                        raise ValueError("metadata.json ausente")
+                    metadata = json.loads(archive.read(metadata_item).decode("utf-8"))
+                    if (metadata.get("from_code"), metadata.get("to_code")) != pair:
+                        raise ValueError("par de idiomas divergente")
+            except Exception as exc:
+                Path(downloaded).unlink(missing_ok=True)
+                raise TranslationServiceError(
+                    "MODEL_VALIDATION_FAILED", "validation", "O pacote baixado não passou na validação.", pair
+                ) from exc
+            try:
+                argos_package.install_from_path(downloaded)
+            except Exception as exc:
+                raise TranslationServiceError(
+                    "MODEL_INSTALL_FAILED", "install", "Não foi possível instalar o modelo.", pair
+                ) from exc
             Path(downloaded).unlink(missing_ok=True)
             refreshed = _installed_by_pair(argos_package).get(pair, [])
             newest_installed = max(
@@ -315,7 +417,14 @@ def translate_offline(text: str, target: str) -> str:
     if target not in {"pt", "en", "es"}:
         raise ValueError("Idioma de destino inválido")
 
-    argos_package, argos_translate, detect = _runtime_modules()
+    try:
+        argos_package, argos_translate, detect = _runtime_modules()
+    except TranslationServiceError:
+        raise
+    except Exception as exc:
+        raise TranslationServiceError(
+            "ARGOS_INIT_FAILED", "argos_init", "Não foi possível inicializar o Argos."
+        ) from exc
     try:
         refresh_translation_models()
     except Exception:
@@ -331,4 +440,10 @@ def translate_offline(text: str, target: str) -> str:
     argos_target = "pb" if target == "pt" else target
     if argos_source == argos_target:
         return text
-    return argos_translate.translate(text, argos_source, argos_target)
+    try:
+        return argos_translate.translate(text, argos_source, argos_target)
+    except Exception as exc:
+        raise TranslationServiceError(
+            "MODEL_LOAD_FAILED", "translation", "Não foi possível carregar o par de tradução.",
+            (argos_source, argos_target),
+        ) from exc

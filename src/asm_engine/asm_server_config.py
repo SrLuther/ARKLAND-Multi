@@ -173,6 +173,7 @@ class AsmServerConfig:
     # False = modo simples ASM (EnableLevelProgressions=false): só cap GUS, sem rampa/engrams no Game.ini
     player_level_progressions_enabled:  bool  = False
     dino_level_progressions_enabled:    bool  = False
+    player_level_cap_schema_version:   int   = 1  # 1 = player_base_level guarda base; gerador UI aceita cap total
 
     # ── Dinos ─────────────────────────────────────────────────────────────────
     dino_damage_multiplier:              float = 1.0
@@ -448,8 +449,55 @@ class AsmServerConfig:
 
         data = dict(data)
         pl = data.pop("player_level", None)
+        has_unified_player_level = isinstance(pl, dict)
         if isinstance(pl, dict):
             migrate_player_level_dict(data, pl)
+        migrated_legacy_total_cap = False
+        if "player_level_cap_schema_version" not in data:
+            # Before the total-cap UI was corrected, its generator wrote the
+            # entered cap directly to player_base_level. That made 250 reopen
+            # as 250 base + 100 bonus = 350. Only migrate profiles carrying
+            # that legacy generator signature; unified profiles already store
+            # an explicitly named base_level and must keep it.
+            try:
+                legacy_value = int(data.get("player_base_level", 0) or 0)
+            except (TypeError, ValueError):
+                legacy_value = 0
+            legacy_custom_generator = (
+                not has_unified_player_level
+                and str(data.get("player_xp_curve_mode", "")).lower() == "custom"
+                and legacy_value > 105
+                and bool(data.get("player_level_stats_raw") or data.get("player_level_progressions_enabled"))
+            )
+            if legacy_custom_generator:
+                from ..player_level_ramp import export_ramp_raw, parse_ramp_from_text, ramp_slots_to_values
+
+                total_cap = legacy_value
+                data["player_base_level"] = max(1, total_cap - 100)
+                raw = str(data.get("player_level_stats_raw", "") or "")
+                parsed = parse_ramp_from_text(raw)
+                slots = parsed.get("slots", {})
+                if slots and int(parsed.get("entry_count", 0) or 0) > total_cap:
+                    values = ramp_slots_to_values(slots, total_cap)
+                    data["player_level_stats_raw"] = export_ramp_raw(values)
+                thresholds = data.get("player_level_xp_thresholds")
+                if isinstance(thresholds, list) and len(thresholds) > total_cap:
+                    data["player_level_xp_thresholds"] = thresholds[:total_cap]
+                engrams = data.get("player_engram_points")
+                if isinstance(engrams, list) and len(engrams) > total_cap:
+                    data["player_engram_points"] = engrams[:total_cap]
+                data["player_ramp_entry_count"] = min(
+                    int(data.get("player_ramp_entry_count", total_cap) or total_cap), total_cap
+                )
+                try:
+                    legacy_max_index = int(data.get("player_ramp_max_index", total_cap - 1))
+                except (TypeError, ValueError):
+                    legacy_max_index = total_cap - 1
+                data["player_ramp_max_index"] = (
+                    total_cap - 1 if legacy_max_index < 0 else min(total_cap - 1, legacy_max_index)
+                )
+                migrated_legacy_total_cap = True
+            data["player_level_cap_schema_version"] = 1
         if "player_level_progressions_enabled" not in data:
             data["player_level_progressions_enabled"] = infer_player_level_progressions_enabled(data)
         if "dino_level_progressions_enabled" not in data:
@@ -467,7 +515,9 @@ class AsmServerConfig:
         from ..ui_constants import normalize_active_event
         if "active_event" in kwargs:
             kwargs["active_event"] = normalize_active_event(kwargs.get("active_event", ""))
-        return cls(**kwargs)
+        result = cls(**kwargs)
+        result._player_cap_migrated_legacy_total = migrated_legacy_total_cap
+        return result
 
 
 def _coerce_config_field(field_def, value, defaults: "AsmServerConfig"):

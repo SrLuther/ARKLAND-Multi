@@ -53,6 +53,7 @@ def cluster_save(app: "ARKServerManagerApp", cluster_id: str) -> None:
 
     linkable = iter_linkable_servers(app, cluster_id)
     linked_asm = 0
+    ini_errors: list[str] = []
     asm_mgr = getattr(app, "asm_config_manager", None)
     if asm_mgr is not None:
         for item in linkable:
@@ -81,8 +82,8 @@ def cluster_save(app: "ARKServerManagerApp", cluster_id: str) -> None:
                     from ..asm_engine.asm_ini_manager import write_ini
                     if srv.install_dir:
                         write_ini(srv)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    ini_errors.append(f"{srv.name}: {exc}")
             elif getattr(srv, "cluster_profile_id", "") == cluster_id:
                 srv.cluster_profile_id = ""
                 asm_mgr.update_server(srv)
@@ -137,5 +138,7 @@ def cluster_save(app: "ARKServerManagerApp", cluster_id: str) -> None:
     app._toast(
         f'Perfil "{prof.name}" salvo — {total} mapa(s) receberão a mesma configuração. '
         "Reinicie os servidores para aplicar.",
-        kind="info",
+        kind="warning" if ini_errors or failed_dirs else "info",
     )
+    if ini_errors:
+        app._toast("Falha ao gravar INI TEK: " + " | ".join(ini_errors[:3]), kind="error")

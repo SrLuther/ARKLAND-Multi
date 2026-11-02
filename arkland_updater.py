@@ -338,6 +338,16 @@ class UpdaterApp:
                 continue
         return installed
 
+    def _log_translation_step(self, message: str) -> None:
+        """Persist updater decisions so translation setup can be diagnosed after restart."""
+        try:
+            log_path = self._models_dir.parent / "updater-translation.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8") as stream:
+                stream.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} {message}\n")
+        except OSError:
+            pass
+
     @staticmethod
     def _validate_argos_archive(path: Path, source: str, target: str, version: str) -> None:
         with zipfile.ZipFile(path) as archive:
@@ -402,9 +412,13 @@ class UpdaterApp:
     def _prepare_translation_models(self) -> None:
         installed = self._installed_model_pairs()
         missing = [model for model in _ARGOS_MODELS if (model[1], model[2], model[3]) not in installed]
+        self._log_translation_step(
+            f"start models_dir={self._models_dir} installed={len(installed)} missing={len(missing)}"
+        )
         if not missing:
             self._set_status("Pacotes de tradução já estão instalados.")
             self._set_progress(0.62)
+            self._log_translation_step("skip all expected package versions are already installed")
             return
 
         self._models_dir.mkdir(parents=True, exist_ok=True)
@@ -413,17 +427,23 @@ class UpdaterApp:
         try:
             for index, (filename, source, target, _version) in enumerate(missing):
                 self._model_index = index
+                self._log_translation_step(f"download start file={filename}")
                 self._set_status(
                     "Preparando modelos de tradução antes de atualizar...",
                     f"Pacote {index + 1} de {len(missing)}: {filename}",
                 )
                 self._download_argos_model(filename, source, target, _version, stage_dir / filename)
+                self._log_translation_step(f"download and validation succeeded file={filename}")
 
             # Só publica os arquivos no destino quando todos os pacotes foram validados.
             for filename, _source, _target, _version in missing:
                 (stage_dir / filename).replace(self._models_dir / filename)
             self._set_progress(0.62)
             self._set_status("Modelos preparados.", "A Web Store os instalará ao iniciar.")
+            self._log_translation_step("all archives staged; awaiting Web Store startup installation")
+        except Exception as exc:
+            self._log_translation_step(f"preparation failed type={type(exc).__name__} message={str(exc)[:500]}")
+            raise
         finally:
             try:
                 for child in stage_dir.iterdir():

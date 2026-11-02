@@ -116,21 +116,25 @@ def _run_with_ui(
     return True
 
 
-def _resolve_srv_for_steamcmd(app: "ARKServerManagerApp", srv: AsmServerConfig) -> AsmServerConfig:
-    """Sincroniza painel → cfg → JSON → INI antes de SteamCMD (paridade primitiva)."""
-    if hasattr(app, "_asm_persist_server"):
-        return app._asm_persist_server(srv)
-    fresh = app.asm_config_manager.get_server(srv.id) or srv
+def _resolve_srv_for_steamcmd(app: "ARKServerManagerApp", srv: AsmServerConfig) -> Optional[AsmServerConfig]:
+    """Persist the current profile before SteamCMD can modify server files."""
     try:
+        if hasattr(app, "_asm_persist_server"):
+            return app._asm_persist_server(srv)
+        fresh = app.asm_config_manager.get_server(srv.id) or srv
         from ..asm_ui.asm_server_panel import _sync_ui_to_cfg
         _sync_ui_to_cfg(app, fresh)
-    except Exception:
-        pass
-    try:
         app.asm_config_manager.update_server(fresh)
-    except Exception:
-        pass
-    return fresh
+        return fresh
+    except Exception as exc:
+        import tkinter.messagebox as mb
+
+        mb.showerror(
+            "Falha ao salvar configura\u00e7\u00e3o",
+            f"A opera\u00e7\u00e3o foi cancelada porque o perfil n\u00e3o foi salvo:\n{exc}",
+            parent=app,
+        )
+        return None
 
 
 def start_server_install(
@@ -144,6 +148,8 @@ def start_server_install(
         validate = AsmSteamCmd.install_dir_has_server(srv.install_dir)
 
     srv = _resolve_srv_for_steamcmd(app, srv)
+    if srv is None:
+        return False
 
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
         sc.install_server(
@@ -182,6 +188,8 @@ def start_mods_download(app: "ARKServerManagerApp", srv: AsmServerConfig) -> boo
 
 def start_server_validate(app: "ARKServerManagerApp", srv: AsmServerConfig) -> bool:
     srv = _resolve_srv_for_steamcmd(app, srv)
+    if srv is None:
+        return False
 
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
         sc.validate_server(srv.install_dir, show_console=True, on_done=on_done)

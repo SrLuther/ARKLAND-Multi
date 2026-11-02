@@ -121,7 +121,7 @@ def _save_smtp(app, sm) -> None:
     sm.notify_shutdown_restart = _g(app, "_smtp_n_restart_var", tk.BooleanVar)
 
 
-def _save_startup_registry(app, cfg, winreg) -> None:
+def _save_startup_registry(app, cfg, winreg) -> str | None:
     try:
         key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         app_key = "ARKLAND-ServerManager"
@@ -136,8 +136,9 @@ def _save_startup_registry(app, cfg, winreg) -> None:
                     winreg.DeleteValue(key, app_key)
                 except FileNotFoundError:
                     pass
-    except Exception:
-        pass
+    except Exception as exc:
+        return str(exc)
+    return None
 
 
 def save_global_config_tek(app) -> None:
@@ -150,6 +151,7 @@ def save_global_config_tek(app) -> None:
     cfg.log_debug            = _g(app, "_cfg_log_debug_var",       tk.BooleanVar)
     # SetDay via RCON crasha ASE 361.7 — nunca persistir enabled=True.
     cfg.force_day_on_start_enabled = False
+    warnings = []
     try:
         cfg.force_day_on_start = max(0, int(_g(app, "_cfg_force_day_var", strip=True) or "20"))
     except ValueError:
@@ -161,8 +163,8 @@ def save_global_config_tek(app) -> None:
             nvidia_api_key=_g(app, "_ai_nvidia_key_var", strip=True),
             openai_api_key=_g(app, "_ai_openai_key_var", strip=True),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        warnings.append(f"Chaves de IA: {exc}")
     _save_discord(app, cfg.discord_notify)
     _save_backup(app, cfg.backup)
     _save_auto_update(app, cfg.auto_update)
@@ -170,6 +172,15 @@ def save_global_config_tek(app) -> None:
     _save_alert_messages(app, cfg.alert_messages)
     _save_discord_bot(app, cfg.discord_bot)
     _save_smtp(app, cfg.smtp)
-    _save_startup_registry(app, cfg, _winreg)
+    registry_error = _save_startup_registry(app, cfg, _winreg)
     app.config_manager.save()
-    messagebox.showinfo("Salvo", "Configurações globais salvas!", parent=app)
+    if registry_error:
+        warnings.append(f"Inicialização com o Windows: {registry_error}")
+    if warnings:
+        messagebox.showwarning(
+            "Configurações salvas com avisos",
+            "As configurações principais foram salvas, mas alguns itens falharam:\n\n"
+            + "\n".join(warnings), parent=app,
+        )
+    else:
+        messagebox.showinfo("Salvo", "Configurações globais salvas!", parent=app)

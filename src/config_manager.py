@@ -14,11 +14,42 @@ from typing import List, Optional
 
 from .server_config import ServerConfig, ClusterProfile
 
+
+def _backup_corrupt_json(path: Path) -> None:
+    """Preserve unreadable profile data before a later save can replace it."""
+    if not path.exists():
+        return
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    backup = path.with_name(f"{path.name}.corrupt-{stamp}")
+    suffix = 1
+    while backup.exists():
+        backup = path.with_name(f"{path.name}.corrupt-{stamp}-{suffix}")
+        suffix += 1
+    shutil.copy2(path, backup)
+
 # Paths relativos ao install_dir do servidor ARK ASE a apagar antes do start
 # (conteúdo de mods que causa crash). Lista vazia desactiva a limpeza.
 DEFAULT_MOD_PATH_BLACKLIST: List[str] = [
     "ShooterGame/Content/Mods/1565015734/Mek",
 ]
+
+
+def _write_json_atomic(path: Path, payload: object) -> None:
+    """Replace a JSON file only after a complete, flushed serialization."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, ensure_ascii=False)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 @dataclass
@@ -491,12 +522,15 @@ class ConfigManager:
         except Exception:
             import logging as _logging
             _logging.getLogger("arkland").exception("Falha ao ler %s", self._servers_file)
+            try:
+                _backup_corrupt_json(self._servers_file)
+            except OSError:
+                _logging.getLogger("arkland").exception("Falha ao preservar %s", self._servers_file)
 
     def save_servers(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
         try:
-            with open(self._servers_file, "w", encoding="utf-8") as fh:
-                json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+            _write_json_atomic(self._servers_file, [s.to_dict() for s in self._servers])
         except Exception:
             import logging as _logging
             _logging.getLogger("arkland").exception("Falha ao gravar %s", self._servers_file)
@@ -506,18 +540,33 @@ class ConfigManager:
 
     def add_server(self, server: ServerConfig) -> None:
         self._servers.append(server)
-        self.save_servers()
+        try:
+            self.save_servers()
+        except Exception:
+            self._servers.pop()
+            raise
 
     def update_server(self, server: ServerConfig) -> None:
         for i, s in enumerate(self._servers):
             if s.id == server.id:
                 self._servers[i] = server
+                try:
+                    self.save_servers()
+                except Exception:
+                    self._servers[i] = s
+                    raise
                 break
-        self.save_servers()
+        else:
+            return
 
     def remove_server(self, server_id: str) -> None:
-        self._servers = [s for s in self._servers if s.id != server_id]
-        self.save_servers()
+        previous = self._servers
+        self._servers = [s for s in previous if s.id != server_id]
+        try:
+            self.save_servers()
+        except Exception:
+            self._servers = previous
+            raise
 
     def get_server(self, server_id: str) -> Optional[ServerConfig]:
         for s in self._servers:
@@ -544,27 +593,45 @@ class ConfigManager:
                 except Exception:
                     pass
         except Exception:
-            pass
+            import logging as _logging
+            _logging.getLogger("arkland").exception("Falha ao ler %s", self._clusters_file)
+            try:
+                _backup_corrupt_json(self._clusters_file)
+            except OSError:
+                _logging.getLogger("arkland").exception("Falha ao preservar %s", self._clusters_file)
 
     def save_clusters(self) -> None:
-        self._config_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._clusters_file, "w", encoding="utf-8") as fh:
-            json.dump([c.to_dict() for c in self._clusters], fh, indent=2, ensure_ascii=False)
+        _write_json_atomic(self._clusters_file, [c.to_dict() for c in self._clusters])
 
     def add_cluster(self, prof: ClusterProfile) -> None:
         self._clusters.append(prof)
-        self.save_clusters()
+        try:
+            self.save_clusters()
+        except Exception:
+            self._clusters.pop()
+            raise
 
     def update_cluster(self, prof: ClusterProfile) -> None:
         for i, c in enumerate(self._clusters):
             if c.id == prof.id:
                 self._clusters[i] = prof
+                try:
+                    self.save_clusters()
+                except Exception:
+                    self._clusters[i] = c
+                    raise
                 break
-        self.save_clusters()
+        else:
+            return
 
     def remove_cluster(self, cluster_id: str) -> None:
-        self._clusters = [c for c in self._clusters if c.id != cluster_id]
-        self.save_clusters()
+        previous = self._clusters
+        self._clusters = [c for c in previous if c.id != cluster_id]
+        try:
+            self.save_clusters()
+        except Exception:
+            self._clusters = previous
+            raise
 
     def get_cluster(self, cluster_id: str) -> Optional[ClusterProfile]:
         for c in self._clusters:

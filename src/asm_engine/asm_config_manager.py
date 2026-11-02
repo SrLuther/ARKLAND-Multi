@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -40,14 +42,39 @@ class AsmConfigManager:
         try:
             with open(self._servers_file, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
+            migrated_profiles = []
             for item in data:
                 try:
-                    self._servers.append(AsmServerConfig.from_dict(item))
+                    server = AsmServerConfig.from_dict(item)
+                    self._servers.append(server)
+                    if getattr(server, "_player_cap_migrated_legacy_total", False):
+                        migrated_profiles.append(server.name)
                 except Exception:
                     _LOG.warning("asm_servers.json: perfil inválido ignorado (id=%r)",
                                  item.get("id") if isinstance(item, dict) else None, exc_info=True)
+            if migrated_profiles:
+                _LOG.warning(
+                    "Migração de cap total legado aplicada: %s",
+                    ", ".join(migrated_profiles),
+                )
+                try:
+                    self.save()
+                except Exception:
+                    _LOG.exception(
+                        "A migração de cap foi aplicada em memória, mas não pôde ser persistida; será repetida no próximo início"
+                    )
         except Exception:
             _LOG.exception("Falha ao ler %s — lista de servidores TEK ficará vazia", self._servers_file)
+            try:
+                stamp = time.strftime("%Y%m%d-%H%M%S")
+                backup = self._servers_file.with_name(f"{self._servers_file.name}.corrupt-{stamp}")
+                suffix = 1
+                while backup.exists():
+                    backup = self._servers_file.with_name(f"{self._servers_file.name}.corrupt-{stamp}-{suffix}")
+                    suffix += 1
+                shutil.copy2(self._servers_file, backup)
+            except OSError:
+                _LOG.exception("Falha ao preservar %s", self._servers_file)
         diag_event(CAT_CONFIG, "asm_servers.json carregado", servers=len(self._servers),
                    file=str(self._servers_file))
 
@@ -57,8 +84,14 @@ class AsmConfigManager:
         try:
             with open(tmp, "w", encoding="utf-8") as fh:
                 json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+                fh.flush()
+                os.fsync(fh.fileno())
             tmp.replace(self._servers_file)
         except Exception:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
             _LOG.exception("Falha ao gravar %s", self._servers_file)
             raise
         diag_event(CAT_CONFIG, "asm_servers.json salvo", servers=len(self._servers),
@@ -78,18 +111,33 @@ class AsmConfigManager:
 
     def add_server(self, server: AsmServerConfig) -> None:
         self._servers.append(server)
-        self.save()
+        try:
+            self.save()
+        except Exception:
+            self._servers.pop()
+            raise
 
     def update_server(self, server: AsmServerConfig) -> None:
         for i, s in enumerate(self._servers):
             if s.id == server.id:
                 self._servers[i] = server
+                try:
+                    self.save()
+                except Exception:
+                    self._servers[i] = s
+                    raise
                 break
-        self.save()
+        else:
+            return
 
     def remove_server(self, server_id: str) -> None:
-        self._servers = [s for s in self._servers if s.id != server_id]
-        self.save()
+        previous = self._servers
+        self._servers = [s for s in previous if s.id != server_id]
+        try:
+            self.save()
+        except Exception:
+            self._servers = previous
+            raise
 
     # ── S3.4 — Export / Import / Clone ────────────────────────────────────────
 

@@ -52,6 +52,7 @@ def ini_save(app: "ARKServerManagerApp", server_id: str) -> None:
 
     # Aplica nos arquivos .ini se o diretório existir
     applied = False
+    apply_error: Exception | None = None
     if srv.install_dir and os.path.isdir(srv.install_dir):
         try:
             combined = dict(srv.mod_ini_configs)
@@ -62,11 +63,17 @@ def ini_save(app: "ARKServerManagerApp", server_id: str) -> None:
             ArkIniManager(srv.install_dir).apply_mod_ini_configs(combined)
             applied = True
         except Exception as exc:
+            apply_error = exc
             app._global_log(f"Erro ao aplicar INI de mods: {exc}", "error")
 
     msg = "Seções INI salvas com sucesso!"
     if applied:
         msg += "\n\nAplicadas nos arquivos .ini do servidor."
+    elif apply_error is not None:
+        msg = ("As seções foram salvas no perfil, mas não foi possível aplicá-las "
+               f"aos arquivos INI: {apply_error}\n\nCorrija o acesso aos arquivos e tente novamente.")
+        messagebox.showwarning("Perfil salvo; INI pendente", msg, parent=app)
+        return
     else:
         msg += ("\n\nAs seções serão aplicadas nos arquivos .ini\n"
                 "na próxima vez que o servidor for iniciado\n"

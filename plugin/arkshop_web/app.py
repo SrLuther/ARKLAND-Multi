@@ -17567,6 +17567,7 @@ register_ticket_routes(
     load_settings=_load_settings,
     save_settings=_save_settings,
 )
+app.config["ARKLAND_RELEASE"] = _get_project_release()
 
 from regulamento_service import register_regulamento_routes
 

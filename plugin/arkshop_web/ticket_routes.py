@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
+import os
 import tempfile
 import uuid
 from pathlib import Path
@@ -66,6 +67,14 @@ def register_ticket_routes(
         staff = bool(sid and can_manage_tickets(sid))
         return sid, admin, staff
 
+    def _translation_build_info() -> dict[str, str]:
+        release = app.config.get("ARKLAND_RELEASE") or {}
+        return {
+            "version": str(release.get("version") or "unknown"),
+            "build_date": str(release.get("date") or "unknown"),
+            "commit": str(os.environ.get("ARKLAND_GIT_COMMIT") or "unknown"),
+        }
+
     @app.route("/api/translate", methods=["POST"])
     @login_required
     @_limit(
@@ -89,18 +98,26 @@ def register_ticket_routes(
 
             translated = translate_offline(text, target)
             return jsonify({"ok": True, "translated": translated, "target": target})
-        except Exception:
+        except Exception as exc:
             error_id = uuid.uuid4().hex[:12]
+            code = getattr(exc, "code", "TRANSLATION_FAILED")
+            stage = getattr(exc, "stage", "translation")
+            pair = getattr(exc, "pair", None)
             logging.getLogger(__name__).exception(
-                "Falha na tradução offline dos tickets error_id=%s", error_id
+                "Falha na tradução offline operation=translate stage=%s code=%s pair=%s reference_id=%s build=%s",
+                stage, code, pair, error_id, _translation_build_info(),
             )
             return jsonify({
                 "ok": False,
+                "error_code": code,
+                "stage": stage,
+                "pair": "_to_".join(pair) if pair else None,
                 "error": (
                     "Não foi possível preparar a tradução local. Confira a conexão para baixar os modelos gratuitos e tente novamente. "
                     f"ID: {error_id}"
                 ),
                 "reference": error_id,
+                "reference_id": error_id,
             }), 503
 
     @app.route("/api/translate/models", methods=["POST"])
@@ -124,18 +141,26 @@ def register_ticket_routes(
                 check_now=True,
             )
             return jsonify({"ok": True, **result})
-        except Exception:
+        except Exception as exc:
             error_id = uuid.uuid4().hex[:12]
+            code = getattr(exc, "code", "TRANSLATION_PREPARATION_FAILED")
+            stage = getattr(exc, "stage", "preparation")
+            pair = getattr(exc, "pair", None)
             logging.getLogger(__name__).exception(
-                "Falha ao verificar modelos locais de tradução error_id=%s", error_id
+                "Falha ao verificar modelos operation=models_check stage=%s code=%s pair=%s reference_id=%s build=%s",
+                stage, code, pair, error_id, _translation_build_info(),
             )
             return jsonify({
                 "ok": False,
+                "error_code": code,
+                "stage": stage,
+                "pair": "_to_".join(pair) if pair else None,
                 "error": (
                     "Não foi possível verificar os idiomas. Confira a conexão do servidor e tente novamente. "
                     f"ID: {error_id}"
                 ),
                 "reference": error_id,
+                "reference_id": error_id,
             }), 503
 
     @app.route("/api/translate/models/upload", methods=["POST"])
@@ -145,11 +170,41 @@ def register_ticket_routes(
         """Install a model file that the player downloaded manually."""
         file_obj = request.files.get("file")
         if not file_obj or not file_obj.filename:
-            return jsonify({"ok": False, "error": "Selecione um arquivo .argosmodel."}), 400
+            error_id = uuid.uuid4().hex[:12]
+            logging.getLogger(__name__).warning(
+                "Upload Argos operation=manual_upload stage=multipart_parse error_code=UPLOAD_FILE_MISSING "
+                "reference_id=%s method=%s endpoint=%s content_type=%s content_length=%s "
+                "form_fields=%s file_fields=%s build=%s",
+                error_id,
+                request.method,
+                request.endpoint,
+                request.mimetype,
+                request.content_length,
+                sorted(request.form.keys()),
+                sorted(request.files.keys()),
+                _translation_build_info(),
+            )
+            return jsonify({
+                "ok": False,
+                "error_code": "UPLOAD_FILE_MISSING",
+                "stage": "multipart_parse",
+                "reference": error_id,
+                "reference_id": error_id,
+                "error": "Selecione um arquivo .argosmodel.",
+            }), 400
         if not file_obj.filename.lower().endswith(".argosmodel"):
-            return jsonify({"ok": False, "error": "O arquivo precisa ter a extensão .argosmodel."}), 400
-        if request.content_length and request.content_length > 105 * 1024 * 1024:
-            return jsonify({"ok": False, "error": "O envio excede o limite permitido de 100 MB."}), 413
+            return jsonify({
+                "ok": False, "error_code": "UPLOAD_INVALID_PACKAGE", "stage": "validation",
+                "error": "O arquivo precisa ter a extensão .argosmodel.",
+            }), 400
+        # The largest official Argos package is about 273 MiB; leave room for
+        # multipart framing while still keeping a bounded upload size.
+        max_upload_bytes = 350 * 1024 * 1024
+        if request.content_length and request.content_length > max_upload_bytes + 1024 * 1024:
+            return jsonify({
+                "ok": False, "error_code": "UPLOAD_TOO_LARGE", "stage": "receive",
+                "error": "O envio excede o limite permitido de 350 MiB.",
+            }), 413
 
         temp_path = None
         try:
@@ -161,8 +216,11 @@ def register_ticket_routes(
                     if not chunk:
                         break
                     total += len(chunk)
-                    if total > 100 * 1024 * 1024:
-                        return jsonify({"ok": False, "error": "O arquivo excede o limite de 100 MB."}), 413
+                    if total > max_upload_bytes:
+                        return jsonify({
+                            "ok": False, "error_code": "UPLOAD_TOO_LARGE", "stage": "receive",
+                            "error": "O arquivo excede o limite de 350 MiB.",
+                        }), 413
                     temp.write(chunk)
 
             from translation_service import install_translation_model
@@ -170,10 +228,29 @@ def register_ticket_routes(
             pair = install_translation_model(temp_path)
             return jsonify({"ok": True, "installed": pair})
         except ValueError as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 400
-        except Exception:
-            logging.getLogger(__name__).exception("Falha ao instalar modelo Argos enviado manualmente")
-            return jsonify({"ok": False, "error": "Não foi possível instalar este modelo. Confira o arquivo e tente novamente."}), 400
+            message = str(exc)
+            code = "UNSUPPORTED_LANGUAGE_PAIR" if "idioma" in message.lower() or "idiomas" in message.lower() else "UPLOAD_INVALID_PACKAGE"
+            error_id = uuid.uuid4().hex[:12]
+            logging.getLogger(__name__).warning(
+                "Upload Argos rejected operation=manual_upload stage=validation error_code=%s reference_id=%s build=%s",
+                code, error_id, _translation_build_info(),
+            )
+            return jsonify({"ok": False, "error_code": code, "stage": "validation", "reference": error_id, "reference_id": error_id, "error": message}), 400
+        except Exception as exc:
+            error_id = uuid.uuid4().hex[:12]
+            code = getattr(exc, "code", "MODEL_INSTALL_FAILED")
+            stage = getattr(exc, "stage", "install")
+            pair = getattr(exc, "pair", None)
+            logging.getLogger(__name__).exception(
+                "Falha ao instalar modelo operation=manual_upload stage=%s error_code=%s pair=%s reference_id=%s build=%s",
+                stage, code, pair, error_id, _translation_build_info(),
+            )
+            return jsonify({
+                "ok": False, "error_code": code, "stage": stage,
+                "pair": "_to_".join(pair) if pair else None,
+                "reference": error_id, "reference_id": error_id,
+                "error": "Não foi possível instalar este modelo. Confira o arquivo e tente novamente.",
+            }), 503
         finally:
             if temp_path:
                 temp_path.unlink(missing_ok=True)

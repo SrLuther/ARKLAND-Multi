@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import io
 import uuid
 from types import SimpleNamespace
 
@@ -109,6 +110,70 @@ def test_translate_route_uses_free_local_models_and_validates_input(client, monk
     assert checked.status_code == redownloaded.status_code == 200
     assert checked.get_json()["installed"] == 4
     assert model_actions == [(False, True), (True, True)]
+
+
+def test_translation_model_upload_receives_multipart_file(client, monkeypatch):
+    import translation_service
+
+    _login(client, USER_STEAM)
+    received = []
+    monkeypatch.setattr(
+        translation_service,
+        "install_translation_model",
+        lambda path: received.append(path.read_bytes()) or {"from": "en", "to": "pb"},
+    )
+
+    response = client.post(
+        "/api/translate/models/upload",
+        data={"file": (io.BytesIO(b"test-model-archive"), "translate-en_pb.argosmodel")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True, "installed": {"from": "en", "to": "pb"}}
+    assert received == [b"test-model-archive"]
+
+
+def test_translation_model_upload_missing_file_has_safe_diagnostic(client, caplog):
+    _login(client, USER_STEAM)
+
+    response = client.post(
+        "/api/translate/models/upload",
+        data={"other": "value"},
+        content_type="multipart/form-data",
+    )
+
+    payload = response.get_json()
+    assert response.status_code == 400
+    assert payload["error_code"] == "UPLOAD_FILE_MISSING"
+    assert payload["stage"] == "multipart_parse"
+    assert payload["reference_id"]
+    assert "file_fields=[]" in caplog.text
+    assert "form_fields=['other']" in caplog.text
+    assert "endpoint=upload_translation_model" in caplog.text
+    assert "cookie" not in caplog.text.lower()
+
+
+def test_translation_model_check_returns_structured_stage_and_reference(client, monkeypatch, caplog):
+    import translation_service
+
+    _login(client, USER_STEAM)
+
+    def fail_check(**_kwargs):
+        raise translation_service.TranslationServiceError(
+            "ARGOS_INDEX_UNAVAILABLE", "index_update", "catalog unavailable", ("en", "pb")
+        )
+
+    monkeypatch.setattr(translation_service, "refresh_translation_models", fail_check)
+    response = client.post("/api/translate/models", json={"redownload": False})
+
+    payload = response.get_json()
+    assert response.status_code == 503
+    assert payload["error_code"] == "ARGOS_INDEX_UNAVAILABLE"
+    assert payload["stage"] == "index_update"
+    assert payload["pair"] == "en_to_pb"
+    assert payload["reference_id"]
+    assert "build={'version':" in caplog.text
 
 
 def _seed_order(db, *, steam_id: str = USER_STEAM) -> str:

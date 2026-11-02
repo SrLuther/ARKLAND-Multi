@@ -3502,6 +3502,14 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         )
         return export_ramp_raw(values)
 
+    def _fit_player_curve_to_xp_cap(values: list[int], total_levels: int, max_xp: int) -> list[int]:
+        """Scale a player curve so the requested last level is reachable at the XP cap."""
+        if max_xp <= 0:
+            return values
+        from ..ui.level_progression_editor import _recalculate_xp_thresholds
+
+        return _recalculate_xp_thresholds(values, total_levels, max_xp)
+
     # ── Helper: gera linhas Game.ini para dino ────────────────────────────────
     def _gen_dino_lines(max_lvl: int, xp_base: int, xp_mult: float) -> str:
         lines = []
@@ -3516,7 +3524,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     _section_label(sf, "Override de Nível do Jogador (Game.ini)", 0, accent)
     ctk.CTkLabel(
         sf,
-        text="Ajuste aqui o n\u00edvel m\u00e1ximo e a curva de XP do jogador. Esta \u00e9 a tela exclusiva para essas configura\u00e7\u00f5es.",
+        text="Informe o cap total alcan\u00e7\u00e1vel, j\u00e1 contando ascens\u00f5es de bosses, notas, runas e chibi.",
         font=ctk.CTkFont(size=10),
         text_color="#7ab8c8",
         wraplength=520,
@@ -3560,10 +3568,10 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
 
     # Mult geométrico ≤1.08 — 1.15+ torna rampas longas (150/200) impraticáveis.
     _PRESETS = {
-        "Official (70 lvls)": {"max": 70, "base": 5, "mult": 1.08, "engrams": 8},
-        "Hard (150 lvls)": {"max": 150, "base": 10, "mult": 1.06, "engrams": 8},
-        "Custom (100 lvls)": {"max": 100, "base": 8, "mult": 1.05, "engrams": 10},
-        "Extreme (200 lvls)": {"max": 200, "base": 15, "mult": 1.05, "engrams": 12},
+        "Official (170 total)": {"max": 170, "base": 5, "mult": 1.08, "engrams": 8},
+        "Hard (250 total)": {"max": 250, "base": 10, "mult": 1.06, "engrams": 8},
+        "Custom (200 total)": {"max": 200, "base": 8, "mult": 1.05, "engrams": 10},
+        "Extreme (300 total)": {"max": 300, "base": 15, "mult": 1.05, "engrams": 12},
     }
 
     def _apply_preset(name: str):
@@ -3593,14 +3601,16 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         ).pack(side="left", padx=(0, 4))
 
     # ── Campos do gerador ─────────────────────────────────────────────────────
-    _prefill_max = int(getattr(srv, "player_base_level", 0) or 0)
+    _prefill_base = int(getattr(srv, "player_base_level", 0) or 0)
+    if _prefill_base <= 0:
+        ramp_entries = int(getattr(srv, "player_ramp_entry_count", 0) or 0)
+        _prefill_base = max(1, ramp_entries - 100) if ramp_entries > 100 else ramp_entries
+    _prefill_max = _prefill_base + 100 if _prefill_base > 0 else 0
     if _prefill_max <= 0:
-        _prefill_max = int(getattr(srv, "player_ramp_entry_count", 0) or 0)
-    if _prefill_max <= 0:
-        _prefill_max = ARK_DEFAULT_BASE_LEVEL
+        _prefill_max = ARK_DEFAULT_BASE_LEVEL + 100
     pl_base_var = vars_ref.get("player_base_level")
     if pl_base_var is None:
-        pl_base_var = tk.StringVar(value=str(_prefill_max))
+        pl_base_var = tk.StringVar(value=str(_prefill_base or ARK_DEFAULT_BASE_LEVEL))
         vars_ref["player_base_level"] = pl_base_var
     progressions_var = vars_ref.get("player_level_progressions_enabled")
     if progressions_var is None:
@@ -3616,12 +3626,18 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     ).grid(row=3, column=8, columnspan=2, padx=8, pady=(0, 4), sticky="w")
     if pl_base_var is not None:
         try:
-            _prefill_max = max(1, int(float(pl_base_var.get())))
+            _prefill_max = max(1, int(float(pl_base_var.get()))) + 100
         except (ValueError, TypeError, tk.TclError):
             pass
+    cap_var = vars_ref.get("_player_total_cap_var")
+    if cap_var is None:
+        cap_var = tk.StringVar(value=str(_prefill_max))
+        vars_ref["_player_total_cap_var"] = cap_var
+    else:
+        cap_var.set(str(_prefill_max))
 
     _fields_p = [
-        ("N\u00edvel m\u00e1x.", str(_prefill_max)),
+        ("Cap total", str(_prefill_max)),
         ("XP base (lv0)", str(getattr(srv, "player_xp_curve_base", 70) or 70)),
         ("Multiplicador XP", str(getattr(srv, "player_xp_curve_mult", 1.05) or 1.05)),
         ("XP m\u00e1ximo", str(getattr(srv, "override_max_xp_player", 0) or 0)),
@@ -3632,7 +3648,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             gen_card, text=lbl, font=ctk.CTkFont(size=10), text_color="#8899aa"
         ).grid(row=3, column=col * 2, padx=(12, 2), pady=(0, 4), sticky="e")
         if col == 0:
-            v = pl_base_var
+            v = cap_var
         else:
             key = ("player_xp_curve_base", "player_xp_curve_mult", "override_max_xp_player")[col - 1]
             v = vars_ref.get(key)
@@ -3706,28 +3722,29 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
 
     def _preview_player_gen():
         try:
-            max_lvl = max(1, min(int(_vars_p[0].get()), 500))
+            max_total = int(_vars_p[0].get())
+            if not 101 <= max_total <= 500:
+                return
+            base_lvl = max_total - 100
             xp_base = max(1, int(_vars_p[1].get()))
             xp_mult = max(1.0, float(_vars_p[2].get()))
+            max_xp = max(0, int(float(_vars_p[3].get())))
         except ValueError:
             return
 
         # Usa fórmula custom se diferente do padrão
         formula = custom_formula_var.get().strip()
-        xp_vals = []
+        xp_vals = build_ramp_values(
+            base_lvl,
+            mode=XP_CURVE_CUSTOM,
+            xp_base=xp_base,
+            xp_mult=xp_mult,
+            formula=formula,
+        )
         try:
-            for i in range(max_lvl):
-                base, mult = xp_base, xp_mult
-                xp = int(
-                    eval(
-                        formula,
-                        {"__builtins__": {}},
-                        {"i": i, "base": base, "mult": mult},
-                    )
-                )
-                xp_vals.append(xp)
-        except Exception:
-            xp_vals = [int(xp_base * (xp_mult**i)) for i in range(max_lvl)]
+            xp_vals = _fit_player_curve_to_xp_cap(xp_vals, max_total, max_xp)
+        except ValueError:
+            return
 
         from src.player_level_ramp import build_ramp_ini_line
 
@@ -3749,7 +3766,14 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
 
     def _apply_generated_player_ramp():
         try:
-            max_lvl = max(1, min(int(_vars_p[0].get()), 500))
+            max_total = int(_vars_p[0].get())
+            if not 101 <= max_total <= 500:
+                messagebox.showwarning(
+                    "Cap total invalido",
+                    "Informe um cap total entre 101 e 500. O valor inclui os 100 niveis de bonus.",
+                )
+                return None
+            base_lvl = max_total - 100
             xp_base = max(1, int(_vars_p[1].get()))
             xp_mult = max(1.0, float(_vars_p[2].get()))
             max_xp = max(0, int(float(_vars_p[3].get())))
@@ -3757,27 +3781,25 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             return None
 
         formula = custom_formula_var.get().strip()
-        xp_vals = []
+        xp_vals = build_ramp_values(
+            base_lvl,
+            mode=XP_CURVE_CUSTOM,
+            xp_base=xp_base,
+            xp_mult=xp_mult,
+            formula=formula,
+        )
         try:
-            for i in range(max_lvl):
-                base, mult = xp_base, xp_mult
-                xp = int(
-                    eval(
-                        formula,
-                        {"__builtins__": {}},
-                        {"i": i, "base": base, "mult": mult},
-                    )
-                )
-                xp_vals.append(xp)
-        except Exception:
-            xp_vals = [int(xp_base * (xp_mult**i)) for i in range(max_lvl)]
-
-        if max_xp > 0:
-            xp_vals = [min(int(v), max_xp) for v in xp_vals]
+            xp_vals = _fit_player_curve_to_xp_cap(xp_vals, max_total, max_xp)
+        except ValueError as exc:
+            messagebox.showwarning(
+                "XP máximo incompatível",
+                f"Não há XP suficiente para distribuir todos os {max_total} níveis. {exc}",
+            )
+            return None
 
         from src.player_level_ramp import build_ramp_ini_line
 
-        return build_ramp_ini_line(xp_vals), max_lvl, xp_base, xp_mult, formula, max_xp
+        return build_ramp_ini_line(xp_vals), base_lvl, xp_base, xp_mult, formula, max_xp
 
     def _apply_player_gen():
         generated = _apply_generated_player_ramp()
@@ -3797,25 +3819,25 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                 )
                 return
             parsed = parse_ramp_from_text(normalized)
-            if parsed.get("entry_count", 0) > 0:
-                max_lvl = max(max_lvl, int(parsed.get("entry_count", 0) or max_lvl))
-                if max_xp > 0:
-                    values = [
-                        min(int(v), max_xp) for v in parsed.get("slots", {}).values()
-                    ]
-                    ordered = [0] * int(parsed.get("entry_count", 0) or 0)
-                    for idx, val in parsed.get("slots", {}).items():
-                        ordered[int(idx)] = min(int(val), max_xp)
-                    text = (
-                        "LevelExperienceRampOverrides=("
-                        + ",".join(
-                            f"ExperiencePointsForLevel[{idx}]={int(value)}"
-                            for idx, value in enumerate(ordered)
-                        )
-                        + ")"
+            slots = parsed.get("slots", {})
+            if slots:
+                entry_count = max_lvl + 100
+                ordered = []
+                last_value = 0
+                for idx in range(entry_count):
+                    if idx in slots:
+                        last_value = int(slots[idx])
+                    value = min(last_value, max_xp) if max_xp > 0 else last_value
+                    ordered.append(value)
+                try:
+                    ordered = _fit_player_curve_to_xp_cap(ordered, entry_count, max_xp)
+                except ValueError as exc:
+                    messagebox.showwarning(
+                        "XP máximo incompatível",
+                        f"Não há XP suficiente para distribuir todos os {entry_count} níveis. {exc}",
                     )
-                else:
-                    text = normalized
+                    return
+                text = build_ramp_ini_line(ordered)
             else:
                 text = normalized
 
@@ -3842,6 +3864,12 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         srv.player_base_level = max_lvl
         srv.override_max_xp_player = max_xp
         srv.player_level_stats_raw = text
+        applied_ramp = parse_ramp_from_text(text)
+        applied_slots = applied_ramp.get("slots", {})
+        applied_count = int(applied_ramp.get("entry_count", 0) or 0)
+        srv.player_level_xp_thresholds = [
+            int(applied_slots.get(index, 0)) for index in range(applied_count)
+        ]
         if pl_base_var is not None:
             pl_base_var.set(str(max_lvl))
         _refresh_export_box(text)
@@ -6156,6 +6184,7 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
 
     # 4. Escreve os INIs e arquivos de Steam ID (se install_dir existir)
     import os as _os
+    ini_write_error: Exception | None = None
 
     if srv.install_dir and _os.path.isdir(srv.install_dir):
         try:
@@ -6183,6 +6212,7 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
             logging.getLogger("arkland").warning(
                 "write_ini falhou para '%s': %s", srv.name, exc, exc_info=True
             )
+            ini_write_error = exc
 
         from ..ark_server_files import write_allowed_cheater_steam_ids_safe
 
@@ -6196,6 +6226,10 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
             list(srv.admin_ids or []),
             server_name=srv.name,
             on_warning=_warn,
+        )
+    elif srv.install_dir:
+        ini_write_error = FileNotFoundError(
+            f"O diretório de instalação não existe: {srv.install_dir}"
         )
 
     # 5. Atualiza dashboard e sidebar
@@ -6224,9 +6258,17 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
         pass
     import tkinter.messagebox as _mb2
 
-    _mb2.showinfo(
-        "Salvo", f"Configurações de '{srv.name}' salvas.", parent=cast(tk.Misc, app)
-    )
+    if ini_write_error is not None:
+        _mb2.showwarning(
+            "Perfil salvo; INI não confirmado",
+            f"O perfil de '{srv.name}' foi gravado, mas houve falha ao escrever um ou mais INIs:\n\n"
+            f"{ini_write_error}\n\nConfira os arquivos antes de iniciar ou reiniciar o servidor.",
+            parent=cast(tk.Misc, app),
+        )
+    else:
+        _mb2.showinfo(
+            "Salvo", f"Configurações de '{srv.name}' salvas.", parent=cast(tk.Misc, app)
+        )
 
 
 # ════════════════════════════════════════════════════════════════════════════ #

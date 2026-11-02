@@ -1274,14 +1274,16 @@ class ARKServerManagerApp(ctk.CTk):
         try:
             self.asm_config_manager.update_server(fresh)
         except Exception as exc:
-            logging.getLogger("arkland").warning("persist server JSON falhou: %s", exc)
+            logging.getLogger("arkland").exception("persist server JSON falhou; opera\u00e7\u00e3o cancelada")
+            raise RuntimeError(f"N\u00e3o foi poss\u00edvel salvar o perfil do servidor: {exc}") from exc
 
         if write_ini_disk and fresh.install_dir and os.path.isdir(fresh.install_dir):
             try:
                 from .asm_engine.asm_ini_manager import write_ini
                 write_ini(fresh)
             except Exception as exc:
-                logging.getLogger("arkland").warning("write_ini falhou: %s", exc)
+                logging.getLogger("arkland").exception("write_ini falhou; opera\u00e7\u00e3o cancelada")
+                raise RuntimeError(f"N\u00e3o foi poss\u00edvel gravar os INIs do servidor: {exc}") from exc
 
         return fresh
 
@@ -1306,7 +1308,11 @@ class ARKServerManagerApp(ctk.CTk):
             pass
         # #endregion
 
-        srv = self._asm_persist_server(srv)
+        try:
+            srv = self._asm_persist_server(srv)
+        except Exception as exc:
+            messagebox.showerror("Falha ao salvar configura\u00e7\u00e3o", str(exc), parent=self)
+            return
         errors = self._validate_server_config(srv)
         if errors:
             # #region agent log
@@ -1441,7 +1447,13 @@ class ARKServerManagerApp(ctk.CTk):
         cancel_shutdown(self, server_id)
 
     def _asm_restart_server(self, srv: AsmServerConfig) -> None:
-        srv = self._asm_persist_server(srv)
+        from tkinter import messagebox
+
+        try:
+            srv = self._asm_persist_server(srv)
+        except Exception as exc:
+            messagebox.showerror("Falha ao salvar configura\u00e7\u00e3o", str(exc), parent=self)
+            return
         self.asm_server_manager.restart(
             srv,
             on_done=lambda ok, msg: self.after(
