@@ -41,9 +41,10 @@ Esses testes comprovam o codigo local e usam fixtures/fakes para Argos. Nao comp
 
 ### Publicacao e evidencia disponivel (2026-11-02)
 
-- A versao `1.11.21` foi publicada no GitHub Release: https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.11.21. O instalador publicado e `ARKLAND-Multi-Setup-v1.11.21.exe`.
-- Isso confirma a publicacao do pacote, mas nao confirma que o host da Web Store esteja executando essa versao. A verificacao anterior do site observou assets `?v=1.11.20` e resposta HTTP 503 em `/api/translate/models`; nao foi possivel consultar os logs internos nem comprovar a troca de build no host.
-- Nenhum teste real com Argos, upload administrativo ou alteracao dos modelos no host foi realizado durante a publicacao. As evidencias de producao abaixo continuam necessarias.
+- A versao `1.11.22` foi publicada no GitHub Release: https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.11.22. O instalador publicado e `ARKLAND-Multi-Setup-v1.11.22.exe`.
+- Apos a publicacao, a pagina oficial foi recarregada em `2026-11-02T04:41:50Z`. O navegador continuou carregando `redeem_docs.js?v=1.11.21` e registrou `ReferenceError: renderLicenseTiersGrid is not defined`. A versao `1.11.22` corrige esse nome no pacote, mas o host da Web Store ainda nao estava servindo os assets novos nessa verificacao.
+- A publicacao do instalador nao comprova que o host da Web Store esteja executando esse build. Nao foi possivel consultar os logs internos, identidade do processo, filesystem dos modelos ou versao do backend.
+- Nenhum teste real com Argos, upload administrativo ou alteracao dos modelos no host foi realizado. As evidencias de producao abaixo continuam necessarias.
 
 ### Checagem inicial da publicacao (2026-11-01)
 
@@ -67,4 +68,4 @@ Nao envie cookie em chamado publico ou log compartilhado. O upload pode demorar 
 
 ## Conclusao atual
 
-O codigo instrumentado foi incluido no instalador da versao `1.11.21`, mas isso ainda nao comprova que o processo da Web Store no host esteja usando esse build. A causa definitiva do HTTP 400 e do HTTP 503 historicos em producao ainda nao esta fechada: para o 400 falta o log do corpo multipart recebido; para o 503 falta o traceback Python do host. A validacao real descrita acima e necessaria antes de declarar o tradutor resolvido em producao.
+O codigo instrumentado esta nos instaladores `1.11.21` e `1.11.22`, mas a pagina oficial ainda servia assets `1.11.21` apos o segundo release; o host precisa implantar a versao nova antes de confirmar a instrumentacao e o conserto do renderer. A causa definitiva do HTTP 400 e do HTTP 503 historicos em producao ainda nao esta fechada: para o 400 falta o log do corpo multipart recebido; para o 503 falta o traceback Python do host. A validacao real descrita acima e necessaria antes de declarar o tradutor resolvido em producao.
