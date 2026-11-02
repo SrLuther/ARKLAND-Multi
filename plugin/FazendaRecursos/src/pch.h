@@ -3,6 +3,7 @@
 #include <API/ARK/Ark.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <winhttp.h>
 #ifdef min
 #undef min
 #endif
@@ -11,16 +12,22 @@
 #endif
 #include <json.hpp>
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <map>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <string>
+#include <tuple>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 inline std::string FRJsonString(const nlohmann::json& j, const char* key,

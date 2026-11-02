@@ -24,17 +24,23 @@ public:
     bool Enabled() const { return enabled_; }
     const std::string& LicenseGroup() const { return license_group_; }
     int TickSeconds() const { return tick_seconds_; }
+    int SyncIntervalSeconds() const;
+    std::string ServerId() const;
     int PreviewLifetimeSeconds() const { return preview_lifetime_seconds_; }
     int InitialCapacity() const { return initial_capacity_; }
     const std::vector<std::string>& AdminGroups() const { return admin_groups_; }
     const std::vector<ResourceDefinition>& Resources() const { return resources_; }
+    std::vector<ResourceDefinition> ResourcesSnapshot() const;
     std::string Message(const std::string& key, const std::string& fallback = {}) const;
 private:
     nlohmann::json root_, messages_;
     bool enabled_ = true;
     std::string license_group_ = "keyfarm";
     int tick_seconds_ = 60, preview_lifetime_seconds_ = 120, initial_capacity_ = 200;
+    int sync_interval_seconds_ = 60;
+    std::string server_id_ = "default";
     std::vector<std::string> admin_groups_;
     std::vector<ResourceDefinition> resources_;
+    mutable std::mutex resources_mutex_;
 };
 }

@@ -1,9 +1,11 @@
-{
+﻿{
   "FazendaRecursos": {
     "Enabled": true,
     "LicenseGroup": "keyfarm",
     "InitialCapacityPerResource": 200,
     "TickSeconds": 60,
+    "SyncIntervalSeconds": 60,
+    "ServerId": "default",
     "PreviewLifetimeSeconds": 120,
     "DiagnosticAdminGroups": ["Admins"],
     "Categories": {
@@ -14,10 +16,44 @@
         "Resources": []
       },
       "omega": {
-        "Enabled": false,
+        "Enabled": true,
         "Required": false,
         "DisplayName": "ARK Omega",
-        "Resources": []
+        "Resources": [
+          {
+            "Id": "omega_paragon_shard",
+            "Name": "Paragon Shard",
+            "ItemClass": "/Game/Mods/ArkOmega/Items/Souls/PrimalItem_ParagonShard.PrimalItem_ParagonShard_C",
+            "InputClass": "/Game/Mods/ArkOmega/Items/Souls/PrimalItem_ParagonShard.PrimalItem_ParagonShard_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "omega_soul_shard",
+            "Name": "Soul Shard",
+            "ItemClass": "/Game/Mods/ArkOmega/Items/Souls/PrimalItem_SoulShard.PrimalItem_SoulShard_C",
+            "InputClass": "/Game/Mods/ArkOmega/Items/Souls/PrimalItem_SoulShard.PrimalItem_SoulShard_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "omega_chest_shard",
+            "Name": "Chest Shard",
+            "ItemClass": "/Game/Mods/ArkOmega/Items/Souls/PrimalItem_ChestShard.PrimalItem_ChestShard_C",
+            "InputClass": "/Game/Mods/ArkOmega/Items/Souls/PrimalItem_ChestShard.PrimalItem_ChestShard_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "Capacity": 200,
+            "Enabled": true
+          }
+        ]
       }
     },
     "Messages": {

@@ -1,10 +1,11 @@
 {
-    "version": "1.11.25",
-    "date": "2026-11-02",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.25/ARKLAND-Multi-Setup-v1.11.25.exe",
-    "changelog": [
-        "Web Store (teste da Fazenda): Minha Área permite configurar recursos e selecionar quantidades para resgate quando houver estoque sincronizado recente.",
-        "Web Store (teste da Fazenda): API registra snapshots do plugin, reserva pedidos contra o estoque disponível e apresenta o estado das solicitações; sem sincronização real, o resgate permanece bloqueado.",
-        "Limitação conhecida: o plugin FazendaRecursos 0.1.4 ainda não sincroniza estoque nem executa resgates; esta versão valida a interface e o backend da WebStore, não o ciclo completo no jogo."
-    ]
+  "version": "1.11.26",
+  "date": "2026-11-02",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.26/ARKLAND-Multi-Setup-v1.11.26.exe",
+  "changelog": [
+    "Fazenda: plugin 0.1.5-test sincroniza snapshots de estoque com a WebStore ao iniciar, periodicamente e após alterações.",
+    "Fazenda: configuração padrão e migração segura incluem Paragon Shard, Soul Shard e Chest Shard na categoria Omega.",
+    "Fazenda: recursos Omega aparecem no catálogo administrativo mesmo em instalações com configuração anterior vazia.",
+    "Limitação de teste: upload genérico, produção/clonagem e entrega no jogo continuam pendentes; os snapshots podem mostrar estoque zero."
+  ]
 }

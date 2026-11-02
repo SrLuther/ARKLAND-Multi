@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.25"
+APP_VERSION: str = "1.11.26"
 BUILD_DATE: str = "2026-11-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.26",
+        "date": "2026-11-02",
+        "changes": [
+            "Fazenda: plugin 0.1.5-test sincroniza snapshots de estoque com a WebStore ao iniciar, periodicamente e após alterações.",
+            "Fazenda: configuração padrão e migração segura incluem Paragon Shard, Soul Shard e Chest Shard na categoria Omega.",
+            "Fazenda: recursos Omega aparecem no catálogo administrativo mesmo em instalações com configuração anterior vazia.",
+            "Limitação de teste: upload genérico, produção/clonagem e entrega no jogo continuam pendentes; os snapshots podem mostrar estoque zero.",
+        ],
+    },
     {
         "version": "1.11.25",
         "date": "2026-11-02",

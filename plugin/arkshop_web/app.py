@@ -14104,6 +14104,25 @@ def player_entitlements():
     })
 
 
+def _farm_omega_default_resources() -> list[dict[str, Any]]:
+    definitions = [
+        ("omega_paragon_shard", "Paragon Shard", "PrimalItem_ParagonShard"),
+        ("omega_soul_shard", "Soul Shard", "PrimalItem_SoulShard"),
+        ("omega_chest_shard", "Chest Shard", "PrimalItem_ChestShard"),
+    ]
+    return [{
+        "Id": resource_id,
+        "Name": name,
+        "ItemClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset}_C",
+        "InputClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset}_C",
+        "InputQuantity": 1,
+        "OutputQuantity": 1,
+        "IntervalSeconds": 3600,
+        "Capacity": 200,
+        "Enabled": True,
+    } for resource_id, name, asset in definitions]
+
+
 def _farm_default_config() -> dict[str, Any]:
     return {"FazendaRecursos": {
         "Enabled": True,
@@ -14114,17 +14133,40 @@ def _farm_default_config() -> dict[str, Any]:
         "DiagnosticAdminGroups": ["Admins"],
         "Categories": {
             "default": {"Enabled": True, "Required": True, "DisplayName": "Recursos do jogo base", "Resources": []},
-            "omega": {"Enabled": False, "Required": False, "DisplayName": "ARK Omega", "Resources": []},
+            "omega": {"Enabled": True, "Required": False, "DisplayName": "ARK Omega",
+                      "Resources": _farm_omega_default_resources()},
         },
         "Messages": {},
     }}
+
+
+def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
+    root = data.get("FazendaRecursos")
+    if not isinstance(root, dict):
+        return data
+    categories = root.get("Categories")
+    if not isinstance(categories, dict):
+        return data
+    omega = categories.setdefault("omega", {
+        "Enabled": True, "Required": False, "DisplayName": "ARK Omega", "Resources": []
+    })
+    if not isinstance(omega, dict):
+        return data
+    existing = omega.get("Resources")
+    if not isinstance(existing, list):
+        existing = []
+        omega["Resources"] = existing
+    known = {str(row.get("Id") or "") for row in existing if isinstance(row, dict)}
+    existing.extend(resource for resource in _farm_omega_default_resources()
+                    if resource["Id"] not in known)
+    return data
 
 
 def _read_farm_config() -> dict[str, Any]:
     try:
         data = json.loads(_FAZENDA_CONFIG_FILE.read_text(encoding="utf-8"))
         if isinstance(data, dict):
-            return data
+            return _merge_farm_default_resources(data)
     except (OSError, ValueError):
         pass
     return _farm_default_config()

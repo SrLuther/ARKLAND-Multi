@@ -1,3 +1,10 @@
+## [1.11.26] - 2026-11-02
+
+- Fazenda: plugin 0.1.5-test sincroniza snapshots de estoque com a WebStore ao iniciar, periodicamente e após alterações.
+- Fazenda: configuração padrão e migração segura incluem Paragon Shard, Soul Shard e Chest Shard na categoria Omega.
+- Fazenda: recursos Omega aparecem no catálogo administrativo mesmo em instalações com configuração anterior vazia.
+- Limitação de teste: upload genérico, produção/clonagem e entrega no jogo continuam pendentes; os snapshots podem mostrar estoque zero.
+
 # Changelog
 
 <!-- Gerado: 2026-11-02 18:02:09 -->

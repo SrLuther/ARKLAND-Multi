@@ -23,9 +23,9 @@ for /f "usebackq delims=" %%i in (`dir /b /ad /o-n "%WIN_KIT%\Include" 2^>nul`) 
 for /f "usebackq delims=" %%i in (`dir /b /ad /o-n "%WIN_KIT%\Lib" 2^>nul`) do if not defined WIN_SDK_LIB set WIN_SDK_LIB=%WIN_KIT%\Lib\%%i
 if not exist "%OBJ_DIR%" mkdir "%OBJ_DIR%"
 if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
-"%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- /I"%MSVC_DIR%\include" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" /I"%SDK_DIR%" /I"%SDK_ROOT%" /I"%SRC_DIR%" /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME /DUNICODE /D_UNICODE /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR /Fo"%OBJ_DIR%\\" "%SRC_DIR%\Main.cpp" "%SRC_DIR%\FarmConfig.cpp" "%SRC_DIR%\FarmState.cpp" "%SRC_DIR%\FarmPerms.cpp" "%SRC_DIR%\FarmCommands.cpp"
+"%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- /utf-8 /I"%MSVC_DIR%\include" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" /I"%SDK_DIR%" /I"%SDK_ROOT%" /I"%SRC_DIR%" /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME /DUNICODE /D_UNICODE /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR /Fo"%OBJ_DIR%\\" "%SRC_DIR%\Main.cpp" "%SRC_DIR%\FarmConfig.cpp" "%SRC_DIR%\FarmState.cpp" "%SRC_DIR%\FarmSync.cpp" "%SRC_DIR%\FarmPerms.cpp" "%SRC_DIR%\FarmCommands.cpp"
 if errorlevel 1 goto error
-"%LINK_EXE%" /DLL /NOLOGO /OUT:"%BIN_DIR%\FazendaRecursos.dll" /LIBPATH:"%LIB_DIR%" /LIBPATH:"%MSVC_DIR%\lib\x64" /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" /LIBPATH:"%WIN_SDK_LIB%\um\x64" ArkApi.lib kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib "%OBJ_DIR%\Main.obj" "%OBJ_DIR%\FarmConfig.obj" "%OBJ_DIR%\FarmState.obj" "%OBJ_DIR%\FarmPerms.obj" "%OBJ_DIR%\FarmCommands.obj"
+"%LINK_EXE%" /DLL /NOLOGO /OUT:"%BIN_DIR%\FazendaRecursos.dll" /LIBPATH:"%LIB_DIR%" /LIBPATH:"%MSVC_DIR%\lib\x64" /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" /LIBPATH:"%WIN_SDK_LIB%\um\x64" ArkApi.lib kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib winhttp.lib "%OBJ_DIR%\Main.obj" "%OBJ_DIR%\FarmConfig.obj" "%OBJ_DIR%\FarmState.obj" "%OBJ_DIR%\FarmSync.obj" "%OBJ_DIR%\FarmPerms.obj" "%OBJ_DIR%\FarmCommands.obj"
 if errorlevel 1 goto error
 copy /Y "%PLUGIN_DIR%configs\config.json" "%BIN_DIR%\config.json" >nul
 copy /Y "%PLUGIN_DIR%configs\PluginInfo.json" "%BIN_DIR%\PluginInfo.json" >nul

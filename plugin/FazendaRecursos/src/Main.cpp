@@ -1,8 +1,9 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "FarmConfig.h"
 #include "FarmState.h"
 #include "FarmCommands.h"
 #include "FarmPerms.h"
+#include "FarmSync.h"
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("FazendaRecursos");
@@ -14,11 +15,13 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         return;
     }
     FazendaRecursos::Perms::Init();
+    FazendaRecursos::FarmSync::Start();
     FazendaRecursos::Commands::Register();
-    Log::GetLog()->info("FazendaRecursos v0.1.2-test iniciado; licença {}", FazendaRecursos::FarmConfig::Get().LicenseGroup());
+    Log::GetLog()->info("FazendaRecursos v0.1.5-test iniciado; licença {}", FazendaRecursos::FarmConfig::Get().LicenseGroup());
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
+    FazendaRecursos::FarmSync::Stop();
     FazendaRecursos::Commands::Unregister();
     if (!FazendaRecursos::FarmState::Get().Save())
         Log::GetLog()->error("FazendaRecursos: não foi possível persistir o estado no unload");

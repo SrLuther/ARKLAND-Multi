@@ -42,3 +42,10 @@ O plugin chama `POST /api/plugin/farm/redemptions/claim` quando o jogador usa `/
 - Entrega e mudança de status precisam ser idempotentes para que timeout/repetição de HTTP não duplique itens.
 - Se a API estiver indisponível, não entregar e não marcar pedido como concluído.
 - O snapshot precisa representar o estoque real no servidor. Se a Fazenda for compartilhada entre mapas, a próxima etapa deve definir uma fonte de estoque central única; sobrescrever snapshots independentes por mapa não é seguro.
+
+
+## FazendaRecursos 0.1.5-test
+
+The plugin sends persisted stock snapshots to this endpoint asynchronously at startup, periodically, after Paragon Soul upload, and after `/fazstatus`. It reads `Settings.WebApiUrl` and `Settings.WebApiKey` from `ArkApi/Plugins/CustomShop/config.json`; the key is never sent to players or logged. Default Omega resource IDs are `omega_paragon_shard`, `omega_soul_shard`, and `omega_chest_shard`.
+
+This build synchronizes stored balances only. Generic item upload, production activation, cloning, and `/fazresgatar` delivery are not implemented. The current API keeps the most recent snapshot per SteamID and does not aggregate independent per-map farm files.
