@@ -27,6 +27,16 @@ UPrimalGameData* GetPrimalGameData() {
     return globals->PrimalGameDataOverrideField()
         ? globals->PrimalGameDataOverrideField() : globals->PrimalGameDataField();
 }
+FAssetRegistry* GetLoadedAssetRegistry() {
+    auto* manager = FModuleManager::Get();
+    if (!manager) return nullptr;
+    const FName module_name("AssetRegistry", EFindName::FNAME_Find);
+    if (!manager->IsModuleLoaded(module_name)) return nullptr;
+    TSharedPtr<IModuleInterface> module;
+    manager->GetModule(&module, module_name);
+    auto* asset_registry_module = static_cast<FAssetRegistryModule*>(module.Get());
+    return asset_registry_module ? asset_registry_module->Get() : nullptr;
+}
 std::wstring Wide(const std::string& s) {
     if (s.empty()) return {};
     int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
@@ -106,12 +116,66 @@ void CmdCollect(APlayerController* pc, FString*, bool) {
     const std::string path = export_dir + "/report.json";
     nlohmann::json report = nlohmann::json::object();
     report["generated_utc_epoch"] = stamp;
-    report["plugin_version"] = "0.1.2-test";
+    report["plugin_version"] = "0.1.3-test";
     report["serialization_note"] = "Blobs are opaque UPrimalItem::GetItemBytes output; metadata is read from live ArkServerAPI objects. No byte offsets are inferred.";
     report["map"] = "";
     if (auto* gm = ArkApi::GetApiUtils().GetShooterGameMode()) { FString map; gm->GetMapName(&map); report["map"] = map.ToString(); }
     report["items"] = nlohmann::json::array();
     report["engram_catalog"] = nlohmann::json::array();
+    report["asset_registry"] = {
+        {"status", "not_attempted"},
+        {"source", "FAssetRegistry::GetAllAssets from the already-loaded index; no forced synchronous scan"}
+    };
+    const std::string asset_path = export_dir + "/assets.json";
+    if (auto* registry = GetLoadedAssetRegistry()) {
+        if (registry->IsLoadingAssets()) {
+            report["asset_registry"]["status"] = "index_loading";
+        } else {
+            TArray<FAssetData> assets;
+            if (registry->GetAllAssets(&assets)) {
+                nlohmann::json asset_rows = nlohmann::json::array();
+                std::ostringstream asset_text;
+                asset_text << "AssetName\tAssetClass\tObjectPath\n";
+                for (const FAssetData& asset : assets) {
+                    const std::string object_path = asset.ObjectPath.ToString().ToString();
+                    const std::string asset_name = asset.AssetName.ToString().ToString();
+                    const std::string asset_class = asset.AssetClass.ToString().ToString();
+                    asset_rows.push_back({
+                        {"object_path", object_path},
+                        {"package_name", asset.PackageName.ToString().ToString()},
+                        {"package_path", asset.PackagePath.ToString().ToString()},
+                        {"asset_name", asset_name},
+                        {"asset_class", asset_class}
+                    });
+                    asset_text << asset_name << '\t' << asset_class << '\t' << object_path << '\n';
+                }
+                std::ofstream asset_file(asset_path, std::ios::binary | std::ios::trunc);
+                if (asset_file) {
+                    asset_file << asset_rows.dump(2);
+                    asset_file.flush();
+                    if (asset_file) {
+                        report["asset_registry"]["status"] = "exported";
+                        report["asset_registry"]["count"] = assets.Num();
+                        report["asset_registry"]["file"] = "assets.json";
+                        std::ofstream readable_assets(export_dir + "/assets.txt", std::ios::binary | std::ios::trunc);
+                        if (readable_assets) {
+                            readable_assets << asset_text.str();
+                            readable_assets.flush();
+                            if (readable_assets) report["asset_registry"]["readable_file"] = "assets.txt";
+                        }
+                    } else {
+                        report["asset_registry"]["status"] = "write_failed";
+                    }
+                } else {
+                    report["asset_registry"]["status"] = "write_failed";
+                }
+            } else {
+                report["asset_registry"]["status"] = "query_failed";
+            }
+        }
+    } else {
+        report["asset_registry"]["status"] = "module_unavailable";
+    }
     auto* player_state = c->GetShooterPlayerState();
     auto* game_data = GetPrimalGameData();
     if (player_state && game_data) {
@@ -149,6 +213,28 @@ void CmdCollect(APlayerController* pc, FString*, bool) {
         report["engram_unlocked_count"] = unlocked_count;
     } else {
         report["engram_catalog_error"] = !player_state ? "player_state_unavailable" : "primal_game_data_unavailable";
+    }
+    {
+        std::ostringstream readable_catalog;
+        readable_catalog << "DisplayName\tEntryName\tRequiredLevel\tRequiredEngramPoints\tHidden\tUnlocked\tRequirementsMet\tBlueprintClass\n";
+        for (const auto& entry : report["engram_catalog"]) {
+            readable_catalog << entry.value("display_name", std::string{}) << '\t'
+                << entry.value("entry_name", std::string{}) << '\t'
+                << entry.value("required_character_level", 0) << '\t'
+                << entry.value("required_engram_points", 0) << '\t'
+                << (entry.value("hidden", false) ? "yes" : "no") << '\t'
+                << (entry.value("unlocked", false) ? "yes" : "no") << '\t'
+                << (entry.value("requirements_met", false) ? "yes" : "no") << '\t'
+                << entry.value("item_class_full_name", std::string{}) << '\n';
+        }
+        std::ofstream readable_catalog_file(export_dir + "/engram_catalog.txt", std::ios::binary | std::ios::trunc);
+        if (readable_catalog_file) {
+            readable_catalog_file << readable_catalog.str();
+            readable_catalog_file.flush();
+            report["engram_catalog_text"] = readable_catalog_file ? "engram_catalog.txt" : "write_failed";
+        } else {
+            report["engram_catalog_text"] = "write_failed";
+        }
     }
     auto* inv = c->GetPlayerCharacter()->MyInventoryComponentField();
     int candidate_index = 0;

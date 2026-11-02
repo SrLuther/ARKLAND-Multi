@@ -15,7 +15,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
     }
     FazendaRecursos::Perms::Init();
     FazendaRecursos::Commands::Register();
-    Log::GetLog()->info("FazendaRecursos v0.1.2-test iniciado; licença {}", FazendaRecursos::FarmConfig::Get().LicenseGroup());
+    Log::GetLog()->info("FazendaRecursos v0.1.3-test iniciado; licença {}", FazendaRecursos::FarmConfig::Get().LicenseGroup());
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
