@@ -465,7 +465,7 @@
     return `Grupo ${t.permissionGroup || t.label}`;
   }
 
-  function renderLicenseTierGrid(activeId) {
+  function renderLicenseTiersGrid(activeId) {
     const tiers = Object.values(LICENSE_TIERS);
     const selected =
       activeId && LICENSE_TIERS[activeId] ? activeId : tiers[0] ? tiers[0].id : "Gamma";

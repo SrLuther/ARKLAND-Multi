@@ -9,6 +9,8 @@ import json
 import logging
 import os
 import shutil
+import tempfile
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -19,6 +21,25 @@ from .asm_server_config import AsmServerConfig
 from ..diagnostics.events import CAT_CONFIG, diag_event
 
 _LOG = logging.getLogger("arkland")
+_REPLACE_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8)
+
+
+def _replace_with_retry(source: Path, destination: Path) -> None:
+    """Retry brief Windows sharing violations without risking a partial JSON."""
+    for attempt, delay in enumerate((*_REPLACE_RETRY_DELAYS, None)):
+        try:
+            os.replace(source, destination)
+            return
+        except OSError as exc:
+            winerror = getattr(exc, "winerror", None)
+            if winerror not in (5, 32) or delay is None:
+                raise
+            _LOG.warning(
+                "asm_servers.json esta temporariamente bloqueado; nova tentativa %d/%d",
+                attempt + 1,
+                len(_REPLACE_RETRY_DELAYS),
+            )
+            time.sleep(delay)
 
 
 class AsmConfigManager:
@@ -28,6 +49,9 @@ class AsmConfigManager:
         self._config_dir = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
         self._servers_file = self._config_dir / "asm_servers.json"
         self._servers: List[AsmServerConfig] = []
+        # The UI can save from callbacks and worker threads. Keep mutation and
+        # replacement serialized within this manager instance.
+        self._save_lock = threading.RLock()
         self.load()
         # FolderManager exposto depois da importação circular ser evitada
         from .asm_folder_manager import AsmFolderManager  # noqa: PLC0415
@@ -79,21 +103,31 @@ class AsmConfigManager:
                    file=str(self._servers_file))
 
     def save(self) -> None:
-        self._config_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self._servers_file.with_suffix(".tmp")
-        try:
-            with open(tmp, "w", encoding="utf-8") as fh:
-                json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
-                fh.flush()
-                os.fsync(fh.fileno())
-            tmp.replace(self._servers_file)
-        except Exception:
+        with self._save_lock:
+            self._config_dir.mkdir(parents=True, exist_ok=True)
+            tmp: Path | None = None
             try:
-                tmp.unlink(missing_ok=True)
-            except OSError:
-                pass
-            _LOG.exception("Falha ao gravar %s", self._servers_file)
-            raise
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    dir=self._config_dir,
+                    prefix=f"{self._servers_file.name}.",
+                    suffix=".tmp",
+                    delete=False,
+                ) as fh:
+                    tmp = Path(fh.name)
+                    json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                _replace_with_retry(tmp, self._servers_file)
+            except Exception:
+                if tmp is not None:
+                    try:
+                        tmp.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                _LOG.exception("Falha ao gravar %s", self._servers_file)
+                raise
         diag_event(CAT_CONFIG, "asm_servers.json salvo", servers=len(self._servers),
                    file=str(self._servers_file))
 
@@ -110,34 +144,35 @@ class AsmConfigManager:
         return None
 
     def add_server(self, server: AsmServerConfig) -> None:
-        self._servers.append(server)
-        try:
-            self.save()
-        except Exception:
-            self._servers.pop()
-            raise
+        with self._save_lock:
+            self._servers.append(server)
+            try:
+                self.save()
+            except Exception:
+                self._servers.pop()
+                raise
 
     def update_server(self, server: AsmServerConfig) -> None:
-        for i, s in enumerate(self._servers):
-            if s.id == server.id:
-                self._servers[i] = server
-                try:
-                    self.save()
-                except Exception:
-                    self._servers[i] = s
-                    raise
-                break
-        else:
-            return
+        with self._save_lock:
+            for i, s in enumerate(self._servers):
+                if s.id == server.id:
+                    self._servers[i] = server
+                    try:
+                        self.save()
+                    except Exception:
+                        self._servers[i] = s
+                        raise
+                    break
 
     def remove_server(self, server_id: str) -> None:
-        previous = self._servers
-        self._servers = [s for s in previous if s.id != server_id]
-        try:
-            self.save()
-        except Exception:
-            self._servers = previous
-            raise
+        with self._save_lock:
+            previous = self._servers
+            self._servers = [s for s in previous if s.id != server_id]
+            try:
+                self.save()
+            except Exception:
+                self._servers = previous
+                raise
 
     # ── S3.4 — Export / Import / Clone ────────────────────────────────────────
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import regulamento_service as rs
+from regulamento_config import REGULAMENTO_VERSION
 
 
 def test_static_html_bundled():
@@ -24,7 +25,7 @@ def test_content_from_static_when_md_missing(monkeypatch):
 def test_meta_sections_from_static_when_md_missing(monkeypatch):
     monkeypatch.setattr(rs, "_REGULAMENTO_MD_PATH", Path("/nonexistent/REGULAMENTO_SERVIDOR.md"))
     meta = rs.regulamento_meta()
-    assert meta["version"] == "1.4"
+    assert meta["version"] == REGULAMENTO_VERSION
     assert len(meta["sections"]) >= 10
 
 

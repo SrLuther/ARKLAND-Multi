@@ -1,11 +1,10 @@
 {
-    "version": "1.11.21",
+    "version": "1.11.22",
     "date": "2026-11-02",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.21/ARKLAND-Multi-Setup-v1.11.21.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.22/ARKLAND-Multi-Setup-v1.11.22.exe",
     "changelog": [
-        "Web Store: diagnostico do tradutor identifica codigo, etapa, par e referencia; modelos persistentes sao instalados somente quando ausentes e continuam utilizaveis sem o indice Argos.",
-        "Progressao de nivel: cap informado representa o nivel total alcancavel; perfis antigos do gerador anterior sao migrados sem restaurar o limite antigo apos reinicio.",
-        "Configuracoes: gravacao de perfis e INIs agora e atomica onde aplicavel, e falhas de persistencia sao informadas em vez de indicar sucesso falso.",
-        "Web Store: removida a contagem de jogadores dos cards do cluster para evitar divergencia com a lista publica de jogadores online."
+        "ARK Server Manager: salvamento de asm_servers.json usa arquivos temporarios exclusivos e tenta novamente em bloqueios transitorios do Windows, preservando o perfil anterior se o bloqueio persistir.",
+        "Web Store: corrigida a documentacao de resgates que falhava ao iniciar por divergencia no nome da funcao de licencas; estilos dos diagramas Omega agora usam o prefixo isolado kb-.",
+        "Testes: corrigidas expectativas obsoletas do Discord e do Regulamento, e removido o limite fixo de caracteres na verificacao de loadHome."
     ]
 }

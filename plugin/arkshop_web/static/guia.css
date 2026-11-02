@@ -222,26 +222,26 @@
   background: rgba(0, 0, 0, .25);
 }
 .kb-table td { color: var(--text2, #c8b8a4); }
-.omega-guide-figure {
+.kb-omega-guide-figure {
   margin: 0 0 16px;
   padding: 10px;
   border: 1px solid var(--border, rgba(255, 255, 255, .1));
   border-radius: 10px;
   background: rgba(0, 0, 0, .2);
 }
-.omega-guide-figure img {
+.kb-omega-guide-figure img {
   display: block;
   width: 100%;
   height: auto;
   border-radius: 6px;
 }
-.omega-guide-figure figcaption {
+.kb-omega-guide-figure figcaption {
   margin-top: 8px;
   color: var(--text2, #c8b8a4);
   font-size: 13px;
   line-height: 1.55;
 }
-.omega-guide-figure figcaption strong { color: var(--amber, #e87820); }
+.kb-omega-guide-figure figcaption strong { color: var(--amber, #e87820); }
 .kb-search, .kb-input, .kb-select {
   width: 100%;
   margin: 0;

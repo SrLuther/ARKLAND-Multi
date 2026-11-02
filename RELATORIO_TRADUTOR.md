@@ -39,9 +39,15 @@ Esses testes comprovam o codigo local e usam fixtures/fakes para Argos. Nao comp
 
 ## Validacao necessaria no host de producao
 
+### Publicacao e evidencia disponivel (2026-11-02)
+
+- A versao `1.11.21` foi publicada no GitHub Release: https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.11.21. O instalador publicado e `ARKLAND-Multi-Setup-v1.11.21.exe`.
+- Isso confirma a publicacao do pacote, mas nao confirma que o host da Web Store esteja executando essa versao. A verificacao anterior do site observou assets `?v=1.11.20` e resposta HTTP 503 em `/api/translate/models`; nao foi possivel consultar os logs internos nem comprovar a troca de build no host.
+- Nenhum teste real com Argos, upload administrativo ou alteracao dos modelos no host foi realizado durante a publicacao. As evidencias de producao abaixo continuam necessarias.
+
 ### Checagem inicial da publicacao (2026-11-01)
 
-- A pagina oficial consultada com sessao autenticada ainda serve assets com `?v=1.11.20`; o registro selecionado de `/api/translate/models` tambem informa `app_build: 1.11.20` e HTTP 503. Isso confirma o build do frontend observado, nao a versao interna do backend.
+- Na consulta de 2026-11-01, a pagina oficial autenticada ainda servia assets com `?v=1.11.20`; o registro selecionado de `/api/translate/models` tambem informava `app_build: 1.11.20` e HTTP 503. Isso confirma somente o build do frontend observado naquela data, nao a versao interna do backend.
 - O detalhe da ocorrencia antiga nao contem `error_code`, `stage`, par ou traceback Python. Portanto, nao demonstra que a instrumentacao descrita acima esteja publicada. Nenhum upload, reinstalacao, remocao de modelo ou chamada ao endpoint de verificacao foi executado nesta etapa.
 - O `%APPDATA%` acessivel nesta sessao e `C:\\Users\\Ciano\\AppData\\Roaming`, que nao possui a pasta `ARKLAND-ServerManager\\arkshop_web\\translation\\argos-packages`. Este e o ambiente local de desenvolvimento, nao o host Windows de producao (`ArkServer`); esse resultado nao informa a existencia dos modelos no host.
 - Nao ha acesso nesta sessao aos logs do processo Web Store, identidade do usuario do servico, filesystem do host, configuracao WSGI/proxy nem `ARKLAND_GIT_COMMIT`. A confirmacao de publicacao completa e o inventario dos pacotes permanecem bloqueados ate esses dados estarem disponiveis.
@@ -61,4 +67,4 @@ Nao envie cookie em chamado publico ou log compartilhado. O upload pode demorar 
 
 ## Conclusao atual
 
-O checkout local foi endurecido e os testes direcionados passaram. A causa definitiva do HTTP 400 e do HTTP 503 historicos em producao ainda nao esta fechada: para o 400 falta o log do corpo multipart recebido; para o 503 falta o traceback Python do host. A publicacao e a validacao real descrita acima sao necessarias antes de declarar o tradutor resolvido em producao.
+O codigo instrumentado foi incluido no instalador da versao `1.11.21`, mas isso ainda nao comprova que o processo da Web Store no host esteja usando esse build. A causa definitiva do HTTP 400 e do HTTP 503 historicos em producao ainda nao esta fechada: para o 400 falta o log do corpo multipart recebido; para o 503 falta o traceback Python do host. A validacao real descrita acima e necessaria antes de declarar o tradutor resolvido em producao.

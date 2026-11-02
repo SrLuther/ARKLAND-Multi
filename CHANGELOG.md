@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-02 00:41:20 -->
-<!-- Total de versões: 514 | Primeira: 1.11.21 -->
+<!-- Gerado: 2026-11-02 01:40:32 -->
+<!-- Total de versões: 515 | Primeira: 1.11.22 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.22] - 2026-11-02
+
+### Other
+
+- ARK Server Manager: salvamento de asm_servers.json usa arquivos temporarios exclusivos e tenta novamente em bloqueios transitorios do Windows, preservando o perfil anterior se o bloqueio persistir.
+- Web Store: corrigida a documentacao de resgates que falhava ao iniciar por divergencia no nome da funcao de licencas; estilos dos diagramas Omega agora usam o prefixo isolado kb-.
+- Testes: corrigidas expectativas obsoletas do Discord e do Regulamento, e removido o limite fixo de caracteres na verificacao de loadHome.
 
 ## [1.11.21] - 2026-11-02
 

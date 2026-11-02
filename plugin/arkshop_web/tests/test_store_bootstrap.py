@@ -79,7 +79,10 @@ def test_index_load_home_ignores_stale_abort():
     assert "_homeLoadGen" in html
     assert "_homeLoadAbort" in html
     idx = html.index("async function loadHome(opts)")
-    block = html[idx : idx + 1800]
+    # Delimit the function by its next top-level declaration rather than an
+    # arbitrary character count that breaks when loadHome grows.
+    end = html.index("let _amberMeterValue =", idx)
+    block = html[idx:end]
     assert 'e?.name === "AbortError"' in block
     assert "if (!timedOut) return false" in block
     assert "if (gen !== _homeLoadGen) return false" in block

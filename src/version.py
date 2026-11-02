@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.21"
+APP_VERSION: str = "1.11.22"
 BUILD_DATE: str = "2026-11-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.22",
+        "date": "2026-11-02",
+        "changes": [
+            "ARK Server Manager: salvamento de asm_servers.json usa arquivos temporarios exclusivos e tenta novamente em bloqueios transitorios do Windows, preservando o perfil anterior se o bloqueio persistir.",
+            "Web Store: corrigida a documentacao de resgates que falhava ao iniciar por divergencia no nome da funcao de licencas; estilos dos diagramas Omega agora usam o prefixo isolado kb-.",
+            "Testes: corrigidas expectativas obsoletas do Discord e do Regulamento, e removido o limite fixo de caracteres na verificacao de loadHome.",
+        ],
+    },
     {
         "version": "1.11.21",
         "date": "2026-11-02",

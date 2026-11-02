@@ -43,12 +43,14 @@ def run(coro):
 
 
 # ── Carregamento / comandos ──────────────────────────────────────────────────
-class TestBotLoadsOnlyThreeCogs:
+class TestBotLoadsConfiguredCogs:
     def test_enabled_modules(self, tmp_path):
         mods = enabled_cog_modules(_settings(tmp_path))
-        assert [m.rsplit(".", 1)[1] for m in mods] == ["admin", "voice_manager", "moderation"]
+        assert [m.rsplit(".", 1)[1] for m in mods] == [
+            "admin", "activity_rewards", "voice_manager", "moderation"
+        ]
         only_admin = enabled_cog_modules(_settings(tmp_path, enable_voice=False, enable_moderation=False))
-        assert [m.rsplit(".", 1)[1] for m in only_admin] == ["admin"]
+        assert [m.rsplit(".", 1)[1] for m in only_admin] == ["admin", "activity_rewards"]
 
     def test_load_extensions_registers_commands_and_aliases(self, tmp_path):
         async def scenario():
@@ -60,7 +62,7 @@ class TestBotLoadsOnlyThreeCogs:
                 aliases = {a for c in bot.commands for a in c.aliases}
                 assert {"purgeall", "clear", "limparall", "recarregar", "carregar", "descarregar",
                         "reboot", "reiniciar", "desligar"} <= aliases
-                assert set(bot.cogs) == {"Admin", "VoiceManager", "Moderation"}
+                assert set(bot.cogs) == {"Admin", "ActivityRewards", "VoiceManager", "Moderation"}
             return True
 
         assert run(scenario())
