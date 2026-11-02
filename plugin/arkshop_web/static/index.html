@@ -769,16 +769,6 @@
       align-items: center;
       gap: 10px;
     }
-    .sb-balance {
-      margin-left: auto;
-      padding: 4px 10px;
-      border-radius: var(--radius);
-      border: 1px solid rgba(232,120,32,.35);
-      background: rgba(232,120,32,.1);
-      min-width: 0;
-      max-width: min(42vw, 200px);
-    }
-
     /* Nav sections */
     .nav-section {
       padding: 16px 18px 6px;
@@ -4455,10 +4445,6 @@
         flex-wrap: wrap;
         font-size: 10px;
       }
-      .sb-balance {
-        margin-left: auto;
-      }
-
       .auth-card {
         padding: 28px 20px;
       }
@@ -4675,6 +4661,7 @@
     #home-connect-section .home-server-card__name { font-size:13px; }
     #home-connect-section .home-server-card__addr { font-size:11px; }
     #home-connect-section .home-server-card__actions { margin-top:8px; }
+    #home-connect-section .home-server-card__actions .btn { flex:1 1 100px; width:auto; min-width:0; padding-inline:8px; }
     #home-connect-section .home-server-card__status { margin-top:8px; font-size:11px; }
     @media (max-width:900px) { .home-shortcuts__grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width:768px) {
@@ -7073,7 +7060,7 @@
     #home-connect-section .home-server-card__map { margin-top: 8px; color: #c6bdad; }
     #home-connect-section .home-server-card__addr { margin-top: auto; padding-top: 14px; color: #e1c38f; font-variant-numeric: tabular-nums; }
     #home-connect-section .home-server-card__actions { margin-top: 9px; }
-    #home-connect-section .home-server-card__actions .btn { width: 100%; justify-content: center; }
+    #home-connect-section .home-server-card__actions .btn { flex:1 1 100px; width:auto; min-width:0; justify-content:center; }
     #home-connect-section .home-server-card__status { margin-top: 11px; font-size: 11px; }
     .home-shortcuts { padding: clamp(20px, 2.4vw, 30px); }
     .home-lobby__section-head h2 { font-size: clamp(21px, 2vw, 27px); }
@@ -7589,6 +7576,19 @@
     .support-demo-reply textarea {width:100%;min-height:66px;resize:vertical;border:1px solid rgba(91,163,184,.2);border-radius:9px;padding:10px;background:#0b1418;color:#e4edf0;font:13px Rajdhani,sans-serif;opacity:.72}
     .support-status {padding:15px;text-align:center;color:#a9bec3;font-size:13px}
     .support-inline-alert {padding:10px 12px;margin:0 0 10px;border:1px solid rgba(255,104,116,.38);border-left:3px solid var(--danger,#ff6874);border-radius:9px;background:rgba(140,32,43,.16);color:#ffd8dc;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+    #home-server-settings-modal { z-index:10030; }
+    .home-server-settings { max-width:560px; }
+    .home-server-settings__head { display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px; }
+    .home-server-settings__head h2 { margin:0;font:700 21px 'Cinzel',Georgia,serif;color:#f4ead7; }
+    .home-server-settings__head p { margin:5px 0 0;color:var(--text2);font-size:12px; }
+    .home-server-settings__close { flex:none; }
+    .home-server-settings__group { margin:12px 0 0;padding:12px;border:1px solid var(--border);border-radius:11px;background:rgba(5,10,13,.36); }
+    .home-server-settings__group h3 { margin:0 0 8px;color:var(--amber);font-size:12px;text-transform:uppercase;letter-spacing:.1em; }
+    .home-server-settings__row { display:flex;justify-content:space-between;gap:16px;padding:6px 0;border-top:1px solid rgba(255,255,255,.045);font-size:13px; }
+    .home-server-settings__row:first-of-type { border-top:0; }
+    .home-server-settings__row span { color:var(--text2); }
+    .home-server-settings__row strong { color:var(--text);text-align:right;font-variant-numeric:tabular-nums; }
+    .home-server-settings__note { margin:12px 0 0;color:var(--text2);font-size:11px;line-height:1.5; }
     @media(max-width:600px){.support-fab{right:14px;bottom:14px;padding:10px 14px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
@@ -12322,12 +12322,6 @@
     <div id="statusbar">
       <span id="sb-dot" class="status-dot"></span>
       <span id="sb-text">Inicializando…</span>
-      <span id="sb-balance" class="sb-balance hidden">
-        <div class="balance-stack balance-stack--compact">
-          <span id="sb-balance-val" class="balance-stack__value">0</span>
-          <span class="amber-unit-label balance-stack__unit">Âmbar</span>
-        </div>
-      </span>
     </div>
   </div>
 
@@ -13124,7 +13118,6 @@ function updateBalanceDisplays(pts) {
   const mappings = [
     { valId: "auth-balance-val", pillId: "auth-balance-pill" },
     { valId: "catalog-points-val", pillId: "catalog-points-pill" },
-    { valId: "sb-balance-val", pillId: "sb-balance" },
     { valId: "mobile-balance-val", pillId: "mobile-balance" },
     { valId: "recharge-balance-val", pillId: null },
   ];
@@ -14166,7 +14159,7 @@ let _balanceLastFetchMs = 0;
 const _BALANCE_MIN_INTERVAL_MS = 30000;
 
 async function refreshPlayerBalance({ force = false } = {}) {
-  const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance", "mobile-balance"];
+  const pillIds = ["auth-balance-pill", "catalog-points-pill", "mobile-balance"];
 
   if (!_auth.authenticated) {
     pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
@@ -30395,6 +30388,7 @@ let _homeLoadGen = 0;
 let _homeLoadAbort = null;
 let _homeStatusPollTimer = null;
 let _homeOnlinePlayersPollTimer = null;
+window.__homeServerConfigSnapshots = Object.create(null);
 
 function _homePlayersLabel(row, st) {
   const status = String(st || "").trim().toUpperCase();
@@ -30409,7 +30403,13 @@ function _homePlayersLabel(row, st) {
 function _applyHomeServerStatuses(items) {
   const byId = {};
   (items || []).forEach(it => {
-    if (it && it.server_id) byId[String(it.server_id)] = it;
+    if (it && it.server_id) {
+      const id = String(it.server_id);
+      byId[id] = it;
+      if (Object.prototype.hasOwnProperty.call(it, "config")) {
+        window.__homeServerConfigSnapshots[id] = it.config || null;
+      }
+    }
   });
   document.querySelectorAll("[data-server-status]").forEach(el => {
     const sid = el.getAttribute("data-server-status") || "";
@@ -30439,6 +30439,10 @@ function _applyHomeServerStatuses(items) {
   if (playersEl) {
     const players = onlineRows.reduce((sum, row) => sum + (Number(row.players) || 0), 0);
     playersEl.textContent = `${players} ${players === 1 ? "jogador" : "jogadores"} conectados`;
+  }
+  const modal = document.getElementById("home-server-settings-modal");
+  if (modal && !modal.classList.contains("hidden") && modal.dataset.serverId) {
+    _renderHomeServerSettings(modal.dataset.serverId);
   }
 }
 
@@ -30538,6 +30542,31 @@ async function loadHome(opts) {
   const root = document.getElementById("home-root");
   if (!root) return false;
   if (!_navShouldFetch("home", NAV_PAGE_TTL_MS.home, force) && root.children.length > 0) {
+    return true;
+  }
+  if (new URLSearchParams(window.location.search).has("demo-server-settings")) {
+    const demoSnapshot = (maxPlayer, maxDino, mature) => ({
+      xp: "10x", taming: "10x", harvest: "10x", mating: "10x",
+      mature, hatch: mature, cuddle_interval: "10x",
+      baby_food_consumption: "1x", cuddle_grace: "1x", imprint_scale: "1x",
+      max_tribe_size: 10, structure_decay: "1x", dino_decay: "1x",
+      structure_decay_disabled: false, dino_decay_disabled: false,
+      max_player_level: maxPlayer, max_dino_level: maxDino,
+      updated_at: new Date().toISOString(), buff_active: false,
+    });
+    const demo = {
+      preview_mode: true, pix_enabled: false, donation_packages: [],
+      discord_url: "https://discord.gg/7wPswZkb8z", home_cards: [],
+      servers: [
+        { server_id: "01_alps", label: "01 Alps Primal Fear", map: "Alps", runtime_status: "ONLINE", players: 3, max_players: 35, config: demoSnapshot(215, 150, "15x") },
+        { server_id: "02_ragnarok", label: "02 Ragnarok Primal Fear", map: "Ragnarok", runtime_status: "ONLINE", players: 7, max_players: 35, config: demoSnapshot(215, 150, "15x") },
+        { server_id: "03_alps_omega", label: "03 Alps Omega", map: "Alps", runtime_status: "ONLINE", players: 2, max_players: 35, config: demoSnapshot(215, 150, "15x") },
+        { server_id: "04_ragnarok_omega", label: "04 Ragnarok Omega", map: "Ragnarok", runtime_status: "ONLINE", players: 4, max_players: 35, config: demoSnapshot(215, 150, "15x") },
+      ],
+    };
+    renderHomePage(demo);
+    root.insertAdjacentHTML("afterbegin", '<div role="status" style="margin:0 0 18px;padding:10px 14px;border:1px solid rgba(218,169,95,.35);border-radius:12px;background:rgba(218,169,95,.08);color:var(--text2);font-size:12px;"><strong style="color:var(--amber);">Demonstração fictícia.</strong> Os ajustes exibidos são exemplos e não representam a configuração atual dos servidores.</div>');
+    _navPageMark("home");
     return true;
   }
   // Abort fetch anterior (boot + applyRoleUi/nav podem disparar loadHome em paralelo).
@@ -31465,12 +31494,106 @@ function _homeConnectableServers(servers) {
 function _homeServerConnectBtns(s, btnClass) {
   const cls = btnClass || "btn-sm";
   const addr = (s.join_address || "").trim();
-  if (!addr) return "";
   return `<div class="home-server-card__actions">
-    <button class="btn btn-ghost ${cls}" type="button"
-       data-ark-copy-ip
-       data-join-address="${escHtml(addr)}">📋 Copiar IP</button>
+    ${addr ? `<button class="btn btn-ghost ${cls}" type="button" data-ark-copy-ip data-join-address="${escHtml(addr)}">📋 Copiar IP</button>` : ""}
+    <button class="btn btn-ghost ${cls}" type="button" data-server-id="${escHtml(s.server_id || "")}" onclick="openHomeServerSettings(this)">Ver ajustes</button>
   </div>`;
+}
+
+function _homeSettingsGroup(title, rows) {
+  const visible = rows.filter(row => row[1] !== null && row[1] !== undefined && row[1] !== "");
+  if (!visible.length) return "";
+  return `<section class="home-server-settings__group"><h3>${escHtml(title)}</h3>${visible.map(([label, value]) =>
+    `<div class="home-server-settings__row"><span>${escHtml(label)}</span><strong>${escHtml(String(value))}</strong></div>`
+  ).join("")}</section>`;
+}
+
+function _homeServerSchedule(name, serverId) {
+  const normalized = `${String(name || "")} ${String(serverId || "")}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  let restart = "Horário não definido";
+  if (normalized.includes("alps") && normalized.includes("omega")) restart = "03:40";
+  else if (normalized.includes("ragnarok") && normalized.includes("omega")) restart = "04:00";
+  else if (normalized.includes("alps") && normalized.includes("primal fear")) restart = "03:00";
+  else if (normalized.includes("ragnarok") && normalized.includes("primal fear")) restart = "03:20";
+  else if (/\b01[_ -]?alps\b/.test(normalized)) restart = "03:00";
+  else if (/\b02[_ -]?ragnarok\b/.test(normalized)) restart = "03:20";
+  return [
+    ["Limpeza de dinos (UTC−3)", "06:00 · 12:00 · 18:00 · 00:00"],
+    ["Reinicialização diária (UTC−3)", restart],
+  ];
+}
+
+function _renderHomeServerSettings(serverId) {
+  const modal = document.getElementById("home-server-settings-modal");
+  if (!modal) return;
+  const serverCard = Array.from(document.querySelectorAll(".home-server-card[data-server-id]"))
+    .find(card => card.getAttribute("data-server-id") === serverId);
+  const name = serverCard?.querySelector(".home-server-card__name")?.textContent?.trim() || "Servidor ARK";
+  const snapshot = window.__homeServerConfigSnapshots[String(serverId)];
+  const title = modal.querySelector("[data-server-settings-title]");
+  const subtitle = modal.querySelector("[data-server-settings-subtitle]");
+  const body = modal.querySelector("[data-server-settings-body]");
+  if (title) title.textContent = name;
+  if (!body) return;
+  if (!snapshot) {
+    body.innerHTML = '<p class="home-server-settings__note">A configuração deste mapa ainda não foi sincronizada pelo gerenciador.</p>';
+    if (subtitle) subtitle.textContent = "Aguardando os arquivos INI do servidor.";
+    return;
+  }
+  const details = [
+    _homeSettingsGroup("Experiência e níveis", [
+      ["Experiência", snapshot.xp],
+      ["Nível máximo do jogador", snapshot.max_player_level],
+      ["Teto teórico com ascensões e bônus", snapshot.max_player_level_theoretical],
+      ["Nível máximo de dino selvagem", snapshot.max_dino_level],
+    ]),
+    _homeSettingsGroup("Rates do servidor", [
+      ["Domesticação", snapshot.taming],
+      ["Mating (intervalo de acasalamento)", snapshot.mating],
+      ["Farm (coleta de recursos)", snapshot.harvest],
+      ["Máximo de membros por tribo", Number(snapshot.max_tribe_size) > 0 ? snapshot.max_tribe_size : null],
+    ]),
+    _homeSettingsGroup("Configuração de crescimento", [
+      ["Maturação", snapshot.mature],
+      ["Incubação de ovos", snapshot.hatch],
+      ["Intervalo de cuidado (cuddle)", snapshot.cuddle_interval],
+      ["Consumo de comida das crias", snapshot.baby_food_consumption],
+      ["Prazo para cuidado", snapshot.cuddle_grace],
+      ["Escala de imprint", snapshot.imprint_scale],
+    ]),
+    _homeSettingsGroup("Decay", [
+      ["Estruturas", snapshot.structure_decay_disabled ? "Desativado" : snapshot.structure_decay],
+      ["Dinos", snapshot.dino_decay_disabled ? "Desativado" : snapshot.dino_decay],
+    ]),
+    _homeSettingsGroup("Horários (UTC−3)", _homeServerSchedule(name, serverId)),
+  ].join("");
+  const updated = snapshot.updated_at ? new Date(snapshot.updated_at) : null;
+  const updatedLabel = updated && !Number.isNaN(updated.getTime())
+    ? `Atualizado em ${updated.toLocaleString("pt-BR")}`
+    : "Leitura dos arquivos de configuração";
+  if (subtitle) subtitle.textContent = snapshot.buff_active && snapshot.buff_name
+    ? `${updatedLabel} · Evento ativo: ${snapshot.buff_name}`
+    : updatedLabel;
+  body.innerHTML = `${details}<p class="home-server-settings__note">Rates, níveis e decay são lidos dos arquivos Game.ini e GameUserSettings.ini. Horários de limpeza e reinicialização seguem o cronograma do cluster. A sincronização automática dos INIs ocorre a cada 5 minutos.</p>`;
+}
+
+function openHomeServerSettings(button) {
+  const modal = document.getElementById("home-server-settings-modal");
+  const serverId = String(button?.dataset?.serverId || "");
+  if (!modal || !serverId) return;
+  modal.dataset.serverId = serverId;
+  _renderHomeServerSettings(serverId);
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  modal.querySelector(".home-server-settings__close")?.focus();
+}
+
+function closeHomeServerSettings() {
+  const modal = document.getElementById("home-server-settings-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  delete modal.dataset.serverId;
 }
 
 function _homeRuntimeStatusHtml(s) {
@@ -31498,6 +31621,11 @@ function _homeHeroConnectHtml(connectable) {
 
 function _renderHomeConnectSection(d) {
   const servers = Array.isArray(d.servers) ? d.servers : [];
+  window.__homeServerConfigSnapshots = Object.create(null);
+  servers.forEach(server => {
+    const id = String(server?.server_id || "");
+    if (id && server.config) window.__homeServerConfigSnapshots[id] = server.config;
+  });
   const gridHtml = servers.length
     ? servers.map(s => {
         const addr = (s.join_address || "").trim();
@@ -31507,7 +31635,7 @@ function _renderHomeConnectSection(d) {
           : `<div class="home-server-card__pending">Endere&ccedil;o de conex&atilde;o indispon&iacute;vel.</div>`;
         return `<article class="home-server-card${addr ? " home-server-card--connectable" : ""}" data-server-id="${escHtml(s.server_id || "")}">
           <div class="home-server-card__name">${escHtml(s.label || s.server_id || "Servidor ARK")}</div>
-          ${mapLine}${addrLine}${addr ? _homeServerConnectBtns(s) : ""}${_homeRuntimeStatusHtml(s)}
+          ${mapLine}${addrLine}${_homeServerConnectBtns(s)}${_homeRuntimeStatusHtml(s)}
         </article>`;
       }).join("")
     : `<div class="home-connect-empty"><p>Nenhum servidor dispon&iacute;vel no momento.</p><p class="home-connect-empty__hint">Tente novamente mais tarde ou consulte o Guia de conex&atilde;o.</p></div>`;
@@ -35407,6 +35535,16 @@ document.addEventListener("keydown", (e) => {
       <div class="notif-empty__text">Aguarde um instante.</div>
     </div>
   </div>
+</div>
+
+<div id="home-server-settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-hidden="true" onclick="if(event.target===this)closeHomeServerSettings()">
+  <section class="modal home-server-settings" aria-labelledby="home-server-settings-title">
+    <header class="home-server-settings__head">
+      <div><h2 id="home-server-settings-title" data-server-settings-title>Configurações do servidor</h2><p data-server-settings-subtitle>Leitura dos arquivos INI</p></div>
+      <button type="button" class="btn btn-ghost btn-sm home-server-settings__close" onclick="closeHomeServerSettings()">Fechar</button>
+    </header>
+    <div data-server-settings-body></div>
+  </section>
 </div>
 
 <!-- Atendimento rápido: widget flutuante de tickets -->

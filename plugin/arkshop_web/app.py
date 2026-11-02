@@ -10336,19 +10336,45 @@ def servers_runtime_status_push():
 def public_server_status():
     """Status público leve para refresh da home (sem rebuild completo)."""
     by_id = get_all_statuses(max_age_s=600.0)
+    from src.server_config_snapshot import snapshot_public_view
+
+    public_servers = [
+        srv for srv in _load_servers(decrypt_secrets=False)
+        if isinstance(srv, dict)
+        and str(srv.get("server_id") or "").strip()
+        and srv.get("show_on_home", True) is not False
+    ]
+    server_ids = {str(srv.get("server_id") or "").strip() for srv in public_servers}
+    rows = []
+    for srv in sorted(public_servers, key=lambda item: str(item.get("server_id") or "").casefold()):
+        sid = str(srv.get("server_id") or "").strip()
+        runtime = by_id.get(sid, {})
+        raw_snapshot = srv.get("config_snapshot")
+        rows.append({
+            "server_id": sid,
+            "status": runtime.get("status") or "",
+            "display_name": runtime.get("display_name") or srv.get("label") or "",
+            "updated_at": runtime.get("updated_at") or "",
+            "players": runtime.get("players"),
+            "max_players": runtime.get("max_players"),
+            "config": snapshot_public_view(raw_snapshot) if isinstance(raw_snapshot, dict) else None,
+        })
+    # Preserve runtime-only rows for compatibility with existing status consumers.
+    for sid, runtime in sorted(by_id.items()):
+        if sid in server_ids:
+            continue
+        rows.append({
+            "server_id": sid,
+            "status": runtime.get("status"),
+            "display_name": runtime.get("display_name") or "",
+            "updated_at": runtime.get("updated_at") or "",
+            "players": runtime.get("players"),
+            "max_players": runtime.get("max_players"),
+            "config": None,
+        })
     return jsonify({
         "ok": True,
-        "servers": [
-            {
-                "server_id": sid,
-                "status": row.get("status"),
-                "display_name": row.get("display_name") or "",
-                "updated_at": row.get("updated_at") or "",
-                "players": row.get("players"),
-                "max_players": row.get("max_players"),
-            }
-            for sid, row in sorted(by_id.items())
-        ],
+        "servers": rows,
     })
 
 
@@ -11747,6 +11773,8 @@ def _get_cached_public_home_payload() -> tuple[dict[str, Any], str]:
 
 def _build_public_home_payload() -> dict[str, Any]:
     """Monta o JSON da home numa passagem — sem N× catálogo / N× settings / N× servers."""
+    from src.server_config_snapshot import snapshot_public_view
+
     s = _load_settings()
     data = _peek_shop_config()
     settings_block = data.get("Settings") if isinstance(data.get("Settings"), dict) else {}
@@ -11774,6 +11802,8 @@ def _build_public_home_payload() -> dict[str, Any]:
             "server_id": srv.get("server_id", ""),
             "label": srv.get("label") or srv.get("server_id", ""),
             "machine_label": str(srv.get("machine_label") or "").strip(),
+            "config": snapshot_public_view(srv.get("config_snapshot"))
+            if isinstance(srv.get("config_snapshot"), dict) else None,
         }
         entry.update(public_server_connect_view(srv, s))
         rt = runtime.get(str(entry["server_id"] or "").strip())

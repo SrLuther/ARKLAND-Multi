@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-01 19:51:27 -->
-<!-- Total de versões: 512 | Primeira: 1.11.19 -->
+<!-- Gerado: 2026-11-01 21:04:01 -->
+<!-- Total de versões: 513 | Primeira: 1.11.20 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.20] - 2026-11-01
+
+### Other
+
+- Web Store: resumo por servidor com rates, níveis, crescimento, decay e horários; prévia demonstrativa fictícia disponível.
+- Web Store: removido o saldo duplicado de Âmbares da barra inferior, que ficava parcialmente encoberto pelo botão flutuante de suporte.
 
 ## [1.11.19] - 2026-11-01
 

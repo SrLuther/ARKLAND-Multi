@@ -216,6 +216,18 @@ class UpdateChecker:
 
         pid = os.getpid()
         app_exe = sys.executable
+        try:
+            from .shop_integration import webstore_data_dir
+
+            models_dir = str(webstore_data_dir() / "translation" / "argos-packages")
+        except Exception:
+            import os
+            from pathlib import Path
+
+            models_dir = str(
+                Path(os.environ.get("APPDATA", Path.home()))
+                / "ARKLAND-ServerManager" / "arkshop_web" / "translation" / "argos-packages"
+            )
 
         # ── Tenta usar ARKLAND-Updater.exe (só disponível no build frozen) ────
         if getattr(sys, "frozen", False):
@@ -231,6 +243,7 @@ class UpdateChecker:
                         "--pid",     str(pid),
                         "--exe",     app_exe,
                         "--version", version,
+                        "--models-dir", models_dir,
                     ],
                     creationflags=(
                         subprocess.DETACHED_PROCESS
@@ -245,6 +258,23 @@ class UpdateChecker:
                 return
 
         # ── Fallback: script PowerShell temporário ────────────────────────────
+        if not getattr(sys, "frozen", False):
+            updater_script = Path(__file__).resolve().parent.parent / "arkland_updater.py"
+            if updater_script.exists():
+                subprocess.Popen(
+                    [
+                        sys.executable, str(updater_script),
+                        "--url", download_url,
+                        "--pid", str(pid),
+                        "--exe", app_exe,
+                        "--version", version,
+                        "--models-dir", models_dir,
+                    ],
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                    close_fds=True,
+                )
+                return
+
         ps1 = tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".ps1",

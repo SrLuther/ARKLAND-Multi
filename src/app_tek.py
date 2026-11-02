@@ -694,6 +694,16 @@ class ARKServerManagerApp(ctk.CTk):
             _log2.getLogger(__name__).warning(
                 "_sync_server_snapshots_to_webstore: %s", exc,
             )
+        if not getattr(self, "_server_snapshot_sync_timer_scheduled", False):
+            self._server_snapshot_sync_timer_scheduled = True
+            try:
+                self.after(300_000, self._periodic_server_snapshot_sync)
+            except Exception:
+                self._server_snapshot_sync_timer_scheduled = False
+
+    def _periodic_server_snapshot_sync(self) -> None:
+        self._server_snapshot_sync_timer_scheduled = False
+        self._sync_server_snapshots_to_webstore()
 
     def _asm_after_server_lifecycle(self, ok: bool, msg: str) -> None:
         self._asm_refresh_dashboard()

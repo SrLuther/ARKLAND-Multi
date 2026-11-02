@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import copy
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -43,18 +44,32 @@ def _is_tek(cfg: object) -> bool:
     return hasattr(cfg, "enable_difficulty_override") and not hasattr(cfg, "game_settings")
 
 
-def _reload_ini_if_possible(cfg: object) -> None:
+def _reload_ini_if_possible(cfg: object) -> object:
+    """Read the live INI files into a copy so public snapshots reflect disk state."""
     if not _is_tek(cfg):
-        return
+        install_dir = (getattr(cfg, "install_dir", "") or "").strip()
+        if not install_dir:
+            return cfg
+        try:
+            from .ark_ini import ArkIniManager
+
+            snapshot_cfg = copy.deepcopy(cfg)
+            ini = ArkIniManager(install_dir)
+            ini.load_game_user_settings(snapshot_cfg)
+            ini.load_game_ini(snapshot_cfg)
+            return snapshot_cfg
+        except Exception:
+            return cfg
     install_dir = (getattr(cfg, "install_dir", "") or "").strip()
     if not install_dir:
-        return
+        return cfg
     try:
         from .asm_engine.asm_ini_manager import read_ini
 
         read_ini(cfg)  # type: ignore[arg-type]
     except Exception:
         pass
+    return cfg
 
 
 def compute_max_wild_dino_level(cfg: object) -> int:
@@ -145,7 +160,7 @@ def collect_server_snapshot(
     """Monta snapshot público de rates/níveis para um servidor TEK ou clássico."""
     cfg = srv
     if reload_ini:
-        _reload_ini_if_possible(cfg)
+        cfg = _reload_ini_if_possible(cfg)
 
     tek = _is_tek(cfg)
     xp = _effective_rate(cfg, "xp_multiplier", buff_event=buff_event, game_settings=not tek)
@@ -161,6 +176,43 @@ def collect_server_snapshot(
     mature = _effective_rate(
         cfg, "baby_mature_speed_multiplier", buff_event=buff_event, game_settings=not tek,
     )
+    hatch = _effective_rate(
+        cfg, "egg_hatch_speed_multiplier", buff_event=buff_event, game_settings=not tek,
+    )
+    cuddle = _effective_rate(
+        cfg, "baby_cuddle_interval_multiplier", buff_event=buff_event, game_settings=not tek,
+    )
+    game_settings = getattr(cfg, "game_settings", None)
+    breeding_cfg = game_settings if game_settings is not None else cfg
+
+    def _read_any_rate(*field_names: str) -> float:
+        for field_name in field_names:
+            if hasattr(breeding_cfg, field_name):
+                return _read_rate(breeding_cfg, field_name)
+        return 1.0
+
+    food_consumption = _read_any_rate(
+        "baby_food_consumption_speed_multiplier", "baby_food_consumption_multiplier",
+    )
+    cuddle_grace = _read_any_rate("baby_cuddle_grace_period_multiplier")
+    imprint_scale = _read_any_rate(
+        "baby_imprinting_stat_scale_multiplier", "baby_imprinting_stat_scale",
+    )
+    tribe_cfg = game_settings if game_settings is not None else cfg
+    try:
+        max_tribe_size = max(0, int(getattr(tribe_cfg, "max_tribe_size", 0) or 0))
+    except (TypeError, ValueError):
+        max_tribe_size = 0
+    structure_decay = _read_rate(
+        game_settings if game_settings is not None else cfg,
+        "pve_structure_decay_period_multiplier",
+    )
+    dino_decay = _read_rate(
+        game_settings if game_settings is not None else cfg,
+        "pve_dino_decay_period_multiplier",
+    )
+    structure_decay_disabled = bool(getattr(tribe_cfg, "disable_structure_decay_pve", False))
+    dino_decay_disabled = bool(getattr(tribe_cfg, "disable_dino_decay_pve", False))
 
     theoretical = compute_theoretical_player_level(cfg)
     effective = compute_max_player_level(cfg)
@@ -171,6 +223,16 @@ def collect_server_snapshot(
         "harvest_amount_multiplier": harvest,
         "mating_interval_multiplier": mating,
         "baby_mature_speed_multiplier": mature,
+        "egg_hatch_speed_multiplier": hatch,
+        "baby_cuddle_interval_multiplier": cuddle,
+        "baby_food_consumption_speed_multiplier": food_consumption,
+        "baby_cuddle_grace_period_multiplier": cuddle_grace,
+        "baby_imprinting_stat_scale_multiplier": imprint_scale,
+        "max_tribe_size": max_tribe_size,
+        "pve_structure_decay_period_multiplier": structure_decay,
+        "pve_dino_decay_period_multiplier": dino_decay,
+        "disable_structure_decay_pve": structure_decay_disabled,
+        "disable_dino_decay_pve": dino_decay_disabled,
         "max_player_level": effective,
         "max_player_level_theoretical": theoretical,
         "max_dino_level": compute_max_wild_dino_level(cfg),
@@ -193,12 +255,31 @@ def snapshot_public_view(snapshot: Optional[Dict[str, Any]]) -> Optional[Dict[st
     harvest = float(snapshot.get("harvest_amount_multiplier", 1) or 1)
     mating = float(snapshot.get("mating_interval_multiplier", 1) or 1)
     mature = float(snapshot.get("baby_mature_speed_multiplier", 1) or 1)
+    hatch = float(snapshot.get("egg_hatch_speed_multiplier", 1) or 1)
+    cuddle = float(snapshot.get("baby_cuddle_interval_multiplier", 1) or 1)
+    food_consumption = float(snapshot.get("baby_food_consumption_speed_multiplier", 1) or 1)
+    cuddle_grace = float(snapshot.get("baby_cuddle_grace_period_multiplier", 1) or 1)
+    imprint_scale = float(snapshot.get("baby_imprinting_stat_scale_multiplier", 1) or 1)
+    max_tribe_size = int(snapshot.get("max_tribe_size", 0) or 0)
+    structure_decay = float(snapshot.get("pve_structure_decay_period_multiplier", 1) or 1)
+    dino_decay = float(snapshot.get("pve_dino_decay_period_multiplier", 1) or 1)
     out = {
         "xp": _format_rate(xp),
         "taming": _format_rate(taming),
         "harvest": _format_rate(harvest),
         "mating": _format_rate(mating),
         "mature": _format_rate(mature),
+        "hatch": _format_rate(hatch),
+        "cuddle_interval": _format_rate(cuddle),
+        "baby_food_consumption": _format_rate(food_consumption),
+        "cuddle_grace": _format_rate(cuddle_grace),
+        "imprint_scale": _format_rate(imprint_scale),
+        "max_tribe_size": max_tribe_size,
+        "structure_decay": _format_rate(structure_decay),
+        "dino_decay": _format_rate(dino_decay),
+        "structure_decay_disabled": bool(snapshot.get("disable_structure_decay_pve")),
+        "dino_decay_disabled": bool(snapshot.get("disable_dino_decay_pve")),
+        "updated_at": str(snapshot.get("updated_at") or ""),
         "max_player_level": int(snapshot.get("max_player_level", 0) or 0),
         "max_dino_level": int(snapshot.get("max_dino_level", 0) or 0),
         "buff_active": bool(snapshot.get("buff_active")),
@@ -214,8 +295,6 @@ def snapshot_public_view(snapshot: Optional[Dict[str, Any]]) -> Optional[Dict[st
     if event_name:
         out["buff_name"] = str(event_name)
         out["seasonal_event_name"] = str(event_name)
-    if snapshot.get("updated_at"):
-        out["updated_at"] = str(snapshot["updated_at"])
     return out
 
 

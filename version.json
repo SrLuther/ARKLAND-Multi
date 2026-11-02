@@ -1,13 +1,9 @@
 {
-    "version": "1.11.19",
+    "version": "1.11.20",
     "date": "2026-11-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.19/ARKLAND-Multi-Setup-v1.11.19.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.20/ARKLAND-Multi-Setup-v1.11.20.exe",
     "changelog": [
-        "Progressão de nível: corrigido o recálculo quando uma tabela de XP termina com valor abaixo dos níveis anteriores; o sistema recompõe uma curva crescente dentro do XP máximo e exibe a quantidade real de níveis recalculados.",
-        "Game.ini: salvar as progressões remove fragmentos antigos ExperiencePointsForLevel e elimina rampas duplicadas, mantendo apenas a tabela atual aplicada.",
-        "Plugins: a lista de servidores agora permite atualizar os cinco plugins ARKLAND em um mapa por vez; somente o alvo precisa estar parado.",
-        "Web Store: removido da interface o cartão do Âmbarômetro que ficava sob o botão flutuante de suporte.",
-        "Traduções: os arquivos .argosmodel colocados em translation/argos-packages passam a ser instalados pelo servidor na verificação seguinte, sem depender do upload do navegador.",
-        "Web Store: sincronização preserva os pacotes de doação personalizados e só aplica os padrões quando PointPackages ainda não existe."
+        "Web Store: resumo por servidor com rates, níveis, crescimento, decay e horários; prévia demonstrativa fictícia disponível.",
+        "Web Store: removido o saldo duplicado de Âmbares da barra inferior, que ficava parcialmente encoberto pelo botão flutuante de suporte."
     ]
 }
