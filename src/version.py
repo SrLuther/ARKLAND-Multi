@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.23"
+APP_VERSION: str = "1.11.24"
 BUILD_DATE: str = "2026-11-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.24",
+        "date": "2026-11-02",
+        "changes": [
+            "Web Store: painel compacto do Azure Translator, fechado por padrão e disponível somente para administradores; configuração fica salva no backend.",
+            "Web Store: nova aba Fazenda na Minha Área e resumo de decay de estruturas calculado por material conforme o multiplicador do servidor.",
+            "App: subpáginas da Loja reorganizadas para acomodar a configuração da Web Store com melhor distribuição do espaço.",
+            "Instalador: removidos os modelos Argos antigos da pasta persistente dedicada; o updater já não baixa Argos desde a v1.11.23.",
+        ],
+    },
     {
         "version": "1.11.23",
         "date": "2026-11-02",

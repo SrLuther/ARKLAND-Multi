@@ -8,7 +8,7 @@
 ; ============================================================
 
 ; Atualizado automaticamente por _release.ps1
-#define ReleaseVersion "1.11.23"
+#define ReleaseVersion "1.11.24"
 
 [Setup]
 AppName=ARKLAND - Server Manager
@@ -42,6 +42,10 @@ RestartApplications=yes
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+
+[InstallDelete]
+; O tradutor agora usa Azure; remove apenas o armazenamento legado dedicado ao Argos.
+Type: filesandordirs; Name: "{userappdata}\ARKLAND-ServerManager\arkshop_web\translation\argos-packages"
 
 [Files]
 Source: "dist\ARKLAND-ServerManager.exe"; DestDir: "{app}"; Flags: ignoreversion

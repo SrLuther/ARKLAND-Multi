@@ -7538,9 +7538,13 @@
     .support-window.open { display:flex;animation:supportPop .18s ease-out; }
     @keyframes supportPop { from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none} }
     .support-head { padding:17px 18px 14px;background:linear-gradient(110deg,rgba(71,155,177,.12),transparent);border-bottom:1px solid rgba(91,163,184,.16);display:flex;align-items:center;justify-content:space-between; }
+    .support-head__actions { display:flex;align-items:center;gap:5px; }
     .support-head strong { display:block;font:700 17px Cinzel,serif;color:#91d5df; }
     .support-head small { color:#91a6ac;font-size:12px; }
     .support-close { border:0;background:transparent;color:#9bb7bd;font-size:22px;cursor:pointer;padding:2px 6px; }
+    .support-settings-toggle,.support-settings-close { width:30px;height:30px;display:grid;place-items:center;border:1px solid rgba(91,163,184,.22);border-radius:8px;background:rgba(9,19,23,.7);color:#9bb7bd;font-size:15px;cursor:pointer; }
+    #support-translation-settings-toggle[hidden],#support-translation-admin[hidden] { display:none!important; }
+    .support-settings-toggle:hover,.support-settings-close:hover,.support-settings-toggle[aria-expanded="true"] { color:#b9eef3;border-color:rgba(105,203,221,.55);background:rgba(71,155,177,.15); }
     .support-tabs { display:flex;gap:7px;padding:12px 14px 8px; }
     .support-language { margin-left:auto;max-width:110px;border:1px solid rgba(91,163,184,.2);border-radius:8px;padding:7px 8px;background:#111c21;color:#adc4ca;font:600 12px Rajdhani,sans-serif; }
     .support-tabs button,.support-back { border:1px solid rgba(91,163,184,.2);background:#111c21;color:#adc4ca;border-radius:9px;padding:8px 11px;font:600 13px Rajdhani,sans-serif;cursor:pointer; }
@@ -7560,8 +7564,9 @@
     .support-translate {display:block;margin:7px 0 0;padding:0;border:0;background:transparent;color:#75bfce;font:600 11px Rajdhani,sans-serif;cursor:pointer}
     .support-translate:hover {color:#b5edf2;text-decoration:underline}
     .support-translation {margin-top:6px;color:#c3d7dc;font-style:italic}
-    .support-translation-admin { margin:0 14px 8px;padding:10px 11px;border:1px solid rgba(91,163,184,.2);border-radius:10px;background:rgba(71,155,177,.07);font-size:11px;line-height:1.5;color:#a9bec3; }
-    .support-translation-admin__title { color:#91d5df;font-weight:700;margin-bottom:4px; }
+    .support-translation-admin { position:absolute;z-index:4;top:66px;right:10px;box-sizing:border-box;width:min(350px,calc(100% - 20px));max-height:calc(100% - 78px);overflow:auto;margin:0;padding:10px 11px;border:1px solid rgba(91,163,184,.34);border-radius:12px;background:linear-gradient(160deg,#122229,#091115 82%);box-shadow:0 16px 38px rgba(0,0,0,.68);font-size:11px;line-height:1.5;color:#a9bec3; }
+    .support-translation-admin__head { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+    .support-translation-admin__title { color:#91d5df;font-weight:700;margin-bottom:0; }
     #support-translation-admin-test { margin-top:7px;border:1px solid rgba(91,163,184,.24);border-radius:8px;padding:6px 9px;background:#111c21;color:#a9c8ce;font:600 11px Rajdhani,sans-serif;cursor:pointer; }
     .support-translation-admin__settings { display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px; }
     .support-translation-admin__settings label { display:flex;flex-direction:column;gap:3px; }
@@ -10507,6 +10512,7 @@
         <nav class="myarea-tabs" aria-label="Seções da Minha Área">
           <button type="button" class="myarea-tab is-active" data-myarea-tab="account" onclick="setMyAreaTab('account')">Conta e resumo</button>
           <button type="button" class="myarea-tab" data-myarea-tab="game" onclick="setMyAreaTab('game')">Jogo e equipe</button>
+          <button type="button" class="myarea-tab" data-myarea-tab="farm" onclick="setMyAreaTab('farm')">Fazenda</button>
           <button type="button" class="myarea-tab" data-myarea-tab="history" onclick="setMyAreaTab('history')">Histórico</button>
         </nav>
 
@@ -10622,6 +10628,23 @@
           </div>
           <div id="myarea-teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
+        </section>
+
+        <section class="myarea-panel" data-myarea-panel="farm">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Minha Fazenda</div><button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarm()">↻ Atualizar</button></div>
+            <div id="myarea-farm-overview" style="color:var(--text2);font-size:13px;">Carregando dados da Fazenda…</div>
+          </div>
+          <div class="card hidden" id="myarea-farm-admin-card">
+            <div class="card-header"><div class="card-title">Configuração da Fazenda (admin)</div></div>
+            <p style="font-size:12px;color:var(--text2);">Edite categorias, recursos e parâmetros no formato usado por FazendaRecursos. A categoria <code>default</code> permanece ativa; <code>omega</code> pode ser ligada ou desligada. A configuração fica salva na Web Store; o plugin ainda precisa da integração de sincronização para recebê-la.</p>
+            <textarea id="myarea-farm-config" rows="18" spellcheck="false" style="width:100%;font:12px/1.5 monospace;resize:vertical;"></textarea>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="saveMyFarmConfig()">Salvar configuração</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarmConfig()">Recarregar do servidor</button>
+              <span id="myarea-farm-config-status" style="font-size:12px;color:var(--text2);"></span>
+            </div>
+          </div>
         </section>
 
         <section class="myarea-panel" data-myarea-panel="history">
@@ -17215,7 +17238,7 @@ function fmtDate(iso) {
 }
 
 function setMyAreaTab(tab) {
-  const selected = ["account", "game", "history"].includes(String(tab)) ? String(tab) : "account";
+  const selected = ["account", "game", "farm", "history"].includes(String(tab)) ? String(tab) : "account";
   document.querySelectorAll(".myarea-tab").forEach((el) => {
     const active = el.dataset.myareaTab === selected;
     el.classList.toggle("is-active", active);
@@ -17224,6 +17247,73 @@ function setMyAreaTab(tab) {
   document.querySelectorAll(".myarea-panel").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.myareaPanel === selected);
   });
+  if (selected === "farm") {
+    loadMyFarm();
+    if (_auth?.is_admin) loadMyFarmConfig();
+  }
+}
+
+async function loadMyFarm() {
+  const host = document.getElementById("myarea-farm-overview");
+  if (!host) return;
+  if (_auth?.is_admin) document.getElementById("myarea-farm-admin-card")?.classList.remove("hidden");
+  try {
+    const response = await fetch(API + "/api/player/farm", { credentials: "same-origin" });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível consultar sua Fazenda.");
+    const license = data.license_active
+      ? `<span class="badge badge-item">Ativa${data.license?.expires_at ? ` até ${escHtml(data.license.expires_at)}` : ""}</span>`
+      : `<span class="badge">Sem licença ativa</span>`;
+    const resources = data.resources || [];
+    host.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"><strong>Licença keyfarm:</strong> ${license}</div>
+      <h3 style="font-size:13px;margin:12px 0 8px;">Recursos configurados</h3>
+      ${resources.length ? `<div class="form-grid">${resources.map(r => `<div class="form-group"><label>${escHtml(r.name)} · ${escHtml(r.category)}</label><input readonly value="Estoque indisponível · capacidade ${Number(r.capacity || 200)}" /></div>`).join("")}</div>` : `<p>Nenhum recurso foi configurado ainda.</p>`}
+      <div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:12px;">
+        ${data.integration_ready ? "Estoque e pedidos sincronizados com o servidor." : "O plugin ainda não envia estoque nem pedidos para a Web Store. Por isso, esta tela não mostra saldos nem permite solicitar entregas até a integração ser concluída."}
+      </div>`;
+  } catch (error) {
+    host.innerHTML = `<span style="color:var(--danger);">${escHtml(error.message || "Falha ao carregar Fazenda.")}</span>`;
+  }
+}
+
+async function loadMyFarmConfig() {
+  if (!_auth?.is_admin) return;
+  const editor = document.getElementById("myarea-farm-config");
+  const status = document.getElementById("myarea-farm-config-status");
+  if (!editor) return;
+  try {
+    const response = await fetch(API + "/api/admin/farm/config", { credentials: "same-origin" });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao ler configuração.");
+    editor.value = JSON.stringify(data.config, null, 2);
+    if (status) status.textContent = "Configuração carregada da Web Store.";
+  } catch (error) {
+    if (status) status.textContent = error.message || "Falha ao ler configuração.";
+  }
+}
+
+async function saveMyFarmConfig() {
+  if (!_auth?.is_admin) return toast("Apenas administradores podem alterar esta configuração.", "error");
+  const editor = document.getElementById("myarea-farm-config");
+  const status = document.getElementById("myarea-farm-config-status");
+  let config;
+  try { config = JSON.parse(editor?.value || ""); }
+  catch (_) { if (status) status.textContent = "JSON inválido. Corrija a sintaxe antes de salvar."; return; }
+  try {
+    const response = await fetch(API + "/api/admin/farm/config", {
+      method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao salvar configuração.");
+    editor.value = JSON.stringify(data.config, null, 2);
+    if (status) status.textContent = "Configuração validada e salva na Web Store.";
+    toast("Configuração da Fazenda salva.", "success");
+    await loadMyFarm();
+  } catch (error) {
+    if (status) status.textContent = error.message || "Falha ao salvar configuração.";
+    toast(error.message || "Falha ao salvar configuração.", "error");
+  }
 }
 
 function donationStatusBadge(s, credited) {
@@ -31496,7 +31586,8 @@ function _homeStructureDecayRows(snapshot) {
     if (disabled) return [material, "Desativado"];
     const duration = days * rate;
     const formatted = Number.isInteger(duration) ? String(duration) : duration.toFixed(1).replace(/\.0$/, "");
-    return [material, `${formatted} ${duration === 1 ? "dia" : "dias"}`];
+    const rateLabel = Number.isInteger(rate) ? String(rate) : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    return [material, `${formatted} ${duration === 1 ? "dia" : "dias"} (${days} × ${rateLabel}x)`];
   });
 }
 
@@ -31563,7 +31654,7 @@ function _renderHomeServerSettings(serverId) {
       ["Estruturas", snapshot.structure_decay_disabled ? "Desativado" : snapshot.structure_decay],
       ["Dinos", snapshot.dino_decay_disabled ? "Desativado" : snapshot.dino_decay],
     ]),
-    _homeSettingsGroup("Decay de estruturas - prazos base ARK", _homeStructureDecayRows(snapshot)),
+    _homeSettingsGroup("Decay calculado por material", _homeStructureDecayRows(snapshot)),
     _homeSettingsGroup("Horários (UTC−3)", _homeServerSchedule(name, serverId)),
   ].join("");
   const updated = snapshot.updated_at ? new Date(snapshot.updated_at) : null;
@@ -31573,7 +31664,7 @@ function _renderHomeServerSettings(serverId) {
   if (subtitle) subtitle.textContent = snapshot.buff_active && snapshot.buff_name
     ? `${updatedLabel} · Evento ativo: ${snapshot.buff_name}`
     : updatedLabel;
-  body.innerHTML = `${details}<p class="home-server-settings__note">Os prazos listados s&atilde;o os padr&otilde;es de auto-demoli&ccedil;&atilde;o PvE do ARK e variam conforme o multiplicador do servidor. Estruturas isoladas e alguns itens Tek podem ter tempos diferentes. Os valores configurados s&atilde;o lidos dos arquivos Game.ini e GameUserSettings.ini; os hor&aacute;rios seguem o cronograma do cluster. Sincroniza&ccedil;&atilde;o autom&aacute;tica dos INIs a cada 5 minutos.</p>`;
+  body.innerHTML = `${details}<p class="home-server-settings__note">C&aacute;lculo: prazo base do material × PvEStructureDecayPeriodMultiplier lido das configura&ccedil;&otilde;es deste servidor. A base &eacute; 4/8/12/16/20 dias para palha/madeira/pedra/metal/Tek. Estruturas isoladas e itens especiais (como alguns dispositivos Tek) podem ter exce&ccedil;&otilde;es no pr&oacute;prio ARK. Os INIs s&atilde;o sincronizados pelo gerenciador a cada 5 minutos; os hor&aacute;rios seguem o cronograma do cluster.</p>`;
 }
 
 function openHomeServerSettings(button) {
@@ -35550,10 +35641,10 @@ document.addEventListener("keydown", (e) => {
   <span class="support-fab__icon">✉</span><span>Precisa de ajuda?</span>
 </button>
 <section id="support-window" class="support-window" role="dialog" aria-label="Atendimento ARKLAND">
-  <header class="support-head"><div><strong>Atendimento ARKLAND</strong><small>Tickets e suporte do servidor</small></div><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></header>
+  <header class="support-head"><div><strong>Atendimento ARKLAND</strong><small>Tickets e suporte do servidor</small></div><div class="support-head__actions"><button id="support-translation-settings-toggle" class="support-settings-toggle" type="button" onclick="supportWidgetAzurePanelToggle()" aria-label="Configurações do tradutor" title="Configurações do tradutor" aria-expanded="false" aria-controls="support-translation-admin" hidden>⚙</button><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></div></header>
   <nav class="support-tabs"><button id="support-tab-list" class="active" onclick="supportWidgetTab('list')">Meus tickets</button><button id="support-tab-new" onclick="supportWidgetTab('new')">+ Novo ticket</button><select id="support-language" class="support-language" aria-label="Idioma das traduções" onchange="supportWidgetSetLanguage(this.value)"><option value="en">English</option><option value="es">Español</option><option value="pt">Português</option></select></nav>
   <section id="support-translation-admin" class="support-translation-admin" hidden aria-label="Administração do tradutor">
-    <div class="support-translation-admin__title">Tradutor Azure</div>
+    <div class="support-translation-admin__head"><div class="support-translation-admin__title">Tradutor Azure</div><button class="support-settings-close" type="button" onclick="supportWidgetAzurePanelToggle(false)" aria-label="Fechar configurações">×</button></div>
     <div id="support-translation-admin-status" class="support-translation-admin__status" aria-live="polite">Carregando estado…</div>
     <div class="support-translation-admin__settings">
       <label>Chave do Azure Translator<input id="support-translation-key" type="password" autocomplete="new-password" placeholder="Cole a chave; vazio mantém a atual"></label>
@@ -35612,13 +35703,22 @@ window.addEventListener("scroll", _scheduleSupportFabAvoidAmberMeter, { passive:
 window.addEventListener("resize", _scheduleSupportFabAvoidAmberMeter);
 _scheduleSupportFabAvoidAmberMeter();
 function supportWidgetSetLanguage(language){if(!["pt","en","es"].includes(language))return;_supportLanguage=language;localStorage.setItem("arkland-support-language",language);}
+function supportWidgetAzurePanelToggle(force){
+  const panel=document.getElementById("support-translation-admin"),toggle=document.getElementById("support-translation-settings-toggle");
+  if(!panel||!toggle||!_auth?.is_admin||_supportPreview)return;
+  const open=typeof force==="boolean"?force:panel.hidden;
+  panel.hidden=!open;toggle.setAttribute("aria-expanded",String(open));
+  if(open)supportWidgetAzureStatus(false);
+}
 async function supportWidgetAzureStatus(runTest){
-  const panel=document.getElementById("support-translation-admin"),status=document.getElementById("support-translation-admin-status"),button=document.getElementById("support-translation-admin-test");
-  if(!panel||_supportPreview)return;
+  const panel=document.getElementById("support-translation-admin"),status=document.getElementById("support-translation-admin-status"),button=document.getElementById("support-translation-admin-test"),toggle=document.getElementById("support-translation-settings-toggle");
+  if(!panel||!toggle||_supportPreview)return;
+  if(!_auth?.is_admin){panel.hidden=true;toggle.hidden=true;toggle.setAttribute("aria-expanded","false");return;}
+  const panelWasOpen=!panel.hidden;
   try {
     const d=await fetchJson("/api/admin/translation/status",{timeoutMs:12000,retries:0});
-    if(!d.ok){panel.hidden=true;return;}
-    panel.hidden=false;
+    if(!d.ok){panel.hidden=true;toggle.hidden=true;toggle.setAttribute("aria-expanded","false");return;}
+    toggle.hidden=false;panel.hidden=!panelWasOpen;
     const c=d.config||{},u=d.usage||{};
     const limitInput=document.getElementById("support-translation-monthly-limit"),thresholdInput=document.getElementById("support-translation-alert-thresholds");
     const regionInput=document.getElementById("support-translation-region"),endpointInput=document.getElementById("support-translation-endpoint");
@@ -35633,7 +35733,7 @@ async function supportWidgetAzureStatus(runTest){
     if(!result.ok)throw new Error(`${result.error_code||"TRANSLATION_FAILED"} ? ID ${result.reference_id||"indispon?vel"}`);
     status.textContent+=` ? Teste OK: ${result.source_language||"auto"} ? pt (${result.duration_ms} ms)`;toast("Azure Translator funcionando.","success");
   } catch(e) {
-    if(runTest)status.textContent=`Teste falhou: ${String(e.message||e)}`;else panel.hidden=true;
+    if(runTest)status.textContent=`Teste falhou: ${String(e.message||e)}`;else {panel.hidden=true;toggle.setAttribute("aria-expanded","false");}
   } finally { if(button){button.disabled=false;button.textContent="Testar Azure Translator";} }
 }
 async function supportWidgetAzureSaveSettings(){
@@ -35653,7 +35753,8 @@ function supportWidgetToggle(force) {
   const open=typeof force==="boolean"?force:!box.classList.contains("open");
   box.classList.toggle("open",open);fab.setAttribute("aria-expanded",String(open));
   document.getElementById("toast-container")?.classList.toggle("support-chat-open",open);
-  if(open) { supportWidgetTab(_supportTab); supportWidgetAzureStatus(false); }
+  if(open) { supportWidgetTab(_supportTab); if(_auth?.is_admin)supportWidgetAzureStatus(false); }
+  else supportWidgetAzurePanelToggle(false);
 }
 function supportWidgetError(error) {
   const content=document.getElementById("support-content");

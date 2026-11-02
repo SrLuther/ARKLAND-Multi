@@ -45,7 +45,7 @@ A tradução é feita sob demanda no backend usando a API oficial Azure AI Trans
 
 Configure no ambiente da Web Store (por exemplo, no `.env` persistente) ou pelo painel administrativo do atendimento: `AZURE_TRANSLATOR_KEY` e, para recursos regionais, `AZURE_TRANSLATOR_REGION`. O painel permite salvar a chave, região e endpoint; a chave é armazenada protegida em `settings.json`, enviada somente ao backend e nunca devolvida pela API. A configuração do painel tem precedência sobre as variáveis de ambiente correspondentes. O endpoint é opcional e usa `https://api.cognitive.microsofttranslator.com` por padrão. O administrador também ajusta o teto mensal e os percentuais de alerta no painel; os valores iniciais podem vir de `AZURE_TRANSLATOR_MONTHLY_CHARACTER_LIMIT` (0 ou vazio desativa o teto) e `AZURE_TRANSLATOR_ALERT_THRESHOLDS` (padrão `70,85,95,100`). `AZURE_TRANSLATOR_MAX_RETRIES` limita novas tentativas (padrão `1`, máximo `2`).
 
-O painel administrativo do suporte mostra o estado de configuração e o uso mensal, e oferece um teste real da API. A métrica é persistida no banco de dados. O updater não baixa nem instala modelos de tradução. Pacotes Argos antigos no diretório persistente são deixados intactos e não são mais usados.
+O painel administrativo do suporte mostra o estado de configuração e o uso mensal, e oferece um teste real da API. A métrica é persistida no banco de dados. O updater não baixa nem instala modelos de tradução. Na atualização do aplicativo, o instalador remove a pasta dedicada aos pacotes Argos obsoletos em `%APPDATA%\ARKLAND-ServerManager\arkshop_web\translation\argos-packages`; não remove outros dados da Web Store.
 
 ## Controles de servidores pelo site
 

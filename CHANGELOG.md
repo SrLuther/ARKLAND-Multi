@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-02 05:32:21 -->
-<!-- Total de versões: 516 | Primeira: 1.11.23 -->
+<!-- Gerado: 2026-11-02 13:28:55 -->
+<!-- Total de versões: 517 | Primeira: 1.11.24 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.24] - 2026-11-02
+
+### Other
+
+- Web Store: painel compacto do Azure Translator, fechado por padrão e disponível somente para administradores; configuração fica salva no backend.
+- Web Store: nova aba Fazenda na Minha Área e resumo de decay de estruturas calculado por material conforme o multiplicador do servidor.
+- App: subpáginas da Loja reorganizadas para acomodar a configuração da Web Store com melhor distribuição do espaço.
+- Instalador: removidos os modelos Argos antigos da pasta persistente dedicada; o updater já não baixa Argos desde a v1.11.23.
 
 ## [1.11.23] - 2026-11-02
 

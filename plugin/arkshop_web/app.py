@@ -365,6 +365,7 @@ _HOME_CARD_UPLOADS_DIR = _DATA_DIR / "home_card_uploads"
 _ENCOMENDA_VITRINE_FILE = _DATA_DIR / "dino_order_vitrine.json"
 _SEASON_PASS_CONFIG_FILE = _DATA_DIR / "season_pass_config.json"
 _SEASON_PASS_CLAIMS_FILE = _DATA_DIR / "season_pass_claims.json"
+_FAZENDA_CONFIG_FILE = _DATA_DIR / "fazenda_recursos_config.json"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
@@ -14076,6 +14077,126 @@ def player_entitlements():
         "timed_points_total": _compute_timed_points_total(groups),
         "timed_points_interval_min": 30,
     })
+
+
+def _farm_default_config() -> dict[str, Any]:
+    return {"FazendaRecursos": {
+        "Enabled": True,
+        "LicenseGroup": "keyfarm",
+        "InitialCapacityPerResource": 200,
+        "TickSeconds": 60,
+        "PreviewLifetimeSeconds": 120,
+        "DiagnosticAdminGroups": ["Admins"],
+        "Categories": {
+            "default": {"Enabled": True, "Required": True, "DisplayName": "Recursos do jogo base", "Resources": []},
+            "omega": {"Enabled": False, "Required": False, "DisplayName": "ARK Omega", "Resources": []},
+        },
+        "Messages": {},
+    }}
+
+
+def _read_farm_config() -> dict[str, Any]:
+    try:
+        data = json.loads(_FAZENDA_CONFIG_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+    except (OSError, ValueError):
+        pass
+    return _farm_default_config()
+
+
+def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | None]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("FazendaRecursos"), dict):
+        return None, "A configuração deve conter o objeto FazendaRecursos."
+    root = payload["FazendaRecursos"]
+    if str(root.get("LicenseGroup") or "").strip().lower() != "keyfarm":
+        return None, "LicenseGroup precisa ser keyfarm."
+    categories = root.get("Categories")
+    if (not isinstance(categories, dict) or not isinstance(categories.get("default"), dict)
+            or not isinstance(categories.get("omega"), dict)):
+        return None, "As categorias default e omega são obrigatórias."
+    categories["default"]["Enabled"] = True
+    categories["default"]["Required"] = True
+    for category_id, category in categories.items():
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,39}", str(category_id)) or not isinstance(category, dict):
+            return None, "Identificador ou definição de categoria inválido."
+        if not isinstance(category.get("Resources", []), list) or len(category.get("Resources", [])) > 1000:
+            return None, f"Lista de recursos inválida na categoria {category_id}."
+        if category_id != "default" and not isinstance(category.get("Enabled", False), bool):
+            return None, f"Enabled inválido na categoria {category_id}."
+        if not isinstance(category.get("DisplayName", ""), str) or len(category.get("DisplayName", "")) > 120:
+            return None, f"DisplayName inválido na categoria {category_id}."
+        for resource in category.get("Resources", []):
+            if not isinstance(resource, dict):
+                return None, f"Definição de recurso inválida na categoria {category_id}."
+            if not isinstance(resource.get("Enabled", False), bool):
+                return None, f"Enabled inválido em um recurso da categoria {category_id}."
+            if not str(resource.get("Id") or "").strip() or not str(resource.get("ItemClass") or "").strip():
+                return None, f"Todo recurso precisa de Id e ItemClass na categoria {category_id}."
+            for key, max_len in (("Id", 100), ("Name", 160), ("ItemClass", 500), ("InputClass", 500)):
+                if len(str(resource.get(key) or "")) > max_len:
+                    return None, f"Campo {key} excede o limite permitido."
+            for key, low, high in (("InputQuantity", 1, 1000000), ("OutputQuantity", 1, 1000000),
+                                   ("IntervalSeconds", 1, 31536000), ("Capacity", 1, 1000000)):
+                try:
+                    value = int(resource.get(key, 1))
+                except (TypeError, ValueError):
+                    return None, f"Campo {key} precisa ser um número inteiro."
+                if value < low or value > high:
+                    return None, f"Campo {key} fora do intervalo permitido."
+                resource[key] = value
+    root["InitialCapacityPerResource"] = 200
+    return payload, None
+
+
+@app.route("/api/player/farm", methods=["GET"])
+@login_required
+@limiter.limit("60 per minute")
+def player_farm_overview():
+    steam_id = str(_steam_id_from_session())
+    entitlements = _get_player_entitlements(steam_id)
+    keyfarm = next((e for e in entitlements if str(e.get("group") or "").strip().lower() == "keyfarm"), None)
+    config = _read_farm_config().get("FazendaRecursos", {})
+    categories = config.get("Categories", {}) if isinstance(config, dict) else {}
+    resources = []
+    if isinstance(categories, dict):
+        for category_id, category in categories.items():
+            if not isinstance(category, dict) or (category_id != "default" and not category.get("Enabled")):
+                continue
+            for resource in category.get("Resources", []):
+                if not isinstance(resource, dict) or not resource.get("Enabled", False):
+                    continue
+                resources.append({"id": resource.get("Id"), "name": resource.get("Name") or resource.get("Id"),
+                                  "category": category_id, "capacity": resource.get("Capacity", 200)})
+    return jsonify({"ok": True, "license_active": bool(keyfarm), "license": keyfarm,
+                    "resources": resources, "stock_available": False, "orders_available": False,
+                    "integration_ready": False})
+
+
+@app.route("/api/admin/farm/config", methods=["GET"])
+@admin_required
+@limiter.limit("30 per minute")
+def admin_get_farm_config():
+    return jsonify({"ok": True, "config": _read_farm_config()})
+
+
+@app.route("/api/admin/farm/config", methods=["PUT"])
+@admin_required
+@limiter.limit("20 per hour")
+def admin_put_farm_config():
+    payload, error = _validate_farm_config(request.get_json(silent=True))
+    if error:
+        return jsonify({"ok": False, "error": error}), 400
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = _FAZENDA_CONFIG_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(_FAZENDA_CONFIG_FILE)
+    except OSError as exc:
+        log.exception("farm_config_save_failed")
+        return jsonify({"ok": False, "error": "Não foi possível salvar a configuração da Fazenda.", "detail": str(exc)[:200]}), 500
+    _log("farm_config_saved", admin=_steam_id_from_session())
+    return jsonify({"ok": True, "config": payload})
 
 
 @app.route("/api/player/points", methods=["GET"])

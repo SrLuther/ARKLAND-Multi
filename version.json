@@ -1,11 +1,11 @@
 {
-    "version": "1.11.23",
+    "version": "1.11.24",
     "date": "2026-11-02",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.23/ARKLAND-Multi-Setup-v1.11.23.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.24/ARKLAND-Multi-Setup-v1.11.24.exe",
     "changelog": [
-        "Tradutor: painel administrativo permite configurar chave, região e endpoint Azure no site; a chave é armazenada protegida no backend e nunca devolvida ao navegador.",
-        "Tradutor: traduções e teste administrativo usam as credenciais salvas no painel; configuração regional pode ser validada diretamente na Web Store.",
-        "ArkEventHunt: corrigida a reconciliação de instâncias Mode B no arranque; a Web Store fornece endpoint autenticado por API key, filtrado por servidor/mapa e limitado a instâncias ALIVE.",
-        "Web Store: ajustes de migração do tradutor para Azure e remoção das dependências e downloads Argos legados."
+        "Web Store: painel compacto do Azure Translator, fechado por padrão e disponível somente para administradores; configuração fica salva no backend.",
+        "Web Store: nova aba Fazenda na Minha Área e resumo de decay de estruturas calculado por material conforme o multiplicador do servidor.",
+        "App: subpáginas da Loja reorganizadas para acomodar a configuração da Web Store com melhor distribuição do espaço.",
+        "Instalador: removidos os modelos Argos antigos da pasta persistente dedicada; o updater já não baixa Argos desde a v1.11.23."
     ]
 }

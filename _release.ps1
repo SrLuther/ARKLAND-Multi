@@ -220,6 +220,7 @@ $releaseNewFiles = @(
     "src/ui/server_cli_catalog.py",
     "src/ui/server_ini_catalog.py",
     "plugin/arkshop_web/discord_engagement_routes.py",
+    "plugin/arkshop_web/translation_usage.py",
     "plugin/arkshop_web/static/betland.jpg",
     "src/discord_bot/activity_rewards.py",
     "tests/test_ark_ini_config_only_writer.py",
