@@ -1,0 +1,35 @@
+{
+  "FazendaRecursos": {
+    "Enabled": true,
+    "LicenseGroup": "keyfarm",
+    "InitialCapacityPerResource": 200,
+    "TickSeconds": 60,
+    "PreviewLifetimeSeconds": 120,
+    "DiagnosticAdminGroups": ["Admins"],
+    "Categories": {
+      "default": {
+        "Enabled": true,
+        "Required": true,
+        "DisplayName": "Recursos do jogo base",
+        "Resources": []
+      },
+      "omega": {
+        "Enabled": false,
+        "Required": false,
+        "DisplayName": "ARK Omega",
+        "Resources": []
+      }
+    },
+    "Messages": {
+      "Disabled": "A Fazenda de Recursos está desativada.",
+      "NoLicense": "Você precisa de uma licença ativa da Fazenda (keyfarm).",
+      "NoPermission": "Sem permissão para esse comando.",
+      "StatusEmpty": "Nenhuma produção configurada ainda. Use /fazcoletar (admin) para mapear os itens reais.",
+      "FarmStatus": "Fazenda: {} recurso(s) configurado(s), {} em produção. Capacidade inicial: {} por recurso.",
+      "DiagnosticDone": "Diagnóstico salvo em: {}",
+      "DiagnosticFailed": "Não foi possível gravar o diagnóstico. Consulte o log do servidor.",
+      "Usage": "Comandos: /fazenda, /fazconfirmar, /fazstatus, /fazresgatar.",
+      "NotReady": "A fazenda só pode ser usada quando o servidor estiver pronto."
+    }
+  }
+}
