@@ -680,6 +680,31 @@ class Base(DeclarativeBase):
     pass
 
 
+class FarmPlayerState(Base):
+    __tablename__ = "farm_player_states"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    stock_json: Mapped[str] = mapped_column(Text, default="{}")
+    server_id: Mapped[str] = mapped_column(String(64), default="default")
+    plugin_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class FarmRedemption(Base):
+    __tablename__ = "farm_redemptions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    resource_id: Mapped[str] = mapped_column(String(100))
+    resource_name: Mapped[str] = mapped_column(String(160))
+    amount: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
+    claimed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -14168,9 +14193,246 @@ def player_farm_overview():
                     continue
                 resources.append({"id": resource.get("Id"), "name": resource.get("Name") or resource.get("Id"),
                                   "category": category_id, "capacity": resource.get("Capacity", 200)})
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        state = db.get(FarmPlayerState, steam_id)
+        stock = json.loads(state.stock_json) if state and state.stock_json else {}
+        synced_at = state.updated_at.isoformat() if state and state.updated_at else None
+        fresh = bool(state and state.updated_at and (datetime.now(UTC) - state.updated_at.replace(tzinfo=UTC if state.updated_at.tzinfo is None else state.updated_at.tzinfo)).total_seconds() <= 300)
+        rows = db.query(FarmRedemption).filter(FarmRedemption.steam_id == steam_id).order_by(FarmRedemption.created_at.desc()).limit(20).all()
+        reserved_rows = db.query(FarmRedemption.resource_id, FarmRedemption.amount).filter(
+            FarmRedemption.steam_id == steam_id, FarmRedemption.status.in_(["PENDENTE", "PROCESSANDO"])).all()
+        reserved = {}
+        for resource_id, amount in reserved_rows:
+            reserved[resource_id] = reserved.get(resource_id, 0) + int(amount or 0)
+        orders = [{"id": row.id, "resource_id": row.resource_id, "resource_name": row.resource_name,
+                   "amount": row.amount, "status": row.status, "created_at": row.created_at.isoformat()}
+                  for row in rows]
+    finally:
+        _release_db_session(db)
+    for resource in resources:
+        raw_stock = max(0, int(stock.get(resource["id"], 0))) if isinstance(stock, dict) else 0
+        resource["stock"] = raw_stock
+        resource["reserved"] = int(reserved.get(resource["id"], 0))
+        resource["available"] = max(0, raw_stock - resource["reserved"])
     return jsonify({"ok": True, "license_active": bool(keyfarm), "license": keyfarm,
-                    "resources": resources, "stock_available": False, "orders_available": False,
-                    "integration_ready": False})
+                    "resources": resources, "orders": orders, "stock_available": fresh,
+                    "orders_available": fresh, "integration_ready": fresh,
+                    "last_sync_at": synced_at})
+
+
+@app.route("/api/player/farm/redemptions", methods=["POST"])
+@login_required
+@limiter.limit("10 per hour")
+def player_create_farm_redemption():
+    steam_id = str(_steam_id_from_session())
+    body = request.get_json(silent=True) or {}
+    resource_id = str(body.get("resource_id") or "").strip()
+    try:
+        amount = int(body.get("amount", 0))
+    except (TypeError, ValueError):
+        amount = 0
+    if not resource_id or amount < 1 or amount > 1000000:
+        return jsonify({"ok": False, "error": "Selecione um recurso e uma quantidade válida."}), 400
+    config = _read_farm_config().get("FazendaRecursos", {})
+    found = None
+    for category_id, category in (config.get("Categories") or {}).items():
+        if category_id != "default" and not category.get("Enabled"):
+            continue
+        for resource in category.get("Resources", []):
+            if resource.get("Id") == resource_id and resource.get("Enabled"):
+                found = resource
+                break
+        if found:
+            break
+    if not found:
+        return jsonify({"ok": False, "error": "Esse recurso não está disponível para resgate."}), 404
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        state = db.query(FarmPlayerState).filter(FarmPlayerState.steam_id == steam_id).with_for_update().first()
+        if not state or not state.updated_at:
+            return jsonify({"ok": False, "error": "O servidor ainda não sincronizou o estoque da Fazenda."}), 409
+        last_sync = state.updated_at.replace(tzinfo=UTC if state.updated_at.tzinfo is None else state.updated_at.tzinfo)
+        if (datetime.now(UTC) - last_sync).total_seconds() > 300:
+            return jsonify({"ok": False, "error": "O estoque está desatualizado. Aguarde a sincronização do servidor."}), 409
+        stock = json.loads(state.stock_json or "{}")
+        raw_stock = max(0, int(stock.get(resource_id, 0)))
+        reserved_rows = db.query(FarmRedemption.amount).filter(
+            FarmRedemption.steam_id == steam_id, FarmRedemption.resource_id == resource_id,
+            FarmRedemption.status.in_(["PENDENTE", "PROCESSANDO"])).all()
+        available = max(0, raw_stock - sum(int(row[0] or 0) for row in reserved_rows))
+        if amount > available:
+            return jsonify({"ok": False, "error": f"Estoque insuficiente. Disponível: {available}."}), 409
+        order = FarmRedemption(id=str(uuid.uuid4()), steam_id=steam_id, resource_id=resource_id,
+                               resource_name=str(found.get("Name") or resource_id), amount=amount,
+                               status="PENDENTE")
+        db.add(order)
+        db.commit()
+        _log("farm_redemption_created", steam_id=steam_id, redemption_id=order.id,
+             resource_id=resource_id, amount=amount)
+        return jsonify({"ok": True, "order": {"id": order.id, "resource_id": resource_id,
+                        "resource_name": order.resource_name, "amount": amount, "status": order.status,
+                        "message": "Seleção salva. Use /fazresgatar no jogo para solicitar a entrega."}}), 201
+    except Exception as exc:
+        db.rollback()
+        log.exception("farm_redemption_create_failed")
+        return jsonify({"ok": False, "error": "Não foi possível salvar o resgate."}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/player/farm/redemptions/<redemption_id>/cancel", methods=["POST"])
+@login_required
+@limiter.limit("30 per hour")
+def player_cancel_farm_redemption(redemption_id: str):
+    steam_id = str(_steam_id_from_session())
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        row = db.query(FarmRedemption).filter(FarmRedemption.id == redemption_id,
+                                             FarmRedemption.steam_id == steam_id).first()
+        if not row:
+            return jsonify({"ok": False, "error": "Pedido não encontrado."}), 404
+        if row.status != "PENDENTE":
+            return jsonify({"ok": False, "error": "O pedido já está sendo processado ou foi concluído."}), 409
+        row.status = "CANCELADO"
+        row.completed_at = datetime.now(UTC)
+        db.commit()
+        return jsonify({"ok": True, "status": row.status})
+    except Exception:
+        db.rollback()
+        log.exception("farm_redemption_cancel_failed")
+        return jsonify({"ok": False, "error": "Não foi possível cancelar o pedido."}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/plugin/farm/sync", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("600 per minute")
+def plugin_farm_sync():
+    body = request.get_json(silent=True) or {}
+    steam_id = str(body.get("steam_id") or "").strip()
+    stock = body.get("stock")
+    if not _is_valid_steamid64(steam_id) or not isinstance(stock, dict) or len(stock) > 1000:
+        return jsonify({"ok": False, "error": "Payload de sincronização inválido."}), 400
+    config = _read_farm_config().get("FazendaRecursos", {})
+    configured = {}
+    for category_id, category in (config.get("Categories") or {}).items():
+        if category_id != "default" and not category.get("Enabled"):
+            continue
+        for resource in category.get("Resources", []):
+            if resource.get("Enabled") and resource.get("Id"):
+                configured[str(resource["Id"])] = max(1, int(resource.get("Capacity", 200)))
+    clean_stock = {}
+    for key, value in stock.items():
+        resource_id = str(key)
+        if len(resource_id) > 100 or resource_id not in configured:
+            return jsonify({"ok": False, "error": "Identificador de recurso inválido."}), 400
+        try:
+            quantity = int(value)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Quantidade inválida no estoque."}), 400
+        if quantity < 0 or quantity > configured[resource_id]:
+            return jsonify({"ok": False, "error": f"Quantidade fora da capacidade configurada para {resource_id}."}), 400
+        clean_stock[resource_id] = quantity
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        state = db.query(FarmPlayerState).filter(FarmPlayerState.steam_id == steam_id).with_for_update().first()
+        if not state:
+            state = FarmPlayerState(steam_id=steam_id)
+            db.add(state)
+        state.stock_json = json.dumps(clean_stock, separators=(",", ":"))
+        state.server_id = str(body.get("server_id") or "default")[:64]
+        state.plugin_version = str(body.get("plugin_version") or "")[:32] or None
+        state.updated_at = datetime.now(UTC)
+        db.commit()
+        return jsonify({"ok": True, "synced_at": state.updated_at.isoformat()})
+    except Exception:
+        db.rollback()
+        log.exception("farm_sync_failed")
+        return jsonify({"ok": False, "error": "Falha ao sincronizar estoque."}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/plugin/farm/redemptions/claim", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("120 per minute")
+def plugin_farm_claim_redemptions():
+    body = request.get_json(silent=True) or {}
+    sid = str(body.get("steam_id") or "").strip()
+    server_id = str(body.get("server_id") or "").strip()[:64]
+    if not _is_valid_steamid64(sid) or not server_id:
+        return jsonify({"ok": False, "error": "steam_id e server_id são obrigatórios."}), 400
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        now = datetime.now(UTC)
+        lease_expired = now - timedelta(minutes=2)
+        candidates = db.query(FarmRedemption).filter(
+            FarmRedemption.steam_id == sid,
+            or_(FarmRedemption.status == "PENDENTE",
+                and_(FarmRedemption.status == "PROCESSANDO", FarmRedemption.claimed_at < lease_expired))
+        ).order_by(FarmRedemption.created_at.asc()).limit(25).all()
+        rows = []
+        for candidate in candidates:
+            updated = db.query(FarmRedemption).filter(
+                FarmRedemption.id == candidate.id,
+                or_(FarmRedemption.status == "PENDENTE",
+                    and_(FarmRedemption.status == "PROCESSANDO", FarmRedemption.claimed_at < lease_expired))
+            ).update({FarmRedemption.status: "PROCESSANDO", FarmRedemption.claimed_by: server_id,
+                      FarmRedemption.claimed_at: now}, synchronize_session=False)
+            if updated:
+                rows.append({"id": candidate.id, "resource_id": candidate.resource_id,
+                             "amount": candidate.amount, "status": "PROCESSANDO"})
+        db.commit()
+        return jsonify({"ok": True, "orders": rows})
+    except Exception:
+        db.rollback()
+        log.exception("farm_redemption_claim_failed")
+        return jsonify({"ok": False, "error": "Falha ao reservar os pedidos."}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/plugin/farm/redemptions/<redemption_id>/result", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("120 per minute")
+def plugin_farm_redemption_result(redemption_id: str):
+    body = request.get_json(silent=True) or {}
+    status = str(body.get("status") or "").upper()
+    if status not in {"ENTREGUE", "ERRO"}:
+        return jsonify({"ok": False, "error": "Status de conclusão inválido."}), 400
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        row = db.query(FarmRedemption).filter(FarmRedemption.id == redemption_id).with_for_update().first()
+        if not row:
+            return jsonify({"ok": False, "error": "Pedido não encontrado."}), 404
+        if row.status not in {"PENDENTE", "PROCESSANDO"}:
+            return jsonify({"ok": True, "status": row.status, "duplicate": True})
+        if row.status == "PROCESSANDO" and row.claimed_by != str(body.get("server_id") or ""):
+            return jsonify({"ok": False, "error": "Pedido reservado por outra instância do servidor."}), 409
+        row.status = status
+        row.completed_at = datetime.now(UTC)
+        db.commit()
+        return jsonify({"ok": True, "status": row.status})
+    except Exception:
+        db.rollback()
+        log.exception("farm_redemption_result_failed")
+        return jsonify({"ok": False, "error": "Falha ao atualizar pedido."}), 500
+    finally:
+        _release_db_session(db)
 
 
 @app.route("/api/admin/farm/config", methods=["GET"])

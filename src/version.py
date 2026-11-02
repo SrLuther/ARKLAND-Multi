@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.24"
+APP_VERSION: str = "1.11.25"
 BUILD_DATE: str = "2026-11-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.25",
+        "date": "2026-11-02",
+        "changes": [
+            "Web Store (teste da Fazenda): Minha Área permite configurar recursos e selecionar quantidades para resgate quando houver estoque sincronizado recente.",
+            "Web Store (teste da Fazenda): API registra snapshots do plugin, reserva pedidos contra o estoque disponível e apresenta o estado das solicitações; sem sincronização real, o resgate permanece bloqueado.",
+            "Limitação conhecida: o plugin FazendaRecursos 0.1.4 ainda não sincroniza estoque nem executa resgates; esta versão valida a interface e o backend da WebStore, não o ciclo completo no jogo.",
+        ],
+    },
     {
         "version": "1.11.24",
         "date": "2026-11-02",

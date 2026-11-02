@@ -10634,10 +10634,11 @@
           <div class="card">
             <div class="card-header"><div class="card-title">Minha Fazenda</div><button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarm()">↻ Atualizar</button></div>
             <div id="myarea-farm-overview" style="color:var(--text2);font-size:13px;">Carregando dados da Fazenda…</div>
+            <div id="myarea-farm-redemption-status" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:var(--text2);"></div>
           </div>
           <div class="card hidden" id="myarea-farm-admin-card">
             <div class="card-header"><div class="card-title">Configuração da Fazenda (admin)</div></div>
-            <p style="font-size:12px;color:var(--text2);">Edite categorias, recursos e parâmetros no formato usado por FazendaRecursos. A categoria <code>default</code> permanece ativa; <code>omega</code> pode ser ligada ou desligada. A configuração fica salva na Web Store; o plugin ainda precisa da integração de sincronização para recebê-la.</p>
+            <p style="font-size:12px;color:var(--text2);">Edite categorias, recursos e parâmetros no formato usado por FazendaRecursos. A categoria <code>default</code> permanece ativa; <code>omega</code> pode ser ligada ou desligada. Esta configuração fica salva na Web Store; o plugin ainda precisa buscar essas alterações para aplicá-las no servidor.</p>
             <textarea id="myarea-farm-config" rows="18" spellcheck="false" style="width:100%;font:12px/1.5 monospace;resize:vertical;"></textarea>
             <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
               <button type="button" class="btn btn-primary btn-sm" onclick="saveMyFarmConfig()">Salvar configuração</button>
@@ -17265,15 +17266,57 @@ async function loadMyFarm() {
       ? `<span class="badge badge-item">Ativa${data.license?.expires_at ? ` até ${escHtml(data.license.expires_at)}` : ""}</span>`
       : `<span class="badge">Sem licença ativa</span>`;
     const resources = data.resources || [];
+    const integrationReady = Boolean(data.integration_ready && data.stock_available);
+    const orders = data.orders || [];
     host.innerHTML = `
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"><strong>Licença keyfarm:</strong> ${license}</div>
-      <h3 style="font-size:13px;margin:12px 0 8px;">Recursos configurados</h3>
-      ${resources.length ? `<div class="form-grid">${resources.map(r => `<div class="form-group"><label>${escHtml(r.name)} · ${escHtml(r.category)}</label><input readonly value="Estoque indisponível · capacidade ${Number(r.capacity || 200)}" /></div>`).join("")}</div>` : `<p>Nenhum recurso foi configurado ainda.</p>`}
+      <h3 style="font-size:13px;margin:12px 0 8px;">Estoque e resgates</h3>
+      ${data.last_sync_at ? `<p style="font-size:11px;color:var(--text2);">Última sincronização: ${escHtml(fmtDate(data.last_sync_at))}</p>` : ""}
+      ${resources.length ? `<div style="display:grid;gap:8px;">${resources.map(r => `<div style="display:grid;grid-template-columns:minmax(140px,1fr) auto minmax(90px,120px) auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:10px;"><div><strong>${escHtml(r.name)}</strong><div style="font-size:11px;color:var(--text2);">${escHtml(r.category)} · capacidade ${Number(r.capacity || 200)}</div></div><div style="min-width:105px;text-align:right;"><strong>${integrationReady ? Number(r.available || 0) : "—"}</strong><div style="font-size:10px;color:var(--text2);">${Number(r.reserved || 0)} reservado(s)</div></div><input aria-label="Quantidade de ${escHtml(r.name)} para resgatar" type="number" min="1" max="${integrationReady ? Number(r.available || 0) : 0}" value="1" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || Number(r.available || 0) < 1 ? "disabled" : ""} style="width:100%;"><button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || Number(r.available || 0) < 1 ? "disabled" : ""}>Selecionar</button></div>`).join("")}</div>` : `<p>Nenhum recurso foi configurado ainda.</p>`}
+      ${orders.length ? `<h3 style="font-size:13px;margin:16px 0 8px;">Seus pedidos recentes</h3><div style="display:grid;gap:6px;">${orders.map(o => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);"><span>${escHtml(o.amount)} × ${escHtml(o.resource_name)}</span><span style="display:flex;gap:8px;align-items:center;"><span class="badge">${escHtml(o.status)}</span>${o.status === "PENDENTE" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="cancelFarmRedemption('${escHtml(o.id)}')">Cancelar</button>` : ""}</span></div>`).join("")}</div>` : ""}
       <div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:12px;">
-        ${data.integration_ready ? "Estoque e pedidos sincronizados com o servidor." : "O plugin ainda não envia estoque nem pedidos para a Web Store. Por isso, esta tela não mostra saldos nem permite solicitar entregas até a integração ser concluída."}
+        ${integrationReady ? "Estoque sincronizado. A seleção reserva a quantidade; a entrega só acontece quando você usar /fazresgatar no jogo." : "A Web Store ainda não recebeu uma sincronização recente do plugin. Estoque e seleção de resgate ficam indisponíveis até o servidor enviar dados reais."}
       </div>`;
   } catch (error) {
     host.innerHTML = `<span style="color:var(--danger);">${escHtml(error.message || "Falha ao carregar Fazenda.")}</span>`;
+  }
+}
+
+async function requestFarmRedemption(resourceId) {
+  const status = document.getElementById("myarea-farm-redemption-status");
+  const input = [...document.querySelectorAll("[data-farm-amount]")].find(el => el.dataset.farmAmount === resourceId);
+  const amount = Number(input?.value || 0);
+  if (!Number.isInteger(amount) || amount < 1) {
+    if (status) status.textContent = "Informe uma quantidade inteira maior que zero.";
+    return;
+  }
+  if (status) status.textContent = "Salvando a seleção…";
+  try {
+    const response = await fetch(API + "/api/player/farm/redemptions", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resource_id: resourceId, amount }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível salvar o resgate.");
+    if (status) status.textContent = data.order?.message || "Seleção salva. Use /fazresgatar no jogo para solicitar a entrega.";
+    await loadMyFarm();
+  } catch (error) {
+    if (status) status.textContent = error.message || "Falha ao salvar a seleção.";
+  }
+}
+
+async function cancelFarmRedemption(redemptionId) {
+  const status = document.getElementById("myarea-farm-redemption-status");
+  try {
+    const response = await fetch(API + "/api/player/farm/redemptions/" + encodeURIComponent(redemptionId) + "/cancel", {
+      method: "POST", credentials: "same-origin",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível cancelar o pedido.");
+    if (status) status.textContent = "Pedido cancelado; a quantidade voltou ao estoque disponível.";
+    await loadMyFarm();
+  } catch (error) {
+    if (status) status.textContent = error.message || "Falha ao cancelar o pedido.";
   }
 }
 

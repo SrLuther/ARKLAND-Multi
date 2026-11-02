@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-02 13:28:55 -->
-<!-- Total de versões: 517 | Primeira: 1.11.24 -->
+<!-- Gerado: 2026-11-02 18:02:09 -->
+<!-- Total de versões: 518 | Primeira: 1.11.25 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.25] - 2026-11-02
+
+### Other
+
+- Web Store (teste da Fazenda): Minha Área permite configurar recursos e selecionar quantidades para resgate quando houver estoque sincronizado recente.
+- Web Store (teste da Fazenda): API registra snapshots do plugin, reserva pedidos contra o estoque disponível e apresenta o estado das solicitações; sem sincronização real, o resgate permanece bloqueado.
+- Limitação conhecida: o plugin FazendaRecursos 0.1.4 ainda não sincroniza estoque nem executa resgates; esta versão valida a interface e o backend da WebStore, não o ciclo completo no jogo.
 
 ## [1.11.24] - 2026-11-02
 
