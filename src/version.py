@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.31"
+APP_VERSION: str = "1.11.32"
 BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.32",
+        "date": "2026-11-03",
+        "changes": [
+            "Fazenda: configuração mestre independente por servidor, selecionada por ServerId; FarmShareKey controla somente o compartilhamento do estoque.",
+            "Fazenda: corrigido HTTP 500 em /api/player/farm causado por variável share_key lida antes da definição.",
+            "WebStore: novo farm_server_configs criado automaticamente; configurações legadas por chave continuam disponíveis para migração.",
+            "Plugin FazendaRecursos atualizado para 0.1.16.",
+        ],
+    },
     {
         "version": "1.11.31",
         "date": "2026-11-03",

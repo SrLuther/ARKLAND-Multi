@@ -728,11 +728,22 @@ class FarmResourceCatalog(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
-class FarmServerConfig(Base):
+class FarmShareConfig(Base):
     """Configuração mestre por grupo de servidores da Fazenda."""
     __tablename__ = "farm_share_configs"
 
     share_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    config_json: Mapped[str] = mapped_column(Text)
+    revision: Mapped[str] = mapped_column(String(64), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class FarmServerConfig(Base):
+    """Configuracao mestre independente por servidor da Fazenda."""
+    __tablename__ = "farm_server_configs"
+
+    server_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    share_key: Mapped[str] = mapped_column(String(64), default="default", index=True)
     config_json: Mapped[str] = mapped_column(Text)
     revision: Mapped[str] = mapped_column(String(64), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
@@ -14278,26 +14289,44 @@ def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _read_farm_config(server_id: str = "default") -> dict[str, Any]:
+    server_id = str(server_id or "default")[:64]
     db = _get_db_session()
     if db is not None:
         try:
-            row = db.get(FarmServerConfig, str(server_id or "default")[:64])
+            row = db.get(FarmServerConfig, server_id)
             if row:
                 data = json.loads(row.config_json)
                 if isinstance(data, dict):
-                    return data
+                    return _merge_farm_default_resources(data)
+            catalog = db.query(FarmResourceCatalog.share_key).filter(
+                FarmResourceCatalog.server_id == server_id
+            ).order_by(FarmResourceCatalog.updated_at.desc()).first()
+            share_key = str(catalog[0] or "default") if catalog else "default"
+            legacy = db.get(FarmShareConfig, share_key)
+            if legacy:
+                data = json.loads(legacy.config_json)
+                if isinstance(data, dict):
+                    root = data.setdefault("FazendaRecursos", {})
+                    if isinstance(root, dict):
+                        root["ServerId"] = server_id
+                        root["FarmShareKey"] = share_key
+                    return _merge_farm_default_resources(data)
         except Exception:
-            log.exception("farm_master_config_read_failed")
+            log.exception("farm_server_config_read_failed", extra={"server_id": server_id})
         finally:
             _release_db_session(db)
     try:
         data = json.loads(_FAZENDA_CONFIG_FILE.read_text(encoding="utf-8"))
         if isinstance(data, dict):
+            root = data.setdefault("FazendaRecursos", {})
+            if isinstance(root, dict):
+                root["ServerId"] = server_id
             return _merge_farm_default_resources(data)
     except (OSError, ValueError):
         pass
-    return _farm_default_config()
-
+    data = _farm_default_config()
+    data["FazendaRecursos"]["ServerId"] = server_id
+    return data
 
 def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | None]:
     if not isinstance(payload, dict) or not isinstance(payload.get("FazendaRecursos"), dict):
@@ -14362,23 +14391,7 @@ def player_farm_overview():
     steam_id = str(_steam_id_from_session())
     entitlements = _get_player_entitlements(steam_id)
     keyfarm = next((e for e in entitlements if str(e.get("group") or "").strip().lower() == "keyfarm"), None)
-    config = _read_farm_config().get("FazendaRecursos", {})
     requested_share_key = str(request.args.get("share_key") or "").strip()
-    categories = config.get("Categories", {}) if isinstance(config, dict) else {}
-    resources = []
-    if isinstance(categories, dict):
-        for category_id, category in categories.items():
-            if not isinstance(category, dict):
-                continue
-            for resource in category.get("Resources", []):
-                if not isinstance(resource, dict):
-                    continue
-                resources.append({"id": resource.get("Id"), "name": resource.get("Name") or resource.get("Id"),
-                                  "category": category_id, "capacity": resource.get("Capacity", 200),
-                                  "output_quantity": resource.get("OutputQuantity", 1),
-                                  "interval_seconds": resource.get("IntervalSeconds", 3600),
-                                  "stack_size": resource.get("StackSize", 25),
-                                  "enabled": bool(category.get("Enabled", category_id == "default") and resource.get("Enabled", False)), "share_key": share_key})
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
@@ -14401,8 +14414,14 @@ def player_farm_overview():
         else:
             share_key = groups[0]
         resource_rows = [row for row in resource_rows_all if row.share_key == share_key]
-        # Fallback de apresenta??o usa a configura??o mestre da chave escolhida.
-        selected_root = _read_farm_config(share_key).get("FazendaRecursos", {})
+        latest_server = max(resource_rows, key=lambda row: row.updated_at.timestamp() if row.updated_at else 0).server_id if resource_rows else ""
+        if not latest_server:
+            server_row = db.query(FarmResourceCatalog.server_id).filter(
+                FarmResourceCatalog.share_key == share_key
+            ).order_by(FarmResourceCatalog.updated_at.desc()).first()
+            latest_server = str(server_row[0]) if server_row else "default"
+        # Cada servidor fornece seu pr??prio config.json; a share key continua agrupando estoque.
+        selected_root = _read_farm_config(latest_server).get("FazendaRecursos", {})
         selected_categories = selected_root.get("Categories", {}) if isinstance(selected_root, dict) else {}
         resources = []
         for category_id, category in selected_categories.items() if isinstance(selected_categories, dict) else []:
@@ -14814,26 +14833,53 @@ def plugin_farm_redemption_result(redemption_id: str):
 @admin_required
 @limiter.limit("30 per minute")
 def admin_get_farm_config():
-    share_key = str(request.args.get("share_key") or "default").strip()
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", share_key):
-        return jsonify({"ok": False, "error": "FarmShareKey invalida."}), 400
+    server_id = str(request.args.get("server_id") or "default").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", server_id):
+        return jsonify({"ok": False, "error": "ServerId invalido."}), 400
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponivel."}), 503
     try:
-        row = db.get(FarmServerConfig, share_key)
-        config = json.loads(row.config_json) if row else _farm_default_config()
-        config.setdefault("FazendaRecursos", {})["FarmShareKey"] = share_key
-        configs = db.query(FarmServerConfig.share_key).order_by(FarmServerConfig.share_key).all()
-        servers = db.query(FarmResourceCatalog.server_id).distinct().order_by(FarmResourceCatalog.server_id).all()
-        server_count = len(servers)
-        return jsonify({"ok": True, "config": config, "share_key": share_key,
-                        "share_keys": [r[0] for r in configs], "server_count": server_count,
-                        "max_configs": min(4, server_count),
-                        "source": "mysql" if row else "default", "revision": row.revision if row else None})
+        catalog_rows = db.query(FarmResourceCatalog.server_id, FarmResourceCatalog.share_key).order_by(
+            FarmResourceCatalog.updated_at.desc()).all()
+        server_keys: dict[str, str] = {}
+        for sid, key in catalog_rows:
+            server_keys.setdefault(str(sid), str(key or "default"))
+        registered_server_count = len(server_keys)
+        config_rows = db.query(FarmServerConfig).all()
+        for saved in config_rows:
+            server_keys[saved.server_id] = saved.share_key or "default"
+        if not server_keys:
+            server_keys["default"] = "default"
+        if server_id not in server_keys:
+            server_id = next(iter(sorted(server_keys)))
+        row = db.get(FarmServerConfig, server_id)
+        source = "mysql" if row else "default"
+        if row:
+            config = json.loads(row.config_json)
+        else:
+            share_key = server_keys.get(server_id, "default")
+            legacy = db.get(FarmShareConfig, share_key)
+            if legacy:
+                config = json.loads(legacy.config_json)
+                source = "legacy"
+            else:
+                config = _farm_default_config()
+        config = _merge_farm_default_resources(config if isinstance(config, dict) else _farm_default_config())
+        root = config.get("FazendaRecursos")
+        if not isinstance(root, dict):
+            config = _farm_default_config()
+            root = config["FazendaRecursos"]
+        root["ServerId"] = server_id
+        root["FarmShareKey"] = server_keys.get(server_id, root.get("FarmShareKey", "default"))
+        return jsonify({"ok": True, "config": config, "server_id": server_id,
+                        "servers": [{"server_id": sid, "share_key": key} for sid, key in sorted(server_keys.items())],
+                        "server_count": registered_server_count,
+                        "max_configs": min(4, max(1, registered_server_count)),
+                        "source": source, "revision": row.revision if row else None})
     except (ValueError, TypeError):
-        log.exception("farm_config_read_failed")
-        return jsonify({"ok": False, "error": "Configuracao mestre invalida no MySQL."}), 500
+        log.exception("farm_server_config_read_failed", extra={"server_id": server_id})
+        return jsonify({"ok": False, "error": "Configuracao da Fazenda invalida no MySQL."}), 500
     finally:
         _release_db_session(db)
 
@@ -14846,40 +14892,44 @@ def admin_put_farm_config():
     if error:
         return jsonify({"ok": False, "error": error}), 400
     root = payload["FazendaRecursos"]
+    server_id = root["ServerId"]
     share_key = root["FarmShareKey"]
-    # ServerId identifies an installed plugin instance and is preserved locally by that plugin.
-    root["ServerId"] = "default"
     serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     revision = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponivel."}), 503
     try:
-        row = db.get(FarmServerConfig, share_key)
+        registered = {str(row[0]) for row in db.query(FarmResourceCatalog.server_id).distinct().all()}
+        if registered and server_id not in registered:
+            return jsonify({"ok": False, "error": "Servidor nao registrado pela Fazenda; sincronize o plugin antes de configurar."}), 409
+        row = db.get(FarmServerConfig, server_id)
         if row is None:
             count = db.query(FarmServerConfig).count()
-            server_count = db.query(FarmResourceCatalog.server_id).distinct().count()
-            limit = min(4, server_count)
+            limit = min(4, max(1, len(registered)))
             if count >= limit:
                 db.rollback()
-                return jsonify({"ok": False, "error": f"Limite de {limit} configuracoes/chaves atingido, conforme servidores registrados (maximo absoluto: 4)."}), 409
-            row = FarmServerConfig(share_key=share_key, config_json=serialized, revision=revision,
-                                   updated_at=datetime.now(UTC))
+                return jsonify({"ok": False, "error": f"Limite de {limit} configuracoes por servidor atingido (maximo absoluto: 4)."}), 409
+            row = FarmServerConfig(server_id=server_id, share_key=share_key, config_json=serialized,
+                                   revision=revision, updated_at=datetime.now(UTC))
             db.add(row)
         else:
+            row.share_key = share_key
             row.config_json = serialized
             row.revision = revision
             row.updated_at = datetime.now(UTC)
         db.commit()
     except Exception:
         db.rollback()
-        log.exception("farm_config_save_failed")
-        return jsonify({"ok": False, "error": "Nao foi possivel salvar a configuracao mestre da Fazenda no MySQL."}), 500
+        log.exception("farm_server_config_save_failed", extra={"server_id": server_id})
+        return jsonify({"ok": False, "error": "Nao foi possivel salvar a configuracao deste servidor no MySQL."}), 500
     finally:
         _release_db_session(db)
-    _log("farm_config_saved", admin=_steam_id_from_session(), share_key=share_key, revision=revision)
-    return jsonify({"ok": True, "config": payload, "source": "mysql", "revision": revision,
-                    "message": "Configuracao mestre salva no MySQL; plugins com esta FarmShareKey aplicarao os valores locais."})
+    _log("farm_server_config_saved", admin=_steam_id_from_session(), server_id=server_id,
+         share_key=share_key, revision=revision)
+    return jsonify({"ok": True, "config": payload, "server_id": server_id,
+                    "source": "mysql", "revision": revision,
+                    "message": "Configuracao individual salva no MySQL; servidores com o mesmo ServerId aplicarao esta revisao."})
 
 @app.route("/api/player/points", methods=["GET"])
 @login_required

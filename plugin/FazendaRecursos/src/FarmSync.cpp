@@ -250,27 +250,41 @@ private:
     std::string applied_revision_;
 
     void FetchAuthoritativeConfig() {
-        const auto share_key = FazendaRecursos::FarmConfig::Get().ShareKey();
+        const auto& farm_config = FazendaRecursos::FarmConfig::Get();
+        const auto server_id = farm_config.ServerId();
+        const auto share_key = farm_config.ShareKey();
         MysqlConnection db;
         if (!db.Open()) return;
-        MYSQL_RES* result = db.Select("SELECT config_json,revision FROM farm_share_configs WHERE share_key='" +
-            db.Escape(share_key) + "' LIMIT 1");
-        if (!result) return;
-        MYSQL_ROW row = mysql_fetch_row(result);
-        if (!row || !row[0] || !row[1]) { mysql_free_result(result); return; }
-        const std::string serialized = row[0];
-        const std::string revision = row[1];
-        mysql_free_result(result);
+        std::string serialized;
+        std::string revision;
+        MYSQL_RES* result = db.Select("SELECT config_json,revision FROM farm_server_configs WHERE server_id='" +
+            db.Escape(server_id) + "' LIMIT 1");
+        if (result) {
+            MYSQL_ROW row = mysql_fetch_row(result);
+            if (row && row[0] && row[1]) { serialized = row[0]; revision = row[1]; }
+            mysql_free_result(result);
+        }
+        // Backward compatibility: old sites store one config per FarmShareKey.
+        if (serialized.empty()) {
+            result = db.Select("SELECT config_json,revision FROM farm_share_configs WHERE share_key='" +
+                db.Escape(share_key) + "' LIMIT 1");
+            if (result) {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                if (row && row[0] && row[1]) { serialized = row[0]; revision = row[1]; }
+                mysql_free_result(result);
+            }
+        }
+        if (serialized.empty() || revision.empty()) return;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (revision.empty() || revision == applied_revision_) return;
+            if (revision == applied_revision_) return;
         }
         try {
             const auto config = nlohmann::json::parse(serialized);
             if (!config.is_object() || !config.contains("FazendaRecursos") ||
                 !config["FazendaRecursos"].is_object() ||
                 FRJsonString(config["FazendaRecursos"], "FarmShareKey", "default") != share_key) {
-                Log::GetLog()->warn("Fazenda: configuração mestre inválida para share_key={}", share_key);
+                Log::GetLog()->warn("Fazenda: configura????o mestre inv??lida para server_id={} share_key={}", server_id, share_key);
                 return;
             }
             if (FazendaRecursos::FarmConfig::Get().ApplyRemoteConfig(config)) {
@@ -280,7 +294,7 @@ private:
                 wake_.notify_one();
             }
         } catch (const std::exception& e) {
-            Log::GetLog()->warn("Fazenda: JSON mestre inválido para share_key={} ({})", share_key, e.what());
+            Log::GetLog()->warn("Fazenda: JSON mestre inv??lido para server_id={} ({})", server_id, e.what());
         }
     }
 

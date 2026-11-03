@@ -1,5 +1,8 @@
 ﻿# FazendaRecursos - changelog
 
+## [0.1.16]
+- Sincroniza configuração mestre por ServerId, mantendo FarmShareKey apenas para compartilhar estoque entre servidores.
+
 ## [0.1.15]
 - Adiciona fallback com backup ao migrar config.json quando o Windows impede a substituicao atomica; os logs agora registram os codigos Win32.
 

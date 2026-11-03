@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 12:50:45 -->
-<!-- Total de versões: 524 | Primeira: 1.11.31 -->
+<!-- Gerado: 2026-11-03 13:29:19 -->
+<!-- Total de versões: 525 | Primeira: 1.11.32 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.32] - 2026-11-03
+
+### Other
+
+- Fazenda: configuração mestre independente por servidor, selecionada por ServerId; FarmShareKey controla somente o compartilhamento do estoque.
+- Fazenda: corrigido HTTP 500 em /api/player/farm causado por variável share_key lida antes da definição.
+- WebStore: novo farm_server_configs criado automaticamente; configurações legadas por chave continuam disponíveis para migração.
+- Plugin FazendaRecursos atualizado para 0.1.16.
 
 ## [1.11.31] - 2026-11-03
 

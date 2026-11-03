@@ -10637,13 +10637,15 @@
             <div id="myarea-farm-redemption-status" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:var(--text2);"></div>
           </div>
           <div class="card hidden" id="myarea-farm-admin-card">
-            <div class="card-header"><div class="card-title">Configuração mestre da Fazenda</div></div>
-            <p style="font-size:12px;color:var(--text2);">Este JSON é a configuração mestre no MySQL. O plugin do servidor sincroniza os valores e atualiza seu <code>config.json</code>; catálogo, produção e stacks usam a revisão aplicada pelo servidor.</p>
-            <label for="myarea-farm-share-key" style="display:block;margin:10px 0 6px;font-size:12px;">Chave da Fazenda (configuração compartilhada; máximo de 4)</label><div style="display:flex;gap:8px;max-width:480px;"><select id="myarea-farm-share-key" style="flex:1;" onchange="loadMyFarmConfig()"><option value="default">default</option></select><input id="myarea-farm-share-key-new" maxlength="64" placeholder="Nova chave" style="width:140px;"><button type="button" class="btn btn-ghost btn-sm" onclick="selectNewFarmShareKey()">Nova</button></div><div id="myarea-farm-config-capacity" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
-            <label for="myarea-farm-config" style="display:block;margin:10px 0 6px;font-size:12px;">Configuração e Blueprints aceitas</label>
+            <div class="card-header"><div class="card-title">Configuração da Fazenda por servidor</div></div>
+            <p style="font-size:12px;color:var(--text2);">Cada servidor ARK possui sua própria configuração mestre no MySQL e recebe apenas seu config.json. FarmShareKey define se o estoque é compartilhado com outros servidores.</p>
+            <label for="myarea-farm-server-id" style="display:block;margin:10px 0 6px;font-size:12px;">Servidor ARK</label>
+            <select id="myarea-farm-server-id" style="width:min(480px,100%);" onchange="loadMyFarmConfig()"><option value="default">default</option></select>
+            <div id="myarea-farm-config-capacity" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
+            <label for="myarea-farm-config" style="display:block;margin:10px 0 6px;font-size:12px;">Configuração e Blueprints aceitas neste servidor</label>
             <textarea id="myarea-farm-config" rows="18" spellcheck="false" style="width:100%;font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical;"></textarea>
             <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-              <button type="button" class="btn btn-primary btn-sm" onclick="saveMyFarmConfig()">Salvar configuração mestre</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="saveMyFarmConfig()">Salvar configuração do servidor</button>
               <button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarmConfig()">Recarregar do MySQL</button>
               <span id="myarea-farm-config-status" role="status" aria-live="polite" style="font-size:12px;color:var(--text2);"></span>
             </div>
@@ -17342,59 +17344,49 @@ async function cancelFarmRedemption(redemptionId) {
   }
 }
 
-function selectNewFarmShareKey() {
-  const input = document.getElementById("myarea-farm-share-key-new");
-  const value = String(input?.value || "").trim();
-  if (!/^[A-Za-z0-9_.-]{1,64}$/.test(value)) return toast("Chave inválida.", "error");
-  const select = document.getElementById("myarea-farm-share-key");
-  if (select && !Array.from(select.options).some(option => option.value === value)) {
-    if (select.options.length >= 4) return toast("Máximo de quatro chaves/configurações.", "error");
-    select.add(new Option(value, value));
-  }
-  if (select) select.value = value;
-  if (input) input.value = "";
-  loadMyFarmConfig();
-}
-
 async function loadMyFarmConfig() {
   if (!_auth?.is_admin) return;
   const editor = document.getElementById("myarea-farm-config");
-  const keySelect = document.getElementById("myarea-farm-share-key");
+  const serverSelect = document.getElementById("myarea-farm-server-id");
   const status = document.getElementById("myarea-farm-config-status");
   if (!editor) return;
   try {
-    const key = String(keySelect?.value || "default").trim() || "default";
-    const response = await fetch(API + "/api/admin/farm/config?share_key=" + encodeURIComponent(key), { credentials: "same-origin" });
+    const serverId = String(serverSelect?.value || "default").trim() || "default";
+    const response = await fetch(API + "/api/admin/farm/config?server_id=" + encodeURIComponent(serverId), { credentials: "same-origin" });
     const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao ler configuração.");
-    const keys = Array.from(new Set([...(data.share_keys || (key === "default" ? ["default"] : [])), key]));
-    if (keySelect) { keySelect.replaceChildren(...keys.map(item => new Option(item, item))); keySelect.value = key; }
+    if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao ler configura\u00e7\u00e3o.");
+    const servers = Array.isArray(data.servers) ? data.servers : [];
+    if (serverSelect && servers.length) {
+      serverSelect.replaceChildren(...servers.map(item => new Option(item.server_id, item.server_id)));
+      serverSelect.value = data.server_id || serverId;
+    }
     const cap = document.getElementById("myarea-farm-config-capacity");
-    if (cap) cap.textContent = `${data.server_count || 0} servidor(es) · até ${data.max_configs ?? 0} configurações (máximo absoluto 4). Chaves iguais compartilham catálogo, produção e estoque.`;
+    if (cap) cap.textContent = `${data.server_count || 0} servidor(es) registrado(s) \u00b7 at\u00e9 ${data.max_configs ?? 0} configura\u00e7\u00f5es individuais (m\u00e1ximo absoluto 4). FarmShareKey configura o compartilhamento de estoque.`;
     editor.value = JSON.stringify(data.config, null, 2);
-    if (status) status.textContent = data.source === "mysql" ? `MySQL · chave ${key} · revisão ${String(data.revision || "").slice(0, 12)}.` : `Nova configuração para a chave ${key}; salvará no MySQL.`;
-  } catch (error) { if (status) status.textContent = error.message || "Falha ao ler configuração."; }
+    if (status) status.textContent = data.source === "mysql" ? `Configura\u00e7\u00e3o MySQL \u00b7 servidor ${data.server_id} \u00b7 revis\u00e3o ${String(data.revision || "").slice(0, 12)}.` : `Configura\u00e7\u00e3o inicial/legada para ${data.server_id}; salvar\u00e1 uma c\u00f3pia individual no MySQL.`;
+  } catch (error) { if (status) status.textContent = error.message || "Falha ao ler configura\u00e7\u00e3o."; }
 }
 
 async function saveMyFarmConfig() {
-  if (!_auth?.is_admin) return toast("Apenas administradores podem alterar esta configuração.", "error");
+  if (!_auth?.is_admin) return toast("Apenas administradores podem alterar esta configura\u00e7\u00e3o.", "error");
   const editor = document.getElementById("myarea-farm-config");
-  const keySelect = document.getElementById("myarea-farm-share-key");
+  const serverSelect = document.getElementById("myarea-farm-server-id");
   const status = document.getElementById("myarea-farm-config-status");
   let config;
-  try { config = JSON.parse(editor?.value || ""); } catch (_) { if (status) status.textContent = "JSON inválido."; return; }
-  if (!config?.FazendaRecursos || typeof config.FazendaRecursos !== "object") { if (status) status.textContent = "A configuração precisa conter FazendaRecursos."; return; }
-  config.FazendaRecursos.FarmShareKey = String(keySelect?.value || "default");
+  try { config = JSON.parse(editor?.value || ""); } catch (_) { if (status) status.textContent = "JSON inv\u00e1lido."; return; }
+  if (!config?.FazendaRecursos || typeof config.FazendaRecursos !== "object") { if (status) status.textContent = "A configura\u00e7\u00e3o precisa conter FazendaRecursos."; return; }
+  config.FazendaRecursos.ServerId = String(serverSelect?.value || "default");
   try {
     const response = await fetch(API + "/api/admin/farm/config", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao salvar.");
     editor.value = JSON.stringify(data.config, null, 2);
-    if (status) status.textContent = `Configuração da chave ${data.config.FazendaRecursos.FarmShareKey} salva no MySQL · revisão ${String(data.revision || "").slice(0, 12)}.`;
-    toast("Configuração da Fazenda salva.", "success");
+    if (status) status.textContent = `Servidor ${data.server_id} salvo no MySQL \u00b7 FarmShareKey ${data.config.FazendaRecursos.FarmShareKey} \u00b7 revis\u00e3o ${String(data.revision || "").slice(0, 12)}.`;
+    toast("Configura\u00e7\u00e3o do servidor salva.", "success");
     await loadMyFarm();
   } catch (error) { if (status) status.textContent = error.message || "Falha ao salvar."; toast(error.message || "Falha ao salvar.", "error"); }
 }
+
 function donationStatusBadge(s, credited) {
   if (credited) return `<span class="badge badge-item">Creditado</span>`;
   const status = (s || "").toUpperCase();

@@ -37,6 +37,18 @@ CREATE TABLE IF NOT EXISTS farm_share_configs (
   INDEX idx_farm_config_revision (revision)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Configuração mestre independente por servidor. FarmShareKey permanece dentro
+-- do JSON para que servidores possam compartilhar (ou separar) o estoque.
+CREATE TABLE IF NOT EXISTS farm_server_configs (
+  server_id VARCHAR(64) NOT NULL PRIMARY KEY,
+  share_key VARCHAR(64) NOT NULL DEFAULT 'default',
+  config_json LONGTEXT NOT NULL,
+  revision VARCHAR(64) NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_farm_server_config_share (share_key),
+  INDEX idx_farm_server_config_revision (revision)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS farm_player_resources (
   share_key VARCHAR(64) NOT NULL DEFAULT 'default',
   steam_id VARCHAR(32) NOT NULL,
