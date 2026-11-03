@@ -1,4 +1,4 @@
-﻿#include "FarmState.h"
+#include "FarmState.h"
 #include "FarmConfig.h"
 
 namespace FazendaRecursos {
@@ -100,6 +100,7 @@ PlayerFarm FarmState::GetPlayer(const std::string& steam_id) {
             PlayerFarm::UploadedResource resource;
             resource.id = r.key();
             resource.resource_id = r.value().value("resource_id", std::string{});
+            resource.resource_name = r.value().value("resource_name", resource.resource_id);
             resource.item_class = r.value().value("item_class", std::string{});
             resource.display_name = r.value().value("display_name", std::string{});
             resource.blob_file = r.value().value("blob_file", std::string{});
@@ -202,7 +203,8 @@ bool FarmState::AddPendingResource(const std::string& steam_id, const PlayerFarm
         if (it.value().value("resource_id", std::string{}) == resource.resource_id &&
             it.value().value("status", std::string{}) != "rolled_back") return false;
     uploads[resource.id] = {
-        {"resource_id", resource.resource_id}, {"item_class", resource.item_class},
+        {"resource_id", resource.resource_id}, {"resource_name", resource.resource_name},
+        {"item_class", resource.item_class},
         {"display_name", resource.display_name}, {"blob_file", resource.blob_file},
         {"status", "pending_consumption"}, {"uploaded_utc", resource.uploaded_utc},
         {"blob_size", resource.blob_size}, {"item_quantity", resource.item_quantity}
@@ -282,5 +284,26 @@ bool FarmState::FinishResourceRestore(const std::string& steam_id, const std::st
     row["status"] = "restoring";
     return false;
 }
-}
 
+bool FarmState::RollbackResourceUpload(const std::string& steam_id, const std::string& upload_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("uploaded_resources") ||
+        !(*player)["uploaded_resources"].contains(upload_id)) return false;
+    auto& upload = (*player)["uploaded_resources"][upload_id];
+    const auto old_upload = upload;
+    const auto resource_id = upload.value("resource_id", std::string{});
+    const bool had_resource = !resource_id.empty() && player->contains("resources") &&
+        (*player)["resources"].is_object() && (*player)["resources"].contains(resource_id);
+    const auto old_resource = had_resource ? (*player)["resources"][resource_id] : nlohmann::json{};
+    upload["status"] = "rolled_back";
+    if (had_resource) {
+        (*player)["resources"][resource_id]["active"] = false;
+        (*player)["resources"][resource_id]["stock"] = 0;
+    }
+    if (SaveLocked()) return true;
+    upload = old_upload;
+    if (had_resource) (*player)["resources"][resource_id] = old_resource;
+    return false;
+}
+}

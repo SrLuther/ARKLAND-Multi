@@ -4,6 +4,7 @@
 #include "FarmCommands.h"
 #include "FarmPerms.h"
 #include "FarmSync.h"
+#include "plugin_version.h"
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("FazendaRecursos");
@@ -17,7 +18,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
     FazendaRecursos::Perms::Init();
     FazendaRecursos::FarmSync::Start();
     FazendaRecursos::Commands::Register();
-    Log::GetLog()->info("FazendaRecursos v0.1.8-test iniciado; licença {}", FazendaRecursos::FarmConfig::Get().LicenseGroup());
+    Log::GetLog()->info("FazendaRecursos v{}-test iniciado; licença {}", ARKLAND_PLUGIN_VERSION, FazendaRecursos::FarmConfig::Get().LicenseGroup());
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
@@ -27,4 +28,3 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
         Log::GetLog()->error("FazendaRecursos: não foi possível persistir o estado no unload");
     Log::GetLog()->info("FazendaRecursos: descarregado");
 }
-

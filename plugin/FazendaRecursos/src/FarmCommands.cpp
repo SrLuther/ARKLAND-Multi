@@ -3,6 +3,7 @@
 #include "FarmState.h"
 #include "FarmPerms.h"
 #include "FarmSync.h"
+#include "plugin_version.h"
 
 namespace {
 struct FarmPreviewEntry {
@@ -13,12 +14,14 @@ struct FarmPreviewEntry {
     std::string resource_id;
     int item_quantity = 1;
     bool is_soul = false;
+    std::string resource_name;
 };
 struct FarmPreview {
     int64_t expires_utc = 0;
     std::vector<FarmPreviewEntry> items;
 };
 std::mutex g_preview_mutex;
+std::mutex g_redemption_mutex;
 std::unordered_map<std::string, FarmPreview> g_previews;
 
 std::string Lower(std::string value) {
@@ -36,6 +39,27 @@ bool IsSoulCandidate(const std::string& class_name, const std::string& display_n
 bool MatchesConfiguredClass(const std::string& actual, const std::string& configured) {
     if (actual.empty() || configured.empty()) return false;
     return Lower(actual).find(Lower(configured)) != std::string::npos;
+}
+bool GiveFarmStack(AShooterPlayerController* controller, const std::string& configured_class, int quantity) {
+    if (!controller || configured_class.empty() || quantity < 1) return false;
+    std::string blueprint = configured_class;
+    const auto game_path = blueprint.find("/Game/");
+    if (game_path != std::string::npos) blueprint = blueprint.substr(game_path);
+    if (blueprint.rfind("Blueprint'", 0) == 0 && blueprint.size() > 11 && blueprint.back() == '\'')
+        blueprint = blueprint.substr(10, blueprint.size() - 11);
+    FString fblueprint(blueprint.c_str());
+    UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
+    auto* inventory = controller->GetPlayerInventoryComponent();
+    if (!item_class || !inventory) return false;
+    auto* cdo = static_cast<UPrimalItem*>(item_class->GetDefaultObject(true));
+    if (cdo) {
+        const int game_max = cdo->GetMaxItemQuantity(ArkApi::GetApiUtils().GetWorld());
+        if (game_max > 0 && quantity > game_max) return false;
+    }
+    // Follow CustomShop: ARK creates and inserts one Blueprint item with this quantity.
+    return UPrimalItem::AddNewItem(TSubclassOf<UPrimalItem>(item_class), inventory,
+        false, false, 0.0f, true, quantity, false, 0.0f, false,
+        TSubclassOf<UPrimalItem>(), 0.0f, false, false) != nullptr;
 }
 std::string ItemIdText(const FItemNetID& id) {
     return std::to_string(id.ItemID1) + ":" + std::to_string(id.ItemID2);
@@ -174,10 +198,11 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         }
         for (const auto& def : definitions) {
             if (!def.enabled || !MatchesConfiguredClass(class_text, def.input_class)) continue;
-            if (quantity < def.input_quantity || state.resources.count(def.id) && state.resources.at(def.id).active ||
+            if (quantity != 1 || def.input_quantity != 1 || state.resources.count(def.id) && state.resources.at(def.id).active ||
                 !previewed_resources.insert(def.id).second) break;
             found.push_back({ItemIdText(item->ItemIDField()), class_text, {},
                 item_name.ToString(), def.id, quantity, false});
+            found.back().resource_name = def.name;
             break;
         }
     }
@@ -223,7 +248,7 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
     for (const auto& entry : preview.items) {
         UPrimalItem* item = FindInventoryItem(inv, entry.item_id);
         std::string species;
-        if (!item || item->GetItemQuantity() != entry.item_quantity) { ++skipped; continue; }
+        if (!item || item->GetItemQuantity() != 1 || entry.item_quantity != 1) { ++skipped; continue; }
         if (entry.is_soul && (!GetSpeciesBlueprint(item, species) || species != entry.species_blueprint ||
             farm.HasSoul(steam, species))) { ++skipped; continue; }
         if (!entry.is_soul && farm.HasActiveResource(steam, entry.resource_id)) { ++skipped; continue; }
@@ -240,6 +265,7 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
         if (!entry.is_soul) {
             FazendaRecursos::PlayerFarm::UploadedResource record;
             record.id = id; record.resource_id = entry.resource_id;
+            record.resource_name = entry.resource_name;
             record.item_class = entry.class_name; record.display_name = entry.display_name;
             record.blob_file = filename; record.uploaded_utc = uploaded_at;
             record.blob_size = static_cast<uint64_t>(bytes.Num()); record.item_quantity = entry.item_quantity;
@@ -257,6 +283,20 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
                 ++failed;
                 Log::GetLog()->error("FazendaRecursos: recurso consumido mas commit pendente; steam={} recurso={} upload={}",
                     steam, entry.resource_id, id);
+                continue;
+            }
+            if (!FazendaRecursos::FarmSync::SyncUploadedResourceNow(steam, id)) {
+                UPrimalItem* restored = UPrimalItem::CreateFromBytes(&bytes);
+                if (restored && inv->AddItemObject(restored)) {
+                    if (farm.RollbackResourceUpload(steam, id))
+                        FazendaRecursos::FarmSync::SyncUploadedResourceNow(steam, id);
+                    else
+                        Log::GetLog()->error("FazendaRecursos: item devolvido mas estado não foi revertido; steam={} upload={}", steam, id);
+                } else {
+                    Log::GetLog()->error("FazendaRecursos: MySQL indisponível e item não pôde ser devolvido; conferir inventário e farms.json; steam={} upload={}", steam, id);
+                }
+                ++failed;
+                FazendaRecursos::FarmSync::QueuePlayer(steam);
                 continue;
             }
             ++uploaded;
@@ -283,7 +323,7 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
         ++uploaded;
     }
     Say(c, "Envio concluído: " + std::to_string(uploaded) + " item(ns) armazenado(s); " +
-        std::to_string(skipped) + " ignorado(s); " + std::to_string(failed) + " falha(s). Recursos configurados iniciam produção passiva; a Fazenda ainda não clona nem entrega itens no jogo.",
+        std::to_string(skipped) + " ignorado(s); " + std::to_string(failed) + " falha(s). Recursos configurados iniciam producao passiva; agende a retirada na Minha Area e use /fazresgatar no jogo.",
         failed ? FColorList::Yellow : FColorList::Green);
     if (uploaded > 0) FazendaRecursos::FarmSync::QueuePlayer(steam);
 }
@@ -292,7 +332,8 @@ void CmdStatus(APlayerController* pc, FString*, bool) {
     auto& cfg = FazendaRecursos::FarmConfig::Get();
     if (!cfg.Enabled()) { Say(c, cfg.Message("Disabled", "Fazenda desativada.")); return; }
     if (!HasLicense(c)) { Say(c, cfg.Message("NoLicense", "Licença keyfarm inativa."), FColorList::Red); return; }
-    const size_t defs = static_cast<size_t>(std::count_if(cfg.Resources().begin(), cfg.Resources().end(), [](const auto& r){ return r.enabled;}));
+    const auto resource_defs = cfg.ResourcesSnapshot();
+    const size_t defs = static_cast<size_t>(std::count_if(resource_defs.begin(), resource_defs.end(), [](const auto& r){ return r.enabled;}));
     const auto state = FazendaRecursos::FarmState::Get().GetPlayer(Steam(c));
     const size_t producing = static_cast<size_t>(std::count_if(state.resources.begin(), state.resources.end(), [](const auto& row){ return row.second.active; }));
     const size_t souls = static_cast<size_t>(std::count_if(state.souls.begin(), state.souls.end(), [](const auto& row){ return row.second.status == "active"; }));
@@ -306,8 +347,60 @@ void CmdStatus(APlayerController* pc, FString*, bool) {
 }
 void CmdRedeem(APlayerController* pc, FString*, bool) {
     auto* c = static_cast<AShooterPlayerController*>(pc);
-    if (!HasLicense(c)) { Say(c, FazendaRecursos::FarmConfig::Get().Message("NoLicense", "Licença keyfarm inativa."), FColorList::Red); return; }
-    Say(c, "Não há pedidos de resgate sincronizados para este servidor ainda. Nenhum item foi entregue.", FColorList::Yellow);
+    if (!c || !Ready()) { Say(c, "A Fazenda não está disponível neste momento.", FColorList::Yellow); return; }
+    auto* character = c->GetPlayerCharacter();
+    auto* inv = character ? character->MyInventoryComponentField() : nullptr;
+    const std::string steam = Steam(c);
+    if (!inv || steam.empty()) { Say(c, "Não consegui acessar seu inventário.", FColorList::Red); return; }
+    std::unique_lock<std::mutex> operation(g_redemption_mutex, std::try_to_lock);
+    if (!operation.owns_lock()) { Say(c, "Um resgate da Fazenda já está sendo processado. Tente novamente em instantes.", FColorList::Yellow); return; }
+
+    std::vector<FazendaRecursos::FarmSync::RedemptionStack> stacks;
+    if (!FazendaRecursos::FarmSync::ClaimRedemptionStacks(steam,
+            FazendaRecursos::FarmConfig::Get().ServerId(), stacks)) {
+        Say(c, "Não consegui consultar os pedidos da Fazenda no MySQL. Nenhum item foi entregue.", FColorList::Red);
+        return;
+    }
+    if (stacks.empty()) { Say(c, "Você não tem stacks pendentes para resgatar.", FColorList::Yellow); return; }
+
+    const auto definitions = FazendaRecursos::FarmConfig::Get().ResourcesSnapshot();
+    int delivered_stacks = 0, delivered_items = 0;
+    bool failed = false;
+    for (const auto& stack : stacks) {
+        const auto definition = std::find_if(definitions.begin(), definitions.end(), [&](const auto& row) {
+            return row.id == stack.resource_id;
+        });
+        if (definition == definitions.end() || stack.quantity < 1 ||
+            stack.quantity > definition->stack_size || !definition->enabled) {
+            Log::GetLog()->error("Farm: delivery stack invalid; steam={} order={} resource={} qty={}",
+                steam, stack.redemption_id, stack.resource_id, stack.quantity);
+            FazendaRecursos::FarmSync::CompleteRedemptionStack(stack, steam,
+                FazendaRecursos::FarmConfig::Get().ServerId(), false);
+            failed = true;
+            break;
+        }
+        if (!GiveFarmStack(c, definition->item_class, stack.quantity)) {
+            Log::GetLog()->warn("Farm: Blueprint delivery failed; steam={} order={} stack={} qty={} class={}",
+                steam, stack.redemption_id, stack.stack_index, stack.quantity, definition->item_class);
+            FazendaRecursos::FarmSync::CompleteRedemptionStack(stack, steam,
+                FazendaRecursos::FarmConfig::Get().ServerId(), false);
+            failed = true;
+            break;
+        }
+        if (!FazendaRecursos::FarmSync::CompleteRedemptionStack(stack, steam,
+                FazendaRecursos::FarmConfig::Get().ServerId(), true)) {
+            Log::GetLog()->error("Farm: item entregue mas MySQL nao confirmou; verifique o inventario antes de repetir; steam={} order={} stack={}",
+                steam, stack.redemption_id, stack.stack_index);
+            failed = true;
+            break;
+        }
+        ++delivered_stacks;
+        delivered_items += stack.quantity;
+    }
+    const std::string result = "Resgate da Fazenda: " + std::to_string(delivered_items) +
+        " unidade(s) em " + std::to_string(delivered_stacks) + " stack(s) entregue(s).";
+    Say(c, failed ? result + " Há itens pendentes; confira o histórico na Minha Área antes de repetir." : result,
+        failed ? FColorList::Yellow : FColorList::Yellow);
 }
 void CmdRecover(APlayerController* pc, FString*, bool) {
     auto* c = static_cast<AShooterPlayerController*>(pc);
@@ -370,7 +463,7 @@ void CmdCollect(APlayerController* pc, FString*, bool) {
     const std::string path = export_dir + "/report.json";
     nlohmann::json report = nlohmann::json::object();
     report["generated_utc_epoch"] = stamp;
-    report["plugin_version"] = "0.1.8-test";
+    report["plugin_version"] = std::string(ARKLAND_PLUGIN_VERSION) + "-test";
     report["serialization_note"] = "Blobs are opaque UPrimalItem::GetItemBytes output; metadata is read from live ArkServerAPI objects. No byte offsets are inferred.";
     report["map"] = "";
     if (auto* gm = ArkApi::GetApiUtils().GetShooterGameMode()) { FString map; gm->GetMapName(&map); report["map"] = map.ToString(); }
@@ -577,6 +670,7 @@ void CmdCollect(APlayerController* pc, FString*, bool) {
 void CmdReload(APlayerController*, FString*, bool) {
     try {
         FazendaRecursos::FarmConfig::Get().Reload();
+        FazendaRecursos::FarmSync::QueueCatalog();
         Log::GetLog()->info("FazendaRecursos: configuração recarregada pelo console");
     } catch (const std::exception& e) {
         Log::GetLog()->error("FazendaRecursos: recarga rejeitada; configuração anterior mantida: {}", e.what());
@@ -604,4 +698,3 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/fazcoletar");
 }
 }
-

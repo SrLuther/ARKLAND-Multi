@@ -19,7 +19,7 @@
 
     Gates obrigatórios (falham o release se em falta):
       - Entrada CHANGELOG em src/version.py para a versão do app
-      - Plugins oficiais (CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt, EngramLevel):
+      - Plugins oficiais (CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt, EngramLevel, FazendaRecursos):
         se o código C++ mudou desde o último bump, exige plugin_version.txt maior
         + secção no plugin/*/CHANGELOG.md (scripts/check_plugin_release_gate.py)
 
@@ -72,7 +72,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 # ── 0b) Gate de versão dos plugins (código alterado ⇒ bump + CHANGELOG) ───────
-Write-Step 0 7 "Validando versoes dos plugins (CustomShop / CustomDinoDeliver / ArkPlayer / ArkEventHunt / EngramLevel)..."
+Write-Step 0 7 "Validando versoes dos plugins (incluindo FazendaRecursos)..."
 & $python (Join-Path $root "scripts\check_plugin_release_gate.py")
 if ($LASTEXITCODE -ne 0) {
     Write-Fail "Gate de plugins falhou. Bumpe plugin_version.txt + plugin/*/CHANGELOG.md e sincronize com scripts\sync_plugin_versions.py antes de continuar."
@@ -211,6 +211,15 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
 $releaseNewFiles = @(
     "docs/ARKLAND_AUDITORIA_TECNICA_COMPLETA_2026-10-28.md",
     "docs/ESCOPO_RELEASE_1.11.0.md",
+    "docs/FAZENDA_RECURSOS_VISAO_E_REQUISITOS.md",
+    "docs/FAZENDA_WEBSTORE_API.md",
+    "plugin/FazendaRecursos/CHANGELOG.md",
+    "plugin/FazendaRecursos/src/FarmSync.cpp",
+    "plugin/FazendaRecursos/src/FarmSync.h",
+    "plugin/FazendaRecursos/src/plugin_version.h",
+    "plugin/FazendaRecursos/bin/libmysql.dll",
+    "plugin/FazendaRecursos/bin/z.dll",
+    "plugin/arkshop_web/migrations/fazenda_mysql.sql",
     "src/asm_engine/ini_document.py",
     "src/asm_engine/level_progression.py",
     "src/data/ark_ase_server_cli_catalog.json",
@@ -248,6 +257,7 @@ foreach ($name in @($stagedNames)) {
     if ($norm -eq "ig/betland.jpg") { $drop = $true }
     # Objetos e executaveis de teste do MSVC sao artefatos locais do build.
     if ($norm -like "plugin/CustomShop/obj/*") { $drop = $true }
+    if ($norm -like "plugin/CustomDinoDeliver/obj/*" -or $norm -like "plugin/ArkPlayer/obj/*") { $drop = $true }
     # Proposta comercial independente, fora do escopo funcional deste release.
     if ($norm -eq "docs/LICENCAS_PRECOS_PROPOSTA.md") { $drop = $true }
     if ($drop) {

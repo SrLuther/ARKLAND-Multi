@@ -27,7 +27,7 @@ _BUNDLE_INFO_SLUGS: dict[str, str] = {
     "ArkPlayer": "arkplayer",
     "ArkEventHunt": "arkeventhunt",
     "EngramLevel": "engramlevel",
-    "FazendaRecursos": "fazendarecursos",
+    "FazendaRecursos": "fazenda",
 }
 
 PluginVersionStatus = Literal["missing", "match", "outdated", "newer", "unknown", "not_installed"]

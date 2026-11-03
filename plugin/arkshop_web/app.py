@@ -54,7 +54,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import HTTPException
-from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, and_, create_engine, or_, text
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, and_, create_engine, func, or_, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, load_only, mapped_column, scoped_session, sessionmaker
 
@@ -690,18 +690,65 @@ class FarmPlayerState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
-class FarmResourceState(Base):
-    __tablename__ = "farm_resource_states"
+class FarmPlayerResource(Base):
+    __tablename__ = "farm_player_resources"
 
     steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     resource_id: Mapped[str] = mapped_column(String(100), primary_key=True)
-    uploaded: Mapped[bool] = mapped_column(Boolean, default=False)
+    share_key: Mapped[str] = mapped_column(String(64), primary_key=True, default="default")
+    stock: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=False)
-    upload_status: Mapped[str] = mapped_column(String(32), default="none")
-    item_quantity: Mapped[int] = mapped_column(Integer, default=0)
-    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_accrual_utc: Mapped[int] = mapped_column(BigInteger, default=0)
     server_id: Mapped[str] = mapped_column(String(64), default="default")
+    plugin_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class FarmResourceCatalog(Base):
+    """Configuração carregada pelo plugin e compartilhada com Minha Área."""
+    __tablename__ = "farm_resource_catalog"
+
+    server_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    resource_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    share_key: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    category: Mapped[str] = mapped_column(String(40), default="default")
+    resource_name: Mapped[str] = mapped_column(String(160))
+    item_class: Mapped[str] = mapped_column(String(255), default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    output_quantity: Mapped[int] = mapped_column(Integer, default=1)
+    interval_seconds: Mapped[int] = mapped_column(Integer, default=3600)
+    stack_size: Mapped[int] = mapped_column(Integer, default=25)
+    capacity: Mapped[int] = mapped_column(Integer, default=200)
+    config_revision: Mapped[str] = mapped_column(String(64), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class FarmServerConfig(Base):
+    """Configuração mestre por grupo de servidores da Fazenda."""
+    __tablename__ = "farm_share_configs"
+
+    share_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    config_json: Mapped[str] = mapped_column(Text)
+    revision: Mapped[str] = mapped_column(String(64), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class FarmUploadedResource(Base):
+    __tablename__ = "farm_uploaded_resources"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    upload_id: Mapped[str] = mapped_column(String(180), primary_key=True)
+    share_key: Mapped[str] = mapped_column(String(64), primary_key=True, default="default")
+    resource_id: Mapped[str] = mapped_column(String(100), index=True)
+    resource_name: Mapped[str] = mapped_column(String(160))
+    item_class: Mapped[str] = mapped_column(String(255), default="")
+    display_name: Mapped[str] = mapped_column(String(160), default="")
+    item_quantity: Mapped[int] = mapped_column(Integer, default=1)
+    blob_size: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    server_id: Mapped[str] = mapped_column(String(64), default="default")
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    item_blob: Mapped[bytes] = mapped_column(LargeBinary(length=8 * 1024 * 1024))
 
 
 class FarmRedemption(Base):
@@ -709,14 +756,60 @@ class FarmRedemption(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    share_key: Mapped[str] = mapped_column(String(64), default="default", index=True)
     resource_id: Mapped[str] = mapped_column(String(100))
     resource_name: Mapped[str] = mapped_column(String(160))
     amount: Mapped[int] = mapped_column(Integer)
+    delivered_amount: Mapped[int] = mapped_column(Integer, default=0)
+    stack_size: Mapped[int] = mapped_column(Integer, default=25)
     status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
     claimed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class FarmProducedItem(Base):
+    __tablename__ = "farm_produced_items"
+    __table_args__ = (UniqueConstraint(
+        "share_key", "steam_id", "resource_id", "cycle_id", "stack_index",
+        name="uq_farm_produced_cycle_stack"),)
+
+    id: Mapped[str] = mapped_column(String(180), primary_key=True)
+    steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    share_key: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    resource_id: Mapped[str] = mapped_column(String(100), index=True)
+    cycle_id: Mapped[str] = mapped_column(String(180))
+    stack_index: Mapped[int] = mapped_column(Integer, default=0)
+    quantity: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="AVAILABLE", index=True)
+    redemption_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    item_blob: Mapped[bytes] = mapped_column(LargeBinary)
+    produced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class FarmRedemptionDelivery(Base):
+    __tablename__ = "farm_redemption_deliveries"
+    __table_args__ = (UniqueConstraint(
+        "redemption_id", "stack_index", name="uq_farm_redemption_stack"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    redemption_id: Mapped[str] = mapped_column(String(36), index=True)
+    stack_index: Mapped[int] = mapped_column(Integer)
+    quantity: Mapped[int] = mapped_column(Integer)
+    produced_item_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="PENDENTE")
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class FarmRedemptionDeliveryItem(Base):
+    __tablename__ = "farm_redemption_delivery_items"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    delivery_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    produced_item_id: Mapped[str] = mapped_column(String(180), index=True)
+    quantity: Mapped[int] = mapped_column(Integer)
 
 
 class Order(Base):
@@ -14132,6 +14225,7 @@ def _farm_omega_default_resources() -> list[dict[str, Any]]:
         "InputQuantity": 1,
         "OutputQuantity": 1,
         "IntervalSeconds": 3600,
+        "StackSize": 25,
         "Capacity": 200,
         "Enabled": True,
     } for resource_id, name, asset in definitions]
@@ -14141,6 +14235,8 @@ def _farm_default_config() -> dict[str, Any]:
     return {"FazendaRecursos": {
         "Enabled": True,
         "LicenseGroup": "keyfarm",
+        "ServerId": "default",
+        "FarmShareKey": "default",
         "InitialCapacityPerResource": 200,
         "TickSeconds": 60,
         "PreviewLifetimeSeconds": 120,
@@ -14176,7 +14272,19 @@ def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def _read_farm_config() -> dict[str, Any]:
+def _read_farm_config(server_id: str = "default") -> dict[str, Any]:
+    db = _get_db_session()
+    if db is not None:
+        try:
+            row = db.get(FarmServerConfig, str(server_id or "default")[:64])
+            if row:
+                data = json.loads(row.config_json)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            log.exception("farm_master_config_read_failed")
+        finally:
+            _release_db_session(db)
     try:
         data = json.loads(_FAZENDA_CONFIG_FILE.read_text(encoding="utf-8"))
         if isinstance(data, dict):
@@ -14192,6 +14300,14 @@ def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | No
     root = payload["FazendaRecursos"]
     if str(root.get("LicenseGroup") or "").strip().lower() != "keyfarm":
         return None, "LicenseGroup precisa ser keyfarm."
+    server_id = str(root.get("ServerId") or "default").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", server_id):
+        return None, "ServerId deve conter somente letras, números, ponto, hífen ou sublinhado."
+    root["ServerId"] = server_id
+    share_key = str(root.get("FarmShareKey") or "default").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", share_key):
+        return None, "FarmShareKey deve conter somente letras, números, ponto, hífen ou sublinhado."
+    root["FarmShareKey"] = share_key
     categories = root.get("Categories")
     if (not isinstance(categories, dict) or not isinstance(categories.get("default"), dict)
             or not isinstance(categories.get("omega"), dict)):
@@ -14218,7 +14334,8 @@ def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | No
                 if len(str(resource.get(key) or "")) > max_len:
                     return None, f"Campo {key} excede o limite permitido."
             for key, low, high in (("InputQuantity", 1, 1000000), ("OutputQuantity", 1, 1000000),
-                                   ("IntervalSeconds", 1, 31536000), ("Capacity", 1, 1000000)):
+                                   ("IntervalSeconds", 1, 31536000), ("StackSize", 1, 1000000),
+                                   ("Capacity", 1, 1000000)):
                 try:
                     value = int(resource.get(key, 1))
                 except (TypeError, ValueError):
@@ -14226,14 +14343,11 @@ def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | No
                 if value < low or value > high:
                     return None, f"Campo {key} fora do intervalo permitido."
                 resource[key] = value
+            if resource.get("InputQuantity", 1) != 1:
+                return None, "InputQuantity deve ser 1: cada envio consome exatamente uma unidade do jogador."
     root["InitialCapacityPerResource"] = 200
+    root["ManagedByWeb"] = True
     return payload, None
-
-
-def _farm_redemptions_enabled() -> bool:
-    # Prevent reserving fake numeric stock until the game plugin has an end-to-end
-    # blob clone and delivery implementation for farm redemptions.
-    return False
 
 
 @app.route("/api/player/farm", methods=["GET"])
@@ -14244,36 +14358,123 @@ def player_farm_overview():
     entitlements = _get_player_entitlements(steam_id)
     keyfarm = next((e for e in entitlements if str(e.get("group") or "").strip().lower() == "keyfarm"), None)
     config = _read_farm_config().get("FazendaRecursos", {})
+    requested_share_key = str(request.args.get("share_key") or "").strip()
     categories = config.get("Categories", {}) if isinstance(config, dict) else {}
     resources = []
     if isinstance(categories, dict):
         for category_id, category in categories.items():
-            if not isinstance(category, dict) or (category_id != "default" and not category.get("Enabled")):
+            if not isinstance(category, dict):
                 continue
             for resource in category.get("Resources", []):
-                if not isinstance(resource, dict) or not resource.get("Enabled", False):
+                if not isinstance(resource, dict):
                     continue
                 resources.append({"id": resource.get("Id"), "name": resource.get("Name") or resource.get("Id"),
-                                  "category": category_id, "capacity": resource.get("Capacity", 200)})
+                                  "category": category_id, "capacity": resource.get("Capacity", 200),
+                                  "output_quantity": resource.get("OutputQuantity", 1),
+                                  "interval_seconds": resource.get("IntervalSeconds", 3600),
+                                  "stack_size": resource.get("StackSize", 25),
+                                  "enabled": bool(category.get("Enabled", category_id == "default") and resource.get("Enabled", False)), "share_key": share_key})
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
     try:
         state = db.get(FarmPlayerState, steam_id)
-        stock = json.loads(state.stock_json) if state and state.stock_json else {}
-        farm_states = {row.resource_id: row for row in db.query(FarmResourceState).filter(
-            FarmResourceState.steam_id == steam_id).all()}
-        synced_at = state.updated_at.isoformat() if state and state.updated_at else None
-        fresh = bool(state and state.updated_at and (datetime.now(UTC) - state.updated_at.replace(tzinfo=UTC if state.updated_at.tzinfo is None else state.updated_at.tzinfo)).total_seconds() <= 300)
-        rows = db.query(FarmRedemption).filter(FarmRedemption.steam_id == steam_id).order_by(FarmRedemption.created_at.desc()).limit(20).all()
-        reserved_rows = db.query(FarmRedemption.resource_id, FarmRedemption.amount).filter(
-            FarmRedemption.steam_id == steam_id, FarmRedemption.status.in_(["PENDENTE", "PROCESSANDO"])).all()
+        resource_rows_all = db.query(FarmPlayerResource).filter(FarmPlayerResource.steam_id == steam_id).all()
+        groups = {str(row.share_key or "default") for row in resource_rows_all}
+        groups.update(str(row[0] or "default") for row in db.query(FarmUploadedResource.share_key).filter(
+            FarmUploadedResource.steam_id == steam_id).distinct().all())
+        groups.update(str(row[0] or "default") for row in db.query(FarmResourceCatalog.share_key).distinct().all())
+        groups.update(str(row[0] or "default") for row in db.query(FarmServerConfig.share_key).all())
+        groups = sorted(groups or {"default"})
+        if requested_share_key and requested_share_key not in groups:
+            return jsonify({"ok": False, "error": "Chave de estoque indisponível para este jogador."}), 404
+        if requested_share_key:
+            share_key = requested_share_key
+        elif resource_rows_all:
+            share_key = str(max(resource_rows_all,
+                key=lambda row: row.updated_at.timestamp() if row.updated_at else 0).share_key or "default")
+        else:
+            share_key = groups[0]
+        resource_rows = [row for row in resource_rows_all if row.share_key == share_key]
+        # Fallback de apresenta??o usa a configura??o mestre da chave escolhida.
+        selected_root = _read_farm_config(share_key).get("FazendaRecursos", {})
+        selected_categories = selected_root.get("Categories", {}) if isinstance(selected_root, dict) else {}
+        resources = []
+        for category_id, category in selected_categories.items() if isinstance(selected_categories, dict) else []:
+            if not isinstance(category, dict):
+                continue
+            for resource in category.get("Resources", []):
+                if isinstance(resource, dict):
+                    resources.append({"id": resource.get("Id"), "name": resource.get("Name") or resource.get("Id"),
+                                     "category": category_id, "capacity": resource.get("Capacity", 200),
+                                     "output_quantity": resource.get("OutputQuantity", 1),
+                                     "interval_seconds": resource.get("IntervalSeconds", 3600),
+                                     "stack_size": resource.get("StackSize", 25),
+                                     "enabled": bool(category.get("Enabled", category_id == "default") and resource.get("Enabled", False)), "share_key": share_key})
+        # O estoque numérico do MySQL é a quantidade produzida e resgatável.
+        stock = {str(row.resource_id): max(0, int(row.stock or 0)) for row in resource_rows}
+        catalog_rows = db.query(FarmResourceCatalog).filter(
+            FarmResourceCatalog.share_key == share_key
+        ).order_by(FarmResourceCatalog.updated_at.desc()).all()
+        catalog_from_mysql = bool(catalog_rows)
+        if catalog_rows:
+            seen_catalog = set()
+            player_server_by_resource = {
+                row.resource_id: row.server_id for row in resource_rows if row.server_id
+            }
+            resources = []
+            for catalog in catalog_rows:
+                if catalog.resource_id in seen_catalog:
+                    continue
+                player_server = player_server_by_resource.get(catalog.resource_id)
+                if player_server and catalog.server_id != player_server:
+                    continue
+                seen_catalog.add(catalog.resource_id)
+                resources.append({
+                    "id": catalog.resource_id, "name": catalog.resource_name,
+                    "category": catalog.category, "capacity": catalog.capacity,
+                    "output_quantity": catalog.output_quantity,
+                    "interval_seconds": catalog.interval_seconds,
+                    "stack_size": catalog.stack_size,
+                    "enabled": bool(catalog.enabled),
+                    "server_id": catalog.server_id, "share_key": share_key,
+                })
+        latest_player_sync = max((row.updated_at for row in resource_rows if row.updated_at), default=None)
+        synced_at_value = latest_player_sync or (state.updated_at if state else None)
+        synced_at = synced_at_value.isoformat() if synced_at_value else None
+        fresh = bool(synced_at_value and (datetime.now(UTC) - synced_at_value.replace(
+            tzinfo=UTC if synced_at_value.tzinfo is None else synced_at_value.tzinfo)).total_seconds() <= 300)
+        rows = db.query(FarmRedemption).filter(FarmRedemption.steam_id == steam_id,
+            FarmRedemption.share_key == share_key).order_by(FarmRedemption.created_at.desc()).limit(50).all()
+        uploads = db.query(FarmUploadedResource).options(load_only(
+            FarmUploadedResource.steam_id, FarmUploadedResource.upload_id,
+            FarmUploadedResource.resource_id, FarmUploadedResource.resource_name,
+            FarmUploadedResource.item_class, FarmUploadedResource.display_name,
+            FarmUploadedResource.item_quantity, FarmUploadedResource.blob_size,
+            FarmUploadedResource.status, FarmUploadedResource.uploaded_at,
+        )).filter(FarmUploadedResource.steam_id == steam_id,
+            FarmUploadedResource.share_key == share_key).order_by(
+            FarmUploadedResource.uploaded_at.desc()).limit(100).all()
+        reserved_rows = db.query(FarmRedemption.resource_id,
+                                 (FarmRedemption.amount - FarmRedemption.delivered_amount)).filter(
+            FarmRedemption.steam_id == steam_id, FarmRedemption.share_key == share_key,
+            FarmRedemption.status.in_(["PENDENTE", "PROCESSANDO"])).all()
         reserved = {}
         for resource_id, amount in reserved_rows:
             reserved[resource_id] = reserved.get(resource_id, 0) + int(amount or 0)
         orders = [{"id": row.id, "resource_id": row.resource_id, "resource_name": row.resource_name,
-                   "amount": row.amount, "status": row.status, "created_at": row.created_at.isoformat()}
+                   "amount": row.amount, "delivered_amount": row.delivered_amount or 0,
+                   "status": row.status, "created_at": row.created_at.isoformat(),
+                   "completed_at": row.completed_at.isoformat() if row.completed_at else None}
                   for row in rows]
+        uploaded_resources = [{
+            "upload_id": row.upload_id, "resource_id": row.resource_id,
+            "resource_name": row.resource_name or row.resource_id,
+            "display_name": row.display_name, "item_class": row.item_class,
+            "item_quantity": row.item_quantity, "status": row.status,
+            "uploaded_at": row.uploaded_at.isoformat() if row.uploaded_at else None,
+            "blob_size": row.blob_size,
+        } for row in uploads]
     finally:
         _release_db_session(db)
     for resource in resources:
@@ -14281,80 +14482,84 @@ def player_farm_overview():
         resource["stock"] = raw_stock
         resource["reserved"] = int(reserved.get(resource["id"], 0))
         resource["available"] = max(0, raw_stock - resource["reserved"])
-        farm_state = farm_states.get(str(resource["id"]))
-        resource["seed_uploaded"] = bool(farm_state and farm_state.uploaded)
-        resource["farm_active"] = bool(farm_state and farm_state.active)
-        resource["upload_status"] = farm_state.upload_status if farm_state else "none"
-        resource["uploaded_at"] = farm_state.uploaded_at.isoformat() if farm_state and farm_state.uploaded_at else None
-        resource["uploaded_quantity"] = max(0, int(farm_state.item_quantity or 0)) if farm_state else 0
-    # /fazresgatar does not claim and deliver orders in the current plugin yet.
-    redemption_enabled = _farm_redemptions_enabled()
     return jsonify({"ok": True, "license_active": bool(keyfarm), "license": keyfarm,
-                    "resources": resources, "orders": orders, "stock_available": fresh,
+                    "resources": resources, "orders": orders, "uploads": uploaded_resources,
+                    "share_key": share_key, "share_keys": groups,
+                    "catalog_from_mysql": catalog_from_mysql,
+                    "stock_available": fresh,
                     "orders_available": fresh, "integration_ready": fresh,
-                    "redemption_enabled": redemption_enabled, "last_sync_at": synced_at})
+                    "last_sync_at": synced_at})
 
 
 @app.route("/api/player/farm/redemptions", methods=["POST"])
 @login_required
 @limiter.limit("10 per hour")
 def player_create_farm_redemption():
-    if not _farm_redemptions_enabled():
-        return jsonify({"ok": False, "error": "O resgate no jogo ainda não está habilitado; uploads e produção podem ser consultados na Minha Área."}), 409
     steam_id = str(_steam_id_from_session())
     body = request.get_json(silent=True) or {}
     resource_id = str(body.get("resource_id") or "").strip()
+    share_key = str(body.get("share_key") or "default").strip()
     try:
         amount = int(body.get("amount", 0))
     except (TypeError, ValueError):
         amount = 0
-    if not resource_id or amount < 1 or amount > 1000000:
-        return jsonify({"ok": False, "error": "Selecione um recurso e uma quantidade válida."}), 400
-    config = _read_farm_config().get("FazendaRecursos", {})
-    found = None
-    for category_id, category in (config.get("Categories") or {}).items():
-        if category_id != "default" and not category.get("Enabled"):
-            continue
-        for resource in category.get("Resources", []):
-            if resource.get("Id") == resource_id and resource.get("Enabled"):
-                found = resource
-                break
-        if found:
-            break
-    if not found:
-        return jsonify({"ok": False, "error": "Esse recurso não está disponível para resgate."}), 404
+    if not resource_id or amount < 1 or amount > 1000000 or not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", share_key):
+        return jsonify({"ok": False, "error": "Selecione recurso e quantidade validos."}), 400
     db = _get_db_session()
     if db is None:
-        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+        return jsonify({"ok": False, "error": "Banco indisponivel."}), 503
     try:
-        state = db.query(FarmPlayerState).filter(FarmPlayerState.steam_id == steam_id).with_for_update().first()
+        state = db.query(FarmPlayerResource).filter(
+            FarmPlayerResource.steam_id == steam_id,
+            FarmPlayerResource.share_key == share_key,
+            FarmPlayerResource.resource_id == resource_id,
+        ).with_for_update().first()
         if not state or not state.updated_at:
-            return jsonify({"ok": False, "error": "O servidor ainda não sincronizou o estoque da Fazenda."}), 409
+            return jsonify({"ok": False, "error": "Servidor ainda nao sincronizou a Fazenda."}), 409
         last_sync = state.updated_at.replace(tzinfo=UTC if state.updated_at.tzinfo is None else state.updated_at.tzinfo)
         if (datetime.now(UTC) - last_sync).total_seconds() > 300:
-            return jsonify({"ok": False, "error": "O estoque está desatualizado. Aguarde a sincronização do servidor."}), 409
-        stock = json.loads(state.stock_json or "{}")
-        raw_stock = max(0, int(stock.get(resource_id, 0)))
-        reserved_rows = db.query(FarmRedemption.amount).filter(
-            FarmRedemption.steam_id == steam_id, FarmRedemption.resource_id == resource_id,
-            FarmRedemption.status.in_(["PENDENTE", "PROCESSANDO"])).all()
-        available = max(0, raw_stock - sum(int(row[0] or 0) for row in reserved_rows))
+            return jsonify({"ok": False, "error": "Estoque desatualizado; aguarde a sincronizacao."}), 409
+        catalog = db.query(FarmResourceCatalog).filter(
+            FarmResourceCatalog.share_key == share_key,
+            FarmResourceCatalog.resource_id == resource_id,
+            FarmResourceCatalog.enabled.is_(True),
+        ).order_by(FarmResourceCatalog.updated_at.desc()).first()
+        if not catalog:
+            return jsonify({"ok": False, "error": "Recurso nao habilitado no catalogo carregado."}), 404
+        reserved = int(db.query(func.coalesce(func.sum(
+            FarmRedemption.amount - FarmRedemption.delivered_amount), 0)).filter(
+            FarmRedemption.steam_id == steam_id,
+            FarmRedemption.share_key == share_key,
+            FarmRedemption.resource_id == resource_id,
+            FarmRedemption.status.in_(["PENDENTE", "PROCESSANDO"]),
+        ).scalar() or 0)
+        available = max(0, int(state.stock or 0) - reserved)
         if amount > available:
-            return jsonify({"ok": False, "error": f"Estoque insuficiente. Disponível: {available}."}), 409
-        order = FarmRedemption(id=str(uuid.uuid4()), steam_id=steam_id, resource_id=resource_id,
-                               resource_name=str(found.get("Name") or resource_id), amount=amount,
-                               status="PENDENTE")
+            return jsonify({"ok": False, "error": f"Estoque insuficiente. Disponivel: {available}."}), 409
+        order = FarmRedemption(id=str(uuid.uuid4()), steam_id=steam_id, share_key=share_key,
+            resource_id=resource_id, resource_name=catalog.resource_name, amount=amount,
+            stack_size=max(1, int(catalog.stack_size or 1)), status="PENDENTE")
         db.add(order)
+        db.flush()
+        remaining = amount
+        stack_index = 0
+        while remaining > 0:
+            quantity = min(order.stack_size, remaining)
+            db.add(FarmRedemptionDelivery(redemption_id=order.id, stack_index=stack_index,
+                quantity=quantity, status="PENDENTE"))
+            remaining -= quantity
+            stack_index += 1
         db.commit()
         _log("farm_redemption_created", steam_id=steam_id, redemption_id=order.id,
-             resource_id=resource_id, amount=amount)
+             resource_id=resource_id, amount=amount, share_key=share_key)
         return jsonify({"ok": True, "order": {"id": order.id, "resource_id": resource_id,
-                        "resource_name": order.resource_name, "amount": amount, "status": order.status,
-                        "message": "Seleção salva. Use /fazresgatar no jogo para solicitar a entrega."}}), 201
-    except Exception as exc:
+            "resource_name": order.resource_name, "amount": amount, "status": order.status,
+            "stacks": stack_index,
+            "message": "Retirada agendada. Use /fazresgatar no jogo para receber os itens."}}), 201
+    except Exception:
         db.rollback()
         log.exception("farm_redemption_create_failed")
-        return jsonify({"ok": False, "error": "Não foi possível salvar o resgate."}), 500
+        return jsonify({"ok": False, "error": "Nao foi possivel agendar o resgate."}), 500
     finally:
         _release_db_session(db)
 
@@ -14376,6 +14581,12 @@ def player_cancel_farm_redemption(redemption_id: str):
             return jsonify({"ok": False, "error": "O pedido já está sendo processado ou foi concluído."}), 409
         row.status = "CANCELADO"
         row.completed_at = datetime.now(UTC)
+        deliveries = db.query(FarmRedemptionDelivery).filter(
+            FarmRedemptionDelivery.redemption_id == row.id,
+            FarmRedemptionDelivery.status == "PENDENTE",
+        ).all()
+        for delivery in deliveries:
+            delivery.status = "CANCELADO"
         db.commit()
         return jsonify({"ok": True, "status": row.status})
     except Exception:
@@ -14393,12 +14604,9 @@ def plugin_farm_sync():
     body = request.get_json(silent=True) or {}
     steam_id = str(body.get("steam_id") or "").strip()
     stock = body.get("stock")
-    resource_status = body.get("resource_status", {})
     if not _is_valid_steamid64(steam_id) or not isinstance(stock, dict) or len(stock) > 1000:
         return jsonify({"ok": False, "error": "Payload de sincronização inválido."}), 400
-    if not isinstance(resource_status, dict) or len(resource_status) > 1000:
-        return jsonify({"ok": False, "error": "Estado de recursos invalido."}), 400
-    config = _read_farm_config().get("FazendaRecursos", {})
+    config = _read_farm_config(str(body.get("server_id") or "default")).get("FazendaRecursos", {})
     configured = {}
     for category_id, category in (config.get("Categories") or {}).items():
         if category_id != "default" and not category.get("Enabled"):
@@ -14418,29 +14626,6 @@ def plugin_farm_sync():
         if quantity < 0 or quantity > configured[resource_id]:
             return jsonify({"ok": False, "error": f"Quantidade fora da capacidade configurada para {resource_id}."}), 400
         clean_stock[resource_id] = quantity
-    clean_resource_status = {}
-    allowed_upload_status = {"none", "active", "restoring", "recovered", "pending_consumption"}
-    for key, value in resource_status.items():
-        resource_id = str(key)
-        if len(resource_id) > 100 or resource_id not in configured or not isinstance(value, dict):
-            return jsonify({"ok": False, "error": "Estado de recurso invalido."}), 400
-        uploaded = value.get("uploaded", False)
-        active = value.get("active", False)
-        upload_status = str(value.get("upload_status") or "none")
-        if type(uploaded) is not bool or type(active) is not bool or upload_status not in allowed_upload_status:
-            return jsonify({"ok": False, "error": "Estado de upload/producao invalido."}), 400
-        try:
-            item_quantity = int(value.get("item_quantity", 0))
-            uploaded_epoch = int(value.get("uploaded_at", 0))
-        except (TypeError, ValueError):
-            return jsonify({"ok": False, "error": "Metadado de upload invalido."}), 400
-        if item_quantity < 0 or item_quantity > 1000000 or uploaded_epoch < 0:
-            return jsonify({"ok": False, "error": "Metadado de upload fora do limite."}), 400
-        uploaded_at = datetime.fromtimestamp(uploaded_epoch, UTC) if uploaded_epoch else None
-        clean_resource_status[resource_id] = {
-            "uploaded": uploaded, "active": active, "upload_status": upload_status,
-            "item_quantity": item_quantity, "uploaded_at": uploaded_at,
-        }
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
@@ -14450,21 +14635,17 @@ def plugin_farm_sync():
             state = FarmPlayerState(steam_id=steam_id)
             db.add(state)
         state.stock_json = json.dumps(clean_stock, separators=(",", ":"))
-        server_id = str(body.get("server_id") or "default")[:64]
-        state.server_id = server_id
+        state.server_id = str(body.get("server_id") or "default")[:64]
         state.plugin_version = str(body.get("plugin_version") or "")[:32] or None
         state.updated_at = datetime.now(UTC)
-        for resource_id, status in clean_resource_status.items():
-            row = db.get(FarmResourceState, (steam_id, resource_id))
+        for resource_id, quantity in clean_stock.items():
+            row = db.query(FarmPlayerResource).filter_by(steam_id=steam_id, resource_id=resource_id).with_for_update().first()
             if row is None:
-                row = FarmResourceState(steam_id=steam_id, resource_id=resource_id)
+                row = FarmPlayerResource(steam_id=steam_id, resource_id=resource_id)
                 db.add(row)
-            row.uploaded = status["uploaded"]
-            row.active = status["active"]
-            row.upload_status = status["upload_status"]
-            row.item_quantity = status["item_quantity"]
-            row.uploaded_at = status["uploaded_at"]
-            row.server_id = server_id
+            row.stock = quantity
+            row.server_id = state.server_id
+            row.plugin_version = state.plugin_version
             row.updated_at = state.updated_at
         db.commit()
         return jsonify({"ok": True, "synced_at": state.updated_at.isoformat()})
@@ -14472,6 +14653,82 @@ def plugin_farm_sync():
         db.rollback()
         log.exception("farm_sync_failed")
         return jsonify({"ok": False, "error": "Falha ao sincronizar estoque."}), 500
+    finally:
+        _release_db_session(db)
+
+
+@app.route("/api/plugin/farm/uploads/sync", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("600 per minute")
+def plugin_farm_upload_sync():
+    body = request.get_json(silent=True) or {}
+    steam_id = str(body.get("steam_id") or "").strip()
+    upload_id = str(body.get("upload_id") or "").strip()
+    resource_id = str(body.get("resource_id") or "").strip()
+    status = str(body.get("status") or "active").strip().lower()
+    blob_encoded = body.get("blob_base64")
+    if (not _is_valid_steamid64(steam_id) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,180}", upload_id)
+            or not isinstance(blob_encoded, str) or len(blob_encoded) > 11_184_812):
+        return jsonify({"ok": False, "error": "Upload de recurso inválido."}), 400
+    if status not in {"active", "recovered", "rolled_back"}:
+        return jsonify({"ok": False, "error": "Status de upload inválido."}), 400
+    config = _read_farm_config(str(body.get("server_id") or "default")).get("FazendaRecursos", {})
+    resources = {}
+    for category_id, category in (config.get("Categories") or {}).items():
+        if category_id != "default" and not category.get("Enabled"):
+            continue
+        for resource in category.get("Resources", []):
+            if resource.get("Enabled") and resource.get("Id"):
+                resources[str(resource["Id"])] = str(resource.get("Name") or resource["Id"])
+    if resource_id not in resources or len(resource_id) > 100:
+        return jsonify({"ok": False, "error": "Recurso não está habilitado na Fazenda."}), 400
+    try:
+        item_blob = base64.b64decode(blob_encoded, validate=True)
+    except (ValueError, base64.binascii.Error):
+        return jsonify({"ok": False, "error": "Blob de item inválido."}), 400
+    if not item_blob or len(item_blob) > 8 * 1024 * 1024:
+        return jsonify({"ok": False, "error": "Tamanho do item fora do limite."}), 413
+    uploaded_epoch = body.get("uploaded_at")
+    try:
+        uploaded_at = datetime.fromtimestamp(max(0, int(uploaded_epoch)), UTC) if uploaded_epoch else datetime.now(UTC)
+    except (TypeError, ValueError, OSError):
+        return jsonify({"ok": False, "error": "Data de upload inválida."}), 400
+    try:
+        quantity = int(body.get("item_quantity", 1))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Quantidade de itens inválida."}), 400
+    if quantity < 1 or quantity > 100_000:
+        return jsonify({"ok": False, "error": "Quantidade de itens fora do limite."}), 400
+
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
+    try:
+        row = db.query(FarmUploadedResource).filter_by(steam_id=steam_id, upload_id=upload_id).with_for_update().first()
+        if row:
+            if row.item_blob != item_blob or row.resource_id != resource_id:
+                db.rollback()
+                return jsonify({"ok": False, "error": "ID de upload já existe com outros dados."}), 409
+            row.status = status
+            row.server_id = str(body.get("server_id") or "default")[:64]
+        else:
+            row = FarmUploadedResource(
+                steam_id=steam_id, upload_id=upload_id, resource_id=resource_id,
+                resource_name=resources[resource_id],
+                item_class=str(body.get("item_class") or "")[:255],
+                display_name=str(body.get("display_name") or "")[:160],
+                item_quantity=quantity, blob_size=len(item_blob), status=status,
+                server_id=str(body.get("server_id") or "default")[:64],
+                uploaded_at=uploaded_at, item_blob=item_blob,
+            )
+            db.add(row)
+        db.commit()
+        return jsonify({"ok": True, "upload_id": upload_id, "stored_bytes": len(item_blob),
+                        "status": row.status})
+    except Exception:
+        db.rollback()
+        log.exception("farm_upload_sync_failed")
+        return jsonify({"ok": False, "error": "Falha ao salvar o upload da Fazenda."}), 500
     finally:
         _release_db_session(db)
 
@@ -14552,7 +14809,28 @@ def plugin_farm_redemption_result(redemption_id: str):
 @admin_required
 @limiter.limit("30 per minute")
 def admin_get_farm_config():
-    return jsonify({"ok": True, "config": _read_farm_config()})
+    share_key = str(request.args.get("share_key") or "default").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", share_key):
+        return jsonify({"ok": False, "error": "FarmShareKey invalida."}), 400
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponivel."}), 503
+    try:
+        row = db.get(FarmServerConfig, share_key)
+        config = json.loads(row.config_json) if row else _farm_default_config()
+        config.setdefault("FazendaRecursos", {})["FarmShareKey"] = share_key
+        configs = db.query(FarmServerConfig.share_key).order_by(FarmServerConfig.share_key).all()
+        servers = db.query(FarmResourceCatalog.server_id).distinct().order_by(FarmResourceCatalog.server_id).all()
+        server_count = len(servers)
+        return jsonify({"ok": True, "config": config, "share_key": share_key,
+                        "share_keys": [r[0] for r in configs], "server_count": server_count,
+                        "max_configs": min(4, server_count),
+                        "source": "mysql" if row else "default", "revision": row.revision if row else None})
+    except (ValueError, TypeError):
+        log.exception("farm_config_read_failed")
+        return jsonify({"ok": False, "error": "Configuracao mestre invalida no MySQL."}), 500
+    finally:
+        _release_db_session(db)
 
 
 @app.route("/api/admin/farm/config", methods=["PUT"])
@@ -14562,17 +14840,41 @@ def admin_put_farm_config():
     payload, error = _validate_farm_config(request.get_json(silent=True))
     if error:
         return jsonify({"ok": False, "error": error}), 400
+    root = payload["FazendaRecursos"]
+    share_key = root["FarmShareKey"]
+    # ServerId identifies an installed plugin instance and is preserved locally by that plugin.
+    root["ServerId"] = "default"
+    serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    revision = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Banco temporariamente indisponivel."}), 503
     try:
-        _DATA_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = _FAZENDA_CONFIG_FILE.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(_FAZENDA_CONFIG_FILE)
-    except OSError as exc:
+        row = db.get(FarmServerConfig, share_key)
+        if row is None:
+            count = db.query(FarmServerConfig).count()
+            server_count = db.query(FarmResourceCatalog.server_id).distinct().count()
+            limit = min(4, server_count)
+            if count >= limit:
+                db.rollback()
+                return jsonify({"ok": False, "error": f"Limite de {limit} configuracoes/chaves atingido, conforme servidores registrados (maximo absoluto: 4)."}), 409
+            row = FarmServerConfig(share_key=share_key, config_json=serialized, revision=revision,
+                                   updated_at=datetime.now(UTC))
+            db.add(row)
+        else:
+            row.config_json = serialized
+            row.revision = revision
+            row.updated_at = datetime.now(UTC)
+        db.commit()
+    except Exception:
+        db.rollback()
         log.exception("farm_config_save_failed")
-        return jsonify({"ok": False, "error": "Não foi possível salvar a configuração da Fazenda.", "detail": str(exc)[:200]}), 500
-    _log("farm_config_saved", admin=_steam_id_from_session())
-    return jsonify({"ok": True, "config": payload})
-
+        return jsonify({"ok": False, "error": "Nao foi possivel salvar a configuracao mestre da Fazenda no MySQL."}), 500
+    finally:
+        _release_db_session(db)
+    _log("farm_config_saved", admin=_steam_id_from_session(), share_key=share_key, revision=revision)
+    return jsonify({"ok": True, "config": payload, "source": "mysql", "revision": revision,
+                    "message": "Configuracao mestre salva no MySQL; plugins com esta FarmShareKey aplicarao os valores locais."})
 
 @app.route("/api/player/points", methods=["GET"])
 @login_required
@@ -18991,6 +19293,3 @@ if __name__ == "__main__":
                 exc,
             )
         raise
-
-
-

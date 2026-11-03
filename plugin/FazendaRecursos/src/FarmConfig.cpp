@@ -1,4 +1,4 @@
-﻿#include "FarmConfig.h"
+#include "FarmConfig.h"
 
 namespace FazendaRecursos {
 namespace {
@@ -15,7 +15,7 @@ nlohmann::json DefaultOmegaResources() {
         resources.push_back({
             {"Id", id}, {"Name", name}, {"ItemClass", item_class},
             {"InputClass", item_class}, {"InputQuantity", 1},
-            {"OutputQuantity", 1}, {"IntervalSeconds", 3600},
+            {"OutputQuantity", 1}, {"IntervalSeconds", 3600}, {"StackSize", 25},
             {"Capacity", 200}, {"Enabled", true}
         });
     }
@@ -45,9 +45,21 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     for (const auto& row : omega["Resources"])
         if (row.is_object() && row.contains("Id") && row["Id"].is_string())
             known.insert(row["Id"].get<std::string>());
-    for (const auto& resource : DefaultOmegaResources()) {
-        const auto id = resource["Id"].get<std::string>();
-        if (!known.contains(id)) { omega["Resources"].push_back(resource); changed = true; }
+    if (!FRJsonBool(root, "ManagedByWeb", false)) {
+        for (const auto& resource : DefaultOmegaResources()) {
+            const auto id = resource["Id"].get<std::string>();
+            if (!known.contains(id)) { omega["Resources"].push_back(resource); changed = true; }
+        }
+    }
+    for (auto category = categories.begin(); category != categories.end(); ++category) {
+        if (!category.value().is_object() || !category.value().contains("Resources") ||
+            !category.value()["Resources"].is_array()) continue;
+        for (auto& resource : category.value()["Resources"]) {
+            if (resource.is_object() && !resource.contains("StackSize")) {
+                resource["StackSize"] = 25;
+                changed = true;
+            }
+        }
     }
     if (!root.contains("SyncIntervalSeconds")) { root["SyncIntervalSeconds"] = 60; changed = true; }
     if (!root.contains("ServerId")) { root["ServerId"] = "default"; changed = true; }
@@ -94,8 +106,59 @@ void FarmConfig::Reload() {
     initial_capacity_ = candidate.initial_capacity_;
     sync_interval_seconds_ = candidate.sync_interval_seconds_;
     server_id_ = std::move(candidate.server_id_);
+    share_key_ = std::move(candidate.share_key_);
     admin_groups_ = std::move(candidate.admin_groups_);
     resources_ = std::move(candidate.resources_);
+}
+
+bool FarmConfig::ApplyRemoteConfig(const nlohmann::json& config) {
+    if (!config.is_object() || !config.contains("FazendaRecursos") ||
+        !config["FazendaRecursos"].is_object()) return false;
+    const auto remote_share = FRJsonString(config["FazendaRecursos"], "FarmShareKey", "default");
+    if (remote_share != ShareKey()) return false;
+    auto mirror = config;
+    mirror["FazendaRecursos"]["ServerId"] = ServerId();
+    mirror["FazendaRecursos"]["ManagedByWeb"] = true;
+    const std::string path = ArkApi::Tools::GetCurrentDir() +
+        "/ArkApi/Plugins/FazendaRecursos/config.json";
+    std::string previous;
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in) previous.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    const auto temp_path = std::filesystem::path(path).wstring() + L".sync.tmp";
+    {
+        std::ofstream out(temp_path, std::ios::binary | std::ios::trunc);
+        if (!out) return false;
+        const auto serialized = mirror.dump(2);
+        out.write(serialized.data(), static_cast<std::streamsize>(serialized.size()));
+        out.flush();
+        if (!out) return false;
+    }
+    if (!MoveFileExW(temp_path.c_str(), std::filesystem::path(path).wstring().c_str(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        std::error_code ec;
+        std::filesystem::remove(temp_path, ec);
+        return false;
+    }
+    try {
+        Reload();
+        Log::GetLog()->info("Fazenda: config.json sincronizado com a configuração mestre do site (server={})",
+            ServerId());
+        return true;
+    } catch (const std::exception& e) {
+        if (!previous.empty()) {
+            const auto restore_path = std::filesystem::path(path).wstring() + L".restore.tmp";
+            std::ofstream restore(restore_path, std::ios::binary | std::ios::trunc);
+            restore.write(previous.data(), static_cast<std::streamsize>(previous.size()));
+            restore.flush();
+            restore.close();
+            MoveFileExW(restore_path.c_str(), std::filesystem::path(path).wstring().c_str(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+        }
+        Log::GetLog()->error("Fazenda: configuração mestre rejeitada; config.json anterior restaurado ({})", e.what());
+        return false;
+    }
 }
 
 void FarmConfig::Load() {
@@ -118,6 +181,8 @@ void FarmConfig::Load() {
     sync_interval_seconds_ = std::clamp(FRJsonInt(root_, "SyncIntervalSeconds", 60), 30, 600);
     server_id_ = FRJsonString(root_, "ServerId", "default");
     if (server_id_.empty() || server_id_.size() > 64) server_id_ = "default";
+    share_key_ = FRJsonString(root_, "FarmShareKey", "default");
+    if (share_key_.empty() || share_key_.size() > 64) share_key_ = "default";
     preview_lifetime_seconds_ = std::clamp(FRJsonInt(root_, "PreviewLifetimeSeconds", 120), 15, 600);
     messages_ = root_.value("Messages", nlohmann::json::object());
     admin_groups_.clear();
@@ -145,8 +210,11 @@ void FarmConfig::Load() {
             r.item_class = FRJsonString(row, "ItemClass");
             r.input_class = FRJsonString(row, "InputClass");
             r.input_quantity = std::max(1, FRJsonInt(row, "InputQuantity", 1));
+            if (r.input_quantity != 1)
+                throw std::runtime_error("InputQuantity deve ser 1 para uploads da Fazenda");
             r.output_quantity = std::max(1, FRJsonInt(row, "OutputQuantity", 1));
             r.interval_seconds = std::max(1, FRJsonInt(row, "IntervalSeconds", 3600));
+            r.stack_size = std::clamp(FRJsonInt(row, "StackSize", 25), 1, 1000000);
             r.capacity = std::max(1, FRJsonInt(row, "Capacity", initial_capacity_));
             r.enabled = category_enabled && FRJsonBool(row, "Enabled", false);
             if (r.id.empty() || r.item_class.empty()) {
@@ -161,6 +229,7 @@ void FarmConfig::Load() {
 }
 
 std::string FarmConfig::Message(const std::string& key, const std::string& fallback) const {
+    std::lock_guard<std::mutex> lock(resources_mutex_);
     std::string value = fallback;
     if (messages_.contains(key) && messages_[key].is_string()) value = messages_[key].get<std::string>();
     const std::pair<const char*, const char*> repairs[] = {
@@ -192,5 +261,9 @@ std::string FarmConfig::ServerId() const {
     std::lock_guard<std::mutex> lock(resources_mutex_);
     return server_id_;
 }
-}
 
+std::string FarmConfig::ShareKey() const {
+    std::lock_guard<std::mutex> lock(resources_mutex_);
+    return share_key_;
+}
+}

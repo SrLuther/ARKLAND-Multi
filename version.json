@@ -1,10 +1,11 @@
 {
-    "version": "1.11.28",
-    "date": "2026-11-02",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.28/ARKLAND-Multi-Setup-v1.11.28.exe",
+    "version": "1.11.29",
+    "date": "2026-11-03",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.29/ARKLAND-Multi-Setup-v1.11.29.exe",
     "changelog": [
-        "Server Manager: botão dedicado para instalar/atualizar a Fazenda por servidor.",
-        "Atualizar plugins por servidor agora inclui FazendaRecursos.",
-        "Instalação nova da Fazenda inclui DLL 0.1.8 e configuração Omega padrão; configurações existentes são preservadas."
+        "Fazenda: nova build 0.1.13 contabiliza lotes completos e estoque numerico nas tabelas MySQL proprias; producao usa a quantidade e intervalo configurados por recurso.",
+        "Fazenda: resgates criam o item pela Blueprint configurada e entregam a quantidade agendada agrupada conforme StackSize; o site mostra reservas, saldo e historico.",
+        "App: o instalador inclui FazendaRecursos e dependencias atuais; configuracao existente e preservada e configuracoes novas recebem identificadores do servidor.",
+        "Plugins incluidos: CustomShop 1.10.52, CustomDinoDeliver 1.10.16, ArkPlayer 1.0.2, ArkEventHunt 0.5.5, EngramLevel 0.1.2 e FazendaRecursos 0.1.13."
     ]
 }

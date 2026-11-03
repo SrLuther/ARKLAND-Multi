@@ -20,6 +20,7 @@ from ..shop_integration import (
     install_customdino_to_server,
     install_customshop_to_server,
     install_engramlevel_to_server,
+    install_fazendarecursos_to_server,
 )
 from ..ui_constants import (
     _CARD_BG,
@@ -38,7 +39,7 @@ _PLUGINS = _ARKAPI / "Plugins"
 
 # Plugins ARKLAND com versão sincronizada ao app (instalação embutida)
 _ARKLAND_PLUGINS = frozenset({
-    "CustomShop", "CustomDinoDeliver", "ArkPlayer", "ArkEventHunt", "EngramLevel",
+    "CustomShop", "CustomDinoDeliver", "ArkPlayer", "ArkEventHunt", "EngramLevel", "FazendaRecursos",
 })
 
 # ── Definição dos plugins oficiais ───────────────────────────────────────────
@@ -139,6 +140,18 @@ _OFFICIAL_PLUGINS = [
                       "Instale só com o mapa parado. Tire bAutoUnlockAllEngrams do Game.ini.",
         "url":        "",
         "detect":     lambda d: (d / _PLUGINS / "EngramLevel" / "EngramLevel.dll").is_file(),
+        "install_to": lambda d: d / _PLUGINS,
+    },
+
+    {
+        "name":       "FazendaRecursos",
+        "version":    expected_plugin_version("FazendaRecursos"),
+        "author":     "ARKLAND",
+        "tag":        "Plugin - fazenda de recursos",
+        "tag_color":  "#246b4b",
+        "desc":       "Producao de recursos configurados e resgate pela Minha Area.",
+        "url":        "",
+        "detect":     lambda d: (d / _PLUGINS / "FazendaRecursos" / "FazendaRecursos.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
 ]
@@ -318,6 +331,11 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
                     elif name == "EngramLevel":
                         copied, notes = install_engramlevel_to_server(
                             srv.install_dir, overwrite_dlls=True,
+                        )
+                    elif name == "FazendaRecursos":
+                        copied, notes = install_fazendarecursos_to_server(
+                            srv.install_dir, overwrite_dlls=True,
+                            server_id=str(getattr(srv, "id", "default") or "default"),
                         )
                     else:
                         copied, notes = install_arkplayer_to_server(

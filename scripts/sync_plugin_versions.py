@@ -23,6 +23,7 @@ PLUGIN_DIRS: dict[str, Path] = {
     "arkplayer": ROOT / "plugin" / "ArkPlayer",
     "arkeventhunt": ROOT / "plugin" / "ArkEventHunt",
     "engramlevel": ROOT / "plugin" / "EngramLevel",
+    "fazendarecursos": ROOT / "plugin" / "FazendaRecursos",
 }
 ALL_PLUGINS = (
     ROOT / "plugin" / "CustomShop",
@@ -30,6 +31,7 @@ ALL_PLUGINS = (
     ROOT / "plugin" / "ArkPlayer",
     ROOT / "plugin" / "ArkEventHunt",
     ROOT / "plugin" / "EngramLevel",
+    ROOT / "plugin" / "FazendaRecursos",
 )
 
 _SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")

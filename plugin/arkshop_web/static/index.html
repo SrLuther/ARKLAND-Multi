@@ -10637,13 +10637,15 @@
             <div id="myarea-farm-redemption-status" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:var(--text2);"></div>
           </div>
           <div class="card hidden" id="myarea-farm-admin-card">
-            <div class="card-header"><div class="card-title">Configuração da Fazenda (admin)</div></div>
-            <p style="font-size:12px;color:var(--text2);">Edite categorias, recursos e parâmetros no formato usado por FazendaRecursos. A categoria <code>default</code> permanece ativa; <code>omega</code> pode ser ligada ou desligada. Esta configuração fica salva na Web Store; o plugin ainda precisa buscar essas alterações para aplicá-las no servidor.</p>
-            <textarea id="myarea-farm-config" rows="18" spellcheck="false" style="width:100%;font:12px/1.5 monospace;resize:vertical;"></textarea>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-              <button type="button" class="btn btn-primary btn-sm" onclick="saveMyFarmConfig()">Salvar configuração</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarmConfig()">Recarregar do servidor</button>
-              <span id="myarea-farm-config-status" style="font-size:12px;color:var(--text2);"></span>
+            <div class="card-header"><div class="card-title">Configuração mestre da Fazenda</div></div>
+            <p style="font-size:12px;color:var(--text2);">Este JSON é a configuração mestre no MySQL. O plugin do servidor sincroniza os valores e atualiza seu <code>config.json</code>; catálogo, produção e stacks usam a revisão aplicada pelo servidor.</p>
+            <label for="myarea-farm-share-key" style="display:block;margin:10px 0 6px;font-size:12px;">Chave da Fazenda (configuração compartilhada; máximo de 4)</label><div style="display:flex;gap:8px;max-width:480px;"><select id="myarea-farm-share-key" style="flex:1;" onchange="loadMyFarmConfig()"><option value="default">default</option></select><input id="myarea-farm-share-key-new" maxlength="64" placeholder="Nova chave" style="width:140px;"><button type="button" class="btn btn-ghost btn-sm" onclick="selectNewFarmShareKey()">Nova</button></div><div id="myarea-farm-config-capacity" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
+            <label for="myarea-farm-config" style="display:block;margin:10px 0 6px;font-size:12px;">Configuração e Blueprints aceitas</label>
+            <textarea id="myarea-farm-config" rows="18" spellcheck="false" style="width:100%;font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical;"></textarea>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="saveMyFarmConfig()">Salvar configuração mestre</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarmConfig()">Recarregar do MySQL</button>
+              <span id="myarea-farm-config-status" role="status" aria-live="polite" style="font-size:12px;color:var(--text2);"></span>
             </div>
           </div>
         </section>
@@ -17250,33 +17252,52 @@ function setMyAreaTab(tab) {
   });
   if (selected === "farm") {
     loadMyFarm();
-    if (_auth?.is_admin) loadMyFarmConfig();
   }
+}
+
+function formatFarmInterval(rawSeconds) {
+  let seconds = Math.max(1, Math.floor(Number(rawSeconds) || 1));
+  const parts = [];
+  for (const [size, label] of [[86400, "d"], [3600, "h"], [60, "min"], [1, "s"]]) {
+    const count = Math.floor(seconds / size);
+    if (count) { parts.push(`${count} ${label}`); seconds %= size; }
+  }
+  return parts.join(" ") || "1 s";
 }
 
 async function loadMyFarm() {
   const host = document.getElementById("myarea-farm-overview");
   if (!host) return;
-  if (_auth?.is_admin) document.getElementById("myarea-farm-admin-card")?.classList.remove("hidden");
+  if (_auth?.is_admin) {
+    document.getElementById("myarea-farm-admin-card")?.classList.remove("hidden");
+    await loadMyFarmConfig();
+  }
   try {
-    const response = await fetch(API + "/api/player/farm", { credentials: "same-origin" });
+    const selectedShareKey = String(window._farmShareKey || "");
+    const shareQuery = selectedShareKey ? "?share_key=" + encodeURIComponent(selectedShareKey) : "";
+    const response = await fetch(API + "/api/player/farm" + shareQuery, { credentials: "same-origin" });
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível consultar sua Fazenda.");
+    const shareKeys = data.share_keys || [data.share_key || "default"];
+    window._farmShareKey = data.share_key || shareKeys[0] || "default";
     const license = data.license_active
       ? `<span class="badge badge-item">Ativa${data.license?.expires_at ? ` até ${escHtml(data.license.expires_at)}` : ""}</span>`
       : `<span class="badge">Sem licença ativa</span>`;
     const resources = data.resources || [];
+    const uploads = data.uploads || [];
+    const catalogFromMysql = Boolean(data.catalog_from_mysql);
     const integrationReady = Boolean(data.integration_ready && data.stock_available);
-    const redemptionEnabled = Boolean(data.redemption_enabled);
     const orders = data.orders || [];
     host.innerHTML = `
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"><strong>Licença keyfarm:</strong> ${license}</div>
+      ${shareKeys.length > 1 ? `<label style="display:flex;gap:8px;align-items:center;margin:8px 0 12px;font-size:12px;">Estoque compartilhado (FarmShareKey)<select aria-label="Grupo de estoque da Fazenda" onchange="window._farmShareKey=this.value;loadMyFarm()">${shareKeys.map(key => `<option value="${escHtml(key)}" ${key === window._farmShareKey ? "selected" : ""}>${escHtml(key)}</option>`).join("")}</select></label>` : `<p style="font-size:11px;color:var(--text2);">Grupo de estoque: ${escHtml(window._farmShareKey)}</p>`}
       <h3 style="font-size:13px;margin:12px 0 8px;">Estoque e resgates</h3>
       ${data.last_sync_at ? `<p style="font-size:11px;color:var(--text2);">Última sincronização: ${escHtml(fmtDate(data.last_sync_at))}</p>` : ""}
-      ${resources.length ? `<div style="display:grid;gap:8px;">${resources.map(r => `<div style="display:grid;grid-template-columns:minmax(140px,1fr) auto minmax(90px,120px) auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:10px;"><div><strong>${escHtml(r.name)}</strong><div style="font-size:11px;color:var(--text2);">${escHtml(r.category)} · capacidade ${Number(r.capacity || 200)}</div><div style="font-size:10px;color:var(--text2);">${r.upload_status === "recovered" ? "Item recuperado - producao pausada" : r.seed_uploaded && r.farm_active ? "Upload recebido - producao ativa" : r.seed_uploaded ? "Upload recebido - aguardando producao" : "Aguardando upload do recurso"}</div></div><div style="min-width:105px;text-align:right;"><strong>${integrationReady ? Number(r.available || 0) : "—"}</strong><div style="font-size:10px;color:var(--text2);">${Number(r.reserved || 0)} reservado(s)</div></div><input aria-label="Quantidade de ${escHtml(r.name)} para resgatar" type="number" min="1" max="${integrationReady ? Number(r.available || 0) : 0}" value="1" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || !redemptionEnabled || Number(r.available || 0) < 1 ? "disabled" : ""} style="width:100%;"><button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || !redemptionEnabled || Number(r.available || 0) < 1 ? "disabled" : ""}>Selecionar</button></div>`).join("")}</div>` : `<p>Nenhum recurso foi configurado ainda.</p>`}
-      ${orders.length ? `<h3 style="font-size:13px;margin:16px 0 8px;">Seus pedidos recentes</h3><div style="display:grid;gap:6px;">${orders.map(o => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);"><span>${escHtml(o.amount)} × ${escHtml(o.resource_name)}</span><span style="display:flex;gap:8px;align-items:center;"><span class="badge">${escHtml(o.status)}</span>${o.status === "PENDENTE" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="cancelFarmRedemption('${escHtml(o.id)}')">Cancelar</button>` : ""}</span></div>`).join("")}</div>` : ""}
+      ${resources.length ? `${!catalogFromMysql ? `<p style="font-size:11px;color:var(--warning);">O catálogo MySQL ainda não foi publicado pelo plugin; taxas abaixo são apenas a configuração local de referência.</p>` : ""}<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="text-align:left;color:var(--text2);"><th style="padding:8px;border-bottom:1px solid var(--border);">Chave</th><th style="padding:8px;border-bottom:1px solid var(--border);">Recurso</th><th style="padding:8px;border-bottom:1px solid var(--border);">Produção por ciclo</th><th style="padding:8px;border-bottom:1px solid var(--border);">Intervalo</th><th style="padding:8px;border-bottom:1px solid var(--border);">Stack</th><th style="padding:8px;border-bottom:1px solid var(--border);">Disponível</th><th style="padding:8px;border-bottom:1px solid var(--border);">Estado</th></tr></thead><tbody>${resources.map(r => `<tr><td style="padding:8px;border-bottom:1px solid var(--border);">${escHtml(r.share_key || window._farmShareKey)}</td><td style="padding:8px;border-bottom:1px solid var(--border);"><strong>${escHtml(r.name)}</strong><div style="font-size:10px;color:var(--text2);">${escHtml(r.category)} · capacidade ${Number(r.capacity || 200)}</div></td><td style="padding:8px;border-bottom:1px solid var(--border);">${Number(r.output_quantity || 1)} por ciclo</td><td style="padding:8px;border-bottom:1px solid var(--border);">${formatFarmInterval(r.interval_seconds)}</td><td style="padding:8px;border-bottom:1px solid var(--border);">${Number(r.stack_size || 25)}</td><td style="padding:8px;border-bottom:1px solid var(--border);">${integrationReady ? Number(r.available || 0) : "—"} <small style="color:var(--text2);">(${Number(r.reserved || 0)} reservado(s))</small></td><td style="padding:8px;border-bottom:1px solid var(--border);">${r.enabled ? "Habilitado" : "Indisponível"}</td></tr>`).join("")}</tbody></table></div><div style="display:grid;gap:8px;margin-top:12px;">${resources.filter(r => r.enabled).map(r => `<div style="display:grid;grid-template-columns:minmax(140px,1fr) minmax(90px,120px) auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:10px;"><strong>${escHtml(r.name)}</strong><input aria-label="Quantidade de ${escHtml(r.name)} para resgatar" type="number" min="1" max="${integrationReady ? Number(r.available || 0) : 0}" value="1" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || Number(r.available || 0) < 1 ? "disabled" : ""} style="width:100%;"><button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || Number(r.available || 0) < 1 ? "disabled" : ""}>Agendar retirada</button></div>`).join("")}</div>` : `<p>Nenhum recurso foi configurado ainda.</p>`}
+      ${uploads.length ? `<h3 style="font-size:13px;margin:16px 0 8px;">Itens enviados à Fazenda</h3><div style="display:grid;gap:6px;">${uploads.map(u => { const status = u.status === "active" ? "Recebido · produção ativa" : u.status === "recovered" ? "Retirado da Fazenda" : "Cancelado"; return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);"><span><strong>${escHtml(u.display_name || u.resource_name)}</strong><span style="display:block;font-size:11px;color:var(--text2);">${escHtml(u.resource_name)} · ${Number(u.item_quantity || 1)} unidade(s)${u.uploaded_at ? ` · ${escHtml(fmtDate(u.uploaded_at))}` : ""}</span></span><span class="badge">${status}</span></div>`; }).join("")}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum item enviado à Fazenda foi sincronizado com a Web Store ainda.</p>`}
+      ${orders.length ? `<h3 style="font-size:13px;margin:16px 0 8px;">Histórico de retiradas</h3><div style="display:grid;gap:6px;">${orders.map(o => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);"><span>${escHtml(o.amount)} × ${escHtml(o.resource_name)}<small style="display:block;color:var(--text2);">Solicitado: ${escHtml(fmtDate(o.created_at))}${o.completed_at ? ` · Entregue: ${escHtml(fmtDate(o.completed_at))}` : ""}${Number(o.delivered_amount || 0) ? ` · ${Number(o.delivered_amount)} entregue(s)` : ""}</small></span><span style="display:flex;gap:8px;align-items:center;"><span class="badge">${escHtml(o.status)}</span>${o.status === "PENDENTE" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="cancelFarmRedemption('${escHtml(o.id)}')">Cancelar</button>` : ""}</span></div>`).join("")}</div>` : ""}
       <div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:12px;">
-        ${integrationReady ? (redemptionEnabled ? "Estoque sincronizado. A seleção reserva a quantidade; a entrega só acontece quando você usar /fazresgatar no jogo." : "Sincronização ativa. Upload e produção aparecem aqui; o saldo cresce conforme a taxa configurada. Resgates ainda não estão habilitados nesta versão.") : "A Web Store ainda não recebeu uma sincronização recente do plugin. O estado de upload e o estoque aparecem quando o servidor sincronizar."}
+        ${integrationReady ? "Estoque sincronizado. A seleção reserva a quantidade; a entrega só acontece quando você usar /fazresgatar no jogo." : "A Web Store ainda não recebeu uma sincronização recente do plugin. Estoque e seleção de resgate ficam indisponíveis até o servidor enviar dados reais."}
       </div>`;
   } catch (error) {
     host.innerHTML = `<span style="color:var(--danger);">${escHtml(error.message || "Falha ao carregar Fazenda.")}</span>`;
@@ -17295,7 +17316,7 @@ async function requestFarmRedemption(resourceId) {
   try {
     const response = await fetch(API + "/api/player/farm/redemptions", {
       method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resource_id: resourceId, amount }),
+      body: JSON.stringify({ resource_id: resourceId, amount, share_key: window._farmShareKey || "default" }),
     });
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível salvar o resgate.");
@@ -17321,45 +17342,59 @@ async function cancelFarmRedemption(redemptionId) {
   }
 }
 
+function selectNewFarmShareKey() {
+  const input = document.getElementById("myarea-farm-share-key-new");
+  const value = String(input?.value || "").trim();
+  if (!/^[A-Za-z0-9_.-]{1,64}$/.test(value)) return toast("Chave inválida.", "error");
+  const select = document.getElementById("myarea-farm-share-key");
+  if (select && !Array.from(select.options).some(option => option.value === value)) {
+    if (select.options.length >= 4) return toast("Máximo de quatro chaves/configurações.", "error");
+    select.add(new Option(value, value));
+  }
+  if (select) select.value = value;
+  if (input) input.value = "";
+  loadMyFarmConfig();
+}
+
 async function loadMyFarmConfig() {
   if (!_auth?.is_admin) return;
   const editor = document.getElementById("myarea-farm-config");
+  const keySelect = document.getElementById("myarea-farm-share-key");
   const status = document.getElementById("myarea-farm-config-status");
   if (!editor) return;
   try {
-    const response = await fetch(API + "/api/admin/farm/config", { credentials: "same-origin" });
+    const key = String(keySelect?.value || "default").trim() || "default";
+    const response = await fetch(API + "/api/admin/farm/config?share_key=" + encodeURIComponent(key), { credentials: "same-origin" });
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao ler configuração.");
+    const keys = Array.from(new Set([...(data.share_keys || (key === "default" ? ["default"] : [])), key]));
+    if (keySelect) { keySelect.replaceChildren(...keys.map(item => new Option(item, item))); keySelect.value = key; }
+    const cap = document.getElementById("myarea-farm-config-capacity");
+    if (cap) cap.textContent = `${data.server_count || 0} servidor(es) · até ${data.max_configs ?? 0} configurações (máximo absoluto 4). Chaves iguais compartilham catálogo, produção e estoque.`;
     editor.value = JSON.stringify(data.config, null, 2);
-    if (status) status.textContent = "Configuração carregada da Web Store.";
-  } catch (error) {
-    if (status) status.textContent = error.message || "Falha ao ler configuração.";
-  }
+    if (status) status.textContent = data.source === "mysql" ? `MySQL · chave ${key} · revisão ${String(data.revision || "").slice(0, 12)}.` : `Nova configuração para a chave ${key}; salvará no MySQL.`;
+  } catch (error) { if (status) status.textContent = error.message || "Falha ao ler configuração."; }
 }
 
 async function saveMyFarmConfig() {
   if (!_auth?.is_admin) return toast("Apenas administradores podem alterar esta configuração.", "error");
   const editor = document.getElementById("myarea-farm-config");
+  const keySelect = document.getElementById("myarea-farm-share-key");
   const status = document.getElementById("myarea-farm-config-status");
   let config;
-  try { config = JSON.parse(editor?.value || ""); }
-  catch (_) { if (status) status.textContent = "JSON inválido. Corrija a sintaxe antes de salvar."; return; }
+  try { config = JSON.parse(editor?.value || ""); } catch (_) { if (status) status.textContent = "JSON inválido."; return; }
+  if (!config?.FazendaRecursos || typeof config.FazendaRecursos !== "object") { if (status) status.textContent = "A configuração precisa conter FazendaRecursos."; return; }
+  config.FazendaRecursos.FarmShareKey = String(keySelect?.value || "default");
   try {
-    const response = await fetch(API + "/api/admin/farm/config", {
-      method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
-    });
+    const response = await fetch(API + "/api/admin/farm/config", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
     const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao salvar configuração.");
+    if (!response.ok || !data.ok) throw new Error(data.error || "Falha ao salvar.");
     editor.value = JSON.stringify(data.config, null, 2);
-    if (status) status.textContent = "Configuração validada e salva na Web Store.";
+    if (status) status.textContent = `Configuração da chave ${data.config.FazendaRecursos.FarmShareKey} salva no MySQL · revisão ${String(data.revision || "").slice(0, 12)}.`;
     toast("Configuração da Fazenda salva.", "success");
     await loadMyFarm();
-  } catch (error) {
-    if (status) status.textContent = error.message || "Falha ao salvar configuração.";
-    toast(error.message || "Falha ao salvar configuração.", "error");
-  }
+  } catch (error) { if (status) status.textContent = error.message || "Falha ao salvar."; toast(error.message || "Falha ao salvar.", "error"); }
 }
-
 function donationStatusBadge(s, credited) {
   if (credited) return `<span class="badge badge-item">Creditado</span>`;
   const status = (s || "").toUpperCase();

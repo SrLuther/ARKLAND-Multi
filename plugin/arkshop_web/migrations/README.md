@@ -1,5 +1,17 @@
 # Migrations — arkshop_web
 
+## Fazenda no MySQL
+
+Arquivo: `fazenda_mysql.sql`
+
+Cria as tabelas dedicadas para configuração mestre do site, catálogo efetivo, uploads, produção, estoque, pedidos, stacks e alocações de entrega. Plugin e Web Store usam as mesmas tabelas no mesmo MySQL. Nenhuma tabela `player_cloud_*` é compartilhada com a Fazenda. O backend também cria tabelas mapeadas via SQLAlchemy no startup; esta migração provisiona as colunas adicionais necessárias ao fluxo real.
+
+```bash
+mysql -u USER -p arkland_shop < plugin/arkshop_web/migrations/fazenda_mysql.sql
+```
+
+O plugin liga ao MySQL com as credenciais do bloco `Database` do `CustomShop/config.json`, no mesmo padrão da Nuvem. A Web Store consulta e grava essas mesmas tabelas via seu backend; credenciais nunca são enviadas ao navegador.
+
 ## ItensAlfa licenses (Delta → Exótico)
 
 Arquivo: `itensalfa_licenses.sql`

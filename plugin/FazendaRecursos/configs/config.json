@@ -1,4 +1,4 @@
-﻿{
+{
   "FazendaRecursos": {
     "Enabled": true,
     "LicenseGroup": "keyfarm",
@@ -6,6 +6,7 @@
     "TickSeconds": 60,
     "SyncIntervalSeconds": 60,
     "ServerId": "default",
+    "FarmShareKey": "default",
     "PreviewLifetimeSeconds": 120,
     "DiagnosticAdminGroups": ["Admins"],
     "Categories": {
@@ -28,6 +29,7 @@
             "InputQuantity": 1,
             "OutputQuantity": 1,
             "IntervalSeconds": 3600,
+            "StackSize": 25,
             "Capacity": 200,
             "Enabled": true
           },
@@ -39,6 +41,7 @@
             "InputQuantity": 1,
             "OutputQuantity": 1,
             "IntervalSeconds": 3600,
+            "StackSize": 25,
             "Capacity": 200,
             "Enabled": true
           },
@@ -50,6 +53,7 @@
             "InputQuantity": 1,
             "OutputQuantity": 1,
             "IntervalSeconds": 3600,
+            "StackSize": 25,
             "Capacity": 200,
             "Enabled": true
           }
@@ -69,4 +73,3 @@
     }
   }
 }
-

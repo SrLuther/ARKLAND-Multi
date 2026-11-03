@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.52] - 2026-11-03
+
+### Fix
+
+- Declares the MariaDB mysql_fetch_lengths API used by cloud inventory blob reads so the current CustomShop source builds against its bundled client headers.
+
 ## [1.10.51] - 2026-11-01
 
 ### Improvement

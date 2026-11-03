@@ -12,6 +12,7 @@ struct PlayerFarm {
     struct UploadedResource {
         std::string id;
         std::string resource_id;
+        std::string resource_name;
         std::string item_class;
         std::string display_name;
         std::string blob_file;
@@ -52,6 +53,7 @@ public:
     bool RemoveResource(const std::string& steam_id, const std::string& upload_id);
     bool BeginResourceRestore(const std::string& steam_id, const std::string& upload_id);
     bool FinishResourceRestore(const std::string& steam_id, const std::string& upload_id, bool restored);
+    bool RollbackResourceUpload(const std::string& steam_id, const std::string& upload_id);
     std::string SoulDirectory(const std::string& steam_id) const;
     std::string ResourceDirectory(const std::string& steam_id) const;
 private:

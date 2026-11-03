@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-02 21:59:06 -->
-<!-- Total de versões: 521 | Primeira: 1.11.28 -->
+<!-- Gerado: 2026-11-03 02:26:01 -->
+<!-- Total de versões: 522 | Primeira: 1.11.29 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.29] - 2026-11-03
+
+### Other
+
+- Fazenda: nova build 0.1.13 contabiliza lotes completos e estoque numerico nas tabelas MySQL proprias; producao usa a quantidade e intervalo configurados por recurso.
+- Fazenda: resgates criam o item pela Blueprint configurada e entregam a quantidade agendada agrupada conforme StackSize; o site mostra reservas, saldo e historico.
+- App: o instalador inclui FazendaRecursos e dependencias atuais; configuracao existente e preservada e configuracoes novas recebem identificadores do servidor.
+- Plugins incluidos: CustomShop 1.10.52, CustomDinoDeliver 1.10.16, ArkPlayer 1.0.2, ArkEventHunt 0.5.5, EngramLevel 0.1.2 e FazendaRecursos 0.1.13.
 
 ## [1.11.28] - 2026-11-02
 

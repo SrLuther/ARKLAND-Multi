@@ -102,6 +102,7 @@ int __stdcall mysql_real_query(
 MYSQL_RES* __stdcall mysql_store_result(MYSQL* mysql);
 
 MYSQL_ROW  __stdcall mysql_fetch_row(MYSQL_RES* result);
+unsigned long* __stdcall mysql_fetch_lengths(MYSQL_RES* result);
 
 void __stdcall mysql_free_result(MYSQL_RES* result);
 

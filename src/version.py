@@ -4,13 +4,24 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.28"
-BUILD_DATE: str = "2026-11-02"
+APP_VERSION: str = "1.11.29"
+BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
-CHANGELOG: list[dict] = [    {
+CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.29",
+        "date": "2026-11-03",
+        "changes": [
+            "Fazenda: nova build 0.1.13 contabiliza lotes completos e estoque numerico nas tabelas MySQL proprias; producao usa a quantidade e intervalo configurados por recurso.",
+            "Fazenda: resgates criam o item pela Blueprint configurada e entregam a quantidade agendada agrupada conforme StackSize; o site mostra reservas, saldo e historico.",
+            "App: o instalador inclui FazendaRecursos e dependencias atuais; configuracao existente e preservada e configuracoes novas recebem identificadores do servidor.",
+            "Plugins incluidos: CustomShop 1.10.52, CustomDinoDeliver 1.10.16, ArkPlayer 1.0.2, ArkEventHunt 0.5.5, EngramLevel 0.1.2 e FazendaRecursos 0.1.13.",
+        ],
+    },
+    {
         "version": "1.11.28",
         "date": "2026-11-02",
         "changes": [
