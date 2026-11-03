@@ -4,13 +4,21 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.29"
+APP_VERSION: str = "1.11.30"
 BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.30",
+        "date": "2026-11-03",
+        "changes": [
+            "Fazenda: corrigida a conexao com MariaDB local sem TLS; o cliente MySQL agora usa as mesmas opcoes SSL do CustomShop.",
+            "Plugin FazendaRecursos atualizado para 0.1.14.",
+        ],
+    },
     {
         "version": "1.11.29",
         "date": "2026-11-03",

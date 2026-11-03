@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 02:26:01 -->
-<!-- Total de versões: 522 | Primeira: 1.11.29 -->
+<!-- Gerado: 2026-11-03 07:54:10 -->
+<!-- Total de versões: 523 | Primeira: 1.11.30 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.30] - 2026-11-03
+
+### Other
+
+- Fazenda: corrigida a conexao com MariaDB local sem TLS; o cliente MySQL agora usa as mesmas opcoes SSL do CustomShop.
+- Plugin FazendaRecursos atualizado para 0.1.14.
 
 ## [1.11.29] - 2026-11-03
 

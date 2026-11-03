@@ -1,5 +1,8 @@
 ﻿# FazendaRecursos - changelog
 
+## [0.1.14]
+- Desativa a exigencia de TLS no cliente MySQL para compatibilidade com MariaDB local, igual ao fluxo ja usado pelo CustomShop.
+
 ## [0.1.13]
 - Persiste saldo e ciclos completos no MySQL; cada ciclo acrescenta exatamente a quantidade configurada por recurso.
 - Resgate instancia a Blueprint configurada e entrega a quantidade agendada em stacks limitados por StackSize.

@@ -37,6 +37,12 @@ public:
         if (!db_) return Fail("mysql_init falhou");
         my_bool reconnect = 1;
         mysql_options(db_, MYSQL_OPT_RECONNECT, &reconnect);
+        // The local MariaDB instance used by ARKLAND does not offer TLS.
+        // Match CustomShop's client options so the farm can use the same DB.
+        my_bool ssl_enforce = 0;
+        mysql_options(db_, static_cast<enum_mysql_set_option>(38), &ssl_enforce);
+        my_bool ssl_verify = 0;
+        mysql_options(db_, static_cast<enum_mysql_set_option>(21), &ssl_verify);
         if (!mysql_real_connect(db_, s.host.c_str(), s.user.c_str(), s.password.c_str(),
                 s.database.c_str(), s.port, nullptr, 0)) {
             const std::string err = mysql_error(db_) ? mysql_error(db_) : "falha de conexão";
