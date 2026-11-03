@@ -1,4 +1,4 @@
-#include "FarmSync.h"
+﻿#include "FarmSync.h"
 #include "FarmConfig.h"
 #include "FarmState.h"
 
@@ -48,7 +48,7 @@ private:
         const std::string path = ArkApi::Tools::GetCurrentDir() +
             "/ArkApi/Plugins/CustomShop/config.json";
         std::ifstream in(path);
-        if (!in) throw std::runtime_error("CustomShop/config.json não encontrado");
+        if (!in) throw std::runtime_error("CustomShop/config.json nÃ£o encontrado");
         nlohmann::json config;
         in >> config;
         const auto settings = config.value("Settings", nlohmann::json::object());
@@ -56,7 +56,7 @@ private:
         result.url = FRJsonString(settings, "WebApiUrl");
         result.api_key = FRJsonString(settings, "WebApiKey");
         if (result.url.empty() || result.api_key.empty())
-            throw std::runtime_error("Settings.WebApiUrl/WebApiKey não configurados no CustomShop");
+            throw std::runtime_error("Settings.WebApiUrl/WebApiKey nÃ£o configurados no CustomShop");
         return result;
     }
 
@@ -89,7 +89,7 @@ private:
         const auto wpath = Utf8Wide(path);
         if (wpath.empty()) return false;
         const std::wstring full_path = base_path + wpath;
-        HINTERNET session = WinHttpOpen(L"FazendaRecursos/0.1.5",
+        HINTERNET session = WinHttpOpen(L"FazendaRecursos/0.1.8",
             WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME,
             WINHTTP_NO_PROXY_BYPASS, 0);
         if (!session) return false;
@@ -130,19 +130,34 @@ private:
             auto& state = FazendaRecursos::FarmState::Get();
             state.Accrue(steam_id, definitions, now);
             if (!state.Save())
-                Log::GetLog()->warn("Fazenda sync: estado não persistido antes do envio (steam={})", steam_id);
+                Log::GetLog()->warn("Fazenda sync: estado nÃ£o persistido antes do envio (steam={})", steam_id);
             const auto player = state.GetPlayer(steam_id);
             nlohmann::json stock = nlohmann::json::object();
+            nlohmann::json resource_status = nlohmann::json::object();
             for (const auto& def : definitions) {
                 if (!def.enabled) continue;
                 const auto it = player.resources.find(def.id);
                 stock[def.id] = it == player.resources.end() ? int64_t{0} : it->second.stock;
+                const bool active = it != player.resources.end() && it->second.active;
+                const FazendaRecursos::PlayerFarm::UploadedResource* latest = nullptr;
+                for (const auto& [upload_id, upload] : player.uploaded_resources) {
+                    if (upload.resource_id != def.id) continue;
+                    if (!latest || upload.uploaded_utc > latest->uploaded_utc) latest = &upload;
+                }
+                const std::string upload_status = latest ? latest->status : "none";
+                const bool uploaded = latest && upload_status != "recovered" && upload_status != "rolled_back";
+                resource_status[def.id] = nlohmann::json{
+                    {"uploaded", uploaded}, {"active", active},
+                    {"upload_status", upload_status},
+                    {"uploaded_at", latest ? latest->uploaded_utc : int64_t{0}},
+                    {"item_quantity", latest ? latest->item_quantity : int64_t{0}}
+                };
             }
             const auto body = nlohmann::json{
                 {"steam_id", steam_id}, {"server_id", config.ServerId()},
-                {"plugin_version", "0.1.5-test"}, {"stock", std::move(stock)}
-            }.dump();
-            DWORD status = 0;
+                {"plugin_version", "0.1.8-test"}, {"stock", std::move(stock)},
+                {"resource_status", std::move(resource_status)}
+            }.dump();            DWORD status = 0;
             if (!PostJson(settings, "/api/plugin/farm/sync", body, status)) {
                 Log::GetLog()->warn("Fazenda sync: transporte HTTP falhou (steam={})", steam_id);
                 return false;
@@ -151,11 +166,13 @@ private:
                 Log::GetLog()->warn("Fazenda sync: API respondeu HTTP {} (steam={})", status, steam_id);
                 return false;
             }
-            Log::GetLog()->info("Fazenda sync: estoque enviado à WebStore (steam={}, recursos={}, http={})",
-                steam_id, stock.size(), status);
+            const auto synced_resource_count = static_cast<size_t>(std::count_if(
+                definitions.begin(), definitions.end(), [](const auto& def) { return def.enabled; }));
+            Log::GetLog()->info("Fazenda sync: estoque e status enviados Ã  WebStore (steam={}, recursos={}, http={})",
+                steam_id, synced_resource_count, status);
             return true;
         } catch (const std::exception& e) {
-            Log::GetLog()->warn("Fazenda sync: não foi possível sincronizar steam={} ({})", steam_id, e.what());
+            Log::GetLog()->warn("Fazenda sync: nÃ£o foi possÃ­vel sincronizar steam={} ({})", steam_id, e.what());
             return false;
         }
     }
@@ -201,3 +218,4 @@ void Start() { SyncWorker::Get().Start(); }
 void Stop() { SyncWorker::Get().Stop(); }
 void QueuePlayer(const std::string& steam_id) { SyncWorker::Get().Queue(steam_id); }
 }
+

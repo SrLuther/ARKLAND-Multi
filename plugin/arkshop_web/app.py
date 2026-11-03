@@ -690,6 +690,20 @@ class FarmPlayerState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
+class FarmResourceState(Base):
+    __tablename__ = "farm_resource_states"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    resource_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    uploaded: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=False)
+    upload_status: Mapped[str] = mapped_column(String(32), default="none")
+    item_quantity: Mapped[int] = mapped_column(Integer, default=0)
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    server_id: Mapped[str] = mapped_column(String(64), default="default")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
 class FarmRedemption(Base):
     __tablename__ = "farm_redemptions"
 
@@ -14216,6 +14230,12 @@ def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | No
     return payload, None
 
 
+def _farm_redemptions_enabled() -> bool:
+    # Prevent reserving fake numeric stock until the game plugin has an end-to-end
+    # blob clone and delivery implementation for farm redemptions.
+    return False
+
+
 @app.route("/api/player/farm", methods=["GET"])
 @login_required
 @limiter.limit("60 per minute")
@@ -14241,6 +14261,8 @@ def player_farm_overview():
     try:
         state = db.get(FarmPlayerState, steam_id)
         stock = json.loads(state.stock_json) if state and state.stock_json else {}
+        farm_states = {row.resource_id: row for row in db.query(FarmResourceState).filter(
+            FarmResourceState.steam_id == steam_id).all()}
         synced_at = state.updated_at.isoformat() if state and state.updated_at else None
         fresh = bool(state and state.updated_at and (datetime.now(UTC) - state.updated_at.replace(tzinfo=UTC if state.updated_at.tzinfo is None else state.updated_at.tzinfo)).total_seconds() <= 300)
         rows = db.query(FarmRedemption).filter(FarmRedemption.steam_id == steam_id).order_by(FarmRedemption.created_at.desc()).limit(20).all()
@@ -14259,16 +14281,26 @@ def player_farm_overview():
         resource["stock"] = raw_stock
         resource["reserved"] = int(reserved.get(resource["id"], 0))
         resource["available"] = max(0, raw_stock - resource["reserved"])
+        farm_state = farm_states.get(str(resource["id"]))
+        resource["seed_uploaded"] = bool(farm_state and farm_state.uploaded)
+        resource["farm_active"] = bool(farm_state and farm_state.active)
+        resource["upload_status"] = farm_state.upload_status if farm_state else "none"
+        resource["uploaded_at"] = farm_state.uploaded_at.isoformat() if farm_state and farm_state.uploaded_at else None
+        resource["uploaded_quantity"] = max(0, int(farm_state.item_quantity or 0)) if farm_state else 0
+    # /fazresgatar does not claim and deliver orders in the current plugin yet.
+    redemption_enabled = _farm_redemptions_enabled()
     return jsonify({"ok": True, "license_active": bool(keyfarm), "license": keyfarm,
                     "resources": resources, "orders": orders, "stock_available": fresh,
                     "orders_available": fresh, "integration_ready": fresh,
-                    "last_sync_at": synced_at})
+                    "redemption_enabled": redemption_enabled, "last_sync_at": synced_at})
 
 
 @app.route("/api/player/farm/redemptions", methods=["POST"])
 @login_required
 @limiter.limit("10 per hour")
 def player_create_farm_redemption():
+    if not _farm_redemptions_enabled():
+        return jsonify({"ok": False, "error": "O resgate no jogo ainda não está habilitado; uploads e produção podem ser consultados na Minha Área."}), 409
     steam_id = str(_steam_id_from_session())
     body = request.get_json(silent=True) or {}
     resource_id = str(body.get("resource_id") or "").strip()
@@ -14361,8 +14393,11 @@ def plugin_farm_sync():
     body = request.get_json(silent=True) or {}
     steam_id = str(body.get("steam_id") or "").strip()
     stock = body.get("stock")
+    resource_status = body.get("resource_status", {})
     if not _is_valid_steamid64(steam_id) or not isinstance(stock, dict) or len(stock) > 1000:
         return jsonify({"ok": False, "error": "Payload de sincronização inválido."}), 400
+    if not isinstance(resource_status, dict) or len(resource_status) > 1000:
+        return jsonify({"ok": False, "error": "Estado de recursos invalido."}), 400
     config = _read_farm_config().get("FazendaRecursos", {})
     configured = {}
     for category_id, category in (config.get("Categories") or {}).items():
@@ -14383,6 +14418,29 @@ def plugin_farm_sync():
         if quantity < 0 or quantity > configured[resource_id]:
             return jsonify({"ok": False, "error": f"Quantidade fora da capacidade configurada para {resource_id}."}), 400
         clean_stock[resource_id] = quantity
+    clean_resource_status = {}
+    allowed_upload_status = {"none", "active", "restoring", "recovered", "pending_consumption"}
+    for key, value in resource_status.items():
+        resource_id = str(key)
+        if len(resource_id) > 100 or resource_id not in configured or not isinstance(value, dict):
+            return jsonify({"ok": False, "error": "Estado de recurso invalido."}), 400
+        uploaded = value.get("uploaded", False)
+        active = value.get("active", False)
+        upload_status = str(value.get("upload_status") or "none")
+        if type(uploaded) is not bool or type(active) is not bool or upload_status not in allowed_upload_status:
+            return jsonify({"ok": False, "error": "Estado de upload/producao invalido."}), 400
+        try:
+            item_quantity = int(value.get("item_quantity", 0))
+            uploaded_epoch = int(value.get("uploaded_at", 0))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Metadado de upload invalido."}), 400
+        if item_quantity < 0 or item_quantity > 1000000 or uploaded_epoch < 0:
+            return jsonify({"ok": False, "error": "Metadado de upload fora do limite."}), 400
+        uploaded_at = datetime.fromtimestamp(uploaded_epoch, UTC) if uploaded_epoch else None
+        clean_resource_status[resource_id] = {
+            "uploaded": uploaded, "active": active, "upload_status": upload_status,
+            "item_quantity": item_quantity, "uploaded_at": uploaded_at,
+        }
     db = _get_db_session()
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
@@ -14392,9 +14450,22 @@ def plugin_farm_sync():
             state = FarmPlayerState(steam_id=steam_id)
             db.add(state)
         state.stock_json = json.dumps(clean_stock, separators=(",", ":"))
-        state.server_id = str(body.get("server_id") or "default")[:64]
+        server_id = str(body.get("server_id") or "default")[:64]
+        state.server_id = server_id
         state.plugin_version = str(body.get("plugin_version") or "")[:32] or None
         state.updated_at = datetime.now(UTC)
+        for resource_id, status in clean_resource_status.items():
+            row = db.get(FarmResourceState, (steam_id, resource_id))
+            if row is None:
+                row = FarmResourceState(steam_id=steam_id, resource_id=resource_id)
+                db.add(row)
+            row.uploaded = status["uploaded"]
+            row.active = status["active"]
+            row.upload_status = status["upload_status"]
+            row.item_quantity = status["item_quantity"]
+            row.uploaded_at = status["uploaded_at"]
+            row.server_id = server_id
+            row.updated_at = state.updated_at
         db.commit()
         return jsonify({"ok": True, "synced_at": state.updated_at.isoformat()})
     except Exception:

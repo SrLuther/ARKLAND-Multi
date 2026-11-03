@@ -94,6 +94,22 @@ PlayerFarm FarmState::GetPlayer(const std::string& steam_id) {
             out.souls[soul.id] = std::move(soul);
         }
     }
+    if ((*it).contains("uploaded_resources") && (*it)["uploaded_resources"].is_object()) {
+        for (auto r = (*it)["uploaded_resources"].begin(); r != (*it)["uploaded_resources"].end(); ++r) {
+            if (!r.value().is_object()) continue;
+            PlayerFarm::UploadedResource resource;
+            resource.id = r.key();
+            resource.resource_id = r.value().value("resource_id", std::string{});
+            resource.item_class = r.value().value("item_class", std::string{});
+            resource.display_name = r.value().value("display_name", std::string{});
+            resource.blob_file = r.value().value("blob_file", std::string{});
+            resource.status = r.value().value("status", std::string("pending"));
+            resource.uploaded_utc = r.value().value("uploaded_utc", int64_t{0});
+            resource.blob_size = r.value().value("blob_size", uint64_t{0});
+            resource.item_quantity = r.value().value("item_quantity", int64_t{1});
+            out.uploaded_resources[resource.id] = std::move(resource);
+        }
+    }
     return out;
 }
 
@@ -108,6 +124,9 @@ std::vector<std::string> FarmState::PlayerIds() {
 
 std::string FarmState::SoulDirectory(const std::string& steam_id) const {
     return ArkApi::Tools::GetCurrentDir() + "/ArkApi/Plugins/FazendaRecursos/data/souls/" + steam_id;
+}
+std::string FarmState::ResourceDirectory(const std::string& steam_id) const {
+    return ArkApi::Tools::GetCurrentDir() + "/ArkApi/Plugins/FazendaRecursos/data/resources/" + steam_id;
 }
 
 bool FarmState::HasSoul(const std::string& steam_id, const std::string& species_blueprint) {
@@ -163,4 +182,105 @@ bool FarmState::RemoveSoul(const std::string& steam_id, const std::string& soul_
     (*player)["souls"][soul_id] = std::move(old);
     return false;
 }
+
+bool FarmState::HasActiveResource(const std::string& steam_id, const std::string& resource_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("resources") ||
+        !(*player)["resources"].is_object() || !(*player)["resources"].contains(resource_id)) return false;
+    return (*player)["resources"][resource_id].value("active", false);
 }
+
+bool FarmState::AddPendingResource(const std::string& steam_id, const PlayerFarm::UploadedResource& resource) {
+    if (steam_id.empty() || resource.id.empty() || resource.resource_id.empty() || resource.blob_file.empty()) return false;
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto& player = data_[steam_id];
+    if (!player.is_object()) player = nlohmann::json::object();
+    auto& uploads = player["uploaded_resources"];
+    if (!uploads.is_object()) uploads = nlohmann::json::object();
+    for (auto it = uploads.begin(); it != uploads.end(); ++it)
+        if (it.value().value("resource_id", std::string{}) == resource.resource_id &&
+            it.value().value("status", std::string{}) != "rolled_back") return false;
+    uploads[resource.id] = {
+        {"resource_id", resource.resource_id}, {"item_class", resource.item_class},
+        {"display_name", resource.display_name}, {"blob_file", resource.blob_file},
+        {"status", "pending_consumption"}, {"uploaded_utc", resource.uploaded_utc},
+        {"blob_size", resource.blob_size}, {"item_quantity", resource.item_quantity}
+    };
+    if (SaveLocked()) return true;
+    uploads.erase(resource.id);
+    return false;
+}
+
+bool FarmState::CommitResource(const std::string& steam_id, const std::string& resource_id,
+                              const std::string& upload_id, int64_t now) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("uploaded_resources") ||
+        !(*player)["uploaded_resources"].contains(upload_id)) return false;
+    auto& upload = (*player)["uploaded_resources"][upload_id];
+    const auto old_status = upload.value("status", std::string("pending_consumption"));
+    const bool had_resource = player->contains("resources") && (*player)["resources"].is_object() &&
+                              (*player)["resources"].contains(resource_id);
+    nlohmann::json old_resource = had_resource ? (*player)["resources"][resource_id] : nlohmann::json{};
+    auto& state = (*player)["resources"][resource_id];
+    if (!state.is_object()) state = nlohmann::json::object();
+    state["stock"] = std::max<int64_t>(0, state.value("stock", int64_t{0}));
+    state["last_accrual_utc"] = now;
+    state["active"] = true;
+    upload["status"] = "active";
+    if (SaveLocked()) return true;
+    upload["status"] = old_status;
+    if (had_resource) (*player)["resources"][resource_id] = std::move(old_resource);
+    else (*player)["resources"].erase(resource_id);
+    return false;
+}
+
+bool FarmState::RemoveResource(const std::string& steam_id, const std::string& upload_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("uploaded_resources") ||
+        !(*player)["uploaded_resources"].contains(upload_id)) return false;
+    auto old = (*player)["uploaded_resources"][upload_id];
+    (*player)["uploaded_resources"].erase(upload_id);
+    if (SaveLocked()) return true;
+    (*player)["uploaded_resources"][upload_id] = std::move(old);
+    return false;
+}
+
+bool FarmState::BeginResourceRestore(const std::string& steam_id, const std::string& upload_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("uploaded_resources") ||
+        !(*player)["uploaded_resources"].contains(upload_id)) return false;
+    auto& row = (*player)["uploaded_resources"][upload_id];
+    if (row.value("status", std::string{}) != "active") return false;
+    row["status"] = "restoring";
+    if (SaveLocked()) return true;
+    row["status"] = "active";
+    return false;
+}
+
+bool FarmState::FinishResourceRestore(const std::string& steam_id, const std::string& upload_id, bool restored) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("uploaded_resources") ||
+        !(*player)["uploaded_resources"].contains(upload_id)) return false;
+    auto& row = (*player)["uploaded_resources"][upload_id];
+    if (row.value("status", std::string{}) != "restoring") return false;
+    row["status"] = restored ? "recovered" : "active";
+    if (restored) {
+        const auto resource_id = row.value("resource_id", std::string{});
+        if (!resource_id.empty() && player->contains("resources") &&
+            (*player)["resources"].is_object() && (*player)["resources"].contains(resource_id)) {
+            auto& resource = (*player)["resources"][resource_id];
+            resource["active"] = false;
+            resource["stock"] = 0;
+        }
+    }
+    if (SaveLocked()) return true;
+    row["status"] = "restoring";
+    return false;
+}
+}
+

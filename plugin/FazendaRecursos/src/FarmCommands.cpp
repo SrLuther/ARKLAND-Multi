@@ -1,22 +1,25 @@
-﻿#include "FarmCommands.h"
+#include "FarmCommands.h"
 #include "FarmConfig.h"
 #include "FarmState.h"
 #include "FarmPerms.h"
 #include "FarmSync.h"
 
 namespace {
-struct SoulPreviewEntry {
+struct FarmPreviewEntry {
     std::string item_id;
     std::string class_name;
     std::string species_blueprint;
     std::string display_name;
+    std::string resource_id;
+    int item_quantity = 1;
+    bool is_soul = false;
 };
-struct SoulPreview {
+struct FarmPreview {
     int64_t expires_utc = 0;
-    std::vector<SoulPreviewEntry> items;
+    std::vector<FarmPreviewEntry> items;
 };
 std::mutex g_preview_mutex;
-std::unordered_map<std::string, SoulPreview> g_previews;
+std::unordered_map<std::string, FarmPreview> g_previews;
 
 std::string Lower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(),
@@ -29,6 +32,10 @@ bool IsSoulCandidate(const std::string& class_name, const std::string& display_n
     const std::string lower = Lower(class_name);
     return lower.find("/game/mods/arkomega/items/souls/godsouls/primalitem_speciessoul.") != std::string::npos &&
            lower.ends_with("primalitem_speciessoul_c");
+}
+bool MatchesConfiguredClass(const std::string& actual, const std::string& configured) {
+    if (actual.empty() || configured.empty()) return false;
+    return Lower(actual).find(Lower(configured)) != std::string::npos;
 }
 std::string ItemIdText(const FItemNetID& id) {
     return std::to_string(id.ItemID1) + ":" + std::to_string(id.ItemID2);
@@ -141,26 +148,41 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
     auto* inv = character ? character->MyInventoryComponentField() : nullptr;
     if (!inv) { Say(c, "Não consegui ler seu inventário agora.", FColorList::Red); return; }
     const std::string steam = Steam(c);
-    std::vector<SoulPreviewEntry> found;
+    std::vector<FarmPreviewEntry> found;
     std::set<std::string> previewed_species;
+    std::set<std::string> previewed_resources;
+    const auto definitions = cfg.ResourcesSnapshot();
     const auto state = FazendaRecursos::FarmState::Get().GetPlayer(steam);
     for (UPrimalItem* item : inv->InventoryItemsField()) {
-        if (!item || item->GetItemQuantity() != 1) continue;
+        if (!item) continue;
         FString class_name, item_name;
         if (auto* cls = item->ClassField()) cls->GetFullName(&class_name, nullptr);
         item->GetItemName(&item_name, false, true, nullptr);
         const std::string class_text = class_name.ToString();
-        if (!IsSoulCandidate(class_text, {}, {}, {})) continue;
-        std::string species;
-        if (!GetSpeciesBlueprint(item, species)) continue;
-        const bool already_owned = std::any_of(state.souls.begin(), state.souls.end(), [&](const auto& row) {
-            return row.second.species_blueprint == species && row.second.status != "rolled_back";
-        });
-        if (already_owned || !previewed_species.insert(species).second) continue;
-        found.push_back({ItemIdText(item->ItemIDField()), class_text, species, item_name.ToString()});
+        const int quantity = std::max(1, item->GetItemQuantity());
+        if (IsSoulCandidate(class_text, {}, {}, {})) {
+            if (quantity != 1) continue;
+            std::string species;
+            if (!GetSpeciesBlueprint(item, species)) continue;
+            const bool already_owned = std::any_of(state.souls.begin(), state.souls.end(), [&](const auto& row) {
+                return row.second.species_blueprint == species && row.second.status != "rolled_back";
+            });
+            if (already_owned || !previewed_species.insert(species).second) continue;
+            found.push_back({ItemIdText(item->ItemIDField()), class_text, species,
+                item_name.ToString(), {}, quantity, true});
+            continue;
+        }
+        for (const auto& def : definitions) {
+            if (!def.enabled || !MatchesConfiguredClass(class_text, def.input_class)) continue;
+            if (quantity < def.input_quantity || state.resources.count(def.id) && state.resources.at(def.id).active ||
+                !previewed_resources.insert(def.id).second) break;
+            found.push_back({ItemIdText(item->ItemIDField()), class_text, {},
+                item_name.ToString(), def.id, quantity, false});
+            break;
+        }
     }
     if (found.empty()) {
-        Say(c, "Não encontrei Paragon Souls Omega elegíveis. Elas precisam estar no inventário, sem estar empilhadas, e cada espécie só pode ser enviada uma vez.", FColorList::Yellow);
+        Say(c, "Não encontrei recursos elegíveis para envio. O item precisa estar configurado e habilitado na Fazenda; Paragon Souls também precisam estar sem empilhar e cada espécie só pode ser enviada uma vez.", FColorList::Yellow);
         return;
     }
     const int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
@@ -169,7 +191,7 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         std::lock_guard<std::mutex> lock(g_preview_mutex);
         g_previews[steam] = {now + cfg.PreviewLifetimeSeconds(), found};
     }
-    std::string text = "Prévia de envio: " + std::to_string(found.size()) + " Paragon Soul(s). O envio consome uma unidade por espécie:";
+    std::string text = "Prévia de envio: " + std::to_string(found.size()) + " item(ns). O envio consome os itens listados e ativa a produção dos recursos:";
     const size_t shown = std::min<size_t>(found.size(), 8);
     for (size_t i = 0; i < shown; ++i) text += "\n- " + found[i].display_name;
     if (found.size() > shown) text += "\n- e mais " + std::to_string(found.size() - shown);
@@ -182,11 +204,11 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
     if (!cfg.Enabled() || !Ready()) { Say(c, "A Fazenda não está disponível neste momento.", FColorList::Red); return; }
     if (!HasLicense(c)) { Say(c, cfg.Message("NoLicense", "Licença keyfarm inativa."), FColorList::Red); return; }
     const std::string steam = Steam(c);
-    SoulPreview preview;
+    FarmPreview preview;
     {
         std::lock_guard<std::mutex> lock(g_preview_mutex);
         auto it = g_previews.find(steam);
-        if (it == g_previews.end()) { Say(c, "Não há prévia pendente. Use /fazenda para listar suas Paragons.", FColorList::Yellow); return; }
+        if (it == g_previews.end()) { Say(c, "Não há prévia pendente. Use /fazenda para listar os itens elegíveis.", FColorList::Yellow); return; }
         preview = std::move(it->second);
         g_previews.erase(it);
     }
@@ -201,17 +223,45 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
     for (const auto& entry : preview.items) {
         UPrimalItem* item = FindInventoryItem(inv, entry.item_id);
         std::string species;
-        if (!item || item->GetItemQuantity() != 1 || !GetSpeciesBlueprint(item, species) ||
-            species != entry.species_blueprint || farm.HasSoul(steam, species)) { ++skipped; continue; }
+        if (!item || item->GetItemQuantity() != entry.item_quantity) { ++skipped; continue; }
+        if (entry.is_soul && (!GetSpeciesBlueprint(item, species) || species != entry.species_blueprint ||
+            farm.HasSoul(steam, species))) { ++skipped; continue; }
+        if (!entry.is_soul && farm.HasActiveResource(steam, entry.resource_id)) { ++skipped; continue; }
         TArray<unsigned char> bytes;
         item->GetItemBytes(&bytes);
         if (bytes.Num() <= 0) { ++failed; continue; }
         const int64_t uploaded_at = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
         const std::string id = std::to_string(uploaded_at) + "-" + SafeFilename(entry.item_id);
-        const std::string filename = "soul-" + id + ".bin";
-        const std::string full_path = farm.SoulDirectory(steam) + "/" + filename;
+        const std::string filename = (entry.is_soul ? "soul-" : "resource-") + id + ".bin";
+        const std::string blob_directory = entry.is_soul ? farm.SoulDirectory(steam) : farm.ResourceDirectory(steam);
+        const std::string full_path = blob_directory + "/" + filename;
         if (!WriteSoulBlob(full_path, bytes)) { ++failed; continue; }
+        if (!entry.is_soul) {
+            FazendaRecursos::PlayerFarm::UploadedResource record;
+            record.id = id; record.resource_id = entry.resource_id;
+            record.item_class = entry.class_name; record.display_name = entry.display_name;
+            record.blob_file = filename; record.uploaded_utc = uploaded_at;
+            record.blob_size = static_cast<uint64_t>(bytes.Num()); record.item_quantity = entry.item_quantity;
+            if (!farm.AddPendingResource(steam, record)) {
+                std::error_code ec; std::filesystem::remove(full_path, ec); ++skipped; continue;
+            }
+            FItemNetID item_id = item->ItemIDField();
+            if (!inv->RemoveItem(&item_id, false, false, true, true)) {
+                farm.RemoveResource(steam, id);
+                std::error_code ec; std::filesystem::remove(full_path, ec); ++failed; continue;
+            }
+            const int64_t started_at = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+            if (!farm.CommitResource(steam, entry.resource_id, id, started_at)) {
+                ++failed;
+                Log::GetLog()->error("FazendaRecursos: recurso consumido mas commit pendente; steam={} recurso={} upload={}",
+                    steam, entry.resource_id, id);
+                continue;
+            }
+            ++uploaded;
+            continue;
+        }
         FazendaRecursos::PlayerFarm::UploadedSoul record;
         record.id = id; record.item_class = entry.class_name;
         record.species_blueprint = species; record.display_name = entry.display_name;
@@ -232,8 +282,8 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
         }
         ++uploaded;
     }
-    Say(c, "Envio concluído: " + std::to_string(uploaded) + " Paragon Soul(s) armazenada(s); " +
-        std::to_string(skipped) + " ignorada(s); " + std::to_string(failed) + " falha(s). Os arquivos originais foram preservados como blobs; esta versão ainda não gera nem entrega cópias.",
+    Say(c, "Envio concluído: " + std::to_string(uploaded) + " item(ns) armazenado(s); " +
+        std::to_string(skipped) + " ignorado(s); " + std::to_string(failed) + " falha(s). Recursos configurados iniciam produção passiva; a Fazenda ainda não clona nem entrega itens no jogo.",
         failed ? FColorList::Yellow : FColorList::Green);
     if (uploaded > 0) FazendaRecursos::FarmSync::QueuePlayer(steam);
 }
@@ -259,6 +309,51 @@ void CmdRedeem(APlayerController* pc, FString*, bool) {
     if (!HasLicense(c)) { Say(c, FazendaRecursos::FarmConfig::Get().Message("NoLicense", "Licença keyfarm inativa."), FColorList::Red); return; }
     Say(c, "Não há pedidos de resgate sincronizados para este servidor ainda. Nenhum item foi entregue.", FColorList::Yellow);
 }
+void CmdRecover(APlayerController* pc, FString*, bool) {
+    auto* c = static_cast<AShooterPlayerController*>(pc);
+    auto* character = c ? c->GetPlayerCharacter() : nullptr;
+    auto* inv = character ? character->MyInventoryComponentField() : nullptr;
+    const std::string steam = Steam(c);
+    if (!inv || steam.empty()) { Say(c, "Não consegui acessar seu inventário.", FColorList::Red); return; }
+
+    auto& farm = FazendaRecursos::FarmState::Get();
+    const auto player = farm.GetPlayer(steam);
+    int restored = 0, failed = 0, needs_review = 0;
+    for (const auto& [id, record] : player.uploaded_resources) {
+        if (record.status == "recovered" || record.status == "rolled_back") continue;
+        if (record.status != "active") { ++needs_review; continue; }
+        if (!farm.BeginResourceRestore(steam, id)) { ++needs_review; continue; }
+
+        const auto safe_name = std::filesystem::path(record.blob_file).filename().string();
+        if (safe_name.empty() || safe_name != record.blob_file) {
+            farm.FinishResourceRestore(steam, id, false); ++failed; continue;
+        }
+        const auto path = std::filesystem::path(farm.ResourceDirectory(steam)) / safe_name;
+        std::ifstream in(path, std::ios::binary);
+        std::vector<unsigned char> raw((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (raw.empty() || in.bad()) {
+            farm.FinishResourceRestore(steam, id, false); ++failed; continue;
+        }
+        TArray<unsigned char> bytes;
+        bytes.Reserve(static_cast<int>(raw.size()));
+        for (const auto byte : raw) bytes.Add(byte);
+        UPrimalItem* item = UPrimalItem::CreateFromBytes(&bytes);
+        if (!item || !inv->AddItemObject(item)) {
+            farm.FinishResourceRestore(steam, id, false); ++failed; continue;
+        }
+        if (!farm.FinishResourceRestore(steam, id, true)) {
+            ++needs_review;
+            Log::GetLog()->error("FazendaRecursos: item restaurado mas estado não salvo; conferir inventário antes de repetir /fazrecuperar; steam={} upload={}", steam, id);
+            continue;
+        }
+        ++restored;
+    }
+    if (restored > 0) FazendaRecursos::FarmSync::QueuePlayer(steam);
+    std::string message = "Recuperação: " + std::to_string(restored) + " item(ns) restaurado(s); " +
+        std::to_string(failed) + " falha(s). Os arquivos-fonte foram mantidos.";
+    if (needs_review) message += " " + std::to_string(needs_review) + " registro(s) exigem conferência; não repita sem verificar o inventário.";
+    Say(c, message, failed || needs_review ? FColorList::Yellow : FColorList::Green);
+}
 void CmdCollect(APlayerController* pc, FString*, bool) {
     auto* c = static_cast<AShooterPlayerController*>(pc);
     if (!IsAdmin(c)) { Say(c, FazendaRecursos::FarmConfig::Get().Message("NoPermission", "Comando restrito a administradores."), FColorList::Red); return; }
@@ -275,7 +370,7 @@ void CmdCollect(APlayerController* pc, FString*, bool) {
     const std::string path = export_dir + "/report.json";
     nlohmann::json report = nlohmann::json::object();
     report["generated_utc_epoch"] = stamp;
-    report["plugin_version"] = "0.1.5-test";
+    report["plugin_version"] = "0.1.8-test";
     report["serialization_note"] = "Blobs are opaque UPrimalItem::GetItemBytes output; metadata is read from live ArkServerAPI objects. No byte offsets are inferred.";
     report["map"] = "";
     if (auto* gm = ArkApi::GetApiUtils().GetShooterGameMode()) { FString map; gm->GetMapName(&map); report["map"] = map.ToString(); }
@@ -496,6 +591,7 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/fazconfirmar", &CmdConfirm);
     ArkApi::GetCommands().AddChatCommand("/fazstatus", &CmdStatus);
     ArkApi::GetCommands().AddChatCommand("/fazresgatar", &CmdRedeem);
+    ArkApi::GetCommands().AddChatCommand("/fazrecuperar", &CmdRecover);
     ArkApi::GetCommands().AddChatCommand("/fazcoletar", &CmdCollect);
 }
 void Unregister() {
@@ -504,6 +600,8 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/fazconfirmar");
     ArkApi::GetCommands().RemoveChatCommand("/fazstatus");
     ArkApi::GetCommands().RemoveChatCommand("/fazresgatar");
+    ArkApi::GetCommands().RemoveChatCommand("/fazrecuperar");
     ArkApi::GetCommands().RemoveChatCommand("/fazcoletar");
 }
 }
+

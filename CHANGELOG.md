@@ -1,16 +1,26 @@
+# Changelog
+
+<!-- Gerado: 2026-11-02 21:43:39 -->
+<!-- Total de versões: 520 | Primeira: 1.11.27 -->
+
+<!-- markdownlint-disable MD024 -->
+
+## [1.11.27] - 2026-11-02
+
+### Other
+
+- Fazenda: a sincronizacao envia estado de upload por recurso, status de producao, data e quantidade ao site.
+- Minha Area > Fazenda: identifica shards recebidos, producao ativa e itens recuperados, mesmo antes do primeiro saldo produzido.
+- Fazenda: resgates do site ficam desativados ate a entrega real dos itens estar implementada no plugin.
+
 ## [1.11.26] - 2026-11-02
+
+### Other
 
 - Fazenda: plugin 0.1.5-test sincroniza snapshots de estoque com a WebStore ao iniciar, periodicamente e após alterações.
 - Fazenda: configuração padrão e migração segura incluem Paragon Shard, Soul Shard e Chest Shard na categoria Omega.
 - Fazenda: recursos Omega aparecem no catálogo administrativo mesmo em instalações com configuração anterior vazia.
 - Limitação de teste: upload genérico, produção/clonagem e entrega no jogo continuam pendentes; os snapshots podem mostrar estoque zero.
-
-# Changelog
-
-<!-- Gerado: 2026-11-02 18:02:09 -->
-<!-- Total de versões: 518 | Primeira: 1.11.25 -->
-
-<!-- markdownlint-disable MD024 -->
 
 ## [1.11.25] - 2026-11-02
 

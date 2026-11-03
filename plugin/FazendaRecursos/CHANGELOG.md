@@ -1,21 +1,11 @@
-﻿# FazendaRecursos - changelog
+# Changelog
 
-## [0.1.4-test]
-- Implementa prévia de upload de Paragon Souls Omega em `/fazenda` e confirmação explícita por `/fazconfirmar`.
-- Identifica a espécie pelo `CustomItemData` `SpeciesSoul` e aceita apenas o Blueprint `PrimalItem_SpeciesSoul` do caminho Ark Omega confirmado no diagnóstico.
-- Exige licença `keyfarm`, item individual (sem stack) e uma Paragon por espécie; a prévia expira conforme `PreviewLifetimeSeconds`.
-- Preserva o blob opaco retornado por `GetItemBytes` por jogador e só então consome a unidade original. Registros passam por estado pendente antes do consumo para reduzir risco em falha.
-- Esta build testa o recebimento e persistência do upload; não fabrica, multiplica nem entrega itens.
+## 0.1.8-test
 
-## [0.1.3]
-- Adiciona exportacao em texto do catalogo de engramas, incluindo a classe blueprint de cada entrada.
-- Adiciona snapshot legivel e JSON dos assets que o AssetRegistry ja indexou, sem forcar busca sincrona.
-- O relatorio informa quando o modulo esta ausente, carregando ou falha ao consultar; isso evita tratar ausencia como catalogo vazio.
-- Continua sendo uma build de diagnostico: nao ativa producao, nao consome paragons e nao entrega itens.
+- Sync now sends per-resource upload status, active production, upload time, and original quantity to the Web Store.
+- The Minha ?rea Fazenda page can show whether an Omega resource upload is producing or was recovered.
 
-# v0.1.5-test
-- Adiciona sincronização assíncrona de estoque com a API da WebStore usando as credenciais do CustomShop.
-- Sincroniza ao consultar status, após upload e periodicamente, incluindo jogadores com dados persistidos.
-- Habilita Omega por padrão e inclui Paragon Shard, Soul Shard e Chest Shard (capacidade inicial 200; taxa inicial de teste 1 item/hora, ajustável na configuração).
+## 0.1.7-test
 
-\n
+- Added recovery of uploaded resource blobs to the player inventory.
+- Corrected sync logging after moving the JSON payload.

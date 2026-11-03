@@ -1,11 +1,10 @@
 {
-  "version": "1.11.26",
-  "date": "2026-11-02",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.26/ARKLAND-Multi-Setup-v1.11.26.exe",
-  "changelog": [
-    "Fazenda: plugin 0.1.5-test sincroniza snapshots de estoque com a WebStore ao iniciar, periodicamente e após alterações.",
-    "Fazenda: configuração padrão e migração segura incluem Paragon Shard, Soul Shard e Chest Shard na categoria Omega.",
-    "Fazenda: recursos Omega aparecem no catálogo administrativo mesmo em instalações com configuração anterior vazia.",
-    "Limitação de teste: upload genérico, produção/clonagem e entrega no jogo continuam pendentes; os snapshots podem mostrar estoque zero."
-  ]
+    "version": "1.11.27",
+    "date": "2026-11-02",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.27/ARKLAND-Multi-Setup-v1.11.27.exe",
+    "changelog": [
+        "Fazenda: a sincronizacao envia estado de upload por recurso, status de producao, data e quantidade ao site.",
+        "Minha Area > Fazenda: identifica shards recebidos, producao ativa e itens recuperados, mesmo antes do primeiro saldo produzido.",
+        "Fazenda: resgates do site ficam desativados ate a entrega real dos itens estar implementada no plugin."
+    ]
 }

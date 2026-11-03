@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.26"
+APP_VERSION: str = "1.11.27"
 BUILD_DATE: str = "2026-11-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.27",
+        "date": "2026-11-02",
+        "changes": [
+            "Fazenda: a sincronizacao envia estado de upload por recurso, status de producao, data e quantidade ao site.",
+            "Minha Area > Fazenda: identifica shards recebidos, producao ativa e itens recuperados, mesmo antes do primeiro saldo produzido.",
+            "Fazenda: resgates do site ficam desativados ate a entrega real dos itens estar implementada no plugin.",
+        ],
+    },
     {
         "version": "1.11.26",
         "date": "2026-11-02",
