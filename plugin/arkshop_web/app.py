@@ -14247,6 +14247,22 @@ def _farm_omega_default_resources() -> list[dict[str, Any]]:
     } for resource_id, name, asset in definitions]
 
 
+def _farm_base_default_resources() -> list[dict[str, Any]]:
+    element_class = "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C"
+    return [{
+        "Id": "element",
+        "Name": "Element",
+        "ItemClass": element_class,
+        "InputClass": element_class,
+        "InputQuantity": 1,
+        "OutputQuantity": 1,
+        "IntervalSeconds": 3600,
+        "StackSize": 100,
+        "Capacity": 200,
+        "Enabled": True,
+    }]
+
+
 def _farm_default_config() -> dict[str, Any]:
     return {"FazendaRecursos": {
         "Enabled": True,
@@ -14258,7 +14274,8 @@ def _farm_default_config() -> dict[str, Any]:
         "PreviewLifetimeSeconds": 120,
         "DiagnosticAdminGroups": ["Admins"],
         "Categories": {
-            "default": {"Enabled": True, "Required": True, "DisplayName": "Recursos do jogo base", "Resources": []},
+            "default": {"Enabled": True, "Required": True, "DisplayName": "Recursos do jogo base",
+                        "Resources": _farm_base_default_resources()},
             "omega": {"Enabled": True, "Required": False, "DisplayName": "ARK Omega",
                       "Resources": _farm_omega_default_resources()},
         },
@@ -14273,6 +14290,17 @@ def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
     categories = root.get("Categories")
     if not isinstance(categories, dict):
         return data
+    base = categories.setdefault("default", {
+        "Enabled": True, "Required": True, "DisplayName": "Recursos do jogo base", "Resources": []
+    })
+    if isinstance(base, dict):
+        base_resources = base.get("Resources")
+        if not isinstance(base_resources, list):
+            base_resources = []
+            base["Resources"] = base_resources
+        known_base = {str(row.get("Id") or "") for row in base_resources if isinstance(row, dict)}
+        base_resources.extend(resource for resource in _farm_base_default_resources()
+                              if resource["Id"] not in known_base)
     omega = categories.setdefault("omega", {
         "Enabled": True, "Required": False, "DisplayName": "ARK Omega", "Resources": []
     })
@@ -19125,11 +19153,62 @@ register_diagnostics_routes(
 
 from client_error_routes import register_client_error_routes
 
+
+def _client_error_plugin_versions() -> dict[str, Any]:
+    """Return last reported plugin versions for the player's current ARK server."""
+    steam_id = _steam_id_from_session()
+    if not steam_id or not _db_ready():
+        return {}
+    db = _db_session_factory()
+    try:
+        farm_state = db.get(FarmPlayerState, steam_id)
+        server_id = str(farm_state.server_id or "").strip() if farm_state else ""
+        if not server_id:
+            return {}
+
+        versions: dict[str, Any] = {"server_id": server_id, "plugins": {}}
+        if farm_state and farm_state.plugin_version:
+            versions["plugins"]["FazendaRecursos"] = {
+                "version": str(farm_state.plugin_version)[:32],
+                "last_seen": farm_state.updated_at.isoformat() if farm_state.updated_at else None,
+                "source": "farm_sync",
+            }
+        try:
+            rows = db.execute(text(
+                "SELECT plugin, plugin_version, created_at FROM arkland_plugin_debug "
+                "WHERE server_id=:server_id AND plugin_version<>'' "
+                "ORDER BY created_at DESC LIMIT 200"
+            ), {"server_id": server_id}).mappings().all()
+            for row in rows:
+                plugin = str(row.get("plugin") or "").strip()[:32]
+                version = str(row.get("plugin_version") or "").strip()[:32]
+                if not plugin or not version or plugin in versions["plugins"]:
+                    continue
+                last_seen = row.get("created_at")
+                versions["plugins"][plugin] = {
+                    "version": version,
+                    "last_seen": last_seen.isoformat() if hasattr(last_seen, "isoformat") else str(last_seen or ""),
+                    "source": "plugin_debug",
+                }
+        except Exception:
+            # This table is optional on older servers; keep any Farm version we have.
+            log.debug("Could not read plugin version telemetry for client error", exc_info=True)
+        return versions if versions["plugins"] else {}
+    except Exception:
+        log.debug("Could not resolve player server for client error plugin versions", exc_info=True)
+        return {}
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
 register_client_error_routes(
     app,
     admin_required=admin_required,
     limiter=limiter,
     data_dir=_DATA_DIR,
+    get_plugin_versions=_client_error_plugin_versions,
 )
 
 from discord_engagement_routes import register_discord_engagement_routes

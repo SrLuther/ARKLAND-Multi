@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.32"
+APP_VERSION: str = "1.11.33"
 BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.33",
+        "date": "2026-11-03",
+        "changes": [
+            "Diagnostico Web: detalhes de erros agora incluem as versoes mais recentes reportadas dos plugins no servidor associado ao jogador, com horario e origem do registro.",
+            "Server Manager: a lista por servidor agora mostra a versao instalada da Fazenda junto dos demais plugins.",
+            "Fazenda: adiciona Element na categoria padrao com a Blueprint base do ARK; plugin atualizado para 0.1.17.",
+        ],
+    },
     {
         "version": "1.11.32",
         "date": "2026-11-03",

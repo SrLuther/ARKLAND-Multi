@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 13:29:19 -->
-<!-- Total de versões: 525 | Primeira: 1.11.32 -->
+<!-- Gerado: 2026-11-03 18:24:30 -->
+<!-- Total de versões: 526 | Primeira: 1.11.33 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.33] - 2026-11-03
+
+### Other
+
+- Diagnostico Web: detalhes de erros agora incluem as versoes mais recentes reportadas dos plugins no servidor associado ao jogador, com horario e origem do registro.
+- Server Manager: a lista por servidor agora mostra a versao instalada da Fazenda junto dos demais plugins.
+- Fazenda: adiciona Element na categoria padrao com a Blueprint base do ARK; plugin atualizado para 0.1.17.
 
 ## [1.11.32] - 2026-11-03
 

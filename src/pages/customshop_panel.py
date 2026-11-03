@@ -2344,12 +2344,16 @@ def _build_webstore_tab(
             _engram_status, engram_txt = describe_plugin_version(
                 srv.install_dir, "EngramLevel", short_label="EngramLevel",
             )
+            _farm_status, farm_txt = describe_plugin_version(
+                srv.install_dir, "FazendaRecursos", short_label="Fazenda",
+            )
             _ver_fg = "#55cc77" if (
                 _shop_status == "match"
                 and _dino_status in ("match", "not_installed")
                 and _player_status in ("match", "not_installed")
                 and _hunt_status in ("match", "not_installed")
                 and _engram_status in ("match", "not_installed")
+                and _farm_status in ("match", "not_installed")
             ) else (
                 "#ccaa55" if (
                     _shop_status in ("outdated", "missing")
@@ -2357,13 +2361,14 @@ def _build_webstore_tab(
                     or _player_status in ("outdated", "missing")
                     or _hunt_status in ("outdated", "missing")
                     or _engram_status in ("outdated", "missing")
+                    or _farm_status in ("outdated", "missing")
                 ) else "gray55"
             )
             tk.Label(
                 ver_row,
                 text=(
                     f"{shop_txt}  |  {dino_txt}  |  {player_txt}  |  "
-                    f"{hunt_txt}  |  {engram_txt}"
+                    f"{hunt_txt}  |  {engram_txt}  |  {farm_txt}"
                 ),
                 bg="#1a1a30",
                 fg=_ver_fg,

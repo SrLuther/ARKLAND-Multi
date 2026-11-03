@@ -2,6 +2,16 @@
 
 namespace FazendaRecursos {
 namespace {
+nlohmann::json DefaultBaseResources() {
+    return nlohmann::json::array({{
+        {"Id", "element"}, {"Name", "Element"},
+        {"ItemClass", "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C"},
+        {"InputClass", "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C"},
+        {"InputQuantity", 1}, {"OutputQuantity", 1}, {"IntervalSeconds", 3600},
+        {"StackSize", 100}, {"Capacity", 200}, {"Enabled", true}
+    }});
+}
+
 nlohmann::json DefaultOmegaResources() {
     const std::array<std::tuple<const char*, const char*, const char*>, 3> rows = {{
         {"omega_paragon_shard", "Paragon Shard", "PrimalItem_ParagonShard"},
@@ -28,6 +38,29 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     auto& categories = root["Categories"];
     if (!categories.is_object())
         throw std::runtime_error("Categories precisa ser objeto");
+    if (!categories.contains("default")) {
+        categories["default"] = {{"Enabled", true}, {"Required", true},
+            {"DisplayName", "Recursos do jogo base"}, {"Resources", nlohmann::json::array()}};
+        changed = true;
+    }
+    auto& base = categories["default"];
+    if (!base.is_object()) throw std::runtime_error("Categories.default precisa ser objeto");
+    if (!base.contains("Enabled")) { base["Enabled"] = true; changed = true; }
+    if (!base.contains("Required")) { base["Required"] = true; changed = true; }
+    if (!base.contains("DisplayName")) { base["DisplayName"] = "Recursos do jogo base"; changed = true; }
+    if (!base.contains("Resources")) { base["Resources"] = nlohmann::json::array(); changed = true; }
+    if (!base["Resources"].is_array())
+        throw std::runtime_error("Categories.default.Resources precisa ser array");
+    std::set<std::string> known_base;
+    for (const auto& row : base["Resources"])
+        if (row.is_object() && row.contains("Id") && row["Id"].is_string())
+            known_base.insert(row["Id"].get<std::string>());
+    if (!FRJsonBool(root, "ManagedByWeb", false)) {
+        for (const auto& resource : DefaultBaseResources()) {
+            const auto id = resource["Id"].get<std::string>();
+            if (!known_base.contains(id)) { base["Resources"].push_back(resource); changed = true; }
+        }
+    }
     if (!categories.contains("omega")) {
         categories["omega"] = {{"Enabled", true}, {"Required", false},
             {"DisplayName", "ARK Omega"}, {"Resources", nlohmann::json::array()}};

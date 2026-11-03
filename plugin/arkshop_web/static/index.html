@@ -30464,7 +30464,9 @@ function viewClientErrorDetail(index){const event=_clientErrorLog.events[index];
 function renderClientErrorDetail(event){
   const box=document.getElementById("client-error-detail");if(!event||!box)return;
   box.style.display="block";box.dataset.eventId=event.id||"";
-  const context=JSON.stringify(event.context||{},null,2);
+  const detailContext={...(event.context||{})};
+  if(event.plugin_versions&&typeof event.plugin_versions==="object")detailContext.plugin_versions=event.plugin_versions;
+  const context=JSON.stringify(detailContext,null,2);
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><strong>Detalhes da ocorr\u00eancia \u00b7 ${escHtml(event.id||"")}</strong><button class="btn btn-ghost btn-sm" onclick="document.getElementById('client-error-detail').style.display='none';_clientErrorLog.openDetail=null">Fechar</button></div><p><b>Data UTC:</b> ${escHtml(event.timestamp||"")} \u00b7 <b>Fingerprint:</b> <code>${escHtml(event.fingerprint||"")}</code></p><p><b>Mensagem:</b> ${escHtml(event.message||"")}</p><p><b>Arquivo / origem:</b> <code>${escHtml(event.source||"n\u00e3o informado")}</code></p><p><b>User-Agent:</b> ${escHtml(event.user_agent||"n\u00e3o informado")}</p><p><b>Contexto t\u00e9cnico:</b></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(context)}</pre><details><summary>Stack trace</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escHtml(event.stack||"Stack n\u00e3o dispon\u00edvel")}</pre></details>`;
 }
 

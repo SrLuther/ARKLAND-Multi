@@ -14,7 +14,20 @@
         "Enabled": true,
         "Required": true,
         "DisplayName": "Recursos do jogo base",
-        "Resources": []
+        "Resources": [
+          {
+            "Id": "element",
+            "Name": "Element",
+            "ItemClass": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+            "InputClass": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          }
+        ]
       },
       "omega": {
         "Enabled": true,

@@ -64,6 +64,7 @@ def _prune_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def register_client_error_routes(
     app: Flask, *, admin_required: Callable, limiter: Any, data_dir: Path,
+    get_plugin_versions: Callable[[], dict[str, Any]] | None = None,
 ) -> None:
     store = Path(data_dir) / "client-errors.jsonl"
 
@@ -76,6 +77,13 @@ def register_client_error_routes(
         if not isinstance(body, dict) or not isinstance(body.get("events"), list):
             return jsonify({"ok": False, "error": "invalid_payload"}), 400
         accepted = []
+        try:
+            plugin_versions = get_plugin_versions() if get_plugin_versions else {}
+        except Exception:
+            app.logger.debug("Could not enrich client error with plugin versions", exc_info=True)
+            plugin_versions = {}
+        if not isinstance(plugin_versions, dict):
+            plugin_versions = {}
         for raw in body["events"][:_MAX_EVENTS]:
             if not isinstance(raw, dict):
                 continue
@@ -107,6 +115,7 @@ def register_client_error_routes(
                 "stack": _clean(raw.get("stack"), 5000),
                 "user_agent": _clean(raw.get("user_agent"), 500),
                 "context": safe_context,
+                "plugin_versions": plugin_versions,
                 "occurrences": occurrences,
             }
             event["fingerprint"] = hashlib.sha256(

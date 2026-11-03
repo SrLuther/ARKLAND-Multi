@@ -1,11 +1,8 @@
 {
-    "version": "1.11.32",
+    "version": "1.11.33",
     "date": "2026-11-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.32/ARKLAND-Multi-Setup-v1.11.32.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.33/ARKLAND-Multi-Setup-v1.11.33.exe",
     "changelog": [
-        "Fazenda: configuração mestre independente por servidor, selecionada por ServerId; FarmShareKey controla somente o compartilhamento do estoque.",
-        "Fazenda: corrigido HTTP 500 em /api/player/farm causado por variável share_key lida antes da definição.",
-        "WebStore: novo farm_server_configs criado automaticamente; configurações legadas por chave continuam disponíveis para migração.",
-        "Plugin FazendaRecursos atualizado para 0.1.16."
+        "Diagnostico Web: detalhes de erros agora incluem as versoes mais recentes reportadas dos plugins no servidor associado ao jogador, com horario e origem do registro."
     ]
 }

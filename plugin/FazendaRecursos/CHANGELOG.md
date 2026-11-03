@@ -1,5 +1,8 @@
 ﻿# FazendaRecursos - changelog
 
+## [0.1.17]
+- Adiciona Element na categoria padrao usando a Blueprint base do ARK; quantidade, intervalo, capacidade e stack ficam configuraveis por recurso.
+
 ## [0.1.16]
 - Sincroniza configuração mestre por ServerId, mantendo FarmShareKey apenas para compartilhar estoque entre servidores.
 
