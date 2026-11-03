@@ -49,6 +49,8 @@ _PLUGIN_INFO_ARKEVENTHUNT = _PROJECT_ROOT / "plugin" / "ArkEventHunt" / "configs
 _DEFAULT_ARKEVENTHUNT_CONFIG = _PROJECT_ROOT / "plugin" / "ArkEventHunt" / "configs" / "config.json"
 _DEV_ENGRAMLEVEL_BIN_DIR = _PROJECT_ROOT / "plugin" / "EngramLevel" / "bin"
 _DEFAULT_ENGRAMLEVEL_CONFIG = _PROJECT_ROOT / "plugin" / "EngramLevel" / "configs" / "config.json"
+_DEV_FAZENDA_BIN_DIR = _PROJECT_ROOT / "plugin" / "FazendaRecursos" / "bin"
+_DEFAULT_FAZENDA_CONFIG = _PROJECT_ROOT / "plugin" / "FazendaRecursos" / "configs" / "config.json"
 DEFAULT_SHOP_PUBLIC_URL = "https://arkland.com.br"
 DEFAULT_SHOP_PORT = 27199
 DEFAULT_REMOTE_SHOP_HOST = "192.168.15.51"
@@ -61,6 +63,7 @@ _CUSTOMDINO_DLLS = ("CustomDinoDeliver.dll",)
 _ARKPLAYER_DLLS = ("ArkPlayer.dll",)
 _ARKEVENTHUNT_DLLS = ("ArkEventHunt.dll",)
 _ENGRAMLEVEL_DLLS = ("EngramLevel.dll",)
+_FAZENDA_DLLS = ("FazendaRecursos.dll",)
 
 logger = logging.getLogger(__name__)
 
@@ -2107,6 +2110,13 @@ def engramlevel_plugin_dir(install_dir: str) -> Path:
     )
 
 
+def fazendarecursos_plugin_dir(install_dir: str) -> Path:
+    return (
+        Path(install_dir) / "ShooterGame" / "Binaries" / "Win64" / "ArkApi"
+        / "Plugins" / "FazendaRecursos"
+    )
+
+
 def permissions_plugin_dir(install_dir: str) -> Path:
     return (
         Path(install_dir)
@@ -2798,6 +2808,104 @@ def install_engramlevel_to_server(
             )
 
     return ok, notes
+
+
+def install_fazendarecursos_to_server(
+    install_dir: str,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Instala a Fazenda no mapa; mantém configuração e estoque existentes."""
+    ok: List[str] = []
+    notes: List[str] = []
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+    root = Path(install_dir)
+    if not root.is_dir():
+        return ok, [f"pasta não encontrada: {install_dir}"]
+
+    dest = fazendarecursos_plugin_dir(install_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    bundled_root = Path(sys._MEIPASS) / "plugins" if getattr(sys, "frozen", False) else None  # type: ignore[attr-defined]
+    dll_sources = ([bundled_root / "FazendaRecursos.dll"] if bundled_root else []) + [
+        _DEV_FAZENDA_BIN_DIR / "FazendaRecursos.dll",
+        _PROJECT_ROOT / "artifacts" / "FazendaRecursos-v0.1.8-test"
+        / "FazendaRecursos" / "FazendaRecursos.dll",
+    ]
+    dll = next((path for path in dll_sources if path.is_file()), None)
+    if dll is None:
+        return ok, ["FazendaRecursos.dll não encontrada no bundle do app"]
+    target = dest / "FazendaRecursos.dll"
+    if overwrite_dlls or not target.is_file() or _path_mtime(dll) > _path_mtime(target) + 0.001:
+        try:
+            shutil.copy2(dll, target)
+            ok.append("FazendaRecursos.dll → Plugins/FazendaRecursos/")
+        except OSError as exc:
+            notes.append(f"DLL não copiada — pare o mapa antes de instalar: {exc}")
+    else:
+        ok.append("FazendaRecursos.dll (já atualizada)")
+
+    info_sources = ([bundled_root / "fazendarecursos" / "PluginInfo.json"] if bundled_root else []) + [
+        _PROJECT_ROOT / "plugin" / "FazendaRecursos" / "configs" / "PluginInfo.json",
+        _PROJECT_ROOT / "artifacts" / "FazendaRecursos-v0.1.8-test"
+        / "FazendaRecursos" / "PluginInfo.json",
+    ]
+    info = next((path for path in info_sources if path.is_file()), None)
+    if info:
+        try:
+            shutil.copy2(info, dest / "PluginInfo.json")
+            ok.append("PluginInfo.json")
+        except OSError as exc:
+            notes.append(f"PluginInfo.json não copiado: {exc}")
+
+    cfg_dest = dest / "config.json"
+    if cfg_dest.is_file():
+        ok.append("config.json existente preservado")
+    else:
+        templates = ([bundled_root / "fazendarecursos" / "config.json"] if bundled_root else []) + [
+            _DEFAULT_FAZENDA_CONFIG,
+            _PROJECT_ROOT / "artifacts" / "FazendaRecursos-v0.1.8-test"
+            / "FazendaRecursos" / "config.json",
+        ]
+        template = next((path for path in templates if path.is_file()), None)
+        if template:
+            try:
+                shutil.copy2(template, cfg_dest)
+                ok.append("config.json padrão (inclui os recursos Omega)")
+            except OSError as exc:
+                notes.append(f"config.json não copiado: {exc}")
+        else:
+            notes.append("configuração padrão da Fazenda não encontrada no app")
+    return ok, notes
+
+
+def install_fazendarecursos_all(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Instala FazendaRecursos em cada servidor cadastrado."""
+    ok: List[str] = []
+    errors: List[str] = []
+    for _kind, srv in iter_shop_servers(cm, asm_cm):
+        name = getattr(srv, "name", "") or getattr(srv, "id", "")
+        install_dir = getattr(srv, "install_dir", "")
+        if not install_dir:
+            errors.append(f"{name}: sem install_dir")
+            continue
+        copied, notes = install_fazendarecursos_to_server(
+            install_dir, overwrite_dlls=overwrite_dlls,
+        )
+        if not copied and notes:
+            errors.append(f"{name}: {'; '.join(notes)}")
+            continue
+        detail = ", ".join(copied[:4])
+        if len(copied) > 4:
+            detail += f" (+{len(copied) - 4})"
+        suffix = f" — {'; '.join(notes)}" if notes else ""
+        ok.append(f"{name}: {detail}{suffix}")
+    return ok, errors
 
 
 def customshop_install_diagnostics(install_dir: str) -> list[str]:

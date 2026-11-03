@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-02 21:43:39 -->
-<!-- Total de versões: 520 | Primeira: 1.11.27 -->
+<!-- Gerado: 2026-11-02 21:59:06 -->
+<!-- Total de versões: 521 | Primeira: 1.11.28 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.28] - 2026-11-02
+
+### Other
+
+- Server Manager: botão dedicado para instalar/atualizar a Fazenda por servidor.
+- Atualizar plugins por servidor agora inclui FazendaRecursos.
+- Instalação nova da Fazenda inclui DLL 0.1.8 e configuração Omega padrão; configurações existentes são preservadas.
 
 ## [1.11.27] - 2026-11-02
 

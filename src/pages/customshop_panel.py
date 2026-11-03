@@ -57,11 +57,13 @@ from ..shop_integration import (
     install_arkplayer_to_server,
     install_arkeventhunt_to_server,
     install_engramlevel_to_server,
+    install_fazendarecursos_to_server,
     install_customshop_all,
     install_customdino_all,
     install_arkplayer_all,
     install_arkeventhunt_all,
     install_engramlevel_all,
+    install_fazendarecursos_all,
     is_customshop_installed,
     is_customdino_installed,
     iter_shop_rcon_servers,
@@ -2189,12 +2191,13 @@ def _build_webstore_tab(
     _bundled_player_ver = get_bundled_plugin_version("ArkPlayer") or expected_plugin_version("ArkPlayer")
     _bundled_hunt_ver = get_bundled_plugin_version("ArkEventHunt") or expected_plugin_version("ArkEventHunt")
     _bundled_engram_ver = get_bundled_plugin_version("EngramLevel") or expected_plugin_version("EngramLevel")
+    _bundled_fazenda_ver = get_bundled_plugin_version("FazendaRecursos") or expected_plugin_version("FazendaRecursos")
     tk.Label(
         card_srv,
         text=(
             f"Versões esperadas (app): CustomShop v{_bundled_shop_ver} · "
             f"Dino Lab v{_bundled_dino_ver} · ArkPlayer v{_bundled_player_ver} · "
-            f"ArkEventHunt v{_bundled_hunt_ver} · EngramLevel v{_bundled_engram_ver}"
+            f"ArkEventHunt v{_bundled_hunt_ver} · EngramLevel v{_bundled_engram_ver} · Fazenda v{_bundled_fazenda_ver}"
         ),
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
@@ -2252,6 +2255,7 @@ def _build_webstore_tab(
             ("ArkPlayer", lambda: install_arkplayer_to_server(srv.install_dir, overwrite_dlls=True)),
             ("ArkEventHunt", lambda: install_arkeventhunt_to_server(srv.install_dir, overwrite_dlls=True)),
             ("EngramLevel", lambda: install_engramlevel_to_server(srv.install_dir, overwrite_dlls=True)),
+            ("Fazenda", lambda: install_fazendarecursos_to_server(srv.install_dir, overwrite_dlls=True)),
         )
         installed, errors = [], []
         for plugin_name, installer in installers:
@@ -2565,6 +2569,31 @@ def _build_webstore_tab(
         except AttributeError:
             messagebox.showinfo("Instalar EngramLevel", msg)
 
+    def _install_fazenda() -> None:
+        asm_cm = getattr(app, "asm_config_manager", None)
+        targets = iter_shop_servers(app.config_manager, asm_cm)
+        if not targets:
+            messagebox.showwarning("Instalar", "Nenhum servidor cadastrado no app.")
+            return
+        if not messagebox.askyesno(
+            "Instalar Fazenda de Recursos",
+            f"Copiar FazendaRecursos.dll para {len(targets)} servidor(es)?\n\n"
+            "Os servidores devem estar parados. Configuração existente será preservada; "
+            "instalações novas recebem os três recursos Omega padrão.",
+        ):
+            return
+        ok, errs = install_fazendarecursos_all(
+            app.config_manager, asm_cm, overwrite_dlls=True,
+        )
+        _rebuild_server_rows()
+        msg = f"Fazenda instalada/atualizada em {len(ok)} servidor(es)."
+        if errs:
+            msg += "\n" + "\n".join(errs[:5])
+        try:
+            app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
+        except AttributeError:
+            messagebox.showinfo("Instalar Fazenda", msg)
+
     def _reload_customshop_all_servers() -> None:
         if not _validate_shared_shop_requirements():
             return
@@ -2686,6 +2715,9 @@ def _build_webstore_tab(
     ctk.CTkButton(act_row, text="📜  Instalar EngramLevel",
                   height=34, fg_color="#1a3a4a", hover_color="#1a4a5a",
                   command=_install_engramlevel).pack(side="left", padx=(0, 10))
+    ctk.CTkButton(act_row, text="🌾  Instalar Fazenda",
+                  height=34, fg_color="#285a36", hover_color="#347548",
+                  command=_install_fazenda).pack(side="left", padx=(0, 10))
     ctk.CTkButton(act_row, text="📢  Propagar mestre → mapas + loja",
                   height=34, fg_color="#b45309", hover_color="#c2410c",
                   command=_apply_plugins).pack(side="left", padx=(0, 10))

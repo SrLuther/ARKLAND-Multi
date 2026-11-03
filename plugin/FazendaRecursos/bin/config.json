@@ -64,8 +64,9 @@
       "FarmStatus": "Fazenda: {} recurso(s) configurado(s), {} em produção. Capacidade inicial: {} por recurso.",
       "DiagnosticDone": "Diagnóstico salvo em: {}",
       "DiagnosticFailed": "Não foi possível gravar o diagnóstico. Consulte o log do servidor.",
-      "Usage": "Comandos: /fazenda, /fazconfirmar, /fazstatus, /fazresgatar.",
+      "Usage": "Comandos: /fazenda, /fazconfirmar, /fazstatus, /fazresgatar, /fazrecuperar.",
       "NotReady": "A fazenda só pode ser usada quando o servidor estiver pronto."
     }
   }
 }
+

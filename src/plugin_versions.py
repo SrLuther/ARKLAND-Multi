@@ -17,6 +17,7 @@ OFFICIAL_PLUGINS: dict[str, dict[str, str]] = {
     "ArkPlayer": {"folder": "ArkPlayer", "dll": "ArkPlayer.dll"},
     "ArkEventHunt": {"folder": "ArkEventHunt", "dll": "ArkEventHunt.dll"},
     "EngramLevel": {"folder": "EngramLevel", "dll": "EngramLevel.dll"},
+    "FazendaRecursos": {"folder": "FazendaRecursos", "dll": "FazendaRecursos.dll"},
 }
 
 # Slug da pasta PluginInfo no bundle PyInstaller (plugins/<slug>/PluginInfo.json)
@@ -26,6 +27,7 @@ _BUNDLE_INFO_SLUGS: dict[str, str] = {
     "ArkPlayer": "arkplayer",
     "ArkEventHunt": "arkeventhunt",
     "EngramLevel": "engramlevel",
+    "FazendaRecursos": "fazendarecursos",
 }
 
 PluginVersionStatus = Literal["missing", "match", "outdated", "newer", "unknown", "not_installed"]
