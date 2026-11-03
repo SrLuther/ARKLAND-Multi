@@ -80,11 +80,33 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
             return false;
         }
     }
-    if (!MoveFileExW(temp_path.c_str(), std::filesystem::path(path).wstring().c_str(),
+    const auto target_path = std::filesystem::path(path).wstring();
+    if (!MoveFileExW(temp_path.c_str(), target_path.c_str(),
             MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        const DWORD replace_error = GetLastError();
+        // Some server directories grant write access to config files but deny
+        // deleting/replacing them. Preserve the original, then try copying the
+        // fully flushed migration file over it (same-folder backup first).
+        const auto backup_path = target_path + L".farm-migration." +
+            std::to_wstring(GetTickCount64()) + L".bak";
+        if (CopyFileW(target_path.c_str(), backup_path.c_str(), TRUE)) {
+            if (CopyFileW(temp_path.c_str(), target_path.c_str(), FALSE)) {
+                DeleteFileW(temp_path.c_str());
+                Log::GetLog()->warn("FazendaRecursos: config.json migrado por cópia com backup; MoveFileExW={} backup={}",
+                    replace_error, std::filesystem::path(backup_path).string());
+                return true;
+            }
+            const DWORD copy_error = GetLastError();
+            Log::GetLog()->error("FazendaRecursos: falha ao substituir config.json migrado (MoveFileExW={}, CopyFileW={}); backup preservado em {}",
+                replace_error, copy_error, std::filesystem::path(backup_path).string());
+        } else {
+            const DWORD backup_error = GetLastError();
+            Log::GetLog()->error("FazendaRecursos: falha ao substituir config.json migrado (MoveFileExW={}, backup CopyFileW={}); config={} temp={}",
+                replace_error, backup_error, path, std::filesystem::path(temp_path).string());
+        }
         std::error_code ec;
         std::filesystem::remove(temp_path, ec);
-        Log::GetLog()->error("FazendaRecursos: falha ao substituir config.json migrado; padrões ficam ativos somente em memória");
+        Log::GetLog()->error("FazendaRecursos: padrões ficam ativos somente em memória; verifique permissões/arquivo em uso no config.json");
         return false;
     }
     return true;

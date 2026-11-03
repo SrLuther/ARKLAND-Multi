@@ -25,6 +25,11 @@ from pathlib import Path
 from collections.abc import Callable
 from typing import Any, Optional
 
+# PyInstaller starts this file as ``__main__``. Several lazily loaded services
+# import models and the live DB engine from ``app``; alias this running module
+# first so those imports share the same engine instead of loading app.py twice.
+sys.modules.setdefault("app", sys.modules[__name__])
+
 from dotenv import load_dotenv
 
 from cryptography.fernet import Fernet

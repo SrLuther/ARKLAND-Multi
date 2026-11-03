@@ -1,9 +1,9 @@
 {
-    "version": "1.11.30",
+    "version": "1.11.31",
     "date": "2026-11-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.30/ARKLAND-Multi-Setup-v1.11.30.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.31/ARKLAND-Multi-Setup-v1.11.31.exe",
     "changelog": [
-        "Fazenda: corrigida a conexao com MariaDB local sem TLS; o cliente MySQL agora usa as mesmas opcoes SSL do CustomShop.",
-        "Plugin FazendaRecursos atualizado para 0.1.14."
+        "Fazenda: migracao de config.json agora tenta gravacao com backup quando o Windows bloqueia a substituicao atomica e registra o codigo de erro.",
+        "Plugin FazendaRecursos atualizado para 0.1.15."
     ]
 }

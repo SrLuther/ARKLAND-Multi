@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.30"
+APP_VERSION: str = "1.11.31"
 BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.31",
+        "date": "2026-11-03",
+        "changes": [
+            "Fazenda: migracao de config.json agora tenta gravacao com backup quando o Windows bloqueia a substituicao atomica e registra o codigo de erro.",
+            "WebStore: o modulo app reutiliza a instancia principal em builds PyInstaller; corrige engine indisponivel em /api/market/profile.",
+            "Plugin FazendaRecursos atualizado para 0.1.15.",
+        ],
+    },
     {
         "version": "1.11.30",
         "date": "2026-11-03",

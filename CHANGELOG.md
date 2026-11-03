@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 07:54:10 -->
-<!-- Total de versões: 523 | Primeira: 1.11.30 -->
+<!-- Gerado: 2026-11-03 12:50:45 -->
+<!-- Total de versões: 524 | Primeira: 1.11.31 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.31] - 2026-11-03
+
+### Other
+
+- Fazenda: migracao de config.json agora tenta gravacao com backup quando o Windows bloqueia a substituicao atomica e registra o codigo de erro.
+- WebStore: o modulo app reutiliza a instancia principal em builds PyInstaller; corrige engine indisponivel em /api/market/profile.
+- Plugin FazendaRecursos atualizado para 0.1.15.
 
 ## [1.11.30] - 2026-11-03
 

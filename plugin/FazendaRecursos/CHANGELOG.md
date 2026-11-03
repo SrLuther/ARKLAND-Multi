@@ -1,5 +1,8 @@
 ﻿# FazendaRecursos - changelog
 
+## [0.1.15]
+- Adiciona fallback com backup ao migrar config.json quando o Windows impede a substituicao atomica; os logs agora registram os codigos Win32.
+
 ## [0.1.14]
 - Desativa a exigencia de TLS no cliente MySQL para compatibilidade com MariaDB local, igual ao fluxo ja usado pelo CustomShop.
 
