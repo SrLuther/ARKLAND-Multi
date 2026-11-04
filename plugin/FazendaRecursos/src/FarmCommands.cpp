@@ -40,8 +40,12 @@ bool MatchesConfiguredClass(const std::string& actual, const std::string& config
     if (actual.empty() || configured.empty()) return false;
     return Lower(actual).find(Lower(configured)) != std::string::npos;
 }
-bool GiveFarmStack(AShooterPlayerController* controller, const std::string& configured_class, int quantity) {
-    if (!controller || configured_class.empty() || quantity < 1) return false;
+bool GiveFarmStack(AShooterPlayerController* controller, const std::string& configured_class,
+                   int quantity, std::string& failure_reason) {
+    if (!controller || configured_class.empty() || quantity < 1) {
+        failure_reason = "invalid arguments";
+        return false;
+    }
     std::string blueprint = configured_class;
     const auto game_path = blueprint.find("/Game/");
     if (game_path != std::string::npos) blueprint = blueprint.substr(game_path);
@@ -50,16 +54,37 @@ bool GiveFarmStack(AShooterPlayerController* controller, const std::string& conf
     FString fblueprint(blueprint.c_str());
     UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
     auto* inventory = controller->GetPlayerInventoryComponent();
-    if (!item_class || !inventory) return false;
+    if (!item_class) {
+        failure_reason = "Blueprint class could not be loaded";
+        return false;
+    }
+    if (!inventory) {
+        failure_reason = "player inventory is unavailable";
+        return false;
+    }
     auto* cdo = static_cast<UPrimalItem*>(item_class->GetDefaultObject(true));
+    int max_stack = quantity;
     if (cdo) {
         const int game_max = cdo->GetMaxItemQuantity(ArkApi::GetApiUtils().GetWorld());
-        if (game_max > 0 && quantity > game_max) return false;
+        if (game_max > 0) max_stack = game_max;
     }
-    // Follow CustomShop: ARK creates and inserts one Blueprint item with this quantity.
-    return UPrimalItem::AddNewItem(TSubclassOf<UPrimalItem>(item_class), inventory,
-        false, false, 0.0f, true, quantity, false, 0.0f, false,
-        TSubclassOf<UPrimalItem>(), 0.0f, false, false) != nullptr;
+    // Redemption quantity can exceed an item's real ARK stack limit even when
+    // the farm's configured stock stack is larger. Deliver legal inventory stacks.
+    int remaining = quantity;
+    while (remaining > 0) {
+        const int chunk = std::min(max_stack, remaining);
+        UPrimalItem* created = UPrimalItem::AddNewItem(
+            TSubclassOf<UPrimalItem>(item_class), inventory,
+            false, false, 0.0f, true, chunk, false, 0.0f, false,
+            TSubclassOf<UPrimalItem>(), 0.0f, false, false);
+        if (!created) {
+            failure_reason = "AddNewItem returned null (qty=" + std::to_string(chunk) +
+                ", max_stack=" + std::to_string(max_stack) + ")";
+            return false;
+        }
+        remaining -= chunk;
+    }
+    return true;
 }
 std::string ItemIdText(const FItemNetID& id) {
     return std::to_string(id.ItemID1) + ":" + std::to_string(id.ItemID2);
@@ -379,9 +404,11 @@ void CmdRedeem(APlayerController* pc, FString*, bool) {
             failed = true;
             break;
         }
-        if (!GiveFarmStack(c, definition->item_class, stack.quantity)) {
-            Log::GetLog()->warn("Farm: Blueprint delivery failed; steam={} order={} stack={} qty={} class={}",
-                steam, stack.redemption_id, stack.stack_index, stack.quantity, definition->item_class);
+        std::string delivery_failure;
+        if (!GiveFarmStack(c, definition->item_class, stack.quantity, delivery_failure)) {
+            Log::GetLog()->warn("Farm: Blueprint delivery failed; steam={} order={} stack={} qty={} class={} reason={}",
+                steam, stack.redemption_id, stack.stack_index, stack.quantity, definition->item_class,
+                delivery_failure);
             FazendaRecursos::FarmSync::CompleteRedemptionStack(stack, steam,
                 FazendaRecursos::FarmConfig::Get().ServerId(), false);
             failed = true;

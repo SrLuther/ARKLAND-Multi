@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.21]
+- Resgate agora divide a quantidade em stacks compativeis com o limite real do item no ARK e registra a causa especifica quando a Blueprint nao pode ser entregue.
+
 ## [0.1.20]
 - Adiciona Paragon Breaker e Paragon Soul aos recursos padrão da categoria ARK Omega, sem alterar configurações existentes por servidor.
 

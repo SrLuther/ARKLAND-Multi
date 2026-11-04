@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-04 07:42:37 -->
-<!-- Total de versões: 531 | Primeira: 1.11.38 -->
+<!-- Gerado: 2026-11-04 13:54:51 -->
+<!-- Total de versões: 532 | Primeira: 1.11.39 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.39] - 2026-11-04
+
+### Other
+
+- Fazenda: resgates dividem a quantidade em stacks aceitos pelo limite real de cada item; logs identificam se a falha foi ao carregar a Blueprint ou criar o item. Plugin FazendaRecursos 0.1.21.
 
 ## [1.11.38] - 2026-11-04
 
