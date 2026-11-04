@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 20:58:54 -->
-<!-- Total de versões: 527 | Primeira: 1.11.34 -->
+<!-- Gerado: 2026-11-03 22:00:14 -->
+<!-- Total de versões: 528 | Primeira: 1.11.35 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.35] - 2026-11-03
+
+### Other
+
+- Correção urgente do WebStore: removido parêntese excedente na auditoria de vínculos Discord que invalidava o JavaScript principal e impedia o portal de iniciar.
 
 ## [1.11.34] - 2026-11-03
 
