@@ -135,8 +135,9 @@ bool FarmState::HasSoul(const std::string& steam_id, const std::string& species_
     const auto player = data_.find(steam_id);
     if (player == data_.end() || !player->contains("souls") || !(*player)["souls"].is_object()) return false;
     for (auto it = (*player)["souls"].begin(); it != (*player)["souls"].end(); ++it) {
+        const auto status = it.value().value("status", std::string{});
         if (it.value().value("species_blueprint", std::string{}) == species_blueprint &&
-            it.value().value("status", std::string{}) != "rolled_back") return true;
+            status != "rolled_back" && status != "recovered") return true;
     }
     return false;
 }
@@ -148,9 +149,12 @@ bool FarmState::AddPendingSoul(const std::string& steam_id, const PlayerFarm::Up
     if (!player.is_object()) player = nlohmann::json::object();
     auto& souls = player["souls"];
     if (!souls.is_object()) souls = nlohmann::json::object();
-    for (auto it = souls.begin(); it != souls.end(); ++it)
-        if (it.value().value("species_blueprint", std::string{}) == soul.species_blueprint &&
-            it.value().value("status", std::string{}) != "rolled_back") return false;
+    for (auto it = souls.begin(); it != souls.end(); ++it) {
+        const auto status = it.value().value("status", std::string{});
+        const bool terminal = status == "rolled_back" || status == "recovered";
+        if (it.value().value("species_blueprint", std::string{}) == soul.species_blueprint && !terminal)
+            return false;
+    }
     souls[soul.id] = {
         {"item_class", soul.item_class}, {"species_blueprint", soul.species_blueprint}, {"display_name", soul.display_name},
         {"blob_file", soul.blob_file}, {"status", "pending_consumption"},
@@ -184,6 +188,30 @@ bool FarmState::RemoveSoul(const std::string& steam_id, const std::string& soul_
     return false;
 }
 
+bool FarmState::BeginSoulRestore(const std::string& steam_id, const std::string& soul_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("souls") || !(*player)["souls"].contains(soul_id)) return false;
+    auto& row = (*player)["souls"][soul_id];
+    if (row.value("status", std::string{}) != "active") return false;
+    row["status"] = "restoring";
+    if (SaveLocked()) return true;
+    row["status"] = "active";
+    return false;
+}
+
+bool FarmState::FinishSoulRestore(const std::string& steam_id, const std::string& soul_id, bool restored) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto player = data_.find(steam_id);
+    if (player == data_.end() || !player->contains("souls") || !(*player)["souls"].contains(soul_id)) return false;
+    auto& row = (*player)["souls"][soul_id];
+    if (row.value("status", std::string{}) != "restoring") return false;
+    row["status"] = restored ? "recovered" : "active";
+    if (SaveLocked()) return true;
+    row["status"] = "restoring";
+    return false;
+}
+
 bool FarmState::HasActiveResource(const std::string& steam_id, const std::string& resource_id) {
     std::lock_guard<std::mutex> lock(mutex_);
     const auto player = data_.find(steam_id);
@@ -199,9 +227,12 @@ bool FarmState::AddPendingResource(const std::string& steam_id, const PlayerFarm
     if (!player.is_object()) player = nlohmann::json::object();
     auto& uploads = player["uploaded_resources"];
     if (!uploads.is_object()) uploads = nlohmann::json::object();
-    for (auto it = uploads.begin(); it != uploads.end(); ++it)
-        if (it.value().value("resource_id", std::string{}) == resource.resource_id &&
-            it.value().value("status", std::string{}) != "rolled_back") return false;
+    for (auto it = uploads.begin(); it != uploads.end(); ++it) {
+        const auto status = it.value().value("status", std::string{});
+        const bool terminal = status == "rolled_back" || status == "recovered";
+        if (it.value().value("resource_id", std::string{}) == resource.resource_id && !terminal)
+            return false;
+    }
     uploads[resource.id] = {
         {"resource_id", resource.resource_id}, {"resource_name", resource.resource_name},
         {"item_class", resource.item_class},

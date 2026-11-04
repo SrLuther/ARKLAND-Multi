@@ -441,6 +441,35 @@ void CmdRecover(APlayerController* pc, FString*, bool) {
         }
         ++restored;
     }
+    for (const auto& [id, record] : player.souls) {
+        if (record.status == "recovered" || record.status == "rolled_back") continue;
+        if (record.status != "active") { ++needs_review; continue; }
+        if (!farm.BeginSoulRestore(steam, id)) { ++needs_review; continue; }
+
+        const auto safe_name = std::filesystem::path(record.blob_file).filename().string();
+        if (safe_name.empty() || safe_name != record.blob_file) {
+            farm.FinishSoulRestore(steam, id, false); ++failed; continue;
+        }
+        const auto path = std::filesystem::path(farm.SoulDirectory(steam)) / safe_name;
+        std::ifstream in(path, std::ios::binary);
+        std::vector<unsigned char> raw((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (raw.empty() || in.bad()) {
+            farm.FinishSoulRestore(steam, id, false); ++failed; continue;
+        }
+        TArray<unsigned char> bytes;
+        bytes.Reserve(static_cast<int>(raw.size()));
+        for (const auto byte : raw) bytes.Add(byte);
+        UPrimalItem* item = UPrimalItem::CreateFromBytes(&bytes);
+        if (!item || !inv->AddItemObject(item)) {
+            farm.FinishSoulRestore(steam, id, false); ++failed; continue;
+        }
+        if (!farm.FinishSoulRestore(steam, id, true)) {
+            ++needs_review;
+            Log::GetLog()->error("FazendaRecursos: Paragon Soul restaurada mas estado não salvo; conferir inventário antes de repetir /fazrecuperar; steam={} soul={}", steam, id);
+            continue;
+        }
+        ++restored;
+    }
     if (restored > 0) FazendaRecursos::FarmSync::QueuePlayer(steam);
     std::string message = "Recuperação: " + std::to_string(restored) + " item(ns) restaurado(s); " +
         std::to_string(failed) + " falha(s). Os arquivos-fonte foram mantidos.";

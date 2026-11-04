@@ -1,4 +1,7 @@
-﻿# FazendaRecursos - changelog
+# FazendaRecursos - changelog
+
+## [0.1.19]
+- Permite recuperar Paragon Souls pelo /fazrecuperar e reenviar Souls/recursos apos recuperacao; uploads ativos ou pendentes continuam protegidos contra duplicacao.
 
 ## [0.1.18]
 - Corrige a versao gravada no MySQL: usa a versao compilada do plugin em vez do valor fixo 0.1.13-test.

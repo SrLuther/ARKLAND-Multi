@@ -1,8 +1,8 @@
 {
-    "version": "1.11.35",
+    "version": "1.11.36",
     "date": "2026-11-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.35/ARKLAND-Multi-Setup-v1.11.35.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.36/ARKLAND-Multi-Setup-v1.11.36.exe",
     "changelog": [
-        "Correção urgente do WebStore: removido parêntese excedente na auditoria de vínculos Discord que invalidava o JavaScript principal e impedia o portal de iniciar."
+        "FazendaRecursos 0.1.19-test restaura Paragon Souls pelo /fazrecuperar e permite reenviar recursos recuperados; produções ativas e pendentes seguem protegidas contra duplicação."
     ]
 }

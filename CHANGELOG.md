@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 22:00:14 -->
-<!-- Total de versões: 528 | Primeira: 1.11.35 -->
+<!-- Gerado: 2026-11-03 23:11:29 -->
+<!-- Total de versões: 529 | Primeira: 1.11.36 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.36] - 2026-11-03
+
+### Other
+
+- FazendaRecursos 0.1.19-test restaura Paragon Souls pelo /fazrecuperar e permite reenviar recursos recuperados; produções ativas e pendentes seguem protegidas contra duplicação.
 
 ## [1.11.35] - 2026-11-03
 

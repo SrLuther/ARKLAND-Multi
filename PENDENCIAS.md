@@ -1,8 +1,11 @@
 # Pendencias - ARKLAND Multi
 
-## Em andamento (6 tarefas abertas)
+## Em andamento (7 tarefas abertas)
 
-- [ ] **WebStore - portal não inicia na v1.11.34:** diagnóstico no JavaScript inline encontrou um parêntese excedente na renderização da auditoria de vínculos Discord, introduzido junto ao botão de crédito manual. Isso causa SyntaxError e impede todo o script principal de iniciar; Ctrl+F5 não corrige o defeito. Correção aplicada localmente; publicar v1.11.35 e confirmar abertura da página no WebStore atualizado.
+- [ ] **WebStore - portal nao inicia na v1.11.34:** SyntaxError de parenteses na auditoria Discord; Ctrl+F5 nao corrigia. Corrigido e publicado na v1.11.35; falta confirmar o WebStore reiniciado no host.
+
+- [ ] **Fazenda - recuperacao/reenvio:** `/fazrecuperar` nao percorria `souls`, entao Paragon Souls nao voltavam ao inventario; uploads `recovered` tambem bloqueavam reenvio do mesmo recurso. Corrigido em FazendaRecursos 0.1.19-test. Falta instalar e validar recuperacao e novo ciclo no jogo.
+
 
 - [ ] **Agente remoto entre redes:** identificado bug no codigo de identidade: anunciava sempre o IP privado detectado (ex.: `192.168.15.51`), impossibilitando conexao originada fora da LAN. Corrigido localmente para aceitar IP publico/DDNS separado em `remote_agent_host`, exibir o host anunciado e orientar encaminhamento TCP. Falta publicar o app e validar de outra rede com porta TCP 32440 encaminhada no roteador e liberada no firewall do Windows; CGNAT pode exigir VPN/rede privada ou relay.
 

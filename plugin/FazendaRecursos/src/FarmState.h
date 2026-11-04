@@ -47,6 +47,8 @@ public:
     bool AddPendingSoul(const std::string& steam_id, const PlayerFarm::UploadedSoul& soul);
     bool CommitSoul(const std::string& steam_id, const std::string& soul_id);
     bool RemoveSoul(const std::string& steam_id, const std::string& soul_id);
+    bool BeginSoulRestore(const std::string& steam_id, const std::string& soul_id);
+    bool FinishSoulRestore(const std::string& steam_id, const std::string& soul_id, bool restored);
     bool HasActiveResource(const std::string& steam_id, const std::string& resource_id);
     bool AddPendingResource(const std::string& steam_id, const PlayerFarm::UploadedResource& resource);
     bool CommitResource(const std::string& steam_id, const std::string& resource_id, const std::string& upload_id, int64_t now);

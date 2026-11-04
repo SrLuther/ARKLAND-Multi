@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.35"
+APP_VERSION: str = "1.11.36"
 BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.36",
+        "date": "2026-11-03",
+        "changes": [
+            "FazendaRecursos 0.1.19-test restaura Paragon Souls pelo /fazrecuperar e permite reenviar recursos recuperados; produções ativas e pendentes seguem protegidas contra duplicação.",
+        ],
+    },
     {
         "version": "1.11.35",
         "date": "2026-11-03",
