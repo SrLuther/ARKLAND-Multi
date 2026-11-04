@@ -1,8 +1,11 @@
 {
-    "version": "1.11.36",
-    "date": "2026-11-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.36/ARKLAND-Multi-Setup-v1.11.36.exe",
+    "version": "1.11.37",
+    "date": "2026-11-04",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.37/ARKLAND-Multi-Setup-v1.11.37.exe",
     "changelog": [
-        "FazendaRecursos 0.1.19-test restaura Paragon Souls pelo /fazrecuperar e permite reenviar recursos recuperados; produções ativas e pendentes seguem protegidas contra duplicação."
+        "Fazenda: painel reorganizado com cards de status, saldo e retiradas pendentes; cancelamento de pedidos pendentes retorna o saldo reservado.",
+        "Fazenda: configuracao por servidor agora fica recolhida e acessivel pela engrenagem somente para administradores.",
+        "Acesso remoto: status diferencia processo em execucao de servidor realmente acessivel pela listagem Steam ou LAN.",
+        "Discord: corrigida a codificacao da confirmacao e das mensagens de credito manual de bonus."
     ]
 }

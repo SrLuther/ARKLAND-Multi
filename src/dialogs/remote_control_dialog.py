@@ -78,7 +78,7 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
     log_hdr = ctk.CTkFrame(log_outer, fg_color="transparent")
     log_hdr.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
     log_hdr.grid_columnconfigure(0, weight=1)
-    app._remote_log_title_var = tk.StringVar(value="Log — selecione um servidor")
+    app._remote_log_title_var = tk.StringVar(value="RCON — selecione um servidor")
     ctk.CTkLabel(log_hdr, textvariable=app._remote_log_title_var,
                  font=ctk.CTkFont(size=13, weight="bold")).grid(
         row=0, column=0, sticky="w")
@@ -128,7 +128,7 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
 
     def _load_logs(sid: str, sname: str) -> None:
         _selected_srv_id[0] = sid
-        app._remote_log_title_var.set(f"Log — {sname}")
+        app._remote_log_title_var.set(f"RCON — {sname}")
         log_txt.configure(state="normal")
         log_txt.delete("1.0", "end")
         log_txt.configure(state="disabled")
@@ -163,11 +163,33 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
             "crashed": "🔴 TRAVADO", "updating": "🟡 ATUALIZANDO",
         }
 
+        def _status_display(srv: dict) -> tuple[str, str]:
+            process_status = str(srv.get("process_status") or srv.get("status") or "stopped").lower()
+            if process_status != "running":
+                return (
+                    _STATUS_LABELS_R.get(process_status, process_status),
+                    _STATUS_COLORS_R.get(process_status, "gray"),
+                )
+
+            listing_status = str(srv.get("listing_status") or "unknown").lower()
+            listing_labels = {
+                "available": ("🟢 ONLINE · LISTA STEAM", _GREEN),
+                "lan": ("🟢 ONLINE · LAN", _GREEN),
+                "waiting": ("🟡 AGUARDANDO LISTAGEM", "#ffaa44"),
+                "need_public_ip": ("🟡 IP PÚBLICO AUSENTE", "#ffaa44"),
+                "unavailable": ("🔴 QUERY INDISPONÍVEL", "#ff6666"),
+            }
+            return listing_labels.get(
+                listing_status,
+                ("🟡 PROCESSO ATIVO · VALIDANDO LISTAGEM", "#ffaa44"),
+            )
+
         for i, srv in enumerate(servers):
             sid     = srv["id"]
             sname   = srv.get("name", "?")
             status  = srv.get("status", "stopped")
             uptime  = srv.get("uptime", "—")
+            status_text, status_color = _status_display(srv)
 
             if sid not in _srv_widgets:
                 # Cria novo card
@@ -178,10 +200,10 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
                 ctk.CTkLabel(c, text=sname,
                              font=ctk.CTkFont(size=12, weight="bold")).grid(
                     row=0, column=0, padx=10, pady=(8, 0), sticky="w")
-                sv = tk.StringVar(value=_STATUS_LABELS_R.get(status, status))
+                sv = tk.StringVar(value=status_text)
                 sl = ctk.CTkLabel(c, textvariable=sv,
                                   font=ctk.CTkFont(size=11),
-                                  text_color=_STATUS_COLORS_R.get(status, "gray"))
+                                  text_color=status_color)
                 sl.grid(row=1, column=0, padx=10, pady=(0, 4), sticky="w")
                 uv = tk.StringVar(value=f"Uptime: {uptime}")
                 ctk.CTkLabel(c, textvariable=uv, text_color="gray55",
@@ -217,10 +239,8 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
             else:
                 # Atualiza existente
                 w = _srv_widgets[sid]
-                lbl = _STATUS_LABELS_R.get(status, status)
-                col = _STATUS_COLORS_R.get(status, "gray")
-                w["status_var"].set(lbl)
-                w["status_lbl"].configure(text_color=col)
+                w["status_var"].set(status_text)
+                w["status_lbl"].configure(text_color=status_color)
                 w["uptime_var"].set(f"Uptime: {uptime}")
 
     def _remote_action(sid: str, action: str) -> None:

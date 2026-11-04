@@ -168,12 +168,22 @@ class RemoteAgent:
                 cfg = getattr(inst, "config", None) or getattr(inst, "cfg", None)
                 if cfg is None:
                     return {}
+                process_status = str(getattr(inst, "status", "stopped")).lower()
                 return {
                     "id":     cfg.id,
                     "name":   cfg.name,
                     "map":    getattr(cfg, "map", None) or getattr(cfg, "server_map", ""),
                     "port":   getattr(cfg, "port", None) or getattr(cfg, "server_port", 0),
-                    "status": str(getattr(inst, "status", "stopped")).lower(),
+                    "status": process_status,
+                    "process_status": process_status,
+                    "listing_status": str(
+                        getattr(inst, "steam_status", None)
+                        or getattr(inst, "listing_mode", "unknown")
+                    ).lower(),
+                    "listing_detail": str(
+                        getattr(inst, "steam_status_detail", None)
+                        or getattr(inst, "listing_detail", "")
+                    ),
                     "uptime": getattr(inst, "uptime", "—"),
                     "pid":    getattr(inst, "pid", None),
                 }

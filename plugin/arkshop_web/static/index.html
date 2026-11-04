@@ -10632,7 +10632,7 @@
 
         <section class="myarea-panel" data-myarea-panel="farm">
           <div class="card">
-            <div class="card-header"><div class="card-title">Minha Fazenda</div><button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarm()">↻ Atualizar</button></div>
+            <div class="card-header"><div class="card-title">Minha Fazenda</div><div style="display:flex;gap:8px;align-items:center;"><button id="myarea-farm-admin-toggle" type="button" class="btn btn-ghost btn-sm hidden" title="Configurações administrativas da Fazenda" aria-label="Configurações administrativas da Fazenda" aria-expanded="false" onclick="toggleMyFarmAdminConfig()">&#9881;</button><button type="button" class="btn btn-ghost btn-sm" onclick="loadMyFarm()">↻ Atualizar</button></div></div>
             <div id="myarea-farm-overview" style="color:var(--text2);font-size:13px;">Carregando dados da Fazenda…</div>
             <div id="myarea-farm-redemption-status" role="status" aria-live="polite" style="margin-top:8px;font-size:12px;color:var(--text2);"></div>
           </div>
@@ -17267,12 +17267,30 @@ function formatFarmInterval(rawSeconds) {
   return parts.join(" ") || "1 s";
 }
 
+function toggleMyFarmAdminConfig() {
+  if (!_auth?.is_admin) return;
+  const card = document.getElementById("myarea-farm-admin-card");
+  const button = document.getElementById("myarea-farm-admin-toggle");
+  if (!card) return;
+  const opening = card.classList.contains("hidden");
+  card.classList.toggle("hidden", !opening);
+  button?.setAttribute("aria-expanded", String(opening));
+  if (opening) {
+    loadMyFarmConfig();
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
 async function loadMyFarm() {
   const host = document.getElementById("myarea-farm-overview");
   if (!host) return;
+  const adminToggle = document.getElementById("myarea-farm-admin-toggle");
+  const adminCard = document.getElementById("myarea-farm-admin-card");
   if (_auth?.is_admin) {
-    document.getElementById("myarea-farm-admin-card")?.classList.remove("hidden");
-    await loadMyFarmConfig();
+    adminToggle?.classList.remove("hidden");
+  } else {
+    adminToggle?.classList.add("hidden");
+    adminCard?.classList.add("hidden");
   }
   try {
     const selectedShareKey = String(window._farmShareKey || "");
@@ -17290,17 +17308,93 @@ async function loadMyFarm() {
     const catalogFromMysql = Boolean(data.catalog_from_mysql);
     const integrationReady = Boolean(data.integration_ready && data.stock_available);
     const orders = data.orders || [];
-    host.innerHTML = `
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"><strong>Licença keyfarm:</strong> ${license}</div>
-      ${shareKeys.length > 1 ? `<label style="display:flex;gap:8px;align-items:center;margin:8px 0 12px;font-size:12px;">Estoque compartilhado (FarmShareKey)<select aria-label="Grupo de estoque da Fazenda" onchange="window._farmShareKey=this.value;loadMyFarm()">${shareKeys.map(key => `<option value="${escHtml(key)}" ${key === window._farmShareKey ? "selected" : ""}>${escHtml(key)}</option>`).join("")}</select></label>` : `<p style="font-size:11px;color:var(--text2);">Grupo de estoque: ${escHtml(window._farmShareKey)}</p>`}
-      <h3 style="font-size:13px;margin:12px 0 8px;">Estoque e resgates</h3>
-      ${data.last_sync_at ? `<p style="font-size:11px;color:var(--text2);">Última sincronização: ${escHtml(fmtDate(data.last_sync_at))}</p>` : ""}
-      ${resources.length ? `${!catalogFromMysql ? `<p style="font-size:11px;color:var(--warning);">O catálogo MySQL ainda não foi publicado pelo plugin; taxas abaixo são apenas a configuração local de referência.</p>` : ""}<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="text-align:left;color:var(--text2);"><th style="padding:8px;border-bottom:1px solid var(--border);">Chave</th><th style="padding:8px;border-bottom:1px solid var(--border);">Recurso</th><th style="padding:8px;border-bottom:1px solid var(--border);">Produção por ciclo</th><th style="padding:8px;border-bottom:1px solid var(--border);">Intervalo</th><th style="padding:8px;border-bottom:1px solid var(--border);">Stack</th><th style="padding:8px;border-bottom:1px solid var(--border);">Disponível</th><th style="padding:8px;border-bottom:1px solid var(--border);">Estado</th></tr></thead><tbody>${resources.map(r => `<tr><td style="padding:8px;border-bottom:1px solid var(--border);">${escHtml(r.share_key || window._farmShareKey)}</td><td style="padding:8px;border-bottom:1px solid var(--border);"><strong>${escHtml(r.name)}</strong><div style="font-size:10px;color:var(--text2);">${escHtml(r.category)} · capacidade ${Number(r.capacity || 200)}</div></td><td style="padding:8px;border-bottom:1px solid var(--border);">${Number(r.output_quantity || 1)} por ciclo</td><td style="padding:8px;border-bottom:1px solid var(--border);">${formatFarmInterval(r.interval_seconds)}</td><td style="padding:8px;border-bottom:1px solid var(--border);">${Number(r.stack_size || 25)}</td><td style="padding:8px;border-bottom:1px solid var(--border);">${integrationReady ? Number(r.available || 0) : "—"} <small style="color:var(--text2);">(${Number(r.reserved || 0)} reservado(s))</small></td><td style="padding:8px;border-bottom:1px solid var(--border);">${r.enabled ? "Habilitado" : "Indisponível"}</td></tr>`).join("")}</tbody></table></div><div style="display:grid;gap:8px;margin-top:12px;">${resources.filter(r => r.enabled).map(r => `<div style="display:grid;grid-template-columns:minmax(140px,1fr) minmax(90px,120px) auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:10px;"><strong>${escHtml(r.name)}</strong><input aria-label="Quantidade de ${escHtml(r.name)} para resgatar" type="number" min="1" max="${integrationReady ? Number(r.available || 0) : 0}" value="1" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || Number(r.available || 0) < 1 ? "disabled" : ""} style="width:100%;"><button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || Number(r.available || 0) < 1 ? "disabled" : ""}>Agendar retirada</button></div>`).join("")}</div>` : `<p>Nenhum recurso foi configurado ainda.</p>`}
-      ${uploads.length ? `<h3 style="font-size:13px;margin:16px 0 8px;">Itens enviados à Fazenda</h3><div style="display:grid;gap:6px;">${uploads.map(u => { const status = u.status === "active" ? "Recebido · produção ativa" : u.status === "recovered" ? "Retirado da Fazenda" : "Cancelado"; return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);"><span><strong>${escHtml(u.display_name || u.resource_name)}</strong><span style="display:block;font-size:11px;color:var(--text2);">${escHtml(u.resource_name)} · ${Number(u.item_quantity || 1)} unidade(s)${u.uploaded_at ? ` · ${escHtml(fmtDate(u.uploaded_at))}` : ""}</span></span><span class="badge">${status}</span></div>`; }).join("")}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum item enviado à Fazenda foi sincronizado com a Web Store ainda.</p>`}
-      ${orders.length ? `<h3 style="font-size:13px;margin:16px 0 8px;">Histórico de retiradas</h3><div style="display:grid;gap:6px;">${orders.map(o => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--border);"><span>${escHtml(o.amount)} × ${escHtml(o.resource_name)}<small style="display:block;color:var(--text2);">Solicitado: ${escHtml(fmtDate(o.created_at))}${o.completed_at ? ` · Entregue: ${escHtml(fmtDate(o.completed_at))}` : ""}${Number(o.delivered_amount || 0) ? ` · ${Number(o.delivered_amount)} entregue(s)` : ""}</small></span><span style="display:flex;gap:8px;align-items:center;"><span class="badge">${escHtml(o.status)}</span>${o.status === "PENDENTE" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="cancelFarmRedemption('${escHtml(o.id)}')">Cancelar</button>` : ""}</span></div>`).join("")}</div>` : ""}
-      <div style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:12px;">
-        ${integrationReady ? "Estoque sincronizado. A seleção reserva a quantidade; a entrega só acontece quando você usar /fazresgatar no jogo." : "A Web Store ainda não recebeu uma sincronização recente do plugin. Estoque e seleção de resgate ficam indisponíveis até o servidor enviar dados reais."}
+    const shareSelector = shareKeys.length > 1
+      ? `<label class="farm-share-picker"><span>Grupo de estoque</span><select aria-label="Grupo de estoque da Fazenda" onchange="window._farmShareKey=this.value;loadMyFarm()">${shareKeys.map(key => `<option value="${escHtml(key)}" ${key === window._farmShareKey ? "selected" : ""}>${escHtml(key)}</option>`).join("")}</select><small>Servidores com a mesma chave compartilham o estoque.</small></label>`
+      : `<div class="farm-share-picker"><span>Grupo de estoque</span><strong>${escHtml(window._farmShareKey)}</strong><small>Servidores com a mesma chave compartilham o estoque.</small></div>`;
+    const resourceRows = resources.map(r => `<tr>
+      <td><strong>${escHtml(r.name)}</strong><small>${escHtml(r.category)} &middot; capacidade ${Number(r.capacity || 200)}</small></td>
+      <td>${Number(r.output_quantity || 1)} unidade(s)</td>
+      <td>${formatFarmInterval(r.interval_seconds)}</td>
+      <td>${Number(r.stack_size || 25)} por pacote</td>
+      <td><strong>${integrationReady ? Number(r.available || 0) : "&mdash;"}</strong><small>${Number(r.reserved || 0)} reservado(s)</small></td>
+      <td><span class="farm-state ${r.enabled ? "is-enabled" : "is-disabled"}">${r.enabled ? "Habilitado" : "Indispon&#237;vel"}</span></td>
+    </tr>`).join("");
+    const redemptionCards = resources.filter(r => r.enabled).map(r => {
+      const available = integrationReady ? Number(r.available || 0) : 0;
+      return `<div class="farm-action-card">
+        <div class="farm-action-info"><strong>${escHtml(r.name)}</strong><span>${available} dispon&#237;vel(is) &middot; ${Number(r.reserved || 0)} reservado(s)</span></div>
+        <label>Quantidade<input aria-label="Quantidade de ${escHtml(r.name)} para retirar" type="number" min="1" max="${available}" value="1" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || available < 1 ? "disabled" : ""}></label>
+        <button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || available < 1 ? "disabled" : ""}>Agendar retirada</button>
       </div>`;
+    }).join("");
+    const uploadCards = uploads.map(u => {
+      const active = u.status === "active";
+      const state = active ? "Produ&ccedil;&atilde;o ativa" : u.status === "recovered" ? "Retirado da Fazenda" : "Cancelado";
+      return `<article class="farm-record-card"><div><strong>${escHtml(u.display_name || u.resource_name)}</strong><small>${escHtml(u.resource_name)} &middot; ${Number(u.item_quantity || 1)} unidade(s)${u.uploaded_at ? ` &middot; Enviado em ${escHtml(fmtDate(u.uploaded_at))}` : ""}</small></div><span class="farm-state ${active ? "is-enabled" : "is-muted"}">${state}</span></article>`;
+    }).join("");
+    const pendingOrders = orders.filter(o => o.status === "PENDENTE");
+    const historyOrders = orders.filter(o => o.status !== "PENDENTE");
+    const pendingCards = pendingOrders.map(o => `<article class="farm-record-card farm-pending-card">
+      <div><strong>${escHtml(o.amount)} &times; ${escHtml(o.resource_name)}</strong><small>Agendado em: ${escHtml(fmtDate(o.created_at))}${Number(o.delivered_amount || 0) ? ` &middot; ${Number(o.delivered_amount)} unidade(s) entregue(s)` : ""}</small></div>
+      <div class="farm-record-actions"><span class="farm-state is-pending">Aguardando resgate no jogo</span><button type="button" class="btn btn-ghost btn-sm" onclick="cancelFarmRedemption('${escHtml(o.id)}')">Cancelar pedido</button></div>
+    </article>`).join("");
+    const historyCards = historyOrders.map(o => `<article class="farm-record-card">
+      <div><strong>${escHtml(o.amount)} &times; ${escHtml(o.resource_name)}</strong><small>Solicitado: ${escHtml(fmtDate(o.created_at))}${o.completed_at ? ` &middot; Entregue: ${escHtml(fmtDate(o.completed_at))}` : ""}${Number(o.delivered_amount || 0) ? ` &middot; ${Number(o.delivered_amount)} unidade(s) entregue(s)` : ""}</small></div>
+      <span class="farm-state ${o.status === "ENTREGUE" ? "is-enabled" : "is-muted"}">${escHtml(o.status)}</span>
+    </article>`).join("");
+
+    host.innerHTML = `
+      <style>
+        #myarea-farm-overview .farm-overview-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:4px 0 14px}
+        #myarea-farm-overview .farm-meta-card,#myarea-farm-overview .farm-share-picker{min-width:0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-meta-card>span,#myarea-farm-overview .farm-share-picker>span{display:block;font-size:11px;color:var(--text2);margin-bottom:5px}
+        #myarea-farm-overview .farm-meta-card small,#myarea-farm-overview .farm-share-picker small{display:block;margin-top:4px;color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-share-picker select{display:block;max-width:100%;margin-top:4px}
+        #myarea-farm-overview .farm-sync-banner{padding:11px 14px;margin:0 0 12px;border:1px solid var(--border);border-left:3px solid var(--warning);border-radius:9px;color:var(--text2);background:rgba(255,255,255,.018);font-size:12px}
+        #myarea-farm-overview .farm-sync-banner.is-ready{border-left-color:var(--success)}
+        #myarea-farm-overview .farm-section{margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:11px;background:rgba(255,255,255,.012)}
+        #myarea-farm-overview .farm-section-head{margin-bottom:10px}
+        #myarea-farm-overview .farm-section-head h3{font-size:14px;margin:0 0 3px;color:var(--text)}
+        #myarea-farm-overview .farm-section-head p{font-size:11px;color:var(--text2);margin:0}
+        #myarea-farm-overview .farm-table-wrap{overflow-x:auto}
+        #myarea-farm-overview .farm-table{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}
+        #myarea-farm-overview .farm-table th{text-align:left;color:var(--text2);font-weight:600;padding:9px 8px;border-bottom:1px solid var(--border)}
+        #myarea-farm-overview .farm-table td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+        #myarea-farm-overview .farm-table tr:last-child td{border-bottom:0}
+        #myarea-farm-overview .farm-table small,#myarea-farm-overview .farm-record-card small{display:block;color:var(--text2);font-size:10px;margin-top:2px}
+        #myarea-farm-overview .farm-state{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:10px;white-space:nowrap;border:1px solid var(--border);background:rgba(255,255,255,.025);color:var(--text2)}
+        #myarea-farm-overview .farm-state.is-enabled{color:var(--success);border-color:rgba(18,216,124,.25);background:rgba(18,216,124,.06)}
+        #myarea-farm-overview .farm-state.is-pending{color:var(--warning);border-color:rgba(232,120,32,.3);background:rgba(232,120,32,.07)}
+        #myarea-farm-overview .farm-state.is-disabled{color:var(--danger)}
+        #myarea-farm-overview .farm-action-list,#myarea-farm-overview .farm-record-list{display:grid;gap:8px}
+        #myarea-farm-overview .farm-action-card{display:grid;grid-template-columns:minmax(160px,1fr) minmax(110px,150px) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:9px;background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-action-info strong,#myarea-farm-overview .farm-record-card strong{display:block}
+        #myarea-farm-overview .farm-action-info span{display:block;color:var(--text2);font-size:10px;margin-top:2px}
+        #myarea-farm-overview .farm-action-card label{font-size:10px;color:var(--text2)}
+        #myarea-farm-overview .farm-action-card input{display:block;width:100%;margin-top:3px}
+        #myarea-farm-overview .farm-record-card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-pending-card{border-left:3px solid var(--warning)}
+        #myarea-farm-overview .farm-record-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        @media(max-width:700px){#myarea-farm-overview .farm-action-card{grid-template-columns:1fr 100px}#myarea-farm-overview .farm-action-info{grid-column:1/-1}#myarea-farm-overview .farm-action-card button{width:100%}#myarea-farm-overview .farm-record-card{align-items:flex-start;flex-direction:column}}
+      </style>
+      <div class="farm-overview-head">
+        <div class="farm-meta-card"><span>Licen&ccedil;a da Fazenda</span>${license}</div>
+        ${shareSelector}
+        <div class="farm-meta-card"><span>&Uacute;ltima sincroniza&ccedil;&atilde;o</span><strong>${data.last_sync_at ? escHtml(fmtDate(data.last_sync_at)) : "Aguardando primeira sincroniza&ccedil;&atilde;o"}</strong><small>Hor&aacute;rio recebido do servidor ARK.</small></div>
+      </div>
+      <div class="farm-sync-banner ${integrationReady ? "is-ready" : ""}">${integrationReady ? "Estoque sincronizado. O agendamento reserva o saldo; a entrega ocorre no jogo com /fazresgatar." : "A Web Store ainda n&atilde;o recebeu uma sincroniza&ccedil;&atilde;o recente. Estoque e agendamentos ficam indispon&iacute;veis at&eacute; o servidor enviar dados reais."}</div>
+      <section class="farm-section"><div class="farm-section-head"><h3>Produ&ccedil;&atilde;o e estoque</h3><p>Quantidade produzida em cada ciclo, intervalo, tamanho m&aacute;ximo do pacote, saldo dispon&iacute;vel e reservas.</p></div>
+        ${!catalogFromMysql ? `<div class="farm-sync-banner">O cat&eacute;logo MySQL ainda n&atilde;o foi publicado pelo plugin; os valores abaixo s&atilde;o a configura&ccedil;&atilde;o local de refer&ecirc;ncia.</div>` : ""}
+        ${resources.length ? `<div class="farm-table-wrap"><table class="farm-table"><thead><tr><th>Recurso, categoria e capacidade</th><th>Produ&ccedil;&atilde;o por ciclo</th><th>Intervalo do ciclo</th><th>Tamanho do pacote</th><th>Saldo dispon&iacute;vel</th><th>Situa&ccedil;&atilde;o</th></tr></thead><tbody>${resourceRows}</tbody></table></div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
+      </section>
+      <section class="farm-section"><div class="farm-section-head"><h3>Agendar retirada</h3><p>Informe a quantidade que deseja retirar. O saldo ser&aacute; reservado at&eacute; concluir o resgate ou cancelar o pedido.</p></div>
+        ${redemptionCards ? `<div class="farm-action-list">${redemptionCards}</div>` : `<p style="font-size:12px;color:var(--text2);">N&atilde;o h&aacute; recursos habilitados para retirada.</p>`}
+      </section>
+      ${pendingOrders.length ? `<section class="farm-section"><div class="farm-section-head"><h3>Retiradas pendentes (${pendingOrders.length})</h3><p>Voc&ecirc; pode cancelar antes de resgatar no jogo. Ao cancelar, a quantidade reservada volta ao saldo dispon&iacute;vel.</p></div><div class="farm-record-list">${pendingCards}</div></section>` : ""}
+      <section class="farm-section"><div class="farm-section-head"><h3>Itens enviados &agrave; Fazenda</h3><p>Recursos enviados no jogo, quantidade, data de envio e situa&ccedil;&atilde;o da produ&ccedil;&atilde;o.</p></div>
+        ${uploadCards ? `<div class="farm-record-list">${uploadCards}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum item enviado &agrave; Fazenda foi sincronizado com a Web Store ainda.</p>`}
+      </section>
+      ${historyOrders.length ? `<section class="farm-section"><div class="farm-section-head"><h3>Hist&oacute;rico de retiradas</h3><p>Pedidos conclu&iacute;dos e cancelados, com hor&aacute;rio e quantidade entregue.</p></div><div class="farm-record-list">${historyCards}</div></section>` : ""}`;
   } catch (error) {
     host.innerHTML = `<span style="color:var(--danger);">${escHtml(error.message || "Falha ao carregar Fazenda.")}</span>`;
   }
@@ -22116,11 +22210,11 @@ async function adminUnlinkDiscord(steamId) {
 }
 
 async function adminCreditDiscordLinkBonus(steamId) {
-  if (!steamId || !confirm(`Creditar manualmente 10.000 &Acirc;mbares ao jogador Steam ${steamId}? Esta a&ccedil;&atilde;o s&oacute; pode ser realizada uma vez por ciclo de v&iacute;nculo.`)) return;
+  if (!steamId || !confirm(`Creditar manualmente 10.000 \u00c2mbares ao jogador Steam ${steamId}? Esta a\u00e7\u00e3o s\u00f3 pode ser realizada uma vez por ciclo de v\u00ednculo.`)) return;
   try {
     const data = await fetchJson(`/api/admin/discord-link/${encodeURIComponent(steamId)}/credit-bonus`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-    if (!data.ok) { toast(data.error || "Falha ao creditar o b&ocirc;nus", "error"); return; }
-    toast("B&ocirc;nus de 10.000 &Acirc;mbares creditado e registrado na auditoria.", "success");
+    if (!data.ok) { toast(data.error || "Falha ao creditar o b\u00f4nus", "error"); return; }
+    toast("B\u00f4nus de 10.000 \u00c2mbares creditado e registrado na auditoria.", "success");
     await loadDiscordLinkAdminAudit();
   } catch (e) { toast(String(e), "error"); }
 }
@@ -35809,7 +35903,7 @@ async function supportWidgetAzureStatus(runTest){
     if(thresholdInput)thresholdInput.value=(c.alert_thresholds||[]).join(",");
     if(regionInput)regionInput.value=c.region||"";
     if(endpointInput)endpointInput.value=c.endpoint||"https://api.cognitive.microsofttranslator.com";
-    status.textContent=`Provedor: Azure Translator ? Chave configurada: ${c.key_configured?"Sim":"N?o"} ? Regi?o: ${c.region||"Global/n?o informada"} ? Uso ${u.period||"neste m?s"}: ${Number(u.characters||0).toLocaleString("pt-BR")} caracteres ? ${u.limit_configured?`${Number(u.usage_percent||0).toLocaleString("pt-BR")}% de ${Number(u.limit||0).toLocaleString("pt-BR")}`:"limite mensal n?o configurado"} ? Chamadas: ${Number(u.requests||0).toLocaleString("pt-BR")} ? ?ltimo erro: ${u.last_error||"Nenhum"}`;
+    status.textContent=`Provedor: Azure Translator ? Chave configurada: ${c.key_configured?"Sim":"N?o"} ? Regi?o: ${c.region||"Global/n&atilde;o informada"} ? Uso ${u.period||"neste m?s"}: ${Number(u.characters||0).toLocaleString("pt-BR")} caracteres ? ${u.limit_configured?`${Number(u.usage_percent||0).toLocaleString("pt-BR")}% de ${Number(u.limit||0).toLocaleString("pt-BR")}`:"limite mensal n&atilde;o configurado"} ? Chamadas: ${Number(u.requests||0).toLocaleString("pt-BR")} ? ?ltimo erro: ${u.last_error||"Nenhum"}`;
     if(!runTest)return;
     button.disabled=true;button.textContent="Testando?";
     const result=await fetchJson("/api/admin/translation/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:35000,retries:0});
