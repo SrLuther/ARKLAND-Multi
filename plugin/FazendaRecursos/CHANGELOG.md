@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.20]
+- Adiciona Paragon Breaker e Paragon Soul aos recursos padrão da categoria ARK Omega, sem alterar configurações existentes por servidor.
+
 ## [0.1.19]
 - Permite recuperar Paragon Souls pelo /fazrecuperar e reenviar Souls/recursos apos recuperacao; uploads ativos ou pendentes continuam protegidos contra duplicacao.
 

@@ -1,7 +1,7 @@
 {
   "FullName": "Fazenda de Recursos",
   "Description": "Produção passiva individual de recursos para ARKLAND",
-  "Version": 0.19,
+  "Version": 0.20,
   "MinApiVersion": 3.54,
-  "VersionLabel": "0.1.19"
+  "VersionLabel": "0.1.20"
 }

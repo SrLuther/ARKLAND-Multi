@@ -14,6 +14,12 @@
 - Acesso remoto: status diferencia processo em execucao de servidor realmente acessivel pela listagem Steam ou LAN.
 - Discord: corrigida a codificacao da confirmacao e das mensagens de credito manual de bonus.
 
+## [1.11.38] - 2026-11-04
+
+### Other
+
+- Fazenda: adiciona Paragon Breaker e Paragon Soul aos recursos padrao de ARK Omega; plugin FazendaRecursos atualizado para 0.1.20.
+
 ## [1.11.36] - 2026-11-03
 
 ### Other

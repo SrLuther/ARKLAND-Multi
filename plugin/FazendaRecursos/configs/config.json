@@ -69,6 +69,30 @@
             "StackSize": 25,
             "Capacity": 200,
             "Enabled": true
+          },
+          {
+            "Id": "omega_paragon_breaker",
+            "Name": "Paragon Breaker",
+            "ItemClass": "/Game/Mods/ArkOmega/Items/Souls/GodSouls/PrimalItem_ParagonBreaker.PrimalItem_ParagonBreaker_C",
+            "InputClass": "/Game/Mods/ArkOmega/Items/Souls/GodSouls/PrimalItem_ParagonBreaker.PrimalItem_ParagonBreaker_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 1,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "omega_paragon_soul",
+            "Name": "Paragon Soul",
+            "ItemClass": "/Game/Mods/ArkOmega/Items/Souls/GodSouls/PrimalItem_SpeciesSoul.PrimalItem_SpeciesSoul_C",
+            "InputClass": "/Game/Mods/ArkOmega/Items/Souls/GodSouls/PrimalItem_SpeciesSoul.PrimalItem_SpeciesSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 1,
+            "Capacity": 200,
+            "Enabled": true
           }
         ]
       }

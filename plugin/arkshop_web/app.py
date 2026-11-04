@@ -14256,16 +14256,20 @@ def _farm_omega_default_resources() -> list[dict[str, Any]]:
         ("omega_paragon_shard", "Paragon Shard", "PrimalItem_ParagonShard"),
         ("omega_soul_shard", "Soul Shard", "PrimalItem_SoulShard"),
         ("omega_chest_shard", "Chest Shard", "PrimalItem_ChestShard"),
+        ("omega_paragon_breaker", "Paragon Breaker", "GodSouls/PrimalItem_ParagonBreaker"),
+        ("omega_paragon_soul", "Paragon Soul", "GodSouls/PrimalItem_SpeciesSoul"),
     ]
     return [{
         "Id": resource_id,
         "Name": name,
-        "ItemClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset}_C",
-        "InputClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset}_C",
+        "ItemClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "InputClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset.rsplit('/', 1)[-1]}_C",
         "InputQuantity": 1,
         "OutputQuantity": 1,
         "IntervalSeconds": 3600,
-        "StackSize": 25,
+        "StackSize": 25 if resource_id in {
+            "omega_paragon_shard", "omega_soul_shard", "omega_chest_shard"
+        } else 1,
         "Capacity": 200,
         "Enabled": True,
     } for resource_id, name, asset in definitions]

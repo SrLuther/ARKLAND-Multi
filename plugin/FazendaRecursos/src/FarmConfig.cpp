@@ -13,19 +13,28 @@ nlohmann::json DefaultBaseResources() {
 }
 
 nlohmann::json DefaultOmegaResources() {
-    const std::array<std::tuple<const char*, const char*, const char*>, 3> rows = {{
+    const std::array<std::tuple<const char*, const char*, const char*>, 5> rows = {{
         {"omega_paragon_shard", "Paragon Shard", "PrimalItem_ParagonShard"},
         {"omega_soul_shard", "Soul Shard", "PrimalItem_SoulShard"},
         {"omega_chest_shard", "Chest Shard", "PrimalItem_ChestShard"},
+        {"omega_paragon_breaker", "Paragon Breaker", "GodSouls/PrimalItem_ParagonBreaker"},
+        {"omega_paragon_soul", "Paragon Soul", "GodSouls/PrimalItem_SpeciesSoul"},
     }};
     nlohmann::json resources = nlohmann::json::array();
     for (const auto& [id, name, asset] : rows) {
+        const std::string asset_path = asset;
+        const auto slash = asset_path.find_last_of('/');
+        const std::string asset_name = slash == std::string::npos
+            ? asset_path : asset_path.substr(slash + 1);
         const std::string item_class = std::string(
-            "/Game/Mods/ArkOmega/Items/Souls/") + asset + "." + asset + "_C";
+            "/Game/Mods/ArkOmega/Items/Souls/") + asset_path + "." + asset_name + "_C";
         resources.push_back({
             {"Id", id}, {"Name", name}, {"ItemClass", item_class},
             {"InputClass", item_class}, {"InputQuantity", 1},
-            {"OutputQuantity", 1}, {"IntervalSeconds", 3600}, {"StackSize", 25},
+            {"OutputQuantity", 1}, {"IntervalSeconds", 3600},
+            {"StackSize", std::string(id) == "omega_paragon_shard" ||
+                std::string(id) == "omega_soul_shard" ||
+                std::string(id) == "omega_chest_shard" ? 25 : 1},
             {"Capacity", 200}, {"Enabled", true}
         });
     }

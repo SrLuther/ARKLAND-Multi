@@ -36,7 +36,8 @@ O método de criar o item que será entregue ainda não foi validado pelo usuár
 Paragons exigem tratamento diferente de um recurso comum. Várias instâncias podem usar a mesma Blueprint e ainda assim representar Paragons diferentes, com características próprias fornecidas pelo sistema/mod que controla essas entidades. A Blueprint identifica a classe base do item; não é prova suficiente da identidade ou das características daquela instância.
 
 - As Blueprints/classes de Paragon devem fazer parte do catálogo/configuração da Fazenda para que esses itens possam ser reconhecidos e enviados.
-- **Paragon Breaker deve ser explicitamente suportado** como tipo de Paragon elegível. A classe/Blueprint exata precisa vir do catálogo ou de um diagnóstico real; não inventar um caminho de asset.
+- **Paragon Breaker deve ser explicitamente suportado** como recurso Omega usando a classe `/Game/Mods/ArkOmega/Items/Souls/GodSouls/PrimalItem_ParagonBreaker.PrimalItem_ParagonBreaker_C`; confirmar a criação do item no servidor.
+- **Paragon Soul** usa a classe `/Game/Mods/ArkOmega/Items/Souls/GodSouls/PrimalItem_SpeciesSoul.PrimalItem_SpeciesSoul_C`, mas pode exigir dados de espécie na instância. A classe foi incluída no catálogo da Fazenda; a produção de um Soul genérico requer validação no servidor.
 - O plugin deve preservar cada blob original completo e atribuir um `upload_id` único. Não combinar, sobrescrever ou rejeitar instâncias distintas somente porque têm a mesma Blueprint.
 - O histórico/site deve identificar a classe/Blueprint conhecida e apresentar o nome/tipo disponível, deixando claro quando os atributos individuais não puderem ser inspecionados.
 - Os testes iniciais não comprovaram que a Fazenda consiga distinguir ou reproduzir fielmente todos os atributos customizados de cada Paragon. A aceitação/upload da Blueprint pode ser suportada sem garantir que uma cópia produzida mantenha os atributos únicos.

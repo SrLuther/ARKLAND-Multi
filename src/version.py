@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.37"
+APP_VERSION: str = "1.11.38"
 BUILD_DATE: str = "2026-11-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.38",
+        "date": "2026-11-04",
+        "changes": [
+            "Fazenda: adiciona Paragon Breaker e Paragon Soul aos recursos padrao de ARK Omega; plugin FazendaRecursos atualizado para 0.1.20.",
+        ],
+    },
     {
         "version": "1.11.37",
         "date": "2026-11-04",

@@ -13,7 +13,7 @@
 ## Validacao necessaria
 
 - Aplicar a migracao, implantar site/plugin e validar ponta a ponta no servidor ARK.
-- Confirmar que cada `ItemClass`/Blueprint cria o item esperado. Compilar nao confirma variantes Paragon nem preservacao de dados Omega; Paragon Breaker depende de Blueprint correta.
+- Confirmar em servidor que cada `ItemClass`/Blueprint cria o item esperado. Paragon Soul usa a classe `PrimalItem_SpeciesSoul`, cujo item pode depender de dados de espécie; a configuração padrão não garante que um Soul sem metadados seja utilizável.
 - Ajustar `StackSize` ao limite real de cada item e validar inventario no jogo.
 - Entrega ao inventario e confirmacao MySQL nao sao atomicas. Se o servidor cair entre as duas, verificar inventario e historico antes de repetir.
 
