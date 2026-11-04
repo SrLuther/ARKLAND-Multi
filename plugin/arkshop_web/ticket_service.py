@@ -903,6 +903,23 @@ def _record_discord_link_event(db: Any, *, event_type: str, steam_id: str,
     })
 
 
+def _discord_link_bonus_cycle(db: Any, steam_id: str) -> tuple[bool, int | None]:
+    """Return bonus eligibility and latest unlink cycle ID for a Steam account."""
+    row = db.execute(text("""
+        SELECT
+            MAX(CASE WHEN event_type = 'bonus_credited' THEN id END) AS last_bonus_id,
+            MAX(CASE WHEN event_type = 'unlink_admin' THEN id END) AS last_unlink_id
+        FROM support_ticket_discord_link_audit
+        WHERE steam_id = :steam_id
+    """), {"steam_id": steam_id}).mappings().first()
+    last_bonus_id = row.get("last_bonus_id") if row else None
+    last_unlink_id = row.get("last_unlink_id") if row else None
+    eligible = last_bonus_id is None or (
+        last_unlink_id is not None and int(last_unlink_id) > int(last_bonus_id)
+    )
+    return eligible, int(last_unlink_id) if last_unlink_id is not None else None
+
+
 def _discord_link_audit_search_filter(query: str | None) -> tuple[str, dict[str, str]]:
     value = str(query or "").strip().casefold()
     if not value:
@@ -946,7 +963,18 @@ def list_discord_link_admin_audit(
         {search_sql}
         ORDER BY a.id DESC LIMIT :lim OFFSET :off"""),
         {**search_params, "lim": max(1, min(int(limit), 200)), "off": max(0, int(offset))}).mappings().all()
-    return [dict(row) for row in rows]
+    events = [dict(row) for row in rows]
+    eligibility: dict[str, bool] = {}
+    for event in events:
+        sid = str(event.get("steam_id") or "")
+        if sid not in eligibility:
+            eligible, _ = _discord_link_bonus_cycle(db, sid)
+            eligibility[sid] = eligible
+        event["bonus_eligible"] = bool(
+            eligibility[sid] and int(event.get("is_active") or 0) == 1
+            and event.get("event_type") == "link_confirmed"
+        )
+    return events
 
 
 def count_discord_link_admin_audit(db: Any, *, query: str | None = None) -> int:
@@ -970,6 +998,35 @@ def admin_unlink_discord(db: Any, *, steam_id: str, actor_steam_id: str,
     db.delete(link)
     db.commit()
     return {"ok": True}
+
+
+def admin_credit_discord_link_bonus(db: Any, *, steam_id: str, actor_steam_id: str,
+        actor_name: str = "") -> dict[str, Any]:
+    """Manually credit the first-link bonus for an active, unpaid link."""
+    from app import SupportTicketDiscordLink, _add_player_points_tx
+    sid = str(steam_id or "").strip()
+    link = db.get(SupportTicketDiscordLink, sid) if sid else None
+    if not link:
+        return {"ok": False, "error": "Vínculo ativo não encontrado.", "status": 404}
+    eligible, cycle_id = _discord_link_bonus_cycle(db, sid)
+    if not eligible:
+        return {"ok": False, "error": "Este vínculo já recebeu o bônus.", "status": 409}
+    from amber_ledger import record_admin_adjust
+    _add_player_points_tx(db, sid, DISCORD_FIRST_LINK_BONUS)
+    ledgered = record_admin_adjust(db, steam_id=sid, delta=DISCORD_FIRST_LINK_BONUS,
+        event_type="discord_first_link_bonus",
+        idempotency_key=f"discord:first_link:{sid}:{cycle_id or 'initial'}",
+        metadata={"note": "Bônus de primeira vinculação creditado manualmente pela administração"})
+    if not ledgered:
+        db.rollback()
+        raise RuntimeError("discord_link_bonus_ledger_write_failed")
+    _record_discord_link_event(db, event_type="bonus_credited", steam_id=sid,
+        steam_name=resolve_player_name(db, sid), discord_user_id=link.discord_user_id,
+        discord_username=link.discord_username or "", actor_steam_id=actor_steam_id,
+        actor_name=actor_name, amber_delta=DISCORD_FIRST_LINK_BONUS,
+        note="Bônus de 10.000 âmbares creditado manualmente pela administração.")
+    db.commit()
+    return {"ok": True, "steam_id": sid, "amber_delta": DISCORD_FIRST_LINK_BONUS}
 
 
 def confirm_discord_link_code_for_discord_user(
@@ -1007,8 +1064,7 @@ def confirm_discord_link_code_for_discord_user(
         if conflict != sid:
             return {"ok": False, "error": "Este Discord já está vinculado a outra conta Steam."}
 
-    from app import SupportTicketDiscordLink
-    was_first_link = db.get(SupportTicketDiscordLink, sid) is None
+    bonus_eligible, bonus_cycle_id = _discord_link_bonus_cycle(db, sid)
     saved = save_discord_link(
         db,
         steam_id=sid,
@@ -1023,19 +1079,22 @@ def confirm_discord_link_code_for_discord_user(
             "error": saved.get("error") if isinstance(saved, dict) else "Falha ao salvar vínculo.",
         }
 
-    if was_first_link:
+    if bonus_eligible:
         from app import _add_player_points_tx
         from amber_ledger import record_admin_adjust
         _add_player_points_tx(db, sid, DISCORD_FIRST_LINK_BONUS)
-        record_admin_adjust(db, steam_id=sid, delta=DISCORD_FIRST_LINK_BONUS,
-            event_type="discord_first_link_bonus", idempotency_key=f"discord:first_link:{token}",
+        ledgered = record_admin_adjust(db, steam_id=sid, delta=DISCORD_FIRST_LINK_BONUS,
+            event_type="discord_first_link_bonus",
+            idempotency_key=f"discord:first_link:{sid}:{bonus_cycle_id or 'initial'}",
             metadata={"note": "Bônus pela primeira vinculação confirmada do Discord"})
+        if not ledgered:
+            raise RuntimeError("discord_link_bonus_ledger_write_failed")
     _record_discord_link_event(db, event_type="link_confirmed", steam_id=sid,
         steam_name=resolve_player_name(db, sid), discord_user_id=did,
         discord_username=discord_username or row.discord_username or "", code=token,
         amber_delta=0,
-        note="Código confirmado no Discord" + ("; bônus creditado" if was_first_link else ""))
-    if was_first_link:
+        note="Código confirmado no Discord" + ("; bônus creditado" if bonus_eligible else ""))
+    if bonus_eligible:
         _record_discord_link_event(db, event_type="bonus_credited", steam_id=sid,
             steam_name=resolve_player_name(db, sid), discord_user_id=did,
             discord_username=discord_username or row.discord_username or "", code=token,
@@ -1049,7 +1108,7 @@ def confirm_discord_link_code_for_discord_user(
         "discord_user_id": did,
         "discord_username": saved.get("discord_username") if isinstance(saved, dict) else None,
         "link_method": "ingame_code",
-        "first_link_bonus": DISCORD_FIRST_LINK_BONUS if was_first_link else 0,
+        "first_link_bonus": DISCORD_FIRST_LINK_BONUS if bonus_eligible else 0,
     }
 
 

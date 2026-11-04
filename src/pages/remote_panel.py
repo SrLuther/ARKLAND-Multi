@@ -76,7 +76,7 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
     ctk.CTkEntry(agent_card, textvariable=app._remote_port_var, height=32,
                  width=110).grid(row=2, column=1, padx=(0, 16), pady=4, sticky="w")
     ctk.CTkLabel(agent_card,
-                 text="Libere esta porta no firewall/roteador para acesso externo.",
+                 text="Acesso entre redes exige encaminhar esta porta TCP no roteador para este PC.",
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
         row=3, column=0, columnspan=2, padx=16, pady=(0, 6), sticky="w")
 
@@ -105,14 +105,25 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
         row=5, column=0, columnspan=2, padx=16, pady=(2, 4), sticky="w")
 
+    ctk.CTkLabel(agent_card, text="IP público ou domínio DDNS:", width=190, anchor="w",
+                 text_color="gray60").grid(row=6, column=0, padx=16, pady=(4, 4), sticky="w")
+    app._remote_public_host_var = tk.StringVar(value=cfg.remote_agent_host or "")
+    ctk.CTkEntry(agent_card, textvariable=app._remote_public_host_var, height=32,
+                 placeholder_text="Ex: meu-ip-publico ou arkland.ddns.net").grid(
+        row=6, column=1, padx=(0, 16), pady=(4, 4), sticky="ew")
+    ctk.CTkLabel(agent_card,
+                 text="Vazio usa o IP local (somente LAN). O roteador deve encaminhar TCP para este PC.",
+                 text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+        row=7, column=0, columnspan=2, padx=16, pady=(0, 6), sticky="w")
+
     app._remote_ip_var = tk.StringVar(value=f"IP local detectado: {local_ip()}")
     ctk.CTkLabel(agent_card, textvariable=app._remote_ip_var,
                  text_color="gray50", font=ctk.CTkFont(size=10)).grid(
-        row=6, column=0, columnspan=2, padx=16, pady=(0, 6), sticky="w")
+        row=8, column=0, columnspan=2, padx=16, pady=(0, 6), sticky="w")
 
     # Botões de controle
     btn_row = ctk.CTkFrame(agent_card, fg_color="transparent")
-    btn_row.grid(row=7, column=0, columnspan=2, padx=12, pady=(4, 16), sticky="w")
+    btn_row.grid(row=9, column=0, columnspan=2, padx=12, pady=(4, 16), sticky="w")
 
     def _toggle_agent() -> None:
         _save_agent_cfg()
@@ -246,6 +257,7 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
     def _save_agent_cfg() -> None:
         cfg = app.config_manager.config
         cfg.remote_agent_name = app._remote_name_var.get().strip() or _hostname()
+        cfg.remote_agent_host = app._remote_public_host_var.get().strip()
         try:
             cfg.remote_agent_port = int(app._remote_port_var.get())
         except ValueError:

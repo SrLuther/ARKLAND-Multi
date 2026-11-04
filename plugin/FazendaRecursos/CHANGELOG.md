@@ -1,5 +1,8 @@
 ﻿# FazendaRecursos - changelog
 
+## [0.1.18]
+- Corrige a versao gravada no MySQL: usa a versao compilada do plugin em vez do valor fixo 0.1.13-test.
+
 ## [0.1.17]
 - Adiciona Element na categoria padrao usando a Blueprint base do ARK; quantidade, intervalo, capacidade e stack ficam configuraveis por recurso.
 

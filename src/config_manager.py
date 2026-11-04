@@ -312,6 +312,7 @@ class AppConfig:
     remote_agent_enabled: bool = False
     remote_agent_name: str = ""
     remote_agent_port: int = 32440
+    remote_agent_host: str = ""  # Endereco publico/DDNS anunciado no codigo de identidade
     remote_agent_token: str = ""
     remote_peers: list = field(default_factory=list)
     # Ciclos de sincronização: lista de listas de caminhos

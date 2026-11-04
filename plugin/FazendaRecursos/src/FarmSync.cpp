@@ -1,6 +1,7 @@
 #include "FarmSync.h"
 #include "FarmConfig.h"
 #include "FarmState.h"
+#include "plugin_version.h"
 #include "../../CustomShop/src/mysql.h"
 #include <cstdlib>
 
@@ -428,7 +429,7 @@ private:
             bool ok = SyncCatalog(db, definitions, config.ServerId());
             const auto server = db.Escape(config.ServerId());
             const auto sid = db.Escape(steam_id);
-            const auto version = "0.1.13-test";
+            const auto version = std::string(ARKLAND_PLUGIN_VERSION) + "-test";
             if (ok) {
                 for (const auto& def : definitions) {
                     if (!def.enabled) continue;

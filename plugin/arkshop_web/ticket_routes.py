@@ -27,6 +27,7 @@ from ticket_service import (
     list_discord_link_audit,
     list_discord_link_admin_audit,
     admin_unlink_discord,
+    admin_credit_discord_link_bonus,
     list_tickets_admin,
     list_tickets_for_player,
     request_player_close,
@@ -382,6 +383,13 @@ def register_ticket_routes(
                         app.logger.error("discord_link_confirmation_rejected_without_reason")
                     return jsonify({**out, "ok": False, "error": reason}), 400
                 return jsonify({"ok": True, **out})
+            except Exception:
+                db.rollback()
+                app.logger.exception("discord_link_confirmation_failed")
+                return jsonify({
+                    "ok": False,
+                    "error": "Falha temporaria ao concluir o vinculo e creditar o bonus. Tente novamente.",
+                }), 503
             finally:
                 db.close()
 
@@ -493,6 +501,25 @@ def register_ticket_routes(
                 actor_name=resolve_player_name(db, actor) if actor else "",
                 steam_name=resolve_player_name(db, steam_id))
             return jsonify(result), (200 if result.get("ok") else 404)
+        finally:
+            db.close()
+
+    @app.route("/api/admin/discord-link/<steam_id>/credit-bonus", methods=["POST"])
+    @admin_required
+    def admin_discord_link_credit_bonus(steam_id: str):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        actor = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            result = admin_credit_discord_link_bonus(db, steam_id=steam_id,
+                actor_steam_id=actor,
+                actor_name=resolve_player_name(db, actor) if actor else "")
+            return jsonify(result), (200 if result.get("ok") else int(result.get("status", 409)))
+        except Exception:
+            db.rollback()
+            logging.exception("Falha no crédito administrativo do bônus de vínculo Discord")
+            return jsonify({"ok": False, "error": "Falha ao creditar o bônus. Nenhum saldo foi alterado."}), 503
         finally:
             db.close()
 

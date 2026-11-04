@@ -4,13 +4,24 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.33"
+APP_VERSION: str = "1.11.34"
 BUILD_DATE: str = "2026-11-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.34",
+        "date": "2026-11-03",
+        "changes": [
+            "Fazenda: corrigida a falha Minha Fazenda causada pela coluna share_key ausente em farm_redemptions; o WebStore migra automaticamente bancos existentes.",
+            "FazendaRecursos: versao enviada ao MySQL agora corresponde a versao compilada; inclui o plugin 0.1.18-test.",
+            "Discord: painel de auditoria permite ao administrador forcar o credito elegivel de 10.000 Ambares com protecao contra duplicidade.",
+            "Acesso remoto: agente aceita host publico ou DDNS para conexoes fora da rede local.",
+            "Pacote de teste inclui as versoes atuais dos plugins oficiais e a atualizacao do WebStore.",
+        ],
+    },
     {
         "version": "1.11.33",
         "date": "2026-11-03",

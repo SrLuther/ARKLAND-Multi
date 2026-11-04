@@ -15,6 +15,7 @@ from ticket_service import (
     TICKET_CATEGORIES,
     add_ticket_reply,
     admin_unlink_discord,
+    admin_credit_discord_link_bonus,
     attend_ticket,
     close_ticket,
     confirm_discord_link_code_for_discord_user,
@@ -266,6 +267,88 @@ def test_generate_and_confirm_discord_link_code(ticket_db):
     assert [event["event_type"] for event in audit[:4]] == [
         "bonus_credited", "link_confirmed", "unlink_admin", "bonus_credited"
     ]
+
+
+def test_admin_can_force_uncredited_active_discord_link_bonus_once(ticket_db):
+    from app import SupportTicketDiscordLink
+
+    ticket_db.add(SupportTicketDiscordLink(
+        steam_id=USER_STEAM, discord_user_id="555123456",
+        discord_username="Ciano", link_method="legacy",
+    ))
+    ticket_db.commit()
+
+    first = admin_credit_discord_link_bonus(
+        ticket_db, steam_id=USER_STEAM, actor_steam_id=ADMIN_STEAM,
+        actor_name="Admin",
+    )
+    assert first["ok"] is True
+    assert first["amber_delta"] == 10_000
+    assert ticket_db.execute(
+        text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}
+    ).scalar_one() == 10_000
+    audit = list_discord_link_admin_audit(ticket_db)
+    assert audit[0]["event_type"] == "bonus_credited"
+    assert audit[0]["actor_steam_id"] == ADMIN_STEAM
+    assert audit[0]["bonus_eligible"] is False
+
+    duplicate = admin_credit_discord_link_bonus(
+        ticket_db, steam_id=USER_STEAM, actor_steam_id=ADMIN_STEAM,
+    )
+    assert duplicate["ok"] is False
+    assert duplicate["status"] == 409
+    assert ticket_db.execute(
+        text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}
+    ).scalar_one() == 10_000
+
+
+def test_discord_link_rolls_back_when_bonus_ledger_write_fails(ticket_db, monkeypatch):
+    import amber_ledger
+    from app import SupportTicketDiscordLink, SupportTicketDiscordLinkCode
+
+    generated = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    monkeypatch.setattr(amber_ledger, "record_admin_adjust", lambda *args, **kwargs: False)
+
+    with pytest.raises(RuntimeError, match="discord_link_bonus_ledger_write_failed"):
+        confirm_discord_link_code_for_discord_user(
+            ticket_db, generated["code"], discord_user_id="987654321"
+        )
+
+    ticket_db.rollback()
+    assert ticket_db.execute(
+        text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}
+    ).scalar_one_or_none() is None
+    assert ticket_db.get(SupportTicketDiscordLink, USER_STEAM) is None
+    code = ticket_db.query(SupportTicketDiscordLinkCode).filter_by(code=generated["code"]).one()
+    assert code.used_at is None
+
+
+def test_legacy_active_discord_link_without_bonus_audit_gets_bonus(ticket_db):
+    # Reproduce legacy state: link row exists, but no prior audit/credit event.
+    saved = save_discord_link(
+        ticket_db,
+        steam_id=USER_STEAM,
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+        link_method="ingame_code",
+    )
+    assert saved["steam_id"] == USER_STEAM
+    assert list_discord_link_admin_audit(ticket_db) == []
+
+    generated = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    confirmed = confirm_discord_link_code_for_discord_user(
+        ticket_db,
+        generated["code"],
+        discord_user_id="987654321",
+        discord_username="nick_teste",
+    )
+
+    assert confirmed["ok"] is True
+    assert confirmed["first_link_bonus"] == 10_000
+    balance = ticket_db.execute(
+        text("SELECT points FROM players WHERE steam_id=:sid"), {"sid": USER_STEAM}
+    ).scalar_one()
+    assert balance == 10_000
 
 
 def test_save_discord_link_without_commit_flushes_and_returns_pending_link(ticket_db):

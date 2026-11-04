@@ -2228,6 +2228,30 @@ def _migrate_schema(engine: Any) -> None:
         conn.execute(text(_entitlements_ddl_mysql()))
         conn.commit()
     Base.metadata.create_all(bind=engine)
+    if is_mysql:
+        # create_all() does not alter an existing table. FazendaRedemption
+        # gained these fields after the initial table was deployed, so ensure
+        # older WebStore databases are upgraded before player_farm_overview
+        # selects the ORM model (which includes every mapped column).
+        with engine.begin() as conn:
+            table = conn.execute(text("SHOW TABLES LIKE 'farm_redemptions'")).fetchone()
+            if table is not None:
+                existing = {
+                    str(row[0]) for row in conn.execute(
+                        text("SHOW COLUMNS FROM `farm_redemptions`")
+                    ).fetchall()
+                }
+                farm_redemption_columns = {
+                    "share_key": "VARCHAR(64) NOT NULL DEFAULT 'default'",
+                    "delivered_amount": "INT NOT NULL DEFAULT 0",
+                    "stack_size": "INT NOT NULL DEFAULT 25",
+                }
+                for column, definition in farm_redemption_columns.items():
+                    if column not in existing:
+                        conn.execute(text(
+                            f"ALTER TABLE `farm_redemptions` ADD COLUMN `{column}` {definition}"
+                        ))
+                        log.info("farm_schema_migrated table=farm_redemptions column=%s", column)
     _ENTITLEMENTS_SCHEMA_READY = True
     _ensure_store_users_schema(engine)
     _ensure_steam_id_collation(engine)
@@ -14527,6 +14551,9 @@ def player_farm_overview():
             "uploaded_at": row.uploaded_at.isoformat() if row.uploaded_at else None,
             "blob_size": row.blob_size,
         } for row in uploads]
+    except Exception:
+        log.exception("farm_player_overview_failed", extra={"steam_id": steam_id})
+        return jsonify({"ok": False, "error": "Farm overview unavailable; check WebStore log."}), 503
     finally:
         _release_db_session(db)
     for resource in resources:

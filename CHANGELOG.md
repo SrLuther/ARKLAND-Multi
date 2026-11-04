@@ -1,9 +1,19 @@
 # Changelog
 
-<!-- Gerado: 2026-11-03 18:24:30 -->
-<!-- Total de versões: 526 | Primeira: 1.11.33 -->
+<!-- Gerado: 2026-11-03 20:58:54 -->
+<!-- Total de versões: 527 | Primeira: 1.11.34 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.34] - 2026-11-03
+
+### Other
+
+- Fazenda: corrigida a falha Minha Fazenda causada pela coluna share_key ausente em farm_redemptions; o WebStore migra automaticamente bancos existentes.
+- FazendaRecursos: versao enviada ao MySQL agora corresponde a versao compilada; inclui o plugin 0.1.18-test.
+- Discord: painel de auditoria permite ao administrador forcar o credito elegivel de 10.000 Ambares com protecao contra duplicidade.
+- Acesso remoto: agente aceita host publico ou DDNS para conexoes fora da rede local.
+- Pacote de teste inclui as versoes atuais dos plugins oficiais e a atualizacao do WebStore.
 
 ## [1.11.33] - 2026-11-03
 

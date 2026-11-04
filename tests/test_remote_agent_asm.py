@@ -64,3 +64,32 @@ def test_asm_manager_does_not_start_a_server_that_is_already_running():
 
     assert manager.start_server(config.id) is False
     assert called == []
+
+
+def test_identity_code_prefers_configured_public_host(monkeypatch):
+    from types import SimpleNamespace
+    from src.pages import refresh_identity_code as identity_page
+    from src.remote_agent import parse_identity_code
+
+    class _Value:
+        value = ""
+
+        def set(self, value):
+            self.value = value
+
+    code = _Value()
+    status = _Value()
+    app = SimpleNamespace(
+        config_manager=SimpleNamespace(config=SimpleNamespace(
+            remote_agent_name="Production", remote_agent_port=32440,
+            remote_agent_token="secret-token", remote_agent_host="arkland.example.net",
+        )),
+        _remote_code_var=code,
+        _remote_ip_var=status,
+    )
+    monkeypatch.setattr(identity_page, "local_ip", lambda: "192.168.15.51")
+
+    identity_page.refresh_identity_code(app)
+
+    assert parse_identity_code(code.value)["h"] == "arkland.example.net"
+    assert "192.168.15.51" in status.value

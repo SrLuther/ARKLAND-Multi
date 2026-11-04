@@ -22087,8 +22087,8 @@ async function loadDiscordLinkAdminAudit(page = _discordLinkAuditPage) {
         ? `<strong style="color:var(--success,#65c987);white-space:nowrap;">+${delta.toLocaleString("pt-BR")} Âmbares</strong>`
         : `<span style="font-size:11px;color:var(--text2);">Sem crédito</span>`;
       const action = Number(e.is_active) === 1 && e.event_type === "link_confirmed"
-        ? `<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer vínculo</button>`
-        : `<span style="font-size:11px;color:var(--text2);">${e.event_type === "link_confirmed" ? "Vínculo encerrado" : "—"}</span>`;
+        ? `<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">${Number(e.bonus_eligible) === 1 ? `<button class="btn btn-success btn-sm" onclick="adminCreditDiscordLinkBonus('${escHtml(e.steam_id || "")}')">For&ccedil;ar 10.000 &Acirc;mbares</button>` : ""}<button class="btn btn-danger btn-sm" onclick="adminUnlinkDiscord('${escHtml(e.steam_id || "")}')">Desfazer v&iacute;nculo</button></div>`
+        : `<span style="font-size:11px;color:var(--text2);">${e.event_type === "link_confirmed" ? "V&iacute;nculo encerrado" : "&mdash;"}</span>`);
       const eventColor = delta > 0 ? "var(--success,#65c987)" : e.event_type === "unlink_admin" ? "var(--danger,#d95b5b)" : "var(--accent,#d6a443)";
       const rawNote = String(e.note || "");
       const note = /first-link bonus credited to the player's amber balance\./i.test(rawNote)
@@ -22111,6 +22111,16 @@ async function adminUnlinkDiscord(steamId) {
     const data = await fetchJson(`/api/admin/discord-link/${encodeURIComponent(steamId)}/unlink`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     if (!data.ok) { toast(data.error || "Falha ao desfazer vínculo", "error"); return; }
     toast("Vínculo removido. A próxima confirmação poderá gerar novo bônus.", "success");
+    await loadDiscordLinkAdminAudit();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function adminCreditDiscordLinkBonus(steamId) {
+  if (!steamId || !confirm(`Creditar manualmente 10.000 &Acirc;mbares ao jogador Steam ${steamId}? Esta a&ccedil;&atilde;o s&oacute; pode ser realizada uma vez por ciclo de v&iacute;nculo.`)) return;
+  try {
+    const data = await fetchJson(`/api/admin/discord-link/${encodeURIComponent(steamId)}/credit-bonus`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!data.ok) { toast(data.error || "Falha ao creditar o b&ocirc;nus", "error"); return; }
+    toast("B&ocirc;nus de 10.000 &Acirc;mbares creditado e registrado na auditoria.", "success");
     await loadDiscordLinkAdminAudit();
   } catch (e) { toast(String(e), "error"); }
 }
