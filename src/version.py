@@ -4,18 +4,26 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.40"
-BUILD_DATE: str = "2026-11-04"
+APP_VERSION: str = "1.11.41"
+BUILD_DATE: str = "2026-11-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.11.41",
+        "date": "2026-11-05",
+        "changes": [
+            "Fazenda: itens enviados agora aparecem em cards compactos, responsivos e ordenados alfabeticamente.",
+            "ArkApi: a atualizacao da Fazenda move pastas auxiliares migrations e _FazendaRecursos-backups para ArkApi/SupportFiles, preservando os dados e evitando avisos de plugin inexistente.",
+        ],
+    },
+    {
         "version": "1.11.40",
         "date": "2026-11-04",
         "changes": [
-            "Controle de servidores: configura??o agora aceita token puro ou c?digo de identidade completo do Acesso Remoto; erros HTTP 401 orientam a corrigir a credencial.",
+            "Controle de servidores: configura\u00e7\u00e3o agora aceita token puro ou c\u00f3digo de identidade completo do Acesso Remoto; erros HTTP 401 orientam a corrigir a credencial.",
             "Fazenda: resgate usa o mesmo fluxo do CustomShop e remove o sufixo de classe gerada `_C` ao carregar a Blueprint Omega; FazendaRecursos 0.1.22.",
         ],
     },

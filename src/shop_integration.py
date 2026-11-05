@@ -2762,6 +2762,10 @@ def install_fazendarecursos_to_server(
     ok.extend(info_ok)
     notes.extend(info_notes)
 
+    # ArkApi treats every immediate subdirectory of Plugins as a plugin. Keep
+    # support files/backups outside that scan root, retaining their contents.
+    notes.extend(_relocate_arkapi_support_directories(install_dir))
+
     config_path = dest / "config.json"
     if config_path.is_file():
         ok.append("config.json (preservado)")
@@ -2781,6 +2785,31 @@ def install_fazendarecursos_to_server(
             except (OSError, json.JSONDecodeError, TypeError) as exc:
                 notes.append(f"config.json nao criado: {exc}")
     return ok, notes
+
+
+def _relocate_arkapi_support_directories(install_dir: str) -> List[str]:
+    """Move known non-plugin folders out of ArkApi/Plugins without deleting data."""
+    plugins = Path(install_dir) / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins"
+    if not plugins.is_dir():
+        return []
+    support_root = plugins.parent / "SupportFiles"
+    moved: List[str] = []
+    for name in ("migrations", "_FazendaRecursos-backups"):
+        source = plugins / name
+        if not source.is_dir() or (source / f"{name}.dll").is_file():
+            continue
+        destination = support_root / name
+        suffix = 1
+        while destination.exists():
+            destination = support_root / f"{name}-{suffix}"
+            suffix += 1
+        try:
+            support_root.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(source), str(destination))
+            moved.append(f"Pasta auxiliar {name} movida para ArkApi/SupportFiles/{destination.name} (conteúdo preservado)")
+        except OSError as exc:
+            moved.append(f"Pasta auxiliar {name} continua em ArkApi/Plugins; não foi possível movê-la: {exc}")
+    return moved
 
 
 def install_fazendarecursos_all(

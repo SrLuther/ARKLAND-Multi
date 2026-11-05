@@ -1,15 +1,22 @@
 # Changelog
 
-<!-- Gerado: 2026-11-05 00:05:32 -->
-<!-- Total de versões: 533 | Primeira: 1.11.40 -->
+<!-- Gerado: 2026-11-05 13:25:55 -->
+<!-- Total de versões: 534 | Primeira: 1.11.41 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.41] - 2026-11-05
+
+### Other
+
+- Fazenda: itens enviados agora aparecem em cards compactos, responsivos e ordenados alfabeticamente.
+- ArkApi: a atualizacao da Fazenda move pastas auxiliares migrations e _FazendaRecursos-backups para ArkApi/SupportFiles, preservando os dados e evitando avisos de plugin inexistente.
 
 ## [1.11.40] - 2026-11-04
 
 ### Other
 
-- Controle de servidores: configura??o agora aceita token puro ou c?digo de identidade completo do Acesso Remoto; erros HTTP 401 orientam a corrigir a credencial.
+- Controle de servidores: configuração agora aceita token puro ou código de identidade completo do Acesso Remoto; erros HTTP 401 orientam a corrigir a credencial.
 - Fazenda: resgate usa o mesmo fluxo do CustomShop e remove o sufixo de classe gerada `_C` ao carregar a Blueprint Omega; FazendaRecursos 0.1.22.
 
 ## [1.11.39] - 2026-11-04
