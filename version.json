@@ -1,8 +1,9 @@
 {
-    "version": "1.11.39",
+    "version": "1.11.40",
     "date": "2026-11-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.39/ARKLAND-Multi-Setup-v1.11.39.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.40/ARKLAND-Multi-Setup-v1.11.40.exe",
     "changelog": [
-        "Fazenda: resgates dividem a quantidade em stacks aceitos pelo limite real de cada item; logs identificam se a falha foi ao carregar a Blueprint ou criar o item. Plugin FazendaRecursos 0.1.21."
+        "Controle de servidores: configura??o agora aceita token puro ou c?digo de identidade completo do Acesso Remoto; erros HTTP 401 orientam a corrigir a credencial.",
+        "Fazenda: resgate usa o mesmo fluxo do CustomShop e remove o sufixo de classe gerada `_C` ao carregar a Blueprint Omega; FazendaRecursos 0.1.22."
     ]
 }

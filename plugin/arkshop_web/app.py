@@ -13562,11 +13562,29 @@ def admin_cloud_inventory_slot(cloud_group: str, steam_id: str, slot: int):
         _release_db_session(db, force=True)
 
 
+def _server_agent_token_value(value: Any) -> str:
+    """Accept either the raw bearer token or the Server Manager identity code."""
+    token = str(value or "").strip()
+    if not token:
+        return ""
+    try:
+        encoded = token.encode("ascii")
+        encoded += b"=" * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(encoded).decode("utf-8"))
+    except Exception:
+        return token
+    if isinstance(payload, dict) and all(key in payload for key in ("n", "h", "p", "t")):
+        embedded_token = payload.get("t")
+        if isinstance(embedded_token, str) and embedded_token.strip():
+            return embedded_token.strip()
+    return token
+
+
 def _server_agent_config() -> tuple[str, str]:
     settings = _load_settings()
     return (
         str(settings.get("server_agent_url") or os.environ.get("ARKSHOP_SERVER_AGENT_URL") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL") or "").strip().rstrip("/"),
-        str(settings.get("server_agent_token") or os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN") or "").strip(),
+        _server_agent_token_value(settings.get("server_agent_token") or os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN") or ""),
     )
 
 
@@ -13578,7 +13596,7 @@ def admin_get_server_agent_config():
     env_url = os.environ.get("ARKSHOP_SERVER_AGENT_URL") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_URL") or ""
     env_token = os.environ.get("ARKSHOP_SERVER_AGENT_TOKEN") or os.environ.get("ARKSHOP_TRIBE_LOG_REMOTE_TOKEN") or ""
     saved_url = str(settings.get("server_agent_url") or "").strip().rstrip("/")
-    saved_token = str(settings.get("server_agent_token") or "").strip()
+    saved_token = _server_agent_token_value(settings.get("server_agent_token"))
     url = saved_url or str(env_url).strip().rstrip("/")
     token_set = bool(saved_token or env_token)
     return jsonify({
@@ -13611,7 +13629,7 @@ def admin_save_server_agent_config():
     if clear_token:
         settings["server_agent_token"] = ""
     elif token:
-        settings["server_agent_token"] = token
+        settings["server_agent_token"] = _server_agent_token_value(token)
     _save_settings(settings)
     saved_token = str(settings.get("server_agent_token") or "").strip()
     _log("server_agent_config_saved", admin=_steam_id_from_session(), configured=bool(url and saved_token), token_changed=bool(token or clear_token))
@@ -13631,6 +13649,10 @@ def _server_agent_request(method: str, path: str, body: dict[str, Any] | None = 
             data = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")[:300]
+        if exc.code == 401:
+            raise RuntimeError(
+                "O agente recusou o token (HTTP 401). Cole o token puro ou o código de identidade completo do Acesso Remoto e salve novamente."
+            ) from exc
         raise RuntimeError(f"Agente de servidores respondeu HTTP {exc.code}: {body}") from exc
     if not isinstance(data, dict):
         raise RuntimeError("Resposta inválida do agente de servidores")

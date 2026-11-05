@@ -9080,7 +9080,7 @@
           <p style="color:var(--text2);font-size:12px;line-height:1.5;">Configure a conexão com o agente do Server Manager. O token é armazenado protegido e nunca é exibido novamente. Esta configuração fica disponível apenas para administradores.</p>
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
             <div class="form-group" style="margin:0;min-width:260px;flex:1;"><label>URL do agente</label><input id="staff-server-agent-url" type="url" placeholder="http://127.0.0.1:32440" autocomplete="url" /></div>
-            <div class="form-group" style="margin:0;min-width:260px;flex:1;"><label>Token do agente</label><input id="staff-server-agent-token" type="password" placeholder="Informe para substituir; vazio mantém o token atual" autocomplete="new-password" /></div>
+            <div class="form-group" style="margin:0;min-width:260px;flex:1;"><label>Token ou código de identidade</label><input id="staff-server-agent-token" type="password" placeholder="Cole o token ou o código completo do Acesso Remoto" autocomplete="new-password" /></div>
             <button class="btn btn-primary" onclick="saveStaffServerAgentConfig()">Salvar conexão</button>
             <button class="btn btn-ghost" onclick="testStaffServerAgentConnection()">Testar conexão</button>
           </div>

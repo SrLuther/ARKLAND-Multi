@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.39"
+APP_VERSION: str = "1.11.40"
 BUILD_DATE: str = "2026-11-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
-CHANGELOG: list[dict] = [    {
+CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.40",
+        "date": "2026-11-04",
+        "changes": [
+            "Controle de servidores: configura??o agora aceita token puro ou c?digo de identidade completo do Acesso Remoto; erros HTTP 401 orientam a corrigir a credencial.",
+            "Fazenda: resgate usa o mesmo fluxo do CustomShop e remove o sufixo de classe gerada `_C` ao carregar a Blueprint Omega; FazendaRecursos 0.1.22.",
+        ],
+    },
+    {
         "version": "1.11.39",
         "date": "2026-11-04",
         "changes": [

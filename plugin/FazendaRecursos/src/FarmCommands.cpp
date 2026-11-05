@@ -51,11 +51,19 @@ bool GiveFarmStack(AShooterPlayerController* controller, const std::string& conf
     if (game_path != std::string::npos) blueprint = blueprint.substr(game_path);
     if (blueprint.rfind("Blueprint'", 0) == 0 && blueprint.size() > 11 && blueprint.back() == '\'')
         blueprint = blueprint.substr(10, blueprint.size() - 11);
+    // Match CustomShop's BPLoadClass + AddNewItem flow. Ark Omega's runtime
+    // asset path is recorded without the generated-class suffix (for example,
+    // PrimalItem_SoulShard.PrimalItem_SoulShard, not ..._C).
+    const auto object_separator = blueprint.rfind('.');
+    if (object_separator != std::string::npos && blueprint.size() > object_separator + 2 &&
+        blueprint.compare(blueprint.size() - 2, 2, "_C") == 0) {
+        blueprint.erase(blueprint.size() - 2);
+    }
     FString fblueprint(blueprint.c_str());
     UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
     auto* inventory = controller->GetPlayerInventoryComponent();
     if (!item_class) {
-        failure_reason = "Blueprint class could not be loaded";
+        failure_reason = "BPLoadClass failed for normalized asset path " + blueprint;
         return false;
     }
     if (!inventory) {

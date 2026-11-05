@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.22]
+- Resgate mant?m o fluxo do CustomShop (BPLoadClass + AddNewItem) e normaliza caminhos de classe gerada para o caminho do asset, corrigindo o carregamento de Soul Shard.
+
 ## [0.1.21]
 - Resgate agora divide a quantidade em stacks compativeis com o limite real do item no ARK e registra a causa especifica quando a Blueprint nao pode ser entregue.
 
