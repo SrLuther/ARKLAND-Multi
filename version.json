@@ -1,9 +1,12 @@
 {
-    "version": "1.11.41",
+    "version": "1.11.42",
     "date": "2026-11-05",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.41/ARKLAND-Multi-Setup-v1.11.41.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.42/ARKLAND-Multi-Setup-v1.11.42.exe",
     "changelog": [
-        "Fazenda: itens enviados agora aparecem em cards compactos, responsivos e ordenados alfabeticamente.",
-        "ArkApi: a atualizacao da Fazenda move pastas auxiliares migrations e _FazendaRecursos-backups para ArkApi/SupportFiles, preservando os dados e evitando avisos de plugin inexistente."
+        "Fazenda: estoque e produção agora permanecem sincronizados após resgates; a última lotação é preservada e a previsão de enchimento acompanha alterações de estoque e configuração.",
+        "Fazenda: painel reorganizado em cards alfabéticos com estoque, limite, reservas, disponibilidade e previsão de lotação.",
+        "Equipes: área reorganizada com foco em marcos e cards de gestão; liderança pode atualizar o nome e a tag da equipe.",
+        "Discord: contagem de jogadores fica oculta enquanto o servidor está iniciando, evitando exibir dados A2S antigos.",
+        "Plugin FazendaRecursos atualizado para 0.1.23."
     ]
 }

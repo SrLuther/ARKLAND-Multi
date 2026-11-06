@@ -704,6 +704,7 @@ class FarmPlayerResource(Base):
     stock: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=False)
     last_accrual_utc: Mapped[int] = mapped_column(BigInteger, default=0)
+    full_at_utc: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     server_id: Mapped[str] = mapped_column(String(64), default="default")
     plugin_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
@@ -2049,6 +2050,12 @@ def _migrate_schema(engine: Any) -> None:
     is_mysql = "mysql" in str(engine.url).lower()
     if not is_mysql:
         Base.metadata.create_all(bind=engine)
+        with engine.begin() as conn:
+            columns = {
+                str(row[1]) for row in conn.execute(text("PRAGMA table_info(farm_player_resources)")).fetchall()
+            }
+            if columns and "full_at_utc" not in columns:
+                conn.execute(text("ALTER TABLE farm_player_resources ADD COLUMN full_at_utc BIGINT NULL"))
         with engine.connect() as conn:
             conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS players ("
@@ -2252,6 +2259,18 @@ def _migrate_schema(engine: Any) -> None:
                             f"ALTER TABLE `farm_redemptions` ADD COLUMN `{column}` {definition}"
                         ))
                         log.info("farm_schema_migrated table=farm_redemptions column=%s", column)
+            resource_table = conn.execute(text("SHOW TABLES LIKE 'farm_player_resources'")).fetchone()
+            if resource_table is not None:
+                resource_columns = {
+                    str(row[0]) for row in conn.execute(
+                        text("SHOW COLUMNS FROM `farm_player_resources`")
+                    ).fetchall()
+                }
+                if "full_at_utc" not in resource_columns:
+                    conn.execute(text(
+                        "ALTER TABLE `farm_player_resources` ADD COLUMN `full_at_utc` BIGINT NULL AFTER `last_accrual_utc`"
+                    ))
+                    log.info("farm_schema_migrated table=farm_player_resources column=full_at_utc")
     _ENTITLEMENTS_SCHEMA_READY = True
     _ensure_store_users_schema(engine)
     _ensure_steam_id_collation(engine)
@@ -14462,6 +14481,88 @@ def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | No
     return payload, None
 
 
+def _farm_apply_accrual(
+    row: FarmPlayerResource,
+    *,
+    capacity: int,
+    output_quantity: int,
+    interval_seconds: int,
+    enabled: bool,
+    now_epoch: int,
+) -> None:
+    """Accrue complete production cycles, anchoring the clock when stock is full."""
+    if not enabled or not bool(row.active):
+        return
+    cap = max(1, int(capacity or 1))
+    output = max(1, int(output_quantity or 1))
+    interval = max(1, int(interval_seconds or 1))
+    stock = max(0, int(row.stock or 0))
+    last = max(0, int(row.last_accrual_utc or 0))
+    full_at = max(0, int(row.full_at_utc or 0))
+
+    if stock >= cap:
+        if not full_at:
+            full_at = int(now_epoch)
+            row.full_at_utc = full_at
+        if last != full_at:
+            row.last_accrual_utc = full_at
+        return
+
+    if not last:
+        last = int(now_epoch)
+        row.last_accrual_utc = last
+        return
+    elapsed_cycles = max(0, (int(now_epoch) - last) // interval)
+    cycles_to_full = (cap - stock + output - 1) // output
+    cycles = min(elapsed_cycles, cycles_to_full)
+    if cycles <= 0:
+        return
+    next_stock = min(cap, stock + cycles * output)
+    next_tick = last + cycles * interval
+    row.stock = next_stock
+    row.last_accrual_utc = next_tick
+    if next_stock >= cap:
+        row.full_at_utc = next_tick
+
+
+def _farm_project_production(
+    row: FarmPlayerResource | None,
+    *,
+    capacity: int,
+    output_quantity: int,
+    interval_seconds: int,
+    enabled: bool,
+    now_epoch: int,
+) -> dict[str, Any]:
+    """Return current projected stock and its next full timestamp without mutating storage."""
+    cap = max(1, int(capacity or 1))
+    stock = max(0, int(row.stock or 0)) if row else 0
+    last = max(0, int(row.last_accrual_utc or 0)) if row else 0
+    full_at = max(0, int(row.full_at_utc or 0)) if row else 0
+    active = bool(enabled and row and row.active)
+    projected = stock
+    next_full_at = full_at if stock >= cap and full_at else None
+    if active and stock < cap:
+        output = max(1, int(output_quantity or 1))
+        interval = max(1, int(interval_seconds or 1))
+        if last <= 0:
+            last = int(now_epoch)
+        elapsed_cycles = max(0, (int(now_epoch) - last) // interval)
+        cycles_to_full = (cap - stock + output - 1) // output
+        projected_cycles = min(elapsed_cycles, cycles_to_full)
+        projected = min(cap, stock + projected_cycles * output)
+        next_full_at = last + cycles_to_full * interval
+        if projected >= cap:
+            full_at = next_full_at
+    return {
+        "stock": projected,
+        "stored_stock": stock,
+        "full_at_utc": full_at or None,
+        "next_full_at_utc": next_full_at,
+        "production_active": active,
+    }
+
+
 @app.route("/api/player/farm", methods=["GET"])
 @login_required
 @limiter.limit("60 per minute")
@@ -14514,7 +14615,6 @@ def player_farm_overview():
                                      "stack_size": resource.get("StackSize", 25),
                                      "enabled": bool(category.get("Enabled", category_id == "default") and resource.get("Enabled", False)), "share_key": share_key})
         # O estoque numérico do MySQL é a quantidade produzida e resgatável.
-        stock = {str(row.resource_id): max(0, int(row.stock or 0)) for row in resource_rows}
         catalog_rows = db.query(FarmResourceCatalog).filter(
             FarmResourceCatalog.share_key == share_key
         ).order_by(FarmResourceCatalog.updated_at.desc()).all()
@@ -14582,11 +14682,21 @@ def player_farm_overview():
         return jsonify({"ok": False, "error": "Farm overview unavailable; check WebStore log."}), 503
     finally:
         _release_db_session(db)
+    now_epoch = int(datetime.now(UTC).timestamp())
+    resource_state_by_id = {str(row.resource_id): row for row in resource_rows}
     for resource in resources:
-        raw_stock = max(0, int(stock.get(resource["id"], 0))) if isinstance(stock, dict) else 0
-        resource["stock"] = raw_stock
+        state_row = resource_state_by_id.get(str(resource.get("id") or ""))
+        projection = _farm_project_production(
+            state_row,
+            capacity=int(resource.get("capacity") or 1),
+            output_quantity=int(resource.get("output_quantity") or 1),
+            interval_seconds=int(resource.get("interval_seconds") or 1),
+            enabled=bool(resource.get("enabled")),
+            now_epoch=now_epoch,
+        )
+        resource.update(projection)
         resource["reserved"] = int(reserved.get(resource["id"], 0))
-        resource["available"] = max(0, raw_stock - resource["reserved"])
+        resource["available"] = max(0, int(resource["stock"]) - resource["reserved"])
     return jsonify({"ok": True, "license_active": bool(keyfarm), "license": keyfarm,
                     "resources": resources, "orders": orders, "uploads": uploaded_resources,
                     "share_key": share_key, "share_keys": groups,
@@ -14631,6 +14741,14 @@ def player_create_farm_redemption():
         ).order_by(FarmResourceCatalog.updated_at.desc()).first()
         if not catalog:
             return jsonify({"ok": False, "error": "Recurso nao habilitado no catalogo carregado."}), 404
+        _farm_apply_accrual(
+            state,
+            capacity=int(catalog.capacity or 1),
+            output_quantity=int(catalog.output_quantity or 1),
+            interval_seconds=int(catalog.interval_seconds or 1),
+            enabled=bool(catalog.enabled),
+            now_epoch=int(datetime.now(UTC).timestamp()),
+        )
         reserved = int(db.query(func.coalesce(func.sum(
             FarmRedemption.amount - FarmRedemption.delivered_amount), 0)).filter(
             FarmRedemption.steam_id == steam_id,

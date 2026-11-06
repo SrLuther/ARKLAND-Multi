@@ -213,6 +213,13 @@ public:
         }
         const std::string resource = row[1];
         mysql_free_result(check);
+        int64_t capacity = 0;
+        for (const auto& definition : FazendaRecursos::FarmConfig::Get().ResourcesSnapshot()) {
+            if (definition.id == resource) {
+                capacity = std::max<int64_t>(1, definition.capacity);
+                break;
+            }
+        }
         MYSQL_RES* stock_result = db.Select("SELECT stock FROM farm_player_resources WHERE share_key='" + share +
             "' AND steam_id='" + sid + "' AND resource_id='" + db.Escape(resource) + "' FOR UPDATE");
         if (!stock_result) { db.Query("ROLLBACK"); return false; }
@@ -222,7 +229,8 @@ public:
         }
         mysql_free_result(stock_result);
         bool ok = db.Query("UPDATE farm_player_resources SET stock=stock-" + std::to_string(stack.quantity) +
-            ",updated_at=UTC_TIMESTAMP() WHERE share_key='" + share + "' AND steam_id='" + sid +
+            ",last_accrual_utc=IF(stock >= " + std::to_string(capacity) + ",UNIX_TIMESTAMP(),last_accrual_utc),"
+            "updated_at=UTC_TIMESTAMP() WHERE share_key='" + share + "' AND steam_id='" + sid +
             "' AND resource_id='" + db.Escape(resource) + "' AND stock >= " + std::to_string(stack.quantity));
         if (ok) ok = db.Query("UPDATE farm_redemption_deliveries d JOIN farm_redemptions r ON r.id=d.redemption_id "
             "SET d.status='ENTREGUE',d.delivered_at=UTC_TIMESTAMP() WHERE d.redemption_id='" + redemption +
@@ -312,6 +320,14 @@ private:
         uint64_t hash = 1469598103934665603ULL;
         for (const unsigned char byte : signature.dump()) { hash ^= byte; hash *= 1099511628211ULL; }
         const auto revision = std::to_string(hash);
+        MYSQL_RES* prior_result = db.Select("SELECT config_revision FROM farm_resource_catalog WHERE server_id='" +
+            server + "' AND share_key='" + share + "' LIMIT 1");
+        if (!prior_result) return false;
+        std::string prior_revision;
+        if (MYSQL_ROW prior = mysql_fetch_row(prior_result))
+            if (prior[0]) prior_revision = prior[0];
+        mysql_free_result(prior_result);
+        const bool production_config_changed = !prior_revision.empty() && prior_revision != revision;
         for (const auto& def : defs) {
             const std::string sql =
                 "INSERT INTO farm_resource_catalog (server_id,resource_id,share_key,category,resource_name,item_class,enabled,"
@@ -344,6 +360,8 @@ private:
             deactivate_sql += ")";
         }
         if (!db.Query(deactivate_sql)) return false;
+        if (production_config_changed && !db.Query("UPDATE farm_player_resources SET last_accrual_utc=UNIX_TIMESTAMP() "
+            "WHERE share_key='" + share + "' AND active=1")) return false;
         return true;
     }
 
@@ -387,26 +405,42 @@ private:
         const auto share = db.Escape(share_key);
         for (const auto& def : definitions) {
             if (!def.enabled || def.interval_seconds < 1 || def.output_quantity < 1) continue;
-            MYSQL_RES* result = db.Select("SELECT steam_id,stock,last_accrual_utc FROM farm_player_resources WHERE share_key='" +
+            MYSQL_RES* result = db.Select("SELECT steam_id,stock,last_accrual_utc,full_at_utc FROM farm_player_resources WHERE share_key='" +
                 share + "' AND resource_id='" + db.Escape(def.id) + "' AND active=1 FOR UPDATE");
             if (!result) { db.Query("ROLLBACK"); return false; }
-            std::vector<std::tuple<std::string, int64_t, int64_t>> rows;
+            std::vector<std::tuple<std::string, int64_t, int64_t, int64_t>> rows;
             while (MYSQL_ROW row = mysql_fetch_row(result)) {
-                if (row[0] && row[1] && row[2])
+                if (row[0] && row[1])
                     rows.emplace_back(row[0], std::max<int64_t>(0, std::atoll(row[1])),
-                                      std::max<int64_t>(0, std::atoll(row[2])));
+                                      row[2] ? std::max<int64_t>(0, std::atoll(row[2])) : 0,
+                                      row[3] ? std::max<int64_t>(0, std::atoll(row[3])) : 0);
             }
             mysql_free_result(result);
-            for (const auto& [steam_id, stock, last] : rows) {
-                if (last <= 0 || now <= last) continue;
-                const int64_t elapsed_cycles = (now - last) / def.interval_seconds;
-                const int64_t capacity_cycles = std::max<int64_t>(0, def.capacity - stock) / def.output_quantity;
-                const int64_t cycles = std::min(elapsed_cycles, capacity_cycles);
-                if (cycles <= 0) continue;
-                const auto next_stock = stock + cycles * def.output_quantity;
-                const auto next_tick = last + cycles * def.interval_seconds;
+            const int64_t capacity = std::max<int64_t>(1, def.capacity);
+            const int64_t output = std::max<int64_t>(1, def.output_quantity);
+            const int64_t interval = std::max<int64_t>(1, def.interval_seconds);
+            for (const auto& [steam_id, stock, stored_last, stored_full_at] : rows) {
+                int64_t last = stored_last;
+                int64_t full_at = stored_full_at;
+                int64_t next_stock = stock;
+                if (stock >= capacity) {
+                    if (full_at <= 0) full_at = now;
+                    last = full_at;
+                } else {
+                    if (last <= 0) last = now;
+                    const int64_t elapsed_cycles = std::max<int64_t>(0, now - last) / interval;
+                    const int64_t cycles_to_full = (capacity - stock + output - 1) / output;
+                    const int64_t cycles = std::min(elapsed_cycles, cycles_to_full);
+                    if (cycles > 0) {
+                        next_stock = std::min(capacity, stock + cycles * output);
+                        last += cycles * interval;
+                        if (next_stock >= capacity) full_at = last;
+                    }
+                }
+                if (next_stock == stock && last == stored_last && full_at == stored_full_at) continue;
                 if (!db.Query("UPDATE farm_player_resources SET stock=" + std::to_string(next_stock) +
-                    ",last_accrual_utc=" + std::to_string(next_tick) + ",updated_at=UTC_TIMESTAMP() "
+                    ",last_accrual_utc=" + std::to_string(last) + ",full_at_utc=" +
+                    (full_at > 0 ? std::to_string(full_at) : "NULL") + ",updated_at=UTC_TIMESTAMP() "
                     "WHERE share_key='" + share + "' AND steam_id='" + db.Escape(steam_id) +
                     "' AND resource_id='" + db.Escape(def.id) + "' AND active=1")) {
                     db.Query("ROLLBACK"); return false;

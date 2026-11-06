@@ -1545,12 +1545,39 @@ def create_team(
     return view
 
 
-def rename_team(db: Session, *, team_id: int, actor_steam_id: str, name: str) -> dict[str, Any]:
+def update_team_identity(
+    db: Session,
+    *,
+    team_id: int,
+    actor_steam_id: str,
+    name: str | None = None,
+    tag: str | None = None,
+) -> dict[str, Any]:
     _require_enabled()
     _assert_can(db, team_id, actor_steam_id, "rename")
     team = get_team(db, team_id)
     if not team or team["status"] != "ACTIVE":
         raise ValueError("Equipe indisponível.")
+    next_name = validate_team_name(name if name is not None else str(team.get("name") or ""))
+    next_tag = str(team.get("tag") or "") if tag is None else str(tag or "").strip().upper()
+    if next_tag and (
+        len(next_tag) < 2
+        or len(next_tag) > TEAM_TAG_MAX
+        or not all(char.isalnum() for char in next_tag)
+    ):
+        raise ValueError(f"A tag deve ter de 2 a {TEAM_TAG_MAX} letras ou números.")
+    next_tag = next_tag[:TEAM_TAG_MAX]
+    next_name_norm = _norm_name(next_name)
+    name_changed = next_name != str(team.get("name") or "")
+    tag_changed = next_tag != str(team.get("tag") or "")
+    if not name_changed and not tag_changed:
+        raise ValueError("Nenhuma alteração foi informada.")
+    clash = db.execute(
+        text("SELECT id FROM teams WHERE name_norm = :n AND id != :id LIMIT 1"),
+        {"n": next_name_norm, "id": team_id},
+    ).fetchone()
+    if clash:
+        raise ValueError("Já existe uma equipe com este nome.")
     cooldown_h = rename_cooldown_hours()
     if cooldown_h > 0 and team.get("renamed_at"):
         try:
@@ -1584,27 +1611,27 @@ def rename_team(db: Session, *, team_id: int, actor_steam_id: str, name: str) ->
             raise ValueError(
                 f"Saldo insuficiente para rename ({cost} Âmbares)."
             ) from exc
-    name = validate_team_name(name)
-    name_norm = _norm_name(name)
-    clash = db.execute(
-        text("SELECT id FROM teams WHERE name_norm = :n AND id != :id LIMIT 1"),
-        {"n": name_norm, "id": team_id},
-    ).fetchone()
-    if clash:
-        raise ValueError("Já existe uma equipe com este nome.")
     now = _naive()
     db.execute(
         text("""
-            UPDATE teams SET name = :name, name_norm = :nn, renamed_at = :now, updated_at = :now
+            UPDATE teams SET name = :name, name_norm = :nn, tag = :tag,
+              renamed_at = :now, updated_at = :now
             WHERE id = :id
         """),
-        {"name": name, "nn": name_norm, "now": now, "id": team_id},
+        {"name": next_name, "nn": next_name_norm, "tag": next_tag, "now": now, "id": team_id},
     )
     db.commit()
     out = get_team(db, team_id) or {}
     if cost > 0:
         out["rename_cost_charged"] = cost
     return out
+
+
+def rename_team(db: Session, *, team_id: int, actor_steam_id: str, name: str) -> dict[str, Any]:
+    """Backward-compatible name-only wrapper for existing callers."""
+    return update_team_identity(
+        db, team_id=team_id, actor_steam_id=actor_steam_id, name=name
+    )
 
 
 def set_recruitment_open(db: Session, *, team_id: int, actor_steam_id: str, open_: bool) -> dict[str, Any]:

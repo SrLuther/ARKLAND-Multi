@@ -1,9 +1,19 @@
 # Changelog
 
-<!-- Gerado: 2026-11-05 13:25:55 -->
-<!-- Total de versões: 534 | Primeira: 1.11.41 -->
+<!-- Gerado: 2026-11-05 21:42:39 -->
+<!-- Total de versões: 535 | Primeira: 1.11.42 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.42] - 2026-11-05
+
+### Other
+
+- Fazenda: estoque e produção agora permanecem sincronizados após resgates; a última lotação é preservada e a previsão de enchimento acompanha alterações de estoque e configuração.
+- Fazenda: painel reorganizado em cards alfabéticos com estoque, limite, reservas, disponibilidade e previsão de lotação.
+- Equipes: área reorganizada com foco em marcos e cards de gestão; liderança pode atualizar o nome e a tag da equipe.
+- Discord: contagem de jogadores fica oculta enquanto o servidor está iniciando, evitando exibir dados A2S antigos.
+- Plugin FazendaRecursos atualizado para 0.1.23.
 
 ## [1.11.41] - 2026-11-05
 

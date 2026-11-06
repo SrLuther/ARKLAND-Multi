@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS farm_player_resources (
   stock INT NOT NULL DEFAULT 0,
   active BOOLEAN NOT NULL DEFAULT FALSE,
   last_accrual_utc BIGINT NOT NULL DEFAULT 0,
+  full_at_utc BIGINT NULL,
   server_id VARCHAR(64) NOT NULL DEFAULT 'default',
   plugin_version VARCHAR(32) NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -143,7 +144,8 @@ CREATE TABLE IF NOT EXISTS farm_redemption_delivery_items (
 ALTER TABLE farm_player_resources
   ADD COLUMN IF NOT EXISTS share_key VARCHAR(64) NOT NULL DEFAULT 'default',
   ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS last_accrual_utc BIGINT NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS last_accrual_utc BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS full_at_utc BIGINT NULL;
 ALTER TABLE farm_player_resources DROP PRIMARY KEY, ADD PRIMARY KEY (share_key, steam_id, resource_id);
 ALTER TABLE farm_uploaded_resources
   ADD COLUMN IF NOT EXISTS share_key VARCHAR(64) NOT NULL DEFAULT 'default';

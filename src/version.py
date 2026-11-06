@@ -4,13 +4,24 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.41"
+APP_VERSION: str = "1.11.42"
 BUILD_DATE: str = "2026-11-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.42",
+        "date": "2026-11-05",
+        "changes": [
+            "Fazenda: estoque e produção agora permanecem sincronizados após resgates; a última lotação é preservada e a previsão de enchimento acompanha alterações de estoque e configuração.",
+            "Fazenda: painel reorganizado em cards alfabéticos com estoque, limite, reservas, disponibilidade e previsão de lotação.",
+            "Equipes: área reorganizada com foco em marcos e cards de gestão; liderança pode atualizar o nome e a tag da equipe.",
+            "Discord: contagem de jogadores fica oculta enquanto o servidor está iniciando, evitando exibir dados A2S antigos.",
+            "Plugin FazendaRecursos atualizado para 0.1.23.",
+        ],
+    },
     {
         "version": "1.11.41",
         "date": "2026-11-05",

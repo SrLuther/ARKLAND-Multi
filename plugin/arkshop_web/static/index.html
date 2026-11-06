@@ -2138,6 +2138,128 @@
     .betland-title-logo { width:38px; height:38px; object-fit:contain; border-radius:50%; vertical-align:middle; margin-right:8px; }
     .nav-item--child { margin-left:14px; width:calc(100% - 14px); padding-left:28px; border-left:2px solid rgba(232,120,32,.3); font-size:12px; }
     .team-page-tabs { margin:0 0 12px; }
+    .team-page-intro {
+      display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+      color:var(--text2); font-size:12px; margin:0 2px 10px;
+    }
+    .team-page-intro a { color:var(--amber); text-decoration:none; }
+    .team-page-intro a:hover { text-decoration:underline; }
+    .team-command-guide {
+      border:1px solid var(--border); border-radius:12px; background:var(--surface2);
+      margin:0 0 14px; overflow:hidden;
+    }
+    .team-command-guide > summary {
+      list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;
+      gap:12px; padding:11px 14px; color:var(--text); font-size:12px; font-weight:700;
+    }
+    .team-command-guide > summary::-webkit-details-marker { display:none; }
+    .team-command-guide > summary::after { content:"＋"; color:var(--amber); font-size:16px; }
+    .team-command-guide[open] > summary::after { content:"−"; }
+    .team-command-guide > summary small { color:var(--text2); font-weight:400; margin-left:auto; }
+    .team-command-guide .ingame-cmds__grid { padding:0 12px 10px; }
+    .team-command-guide .ingame-cmds__footer { padding:0 12px 12px; }
+    .team-dashboard { --team-gap:12px; display:flex; flex-direction:column; gap:var(--team-gap); }
+    .team-dashboard .card { margin:0 !important; min-width:0; }
+    .team-hero {
+      display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap;
+      padding:18px; border-color:rgba(232,160,32,.34);
+      background:linear-gradient(120deg,rgba(232,160,32,.09),rgba(18,216,124,.025) 48%,var(--surface2) 100%);
+    }
+    .team-hero__identity { display:flex; align-items:center; gap:13px; min-width:0; }
+    .team-hero__emblem { width:46px; height:46px; display:grid; place-items:center; flex:none; border-radius:13px;
+      border:1px solid rgba(232,160,32,.35); background:rgba(232,160,32,.12); color:var(--amber); font-size:20px; }
+    .team-hero__name { min-width:0; }
+    .team-hero__name h2 { margin:0; font-size:clamp(18px,2vw,24px); line-height:1.2; overflow-wrap:anywhere; }
+    .team-hero__name p { margin:5px 0 0; color:var(--text2); font-size:12px; line-height:1.5; }
+    .team-tag-pill { display:inline-flex; align-items:center; margin-right:7px; padding:3px 7px; vertical-align:2px;
+      border:1px solid rgba(232,160,32,.42); border-radius:7px; color:var(--amber); background:rgba(232,160,32,.09);
+      font-size:12px; letter-spacing:.04em; }
+    .team-hero__actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:7px; }
+    .team-status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px;
+      border:1px solid var(--border); background:rgba(255,255,255,.025); color:var(--text2); font-size:11px; }
+    .team-status-pill.is-open { color:var(--success,#12d87c); border-color:rgba(18,216,124,.3); background:rgba(18,216,124,.06); }
+    .team-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:9px; }
+    .team-metric { min-width:0; padding:12px 14px; border:1px solid var(--border); border-radius:11px; background:var(--surface2); }
+    .team-metric__label { color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+    .team-metric__value { margin-top:4px; color:var(--text); font-size:clamp(16px,2vw,21px); font-weight:800; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .team-metric--focus { border-color:rgba(232,160,32,.3); }
+    .team-metric--focus .team-metric__value { color:var(--amber); }
+    .team-main-grid,.team-management-grid,.team-activities-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(280px,1fr); gap:var(--team-gap); align-items:start; }
+    .team-card-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .team-card-heading .card-title { margin:0; }
+    .team-section-note { margin:4px 0 0; color:var(--text2); font-size:11px; line-height:1.5; }
+    .team-milestone-card { border-color:rgba(232,160,32,.3); background:linear-gradient(155deg,rgba(232,160,32,.055),var(--surface2) 42%); }
+    .team-milestone-title { margin:0; font-size:20px; line-height:1.3; }
+    .team-milestone-overline { display:block; margin-bottom:4px; color:var(--amber); font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    .team-milestone-empty { padding:16px; border:1px dashed var(--border); border-radius:10px; background:rgba(255,255,255,.018); }
+    .team-milestone-empty strong { display:block; margin-bottom:5px; color:var(--text); }
+    .team-progress-block { margin-top:13px; }
+    .team-progress-copy { display:flex; justify-content:space-between; gap:10px; color:var(--text2); font-size:11px; }
+    .team-progress-copy strong { color:var(--text); font-variant-numeric:tabular-nums; }
+    .team-progress-track { height:8px; margin-top:6px; overflow:hidden; border-radius:999px; background:var(--bg2); }
+    .team-progress-track > span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--amber),#f4c35c); }
+    .team-progress-track.is-resource > span { background:linear-gradient(90deg,#12b981,#6ee7b7); }
+    .team-milestone-resources { display:grid; grid-template-columns:repeat(auto-fit,minmax(156px,1fr)); gap:9px; margin-top:12px; }
+    .team-resource-card { min-width:0; padding:11px; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.12); }
+    .team-resource-card.is-ok { border-color:rgba(18,216,124,.42); background:rgba(18,216,124,.035); }
+    .team-resource-card__head { display:flex; align-items:center; gap:8px; min-width:0; }
+    .team-resource-card__head .tm-res-icon { width:32px; height:32px; }
+    .team-resource-card__name { font-size:11px; font-weight:700; line-height:1.25; overflow-wrap:anywhere; }
+    .team-resource-card__nums { display:flex; justify-content:space-between; gap:8px; margin-top:8px; font-size:10px; color:var(--text2); }
+    .team-resource-card__nums strong { color:var(--text); font-variant-numeric:tabular-nums; }
+    .team-resource-card .team-progress-track { height:5px; margin-top:7px; }
+    .team-resource-card .btn { width:100%; margin-top:9px; }
+    .team-milestone-card .tm-res-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:8px; margin-top:9px; }
+    .team-milestone-card .tm-res-cell { min-width:0; padding:9px; border:1px solid var(--border); border-radius:9px; background:rgba(0,0,0,.12); }
+    .team-milestone-card .tm-res-cell__name,.team-milestone-card .tm-res-cell__qty { display:block; margin-top:5px; }
+    .team-milestone-card .tm-res-cell .team-section-note { font-size:10px; }
+    .team-milestone-card .tm-res-cell .btn { margin-top:7px; }
+    .team-treasury-balance { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px;
+      border:1px solid rgba(232,160,32,.25); border-radius:10px; background:rgba(232,160,32,.055); }
+    .team-treasury-balance__amount { display:block; margin-top:3px; color:var(--amber); font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .team-warehouse-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; margin-top:10px; }
+    .team-warehouse-item { display:flex; align-items:center; gap:8px; min-width:0; padding:9px; border:1px solid var(--border); border-radius:9px; background:rgba(255,255,255,.018); }
+    .team-warehouse-item .tm-res-icon { width:30px; height:30px; }
+    .team-warehouse-item__body { min-width:0; }
+    .team-warehouse-item__name { display:block; color:var(--text2); font-size:10px; line-height:1.25; }
+    .team-warehouse-item__qty { display:block; margin-top:3px; color:var(--text); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .team-member-list { display:grid; gap:8px; }
+    .team-member-row { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+      padding:10px; border:1px solid var(--border); border-radius:9px; background:rgba(255,255,255,.018); }
+    .team-member-row__identity { min-width:0; }
+    .team-member-row__name { display:block; font-weight:700; }
+    .team-member-row__meta { display:block; margin-top:3px; color:var(--text2); font-size:10px; overflow-wrap:anywhere; }
+    .team-member-row__roles { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+    .team-role-pill { padding:3px 7px; border:1px solid var(--border); border-radius:999px; color:var(--text2); font-size:9px; }
+    .team-member-row__actions { display:flex; flex-wrap:wrap; gap:5px; }
+    .team-member-row__actions .btn { padding:5px 8px; }
+    .team-governance-stack { display:grid; gap:var(--team-gap); }
+    .team-collapsible { padding:12px 14px; }
+    .team-collapsible > summary { cursor:pointer; color:var(--text); font-weight:700; font-size:13px; }
+    .team-collapsible > summary::marker { color:var(--amber); }
+    .team-collapsible__body { margin-top:12px; }
+    .team-committed-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .team-committed-chip { padding:5px 8px; border:1px solid var(--border); border-radius:999px; color:var(--text2); font-size:10px; }
+    .team-activities-grid { grid-template-columns:1fr 1fr; }
+    .team-activities-grid > .team-event-area { grid-column:1/-1; }
+    .team-identity-policy { padding:10px; border:1px solid var(--border); border-radius:8px; color:var(--text2); font-size:11px; line-height:1.5; }
+    .tm-identity-modal { max-width:520px; width:min(520px,calc(100vw - 24px)); }
+    @media (max-width:760px) {
+      .team-main-grid,.team-management-grid,.team-activities-grid { grid-template-columns:1fr; }
+      .team-activities-grid > .team-event-area { grid-column:auto; }
+      .team-command-guide > summary { align-items:flex-start; flex-direction:column; gap:3px; }
+      .team-command-guide > summary small { margin:0; }
+    }
+    @media (max-width:520px) {
+      .team-hero { padding:13px; }
+      .team-hero__identity { align-items:flex-start; }
+      .team-hero__emblem { width:38px; height:38px; }
+      .team-hero__actions { justify-content:flex-start; }
+      .team-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .team-metric { padding:10px; }
+      .team-milestone-resources { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .team-warehouse-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
     .lottery-grid-wrap {
       max-height: 420px;
       overflow: auto;
@@ -11789,19 +11911,12 @@
           <button type="button" class="catalog-tab active" aria-current="page">👤 Minha Equipe</button>
           <button type="button" class="catalog-tab" onclick="goToPage('teams-rankings')">🏆 Ranking</button>
         </div>
-        <div class="card" style="margin-bottom:12px;">
-          <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.5;">
-            Equipe do portal é a casa social na web (independente da tribo in-game).
-            Fundação, membros, banco, marcos e split de mercado vivem aqui.
-            <a href="/regulamento_modo_equipe.html" target="_blank" rel="noopener" style="color:var(--amber);">Regras do Modo Equipe →</a>
-          </p>
+        <div class="team-page-intro">
+          <span>Progressão coletiva, gestão de membros e economia compartilhada da equipe.</span>
+          <a href="/regulamento_modo_equipe.html" target="_blank" rel="noopener">Regras do Modo Equipe →</a>
         </div>
-        <div class="ingame-cmds ingame-cmds--compact" data-scope="teams" aria-label="Comandos in-game de equipe">
-          <div class="ingame-cmds__head">
-            <div class="ingame-cmds__title">🎮 Comandos in-game — Equipe</div>
-            <div class="ingame-cmds__sub">Deposite recursos no armazém da equipe via marco</div>
-            <span class="ingame-cmds__copy-hint">Toque no comando para copiar</span>
-          </div>
+        <details class="team-command-guide" data-scope="teams">
+          <summary><span>🎮 Comandos no jogo</span><small>Deposite recursos para os marcos e participe da Caça de Evento</small></summary>
           <div class="ingame-cmds__grid ingame-cmds__grid--single">
             <div class="ingame-cmds__card ingame-cmds__card--focus">
               <div class="ingame-cmds__card-label">Enviar recursos pra equipe</div>
@@ -11826,8 +11941,25 @@
             <button type="button" class="ingame-cmds__link" onclick="goToPage('catalog')">Catálogo → /shop</button>
             <button type="button" class="ingame-cmds__link" onclick="goToPage('market');setTimeout(function(){setMarketTab('encomenda');},200)">Encomenda → /dinolab</button>
           </div>
-        </div>
+        </details>
         <div id="teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
+        <div id="tm-edit-identity-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="tm-edit-identity-title" onclick="if(event.target===this)closeModal('tm-edit-identity-modal')">
+          <div class="modal tm-identity-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+              <div class="modal-title" id="tm-edit-identity-title">Identidade da equipe</div>
+              <button type="button" class="modal-close" aria-label="Fechar" onclick="closeModal('tm-edit-identity-modal')">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group"><label for="tm-identity-name">Nome da equipe</label><input id="tm-identity-name" type="text" maxlength="32" autocomplete="off" /></div>
+              <div class="form-group"><label for="tm-identity-tag">Tag</label><input id="tm-identity-tag" type="text" maxlength="5" placeholder="Ex.: ARK" autocomplete="off" /></div>
+              <div id="tm-identity-policy" class="team-identity-policy" aria-live="polite">Tag opcional: 2 a 5 letras ou números. Alterar nome ou tag segue o mesmo intervalo e custo configurados para renomear a equipe.</div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-ghost" onclick="closeModal('tm-edit-identity-modal')">Cancelar</button>
+              <button type="button" class="btn btn-primary" onclick="teamsSaveIdentity()">Salvar identidade</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- PAGE: Diretório global de Equipes -->
@@ -17267,6 +17399,47 @@ function formatFarmInterval(rawSeconds) {
   return parts.join(" ") || "1 s";
 }
 
+function formatFarmDateTime(epochSeconds) {
+  const epoch = Number(epochSeconds);
+  if (!Number.isFinite(epoch) || epoch <= 0) return "";
+  const date = new Date(epoch * 1000);
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).format(date).replace(/,\s*/, " ");
+}
+
+function formatFarmCountdown(epochSeconds) {
+  let seconds = Math.max(0, Math.ceil(Number(epochSeconds) - Date.now() / 1000));
+  const days = Math.floor(seconds / 86400); seconds %= 86400;
+  const hours = Math.floor(seconds / 3600); seconds %= 3600;
+  const minutes = Math.floor(seconds / 60); seconds %= 60;
+  const pad = value => String(value).padStart(2, "0");
+  return `${pad(days)}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+function updateFarmCountdowns() {
+  document.querySelectorAll("[data-farm-full-at]").forEach(el => {
+    const target = Number(el.dataset.farmFullAt || 0);
+    if (!target) return;
+    const secondsLeft = Math.max(0, Math.ceil(target - Date.now() / 1000));
+    el.textContent = secondsLeft <= 0 ? "Previsão alcançada; atualizando estoque…" : `Faltam ${formatFarmCountdown(target)}`;
+  });
+}
+
+function startFarmLiveUpdates() {
+  if (!window._farmCountdownTimer) window._farmCountdownTimer = setInterval(updateFarmCountdowns, 1000);
+  if (!window._farmAutoRefreshTimer) window._farmAutoRefreshTimer = setInterval(() => {
+    const page = document.getElementById("page-myarea");
+    const panel = document.querySelector('[data-myarea-panel="farm"]');
+    if (document.visibilityState === "visible" && page?.classList.contains("active") && panel?.classList.contains("is-active")) {
+      const host = document.getElementById("myarea-farm-overview");
+      if (host?.contains(document.activeElement) && document.activeElement.matches("input,select,textarea")) return;
+      loadMyFarm();
+    }
+  }, 30000);
+}
+
 function toggleMyFarmAdminConfig() {
   if (!_auth?.is_admin) return;
   const card = document.getElementById("myarea-farm-admin-card");
@@ -17284,6 +17457,11 @@ function toggleMyFarmAdminConfig() {
 async function loadMyFarm() {
   const host = document.getElementById("myarea-farm-overview");
   if (!host) return;
+  startFarmLiveUpdates();
+  const previousAmounts = new Map([...host.querySelectorAll("[data-farm-amount]")]
+    .map(input => [input.dataset.farmAmount, input.value]));
+  const openStockDetails = new Set([...host.querySelectorAll("[data-farm-details]")]
+    .filter(details => details.open).map(details => details.dataset.farmDetails));
   const adminToggle = document.getElementById("myarea-farm-admin-toggle");
   const adminCard = document.getElementById("myarea-farm-admin-card");
   if (_auth?.is_admin) {
@@ -17303,7 +17481,8 @@ async function loadMyFarm() {
     const license = data.license_active
       ? `<span class="badge badge-item">Ativa${data.license?.expires_at ? ` até ${escHtml(data.license.expires_at)}` : ""}</span>`
       : `<span class="badge">Sem licença ativa</span>`;
-    const resources = data.resources || [];
+    const farmNameOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
+    const resources = [...(data.resources || [])].sort((a, b) => farmNameOrder.compare(String(a.name || a.id || ""), String(b.name || b.id || "")));
     const uploadNameOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
     const uploads = [...(data.uploads || [])].sort((a, b) => {
       const nameOrder = uploadNameOrder.compare(
@@ -17319,19 +17498,38 @@ async function loadMyFarm() {
     const shareSelector = shareKeys.length > 1
       ? `<label class="farm-share-picker"><span>Grupo de estoque</span><select aria-label="Grupo de estoque da Fazenda" onchange="window._farmShareKey=this.value;loadMyFarm()">${shareKeys.map(key => `<option value="${escHtml(key)}" ${key === window._farmShareKey ? "selected" : ""}>${escHtml(key)}</option>`).join("")}</select><small>Servidores com a mesma chave compartilham o estoque.</small></label>`
       : `<div class="farm-share-picker"><span>Grupo de estoque</span><strong>${escHtml(window._farmShareKey)}</strong><small>Servidores com a mesma chave compartilham o estoque.</small></div>`;
-    const resourceRows = resources.map(r => `<tr>
-      <td><strong>${escHtml(r.name)}</strong><small>${escHtml(r.category)} &middot; capacidade ${Number(r.capacity || 200)}</small></td>
-      <td>${Number(r.output_quantity || 1)} unidade(s)</td>
-      <td>${formatFarmInterval(r.interval_seconds)}</td>
-      <td>${Number(r.stack_size || 25)} por pacote</td>
-      <td><strong>${integrationReady ? Number(r.available || 0) : "&mdash;"}</strong><small>${Number(r.reserved || 0)} reservado(s)</small></td>
-      <td><span class="farm-state ${r.enabled ? "is-enabled" : "is-disabled"}">${r.enabled ? "Habilitado" : "Indispon&#237;vel"}</span></td>
-    </tr>`).join("");
+    const stockCards = resources.map(r => {
+      const stock = Math.max(0, Number(r.stock || 0));
+      const capacity = Math.max(1, Number(r.capacity || 200));
+      const available = Math.max(0, Number(r.available || 0));
+      const reserved = Math.max(0, Number(r.reserved || 0));
+      const fillPct = Math.min(100, Math.round(stock / capacity * 100));
+      const currentFullAt = stock >= capacity ? Number(r.full_at_utc || 0) : 0;
+      const previousFullAt = stock < capacity ? Number(r.full_at_utc || 0) : 0;
+      const forecastAt = stock < capacity ? Number(r.next_full_at_utc || 0) : 0;
+      const timing = currentFullAt
+        ? `<div class="farm-full-time is-full"><strong>Estoque cheio desde</strong><time>${escHtml(formatFarmDateTime(currentFullAt))}</time></div>`
+        : forecastAt
+          ? `<div class="farm-full-time"><strong>Estoque previsto para encher</strong><time>${escHtml(formatFarmDateTime(forecastAt))}</time><span data-farm-full-at="${forecastAt}">Calculando tempo restante…</span>${previousFullAt ? `<small class="farm-last-full">Última lotação: ${escHtml(formatFarmDateTime(previousFullAt))}</small>` : ""}</div>`
+          : stock >= capacity
+            ? `<div class="farm-full-time"><strong>Estoque cheio</strong><span>Hor&aacute;rio da &uacute;ltima lota&ccedil;&atilde;o ainda n&atilde;o registrado.</span></div>`
+            : `<div class="farm-full-time is-paused"><strong>Previs&atilde;o indispon&iacute;vel</strong><span>${r.enabled ? "A produ&ccedil;&atilde;o ainda n&atilde;o est&aacute; ativa." : "Recurso desabilitado na configura&ccedil;&atilde;o."}</span></div>`;
+      return `<article class="farm-stock-card">
+        <div class="farm-stock-card__head"><div><strong>${escHtml(r.name)}</strong><small>${escHtml(r.category)} &middot; ${r.production_active ? "Produ&ccedil;&atilde;o ativa" : "Produ&ccedil;&atilde;o inativa"}</small></div><span class="farm-state ${r.enabled ? "is-enabled" : "is-disabled"}">${r.enabled ? "Habilitado" : "Indispon&#237;vel"}</span></div>
+        <div class="farm-stock-focus"><div><strong>${stock.toLocaleString("pt-BR")}</strong><span> / ${capacity.toLocaleString("pt-BR")}</span></div><small>unidades em estoque · teto atual</small></div>
+        <div class="farm-stock-track" role="progressbar" aria-label="Estoque de ${escHtml(r.name)}" aria-valuemin="0" aria-valuemax="${capacity}" aria-valuenow="${Math.min(stock, capacity)}"><span style="width:${fillPct}%"></span></div>
+        <div class="farm-stock-available"><span>Dispon&iacute;vel<strong>${available.toLocaleString("pt-BR")}</strong></span><span>Reservado<strong>${reserved.toLocaleString("pt-BR")}</strong></span></div>
+        ${timing}
+        <details class="farm-stock-details" data-farm-details="${escHtml(r.id)}" ${openStockDetails.has(String(r.id)) ? "open" : ""}><summary>Configura&ccedil;&atilde;o da produ&ccedil;&atilde;o</summary><div><span>${Number(r.output_quantity || 1)} unidade(s) por ciclo</span><span>1 ciclo a cada ${formatFarmInterval(r.interval_seconds)}</span><span>Pacote de ${Number(r.stack_size || 25)} unidade(s)</span><span>Categoria: ${escHtml(r.category)}</span></div></details>
+      </article>`;
+    }).join("");
     const redemptionCards = resources.filter(r => r.enabled).map(r => {
       const available = integrationReady ? Number(r.available || 0) : 0;
+      const previous = Number(previousAmounts.get(String(r.id)) || 1);
+      const amountValue = Math.min(Math.max(1, previous), Math.max(1, available));
       return `<div class="farm-action-card">
         <div class="farm-action-info"><strong>${escHtml(r.name)}</strong><span>${available} dispon&#237;vel(is) &middot; ${Number(r.reserved || 0)} reservado(s)</span></div>
-        <label>Quantidade<input aria-label="Quantidade de ${escHtml(r.name)} para retirar" type="number" min="1" max="${available}" value="1" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || available < 1 ? "disabled" : ""}></label>
+        <label>Quantidade<input aria-label="Quantidade de ${escHtml(r.name)} para retirar" type="number" min="1" max="${available}" value="${amountValue}" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || available < 1 ? "disabled" : ""}></label>
         <button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || available < 1 ? "disabled" : ""}>Agendar retirada</button>
       </div>`;
     }).join("");
@@ -17364,12 +17562,32 @@ async function loadMyFarm() {
         #myarea-farm-overview .farm-section-head{margin-bottom:10px}
         #myarea-farm-overview .farm-section-head h3{font-size:14px;margin:0 0 3px;color:var(--text)}
         #myarea-farm-overview .farm-section-head p{font-size:11px;color:var(--text2);margin:0}
-        #myarea-farm-overview .farm-table-wrap{overflow-x:auto}
-        #myarea-farm-overview .farm-table{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}
-        #myarea-farm-overview .farm-table th{text-align:left;color:var(--text2);font-weight:600;padding:9px 8px;border-bottom:1px solid var(--border)}
-        #myarea-farm-overview .farm-table td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
-        #myarea-farm-overview .farm-table tr:last-child td{border-bottom:0}
-        #myarea-farm-overview .farm-table small,#myarea-farm-overview .farm-record-card small{display:block;color:var(--text2);font-size:10px;margin-top:2px}
+        #myarea-farm-overview .farm-stock-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr));gap:10px}
+        #myarea-farm-overview .farm-stock-card{min-width:0;padding:13px;border:1px solid var(--border);border-radius:11px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012))}
+        #myarea-farm-overview .farm-stock-card__head{display:flex;justify-content:space-between;align-items:flex-start;gap:9px}
+        #myarea-farm-overview .farm-stock-card__head strong{display:block;font-size:13px;overflow-wrap:anywhere}
+        #myarea-farm-overview .farm-stock-card__head small{display:block;color:var(--text2);font-size:10px;margin-top:3px}
+        #myarea-farm-overview .farm-stock-focus{margin-top:13px}
+        #myarea-farm-overview .farm-stock-focus strong{font-size:clamp(24px,3vw,32px);line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+        #myarea-farm-overview .farm-stock-focus span{font-size:16px;color:var(--text2);font-variant-numeric:tabular-nums}
+        #myarea-farm-overview .farm-stock-focus small{display:block;margin-top:4px;color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-stock-track{height:8px;margin-top:9px;overflow:hidden;border-radius:999px;background:var(--bg2)}
+        #myarea-farm-overview .farm-stock-track>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--amber),#f4c35c);transition:width .3s ease}
+        #myarea-farm-overview .farm-stock-available{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+        #myarea-farm-overview .farm-stock-available>span{padding:8px;border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-stock-available strong{display:block;margin-top:3px;color:var(--text);font-size:14px;font-variant-numeric:tabular-nums}
+        #myarea-farm-overview .farm-full-time{display:grid;gap:3px;margin-top:10px;padding:9px 10px;border-left:3px solid var(--amber);border-radius:7px;background:rgba(232,160,32,.055);font-size:10px}
+        #myarea-farm-overview .farm-full-time strong{color:var(--text2);font-weight:600}
+        #myarea-farm-overview .farm-full-time time{color:var(--amber);font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+        #myarea-farm-overview .farm-full-time>span{color:var(--text2);font-variant-numeric:tabular-nums}
+        #myarea-farm-overview .farm-full-time .farm-last-full{margin-top:3px;color:var(--text2);font-size:9px}
+        #myarea-farm-overview .farm-full-time.is-full{border-left-color:var(--success);background:rgba(18,216,124,.045)}
+        #myarea-farm-overview .farm-full-time.is-full time{color:var(--success)}
+        #myarea-farm-overview .farm-full-time.is-paused{border-left-color:var(--border);background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-stock-details{margin-top:9px;border-top:1px solid var(--border);padding-top:8px}
+        #myarea-farm-overview .farm-stock-details summary{cursor:pointer;color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-stock-details>div{display:grid;gap:4px;margin-top:7px;color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-record-card small{display:block;color:var(--text2);font-size:10px;margin-top:2px}
         #myarea-farm-overview .farm-state{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:10px;white-space:nowrap;border:1px solid var(--border);background:rgba(255,255,255,.025);color:var(--text2)}
         #myarea-farm-overview .farm-state.is-enabled{color:var(--success);border-color:rgba(18,216,124,.25);background:rgba(18,216,124,.06)}
         #myarea-farm-overview .farm-state.is-pending{color:var(--warning);border-color:rgba(232,120,32,.3);background:rgba(232,120,32,.07)}
@@ -17396,9 +17614,9 @@ async function loadMyFarm() {
         <div class="farm-meta-card"><span>&Uacute;ltima sincroniza&ccedil;&atilde;o</span><strong>${data.last_sync_at ? escHtml(fmtDate(data.last_sync_at)) : "Aguardando primeira sincroniza&ccedil;&atilde;o"}</strong><small>Hor&aacute;rio recebido do servidor ARK.</small></div>
       </div>
       <div class="farm-sync-banner ${integrationReady ? "is-ready" : ""}">${integrationReady ? "Estoque sincronizado. O agendamento reserva o saldo; a entrega ocorre no jogo com /fazresgatar." : "A Web Store ainda n&atilde;o recebeu uma sincroniza&ccedil;&atilde;o recente. Estoque e agendamentos ficam indispon&iacute;veis at&eacute; o servidor enviar dados reais."}</div>
-      <section class="farm-section"><div class="farm-section-head"><h3>Produ&ccedil;&atilde;o e estoque</h3><p>Quantidade produzida em cada ciclo, intervalo, tamanho m&aacute;ximo do pacote, saldo dispon&iacute;vel e reservas.</p></div>
+      <section class="farm-section farm-stock-section"><div class="farm-section-head"><h3>Produ&ccedil;&atilde;o e estoque</h3><p>Estoque atual e teto de cada recurso, previs&atilde;o da pr&oacute;xima lota&ccedil;&atilde;o, saldo dispon&iacute;vel e retiradas reservadas.</p></div>
         ${!catalogFromMysql ? `<div class="farm-sync-banner">O cat&eacute;logo MySQL ainda n&atilde;o foi publicado pelo plugin; os valores abaixo s&atilde;o a configura&ccedil;&atilde;o local de refer&ecirc;ncia.</div>` : ""}
-        ${resources.length ? `<div class="farm-table-wrap"><table class="farm-table"><thead><tr><th>Recurso, categoria e capacidade</th><th>Produ&ccedil;&atilde;o por ciclo</th><th>Intervalo do ciclo</th><th>Tamanho do pacote</th><th>Saldo dispon&iacute;vel</th><th>Situa&ccedil;&atilde;o</th></tr></thead><tbody>${resourceRows}</tbody></table></div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
+        ${resources.length ? `<div class="farm-stock-grid">${stockCards}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
       </section>
       <section class="farm-section"><div class="farm-section-head"><h3>Agendar retirada</h3><p>Informe a quantidade que deseja retirar. O saldo ser&aacute; reservado at&eacute; concluir o resgate ou cancelar o pedido.</p></div>
         ${redemptionCards ? `<div class="farm-action-list">${redemptionCards}</div>` : `<p style="font-size:12px;color:var(--text2);">N&atilde;o h&aacute; recursos habilitados para retirada.</p>`}
@@ -17408,6 +17626,8 @@ async function loadMyFarm() {
         ${uploadCards ? `<div class="farm-upload-grid">${uploadCards}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum item enviado &agrave; Fazenda foi sincronizado com a Web Store ainda.</p>`}
       </section>
       ${historyOrders.length ? `<section class="farm-section"><div class="farm-section-head"><h3>Hist&oacute;rico de retiradas</h3><p>Pedidos conclu&iacute;dos e cancelados, com hor&aacute;rio e quantidade entregue.</p></div><div class="farm-record-list">${historyCards}</div></section>` : ""}`;
+    startFarmLiveUpdates();
+    updateFarmCountdowns();
   } catch (error) {
     host.innerHTML = `<span style="color:var(--danger);">${escHtml(error.message || "Falha ao carregar Fazenda.")}</span>`;
   }
@@ -33920,6 +34140,7 @@ async function loadMyTeam(opts) {
       return;
     }
     const t = data.team;
+    _teamsCurrentIdentity = { name: String(t.name || ""), tag: String(t.tag || "") };
     const members = data.members || [];
     const joinRequests = data.join_requests || [];
     const bank = data.bank || {};
@@ -33939,7 +34160,27 @@ async function loadMyTeam(opts) {
     const catalog = data.warehouse_catalog || [];
     if (catalog.length) _teamsWarehouseCatalog = catalog;
 
-    let msHtml = "<em>Aguardando staff publicar o próximo marco.</em>";
+    const teamXpTotal = Number(t.team_honor ?? t.team_xp_lifetime ?? 0);
+    const teamAmberBonus = Number(t.amber_bonus_pct || 0);
+    const memberCount = members.length;
+    const metricsHtml = `<div class="team-metrics" aria-label="Resumo da equipe">
+      <div class="team-metric team-metric--focus"><div class="team-metric__label">Marcos concluídos</div><div class="team-metric__value">${Number(t.milestone_index || 0).toLocaleString("pt-BR")}</div></div>
+      <div class="team-metric"><div class="team-metric__label">Honra / XP da equipe</div><div class="team-metric__value">${teamXpTotal.toLocaleString("pt-BR")}</div></div>
+      <div class="team-metric"><div class="team-metric__label">Bônus de Âmbares</div><div class="team-metric__value">+${teamAmberBonus}%</div></div>
+      <div class="team-metric"><div class="team-metric__label">Banco da equipe</div><div class="team-metric__value">${Number(bank.amber_balance || 0).toLocaleString("pt-BR")}</div></div>
+      <div class="team-metric"><div class="team-metric__label">Membros</div><div class="team-metric__value">${memberCount}<span style="font-size:12px;color:var(--text2);font-weight:500;"> / ${Number(t.max_members || 0)}</span></div></div>
+      <div class="team-metric"><div class="team-metric__label">Seu XP lifetime</div><div class="team-metric__value">${Number(pxp.xp || 0).toLocaleString("pt-BR")}</div></div>
+    </div>`;
+    const committedEntries = Object.entries(committed).filter(([, qty]) => Number(qty) > 0);
+    const committedHtml = committedEntries.length
+      ? `<div class="team-committed-list">${committedEntries.map(([key, qty]) => {
+          const resource = catalog.find(item => item.key === key) || {};
+          return `<span class="team-committed-chip">${escHtml(resource.label_pt || key)} · ${Number(qty).toLocaleString("pt-BR")}</span>`;
+        }).join("")}</div>`
+      : "<span class=\"team-section-note\">Nenhum recurso aplicado ao marco.</span>";
+
+    let msHtml = `<div class="team-milestone-empty"><strong>Próximo marco ainda não publicado</strong>
+      <span style="font-size:11px;color:var(--text2);">Marcos concluídos pela equipe: ${Number(t.milestone_index || 0).toLocaleString("pt-BR")}. O staff ainda não publicou o próximo objetivo.</span></div>`;
     if (ms && ms.milestone) {
       const m = ms.milestone;
       const lifetime = ms.team_xp_lifetime ?? ms.team_xp ?? t.team_xp_lifetime ?? 0;
@@ -33948,7 +34189,8 @@ async function loadMyTeam(opts) {
       const pct = thresh > 0 ? Math.min(100, Math.round((lifetime / thresh) * 100)) : 0;
       const deliverHtml = teamsMilestoneDeliverablesHtml(m, { currentMaxMembers: t.max_members });
       const reqAmber = Number(m.amber_required || 0);
-      msHtml = `<strong>${escHtml(m.title || ("Marco " + m.milestone_index))}</strong>
+      msHtml = `<span class="team-milestone-overline">Próximo objetivo · Marco ${Number(m.milestone_index || 0)}</span>
+        <h2 class="team-milestone-title">${escHtml(m.title || ("Marco " + m.milestone_index))}</h2>
         ${deliverHtml}
         <div style="margin-top:10px;font-size:12px;color:var(--text2);">
           <strong style="color:var(--text);">Para concluir</strong> — Â ${ms.amber_balance}/${reqAmber} ${ms.amber_ok ? "✓" : ""}
@@ -33979,6 +34221,7 @@ async function loadMyTeam(opts) {
                 ${teamsResIcon(meta, label, "tm-res-icon--lg")}
                 <span class="tm-res-cell__name">${escHtml(label)}${r.ok ? " ✓" : ""}</span>
                 <span class="tm-res-cell__qty"><strong>${committed.toLocaleString("pt-BR")}</strong> / ${required.toLocaleString("pt-BR")}</span>
+                <span class="team-section-note">No armazém: ${whHave.toLocaleString("pt-BR")}</span>
                 ${applyBtn}
               </div>`;
             }).join("")}</div>`
@@ -33988,15 +34231,15 @@ async function loadMyTeam(opts) {
     const whCaps = bank.warehouse_caps || data.warehouse_caps || {};
     const whEntries = Object.entries(warehouse).filter(([, q]) => Number(q) > 0);
     const whHtml = whEntries.length
-      ? `<div class="tm-res-grid">${whEntries.map(([k, q]) => {
+      ? `<div class="team-warehouse-grid">${whEntries.map(([k, q]) => {
           const tip = (ms && ms.resources || []).find(r => r.key === k);
           const meta = tip || teamsResMeta(k, catalog) || {};
           const label = tip?.label_pt || meta.label_pt || k;
           const capRaw = whCaps[k] ?? meta.warehouse_cap ?? meta.cap;
-          return `<div class="tm-res-cell" title="${escHtml(label)}">
-            ${teamsResIcon(meta, label, "tm-res-icon--lg")}
-            <span class="tm-res-cell__name">${escHtml(label)}</span>
-            <span class="tm-res-cell__qty">${teamsWarehouseQtyLabel(q, capRaw)}</span>
+          return `<div class="team-warehouse-item" title="${escHtml(label)}">
+            ${teamsResIcon(meta, label, "")}
+            <span class="team-warehouse-item__body"><span class="team-warehouse-item__name">${escHtml(label)}</span>
+            <span class="team-warehouse-item__qty">${teamsWarehouseQtyLabel(q, capRaw)}</span></span>
           </div>`;
         }).join("")}</div>`
       : "<em style=\"color:var(--text2);\">Armazém vazio — deposite via /marco (catálogo de 10 raros).</em>";
@@ -34011,16 +34254,19 @@ async function loadMyTeam(opts) {
         actions += ` <button class="btn btn-ghost btn-sm" onclick="teamsAssignRole('${escHtml(m.steam_id)}')">Papel</button>`;
         actions += ` <button class="btn btn-ghost btn-sm" onclick="teamsTransfer('${escHtml(m.steam_id)}')">Tornar Owner</button>`;
       }
-      return `<tr>
-        <td>${escHtml(memberName)}</td>
-        <td style="font-family:monospace;font-size:11px;">${escHtml(m.steam_id)}</td>
-        <td>${escHtml(rl)}</td>
-        <td>${actions}</td>
-      </tr>`;
+      const rolePills = (m.role_labels || []).length
+        ? m.role_labels.map(label => `<span class="team-role-pill">${escHtml(label)}</span>`).join("")
+        : `<span class="team-role-pill">${escHtml(rl)}</span>`;
+      return `<article class="team-member-row">
+        <div class="team-member-row__identity"><span class="team-member-row__name">${escHtml(memberName)}</span>
+          <span class="team-member-row__meta">SteamID ${escHtml(m.steam_id)}</span>
+          <span class="team-member-row__roles">${rolePills}</span>
+        </div><div class="team-member-row__actions">${actions}</div>
+      </article>`;
     }).join("");
     const joinHtml = canManage && joinRequests.length
-      ? `<div class="card" style="margin-bottom:12px;">
-          <div class="card-title">Pedidos pendentes</div>
+      ? `<section class="card team-join-card">
+          <div class="card-title">Pedidos de entrada (${joinRequests.length})</div>
           ${joinRequests.map(j => {
             const jName = (j.display_name && j.display_name !== j.steam_id) ? j.display_name : (j.steam_id || "—");
             return `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap;">
@@ -34029,86 +34275,90 @@ async function loadMyTeam(opts) {
             <button class="btn btn-ghost btn-sm" onclick="teamsRejectJoin('${escHtml(j.steam_id)}')">Recusar</button>
           </div>`;
           }).join("")}
-        </div>`
+        </section>`
       : "";
     const ledgerHint = (data.split && data.split.status === "ACTIVE")
       ? `Split ACTIVE (${data.split.sender_pct || 60}% vendedor)`
       : "Sem split ACTIVE";
     const html = `
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-header">
-          <div class="card-title">${escHtml(t.tag ? "[" + t.tag + "] " : "")}${escHtml(t.name)}</div>
-          <span style="font-size:12px;color:var(--text2);">Marco ${t.milestone_index} · Honra ${Number(t.team_honor ?? t.team_xp_lifetime ?? 0).toLocaleString("pt-BR")} XP · bônus Â +${t.amber_bonus_pct || 0}%</span>
+      <div class="team-dashboard">
+        <section class="card team-hero">
+          <div class="team-hero__identity">
+            <div class="team-hero__emblem" aria-hidden="true">⚜</div>
+            <div class="team-hero__name">
+              <h2>${t.tag ? `<span class="team-tag-pill">[${escHtml(t.tag)}]</span>` : ""}${escHtml(t.name)}</h2>
+              <p>Owner <strong>${escHtml(ownerLabel)}</strong> <span style="font-family:monospace;">(${escHtml(t.owner_steam_id)})</span></p>
+            </div>
+          </div>
+          <div class="team-hero__actions">
+            <span class="team-status-pill${accepting ? " is-open" : ""}">${accepting ? "● Aceitando pedidos" : (t.recruitment_open ? "Vagas preenchidas" : "Pedidos fechados")}</span>
+            ${isOwner ? `<button class="btn btn-primary btn-sm" onclick="teamsEditIdentity()">Editar identidade</button>` : ""}
+            ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="teamsInvite()">Convidar membro</button>` : ""}
+            ${isOwner || roles.includes("GUARDIAN") || roles.includes("AMBASSADOR") ? `<button class="btn btn-ghost btn-sm" onclick="teamsToggleRecruitment(${t.recruitment_open ? "false" : "true"})">${t.recruitment_open ? "Fechar pedidos" : "Abrir recrutamento"}</button>` : ""}
+            <button class="btn btn-ghost btn-sm" onclick="goToPage('teams-directory')">Diretório</button>
+            <button class="btn btn-ghost btn-sm" onclick="teamsLeave()">Sair da equipe</button>
+          </div>
+        </section>
+        ${metricsHtml}
+        ${joinHtml}
+        <div class="team-main-grid">
+          <section class="card team-milestone-card">
+            <div class="team-card-heading"><div><div class="card-title">Progressão da equipe</div><div class="team-section-note">Marcos concluídos: ${Number(t.milestone_index || 0)} · conclua os requisitos do próximo marco em conjunto.</div></div></div>
+            ${msHtml}
+          </section>
+          <section class="card team-bank-card">
+            <div class="team-card-heading"><div><div class="card-title">Tesouraria &amp; armazém</div><div class="team-section-note">Âmbares sustentam os marcos; recursos enviados pelo jogo ficam no armazém até serem aplicados.</div></div></div>
+            <div class="team-treasury-balance"><div><span class="team-metric__label">Saldo de Âmbares</span><strong class="team-treasury-balance__amount">${Number(bank.amber_balance || 0).toLocaleString("pt-BR")}</strong></div><button class="btn btn-primary btn-sm" onclick="teamsDonateAmber()">Doar Âmbares</button></div>
+            <div class="team-card-heading" style="margin:14px 0 0;"><div><strong>Recursos aplicados ao marco</strong>${committedHtml}</div></div>
+            <div class="team-card-heading" style="margin:14px 0 0;"><div><strong>Armazém</strong><div class="team-section-note">Estoque depositado no jogo via /marco.</div></div></div>
+            ${whHtml}
+            <div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="teamsShowLedger()">Ver movimentações</button></div>
+            <div id="teams-ledger" style="margin-top:8px;font-size:11px;"></div>
+          </section>
         </div>
-        <div style="font-size:12px;color:var(--text2);line-height:1.6;">
-          Membros <strong>${members.length}/${t.max_members}</strong>
-          · Owner <strong>${escHtml(ownerLabel)}</strong>
-          <span style="font-family:monospace;font-size:11px;">(${escHtml(t.owner_steam_id)})</span>
-          · ${t.recruitment_open ? (accepting ? "Aceitando pedidos" : "Pedidos abertos (cheia)") : "Pedidos fechados"}
-          · Seu XP lifetime: ${Number(pxp.xp || 0).toLocaleString("pt-BR")}
+        <div class="team-management-grid">
+          <section class="card team-members-card">
+            <div class="team-card-heading"><div><div class="card-title">Membros</div><div class="team-section-note">${memberCount} de ${Number(t.max_members || 0)} vagas ocupadas</div></div></div>
+            <div class="team-member-list">${memberRows || `<div class="team-milestone-empty">Nenhum membro ativo.</div>`}</div>
+          </section>
+          <div class="team-governance-stack">
+            ${isOwner ? `<details class="card team-collapsible team-settings-card">
+              <summary>Configurações do Owner</summary>
+              <div class="team-collapsible__body">
+                <p class="team-section-note">A expulsão manual é imediata. A expulsão automática considera doações, depósitos, aplicação ao marco, XP TimedPoints e visitas a Minha Equipe. O Owner nunca é expulso automaticamente.</p>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px;">
+                  <input type="checkbox" id="tm-auto-kick" ${t.auto_kick_inactive ? "checked" : ""} />
+                  Expulsar inativos automaticamente
+                </label>
+                <div class="form-group" style="margin-top:8px;max-width:220px;">
+                  <label for="tm-auto-kick-hours">Horas de inatividade</label>
+                  <input id="tm-auto-kick-hours" type="number" min="24" max="720" value="${t.auto_kick_inactive_hours || 168}" />
+                </div>
+                <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveSettings()">Salvar configurações</button>
+              </div>
+            </details>` : ""}
+            <section class="card team-mural-card">
+              <div class="team-card-heading"><div><div class="card-title">Regulamento da equipe</div><div class="team-section-note">${canMural ? "Owner, Embaixador ou Arquivista pode editar." : "Comunicados e regras definidos pela equipe."}</div></div></div>
+              <div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-bottom:8px;">${escHtml(t.mural_text || "Ainda não há regulamento publicado.")}</div>
+              ${canMural ? `<textarea id="tm-mural" rows="4" style="width:100%;" placeholder="Regras da equipe…">${escHtml(t.mural_text || "")}</textarea>
+                <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveMural()">Salvar mural</button>` : ""}
+            </section>
+          </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
-          ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsRename()">Renomear</button>` : ""}
-          ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="teamsInvite()">Convidar SteamID</button>` : ""}
-          ${isOwner || roles.includes("GUARDIAN") || roles.includes("AMBASSADOR") ? `<button class="btn btn-ghost btn-sm" onclick="teamsToggleRecruitment(${t.recruitment_open ? "false" : "true"})">${t.recruitment_open ? "Fechar pedidos" : "Abrir pedidos"}</button>` : ""}
-          <button class="btn btn-ghost btn-sm" onclick="goToPage('teams-directory')">Lista global</button>
-          <button class="btn btn-ghost btn-sm" onclick="teamsLeave()">Sair</button>
-        </div>
-      </div>
-      ${joinHtml}
-      ${isOwner ? `<div class="card" style="margin-bottom:12px;">
-        <div class="card-title">Configurações (Owner)</div>
-        <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">
-          Kick manual é sempre imediato. Auto-kick por inatividade: sem doação Â, depósito, commit, XP TimedPoints nem visita a Minha Equipe no período.
-          Owner nunca é auto-expulsado.
-        </p>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
-          <input type="checkbox" id="tm-auto-kick" ${t.auto_kick_inactive ? "checked" : ""} />
-          Expulsar inativos automaticamente
-        </label>
-        <div class="form-group" style="margin-top:8px;max-width:220px;">
-          <label for="tm-auto-kick-hours">Horas de inatividade</label>
-          <input id="tm-auto-kick-hours" type="number" min="24" max="720" value="${t.auto_kick_inactive_hours || 168}" />
-        </div>
-        <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveSettings()">Salvar</button>
-      </div>` : ""}
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-title">Membros</div>
-        <table class="pkg-admin-table"><thead><tr><th>Nome</th><th>Steam</th><th>Papéis</th><th></th></tr></thead>
-        <tbody>${memberRows || "<tr><td colspan=4>Nenhum</td></tr>"}</tbody></table>
-      </div>
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-header"><div class="card-title">Regulamento / Mural</div></div>
-        <div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-bottom:8px;">${escHtml(t.mural_text || "— sem regulamento ainda —")}</div>
-        ${canMural ? `<textarea id="tm-mural" rows="4" style="width:100%;" placeholder="Regras da equipe…">${escHtml(t.mural_text || "")}</textarea>
-          <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveMural()">Salvar mural</button>` : ""}
-      </div>
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-header"><div class="card-title">Banco &amp; Armazém</div>
-          <button class="btn btn-primary btn-sm" onclick="teamsDonateAmber()">Doar Âmbares</button>
-        </div>
-        <div>Âmbares: <strong>${Number(bank.amber_balance || 0).toLocaleString("pt-BR")}</strong></div>
-        <div style="margin-top:10px;font-size:13px;"><strong>Armazém</strong> (depósitos /marco)</div>
-        <div style="margin-top:4px;font-size:12px;">${whHtml}</div>
-        ${Object.keys(committed).length ? `<div style="margin-top:8px;font-size:12px;color:var(--text2);">Já aplicado ao marco: ${escHtml(JSON.stringify(committed))}</div>` : ""}
-        <div style="margin-top:8px;"><button class="btn btn-ghost btn-sm" onclick="teamsShowLedger()">Ver ledger</button></div>
-        <div id="teams-ledger" style="margin-top:8px;font-size:11px;"></div>
-      </div>
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-title">Marco atual</div>
-        ${msHtml}
-      </div>
-      <div id="eh-team-cards-slot"><div class="card" style="margin-bottom:12px;"><em style="color:var(--text2);">A carregar Caça de Evento…</em></div></div>
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-header"><div class="card-title">Split de mercado (equipe)</div>
-          ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsEnableSplit()">Ativar 60/40</button>
-          <button class="btn btn-ghost btn-sm" onclick="teamsDisableSplit()">Desativar</button>` : ""}
-          <button class="btn btn-ghost btn-sm" onclick="teamsSplitOpt('optin')">Opt-in</button>
-          <button class="btn btn-ghost btn-sm" onclick="teamsSplitOpt('optout')">Opt-out</button>
-        </div>
-        <div style="font-size:12px;color:var(--text2);">${escHtml(ledgerHint)} — split de tribo não se aplica na web.</div>
-      </div>
-      <div class="card">
+        <div class="team-activities-grid">
+          <section class="card team-event-area"><div class="team-card-heading"><div><div class="card-title">Atividades da equipe</div><div class="team-section-note">Caça de Evento e desafios coletivos.</div></div></div>
+            <div id="eh-team-cards-slot"><div class="team-milestone-empty"><em>A carregar Caça de Evento…</em></div></div>
+          </section>
+          <section class="card team-split-card">
+            <div class="team-card-heading"><div><div class="card-title">Split de mercado</div><div class="team-section-note">Repartição coletiva de ganhos das vendas da equipe.</div></div></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px;">
+              ${isOwner ? `<button class="btn btn-ghost btn-sm" onclick="teamsEnableSplit()">Ativar 60/40</button><button class="btn btn-ghost btn-sm" onclick="teamsDisableSplit()">Desativar</button>` : ""}
+              <button class="btn btn-ghost btn-sm" onclick="teamsSplitOpt('optin')">Opt-in</button>
+              <button class="btn btn-ghost btn-sm" onclick="teamsSplitOpt('optout')">Opt-out</button>
+            </div>
+            <div style="font-size:12px;color:var(--text2);">${escHtml(ledgerHint)} — split de tribo não se aplica na web.</div>
+          </section>
+      <section class="card team-lottery-card">
         <div class="card-title">BetLand — participação coletiva</div>
         ${(() => {
           const lot = data.lottery || {};
@@ -34134,6 +34384,8 @@ async function loadMyTeam(opts) {
           }
           return body;
         })()}
+      </section>
+        </div>
       </div>`;
     _teamsFillRoots(html);
     loadEventHuntTeamCards();
@@ -34339,14 +34591,52 @@ async function teamsTransfer(steamId) {
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
-async function teamsRename() {
-  const name = prompt("Novo nome da equipe:");
-  if (!name) return;
+async function teamsEditIdentity() {
+  const current = _teamsCurrentIdentity || {};
+  const nameInput = document.getElementById("tm-identity-name");
+  const tagInput = document.getElementById("tm-identity-tag");
+  if (!nameInput || !tagInput) return;
+  nameInput.value = current.name || "";
+  tagInput.value = current.tag || "";
+  const policy = document.getElementById("tm-identity-policy");
+  if (policy) policy.textContent = "Tag opcional: 2 a 5 letras ou números. Alterar nome ou tag segue o mesmo intervalo e custo configurados para renomear a equipe.";
+  openModal("tm-edit-identity-modal");
   try {
-    const d = await fetchJson("/api/teams/rename", { method: "POST", body: { name } });
-    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    toast("Renomeada");
-    loadMyTeam({ force: true });
+    const d = await fetchJson("/api/teams/status");
+    const cfg = d.data || {};
+    if (policy && d.ok) {
+      const hours = Number(cfg.rename_cooldown_hours || 0);
+      const cost = Number(cfg.rename_cost_amber || 0);
+      policy.textContent = `Tag opcional: 2 a 5 letras ou números. Alterar nome ou tag consome ${cost.toLocaleString("pt-BR")} Âmbares e respeita o intervalo de ${hours} h entre alterações.`;
+    }
+  } catch (_) { /* A política padrão permanece visível se a consulta falhar. */ }
+}
+
+async function teamsSaveIdentity() {
+  const name = document.getElementById("tm-identity-name")?.value?.trim() || "";
+  const tag = document.getElementById("tm-identity-tag")?.value?.trim().toLocaleUpperCase("pt-BR") || "";
+  if (!name) { toast("Informe o nome da equipe.", "error"); return; }
+  if (tag && !/^[\p{L}\p{N}]{2,5}$/u.test(tag)) {
+    toast("A tag deve ter de 2 a 5 letras ou números.", "error");
+    return;
+  }
+  const current = _teamsCurrentIdentity || {};
+  if (name === current.name && tag === current.tag) {
+    closeModal("tm-edit-identity-modal");
+    return;
+  }
+  try {
+    let cost = 0;
+    try {
+      const status = await fetchJson("/api/teams/status");
+      cost = Number(status.data?.rename_cost_amber || 0);
+    } catch (_) { /* O servidor valida custo e saldo mesmo sem consulta prévia. */ }
+    if (cost > 0 && !confirm(`Alterar o nome ou a tag custa ${cost.toLocaleString("pt-BR")} Âmbares e atualiza o intervalo de renomeação. Confirmar?`)) return;
+    const d = await fetchJson("/api/teams/identity", { method: "POST", body: { name, tag } });
+    if (!d.ok) { toast(d.error || "Falha ao atualizar identidade", "error"); return; }
+    closeModal("tm-edit-identity-modal");
+    toast("Identidade da equipe atualizada.");
+    await loadMyTeam({ force: true });
   } catch (e) { toast(String(e.message || e), "error"); }
 }
 
@@ -34606,6 +34896,7 @@ async function teamsRankBlockPlayer(blocked) {
 }
 
 let _teamsWarehouseCatalog = [];
+let _teamsCurrentIdentity = null;
 let _teamsWarehouseDefaults = [];
 
 function teamsResIcon(rOrUrl, label, extraClass) {

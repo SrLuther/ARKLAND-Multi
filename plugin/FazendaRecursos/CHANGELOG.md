@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.23]
+- Corrige a ancora dos ciclos apos resgate quando o estoque estava cheio e persiste o horario exato em que a producao alcancou a capacidade.
+
 ## [0.1.22]
 - Resgate mant?m o fluxo do CustomShop (BPLoadClass + AddNewItem) e normaliza caminhos de classe gerada para o caminho do asset, corrigindo o carregamento de Soul Shard.
 

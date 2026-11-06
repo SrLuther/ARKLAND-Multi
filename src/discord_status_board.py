@@ -58,7 +58,7 @@ def connected_label(status: str, players: Optional[int]) -> str:
     atualização não tem query ao vivo — traço, sem reaproveitar cache antigo.
     Query ausente (None) também vira traço. Não inventa um número.
     """
-    if status in (STATUS_PARADO, STATUS_ATUALIZANDO):
+    if status in (STATUS_PARADO, STATUS_INICIANDO, STATUS_ATUALIZANDO):
         return "—"
     if players is None:
         return "—"

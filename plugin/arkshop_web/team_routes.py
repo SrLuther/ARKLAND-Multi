@@ -135,6 +135,7 @@ def register_team_routes(
         teams_enabled,
         transfer_ownership,
         try_complete_milestone,
+        update_team_identity,
         update_mural,
         update_team_settings,
         upsert_milestone,
@@ -399,6 +400,33 @@ def register_team_routes(
         try:
             tid = _team_id_from_body_or_membership(db, sid, body)
             return _ok(rename_team(db, team_id=tid, actor_steam_id=sid, name=str(body.get("name") or "")))
+        except (ValueError, PermissionError) as exc:
+            return _fail(str(exc))
+        finally:
+            db.close()
+
+    @app.route("/api/teams/identity", methods=["POST"])
+    @login_required
+    def teams_identity_update():
+        blocked = _gate_enabled()
+        if blocked:
+            return blocked
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        sid = _sid()
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            tid = _team_id_from_body_or_membership(db, sid, body)
+            name = body.get("name") if "name" in body else None
+            tag = body.get("tag") if "tag" in body else None
+            return _ok(update_team_identity(
+                db,
+                team_id=tid,
+                actor_steam_id=sid,
+                name=str(name) if name is not None else None,
+                tag=str(tag) if tag is not None else None,
+            ))
         except (ValueError, PermissionError) as exc:
             return _fail(str(exc))
         finally:
