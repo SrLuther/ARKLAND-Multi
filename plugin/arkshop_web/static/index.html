@@ -328,11 +328,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      width: 100%;
-      margin: 8px 0 4px;
-      padding: 7px 10px;
-      border-radius: var(--radius);
+      width: 36px;
+      min-width: 36px;
+      height: 36px;
+      margin: 0;
+      padding: 0;
+      border-radius: 50%;
       border: 1px solid var(--border-g);
       background: var(--surface2);
       color: var(--text2);
@@ -355,14 +356,26 @@
       background: rgba(18,216,124,.06);
     }
     .staff-mode-dot {
-      width: 8px;
-      height: 8px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       flex-shrink: 0;
       box-shadow: 0 0 6px currentColor;
     }
     .staff-mode-dot--off { background: var(--danger); color: var(--danger); }
     .staff-mode-dot--on { background: var(--success); color: var(--success); }
+    .auth-utility-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .auth-utility-row #auth-action-btn {
+      flex: 1;
+      width: auto !important;
+      min-width: 0;
+      margin-top: 0 !important;
+    }
     .auth-balance-pill {
       display: flex;
       align-items: center;
@@ -2297,6 +2310,15 @@
       color: var(--amber);
       font-weight: 700;
     }
+    .lottery-my-numbers { border-color:rgba(232,160,32,.55); background:linear-gradient(135deg,rgba(232,160,32,.11),rgba(74,211,194,.04)); }
+    .lottery-number-chip { display:inline-flex; align-items:center; gap:6px; margin:3px; padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface2); font-weight:700; }
+    .lottery-source-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:9px; }
+    .lottery-source-legend__item { display:flex; align-items:flex-start; gap:9px; padding:10px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); }
+    .lottery-source-legend__icon { font-size:18px; }
+    .lottery-participant { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:11px 0; border-bottom:1px solid var(--border); }
+    .lottery-participant:last-child { border-bottom:0; }
+    .lottery-participant__numbers { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:3px; }
+    .lottery-pager { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:12px; }
 
     .media-card {
       background: var(--surface2);
@@ -7335,21 +7357,97 @@
       background: linear-gradient(180deg,rgba(70,137,148,.10),transparent);
     }
     .logo-medallion {
+      width: 82px;
+      height: 82px;
       border-color: rgba(112,217,205,.7);
       box-shadow: 0 0 0 5px rgba(112,217,205,.05), 0 0 34px rgba(74,187,176,.2);
     }
+    .logo-img-wrap { margin-bottom: 9px; }
+    .sidebar-logo { padding: 18px 16px 15px; }
+    .logo-brand { font-size: 14px; letter-spacing: .17em; color: #d8efef; }
+    .logo-sub { color: #78949e; letter-spacing: .28em; }
     .logo-brand { text-shadow: 0 0 18px rgba(112,217,205,.26); }
     .logo-divider::before,.logo-divider::after { background:linear-gradient(90deg,transparent,rgba(112,217,205,.35),transparent); }
+    #auth-userbox {
+      margin: 11px 10px 9px;
+      padding: 11px;
+      border-color: rgba(112,217,205,.18);
+      border-radius: 14px;
+      background: linear-gradient(155deg,rgba(22,37,46,.97),rgba(13,23,31,.98));
+      box-shadow: 0 10px 24px rgba(0,0,0,.16);
+    }
+    #auth-userline { margin: 2px 1px 10px; }
+    .auth-profile { gap: 5px; }
+    .auth-profile__nick {
+      color: #8ce6dc;
+      font-size: 17px;
+      text-shadow: none;
+    }
+    .auth-profile__discord-name { color: #b1c3ca; }
+    .auth-profile__steamid {
+      color: #91a8b2;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .auth-profile__steamid-label { color: #68838e; }
+    .auth-profile__role { margin-top: 4px; }
+    .auth-balance-pill {
+      justify-content: flex-start;
+      margin: 0 0 10px;
+      border-color: rgba(223,162,77,.32);
+      background: linear-gradient(110deg,rgba(215,145,54,.13),rgba(20,31,38,.8));
+    }
+    .notif-wrap { margin-bottom: 9px; }
+    .notif-bell-btn {
+      justify-content: flex-start;
+      min-height: 38px;
+      border-color: rgba(112,217,205,.12);
+      border-radius: 10px;
+      background: rgba(8,16,23,.52);
+      font-size: 12px;
+    }
+    .auth-myarea-btn {
+      min-height: 38px;
+      border-color: rgba(112,217,205,.27);
+      border-radius: 10px;
+      background: rgba(67,137,135,.12);
+      color: #bdf1e9;
+    }
+    .auth-myarea-btn:hover,.auth-myarea-btn--active {
+      border-color: rgba(112,217,205,.55);
+      background: rgba(67,137,135,.2);
+      color: #e5fffa;
+    }
+    .auth-utility-row { gap: 9px; }
+    .auth-utility-row #auth-action-btn { min-height: 34px; border-radius: 10px; }
+    .staff-mode-toggle { border-color: rgba(112,217,205,.22); background: rgba(8,16,23,.6); }
+    .staff-mode-toggle--active { border-color: rgba(18,216,124,.4); background: rgba(18,216,124,.08); }
     .nav-section { color:#617987; letter-spacing:.19em; }
     .nav-section::after { background:linear-gradient(90deg,rgba(112,217,205,.24),transparent); }
+    .nav-section { padding: 14px 16px 6px; font-size: 10px; }
     .nav-item {
-      margin: 2px 10px;
-      width: calc(100% - 20px);
+      margin: 2px 9px;
+      width: calc(100% - 18px);
+      min-height: 38px;
+      padding: 8px 10px;
+      gap: 10px;
       border: 1px solid transparent;
       border-radius: 10px;
       color: #a9bac4;
       transition: background .18s,border-color .18s,color .18s,transform .18s;
     }
+    .nav-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 25px;
+      height: 25px;
+      border: 1px solid rgba(132,175,187,.1);
+      border-radius: 8px;
+      background: rgba(5,13,19,.38);
+      font-size: 13px;
+    }
+    .nav-icon--img img { width: 17px; height: 17px; object-fit: contain; }
     .nav-item:hover {
       color:#eaf4f5;
       border-color:rgba(112,217,205,.13);
@@ -7948,11 +8046,12 @@
       <button type="button" id="auth-myarea-btn" class="auth-myarea-btn" onclick="goToPage('myarea')" title="Abrir Minha Área">
         👤 Minha Área
       </button>
-      <button type="button" id="staff-mode-toggle" class="staff-mode-toggle hidden" onclick="toggleStaffMode()" aria-pressed="false" title="Alternar menu de staff (admin/suporte)">
+      <div class="auth-utility-row">
+      <button type="button" id="staff-mode-toggle" class="staff-mode-toggle hidden" onclick="toggleStaffMode()" aria-label="Alternar modo Staff" aria-pressed="false" title="Alternar modo Staff">
         <span class="staff-mode-dot staff-mode-dot--off" aria-hidden="true"></span>
-        <span class="staff-mode-label">MODO STAFF</span>
       </button>
       <button id="auth-action-btn" class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
+      </div>
       <div class="nav-item nav-item--account-fixed" data-page="regulamento" onclick="nav(this)" style="margin-top:4px;justify-content:center;">
         <span class="nav-icon">📋</span> Regulamento
       </div>
@@ -18055,32 +18154,83 @@ async function loadMyAreaLicenses() {
   const host = document.getElementById("myarea-licenses");
   if (!host) return;
   try {
-    const r = await fetch(API + "/api/player/entitlements");
+    const [r, teamResponse] = await Promise.all([
+      fetch(API + "/api/player/entitlements"),
+      fetch(API + "/api/teams/my").catch(() => null),
+    ]);
     const d = await r.json();
+    let teamData = null;
+    if (teamResponse && teamResponse.ok) {
+      const teamPayload = await teamResponse.json();
+      if (teamPayload.ok) teamData = teamPayload;
+    }
     if (!r.ok || !d.ok) {
-      host.innerHTML = `<span style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar licenças")}</span>`;
+      host.innerHTML = `<span style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar licen\u00e7as")}</span>`;
       return;
     }
     _playerEntitlements = d.entitlements || [];
-    _playerTimedPointsTotal = d.timed_points_total || 25;
     const ents = d.entitlements || [];
-    if (!ents.length) {
-      host.innerHTML = `<p style="margin:0;">Nenhuma licença ativa. Resgate na aba <strong>Licenças</strong> do catálogo.</p>
-        <p style="margin:8px 0 0;font-size:12px;">Default: 25 Âmbar / 30 min (online).</p>`;
-      return;
-    }
+    const defaultAmount = Math.max(0, Number(d.default_timed_points ?? 25) || 0);
+    const stackRewards = d.timed_points_stack_rewards !== false;
+    const timedEnabled = d.timed_points_enabled !== false;
+    const groupAmounts = ents.map(e => Math.max(0, Number(e.timed_points_bonus) || 0));
+    const configuredBase = stackRewards
+      ? defaultAmount + groupAmounts.reduce((sum, amount) => sum + amount, 0)
+      : Math.max(defaultAmount, ...groupAmounts, 0);
+    const baseTotal = timedEnabled ? configuredBase : 0;
+    const milestonePct = teamData && teamData.team
+      ? Math.max(0, Number(teamData.team.amber_bonus_pct) || 0)
+      : 0;
+    const effectiveMilestonePct = timedEnabled ? milestonePct : 0;
+    const milestoneBonus = Math.floor((baseTotal * effectiveMilestonePct) / 100);
+    const gameTotal = baseTotal + milestoneBonus;
+    _playerTimedPointsTotal = gameTotal;
+    const teamName = teamData && teamData.team
+      ? `${teamData.team.tag ? `[${escHtml(teamData.team.tag)}] ` : ""}${escHtml(teamData.team.name || "Equipe")}`
+      : "Sem equipe ativa";
+    const teamDataAvailable = !!teamData;
+    const milestoneDescription = teamData && teamData.team
+      ? `${effectiveMilestonePct}% de b&ocirc;nus acumulado &middot; ${escHtml(teamName)}`
+      : teamDataAvailable
+        ? "Sua equipe ainda n&atilde;o desbloqueou b&ocirc;nus de marco."
+        : "N&atilde;o foi poss&iacute;vel consultar os marcos da equipe agora; o total do jogo pode ser maior.";
     host.innerHTML = `
-      <p style="margin:0 0 12px;font-size:12px;color:var(--amber);">Total online: <strong>${d.timed_points_total || 25}</strong> Âmbar a cada 30 min (Default + todas as licenças/cargos activos <strong>somam</strong>)</p>
-      <table class="tbl"><thead><tr><th>Licença</th><th>Bônus / 30 min</th><th>Validade</th></tr></thead><tbody>
-      ${ents.map(e => {
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:14px;">
+        <div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2,#101923);">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;">Ganho por ciclo antes dos marcos</div>
+          <strong style="display:block;margin-top:6px;font-size:21px;">${baseTotal.toLocaleString("pt-BR")}</strong>
+          <small style="color:var(--text2);">&Acirc;mbar por ciclo de ${Number(d.timed_points_interval_min) || 30} min</small>
+        </div>
+        <div style="padding:14px;border:1px solid ${effectiveMilestonePct ? "rgba(74,211,194,.45)" : "var(--border)"};border-radius:10px;background:var(--bg2,#101923);">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;">Adicional dos marcos</div>
+          <strong style="display:block;margin-top:6px;font-size:21px;color:${effectiveMilestonePct ? "var(--success,#4ad3c2)" : "inherit"};">+${milestoneBonus.toLocaleString("pt-BR")} <small style="font-size:13px;">(${effectiveMilestonePct}%)</small></strong>
+          <small style="color:var(--text2);">${milestoneDescription}</small>
+        </div>
+        <div style="padding:14px;border:1px solid rgba(255,156,61,.5);border-radius:10px;background:rgba(255,156,61,.07);">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;">Previs&atilde;o no jogo</div>
+          <strong style="display:block;margin-top:6px;font-size:24px;color:var(--amber);">${gameTotal.toLocaleString("pt-BR")}</strong>
+          <small style="color:var(--text2);">${timedEnabled ? `${baseTotal.toLocaleString("pt-BR")} + ${milestoneBonus.toLocaleString("pt-BR")} = ${gameTotal.toLocaleString("pt-BR")} &Acirc;mbar por ciclo` : "TimedPointsReward está desativado na configuração do servidor."}</small>
+        </div>
+      </div>
+      <p style="margin:0 0 12px;font-size:12px;color:var(--text2);">${stackRewards ? "StackRewards está ativo: Default e os grupos qualificados são somados." : "StackRewards está desativado: o jogo considera apenas o maior valor entre Default e os grupos qualificados."} Depois o jogo aplica o percentual dos marcos usando divisão inteira; a previsão segue a mesma regra.</p>
+      ${!ents.length ? `<p style="margin:0 0 12px;">Nenhuma licen&ccedil;a ou cargo adicional ativo. O valor-base inclui Default.</p>` : ""}
+      <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Origem do valor</th><th>&Acirc;mbar por ciclo</th><th>Validade / c&aacute;lculo</th></tr></thead><tbody>
+      <tr><td><strong>Default</strong><br><small>Base recebida enquanto online</small></td><td>+${defaultAmount.toLocaleString("pt-BR")}</td><td>${!timedEnabled ? "Recompensa desativada" : stackRewards ? "Somado ao total" : defaultAmount >= Math.max(...groupAmounts, 0) ? "Maior valor atual" : "Não somado: outro grupo tem valor maior"}</td></tr>
+      ${ents.map((e, index) => {
           const bonus = Number(e.timed_points_bonus) || 0;
-          return `<tr>
-        <td><strong>${escHtml(e.group)}</strong></td>
-        <td>+${bonus}</td>
-        <td>${e.permanent ? "Permanente" : escHtml(e.expires_at || "—")}</td>
-      </tr>`;
+          const otherAmounts = groupAmounts.filter((_value, i) => i !== index);
+          const calculation = !timedEnabled
+            ? "Recompensa desativada"
+            : stackRewards
+              ? "Somado ao total"
+              : bonus >= Math.max(defaultAmount, ...otherAmounts, 0)
+                ? "Maior valor atual"
+                : "Não somado: StackRewards desativado";
+          return `<tr><td><strong>${escHtml(e.group)}</strong></td><td>+${bonus.toLocaleString("pt-BR")}</td><td>${e.permanent ? "Permanente" : escHtml(e.expires_at || "\u2014")} · ${calculation}</td></tr>`;
         }).join("")}
-      </tbody></table>`;
+      ${effectiveMilestonePct ? `<tr><td><strong>Marcos da equipe</strong><br><small>${teamName}</small></td><td>+${milestoneBonus.toLocaleString("pt-BR")}</td><td>${effectiveMilestonePct}% aplicado sobre ${baseTotal.toLocaleString("pt-BR")}</td></tr>` : ""}
+      <tr style="font-weight:700;border-top:2px solid var(--border);"><td>Total previsto no jogo</td><td>${gameTotal.toLocaleString("pt-BR")}</td><td>Por ciclo online</td></tr>
+      </tbody></table></div>`;
   } catch (e) {
     host.innerHTML = `<span style="color:var(--danger);">Erro: ${escHtml(e.message)}</span>`;
   }
@@ -19345,6 +19495,8 @@ async function pollsAdminAction(pollId, action) {
 
 // ── Sorteio de Doações ────────────────────────────────────────────────────────
 let _lotteryCurrent = null;
+let _lotteryParticipantsPage = 1;
+let _lotteryParticipantsCampaignId = null;
 
 function _lotteryRegulamentoBanner(extraNote) {
   const note = extraNote ? `<p style="font-size:12px;color:var(--text2);margin:12px 0 0;">${extraNote}</p>` : "";
@@ -19501,6 +19653,39 @@ function _lotterySourceBadge(src) {
   return "🪙";
 }
 
+function _lotteryParticipantSourceLabel(src) {
+  if (src === "DONATION") return "Doação";
+  if (src === "AMBER_RANDOM") return "Compra aleatória";
+  if (src === "AMBER_RESERVE") return "Reserva manual";
+  if (src === "FIXED_REGISTERED") return "Número fixo confirmado";
+  if (src === "TEAM") return "Número da equipe";
+  return "Número de outra origem";
+}
+
+function _lotterySourceLegendHtml({ auth, player, team } = {}) {
+  const fixedConfirmation = player?.campaign_confirmation || {};
+  const canOpenFixed = !!(auth && player?.fixed_number != null && fixedConfirmation.can_confirm);
+  const canOpenDonation = !!auth;
+  const isTeamOwner = !!(auth && team?.team && team?.lottery?.can_confirm && (team.viewer_roles || []).includes("OWNER"));
+  const entries = [
+    ["🎁", "Doação", "Número recebido por uma doação feita pelo portal.", canOpenDonation ? `<button class="btn btn-ghost btn-sm" onclick="goToPage('catalog')">Ir para doações</button>` : ""],
+    ["🪙", "Compra aleatória", "Comprado com Âmbares nesta página.", ""],
+    ["⭐", "Reserva manual", "Número escolhido e reservado com Âmbares nesta página.", ""],
+    ["🎯", "Número fixo", "Número pessoal confirmado para a campanha na Minha Área.", canOpenFixed ? `<button class="btn btn-ghost btn-sm" onclick="goToPage('myarea');setMyAreaTab('game')">Abrir Minha Área</button>` : ""],
+    ["👥", "Número da equipe", "Número incluído pela participação da equipe.", isTeamOwner ? `<button class="btn btn-ghost btn-sm" onclick="goToPage('teams')">Abrir Minha Equipe</button>` : ""],
+  ];
+  return `<div class="lottery-source-legend">${entries.map(([icon, title, description, action]) => `
+    <div class="lottery-source-legend__item"><span class="lottery-source-legend__icon" aria-hidden="true">${icon}</span>
+      <div style="min-width:0;flex:1;"><strong>${title}</strong><div style="font-size:11px;color:var(--text2);margin:3px 0 6px;">${description}</div>${action || ""}</div>
+    </div>`).join("")}</div>`;
+}
+
+async function lotteryParticipantsGoToPage(page) {
+  _lotteryParticipantsPage = Math.max(1, parseInt(page, 10) || 1);
+  await loadSorteio({ force: true });
+  document.getElementById("lottery-participants-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderLotteryGrid(cells, onCellClick) {
   if (!cells || !cells.length) return "";
   return `<div class="lottery-grid-wrap"><div class="lottery-grid">${cells.map(c => {
@@ -19535,11 +19720,26 @@ async function loadSorteio(opts) {
     }
     if (cur.campaign) {
       const c = cur.campaign;
-      const [grid, parts] = await Promise.all([
+      if (_lotteryParticipantsCampaignId !== c.id) {
+        _lotteryParticipantsCampaignId = c.id;
+        _lotteryParticipantsPage = 1;
+      }
+      const auth = !!_auth.authenticated;
+      const pageSize = 10;
+      const [grid, fetchedParts, player, team] = await Promise.all([
         fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`),
-        fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=10`),
+        fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page=${_lotteryParticipantsPage}&page_size=${pageSize}`),
+        auth ? fetchJson("/api/player/lottery/me").catch(() => null) : Promise.resolve(null),
+        auth ? fetchJson("/api/teams/my").catch(() => null) : Promise.resolve(null),
       ]);
-      const auth = _auth.authenticated;
+      let parts = fetchedParts;
+      const myNumbers = (player?.numbers || []).slice().sort((a, b) => a.value - b.value);
+      const participantPages = Math.max(1, Math.ceil((parts.total || 0) / pageSize));
+      if (_lotteryParticipantsPage > participantPages) {
+        _lotteryParticipantsPage = participantPages;
+        parts = await fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page=${_lotteryParticipantsPage}&page_size=${pageSize}`);
+      }
+      const otherParticipants = (parts.participants || []).filter(p => !p.is_mine);
       const actions = auth ? `
         <button class="btn btn-primary btn-sm" onclick="lotteryBuyRandom()">Comprar aleatório (${c.amber_random_price} Âmbares)</button>
         <button class="btn btn-ghost btn-sm" onclick="goToPage('catalog')">Doar e participar</button>
@@ -19563,17 +19763,37 @@ async function loadSorteio(opts) {
           </div>
           <p style="font-size:11px;color:var(--text2);margin:10px 0 0;">Regulamento v${escHtml(cur.regulamento_version || "1.5")} · Âmbares na conta ARKLAND; kits/licenças na fila de resgate</p>
         </div>
+        ${auth ? `<div class="card lottery-my-numbers" style="margin-bottom:16px;">
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;">
+            <div class="card-title" style="margin:0;color:var(--amber);">Seus n&uacute;meros nesta campanha</div>
+            <span style="font-size:12px;color:var(--text2);">${myNumbers.length} n&uacute;mero(s) ativo(s)</span>
+          </div>
+          ${myNumbers.length ? myNumbers.map(n => `<span class="lottery-number-chip" title="${_lotteryParticipantSourceLabel(n.source)}">${n.value} <span aria-label="${_lotteryParticipantSourceLabel(n.source)}">${_lotterySourceBadge(n.source)}</span></span>`).join("") : `<p style="margin:0;color:var(--text2);">Voc&ecirc; ainda n&atilde;o tem n&uacute;meros ativos nesta campanha. Use as op&ccedil;&otilde;es de participa&ccedil;&atilde;o abaixo.</p>`}
+        </div>` : ""}
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-title" style="margin-bottom:10px;">Grade 100–999</div>
-          ${renderLotteryGrid(grid.cells, auth ? "lotteryReserveFromGrid" : null)}
+          <div class="card-title" style="margin-bottom:10px;">Legenda dos n&uacute;meros</div>
+          ${_lotterySourceLegendHtml({ auth, player, team })}
         </div>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-title" style="margin-bottom:10px;">Participantes (${parts.total || 0})</div>
-          ${(parts.participants || []).map(p => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
-              <strong>${escHtml(p.display_name_masked)}</strong> —
-              ${(p.numbers || []).map(n => `${n.value}${_lotterySourceBadge(n.source)}`).join(" ")}
-            </div>`).join("") || "<p>Nenhum participante ainda.</p>"}
+          <div class="card-title" style="margin-bottom:10px;">Grade 100&#8211;999</div>
+          ${renderLotteryGrid(grid.cells, auth ? "lotteryReserveFromGrid" : null)}
+        </div>
+        <div class="card" id="lottery-participants-card" style="margin-bottom:16px;">
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px;">
+            <div class="card-title" style="margin:0;">Participantes e n&uacute;meros p&uacute;blicos</div>
+            <span style="font-size:12px;color:var(--text2);">${parts.total || 0} participante(s) &middot; sua lista fica destacada acima</span>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Nomes de exibi&ccedil;&atilde;o e n&uacute;meros desta campanha ficam vis&iacute;veis para a comunidade. Identificadores de conta n&atilde;o s&atilde;o exibidos.</p>
+          ${otherParticipants.map(p => `
+            <div class="lottery-participant">
+              <strong>${escHtml(p.display_name || p.display_name_masked || "Jogador")}</strong>
+              <div class="lottery-participant__numbers">${(p.numbers || []).map(n => `<span class="lottery-number-chip" title="${_lotteryParticipantSourceLabel(n.source)}">${n.value} ${_lotterySourceBadge(n.source)}</span>`).join("")}</div>
+            </div>`).join("") || `<p style="color:var(--text2);margin:10px 0;">N&atilde;o h&aacute; outros participantes nesta p&aacute;gina.</p>`}
+          ${participantPages > 1 ? `<div class="lottery-pager">
+            <button class="btn btn-ghost btn-sm" ${_lotteryParticipantsPage <= 1 ? "disabled" : ""} onclick="lotteryParticipantsGoToPage(${_lotteryParticipantsPage - 1})">&#8592; Anterior</button>
+            <span style="font-size:12px;color:var(--text2);" >P&aacute;gina ${_lotteryParticipantsPage} de ${participantPages}</span>
+            <button class="btn btn-ghost btn-sm" ${_lotteryParticipantsPage >= participantPages ? "disabled" : ""} onclick="lotteryParticipantsGoToPage(${_lotteryParticipantsPage + 1})">Pr&oacute;xima &#8594;</button>
+          </div>` : ""}
         </div>`;
     } else if (upcoming) {
       mainHtml += `

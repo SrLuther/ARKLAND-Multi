@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src.discord_bot import storage  # noqa: E402
 from src.discord_bot.bot import ObobonicBot, enabled_cog_modules, load_cogs  # noqa: E402
 from src.discord_bot.moderation import Moderation  # noqa: E402
+from src.discord_bot.nickname_sync import format_game_nickname  # noqa: E402
 from src.discord_bot.settings import BotSettings  # noqa: E402
 from src.discord_bot.voice_manager import VoiceManager  # noqa: E402
 
@@ -47,10 +48,10 @@ class TestBotLoadsConfiguredCogs:
     def test_enabled_modules(self, tmp_path):
         mods = enabled_cog_modules(_settings(tmp_path))
         assert [m.rsplit(".", 1)[1] for m in mods] == [
-            "admin", "activity_rewards", "voice_manager", "moderation"
+            "admin", "activity_rewards", "nickname_sync", "voice_manager", "moderation"
         ]
         only_admin = enabled_cog_modules(_settings(tmp_path, enable_voice=False, enable_moderation=False))
-        assert [m.rsplit(".", 1)[1] for m in only_admin] == ["admin", "activity_rewards"]
+        assert [m.rsplit(".", 1)[1] for m in only_admin] == ["admin", "activity_rewards", "nickname_sync"]
 
     def test_load_extensions_registers_commands_and_aliases(self, tmp_path):
         async def scenario():
@@ -62,10 +63,17 @@ class TestBotLoadsConfiguredCogs:
                 aliases = {a for c in bot.commands for a in c.aliases}
                 assert {"purgeall", "clear", "limparall", "recarregar", "carregar", "descarregar",
                         "reboot", "reiniciar", "desligar"} <= aliases
-                assert set(bot.cogs) == {"Admin", "ActivityRewards", "VoiceManager", "Moderation"}
+                assert set(bot.cogs) == {"Admin", "ActivityRewards", "NicknameSync", "VoiceManager", "Moderation"}
             return True
 
         assert run(scenario())
+
+    def test_linked_identity_nickname_format_is_limited_to_discord_length(self):
+        assert format_game_nickname("BøT", "Ciano") == "[BøT] Ciano"
+        long_name = format_game_nickname("Tribo muito longa para Discord", "Personagem com nome muito longo")
+        assert long_name.startswith("[")
+        assert len(long_name) <= 32
+        assert "] " in long_name
 
     def test_intents_match_original(self, tmp_path):
         bot = ObobonicBot(_settings(tmp_path))

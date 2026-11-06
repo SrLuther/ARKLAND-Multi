@@ -6924,7 +6924,8 @@ def _compute_timed_points_total(groups: list[str]) -> int:
     maior absoluto — a UI da loja reflecte o modo stack (default de produção).
     """
     amounts = _timed_points_groups_amounts()
-    total = int(amounts.get("Default", LICENSE_TIMED_BONUS.get("Default", 25)) or 25)
+    default_amount = amounts.get("Default", LICENSE_TIMED_BONUS.get("Default", 25))
+    total = max(0, int(default_amount or 0))
     for raw in groups:
         g = _normalize_entitlement_group(str(raw))
         if not g or g == "Default":
@@ -14304,36 +14305,91 @@ def player_entitlements():
     steam_id = str(_steam_id_from_session())
     ents = _get_player_entitlements(steam_id)
     groups = [e["group"] for e in ents]
+    timed_amounts = _timed_points_groups_amounts()
+    timed_config = (_read_shop_config().get("TimedPointsReward") or {})
+    timed_points_enabled = bool(timed_config.get("Enabled", False))
+    stack_rewards = bool(timed_config.get("StackRewards", True))
+    try:
+        timed_interval_min = max(1, int(timed_config.get("Interval", 30) or 30))
+    except (TypeError, ValueError):
+        timed_interval_min = 30
     return jsonify({
         "ok": True,
         "entitlements": ents,
         "timed_points_total": _compute_timed_points_total(groups),
-        "timed_points_interval_min": 30,
+        "default_timed_points": max(0, int(timed_amounts.get("Default", LICENSE_TIMED_BONUS.get("Default", 25)) or 0)),
+        "timed_points_interval_min": timed_interval_min,
+        "timed_points_enabled": timed_points_enabled,
+        "timed_points_stack_rewards": stack_rewards,
     })
 
 
 def _farm_omega_default_resources() -> list[dict[str, Any]]:
     definitions = [
-        ("omega_paragon_shard", "Paragon Shard", "PrimalItem_ParagonShard"),
-        ("omega_soul_shard", "Soul Shard", "PrimalItem_SoulShard"),
-        ("omega_chest_shard", "Chest Shard", "PrimalItem_ChestShard"),
-        ("omega_paragon_breaker", "Paragon Breaker", "GodSouls/PrimalItem_ParagonBreaker"),
-        ("omega_paragon_soul", "Paragon Soul", "GodSouls/PrimalItem_SpeciesSoul"),
+        ("omega_paragon_shard", "Paragon Shard", "Souls/PrimalItem_ParagonShard", 25),
+        ("omega_soul_shard", "Soul Shard", "Souls/PrimalItem_SoulShard", 25),
+        ("omega_chest_shard", "Chest Shard", "Souls/PrimalItem_ChestShard", 25),
+        ("omega_paragon_soul", "Paragon Soul", "Souls/GodSouls/PrimalItem_SpeciesSoul", 1),
+        ("omega_lucky_soul", "Lucky Soul", "Souls/PrimalItem_LuckySoul", 25),
+        ("omega_paragon_breaker", "Paragon Breaker", "Souls/GodSouls/PrimalItem_ParagonBreaker", 1),
+        ("omega_ancient_god_soul", "Ancient God Soul", "Souls/GodSouls/PrimalItem_AncientGodSoul", 1),
+        ("omega_god_soul", "God Soul", "Souls/GodSouls/PrimalItem_GodSoul", 1),
+        ("omega_group_god_soul", "Group God Soul", "Souls/GodSouls/PrimalItem_GroupGodSoul", 1),
+        ("omega_unique_god_soul", "Unique God Soul", "Souls/GodSouls/PrimalItem_UniqueGodSoul", 1),
+        ("omega_unique_group_god_soul", "Unique Group God Soul", "Souls/GodSouls/PrimalItem_UniqueGroupGodSoul", 1),
+        ("omega_zodiac_soul", "Zodiac Soul", "Souls/GodSouls/PrimalItem_ZodiacSoul", 1),
+        ("omega_perfect_soul", "Perfect Soul", "Souls/GodSouls/PrimalItem_PerfectSoul", 1),
+        ("omega_darkness_soul", "Darkness Soul", "Souls/GodSouls/PrimalItem_DarknessSoul", 1),
+        ("omega_perfect_soul_2", "Perfect Soul 2", "Souls/GodSouls/PrimalItem_PerfectSoul2", 1),
+        ("omega_deity_soul", "Deity Soul", "Souls/GodSouls/PrimalItem_DeitySoul", 1),
+        ("omega_endless_soul", "Endless Soul", "Souls/GodSouls/PrimalItem_EndlessSoul", 1),
+        ("omega_unique_token", "Unique Token", "Souls/Tokens/PrimalItem_UniqueToken", 1),
+        ("omega_unique_token_craftable", "Unique Token Craftable", "Souls/Tokens/PrimalItem_UniqueTokenCraftable", 1),
+        ("omega_cosmic_soul", "Cosmic Soul", "Souls/PrimalItem_CosmicSoul", 25),
+        ("omega_elemental_soul", "Elemental Soul", "Souls/PrimalItem_ElementalSoul", 25),
+        ("omega_ethereal_soul", "Ethereal Soul", "Souls/PrimalItem_EtherealSoul", 25),
+        ("omega_guardian_soul", "Guardian Soul", "Souls/PrimalItem_GuardianSoul", 25),
+        ("omega_mythical_soul", "Mythical Soul", "Souls/PrimalItem_MythicalSoul", 25),
+        ("omega_nature_soul", "Nature Soul", "Souls/PrimalItem_NatureSoul", 25),
+        ("omega_nightmare_soul", "Nightmare Soul", "Souls/PrimalItem_NightmareSoul", 25),
+        ("omega_rage_soul", "Rage Soul", "Souls/PrimalItem_RageSoul", 25),
+        ("omega_resource_soul", "Resource Soul", "Souls/PrimalItem_ResourceSoul", 25),
+        ("omega_summoner_soul", "Summoner Soul", "Souls/PrimalItem_SummonerSoul", 25),
+        ("omega_unstable_soul", "Unstable Soul", "Souls/PrimalItem_UnstableSoul", 25),
+        ("omega_utility_soul", "Utility Soul", "Souls/PrimalItem_UtilitySoul", 25),
+        ("omega_basic_essence", "Basic Essence", "Essence/PrimalItem_BasicEssence", 25),
+        ("omega_beta_essence", "Beta Essence", "Essence/PrimalItem_BetaEssence", 25),
+        ("omega_alpha_essence", "Alpha Essence", "Essence/PrimalItem_AlphaEssence", 25),
+        ("omega_prime_essence", "Prime Essence", "Essence/PrimalItem_PrimeEssence", 25),
+        ("omega_ultimate_essence", "Ultimate Essence", "Essence/PrimalItem_UltimateEssence", 25),
+        ("omega_omega_essence", "Omega Essence", "Essence/PrimalItem_OmegaEssence", 25),
+        ("omega_god_essence", "God Essence", "Essence/PrimalItem_GodEssence", 25),
+        ("omega_ancient_essence", "Ancient Essence", "Essence/PrimalItem_AncientEssence", 25),
+        ("omega_boss_essence", "Boss Essence", "Essence/PrimalItem_BossEssence", 25),
+        ("omega_souls", "Souls", "Souls/PrimalItem_Souls", 25),
+        ("omega_boss_soul", "Boss Soul", "Souls/GodSouls/PrimalItem_BossSoul", 1),
+        ("omega_omega_soul", "Omega Soul", "Souls/GodSouls/PrimalItem_OmegaSoul", 1),
+        ("omega_alpha_unique_token", "Alpha Unique Token", "Souls/Tokens/PrimalItem_AlphaUniqueToken", 1),
+        ("omega_ancient_god_token", "Ancient God Token", "Souls/Tokens/PrimalItem_AncientGodToken", 1),
+        ("omega_beta_unique_token", "Beta Unique Token", "Souls/Tokens/PrimalItem_BetaUniqueToken", 1),
+        ("omega_omega_unique_token", "Omega Unique Token", "Souls/Tokens/PrimalItem_OmegaUniqueToken", 1),
+        ("omega_prime_unique_token", "Prime Unique Token", "Souls/Tokens/PrimalItem_PrimeUniqueToken", 1),
+        ("omega_ultimate_unique_token", "Ultimate Unique Token", "Souls/Tokens/PrimalItem_UltimateUniqueToken", 1),
+        ("omega_unique_god_token", "Unique God Token", "Souls/Tokens/PrimalItem_UniqueGodToken", 1),
+        ("omega_unique_saddle_token", "Unique Saddle Token", "Gamble/PrimalItem_UniqueSaddleToken", 1),
     ]
     return [{
         "Id": resource_id,
         "Name": name,
-        "ItemClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset.rsplit('/', 1)[-1]}_C",
-        "InputClass": f"/Game/Mods/ArkOmega/Items/Souls/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "ItemClass": f"/Game/Mods/2447186973/Items/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "InputClass": f"/Game/Mods/2447186973/Items/{asset}.{asset.rsplit('/', 1)[-1]}_C",
         "InputQuantity": 1,
         "OutputQuantity": 1,
         "IntervalSeconds": 3600,
-        "StackSize": 25 if resource_id in {
-            "omega_paragon_shard", "omega_soul_shard", "omega_chest_shard"
-        } else 1,
+        "StackSize": stack_size,
         "Capacity": 200,
         "Enabled": True,
-    } for resource_id, name, asset in definitions]
+    } for resource_id, name, asset, stack_size in definitions]
 
 
 def _farm_base_default_resources() -> list[dict[str, Any]]:
@@ -14399,6 +14455,13 @@ def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(existing, list):
         existing = []
         omega["Resources"] = existing
+    for row in existing:
+        if not isinstance(row, dict):
+            continue
+        for key in ("ItemClass", "InputClass"):
+            value = row.get(key)
+            if isinstance(value, str) and value.startswith("/Game/Mods/ArkOmega/"):
+                row[key] = value.replace("/Game/Mods/ArkOmega/", "/Game/Mods/2447186973/", 1)
     known = {str(row.get("Id") or "") for row in existing if isinstance(row, dict)}
     existing.extend(resource for resource in _farm_omega_default_resources()
                     if resource["Id"] not in known)

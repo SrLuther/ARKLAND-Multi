@@ -4,13 +4,25 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.45"
+APP_VERSION: str = "1.11.46"
 BUILD_DATE: str = "2026-11-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.46",
+        "date": "2026-11-06",
+        "changes": [
+            "Fazenda Omega: catálogo ampliado para 51 recursos Soul, Shard, Paragon, Token e Essence com caminhos extraídos do SpawnCodes do mod; caminhos padrão corrigidos e configurações personalizadas preservadas na migração.",
+            "Minha Área: cálculo de Âmbares por tempo agora considera corretamente habilitação, empilhamento, intervalo e bônus de marcos configurados.",
+            "Sorteio: participantes identificados pelo nome, números do usuário em destaque, legenda dos tipos de número com atalhos e paginação da lista pública.",
+            "Navegação: menu e card de conta reorganizados, mantendo IDs junto ao nome; modo staff passa a ser um indicador compacto ao lado de Sair.",
+            "Discord: sincroniza o apelido com tribo e personagem do jogo para contas vinculadas; comandos de moderação existentes são mantidos.",
+            "Ferramenta Ark_Spawn_Code_Generator e lista SpawnCodes preservadas no repositório para futuras integrações de mods.",
+        ],
+    },
     {
         "version": "1.11.45",
         "date": "2026-11-06",

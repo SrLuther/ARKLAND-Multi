@@ -23,6 +23,7 @@ _PACKAGE = __name__.rsplit(".", 1)[0]
 COG_MODULES = (
     ("admin", "admin", None),
     ("activity_rewards", "activity_rewards", None),
+    ("nickname_sync", "nickname_sync", None),
     ("voice_manager", "voicemanager", "enable_voice"),
     ("moderation", "moderation", "enable_moderation"),
 )

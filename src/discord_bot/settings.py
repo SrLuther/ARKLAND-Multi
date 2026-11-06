@@ -31,6 +31,7 @@ PERMISSION_BITS = {
     "mute_members": 1 << 22,        # overwrite concedido ao dono da sala de voz
     "deafen_members": 1 << 23,
     "move_members": 1 << 24,        # mover membro para a sala nova
+    "manage_nicknames": 1 << 26,     # sincronizar nome de personagem e tribo
     "manage_roles": 1 << 28,        # quarentena (!limpezageral)
 }
 

@@ -1881,6 +1881,7 @@ def get_participants_public(
     page: int = 1,
     page_size: int = 50,
     search_number: int | None = None,
+    viewer_steam_id: str | None = None,
 ) -> dict[str, Any]:
     page = max(1, page)
     page_size = max(1, min(100, page_size))
@@ -1940,7 +1941,11 @@ def get_participants_public(
             val_s, src = part.split(":", 1)
             numbers.append({"value": int(val_s), "source": src})
         participants.append({
-            "display_name_masked": mask_display_name(name),
+            # Publicly visible by product decision: only the display name is
+            # exposed; Steam IDs and account identifiers remain private.
+            "display_name": name,
+            "display_name_masked": mask_display_name(name),  # backwards compatibility
+            "is_mine": bool(viewer_steam_id and sid == str(viewer_steam_id)),
             "numbers": numbers,
             "last_assigned_at": _iso_display(_parse_dt(r.last_at)),
         })

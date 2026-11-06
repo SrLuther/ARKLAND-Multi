@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-11-06 01:26:44 -->
-<!-- Total de versões: 538 | Primeira: 1.11.45 -->
+<!-- Gerado: 2026-11-06 20:54:55 -->
+<!-- Total de versões: 539 | Primeira: 1.11.46 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.46] - 2026-11-06
+
+### Other
+
+- Fazenda Omega: catálogo ampliado para 51 recursos Soul, Shard, Paragon, Token e Essence com caminhos extraídos do SpawnCodes do mod; caminhos padrão corrigidos e configurações personalizadas preservadas na migração.
+- Minha Área: cálculo de Âmbares por tempo agora considera corretamente habilitação, empilhamento, intervalo e bônus de marcos configurados.
+- Sorteio: participantes identificados pelo nome, números do usuário em destaque, legenda dos tipos de número com atalhos e paginação da lista pública.
+- Navegação: menu e card de conta reorganizados, mantendo IDs junto ao nome; modo staff passa a ser um indicador compacto ao lado de Sair.
+- Discord: sincroniza o apelido com tribo e personagem do jogo para contas vinculadas; comandos de moderação existentes são mantidos.
+- Ferramenta Ark_Spawn_Code_Generator e lista SpawnCodes preservadas no repositório para futuras integrações de mods.
 
 ## [1.11.45] - 2026-11-06
 

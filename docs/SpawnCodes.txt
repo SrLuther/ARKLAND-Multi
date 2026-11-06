@@ -1,0 +1,772 @@
+---------------------------------------------------------------------------------Item Spawn Codes---------------------------------------------------------------------------------
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/ChildClasses/PrimalItemArmor_Tapejara_Tek_Child.PrimalItemArmor_Tapejara_Tek_Child'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Necklaces/IchthyornisNecklace/PrimalItemArmor_SeagullNecklace_ArkOmega.PrimalItemArmor_SeagullNecklace_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Necklaces/PegoNecklace/PrimalItemArmor_PegoNecklace_ArkOmega.PrimalItemArmor_PegoNecklace_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Necklaces/ThievesNecklace/PrimalItemSkin_TheivesNecklace.PrimalItemSkin_TheivesNecklace'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/ReflectShield/PrimalItemArmor_ReflectShield.PrimalItemArmor_ReflectShield'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Saddles/PrimalItemArmor_MinionArmor.PrimalItemArmor_MinionArmor'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Saddles/PrimalItemArmor_PygmyArmor.PrimalItemArmor_PygmyArmor'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Saddles/PrimalItemArmor_RaftArmor.PrimalItemArmor_RaftArmor'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Saddles/PrimalItemArmor_SaddleArmor.PrimalItemArmor_SaddleArmor'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Saddles/PrimalItemArmor_SkinPrevention.PrimalItemArmor_SkinPrevention'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Armor/Saddles/PrimalItemArmor_UnprotectionSkin.PrimalItemArmor_UnprotectionSkin'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Crystal_Poop.PrimalItemResource_Crystal_Poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Element_poop.PrimalItemResource_Element_poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Metal_Poop.PrimalItemResource_Metal_Poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Obsidian_Poop.PrimalItemResource_Obsidian_Poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Silicon_Poop.PrimalItemResource_Silicon_Poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Stone_Poop.PrimalItemResource_Stone_Poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Buffs/Variants/Other/PrimalItemResource_Wood_Poop.PrimalItemResource_Wood_Poop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/PrimalItemConsumable_Egg_AlphaBase.PrimalItemConsumable_Egg_AlphaBase'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/PrimalItemConsumable_Egg_BasicBase.PrimalItemConsumable_Egg_BasicBase'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/PrimalItemConsumable_Egg_BetaBase.PrimalItemConsumable_Egg_BetaBase'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/PrimalItemConsumable_Egg_OmegaBase.PrimalItemConsumable_Egg_OmegaBase'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/PrimalItemConsumable_Egg_PrimeBase.PrimalItemConsumable_Egg_PrimeBase'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/PrimalItemConsumable_Egg_UltimateBase.PrimalItemConsumable_Egg_UltimateBase'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Fertilized/PrimalItemConsumable_Egg_OmegaFertilized.PrimalItemConsumable_Egg_OmegaFertilized'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaCosmic.PrimalItemConsumable_Egg_AlphaCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaElemental.PrimalItemConsumable_Egg_AlphaElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaEthereal.PrimalItemConsumable_Egg_AlphaEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaGuardian.PrimalItemConsumable_Egg_AlphaGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaMythical.PrimalItemConsumable_Egg_AlphaMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaNature.PrimalItemConsumable_Egg_AlphaNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaNightmare.PrimalItemConsumable_Egg_AlphaNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaRage.PrimalItemConsumable_Egg_AlphaRage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaResource.PrimalItemConsumable_Egg_AlphaResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaSummoner.PrimalItemConsumable_Egg_AlphaSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaUnstable.PrimalItemConsumable_Egg_AlphaUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_AlphaUtility.PrimalItemConsumable_Egg_AlphaUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaCosmic.PrimalItemConsumable_Egg_BetaCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaElemental.PrimalItemConsumable_Egg_BetaElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaEthereal.PrimalItemConsumable_Egg_BetaEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaGuardian.PrimalItemConsumable_Egg_BetaGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaMythical.PrimalItemConsumable_Egg_BetaMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaNature.PrimalItemConsumable_Egg_BetaNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaNightmare.PrimalItemConsumable_Egg_BetaNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaRage.PrimalItemConsumable_Egg_BetaRage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaResource.PrimalItemConsumable_Egg_BetaResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaSummoner.PrimalItemConsumable_Egg_BetaSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaUnstable.PrimalItemConsumable_Egg_BetaUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_BetaUtility.PrimalItemConsumable_Egg_BetaUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Cosmic.PrimalItemConsumable_Egg_Cosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Elemental.PrimalItemConsumable_Egg_Elemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Ethereal.PrimalItemConsumable_Egg_Ethereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Guardian.PrimalItemConsumable_Egg_Guardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Mythical.PrimalItemConsumable_Egg_Mythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Nature.PrimalItemConsumable_Egg_Nature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Nightmare.PrimalItemConsumable_Egg_Nightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaCosmic.PrimalItemConsumable_Egg_OmegaCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaElemental.PrimalItemConsumable_Egg_OmegaElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaEthereal.PrimalItemConsumable_Egg_OmegaEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaGuardian.PrimalItemConsumable_Egg_OmegaGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaMythical.PrimalItemConsumable_Egg_OmegaMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaNature.PrimalItemConsumable_Egg_OmegaNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaNightmare.PrimalItemConsumable_Egg_OmegaNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaRage.PrimalItemConsumable_Egg_OmegaRage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaResource.PrimalItemConsumable_Egg_OmegaResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaSummoner.PrimalItemConsumable_Egg_OmegaSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaUnstable.PrimalItemConsumable_Egg_OmegaUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_OmegaUtility.PrimalItemConsumable_Egg_OmegaUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeCosmic.PrimalItemConsumable_Egg_PrimeCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeElemental.PrimalItemConsumable_Egg_PrimeElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeEthereal.PrimalItemConsumable_Egg_PrimeEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeGuardian.PrimalItemConsumable_Egg_PrimeGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeMythical.PrimalItemConsumable_Egg_PrimeMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeNature.PrimalItemConsumable_Egg_PrimeNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeNightmare.PrimalItemConsumable_Egg_PrimeNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeRage.PrimalItemConsumable_Egg_PrimeRage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeResource.PrimalItemConsumable_Egg_PrimeResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeSummoner.PrimalItemConsumable_Egg_PrimeSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeUnstable.PrimalItemConsumable_Egg_PrimeUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_PrimeUtility.PrimalItemConsumable_Egg_PrimeUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Rage.PrimalItemConsumable_Egg_Rage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Resource.PrimalItemConsumable_Egg_Resource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Summoner.PrimalItemConsumable_Egg_Summoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateCosmic.PrimalItemConsumable_Egg_UltimateCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateElemental.PrimalItemConsumable_Egg_UltimateElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateEthereal.PrimalItemConsumable_Egg_UltimateEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateGuardian.PrimalItemConsumable_Egg_UltimateGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateMythical.PrimalItemConsumable_Egg_UltimateMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateNature.PrimalItemConsumable_Egg_UltimateNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateNightmare.PrimalItemConsumable_Egg_UltimateNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateRage.PrimalItemConsumable_Egg_UltimateRage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateResource.PrimalItemConsumable_Egg_UltimateResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateSummoner.PrimalItemConsumable_Egg_UltimateSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateUnstable.PrimalItemConsumable_Egg_UltimateUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_UltimateUtility.PrimalItemConsumable_Egg_UltimateUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Unstable.PrimalItemConsumable_Egg_Unstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Eggs/Normal/PrimalItemConsumable_Egg_Utility.PrimalItemConsumable_Egg_Utility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Charms/PrimalItemArmor_Charm.PrimalItemArmor_Charm'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Charms/PrimalItemArmor_Medallion.PrimalItemArmor_Medallion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Decoy/PrimalItemConsumable_Decoy.PrimalItemConsumable_Decoy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/EggCracker/PrimalItem_EggCracker.PrimalItem_EggCracker'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_AlphaEssence.PrimalItem_AlphaEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_AncientEssence.PrimalItem_AncientEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_BasicEssence.PrimalItem_BasicEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_BetaEssence.PrimalItem_BetaEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_BossEssence.PrimalItem_BossEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_GodEssence.PrimalItem_GodEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_OmegaEssence.PrimalItem_OmegaEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_PrimeEssence.PrimalItem_PrimeEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Essence/PrimalItem_UltimateEssence.PrimalItem_UltimateEssence'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Gamble/PrimalItem_EarlySetGamble.PrimalItem_EarlySetGamble'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Gamble/PrimalItem_EarlyUniqueGamble.PrimalItem_EarlyUniqueGamble'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Gamble/PrimalItem_UniqueSaddleToken.PrimalItem_UniqueSaddleToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Glider/PrimalItemArmor_OmegaGlider.PrimalItemArmor_OmegaGlider'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/InfinityStone/PrimalItemResource_InfinityStone.PrimalItemResource_InfinityStone'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Keys/PrimalItem_DynamicKey.PrimalItem_DynamicKey'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaCosmic.PrimalItemConsumable_Kibble_AlphaCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaElemental.PrimalItemConsumable_Kibble_AlphaElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaEthereal.PrimalItemConsumable_Kibble_AlphaEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaGuardian.PrimalItemConsumable_Kibble_AlphaGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaMythical.PrimalItemConsumable_Kibble_AlphaMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaNature.PrimalItemConsumable_Kibble_AlphaNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaNightmare.PrimalItemConsumable_Kibble_AlphaNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaRaging.PrimalItemConsumable_Kibble_AlphaRaging'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaResource.PrimalItemConsumable_Kibble_AlphaResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaSummoner.PrimalItemConsumable_Kibble_AlphaSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaUnique.PrimalItemConsumable_Kibble_AlphaUnique'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaUnstable.PrimalItemConsumable_Kibble_AlphaUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_AlphaUtility.PrimalItemConsumable_Kibble_AlphaUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaCosmic.PrimalItemConsumable_Kibble_BetaCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaElemental.PrimalItemConsumable_Kibble_BetaElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaEthereal.PrimalItemConsumable_Kibble_BetaEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaGuardian.PrimalItemConsumable_Kibble_BetaGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaMythical.PrimalItemConsumable_Kibble_BetaMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaNature.PrimalItemConsumable_Kibble_BetaNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaNightmare.PrimalItemConsumable_Kibble_BetaNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaRaging.PrimalItemConsumable_Kibble_BetaRaging'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaResource.PrimalItemConsumable_Kibble_BetaResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaSummoner.PrimalItemConsumable_Kibble_BetaSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaUnique.PrimalItemConsumable_Kibble_BetaUnique'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaUnstable.PrimalItemConsumable_Kibble_BetaUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_BetaUtility.PrimalItemConsumable_Kibble_BetaUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Cosmic.PrimalItemConsumable_Kibble_Cosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Elemental.PrimalItemConsumable_Kibble_Elemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Ethereal.PrimalItemConsumable_Kibble_Ethereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Guardian.PrimalItemConsumable_Kibble_Guardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Mythical.PrimalItemConsumable_Kibble_Mythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Nature.PrimalItemConsumable_Kibble_Nature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Nightmare.PrimalItemConsumable_Kibble_Nightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaCosmic.PrimalItemConsumable_Kibble_OmegaCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaElemental.PrimalItemConsumable_Kibble_OmegaElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaEthereal.PrimalItemConsumable_Kibble_OmegaEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaGuardian.PrimalItemConsumable_Kibble_OmegaGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaMythical.PrimalItemConsumable_Kibble_OmegaMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaNature.PrimalItemConsumable_Kibble_OmegaNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaNightmare.PrimalItemConsumable_Kibble_OmegaNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaRaging.PrimalItemConsumable_Kibble_OmegaRaging'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaResource.PrimalItemConsumable_Kibble_OmegaResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaSummoner.PrimalItemConsumable_Kibble_OmegaSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaUnique.PrimalItemConsumable_Kibble_OmegaUnique'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaUnstable.PrimalItemConsumable_Kibble_OmegaUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_OmegaUtility.PrimalItemConsumable_Kibble_OmegaUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeCosmic.PrimalItemConsumable_Kibble_PrimeCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeElemental.PrimalItemConsumable_Kibble_PrimeElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeEthereal.PrimalItemConsumable_Kibble_PrimeEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeGuardian.PrimalItemConsumable_Kibble_PrimeGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeMythical.PrimalItemConsumable_Kibble_PrimeMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeNature.PrimalItemConsumable_Kibble_PrimeNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeNightmare.PrimalItemConsumable_Kibble_PrimeNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeRaging.PrimalItemConsumable_Kibble_PrimeRaging'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeResource.PrimalItemConsumable_Kibble_PrimeResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeSummoner.PrimalItemConsumable_Kibble_PrimeSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeUnique.PrimalItemConsumable_Kibble_PrimeUnique'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeUnstable.PrimalItemConsumable_Kibble_PrimeUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_PrimeUtility.PrimalItemConsumable_Kibble_PrimeUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Raging.PrimalItemConsumable_Kibble_Raging'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Resource.PrimalItemConsumable_Kibble_Resource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Summoner.PrimalItemConsumable_Kibble_Summoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateCosmic.PrimalItemConsumable_Kibble_UltimateCosmic'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateElemental.PrimalItemConsumable_Kibble_UltimateElemental'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateEthereal.PrimalItemConsumable_Kibble_UltimateEthereal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateGuardian.PrimalItemConsumable_Kibble_UltimateGuardian'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateMythical.PrimalItemConsumable_Kibble_UltimateMythical'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateNature.PrimalItemConsumable_Kibble_UltimateNature'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateNightmare.PrimalItemConsumable_Kibble_UltimateNightmare'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateRaging.PrimalItemConsumable_Kibble_UltimateRaging'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateResource.PrimalItemConsumable_Kibble_UltimateResource'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateSummoner.PrimalItemConsumable_Kibble_UltimateSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateUnique.PrimalItemConsumable_Kibble_UltimateUnique'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateUnstable.PrimalItemConsumable_Kibble_UltimateUnstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_UltimateUtility.PrimalItemConsumable_Kibble_UltimateUtility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Unique.PrimalItemConsumable_Kibble_Unique'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Unstable.PrimalItemConsumable_Kibble_Unstable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Kibble/PrimalItemConsumable_Kibble_Utility.PrimalItemConsumable_Kibble_Utility'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekHead.PrimalItem_MekHead'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekLeftArm.PrimalItem_MekLeftArm'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekLeftLeg.PrimalItem_MekLeftLeg'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekModule.PrimalItem_MekModule'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekPieces.PrimalItem_MekPieces'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekRightArm.PrimalItem_MekRightArm'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekRightLeg.PrimalItem_MekRightLeg'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekSummoner.PrimalItem_MekSummoner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MekPieces/PrimalItem_MekTorso.PrimalItem_MekTorso'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MudCake/PrimalItemConsumable_MudCake.PrimalItemConsumable_MudCake'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MudCake/PrimalItemConsumable_MudCakeFull.PrimalItemConsumable_MudCakeFull'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MudCake/CandyCorn/PrimalItemConsumable_CandyCake.PrimalItemConsumable_CandyCake'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/MudCake/CandyCorn/PrimalItemConsumable_CandyCakeFull.PrimalItemConsumable_CandyCakeFull'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Network/PrimalItem_DimensionalNetwork.PrimalItem_DimensionalNetwork'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/AntiGravityPotion/PrimalItemConsumable_AntiGravityPotion.PrimalItemConsumable_AntiGravityPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/CollectivePotion/PrimalItemConsumable_CollectivePotion.PrimalItemConsumable_CollectivePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/CraftingPotion/PrimalItemConsumable_CraftingPotion.PrimalItemConsumable_CraftingPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/DinoBeer/PrimalItemConsumable_DinoBeer.PrimalItemConsumable_DinoBeer'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/EleResPotion/PrimalItemConsumable_EleResPotion.PrimalItemConsumable_EleResPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_AlphaEXP.PrimalItemConsumable_AlphaEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_BasicEXP.PrimalItemConsumable_BasicEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_BetaEXP.PrimalItemConsumable_BetaEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_MaxEXP.PrimalItemConsumable_MaxEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_OmegaEXP.PrimalItemConsumable_OmegaEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_PrimeEXP.PrimalItemConsumable_PrimeEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/ExperiencePotions/PrimalItemConsumable_UltimateEXP.PrimalItemConsumable_UltimateEXP'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/FortitudePotion/PrimalItemConsumable_EndlessFortitudePotion.PrimalItemConsumable_EndlessFortitudePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/FortitudePotion/PrimalItemConsumable_FortitudePotion.PrimalItemConsumable_FortitudePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/GravityPotion/PrimalItemConsumable_GravityPotion.PrimalItemConsumable_GravityPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_AlphaPotion.PrimalItemConsumable_AlphaPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_BasePotion.PrimalItemConsumable_BasePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_BasePotion_Health.PrimalItemConsumable_BasePotion_Health'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_BasicPotion.PrimalItemConsumable_BasicPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_BetaPotion.PrimalItemConsumable_BetaPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_GodlikePotion.PrimalItemConsumable_GodlikePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_OmegaPotion.PrimalItemConsumable_OmegaPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_PrimePotion.PrimalItemConsumable_PrimePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/HealingPotions/PrimalItemConsumable_UltimatePotion.PrimalItemConsumable_UltimatePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/MagicFindPotion/PrimalItemConsumable_EndlessMagicPotion.PrimalItemConsumable_EndlessMagicPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/MagicFindPotion/PrimalItemConsumable_MagicPotion.PrimalItemConsumable_MagicPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/NatureResPotion/PrimalItemConsumable_NatResPotion.PrimalItemConsumable_NatResPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/NightvisionPotion/PrimalItemConsumable_NightvisionPotion.PrimalItemConsumable_NightvisionPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/OmegaMutagen/PrimalItemConsumable_Mutagen_Omega.PrimalItemConsumable_Mutagen_Omega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/RainbowPoop/PrimalItemConsumable_RainbowPoop.PrimalItemConsumable_RainbowPoop'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/RampagePotion/PrimalItemConsumable_RampagePotion.PrimalItemConsumable_RampagePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/SirenPotion/PrimalItemConsumable_SirenPotion.PrimalItemConsumable_SirenPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/SpiritualPotion/PrimalItemConsumable_EndlessSpiritualPotion.PrimalItemConsumable_EndlessSpiritualPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/SpiritualPotion/PrimalItemConsumable_SpiritualPotion.PrimalItemConsumable_SpiritualPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_AlphaStamina.PrimalItemConsumable_AlphaStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_BasePotion_Stamina.PrimalItemConsumable_BasePotion_Stamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_BasicStamina.PrimalItemConsumable_BasicStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_BetaStamina.PrimalItemConsumable_BetaStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_GodlikeStamina.PrimalItemConsumable_GodlikeStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_OmegaStamina.PrimalItemConsumable_OmegaStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_PrimeStamina.PrimalItemConsumable_PrimeStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StaminaPotions/PrimalItemConsumable_UltimateStamina.PrimalItemConsumable_UltimateStamina'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/StoneskinPotion/PrimalItemConsumable_StoneskinPotion.PrimalItemConsumable_StoneskinPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/SuicidePotion/PrimalItemConsumable_SuicidePotion.PrimalItemConsumable_SuicidePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/SuicidePotion/PrimalItemConsumable_SuicidePotion_WB.PrimalItemConsumable_SuicidePotion_WB'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/TamingPotion/PrimalItemConsumable_TamingPotion.PrimalItemConsumable_TamingPotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/UnstableLaxative/PrimalItemConsumable_UnstableLaxative.PrimalItemConsumable_UnstableLaxative'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Potions/WakeUpPotion/PrimalItemConsumable_WakePotion.PrimalItemConsumable_WakePotion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Quests/PrimalItem_Quest.PrimalItem_Quest'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Raft/PrimalItemOmegaRaft.PrimalItemOmegaRaft'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Raft/PrimalItem_SpiritualRaftCostume.PrimalItem_SpiritualRaftCostume'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Resources/PegoClaws/PrimalItemResource_PegoClaws_ArkOmega.PrimalItemResource_PegoClaws_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Resources/SeagullTalons/PrimalItemResource_SeagullTalon_ArkOmega.PrimalItemResource_SeagullTalon_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_AlphaSedative_ArkOmega.PrimalItemConsumable_AlphaSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_AncientSedative_ArkOmega.PrimalItemConsumable_AncientSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_BetaSedative_ArkOmega.PrimalItemConsumable_BetaSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_GodlikeSedative_ArkOmega.PrimalItemConsumable_GodlikeSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_OmegaSedative_ArkOmega.PrimalItemConsumable_OmegaSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_PrimeSedative_ArkOmega.PrimalItemConsumable_PrimeSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_Sedative_ArkOmega.PrimalItemConsumable_Sedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Sedatives/PrimalItemConsumable_UltimateSedative_ArkOmega.PrimalItemConsumable_UltimateSedative_ArkOmega'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_ChestShard.PrimalItem_ChestShard'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_CosmicSoul.PrimalItem_CosmicSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_ElementalSoul.PrimalItem_ElementalSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_EtherealSoul.PrimalItem_EtherealSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_GuardianSoul.PrimalItem_GuardianSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_LuckySoul.PrimalItem_LuckySoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_MythicalSoul.PrimalItem_MythicalSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_NatureSoul.PrimalItem_NatureSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_NightmareSoul.PrimalItem_NightmareSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_ParagonShard.PrimalItem_ParagonShard'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_RageSoul.PrimalItem_RageSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_ResourceSoul.PrimalItem_ResourceSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_Souls.PrimalItem_Souls'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_SoulShard.PrimalItem_SoulShard'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_SummonerSoul.PrimalItem_SummonerSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_UnstableSoul.PrimalItem_UnstableSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/PrimalItem_UtilitySoul.PrimalItem_UtilitySoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_AncientGodSoul.PrimalItem_AncientGodSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_BossSoul.PrimalItem_BossSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_DarknessSoul.PrimalItem_DarknessSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_DeitySoul.PrimalItem_DeitySoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_EndlessSoul.PrimalItem_EndlessSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_GodSoul.PrimalItem_GodSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_GroupGodSoul.PrimalItem_GroupGodSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_OmegaSoul.PrimalItem_OmegaSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_ParagonBreaker.PrimalItem_ParagonBreaker'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_PerfectSoul.PrimalItem_PerfectSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_PerfectSoul2.PrimalItem_PerfectSoul2'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_SpeciesSoul.PrimalItem_SpeciesSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_UniqueGodSoul.PrimalItem_UniqueGodSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_UniqueGroupGodSoul.PrimalItem_UniqueGroupGodSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/GodSouls/PrimalItem_ZodiacSoul.PrimalItem_ZodiacSoul'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_AlphaUniqueToken.PrimalItem_AlphaUniqueToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_AncientGodToken.PrimalItem_AncientGodToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_BetaUniqueToken.PrimalItem_BetaUniqueToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_BlueStar.PrimalItem_BlueStar'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_DinoMindWipe.PrimalItem_DinoMindWipe'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_Eggselerator.PrimalItem_Eggselerator'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_FeroxCandy.PrimalItem_FeroxCandy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_GodWipe.PrimalItem_GodWipe'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_Intensifier.PrimalItem_Intensifier'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_OmegaUniqueToken.PrimalItem_OmegaUniqueToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_PrimeUniqueToken.PrimalItem_PrimeUniqueToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_UltimateUniqueToken.PrimalItem_UltimateUniqueToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_UniqueGodToken.PrimalItem_UniqueGodToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_UniqueToken.PrimalItem_UniqueToken'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/Souls/Tokens/PrimalItem_UniqueTokenCraftable.PrimalItem_UniqueTokenCraftable'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/UnstableSteak/PrimalItemConsumable_UnstableSteak.PrimalItemConsumable_UnstableSteak'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Items/UnstableWater/PrimalItemConsumable_UnstableWater.PrimalItemConsumable_UnstableWater'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/OmegaGun/PrimalItem_OmegaGun.PrimalItem_OmegaGun'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Armor/Mammoth/PrimalItemArmor_MammothShirt.PrimalItemArmor_MammothShirt'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Consumables/Vday/PrimalItemConsumable_ValentinesChocolate.PrimalItemConsumable_ValentinesChocolate'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Consumables/Vday/PrimalItemConsumable_ValentinesDinoCandy.PrimalItemConsumable_ValentinesDinoCandy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Structures/Halloween/PrimalItemStructure_EasterEgg.PrimalItemStructure_EasterEgg'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Structures/Halloween/PrimalItemStructure_HW_Grave.PrimalItemStructure_HW_Grave'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Structures/Halloween/PrimalItemStructure_Pumpkin.PrimalItemStructure_Pumpkin'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Items/Structures/Halloween/PrimalItemStructure_Scarecrow.PrimalItemStructure_Scarecrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ARKBone.PrimalItemResource_ARKBone'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/BossBeacon/PrimalItemStructure_BossBeacon.PrimalItemStructure_BossBeacon'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/BossBeacon/PrimalItem_GodModule.PrimalItem_GodModule'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ChromaticCannon/PrimalItemStructure_ChromaticCannon.PrimalItemStructure_ChromaticCannon'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/Craptivator/PrimalItemStructure_Craptivator.PrimalItemStructure_Craptivator'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/CrossMating/PrimalItemStructure_CrossMating.PrimalItemStructure_CrossMating'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/CursedStatue/PrimalItemStructure_CursedIdol.PrimalItemStructure_CursedIdol'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/DimensionalDumpster/PrimalItemStructure_DimensionalDumpster.PrimalItemStructure_DimensionalDumpster'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/DimensionalGrinder/PrimalItemStructure_DimensionalGrinder.PrimalItemStructure_DimensionalGrinder'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/DimensionalStorage/PrimalItemStructure_DimensionalBox.PrimalItemStructure_DimensionalBox'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/DinoFinder/PrimalItemStructure_RetrieverTerminal.PrimalItemStructure_RetrieverTerminal'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/DodoCage/PrimalItemStructure_DodoCage.PrimalItemStructure_DodoCage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/DPSDummy/PrimalItem_DPSDummy.PrimalItem_DPSDummy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/EggCollector/PrimalItemStructure_EggCollector.PrimalItemStructure_EggCollector'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/GodEgg/PrimalItemStructure_GodEgg.PrimalItemStructure_GodEgg'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/GoldenChest/PrimalItemStructure_GoldenChest.PrimalItemStructure_GoldenChest'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/HadesStandingTorch/PrimalItemStructure_HadesStandingTorch.PrimalItemStructure_HadesStandingTorch'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ItemFrag/PrimalItemStructure_ItemFrag.PrimalItemStructure_ItemFrag'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ItemFrag/PrimalItem_CharmFragment.PrimalItem_CharmFragment'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ItemFrag/PrimalItem_MagicFragment.PrimalItem_MagicFragment'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ItemFrag/PrimalItem_SetFragment.PrimalItem_SetFragment'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ItemFrag/PrimalItem_UniqueFragment.PrimalItem_UniqueFragment'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/OmegaAltar/PrimalItemStructure_OmegaAltar.PrimalItemStructure_OmegaAltar'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/OmegaBeacon/PrimalItemStructure_OmegaBeacon.PrimalItemStructure_OmegaBeacon'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/OmegaShield/PrimalItemStructure_OmegaTekShield.PrimalItemStructure_OmegaTekShield'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/OmegaWorkbench/PrimalItemStructure_OmegaWorkBench.PrimalItemStructure_OmegaWorkBench'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/QuantumCompactor/PrimalItemStructure_QuantumCompactor.PrimalItemStructure_QuantumCompactor'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/RedDwarf/PrimalItemStructure_RedDwarf.PrimalItemStructure_RedDwarf'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/RespawnPoint/PrimalItemStructure_RespawnPoint.PrimalItemStructure_RespawnPoint'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/ScrollStorage/PrimalItemStructure_ScrollStorage.PrimalItemStructure_ScrollStorage'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/Seeder/PrimalItemStructure_FruitSeeder.PrimalItemStructure_FruitSeeder'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/SetMan/PrimalItemStructure_SetMannequin.PrimalItemStructure_SetMannequin'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/SoulCompressor/PrimalItemStructure_SoulCompressor.PrimalItemStructure_SoulCompressor'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/SoulFurnace/PrimalItemStructure_SoulFurnace.PrimalItemStructure_SoulFurnace'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/SoulGrinder/PrimalItemStructure_SoulGrinder.PrimalItemStructure_SoulGrinder'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/SoulMagnet/PrimalItemStructure_ResourceCollector.PrimalItemStructure_ResourceCollector'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/UGGTrophy/PrimalItemStructure_UGGTrophy.PrimalItemStructure_UGGTrophy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/UGGTrophy/ZodiacTrophy/PrimalItemStructure_DarknessTrophy.PrimalItemStructure_DarknessTrophy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/UGGTrophy/ZodiacTrophy/PrimalItemStructure_ZodiacTrophy.PrimalItemStructure_ZodiacTrophy'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/UniqueTotem/PrimalItemStructure_UniqueTotem.PrimalItemStructure_UniqueTotem'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/UpgradeBench/PrimalItemStructure_OmegaUpgradeBench.PrimalItemStructure_OmegaUpgradeBench'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/Vending/PrimalItemStructure_KibbleMachine.PrimalItemStructure_KibbleMachine'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Structures/VoidVacuum/PrimalItemStructure_VoidVacuum.PrimalItemStructure_VoidVacuum'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/BigBang/PrimalItem_BigBang.PrimalItem_BigBang'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Boomstick/PrimalItem_Boomstick.PrimalItem_Boomstick'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/ClonerStaff/PrimalItem_ClonerStaff.PrimalItem_ClonerStaff'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Coffer/PrimalItem_Coffer.PrimalItem_Coffer'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/CosmicGrenade/PrimalItem_CosmicGrenade.PrimalItem_CosmicGrenade'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/DischargeBoomerang/PrimalItem_DischargeBoomerang.PrimalItem_DischargeBoomerang'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/EtherealSpears/PrimalItem_WeaponEtherealSpear.PrimalItem_WeaponEtherealSpear'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Eviscerators/PrimalItem_Evis.PrimalItem_Evis'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Flashbang/PrimalItem_FlashbangGrenade.PrimalItem_FlashbangGrenade'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/ForceShield/PrimalItemArmor_ForceShield.PrimalItemArmor_ForceShield'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Fortune/PrimalItem_Fortune.PrimalItem_Fortune'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/GatheringTool/PrimalItem_GatheringTool.PrimalItem_GatheringTool'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/GetawayOrb/PrimalItem_GetawayOrb.PrimalItem_GetawayOrb'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Gravitron/PrimalItem_Gravitron.PrimalItem_Gravitron'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HadesTorch/PrimalItem_HadesTorch.PrimalItem_HadesTorch'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HealingDarts/PrimalItemAmmo_AlphaHealingDart.PrimalItemAmmo_AlphaHealingDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HealingDarts/PrimalItemAmmo_BetaHealingDart.PrimalItemAmmo_BetaHealingDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HealingDarts/PrimalItemAmmo_HealingDart.PrimalItemAmmo_HealingDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HealingDarts/PrimalItemAmmo_OmegaHealingDart.PrimalItemAmmo_OmegaHealingDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HealingDarts/PrimalItemAmmo_PrimeHealingDart.PrimalItemAmmo_PrimeHealingDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/HealingDarts/PrimalItemAmmo_UltimateHealingDart.PrimalItemAmmo_UltimateHealingDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Heartsong/PrimalItemAmmo_Heartsong.PrimalItemAmmo_Heartsong'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Heartsong/PrimalItem_Heartsong.PrimalItem_Heartsong'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Icicle/PrimalItem_Icicle.PrimalItem_Icicle'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Inversion/PrimalItem_Inversion.PrimalItem_Inversion'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Judgement/PrimalItem_WeaponJudgement.PrimalItem_WeaponJudgement'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/KnockoutClub/PrimalItem_WeaponKnockoutClub.PrimalItem_WeaponKnockoutClub'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Laser/PrimalItem_OmegaLaser.PrimalItem_OmegaLaser'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/LuckyLantern/PrimalItem_LuckyLantern.PrimalItem_LuckyLantern'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Lurkers/PrimalItem_Lurkers.PrimalItem_Lurkers'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Malice/PrimalItem_Malice.PrimalItem_Malice'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundAlphaKnockoutArrow.PrimalItemAmmo_CompoundAlphaKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundAncientKnockoutArrow.PrimalItemAmmo_CompoundAncientKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundBetaKnockoutArrow.PrimalItemAmmo_CompoundBetaKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundGodlikeKnockoutArrow.PrimalItemAmmo_CompoundGodlikeKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundKnockoutArrow.PrimalItemAmmo_CompoundKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundOmegaKnockoutArrow.PrimalItemAmmo_CompoundOmegaKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundPrimeKnockoutArrow.PrimalItemAmmo_CompoundPrimeKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MetalTranqArrows/PrimalItemAmmo_CompoundUltimateKnockoutArrow.PrimalItemAmmo_CompoundUltimateKnockoutArrow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/MindsEye/PrimalItemArmor_Mindseye.PrimalItemArmor_Mindseye'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/NetGun/PrimalItem_NetGun.PrimalItem_NetGun'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/ObsidianMultiTool/PrimalItem_MultiTool.PrimalItem_MultiTool'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Outburst/PrimalItem_Outburst.PrimalItem_Outburst'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Phantom/PrimalItem_Phantom.PrimalItem_Phantom'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/PlagueFork/PrimalItem_Plaguefork.PrimalItem_Plaguefork'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Ripper/PrimalItem_Ripper.PrimalItem_Ripper'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Risk/PrimalItem_Risk.PrimalItem_Risk'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Shatter/PrimalItem_Shatter.PrimalItem_Shatter'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Slingshot/PrimalItem_WeaponVersatileSlingshot.PrimalItem_WeaponVersatileSlingshot'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/StoneSickle/PrimalItem_SToneSickle.PrimalItem_SToneSickle'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Stormbringer/PrimalItem_Stormbringer.PrimalItem_Stormbringer'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/StormGrenade/PrimalItem_StormGrenade.PrimalItem_StormGrenade'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Thunderbolt/PrimalItem_Thunderbolt.PrimalItem_Thunderbolt'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_AlphaArrowKnockout.PrimalItemAmmo_AlphaArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_AncientArrowKnockout.PrimalItemAmmo_AncientArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_ArrowKnockout.PrimalItemAmmo_ArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_BetaArrowKnockout.PrimalItemAmmo_BetaArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_GodlikeArrowKnockout.PrimalItemAmmo_GodlikeArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_OmegaArrowKnockout.PrimalItemAmmo_OmegaArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_PrimeArrowKnockout.PrimalItemAmmo_PrimeArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/TranqArrows/PrimalItemAmmo_UltimateArrowKnockout.PrimalItemAmmo_UltimateArrowKnockout'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Translocator/PrimalItem_Translocator.PrimalItem_Translocator'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/UndeadSword/PrimalItem_UndeadSword.PrimalItem_UndeadSword'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/UtilityShotgun/PrimalItem_Eggsecutioner.PrimalItem_Eggsecutioner'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/VacuumGrenade/PrimalItem_VacuumGrenade.PrimalItem_VacuumGrenade'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/VoidGrenade/PrimalItem_VoidGrenade.PrimalItem_VoidGrenade'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/Wabbajack/PrimalItem_Wabbajack.PrimalItem_Wabbajack'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/WakeUpDart/PrimalItemAmmo_WakeDart.PrimalItemAmmo_WakeDart'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/WarpBow/PrimalItem_WarpBow.PrimalItem_WarpBow'" 1 1 0
+admincheat GiveItem "Blueprint'/Game/Mods/2447186973/Weapons/WyvernBreath/PrimalItem_WyvernBreath.PrimalItem_WyvernBreath'" 1 1 0
+---------------------------------------------------------------------------------Dino Spawn Codes---------------------------------------------------------------------------------
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Achatina_Character_BP_Child.Achatina_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Allo_Character_BP_Child.Allo_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Amargasaurus_Character_BP_Child.Amargasaurus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Andrewsarchus_Character_BP_Child.Andrewsarchus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Angler_Character_BP_Child.Angler_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Ankylo_Character_BP_Child.Ankylo_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Ant_Character_BP_Child.Ant_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Archa_Character_BP_Child.Archa_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Argent_Character_BP_Child.Argent_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Arthro_Character_BP_Child.Arthro_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Baryonyx_Character_BP_Child.Baryonyx_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Basilisk_Character_BP_Child.Basilisk_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Basilosaurus_Character_BP_Child.Basilosaurus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Bat_Character_BP_Child.Bat_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Beaver_Character_BP_Child.Beaver_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Bee_Queen_Character_BP_Child.Bee_Queen_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Bigfoot_Character_BP_Child.Bigfoot_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicGigant_Character_BP_Child.BionicGigant_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicMosa_Character_BP_Child.BionicMosa_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicPara_Character_BP_Child.BionicPara_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicQuetz_Character_BP_Child.BionicQuetz_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicRaptor_Character_BP_Child.BionicRaptor_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicRex_Character_BP_Child.BionicRex_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicStego_Character_BP_Child.BionicStego_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BionicTrike_Character_BP_Child.BionicTrike_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BoaFrill_Character_BP_Child.BoaFrill_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/BogSpider_Character_BP_Child.BogSpider_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/camelsaurus_Character_BP_Child.camelsaurus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Carcha_Character_BP_Child.Carcha_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Carno_Character_BP_Child.Carno_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/CaveWolf_Character_BP_Child.CaveWolf_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Chalico_Character_BP_Child.Chalico_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Cherufe_Character_BP_Child.Cherufe_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/ChupaCabra_Character_BP_Child.ChupaCabra_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Cnidaria_Character_BP_Child.Cnidaria_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Coel_Character_BP_Child.Coel_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Compy_Character_BP_Child.Compy_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Crab_Character_BP_Child.Crab_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/CrystalWyvern_Character_BP_Blood_Child.CrystalWyvern_Character_BP_Blood_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/CrystalWyvern_Character_BP_Ember_Child.CrystalWyvern_Character_BP_Ember_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/CrystalWyvern_Character_BP_WS_Child.CrystalWyvern_Character_BP_WS_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Daeodon_Character_BP_Child.Daeodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Deathworm_Character_BP_Child.Deathworm_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Defender_Character_BP_Child.Defender_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Deinonychus_Character_BP_Child.Deinonychus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Desmodus_Character_BP_Child.Desmodus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dilo_Character_BP_Child.Dilo_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dimetro_Character_BP_Child.Dimetro_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dimorph_Character_BP_Child.Dimorph_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dinopithecus_Character_BP_Child.Dinopithecus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Diplocaulus_Character_BP_Child.Diplocaulus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Diplodocus_Character_BP_Child.Diplodocus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Direbear_Character_BP_Child.Direbear_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Direwolf_Character_BP_Child.Direwolf_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dodo_Character_BP_Child.Dodo_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Doed_Character_BP_Child.Doed_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dolphin_Character_BP_Child.Dolphin_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dragonfly_Character_BP_Child.Dragonfly_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/DungBeetle_Character_BP_Child.DungBeetle_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Dunkle_Character_BP_Child.Dunkle_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Eel_Character_BP_Child.Eel_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Enforcer_Character_BP_Child.Enforcer_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Equus_Character_BP_Child.Equus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Equus_Character_BP_Unicorn_Child.Equus_Character_BP_Unicorn_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Fenrir_Character_BP_Child.Fenrir_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Fjordhawk_Character_BP_Child.Fjordhawk_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/FlyingAnt_Character_BP_Child.FlyingAnt_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Gacha_Character_BP_Child.Gacha_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Galli_Character_BP_Child.Galli_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/GasBags_Character_BP_Child.GasBags_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/GiantTurtle_Character_BP_Child.GiantTurtle_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Gigant_Character_BP_Child.Gigant_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Griffin_Character_BP_Child.Griffin_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hesperornis_Character_BP_Child.Hesperornis_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hyaenodon_Character_BP_Child.Hyaenodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/IceJumper_Character_BP_Child.IceJumper_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Ichthyornis_Character_BP_Child.Ichthyornis_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Iguanodon_Character_BP_Child.Iguanodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Jerboa_Character_BP_Child.Jerboa_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Jugbug_Oil_Character_BP_Child.Jugbug_Oil_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Jugbug_Water_Character_BP_Child.Jugbug_Water_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Kairuku_Character_BP_Child.Kairuku_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Kaprosuchus_Character_BP_Child.Kaprosuchus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Kentro_Character_BP_Child.Kentro_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/LanternBird_Character_BP_Child.LanternBird_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/LanternGoat_Character_BP_Child.LanternGoat_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/LanternLizard_Character_BP_Child.LanternLizard_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/LanternPug_Character_BP_Child.LanternPug_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Leedsichthys_Character_BP_Child.Leedsichthys_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/LionfishLion_Character_BP_Child.LionfishLion_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Liopleurodon_Character_BP_Child.Liopleurodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Lystro_Character_BP_Child.Lystro_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Mammoth_Character_BP_Child.Mammoth_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Manta_Character_BP_Child.Manta_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Mantis_Character_BP_Child.Mantis_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Megalania_Character_BP_Child.Megalania_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Megalodon_Character_BP_Child.Megalodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Megalosaurus_Character_BP_Child.Megalosaurus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Megatherium_Character_BP_Child.Megatherium_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Mek_Character_BP_Child.Mek_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Microraptor_Character_BP_Child.Microraptor_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/MilkGlider_Character_BP_Child.MilkGlider_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/MoleRat_Character_BP_Child.MoleRat_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Monkey_Character_BP_Child.Monkey_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Mosa_Character_BP_Child.Mosa_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Moschops_Character_BP_Child.Moschops_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Moth_Character_BP_Child.Moth_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Otter_Character_BP_Child.Otter_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Oviraptor_Character_BP_Child.Oviraptor_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Owl_Character_BP_Child.Owl_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Pachyrhino_Character_BP_Child.Pachyrhino_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Pachy_Character_BP_Child.Pachy_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Paracer_Character_BP_Child.Paracer_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Para_Character_BP_Child.Para_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Pegomastax_Character_BP_Child.Pegomastax_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Pela_Character_BP_Child.Pela_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Phiomia_Character_BP_Child.Phiomia_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Phoenix_Character_BP_Child.Phoenix_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Piranha_Character_BP_Child.Piranha_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Plesiosaur_Character_BP_Child.Plesiosaur_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Polarbear_Character_BP_Child.Polarbear_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Procoptodon_Character_BP_Child.Procoptodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Ptero_Character_BP_Child.Ptero_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Purlovia_Character_BP_Child.Purlovia_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Purlovia_Character_BP_Polar_Child.Purlovia_Character_BP_Polar_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Quetz_Character_BP_Child.Quetz_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Raptor_Character_BP_Child.Raptor_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Rex_Character_BP_Child.Rex_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Rhino_Character_BP_Child.Rhino_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Rhynio_Character_BP_Child.Rhynio_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/RockDrake_Character_BP_Child.RockDrake_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/RockGolem_Character_BP_Child.RockGolem_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/RubbleGolem_Character_BP_Child.RubbleGolem_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Saber_Character_BP_Child.Saber_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Salmon_Character_BP_Child.Salmon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Sarco_Character_BP_Child.Sarco_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Sauropod_Character_BP_Child.Sauropod_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Scorpion_Character_BP_Child.Scorpion_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Scout_Character_BP_Child.Scout_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Shapeshifter_Large_Character_BP_Omega.Shapeshifter_Large_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Shapeshifter_Small_Character_BP_Child.Shapeshifter_Small_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Sheep_Character_BP_Child.Sheep_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Sinomacrops_Character_BP_Child.Sinomacrops_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/SpaceDolphin_Character_BP_Child.SpaceDolphin_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/SpaceWhale_Character_BP_Child.SpaceWhale_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/SpiderS_Character_BP_Child.SpiderS_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Spindles_Character_BP_Child.Spindles_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/SpineyLizard_Character_BP_Child.SpineyLizard_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Spino_Character_BP_Child.Spino_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Stag_Character_BP_Child.Stag_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Stego_Character_BP_Child.Stego_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Tapejara_Character_BP_Child.Tapejara_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/TekStrider_Character_BP_Child.TekStrider_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/TekWyvern_Character_BP_Child.TekWyvern_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/TerrorBird_Character_BP_Child.TerrorBird_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Therizino_Character_BP_Child.Therizino_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Thylacoleo_Character_BP_Child.Thylacoleo_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Titanosaur_Character_BP_Child.Titanosaur_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Toad_Character_BP_Child.Toad_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Trike_Character_BP_Child.Trike_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Troodon_Character_BP_Child.Troodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Tropeognathus_Character_BP_Child.Tropeognathus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Turkey_Character_BP_Child.Turkey_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Turtle_Character_BP_Child.Turtle_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Tusoteuthis_Character_BP_Child.Tusoteuthis_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Vulture_Character_BP_Child.Vulture_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Wyvern_Character_BP_Fire_Child.Wyvern_Character_BP_Fire_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Wyvern_Character_BP_Lightning_Child.Wyvern_Character_BP_Lightning_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Wyvern_Character_BP_Poison_Child.Wyvern_Character_BP_Poison_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Xenomorph_Character_BP_Female_Child.Xenomorph_Character_BP_Female_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Xenomorph_Character_BP_Male_Child.Xenomorph_Character_BP_Male_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Yeti_Character_BP_Child.Yeti_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Yutyrannus_Character_BP_Child.Yutyrannus_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/ZombieDodo_Character_BP_Child.ZombieDodo_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/Alpha_Leedsichthys_Character_BP_Child.Alpha_Leedsichthys_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/CrystalWyvern_Character_BP_Mega_Child.CrystalWyvern_Character_BP_Mega_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaAllo_Character_BP.MegaAllo_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaBasilisk_Character_BP_Child.MegaBasilisk_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaCarno_Character_BP_Child.MegaCarno_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaCoel_Character_BP.MegaCoel_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaCrab_Character_BP_Child.MegaCrab_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaDaeodon_Character_BP.MegaDaeodon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaDeathworm_Character_BP_Child.MegaDeathworm_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaDeinonychus_Character_BP.MegaDeinonychus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaDirewolf_Character_BP.MegaDirewolf_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaDodo_Character_BP.MegaDodo_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaDragonfly_Character_BP.MegaDragonfly_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaLanternGoat_Character_BP.MegaLanternGoat_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaMegalodon_Character_BP_Child.MegaMegalodon_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaMilkGlider_Character_BP.MegaMilkGlider_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaOtter_Character_BP.MegaOtter_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaPhoenix_Character_BP.MegaPhoenix_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaRaptor_Character_BP_Child.MegaRaptor_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaRex_Character_BP_Child.MegaRex_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaRockDrake_Character_BP.MegaRockDrake_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaSinomacrops_Character_BP.MegaSinomacrops_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaSpiderS_Character_BP.MegaSpiderS_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaTherizino_Character_BP.MegaTherizino_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaThylacoleo_Character_BP.MegaThylacoleo_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaTroodon_Character_BP.MegaTroodon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaWyvern_Character_BP_Fire_Child.MegaWyvern_Character_BP_Fire_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaXenomorph_Character_BP_Female.MegaXenomorph_Character_BP_Female'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaXenomorph_Character_BP_Male_Surface_Child.MegaXenomorph_Character_BP_Male_Surface_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/MegaYutyrannus_Character_BP.MegaYutyrannus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/Mega_Tusoteuthis_Character_BP_Child.Mega_Tusoteuthis_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Alpha/Mosa_Character_BP_Mega_Child.Mosa_Character_BP_Mega_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Bee_Queen_Character_BP_Summoner.Bee_Queen_Character_BP_Summoner'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/ChupaCabra_Character_BP_Unstable.ChupaCabra_Character_BP_Unstable'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deathworm_Character_BP_Chestworm.Deathworm_Character_BP_Chestworm'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/RockGolem_Character_BP_Guardian.RockGolem_Character_BP_Guardian'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Shapeshifter_Large_Character_BP_Rage.Shapeshifter_Large_Character_BP_Rage'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Zodiac_Character_BP.Zodiac_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconDodoRex_Character_BP_Omega.BeaconDodoRex_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconDodoWyvern_Character_BP_Omega.BeaconDodoWyvern_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconDragon_Character_BP_Omega.BeaconDragon_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconEelBoss_Character_BP_Omega.BeaconEelBoss_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconGorilla_Character_BP_Child.BeaconGorilla_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconManticore_Character_BP_Child.BeaconManticore_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/BeaconBoss/BeaconSpiderL_Character_BP_Child.BeaconSpiderL_Character_BP_Child'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/GodDestroyer_Character_BP.GodDestroyer_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/GodProtector_Character_BP.GodProtector_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/LandDestroyer_Character_BP.LandDestroyer_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/LandProtector_Character_BP.LandProtector_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/SeaDestroyer_Character_BP.SeaDestroyer_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/SeaProtector_Character_BP.SeaProtector_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/SkyDestroyer_Character_BP.SkyDestroyer_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Deities/SkyProtector_Character_BP.SkyProtector_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Imp/Imp_Character_BP.Imp_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Miniboss/CrystalQueen_Character_BP_Omega.CrystalQueen_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Miniboss/Moeder_Character_BP_Omega.Moeder_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Miniboss/Ottersaurus_Character_BP_Omega.Ottersaurus_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Miniboss/Steinbjorn_Character_BP_Omega.Steinbjorn_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/DodoRex_Character_BP_Omega.DodoRex_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/DodoWyvern_Character_BP_Omega.DodoWyvern_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/Dragon_Character_BP_Omega2.Dragon_Character_BP_Omega2'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/Gorilla_Character_BP_Omega.Gorilla_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/Manticore_Character_BP_Omega.Manticore_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/SpiderL_Character_BP_Omega.SpiderL_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Tameable/ZodiacTameable_Character_BP_Omega.ZodiacTameable_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Titans/Darkness/Darkness_Character_BP.Darkness_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Titans/DesertTitan/DesertKaiju_Character_BP_Omega.DesertKaiju_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Titans/ForestTitan/ForestKaiju_Character_BP_Omega.ForestKaiju_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Boss/Titans/IceTitan/IceKaiju_Character_BP_Omega.IceKaiju_Character_BP_Omega'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/AlphaMosalosaur/MegaMosalosaur_Character_BP.MegaMosalosaur_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/AmenseUnit/AmenseUnit_Character_BP.AmenseUnit_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Anglersichthys/Anglersichthys_Character_BP.Anglersichthys_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Araneoscorpius/AraneoScorpius_Character_BP.AraneoScorpius_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Argentovis/Argentovis_Character_BP.Argentovis_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/AstroWyvern/AstroWyvern_Character_BP.AstroWyvern_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Basilopleura/Basilopleura_Character_BP.Basilopleura_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Beelzegolem/Beelzegolem_Character_BP.Beelzegolem_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Bloodpithecus/Bloodpithecus_Character_BP.Bloodpithecus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Bloodscout/BloodScout_Character_BP.BloodScout_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Bronkylosaurus/Bronkylosaurus_Character_BP.Bronkylosaurus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Bulbworm/Bulbworm_Character_BP.Bulbworm_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Carbopleurodon/Carbopleurodon_Character_BP.Carbopleurodon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Carchonychus/Carchonychus_Character_BP.Carchonychus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/CarniceWyvern/CarniceWyvern_Character_BP.CarniceWyvern_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Chalidon/Chalidon_Character_BP.Chalidon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/CompySoldier/CompySoldier_Character_BP.CompySoldier_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Dilophoboa/Diloboa_Character_BP.Diloboa_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Electrodon/Electrodon_Character_BP.Electrodon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Featherlisk/Featherlisk_Character_BP.Featherlisk_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Gachatina/Gachatina_Character_BP.Gachatina_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Galliprey/Galliprey_Character_BP.Galliprey_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Giganosteus/Giganosteus_Character_BP.Giganosteus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Giganticorn/Giganticorn_Character_BP.Giganticorn_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Glowiraptor/Glowiraptor_Character_BP.Glowiraptor_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Karkinite/Karkinite_Character_BP.Karkinite_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Mammeti/Mammeti_Character_BP.Mammeti_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Mesomantria/MonkeyMantria_Character_BP.MonkeyMantria_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Mosatops/Mosatops_Character_BP.Mosatops_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Mosawyrm/Mosawyrm_Character_BP.Mosawyrm_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Murkey/Murkey_Character_BP.Murkey_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Namyc/Namyc_Character_BP.Namyc_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Neurodon/MegaNeurodon_Character_BP.MegaNeurodon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Ottergarmr/Ottergarmr_Character_BP.Ottergarmr_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Otterworm/Otterworm_Character_BP.Otterworm_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Owlbear/Owlbear_Character_BP.Owlbear_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Phioneura/Phioneura_Character_BP.Phioneura_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/PhoenixDrake/PhoenixDrake_Character_BP.PhoenixDrake_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Piranhadon/Piranhadon_Character_BP.Piranhadon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/QuetzalCanth/Quetzalcanth_Character_BP.Quetzalcanth_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Ravasaurus/Ravasaurus_Character_BP.Ravasaurus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Reapermane/Reapermane_Character_BP.Reapermane_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/RexDodo/RexDodo_Character_BP.RexDodo_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/RhinoBeetle/RhinoBeetle_Character_BP.RhinoBeetle_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Rockbags/Rockbags_Character_BP.Rockbags_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/SalmontoothSaber/Salmontooth_Character_BP.Salmontooth_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Spinego/Spinego_Character_BP.Spinego_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/TekRexeratops/TekRexeratops_Character_BP.TekRexeratops_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/TekStegaria/BionicStegaria_Character_BP.BionicStegaria_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Terrortherium/Terrortherium_Character_BP.Terrortherium_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/ThornyMagma/ThornyMagmaDragon_Character_BP.ThornyMagmaDragon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Titanoceratherium/Titanoceratherium_Character_BP.Titanoceratherium_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Triketerid/Triketerid_Character_BP.Triketerid_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Trilachy/Trilachy_Character_BP.Trilachy_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Tusodon/Tusodon_Character_BP.Tusodon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Wentro/Wentro_Character_BP.Wentro_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Yutyzinosaurus/Yutyzinosaurus_Character_BP.Yutyzinosaurus_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Hybrids/Zomorph/Zomorph_Character_BP.Zomorph_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Bat_Character_BP_Coffer.Bat_Character_BP_Coffer'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Bat_Character_BP_Familiar.Bat_Character_BP_Familiar'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Bee_Queen_Character_BP_Boom.Bee_Queen_Character_BP_Boom'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/CandyCorno_Character_BP.CandyCorno_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/CandyLioCornadon_Character_BP.CandyLioCornadon_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/CandyPelacornis_Character_BP.CandyPelacornis_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Cnidaria_Character_BP_Diarrhea.Cnidaria_Character_BP_Diarrhea'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Companion_Character_BP_ClonerStaff.Companion_Character_BP_ClonerStaff'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Ptero_Character_BP_Turdanodon.Ptero_Character_BP_Turdanodon'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Raptor_Character_BP_Craptor.Raptor_Character_BP_Craptor'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/RubbleGolem_Character_BP_Companion.RubbleGolem_Character_BP_Companion'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/Minions/Shapeshifter_Large_Character_BP_Wild.Shapeshifter_Large_Character_BP_Wild'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP.NPC_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Abruption.NPC_Character_BP_Abruption'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Avalanche.NPC_Character_BP_Avalanche'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Bloodlust.NPC_Character_BP_Bloodlust'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Defender.NPC_Character_BP_Defender'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Eclipse.NPC_Character_BP_Eclipse'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Gifted.NPC_Character_BP_Gifted'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Gravity.NPC_Character_BP_Gravity'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Olympian.NPC_Character_BP_Olympian'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Piper.NPC_Character_BP_Piper'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Prospector.NPC_Character_BP_Prospector'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Sanctuary.NPC_Character_BP_Sanctuary'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_SoulScream.NPC_Character_BP_SoulScream'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Classes/Base/NPCs/NPC_Character_BP_Tempest.NPC_Character_BP_Tempest'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/PrimalEarth/Dinos/Dodo/TurkeyBase_Character_BP.TurkeyBase_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/PrimalEarth/Dinos/Dodo/Turkey_Character_BP.Turkey_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/PrimalEarth/Dinos/Mosasaurus/BionicMosa_Character_BP.BionicMosa_Character_BP'" 500 0 0 120
+admincheat SpawnDino "Blueprint'/Game/Mods/2447186973/Structures/DPSDummy/DPSDummy_Character_BP.DPSDummy_Character_BP'" 500 0 0 120

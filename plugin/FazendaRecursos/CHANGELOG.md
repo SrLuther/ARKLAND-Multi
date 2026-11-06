@@ -1,5 +1,18 @@
 # FazendaRecursos - changelog
 
+## [0.1.29]
+- Amplia o catálogo Omega com os 11 recursos Soul/Token adicionais encontrados em `docs/SpawnCodes.txt` que ainda não estavam incluídos.
+
+## [0.1.28]
+- Corrige os caminhos padrão Omega para o diretório real do mod (`/Game/Mods/2447186973`) conforme `docs/SpawnCodes.txt`.
+- Migra os caminhos antigos gerados com `/Game/Mods/ArkOmega/`, sem alterar outras configurações de item.
+
+## [0.1.27]
+- Inclui todos os 40 Blueprints Omega solicitados nos padrões da Fazenda, preservando recursos e ajustes já existentes ao migrar configurações.
+
+## [0.1.26]
+- Blueprint de resgate agora usa a mesma normalizacao de caminho do CustomShop e preserva o sufixo de classe gerada `_C` exigido pelo carregador.
+
 ## [0.1.25]
 - Itens configurados e habilitados são avaliados pela classe de entrada antes de qualquer tratamento especial; Paragon Soul sem metadados de espécie segue o fluxo configurado normal.
 

@@ -291,7 +291,7 @@ class TestSettingsHelpers:
 
     def test_invite_permissions_cover_cogs(self):
         p = compute_invite_permissions()
-        for bit in (1 << 4, 1 << 13, 1 << 24, 1 << 22, 1 << 23, 1 << 28):
+        for bit in (1 << 4, 1 << 13, 1 << 24, 1 << 22, 1 << 23, 1 << 26, 1 << 28):
             assert p & bit
         assert not p & 8  # nunca Administrator
 

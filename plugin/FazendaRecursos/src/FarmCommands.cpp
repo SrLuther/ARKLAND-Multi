@@ -40,25 +40,31 @@ bool MatchesConfiguredClass(const std::string& actual, const std::string& config
     if (actual.empty() || configured.empty()) return false;
     return Lower(actual).find(Lower(configured)) != std::string::npos;
 }
+std::string NormalizeFarmBlueprint(std::string raw) {
+    while (!raw.empty() && std::isspace(static_cast<unsigned char>(raw.front())))
+        raw.erase(raw.begin());
+    while (!raw.empty()) {
+        const char ch = raw.back();
+        if (ch == '"' || ch == '\'' || ch == ',' ||
+            std::isspace(static_cast<unsigned char>(ch)))
+            raw.pop_back();
+        else
+            break;
+    }
+    if (raw.rfind("Blueprint'", 0) == 0 && raw.size() > 11 && raw.back() == '\'')
+        return raw.substr(10, raw.size() - 11);
+    const auto game_path = raw.find("/Game/");
+    return game_path == std::string::npos ? raw : raw.substr(game_path);
+}
 bool GiveFarmStack(AShooterPlayerController* controller, const std::string& configured_class,
                    int quantity, std::string& failure_reason) {
     if (!controller || configured_class.empty() || quantity < 1) {
         failure_reason = "invalid arguments";
         return false;
     }
-    std::string blueprint = configured_class;
-    const auto game_path = blueprint.find("/Game/");
-    if (game_path != std::string::npos) blueprint = blueprint.substr(game_path);
-    if (blueprint.rfind("Blueprint'", 0) == 0 && blueprint.size() > 11 && blueprint.back() == '\'')
-        blueprint = blueprint.substr(10, blueprint.size() - 11);
-    // Match CustomShop's BPLoadClass + AddNewItem flow. Ark Omega's runtime
-    // asset path is recorded without the generated-class suffix (for example,
-    // PrimalItem_SoulShard.PrimalItem_SoulShard, not ..._C).
-    const auto object_separator = blueprint.rfind('.');
-    if (object_separator != std::string::npos && blueprint.size() > object_separator + 2 &&
-        blueprint.compare(blueprint.size() - 2, 2, "_C") == 0) {
-        blueprint.erase(blueprint.size() - 2);
-    }
+    // Keep the configured generated-class suffix exactly as CustomShop does:
+    // BPLoadClass receives /Game/.../Item.Item_C, not the asset path without _C.
+    const std::string blueprint = NormalizeFarmBlueprint(configured_class);
     FString fblueprint(blueprint.c_str());
     UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
     auto* inventory = controller->GetPlayerInventoryComponent();

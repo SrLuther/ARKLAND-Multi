@@ -514,6 +514,55 @@ def test_discord_link_admin_audit_route_returns_link_bonus_and_unlink_events(tic
     assert invalid_page.status_code == 400
 
 
+def test_internal_discord_nickname_snapshot_uses_latest_linked_game_identity(ticket_db, tmp_path):
+    from flask import Flask, session
+    from ticket_routes import register_ticket_routes
+
+    Session = sessionmaker(bind=ticket_db.get_bind())
+    code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    confirmed = confirm_discord_link_code_for_discord_user(
+        ticket_db, code["code"], discord_user_id="555123456", discord_username="CianoDiscord"
+    )
+    assert confirmed["ok"] is True
+    ticket_db.execute(text("""
+        CREATE TABLE tribe_members (
+            steam_id TEXT NOT NULL, character_name TEXT, tribe_name TEXT,
+            last_seen_at TEXT, server_id TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO tribe_members (steam_id,character_name,tribe_name,last_seen_at,server_id)
+        VALUES (:sid,'OldCharacter','OldTribe','2026-11-01 10:00:00','map_a'),
+               (:sid,'Ciano','BøT','2026-11-05 10:00:00','map_b')
+    """), {"sid": USER_STEAM})
+    ticket_db.commit()
+
+    route_app = Flask("discord-nickname-sync-test")
+    route_app.secret_key = "test-secret"
+    register_ticket_routes(
+        route_app,
+        db_ready=lambda: True,
+        session_factory=Session,
+        login_required=lambda fn: fn,
+        admin_required=lambda fn: fn,
+        ticket_staff_required=lambda fn: fn,
+        steam_id_from_session=lambda: session.get("steam_id"),
+        is_admin_steamid=lambda _sid: False,
+        can_manage_tickets=lambda _sid: False,
+        uploads_dir=tmp_path,
+        api_key_required=lambda _allow_admin: (lambda fn: fn),
+    )
+    payload = route_app.test_client().get("/api/internal/discord/nickname-sync").get_json()
+    assert payload == {
+        "ok": True,
+        "users": [{
+            "discord_user_id": "555123456",
+            "character_name": "Ciano",
+            "tribe_name": "BøT",
+        }],
+    }
+
+
 def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):
     first_code = generate_discord_link_code(
         ticket_db,

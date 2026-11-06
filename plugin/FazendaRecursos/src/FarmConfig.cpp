@@ -13,28 +13,72 @@ nlohmann::json DefaultBaseResources() {
 }
 
 nlohmann::json DefaultOmegaResources() {
-    const std::array<std::tuple<const char*, const char*, const char*>, 5> rows = {{
-        {"omega_paragon_shard", "Paragon Shard", "PrimalItem_ParagonShard"},
-        {"omega_soul_shard", "Soul Shard", "PrimalItem_SoulShard"},
-        {"omega_chest_shard", "Chest Shard", "PrimalItem_ChestShard"},
-        {"omega_paragon_breaker", "Paragon Breaker", "GodSouls/PrimalItem_ParagonBreaker"},
-        {"omega_paragon_soul", "Paragon Soul", "GodSouls/PrimalItem_SpeciesSoul"},
+    const std::array<std::tuple<const char*, const char*, const char*, int>, 51> rows = {{
+        {"omega_paragon_shard", "Paragon Shard", "Souls/PrimalItem_ParagonShard", 25},
+        {"omega_soul_shard", "Soul Shard", "Souls/PrimalItem_SoulShard", 25},
+        {"omega_chest_shard", "Chest Shard", "Souls/PrimalItem_ChestShard", 25},
+        {"omega_paragon_soul", "Paragon Soul", "Souls/GodSouls/PrimalItem_SpeciesSoul", 1},
+        {"omega_lucky_soul", "Lucky Soul", "Souls/PrimalItem_LuckySoul", 25},
+        {"omega_paragon_breaker", "Paragon Breaker", "Souls/GodSouls/PrimalItem_ParagonBreaker", 1},
+        {"omega_ancient_god_soul", "Ancient God Soul", "Souls/GodSouls/PrimalItem_AncientGodSoul", 1},
+        {"omega_god_soul", "God Soul", "Souls/GodSouls/PrimalItem_GodSoul", 1},
+        {"omega_group_god_soul", "Group God Soul", "Souls/GodSouls/PrimalItem_GroupGodSoul", 1},
+        {"omega_unique_god_soul", "Unique God Soul", "Souls/GodSouls/PrimalItem_UniqueGodSoul", 1},
+        {"omega_unique_group_god_soul", "Unique Group God Soul", "Souls/GodSouls/PrimalItem_UniqueGroupGodSoul", 1},
+        {"omega_zodiac_soul", "Zodiac Soul", "Souls/GodSouls/PrimalItem_ZodiacSoul", 1},
+        {"omega_perfect_soul", "Perfect Soul", "Souls/GodSouls/PrimalItem_PerfectSoul", 1},
+        {"omega_darkness_soul", "Darkness Soul", "Souls/GodSouls/PrimalItem_DarknessSoul", 1},
+        {"omega_perfect_soul_2", "Perfect Soul 2", "Souls/GodSouls/PrimalItem_PerfectSoul2", 1},
+        {"omega_deity_soul", "Deity Soul", "Souls/GodSouls/PrimalItem_DeitySoul", 1},
+        {"omega_endless_soul", "Endless Soul", "Souls/GodSouls/PrimalItem_EndlessSoul", 1},
+        {"omega_unique_token", "Unique Token", "Souls/Tokens/PrimalItem_UniqueToken", 1},
+        {"omega_unique_token_craftable", "Unique Token Craftable", "Souls/Tokens/PrimalItem_UniqueTokenCraftable", 1},
+        {"omega_cosmic_soul", "Cosmic Soul", "Souls/PrimalItem_CosmicSoul", 25},
+        {"omega_elemental_soul", "Elemental Soul", "Souls/PrimalItem_ElementalSoul", 25},
+        {"omega_ethereal_soul", "Ethereal Soul", "Souls/PrimalItem_EtherealSoul", 25},
+        {"omega_guardian_soul", "Guardian Soul", "Souls/PrimalItem_GuardianSoul", 25},
+        {"omega_mythical_soul", "Mythical Soul", "Souls/PrimalItem_MythicalSoul", 25},
+        {"omega_nature_soul", "Nature Soul", "Souls/PrimalItem_NatureSoul", 25},
+        {"omega_nightmare_soul", "Nightmare Soul", "Souls/PrimalItem_NightmareSoul", 25},
+        {"omega_rage_soul", "Rage Soul", "Souls/PrimalItem_RageSoul", 25},
+        {"omega_resource_soul", "Resource Soul", "Souls/PrimalItem_ResourceSoul", 25},
+        {"omega_summoner_soul", "Summoner Soul", "Souls/PrimalItem_SummonerSoul", 25},
+        {"omega_unstable_soul", "Unstable Soul", "Souls/PrimalItem_UnstableSoul", 25},
+        {"omega_utility_soul", "Utility Soul", "Souls/PrimalItem_UtilitySoul", 25},
+        {"omega_basic_essence", "Basic Essence", "Essence/PrimalItem_BasicEssence", 25},
+        {"omega_beta_essence", "Beta Essence", "Essence/PrimalItem_BetaEssence", 25},
+        {"omega_alpha_essence", "Alpha Essence", "Essence/PrimalItem_AlphaEssence", 25},
+        {"omega_prime_essence", "Prime Essence", "Essence/PrimalItem_PrimeEssence", 25},
+        {"omega_ultimate_essence", "Ultimate Essence", "Essence/PrimalItem_UltimateEssence", 25},
+        {"omega_omega_essence", "Omega Essence", "Essence/PrimalItem_OmegaEssence", 25},
+        {"omega_god_essence", "God Essence", "Essence/PrimalItem_GodEssence", 25},
+        {"omega_ancient_essence", "Ancient Essence", "Essence/PrimalItem_AncientEssence", 25},
+        {"omega_boss_essence", "Boss Essence", "Essence/PrimalItem_BossEssence", 25},
+        {"omega_souls", "Souls", "Souls/PrimalItem_Souls", 25},
+        {"omega_boss_soul", "Boss Soul", "Souls/GodSouls/PrimalItem_BossSoul", 1},
+        {"omega_omega_soul", "Omega Soul", "Souls/GodSouls/PrimalItem_OmegaSoul", 1},
+        {"omega_alpha_unique_token", "Alpha Unique Token", "Souls/Tokens/PrimalItem_AlphaUniqueToken", 1},
+        {"omega_ancient_god_token", "Ancient God Token", "Souls/Tokens/PrimalItem_AncientGodToken", 1},
+        {"omega_beta_unique_token", "Beta Unique Token", "Souls/Tokens/PrimalItem_BetaUniqueToken", 1},
+        {"omega_omega_unique_token", "Omega Unique Token", "Souls/Tokens/PrimalItem_OmegaUniqueToken", 1},
+        {"omega_prime_unique_token", "Prime Unique Token", "Souls/Tokens/PrimalItem_PrimeUniqueToken", 1},
+        {"omega_ultimate_unique_token", "Ultimate Unique Token", "Souls/Tokens/PrimalItem_UltimateUniqueToken", 1},
+        {"omega_unique_god_token", "Unique God Token", "Souls/Tokens/PrimalItem_UniqueGodToken", 1},
+        {"omega_unique_saddle_token", "Unique Saddle Token", "Gamble/PrimalItem_UniqueSaddleToken", 1},
     }};
     nlohmann::json resources = nlohmann::json::array();
-    for (const auto& [id, name, asset] : rows) {
+    for (const auto& [id, name, asset, stack_size] : rows) {
         const std::string asset_path = asset;
         const auto slash = asset_path.find_last_of('/');
         const std::string asset_name = slash == std::string::npos
             ? asset_path : asset_path.substr(slash + 1);
         const std::string item_class = std::string(
-            "/Game/Mods/ArkOmega/Items/Souls/") + asset_path + "." + asset_name + "_C";
+            "/Game/Mods/2447186973/Items/") + asset_path + "." + asset_name + "_C";
         resources.push_back({
             {"Id", id}, {"Name", name}, {"ItemClass", item_class},
             {"InputClass", item_class}, {"InputQuantity", 1},
             {"OutputQuantity", 1}, {"IntervalSeconds", 3600},
-            {"StackSize", std::string(id) == "omega_paragon_shard" ||
-                std::string(id) == "omega_soul_shard" ||
-                std::string(id) == "omega_chest_shard" ? 25 : 1},
+            {"StackSize", stack_size},
             {"Capacity", 200}, {"Enabled", true}
         });
     }
@@ -83,6 +127,19 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     if (!omega.contains("Resources")) { omega["Resources"] = nlohmann::json::array(); changed = true; }
     if (!omega["Resources"].is_array())
         throw std::runtime_error("Categories.omega.Resources precisa ser array");
+    for (auto& row : omega["Resources"]) {
+        if (!row.is_object()) continue;
+        for (const char* key : {"ItemClass", "InputClass"}) {
+            if (!row.contains(key) || !row[key].is_string()) continue;
+            auto& path = row[key].get_ref<std::string&>();
+            constexpr const char* old_prefix = "/Game/Mods/ArkOmega/";
+            constexpr const char* new_prefix = "/Game/Mods/2447186973/";
+            if (path.rfind(old_prefix, 0) == 0) {
+                path.replace(0, std::char_traits<char>::length(old_prefix), new_prefix);
+                changed = true;
+            }
+        }
+    }
     std::set<std::string> known;
     for (const auto& row : omega["Resources"])
         if (row.is_object() && row.contains("Id") && row["Id"].is_string())

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask, jsonify, request, send_file
+from sqlalchemy import bindparam, text
 
 from ticket_service import (
     add_ticket_reply,
@@ -351,6 +352,60 @@ def register_ticket_routes(
             db.close()
 
     if api_key_required:
+        @app.route("/api/internal/discord/nickname-sync", methods=["GET"])
+        @api_key_required(False)
+        @_limit("30 per minute")
+        def internal_discord_nickname_sync():
+            """Fornece ao bot a identidade do jogo das contas Discord vinculadas."""
+            if not db_ready():
+                return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+            db = session_factory()
+            try:
+                links = db.execute(text("""
+                    SELECT steam_id, discord_user_id
+                    FROM support_ticket_discord_links
+                    WHERE discord_user_id IS NOT NULL AND TRIM(discord_user_id) <> ''
+                    ORDER BY steam_id
+                    LIMIT 1000
+                """)).fetchall()
+                linked_by_steam: dict[str, str] = {}
+                for link in links:
+                    steam_id = str(link[0] or "").strip()
+                    discord_user_id = str(link[1] or "").strip()
+                    if not steam_id or not discord_user_id:
+                        continue
+                    linked_by_steam[steam_id] = discord_user_id
+                if not linked_by_steam:
+                    return jsonify({"ok": True, "users": []})
+                identity_query = text("""
+                    SELECT steam_id, character_name, tribe_name
+                    FROM tribe_members
+                    WHERE steam_id IN :steam_ids
+                      AND character_name IS NOT NULL AND TRIM(character_name) <> ''
+                      AND tribe_name IS NOT NULL AND TRIM(tribe_name) <> ''
+                    ORDER BY last_seen_at DESC
+                """).bindparams(bindparam("steam_ids", expanding=True))
+                identities = db.execute(identity_query, {"steam_ids": list(linked_by_steam)}).fetchall()
+                users = []
+                seen_steam: set[str] = set()
+                for identity in identities:
+                    steam_id = str(identity[0] or "").strip()
+                    if not steam_id or steam_id in seen_steam:
+                        continue
+                    seen_steam.add(steam_id)
+                    users.append({
+                        "discord_user_id": linked_by_steam[steam_id],
+                        "character_name": str(identity[1] or "").strip(),
+                        "tribe_name": str(identity[2] or "").strip(),
+                    })
+                return jsonify({"ok": True, "users": users})
+            except Exception:
+                db.rollback()
+                app.logger.exception("discord_nickname_sync_snapshot_failed")
+                return jsonify({"ok": False, "error": "Falha ao consultar identidades vinculadas"}), 503
+            finally:
+                db.close()
+
         @app.route("/api/internal/tickets/discord-link/confirm", methods=["POST"])
         @api_key_required(False)
         @_limit("120 per minute")

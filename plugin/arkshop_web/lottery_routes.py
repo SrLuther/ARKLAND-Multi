@@ -152,7 +152,12 @@ def register_lottery_routes(
         try:
             return jsonify(
                 get_participants_public(
-                    db, campaign_id, page=page, page_size=page_size, search_number=search_num,
+                    db,
+                    campaign_id,
+                    page=page,
+                    page_size=page_size,
+                    search_number=search_num,
+                    viewer_steam_id=steam_id_from_session(),
                 )
             )
         finally:
