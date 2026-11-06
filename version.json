@@ -1,12 +1,8 @@
 {
-    "version": "1.11.44",
-    "date": "2026-11-05",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.44/ARKLAND-Multi-Setup-v1.11.44.exe",
+    "version": "1.11.45",
+    "date": "2026-11-06",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.45/ARKLAND-Multi-Setup-v1.11.45.exe",
     "changelog": [
-        "Fazenda: elegibilidade de envio segue os recursos configurados e habilitados; Paragon Soul sem metadados de espécie agora pode usar o fluxo de recurso configurado.",
-        "Auditoria de Âmbares: total do SeasonLand passa a somar recompensas efetivamente resgatadas e reenvios registrados no histórico da temporada.",
-        "Minha Equipe: botão Editar Identidade abre corretamente a janela ao ser acionado pelo card da Minha Área.",
-        "Membros por mapa: IDs de TribeSync fora do cadastro são separados dos servidores reais e exibidos como diagnóstico, sem atribuir jogadores ao mapa errado.",
-        "FazendaRecursos atualizado para 0.1.25."
+        "Licenças: documentação separa benefícios com e sem Âmbares por tempo sem inventar nomes ou valores; mantém informações específicas apenas para Nuvem e Fazenda."
     ]
 }

@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-06 00:23:55 -->
-<!-- Total de versões: 537 | Primeira: 1.11.44 -->
+<!-- Gerado: 2026-11-06 01:26:44 -->
+<!-- Total de versões: 538 | Primeira: 1.11.45 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.45] - 2026-11-06
+
+### Refactor
+
+- Licenças: documentação separa benefícios com e sem Âmbares por tempo sem inventar nomes ou valores; mantém informações específicas apenas para Nuvem e Fazenda.
 
 ## [1.11.44] - 2026-11-05
 

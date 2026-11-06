@@ -10,24 +10,6 @@
   const LICENSE_CYCLE_MINUTES = 30;
 
   const LICENSE_TIERS = {
-    Gamma: {
-      id: "Gamma", label: "Gamma", permissionGroup: "Gamma", catalogId: "licenca_gamma",
-      durationDays: 30, timedBonus: 25, accessTiers: [],
-      summary: "Concede acesso tempor\u00e1rio a itens e recursos espec\u00edficos e aumenta o ganho de \u00c2mbares por tempo de jogo. Os benef\u00edcios seguem as configura\u00e7\u00f5es vigentes do servidor.",
-      benefits: ["Validade de 30 dias a partir do resgate.", "Acesso a itens e recursos espec\u00edficos definidos para esta licen\u00e7a.", "Aumento no ganho de \u00c2mbares por tempo de jogo, conforme configura\u00e7\u00e3o vigente.", "Os benef\u00edcios podem ser atualizados pela administra\u00e7\u00e3o.", "Pessoal e intransfer\u00edvel - n\u00e3o substitui doa\u00e7\u00e3o PIX nem cargos MOD/STAFF."],
-    },
-    Beta: {
-      id: "Beta", label: "Beta", permissionGroup: "Beta", catalogId: "licenca_beta",
-      durationDays: 30, timedBonus: 50, accessTiers: [],
-      summary: "Concede acesso tempor\u00e1rio a itens e recursos espec\u00edficos e aumenta o ganho de \u00c2mbares por tempo de jogo. Os benef\u00edcios seguem as configura\u00e7\u00f5es vigentes do servidor.",
-      benefits: ["Validade de 30 dias a partir do resgate.", "Acesso a itens e recursos espec\u00edficos definidos para esta licen\u00e7a.", "Aumento no ganho de \u00c2mbares por tempo de jogo, conforme configura\u00e7\u00e3o vigente.", "Os benef\u00edcios podem ser atualizados pela administra\u00e7\u00e3o.", "Pessoal e intransfer\u00edvel - n\u00e3o substitui doa\u00e7\u00e3o PIX nem cargos MOD/STAFF."],
-    },
-    Alfa: {
-      id: "Alfa", label: "Alfa", permissionGroup: "Alfa", catalogId: "licenca_alfa",
-      durationDays: 30, timedBonus: 75, accessTiers: [],
-      summary: "Concede acesso tempor\u00e1rio a itens e recursos espec\u00edficos e aumenta o ganho de \u00c2mbares por tempo de jogo. Os benef\u00edcios seguem as configura\u00e7\u00f5es vigentes do servidor.",
-      benefits: ["Validade de 30 dias a partir do resgate.", "Acesso a itens e recursos espec\u00edficos definidos para esta licen\u00e7a.", "Aumento no ganho de \u00c2mbares por tempo de jogo, conforme configura\u00e7\u00e3o vigente.", "Os benef\u00edcios podem ser atualizados pela administra\u00e7\u00e3o.", "Pessoal e intransfer\u00edvel - n\u00e3o substitui doa\u00e7\u00e3o PIX nem cargos MOD/STAFF."],
-    },
     keyvault: {
       id: "keyvault", label: "Nuvem", permissionGroup: "keyvault", catalogId: "licenca_nuvem",
       durationDays: 30, priceAmber: 5000, timedBonus: 0,
@@ -54,7 +36,7 @@
         "você estiver online no servidor.",
       notes: [
         "Âmbares vêm de tempo de jogo ou de doações voluntárias — nunca são compra direta de vantagem.",
-        "Itens com cadeado exigem uma licença ativa (Gamma, Beta ou Alfa).",
+        "Itens com cadeado exigem uma licen\u00e7a ativa indicada no pr\u00f3prio item.",
         "O nome da licença necessária aparece no card e na confirmação do resgate.",
         "Itens especiais ou restritos mostram requisitos antes de você confirmar.",
       ],
@@ -90,7 +72,7 @@
         "— os níveis disponíveis vêm do catálogo. Cada card mostra o nível (Nv.) e o gênero " +
         "(Macho, Fêmea, Casal ou Aleatório).",
       notes: [
-        "Dinos especiais podem exigir licença Gamma, Beta ou Alfa.",
+        "Dinos especiais podem exigir uma licen\u00e7a indicada no pr\u00f3prio item.",
         "Limites de tribo, cupos de domesticação e regras PvP do servidor continuam valendo.",
         "Gênero «Aleatório»: o sexo não é fixado pelo catálogo e é sorteado na entrega.",
         "Leia os avisos no card — dinos únicos podem ter condições adicionais.",
@@ -103,22 +85,22 @@
     licenses: {
       icon: "📜",
       title: "Licenças",
-      short: "Acesso temporário a conteúdos exclusivos e bônus de Âmbar por tempo online.",
+      short: "Acesso a recursos espec\u00edficos e, conforme a configura\u00e7\u00e3o, b\u00f4nus de \u00c2mbar por tempo online.",
       detailed:
-        "Licen\u00e7as s\u00e3o permiss\u00f5es com validade indicada no cat\u00e1logo. Elas liberam resgates " +
-        "bloqueados e aumentam quanto Âmbar você ganha automaticamente enquanto joga. " +
-        "Não substituem doação nem garantem VIP automático — são conquistadas no sistema de resgates.",
+        "Licen\u00e7as s\u00e3o permiss\u00f5es com validade e benef\u00edcios definidos pelo cat\u00e1logo. Elas podem liberar acesso a itens e recursos espec\u00edficos. " +
+        "Somente as que concedem b\u00f4nus por tempo aumentam o ganho de \u00c2mbar enquanto voc\u00ea joga. " +
+        "N\u00e3o substituem doa\u00e7\u00e3o nem garantem VIP autom\u00e1tico \u2014 consulte o cat\u00e1logo para obter as informa\u00e7\u00f5es vigentes.",
       notes: [
         "Validade, valores e benef\u00edcios dependem do cat\u00e1logo vigente.",
-        "Algumas licen\u00e7as concedem acesso a itens e recursos espec\u00edficos e aumentam o ganho de \u00c2mbares por tempo jogado.",
+        "Licen\u00e7as com b\u00f4nus por tempo aumentam o ganho de \u00c2mbares enquanto voc\u00ea joga; os valores e acessos seguem o cat\u00e1logo vigente.",
         "Licen\u00e7a Nuvem: cofre de invent\u00e1rio com /upload, /download e /nuvem; tamb\u00e9m necess\u00e1ria para enviar dinos ao Mercado P2P.",
         "Licen\u00e7a Fazenda: produ\u00e7\u00e3o passiva, agendamento de retiradas e resgate no jogo; exige Discord vinculado.",
         "Renova\u00e7\u00e3o restaura limites de resgate dos kits ligados ao grupo da licen\u00e7a, quando aplic\u00e1vel.",
       ],
       warnings: [
-        "Licença expirada remove o bônus Timed Points e o acesso a itens/kits que exigem o grupo.",
-        "Na Nuvem, upload exige licença ativa; download de itens já guardados permanece permitido após expirar.",
-        "Doações PIX não concedem licença automaticamente — resgate com Âmbares no catálogo.",
+        "Quando aplic\u00e1vel, uma licen\u00e7a expirada pode encerrar o b\u00f4nus por tempo e o acesso aos itens ou recursos vinculados a ela.",
+        "Na Nuvem, o upload exige licen\u00e7a ativa; o download de itens armazenados continua permitido ap\u00f3s expirar.",
+        "Doa\u00e7\u00f5es n\u00e3o concedem licen\u00e7as automaticamente; consulte o cat\u00e1logo para ver as op\u00e7\u00f5es vigentes.",
       ],
       licenseTiers: true,
     },
@@ -152,7 +134,7 @@
         "Doações são definitivas e não reembolsáveis.",
         "Não é venda: você contribui com a manutenção; os Âmbares são brinde descrito em cada pacote.",
         "PIX exige e-mail, nome, CPF e telefone (Mercado Pago). Cartão internacional: e-mail e nome — documento opcional.",
-        "Doação não garante VIP nem licença — resgate Gamma/Beta/Alfa com Âmbares no catálogo.",
+        "Doa\u00e7\u00f5es n\u00e3o concedem licen\u00e7as automaticamente; consulte o cat\u00e1logo para ver as op\u00e7\u00f5es vigentes.",
       ],
       warnings: [
         "Não há conversão de Âmbares em dinheiro real.",
@@ -175,9 +157,6 @@
       if (LICENSE_TIERS[p]) return p;
     }
     const text = `${item.name || ""} ${item.desc || ""}`.toLowerCase();
-    if (/\balfa\b/.test(text)) return "Alfa";
-    if (/\bbeta\b/.test(text)) return "Beta";
-    if (/\bgamma\b/.test(text)) return "Gamma";
     if (/\bnuvem\b/.test(text) || /\bkeyvault\b/.test(text)) return "keyvault";
     return null;
   }
@@ -391,74 +370,33 @@
     return "Acesso a itens e recursos espec\u00edficos";
   }
 
-  function renderLicenseTiersGrid(activeId) {
-    const tiers = Object.values(LICENSE_TIERS);
-    const selected =
-      activeId && LICENSE_TIERS[activeId] ? activeId : tiers[0] ? tiers[0].id : "Gamma";
-
-    const renderTab = (t) => {
-      const active = t.id === selected ? " is-active" : "";
-      return `
-      <button type="button" class="redeem-license-tab${active}"
-        role="tab" aria-selected="${t.id === selected ? "true" : "false"}"
-        data-license-tier="${esc(t.id)}"
-        onclick="RedeemDocs.selectLicenseTierTab('${esc(t.id)}')">
-        <span class="redeem-license-tab__name">${esc(t.label)}</span>
-        <span class="redeem-license-tab__hint">${t.timedBonus > 0 ? "Ganho por tempo" : "Sem bônus por tempo"}</span>
-      </button>`;
-    };
-    const withAmber = tiers.filter((t) => t.timedBonus > 0);
-    const withoutAmber = tiers.filter((t) => !(t.timedBonus > 0));
-    const tabs = `
-      <section class="redeem-license-group redeem-license-group--amber">
-        <h4 class="redeem-license-group__title">Com ganho de Âmbares por tempo jogado</h4>
-        <div class="redeem-license-group__tabs">${withAmber.map(renderTab).join("") || "<span>?</span>"}</div>
-      </section>
-      <section class="redeem-license-group redeem-license-group--special">
-        <h4 class="redeem-license-group__title">Sem ganho de Âmbares por tempo</h4>
-        <div class="redeem-license-group__tabs">${withoutAmber.map(renderTab).join("") || "<span>?</span>"}</div>
-      </section>`;
-
-    const panels = tiers
-      .map((t) => {
-        const hidden = t.id === selected ? "" : " hidden";
-        const price =
-          t.priceAmber != null
-            ? `${formatAmberRef(t.priceAmber)} Âmbares (referência catálogo)`
-            : "Preço conforme catálogo";
-        const lis = (t.benefits || [])
-          .map((b) => `<li>${esc(b)}</li>`)
-          .join("");
-        return `
-      <div class="redeem-license-panel${hidden}" role="tabpanel"
-        data-license-panel="${esc(t.id)}" ${t.id === selected ? "" : "hidden"}>
-        <div class="redeem-license-panel__head">
-          <div class="redeem-license-panel__title">${esc(t.label)}</div>
-          <div class="redeem-license-panel__meta">
-            ${t.durationDays} dias · ${esc(price)}
-          </div>
-          <div class="redeem-license-panel__chips">
-            <span class="redeem-license-chip">${esc(licenseTimedMeta(t))}</span>
-            <span class="redeem-license-chip redeem-license-chip--tek">${esc(
-              licenseAccessMeta(t)
-            )}</span>
-          </div>
-          <p class="redeem-license-panel__summary">${esc(t.summary)}</p>
-        </div>
-        <div class="redeem-license-panel__benefits">
-          <div class="redeem-license-panel__benefits-title">Benefícios detalhados</div>
-          <ul class="redeem-doc-block__list">${lis}</ul>
-        </div>
-        <p class="redeem-license-panel__source">Fonte: config.json / TimedPointsReward / regulamento §8.5–8.7</p>
-      </div>`;
-      })
-      .join("");
-
-    return `
-      <div class="redeem-license-benefits" data-redeem-license-benefits>
-        <div class="redeem-license-tabs" role="tablist" aria-label="Níveis de licença">${tabs}</div>
-        <div class="redeem-license-panels">${panels}</div>
-      </div>`;
+  function renderLicenseTiersGrid() {
+    const genericCards = [
+      {
+        title: "Concedem \u00c2mbares por tempo",
+        text: "Licen\u00e7as desta categoria aumentam o ganho de \u00c2mbares enquanto voc\u00ea joga e podem liberar acesso a itens e recursos espec\u00edficos. Valores e acessos seguem as configura\u00e7\u00f5es atuais do cat\u00e1logo.",
+        className: "redeem-license-group--amber",
+      },
+      {
+        title: "N\u00e3o concedem \u00c2mbares por tempo",
+        text: "Licen\u00e7as desta categoria podem liberar funcionalidades ou recursos espec\u00edficos, sem acrescentar b\u00f4nus de \u00c2mbares por tempo. Consulte os detalhes vigentes no cat\u00e1logo.",
+        className: "redeem-license-group--special",
+      },
+    ];
+    const specialLicenses = [LICENSE_TIERS.keyvault, LICENSE_TIERS.keyfarm];
+    const cards = genericCards.map((card) => `
+      <article class="redeem-license-panel ${card.className}">
+        <h4 class="redeem-license-panel__title">${esc(card.title)}</h4>
+        <p class="redeem-license-panel__summary">${esc(card.text)}</p>
+      </article>`).join("");
+    const specialCards = specialLicenses.map((license) => `
+      <article class="redeem-license-panel">
+        <h4 class="redeem-license-panel__title">${esc(license.label)}</h4>
+        <div class="redeem-license-panel__chips"><span class="redeem-license-chip">Sem ganho de \u00c2mbares por tempo</span><span class="redeem-license-chip redeem-license-chip--tek">${esc(licenseAccessMeta(license))}</span></div>
+        <p class="redeem-license-panel__summary">${esc(license.summary)}</p>
+        <ul class="redeem-doc-block__list">${license.benefits.map((benefit) => `<li>${esc(benefit)}</li>`).join("")}</ul>
+      </article>`).join("");
+    return `<div class="redeem-license-benefits"><div class="redeem-license-panels" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:8px;">${cards}${specialCards}</div></div>`;
   }
 
   function selectLicenseTierTab(tierId) {
