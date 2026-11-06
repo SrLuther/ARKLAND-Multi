@@ -182,6 +182,27 @@ bool ShopCloudInventory::Escape(const std::string& in, char* out, size_t out_siz
     return true;
 }
 
+CloudResult ShopCloudInventory::CheckDiscordLink(const std::string& steam_id) const {
+    if (!db_) return CloudResult::DbError;
+    char escaped_id[65] = {};
+    if (!Escape(steam_id, escaped_id, sizeof(escaped_id))) return CloudResult::DbError;
+    const std::string sql = "SELECT 1 FROM support_ticket_discord_links WHERE steam_id='" +
+        std::string(escaped_id) + "' AND discord_user_id IS NOT NULL "
+        "AND TRIM(discord_user_id) <> '' LIMIT 1";
+    if (mysql_query(db_, sql.c_str()) != 0) {
+        Log::GetLog()->error("ShopCloudInventory: Discord link lookup failed: {}", mysql_error(db_));
+        return CloudResult::DbError;
+    }
+    MYSQL_RES* result = mysql_store_result(db_);
+    if (!result) {
+        Log::GetLog()->error("ShopCloudInventory: Discord link result unavailable: {}", mysql_error(db_));
+        return CloudResult::DbError;
+    }
+    const bool linked = mysql_num_rows(result) > 0;
+    mysql_free_result(result);
+    return linked ? CloudResult::Ok : CloudResult::DiscordNotLinked;
+}
+
 bool ShopCloudInventory::Exec(const char* sql) {
     if (!db_) return false;
     if (mysql_query(db_, sql) != 0) {
@@ -600,6 +621,8 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller, int
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return CloudResult::DbError;
+    const auto discord = CheckDiscordLink(steam_id);
+    if (discord != CloudResult::Ok) return discord;
     const int normalized_slot = NormalizeSlot(slot);
     const std::string storage_key = StorageKeyForSteamSlot(steam_id, normalized_slot);
 
@@ -747,6 +770,8 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, i
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return CloudResult::DbError;
+    const auto discord = CheckDiscordLink(steam_id);
+    if (discord != CloudResult::Ok) return discord;
     const int normalized_slot = NormalizeSlot(slot);
     const std::string storage_key = StorageKeyForSteamSlot(steam_id, normalized_slot);
 
@@ -947,6 +972,8 @@ CloudResult ShopCloudInventory::ClearSlot(AShooterPlayerController* controller, 
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return CloudResult::DbError;
+    const auto discord = CheckDiscordLink(steam_id);
+    if (discord != CloudResult::Ok) return discord;
 
     const int normalized_slot = NormalizeSlot(slot);
     const std::string storage_key = StorageKeyForSteamSlot(steam_id, normalized_slot);
@@ -974,6 +1001,8 @@ const char* ShopCloudInventory::ResultMessage(CloudResult result, int item_count
         return item_count > 0 ? "ok" : "ok";
     case CloudResult::Disabled:
         return "Inventario na nuvem desativado neste servidor.";
+    case CloudResult::DiscordNotLinked:
+        return "Vincule sua conta Discord à conta do site em Minha Área > Conta para usar a Nuvem.";
     case CloudResult::NoLicense:
         return "Voce precisa de uma Licenca Nuvem ativa. Adquira na loja.";
     case CloudResult::AlreadyStored:

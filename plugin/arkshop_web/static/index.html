@@ -3464,11 +3464,29 @@
       margin-top: 8px;
     }
     .redeem-license-tabs {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .redeem-license-group { min-width: 0; }
+    .redeem-license-group__title {
+      margin: 0 0 6px;
+      color: var(--text2);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .redeem-license-group__tabs {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
     }
+    .redeem-license-group--amber .redeem-license-group__title { color: var(--amber); }
+    .redeem-license-group--special .redeem-license-group__title { color: var(--tek); }
     .redeem-license-tab {
       flex: 1 1 100px;
       min-width: 88px;
@@ -3501,7 +3519,7 @@
       display: block;
       font-size: 10px;
       margin-top: 2px;
-      color: var(--amber);
+      color: var(--text2);
       font-weight: 600;
       opacity: 0.9;
     }
@@ -4106,7 +4124,8 @@
     .myarea-discord-audit-details { margin-top:10px; border-top:1px solid var(--border); padding-top:8px; }
     .myarea-discord-audit-details summary { color:var(--text2); font-size:11px; cursor:pointer; }
     .myarea-audit-pager { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:8px; }
-    #myarea-teams-root { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; align-items:start; }
+    #myarea-teams-root { display:block; width:100%; min-width:0; }
+    #myarea-teams-root > .team-dashboard { width:100%; min-width:0; }
     #myarea-teams-root > .card { margin:0 !important; min-width:0; }
     #myarea-teams-root #eh-card-summary, #myarea-teams-root #eh-card-choose, #myarea-teams-root #eh-card-mode-b { grid-column:1/-1; }
     #myarea-amber-audit { gap:8px; }
@@ -14209,6 +14228,7 @@ async function loadAuthDiscordIdentity() {
   try {
     const data = await fetchJson("/api/tickets/discord-link?page=1", { timeoutMs: 8000, retries: 0 });
     const link = data && data.ok ? (data.link || {}) : {};
+    _auth.discord_linked = Boolean(String(link.discord_user_id || "").trim());
     _auth.discord_username = link.discord_username || null;
     _auth.discord_user_id = link.discord_user_id || null;
     renderAuthUserLine();
@@ -17399,6 +17419,12 @@ function formatFarmInterval(rawSeconds) {
   return parts.join(" ") || "1 s";
 }
 
+function openDiscordLinkFromFarm() {
+  goToPage("myarea");
+  setMyAreaTab("account");
+  requestAnimationFrame(() => document.getElementById("myarea-discord-link")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+}
+
 function formatFarmDateTime(epochSeconds) {
   const epoch = Number(epochSeconds);
   if (!Number.isFinite(epoch) || epoch <= 0) return "";
@@ -17475,6 +17501,10 @@ async function loadMyFarm() {
     const shareQuery = selectedShareKey ? "?share_key=" + encodeURIComponent(selectedShareKey) : "";
     const response = await fetch(API + "/api/player/farm" + shareQuery, { credentials: "same-origin" });
     const data = await response.json();
+    if (!response.ok && data.discord_link_required) {
+      host.innerHTML = `<div class="farm-section" role="alert"><div class="farm-section-head"><h3>Vincule sua conta Discord</h3><p>Para proteger seus recursos e resgates, a Fazenda exige uma conta Discord vinculada à sua conta do site.</p></div><ol style="padding-left:22px;color:var(--text2);line-height:1.7;"><li>Abra Minha Área e a aba Conta e resumo.</li><li>Na seção Discord, gere um código de verificação.</li><li>Envie o código no canal de validação do Discord ARKLAND.</li><li>Volte ao site e clique em Revalidar.</li></ol><button type="button" class="btn btn-primary" onclick="openDiscordLinkFromFarm()">Vincular Discord</button></div>`;
+      return;
+    }
     if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível consultar sua Fazenda.");
     const shareKeys = data.share_keys || [data.share_key || "default"];
     window._farmShareKey = data.share_key || shareKeys[0] || "default";
@@ -17940,6 +17970,9 @@ async function loadMyAreaDiscordLink(page = _myAreaDiscordAuditPage) {
       return;
     }
     const link = d.link || {};
+    _auth.discord_linked = Boolean(String(link.discord_user_id || "").trim());
+    _auth.discord_user_id = link.discord_user_id || null;
+    _auth.discord_username = link.discord_username || null;
     _renderMyAreaDiscordVerification(d);
     _renderMyAreaDiscordAudit(d.audit || [], d);
     if (link.discord_username || link.discord_user_id) {
@@ -30378,8 +30411,45 @@ function initArkConnectDelegation() {
 // ── Modal de Resgate (Âmbar) ─────────────────────────────────────────────────
 let _buyItem = null;
 
-function openBuyModal(item, policyAlreadyAccepted) {
+function openDiscordLinkFromRedeem() {
+  closeBuyModal();
+  goToPage("myarea");
+  setMyAreaTab("account");
+  requestAnimationFrame(() => document.getElementById("myarea-discord-link")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+}
+
+function showDiscordLinkRequiredForRedeem() {
+  const title = document.querySelector("#buy-modal .buy-modal-title");
+  const body = document.getElementById("buy-modal-body");
+  const confirmHint = document.getElementById("buy-modal-confirm-hint");
+  const confirmButton = document.getElementById("buy-confirm-btn");
+  const linkButton = document.getElementById("buy-discord-link-btn");
+  if (title) title.textContent = "Vincule o Discord para resgatar";
+  if (body) body.innerHTML = `<p style="color:var(--text2);line-height:1.6;margin:0 0 12px;">Sua conta Discord precisa estar vinculada à conta do site antes de confirmar um resgate.</p><ol style="padding-left:22px;color:var(--text2);line-height:1.7;margin:0;"><li>Abra <strong>Minha Área</strong> e a aba <strong>Conta e resumo</strong>.</li><li>Na seção Discord, clique em <strong>Gerar código de verificação</strong>.</li><li>Envie o código no canal de validação do Discord ARKLAND.</li><li>Volte ao site e clique em <strong>Revalidar</strong>.</li></ol>`;
+  if (confirmHint) confirmHint.textContent = "Depois de confirmar o vínculo, volte ao catálogo e tente o resgate novamente.";
+  if (confirmButton) confirmButton.hidden = true;
+  if (linkButton) linkButton.hidden = false;
+  document.getElementById("buy-modal").style.display = "flex";
+}
+
+async function openBuyModal(item, policyAlreadyAccepted) {
   if (!_auth.authenticated) { toast("Faça login para resgatar.", "warning"); return; }
+  if (_auth.discord_linked !== true) {
+    if (_auth.discord_linked !== false) {
+      try {
+        const linkResponse = await fetch(API + "/api/tickets/discord-link?page=1", { credentials: "same-origin" });
+        const linkData = await linkResponse.json();
+        const link = linkData && linkData.ok ? (linkData.link || {}) : {};
+        _auth.discord_linked = Boolean(String(link.discord_user_id || "").trim());
+        _auth.discord_user_id = link.discord_user_id || null;
+        _auth.discord_username = link.discord_username || null;
+      } catch (_) {
+        toast("Não foi possível confirmar o vínculo Discord agora. Tente novamente.", "warning");
+        return;
+      }
+    }
+    if (!_auth.discord_linked) { showDiscordLinkRequiredForRedeem(); return; }
+  }
   const kitLim = _kitLimitInfo(item);
   const kitEff = kitLim ? (kitLim.effective_remaining ?? kitLim.remaining) : null;
   if (kitLim && !kitLim._loading && (kitEff ?? 0) <= 0) {
@@ -30434,6 +30504,11 @@ function openBuyModal(item, policyAlreadyAccepted) {
   if (hintEl) hintEl.textContent = doc ? doc.confirmText : `Confirmo o resgate de "${item.name}".`;
   const btn = document.getElementById("buy-confirm-btn");
   btn.disabled = !canBuy;
+  btn.hidden = false;
+  const discordLinkBtn = document.getElementById("buy-discord-link-btn");
+  if (discordLinkBtn) discordLinkBtn.hidden = true;
+  const modalTitle = document.querySelector("#buy-modal .buy-modal-title");
+  if (modalTitle) modalTitle.textContent = "Confirmar Resgate";
   btn.textContent = "✅ Confirmar Resgate";
   document.getElementById("buy-modal").style.display = "flex";
 }
@@ -30441,6 +30516,12 @@ function openBuyModal(item, policyAlreadyAccepted) {
 function closeBuyModal() {
   document.getElementById("buy-modal").style.display = "none";
   _buyItem = null;
+  const confirmButton = document.getElementById("buy-confirm-btn");
+  const linkButton = document.getElementById("buy-discord-link-btn");
+  if (confirmButton) confirmButton.hidden = false;
+  if (linkButton) linkButton.hidden = true;
+  const title = document.querySelector("#buy-modal .buy-modal-title");
+  if (title) title.textContent = "Confirmar Resgate";
 }
 
 async function confirmBuy() {
@@ -30483,6 +30564,11 @@ async function confirmBuy() {
       loadMyArea({ force: true });
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
+      if (d.discord_link_required) {
+        _auth.discord_linked = false;
+        showDiscordLinkRequiredForRedeem();
+        return;
+      }
       toast(extractApiError(d, r, "Falha no resgate"), "error");
       if (d.kit_limit_reached) {
         loadPlayerKitLimits().catch(() => {}).then(() => renderCatalog()).catch(() => {});
@@ -36049,6 +36135,7 @@ document.addEventListener("keydown", (e) => {
     <div class="buy-modal-title">🎁 Confirmar Resgate</div>
     <div id="buy-modal-body" class="buy-modal-body"></div>
     <div id="buy-modal-confirm-hint"></div>
+    <button id="buy-discord-link-btn" class="btn btn-primary" onclick="openDiscordLinkFromRedeem()" hidden>Ir para vinculação</button>
     <div class="buy-modal-footer">
       <button class="btn btn-ghost" onclick="closeBuyModal()">Cancelar</button>
       <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Resgate</button>

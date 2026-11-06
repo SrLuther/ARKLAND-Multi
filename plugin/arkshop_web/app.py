@@ -13917,6 +13917,26 @@ def player_purchase():
     if (err := _require_db()) is not None:
         return err
 
+    discord_db = _SessionLocal()
+    try:
+        if not _farm_discord_linked(discord_db, str(steam_id)):
+            return jsonify({
+                "ok": False,
+                "discord_link_required": True,
+                "error": "Vincule sua conta Discord antes de resgatar itens no site.",
+                "tutorial": [
+                    "Abra Minha Área e selecione Conta e resumo.",
+                    "Na seção Discord, gere um código de verificação.",
+                    "Envie o código no canal de validação do Discord ARKLAND.",
+                    "Volte ao site e clique em Revalidar para concluir o vínculo.",
+                ],
+            }), 403
+    except Exception:
+        log.exception("purchase_discord_link_check_failed")
+        return jsonify({"ok": False, "error": "Não foi possível confirmar o vínculo Discord agora. Tente novamente."}), 503
+    finally:
+        _release_db_session(discord_db)
+
     idempotency_key = str(body.get("idempotency_key", "")).strip()
     if idempotency_key:
         if not _check_idempotency(idempotency_key):
@@ -14563,6 +14583,26 @@ def _farm_project_production(
     }
 
 
+def _farm_discord_linked(db, steam_id: str) -> bool:
+    """Farm and cloud access require a verified Discord identity on the web account."""
+    link = db.get(SupportTicketDiscordLink, str(steam_id))
+    return bool(link and str(link.discord_user_id or "").strip())
+
+
+def _farm_discord_required_response():
+    return jsonify({
+        "ok": False,
+        "discord_link_required": True,
+        "error": "Vincule sua conta Discord à conta do site para usar a Fazenda.",
+        "tutorial": [
+            "Abra Minha Área e selecione Conta e resumo.",
+            "Na seção Discord, gere um código de verificação.",
+            "Envie o código no canal de validação do Discord ARKLAND.",
+            "Volte ao site e clique em Revalidar para concluir o vínculo.",
+        ],
+    }), 403
+
+
 @app.route("/api/player/farm", methods=["GET"])
 @login_required
 @limiter.limit("60 per minute")
@@ -14575,6 +14615,8 @@ def player_farm_overview():
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
     try:
+        if not _farm_discord_linked(db, steam_id):
+            return _farm_discord_required_response()
         state = db.get(FarmPlayerState, steam_id)
         resource_rows_all = db.query(FarmPlayerResource).filter(FarmPlayerResource.steam_id == steam_id).all()
         groups = {str(row.share_key or "default") for row in resource_rows_all}
@@ -14724,6 +14766,8 @@ def player_create_farm_redemption():
     if db is None:
         return jsonify({"ok": False, "error": "Banco indisponivel."}), 503
     try:
+        if not _farm_discord_linked(db, steam_id):
+            return _farm_discord_required_response()
         state = db.query(FarmPlayerResource).filter(
             FarmPlayerResource.steam_id == steam_id,
             FarmPlayerResource.share_key == share_key,
@@ -14927,6 +14971,9 @@ def plugin_farm_upload_sync():
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
     try:
+        if status == "active" and not _farm_discord_linked(db, steam_id):
+            return jsonify({"ok": False, "discord_link_required": True,
+                            "error": "Conta Discord vinculada obrigatória para usar a Fazenda."}), 403
         row = db.query(FarmUploadedResource).filter_by(steam_id=steam_id, upload_id=upload_id).with_for_update().first()
         if row:
             if row.item_blob != item_blob or row.resource_id != resource_id:
@@ -14969,6 +15016,9 @@ def plugin_farm_claim_redemptions():
     if db is None:
         return jsonify({"ok": False, "error": "Banco temporariamente indisponível."}), 503
     try:
+        if not _farm_discord_linked(db, sid):
+            return jsonify({"ok": False, "discord_link_required": True,
+                            "error": "Conta Discord vinculada obrigatória para resgatar recursos da Fazenda."}), 403
         now = datetime.now(UTC)
         lease_expired = now - timedelta(minutes=2)
         candidates = db.query(FarmRedemption).filter(

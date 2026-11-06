@@ -102,6 +102,11 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
         return "Operacao concluida.";
     case CloudResult::Disabled:
         return "Inventario na nuvem desativado neste servidor.";
+    case CloudResult::DiscordNotLinked: {
+        std::string url = cfg.WebsiteUrl();
+        if (url.empty()) url = cfg.WebApiUrl();
+        return "Vincule sua conta Discord à conta do site em Minha Área > Conta para usar a Nuvem: " + url;
+    }
     case CloudResult::NoLicense: {
         std::string url = cfg.WebsiteUrl();
         if (url.empty()) url = cfg.WebApiUrl();

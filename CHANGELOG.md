@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-11-05 21:42:39 -->
-<!-- Total de versões: 535 | Primeira: 1.11.42 -->
+<!-- Gerado: 2026-11-05 23:21:54 -->
+<!-- Total de versões: 536 | Primeira: 1.11.43 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.43] - 2026-11-05
+
+### Other
+
+- Resgates: exigem conta Discord vinculada; ao tentar resgatar sem vínculo, o site mostra um tutorial e um atalho para Minha Área.
+- Fazenda e Nuvem: acesso a estoque, agendamentos, entregas e operações de inventário também exige Discord vinculado.
+- Minha Equipe: layout fluido ocupa a largura disponível do monitor e reorganiza os cards conforme o espaço da tela.
+- Fazenda: /fazenda aceita Element em stack, envia uma unidade e mantém o restante no inventário.
+- Licenças: descrições duráveis para tiers, Nuvem e Fazenda com explicações próprias e separação visual por bônus de Âmbar por tempo.
+- CustomShop atualizado para 1.10.53.
 
 ## [1.11.42] - 2026-11-05
 

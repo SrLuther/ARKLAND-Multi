@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.24]
+- `/fazenda` aceita stacks de recursos: envia uma unidade e mantém o restante no inventário, sem perder o stack em falhas de sincronização.
+
 ## [0.1.23]
 - Corrige a ancora dos ciclos apos resgate quando o estoque estava cheio e persiste o horario exato em que a producao alcancou a capacidade.
 

@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.53] - 2026-11-05
+
+### Security
+
+- Exige conta Discord vinculada ao site para enviar, baixar ou apagar itens da Nuvem; a verificação é feita no banco a cada operação e falha de forma segura se não puder confirmar o vínculo.
+
 ## [1.10.52] - 2026-11-03
 
 ### Fix

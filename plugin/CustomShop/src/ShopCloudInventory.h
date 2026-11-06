@@ -11,6 +11,7 @@ inline constexpr int         kDefaultCloudCooldownSec = 30;
 enum class CloudResult {
     Ok,
     Disabled,
+    DiscordNotLinked,
     NoLicense,
     AlreadyStored,
     EmptyInventory,
@@ -110,6 +111,7 @@ private:
 
     bool Exec(const char* sql);
     bool Escape(const std::string& in, char* out, size_t out_size) const;
+    CloudResult CheckDiscordLink(const std::string& steam_id) const;
     bool CheckCooldown(const std::string& storage_key);
     void TouchCooldown(const std::string& storage_key);
     bool IsPlayerReady(AShooterPlayerController* controller) const;

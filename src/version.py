@@ -4,13 +4,25 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.42"
+APP_VERSION: str = "1.11.43"
 BUILD_DATE: str = "2026-11-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.43",
+        "date": "2026-11-05",
+        "changes": [
+            "Resgates: exigem conta Discord vinculada; ao tentar resgatar sem vínculo, o site mostra um tutorial e um atalho para Minha Área.",
+            "Fazenda e Nuvem: acesso a estoque, agendamentos, entregas e operações de inventário também exige Discord vinculado.",
+            "Minha Equipe: layout fluido ocupa a largura disponível do monitor e reorganiza os cards conforme o espaço da tela.",
+            "Fazenda: /fazenda aceita Element em stack, envia uma unidade e mantém o restante no inventário.",
+            "Licenças: descrições duráveis para tiers, Nuvem e Fazenda com explicações próprias e separação visual por bônus de Âmbar por tempo.",
+            "CustomShop atualizado para 1.10.53.",
+        ],
+    },
     {
         "version": "1.11.42",
         "date": "2026-11-05",

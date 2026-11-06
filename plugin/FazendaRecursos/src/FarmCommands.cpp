@@ -174,6 +174,51 @@ UPrimalItem* FindInventoryItem(UPrimalInventoryComponent* inv, const std::string
     return nullptr;
 }
 
+bool GetSingleItemBytes(UPrimalItem* item, TArray<unsigned char>& bytes) {
+    if (!item) return false;
+    const int quantity = item->GetItemQuantity();
+    if (quantity < 1) return false;
+    if (quantity == 1) {
+        item->GetItemBytes(&bytes);
+        return bytes.Num() > 0;
+    }
+    // Farm uploads activate one configured producer. Serialize one unit from
+    // the stack so the uploaded blob and the inventory debit stay consistent.
+    item->SetQuantity(1, false);
+    item->GetItemBytes(&bytes);
+    item->SetQuantity(quantity, false);
+    return bytes.Num() > 0;
+}
+
+bool ConsumeOneItem(UPrimalInventoryComponent* inv, UPrimalItem* item) {
+    if (!inv || !item) return false;
+    const int quantity = item->GetItemQuantity();
+    if (quantity <= 0) return false;
+    if (quantity == 1) {
+        FItemNetID item_id = item->ItemIDField();
+        return inv->RemoveItem(&item_id, false, false, true, true);
+    }
+    item->SetQuantity(quantity - 1, false);
+    inv->NotifyItemQuantityUpdated(item, -1);
+    inv->NotifyClientsItemStatus(item, false, false, true, false, false,
+        nullptr, nullptr, false, false, false);
+    return true;
+}
+
+bool RestoreOneItem(UPrimalInventoryComponent* inv, const std::string& item_id,
+                    TArray<unsigned char>& bytes) {
+    if (!inv) return false;
+    if (auto* existing = FindInventoryItem(inv, item_id)) {
+        existing->SetQuantity(existing->GetItemQuantity() + 1, false);
+        inv->NotifyItemQuantityUpdated(existing, 1);
+        inv->NotifyClientsItemStatus(existing, false, false, true, false, false,
+            nullptr, nullptr, false, false, false);
+        return true;
+    }
+    UPrimalItem* restored = UPrimalItem::CreateFromBytes(&bytes);
+    return restored && inv->AddItemObject(restored);
+}
+
 bool WriteSoulBlob(const std::string& path, const TArray<unsigned char>& bytes) {
     if (bytes.Num() <= 0) return false;
     std::error_code ec;
@@ -231,10 +276,10 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         }
         for (const auto& def : definitions) {
             if (!def.enabled || !MatchesConfiguredClass(class_text, def.input_class)) continue;
-            if (quantity != 1 || def.input_quantity != 1 || state.resources.count(def.id) && state.resources.at(def.id).active ||
+            if (quantity < 1 || def.input_quantity != 1 || state.resources.count(def.id) && state.resources.at(def.id).active ||
                 !previewed_resources.insert(def.id).second) break;
             found.push_back({ItemIdText(item->ItemIDField()), class_text, {},
-                item_name.ToString(), def.id, quantity, false});
+                item_name.ToString(), def.id, 1, false});
             found.back().resource_name = def.name;
             break;
         }
@@ -281,13 +326,12 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
     for (const auto& entry : preview.items) {
         UPrimalItem* item = FindInventoryItem(inv, entry.item_id);
         std::string species;
-        if (!item || item->GetItemQuantity() != 1 || entry.item_quantity != 1) { ++skipped; continue; }
+        if (!item || item->GetItemQuantity() < 1 || entry.item_quantity != 1) { ++skipped; continue; }
         if (entry.is_soul && (!GetSpeciesBlueprint(item, species) || species != entry.species_blueprint ||
             farm.HasSoul(steam, species))) { ++skipped; continue; }
         if (!entry.is_soul && farm.HasActiveResource(steam, entry.resource_id)) { ++skipped; continue; }
         TArray<unsigned char> bytes;
-        item->GetItemBytes(&bytes);
-        if (bytes.Num() <= 0) { ++failed; continue; }
+        if (!GetSingleItemBytes(item, bytes)) { ++failed; continue; }
         const int64_t uploaded_at = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
         const std::string id = std::to_string(uploaded_at) + "-" + SafeFilename(entry.item_id);
@@ -305,8 +349,7 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
             if (!farm.AddPendingResource(steam, record)) {
                 std::error_code ec; std::filesystem::remove(full_path, ec); ++skipped; continue;
             }
-            FItemNetID item_id = item->ItemIDField();
-            if (!inv->RemoveItem(&item_id, false, false, true, true)) {
+            if (!ConsumeOneItem(inv, item)) {
                 farm.RemoveResource(steam, id);
                 std::error_code ec; std::filesystem::remove(full_path, ec); ++failed; continue;
             }
@@ -319,8 +362,7 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
                 continue;
             }
             if (!FazendaRecursos::FarmSync::SyncUploadedResourceNow(steam, id)) {
-                UPrimalItem* restored = UPrimalItem::CreateFromBytes(&bytes);
-                if (restored && inv->AddItemObject(restored)) {
+                if (RestoreOneItem(inv, entry.item_id, bytes)) {
                     if (farm.RollbackResourceUpload(steam, id))
                         FazendaRecursos::FarmSync::SyncUploadedResourceNow(steam, id);
                     else

@@ -11,97 +11,35 @@
 
   const LICENSE_TIERS = {
     Gamma: {
-      id: "Gamma",
-      label: "Gamma",
-      permissionGroup: "Gamma",
-      catalogId: "licenca_gamma",
-      durationDays: 30,
-      priceAmber: 50000,
-      timedBonus: 25,
-      cycleMinutes: LICENSE_CYCLE_MINUTES,
-      defaultBonus: LICENSE_DEFAULT_BONUS,
-      accessTiers: ["Gama", "Delta"],
-      summary:
-        "Licença de entrada — acesso Gama + Delta e +25 Âmbar por ciclo online (total 50 com Default).",
-      benefits: [
-        "Validade de 30 dias a partir do resgate (SKU licenca_gamma).",
-        "Preço de referência: 50.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
-        "Bônus Timed Points: +25 Âmbar a cada 30 min online, somado ao Default (+25) → total 50 Âmbar / ciclo.",
-        "Acesso a itens e kits do catálogo com cadeado Permissions que incluem Gamma (Description: Gama + Delta / ItensAlfa).",
-        "Ao renovar a licença Gamma, limites de resgate (DefaultAmount) dos kits ligados ao grupo Gamma são restaurados.",
-        "Pessoal e intransferível — não substitui doação PIX nem cargos MOD/STAFF.",
-      ],
+      id: "Gamma", label: "Gamma", permissionGroup: "Gamma", catalogId: "licenca_gamma",
+      durationDays: 30, timedBonus: 25, accessTiers: [],
+      summary: "Concede acesso tempor\u00e1rio a itens e recursos espec\u00edficos e aumenta o ganho de \u00c2mbares por tempo de jogo. Os benef\u00edcios seguem as configura\u00e7\u00f5es vigentes do servidor.",
+      benefits: ["Validade de 30 dias a partir do resgate.", "Acesso a itens e recursos espec\u00edficos definidos para esta licen\u00e7a.", "Aumento no ganho de \u00c2mbares por tempo de jogo, conforme configura\u00e7\u00e3o vigente.", "Os benef\u00edcios podem ser atualizados pela administra\u00e7\u00e3o.", "Pessoal e intransfer\u00edvel - n\u00e3o substitui doa\u00e7\u00e3o PIX nem cargos MOD/STAFF."],
     },
     Beta: {
-      id: "Beta",
-      label: "Beta",
-      permissionGroup: "Beta",
-      catalogId: "licenca_beta",
-      durationDays: 30,
-      priceAmber: 75000,
-      timedBonus: 50,
-      cycleMinutes: LICENSE_CYCLE_MINUTES,
-      defaultBonus: LICENSE_DEFAULT_BONUS,
-      accessTiers: ["Beta", "Gama"],
-      summary:
-        "Licença intermediária — acesso Beta + Gama e +50 Âmbar por ciclo online (total 75 com Default).",
-      benefits: [
-        "Validade de 30 dias a partir do resgate (SKU licenca_beta).",
-        "Preço de referência: 75.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
-        "Bônus Timed Points: +50 Âmbar a cada 30 min online, somado ao Default (+25) → total 75 Âmbar / ciclo.",
-        "Acesso a itens e kits do catálogo com cadeado Permissions que incluem Beta (Description: Beta + Gama / ItensAlfa).",
-        "Ao renovar a licença Beta, limites de resgate (DefaultAmount) dos kits ligados ao grupo Beta são restaurados.",
-        "Pessoal e intransferível — não substitui doação PIX nem cargos MOD/STAFF.",
-      ],
+      id: "Beta", label: "Beta", permissionGroup: "Beta", catalogId: "licenca_beta",
+      durationDays: 30, timedBonus: 50, accessTiers: [],
+      summary: "Concede acesso tempor\u00e1rio a itens e recursos espec\u00edficos e aumenta o ganho de \u00c2mbares por tempo de jogo. Os benef\u00edcios seguem as configura\u00e7\u00f5es vigentes do servidor.",
+      benefits: ["Validade de 30 dias a partir do resgate.", "Acesso a itens e recursos espec\u00edficos definidos para esta licen\u00e7a.", "Aumento no ganho de \u00c2mbares por tempo de jogo, conforme configura\u00e7\u00e3o vigente.", "Os benef\u00edcios podem ser atualizados pela administra\u00e7\u00e3o.", "Pessoal e intransfer\u00edvel - n\u00e3o substitui doa\u00e7\u00e3o PIX nem cargos MOD/STAFF."],
     },
     Alfa: {
-      id: "Alfa",
-      label: "Alfa",
-      permissionGroup: "Alfa",
-      catalogId: "licenca_alfa",
-      durationDays: 30,
-      priceAmber: 100000,
-      timedBonus: 75,
-      cycleMinutes: LICENSE_CYCLE_MINUTES,
-      defaultBonus: LICENSE_DEFAULT_BONUS,
-      accessTiers: ["Alfa", "Beta"],
-      summary:
-        "Licença avançada — acesso Alfa + Beta e +75 Âmbar por ciclo online (total 100 com Default).",
-      benefits: [
-        "Validade de 30 dias a partir do resgate (SKU licenca_alfa).",
-        "Preço de referência: 100.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
-        "Bônus Timed Points: +75 Âmbar a cada 30 min online, somado ao Default (+25) → total 100 Âmbar / ciclo.",
-        "Acesso a itens e kits do catálogo com cadeado Permissions que incluem Alfa (Description: Alfa + Beta / ItensAlfa).",
-        "Ao renovar a licença Alfa, limites de resgate (DefaultAmount) dos kits ligados ao grupo Alfa são restaurados.",
-        "Pessoal e intransferível — não substitui doação PIX nem cargos MOD/STAFF.",
-      ],
+      id: "Alfa", label: "Alfa", permissionGroup: "Alfa", catalogId: "licenca_alfa",
+      durationDays: 30, timedBonus: 75, accessTiers: [],
+      summary: "Concede acesso tempor\u00e1rio a itens e recursos espec\u00edficos e aumenta o ganho de \u00c2mbares por tempo de jogo. Os benef\u00edcios seguem as configura\u00e7\u00f5es vigentes do servidor.",
+      benefits: ["Validade de 30 dias a partir do resgate.", "Acesso a itens e recursos espec\u00edficos definidos para esta licen\u00e7a.", "Aumento no ganho de \u00c2mbares por tempo de jogo, conforme configura\u00e7\u00e3o vigente.", "Os benef\u00edcios podem ser atualizados pela administra\u00e7\u00e3o.", "Pessoal e intransfer\u00edvel - n\u00e3o substitui doa\u00e7\u00e3o PIX nem cargos MOD/STAFF."],
     },
     keyvault: {
-      id: "keyvault",
-      label: "Nuvem",
-      permissionGroup: "keyvault",
-      catalogId: "licenca_nuvem",
-      durationDays: 30,
-      priceAmber: 5000,
+      id: "keyvault", label: "Nuvem", permissionGroup: "keyvault", catalogId: "licenca_nuvem",
+      durationDays: 30, priceAmber: 5000, timedBonus: 0,
+      cloudMaxItems: 250, cloudCooldownSeconds: 30,
+      summary: "Cofre de invent\u00e1rio no cluster - /upload, /download e /nuvem (at\u00e9 250 pilhas); obrigat\u00f3ria para enviar ao Mercado P2P.",
+      benefits: ["Validade de 30 dias a partir do resgate.", "Sem ganho de \u00c2mbares por tempo de jogo.", "/upload envia pilhas transfer\u00edveis do invent\u00e1rio para o cofre do cluster.", "/download restaura os itens em qualquer mapa; permitido mesmo ap\u00f3s expirar a licen\u00e7a.", "/nuvem consulta quantas pilhas est\u00e3o no cofre.", "Obrigat\u00f3ria para enviar dinos ao Mercado P2P in-game, al\u00e9m das demais regras."],
+    },
+    keyfarm: {
+      id: "keyfarm", label: "Fazenda", permissionGroup: "keyfarm", catalogId: "licenca_fazenda",
       timedBonus: 0,
-      cycleMinutes: LICENSE_CYCLE_MINUTES,
-      defaultBonus: LICENSE_DEFAULT_BONUS,
-      accessTiers: [],
-      cloudMaxItems: 250,
-      cloudCooldownSeconds: 30,
-      summary:
-        "Cofre de inventário no cluster — /upload, /download e /nuvem (até 250 pilhas); obrigatória para enviar ao Mercado P2P.",
-      benefits: [
-        "Validade de 30 dias a partir do resgate (SKU licenca_nuvem, grupo keyvault).",
-        "Preço de referência: 5.000 Âmbares (prevalece o valor no catálogo no momento do resgate).",
-        "Sem bônus Timed Points — não altera o ganho de Âmbar por tempo online.",
-        "/upload — envia até 250 pilhas transferíveis do inventário para o cofre cluster-wide e esvazia o inventário (exige licença ativa).",
-        "/download — restaura os itens em qualquer mapa do cluster; permitido mesmo com a licença expirada (política atual do plugin).",
-        "/nuvem ou /cloud — consulta quantas pilhas estão no cofre.",
-        "Um snapshot por SteamID: novo /upload é recusado enquanto houver itens na nuvem (use /download antes).",
-        "Cooldown de 30 s entre operações de nuvem.",
-        "Obrigatória para enviar dinos ao Mercado P2P in-game (/enviar → /confirmar), além de imprint 100% e demais regras §8.7.",
-      ],
+      summary: "Acesso ao sistema Fazenda de Recursos: envie recursos eleg\u00edveis do invent\u00e1rio e acompanhe produ\u00e7\u00e3o e resgates na Minha \u00c1rea. Exige conta Discord vinculada.",
+      benefits: ["Envie recursos configurados do invent\u00e1rio para iniciar a produ\u00e7\u00e3o individual na Fazenda.", "Acompanhe estoque, produ\u00e7\u00e3o e pedidos de retirada na Minha \u00c1rea.", "Use /fazenda para preparar um envio e /fazconfirmar para confirm\u00e1-lo no jogo.", "Use /fazresgatar no jogo ap\u00f3s agendar uma retirada no site.", "A conta Discord precisa estar vinculada ao site para usar a Fazenda."],
     },
   };
 
@@ -167,15 +105,15 @@
       title: "Licenças",
       short: "Acesso temporário a conteúdos exclusivos e bônus de Âmbar por tempo online.",
       detailed:
-        "Licenças são permissões de 30 dias adquiridas com Âmbares. Elas liberam resgates " +
+        "Licen\u00e7as s\u00e3o permiss\u00f5es com validade indicada no cat\u00e1logo. Elas liberam resgates " +
         "bloqueados e aumentam quanto Âmbar você ganha automaticamente enquanto joga. " +
         "Não substituem doação nem garantem VIP automático — são conquistadas no sistema de resgates.",
       notes: [
-        "Validade típica: 30 dias a partir do resgate (preços e bônus: ver painel Benefícios por licença abaixo).",
-        "Gamma / Beta / Alfa: bônus Timed Points a cada 30 min online (+25 / +50 / +75), somados ao Default (+25).",
-        "Acesso a itens/kits ItensAlfa e outros com cadeado: Gamma→Gama+Delta, Beta→Beta+Gama, Alfa→Alfa+Beta (Descriptions do catálogo).",
-        "Licença Nuvem (keyvault): cofre /upload · /download · /nuvem (até 250 pilhas) e envio ao Mercado P2P.",
-        "Renovação restaura limites DefaultAmount dos kits do mesmo grupo de permissão.",
+        "Validade, valores e benef\u00edcios dependem do cat\u00e1logo vigente.",
+        "Algumas licen\u00e7as concedem acesso a itens e recursos espec\u00edficos e aumentam o ganho de \u00c2mbares por tempo jogado.",
+        "Licen\u00e7a Nuvem: cofre de invent\u00e1rio com /upload, /download e /nuvem; tamb\u00e9m necess\u00e1ria para enviar dinos ao Mercado P2P.",
+        "Licen\u00e7a Fazenda: produ\u00e7\u00e3o passiva, agendamento de retiradas e resgate no jogo; exige Discord vinculado.",
+        "Renova\u00e7\u00e3o restaura limites de resgate dos kits ligados ao grupo da licen\u00e7a, quando aplic\u00e1vel.",
       ],
       warnings: [
         "Licença expirada remove o bônus Timed Points e o acesso a itens/kits que exigem o grupo.",
@@ -300,7 +238,7 @@
       warnings.unshift(`Sem licença ${perms.join(" / ")}, o resgate ficará bloqueado.`);
     }
     if (category === "licenses" && tierInfo) {
-      warnings.push(`Licença ${tierInfo.label} expira em ${tierInfo.durationDays} dias.`);
+      if (tierInfo.durationDays) warnings.push(`Licença ${tierInfo.label} expira em ${tierInfo.durationDays} dias.`);
       if (tierInfo.label === "Nuvem") {
         warnings.push("Máximo 250 itens por upload. Use /download antes de um novo /upload.");
         warnings.push("Download permitido mesmo após expirar a licença (itens já armazenados).");
@@ -349,20 +287,13 @@
       }
     } else if (category === "licenses") {
       if (tierInfo) {
-        if (tierInfo.timedBonus > 0) {
-          shortDescription =
-            `Licença ${tierInfo.label} — ${tierInfo.durationDays} dias, +${tierInfo.timedBonus} Âmbar por ciclo online.`;
-        } else {
-          shortDescription =
-            `Licença ${tierInfo.label} — ${tierInfo.durationDays} dias. ${tierInfo.summary}`;
-        }
-        if (!detailedDescription) detailedDescription = tierInfo.summary;
+        const duration = tierInfo.durationDays ? `- ${tierInfo.durationDays} dias. ` : "- ";
+        shortDescription = `Licen\u00e7a ${tierInfo.label} ${duration}${tierInfo.summary}`;
+        detailedDescription = tierInfo.summary;
       } else {
-        shortDescription = `Licença ${name} — acesso temporário a conteúdos exclusivos.`;
-        if (!detailedDescription) {
-          detailedDescription =
-            "Licenças liberam resgates bloqueados e aumentam seu ganho de Âmbar por tempo de jogo.";
-        }
+        shortDescription = `Licen\u00e7a ${name} - acesso tempor\u00e1rio a conte\u00fados exclusivos.`;
+        detailedDescription =
+          "Concede acesso a itens e recursos espec\u00edficos e pode aumentar o ganho de \u00c2mbares por tempo de jogo, conforme as configura\u00e7\u00f5es vigentes.";
       }
     }
 
@@ -448,21 +379,16 @@
 
   function licenseTimedMeta(t) {
     if (!t) return "";
-    if (t.timedBonus > 0) {
-      const total = (t.defaultBonus || LICENSE_DEFAULT_BONUS) + t.timedBonus;
-      const mins = t.cycleMinutes || LICENSE_CYCLE_MINUTES;
-      return `+${t.timedBonus} Âmbar / ${mins} min · total ${total} com Default`;
-    }
-    return "Sem bônus Timed Points";
+    return t.timedBonus > 0
+      ? "Ganho de \u00c2mbares por tempo de jogo"
+      : "Sem ganho de \u00c2mbares por tempo";
   }
 
   function licenseAccessMeta(t) {
     if (!t) return "";
-    if (t.id === "keyvault") return "Cofre cluster + Mercado P2P";
-    if (t.accessTiers && t.accessTiers.length) {
-      return `Acesso catálogo: ${t.accessTiers.join(" + ")}`;
-    }
-    return `Grupo ${t.permissionGroup || t.label}`;
+    if (t.id === "keyvault") return "Cofre de invent\u00e1rio e Mercado P2P";
+    if (t.id === "keyfarm") return "Fazenda de Recursos";
+    return "Acesso a itens e recursos espec\u00edficos";
   }
 
   function renderLicenseTiersGrid(activeId) {
@@ -470,21 +396,28 @@
     const selected =
       activeId && LICENSE_TIERS[activeId] ? activeId : tiers[0] ? tiers[0].id : "Gamma";
 
-    const tabs = tiers
-      .map((t) => {
-        const active = t.id === selected ? " is-active" : "";
-        return `
+    const renderTab = (t) => {
+      const active = t.id === selected ? " is-active" : "";
+      return `
       <button type="button" class="redeem-license-tab${active}"
         role="tab" aria-selected="${t.id === selected ? "true" : "false"}"
         data-license-tier="${esc(t.id)}"
         onclick="RedeemDocs.selectLicenseTierTab('${esc(t.id)}')">
         <span class="redeem-license-tab__name">${esc(t.label)}</span>
-        <span class="redeem-license-tab__hint">${
-          t.timedBonus > 0 ? `+${t.timedBonus}/ciclo` : "cofre"
-        }</span>
+        <span class="redeem-license-tab__hint">${t.timedBonus > 0 ? "Ganho por tempo" : "Sem bônus por tempo"}</span>
       </button>`;
-      })
-      .join("");
+    };
+    const withAmber = tiers.filter((t) => t.timedBonus > 0);
+    const withoutAmber = tiers.filter((t) => !(t.timedBonus > 0));
+    const tabs = `
+      <section class="redeem-license-group redeem-license-group--amber">
+        <h4 class="redeem-license-group__title">Com ganho de Âmbares por tempo jogado</h4>
+        <div class="redeem-license-group__tabs">${withAmber.map(renderTab).join("") || "<span>?</span>"}</div>
+      </section>
+      <section class="redeem-license-group redeem-license-group--special">
+        <h4 class="redeem-license-group__title">Sem ganho de Âmbares por tempo</h4>
+        <div class="redeem-license-group__tabs">${withoutAmber.map(renderTab).join("") || "<span>?</span>"}</div>
+      </section>`;
 
     const panels = tiers
       .map((t) => {
