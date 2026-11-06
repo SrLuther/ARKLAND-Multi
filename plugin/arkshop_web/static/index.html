@@ -11605,6 +11605,11 @@
           <div class="card">
             <div id="map-members-grid" class="map-members-grid">Carregando…</div>
           </div>
+          <div id="map-members-unregistered-wrap" class="card hidden" style="margin-top:14px;border-color:var(--warning,#f0ad4e);">
+            <div class="card-title">Registros com ID de servidor fora do cadastro</div>
+            <p style="font-size:12px;color:var(--text2);margin:0 0 12px;">Estes dados chegaram pelo TribeSync, mas o ID enviado pelo plugin não corresponde a nenhum servidor cadastrado. Eles ficam separados para não serem atribuídos ao mapa errado. Confira <code>Settings.ServerId</code> ou <code>CrossChat.ServerId</code> no CustomShop de cada servidor.</p>
+            <div id="map-members-unregistered" class="map-members-grid"></div>
+          </div>
           <div id="map-member-detail-panel" class="card map-member-detail-panel hidden"></div>
         </div>
       </div>
@@ -17841,7 +17846,7 @@ async function loadMyArea(opts) {
       ["Total recebido em doações", ledgerAmber("donations")],
       ["Total recebido da administração", ledgerAmber("admin")],
       ["Total ganho no mercado", ledgerAmber("market")],
-      ["Total ganho em SeasonLand", ledgerAmber("seasonland")],
+      ["Total ganho em SeasonLand", coverage.seasonland ? fmtAmber(at.seasonland) : "Indisponível"],
       ["Total ganho em sorteios", ledgerAmber("lottery")],
       ["Total ganho em sugestões", ledgerAmber("suggestions")],
       ["Total ganho em votações", ledgerAmber("votes")],
@@ -17849,7 +17854,7 @@ async function loadMyArea(opts) {
     ];
     amberAudit.innerHTML = amberRows.map(([label, value]) =>
       `<div class="form-group"><label>${escHtml(label)}</label><input readonly value="${escHtml(value)} ${value === "Indisponível" ? "" : escHtml(CURRENCY.plural)}" /></div>`
-    ).join("") + `<div style="grid-column:1/-1;color:var(--text2);font-size:11px;">${coverage.in_game ? "Ganho em jogo consultado no histórico de recompensas TimedPoints do ARKBANK." : "O histórico TimedPoints do ARKBANK não está disponível neste banco."} ${coverage.ledger ? "As demais categorias consideram movimentos registrados no ledger; períodos anteriores à auditoria de cada fonte podem não estar completos." : "O ledger de movimentações não está disponível neste banco; estes totais não podem ser apresentados."}</div>`;
+    ).join("") + `<div style="grid-column:1/-1;color:var(--text2);font-size:11px;">${coverage.in_game ? "Ganho em jogo consultado no histórico de recompensas TimedPoints do ARKBANK." : "O histórico TimedPoints do ARKBANK não está disponível neste banco."} ${coverage.seasonland ? "SeasonLand considera resgates e reenvios registrados no histórico da temporada." : "O histórico de resgates do SeasonLand não está disponível neste banco."} ${coverage.ledger ? "As demais categorias consideram movimentos registrados no ledger; períodos anteriores à auditoria de cada fonte podem não estar completos." : "O ledger de movimentações não está disponível neste banco; estes totais não podem ser apresentados."}</div>`;
   }
   window._playerBalance = summary.points ?? 0;
   _balanceLastFetchMs = Date.now();
@@ -33052,6 +33057,16 @@ async function loadMapMembersAdmin() {
       return;
     }
     _mapMembersCache = d.maps || [];
+    const orphanWrap = document.getElementById("map-members-unregistered-wrap");
+    const orphanGrid = document.getElementById("map-members-unregistered");
+    const orphanMaps = d.unregistered || [];
+    if (orphanWrap && orphanGrid) {
+      orphanWrap.classList.toggle("hidden", orphanMaps.length === 0);
+      orphanGrid.innerHTML = orphanMaps.map(m => {
+        const rows = (m.items || []).map(it => `<div class="map-members-row"><div style="min-width:0;flex:1;"><div class="mm-name">${escHtml(it.character_name || it.steam_id || "?")}</div><div class="mm-meta">SteamID ${escHtml(it.steam_id || "—")}${it.tribe_name ? ` · Tribo ${escHtml(it.tribe_name)}` : ""}</div></div><button type="button" class="btn btn-ghost btn-sm" onclick="openMapMemberDados('${escHtml(m.server_id)}','${escHtml(it.steam_id)}')">DADOS</button></div>`).join("");
+        return `<div class="map-members-col card" style="padding:12px;margin:0;"><h3>${escHtml(m.label || m.server_id)} <span class="mm-meta">(${Number(m.total || 0)})</span></h3><div class="mm-meta" style="margin:4px 0 9px;color:var(--warning,#f0ad4e);">ID sem servidor cadastrado: <code>${escHtml(m.server_id)}</code></div><div class="map-members-list">${rows || "<span class='mm-meta'>Sem membros neste ID.</span>"}</div></div>`;
+      }).join("");
+    }
     if (!_mapMembersCache.length) {
       grid.innerHTML = "<p style='color:var(--text2)'>Nenhum servidor cadastrado. Configure em Servidores.</p>";
       return;
@@ -34686,6 +34701,13 @@ async function teamsEditIdentity() {
   tagInput.value = current.tag || "";
   const policy = document.getElementById("tm-identity-policy");
   if (policy) policy.textContent = "Tag opcional: 2 a 5 letras ou números. Alterar nome ou tag segue o mesmo intervalo e custo configurados para renomear a equipe.";
+  // Minha Área renders the same team card outside #page-teams. The modal used
+  // to live inside that hidden page, so removing its own `hidden` class did
+  // not make it visible from the other entry point. Promote it to body level.
+  const identityModal = document.getElementById("tm-edit-identity-modal");
+  if (identityModal && identityModal.closest(".page")) {
+    document.body.appendChild(identityModal);
+  }
   openModal("tm-edit-identity-modal");
   try {
     const d = await fetchJson("/api/teams/status");

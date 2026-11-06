@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.25]
+- Itens configurados e habilitados são avaliados pela classe de entrada antes de qualquer tratamento especial; Paragon Soul sem metadados de espécie segue o fluxo configurado normal.
+
 ## [0.1.24]
 - `/fazenda` aceita stacks de recursos: envia uma unidade e mantém o restante no inventário, sem perder o stack em falhas de sincronização.
 

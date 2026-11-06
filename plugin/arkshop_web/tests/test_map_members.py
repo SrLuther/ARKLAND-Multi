@@ -235,7 +235,7 @@ def test_offline_player_data_identity_is_visible(db):
     assert player["is_offline_identity"] is True
 
 
-def test_payload_surfaces_plugin_server_ids_missing_from_catalog(db):
+def test_payload_separates_plugin_server_ids_missing_from_catalog(db):
     db.execute(text("""
         INSERT INTO tribe_members
           (server_id, tribe_id, tribe_name, steam_id, character_name, is_owner,
@@ -245,8 +245,8 @@ def test_payload_surfaces_plugin_server_ids_missing_from_catalog(db):
     """))
     db.commit()
     payload = build_map_members_payload(db, servers=[{"server_id": SERVER_BR, "label": "Brighamia"}])
-    unknown = next(item for item in payload["maps"] if item["server_id"] == "plugin-only-map-id")
-    assert unknown["registered"] is False
+    assert [item["server_id"] for item in payload["maps"]] == [SERVER_BR]
+    unknown = next(item for item in payload["unregistered"] if item["server_id"] == "plugin-only-map-id")
     assert unknown["total"] == 1
 
 

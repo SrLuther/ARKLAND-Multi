@@ -1,13 +1,12 @@
 {
-    "version": "1.11.43",
+    "version": "1.11.44",
     "date": "2026-11-05",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.43/ARKLAND-Multi-Setup-v1.11.43.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.44/ARKLAND-Multi-Setup-v1.11.44.exe",
     "changelog": [
-        "Resgates: exigem conta Discord vinculada; ao tentar resgatar sem vínculo, o site mostra um tutorial e um atalho para Minha Área.",
-        "Fazenda e Nuvem: acesso a estoque, agendamentos, entregas e operações de inventário também exige Discord vinculado.",
-        "Minha Equipe: layout fluido ocupa a largura disponível do monitor e reorganiza os cards conforme o espaço da tela.",
-        "Fazenda: /fazenda aceita Element em stack, envia uma unidade e mantém o restante no inventário.",
-        "Licenças: descrições duráveis para tiers, Nuvem e Fazenda com explicações próprias e separação visual por bônus de Âmbar por tempo.",
-        "CustomShop atualizado para 1.10.53."
+        "Fazenda: elegibilidade de envio segue os recursos configurados e habilitados; Paragon Soul sem metadados de espécie agora pode usar o fluxo de recurso configurado.",
+        "Auditoria de Âmbares: total do SeasonLand passa a somar recompensas efetivamente resgatadas e reenvios registrados no histórico da temporada.",
+        "Minha Equipe: botão Editar Identidade abre corretamente a janela ao ser acionado pelo card da Minha Área.",
+        "Membros por mapa: IDs de TribeSync fora do cadastro são separados dos servidores reais e exibidos como diagnóstico, sem atribuir jogadores ao mapa errado.",
+        "FazendaRecursos atualizado para 0.1.25."
     ]
 }

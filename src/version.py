@@ -4,13 +4,24 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.43"
+APP_VERSION: str = "1.11.44"
 BUILD_DATE: str = "2026-11-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.44",
+        "date": "2026-11-05",
+        "changes": [
+            "Fazenda: elegibilidade de envio segue os recursos configurados e habilitados; Paragon Soul sem metadados de espécie agora pode usar o fluxo de recurso configurado.",
+            "Auditoria de Âmbares: total do SeasonLand passa a somar recompensas efetivamente resgatadas e reenvios registrados no histórico da temporada.",
+            "Minha Equipe: botão Editar Identidade abre corretamente a janela ao ser acionado pelo card da Minha Área.",
+            "Membros por mapa: IDs de TribeSync fora do cadastro são separados dos servidores reais e exibidos como diagnóstico, sem atribuir jogadores ao mapa errado.",
+            "FazendaRecursos atualizado para 0.1.25.",
+        ],
+    },
     {
         "version": "1.11.43",
         "date": "2026-11-05",

@@ -1,9 +1,19 @@
 # Changelog
 
-<!-- Gerado: 2026-11-05 23:21:54 -->
-<!-- Total de versões: 536 | Primeira: 1.11.43 -->
+<!-- Gerado: 2026-11-06 00:23:55 -->
+<!-- Total de versões: 537 | Primeira: 1.11.44 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.44] - 2026-11-05
+
+### Other
+
+- Fazenda: elegibilidade de envio segue os recursos configurados e habilitados; Paragon Soul sem metadados de espécie agora pode usar o fluxo de recurso configurado.
+- Auditoria de Âmbares: total do SeasonLand passa a somar recompensas efetivamente resgatadas e reenvios registrados no histórico da temporada.
+- Minha Equipe: botão Editar Identidade abre corretamente a janela ao ser acionado pelo card da Minha Área.
+- Membros por mapa: IDs de TribeSync fora do cadastro são separados dos servidores reais e exibidos como diagnóstico, sem atribuir jogadores ao mapa errado.
+- FazendaRecursos atualizado para 0.1.25.
 
 ## [1.11.43] - 2026-11-05
 

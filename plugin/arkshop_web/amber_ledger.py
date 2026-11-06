@@ -682,7 +682,7 @@ def player_amber_totals(db: Session, steam_id: str) -> dict[str, Any]:
         "suggestions": 0,
         "votes": 0,
         "other": 0,
-        "coverage": {"in_game": False, "ledger": False},
+        "coverage": {"in_game": False, "ledger": False, "seasonland": False},
     }
     if not sid:
         return empty
@@ -758,9 +758,24 @@ def player_amber_totals(db: Session, steam_id: str) -> dict[str, Any]:
     except Exception:
         db.rollback()
 
+    # SeasonLand credits are persisted in audit_events by the claim/regrant
+    # flow, not in amber_ledger. Read the actual Amber amount recorded for each
+    # successful claim so older rewards are included in the player's audit.
+    seasonland_known = False
+    try:
+        row = db.execute(text(
+            "SELECT COALESCE(SUM(amount), 0) FROM audit_events "
+            "WHERE actor_steam_id = :sid AND amount > 0 "
+            "AND event_type IN ('season_pass_claim', 'season_pass_admin_resend')"
+        ), {"sid": sid}).fetchone()
+        totals["seasonland"] = int(row[0] or 0) if row else 0
+        seasonland_known = True
+    except Exception:
+        db.rollback()
+
     return {
         **totals,
-        "coverage": {"in_game": in_game_known, "ledger": ledger_known},
+        "coverage": {"in_game": in_game_known, "ledger": ledger_known, "seasonland": seasonland_known},
     }
 
 

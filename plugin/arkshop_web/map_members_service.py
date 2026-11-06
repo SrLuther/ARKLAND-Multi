@@ -268,6 +268,7 @@ def build_map_members_payload(
         if discovered_id and map_name and discovered_id not in latest_map_names:
             latest_map_names[discovered_id] = map_name
     target_ids: list[str]
+    unregistered_ids: list[str] = []
     if server_id:
         target_ids = [str(server_id).strip()]
     else:
@@ -287,8 +288,8 @@ def build_map_members_payload(
         """)).fetchall()
         for row in discovered:
             discovered_id = str(row[0] or "").strip()
-            if discovered_id and discovered_id not in target_ids:
-                target_ids.append(discovered_id)
+            if discovered_id and discovered_id not in target_ids and discovered_id not in unregistered_ids:
+                unregistered_ids.append(discovered_id)
 
     maps_out: list[dict[str, Any]] = []
     for sid in target_ids:
@@ -302,4 +303,16 @@ def build_map_members_payload(
             "offset": block["offset"],
             "items": block["items"],
         })
-    return {"ok": True, "maps": maps_out}
+    unregistered_out: list[dict[str, Any]] = []
+    if not server_id:
+        for sid in unregistered_ids:
+            block = list_members_for_server(db, server_id=sid, limit=limit, offset=offset)
+            unregistered_out.append({
+                "server_id": sid,
+                "label": latest_map_names.get(sid) or sid,
+                "total": block["total"],
+                "limit": block["limit"],
+                "offset": block["offset"],
+                "items": block["items"],
+            })
+    return {"ok": True, "maps": maps_out, "unregistered": unregistered_out}

@@ -262,17 +262,24 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         item->GetItemName(&item_name, false, true, nullptr);
         const std::string class_text = class_name.ToString();
         const int quantity = std::max(1, item->GetItemQuantity());
-        if (IsSoulCandidate(class_text, {}, {}, {})) {
-            if (quantity != 1) continue;
+        // Creature Souls use the dedicated storage flow only when the item has
+        // valid species metadata and its class is enabled in the farm config.
+        // A regular configured Paragon Soul without SpeciesSoul metadata must
+        // fall through to the normal configured-resource matcher below.
+        if (IsSoulCandidate(class_text, {}, {}, {}) && quantity == 1) {
             std::string species;
-            if (!GetSpeciesBlueprint(item, species)) continue;
-            const bool already_owned = std::any_of(state.souls.begin(), state.souls.end(), [&](const auto& row) {
-                return row.second.species_blueprint == species && row.second.status != "rolled_back";
+            const auto configured_soul = std::find_if(definitions.begin(), definitions.end(), [&](const auto& def) {
+                return def.enabled && MatchesConfiguredClass(class_text, def.input_class);
             });
-            if (already_owned || !previewed_species.insert(species).second) continue;
-            found.push_back({ItemIdText(item->ItemIDField()), class_text, species,
-                item_name.ToString(), {}, quantity, true});
-            continue;
+            if (configured_soul != definitions.end() && GetSpeciesBlueprint(item, species)) {
+                const bool already_owned = std::any_of(state.souls.begin(), state.souls.end(), [&](const auto& row) {
+                    return row.second.species_blueprint == species && row.second.status != "rolled_back";
+                });
+                if (already_owned || !previewed_species.insert(species).second) continue;
+                found.push_back({ItemIdText(item->ItemIDField()), class_text, species,
+                    item_name.ToString(), {}, quantity, true});
+                continue;
+            }
         }
         for (const auto& def : definitions) {
             if (!def.enabled || !MatchesConfiguredClass(class_text, def.input_class)) continue;
@@ -285,7 +292,7 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         }
     }
     if (found.empty()) {
-        Say(c, "Não encontrei recursos elegíveis para envio. O item precisa estar configurado e habilitado na Fazenda; Paragon Souls também precisam estar sem empilhar e cada espécie só pode ser enviada uma vez.", FColorList::Yellow);
+        Say(c, "Não encontrei itens do inventário correspondentes a recursos configurados e habilitados na Fazenda.", FColorList::Yellow);
         return;
     }
     const int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
