@@ -2,15 +2,17 @@
 
 **Atualizado:** 06/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicação:** versão estável 1.11.46 autorizada pelo usuário; build e publicação em andamento.
+**Publicação:** versão estável 1.11.47 autorizada pelo usuário; build e publicação em andamento.
 
 ## Em andamento
 
-- [ ] **WebStore - Sorteio: participantes e legenda.** Implementação local separa os números do jogador dos demais, mostra nomes públicos na lista de participantes, pagina a lista e explica os emojis das origens com atalhos condicionais. Evidência local: 44 testes do serviço passaram e a sintaxe dos 10 scripts inline passou. Falta revisão visual integrada e publicação estável, que permanece cancelada até novo pedido.
+- [ ] **WebStore - Votações: identidade visual e formatação de descrições.** Editor com parágrafos, negrito, itálico, sublinhado, subtítulos, listas e citações; descrições sanitizadas no servidor. Falta revisar visualmente e validar persistência/renderização com votações formatadas.
+
+- [ ] **WebStore - Sorteio: participantes e legenda.** Implementação local separa os números do jogador e da equipe, mostra nomes públicos na lista, pagina os participantes e explica as origens com atalhos condicionais. Falta revisão visual integrada e validação no site publicado.
 
 - [ ] **Minha Área - bônus dos marcos no ganho de Âmbares.** Implementação local agora considera `StackRewards` (soma ou maior grupo), `TimedPointsReward.Enabled`, o valor `Default` inclusive quando zero e aplica o bônus dos marcos com divisão inteira igual ao plugin. Validação local: `py_compile` e 57 testes de licenças/equipes passaram; 10 scripts inline passaram na checagem de sintaxe antes da última alteração de texto. Falta validar visualmente com configurações reais do servidor e confirmar que o valor coincide no jogo.
 
-- [ ] **WebStore - reformulação da barra lateral.** Preservar nome e IDs visíveis junto ao nome. Foram aplicados estilos para simplificar a marca, destacar o cartão de conta/saldo e organizar ícones e seleção do menu; o controle de Modo Staff é um indicador circular verde/vermelho ao lado de Sair. Falta revisão visual em diferentes larguras e confirmar que nome, SteamID e DiscordID permanecem legíveis sem corte.
+- [ ] **WebStore - reformulação da barra lateral.** Preservar nome e IDs visíveis junto ao nome. Foram aplicados estilos para simplificar a marca, destacar o cartão de conta/saldo e organizar ícones e seleção do menu; o controle de Modo Staff é um indicador circular verde/vermelho ao lado de Sair. Falta revisão visual em diferentes larguras e confirmar que nome, SteamID e DiscordID permanecem legíveis sem corte. Os ícones de Catálogo e Sugestões também foram integrados aos menus e cabeçalhos.
 
 - [ ] **Bot Discord - sincronização do apelido com personagem e tribo.** Implementação local concluída: o bot consulta, pela API interna autenticada, contas vinculadas e a identidade mais recente sincronizada do jogo; define o apelido no formato `[NomeDaTribo] NomeDoPersonagem` (exemplo `[BøT] Ciano`). Cog incluído no carregamento e permissão `manage_nicknames` no convite. Validação local registrada: 63 testes do bot e 29 testes da rota passaram. Falta validar com bot/guilda reais, permissões e hierarquia de cargos após instalação.
 

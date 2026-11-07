@@ -1438,20 +1438,56 @@ def _resolve_display_name(db: Session, steam_id: str) -> str:
         except Exception:
             return f"Equipe #{tid}"
         return f"Equipe #{tid}"
+    # The public market name lives in market_player_profile, not store_users.
+    # Read each source independently because older installations may not have
+    # completed every migration yet.
+    try:
+        has_market_name = _table_has_column(db, "market_player_profile", "market_display_name")
+    except Exception:
+        has_market_name = False
+    if has_market_name:
+        try:
+            row = db.execute(
+                text("SELECT market_display_name FROM market_player_profile WHERE steam_id = :sid LIMIT 1"),
+                {"sid": steam_id},
+            ).fetchone()
+            market_name = _row_val(row, "market_display_name") if row else None
+            if market_name and str(market_name).strip() and str(market_name).strip().casefold() != "jogador":
+                return str(market_name).strip()
+        except Exception:
+            pass
     try:
         row = db.execute(
-            text(
-                "SELECT market_display_name, steam_persona FROM store_users "
-                "WHERE steam_id = :sid LIMIT 1"
-            ),
+            text("SELECT steam_persona, display_name FROM store_users WHERE steam_id = :sid LIMIT 1"),
             {"sid": steam_id},
         ).fetchone()
-    except OperationalError:
-        return "Jogador"
-    if row:
-        for col in (_row_val(row, "market_display_name"), _row_val(row, "steam_persona")):
-            if col and str(col).strip():
-                return str(col).strip()
+        if row:
+            for col in (_row_val(row, "steam_persona"), _row_val(row, "display_name")):
+                value = str(col or "").strip()
+                if value and value != steam_id and value.casefold() != "jogador":
+                    return value
+    except Exception:
+        pass
+    # TribeSync may have a more recent in-game character name than the account
+    # profile. Use it when the player is a known active team member.
+    try:
+        row = db.execute(
+            text("""
+                SELECT display_name FROM team_members
+                WHERE steam_id = :sid AND status = 'ACTIVE'
+                ORDER BY joined_at DESC LIMIT 1
+            """),
+            {"sid": steam_id},
+        ).fetchone()
+        member_name = _row_val(row, "display_name") if row else None
+        if (
+            member_name and str(member_name).strip()
+            and str(member_name).strip() != steam_id
+            and str(member_name).strip().casefold() != "jogador"
+        ):
+            return str(member_name).strip()
+    except Exception:
+        pass
     return "Jogador"
 
 
@@ -1929,6 +1965,22 @@ def get_participants_public(
             f"ORDER BY {sort_key} DESC LIMIT :lim OFFSET :off"
         )
     rows = db.execute(text(agg_sql), params).fetchall()
+    viewer_team_id: int | None = None
+    if viewer_steam_id:
+        try:
+            team_row = db.execute(
+                text("""
+                    SELECT m.team_id FROM team_members m
+                    JOIN teams t ON t.id = m.team_id
+                    WHERE m.steam_id = :sid AND m.status = 'ACTIVE' AND t.status = 'ACTIVE'
+                    LIMIT 1
+                """),
+                {"sid": str(viewer_steam_id)},
+            ).fetchone()
+            viewer_team_id = int(_row_val(team_row, "team_id")) if team_row else None
+        except Exception:
+            # Legacy schemas without team tables still expose personal numbers.
+            viewer_team_id = None
     participants = []
     for r in rows:
         sid = str(r.steam_id)
@@ -1945,7 +1997,13 @@ def get_participants_public(
             # exposed; Steam IDs and account identifiers remain private.
             "display_name": name,
             "display_name_masked": mask_display_name(name),  # backwards compatibility
-            "is_mine": bool(viewer_steam_id and sid == str(viewer_steam_id)),
+            "is_mine": bool(
+                viewer_steam_id
+                and (
+                    sid == str(viewer_steam_id)
+                    or (viewer_team_id is not None and parse_team_id_from_holder(sid) == viewer_team_id)
+                )
+            ),
             "numbers": numbers,
             "last_assigned_at": _iso_display(_parse_dt(r.last_at)),
         })

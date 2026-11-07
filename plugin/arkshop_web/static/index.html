@@ -2149,6 +2149,27 @@
       margin-bottom: 20px;
     }
     .betland-title-logo { width:38px; height:38px; object-fit:contain; border-radius:50%; vertical-align:middle; margin-right:8px; }
+    .polls-title-logo { width:38px; height:38px; object-fit:contain; vertical-align:middle; margin-right:8px; filter:drop-shadow(0 2px 5px rgba(232,120,32,.22)); }
+    .suggestions-title-logo { width:38px; height:38px; object-fit:contain; vertical-align:middle; margin-right:8px; }
+    .poll-description { color:var(--text2); font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+    .poll-description p { margin:0 0 10px; }
+    .poll-description p:last-child { margin-bottom:0; }
+    .poll-description h2,.poll-description h3 { color:var(--text); line-height:1.35; margin:14px 0 7px; }
+    .poll-description h2 { font-size:17px; }
+    .poll-description h3 { font-size:15px; }
+    .poll-description ul,.poll-description ol { margin:7px 0 12px; padding-left:24px; }
+    .poll-description blockquote { margin:10px 0; padding:8px 12px; border-left:3px solid var(--amber); background:rgba(232,120,32,.06); border-radius:0 8px 8px 0; }
+    .poll-editor { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface2); }
+    .poll-editor-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:8px; border-bottom:1px solid var(--border); background:rgba(255,255,255,.025); }
+    .poll-editor-toolbar button { min-width:34px; height:32px; padding:0 9px; border:1px solid var(--border); border-radius:7px; background:var(--surface); color:var(--text); cursor:pointer; font-size:12px; font-weight:700; }
+    .poll-editor-toolbar button:hover { border-color:var(--amber); color:var(--amber); }
+    .poll-editor-toolbar__divider { width:1px; height:22px; background:var(--border); margin:0 3px; }
+    .poll-editor-content { min-height:180px; max-height:460px; overflow:auto; padding:14px; color:var(--text); font-size:13px; line-height:1.7; outline:none; }
+    .poll-editor-content:empty::before { content:attr(data-placeholder); color:var(--text2); opacity:.8; pointer-events:none; }
+    .poll-editor-content p { margin:0 0 10px; }
+    .poll-editor-content h2,.poll-editor-content h3 { margin:14px 0 7px; }
+    .poll-editor-content ul,.poll-editor-content ol { padding-left:24px; }
+    .poll-editor-help { padding:7px 11px; border-top:1px solid var(--border); color:var(--text2); font-size:11px; }
     .nav-item--child { margin-left:14px; width:calc(100% - 14px); padding-left:28px; border-left:2px solid rgba(232,120,32,.3); font-size:12px; }
     .team-page-tabs { margin:0 0 12px; }
     .team-page-intro {
@@ -7706,7 +7727,7 @@
     #page-catalog .catalog-hero__facts { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
     #page-catalog .catalog-hero__facts span { padding:6px 10px; border:1px solid rgba(255,255,255,.09); border-radius:999px; background:rgba(255,255,255,.035); color:#d2dcde; font-size:11px; font-weight:600; }
     #page-catalog .catalog-hero__facts span::before { content:"✦"; margin-right:7px; color:#f1b34f; }
-    #page-catalog .catalog-hero__mark { position:absolute; right:28%; top:50%; color:rgba(232,160,32,.075); font-size:190px; line-height:1; transform:translateY(-50%); pointer-events:none; }
+    #page-catalog .catalog-hero__mark { position:absolute; right:28%; top:50%; width:190px; height:190px; object-fit:contain; opacity:.11; transform:translateY(-50%); pointer-events:none; }
     #page-catalog .catalog-hero__meta { position:relative; z-index:1; display:grid; justify-items:stretch; gap:9px; min-width:216px; }
     #page-catalog .catalog-points { display:grid; grid-template-columns:auto auto 1fr; gap:7px 10px; align-items:center; padding:12px 14px; border-color:rgba(232,160,32,.42); border-radius:14px; background:linear-gradient(145deg,rgba(232,120,32,.16),rgba(8,13,16,.78)); }
     #page-catalog .catalog-points__label { grid-column:1/-1; color:#b8c3c5; font-size:10px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
@@ -7740,14 +7761,14 @@
     #page-catalog .item-card__footer { margin-top:auto; }
     @media (max-width:900px) {
       #page-catalog .catalog-hero { grid-template-columns:minmax(0,1fr) 190px; gap:16px; padding:24px; }
-      #page-catalog .catalog-hero__mark { right:24%; font-size:150px; }
+      #page-catalog .catalog-hero__mark { right:24%; width:150px; height:150px; }
       #page-catalog .catalog-hero__meta { min-width:0; }
       #page-catalog .catalog-hero__title { font-size:34px; }
       #page-catalog .catalog-tab--market { margin-left:0; }
     }
     @media (max-width:700px) {
       #page-catalog .catalog-hero { grid-template-columns:minmax(0,1fr); min-height:0; gap:18px; padding:23px 18px; border-radius:18px; }
-      #page-catalog .catalog-hero__mark { right:7%; top:32%; font-size:112px; }
+      #page-catalog .catalog-hero__mark { right:7%; top:32%; width:112px; height:112px; }
       #page-catalog .catalog-hero__copy { max-width:100%; }
       #page-catalog .catalog-hero__title { font-size:32px; }
       #page-catalog .catalog-hero__tagline { max-width:100%; font-size:13px; }
@@ -8107,7 +8128,7 @@
       <span class="nav-icon">🔗</span> Discord — Vinculação
     </div>
     <div class="nav-item admin-only" data-page="polls-admin" onclick="nav(this)">
-      <span class="nav-icon">🗳️</span> Votações
+      <span class="nav-icon nav-icon--img"><img src="/votacoes.png" alt="" width="18" height="18" /></span> Votações
     </div>
     <div class="nav-item admin-only" data-page="lottery-admin" onclick="nav(this)">
       <span class="nav-icon nav-icon--img"><img src="/betland.jpg" alt="" width="18" height="18" /></span> BetLand — Administração
@@ -8119,7 +8140,7 @@
       <span class="nav-icon">🧬</span> Dino Lab
     </div>
     <div class="nav-item admin-only" data-page="sugestoes-admin" onclick="nav(this)">
-      <span class="nav-icon">💡</span> Sugestões
+      <span class="nav-icon nav-icon--img"><img src="/sugestao.png" alt="" width="18" height="18" /></span> Sugestões
     </div>
     <div class="nav-item admin-only" data-page="midias-admin" onclick="nav(this)">
       <span class="nav-icon">🎬</span> Vídeos (Tutoriais)
@@ -8171,7 +8192,7 @@
       <span class="nav-icon">🏠</span> Início
     </div>
     <div class="nav-item" data-page="catalog" onclick="nav(this)">
-      <span class="nav-icon">📦</span> Catálogo
+      <span class="nav-icon nav-icon--img"><img src="/catalogo.png" alt="" width="18" height="18" /></span> Catálogo
     </div>
     <div class="nav-item" data-page="market" hidden aria-hidden="true" style="display:none !important;"></div>
     <div class="nav-item" data-page="downloads" onclick="nav(this)">
@@ -8184,7 +8205,7 @@
       <span class="nav-icon">📚</span> Guia de conteúdo
     </div>
     <div class="nav-item" data-page="polls" onclick="nav(this)">
-      <span class="nav-icon">🗳️</span> Votações
+      <span class="nav-icon nav-icon--img"><img src="/votacoes.png" alt="" width="18" height="18" /></span> Votações
     </div>
     <div class="nav-item" data-page="sorteio" onclick="nav(this)">
       <span class="nav-icon nav-icon--img"><img src="/betland.jpg" alt="" width="18" height="18" /></span> BetLand
@@ -8193,7 +8214,7 @@
       <span class="nav-icon nav-icon--img"><img src="/SeasonLand_Logo.png" alt="" width="18" height="18" /></span> SeasonLand
     </div>
     <div class="nav-item" data-page="sugestoes" onclick="nav(this)">
-      <span class="nav-icon">💡</span> Sugestões
+      <span class="nav-icon nav-icon--img"><img src="/sugestao.png" alt="" width="18" height="18" /></span> Sugestões
     </div>
     <div class="nav-item" data-page="tickets" hidden aria-hidden="true" style="display:none !important;" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets
@@ -8237,7 +8258,7 @@
       <!-- PAGE: Catálogo (público — login só para doar/resgatar) -->
       <div id="page-catalog" class="page">
         <div class="catalog-hero">
-          <div class="catalog-hero__mark" aria-hidden="true">✦</div>
+          <img class="catalog-hero__mark" src="/catalogo.png" alt="" aria-hidden="true" />
           <div class="catalog-hero__copy">
             <div class="catalog-hero__eyebrow">CATÁLOGO DE RECOMPENSAS</div>
             <div class="catalog-hero__title" id="catalog-shop-name" role="heading" aria-level="1">ARKLAND DONATIONS</div>
@@ -10620,7 +10641,7 @@
       <!-- PAGE: Votações (comunidade) -->
       <div id="page-polls" class="page">
         <div id="topbar">
-          <div class="page-title">Votações da Comunidade</div>
+          <div class="page-title"><img class="polls-title-logo" src="/votacoes.png" alt="" /> Votações da Comunidade</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadPolls({ force: true })">↺ Atualizar</button>
           </div>
@@ -10680,7 +10701,7 @@
       <!-- PAGE: Sugestões da Comunidade (jogador) -->
       <div id="page-sugestoes" class="page">
         <div id="topbar">
-          <div class="page-title">Sugestões da Comunidade</div>
+          <div class="page-title"><img class="suggestions-title-logo" src="/sugestao.png" alt="" /> Sugestões da Comunidade</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadSugestoes()">↺ Atualizar</button>
           </div>
@@ -10944,7 +10965,7 @@
       <!-- PAGE: Votações (admin) -->
       <div id="page-polls-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">🗳️ Votações — Administração</div>
+          <div class="page-title"><img class="polls-title-logo" src="/votacoes.png" alt="" /> Votações — Administração</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadPollsAdmin()">↺ Atualizar</button>
             <button class="btn btn-primary" onclick="pollsAdminShowCreate()">+ Nova votação</button>
@@ -10954,7 +10975,24 @@
           <div class="card-header"><div class="card-title">Nova votação</div></div>
           <div class="form-grid">
             <div class="form-group" style="grid-column:1/-1;"><label>Título</label><input id="poll-admin-title" type="text" maxlength="200" /></div>
-            <div class="form-group" style="grid-column:1/-1;"><label>Descrição</label><textarea id="poll-admin-desc" rows="3"></textarea></div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Descrição da questão</label>
+              <div class="poll-editor">
+                <div class="poll-editor-toolbar" role="toolbar" aria-label="Formatação da descrição">
+                  <button type="button" title="Negrito" aria-label="Negrito" onmousedown="event.preventDefault()" onclick="pollEditorCommand('bold')"><strong>B</strong></button>
+                  <button type="button" title="Itálico" aria-label="Itálico" onmousedown="event.preventDefault()" onclick="pollEditorCommand('italic')"><em>I</em></button>
+                  <button type="button" title="Sublinhado" aria-label="Sublinhado" onmousedown="event.preventDefault()" onclick="pollEditorCommand('underline')"><u>U</u></button>
+                  <span class="poll-editor-toolbar__divider" aria-hidden="true"></span>
+                  <button type="button" title="Parágrafo" aria-label="Parágrafo" onmousedown="event.preventDefault()" onclick="pollEditorCommand('formatBlock','p')">P</button>
+                  <button type="button" title="Subtítulo" aria-label="Subtítulo" onmousedown="event.preventDefault()" onclick="pollEditorCommand('formatBlock','h3')">H</button>
+                  <button type="button" title="Lista com marcadores" aria-label="Lista com marcadores" onmousedown="event.preventDefault()" onclick="pollEditorCommand('insertUnorderedList')">• Lista</button>
+                  <button type="button" title="Lista numerada" aria-label="Lista numerada" onmousedown="event.preventDefault()" onclick="pollEditorCommand('insertOrderedList')">1. Lista</button>
+                  <button type="button" title="Citação" aria-label="Citação" onmousedown="event.preventDefault()" onclick="pollEditorCommand('formatBlock','blockquote')">❝ Citação</button>
+                </div>
+                <div id="poll-admin-desc" class="poll-editor-content" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Descrição da questão" data-placeholder="Apresente o contexto em parágrafos. Selecione um trecho para destacar ou organize os pontos em listas…"></div>
+                <div class="poll-editor-help">Enter cria um novo parágrafo. Selecione um trecho e use os botões para destacar ou organizar o texto.</div>
+              </div>
+            </div>
             <div class="form-group"><label>Recompensa (Âmbares)</label><input id="poll-admin-reward" type="number" min="0" value="0" /></div>
             <div class="form-group"><label>Votos mínimos (quorum)</label><input id="poll-admin-min-votes" type="number" min="0" placeholder="0 = sem mínimo" /></div>
             <div class="form-group"><label>Encerra em</label><input id="poll-admin-ends" type="datetime-local" /></div>
@@ -11451,7 +11489,7 @@
       <!-- PAGE: Sugestões (admin) -->
       <div id="page-sugestoes-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">💡 Sugestões — Administração</div>
+          <div class="page-title"><img class="suggestions-title-logo" src="/sugestao.png" alt="" /> Sugestões — Administração</div>
           <div class="topbar-actions">
             <input id="sugg-admin-search" type="search" placeholder="Buscar título, descrição, Steam…" class="btn btn-ghost" style="min-width:200px;padding:7px 12px;" onkeydown="if(event.key==='Enter')loadSugestoesAdmin()" />
             <select id="sugg-admin-filter-status" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadSugestoesAdmin()">
@@ -18162,7 +18200,10 @@ async function loadMyAreaLicenses() {
     let teamData = null;
     if (teamResponse && teamResponse.ok) {
       const teamPayload = await teamResponse.json();
-      if (teamPayload.ok) teamData = teamPayload;
+      // Team endpoints use the standard { ok, data } envelope, while some
+      // older endpoints return fields beside `ok`. Accept both shapes so the
+      // milestone bonus is read from data.team.amber_bonus_pct when wrapped.
+      if (teamPayload.ok) teamData = teamPayload.data || teamPayload;
     }
     if (!r.ok || !d.ok) {
       host.innerHTML = `<span style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar licen\u00e7as")}</span>`;
@@ -19329,6 +19370,7 @@ function _renderPollsFromCache() {
     return;
   }
   root.innerHTML = _pollsCache.map(poll => {
+      const descriptionHtml = poll.description_html || escHtml(poll.description || "").replace(/\r?\n/g, "<br>");
       const reward = poll.reward_amber > 0
         ? `<span class="home-badge home-badge--amber">🪙 +${poll.reward_amber} ${escHtml(CURRENCY.singular)} ao votar</span>` : "";
       const minV = poll.min_votes_valid > 0
@@ -19354,7 +19396,7 @@ function _renderPollsFromCache() {
             </div>
           </div>
         </div>
-        ${poll.description ? `<p style="font-size:13px;color:var(--text2);margin:0 0 8px;">${escHtml(poll.description)}</p>` : ""}
+        ${descriptionHtml ? `<div class="poll-description" style="margin:0 0 12px;">${descriptionHtml}</div>` : ""}
         ${_pollTimeBar(poll)}
         <div>${_pollOptionsHtml(poll)}</div>
         <div style="font-size:11px;color:var(--text2);">${poll.total_voters || 0} participante(s) · ${poll.total_option_votes || 0} voto(s) em opções${poll.allow_multiple ? " · múltipla escolha" : ""}</div>
@@ -19408,13 +19450,21 @@ async function submitPollVote(pollId) {
 function pollsAdminShowCreate() {
   document.getElementById("polls-admin-create")?.classList.remove("hidden");
 }
+
+function pollEditorCommand(command, value = null) {
+  const editor = document.getElementById("poll-admin-desc");
+  if (!editor) return;
+  editor.focus();
+  document.execCommand(command, false, value);
+}
+
 function pollsAdminHideCreate() {
   document.getElementById("polls-admin-create")?.classList.add("hidden");
 }
 
 async function pollsAdminCreate() {
   const title = document.getElementById("poll-admin-title")?.value?.trim();
-  const description = document.getElementById("poll-admin-desc")?.value?.trim() || "";
+  const description = document.getElementById("poll-admin-desc")?.innerHTML?.trim() || "";
   const reward_amber = parseInt(document.getElementById("poll-admin-reward")?.value || "0", 10) || 0;
   const minRaw = document.getElementById("poll-admin-min-votes")?.value?.trim();
   const min_votes_valid = minRaw ? parseInt(minRaw, 10) : null;
@@ -19436,6 +19486,8 @@ async function pollsAdminCreate() {
     });
     if (!d.ok) throw new Error(d.error || "Erro ao criar");
     toast("Votação criada.", "success");
+    const descriptionEditor = document.getElementById("poll-admin-desc");
+    if (descriptionEditor) descriptionEditor.innerHTML = "";
     pollsAdminHideCreate();
     loadPollsAdmin();
   } catch (e) {
@@ -19456,13 +19508,14 @@ async function loadPollsAdmin() {
       return;
     }
     root.innerHTML = polls.map(poll => {
+      const descriptionHtml = poll.description_html || escHtml(poll.description || "").replace(/\r?\n/g, "<br>");
       const actions = [];
       if (poll.status === "DRAFT") actions.push(`<button class="btn btn-success btn-sm" onclick="pollsAdminAction(${poll.id},'publish')">Publicar</button>`);
       if (poll.status === "ACTIVE") actions.push(`<button class="btn btn-warning btn-sm" onclick="pollsAdminAction(${poll.id},'close')">Encerrar agora</button>`);
       if (poll.status !== "CLOSED" && poll.status !== "CANCELLED") actions.push(`<button class="btn btn-danger btn-sm" onclick="pollsAdminAction(${poll.id},'cancel')">Cancelar</button>`);
       return `<div class="card" style="margin-bottom:12px;">
         <div class="card-header"><div class="card-title">${escHtml(poll.title)}</div>${_pollStatusBadge(poll)}</div>
-        <p style="font-size:12px;color:var(--text2);">${escHtml(poll.description || "")}</p>
+        ${descriptionHtml ? `<div class="poll-description">${descriptionHtml}</div>` : ""}
         ${_pollTimeBar(poll)}
         <div>${_pollOptionsHtml(poll, { admin: true })}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:8px;">
@@ -19733,7 +19786,14 @@ async function loadSorteio(opts) {
         auth ? fetchJson("/api/teams/my").catch(() => null) : Promise.resolve(null),
       ]);
       let parts = fetchedParts;
-      const myNumbers = (player?.numbers || []).slice().sort((a, b) => a.value - b.value);
+      const teamData = team?.data || team;
+      const playerNumbers = (player?.numbers || []).slice();
+      const teamNumbers = teamData?.team && Number(teamData?.lottery?.campaign?.id) === Number(c.id)
+        ? (teamData.lottery.numbers || []).map(value => ({ value: Number(value), source: "TEAM" }))
+        : [];
+      const myNumbers = [...playerNumbers, ...teamNumbers]
+        .filter((n, index, all) => all.findIndex(other => Number(other.value) === Number(n.value)) === index)
+        .sort((a, b) => Number(a.value) - Number(b.value));
       const participantPages = Math.max(1, Math.ceil((parts.total || 0) / pageSize));
       if (_lotteryParticipantsPage > participantPages) {
         _lotteryParticipantsPage = participantPages;
@@ -19772,7 +19832,7 @@ async function loadSorteio(opts) {
         </div>` : ""}
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title" style="margin-bottom:10px;">Legenda dos n&uacute;meros</div>
-          ${_lotterySourceLegendHtml({ auth, player, team })}
+          ${_lotterySourceLegendHtml({ auth, player, team: teamData })}
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title" style="margin-bottom:10px;">Grade 100&#8211;999</div>
@@ -19786,7 +19846,7 @@ async function loadSorteio(opts) {
           <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Nomes de exibi&ccedil;&atilde;o e n&uacute;meros desta campanha ficam vis&iacute;veis para a comunidade. Identificadores de conta n&atilde;o s&atilde;o exibidos.</p>
           ${otherParticipants.map(p => `
             <div class="lottery-participant">
-              <strong>${escHtml(p.display_name || p.display_name_masked || "Jogador")}</strong>
+              <strong>${escHtml(p.display_name || "Nome não disponível")}</strong>
               <div class="lottery-participant__numbers">${(p.numbers || []).map(n => `<span class="lottery-number-chip" title="${_lotteryParticipantSourceLabel(n.source)}">${n.value} ${_lotterySourceBadge(n.source)}</span>`).join("")}</div>
             </div>`).join("") || `<p style="color:var(--text2);margin:10px 0;">N&atilde;o h&aacute; outros participantes nesta p&aacute;gina.</p>`}
           ${participantPages > 1 ? `<div class="lottery-pager">

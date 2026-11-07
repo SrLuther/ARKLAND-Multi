@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-06 20:54:55 -->
-<!-- Total de versões: 539 | Primeira: 1.11.46 -->
+<!-- Gerado: 2026-11-06 22:13:58 -->
+<!-- Total de versões: 540 | Primeira: 1.11.47 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.47] - 2026-11-06
+
+### Other
+
+- Votações: editor de descrições com parágrafos, subtítulos, listas, citações e destaques; conteúdo formatado é sanitizado antes de ser exibido.
+- Identidade visual: ícones de Catálogo, Sugestões e Votações integrados aos menus e páginas correspondentes.
+- BetLand: participantes agora aparecem com nome e os números da equipe são reunidos aos números pessoais do jogador.
+- Minha Área: leitura dos dados da equipe compatível com a resposta envelopada da API, exibindo o bônus de marcos recebido.
 
 ## [1.11.46] - 2026-11-06
 

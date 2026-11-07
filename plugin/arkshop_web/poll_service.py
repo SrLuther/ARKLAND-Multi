@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import html
 import logging
 import threading
 import time
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from typing import Any, Callable
 
 from sqlalchemy import text
@@ -27,6 +29,81 @@ _MAX_DESCRIPTION = 4000
 _MAX_OPTION_LABEL = 200
 _MAX_OPTIONS = 12
 _MIN_OPTIONS = 2
+
+_POLL_DESCRIPTION_TAGS = frozenset({
+    "p", "br", "strong", "b", "em", "i", "u", "s", "ul", "ol", "li",
+    "h2", "h3", "blockquote",
+})
+_POLL_DESCRIPTION_BLOCKED = frozenset({"script", "style", "iframe", "object", "svg", "math"})
+
+
+class _PollDescriptionSanitizer(HTMLParser):
+    """Allow only basic semantic formatting; strip attributes and active content."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.stack: list[str] = []
+        self.blocked_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if self.blocked_depth:
+            if tag in _POLL_DESCRIPTION_BLOCKED:
+                self.blocked_depth += 1
+            return
+        if tag in _POLL_DESCRIPTION_BLOCKED:
+            self.blocked_depth = 1
+            return
+        # contenteditable commonly emits DIV; represent each as a paragraph.
+        if tag == "div":
+            tag = "p"
+        if tag not in _POLL_DESCRIPTION_TAGS:
+            return
+        self.parts.append(f"<{tag}>")
+        if tag != "br":
+            self.stack.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if self.blocked_depth:
+            if tag in _POLL_DESCRIPTION_BLOCKED:
+                self.blocked_depth -= 1
+            return
+        if tag == "div":
+            tag = "p"
+        if tag not in self.stack:
+            return
+        while self.stack:
+            open_tag = self.stack.pop()
+            self.parts.append(f"</{open_tag}>")
+            if open_tag == tag:
+                break
+
+    def handle_data(self, data: str) -> None:
+        if not self.blocked_depth:
+            self.parts.append(html.escape(data, quote=False))
+
+    def finish(self) -> str:
+        self.close()
+        while self.stack:
+            self.parts.append(f"</{self.stack.pop()}>")
+        return "".join(self.parts).strip()
+
+
+def sanitize_poll_description(value: Any) -> str:
+    """Keep legacy plain text readable and safely sanitize formatted descriptions."""
+    raw = str(value or "").strip()[:_MAX_DESCRIPTION]
+    if not raw:
+        return ""
+    if "<" not in raw:
+        return html.escape(raw, quote=False).replace("\r\n", "\n").replace("\n", "<br>")
+    parser = _PollDescriptionSanitizer()
+    try:
+        parser.feed(raw)
+        return parser.finish()
+    except Exception:
+        return html.escape(raw, quote=False).replace("\r\n", "\n").replace("\n", "<br>")
 
 
 def _utcnow() -> datetime:
@@ -365,6 +442,7 @@ def _poll_to_dict(
         "id": int(row.id),
         "title": str(row.title),
         "description": str(row.description or ""),
+        "description_html": sanitize_poll_description(row.description or ""),
         "reward_amber": int(row.reward_amber or 0),
         "allow_multiple": bool(int(row.allow_multiple or 0)),
         "min_votes_valid": int(row.min_votes_valid) if row.min_votes_valid is not None else None,
@@ -588,7 +666,7 @@ def create_poll(
     title = str(title or "").strip()
     if not title or len(title) > _MAX_TITLE:
         raise ValueError("Título inválido")
-    description = str(description or "").strip()[:_MAX_DESCRIPTION]
+    description = sanitize_poll_description(description)
     ends = _parse_dt(ends_at)
     if not ends or ends <= _utcnow():
         raise ValueError("Data/hora final deve ser no futuro")
@@ -683,7 +761,7 @@ def update_poll(
         params["title"] = t[:_MAX_TITLE]
     if description is not None:
         sets.append("description = :desc")
-        params["desc"] = str(description).strip()[:_MAX_DESCRIPTION]
+        params["desc"] = sanitize_poll_description(description)
     if ends_at is not None:
         ends = _parse_dt(ends_at)
         if not ends:

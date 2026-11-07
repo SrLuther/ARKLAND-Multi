@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.46"
+APP_VERSION: str = "1.11.47"
 BUILD_DATE: str = "2026-11-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.47",
+        "date": "2026-11-06",
+        "changes": [
+            "Votações: editor de descrições com parágrafos, subtítulos, listas, citações e destaques; conteúdo formatado é sanitizado antes de ser exibido.",
+            "Identidade visual: ícones de Catálogo, Sugestões e Votações integrados aos menus e páginas correspondentes.",
+            "BetLand: participantes agora aparecem com nome e os números da equipe são reunidos aos números pessoais do jogador.",
+            "Minha Área: leitura dos dados da equipe compatível com a resposta envelopada da API, exibindo o bônus de marcos recebido.",
+        ],
+    },
     {
         "version": "1.11.46",
         "date": "2026-11-06",
