@@ -2,15 +2,15 @@
 
 **Atualizado:** 07/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** versao estavel 1.11.49 publicada com FazendaRecursos.dll 0.1.30 compilada; falta atualizar os servicos em producao e validar no site/jogo.
+**Publicacao:** versao estavel 1.11.50 publicada no GitHub; executar a atualizacao da WebStore em producao e validar votacoes, SeasonLand e Fazenda no site.
 
 ## Em andamento
 
-- [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Implementacao local: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta revisar visualmente com o catalogo completo e validar em diferentes larguras.
+- [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Incluida na 1.11.50: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta atualizar a WebStore em producao e revisar o catalogo completo em diferentes larguras.
 
-- [ ] **SeasonLand - trilha unica de recompensas Free/Premium.** Implementacao local: trilha por nivel com Free e Premium em lados opostos, premios alinhados e preenchimento conforme o nivel. Falta revisao visual em tela estreita e validacao com uma conta real.
+- [ ] **SeasonLand - trilha unica de recompensas Free/Premium.** Incluida na 1.11.50: trilha por nivel com Free e Premium em lados opostos, premios alinhados e preenchimento conforme o nivel. Falta atualizar a WebStore em producao e revisar em tela estreita/conta real.
 
-- [ ] **WebStore - administracao de votacoes.** Implementacao local permite editar ativas; opcoes/formato so mudam antes do primeiro voto e ficam protegidos depois. Finalizadas/canceladas estao em card recolhivel. Falta validar fluxo completo antes de publicar.
+- [ ] **WebStore - administracao de votacoes.** Incluida na 1.11.50: edicao de votacoes ativas, opcoes/formato protegidos apos o primeiro voto e finalizadas/canceladas em card recolhivel. Falta atualizar a WebStore em producao e validar o fluxo completo.
 
 - [ ] **Fazenda - validar cat?logo Omega ap?s atualiza??o de produ??o.** A vers?o est?vel 1.11.48 est? publicada. Causa corrigida: configs gerenciadas pelo site n?o recebiam padr?es novos no plugin e o cat?logo MySQL antigo ocultava recursos do config. Aplicar a atualiza??o no WebStore e nos plugins dos servidores; confirmar migra??o autom?tica dos IDs ausentes e presen?a de Essence, Paragon, Token e demais recursos no site, preservando configura??es personalizadas.
 
