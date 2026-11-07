@@ -1233,14 +1233,35 @@
       font-variant-numeric: tabular-nums;
     }
     .sp-tracks {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-top: 4px;
+      --sp-progress: 0%;
+      position: relative;
+      margin: 4px 0 16px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface2);
     }
-    @media (max-width: 720px) {
-      .sp-tracks { grid-template-columns: 1fr; }
-    }
+    .sp-timeline-head,.sp-timeline-row { display:grid;grid-template-columns:minmax(0,1fr) 52px minmax(0,1fr);gap:10px;align-items:center; }
+    .sp-timeline-head { position:relative;z-index:1;margin-bottom:8px;text-align:center;font-family:Cinzel,serif;font-weight:700;color:var(--text); }
+    .sp-timeline-head span:first-child { text-align:right;color:var(--success); }
+    .sp-timeline-head span:last-child { text-align:left;color:var(--warning); }
+    .sp-timeline { position:relative;display:grid;gap:8px; }
+    .sp-timeline::before,.sp-timeline::after { content:"";position:absolute;z-index:0;top:0;bottom:0;left:calc(50% - 2px);width:4px;border-radius:99px; }
+    .sp-timeline::before { background:var(--surface3); }
+    .sp-timeline::after { bottom:auto;height:var(--sp-progress);max-height:100%;background:linear-gradient(var(--success),var(--amber));transition:height .35s ease; }
+    .sp-timeline-row { position:relative;z-index:1;min-height:52px; }
+    .sp-timeline-level { display:grid;place-items:center;width:34px;height:34px;justify-self:center;border:2px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text2);font-size:11px;font-weight:800;font-variant-numeric:tabular-nums; }
+    .sp-timeline-row.is-reached .sp-timeline-level { border-color:var(--success);color:var(--success);box-shadow:0 0 12px rgba(62,207,142,.16); }
+    .sp-timeline-reward { min-width:0;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.018);font-size:12px; }
+    .sp-timeline-reward.is-empty { border-style:dashed;opacity:.45; }
+    .sp-timeline-reward.is-locked { opacity:.6; }
+    .sp-timeline-reward__label { color:var(--text2);line-height:1.4;overflow-wrap:anywhere; }
+    .sp-timeline-reward__actions { display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:5px; }
+    .sp-timeline-reward .sp-node { display:block;padding:0;border:0;font-size:12px; }
+    .sp-timeline-reward .sp-node__lvl { display:none; }
+    .sp-timeline-reward .sp-node__body { line-height:1.4;overflow-wrap:anywhere; }
+    .sp-timeline-reward .sp-node__actions { flex-direction:row;align-items:center;justify-content:flex-end;margin-top:6px; }
+    @media (max-width:600px) { .sp-tracks{padding:10px}.sp-timeline-head,.sp-timeline-row{grid-template-columns:minmax(0,1fr) 38px minmax(0,1fr);gap:5px}.sp-timeline-reward{padding:7px;font-size:11px}.sp-timeline-reward .btn{padding:4px 6px;font-size:10px}.sp-timeline-level{width:30px;height:30px} }
     .sp-track {
       padding: 14px;
       border-radius: 10px;
@@ -10972,7 +10993,8 @@
           </div>
         </div>
         <div id="polls-admin-create" class="card hidden" style="margin-bottom:16px;">
-          <div class="card-header"><div class="card-title">Nova votação</div></div>
+          <div class="card-header"><div class="card-title" id="poll-admin-form-title">Nova votação</div></div>
+          <div id="poll-admin-edit-note" class="hidden" style="font-size:12px;color:var(--text2);margin:0 0 12px;"></div>
           <div class="form-grid">
             <div class="form-group" style="grid-column:1/-1;"><label>Título</label><input id="poll-admin-title" type="text" maxlength="200" /></div>
             <div class="form-group" style="grid-column:1/-1;">
@@ -10996,19 +11018,19 @@
             <div class="form-group"><label>Recompensa (Âmbares)</label><input id="poll-admin-reward" type="number" min="0" value="0" /></div>
             <div class="form-group"><label>Votos mínimos (quorum)</label><input id="poll-admin-min-votes" type="number" min="0" placeholder="0 = sem mínimo" /></div>
             <div class="form-group"><label>Encerra em</label><input id="poll-admin-ends" type="datetime-local" /></div>
-            <div class="form-group" style="align-self:end;">
+            <div class="form-group" style="align-self:end;" id="poll-admin-multi-wrap">
               <label><input id="poll-admin-multi" type="checkbox" /> Permitir várias opções</label>
             </div>
-            <div class="form-group" style="align-self:end;">
+            <div class="form-group" style="align-self:end;" id="poll-admin-publish-wrap">
               <label><input id="poll-admin-publish" type="checkbox" checked /> Publicar imediatamente</label>
             </div>
           </div>
-          <div class="form-group" style="margin-top:12px;">
+          <div class="form-group" style="margin-top:12px;" id="poll-admin-options-wrap">
             <label>Opções (uma por linha, mín. 2)</label>
             <textarea id="poll-admin-options" rows="4" placeholder="Opção A&#10;Opção B&#10;Opção C"></textarea>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;">
-            <button class="btn btn-primary" onclick="pollsAdminCreate()">Criar votação</button>
+            <button class="btn btn-primary" id="poll-admin-save" onclick="pollsAdminCreate()">Criar votação</button>
             <button class="btn btn-ghost" onclick="pollsAdminHideCreate()">Cancelar</button>
           </div>
         </div>
@@ -17686,25 +17708,38 @@ async function loadMyFarm() {
           : stock >= capacity
             ? `<div class="farm-full-time"><strong>Estoque cheio</strong><span>Hor&aacute;rio da &uacute;ltima lota&ccedil;&atilde;o ainda n&atilde;o registrado.</span></div>`
             : `<div class="farm-full-time is-paused"><strong>Previs&atilde;o indispon&iacute;vel</strong><span>${r.enabled ? "A produ&ccedil;&atilde;o ainda n&atilde;o est&aacute; ativa." : "Recurso desabilitado na configura&ccedil;&atilde;o."}</span></div>`;
-      return `<article class="farm-stock-card">
+      return { category: r.category, html: `<article class="farm-stock-card" data-farm-search="${escHtml(`${r.name || ""} ${r.category || ""}`.toLocaleLowerCase("pt-BR"))}">
         <div class="farm-stock-card__head"><div><strong>${escHtml(r.name)}</strong><small>${escHtml(r.category)} &middot; ${r.production_active ? "Produ&ccedil;&atilde;o ativa" : "Produ&ccedil;&atilde;o inativa"}</small></div><span class="farm-state ${r.enabled ? "is-enabled" : "is-disabled"}">${r.enabled ? "Habilitado" : "Indispon&#237;vel"}</span></div>
         <div class="farm-stock-focus"><div><strong>${stock.toLocaleString("pt-BR")}</strong><span> / ${capacity.toLocaleString("pt-BR")}</span></div><small>unidades em estoque · teto atual</small></div>
         <div class="farm-stock-track" role="progressbar" aria-label="Estoque de ${escHtml(r.name)}" aria-valuemin="0" aria-valuemax="${capacity}" aria-valuenow="${Math.min(stock, capacity)}"><span style="width:${fillPct}%"></span></div>
         <div class="farm-stock-available"><span>Dispon&iacute;vel<strong>${available.toLocaleString("pt-BR")}</strong></span><span>Reservado<strong>${reserved.toLocaleString("pt-BR")}</strong></span></div>
         ${timing}
         <details class="farm-stock-details" data-farm-details="${escHtml(r.id)}" ${openStockDetails.has(String(r.id)) ? "open" : ""}><summary>Configura&ccedil;&atilde;o da produ&ccedil;&atilde;o</summary><div><span>${Number(r.output_quantity || 1)} unidade(s) por ciclo</span><span>1 ciclo a cada ${formatFarmInterval(r.interval_seconds)}</span><span>Pacote de ${Number(r.stack_size || 25)} unidade(s)</span><span>Categoria: ${escHtml(r.category)}</span></div></details>
-      </article>`;
-    }).join("");
+      </article>` };
+    });
+    const groupFarmCards = (cards, sectionName) => {
+      const groups = new Map();
+      cards.forEach(({ category, html }) => {
+        const key = String(category || "Outros");
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(html);
+      });
+      const categoryOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
+      return [...groups.entries()].sort((a, b) => categoryOrder.compare(a[0], b[0])).map(([category, items]) => `<details class="farm-category" data-farm-category="${escHtml(sectionName)}" ${groups.size === 1 ? "open" : ""}>
+        <summary><strong>${escHtml(category)}</strong><span>${items.length} recurso(s)</span></summary>
+        <div class="farm-category-grid">${items.join("")}</div>
+      </details>`).join("");
+    };
     const redemptionCards = resources.filter(r => r.enabled).map(r => {
       const available = integrationReady ? Number(r.available || 0) : 0;
       const previous = Number(previousAmounts.get(String(r.id)) || 1);
       const amountValue = Math.min(Math.max(1, previous), Math.max(1, available));
-      return `<div class="farm-action-card">
+      return { category: r.category, html: `<div class="farm-action-card" data-farm-search="${escHtml(`${r.name || ""} ${r.category || ""}`.toLocaleLowerCase("pt-BR"))}">
         <div class="farm-action-info"><strong>${escHtml(r.name)}</strong><span>${available} dispon&#237;vel(is) &middot; ${Number(r.reserved || 0)} reservado(s)</span></div>
         <label>Quantidade<input aria-label="Quantidade de ${escHtml(r.name)} para retirar" type="number" min="1" max="${available}" value="${amountValue}" data-farm-amount="${escHtml(r.id)}" ${!integrationReady || available < 1 ? "disabled" : ""}></label>
         <button type="button" class="btn btn-primary btn-sm" onclick="requestFarmRedemption('${escHtml(r.id)}')" ${!integrationReady || available < 1 ? "disabled" : ""}>Agendar retirada</button>
-      </div>`;
-    }).join("");
+      </div>` };
+    });
     const uploadCards = uploads.map(u => {
       const active = u.status === "active";
       const state = active ? "Produ&ccedil;&atilde;o ativa" : u.status === "recovered" ? "Retirado da Fazenda" : "Cancelado";
@@ -17735,6 +17770,12 @@ async function loadMyFarm() {
         #myarea-farm-overview .farm-section-head h3{font-size:14px;margin:0 0 3px;color:var(--text)}
         #myarea-farm-overview .farm-section-head p{font-size:11px;color:var(--text2);margin:0}
         #myarea-farm-overview .farm-stock-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr));gap:10px}
+        #myarea-farm-overview .farm-resource-filter{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-resource-filter input{flex:1;min-width:0}
+        #myarea-farm-overview .farm-category{margin:8px 0;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:rgba(255,255,255,.012)}
+        #myarea-farm-overview .farm-category>summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;color:var(--text);font-size:12px}
+        #myarea-farm-overview .farm-category>summary span{color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr));gap:9px;padding:0 9px 9px}
         #myarea-farm-overview .farm-stock-card{min-width:0;padding:13px;border:1px solid var(--border);border-radius:11px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012))}
         #myarea-farm-overview .farm-stock-card__head{display:flex;justify-content:space-between;align-items:flex-start;gap:9px}
         #myarea-farm-overview .farm-stock-card__head strong{display:block;font-size:13px;overflow-wrap:anywhere}
@@ -17788,21 +17829,43 @@ async function loadMyFarm() {
       <div class="farm-sync-banner ${integrationReady ? "is-ready" : ""}">${integrationReady ? "Estoque sincronizado. O agendamento reserva o saldo; a entrega ocorre no jogo com /fazresgatar." : "A Web Store ainda n&atilde;o recebeu uma sincroniza&ccedil;&atilde;o recente. Estoque e agendamentos ficam indispon&iacute;veis at&eacute; o servidor enviar dados reais."}</div>
       <section class="farm-section farm-stock-section"><div class="farm-section-head"><h3>Produ&ccedil;&atilde;o e estoque</h3><p>Estoque atual e teto de cada recurso, previs&atilde;o da pr&oacute;xima lota&ccedil;&atilde;o, saldo dispon&iacute;vel e retiradas reservadas.</p></div>
         ${!catalogFromMysql ? `<div class="farm-sync-banner">O cat&eacute;logo MySQL ainda n&atilde;o foi publicado pelo plugin; os valores abaixo s&atilde;o a configura&ccedil;&atilde;o local de refer&ecirc;ncia.</div>` : ""}
-        ${resources.length ? `<div class="farm-stock-grid">${stockCards}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
+        ${resources.length ? `<div class="farm-resource-filter"><label for="myarea-farm-resource-filter">Encontrar recurso</label><input id="myarea-farm-resource-filter" type="search" placeholder="Nome ou categoria…" oninput="filterMyFarmResources(this.value)" /><span style="font-size:10px;color:var(--text2);">${resources.length} recursos</span></div>${groupFarmCards(stockCards, "stock")}` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
       </section>
       <section class="farm-section"><div class="farm-section-head"><h3>Agendar retirada</h3><p>Informe a quantidade que deseja retirar. O saldo ser&aacute; reservado at&eacute; concluir o resgate ou cancelar o pedido.</p></div>
-        ${redemptionCards ? `<div class="farm-action-list">${redemptionCards}</div>` : `<p style="font-size:12px;color:var(--text2);">N&atilde;o h&aacute; recursos habilitados para retirada.</p>`}
+        ${redemptionCards.length ? groupFarmCards(redemptionCards, "redeem") : `<p style="font-size:12px;color:var(--text2);">N&atilde;o h&aacute; recursos habilitados para retirada.</p>`}
       </section>
       ${pendingOrders.length ? `<section class="farm-section"><div class="farm-section-head"><h3>Retiradas pendentes (${pendingOrders.length})</h3><p>Voc&ecirc; pode cancelar antes de resgatar no jogo. Ao cancelar, a quantidade reservada volta ao saldo dispon&iacute;vel.</p></div><div class="farm-record-list">${pendingCards}</div></section>` : ""}
-      <section class="farm-section"><div class="farm-section-head"><h3>Itens enviados &agrave; Fazenda</h3><p>Recursos enviados no jogo, quantidade, data de envio e situa&ccedil;&atilde;o da produ&ccedil;&atilde;o.</p></div>
-        ${uploadCards ? `<div class="farm-upload-grid">${uploadCards}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum item enviado &agrave; Fazenda foi sincronizado com a Web Store ainda.</p>`}
-      </section>
-      ${historyOrders.length ? `<section class="farm-section"><div class="farm-section-head"><h3>Hist&oacute;rico de retiradas</h3><p>Pedidos conclu&iacute;dos e cancelados, com hor&aacute;rio e quantidade entregue.</p></div><div class="farm-record-list">${historyCards}</div></section>` : ""}`;
+      <details class="farm-section" ${uploads.length <= 6 ? "open" : ""}><summary style="cursor:pointer;font-weight:700;color:var(--text);">Itens enviados &agrave; Fazenda <span style="font-size:11px;color:var(--text2);font-weight:400;">(${uploads.length})</span><p style="font-size:11px;color:var(--text2);font-weight:400;margin:4px 0 0;">Recursos enviados no jogo, data e situa&ccedil;&atilde;o da produ&ccedil;&atilde;o.</p></summary>
+        ${uploadCards ? `<div class="farm-upload-grid" style="margin-top:12px;">${uploadCards}</div>` : `<p style="font-size:12px;color:var(--text2);">Nenhum item enviado &agrave; Fazenda foi sincronizado com a Web Store ainda.</p>`}
+      </details>
+      ${historyOrders.length ? `<details class="farm-section"><summary style="cursor:pointer;font-weight:700;color:var(--text);">Hist&oacute;rico de retiradas <span style="font-size:11px;color:var(--text2);font-weight:400;">(${historyOrders.length})</span><p style="font-size:11px;color:var(--text2);font-weight:400;margin:4px 0 0;">Pedidos conclu&iacute;dos e cancelados, com hor&aacute;rio e quantidade entregue.</p></summary><div class="farm-record-list" style="margin-top:12px;">${historyCards}</div></details>` : ""}`;
+    const resourceFilter = document.getElementById("myarea-farm-resource-filter");
+    if (resourceFilter) {
+      resourceFilter.value = window._farmResourceFilter || "";
+      filterMyFarmResources(resourceFilter.value);
+    }
     startFarmLiveUpdates();
     updateFarmCountdowns();
   } catch (error) {
     host.innerHTML = `<span style="color:var(--danger);">${escHtml(error.message || "Falha ao carregar Fazenda.")}</span>`;
   }
+}
+
+function filterMyFarmResources(value) {
+  window._farmResourceFilter = String(value || "").trim().toLocaleLowerCase("pt-BR");
+  const host = document.getElementById("myarea-farm-overview");
+  if (!host) return;
+  host.querySelectorAll("[data-farm-category]").forEach(category => {
+    const cards = [...category.querySelectorAll("[data-farm-search]")];
+    let visible = 0;
+    cards.forEach(card => {
+      const show = !window._farmResourceFilter || (card.dataset.farmSearch || "").includes(window._farmResourceFilter);
+      card.hidden = !show;
+      if (show) visible++;
+    });
+    category.hidden = visible === 0;
+    if (window._farmResourceFilter && visible) category.open = true;
+  });
 }
 
 async function requestFarmRedemption(resourceId) {
@@ -19447,8 +19510,28 @@ async function submitPollVote(pollId) {
   }
 }
 
+let _pollAdminEditing = null;
+let _pollAdminCache = [];
+
 function pollsAdminShowCreate() {
-  document.getElementById("polls-admin-create")?.classList.remove("hidden");
+  _pollAdminEditing = null;
+  const form = document.getElementById("polls-admin-create");
+  if (!form) return;
+  form.classList.remove("hidden");
+  document.getElementById("poll-admin-form-title").textContent = "Nova votação";
+  document.getElementById("poll-admin-edit-note").classList.add("hidden");
+  document.getElementById("poll-admin-save").textContent = "Criar votação";
+  document.getElementById("poll-admin-title").value = "";
+  document.getElementById("poll-admin-desc").innerHTML = "";
+  document.getElementById("poll-admin-reward").value = "0";
+  document.getElementById("poll-admin-min-votes").value = "";
+  document.getElementById("poll-admin-ends").value = "";
+  document.getElementById("poll-admin-options").value = "";
+  document.getElementById("poll-admin-multi").checked = false;
+  document.getElementById("poll-admin-publish").checked = true;
+  document.getElementById("poll-admin-multi-wrap").classList.remove("hidden");
+  document.getElementById("poll-admin-publish-wrap").classList.remove("hidden");
+  document.getElementById("poll-admin-options-wrap").classList.remove("hidden");
 }
 
 function pollEditorCommand(command, value = null) {
@@ -19460,6 +19543,50 @@ function pollEditorCommand(command, value = null) {
 
 function pollsAdminHideCreate() {
   document.getElementById("polls-admin-create")?.classList.add("hidden");
+  _pollAdminEditing = null;
+}
+
+function _pollAdminLocalDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function pollsAdminEdit(pollId) {
+  const poll = _pollAdminCache.find(item => Number(item.id) === Number(pollId));
+  if (!poll) { toast("Atualize a lista e tente novamente.", "warning"); return; }
+  const editingActive = poll.status === "ACTIVE";
+  const allowOptions = !editingActive || Number(poll.total_voters || 0) === 0;
+  _pollAdminEditing = { id: poll.id, active: editingActive, allowOptions };
+  document.getElementById("polls-admin-create").classList.remove("hidden");
+  document.getElementById("poll-admin-form-title").textContent = editingActive ? "Editar votação em andamento" : "Editar rascunho";
+  const note = document.getElementById("poll-admin-edit-note");
+  note.textContent = editingActive
+    ? (allowOptions
+      ? "Ainda não há votos: também é possível ajustar as opções e o formato de voto. Depois do primeiro voto, essas escolhas ficam bloqueadas para preservar os registros."
+      : "As opções e o formato de voto ficam bloqueados para preservar os votos já registrados. Você pode ajustar o título, a descrição, o prazo, a recompensa e o quorum.")
+    : "";
+  note.classList.toggle("hidden", !editingActive);
+  document.getElementById("poll-admin-save").textContent = "Salvar alterações";
+  document.getElementById("poll-admin-title").value = poll.title || "";
+  document.getElementById("poll-admin-desc").innerHTML = poll.description_html || escHtml(poll.description || "").replace(/\r?\n/g, "<br>");
+  document.getElementById("poll-admin-reward").value = Number(poll.reward_amber || 0);
+  document.getElementById("poll-admin-min-votes").value = poll.min_votes_valid == null ? "" : String(poll.min_votes_valid);
+  document.getElementById("poll-admin-ends").value = _pollAdminLocalDate(poll.ends_at);
+  document.getElementById("poll-admin-multi").checked = !!poll.allow_multiple;
+  document.getElementById("poll-admin-options").value = (poll.options || []).map(option => option.label).join("\n");
+  document.getElementById("poll-admin-publish-wrap").classList.add("hidden");
+  const optionsWrap = document.getElementById("poll-admin-options-wrap");
+  const multiWrap = document.getElementById("poll-admin-multi-wrap");
+  if (allowOptions) {
+    optionsWrap.classList.remove("hidden");
+    multiWrap.classList.remove("hidden");
+  } else {
+    optionsWrap.classList.add("hidden");
+    multiWrap.classList.add("hidden");
+  }
+  document.getElementById("poll-admin-form-title").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 async function pollsAdminCreate() {
@@ -19472,20 +19599,26 @@ async function pollsAdminCreate() {
   if (!title || !endsLocal) { toast("Preencha título e data final.", "warning"); return; }
   const ends_at = new Date(endsLocal).toISOString();
   const lines = (document.getElementById("poll-admin-options")?.value || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) { toast("Informe ao menos 2 opções.", "warning"); return; }
   const options = lines.map(label => ({ label }));
+  if (!_pollAdminEditing || !_pollAdminEditing.active) {
+    if (lines.length < 2) { toast("Informe ao menos 2 opções.", "warning"); return; }
+  }
   try {
-    const d = await fetchJson("/api/admin/polls", {
-      method: "POST",
+    const editing = _pollAdminEditing;
+    const d = await fetchJson(editing ? `/api/admin/polls/${editing.id}` : "/api/admin/polls", {
+      method: editing ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title, description, options, ends_at, reward_amber, min_votes_valid,
-        allow_multiple: !!document.getElementById("poll-admin-multi")?.checked,
-        publish: !!document.getElementById("poll-admin-publish")?.checked,
+        title, description, ends_at, reward_amber, min_votes_valid,
+        ...(editing?.allowOptions ? {
+          options,
+          allow_multiple: !!document.getElementById("poll-admin-multi")?.checked,
+        } : {}),
+        ...(!editing ? { publish: !!document.getElementById("poll-admin-publish")?.checked } : {}),
       }),
     });
     if (!d.ok) throw new Error(d.error || "Erro ao criar");
-    toast("Votação criada.", "success");
+    toast(editing ? "Alterações salvas." : "Votação criada.", "success");
     const descriptionEditor = document.getElementById("poll-admin-desc");
     if (descriptionEditor) descriptionEditor.innerHTML = "";
     pollsAdminHideCreate();
@@ -19503,13 +19636,17 @@ async function loadPollsAdmin() {
     const d = await fetchJson("/api/admin/polls");
     if (!d.ok) throw new Error(d.error || "Falha");
     const polls = d.polls || [];
+    _pollAdminCache = polls;
     if (!polls.length) {
       root.innerHTML = "<p>Nenhuma votação cadastrada.</p>";
       return;
     }
-    root.innerHTML = polls.map(poll => {
+    const activePolls = polls.filter(poll => !["CLOSED", "CANCELLED"].includes(poll.status));
+    const archivedPolls = polls.filter(poll => ["CLOSED", "CANCELLED"].includes(poll.status));
+    const renderPoll = poll => {
       const descriptionHtml = poll.description_html || escHtml(poll.description || "").replace(/\r?\n/g, "<br>");
       const actions = [];
+      if (["DRAFT", "ACTIVE"].includes(poll.status)) actions.push(`<button class="btn btn-primary btn-sm" onclick="pollsAdminEdit(${poll.id})">Editar</button>`);
       if (poll.status === "DRAFT") actions.push(`<button class="btn btn-success btn-sm" onclick="pollsAdminAction(${poll.id},'publish')">Publicar</button>`);
       if (poll.status === "ACTIVE") actions.push(`<button class="btn btn-warning btn-sm" onclick="pollsAdminAction(${poll.id},'close')">Encerrar agora</button>`);
       if (poll.status !== "CLOSED" && poll.status !== "CANCELLED") actions.push(`<button class="btn btn-danger btn-sm" onclick="pollsAdminAction(${poll.id},'cancel')">Cancelar</button>`);
@@ -19525,7 +19662,9 @@ async function loadPollsAdmin() {
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${actions.join("")}</div>
       </div>`;
-    }).join("");
+    };
+    root.innerHTML = `${activePolls.length ? `<section><h3>Em andamento e rascunhos <span style="color:var(--text2);font-size:12px;">(${activePolls.length})</span></h3>${activePolls.map(renderPoll).join("")}</section>` : ""}
+      ${archivedPolls.length ? `<details class="card" style="margin-top:16px;"><summary style="cursor:pointer;font-weight:700;padding:4px 0;">Votações finalizadas e canceladas <span style="color:var(--text2);font-size:12px;">(${archivedPolls.length})</span></summary><div style="margin-top:14px;">${archivedPolls.map(renderPoll).join("")}</div></details>` : ""}`;
   } catch (e) {
     root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
@@ -20454,6 +20593,27 @@ function _spTrackNodesHtml(nodes, lockedTrack) {
   }).join("");
 }
 
+function _spSeasonTimelineHtml(freeNodes, premiumNodes, owned, level) {
+  const byLevel = nodes => new Map((nodes || []).map(node => [Number(node.level), node]));
+  const free = byLevel(freeNodes);
+  const premium = byLevel(premiumNodes);
+  const maxLevel = Math.max(30, ...free.keys(), ...premium.keys());
+  const progress = Math.max(0, Math.min(100, (Number(level || 0) / maxLevel) * 100));
+  const reward = (node, locked) => node
+    ? `<div class="sp-timeline-reward ${locked ? "is-locked" : ""}">${_spTrackNodesHtml([node], locked)}</div>`
+    : `<div class="sp-timeline-reward is-empty" aria-hidden="true"></div>`;
+  const rows = Array.from({ length: maxLevel }, (_, index) => {
+    const milestone = index + 1;
+    const reached = milestone <= Number(level || 0);
+    return `<div class="sp-timeline-row ${reached ? "is-reached" : ""}">${reward(free.get(milestone), false)}<span class="sp-timeline-level" aria-label="Nível ${milestone}">${milestone}</span>${reward(premium.get(milestone), !owned)}</div>`;
+  }).join("");
+  return `<section class="sp-tracks" style="--sp-progress:${progress}%;" aria-label="Trilha de recompensas Free e Premium">
+    <div class="sp-timeline-head"><span>Free</span><span aria-hidden="true">NÍVEL</span><span>Premium ${owned ? "· Desbloqueado" : "· Bloqueado"}</span></div>
+    <div class="sp-timeline">${rows}</div>
+    <p style="margin:12px 0 0;text-align:center;font-size:11px;color:var(--text2);">Seu nível atual é ${Number(level || 0)} de ${maxLevel}. A trilha mostra os prêmios Free e Premium alinhados pelo nível.</p>
+  </section>`;
+}
+
 async function seasonPassBuyPremium() {
   if (!_auth.authenticated) { promptLogin("SeasonLand"); return; }
   try {
@@ -21190,22 +21350,7 @@ async function loadSeasonPass(opts) {
         </div>
       </div>
 
-      <div class="sp-tracks" style="margin-bottom:16px;">
-        <div class="sp-track">
-          <div class="sp-track__head">
-            <div class="sp-track__title">Free</div>
-            <div class="sp-track__badge">a cada 4 níveis</div>
-          </div>
-          ${_spTrackNodesHtml(tracks.free, false)}
-        </div>
-        <div class="sp-track ${owned ? "" : "is-locked"}">
-          <div class="sp-track__head">
-            <div class="sp-track__title">Premium</div>
-            <div class="sp-track__badge ${owned ? "is-owned" : "is-locked"}">${owned ? "Desbloqueado" : "Bloqueado"}</div>
-          </div>
-          ${_spTrackNodesHtml(tracks.premium, !owned)}
-        </div>
-      </div>
+      ${_spSeasonTimelineHtml(tracks.free, tracks.premium, owned, level)}
 
       <div class="card" style="margin-bottom:16px;padding:16px;">
         <div class="card-title" style="margin-bottom:10px;">Season Pass Premium</div>

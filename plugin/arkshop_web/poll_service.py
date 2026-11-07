@@ -751,6 +751,13 @@ def update_poll(
     if status not in ("DRAFT", "ACTIVE"):
         raise ValueError("Só rascunhos ou votações ativas podem ser editadas")
 
+    active_options_changed = status == "ACTIVE" and (
+        options is not None
+        or (allow_multiple is not None and bool(allow_multiple) != bool(row.allow_multiple))
+    )
+    if active_options_changed and _total_voters(db, poll_id) > 0:
+        raise ValueError("Opções e formato não podem mudar depois do primeiro voto")
+
     sets: list[str] = []
     params: dict[str, Any] = {"id": poll_id}
     if title is not None:
@@ -792,8 +799,6 @@ def update_poll(
         )
 
     if options is not None:
-        if status != "DRAFT":
-            raise ValueError("Opções só podem ser alteradas em rascunho")
         labels = _validate_options(options)
         db.execute(
             text("DELETE FROM community_poll_options WHERE poll_id = :pid"),

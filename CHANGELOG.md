@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-06 23:28:16 -->
-<!-- Total de versões: 541 | Primeira: 1.11.49 -->
+<!-- Gerado: 2026-11-07 13:43:28 -->
+<!-- Total de versões: 542 | Primeira: 1.11.50 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.50] - 2026-11-07
+
+### Other
+
+- WebStore: admins can edit active polls safely; completed and cancelled polls are grouped in a collapsible section.
+- SeasonLand: Free and Premium rewards now align by level on a shared progress timeline.
+- Farm: searchable, alphabetically grouped resource cards and collapsible upload and withdrawal history sections.
 
 ## [1.11.49] - 2026-11-06
 

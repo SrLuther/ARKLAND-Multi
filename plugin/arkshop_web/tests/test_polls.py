@@ -18,6 +18,7 @@ from poll_service import (
     get_poll_detail,
     poll_meta,
     process_expired_polls,
+    update_poll,
 )
 
 ADMIN_STEAM = "76561198000000001"
@@ -170,3 +171,40 @@ def test_allow_multiple_options(poll_db):
     voted = cast_vote(poll_db, poll["id"], USER_STEAM, ids)
     assert voted["viewer_has_voted"] is True
     assert sum(o["votes"] for o in voted["options"]) == 2
+
+
+def test_active_poll_can_be_edited_without_losing_votes(poll_db):
+    poll = create_poll(
+        poll_db,
+        title="Original",
+        description="",
+        options=[{"label": "A"}, {"label": "B"}],
+        ends_at=_future_iso(),
+        publish=True,
+    )
+
+    edited = update_poll(
+        poll_db,
+        poll["id"],
+        title="Updated",
+        description="Context",
+        ends_at=_future_iso(48),
+        reward_amber=25,
+        allow_multiple=True,
+        options=[{"label": "C"}, {"label": "D"}],
+    )
+    assert edited["title"] == "Updated"
+    assert [option["label"] for option in edited["options"]] == ["C", "D"]
+
+    cast_vote(poll_db, poll["id"], USER_STEAM, [edited["options"][0]["id"]])
+    with pytest.raises(ValueError, match="depois do primeiro voto"):
+        update_poll(
+            poll_db,
+            poll["id"],
+            options=[{"label": "X"}, {"label": "Y"}],
+        )
+
+    updated_after_vote = update_poll(poll_db, poll["id"], title="Renamed after vote")
+    assert updated_after_vote["title"] == "Renamed after vote"
+    assert updated_after_vote["total_voters"] == 1
+    assert [option["label"] for option in updated_after_vote["options"]] == ["C", "D"]

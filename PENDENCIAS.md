@@ -1,10 +1,16 @@
 # Pendências - ARKLAND Multi
 
-**Atualizado:** 06/11/2026
+**Atualizado:** 07/11/2026
 **Fonte única de acompanhamento:** este arquivo.
 **Publicacao:** versao estavel 1.11.49 publicada com FazendaRecursos.dll 0.1.30 compilada; falta atualizar os servicos em producao e validar no site/jogo.
 
 ## Em andamento
+
+- [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Implementacao local: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta revisar visualmente com o catalogo completo e validar em diferentes larguras.
+
+- [ ] **SeasonLand - trilha unica de recompensas Free/Premium.** Implementacao local: trilha por nivel com Free e Premium em lados opostos, premios alinhados e preenchimento conforme o nivel. Falta revisao visual em tela estreita e validacao com uma conta real.
+
+- [ ] **WebStore - administracao de votacoes.** Implementacao local permite editar ativas; opcoes/formato so mudam antes do primeiro voto e ficam protegidos depois. Finalizadas/canceladas estao em card recolhivel. Falta validar fluxo completo antes de publicar.
 
 - [ ] **Fazenda - validar cat?logo Omega ap?s atualiza??o de produ??o.** A vers?o est?vel 1.11.48 est? publicada. Causa corrigida: configs gerenciadas pelo site n?o recebiam padr?es novos no plugin e o cat?logo MySQL antigo ocultava recursos do config. Aplicar a atualiza??o no WebStore e nos plugins dos servidores; confirmar migra??o autom?tica dos IDs ausentes e presen?a de Essence, Paragon, Token e demais recursos no site, preservando configura??es personalizadas.
 
@@ -27,6 +33,10 @@
 - [ ] **Agente remoto - acesso de outra rede.** A correção local para separar host público/DDNS do IP LAN ainda precisa de validação de conexão externa com TCP 32440 encaminhada e liberada no firewall. Verificar também CGNAT; se houver, documentar alternativa por VPN/rede privada ou relay.
 
 - [ ] **ArkEventHunt - evento real em produção.** O log anterior confirmou carregamento do plugin e registro dos comandos/hooks, mas a configuração estava `enabled=false`. Confirmar decisão de habilitar e, se habilitado, validar evento real e Mode B.
+
+
+## Aguardando discussao
+
 
 ## Concluídas / confirmadas
 
