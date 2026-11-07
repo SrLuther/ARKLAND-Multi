@@ -4,7 +4,7 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.48"
+APP_VERSION: str = "1.11.49"
 BUILD_DATE: str = "2026-11-06"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -12,12 +12,12 @@ BUILD_DATE: str = "2026-11-06"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
-        "version": "1.11.48",
+        "version": "1.11.49",
         "date": "2026-11-06",
         "changes": [
-            "Fazenda: itens padr?o Omega (Soul, Shard, Paragon, Token e Essence) s?o acrescentados automaticamente a configs antigas sem apagar ajustes personalizados.",
-            "Fazenda no site: cat?logo MySQL desatualizado n?o oculta mais os recursos definidos no config do servidor.",
-            "Fazenda: plugin sincroniza o cat?logo atualizado e libera os novos recursos para estoque, produ??o, envio e resgate.",
+            "Farm: add missing Omega resources to existing configs while preserving custom settings.",
+            "WebStore: keep configured resources visible while the MySQL catalog snapshot is stale.",
+            "Build: compile FazendaRecursos with the other plugins and stop release packaging if its DLL build fails.",
         ],
     },
     {

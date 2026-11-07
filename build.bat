@@ -155,6 +155,24 @@ if exist "%~dp0plugin\ArkPlayer\build_cl.bat" (
 )
 echo.
 
+echo [1e/4] Building FazendaRecursos.dll...
+if exist "%~dp0plugin\FazendaRecursos\build_cl.bat" (
+    pushd "%~dp0plugin\FazendaRecursos"
+    call build_cl.bat
+    set FR_BUILD=!errorlevel!
+    popd
+    if !FR_BUILD! neq 0 (
+        echo [ERRO] FazendaRecursos build failed; refusing to package an old DLL.
+        exit /b 1
+    ) else (
+        echo       FazendaRecursos.dll updated in plugin\FazendaRecursos\bin\
+    )
+) else (
+    echo [ERRO] plugin\FazendaRecursos\build_cl.bat not found.
+    exit /b 1
+)
+echo.
+
 :after_plugin_builds
 
 :: -- Gera o execut?vel --------------------------------------------------------

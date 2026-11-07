@@ -2,11 +2,11 @@
 
 **Atualizado:** 06/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publica??o:** corre??o da Fazenda em prepara??o para a vers?o est?vel 1.11.48.
+**Publicacao:** 1.11.48 published without the rebuilt Farm DLL; fixing packaging for stable 1.11.49.
 
 ## Em andamento
 
-- [ ] **Fazenda - cat?logo Omega ausente no servidor e no site.** Causa identificada: configs marcadas como gerenciadas pelo site n?o recebiam novos padr?es no plugin, e a API substitu?a a lista do config por um cat?logo MySQL antigo. Corre??es locais acrescentam padr?es ausentes sem apagar personaliza??es e mant?m a lista do config vis?vel no site; aguardando build e publica??o est?vel 1.11.48.
+- [ ] **Fazenda - validar cat?logo Omega ap?s atualiza??o de produ??o.** A vers?o est?vel 1.11.48 est? publicada. Causa corrigida: configs gerenciadas pelo site n?o recebiam padr?es novos no plugin e o cat?logo MySQL antigo ocultava recursos do config. Aplicar a atualiza??o no WebStore e nos plugins dos servidores; confirmar migra??o autom?tica dos IDs ausentes e presen?a de Essence, Paragon, Token e demais recursos no site, preservando configura??es personalizadas.
 
 - [ ] **WebStore - Votações: identidade visual e formatação de descrições.** Editor com parágrafos, negrito, itálico, sublinhado, subtítulos, listas e citações; descrições sanitizadas no servidor. Falta revisar visualmente e validar persistência/renderização com votações formatadas.
 
