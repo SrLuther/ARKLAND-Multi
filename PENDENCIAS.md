@@ -2,7 +2,7 @@
 
 **Atualizado:** 06/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** 1.11.48 published without the rebuilt Farm DLL; fixing packaging for stable 1.11.49.
+**Publicacao:** versao estavel 1.11.49 publicada com FazendaRecursos.dll 0.1.30 compilada; falta atualizar os servicos em producao e validar no site/jogo.
 
 ## Em andamento
 
