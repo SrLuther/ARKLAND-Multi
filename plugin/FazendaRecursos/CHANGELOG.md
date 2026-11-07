@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.30]
+- Acrescenta recursos Omega ausentes em configs existentes, inclusive configs gerenciadas pelo site, preservando IDs e ajustes personalizados j? cadastrados.
+
 ## [0.1.29]
 - Amplia o catálogo Omega com os 11 recursos Soul/Token adicionais encontrados em `docs/SpawnCodes.txt` que ainda não estavam incluídos.
 

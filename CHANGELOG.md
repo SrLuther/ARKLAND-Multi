@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-06 22:13:58 -->
-<!-- Total de versões: 540 | Primeira: 1.11.47 -->
+<!-- Gerado: 2026-11-06 23:01:38 -->
+<!-- Total de versões: 541 | Primeira: 1.11.48 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.48] - 2026-11-06
+
+### Other
+
+- Fazenda: itens padr?o Omega (Soul, Shard, Paragon, Token e Essence) s?o acrescentados automaticamente a configs antigas sem apagar ajustes personalizados.
+- Fazenda no site: cat?logo MySQL desatualizado n?o oculta mais os recursos definidos no config do servidor.
+- Fazenda: plugin sincroniza o cat?logo atualizado e libera os novos recursos para estoque, produ??o, envio e resgate.
 
 ## [1.11.47] - 2026-11-06
 

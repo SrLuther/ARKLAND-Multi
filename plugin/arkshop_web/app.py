@@ -14720,32 +14720,37 @@ def player_farm_overview():
                                      "stack_size": resource.get("StackSize", 25),
                                      "enabled": bool(category.get("Enabled", category_id == "default") and resource.get("Enabled", False)), "share_key": share_key})
         # O estoque numérico do MySQL é a quantidade produzida e resgatável.
+        # Keep config resources visible if the plugin's MySQL catalog is stale.
         catalog_rows = db.query(FarmResourceCatalog).filter(
             FarmResourceCatalog.share_key == share_key
         ).order_by(FarmResourceCatalog.updated_at.desc()).all()
         catalog_from_mysql = bool(catalog_rows)
         if catalog_rows:
-            seen_catalog = set()
             player_server_by_resource = {
                 row.resource_id: row.server_id for row in resource_rows if row.server_id
             }
-            resources = []
+            latest_catalog_by_id = {}
             for catalog in catalog_rows:
-                if catalog.resource_id in seen_catalog:
+                if latest_server and catalog.server_id != latest_server:
+                    continue
+                if catalog.resource_id in latest_catalog_by_id:
                     continue
                 player_server = player_server_by_resource.get(catalog.resource_id)
                 if player_server and catalog.server_id != player_server:
                     continue
-                seen_catalog.add(catalog.resource_id)
-                resources.append({
-                    "id": catalog.resource_id, "name": catalog.resource_name,
-                    "category": catalog.category, "capacity": catalog.capacity,
-                    "output_quantity": catalog.output_quantity,
-                    "interval_seconds": catalog.interval_seconds,
-                    "stack_size": catalog.stack_size,
-                    "enabled": bool(catalog.enabled),
-                    "server_id": catalog.server_id, "share_key": share_key,
-                })
+                latest_catalog_by_id[catalog.resource_id] = catalog
+            for resource in resources:
+                catalog = latest_catalog_by_id.get(str(resource.get("id") or ""))
+                if catalog:
+                    resource.update({
+                        "name": catalog.resource_name or resource["name"],
+                        "category": catalog.category or resource["category"],
+                        "capacity": catalog.capacity,
+                        "output_quantity": catalog.output_quantity,
+                        "interval_seconds": catalog.interval_seconds,
+                        "stack_size": catalog.stack_size,
+                        "server_id": catalog.server_id,
+                    })
         latest_player_sync = max((row.updated_at for row in resource_rows if row.updated_at), default=None)
         synced_at_value = latest_player_sync or (state.updated_at if state else None)
         synced_at = synced_at_value.isoformat() if synced_at_value else None

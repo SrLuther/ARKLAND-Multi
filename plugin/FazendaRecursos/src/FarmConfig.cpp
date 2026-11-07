@@ -108,11 +108,9 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     for (const auto& row : base["Resources"])
         if (row.is_object() && row.contains("Id") && row["Id"].is_string())
             known_base.insert(row["Id"].get<std::string>());
-    if (!FRJsonBool(root, "ManagedByWeb", false)) {
-        for (const auto& resource : DefaultBaseResources()) {
-            const auto id = resource["Id"].get<std::string>();
-            if (!known_base.contains(id)) { base["Resources"].push_back(resource); changed = true; }
-        }
+    for (const auto& resource : DefaultBaseResources()) {
+        const auto id = resource["Id"].get<std::string>();
+        if (!known_base.contains(id)) { base["Resources"].push_back(resource); changed = true; }
     }
     if (!categories.contains("omega")) {
         categories["omega"] = {{"Enabled", true}, {"Required", false},
@@ -144,11 +142,9 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     for (const auto& row : omega["Resources"])
         if (row.is_object() && row.contains("Id") && row["Id"].is_string())
             known.insert(row["Id"].get<std::string>());
-    if (!FRJsonBool(root, "ManagedByWeb", false)) {
-        for (const auto& resource : DefaultOmegaResources()) {
-            const auto id = resource["Id"].get<std::string>();
-            if (!known.contains(id)) { omega["Resources"].push_back(resource); changed = true; }
-        }
+    for (const auto& resource : DefaultOmegaResources()) {
+        const auto id = resource["Id"].get<std::string>();
+        if (!known.contains(id)) { omega["Resources"].push_back(resource); changed = true; }
     }
     for (auto category = categories.begin(); category != categories.end(); ++category) {
         if (!category.value().is_object() || !category.value().contains("Resources") ||

@@ -1,11 +1,10 @@
 {
-    "version": "1.11.47",
+    "version": "1.11.48",
     "date": "2026-11-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.47/ARKLAND-Multi-Setup-v1.11.47.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.48/ARKLAND-Multi-Setup-v1.11.48.exe",
     "changelog": [
-        "Votações: editor de descrições com parágrafos, subtítulos, listas, citações e destaques; conteúdo formatado é sanitizado antes de ser exibido.",
-        "Identidade visual: ícones de Catálogo, Sugestões e Votações integrados aos menus e páginas correspondentes.",
-        "BetLand: participantes agora aparecem com nome e os números da equipe são reunidos aos números pessoais do jogador.",
-        "Minha Área: leitura dos dados da equipe compatível com a resposta envelopada da API, exibindo o bônus de marcos recebido."
+        "Fazenda: itens padr?o Omega (Soul, Shard, Paragon, Token e Essence) s?o acrescentados automaticamente a configs antigas sem apagar ajustes personalizados.",
+        "Fazenda no site: cat?logo MySQL desatualizado n?o oculta mais os recursos definidos no config do servidor.",
+        "Fazenda: plugin sincroniza o cat?logo atualizado e libera os novos recursos para estoque, produ??o, envio e resgate."
     ]
 }
