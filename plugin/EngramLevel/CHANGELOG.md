@@ -1,5 +1,9 @@
 # Changelog — EngramLevel
 
+## [0.1.3] - 2026-11-07
+
+- `/ae` credita +100 pontos livres e totais de engrama em cada uso, mesmo sem engramas pendentes ou com o automático desligado; o saldo é replicado imediatamente ao jogador.
+
 ## [0.1.2] - 2026-10-30
 
 - `/ae` restaura e replica os pontos livres e totais de engrama após cada lote, evitando que a interface do jogador fique em zero depois do desbloqueio automático.

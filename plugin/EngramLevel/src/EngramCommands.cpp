@@ -3,6 +3,7 @@
 #include "EngramConfig.h"
 #include "EngramGrant.h"
 
+#include <limits>
 #include <mutex>
 
 namespace {
@@ -83,6 +84,24 @@ void SendPlayer(AShooterPlayerController* controller, const std::string& message
     EngramLevel::TellPlayer(controller, message);
 }
 
+bool GrantAeEngramPoints(AShooterPlayerController* controller) {
+    if (!controller) return false;
+    AShooterPlayerState* player_state = controller->GetShooterPlayerState();
+    if (!player_state) return false;
+
+    // /ae is also a repeatable engram-points reward, independent of whether
+    // the queue finds anything new to unlock.
+    const int free_points = player_state->FreeEngramPointsField();
+    const int total_points = player_state->TotalEngramPointsField();
+    if (free_points > std::numeric_limits<int>::max() - 100 ||
+        total_points > std::numeric_limits<int>::max() - 100)
+        return false;
+    player_state->FreeEngramPointsField() = free_points + 100;
+    player_state->TotalEngramPointsField() = total_points + 100;
+    player_state->ForceNetUpdate(false, true, false);
+    return true;
+}
+
 } // namespace
 
 namespace EngramLevel {
@@ -136,6 +155,12 @@ void CmdAutoEngram(AShooterPlayerController* controller, FString*, EChatSendMode
 // Reforço manual. Só enfileira se /autoengram já está ligado para este jogador.
 void CmdAe(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
+    const bool points_granted = GrantAeEngramPoints(controller);
+    if (points_granted)
+        SendPlayer(controller, "Você recebeu +100 pontos de engramas.");
+    else
+        SendPlayer(controller, "Não foi possível creditar pontos de engramas agora.");
+
     if (!EngramLevel::Config::Get().Enabled()) {
         SendPlayer(controller, "Desbloqueio automático desligado no servidor.");
         return;

@@ -29,7 +29,7 @@ O jogador começa com o automático **desligado**. O plugin não chama `ServerUn
 
 `/autoengram` liga o automático daquele SteamID. Usado de novo, desliga. O chat responde quantos engramas não tek entraram na fila e até qual nível, ou o motivo se não entrou nenhum. Desligar responde «Desbloqueio automático desligado.» e apaga a fila daquele jogador. Quem nunca usou o comando continua desligado, também depois de relog e de restart.
 
-`/ae` é o reforço manual. Com o automático desligado não solta nada e responde «Desbloqueio automático desligado.» Com ele ligado, faz a mesma releitura e completa a mesma fila.
+`/ae` credita **+100 pontos livres e totais de engrama em cada uso**, independentemente de haver algo para desbloquear ou de `/autoengram` estar ligado. Se o automático estiver ligado e o plugin ativo, também faz a mesma releitura e completa a fila; caso contrário, o crédito é mantido e o chat informa que o desbloqueio automático está desligado.
 
 A lista de quem ligou fica em `ArkApi/Plugins/EngramLevel/autoengram.json` (ao lado do config). A gravação vai para um ficheiro temporário e só depois troca o nome. Se a pasta não existir, o plugin cria. Não usa MySQL. Um JSON inválido no arranque não apaga a lista: fica o último estado bom em memória e o erro vai para o log.
 
@@ -41,7 +41,7 @@ A lista não sai de uma vez. Entra numa fila do jogador: no máximo 10 engramas 
 
 Com o automático ligado, aplicar um nível não solta só o número daquele clique e não corre dentro de `ServerApplyLevelUp`. Espera 1 segundo e faz a mesma releitura (não tek até o nível atual). Antes do primeiro bloco, cada clique empurra esse bloco para daqui a 1 segundo — a espera não passa de 1 segundo. Depois que um bloco já saiu, um nível novo não reinicia a espera: o que faltar entra no fim da fila.
 
-`Enabled: false` desliga o plugin inteiro. O comando não religa e responde «Desbloqueio automático desligado no servidor.»
+`Enabled: false` desliga o desbloqueio automático. O `/ae` continua creditando +100 pontos por uso, mas não enfileira engramas e informa «Desbloqueio automático desligado no servidor.»
 
 Exemplo para somar um engrama pelo nome interno (ou pelo nome mostrado, inteiro):
 

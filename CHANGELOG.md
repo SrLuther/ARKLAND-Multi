@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-07 13:43:28 -->
-<!-- Total de versões: 542 | Primeira: 1.11.50 -->
+<!-- Gerado: 2026-11-07 19:01:19 -->
+<!-- Total de versões: 543 | Primeira: 1.11.51 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.51] - 2026-11-07
+
+### Other
+
+- EngramLevel: /ae grants 100 free and total engram points on every use, even when no engrams are pending or auto unlock is off.
+- EngramLevel updated to 0.1.3.
 
 ## [1.11.50] - 2026-11-07
 

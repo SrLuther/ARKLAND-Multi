@@ -1,10 +1,9 @@
 {
-    "version": "1.11.50",
+    "version": "1.11.51",
     "date": "2026-11-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.50/ARKLAND-Multi-Setup-v1.11.50.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.51/ARKLAND-Multi-Setup-v1.11.51.exe",
     "changelog": [
-        "WebStore: admins can edit active polls safely; completed and cancelled polls are grouped in a collapsible section.",
-        "SeasonLand: Free and Premium rewards now align by level on a shared progress timeline.",
-        "Farm: searchable, alphabetically grouped resource cards and collapsible upload and withdrawal history sections."
+        "EngramLevel: /ae grants 100 free and total engram points on every use, even when no engrams are pending or auto unlock is off.",
+        "EngramLevel updated to 0.1.3."
     ]
 }
