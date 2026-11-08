@@ -1,12 +1,14 @@
 # Pendências - ARKLAND Multi
 
-**Atualizado:** 07/11/2026
+**Atualizado:** 08/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** versao estavel 1.11.50 publicada no GitHub; executar a atualizacao da WebStore em producao e validar votacoes, SeasonLand e Fazenda no site.
+**Publicacao:** versao estavel 1.11.53 publicada no GitHub; atualizar/reiniciar a WebStore em producao e validar as correcoes anteriores e o novo layout da Fazenda.
 
 ## Em andamento
 
 - [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Incluida na 1.11.50: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta atualizar a WebStore em producao e revisar o catalogo completo em diferentes larguras.
+
+- [x] **WebStore - Fazenda: manter recursos ativos visiveis e recolher apenas inativos.** Publicado na 1.11.53: recursos habilitados aparecem em cards responsivos; somente os desabilitados ficam em categorias recolhiveis. A busca localiza ambas as listas e abre a categoria correspondente. Falta validar em varias larguras e confirmar em producao.
 
 - [ ] **SeasonLand - trilha unica de recompensas Free/Premium.** Incluida na 1.11.50: trilha por nivel com Free e Premium em lados opostos, premios alinhados e preenchimento conforme o nivel. Falta atualizar a WebStore em producao e revisar em tela estreita/conta real.
 

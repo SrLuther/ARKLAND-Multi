@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-07 21:06:42 -->
-<!-- Total de versões: 544 | Primeira: 1.11.52 -->
+<!-- Gerado: 2026-11-07 23:07:40 -->
+<!-- Total de versões: 545 | Primeira: 1.11.53 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.53] - 2026-11-08
+
+### Other
+
+- WebStore: Fazenda keeps enabled resources visible in a responsive card grid and groups disabled resources in collapsible categories.
+- WebStore: resource search covers enabled and disabled Fazenda resources and opens matching categories.
 
 ## [1.11.52] - 2026-11-07
 

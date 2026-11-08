@@ -17708,7 +17708,7 @@ async function loadMyFarm() {
           : stock >= capacity
             ? `<div class="farm-full-time"><strong>Estoque cheio</strong><span>Hor&aacute;rio da &uacute;ltima lota&ccedil;&atilde;o ainda n&atilde;o registrado.</span></div>`
             : `<div class="farm-full-time is-paused"><strong>Previs&atilde;o indispon&iacute;vel</strong><span>${r.enabled ? "A produ&ccedil;&atilde;o ainda n&atilde;o est&aacute; ativa." : "Recurso desabilitado na configura&ccedil;&atilde;o."}</span></div>`;
-      return { category: r.category, html: `<article class="farm-stock-card" data-farm-search="${escHtml(`${r.name || ""} ${r.category || ""}`.toLocaleLowerCase("pt-BR"))}">
+      return { category: r.category, enabled: Boolean(r.enabled), html: `<article class="farm-stock-card" data-farm-search="${escHtml(`${r.name || ""} ${r.category || ""}`.toLocaleLowerCase("pt-BR"))}">
         <div class="farm-stock-card__head"><div><strong>${escHtml(r.name)}</strong><small>${escHtml(r.category)} &middot; ${r.production_active ? "Produ&ccedil;&atilde;o ativa" : "Produ&ccedil;&atilde;o inativa"}</small></div><span class="farm-state ${r.enabled ? "is-enabled" : "is-disabled"}">${r.enabled ? "Habilitado" : "Indispon&#237;vel"}</span></div>
         <div class="farm-stock-focus"><div><strong>${stock.toLocaleString("pt-BR")}</strong><span> / ${capacity.toLocaleString("pt-BR")}</span></div><small>unidades em estoque · teto atual</small></div>
         <div class="farm-stock-track" role="progressbar" aria-label="Estoque de ${escHtml(r.name)}" aria-valuemin="0" aria-valuemax="${capacity}" aria-valuenow="${Math.min(stock, capacity)}"><span style="width:${fillPct}%"></span></div>
@@ -17717,7 +17717,9 @@ async function loadMyFarm() {
         <details class="farm-stock-details" data-farm-details="${escHtml(r.id)}" ${openStockDetails.has(String(r.id)) ? "open" : ""}><summary>Configura&ccedil;&atilde;o da produ&ccedil;&atilde;o</summary><div><span>${Number(r.output_quantity || 1)} unidade(s) por ciclo</span><span>1 ciclo a cada ${formatFarmInterval(r.interval_seconds)}</span><span>Pacote de ${Number(r.stack_size || 25)} unidade(s)</span><span>Categoria: ${escHtml(r.category)}</span></div></details>
       </article>` };
     });
-    const groupFarmCards = (cards, sectionName) => {
+    const activeStockCards = stockCards.filter(card => card.enabled);
+    const inactiveStockCards = stockCards.filter(card => !card.enabled);
+    const groupFarmCards = (cards, sectionName, openSingleCategory = true) => {
       const groups = new Map();
       cards.forEach(({ category, html }) => {
         const key = String(category || "Outros");
@@ -17725,7 +17727,7 @@ async function loadMyFarm() {
         groups.get(key).push(html);
       });
       const categoryOrder = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
-      return [...groups.entries()].sort((a, b) => categoryOrder.compare(a[0], b[0])).map(([category, items]) => `<details class="farm-category" data-farm-category="${escHtml(sectionName)}" ${groups.size === 1 ? "open" : ""}>
+      return [...groups.entries()].sort((a, b) => categoryOrder.compare(a[0], b[0])).map(([category, items]) => `<details class="farm-category" data-farm-category="${escHtml(sectionName)}" ${openSingleCategory && groups.size === 1 ? "open" : ""}>
         <summary><strong>${escHtml(category)}</strong><span>${items.length} recurso(s)</span></summary>
         <div class="farm-category-grid">${items.join("")}</div>
       </details>`).join("");
@@ -17770,6 +17772,13 @@ async function loadMyFarm() {
         #myarea-farm-overview .farm-section-head h3{font-size:14px;margin:0 0 3px;color:var(--text)}
         #myarea-farm-overview .farm-section-head p{font-size:11px;color:var(--text2);margin:0}
         #myarea-farm-overview .farm-stock-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr));gap:10px}
+        #myarea-farm-overview .farm-active-stock-head,#myarea-farm-overview .farm-inactive-stock-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:12px 0 8px}
+        #myarea-farm-overview .farm-active-stock-head strong,#myarea-farm-overview .farm-inactive-stock-head strong{color:var(--text);font-size:12px}
+        #myarea-farm-overview .farm-active-stock-head span,#myarea-farm-overview .farm-inactive-stock-head span{color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-inactive-stock{margin-top:14px;padding-top:10px;border-top:1px solid var(--border)}
+        #myarea-farm-overview .farm-inactive-stock-head{margin-top:0}
+        #myarea-farm-overview .farm-inactive-stock-head small{flex:1 1 100%;color:var(--text2);font-size:10px}
+        #myarea-farm-overview .farm-no-resource-match{margin:8px 0;color:var(--text2);font-size:11px}
         #myarea-farm-overview .farm-resource-filter{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.018)}
         #myarea-farm-overview .farm-resource-filter input{flex:1;min-width:0}
         #myarea-farm-overview .farm-category{margin:8px 0;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:rgba(255,255,255,.012)}
@@ -17829,7 +17838,13 @@ async function loadMyFarm() {
       <div class="farm-sync-banner ${integrationReady ? "is-ready" : ""}">${integrationReady ? "Estoque sincronizado. O agendamento reserva o saldo; a entrega ocorre no jogo com /fazresgatar." : "A Web Store ainda n&atilde;o recebeu uma sincroniza&ccedil;&atilde;o recente. Estoque e agendamentos ficam indispon&iacute;veis at&eacute; o servidor enviar dados reais."}</div>
       <section class="farm-section farm-stock-section"><div class="farm-section-head"><h3>Produ&ccedil;&atilde;o e estoque</h3><p>Estoque atual e teto de cada recurso, previs&atilde;o da pr&oacute;xima lota&ccedil;&atilde;o, saldo dispon&iacute;vel e retiradas reservadas.</p></div>
         ${!catalogFromMysql ? `<div class="farm-sync-banner">O cat&eacute;logo MySQL ainda n&atilde;o foi publicado pelo plugin; os valores abaixo s&atilde;o a configura&ccedil;&atilde;o local de refer&ecirc;ncia.</div>` : ""}
-        ${resources.length ? `<div class="farm-resource-filter"><label for="myarea-farm-resource-filter">Encontrar recurso</label><input id="myarea-farm-resource-filter" type="search" placeholder="Nome ou categoria…" oninput="filterMyFarmResources(this.value)" /><span style="font-size:10px;color:var(--text2);">${resources.length} recursos</span></div>${groupFarmCards(stockCards, "stock")}` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
+        ${resources.length ? `<div class="farm-resource-filter"><label for="myarea-farm-resource-filter">Encontrar recurso</label><input id="myarea-farm-resource-filter" type="search" placeholder="Nome ou categoria…" oninput="filterMyFarmResources(this.value)" /><span style="font-size:10px;color:var(--text2);">${resources.length} recursos</span></div>
+          <div data-farm-active-stock>
+            <div class="farm-active-stock-head"><strong>Recursos ativos</strong><span>${activeStockCards.length} recurso(s) · sempre visíveis</span></div>
+            ${activeStockCards.length ? `<div class="farm-stock-grid">${activeStockCards.map(card => card.html).join("")}</div>` : `<p class="farm-no-resource-match">Nenhum recurso está habilitado na Fazenda.</p>`}
+          </div>
+          ${inactiveStockCards.length ? `<div class="farm-inactive-stock"><div class="farm-inactive-stock-head"><strong>Recursos desativados</strong><span>${inactiveStockCards.length} recurso(s)</span><small>Abra uma categoria para consultar os recursos que não estão em uso.</small></div>${groupFarmCards(inactiveStockCards, "inactive", false)}</div>` : ""}
+          <p class="farm-no-resource-match" data-farm-no-resource-match hidden>Nenhum recurso corresponde à busca.</p>` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
       </section>
       <section class="farm-section"><div class="farm-section-head"><h3>Agendar retirada</h3><p>Informe a quantidade que deseja retirar. O saldo ser&aacute; reservado at&eacute; concluir o resgate ou cancelar o pedido.</p></div>
         ${redemptionCards.length ? groupFarmCards(redemptionCards, "redeem") : `<p style="font-size:12px;color:var(--text2);">N&atilde;o h&aacute; recursos habilitados para retirada.</p>`}
@@ -17855,17 +17870,25 @@ function filterMyFarmResources(value) {
   window._farmResourceFilter = String(value || "").trim().toLocaleLowerCase("pt-BR");
   const host = document.getElementById("myarea-farm-overview");
   if (!host) return;
+  host.querySelectorAll("[data-farm-search]").forEach(card => {
+    card.hidden = Boolean(window._farmResourceFilter) && !(card.dataset.farmSearch || "").includes(window._farmResourceFilter);
+  });
   host.querySelectorAll("[data-farm-category]").forEach(category => {
     const cards = [...category.querySelectorAll("[data-farm-search]")];
     let visible = 0;
     cards.forEach(card => {
-      const show = !window._farmResourceFilter || (card.dataset.farmSearch || "").includes(window._farmResourceFilter);
-      card.hidden = !show;
-      if (show) visible++;
+      if (!card.hidden) visible++;
     });
     category.hidden = visible === 0;
     if (window._farmResourceFilter && visible) category.open = true;
   });
+  const activeStock = host.querySelector("[data-farm-active-stock]");
+  const activeCards = [...(activeStock?.querySelectorAll("[data-farm-search]") || [])];
+  const activeVisible = activeCards.filter(card => !card.hidden).length;
+  if (activeStock) activeStock.hidden = activeCards.length > 0 && activeVisible === 0;
+  const noMatches = host.querySelector("[data-farm-no-resource-match]");
+  const resourceCards = [...host.querySelectorAll(".farm-stock-card[data-farm-search]")];
+  if (noMatches) noMatches.hidden = !window._farmResourceFilter || resourceCards.some(card => !card.hidden);
 }
 
 async function requestFarmRedemption(resourceId) {

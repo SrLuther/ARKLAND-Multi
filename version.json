@@ -1,11 +1,9 @@
 {
-    "version": "1.11.52",
+    "version": "1.11.53",
     "date": "2026-11-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.52/ARKLAND-Multi-Setup-v1.11.52.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.53/ARKLAND-Multi-Setup-v1.11.53.exe",
     "changelog": [
-        "WebStore: corrigido o SVG do catálogo que causava erro XML por codificação inválida.",
-        "WebStore: caminhos legados /static/... agora servem os mesmos arquivos estáticos da raiz.",
-        "WebStore: compatibilidade MariaDB corrigida ao registrar metadados JSON no ledger de Âmbares.",
-        "WebStore: colunas de auditoria migradas para utf8mb4 para aceitar mensagens e payloads Unicode."
+        "WebStore: Fazenda keeps enabled resources visible in a responsive card grid and groups disabled resources in collapsible categories.",
+        "WebStore: resource search covers enabled and disabled Fazenda resources and opens matching categories."
     ]
 }
