@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.51"
+APP_VERSION: str = "1.11.52"
 BUILD_DATE: str = "2026-11-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.52",
+        "date": "2026-11-07",
+        "changes": [
+            "WebStore: corrigido o SVG do catálogo que causava erro XML por codificação inválida.",
+            "WebStore: caminhos legados /static/... agora servem os mesmos arquivos estáticos da raiz.",
+            "WebStore: compatibilidade MariaDB corrigida ao registrar metadados JSON no ledger de Âmbares.",
+            "WebStore: colunas de auditoria migradas para utf8mb4 para aceitar mensagens e payloads Unicode.",
+        ],
+    },
     {
         "version": "1.11.51",
         "date": "2026-11-07",

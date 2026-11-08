@@ -278,7 +278,7 @@ def record_movement(
                         "INSERT INTO amber_ledger "
                         "(occurred_at, channel, event_type, gross_amount, signed_delta, "
                         "steam_id, counterparty_id, source_table, source_id, idempotency_key, metadata_json) "
-                        "VALUES (:occ, :ch, :et, :gross, :delta, :sid, :cp, :st, :src, :key, CAST(:meta AS JSON))"
+                        "VALUES (:occ, :ch, :et, :gross, :delta, :sid, :cp, :st, :src, :key, :meta)"
                     ),
                     {**params, "meta": meta_json},
                 )

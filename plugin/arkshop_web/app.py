@@ -1612,6 +1612,46 @@ def _ensure_steam_id_collation(engine: Any) -> None:
     _STEAM_ID_COLLATION_NORMALIZED = True
 
 
+def _ensure_audit_text_utf8mb4(engine: Any) -> None:
+    """Permite que audit_events persista Unicode completo em bancos legados."""
+    if "mysql" not in str(engine.url).lower():
+        return
+
+    changed: list[str] = []
+    with engine.connect() as conn:
+        if conn.execute(text("SHOW TABLES LIKE 'audit_events'")).fetchone() is None:
+            return
+        for column in ("message", "payload_json"):
+            row = conn.execute(
+                text("SHOW FULL COLUMNS FROM `audit_events` LIKE :col"),
+                {"col": column},
+            ).fetchone()
+            if row is None:
+                continue
+            collation = str(row[2] or "").lower()
+            if collation.startswith("utf8mb4_"):
+                continue
+
+            # The model uses Text; keep a text-family width already in use so
+            # this migration never narrows existing audit data.
+            col_type = str(row[1] or "").lower()
+            if col_type not in {"tinytext", "text", "mediumtext", "longtext"}:
+                col_type = "text"
+            conn.execute(
+                text(
+                    f"ALTER TABLE `audit_events` MODIFY `{column}` {col_type.upper()} "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL"
+                )
+            )
+            changed.append(column)
+        if changed:
+            conn.commit()
+            log.info(
+                "audit_events: coluna(s) %s normalizadas para utf8mb4",
+                ", ".join(changed),
+            )
+
+
 def _mysql_index_exists(conn: Any, table: str, index_name: str) -> bool:
     row = conn.execute(
         text(
@@ -2271,6 +2311,12 @@ def _migrate_schema(engine: Any) -> None:
                         "ALTER TABLE `farm_player_resources` ADD COLUMN `full_at_utc` BIGINT NULL AFTER `last_accrual_utc`"
                     ))
                     log.info("farm_schema_migrated table=farm_player_resources column=full_at_utc")
+        try:
+            _ensure_audit_text_utf8mb4(engine)
+        except Exception as exc:
+            # Audit persistence is best-effort; a charset migration problem
+            # must be visible without preventing the WebStore from starting.
+            log.warning("audit_events: migração utf8mb4 falhou: %s", exc)
     _ENTITLEMENTS_SCHEMA_READY = True
     _ensure_store_users_schema(engine)
     _ensure_steam_id_collation(engine)
@@ -9923,6 +9969,12 @@ def index():
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
     return resp
+
+
+@app.route("/static/<path:filename>", methods=["GET", "HEAD"])
+def legacy_static_prefix(filename: str):
+    """Serve caminhos /static/... legados além dos assets servidos na raiz."""
+    return app.send_static_file(filename)
 
 
 

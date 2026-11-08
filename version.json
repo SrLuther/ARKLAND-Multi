@@ -1,9 +1,11 @@
 {
-    "version": "1.11.51",
+    "version": "1.11.52",
     "date": "2026-11-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.51/ARKLAND-Multi-Setup-v1.11.51.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.52/ARKLAND-Multi-Setup-v1.11.52.exe",
     "changelog": [
-        "EngramLevel: /ae grants 100 free and total engram points on every use, even when no engrams are pending or auto unlock is off.",
-        "EngramLevel updated to 0.1.3."
+        "WebStore: corrigido o SVG do catálogo que causava erro XML por codificação inválida.",
+        "WebStore: caminhos legados /static/... agora servem os mesmos arquivos estáticos da raiz.",
+        "WebStore: compatibilidade MariaDB corrigida ao registrar metadados JSON no ledger de Âmbares.",
+        "WebStore: colunas de auditoria migradas para utf8mb4 para aceitar mensagens e payloads Unicode."
     ]
 }

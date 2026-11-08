@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-07 19:01:19 -->
-<!-- Total de versões: 543 | Primeira: 1.11.51 -->
+<!-- Gerado: 2026-11-07 21:06:42 -->
+<!-- Total de versões: 544 | Primeira: 1.11.52 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.52] - 2026-11-07
+
+### Other
+
+- WebStore: corrigido o SVG do catálogo que causava erro XML por codificação inválida.
+- WebStore: caminhos legados /static/... agora servem os mesmos arquivos estáticos da raiz.
+- WebStore: compatibilidade MariaDB corrigida ao registrar metadados JSON no ledger de Âmbares.
+- WebStore: colunas de auditoria migradas para utf8mb4 para aceitar mensagens e payloads Unicode.
 
 ## [1.11.51] - 2026-11-07
 
