@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-07 23:07:40 -->
-<!-- Total de versões: 545 | Primeira: 1.11.53 -->
+<!-- Gerado: 2026-11-08 15:45:33 -->
+<!-- Total de versões: 546 | Primeira: 1.11.54 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.54] - 2026-11-08
+
+### Other
+
+- WebStore: auditoria do Catálogo volta a exibir os nomes dos jogadores usando a identidade atual vinculada; SteamIDs permanecem privados.
 
 ## [1.11.53] - 2026-11-08
 

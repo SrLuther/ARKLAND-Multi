@@ -1,9 +1,8 @@
 {
-    "version": "1.11.53",
-    "date": "2026-11-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.53/ARKLAND-Multi-Setup-v1.11.53.exe",
+    "version": "1.11.54",
+    "date": "2026-11-08",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.54/ARKLAND-Multi-Setup-v1.11.54.exe",
     "changelog": [
-        "WebStore: Fazenda keeps enabled resources visible in a responsive card grid and groups disabled resources in collapsible categories.",
-        "WebStore: resource search covers enabled and disabled Fazenda resources and opens matching categories."
+        "WebStore: auditoria do Catálogo volta a exibir os nomes dos jogadores usando a identidade atual vinculada; SteamIDs permanecem privados."
     ]
 }

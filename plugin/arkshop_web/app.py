@@ -12574,15 +12574,17 @@ def public_catalog_dinos():
     try:
         from catalog_dino_audit_service import list_public_catalog_dinos
 
-        return jsonify(
-            list_public_catalog_dinos(
-                db,
-                level=level,
-                species=species,
-                page=page,
-                page_size=page_size,
-            )
+        result = list_public_catalog_dinos(
+            db,
+            level=level,
+            species=species,
+            page=page,
+            page_size=page_size,
         )
+        # Nicknames ausentes no momento da entrega são resolvidos via Steam em
+        # background; os SteamIDs nunca são enviados ao cliente.
+        _schedule_steam_persona_backfill(result.pop("_missing_steam_ids", []))
+        return jsonify(result)
     except Exception as exc:
         _log_error("public_catalog_dinos", error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500

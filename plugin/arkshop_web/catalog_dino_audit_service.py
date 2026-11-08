@@ -765,16 +765,48 @@ def list_public_catalog_dinos(
     rows = db.execute(
         text(
             "SELECT canonical_id, public_code, gender_digit, item_id, level, "
-            "species_key, display_name, delivered_at "
+            "species_key, display_name, steam_id, delivered_at "
             f"FROM catalog_dino_generations{where_sql} "
             "ORDER BY delivered_at DESC, id DESC "
             "LIMIT :lim OFFSET :off"
         ),
         params_q,
     ).fetchall()
+    steam_ids = list(dict.fromkeys(
+        str(row[7] or "").strip() for row in rows if len(row) > 7 and row[7]
+    ))
+    current_names: dict[str, str] = {}
+    if steam_ids:
+        name_params = {f"sid{i}": sid for i, sid in enumerate(steam_ids)}
+        name_slots = ", ".join(f":sid{i}" for i in range(len(steam_ids)))
+        try:
+            name_rows = db.execute(
+                text(
+                    "SELECT steam_id, steam_persona, display_name FROM store_users "
+                    f"WHERE steam_id IN ({name_slots})"
+                ),
+                name_params,
+            ).fetchall()
+        except Exception:
+            # Older/dev databases may not have the account table. Historical names
+            # already stored in the audit remain usable in that case.
+            name_rows = []
+        for name_row in name_rows:
+            sid = str(name_row[0] or "").strip()
+            for candidate in (name_row[1], name_row[2]):
+                candidate_name = str(candidate or "").strip()
+                if candidate_name and not _STEAMID_RE.match(candidate_name) and candidate_name.lower() != "jogador":
+                    current_names[sid] = candidate_name
+                    break
     items: list[dict[str, Any]] = []
+    missing_names: list[str] = []
     for row in rows:
         raw_name = str(row[6] or "").strip() if len(row) > 6 else ""
+        steam_id = str(row[7] or "").strip() if len(row) > 7 else ""
+        if not raw_name or raw_name.lower() == "jogador" or _STEAMID_RE.match(raw_name):
+            raw_name = current_names.get(steam_id, "")
+        if not raw_name and steam_id and _STEAMID_RE.match(steam_id):
+            missing_names.append(steam_id)
         items.append(
             {
                 "public_code": str(row[1] or ""),
@@ -784,7 +816,7 @@ def list_public_catalog_dinos(
                 "level": int(row[4] or 0),
                 "species_key": str(row[5] or ""),
                 "display_name": public_display_name(raw_name),
-                "delivered_at": str(row[7] or "")[:19] if len(row) > 7 else "",
+                "delivered_at": str(row[8] or "")[:19] if len(row) > 8 else "",
             }
         )
     return {
@@ -794,6 +826,7 @@ def list_public_catalog_dinos(
         "page_size": page_size,
         "pages": pages,
         "items": items,
+        "_missing_steam_ids": list(dict.fromkeys(missing_names)),
     }
 
 
