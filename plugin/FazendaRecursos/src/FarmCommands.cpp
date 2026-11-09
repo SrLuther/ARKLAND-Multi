@@ -38,7 +38,27 @@ bool IsSoulCandidate(const std::string& class_name, const std::string& display_n
 }
 bool MatchesConfiguredClass(const std::string& actual, const std::string& configured) {
     if (actual.empty() || configured.empty()) return false;
-    return Lower(actual).find(Lower(configured)) != std::string::npos;
+    const std::string actual_lower = Lower(actual);
+    const std::string configured_lower = Lower(configured);
+    if (actual_lower.find(configured_lower) != std::string::npos) return true;
+
+    // Ark Omega assets can be reported under either the workshop-ID mount or
+    // the mod-name mount. Keep the configured blueprint intact and compare its
+    // equivalent path as well, regardless of which form the inventory reports.
+    constexpr const char* workshop_prefix = "/game/mods/2447186973/";
+    constexpr const char* mod_name_prefix = "/game/mods/arkomega/";
+    std::string alias = configured_lower;
+    const std::string from = alias.find(workshop_prefix) != std::string::npos
+        ? workshop_prefix : mod_name_prefix;
+    const std::string to = from == workshop_prefix ? mod_name_prefix : workshop_prefix;
+    size_t at = 0;
+    bool replaced = false;
+    while ((at = alias.find(from, at)) != std::string::npos) {
+        alias.replace(at, from.size(), to);
+        at += to.size();
+        replaced = true;
+    }
+    return replaced && actual_lower.find(alias) != std::string::npos;
 }
 std::string NormalizeFarmBlueprint(std::string raw) {
     while (!raw.empty() && std::isspace(static_cast<unsigned char>(raw.front())))

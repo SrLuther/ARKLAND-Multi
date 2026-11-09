@@ -125,19 +125,6 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     if (!omega.contains("Resources")) { omega["Resources"] = nlohmann::json::array(); changed = true; }
     if (!omega["Resources"].is_array())
         throw std::runtime_error("Categories.omega.Resources precisa ser array");
-    for (auto& row : omega["Resources"]) {
-        if (!row.is_object()) continue;
-        for (const char* key : {"ItemClass", "InputClass"}) {
-            if (!row.contains(key) || !row[key].is_string()) continue;
-            auto& path = row[key].get_ref<std::string&>();
-            constexpr const char* old_prefix = "/Game/Mods/ArkOmega/";
-            constexpr const char* new_prefix = "/Game/Mods/2447186973/";
-            if (path.rfind(old_prefix, 0) == 0) {
-                path.replace(0, std::char_traits<char>::length(old_prefix), new_prefix);
-                changed = true;
-            }
-        }
-    }
     std::set<std::string> known;
     for (const auto& row : omega["Resources"])
         if (row.is_object() && row.contains("Id") && row["Id"].is_string())

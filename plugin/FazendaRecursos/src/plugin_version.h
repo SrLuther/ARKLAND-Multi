@@ -1,2 +1,2 @@
 #pragma once
-#define ARKLAND_PLUGIN_VERSION "0.1.30"
+#define ARKLAND_PLUGIN_VERSION "0.1.31"

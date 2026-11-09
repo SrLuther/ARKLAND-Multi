@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-08 15:45:33 -->
-<!-- Total de versões: 546 | Primeira: 1.11.54 -->
+<!-- Gerado: 2026-11-08 23:04:02 -->
+<!-- Total de versões: 547 | Primeira: 1.11.55 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.55] - 2026-11-08
+
+### Other
+
+- Fazenda Omega: corrige a identifica??o de Souls e itens Paragon quando o invent?rio usa o caminho ArkOmega ou o ID 2447186973; preserva os caminhos configurados. FazendaRecursos atualizado para 0.1.31.
 
 ## [1.11.54] - 2026-11-08
 

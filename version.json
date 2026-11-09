@@ -1,8 +1,8 @@
 {
-    "version": "1.11.54",
+    "version": "1.11.55",
     "date": "2026-11-08",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.54/ARKLAND-Multi-Setup-v1.11.54.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.55/ARKLAND-Multi-Setup-v1.11.55.exe",
     "changelog": [
-        "WebStore: auditoria do Catálogo volta a exibir os nomes dos jogadores usando a identidade atual vinculada; SteamIDs permanecem privados."
+        "Fazenda Omega: corrige a identifica??o de Souls e itens Paragon quando o invent?rio usa o caminho ArkOmega ou o ID 2447186973; preserva os caminhos configurados. FazendaRecursos atualizado para 0.1.31."
     ]
 }

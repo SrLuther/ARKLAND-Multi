@@ -28,7 +28,7 @@
     "_comment": "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros."
   },
   "Database": {
-    "Database": "arkland_shop",
+    "Database": "arkland",
     "Host": "127.0.0.1",
     "Port": 3306,
     "User": "arkland"
@@ -4270,7 +4270,7 @@
     }
   ],
   "Settings": {
-    "CloudShareKey": "default",
+    "CloudShareKey": "",
     "CryoLimitedTime": false,
     "DeliverDinosInCryopods": true,
     "DisableSellButton": true,
@@ -4284,10 +4284,10 @@
     "OverrideLabels": [],
     "ShopName": "ARKLAND Donations",
     "StartingPoints": 100,
-    "UiKey": "F3",
+    "UiKey": "",
     "UseSteamOverlay": false,
     "VoteRewards": false,
-    "WebApiKey": "senhaextremamentelongaparaaloja",
+    "WebApiKey": "",
     "WebApiUrl": "http://192.168.15.51:27199",
     "WebsiteUrl": "https://arkland.com.br",
     "HomeMapsTitle": "Meus Mapas",

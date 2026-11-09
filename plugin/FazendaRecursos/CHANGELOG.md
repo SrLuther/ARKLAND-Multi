@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.31]
+- Aceita os caminhos `/Game/Mods/2447186973/` e `/Game/Mods/ArkOmega/` como aliases ao identificar itens Omega no inventário, sem reescrever os caminhos salvos na configuração.
+
 ## [0.1.30]
 - Acrescenta recursos Omega ausentes em configs existentes, inclusive configs gerenciadas pelo site, preservando IDs e ajustes personalizados j? cadastrados.
 
