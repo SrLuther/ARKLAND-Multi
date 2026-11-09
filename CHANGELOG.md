@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-08 23:04:02 -->
-<!-- Total de versões: 547 | Primeira: 1.11.55 -->
+<!-- Gerado: 2026-11-09 00:21:21 -->
+<!-- Total de versões: 548 | Primeira: 1.11.56 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.56] - 2026-11-08
+
+### Other
+
+- ASM: antes dos reinícios automáticos, verifica os plugins próprios ARKLAND instalados no mapa e atualiza os que estiverem desatualizados; plugins de terceiros e configurações existentes são preservados.
 
 ## [1.11.55] - 2026-11-08
 

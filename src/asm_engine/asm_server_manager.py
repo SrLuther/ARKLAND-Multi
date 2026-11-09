@@ -1602,11 +1602,18 @@ class AsmServerManager:
     # ── Restart ──────────────────────────────────────────────────────────────
 
     def restart(self, cfg: AsmServerConfig,
-                on_done: Optional[Callable[[bool, str], None]] = None) -> None:
+                on_done: Optional[Callable[[bool, str], None]] = None,
+                before_start: Optional[Callable[[], str]] = None) -> None:
         self.begin_force_day_restart(cfg.id)
 
         def _after_stop(ok: bool, msg: str) -> None:
             time.sleep(2)
+            pre_start_message = ""
+            if before_start:
+                try:
+                    pre_start_message = str(before_start() or "").strip()
+                except Exception as exc:
+                    pre_start_message = f"Atualização automática de plugins falhou: {exc}"
             # Re-marca pending após o stop (defesa extra contra race STOPPED).
             self.mark_force_day_pending(cfg.id)
 
@@ -1620,7 +1627,8 @@ class AsmServerManager:
                 finally:
                     self.end_force_day_restart(cfg.id)
                 if on_done:
-                    on_done(ok2, msg2)
+                    final_message = " ".join(part for part in (pre_start_message, msg2) if part)
+                    on_done(ok2, final_message)
 
             self.start(cfg, on_done=_done)
 

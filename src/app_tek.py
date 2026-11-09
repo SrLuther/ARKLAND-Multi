@@ -708,7 +708,8 @@ class ARKServerManagerApp(ctk.CTk):
     def _asm_after_server_lifecycle(self, ok: bool, msg: str) -> None:
         self._asm_refresh_dashboard()
         if msg:
-            self._global_log(msg, "info" if ok else "warning")
+            level = "warning" if (not ok or "Falhas:" in msg or "falhou:" in msg) else "info"
+            self._global_log(msg, level)
         if ok:
             self._sync_server_snapshots_to_webstore()
 
@@ -1446,7 +1447,12 @@ class ARKServerManagerApp(ctk.CTk):
 
         cancel_shutdown(self, server_id)
 
-    def _asm_restart_server(self, srv: AsmServerConfig) -> None:
+    def _asm_restart_server(
+        self,
+        srv: AsmServerConfig,
+        *,
+        update_plugins: bool = False,
+    ) -> None:
         from tkinter import messagebox
 
         try:
@@ -1454,13 +1460,26 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception as exc:
             messagebox.showerror("Falha ao salvar configura\u00e7\u00e3o", str(exc), parent=self)
             return
+        before_start = (
+            (lambda: self._asm_update_official_plugins_before_restart(srv))
+            if update_plugins else None
+        )
         self.asm_server_manager.restart(
             srv,
             on_done=lambda ok, msg: self.after(
                 0, lambda: self._asm_after_server_lifecycle(ok, msg),
             ),
+            before_start=before_start,
         )
         self._asm_refresh_dashboard()
+
+    def _asm_update_official_plugins_before_restart(self, srv: AsmServerConfig) -> str:
+        """Atualiza plugins ARKLAND desatualizados após parar o mapa."""
+        if self.asm_server_manager.get_status(srv.id) != ASM_STATUS_STOPPED:
+            return f"[Plugins] {srv.name}: atualização ignorada; servidor não foi confirmado como parado."
+        from .plugin_auto_update import update_outdated_official_plugins
+
+        return update_outdated_official_plugins(srv.install_dir)
 
     def _asm_open_rcon(self, srv: AsmServerConfig) -> None:
         from .asm_ui.asm_rcon_window import open_asm_rcon_window
@@ -1677,7 +1696,7 @@ class ARKServerManagerApp(ctk.CTk):
                     should_abort=_should_abort,
                 )
                 if ok:
-                    self.after(0, lambda: self._asm_restart_server(srv))
+                    self.after(0, lambda: self._asm_restart_server(srv, update_plugins=True))
                 elif hasattr(self, "_global_log"):
                     self.after(
                         0,
@@ -1769,7 +1788,7 @@ class ARKServerManagerApp(ctk.CTk):
             restart = bool(getattr(au, "replace_restart_after_update", False))
             if was_running and restart:
                 _log(f"[AutoUpdate] {srv.name}: reiniciando após atualização…", "info")
-                self.after(0, lambda s=srv: self._asm_restart_server(s))
+                self.after(0, lambda s=srv: self._asm_restart_server(s, update_plugins=True))
             elif was_running:
                 _log(
                     f"[AutoUpdate] {srv.name}: atualizado — reinicie manualmente ou ative "

@@ -225,6 +225,7 @@ $releaseNewFiles = @(
     "src/data/ark_ase_server_cli_catalog.json",
     "src/data/ark_ase_server_ini_catalog.json",
     "src/ini_sync.py",
+    "src/plugin_auto_update.py",
     "src/ui/level_progression_editor.py",
     "src/ui/server_cli_catalog.py",
     "src/ui/server_ini_catalog.py",
