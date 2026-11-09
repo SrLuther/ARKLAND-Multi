@@ -492,6 +492,13 @@ bool DeliverPending(AShooterPlayerController* controller) {
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) return false;
 
+    std::string player_name;
+    if (auto* raw_state = controller->PlayerStateField()) {
+        FString name;
+        if (static_cast<AShooterPlayerState*>(raw_state)->GetPlayerName(&name))
+            player_name = name.ToString();
+    }
+
     Log::GetLog()->info("HttpClient: checking pending deliveries for '{}' at {}",
                         steam_id, g_web_url);
 
@@ -688,6 +695,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
 
         nlohmann::json body = {
             {"steam_id", steam_id},
+            {"player_name", player_name},
             {"order_ids", delivered_ids},
             {"deliveries", deliveries},
         };

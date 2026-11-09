@@ -2289,6 +2289,34 @@
     .team-member-row__actions { display:flex; flex-wrap:wrap; gap:5px; }
     .team-member-row__actions .btn { padding:5px 8px; }
     .team-governance-stack { display:grid; gap:var(--team-gap); }
+    .team-mural-card { min-width:0; }
+    .team-mural-content,.team-regulation-modal-content {
+      max-height:min(420px,55vh); overflow:auto; overscroll-behavior:contain;
+      padding:14px 16px; border:1px solid var(--border); border-radius:11px;
+      background:linear-gradient(145deg,rgba(255,255,255,.025),rgba(0,0,0,.12));
+      color:var(--text2); font-size:13px; line-height:1.65; overflow-wrap:anywhere;
+    }
+    .team-mural-content > :first-child,.team-regulation-modal-content > :first-child { margin-top:0; }
+    .team-mural-content > :last-child,.team-regulation-modal-content > :last-child { margin-bottom:0; }
+    .team-mural-content h1,.team-mural-content h2,.team-mural-content h3,
+    .team-regulation-modal-content h1,.team-regulation-modal-content h2,.team-regulation-modal-content h3 {
+      color:var(--text); line-height:1.3; margin:1.05em 0 .45em;
+    }
+    .team-mural-content h1,.team-regulation-modal-content h1 { font-size:20px; }
+    .team-mural-content h2,.team-regulation-modal-content h2 { font-size:17px; }
+    .team-mural-content h3,.team-regulation-modal-content h3 { font-size:14px; color:var(--amber); }
+    .team-mural-content p,.team-regulation-modal-content p { margin:.5em 0; }
+    .team-mural-content ul,.team-mural-content ol,.team-regulation-modal-content ul,.team-regulation-modal-content ol { padding-left:22px; margin:.5em 0; }
+    .team-mural-content li + li,.team-regulation-modal-content li + li { margin-top:4px; }
+    .team-mural-content blockquote,.team-regulation-modal-content blockquote { margin:.6em 0; padding:7px 12px; border-left:3px solid var(--amber); background:rgba(232,160,32,.06); }
+    .team-mural-content pre,.team-regulation-modal-content pre { overflow:auto; padding:10px 12px; border-radius:8px; background:rgba(0,0,0,.25); }
+    .team-mural-content code,.team-regulation-modal-content code { padding:1px 4px; border-radius:4px; background:rgba(0,0,0,.22); }
+    .team-mural-content pre code,.team-regulation-modal-content pre code { padding:0; background:none; }
+    .team-mural-content a,.team-regulation-modal-content a { color:var(--tek); text-decoration:underline; }
+    .team-mural-editor { margin-top:12px; }
+    .team-mural-editor > summary { cursor:pointer; color:var(--text2); font-size:12px; }
+    .team-mural-editor textarea { width:100%; min-height:190px; max-height:360px; resize:vertical; margin-top:9px; font-family:ui-monospace,Consolas,monospace; font-size:12px; line-height:1.55; }
+    .team-mural-help { margin:6px 0 0; color:var(--text2); font-size:11px; }
     .team-collapsible { padding:12px 14px; }
     .team-collapsible > summary { cursor:pointer; color:var(--text); font-weight:700; font-size:13px; }
     .team-collapsible > summary::marker { color:var(--amber); }
@@ -13070,12 +13098,12 @@
 
 <!-- ── Modal: Regulamento da Equipe (diretório) ─────────────────────────────── -->
 <div id="modal-team-regs" class="modal-backdrop hidden">
-  <div class="modal" style="max-width:640px;">
+  <div class="modal" style="max-width:820px;">
     <div class="modal-header">
       <div class="modal-title" id="modal-team-regs-title">Regulamento da Equipe</div>
       <button class="modal-close" onclick="closeModal('modal-team-regs')">✕</button>
     </div>
-    <div id="modal-team-regs-body" style="padding:4px 0 8px;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text2);"></div>
+    <div id="modal-team-regs-body" class="team-regulation-modal-content"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-team-regs')">Fechar</button>
     </div>
@@ -17708,7 +17736,7 @@ async function loadMyFarm() {
           : stock >= capacity
             ? `<div class="farm-full-time"><strong>Estoque cheio</strong><span>Hor&aacute;rio da &uacute;ltima lota&ccedil;&atilde;o ainda n&atilde;o registrado.</span></div>`
             : `<div class="farm-full-time is-paused"><strong>Previs&atilde;o indispon&iacute;vel</strong><span>${r.enabled ? "A produ&ccedil;&atilde;o ainda n&atilde;o est&aacute; ativa." : "Recurso desabilitado na configura&ccedil;&atilde;o."}</span></div>`;
-      return { category: r.category, enabled: Boolean(r.enabled), html: `<article class="farm-stock-card" data-farm-search="${escHtml(`${r.name || ""} ${r.category || ""}`.toLocaleLowerCase("pt-BR"))}">
+      return { category: r.category, enabled: Boolean(r.enabled), productionActive: Boolean(r.production_active), html: `<article class="farm-stock-card" data-farm-search="${escHtml(`${r.name || ""} ${r.category || ""}`.toLocaleLowerCase("pt-BR"))}">
         <div class="farm-stock-card__head"><div><strong>${escHtml(r.name)}</strong><small>${escHtml(r.category)} &middot; ${r.production_active ? "Produ&ccedil;&atilde;o ativa" : "Produ&ccedil;&atilde;o inativa"}</small></div><span class="farm-state ${r.enabled ? "is-enabled" : "is-disabled"}">${r.enabled ? "Habilitado" : "Indispon&#237;vel"}</span></div>
         <div class="farm-stock-focus"><div><strong>${stock.toLocaleString("pt-BR")}</strong><span> / ${capacity.toLocaleString("pt-BR")}</span></div><small>unidades em estoque · teto atual</small></div>
         <div class="farm-stock-track" role="progressbar" aria-label="Estoque de ${escHtml(r.name)}" aria-valuemin="0" aria-valuemax="${capacity}" aria-valuenow="${Math.min(stock, capacity)}"><span style="width:${fillPct}%"></span></div>
@@ -17717,8 +17745,7 @@ async function loadMyFarm() {
         <details class="farm-stock-details" data-farm-details="${escHtml(r.id)}" ${openStockDetails.has(String(r.id)) ? "open" : ""}><summary>Configura&ccedil;&atilde;o da produ&ccedil;&atilde;o</summary><div><span>${Number(r.output_quantity || 1)} unidade(s) por ciclo</span><span>1 ciclo a cada ${formatFarmInterval(r.interval_seconds)}</span><span>Pacote de ${Number(r.stack_size || 25)} unidade(s)</span><span>Categoria: ${escHtml(r.category)}</span></div></details>
       </article>` };
     });
-    const activeStockCards = stockCards.filter(card => card.enabled);
-    const inactiveStockCards = stockCards.filter(card => !card.enabled);
+    const activeStockCards = stockCards.filter(card => card.productionActive);
     const groupFarmCards = (cards, sectionName, openSingleCategory = true) => {
       const groups = new Map();
       cards.forEach(({ category, html }) => {
@@ -17838,12 +17865,11 @@ async function loadMyFarm() {
       <div class="farm-sync-banner ${integrationReady ? "is-ready" : ""}">${integrationReady ? "Estoque sincronizado. O agendamento reserva o saldo; a entrega ocorre no jogo com /fazresgatar." : "A Web Store ainda n&atilde;o recebeu uma sincroniza&ccedil;&atilde;o recente. Estoque e agendamentos ficam indispon&iacute;veis at&eacute; o servidor enviar dados reais."}</div>
       <section class="farm-section farm-stock-section"><div class="farm-section-head"><h3>Produ&ccedil;&atilde;o e estoque</h3><p>Estoque atual e teto de cada recurso, previs&atilde;o da pr&oacute;xima lota&ccedil;&atilde;o, saldo dispon&iacute;vel e retiradas reservadas.</p></div>
         ${!catalogFromMysql ? `<div class="farm-sync-banner">O cat&eacute;logo MySQL ainda n&atilde;o foi publicado pelo plugin; os valores abaixo s&atilde;o a configura&ccedil;&atilde;o local de refer&ecirc;ncia.</div>` : ""}
-        ${resources.length ? `<div class="farm-resource-filter"><label for="myarea-farm-resource-filter">Encontrar recurso</label><input id="myarea-farm-resource-filter" type="search" placeholder="Nome ou categoria…" oninput="filterMyFarmResources(this.value)" /><span style="font-size:10px;color:var(--text2);">${resources.length} recursos</span></div>
+        ${resources.length ? `<div class="farm-resource-filter"><label for="myarea-farm-resource-filter">Encontrar recurso</label><input id="myarea-farm-resource-filter" type="search" placeholder="Nome ou categoria…" oninput="filterMyFarmResources(this.value)" /><span style="font-size:10px;color:var(--text2);">${activeStockCards.length} produzindo</span></div>
           <div data-farm-active-stock>
-            <div class="farm-active-stock-head"><strong>Recursos ativos</strong><span>${activeStockCards.length} recurso(s) · sempre visíveis</span></div>
-            ${activeStockCards.length ? `<div class="farm-stock-grid">${activeStockCards.map(card => card.html).join("")}</div>` : `<p class="farm-no-resource-match">Nenhum recurso está habilitado na Fazenda.</p>`}
+            <div class="farm-active-stock-head"><strong>Recursos em produção</strong><span>${activeStockCards.length} recurso(s) · sempre visíveis</span></div>
+            ${activeStockCards.length ? `<div class="farm-stock-grid">${activeStockCards.map(card => card.html).join("")}</div>` : `<p class="farm-no-resource-match">Nenhum recurso está produzindo neste momento.</p>`}
           </div>
-          ${inactiveStockCards.length ? `<div class="farm-inactive-stock"><div class="farm-inactive-stock-head"><strong>Recursos desativados</strong><span>${inactiveStockCards.length} recurso(s)</span><small>Abra uma categoria para consultar os recursos que não estão em uso.</small></div>${groupFarmCards(inactiveStockCards, "inactive", false)}</div>` : ""}
           <p class="farm-no-resource-match" data-farm-no-resource-match hidden>Nenhum recurso corresponde à busca.</p>` : `<p style="font-size:12px;color:var(--text2);">Nenhum recurso foi configurado ainda.</p>`}
       </section>
       <section class="farm-section"><div class="farm-section-head"><h3>Agendar retirada</h3><p>Informe a quantidade que deseja retirar. O saldo ser&aacute; reservado at&eacute; concluir o resgate ou cancelar o pedido.</p></div>
@@ -34886,14 +34912,17 @@ async function loadMyTeam(opts) {
                 <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveSettings()">Salvar configurações</button>
               </div>
             </details>` : ""}
-            <section class="card team-mural-card">
-              <div class="team-card-heading"><div><div class="card-title">Regulamento da equipe</div><div class="team-section-note">${canMural ? "Owner, Embaixador ou Arquivista pode editar." : "Comunicados e regras definidos pela equipe."}</div></div></div>
-              <div style="white-space:pre-wrap;font-size:13px;line-height:1.55;margin-bottom:8px;">${escHtml(t.mural_text || "Ainda não há regulamento publicado.")}</div>
-              ${canMural ? `<textarea id="tm-mural" rows="4" style="width:100%;" placeholder="Regras da equipe…">${escHtml(t.mural_text || "")}</textarea>
-                <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveMural()">Salvar mural</button>` : ""}
-            </section>
           </div>
         </div>
+        <section class="card team-mural-card">
+          <div class="team-card-heading"><div><div class="card-title">Regulamento da equipe</div><div class="team-section-note">${canMural ? "Owner, Embaixador ou Arquivista pode editar." : "Comunicados e regras definidos pela equipe."}</div></div></div>
+          <div class="team-mural-content">${teamsRenderMarkdown(t.mural_text || "Ainda não há regulamento publicado.")}</div>
+          ${canMural ? `<details class="team-mural-editor"><summary>Editar regulamento</summary>
+            <textarea id="tm-mural" rows="8" maxlength="8000" placeholder="Escreva em Markdown: # título, **negrito**, listas e links.">${escHtml(t.mural_text || "")}</textarea>
+            <p class="team-mural-help">Suporta títulos, negrito, itálico, listas, citações, links e blocos de código. Limite: 8.000 caracteres.</p>
+            <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="teamsSaveMural()">Salvar regulamento</button>
+          </details>` : ""}
+        </section>
         <div class="team-activities-grid">
           <section class="card team-event-area"><div class="team-card-heading"><div><div class="card-title">Atividades da equipe</div><div class="team-section-note">Caça de Evento e desafios coletivos.</div></div></div>
             <div id="eh-team-cards-slot"><div class="team-milestone-empty"><em>A carregar Caça de Evento…</em></div></div>
@@ -35007,11 +35036,79 @@ async function loadTeamsDirectory(opts) {
   }
 }
 
+function teamsRenderMarkdown(markdown) {
+  const source = String(markdown || "").replace(/\r\n?/g, "\n");
+  const inline = (value) => {
+    const tokens = [];
+    const keep = (html) => {
+      const marker = `\u0000MD${tokens.length}\u0000`;
+      tokens.push(html);
+      return marker;
+    };
+    let prepared = value.replace(/\[([^\]]+)\]\(([^\s)]+)\)/g, (whole, label, destination) => {
+      try {
+        const url = new URL(destination);
+        if (url.protocol !== "https:" && url.protocol !== "http:") return whole;
+        return keep(`<a href="${escHtml(url.href)}" target="_blank" rel="noopener noreferrer">${escHtml(label)}</a>`);
+      } catch (_) { return whole; }
+    });
+    prepared = prepared.replace(/`([^`\n]+)`/g, (_, code) => keep(`<code>${escHtml(code)}</code>`));
+    prepared = escHtml(prepared)
+      .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/~~([^~\n]+)~~/g, "<del>$1</del>")
+      .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
+      .replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>");
+    return prepared.replace(/\u0000MD(\d+)\u0000/g, (_, index) => tokens[Number(index)] || "");
+  };
+  const lines = source.split("\n");
+  const html = [];
+  for (let i = 0; i < lines.length;) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue; }
+    const fence = line.match(/^\s*```\s*([\w+-]*)\s*$/);
+    if (fence) {
+      const code = [];
+      i++;
+      while (i < lines.length && !/^\s*```\s*$/.test(lines[i])) code.push(lines[i++]);
+      if (i < lines.length) i++;
+      html.push(`<pre><code>${escHtml(code.join("\n"))}</code></pre>`);
+      continue;
+    }
+    const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (heading) { const level = heading[1].length; html.push(`<h${level}>${inline(heading[2])}</h${level}>`); i++; continue; }
+    if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) { html.push("<hr>"); i++; continue; }
+    if (/^\s*>/.test(line)) {
+      const quote = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) quote.push(lines[i++].replace(/^\s*>\s?/, ""));
+      html.push(`<blockquote>${quote.map((part) => `<p>${inline(part)}</p>`).join("")}</blockquote>`);
+      continue;
+    }
+    const listMatch = line.match(/^\s*(?:[-+*]|\d+[.)])\s+(.+)$/);
+    if (listMatch) {
+      const ordered = /^\s*\d/.test(line);
+      const tag = ordered ? "ol" : "ul";
+      const items = [];
+      while (i < lines.length) {
+        const item = lines[i].match(/^\s*(?:[-+*]|\d+[.)])\s+(.+)$/);
+        if (!item || /^\s*\d/.test(lines[i]) !== ordered) break;
+        items.push(`<li>${inline(item[1])}</li>`); i++;
+      }
+      html.push(`<${tag}>${items.join("")}</${tag}>`);
+      continue;
+    }
+    const paragraph = [line.trim()];
+    i++;
+    while (i < lines.length && lines[i].trim() && !/^\s*(?:#{1,6}\s|>|```|(?:[-+*]|\d+[.)])\s+|(?:---+|\*\*\*+|___+)\s*$)/.test(lines[i])) paragraph.push(lines[i++].trim());
+    html.push(`<p>${paragraph.map(inline).join("<br>")}</p>`);
+  }
+  return html.join("");
+}
+
 function teamsViewRegulamento(teamId, name, mural) {
   const title = document.getElementById("modal-team-regs-title");
   const body = document.getElementById("modal-team-regs-body");
   if (title) title.textContent = "Regulamento — " + (name || ("#" + teamId));
-  if (body) body.textContent = (mural && String(mural).trim()) ? String(mural) : "Esta equipe ainda não publicou um regulamento.";
+  if (body) body.innerHTML = teamsRenderMarkdown((mural && String(mural).trim()) ? String(mural) : "Esta equipe ainda não publicou um regulamento.");
   if (typeof openModal === "function") openModal("modal-team-regs");
   else {
     const m = document.getElementById("modal-team-regs");

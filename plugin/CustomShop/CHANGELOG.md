@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.54] - 2026-11-09
+
+### Fix
+
+- Sends the in-game player name with successful deliveries so the WebStore catalog audit can identify the responsible player when no current linked account name is available.
+
 ## [1.10.53] - 2026-11-05
 
 ### Security

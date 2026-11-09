@@ -9825,6 +9825,7 @@ def mark_pending_delivered_batch():
         return err
     body = request.get_json(force=True, silent=True) or {}
     steam_id = str(body.get("steam_id", "")).strip()
+    player_name = str(body.get("player_name", "")).strip()
     order_ids = body.get("order_ids") or []
     deliveries = body.get("deliveries") or []
     dino_records = body.get("dino_records") or []
@@ -9886,6 +9887,7 @@ def mark_pending_delivered_batch():
                     dino_records=dino_records,
                     delivered_at=_now(),
                     catalog=_read_shop_config(),
+                    player_name=player_name,
                 )
             except Exception as audit_exc:
                 log.warning(

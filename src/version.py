@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.56"
-BUILD_DATE: str = "2026-11-08"
+APP_VERSION: str = "1.11.57"
+BUILD_DATE: str = "2026-11-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.57",
+        "date": "2026-11-09",
+        "changes": [
+            "WebStore Equipes: mural/regulamento agora renderiza Markdown com títulos, listas, destaques, links seguros e layout limitado para evitar páginas desproporcionais.",
+            "WebStore Fazenda: a seção de produção mostra apenas recursos com produção ativa; recursos sem produção deixam de poluir a lista, enquanto retiradas permanecem acessíveis.",
+            "Catálogo de dinossauros: auditoria recebe e resolve nomes atuais dos jogadores sem expor SteamIDs; o plugin envia o nome observado no jogo.",
+        ],
+    },
     {
         "version": "1.11.56",
         "date": "2026-11-08",

@@ -2,13 +2,15 @@
 
 **Atualizado:** 08/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** versao estavel 1.11.53 publicada no GitHub; atualizar/reiniciar a WebStore em producao e validar as correcoes anteriores e o novo layout da Fazenda.
+**Publicacao:** versao estavel 1.11.56 publicada no GitHub; preparar a 1.11.57 integral com os ajustes pendentes do mural da equipe, visualizacao da Fazenda por producao real e auditoria do catalogo.
 
 ## Em andamento
 
 - [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Incluida na 1.11.50: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta atualizar a WebStore em producao e revisar o catalogo completo em diferentes larguras.
 
-- [x] **WebStore - Fazenda: manter recursos ativos visiveis e recolher apenas inativos.** Publicado na 1.11.53: recursos habilitados aparecem em cards responsivos; somente os desabilitados ficam em categorias recolhiveis. A busca localiza ambas as listas e abre a categoria correspondente. Falta validar em varias larguras e confirmar em producao.
+- [ ] **WebStore - Fazenda: exibir somente recursos em producao.** A grade de estoque da 1.11.57 filtra pelo estado `production_active`, ocultando recursos sem producao; a retirada permanece disponivel para recursos habilitados com saldo. Confirmar a visualizacao na WebStore de producao apos atualizar/reiniciar.
+
+- [ ] **WebStore - Equipes: renderizar Markdown no mural/regulamento.** A 1.11.57 formata titulos, listas, destaques, links seguros e blocos de codigo, com altura limitada e editor recolhivel. Confirmar formatacao e persistencia em producao.
 
 - [ ] **SeasonLand - trilha unica de recompensas Free/Premium.** Incluida na 1.11.50: trilha por nivel com Free e Premium em lados opostos, premios alinhados e preenchimento conforme o nivel. Falta atualizar a WebStore em producao e revisar em tela estreita/conta real.
 
@@ -29,6 +31,8 @@
 - [ ] **Bot Discord - preservar e validar comandos existentes na próxima atualização.** `!faxina`, `!limpar` e `!limpezageral` estão presentes em `src/discord_bot/moderation.py`; o cog é carregado em `src/discord_bot/bot.py`. Confirmar que continuam habilitados e funcionais no pacote atualizado, junto com filtros de convite e palavrões. Não substituir nem remover o cog ao adicionar sincronização de apelido.
 
 - [ ] **Fazenda - suporte e entrega de Blueprints ARK Omega.** A comparação de `docs/SpawnCodes.txt` encontrou 11 itens adicionais de Souls, God Souls e Tokens; agora são 51 recursos nos padrões do plugin e da WebStore. Três Soul Compressor/Furnace/Grinder foram identificadas como estruturas e ficaram fora da produção de recursos. Os caminhos usam `/Game/Mods/2447186973`; migração acrescenta IDs ausentes e corrige apenas o prefixo padrão antigo, preservando outras personalizações. A normalização preserva `_C` como no CustomShop. Versão local 0.1.29 compilada com sucesso; falta validar entrega real no jogo, quantidade, estoque e retomada da produção.
+- [ ] **Fazenda - reconhecer aliases de caminho dos itens ARK Omega.** Implementado localmente na versão 0.1.31: a comparação de inventário aceita `/Game/Mods/2447186973/` e `/Game/Mods/ArkOmega/` como aliases, sem reescrever os caminhos persistidos na migração. Build concluído com sucesso. Falta instalar no servidor, confirmar a configuração mestre efetivamente carregada e validar itens reais dos dois formatos em `/fazenda`.
+
 
 - [ ] **Fazenda - fluxo integral de recuperação e resgate.** O código evoluiu após as pendências das versões 0.1.19-test e seguintes, mas os logs de entrega de Blueprint indicam que ainda falta validar recuperação, reenvio, consumo do estoque e entrega final no servidor real. Executar ciclo ponta a ponta após corrigir o carregamento de Blueprint.
 

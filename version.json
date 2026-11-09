@@ -1,8 +1,10 @@
 {
-    "version": "1.11.56",
-    "date": "2026-11-08",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.56/ARKLAND-Multi-Setup-v1.11.56.exe",
+    "version": "1.11.57",
+    "date": "2026-11-09",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.57/ARKLAND-Multi-Setup-v1.11.57.exe",
     "changelog": [
-        "ASM: antes dos reinícios automáticos, verifica os plugins próprios ARKLAND instalados no mapa e atualiza os que estiverem desatualizados; plugins de terceiros e configurações existentes são preservados."
+        "WebStore Equipes: mural/regulamento agora renderiza Markdown com títulos, listas, destaques, links seguros e layout limitado para evitar páginas desproporcionais.",
+        "WebStore Fazenda: a seção de produção mostra apenas recursos com produção ativa; recursos sem produção deixam de poluir a lista, enquanto retiradas permanecem acessíveis.",
+        "Catálogo de dinossauros: auditoria recebe e resolve nomes atuais dos jogadores sem expor SteamIDs; o plugin envia o nome observado no jogo."
     ]
 }

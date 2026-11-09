@@ -632,6 +632,7 @@ def register_catalog_dino_records(
     dino_records: list[Any],
     delivered_at: datetime | None = None,
     catalog: dict[str, Any] | None = None,
+    player_name: str | None = None,
 ) -> int:
     """Persiste registros de qualquer nível enviados pelo plugin após spawn com sucesso.
 
@@ -647,7 +648,9 @@ def register_catalog_dino_records(
         now_naive = now.replace(tzinfo=None)
     else:
         now_naive = now
-    display = _resolve_display_name(db, steam_id)
+    display = str(player_name or "").strip()
+    if not display or _STEAMID_RE.match(display) or display.lower() == "jogador":
+        display = _resolve_display_name(db, steam_id)
     is_sqlite = "sqlite" in str(db.get_bind().url).lower()
     insert_sql = (
         "INSERT OR IGNORE INTO catalog_dino_generations "

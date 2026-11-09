@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-09 00:21:21 -->
-<!-- Total de versões: 548 | Primeira: 1.11.56 -->
+<!-- Gerado: 2026-11-09 01:56:40 -->
+<!-- Total de versões: 549 | Primeira: 1.11.57 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.57] - 2026-11-09
+
+### Other
+
+- WebStore Equipes: mural/regulamento agora renderiza Markdown com títulos, listas, destaques, links seguros e layout limitado para evitar páginas desproporcionais.
+- WebStore Fazenda: a seção de produção mostra apenas recursos com produção ativa; recursos sem produção deixam de poluir a lista, enquanto retiradas permanecem acessíveis.
+- Catálogo de dinossauros: auditoria recebe e resolve nomes atuais dos jogadores sem expor SteamIDs; o plugin envia o nome observado no jogo.
 
 ## [1.11.56] - 2026-11-08
 
