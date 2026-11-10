@@ -360,7 +360,7 @@ private:
             deactivate_sql += ")";
         }
         if (!db.Query(deactivate_sql)) return false;
-        if (production_config_changed && !db.Query("UPDATE farm_player_resources SET last_accrual_utc=UNIX_TIMESTAMP() "
+        if (production_config_changed && !db.Query("UPDATE farm_player_resources SET last_accrual_utc=UNIX_TIMESTAMP(),full_at_utc=NULL "
             "WHERE share_key='" + share + "' AND active=1")) return false;
         return true;
     }
@@ -530,11 +530,15 @@ private:
                     Log::GetLog()->warn("Fazenda MySQL: falha ao publicar catálogo atualizado");
             }
             if (full_sync) {
-                if (!AccrueAllActiveResources())
-                    Log::GetLog()->warn("Fazenda MySQL: falha ao processar ciclos do grupo {}", FazendaRecursos::FarmConfig::Get().ShareKey());
                 MysqlConnection db;
-                if (db.Open()) SyncCatalog(db, FazendaRecursos::FarmConfig::Get().ResourcesSnapshot(),
-                                           FazendaRecursos::FarmConfig::Get().ServerId());
+                const bool catalog_synced = db.Open() &&
+                    SyncCatalog(db, FazendaRecursos::FarmConfig::Get().ResourcesSnapshot(),
+                                FazendaRecursos::FarmConfig::Get().ServerId());
+                if (!catalog_synced) {
+                    Log::GetLog()->warn("Fazenda MySQL: falha ao publicar catálogo; produção pausada para evitar usar configuração divergente");
+                } else if (!AccrueAllActiveResources()) {
+                    Log::GetLog()->warn("Fazenda MySQL: falha ao processar ciclos do grupo {}", FazendaRecursos::FarmConfig::Get().ShareKey());
+                }
                 for (const auto& id : FazendaRecursos::FarmState::Get().PlayerIds()) {
                     { std::lock_guard<std::mutex> lock(mutex_); if (stop_) return; }
                     SyncPlayer(id);

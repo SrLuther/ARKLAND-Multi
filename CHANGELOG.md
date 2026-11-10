@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-09 21:55:48 -->
-<!-- Total de versões: 550 | Primeira: 1.11.58 -->
+<!-- Gerado: 2026-11-10 00:01:30 -->
+<!-- Total de versões: 551 | Primeira: 1.11.59 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.59] - 2026-11-09
+
+### Other
+
+- Fazenda: produção agora sincroniza a configuração antes de calcular ciclos; ao atingir o limite, pausa sem acumular ciclos, retomando após abrir espaço sem conceder produção retroativa.
+- FazendaRecursos atualizado para 0.1.33.
 
 ## [1.11.58] - 2026-11-09
 

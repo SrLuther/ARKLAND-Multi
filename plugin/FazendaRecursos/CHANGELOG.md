@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.33]
+- Sincroniza o catálogo antes de processar produção e reinicia a âncora ao mudar a configuração, evitando acumular ciclos enquanto o estoque estava no limite.
+
 ## [0.1.32]
 - Adiciona grupo de estoque Primal Fear com 8 Souls e 10 Hides solicitados; configurações existentes recebem apenas IDs ausentes, preservando ajustes locais.
 

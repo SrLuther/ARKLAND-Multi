@@ -1,10 +1,9 @@
 {
-    "version": "1.11.58",
+    "version": "1.11.59",
     "date": "2026-11-09",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.58/ARKLAND-Multi-Setup-v1.11.58.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.59/ARKLAND-Multi-Setup-v1.11.59.exe",
     "changelog": [
-        "WebStore Fazenda: cartões de retirada reorganizados para manter saldo, quantidade e botão alinhados em telas estreitas.",
-        "WebStore: logos do Catálogo, Votações e Sugestões exibidas sem fundo quadrado, com transparência externa. Fazenda: adiciona 18 recursos Primal Fear em grupo de estoque próprio, migrados sem sobrescrever personalizações.",
-        "WebStore e CustomShop: painel de consulta de jogadores do servidor para Administração/Suporte, com vínculo, sessões e tempo registrado."
+        "Fazenda: produção agora sincroniza a configuração antes de calcular ciclos; ao atingir o limite, pausa sem acumular ciclos, retomando após abrir espaço sem conceder produção retroativa.",
+        "FazendaRecursos atualizado para 0.1.33."
     ]
 }
