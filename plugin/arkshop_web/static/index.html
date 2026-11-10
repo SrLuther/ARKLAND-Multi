@@ -11832,11 +11832,6 @@
           <div class="card">
             <div id="map-members-grid" class="map-members-grid">Carregando…</div>
           </div>
-          <div id="map-members-unregistered-wrap" class="card hidden" style="margin-top:14px;border-color:var(--warning,#f0ad4e);">
-            <div class="card-title">Registros com ID de servidor fora do cadastro</div>
-            <p style="font-size:12px;color:var(--text2);margin:0 0 12px;">Estes dados chegaram pelo TribeSync, mas o ID enviado pelo plugin não corresponde a nenhum servidor cadastrado. Eles ficam separados para não serem atribuídos ao mapa errado. Confira <code>Settings.ServerId</code> ou <code>CrossChat.ServerId</code> no CustomShop de cada servidor.</p>
-            <div id="map-members-unregistered" class="map-members-grid"></div>
-          </div>
           <div id="map-member-detail-panel" class="card map-member-detail-panel hidden"></div>
         </div>
       </div>
@@ -33499,8 +33494,6 @@ async function loadSeasonlandOpsAudit() {
 // ── Admin: Gerenciar Jogadores ───────────────────────────────────────────────
 
 let _playersAdminPage = { offset: 0, limit: 10, total: 0 };
-let _playersAdminPersonaRefreshTimer = null;
-let _playersAdminPersonaRefreshAttempts = 0;
 let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;
@@ -33689,16 +33682,6 @@ async function loadMapMembersAdmin() {
       return;
     }
     _mapMembersCache = d.maps || [];
-    const orphanWrap = document.getElementById("map-members-unregistered-wrap");
-    const orphanGrid = document.getElementById("map-members-unregistered");
-    const orphanMaps = d.unregistered || [];
-    if (orphanWrap && orphanGrid) {
-      orphanWrap.classList.toggle("hidden", orphanMaps.length === 0);
-      orphanGrid.innerHTML = orphanMaps.map(m => {
-        const rows = (m.items || []).map(it => `<div class="map-members-row"><div style="min-width:0;flex:1;"><div class="mm-name">${escHtml(it.character_name || it.steam_id || "?")}</div><div class="mm-meta">SteamID ${escHtml(it.steam_id || "—")}${it.tribe_name ? ` · Tribo ${escHtml(it.tribe_name)}` : ""}</div></div><button type="button" class="btn btn-ghost btn-sm" onclick="openMapMemberDados('${escHtml(m.server_id)}','${escHtml(it.steam_id)}')">DADOS</button></div>`).join("");
-        return `<div class="map-members-col card" style="padding:12px;margin:0;"><h3>${escHtml(m.label || m.server_id)} <span class="mm-meta">(${Number(m.total || 0)})</span></h3><div class="mm-meta" style="margin:4px 0 9px;color:var(--warning,#f0ad4e);">ID sem servidor cadastrado: <code>${escHtml(m.server_id)}</code></div><div class="map-members-list">${rows || "<span class='mm-meta'>Sem membros neste ID.</span>"}</div></div>`;
-      }).join("");
-    }
     if (!_mapMembersCache.length) {
       grid.innerHTML = "<p style='color:var(--text2)'>Nenhum servidor cadastrado. Configure em Servidores.</p>";
       return;
@@ -36009,13 +35992,6 @@ async function teamsAdminKick(teamId) {
 }
 
 async function loadPlayersAdmin(resetPanel) {
-  if (resetPanel) {
-    _playersAdminPersonaRefreshAttempts = 0;
-    if (_playersAdminPersonaRefreshTimer) {
-      clearTimeout(_playersAdminPersonaRefreshTimer);
-      _playersAdminPersonaRefreshTimer = null;
-    }
-  }
   const q = document.getElementById("players-admin-search")?.value?.trim() || "";
   const sort = document.getElementById("players-admin-sort")?.value || "last_login";
   const params = new URLSearchParams({
@@ -36090,27 +36066,6 @@ async function loadPlayersAdmin(resetPanel) {
     if (el) el.innerHTML = `<table class="pkg-admin-table players-admin-table"><thead><tr>
       <th>Jogador</th><th>Âmbar</th><th>Status</th><th>Licenças</th><th>Cargos</th><th>Último login</th>
     </tr></thead><tbody>${rows}</tbody></table>`;
-    const unresolvedSteamNames = d.items.filter(p => {
-      const persona = (p.steam_persona || p.display_name || "").trim();
-      return !persona || persona === p.steam_id;
-    }).length;
-    if (unresolvedSteamNames && d.steam_api_configured && _playersAdminPersonaRefreshAttempts < 3) {
-      // O backend busca personas em segundo plano. Reconsulta a lista algumas
-      // vezes para refletir os nicks assim que forem gravados no banco.
-      if (!_playersAdminPersonaRefreshTimer) {
-        _playersAdminPersonaRefreshAttempts += 1;
-        _playersAdminPersonaRefreshTimer = setTimeout(() => {
-          _playersAdminPersonaRefreshTimer = null;
-          loadPlayersAdmin(false);
-        }, 2500);
-      }
-    } else if (!unresolvedSteamNames) {
-      _playersAdminPersonaRefreshAttempts = 0;
-      if (_playersAdminPersonaRefreshTimer) {
-        clearTimeout(_playersAdminPersonaRefreshTimer);
-        _playersAdminPersonaRefreshTimer = null;
-      }
-    }
     if (resetPanel) {
       _playersAdminSelected = null;
       closePlayerAdminPanel();

@@ -1,9 +1,9 @@
 {
-    "version": "1.11.60",
-    "date": "2026-11-10",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.60/ARKLAND-Multi-Setup-v1.11.60.exe",
-    "changelog": [
-        "WebStore: Gerenciar Jogadores atualiza a lista após a busca assíncrona de nicks Steam e informa quando ainda não foi possível resolver alguns nomes.",
-        "WebStore: jogadores sem aceite podem abrir o regulamento completo e aceitá-lo diretamente na página do regulamento."
-    ]
+    "version":  "1.11.61",
+    "date":  "2026-11-10",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.61/ARKLAND-Multi-Setup-v1.11.61.exe",
+    "changelog":  [
+                      "WebStore: Gerenciar Jogadores resolve nicks Steam ausentes durante a consulta, usa exclusivamente steam_persona como nome e exibe o diagnÃ³stico real quando a Steam nÃ£o retorna o perfil.",
+                      "WebStore: removido o painel de registros por IDs de servidor não cadastrados em Membros por mapa."
+                  ]
 }

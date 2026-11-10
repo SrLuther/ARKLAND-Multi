@@ -3393,21 +3393,31 @@ def _list_admin_players(
             db, [s for s in steam_ids if s], allow_ddl=False,
         )
         timing["ents_ms"] = int((time.perf_counter() - t_ents) * 1000)
-        missing_persona: list[str] = []
-        items: list[dict[str, Any]] = []
+        persona_entries: list[tuple[str, str | None]] = []
         for r in rows:
             sid = _normalize_steam_id64(r[0]) or str(r[0]).strip()
-            store_name = (str(r[1]).strip() if r[1] else "") or None
-            if store_name == sid:
-                store_name = None
             cached_persona = (str(r[2]).strip() if r[2] else "") or None
             if cached_persona == sid:
                 cached_persona = None
-            persona = cached_persona
-            if not persona:
-                missing_persona.append(sid)
-            # Cache miss de nick → SteamID placeholder; linha do jogador SEMPRE presente.
-            label = persona or store_name or sid
+            persona_entries.append((sid, cached_persona))
+
+        # Resolver os nicks que faltam dentro desta resposta. O helper tem
+        # timeout curto e consulta apenas IDs sem persona em cache; assim a UI
+        # recebe o resultado real, em vez de ficar presa num placeholder após
+        # uma tarefa de background sem confirmação de sucesso.
+        db.commit()
+        t_steam = time.perf_counter()
+        personas, persona_meta = _backfill_steam_personas(
+            db, persona_entries, return_status=True,
+        )
+        timing["steam_ms"] = int((time.perf_counter() - t_steam) * 1000)
+        items: list[dict[str, Any]] = []
+        for r in rows:
+            sid = _normalize_steam_id64(r[0]) or str(r[0]).strip()
+            persona = personas.get(sid)
+            # O campo display_name pode conter um rótulo antigo/máscara; para
+            # esta tela, somente steam_persona é um nick Steam confirmado.
+            label = persona or sid
             ents = ents_by_sid.get(sid) or []
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
@@ -3423,8 +3433,6 @@ def _list_admin_players(
                 "licenses": license_groups,
                 "staff_roles": staff_roles,
             })
-        if missing_persona:
-            _schedule_steam_persona_backfill(missing_persona)
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         timing["total_ms"] = elapsed_ms
         _log(
@@ -3442,17 +3450,8 @@ def _list_admin_players(
             "total": total,
             "offset": offset,
             "limit": limit,
-            "steam_api_configured": _steam_api_key_configured(),
-            "steam_persona_warning": (
-                _STEAM_PERSONA_ADMIN_WARNING
-                if missing_persona and not _steam_api_key_configured()
-                else (
-                    f"Nick Steam pendente para {len(missing_persona)} jogador(es); "
-                    "a busca foi iniciada em segundo plano. Atualize a lista em instantes."
-                    if missing_persona
-                    else None
-                )
-            ),
+            "steam_api_configured": persona_meta.get("steam_api_configured", False),
+            "steam_persona_warning": persona_meta.get("steam_persona_warning"),
             "timing": timing,
         }
     except Exception as exc:

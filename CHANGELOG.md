@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 01:23:49 -->
-<!-- Total de versões: 552 | Primeira: 1.11.60 -->
+<!-- Gerado: 2026-11-10 02:00:57 -->
+<!-- Total de versões: 553 | Primeira: 1.11.61 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.61] - 2026-11-10
+
+### Other
+
+- WebStore: Gerenciar Jogadores resolve nicks Steam ausentes durante a consulta, usa exclusivamente steam_persona como nome e exibe o diagnóstico real quando a Steam não retorna o perfil.
+- WebStore: removido o painel de registros por IDs de servidor não cadastrados em Membros por mapa.
 
 ## [1.11.60] - 2026-11-10
 
