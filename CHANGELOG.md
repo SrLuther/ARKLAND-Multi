@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 02:00:57 -->
-<!-- Total de versões: 553 | Primeira: 1.11.61 -->
+<!-- Gerado: 2026-11-10 02:44:27 -->
+<!-- Total de versões: 554 | Primeira: 1.11.62 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.62] - 2026-11-10
+
+### Other
+
+- WebStore: Gerenciar Jogadores consulta o perfil XML público da Steam como fallback quando GetPlayerSummaries é rejeitado com HTTP 403; nomes obtidos ficam salvos no banco para as próximas consultas.
 
 ## [1.11.61] - 2026-11-10
 

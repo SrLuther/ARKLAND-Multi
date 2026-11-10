@@ -24,6 +24,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from collections.abc import Callable
 from typing import Any, Optional
+from xml.etree import ElementTree
 
 # PyInstaller starts this file as ``__main__``. Several lazily loaded services
 # import models and the live DB engine from ``app``; alias this running module
@@ -7709,6 +7710,49 @@ def _warn_steam_api_key_missing(context: str = "") -> None:
     )
 
 
+def _fetch_steam_community_persona_names(
+    steam_ids: list[str],
+    *,
+    timeout: float,
+) -> dict[str, str]:
+    """Fallback via perfil XML público quando a Web API rejeita a chave (403)."""
+    valid = list(dict.fromkeys(
+        sid for raw in steam_ids if (sid := _normalize_steam_id64(raw))
+    ))[:25]
+    if not valid:
+        return {}
+
+    def fetch_one(sid: str) -> tuple[str, str | None]:
+        url = f"https://steamcommunity.com/profiles/{sid}/?xml=1"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; ARKLAND-ServerManager/1.0)",
+                "Accept": "application/xml,text/xml,*/*;q=0.8",
+            },
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=max(2.0, float(timeout))) as response:
+                root = ElementTree.fromstring(response.read(256 * 1024))
+            name = (root.findtext("steamID") or "").strip()
+            if name and name != sid:
+                return sid, name[:128]
+        except Exception as exc:
+            log.debug("Steam Community profile indisponível para %s: %s", sid, exc)
+        return sid, None
+
+    found: dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=min(8, len(valid)), thread_name_prefix="steam-community") as pool:
+        futures = [pool.submit(fetch_one, sid) for sid in valid]
+        for future in as_completed(futures):
+            sid, name = future.result()
+            if name:
+                found[sid] = name
+    log.info("Steam Community fallback: nicks obtidos=%s de=%s", len(found), len(valid))
+    return found
+
+
 def _admin_steam_persona_meta(
     requested_ids: list[str],
     fetched: dict[str, str],
@@ -7752,6 +7796,7 @@ def _fetch_steam_persona_names_batch(
     if not valid:
         return {}
     result: dict[str, str] = {}
+    community_fallback_ids: list[str] = []
     req_timeout = max(2.0, float(timeout))
     for i in range(0, len(valid), _STEAM_PERSONA_BATCH_SIZE):
         chunk = valid[i:i + _STEAM_PERSONA_BATCH_SIZE]
@@ -7785,12 +7830,24 @@ def _fetch_steam_persona_names_batch(
                     "Steam GetPlayerSummaries retornou 0 jogadores (%s ids solicitados)",
                     len(chunk),
                 )
+        except urllib.error.HTTPError as exc:
+            log.warning(
+                "Steam GetPlayerSummaries batch falhou (%s ids): HTTP %s",
+                len(chunk), exc.code,
+            )
+            if exc.code == 403:
+                community_fallback_ids.extend(chunk)
         except Exception as exc:
             log.warning(
                 "Steam GetPlayerSummaries batch falhou (%s ids): %s",
                 len(chunk),
                 exc,
             )
+    if community_fallback_ids:
+        result.update(_fetch_steam_community_persona_names(
+            community_fallback_ids,
+            timeout=req_timeout,
+        ))
     return result
 
 
