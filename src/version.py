@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.62"
+APP_VERSION: str = "1.11.63"
 BUILD_DATE: str = "2026-11-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.63",
+        "date": "2026-11-10",
+        "changes": [
+            "Plugin Debug: painel recebe logs dos seis plugins próprios, em todos os níveis do logger ArkApi, com captura em background, lotes, fila local persistente e atualização automática.",
+            "Plugin Debug: eventos incluem versão do plugin, servidor, logger, thread e SteamID/pedido/correlação quando aparecem na mensagem; detalhe completo permanece consultável pela Administração.",
+            "Fazenda: logs de prévia/envio, ciclos de produção, alcance da capacidade e resgates incluem quantidades, recurso e resultado.",
+            "Plugins oficiais atualizados para habilitar registro central completo: CustomShop 1.10.56, CustomDinoDeliver 1.10.17, ArkPlayer 1.0.3, ArkEventHunt 0.5.6, EngramLevel 0.1.4 e FazendaRecursos 0.1.34.",
+        ],
+    },
     {
         "version": "1.11.62",
         "date": "2026-11-10",

@@ -5,6 +5,7 @@
 #include "PlayerDamage.h"
 #include "PlayerPerms.h"
 #include "PlayerPoints.h"
+#include "../../ArklandPluginDebug.h"
 
 namespace {
 
@@ -32,6 +33,7 @@ void Hook_AShooterGameMode_BeginPlay(AShooterGameMode* _this) {
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("ArkPlayer");
+    ArklandPluginDebug::ConfigureFromCustomShop("ArkPlayer", ARKLAND_PLUGIN_VERSION);
     Log::GetLog()->info("ArkPlayer: initialising...");
 
     try {
@@ -66,4 +68,5 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     ArkPlayer::Damage::Remove();
     ArkPlayer::Commands::Unregister();
     Log::GetLog()->info("ArkPlayer: unloaded");
+    ArklandPluginDebug::Shutdown();
 }

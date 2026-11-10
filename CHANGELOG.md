@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 02:44:27 -->
-<!-- Total de versões: 554 | Primeira: 1.11.62 -->
+<!-- Gerado: 2026-11-10 04:32:31 -->
+<!-- Total de versões: 555 | Primeira: 1.11.63 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.63] - 2026-11-10
+
+### Other
+
+- Plugin Debug: painel recebe logs dos seis plugins próprios, em todos os níveis do logger ArkApi, com captura em background, lotes, fila local persistente e atualização automática.
+- Plugin Debug: eventos incluem versão do plugin, servidor, logger, thread e SteamID/pedido/correlação quando aparecem na mensagem; detalhe completo permanece consultável pela Administração.
+- Fazenda: logs de prévia/envio, ciclos de produção, alcance da capacidade e resgates incluem quantidades, recurso e resultado.
+- Plugins oficiais atualizados para habilitar registro central completo: CustomShop 1.10.56, CustomDinoDeliver 1.10.17, ArkPlayer 1.0.3, ArkEventHunt 0.5.6, EngramLevel 0.1.4 e FazendaRecursos 0.1.34.
 
 ## [1.11.62] - 2026-11-10
 

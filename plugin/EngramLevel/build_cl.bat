@@ -85,7 +85,7 @@ echo === Linking DLL ===
   /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" ^
   /LIBPATH:"%WIN_SDK_LIB%\um\x64" ^
   ArkApi.lib ^
-  kernel32.lib user32.lib advapi32.lib ^
+  kernel32.lib user32.lib advapi32.lib winhttp.lib ^
   "%OBJ_DIR%\Main.obj" ^
   "%OBJ_DIR%\EngramConfig.obj" ^
   "%OBJ_DIR%\EngramGrant.obj" ^

@@ -3,6 +3,7 @@
 #include "Commands.h"
 #include "ShopBridge.h"
 #include "ShopConfig.h"
+#include "../../ArklandPluginDebug.h"
 #include "ShopData.h"
 #include "ShopPoints.h"
 #include "ShopVip.h"
@@ -175,6 +176,8 @@ void Hook_AShooterGameMode_Logout(AShooterGameMode* _this, AController* exiting)
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("CustomShop");
+    ArklandPluginDebug::ConfigureFromCustomShop(
+        "CustomShop", ARKLAND_PLUGIN_VERSION, false);
     Log::GetLog()->info("CustomShop: initialising…");
 
     try {
@@ -280,4 +283,5 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     CustomShop::HttpClient::Shutdown();
     CustomShop::Debug::Shutdown();
     Log::GetLog()->info("CustomShop: unloaded");
+    ArklandPluginDebug::Shutdown();
 }

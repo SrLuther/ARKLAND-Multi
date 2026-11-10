@@ -1,6 +1,29 @@
-# Debug ARKLAND — plugins (CustomShop / CustomDinoDeliver)
+# Debug ARKLAND - plugins proprios
 
-Sistema de debug **independente do log ArkApi**, com ficheiro JSONL, ring buffer in-memory e persistência MySQL (ou HTTP ingest) para a web Admin.
+## Registro central completo
+
+A pagina **Sistema > Debug Plugins** recebe as mensagens do logger ArkApi dos seis plugins oficiais: CustomShop, CustomDinoDeliver, ArkPlayer, ArkEventHunt, EngramLevel e FazendaRecursos. O logger de cada plugin e espelhado do nivel TRACE ao ERROR, sem depender de `Debug.Enabled`. Tudo que os plugins escrevem no logger ArkApi e capturado; eventos sem mensagem de log nao existem para coletar.
+
+Cada evento preserva a mensagem, horario UTC, nivel, categoria derivada do prefixo, nome do logger, versao do plugin, ID do servidor, thread e SteamID/pedido/correlacao quando esses identificadores aparecem no texto. A tela permite filtrar por plugin, categoria, nivel, SteamID e texto, abrir o JSON completo e atualiza a cada 15 segundos.
+
+O envio roda fora da thread do jogo. Cada plugin mantem `ArkApi/Plugins/<Plugin>/logs/arkland_debug.pending.jsonl` como fila persistente e tenta novamente apos indisponibilidade do site; o worker envia lotes de ate 100 registros e mantem um offset local para retomar apos reinicio. Os plugins sem canal proprio de debug tambem gravam `arkland_debug.log` rotacionado. CustomShop e CustomDinoDeliver mantem seus logs estruturados existentes, alem do fluxo completo do logger.
+
+O endereco e a chave sao lidos de `ArkApi/Plugins/CustomShop/config.json` (`Settings.WebApiUrl` e `Settings.WebApiKey`). Por isso o servidor precisa ter a configuracao gerenciada do CustomShop com a chave valida da WebStore. A API de ingestao aceita somente os seis nomes de plugins oficiais. Se o site ou a chave estiver indisponivel, os eventos continuam na fila local ate a proxima tentativa bem-sucedida.
+
+FazendaRecursos registra ainda acoes estruturadas: previa e confirmacao de uploads, recurso/Soul armazenado, usuario/estoque/ciclos/limite em cada avanco real da producao, status consultado, stacks e resultado dos resgates. A producao nao gera um evento por segundo; cada atualizacao real do estoque e registrada com ciclos e limite.
+
+## Logs locais por plugin
+
+| Plugin | Logs locais |
+|--------|-------------|
+| CustomShop | `ArkApi/Plugins/CustomShop/logs/arkland_debug.log` |
+| CustomDinoDeliver | `ArkApi/Plugins/CustomDinoDeliver/logs/arkland_debug.log` |
+| ArkPlayer | `ArkApi/Plugins/ArkPlayer/logs/arkland_debug.log` |
+| ArkEventHunt | `ArkApi/Plugins/ArkEventHunt/logs/arkland_debug.log` |
+| EngramLevel | `ArkApi/Plugins/EngramLevel/logs/arkland_debug.log` |
+| FazendaRecursos | `ArkApi/Plugins/FazendaRecursos/logs/arkland_debug.log` |
+
+CustomShop e CustomDinoDeliver conservam `Debug.Enabled`, ring buffer e categorias proprios para diagnostico estruturado temporario. Esse ajuste controla o detalhamento adicional dos canais proprios; o espelhamento do logger ArkApi ao painel e a fila de envio permanecem ativos independentemente dele.
 
 ## Onde ficam os logs
 

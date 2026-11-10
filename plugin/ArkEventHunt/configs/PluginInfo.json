@@ -1,7 +1,7 @@
 {
   "FullName": "Ark Event Hunt",
   "Description": "Caça de evento ARKLAND — Mode A (/eve) + Mode B (/eveadm)",
-  "Version": 0.55,
+  "Version": 0.56,
   "MinApiVersion": 3.54,
-  "VersionLabel": "0.5.5"
+  "VersionLabel": "0.5.6"
 }

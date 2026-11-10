@@ -3,6 +3,7 @@
 #include "EngramCommands.h"
 #include "EngramConfig.h"
 #include "EngramHooks.h"
+#include "../../ArklandPluginDebug.h"
 
 namespace {
 
@@ -20,6 +21,7 @@ void CmdReload(APlayerController*, FString*, bool) {
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("EngramLevel");
+    ArklandPluginDebug::ConfigureFromCustomShop("EngramLevel", ARKLAND_PLUGIN_VERSION);
     Log::GetLog()->info("EngramLevel: initialising...");
 
     try {
@@ -46,4 +48,5 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     EngramLevel::Hooks::Unregister();
     EngramLevel::Hooks::ReleaseCrashMask();
     Log::GetLog()->info("EngramLevel: unloaded");
+    ArklandPluginDebug::Shutdown();
 }

@@ -9,9 +9,11 @@
 #include "HuntRegistry.h"
 
 #include <Timer.h>
+#include "../../ArklandPluginDebug.h"
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("ArkEventHunt");
+    ArklandPluginDebug::ConfigureFromCustomShop("ArkEventHunt", ARKLAND_PLUGIN_VERSION);
     Log::GetLog()->info("ArkEventHunt: initialising...");
 
     try {
@@ -48,4 +50,5 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     ArkEventHunt::Registry::Clear();
     ArkEventHunt::HttpClient::Shutdown();
     Log::GetLog()->info("ArkEventHunt: unloaded");
+    ArklandPluginDebug::Shutdown();
 }

@@ -3,6 +3,10 @@
 Versões sincronizadas via `plugin_version.txt` +
 `python scripts/sync_plugin_versions.py --plugin ArkPlayer`.
 
+## [1.0.3] - 2026-11-10
+
+- Adds complete ArkApi logger capture and asynchronous central delivery, including command outcomes, player IDs when present, and durable local JSONL/spool files.
+
 ## [1.0.2] - 2026-10-04
 
 ### Feature

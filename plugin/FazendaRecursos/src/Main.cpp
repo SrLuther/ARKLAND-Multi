@@ -5,9 +5,11 @@
 #include "FarmPerms.h"
 #include "FarmSync.h"
 #include "plugin_version.h"
+#include "../../ArklandPluginDebug.h"
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("FazendaRecursos");
+    ArklandPluginDebug::ConfigureFromCustomShop("FazendaRecursos", ARKLAND_PLUGIN_VERSION);
     try {
         FazendaRecursos::FarmConfig::Get().Load();
         FazendaRecursos::FarmState::Get().Load();
@@ -27,4 +29,5 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     if (!FazendaRecursos::FarmState::Get().Save())
         Log::GetLog()->error("FazendaRecursos: não foi possível persistir o estado no unload");
     Log::GetLog()->info("FazendaRecursos: descarregado");
+    ArklandPluginDebug::Shutdown();
 }

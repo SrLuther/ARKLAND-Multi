@@ -1,5 +1,9 @@
 # FazendaRecursos - changelog
 
+## [0.1.34] - 2026-11-10
+
+- Adds complete ArkApi logger capture plus detailed upload preview/confirmation, production cycles and capacity pauses, status, and redemption events; uploads asynchronously with local spool retry.
+
 ## [0.1.33]
 - Sincroniza o catálogo antes de processar produção e reinicia a âncora ao mudar a configuração, evitando acumular ciclos enquanto o estoque estava no limite.
 

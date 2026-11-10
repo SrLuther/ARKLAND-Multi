@@ -34,17 +34,24 @@ def register_plugin_debug_routes(
     def plugin_debug_ingest():
         if not db_ready():
             return _fail("database_unavailable", 503)
-        body = request.get_json(silent=True) or {}
-        if not isinstance(body, dict):
+        body = request.get_json(silent=True)
+        if isinstance(body, list):
+            if not body or len(body) > 100 or any(not isinstance(item, dict) for item in body):
+                return _fail("invalid_batch")
+            events = body
+        elif isinstance(body, dict):
+            events = [body]
+        else:
             return _fail("invalid_json")
         session = session_factory()
         try:
             ensure_plugin_debug_schema(session.get_bind())
-            eid = ingest_event(session, body)
+            ids = [ingest_event(session, item) for item in events]
+            if any(eid is None for eid in ids):
+                session.rollback()
+                return _fail("invalid_plugin_or_message")
             session.commit()
-            if eid is None:
-                return _fail("message_required")
-            return _ok({"id": eid})
+            return _ok({"id": ids[0], "ids": ids, "count": len(ids)})
         except Exception as exc:
             session.rollback()
             log.warning("plugin_debug_ingest failed: %s", exc)
@@ -68,7 +75,7 @@ def register_plugin_debug_routes(
                 min_level=request.args.get("min_level") or None,
                 steam_id=request.args.get("steam_id") or None,
                 q=request.args.get("q") or None,
-                limit=int(request.args.get("limit") or 10),
+                limit=int(request.args.get("limit") or 50),
                 offset=int(request.args.get("offset") or 0),
                 since_id=(
                     int(request.args["since_id"])

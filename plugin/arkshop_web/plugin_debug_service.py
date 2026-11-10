@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS arkland_plugin_debug (
 
 # Severidade: número menor = mais grave (ERROR < WARN < INFO …).
 _LEVEL_RANK: dict[str, int] = {
+    "CRITICAL": 0,
     "ERROR": 1,
     "ERR": 1,
     "WARN": 2,
@@ -47,6 +48,7 @@ _LEVEL_RANK: dict[str, int] = {
 }
 
 _LEVELS_BY_RANK: list[tuple[str, int]] = [
+    ("CRITICAL", 0),
     ("ERROR", 1),
     ("WARN", 2),
     ("INFO", 3),
@@ -154,6 +156,13 @@ def enrich_event_row(item: dict[str, Any]) -> dict[str, Any]:
 def ingest_event(session, payload: dict[str, Any]) -> int | None:
     """Insere um evento (plugin API key). Devolve id ou None."""
     plugin = str(payload.get("plugin") or "unknown")[:32]
+    # A chave da API é compartilhada por integrações do ARKLAND; só os seis
+    # plugins próprios podem alimentar esta trilha dedicada.
+    if plugin not in {
+        "CustomShop", "CustomDinoDeliver", "ArkPlayer", "ArkEventHunt",
+        "EngramLevel", "FazendaRecursos",
+    }:
+        return None
     version = str(payload.get("version") or payload.get("plugin_version") or "")[:16]
     level = str(payload.get("level") or "INFO")[:8]
     category = str(payload.get("category") or "General")[:32]

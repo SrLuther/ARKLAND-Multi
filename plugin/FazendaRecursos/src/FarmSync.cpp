@@ -423,6 +423,7 @@ private:
                 int64_t last = stored_last;
                 int64_t full_at = stored_full_at;
                 int64_t next_stock = stock;
+                int64_t accrued_cycles = 0;
                 if (stock >= capacity) {
                     if (full_at <= 0) full_at = now;
                     last = full_at;
@@ -431,6 +432,7 @@ private:
                     const int64_t elapsed_cycles = std::max<int64_t>(0, now - last) / interval;
                     const int64_t cycles_to_full = (capacity - stock + output - 1) / output;
                     const int64_t cycles = std::min(elapsed_cycles, cycles_to_full);
+                    accrued_cycles = cycles;
                     if (cycles > 0) {
                         next_stock = std::min(capacity, stock + cycles * output);
                         last += cycles * interval;
@@ -444,6 +446,11 @@ private:
                     "WHERE share_key='" + share + "' AND steam_id='" + db.Escape(steam_id) +
                     "' AND resource_id='" + db.Escape(def.id) + "' AND active=1")) {
                     db.Query("ROLLBACK"); return false;
+                }
+                if (next_stock > stock) {
+                    Log::GetLog()->info("Fazenda: production accrued steam={} resource={} stock_before={} stock_after={} cycles={} output_per_cycle={} interval_seconds={} capacity={} at_capacity={} paused={}",
+                        steam_id, def.id, stock, next_stock, accrued_cycles, output,
+                        interval, capacity, next_stock >= capacity, next_stock >= capacity);
                 }
             }
         }

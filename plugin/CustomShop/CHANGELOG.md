@@ -8,6 +8,10 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.56] - 2026-11-10
+
+- Complete ArkApi logger stream is uploaded to the central admin log in batches, with TRACE-level capture, server/plugin/version metadata, Steam/order correlation fields, and a persistent local upload spool.
+
 ## [1.10.55] - 2026-11-09
 
 ### Added

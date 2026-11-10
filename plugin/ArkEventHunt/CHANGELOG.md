@@ -3,6 +3,10 @@
 Versões sincronizadas via `plugin_version.txt` +
 `python scripts/sync_plugin_versions.py --plugin ArkEventHunt`.
 
+## [0.5.6] - 2026-11-10
+
+- Adds complete ArkApi logger capture for event commands, validation, spawn/kill lifecycle, API calls, and failures; uploads asynchronously with local spool retry.
+
 ## [0.5.5] - 2026-11-02
 
 - Fix Mode B startup reconciliation: add the API-key-authenticated

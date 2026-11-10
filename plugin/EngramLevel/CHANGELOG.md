@@ -1,5 +1,9 @@
 # Changelog — EngramLevel
 
+## [0.1.4] - 2026-11-10
+
+- Adds complete ArkApi logger capture for hooks, unlock queues, player commands, configuration changes, and failures; uploads asynchronously with local spool retry.
+
 ## [0.1.3] - 2026-11-07
 
 - `/ae` credita +100 pontos livres e totais de engrama em cada uso, mesmo sem engramas pendentes ou com o automático desligado; o saldo é replicado imediatamente ao jogador.

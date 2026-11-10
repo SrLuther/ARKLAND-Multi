@@ -12592,10 +12592,8 @@
         <div id="topbar">
           <div class="page-title">Debug Plugins</div>
           <p style="font-size:12px;color:var(--text2);margin-top:6px;">
-            Eventos críticos dos plugins (CustomShop / CustomDinoDeliver) na tabela
-            <code>arkland_plugin_debug</code>. Ficheiros JSONL no mapa:
-            <code>ArkApi/Plugins/&lt;Plugin&gt;/logs/arkland_debug.log</code>
-            — ligar com <code>Debug.Enabled=true</code> + TRACE temporário.
+            Registro central dos seis plugins próprios: ciclo de vida, comandos, ações,
+            integrações, resultados e falhas. Os eventos mantêm contexto técnico e cópia JSONL local.
           </p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadPluginDebug()">↺ Recarregar</button>
@@ -12610,31 +12608,28 @@
                 <option value="">Todos</option>
                 <option value="CustomShop">CustomShop</option>
                 <option value="CustomDinoDeliver">CustomDinoDeliver</option>
+                <option value="ArkPlayer">ArkPlayer</option>
+                <option value="ArkEventHunt">ArkEventHunt</option>
+                <option value="EngramLevel">EngramLevel</option>
+                <option value="FazendaRecursos">FazendaRecursos</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;min-width:140px;">
               <label>Categoria</label>
-              <select id="pd-filter-category" onchange="loadPluginDebug()">
-                <option value="">Todas</option>
-                <option value="TribeSync">TribeSync</option>
-                <option value="Http">Http</option>
-                <option value="MySQL">MySQL</option>
-                <option value="License">License</option>
-                <option value="Shop">Shop</option>
-                <option value="SpawnExact">SpawnExact</option>
-                <option value="DinoLab">DinoLab</option>
-                <option value="Deliver">Deliver</option>
-              </select>
+              <input id="pd-filter-category" type="text" placeholder="Runtime, Http, TribeSync…"
+                     onkeydown="if(event.key==='Enter')loadPluginDebug()" />
             </div>
             <div class="form-group" style="margin:0;min-width:100px;">
               <label>Nível</label>
               <select id="pd-filter-level" onchange="loadPluginDebug()">
                 <option value="">Todos</option>
                 <option value="WARN+">WARN+</option>
+                <option value="CRITICAL">CRITICAL</option>
                 <option value="ERROR">ERROR</option>
                 <option value="WARN">WARN</option>
                 <option value="INFO">INFO</option>
                 <option value="DEBUG">DEBUG</option>
+                <option value="TRACE">TRACE</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;min-width:160px;">
@@ -12651,7 +12646,7 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-title">Últimos eventos</div>
+          <div class="card-title">Últimos eventos · atualização automática a cada 15 segundos</div>
           <div id="plugin-debug-list" style="font-size:12px;color:var(--text2);">Carregando…</div>
           <div class="table-pager" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <span id="plugin-debug-page-info" style="font-size:12px;color:var(--text2);"></span>
@@ -31408,9 +31403,14 @@ async function loadAudit() {
 function prevPluginDebugPage() { if (stepTablePage(_pluginDebugPage, -1)) loadPluginDebug(); }
 function nextPluginDebugPage() { if (stepTablePage(_pluginDebugPage, 1)) loadPluginDebug(); }
 
-async function loadPluginDebug() {
+let _pluginDebugTimer = 0;
+async function loadPluginDebug(silent = false) {
   const el = document.getElementById("plugin-debug-list");
   if (!el) return;
+  if (!_pluginDebugTimer) _pluginDebugTimer = setInterval(() => {
+    if (document.getElementById("page-plugin-debug")?.classList.contains("active"))
+      loadPluginDebug(true);
+  }, 15000);
   const plugin = document.getElementById("pd-filter-plugin")?.value || "";
   const category = document.getElementById("pd-filter-category")?.value || "";
   const level = document.getElementById("pd-filter-level")?.value || "";
@@ -31423,7 +31423,7 @@ async function loadPluginDebug() {
   else if (level) path += `&level=${encodeURIComponent(level)}`;
   if (steam) path += `&steam_id=${encodeURIComponent(steam)}`;
   if (q) path += `&q=${encodeURIComponent(q)}`;
-  setTableLoading(el);
+  if (!silent) setTableLoading(el);
   const ctrl = beginTablePageFetch("plugin-debug");
   try {
     const d = await fetchJson(path, { signal: ctrl.signal, retries: 0 });
@@ -31439,14 +31439,14 @@ async function loadPluginDebug() {
       hasMore: _pluginDebugPage.hasMore, count: events.length,
     });
     if (!events.length) {
-      el.innerHTML = `<div style="color:var(--text2)">Sem eventos. Em produção, WARN/ERROR de TribeSync/Http/License gravam aqui mesmo com Debug.Enabled=false. TRACE detalhado exige ficheiro JSONL no mapa.</div>`;
+      el.innerHTML = `<div style="color:var(--text2)">Sem eventos deste filtro. Os plugins precisam estar instalados e configurados para enviar os registros ao site; eventos pendentes ficam em fila local enquanto a conexao nao estiver disponivel.</div>`;
       return;
     }
     window.__pluginDebugEvents = events;
     el.innerHTML = `
       <table class="tbl">
         <thead><tr>
-          <th>Data</th><th>Plugin</th><th>Nível</th><th>Cat.</th><th>Steam</th><th>Order</th><th>Contexto</th><th>Mensagem</th><th></th>
+          <th>Data</th><th>Plugin</th><th>Versao</th><th>Servidor</th><th>Nivel</th><th>Categoria</th><th>Steam</th><th>Order</th><th>Contexto</th><th>Mensagem</th><th></th>
         </tr></thead>
         <tbody>
           ${events.map((e, i) => {
@@ -31457,10 +31457,14 @@ async function loadPluginDebug() {
             if (fj.http_status != null && fj.http_status !== "") ctxParts.push(`HTTP ${fj.http_status}`);
             if (fj.duration_ms != null && fj.duration_ms !== "") ctxParts.push(`${fj.duration_ms}ms`);
             if (fj.winhttp_error) ctxParts.push(`err ${fj.winhttp_error}`);
+            if (fj.logger) ctxParts.push(String(fj.logger));
+            if (fj.thread_id != null) ctxParts.push(`thread ${fj.thread_id}`);
             const ctx = ctxParts.join(" · ") || "—";
             return `<tr>
               <td style="font-size:11px;white-space:nowrap;">${fmtDate(e.created_at)}</td>
               <td style="font-size:10px;">${escHtml(e.plugin || "")}</td>
+              <td style="font-size:10px;">${escHtml(e.plugin_version || "")}</td>
+              <td style="font-size:10px;">${escHtml(e.server_id || "\u2014")}</td>
               <td><code style="font-size:10px;">${escHtml(e.level || "")}</code></td>
               <td style="font-size:10px;">${escHtml(e.category || "")}</td>
               <td style="font-size:10px;">${escHtml((e.steam_id || "").substring(0, 14) || "—")}</td>
@@ -33103,7 +33107,7 @@ let _dinoLabHistoryPage = { page: 1, page_size: 10, total: 0, pages: 1 };
 let _myAreaDinoOrdersPage = { page: 1, page_size: 10, total: 0, pages: 1, hasMore: false };
 let _sugestoesPage = { limit: 10, offset: 0, total: 0 };
 let _sugestoesAdminPage = { limit: 10, offset: 0, total: 0 };
-let _pluginDebugPage = { limit: 10, offset: 0, hasMore: false };
+let _pluginDebugPage = { limit: 50, offset: 0, hasMore: false };
 let _lotteryPartsPage = { page: 1, page_size: 10, total: 0, campaignId: null };
 let _lotteryReportPartsPage = { offset: 0, limit: 10, rows: [] };
 let _marketHistorySalesPage = { limit: 10, offset: 0, hasMore: false };

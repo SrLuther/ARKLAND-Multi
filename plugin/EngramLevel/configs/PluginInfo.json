@@ -1,7 +1,7 @@
 {
   "FullName": "Engramas por nível",
   "Description": "No level up e depois do mindwipe libera só os engramas daquele nível. Não desbloqueia o catálogo inteiro.",
-  "Version": 0.13,
+  "Version": 0.14,
   "MinApiVersion": 3.54,
-  "VersionLabel": "0.1.3"
+  "VersionLabel": "0.1.4"
 }

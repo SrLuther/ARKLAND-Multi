@@ -211,6 +211,7 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
 # Fontes novas da reestruturação não aparecem em `git add -u`; liste-as
 # explicitamente para que o código-fonte do release corresponda ao executável.
 $releaseNewFiles = @(
+    "plugin/ArklandPluginDebug.h",
     "docs/ARKLAND_AUDITORIA_TECNICA_COMPLETA_2026-10-28.md",
     "docs/ESCOPO_RELEASE_1.11.0.md",
     "docs/FAZENDA_RECURSOS_VISAO_E_REQUISITOS.md",

@@ -318,6 +318,7 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         }
     }
     if (found.empty()) {
+        Log::GetLog()->info("Fazenda: upload preview empty steam={} enabled_resources={}", Steam(c), definitions.size());
         Say(c, "Não encontrei itens do inventário correspondentes a recursos configurados e habilitados na Fazenda.", FColorList::Yellow);
         return;
     }
@@ -327,6 +328,7 @@ void CmdFarm(APlayerController* pc, FString*, bool) {
         std::lock_guard<std::mutex> lock(g_preview_mutex);
         g_previews[steam] = {now + cfg.PreviewLifetimeSeconds(), found};
     }
+    Log::GetLog()->info("Fazenda: upload preview generated steam={} eligible_items={} ttl_seconds={}", steam, found.size(), cfg.PreviewLifetimeSeconds());
     std::string text = "Prévia de envio: " + std::to_string(found.size()) + " item(ns). O envio consome os itens listados e ativa a produção dos recursos:";
     const size_t shown = std::min<size_t>(found.size(), 8);
     for (size_t i = 0; i < shown; ++i) text += "\n- " + found[i].display_name;
@@ -408,6 +410,7 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
                 continue;
             }
             ++uploaded;
+            Log::GetLog()->info("Fazenda: resource uploaded steam={} resource={} resource_name={} upload={} quantity={} blob_bytes={}", steam, entry.resource_id, entry.resource_name, id, entry.item_quantity, bytes.Num());
             continue;
         }
         FazendaRecursos::PlayerFarm::UploadedSoul record;
@@ -429,7 +432,9 @@ void CmdConfirm(APlayerController* pc, FString*, bool) {
             continue;
         }
         ++uploaded;
+        Log::GetLog()->info("Fazenda: soul uploaded steam={} species={} display_name={} upload={} blob_bytes={}", steam, species, entry.display_name, id, bytes.Num());
     }
+    Log::GetLog()->info("Fazenda: upload completed steam={} uploaded={} skipped={} failed={} preview_items={}", steam, uploaded, skipped, failed, preview.items.size());
     Say(c, "Envio concluído: " + std::to_string(uploaded) + " item(ns) armazenado(s); " +
         std::to_string(skipped) + " ignorado(s); " + std::to_string(failed) + " falha(s). Recursos configurados iniciam producao passiva; agende a retirada na Minha Area e use /fazresgatar no jogo.",
         failed ? FColorList::Yellow : FColorList::Green);
@@ -452,6 +457,7 @@ void CmdStatus(APlayerController* pc, FString*, bool) {
         " recurso(s) no estoque. Recursos configurados: " + std::to_string(defs) + ".";
     if (pending) text += " Registro(s) pendente(s) para revisão administrativa: " + std::to_string(pending) + ".";
     Say(c, text);
+    Log::GetLog()->info("Fazenda: status viewed steam={} active_resources={} total_resources={} active_souls={} pending_souls={} catalog_size={}", Steam(c), producing, state.resources.size(), souls, pending, defs);
 }
 void CmdRedeem(APlayerController* pc, FString*, bool) {
     auto* c = static_cast<AShooterPlayerController*>(pc);
@@ -506,7 +512,9 @@ void CmdRedeem(APlayerController* pc, FString*, bool) {
         }
         ++delivered_stacks;
         delivered_items += stack.quantity;
+        Log::GetLog()->info("Fazenda: redemption stack delivered steam={} order={} stack={} resource={} quantity={}", steam, stack.redemption_id, stack.stack_index, stack.resource_id, stack.quantity);
     }
+    Log::GetLog()->info("Fazenda: redemption completed steam={} stacks={} items={} failed={}", steam, delivered_stacks, delivered_items, failed);
     const std::string result = "Resgate da Fazenda: " + std::to_string(delivered_items) +
         " unidade(s) em " + std::to_string(delivered_stacks) + " stack(s) entregue(s).";
     Say(c, failed ? result + " Há itens pendentes; confira o histórico na Minha Área antes de repetir." : result,

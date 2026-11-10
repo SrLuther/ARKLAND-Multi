@@ -8,6 +8,10 @@ A UI «Versões esperadas» (Dino Lab) lê `PluginInfo.json` embutido no app (`V
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.17] - 2026-11-10
+
+- Complete ArkApi logger stream is uploaded to the central admin log in batches, alongside the existing structured DinoDebug events, with local spool retry.
+
 ## [1.10.16] - 2026-07-26
 
 ### Improvement

@@ -4,6 +4,7 @@
 #include "DinoConfig.h"
 #include "DinoHttpClient.h"
 #include "DinoDebug.h"
+#include "../../ArklandPluginDebug.h"
 #include <Timer.h>
 
 namespace {
@@ -59,6 +60,7 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
 
 extern "C" __declspec(dllexport) void Plugin_Init() {
     Log::Get().Init("CustomDinoDeliver");
+    ArklandPluginDebug::ConfigureFromCustomShop("CustomDinoDeliver", ARKLAND_PLUGIN_VERSION, false);
     Log::GetLog()->info("CustomDinoDeliver: initialising...");
 
     try {
@@ -109,4 +111,5 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     CustomDinoDeliver::HttpClient::Shutdown();
     CustomDinoDeliver::Debug::Shutdown();
     Log::GetLog()->info("CustomDinoDeliver: unloaded");
+    ArklandPluginDebug::Shutdown();
 }
