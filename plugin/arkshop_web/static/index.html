@@ -8173,7 +8173,10 @@
     <div class="nav-item support-staff-only" data-page="tickets-admin" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets — Suporte
     </div>
-    <div class="nav-item admin-only" data-page="discord-link-admin" onclick="nav(this)">
+    <div class="nav-item support-staff-only" data-page="moderation-players-staff" onclick="nav(this)">
+      <span class="nav-icon">👥</span> Jogadores do servidor
+    </div>
+        <div class="nav-item admin-only" data-page="discord-link-admin" onclick="nav(this)">
       <span class="nav-icon">🔗</span> Discord — Vinculação
     </div>
     <div class="nav-item admin-only" data-page="polls-admin" onclick="nav(this)">
@@ -9406,6 +9409,34 @@
           <div id="staff-server-status" style="margin-top:12px;color:var(--text2);font-size:13px;"></div>
         </div>
         <div class="card"><div class="card-title">Jogadores conectados</div><div id="staff-server-players" style="overflow-x:auto;"><div class="empty-state">Selecione um servidor.</div></div></div>
+      </div>
+
+      <!-- PAGE: Historico de jogadores do servidor (Admin/Suporte; leitura nesta fase) -->
+      <div id="page-moderation-players-staff" class="page support-staff-only">
+        <div id="topbar">
+          <div class="page-title">Jogadores do servidor</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadModerationPlayers(true)">↻ Atualizar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px;">
+          <p style="margin:0;color:var(--text2);font-size:13px;line-height:1.55;">Histórico coletado pelo plugin nos servidores. Contas sem cadastro no site aparecem como <strong>Não vinculada</strong>. Esta página é somente para consulta; os dados são visíveis apenas à Administração e ao Suporte.</p>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:14px;">
+            <div class="form-group" style="margin:0;min-width:220px;flex:1;"><label>Buscar jogador, SteamID ou tribo</label><input id="mod-players-search" type="search" onkeydown="if(event.key==='Enter')loadModerationPlayers(true)" /></div>
+            <div class="form-group" style="margin:0;min-width:160px;"><label>Vínculo ao site</label><select id="mod-players-linked" onchange="loadModerationPlayers(true)"><option value="unlinked">Não vinculados</option><option value="all">Todos</option><option value="linked">Vinculados</option></select></div>
+            <div class="form-group" style="margin:0;min-width:180px;"><label>Servidor</label><input id="mod-players-server" type="text" placeholder="Todos os servidores" onkeydown="if(event.key==='Enter')loadModerationPlayers(true)" /></div>
+            <button class="btn btn-primary" onclick="loadModerationPlayers(true)">Buscar</button>
+          </div>
+        </div>
+        <div class="card" style="overflow-x:auto;">
+          <div id="mod-players-result"><div class="empty-state">Carregue os jogadores registrados pelo plugin.</div></div>
+          <div style="display:flex;gap:10px;justify-content:center;align-items:center;margin-top:14px;">
+            <button class="btn btn-ghost btn-sm" onclick="pageModerationPlayers(-1)">← Anterior</button>
+            <span id="mod-players-page-info" style="font-size:12px;color:var(--text2);"></span>
+            <button class="btn btn-ghost btn-sm" onclick="pageModerationPlayers(1)">Próxima →</button>
+          </div>
+        </div>
+        <div id="mod-player-sessions" class="card hidden" style="margin-top:14px;overflow-x:auto;"></div>
       </div>
 
       <!-- PAGE: Administracao da nuvem de inventario -->
@@ -13900,6 +13931,7 @@ function nav(el) {
   }
   if (page === "cloud-admin") loadCloudAdmin(1);
   if (page === "game-servers-staff") loadStaffServers();
+  if (page === "moderation-players-staff") loadModerationPlayers(true);
   if (_auth.authenticated) refreshPlayerBalance();
   if (page === "sugestoes") {
     try { history.replaceState({}, "", window.location.pathname + "#/sugestoes"); } catch (_) {}
@@ -17748,8 +17780,10 @@ async function loadMyFarm() {
     const activeStockCards = stockCards.filter(card => card.productionActive);
     const groupFarmCards = (cards, sectionName, openSingleCategory = true) => {
       const groups = new Map();
+      const categoryNames = { default: "Default", omega: "Omega", primal_fear: "Primal Fear" };
       cards.forEach(({ category, html }) => {
-        const key = String(category || "Outros");
+        const categoryId = String(category || "Outros");
+        const key = categoryNames[categoryId] || categoryId;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(html);
       });
@@ -17847,15 +17881,18 @@ async function loadMyFarm() {
         #myarea-farm-overview .farm-upload-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
         #myarea-farm-overview .farm-upload-card-head strong{min-width:0;overflow-wrap:anywhere;font-size:12px}
         #myarea-farm-overview .farm-upload-card small{display:block;color:var(--text2);font-size:10px;line-height:1.4}
-        #myarea-farm-overview .farm-action-card{display:grid;grid-template-columns:minmax(160px,1fr) minmax(110px,150px) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:9px;background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-action-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,150px);gap:10px 12px;align-items:end;padding:12px;border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:9px;background:rgba(255,255,255,.018)}
+        #myarea-farm-overview .farm-action-info{grid-column:1/-1;min-width:0}
         #myarea-farm-overview .farm-action-info strong,#myarea-farm-overview .farm-record-card strong{display:block}
+        #myarea-farm-overview .farm-action-info strong{overflow-wrap:anywhere;line-height:1.3}
         #myarea-farm-overview .farm-action-info span{display:block;color:var(--text2);font-size:10px;margin-top:2px}
-        #myarea-farm-overview .farm-action-card label{font-size:10px;color:var(--text2)}
-        #myarea-farm-overview .farm-action-card input{display:block;width:100%;margin-top:3px}
+        #myarea-farm-overview .farm-action-card label{display:block;min-width:0;font-size:10px;color:var(--text2)}
+        #myarea-farm-overview .farm-action-card input{display:block;box-sizing:border-box;width:100%;min-width:0;margin-top:4px}
+        #myarea-farm-overview .farm-action-card button{width:100%;min-width:0;white-space:normal;line-height:1.25;padding:8px 7px}
         #myarea-farm-overview .farm-record-card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.018)}
         #myarea-farm-overview .farm-pending-card{border-left:3px solid var(--warning)}
         #myarea-farm-overview .farm-record-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-        @media(max-width:700px){#myarea-farm-overview .farm-action-card{grid-template-columns:1fr 100px}#myarea-farm-overview .farm-action-info{grid-column:1/-1}#myarea-farm-overview .farm-action-card button{width:100%}#myarea-farm-overview .farm-record-card{align-items:flex-start;flex-direction:column}}
+        @media(max-width:700px){#myarea-farm-overview .farm-action-card{grid-template-columns:minmax(0,1fr) minmax(115px,145px);gap:9px}#myarea-farm-overview .farm-record-card{align-items:flex-start;flex-direction:column}}
       </style>
       <div class="farm-overview-head">
         <div class="farm-meta-card"><span>Licen&ccedil;a da Fazenda</span>${license}</div>
@@ -30367,6 +30404,88 @@ async function sendRcon() {
 }
 
 // ── Servers ───────────────────────────────────────────────────────────────────
+let _moderationPlayersOffset = 0;
+let _moderationPlayersTotal = 0;
+const _moderationPlayersLimit = 50;
+
+function _moderationDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? escHtml(value) : date.toLocaleString("pt-BR");
+}
+
+function _moderationDuration(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  return `${hours}h ${minutes}min`;
+}
+
+async function loadModerationPlayers(reset) {
+  if (reset) _moderationPlayersOffset = 0;
+  const result = document.getElementById("mod-players-result");
+  const q = document.getElementById("mod-players-search")?.value?.trim() || "";
+  const linked = document.getElementById("mod-players-linked")?.value || "unlinked";
+  const server = document.getElementById("mod-players-server")?.value?.trim() || "";
+  if (!result) return;
+  result.innerHTML = '<div class="empty-state">Carregando jogadores...</div>';
+  const params = new URLSearchParams({
+    q, linked, limit: String(_moderationPlayersLimit), offset: String(_moderationPlayersOffset)
+  });
+  if (server) params.set("server_id", server);
+  try {
+    const data = await fetchJson("/api/staff/moderation/players?" + params.toString());
+    if (!data?.ok) throw new Error(data?.error || "Falha ao carregar os jogadores");
+    _moderationPlayersTotal = Number(data.total) || 0;
+    const rows = data.players || [];
+    if (!rows.length) {
+      result.innerHTML = '<div class="empty-state">Nenhum jogador encontrado. O plugin coleta dados após ser instalado nos servidores.</div>';
+    } else {
+      result.innerHTML = `<table class="pkg-admin-table"><thead><tr><th>Jogador</th><th>SteamID</th><th>Tribo</th><th>Servidor</th><th>Tempo registrado</th><th>Último acesso ao servidor</th><th>Vínculo</th></tr></thead><tbody>${rows.map(p => {
+        const sid = String(p.steam_id || "");
+        const online = !!p.active_sessions;
+        return `<tr style="cursor:pointer;" onclick="loadModerationPlayerSessions('${escHtml(sid)}')">
+          <td><strong>${escHtml(p.player_name || "Nome não informado")}</strong>${p.character_id ? `<div style="font-size:11px;color:var(--text2);">ID personagem: ${escHtml(p.character_id)}</div>` : ""}</td>
+          <td style="font-family:monospace;white-space:nowrap;">${escHtml(sid)}</td>
+          <td>${escHtml(p.tribe_name || "Sem tribo")}${p.tribe_id ? `<div style="font-size:11px;color:var(--text2);">ID ${escHtml(p.tribe_id)}</div>` : ""}</td>
+          <td>${escHtml(p.server_id || "—")}</td>
+          <td>${_moderationDuration(p.total_play_seconds)}<div style="font-size:11px;color:var(--text2);">${Number(p.session_count)||0} sessões</div></td>
+          <td>${_moderationDate(p.last_game_login)}${online ? '<div style="color:var(--green);font-size:11px;">Conectado</div>' : ""}</td>
+          <td><span class="badge" style="background:${p.site_linked ? "rgba(34,197,94,.12)" : "rgba(245,158,11,.12)"};color:${p.site_linked ? "var(--green)" : "var(--amber)"};">${p.site_linked ? "Vinculada" : "Não vinculada"}</span></td>
+        </tr>`;
+      }).join("")}</tbody></table>`;
+    }
+    const info = document.getElementById("mod-players-page-info");
+    if (info) info.textContent = _moderationPlayersTotal
+      ? `${_moderationPlayersOffset + 1}–${Math.min(_moderationPlayersOffset + rows.length, _moderationPlayersTotal)} de ${_moderationPlayersTotal}`
+      : "0 jogadores";
+  } catch (error) {
+    result.innerHTML = `<div class="empty-state" style="color:var(--danger);">${escHtml(error?.message || "Falha ao carregar jogadores")}</div>`;
+  }
+}
+
+function pageModerationPlayers(direction) {
+  const next = _moderationPlayersOffset + direction * _moderationPlayersLimit;
+  if (next < 0 || next >= _moderationPlayersTotal) return;
+  _moderationPlayersOffset = next;
+  loadModerationPlayers(false);
+}
+
+async function loadModerationPlayerSessions(steamId) {
+  const panel = document.getElementById("mod-player-sessions");
+  if (!panel || !/^\d{17}$/.test(String(steamId || ""))) return;
+  panel.classList.remove("hidden");
+  panel.innerHTML = '<div class="empty-state">Carregando sessões...</div>';
+  try {
+    const data = await fetchJson("/api/staff/moderation/players/" + encodeURIComponent(steamId) + "/sessions");
+    if (!data?.ok) throw new Error(data?.error || "Falha ao carregar sessões");
+    const sessions = data.sessions || [];
+    panel.innerHTML = `<div class="card-header"><div class="card-title">Sessões de ${escHtml(steamId)}</div><button class="btn btn-ghost btn-sm" onclick="document.getElementById('mod-player-sessions').classList.add('hidden')">Fechar</button></div>${sessions.length ? `<table class="pkg-admin-table"><thead><tr><th>Servidor</th><th>Conexão</th><th>Desconexão</th><th>Duração registrada</th></tr></thead><tbody>${sessions.map(s => `<tr><td>${escHtml(s.server_id || "—")}</td><td>${_moderationDate(s.connected_at)}</td><td>${s.disconnected_at ? _moderationDate(s.disconnected_at) : "Aberta / aguardando heartbeat"}</td><td>${_moderationDuration(s.duration_seconds)}</td></tr>`).join("")}</tbody></table>` : '<div class="empty-state">Nenhuma sessão registrada.</div>'}`;
+  } catch (error) {
+    panel.innerHTML = `<div class="empty-state" style="color:var(--danger);">${escHtml(error?.message || "Falha ao carregar sessões")}</div>`;
+  }
+}
+
 let _staffGameServers = [];
 let _staffSelectedServerId = "";
 async function loadStaffServerAgentConfig() {

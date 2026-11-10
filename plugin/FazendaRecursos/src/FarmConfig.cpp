@@ -85,6 +85,45 @@ nlohmann::json DefaultOmegaResources() {
     return resources;
 }
 
+nlohmann::json DefaultPrimalFearResources() {
+    const std::array<std::tuple<const char*, const char*, const char*, int>, 18> rows = {{
+        {"primal_fear_celestial_soul", "Celestial Soul", "Souls/Celestial/PrimalItemResource_CelestialSoul", 25},
+        {"primal_fear_creator_soul", "Creator Soul", "Souls/Creator/PrimalItemResource_CreatorSoul", 25},
+        {"primal_fear_demonic_soul", "Demonic Soul", "Souls/Demonic/PrimalItemResource_DemonicSoul", 25},
+        {"primal_fear_origin_soul", "Origin Soul", "Souls/Origin/PrimalItemResource_OriginSoul", 25},
+        {"primal_fear_celestial_emperor_soul", "Celestial Emperor Soul", "Souls/Celestial/PrimalItemResource_Emp_CelestialSoul", 1},
+        {"primal_fear_reaper_empress_soul", "Reaper Empress Soul", "Souls/Demonic/PrimalItemResource_Emp_DemonicSoul", 1},
+        {"primal_fear_primal_soul", "Primal Soul", "Souls/Primal/PrimalItemResource_PrimalSoul", 25},
+        {"primal_fear_destroyer_soul", "Destroyer Soul", "Souls/Destroyer/PrimalItemResource_DestroyerSoul", 1},
+        {"primal_fear_toxic_hide", "Toxic Hide", "Hide/PrimalItemResource_Hide_Toxic", 100},
+        {"primal_fear_alpha_hide", "Alpha Hide", "Hide/PrimalItemResource_Hide_Alpha", 100},
+        {"primal_fear_apex_hide", "Apex Hide", "Hide/PrimalItemResource_Hide_Apex", 100},
+        {"primal_fear_elemental_hide", "Elemental Hide", "Hide/PrimalItemResource_Hide_Elemental", 100},
+        {"primal_fear_fabled_hide", "Fabled Hide", "Hide/PrimalItemResource_Hide_Fabled", 100},
+        {"primal_fear_omega_hide", "Omega Hide", "Hide/PrimalItemResource_Hide_Omega", 100},
+        {"primal_fear_demonic_hide", "Demonic Hide", "Hide/PrimalItemResource_Hide_Demonic", 100},
+        {"primal_fear_celestial_hide", "Celestial Hide", "Hide/PrimalItemResource_Hide_Celestial", 100},
+        {"primal_fear_primal_hide", "Primal Hide", "Hide/PrimalItemResource_Hide_Primal", 100},
+        {"primal_fear_origin_hide", "Origin Hide", "Hide/PrimalItemResource_Hide_Origin", 100},
+    }};
+    nlohmann::json resources = nlohmann::json::array();
+    for (const auto& [id, name, asset, stack_size] : rows) {
+        const std::string asset_path = asset;
+        const auto slash = asset_path.find_last_of('/');
+        const std::string asset_name = slash == std::string::npos
+            ? asset_path : asset_path.substr(slash + 1);
+        const std::string item_class = std::string("/Game/Mods/Primal_Fear/Resources/") +
+            asset_path + "." + asset_name + "_C";
+        resources.push_back({
+            {"Id", id}, {"Name", name}, {"ItemClass", item_class},
+            {"InputClass", item_class}, {"InputQuantity", 1},
+            {"OutputQuantity", 1}, {"IntervalSeconds", 3600},
+            {"StackSize", stack_size}, {"Capacity", 200}, {"Enabled", true}
+        });
+    }
+    return resources;
+}
+
 bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
                          const std::string& path) {
     bool changed = false;
@@ -132,6 +171,27 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     for (const auto& resource : DefaultOmegaResources()) {
         const auto id = resource["Id"].get<std::string>();
         if (!known.contains(id)) { omega["Resources"].push_back(resource); changed = true; }
+    }
+    if (!categories.contains("primal_fear")) {
+        categories["primal_fear"] = {{"Enabled", true}, {"Required", false},
+            {"DisplayName", "Primal Fear"}, {"Resources", nlohmann::json::array()}};
+        changed = true;
+    }
+    auto& primal_fear = categories["primal_fear"];
+    if (!primal_fear.is_object()) throw std::runtime_error("Categories.primal_fear precisa ser objeto");
+    if (!primal_fear.contains("Enabled")) { primal_fear["Enabled"] = true; changed = true; }
+    if (!primal_fear.contains("Required")) { primal_fear["Required"] = false; changed = true; }
+    if (!primal_fear.contains("DisplayName")) { primal_fear["DisplayName"] = "Primal Fear"; changed = true; }
+    if (!primal_fear.contains("Resources")) { primal_fear["Resources"] = nlohmann::json::array(); changed = true; }
+    if (!primal_fear["Resources"].is_array())
+        throw std::runtime_error("Categories.primal_fear.Resources precisa ser array");
+    known.clear();
+    for (const auto& row : primal_fear["Resources"])
+        if (row.is_object() && row.contains("Id") && row["Id"].is_string())
+            known.insert(row["Id"].get<std::string>());
+    for (const auto& resource : DefaultPrimalFearResources()) {
+        const auto id = resource["Id"].get<std::string>();
+        if (!known.contains(id)) { primal_fear["Resources"].push_back(resource); changed = true; }
     }
     for (auto category = categories.begin(); category != categories.end(); ++category) {
         if (!category.value().is_object() || !category.value().contains("Resources") ||

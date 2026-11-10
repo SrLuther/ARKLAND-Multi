@@ -1,5 +1,8 @@
 # FazendaRecursos - changelog
 
+## [0.1.32]
+- Adiciona grupo de estoque Primal Fear com 8 Souls e 10 Hides solicitados; configurações existentes recebem apenas IDs ausentes, preservando ajustes locais.
+
 ## [0.1.31]
 - Aceita os caminhos `/Game/Mods/2447186973/` e `/Game/Mods/ArkOmega/` como aliases ao identificar itens Omega no inventário, sem reescrever os caminhos salvos na configuração.
 

@@ -89,15 +89,19 @@ for /f "usebackq delims=" %%v in ("%PLUGIN_DIR%plugin_version.txt") do set PLUGI
 echo === SDK: %SDK_DIR% ===
 echo === MSVC: %MSVC_DIR% ===
 
-echo === Vitrine match self-test ===
-"%CL_EXE%" /nologo /EHsc /MT /std:c++20 ^
-  /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%SRC_DIR%" ^
-  "%SRC_DIR%\VitrineMatchSelfTest.cpp" ^
-  /Fo"%OBJ_DIR%\VitrineMatchSelfTest.obj" /Fe"%OBJ_DIR%\VitrineMatchSelfTest.exe" ^
-  /link /LIBPATH:"%WIN_LIB%" /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" /LIBPATH:"%WIN_SDK_LIB%\um\x64"
-if !ERRORLEVEL! neq 0 goto :error
-"%OBJ_DIR%\VitrineMatchSelfTest.exe"
-if !ERRORLEVEL! neq 0 goto :error
+if "%SKIP_VITRINE_MATCH_SELF_TEST%"=="1" (
+  echo === Skipping Vitrine match self-test by request ===
+) else (
+  echo === Vitrine match self-test ===
+  "%CL_EXE%" /nologo /EHsc /MT /std:c++20 ^
+    /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%SRC_DIR%" ^
+    "%SRC_DIR%\VitrineMatchSelfTest.cpp" ^
+    /Fo"%OBJ_DIR%\VitrineMatchSelfTest.obj" /Fe"%OBJ_DIR%\VitrineMatchSelfTest.exe" ^
+    /link /LIBPATH:"%WIN_LIB%" /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" /LIBPATH:"%WIN_SDK_LIB%\um\x64"
+  if !ERRORLEVEL! neq 0 goto :error
+  "%OBJ_DIR%\VitrineMatchSelfTest.exe"
+  if !ERRORLEVEL! neq 0 goto :error
+)
 
 echo === Compiling C++ sources (v%PLUGIN_VER%) ===
 "%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- ^
@@ -127,6 +131,7 @@ echo === Compiling C++ sources (v%PLUGIN_VER%) ===
   "%SRC_DIR%\ShopEngrams.cpp" ^
   "%SRC_DIR%\ShopNotes.cpp" ^
   "%SRC_DIR%\ShopTeams.cpp" ^
+  "%SRC_DIR%\ShopPlayerMonitor.cpp" ^
   "%SRC_DIR%\ShopVitrine.cpp" ^
   "%SRC_DIR%\ShopDebug.cpp" ^
   "%SRC_DIR%\HttpClient.cpp"
@@ -162,6 +167,7 @@ echo === Linking DLL ===
   "%OBJ_DIR%\ShopEngrams.obj" ^
   "%OBJ_DIR%\ShopNotes.obj" ^
   "%OBJ_DIR%\ShopTeams.obj" ^
+  "%OBJ_DIR%\ShopPlayerMonitor.obj" ^
   "%OBJ_DIR%\ShopVitrine.obj" ^
   "%OBJ_DIR%\ShopDebug.obj" ^
   "%OBJ_DIR%\HttpClient.obj"

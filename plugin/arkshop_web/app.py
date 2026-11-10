@@ -14448,6 +14448,41 @@ def _farm_omega_default_resources() -> list[dict[str, Any]]:
     } for resource_id, name, asset, stack_size in definitions]
 
 
+def _farm_primal_fear_default_resources() -> list[dict[str, Any]]:
+    definitions = [
+        ("primal_fear_celestial_soul", "Celestial Soul", "Souls/Celestial/PrimalItemResource_CelestialSoul", 25),
+        ("primal_fear_creator_soul", "Creator Soul", "Souls/Creator/PrimalItemResource_CreatorSoul", 25),
+        ("primal_fear_demonic_soul", "Demonic Soul", "Souls/Demonic/PrimalItemResource_DemonicSoul", 25),
+        ("primal_fear_origin_soul", "Origin Soul", "Souls/Origin/PrimalItemResource_OriginSoul", 25),
+        ("primal_fear_celestial_emperor_soul", "Celestial Emperor Soul", "Souls/Celestial/PrimalItemResource_Emp_CelestialSoul", 1),
+        ("primal_fear_reaper_empress_soul", "Reaper Empress Soul", "Souls/Demonic/PrimalItemResource_Emp_DemonicSoul", 1),
+        ("primal_fear_primal_soul", "Primal Soul", "Souls/Primal/PrimalItemResource_PrimalSoul", 25),
+        ("primal_fear_destroyer_soul", "Destroyer Soul", "Souls/Destroyer/PrimalItemResource_DestroyerSoul", 1),
+        ("primal_fear_toxic_hide", "Toxic Hide", "Hide/PrimalItemResource_Hide_Toxic", 100),
+        ("primal_fear_alpha_hide", "Alpha Hide", "Hide/PrimalItemResource_Hide_Alpha", 100),
+        ("primal_fear_apex_hide", "Apex Hide", "Hide/PrimalItemResource_Hide_Apex", 100),
+        ("primal_fear_elemental_hide", "Elemental Hide", "Hide/PrimalItemResource_Hide_Elemental", 100),
+        ("primal_fear_fabled_hide", "Fabled Hide", "Hide/PrimalItemResource_Hide_Fabled", 100),
+        ("primal_fear_omega_hide", "Omega Hide", "Hide/PrimalItemResource_Hide_Omega", 100),
+        ("primal_fear_demonic_hide", "Demonic Hide", "Hide/PrimalItemResource_Hide_Demonic", 100),
+        ("primal_fear_celestial_hide", "Celestial Hide", "Hide/PrimalItemResource_Hide_Celestial", 100),
+        ("primal_fear_primal_hide", "Primal Hide", "Hide/PrimalItemResource_Hide_Primal", 100),
+        ("primal_fear_origin_hide", "Origin Hide", "Hide/PrimalItemResource_Hide_Origin", 100),
+    ]
+    return [{
+        "Id": resource_id,
+        "Name": name,
+        "ItemClass": f"/Game/Mods/Primal_Fear/Resources/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "InputClass": f"/Game/Mods/Primal_Fear/Resources/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "InputQuantity": 1,
+        "OutputQuantity": 1,
+        "IntervalSeconds": 3600,
+        "StackSize": stack_size,
+        "Capacity": 200,
+        "Enabled": True,
+    } for resource_id, name, asset, stack_size in definitions]
+
+
 def _farm_base_default_resources() -> list[dict[str, Any]]:
     element_class = "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C"
     return [{
@@ -14479,6 +14514,8 @@ def _farm_default_config() -> dict[str, Any]:
                         "Resources": _farm_base_default_resources()},
             "omega": {"Enabled": True, "Required": False, "DisplayName": "ARK Omega",
                       "Resources": _farm_omega_default_resources()},
+            "primal_fear": {"Enabled": True, "Required": False, "DisplayName": "Primal Fear",
+                            "Resources": _farm_primal_fear_default_resources()},
         },
         "Messages": {},
     }}
@@ -14521,6 +14558,18 @@ def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
     known = {str(row.get("Id") or "") for row in existing if isinstance(row, dict)}
     existing.extend(resource for resource in _farm_omega_default_resources()
                     if resource["Id"] not in known)
+    primal_fear = categories.setdefault("primal_fear", {
+        "Enabled": True, "Required": False, "DisplayName": "Primal Fear", "Resources": []
+    })
+    if not isinstance(primal_fear, dict):
+        return data
+    primal_fear_resources = primal_fear.get("Resources")
+    if not isinstance(primal_fear_resources, list):
+        primal_fear_resources = []
+        primal_fear["Resources"] = primal_fear_resources
+    known_primal_fear = {str(row.get("Id") or "") for row in primal_fear_resources if isinstance(row, dict)}
+    primal_fear_resources.extend(resource for resource in _farm_primal_fear_default_resources()
+                                 if resource["Id"] not in known_primal_fear)
     return data
 
 
@@ -18792,6 +18841,17 @@ register_ticket_routes(
     api_key_required=api_key_required,
     load_settings=_load_settings,
     save_settings=_save_settings,
+)
+
+from player_monitoring_routes import register_player_monitoring_routes
+
+register_player_monitoring_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    api_key_required=api_key_required,
+    ticket_staff_required=ticket_staff_required,
+    limiter=limiter,
 )
 app.config["ARKLAND_RELEASE"] = _get_project_release()
 

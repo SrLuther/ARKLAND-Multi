@@ -1,10 +1,12 @@
 # Pendências - ARKLAND Multi
 
-**Atualizado:** 08/11/2026
+**Atualizado:** 09/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** versao estavel 1.11.56 publicada no GitHub; preparar a 1.11.57 integral com os ajustes pendentes do mural da equipe, visualizacao da Fazenda por producao real e auditoria do catalogo.
+**Publicacao:** preparando a versao integral 1.11.58; inclui layout da retirada na Fazenda, imagens transparentes, painel inicial de jogadores e catálogo de Souls/Hides Primal Fear.
 
 ## Em andamento
+
+- [ ] **Painel de jogadores do servidor para Admin/Suporte.** Primeira implementacao local: plugin CustomShop coleta SteamID, nome do personagem, PlayerDataID, tribo, servidor e sessoes; WebStore grava eventos autenticados de conexao, heartbeat e desconexao e calcula tempo/ultimo acesso, classificando vinculo via SteamID. Pagina somente leitura sob autorizacao Admin/Suporte; sem IP, chat ou acoes. A fila do plugin persiste localmente para sobreviver a falhas/reinicios. Pendente: validar hooks e campos reais no jogo, configurar ServerId distinto por servidor, validar recuperacao/reconexao e falha abrupta, privacidade e acesso negado; historico so comeca apos instalar a versao nova.
 
 - [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Incluida na 1.11.50: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta atualizar a WebStore em producao e revisar o catalogo completo em diferentes larguras.
 
@@ -60,3 +62,7 @@
 3. Distinguir implementação local, validação em produção e publicação; uma etapa não comprova automaticamente as outras.
 4. Não criar outro arquivo para acompanhar pendências.
 5. Preservar `ferramentas/Ark_Spawn_Code_Generator.exe`: utilitário do projeto para gerar a lista completa de Blueprints de qualquer mod; usar a partir da pasta do mod e manter os resultados de referência, como `docs/SpawnCodes.txt`.
+
+- [ ] **WebStore - Fazenda: layout do agendamento de retirada.** Cartao reorganizado para deixar nome/saldo em linha propria e quantidade/botao na linha seguinte; confirmar em varias larguras apos atualizar a WebStore.
+
+- [ ] **Fazenda - validar Blueprints Primal Fear.** 18 recursos (8 Souls e 10 Hides) adicionados ao grupo de estoque próprio primal_fear nas configurações padrão e na migração do plugin/WebStore. Confirmar que os Blueprints e limites de stack criam/entregam os itens corretamente no servidor ARK com o mod instalado.

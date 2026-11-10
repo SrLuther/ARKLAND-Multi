@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-09 01:56:40 -->
-<!-- Total de versões: 549 | Primeira: 1.11.57 -->
+<!-- Gerado: 2026-11-09 21:55:48 -->
+<!-- Total de versões: 550 | Primeira: 1.11.58 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.58] - 2026-11-09
+
+### Other
+
+- WebStore Fazenda: cartões de retirada reorganizados para manter saldo, quantidade e botão alinhados em telas estreitas.
+- WebStore: logos do Catálogo, Votações e Sugestões exibidas sem fundo quadrado, com transparência externa. Fazenda: adiciona 18 recursos Primal Fear em grupo de estoque próprio, migrados sem sobrescrever personalizações.
+- WebStore e CustomShop: painel de consulta de jogadores do servidor para Administração/Suporte, com vínculo, sessões e tempo registrado.
 
 ## [1.11.57] - 2026-11-09
 

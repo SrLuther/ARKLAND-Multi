@@ -649,6 +649,229 @@
             "Enabled": true
           }
         ]
+      },
+      "primal_fear": {
+        "Enabled": true,
+        "Required": false,
+        "DisplayName": "Primal Fear",
+        "Resources": [
+          {
+            "Id": "primal_fear_celestial_soul",
+            "Name": "Celestial Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Celestial/PrimalItemResource_CelestialSoul.PrimalItemResource_CelestialSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Celestial/PrimalItemResource_CelestialSoul.PrimalItemResource_CelestialSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 25,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_creator_soul",
+            "Name": "Creator Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Creator/PrimalItemResource_CreatorSoul.PrimalItemResource_CreatorSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Creator/PrimalItemResource_CreatorSoul.PrimalItemResource_CreatorSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 25,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_demonic_soul",
+            "Name": "Demonic Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Demonic/PrimalItemResource_DemonicSoul.PrimalItemResource_DemonicSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Demonic/PrimalItemResource_DemonicSoul.PrimalItemResource_DemonicSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 25,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_origin_soul",
+            "Name": "Origin Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Origin/PrimalItemResource_OriginSoul.PrimalItemResource_OriginSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Origin/PrimalItemResource_OriginSoul.PrimalItemResource_OriginSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 25,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_celestial_emperor_soul",
+            "Name": "Celestial Emperor Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Celestial/PrimalItemResource_Emp_CelestialSoul.PrimalItemResource_Emp_CelestialSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Celestial/PrimalItemResource_Emp_CelestialSoul.PrimalItemResource_Emp_CelestialSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 1,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_reaper_empress_soul",
+            "Name": "Reaper Empress Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Demonic/PrimalItemResource_Emp_DemonicSoul.PrimalItemResource_Emp_DemonicSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Demonic/PrimalItemResource_Emp_DemonicSoul.PrimalItemResource_Emp_DemonicSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 1,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_primal_soul",
+            "Name": "Primal Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Primal/PrimalItemResource_PrimalSoul.PrimalItemResource_PrimalSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Primal/PrimalItemResource_PrimalSoul.PrimalItemResource_PrimalSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 25,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_destroyer_soul",
+            "Name": "Destroyer Soul",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Souls/Destroyer/PrimalItemResource_DestroyerSoul.PrimalItemResource_DestroyerSoul_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Souls/Destroyer/PrimalItemResource_DestroyerSoul.PrimalItemResource_DestroyerSoul_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 1,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_toxic_hide",
+            "Name": "Toxic Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Toxic.PrimalItemResource_Hide_Toxic_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Toxic.PrimalItemResource_Hide_Toxic_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_alpha_hide",
+            "Name": "Alpha Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Alpha.PrimalItemResource_Hide_Alpha_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Alpha.PrimalItemResource_Hide_Alpha_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_apex_hide",
+            "Name": "Apex Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Apex.PrimalItemResource_Hide_Apex_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Apex.PrimalItemResource_Hide_Apex_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_elemental_hide",
+            "Name": "Elemental Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Elemental.PrimalItemResource_Hide_Elemental_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Elemental.PrimalItemResource_Hide_Elemental_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_fabled_hide",
+            "Name": "Fabled Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Fabled.PrimalItemResource_Hide_Fabled_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Fabled.PrimalItemResource_Hide_Fabled_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_omega_hide",
+            "Name": "Omega Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Omega.PrimalItemResource_Hide_Omega_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Omega.PrimalItemResource_Hide_Omega_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_demonic_hide",
+            "Name": "Demonic Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Demonic.PrimalItemResource_Hide_Demonic_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Demonic.PrimalItemResource_Hide_Demonic_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_celestial_hide",
+            "Name": "Celestial Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Celestial.PrimalItemResource_Hide_Celestial_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Celestial.PrimalItemResource_Hide_Celestial_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_primal_hide",
+            "Name": "Primal Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Primal.PrimalItemResource_Hide_Primal_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Primal.PrimalItemResource_Hide_Primal_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          },
+          {
+            "Id": "primal_fear_origin_hide",
+            "Name": "Origin Hide",
+            "ItemClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Origin.PrimalItemResource_Hide_Origin_C",
+            "InputClass": "/Game/Mods/Primal_Fear/Resources/Hide/PrimalItemResource_Hide_Origin.PrimalItemResource_Hide_Origin_C",
+            "InputQuantity": 1,
+            "OutputQuantity": 1,
+            "IntervalSeconds": 3600,
+            "StackSize": 100,
+            "Capacity": 200,
+            "Enabled": true
+          }
+        ]
       }
     },
     "Messages": {

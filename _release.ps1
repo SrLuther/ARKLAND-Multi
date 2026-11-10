@@ -204,7 +204,9 @@ Write-Step 4 7 "Commitando alteracoes..."
 # soltos na pasta não devem entrar no commit automático do release.
 # Redirect stderr→stdout: git CRLF warnings viram NativeCommandError com
 # $ErrorActionPreference=Stop / StrictMode e abortam o release a meio.
-cmd /c "git add -u 2>&1"
+$gitErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+cmd.exe /d /c 'git add -u 2>&1'
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
 # Fontes novas da reestruturação não aparecem em `git add -u`; liste-as
 # explicitamente para que o código-fonte do release corresponda ao executável.
@@ -230,7 +232,12 @@ $releaseNewFiles = @(
     "src/ui/server_cli_catalog.py",
     "src/ui/server_ini_catalog.py",
     "plugin/arkshop_web/discord_engagement_routes.py",
+    "plugin/arkshop_web/player_monitoring_routes.py",
     "plugin/arkshop_web/translation_usage.py",
+    "plugin/CustomShop/src/ShopPlayerMonitor.cpp",
+    "plugin/CustomShop/src/ShopPlayerMonitor.h",
+    "scripts/publish_github_release.py",
+    "src/plugin_auto_update.py",
     "plugin/arkshop_web/static/betland.jpg",
     "plugin/arkshop_web/static/catalogo.png",
     "plugin/arkshop_web/static/sugestao.png",
@@ -245,14 +252,14 @@ $releaseNewFiles = @(
     "tests/test_update_ark_ase_config_catalog.py",
     "tools/update_ark_ase_config_catalog.py"
 )
-cmd /c "git add -- $($releaseNewFiles -join ' ') 2>&1"
+& git add -- $releaseNewFiles 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add de fontes novas falhou (exit $LASTEXITCODE)" }
 # catalog.json do usuário: tira do stage sem alterar o working tree.
-cmd /c "git reset HEAD -- plugin/CustomShop/catalog.json 2>&1"
+& git reset HEAD -- plugin/CustomShop/catalog.json 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do catalog.json falhou (exit $LASTEXITCODE)" }
-cmd /c "git reset HEAD -- plugin/CustomShop/ArkServerAPI 2>&1"
+& git reset HEAD -- plugin/CustomShop/ArkServerAPI 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do ArkServerAPI falhou (exit $LASTEXITCODE)" }
-$stagedNames = cmd /c "git diff --cached --name-only 2>&1"
+$stagedNames = & git diff --cached --name-only 2>&1
 foreach ($name in @($stagedNames)) {
     $norm = ([string]$name -replace '\\', '/')
     $drop = $false
@@ -261,22 +268,28 @@ foreach ($name in @($stagedNames)) {
     if ($norm -eq "ig/betland.jpg") { $drop = $true }
     # Objetos e executaveis de teste do MSVC sao artefatos locais do build.
     if ($norm -like "plugin/CustomShop/obj/*") { $drop = $true }
+    if ($norm -like "*.exp" -or $norm -like "*.lib") { $drop = $true }
     if ($norm -like "plugin/CustomDinoDeliver/obj/*" -or $norm -like "plugin/ArkPlayer/obj/*") { $drop = $true }
+    if ($norm -like "plugin/*/obj/*") { $drop = $true }
+    if ($norm -eq "plugin/CustomShop/bin/config.json") { $drop = $true }
     # Proposta comercial independente, fora do escopo funcional deste release.
     if ($norm -eq "docs/LICENCAS_PRECOS_PROPOSTA.md") { $drop = $true }
     if ($drop) {
-        cmd /c "git reset HEAD -- `"$name`" 2>&1"
+        & git reset HEAD -- $name 2>&1
         if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel tirar $name do stage" }
     }
 }
-$catalogOut = cmd /c "git diff --cached --name-only -- plugin/CustomShop/catalog.json 2>&1"
+$catalogOut = & git diff --cached --name-only -- plugin/CustomShop/catalog.json 2>&1
 $catalogHit = @($catalogOut) | Where-Object { ($_ -replace '\\', '/') -eq "plugin/CustomShop/catalog.json" }
-if ($catalogHit) { Write-Fail "catalog.json ainda esta no stage — release abortado" }
-cmd /c "git commit -m `"release: v$Version`" 2>&1"
+if ($catalogHit) {
+    Write-Fail "catalog.json still staged; release aborted"
+}
+$gitCommitOutput = & git commit -m "release: v$Version" 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git commit falhou (exit $LASTEXITCODE)" }
-cmd /c "git push 2>&1"
+$gitPushOutput = & git push 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git push falhou (exit $LASTEXITCODE)" }
-Write-Ok "Commit + push → main"
+$ErrorActionPreference = $gitErrorActionPreference
+Write-Ok "Commit e push para main"
 
 # ── 8) GitHub Release ─────────────────────────────────────────────────────────
 Write-Step 5 7 "Obtendo token GitHub..."
@@ -287,46 +300,9 @@ Write-Ok "Token obtido"
 
 Write-Step 6 7 "Publicando GitHub Release v$Version..."
 
-# Python faz o request HTTP diretamente — evita o bug do PS 5.1 onde
-# Invoke-RestMethod corrompe strings Unicode mesmo com charset=utf-8.
-# json.dumps com ensure_ascii=True garante JSON puro ASCII (\uXXXX).
-$ghScript = @"
-import json, sys, urllib.request
-
-token  = '$ghToken'
-version = '$Version'
-installer = r'$installer'
-
-with open(r'$(Join-Path $root "version.json")', encoding='utf-8') as f:
-    data = json.load(f)
-
-lines = ['## O que ha de novo\n']
-for c in data['changelog']:
-    lines.append('- ' + c)
-lines.append('\n---\n**Instalacao silenciosa:** ARKLAND-Multi-Setup-v{v}.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'.format(v=version))
-body = '\n'.join(lines)
-
-headers = {'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json; charset=utf-8'}
-
-payload = json.dumps({'tag_name': 'v'+version, 'name': 'v'+version, 'body': body, 'draft': False, 'prerelease': False}, ensure_ascii=True).encode('ascii')
-req = urllib.request.Request('https://api.github.com/repos/SrLuther/ARKLAND-Multi/releases', data=payload, headers=headers)
-with urllib.request.urlopen(req) as r:
-    rel = json.loads(r.read())
-
-upload_url = rel['upload_url'].split('{')[0] + '?name=ARKLAND-Multi-Setup-v' + version + '.exe'
-with open(installer, 'rb') as f:
-    asset_data = f.read()
-asset_headers = {'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/octet-stream'}
-asset_req = urllib.request.Request(upload_url, data=asset_data, headers=asset_headers)
-with urllib.request.urlopen(asset_req) as r:
-    asset = json.loads(r.read())
-
-print(rel['html_url'])
-print(asset['browser_download_url'])
-"@
-
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$ghOut = & $python -c $ghScript
+$versionJsonPath = Join-Path $root "version.json"
+$publishScript = Join-Path $root "scripts\publish_github_release.py"
+$ghOut = & $python $publishScript $ghToken $Version $installer $versionJsonPath
 if ($LASTEXITCODE -ne 0) { Write-Fail "Falha ao publicar release no GitHub" }
 $releaseUrl = $ghOut[0]
 $assetUrl   = $ghOut[1]

@@ -8,6 +8,13 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.55] - 2026-11-09
+
+### Added
+
+- Coleta de sessoes dos jogadores para o painel restrito de Administracao/Suporte: inicio, encerramento e heartbeat com SteamID, nome do personagem, PlayerDataID e tribo.
+- Envios do PlayerMonitor executados em fila de fundo para nao bloquear a thread do jogo.
+
 ## [1.10.54] - 2026-11-09
 
 ### Fix

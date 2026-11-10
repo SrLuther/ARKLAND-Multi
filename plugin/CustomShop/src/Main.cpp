@@ -12,10 +12,12 @@
 #include "TimedPoints.h"
 #include "ShopCrossChat.h"
 #include "ShopTribeSync.h"
+#include "ShopPlayerMonitor.h"
 #include "HttpClient.h"
 #include "ShopDebug.h"
 #include "ShopVitrine.h"
 #include <Timer.h>
+#include <atomic>
 
 // ─────────────────────────────────────────────────────────────────
 //  Plugin entry points required by ArkApi v3 (ASE).
@@ -26,6 +28,8 @@ namespace {
 constexpr int kPendingPollSeconds = 60;
 constexpr int kTribeSyncPollSeconds = 180;
 constexpr int kTribeSyncRequestPollSeconds = 15;
+constexpr int kPlayerMonitorHeartbeatSeconds = 90;
+std::atomic<bool> g_player_monitor_heartbeat_scheduled{false};
 
 void PollPendingForOnlinePlayers() {
     // Um DeliverPending por tick — N×(claim+deliver+release) no mesmo callback
@@ -79,6 +83,17 @@ void ScheduleTribeSyncRequestPoll() {
     }, kTribeSyncRequestPollSeconds);
 }
 
+void SchedulePlayerMonitorHeartbeat() {
+    bool expected = false;
+    if (!g_player_monitor_heartbeat_scheduled.compare_exchange_strong(expected, true)) return;
+    API::Timer::Get().DelayExecute([]() {
+        g_player_monitor_heartbeat_scheduled.store(false);
+        if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready)
+            CustomShop::PlayerMonitor::HeartbeatOnlinePlayers();
+        SchedulePlayerMonitorHeartbeat();
+    }, kPlayerMonitorHeartbeatSeconds);
+}
+
 } // anonymous namespace
 
 // ── Hooks ─────────────────────────────────────────────────────────
@@ -99,6 +114,7 @@ void Hook_AShooterGameMode_BeginPlay(AShooterGameMode* _this) {
     SchedulePendingPoll();
     ScheduleTribeSyncPoll();
     ScheduleTribeSyncRequestPoll();
+    SchedulePlayerMonitorHeartbeat();
     ScheduleVitrineRecovery();
 }
 
@@ -140,7 +156,19 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
         "HandleNewPlayer: TribeSync schedule steam_id='{}'", steam_id);
     CustomShop::TribeSync::ScheduleSyncAfterLogin(raw_ctrl);
 
+    const std::string monitor_steam_id = steam_id;
+    API::Timer::Get().DelayExecute([monitor_steam_id]() {
+        if (auto* current = CustomShop::Bridge::FindPlayer(monitor_steam_id))
+            CustomShop::PlayerMonitor::Record(current, "connect");
+    }, 12);
+
     return result;
+}
+
+DECLARE_HOOK(AShooterGameMode_Logout, void, AShooterGameMode*, AController*);
+void Hook_AShooterGameMode_Logout(AShooterGameMode* _this, AController* exiting) {
+    CustomShop::PlayerMonitor::RecordDisconnect(exiting);
+    AShooterGameMode_Logout_original(_this, exiting);
 }
 
 // ── Plugin lifecycle ───────────────────────────────────────────────
@@ -176,6 +204,8 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         return;
     }
 
+    CustomShop::PlayerMonitor::Start();
+
     ArkApi::GetHooks().SetHook(
         "AShooterGameMode.BeginPlay()",
         Hook_AShooterGameMode_BeginPlay,
@@ -186,6 +216,11 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         "AShooterPlayerController*,UPrimalPlayerData*,AShooterCharacter*,bool)",
         Hook_AShooterGameMode_HandleNewPlayer,
         &AShooterGameMode_HandleNewPlayer_original);
+
+    ArkApi::GetHooks().SetHook(
+        "AShooterGameMode.Logout",
+        Hook_AShooterGameMode_Logout,
+        &AShooterGameMode_Logout_original);
 
     CustomShop::Commands::Register();
     CustomShop::TimedPoints::Start();
@@ -203,6 +238,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         SchedulePendingPoll();
         ScheduleTribeSyncPoll();
         ScheduleTribeSyncRequestPoll();
+        SchedulePlayerMonitorHeartbeat();
         ScheduleVitrineRecovery();
     }
 
@@ -234,7 +270,12 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
         "AShooterPlayerController*,UPrimalPlayerData*,AShooterCharacter*,bool)",
         Hook_AShooterGameMode_HandleNewPlayer);
 
+    ArkApi::GetHooks().DisableHook(
+        "AShooterGameMode.Logout",
+        Hook_AShooterGameMode_Logout);
+
     CustomShop::Commands::Unregister();
+    CustomShop::PlayerMonitor::Stop();
     CustomShop::CrossChat::Stop();
     CustomShop::HttpClient::Shutdown();
     CustomShop::Debug::Shutdown();

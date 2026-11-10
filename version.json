@@ -1,10 +1,10 @@
 {
-    "version": "1.11.57",
+    "version": "1.11.58",
     "date": "2026-11-09",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.57/ARKLAND-Multi-Setup-v1.11.57.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.58/ARKLAND-Multi-Setup-v1.11.58.exe",
     "changelog": [
-        "WebStore Equipes: mural/regulamento agora renderiza Markdown com títulos, listas, destaques, links seguros e layout limitado para evitar páginas desproporcionais.",
-        "WebStore Fazenda: a seção de produção mostra apenas recursos com produção ativa; recursos sem produção deixam de poluir a lista, enquanto retiradas permanecem acessíveis.",
-        "Catálogo de dinossauros: auditoria recebe e resolve nomes atuais dos jogadores sem expor SteamIDs; o plugin envia o nome observado no jogo."
+        "WebStore Fazenda: cartões de retirada reorganizados para manter saldo, quantidade e botão alinhados em telas estreitas.",
+        "WebStore: logos do Catálogo, Votações e Sugestões exibidas sem fundo quadrado, com transparência externa. Fazenda: adiciona 18 recursos Primal Fear em grupo de estoque próprio, migrados sem sobrescrever personalizações.",
+        "WebStore e CustomShop: painel de consulta de jogadores do servidor para Administração/Suporte, com vínculo, sessões e tempo registrado."
     ]
 }

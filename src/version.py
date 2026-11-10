@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.57"
+APP_VERSION: str = "1.11.58"
 BUILD_DATE: str = "2026-11-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.58",
+        "date": "2026-11-09",
+        "changes": [
+            "WebStore Fazenda: cartões de retirada reorganizados para manter saldo, quantidade e botão alinhados em telas estreitas.",
+            "WebStore: logos do Catálogo, Votações e Sugestões exibidas sem fundo quadrado, com transparência externa. Fazenda: adiciona 18 recursos Primal Fear em grupo de estoque próprio, migrados sem sobrescrever personalizações.",
+            "WebStore e CustomShop: painel de consulta de jogadores do servidor para Administração/Suporte, com vínculo, sessões e tempo registrado.",
+        ],
+    },
     {
         "version": "1.11.57",
         "date": "2026-11-09",

@@ -87,6 +87,7 @@
     <ClCompile Include="src\ShopEngrams.cpp" />
     <ClCompile Include="src\ShopNotes.cpp" />
     <ClCompile Include="src\ShopTeams.cpp" />
+    <ClCompile Include="src\ShopPlayerMonitor.cpp" />
     <ClCompile Include="src\ShopTribeSync.cpp" />
     <ClCompile Include="src\ShopVitrine.cpp" />
   </ItemGroup>
