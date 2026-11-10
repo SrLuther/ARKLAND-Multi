@@ -1,9 +1,9 @@
 {
-    "version": "1.11.59",
-    "date": "2026-11-09",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.59/ARKLAND-Multi-Setup-v1.11.59.exe",
+    "version": "1.11.60",
+    "date": "2026-11-10",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.60/ARKLAND-Multi-Setup-v1.11.60.exe",
     "changelog": [
-        "Fazenda: produção agora sincroniza a configuração antes de calcular ciclos; ao atingir o limite, pausa sem acumular ciclos, retomando após abrir espaço sem conceder produção retroativa.",
-        "FazendaRecursos atualizado para 0.1.33."
+        "WebStore: Gerenciar Jogadores atualiza a lista após a busca assíncrona de nicks Steam e informa quando ainda não foi possível resolver alguns nomes.",
+        "WebStore: jogadores sem aceite podem abrir o regulamento completo e aceitá-lo diretamente na página do regulamento."
     ]
 }

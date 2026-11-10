@@ -3446,7 +3446,12 @@ def _list_admin_players(
             "steam_persona_warning": (
                 _STEAM_PERSONA_ADMIN_WARNING
                 if missing_persona and not _steam_api_key_configured()
-                else None
+                else (
+                    f"Nick Steam pendente para {len(missing_persona)} jogador(es); "
+                    "a busca foi iniciada em segundo plano. Atualize a lista em instantes."
+                    if missing_persona
+                    else None
+                )
             ),
             "timing": timing,
         }

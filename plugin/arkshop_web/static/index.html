@@ -10602,6 +10602,15 @@
           <div id="regulamento-body" style="padding:4px 0;">
             <p style="color:var(--text2);">Carregando…</p>
           </div>
+          <div id="regulamento-page-accept" class="hidden" style="margin-top:16px;padding:16px;border:1px solid var(--border-g);border-radius:var(--radius);background:var(--surface2, var(--surface));">
+            <div class="card-title" style="margin-bottom:8px;">Aceite necessário</div>
+            <p style="font-size:13px;color:var(--text2);margin:0 0 12px;line-height:1.55;">Para continuar usando os recursos da Web Store, confirme que leu e aceita o regulamento. É necessário ter 16 anos ou mais.</p>
+            <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-bottom:14px;cursor:pointer;">
+              <input id="regulamento-page-check" type="checkbox" style="margin-top:3px;" onchange="toggleRegulamentoAcceptBtn()" />
+              <span>Declaro ter 16 anos ou mais e li/aceito o Regulamento do Servidor ARKLAND.</span>
+            </label>
+            <button class="btn btn-primary" id="regulamento-page-accept-btn" disabled onclick="acceptRegulamento('page')">Aceitar regulamento</button>
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
             <button class="btn btn-ghost" onclick="nav(document.querySelector('.nav-item[data-page=home]'))">← Voltar à loja</button>
             <button class="btn btn-primary" onclick="openRegulamentoPageTickets()">Abrir ticket de suporte</button>
@@ -13419,6 +13428,19 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
       const r = await fetch(API + path, opts);
       const data = await readFetchJson(r);
       if (!r.ok) {
+        // O estado local pode estar desatualizado (bootstrap/cache antigo).
+        // Se o servidor sinaliza que falta aceitar o regulamento, sincroniza o
+        // estado de autenticação e abre o gate em vez de deixar só um toast.
+        if (data && data.needs_regulamento_accept === true) {
+          if (!_auth || typeof _auth !== "object") _auth = _defaultGuestAuth();
+          _auth.authenticated = true;
+          _auth.needs_regulamento_accept = true;
+          _auth.regulamento_version_current = data.regulamento_version_current
+            || _auth.regulamento_version_current || "1.0";
+          if (typeof updateRegulamentoAcceptUi === "function") updateRegulamentoAcceptUi();
+          const regulationPageOpen = document.getElementById("page-regulamento")?.classList.contains("active");
+          if (!regulationPageOpen && typeof showRegulamentoGate === "function") showRegulamentoGate();
+        }
         const circuitish = data && (data.error === "db_circuit_open" || data.circuit?.open);
         const errMsg = circuitish
           ? (data.user_message || data.message || data.error)
@@ -13693,9 +13715,18 @@ function playerNeedsRegulamentoAccept() {
 }
 
 function toggleRegulamentoAcceptBtn() {
-  const btn = document.getElementById("regulamento-gate-accept");
-  const chk = document.getElementById("regulamento-gate-check");
-  if (btn) btn.disabled = !(chk && chk.checked);
+  const gateBtn = document.getElementById("regulamento-gate-accept");
+  const gateChk = document.getElementById("regulamento-gate-check");
+  const pageBtn = document.getElementById("regulamento-page-accept-btn");
+  const pageChk = document.getElementById("regulamento-page-check");
+  if (gateBtn) gateBtn.disabled = !(gateChk && gateChk.checked);
+  if (pageBtn) pageBtn.disabled = !(pageChk && pageChk.checked);
+}
+
+function updateRegulamentoAcceptUi() {
+  const section = document.getElementById("regulamento-page-accept");
+  if (section) section.classList.toggle("hidden", !playerNeedsRegulamentoAccept());
+  toggleRegulamentoAcceptBtn();
 }
 
 async function loadRegulamentoContent(targetId) {
@@ -13732,10 +13763,13 @@ async function loadRegulamentoContent(targetId) {
 
 async function loadRegulamentoPage() {
   await loadRegulamentoContent("regulamento-body");
+  updateRegulamentoAcceptUi();
 }
 
 function openRegulamentoPage() {
-  if (!playerNeedsRegulamentoAccept()) hideRegulamentoGate();
+  // O gate oferece “Ler completo”; a página precisa ficar acessível mesmo
+  // antes do aceite, onde o jogador também pode confirmar a leitura.
+  hideRegulamentoGate();
   const navEl = document.querySelector('.nav-item[data-page="regulamento"]');
   if (navEl) {
     document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
@@ -13767,7 +13801,9 @@ function openRegulamentoPageTickets() {
 function showRegulamentoGate() {
   const gate = document.getElementById("regulamento-gate");
   if (!gate) return;
+  const alreadyOpen = !gate.classList.contains("hidden");
   gate.classList.remove("hidden");
+  if (alreadyOpen) return;
   const chk = document.getElementById("regulamento-gate-check");
   if (chk) chk.checked = false;
   toggleRegulamentoAcceptBtn();
@@ -13778,8 +13814,8 @@ function hideRegulamentoGate() {
   document.getElementById("regulamento-gate")?.classList.add("hidden");
 }
 
-async function acceptRegulamento() {
-  const chk = document.getElementById("regulamento-gate-check");
+async function acceptRegulamento(source = "gate") {
+  const chk = document.getElementById(source === "page" ? "regulamento-page-check" : "regulamento-gate-check");
   if (!chk?.checked) {
     toast("Marque a caixa de aceite para continuar.", "warning");
     return;
@@ -13799,6 +13835,7 @@ async function acceptRegulamento() {
     _auth.needs_regulamento_accept = false;
     _auth.regulamento_version_accepted = d.regulamento_version_accepted || ver;
     hideRegulamentoGate();
+    updateRegulamentoAcceptUi();
     toast("Regulamento aceito. Bem-vindo!", "success");
     if (playerNeedsDisplayName()) showDisplayNameGate("usar a loja ARKLAND");
   } catch (_) {
@@ -33462,6 +33499,8 @@ async function loadSeasonlandOpsAudit() {
 // ── Admin: Gerenciar Jogadores ───────────────────────────────────────────────
 
 let _playersAdminPage = { offset: 0, limit: 10, total: 0 };
+let _playersAdminPersonaRefreshTimer = null;
+let _playersAdminPersonaRefreshAttempts = 0;
 let _playersAdminSelected = null;
 let _playersAdminDetail = null;
 let _playersAdminLicenseCatalog = null;
@@ -35970,6 +36009,13 @@ async function teamsAdminKick(teamId) {
 }
 
 async function loadPlayersAdmin(resetPanel) {
+  if (resetPanel) {
+    _playersAdminPersonaRefreshAttempts = 0;
+    if (_playersAdminPersonaRefreshTimer) {
+      clearTimeout(_playersAdminPersonaRefreshTimer);
+      _playersAdminPersonaRefreshTimer = null;
+    }
+  }
   const q = document.getElementById("players-admin-search")?.value?.trim() || "";
   const sort = document.getElementById("players-admin-sort")?.value || "last_login";
   const params = new URLSearchParams({
@@ -36044,6 +36090,27 @@ async function loadPlayersAdmin(resetPanel) {
     if (el) el.innerHTML = `<table class="pkg-admin-table players-admin-table"><thead><tr>
       <th>Jogador</th><th>Âmbar</th><th>Status</th><th>Licenças</th><th>Cargos</th><th>Último login</th>
     </tr></thead><tbody>${rows}</tbody></table>`;
+    const unresolvedSteamNames = d.items.filter(p => {
+      const persona = (p.steam_persona || p.display_name || "").trim();
+      return !persona || persona === p.steam_id;
+    }).length;
+    if (unresolvedSteamNames && d.steam_api_configured && _playersAdminPersonaRefreshAttempts < 3) {
+      // O backend busca personas em segundo plano. Reconsulta a lista algumas
+      // vezes para refletir os nicks assim que forem gravados no banco.
+      if (!_playersAdminPersonaRefreshTimer) {
+        _playersAdminPersonaRefreshAttempts += 1;
+        _playersAdminPersonaRefreshTimer = setTimeout(() => {
+          _playersAdminPersonaRefreshTimer = null;
+          loadPlayersAdmin(false);
+        }, 2500);
+      }
+    } else if (!unresolvedSteamNames) {
+      _playersAdminPersonaRefreshAttempts = 0;
+      if (_playersAdminPersonaRefreshTimer) {
+        clearTimeout(_playersAdminPersonaRefreshTimer);
+        _playersAdminPersonaRefreshTimer = null;
+      }
+    }
     if (resetPanel) {
       _playersAdminSelected = null;
       closePlayerAdminPanel();

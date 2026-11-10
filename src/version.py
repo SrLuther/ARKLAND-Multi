@@ -4,13 +4,21 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.59"
-BUILD_DATE: str = "2026-11-09"
+APP_VERSION: str = "1.11.60"
+BUILD_DATE: str = "2026-11-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.11.60",
+        "date": "2026-11-10",
+        "changes": [
+            "WebStore: Gerenciar Jogadores atualiza a lista após a busca assíncrona de nicks Steam e informa quando ainda não foi possível resolver alguns nomes.",
+            "WebStore: jogadores sem aceite podem abrir o regulamento completo e aceitá-lo diretamente na página do regulamento.",
+        ],
+    },
     {
         "version": "1.11.59",
         "date": "2026-11-09",

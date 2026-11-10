@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 00:01:30 -->
-<!-- Total de versões: 551 | Primeira: 1.11.59 -->
+<!-- Gerado: 2026-11-10 01:23:49 -->
+<!-- Total de versões: 552 | Primeira: 1.11.60 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.60] - 2026-11-10
+
+### Other
+
+- WebStore: Gerenciar Jogadores atualiza a lista após a busca assíncrona de nicks Steam e informa quando ainda não foi possível resolver alguns nomes.
+- WebStore: jogadores sem aceite podem abrir o regulamento completo e aceitá-lo diretamente na página do regulamento.
 
 ## [1.11.59] - 2026-11-09
 
