@@ -29,6 +29,17 @@ def _collect_webstore_static_datas() -> list[tuple[str, str]]:
     return datas
 
 
+# O catálogo mestre é dado persistente/privado e pode não existir no checkout
+# usado para compilar. O TEK fornece ARKSHOP_CONFIG_PATH ao iniciar a loja; não
+# faça o build depender de copiar uma configuração real para dentro do EXE.
+_catalog_config = _project_root / 'plugin' / 'CustomShop' / 'configs' / 'config.json'
+_catalog_datas = (
+    [(str(_catalog_config), 'CustomShop/configs')]
+    if _catalog_config.is_file()
+    else []
+)
+
+
 flask_datas, flask_binaries, flask_hiddenimports = collect_all('flask')
 cors_datas, cors_binaries, cors_hiddenimports = collect_all('flask_cors')
 limiter_datas, limiter_binaries, limiter_hiddenimports = collect_all('flask_limiter')
@@ -43,7 +54,7 @@ a = Analysis(
     datas=[
         *_collect_webstore_static_datas(),
         ('plugin/arkshop_web/data', 'data'),
-        ('plugin/CustomShop/configs/config.json', 'CustomShop/configs'),
+        *_catalog_datas,
         ('version.json', '.'),
     ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas + discord_datas,
     hiddenimports=[

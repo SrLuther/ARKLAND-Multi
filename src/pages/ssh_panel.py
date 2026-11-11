@@ -33,7 +33,7 @@ def _worker(app, work_queue: queue.Queue, label: str, fn: Callable, *args, **kwa
 def _format_results(results) -> str:
     lines = []
     for item in results:
-        lines.append(f"[{item.status}] {item.name} â€” {item.detail}\n    ResponsÃ¡vel: {item.owner}")
+        lines.append(f"[{item.status}] {item.name} — {item.detail}\n    Responsável: {item.owner}")
     return "\n\n".join(lines)
 
 
@@ -58,7 +58,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                  text_color=theme["text_primary"]).pack(anchor="w")
     ctk.CTkLabel(
         header,
-        text="Conecte-se a uma mÃ¡quina autorizada. A pÃ¡gina Remoto continua usando o protocolo prÃ³prio do ARKLAND.",
+        text="Conecte-se a uma máquina autorizada. A página Remoto continua usando o protocolo próprio do ARKLAND.",
         font=ctk.CTkFont(size=12), text_color=theme["text_muted"],
     ).pack(anchor="w", pady=(3, 0))
 
@@ -72,14 +72,14 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
     left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
     left.grid_columnconfigure(0, weight=1)
     left.grid_rowconfigure(1, weight=1)
-    ctk.CTkLabel(left, text="Perfis de conexÃ£o", font=ctk.CTkFont(size=15, weight="bold"),
+    ctk.CTkLabel(left, text="Perfis de conexão", font=ctk.CTkFont(size=15, weight="bold"),
                  text_color=theme["text_primary"]).grid(row=0, column=0, sticky="w", padx=14, pady=(14, 8))
     profile_list = ctk.CTkScrollableFrame(left, fg_color="transparent", height=170)
     profile_list.grid(row=1, column=0, sticky="nsew", padx=8)
     selected: dict[str, SSHProfile | None] = {"profile": None}
     profile_buttons: list[Any] = []
 
-    details = ctk.CTkLabel(left, text="Selecione ou cadastre uma conexÃ£o.", justify="left", wraplength=270,
+    details = ctk.CTkLabel(left, text="Selecione ou cadastre uma conexão.", justify="left", wraplength=270,
                            text_color=theme["text_muted"])
     details.grid(row=2, column=0, sticky="ew", padx=14, pady=8)
     actions = ctk.CTkFrame(left, fg_color="transparent")
@@ -89,19 +89,19 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
     diagnostics_frame = ctk.CTkFrame(left, fg_color=theme["surface_bg"], corner_radius=10)
     diagnostics_frame.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 12))
     diagnostics_frame.grid_columnconfigure(0, weight=1)
-    ctk.CTkLabel(diagnostics_frame, text="DiagnÃ³stico SSH", font=ctk.CTkFont(size=14, weight="bold"),
+    ctk.CTkLabel(diagnostics_frame, text="Diagnóstico SSH", font=ctk.CTkFont(size=14, weight="bold"),
                  text_color=theme["text_primary"]).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 5))
     local_btn = ctk.CTkButton(diagnostics_frame, text="Verificar ambiente local", height=31)
     local_btn.grid(row=1, column=0, sticky="ew", padx=10, pady=4)
-    remote_btn = ctk.CTkButton(diagnostics_frame, text="Testar conexÃ£o remota", height=31)
+    remote_btn = ctk.CTkButton(diagnostics_frame, text="Testar conexão remota", height=31)
     remote_btn.grid(row=2, column=0, sticky="ew", padx=10, pady=4)
-    trust_btn = ctk.CTkButton(diagnostics_frame, text="Revisar e confiar fingerprintâ€¦", height=31,
+    trust_btn = ctk.CTkButton(diagnostics_frame, text="Revisar e confiar fingerprint…", height=31,
                               fg_color="#8a5a00", hover_color="#704900")
     trust_btn.grid(row=3, column=0, sticky="ew", padx=10, pady=4)
     trust_btn.configure(state="disabled")
     local_note = ctk.CTkLabel(
         diagnostics_frame,
-        text="O teste do Codex Ã© separado: o agente pode ter outro PATH, rede ou sandbox.",
+        text="O teste do Codex é separado: o agente pode ter outro PATH, rede ou sandbox.",
         font=ctk.CTkFont(size=10), text_color=theme["text_muted"], wraplength=270, justify="left",
     )
     local_note.grid(row=4, column=0, sticky="w", padx=10, pady=(4, 10))
@@ -128,7 +128,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
     results_box = ctk.CTkTextbox(right, height=150, wrap="word", font=ctk.CTkFont(size=11),
                                  fg_color=theme["surface_bg"], text_color=theme["text_primary"])
     results_box.grid(row=1, column=0, sticky="ew", padx=12, pady=6)
-    results_box.insert("end", "Execute o diagnÃ³stico local ou selecione um perfil para testar a mÃ¡quina remota.\n")
+    results_box.insert("end", "Execute o diagnóstico local ou selecione um perfil para testar a máquina remota.\n")
     results_box.configure(state="disabled")
 
     terminal_frame = ctk.CTkFrame(right, fg_color="transparent")
@@ -174,8 +174,8 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         selected["profile"] = profile
         details.configure(text=(
             f"{profile.name}\n{profile.username}@{profile.host}:{profile.port}\n"
-            f"AutenticaÃ§Ã£o: {'Chave SSH' if profile.auth_method == 'key' else 'Senha'}\n"
-            f"Alias Codex: {profile.alias or 'nÃ£o configurado'}\n"
+            f"Autenticação: {'Chave SSH' if profile.auth_method == 'key' else 'Senha'}\n"
+            f"Alias Codex: {profile.alias or 'não configurado'}\n"
             f"Host key: {host_keys.get(profile.host, profile.port) is not None and 'conhecida' or 'a confirmar'}"
         ))
         trust_btn.configure(state="normal")
@@ -200,12 +200,12 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
             "save_secret": ctk.BooleanVar(value=False),
         }
         fields = [("Nome", "name"), ("Hostname ou IP", "host"), ("Porta", "port"),
-                  ("UsuÃ¡rio", "username"), ("Alias para Codex", "alias")]
+                  ("Usuário", "username"), ("Alias para Codex", "alias")]
         for row, (label, key) in enumerate(fields):
             ctk.CTkLabel(dialog, text=label).grid(row=row, column=0, sticky="w", padx=16, pady=7)
             ctk.CTkEntry(dialog, textvariable=values[key]).grid(row=row, column=1, sticky="ew", padx=16, pady=7)
         row = len(fields)
-        ctk.CTkLabel(dialog, text="AutenticaÃ§Ã£o").grid(row=row, column=0, sticky="w", padx=16, pady=7)
+        ctk.CTkLabel(dialog, text="Autenticação").grid(row=row, column=0, sticky="w", padx=16, pady=7)
         auth_menu = ctk.CTkOptionMenu(dialog, variable=values["auth"], values=["key", "password"])
         auth_menu.grid(row=row, column=1, sticky="w", padx=16, pady=7)
         row += 1
@@ -217,7 +217,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
             path = filedialog.askopenfilename(parent=dialog, title="Selecionar chave SSH", filetypes=[("Chaves privadas", "*"), ("Todos os arquivos", "*.*")])
             if path:
                 values["identity"].set(path)
-        ctk.CTkButton(identity_row, text="Procurarâ€¦", width=88, command=browse_key).grid(row=0, column=1)
+        ctk.CTkButton(identity_row, text="Procurar…", width=88, command=browse_key).grid(row=0, column=1)
         row += 1
         ctk.CTkLabel(dialog, text="Senha / frase secreta (opcional)").grid(row=row, column=0, sticky="w", padx=16, pady=7)
         ctk.CTkEntry(dialog, textvariable=values["secret"], show="*").grid(row=row, column=1, sticky="ew", padx=16, pady=7)
@@ -225,15 +225,15 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         ctk.CTkCheckBox(dialog, text="Salvar no Gerenciador de Credenciais do Windows", variable=values["save_secret"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=16, pady=5)
         row += 1
         servers = list(getattr(getattr(app, "asm_config_manager", None), "servers", []) or [])
-        server_map = {"(sem associaÃ§Ã£o)": ""}
+        server_map = {"(sem associação)": ""}
         server_map.update({f"{srv.name} ({srv.id[:8]})": srv.id for srv in servers})
         display_by_id = {value: label for label, value in server_map.items()}
         ctk.CTkLabel(dialog, text="Servidor TEK associado").grid(row=row, column=0, sticky="w", padx=16, pady=7)
         server_menu = ctk.CTkOptionMenu(dialog, values=list(server_map), command=lambda label: values["server"].set(server_map[label]))
-        server_menu.set(display_by_id.get(values["server"].get(), "(sem associaÃ§Ã£o)"))
+        server_menu.set(display_by_id.get(values["server"].get(), "(sem associação)"))
         server_menu.grid(row=row, column=1, sticky="w", padx=16, pady=7)
         row += 1
-        ctk.CTkLabel(dialog, text="Codex usa o OpenSSH e a identidade do usuÃ¡rio do Windows. Senhas nÃ£o sÃ£o exportadas.",
+        ctk.CTkLabel(dialog, text="Codex usa o OpenSSH e a identidade do usuário do Windows. Senhas não são exportadas.",
                      wraplength=450, justify="left", text_color=theme["text_muted"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=16, pady=8)
         row += 1
 
@@ -249,7 +249,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                 profile.validate()
                 profiles = store.load()
                 if any(p.alias.casefold() == profile.alias.casefold() and p.id != profile.id for p in profiles if profile.alias):
-                    raise ValueError("Esse alias jÃ¡ estÃ¡ associado a outro perfil SSH do ARKLAND.")
+                    raise ValueError("Esse alias já está associado a outro perfil SSH do ARKLAND.")
                 profiles = [p for p in profiles if p.id != profile.id]
                 profiles.append(profile)
                 store.save(profiles)
@@ -274,10 +274,10 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         if saved:
             return (saved if profile.auth_method == "password" else None,
                     saved if profile.auth_method == "key" else None)
-        prompt = "Senha SSH" if profile.auth_method == "password" else "Frase secreta da chave (deixe vazio se a chave nÃ£o tiver frase secreta)"
+        prompt = "Senha SSH" if profile.auth_method == "password" else "Frase secreta da chave (deixe vazio se a chave não tiver frase secreta)"
         secret = simpledialog.askstring("Credencial SSH", prompt, show="*", parent=app)
         if secret is None:
-            raise PermissionError("OperaÃ§Ã£o cancelada pelo usuÃ¡rio.")
+            raise PermissionError("Operação cancelada pelo usuário.")
         if secret and messagebox.askyesno("Credencial SSH", "Salvar esta credencial no Gerenciador de Credenciais do Windows?", parent=app):
             vault.set_secret(profile.id, purpose, secret)
         return (secret if profile.auth_method == "password" else None,
@@ -289,7 +289,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
             messagebox.showinfo("SSH", "Selecione um perfil primeiro.", parent=app)
             return
         trust_btn.configure(state="disabled")
-        status_var.set("Consultando identidadeâ€¦")
+        status_var.set("Consultando identidade…")
         def done(label, result, error):
             if label != "host-inspection":
                 return
@@ -300,8 +300,8 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                 return
             inspection = result
             if inspection.trusted:
-                status_var.set("Identidade jÃ¡ confiÃ¡vel")
-                show_results("Identidade SSH", f"Fingerprint jÃ¡ registrada:\n{inspection.fingerprint}")
+                status_var.set("Identidade já confiável")
+                show_results("Identidade SSH", f"Fingerprint já registrada:\n{inspection.fingerprint}")
                 trust_btn.configure(state="normal")
                 return
             accepted = messagebox.askyesno(
@@ -310,16 +310,16 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                 parent=app,
             )
             if not accepted:
-                status_var.set("Host nÃ£o confiado")
+                status_var.set("Host não confiado")
                 trust_btn.configure(state="normal")
                 return
             try:
                 service.trust_host(profile, inspection.key)
                 status_var.set("Fingerprint registrada")
-                show_results("Identidade SSH", f"Fingerprint confiada:\n{inspection.fingerprint}\n\nA autenticaÃ§Ã£o agora pode ser testada.")
+                show_results("Identidade SSH", f"Fingerprint confiada:\n{inspection.fingerprint}\n\nA autenticação agora pode ser testada.")
                 select_profile(profile)
             except Exception as exc:  # noqa: BLE001
-                status_var.set("NÃ£o foi possÃ­vel confiar no host")
+                status_var.set("Não foi possível confiar no host")
                 show_results("Identidade SSH", str(exc))
             trust_btn.configure(state="normal")
         _worker(app, work_queue, "host-inspection", service.inspect_host, profile)
@@ -332,11 +332,11 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         try:
             password, key_passphrase = get_ephemeral_secret(profile)
         except Exception as exc:  # noqa: BLE001
-            show_results("DiagnÃ³stico remoto", str(exc))
+            show_results("Diagnóstico remoto", str(exc))
             return
         remote_btn.configure(state="disabled")
         test_btn.configure(state="disabled")
-        status_var.set("Testando DNS, porta, identidade e autenticaÃ§Ã£oâ€¦")
+        status_var.set("Testando DNS, porta, identidade e autenticação…")
         def perform():
             return run_remote_diagnostics(profile, service, password=password, key_passphrase=key_passphrase)
         _worker(app, work_queue, "remote-diagnostic", perform)
@@ -352,10 +352,10 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         try:
             password, key_passphrase = get_ephemeral_secret(profile)
         except Exception as exc:  # noqa: BLE001
-            show_results("ConexÃ£o SSH", str(exc))
+            show_results("Conexão SSH", str(exc))
             return
         connect_btn.configure(state="disabled")
-        status_var.set("Verificando identidade do servidorâ€¦")
+        status_var.set("Verificando identidade do servidor…")
         def inspect_then_connect():
             inspection = service.inspect_host(profile)
             return inspection, password, key_passphrase
@@ -368,16 +368,16 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                     parent=app,
                 )
                 if not accepted:
-                    status_var.set("Host nÃ£o confiado")
+                    status_var.set("Host não confiado")
                     connect_btn.configure(state="normal")
                     return
                 try:
                     service.trust_host(profile, inspection.key)
                 except Exception as exc:  # noqa: BLE001
-                    show_results("ConexÃ£o SSH", str(exc))
+                    show_results("Conexão SSH", str(exc))
                     connect_btn.configure(state="normal")
                     return
-            status_var.set("Autenticando e abrindo terminalâ€¦")
+            status_var.set("Autenticando e abrindo terminal…")
             def open_shell():
                 return service.open_shell(profile, password=pass_value, key_passphrase=phrase_value)
             _worker(app, work_queue, "ssh-shell", open_shell)
@@ -385,8 +385,8 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         # Keep modal dialogs and all Tk operations on the UI thread.
         def on_inspected(_label, result, error):
             if error:
-                show_results("ConexÃ£o SSH", str(error))
-                status_var.set("ConexÃ£o nÃ£o iniciada")
+                show_results("Conexão SSH", str(error))
+                status_var.set("Conexão não iniciada")
                 connect_btn.configure(state="normal")
             else:
                 finish_connect(result)
@@ -404,7 +404,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
             messagebox.showinfo("SSH / Codex", "Selecione um perfil primeiro.", parent=app)
             return
         if profile.auth_method != "key":
-            messagebox.showwarning("SSH / Codex", "O alias para o Codex requer autenticaÃ§Ã£o por chave SSH. Senhas nÃ£o serÃ£o exportadas.", parent=app)
+            messagebox.showwarning("SSH / Codex", "O alias para o Codex requer autenticação por chave SSH. Senhas não serão exportadas.", parent=app)
             return
         if not profile.alias:
             profile.alias = simpledialog.askstring("Alias SSH", "Nome curto para usar no terminal do Codex (ex.: arkland-producao):", parent=app) or ""
@@ -419,26 +419,26 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                 return
         accepted = messagebox.askyesno(
             "Configurar alias SSH para Codex",
-            "O ARKLAND adicionarÃ¡ um bloco marcado ao arquivo ~/.ssh/config e criarÃ¡ um backup antes da alteraÃ§Ã£o.\n\n"
-            "O bloco serÃ¡ validado por ssh -G. Nenhuma senha serÃ¡ copiada. A configuraÃ§Ã£o sÃ³ estarÃ¡ disponÃ­vel para o Codex se ele executar como este mesmo usuÃ¡rio do Windows e tiver acesso Ã  rede/chave.\n\nContinuar?",
+            "O ARKLAND adicionará um bloco marcado ao arquivo ~/.ssh/config e criará um backup antes da alteração.\n\n"
+            "O bloco será validado por ssh -G. Nenhuma senha será copiada. A configuração só estará disponível para o Codex se ele executar como este mesmo usuário do Windows e tiver acesso à rede/chave.\n\nContinuar?",
             parent=app,
         )
         if not accepted:
             return
         try:
             path = register_codex_alias(profile)
-            show_results("IntegraÃ§Ã£o Codex", f"Alias '{profile.alias}' configurado e validado.\nArquivo gerenciado: {path}\n\nTeste no terminal do agente Codex com:\nssh {profile.alias}")
+            show_results("Integração Codex", f"Alias '{profile.alias}' configurado e validado.\nArquivo gerenciado: {path}\n\nTeste no terminal do agente Codex com:\nssh {profile.alias}")
             status_var.set("Alias Codex configurado")
             select_profile(profile)
         except Exception as exc:  # noqa: BLE001
-            show_results("IntegraÃ§Ã£o Codex", str(exc))
+            show_results("Integração Codex", str(exc))
             status_var.set("Falha ao configurar alias")
 
     def delete_profile() -> None:
         profile = selected["profile"]
         if profile is None:
             return
-        if not messagebox.askyesno("Excluir perfil SSH", f"Excluir o perfil '{profile.name}' e as credenciais associadas no Windows? A chave privada externa nÃ£o serÃ¡ apagada.", parent=app):
+        if not messagebox.askyesno("Excluir perfil SSH", f"Excluir o perfil '{profile.name}' e as credenciais associadas no Windows? A chave privada externa não será apagada.", parent=app):
             return
         try:
             unregister_codex_alias(profile)
@@ -449,7 +449,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         store.save(profiles)
         vault.delete_profile_secrets(profile.id)
         selected["profile"] = None
-        details.configure(text="Selecione ou cadastre uma conexÃ£o.")
+        details.configure(text="Selecione ou cadastre uma conexão.")
         refresh_profiles()
 
     ctk.CTkButton(actions, text="Adicionar", command=lambda: edit_profile()).grid(row=0, column=0, sticky="ew", padx=3, pady=3)
@@ -458,7 +458,7 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
 
     def on_local_diagnostics():
         local_btn.configure(state="disabled")
-        show_results("DiagnÃ³stico local", "Verificando ambiente do ARKLANDâ€¦")
+        show_results("Diagnóstico local", "Verificando ambiente do ARKLAND…")
         _worker(app, work_queue, "local-diagnostic", run_local_diagnostics)
 
     local_btn.configure(command=on_local_diagnostics)
@@ -475,21 +475,21 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                 label, result, error = work_queue.get_nowait()
                 if label == "local-diagnostic":
                     local_btn.configure(state="normal")
-                    show_results("DiagnÃ³stico local", _format_results(result) if not error else str(error))
-                    status_var.set("DiagnÃ³stico local concluÃ­do")
+                    show_results("Diagnóstico local", _format_results(result) if not error else str(error))
+                    status_var.set("Diagnóstico local concluído")
                 elif label == "remote-diagnostic":
                     remote_btn.configure(state="normal")
                     test_btn.configure(state="normal")
-                    show_results("DiagnÃ³stico da conexÃ£o remota", _format_results(result) if not error else str(error))
-                    status_var.set("DiagnÃ³stico remoto concluÃ­do" if not error else "Falha no diagnÃ³stico")
+                    show_results("Diagnóstico da conexão remota", _format_results(result) if not error else str(error))
+                    status_var.set("Diagnóstico remoto concluído" if not error else "Falha no diagnóstico")
                 elif label == "host-inspection":
                     trust_btn.configure(state="normal")
                     if error:
                         status_var.set("Falha ao consultar identidade")
                         show_results("Identidade SSH", str(error))
                     elif result.trusted:
-                        status_var.set("Identidade jÃ¡ confiÃ¡vel")
-                        show_results("Identidade SSH", f"Fingerprint: {result.fingerprint}\nJÃ¡ confiÃ¡vel.")
+                        status_var.set("Identidade já confiável")
+                        show_results("Identidade SSH", f"Fingerprint: {result.fingerprint}\nJá confiável.")
                     else:
                         accepted = messagebox.askyesno("Confiar fingerprint?", f"Fingerprint: {result.fingerprint}\n\nCompare por um canal independente antes de aceitar.", parent=app)
                         if accepted:
@@ -497,18 +497,18 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                             show_results("Identidade SSH", "Fingerprint registrada. Execute novamente o teste remoto para autenticar.")
                             select_profile(selected["profile"])
                         else:
-                            show_results("Identidade SSH", "Host permanece nÃ£o confiÃ¡vel; autenticaÃ§Ã£o bloqueada.")
+                            show_results("Identidade SSH", "Host permanece não confiável; autenticação bloqueada.")
                 elif label == "shell-inspection":
                     connect_btn.configure(state="normal")
                     if error:
-                        status_var.set("ConexÃ£o nÃ£o iniciada")
-                        show_results("ConexÃ£o SSH", str(error))
+                        status_var.set("Conexão não iniciada")
+                        show_results("Conexão SSH", str(error))
                         continue
                     inspection, password, phrase = result
                     if not inspection.trusted:
                         accepted = messagebox.askyesno("Confiar neste servidor SSH?", f"Fingerprint:\n{inspection.fingerprint}\n\nCompare por um canal independente antes de confiar.", parent=app)
                         if not accepted:
-                            status_var.set("Host nÃ£o confiado")
+                            status_var.set("Host não confiado")
                             continue
                         try:
                             service.trust_host(selected["profile"], inspection.key)
@@ -516,18 +516,18 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                             show_results("Identidade SSH", str(exc))
                             continue
                     connect_btn.configure(state="disabled")
-                    status_var.set("Abrindo sessÃ£o SSHâ€¦")
+                    status_var.set("Abrindo sessão SSH…")
                     _worker(app, work_queue, "ssh-shell", lambda: service.open_shell(selected["profile"], password=password, key_passphrase=phrase))
                 elif label == "ssh-shell":
                     connect_btn.configure(state="normal")
                     if error:
-                        status_var.set("Falha na autenticaÃ§Ã£o/sessÃ£o")
-                        show_results("SessÃ£o SSH", f"NÃ£o foi possÃ­vel abrir o terminal: {error}")
+                        status_var.set("Falha na autenticação/sessão")
+                        show_results("Sessão SSH", f"Não foi possível abrir o terminal: {error}")
                     else:
                         app._ssh_connection = result
                         terminal.attach(result)
                         status_var.set(f"Conectado: {selected['profile'].host}")
-                        show_results("SessÃ£o SSH", f"Conectado como {selected['profile'].username}@{selected['profile'].host}:{selected['profile'].port}. A sessÃ£o Ã© interativa; comandos sÃ£o enviados somente apÃ³s digitaÃ§Ã£o.")
+                        show_results("Sessão SSH", f"Conectado como {selected['profile'].username}@{selected['profile'].host}:{selected['profile'].port}. A sessão é interativa; comandos são enviados somente após digitação.")
         except queue.Empty:
             pass
         if parent.winfo_exists():
