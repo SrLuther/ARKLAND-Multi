@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 21:55:29 -->
-<!-- Total de versões: 556 | Primeira: 1.11.64 -->
+<!-- Gerado: 2026-11-10 23:06:03 -->
+<!-- Total de versões: 557 | Primeira: 1.11.65 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.65] - 2026-11-10
+
+### Other
+
+- Inicialização: o aplicativo passa a iniciar com o Windows por padrão, com opção para desativar nas configurações gerais.
+- Configurações anteriores recebem o novo padrão uma única vez; após salvar, a preferência escolhida pelo usuário é preservada.
 
 ## [1.11.64] - 2026-11-10
 

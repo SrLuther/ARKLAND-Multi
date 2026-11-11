@@ -297,7 +297,8 @@ class AppConfig:
     # ── Global ────────────────────────────────────────────────────────────────
     steamcmd_path: str = ""                  # Caminho para steamcmd.exe
     default_install_dir: str = ""            # Diretório padrão de instalação
-    startup_with_windows: bool = False       # Iniciar com o Windows
+    startup_with_windows: bool = True        # Iniciar com o Windows (padrão)
+    startup_with_windows_preference_version: int = 1  # Migração do padrão de inicialização
     minimize_to_tray: bool = False           # Minimizar para a bandeja ao fechar
     log_debug: bool = False                  # Log verboso
     update_url: str = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
@@ -376,6 +377,10 @@ class ConfigManager:
                     data = json.load(fh)
                 valid = {f.name for f in fields(AppConfig)}
                 raw = {k: v for k, v in data.items() if k in valid}
+                migrate_startup_default = (
+                    "startup_with_windows" in data
+                    and "startup_with_windows_preference_version" not in data
+                )
 
                 def _deserialize(dc_cls, key):
                     if key in raw and isinstance(raw[key], dict):
@@ -397,6 +402,12 @@ class ConfigManager:
                 _deserialize(ShopGlobalConfig,    "shop")
                 _deserialize(EnvironmentConfig,   "environment")
                 _deserialize(BroadcastTekConfig,  "broadcast_tek")
+                if migrate_startup_default:
+                    # Antes da v1.11.65, False era o padrão salvo automaticamente.
+                    # Ativa uma vez o novo padrão; depois a opção explícita do usuário
+                    # é preservada pelo marcador de versão.
+                    raw["startup_with_windows"] = True
+                    raw["startup_with_windows_preference_version"] = 1
                 self.config = AppConfig(**raw)
                 from .shop_integration import (
                     is_ephemeral_pyinstaller_path,

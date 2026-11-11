@@ -1,9 +1,9 @@
 {
-    "version": "1.11.64",
+    "version": "1.11.65",
     "date": "2026-11-10",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.64/ARKLAND-Multi-Setup-v1.11.64.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.65/ARKLAND-Multi-Setup-v1.11.65.exe",
     "changelog": [
-        "WebStore Fazenda: painel permite criar e selecionar chaves FarmShareKey dinâmicas para separar grupos de estoque.",
-        "Fazenda: removido o limite fixo de quatro configurações individuais; cada servidor registrado pode ter sua própria configuração."
+        "Inicialização: o aplicativo passa a iniciar com o Windows por padrão, com opção para desativar nas configurações gerais.",
+        "Configurações anteriores recebem o novo padrão uma única vez; após salvar, a preferência escolhida pelo usuário é preservada."
     ]
 }
