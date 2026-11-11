@@ -15358,7 +15358,6 @@ def admin_get_farm_config():
         return jsonify({"ok": True, "config": config, "server_id": server_id,
                         "servers": [{"server_id": sid, "share_key": key} for sid, key in sorted(server_keys.items())],
                         "server_count": registered_server_count,
-                        "max_configs": min(4, max(1, registered_server_count)),
                         "source": source, "revision": row.revision if row else None})
     except (ValueError, TypeError):
         log.exception("farm_server_config_read_failed", extra={"server_id": server_id})
@@ -15388,11 +15387,6 @@ def admin_put_farm_config():
             return jsonify({"ok": False, "error": "Servidor nao registrado pela Fazenda; sincronize o plugin antes de configurar."}), 409
         row = db.get(FarmServerConfig, server_id)
         if row is None:
-            count = db.query(FarmServerConfig).count()
-            limit = min(4, max(1, len(registered)))
-            if count >= limit:
-                db.rollback()
-                return jsonify({"ok": False, "error": f"Limite de {limit} configuracoes por servidor atingido (maximo absoluto: 4)."}), 409
             row = FarmServerConfig(server_id=server_id, share_key=share_key, config_json=serialized,
                                    revision=revision, updated_at=datetime.now(UTC))
             db.add(row)

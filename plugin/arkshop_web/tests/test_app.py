@@ -138,6 +138,55 @@ def _create_cloud_fixture_tables():
         db.close()
 
 
+def test_farm_config_supports_more_than_four_servers_and_dynamic_share_groups(client):
+    """Cada ServerId registrado ganha sua configuração; chaves de grupo são dinâmicas."""
+    _login(client, ADMIN_STEAM)
+    db = _app_module._SessionLocal()
+    server_ids = [f"map_{index}" for index in range(1, 6)]
+    try:
+        for index, server_id in enumerate(server_ids, start=1):
+            db.add(_app_module.FarmResourceCatalog(
+                server_id=server_id,
+                resource_id=f"resource_{index}",
+                share_key="omega" if index <= 2 else "primal_fear",
+                category="default",
+                resource_name=f"Resource {index}",
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+    for index, server_id in enumerate(server_ids, start=1):
+        payload = _app_module._farm_default_config()
+        payload["FazendaRecursos"]["ServerId"] = server_id
+        payload["FazendaRecursos"]["FarmShareKey"] = "omega" if index <= 2 else "primal_fear"
+        response = client.put("/api/admin/farm/config", json=payload)
+        assert response.status_code == 200, response.get_json()
+
+    db = _app_module._SessionLocal()
+    try:
+        rows = db.query(_app_module.FarmServerConfig).all()
+        assert {row.server_id for row in rows} == set(server_ids)
+        assert {row.share_key for row in rows} == {"omega", "primal_fear"}
+    finally:
+        db.close()
+
+    response = client.get("/api/admin/farm/config?server_id=map_5")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert len(data["servers"]) == 5
+    assert data["config"]["FazendaRecursos"]["FarmShareKey"] == "primal_fear"
+    assert "max_configs" not in data
+
+
+def test_farm_admin_panel_exposes_share_key_creation_controls():
+    html = (_app_module.Path(__file__).resolve().parents[1] / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'id="myarea-farm-share-key"' in html
+    assert 'id="myarea-farm-new-share-key"' in html
+    assert "addMyFarmShareKey()" in html
+    assert 'FarmShareKey = String(document.getElementById("myarea-farm-share-key")' in html
+
+
 def test_cloud_inventory_admin_requires_admin(client):
     _login(client, USER_STEAM)
     response = client.get("/api/admin/cloud-inventory")

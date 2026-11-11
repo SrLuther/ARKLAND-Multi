@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 04:32:31 -->
-<!-- Total de versões: 555 | Primeira: 1.11.63 -->
+<!-- Gerado: 2026-11-10 21:55:29 -->
+<!-- Total de versões: 556 | Primeira: 1.11.64 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.64] - 2026-11-10
+
+### Other
+
+- WebStore Fazenda: painel permite criar e selecionar chaves FarmShareKey dinâmicas para separar grupos de estoque.
+- Fazenda: removido o limite fixo de quatro configurações individuais; cada servidor registrado pode ter sua própria configuração.
 
 ## [1.11.63] - 2026-11-10
 
