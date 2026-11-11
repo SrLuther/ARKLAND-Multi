@@ -72,6 +72,9 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
     elif name == "remoto":
         from .remote_panel import build_remote_panel
         build_remote_panel(app, _scrollable_inner(frame, bg))
+    elif name == "ssh":
+        from .ssh_panel import build_ssh_panel
+        build_ssh_panel(app, frame)
     elif name == "settings":
         from .global_config import build_global_config
         build_global_config(app, _scrollable_inner(frame, bg))
@@ -102,7 +105,7 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
 
     _static_nav = (
         "dashboard", "shop", "database", "broadcasts", "saves",
-        "obobonic", "settings", "diagnostico", "about",
+        "obobonic", "settings", "diagnostico", "about", "ssh",
     )
     app._set_nav_active(name if name in _static_nav else "")
 

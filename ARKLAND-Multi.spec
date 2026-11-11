@@ -9,6 +9,8 @@ tray_datas, tray_binaries, tray_hiddenimports = collect_all('pystray')
 # Os cogs são carregados via load_extension (import dinâmico), por isso collect_all.
 dpy_datas, dpy_binaries, dpy_hiddenimports = collect_all('discord')
 aio_datas, aio_binaries, aio_hiddenimports = collect_all('aiohttp')
+ssh_datas, ssh_binaries, ssh_hiddenimports = collect_all('paramiko')
+pyte_datas, pyte_binaries, pyte_hiddenimports = collect_all('pyte')
 
 # Coleta todos os submódulos do pacote src automaticamente
 src_hiddenimports = collect_submodules('src')
@@ -16,7 +18,7 @@ src_hiddenimports = collect_submodules('src')
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[] + ctk_binaries + pil_binaries + tray_binaries + dpy_binaries + aio_binaries,
+    binaries=[] + ctk_binaries + pil_binaries + tray_binaries + dpy_binaries + aio_binaries + ssh_binaries + pyte_binaries,
     datas=[
         ('ig', 'ig'),
         ('setup_db.sql', '.'),
@@ -45,7 +47,7 @@ a = Analysis(
         ('src/data/nivel200.txt',                    'src/data'),
         ('src/data/ark_ase_server_ini_catalog.json', 'src/data'),
         ('src/data/ark_ase_server_cli_catalog.json', 'src/data'),
-    ] + ctk_datas + pil_datas + tray_datas + dpy_datas + aio_datas,
+    ] + ctk_datas + pil_datas + tray_datas + dpy_datas + aio_datas + ssh_datas + pyte_datas,
     hiddenimports=[
         # customtkinter
         'customtkinter',
@@ -84,7 +86,7 @@ a = Analysis(
         'src.discord_bot.moderation',
         'src.discord_bot.nickname_sync',
         'src.discord_bot.voice_manager',
-    ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports + dpy_hiddenimports + aio_hiddenimports + src_hiddenimports,
+    ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports + dpy_hiddenimports + aio_hiddenimports + ssh_hiddenimports + pyte_hiddenimports + src_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

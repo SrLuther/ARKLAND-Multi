@@ -282,6 +282,12 @@ class ARKServerManagerApp(ctk.CTk):
         remote = getattr(self, "_remote_agent", None)
         if remote and remote.is_running:
             remote.stop()
+        ssh_terminal = getattr(self, "_ssh_terminal", None)
+        if ssh_terminal is not None:
+            try:
+                ssh_terminal.disconnect()
+            except Exception:
+                pass
         if self._mod_auto_updater and self._mod_auto_updater.enabled:
             self._mod_auto_updater.stop()
         if self._buff_manager:
@@ -884,6 +890,7 @@ class ARKServerManagerApp(ctk.CTk):
             ("⚙", "settings",   "Configurações"),
             ("ℹ", "about",      "Sobre"),
         ]
+        nav_items.insert(7, ("🔐", "ssh", "SSH"))
         self._nav_btns: Dict[str, ctk.CTkButton] = {}
         for i, (icon, key, label) in enumerate(nav_items):
             btn = ctk.CTkButton(
@@ -1149,6 +1156,10 @@ class ARKServerManagerApp(ctk.CTk):
             scroll.grid_columnconfigure(0, weight=1)
             from .pages.remote_panel import build_remote_panel
             build_remote_panel(self, scroll)
+
+        elif name == "ssh":
+            from .pages.ssh_panel import build_ssh_panel
+            build_ssh_panel(self, frame)
 
         elif name == "settings":
             scroll = ctk.CTkScrollableFrame(frame, fg_color=get_theme("tek")["bg"], corner_radius=0)

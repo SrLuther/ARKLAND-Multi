@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-11 00:19:41 -->
-<!-- Total de versões: 558 | Primeira: 1.11.66 -->
+<!-- Gerado: 2026-11-11 01:31:03 -->
+<!-- Total de versões: 559 | Primeira: 1.12.0 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.0] - 2026-11-11
+
+### Other
+
+- SSH: nova aba com perfis de conexão, diagnóstico local e remoto, verificação de fingerprint, autenticação segura e terminal integrado.
+- SSH: integração opcional e reversível de aliases OpenSSH para o Codex, preservando a configuração existente.
+- Web Store: catálogo organizado em grades separadas para licenças especiais e licenças com ganho de âmbares por tempo (incluído da versão 1.11.66).
 
 ## [1.11.66] - 2026-11-11
 

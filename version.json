@@ -1,8 +1,10 @@
 {
-    "version": "1.11.66",
+    "version": "1.12.0",
     "date": "2026-11-11",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.66/ARKLAND-Multi-Setup-v1.11.66.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.0/ARKLAND-Multi-Setup-v1.12.0.exe",
     "changelog": [
-        "Web Store: catálogo de licenças separado em grades para Âmbares por tempo e licenças especiais, classificadas pelo bônus efetivo de cada grupo."
+        "SSH: nova aba com perfis de conexão, diagnóstico local e remoto, verificação de fingerprint, autenticação segura e terminal integrado.",
+        "SSH: integração opcional e reversível de aliases OpenSSH para o Codex, preservando a configuração existente.",
+        "Web Store: catálogo organizado em grades separadas para licenças especiais e licenças com ganho de âmbares por tempo (incluído da versão 1.11.66)."
     ]
 }

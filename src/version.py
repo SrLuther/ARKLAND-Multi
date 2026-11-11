@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.11.66"
+APP_VERSION: str = "1.12.0"
 BUILD_DATE: str = "2026-11-11"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.0",
+        "date": "2026-11-11",
+        "changes": [
+            "SSH: nova aba com perfis de conex\u00e3o, diagn\u00f3stico local e remoto, verifica\u00e7\u00e3o de fingerprint, autentica\u00e7\u00e3o segura e terminal integrado.",
+            "SSH: integra\u00e7\u00e3o opcional e revers\u00edvel de aliases OpenSSH para o Codex, preservando a configura\u00e7\u00e3o existente.",
+            "Web Store: cat\u00e1logo organizado em grades separadas para licen\u00e7as especiais e licen\u00e7as com ganho de \u00e2mbares por tempo (inclu\u00eddo da vers\u00e3o 1.11.66).",
+        ],
+    },
     {
         "version": "1.11.66",
         "date": "2026-11-11",
