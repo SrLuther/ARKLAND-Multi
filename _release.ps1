@@ -255,6 +255,7 @@ $releaseNewFiles = @(
     "src/ssh_access/terminal_view.py",
     "src/pages/ssh_panel.py",
     "tests/test_ssh_access.py",
+    "tests/test_ssh_terminal_view.py",
     "tests/test_ark_ini_config_only_writer.py",
     "tests/test_asm_ini_lossless_writer.py",
     "tests/test_ini_document.py",

@@ -1,9 +1,8 @@
 {
-    "version": "1.12.2",
+    "version": "1.12.3",
     "date": "2026-11-11",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.2/ARKLAND-Multi-Setup-v1.12.2.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.3/ARKLAND-Multi-Setup-v1.12.3.exe",
     "changelog": [
-        "SSH: Mantem o ciclo de resultados ativo apos uma resposta invalida.",
-        "SSH: Mostra falhas disparadas pelos botoes na propria pagina."
+        "SSH: corrige a construcao do terminal integrado; os botoes da aba voltam a receber suas acoes."
     ]
 }

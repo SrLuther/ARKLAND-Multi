@@ -32,7 +32,10 @@ class TerminalView(ctk.CTkFrame):
         self._after_id: str | None = None
         self._on_resize = on_resize
         self._render_scheduled = False
-        self._font = tkfont.Font(family="Consolas", size=10)
+        # CTkTextbox valida il tipo da font e rejeita tkinter.font.Font. Usar
+        # CTkFont evita que a construção do painel SSH pare antes de os
+        # callbacks dos botões serem ligados.
+        self._font = ctk.CTkFont(family="Consolas", size=10)
         self.textbox = ctk.CTkTextbox(
             self, wrap="none", font=self._font,
             fg_color="#11151b", text_color="#d8dee9",

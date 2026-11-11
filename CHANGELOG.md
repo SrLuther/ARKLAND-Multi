@@ -1,9 +1,29 @@
 # Changelog
 
-<!-- Gerado: 2026-11-11 01:31:03 -->
-<!-- Total de versões: 559 | Primeira: 1.12.0 -->
+<!-- Gerado: 2026-11-11 12:46:59 -->
+<!-- Total de versões: 562 | Primeira: 1.12.3 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.3] - 2026-11-11
+
+### Other
+
+- SSH: corrige a construcao do terminal integrado; os botoes da aba voltam a receber suas acoes.
+
+## [1.12.2] - 2026-11-11
+
+### Other
+
+- SSH: evita que erros ao processar resultados interrompam as ações seguintes.
+- SSH: exibe falhas dos botões na própria página para facilitar o diagnóstico.
+
+## [1.12.1] - 2026-11-11
+
+### Other
+
+- SSH: corrige caracteres acentuados na nova aba e valida a resposta do diagnóstico local.
+- Web Store: recompila o executável a partir do código atual para respeitar a porta configurada pelo TEK.
 
 ## [1.12.0] - 2026-11-11
 
