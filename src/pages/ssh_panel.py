@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import queue
+import logging
 import threading
 import uuid
 from pathlib import Path
@@ -27,7 +28,12 @@ def _worker(app, work_queue: queue.Queue, label: str, fn: Callable, *args, **kwa
             work_queue.put((label, fn(*args, **kwargs), None))
         except BaseException as exc:  # noqa: BLE001
             work_queue.put((label, None, exc))
-    threading.Thread(target=run, name=f"arkland-ssh-{label}", daemon=True).start()
+    try:
+        threading.Thread(target=run, name=f"arkland-ssh-{label}", daemon=True).start()
+    except Exception as exc:  # noqa: BLE001
+        # Em um executável sem console, falhas ao iniciar o worker precisam voltar
+        # para a fila da interface; caso contrário o clique parece não fazer nada.
+        work_queue.put((label, None, exc))
 
 
 def _format_results(results) -> str:
@@ -146,10 +152,25 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         results_box.insert("end", f"{title}\n\n{text}\n")
         results_box.configure(state="disabled")
 
+    def guarded_action(label: str, action: Callable) -> Callable:
+        """Mostra falhas de callbacks na própria página, inclusive no executável sem console."""
+        def run_action() -> None:
+            try:
+                action()
+            except Exception as exc:  # noqa: BLE001
+                logging.getLogger("arkland.ssh").exception("Falha na ação SSH: %s", label)
+                try:
+                    status_var.set(f"Falha: {label}")
+                    show_results(f"Falha: {label}", str(exc))
+                except Exception:  # noqa: BLE001
+                    logging.getLogger("arkland.ssh").exception("Falha ao exibir erro do botão SSH")
+        return run_action
+
     def add_profile_button(profile: SSHProfile) -> None:
         button = ctk.CTkButton(profile_list, text=f"{profile.name}\n{profile.username}@{profile.host}:{profile.port}",
                                anchor="w", height=52, fg_color="transparent", text_color=theme["text_primary"],
-                               hover_color=theme["accent_hover"], command=lambda p=profile: select_profile(p))
+                               hover_color=theme["accent_hover"],
+                               command=guarded_action("seleção de perfil", lambda p=profile: select_profile(p)))
         button.pack(fill="x", padx=4, pady=3)
         profile_buttons.append(button)
 
@@ -452,22 +473,22 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         details.configure(text="Selecione ou cadastre uma conexão.")
         refresh_profiles()
 
-    ctk.CTkButton(actions, text="Adicionar", command=lambda: edit_profile()).grid(row=0, column=0, sticky="ew", padx=3, pady=3)
-    ctk.CTkButton(actions, text="Editar", command=lambda: edit_profile(selected["profile"]) if selected["profile"] else None).grid(row=0, column=1, sticky="ew", padx=3, pady=3)
-    ctk.CTkButton(actions, text="Excluir", command=delete_profile, fg_color="#773c48", hover_color="#61313a").grid(row=1, column=0, columnspan=2, sticky="ew", padx=3, pady=3)
+    ctk.CTkButton(actions, text="Adicionar", command=guarded_action("adicionar perfil", lambda: edit_profile())).grid(row=0, column=0, sticky="ew", padx=3, pady=3)
+    ctk.CTkButton(actions, text="Editar", command=guarded_action("editar perfil", lambda: edit_profile(selected["profile"]) if selected["profile"] else None)).grid(row=0, column=1, sticky="ew", padx=3, pady=3)
+    ctk.CTkButton(actions, text="Excluir", command=guarded_action("excluir perfil", delete_profile), fg_color="#773c48", hover_color="#61313a").grid(row=1, column=0, columnspan=2, sticky="ew", padx=3, pady=3)
 
     def on_local_diagnostics():
         local_btn.configure(state="disabled")
         show_results("Diagnóstico local", "Verificando ambiente do ARKLAND…")
         _worker(app, work_queue, "local-diagnostic", run_local_diagnostics)
 
-    local_btn.configure(command=on_local_diagnostics)
-    remote_btn.configure(command=test_remote)
-    trust_btn.configure(command=trust_selected_host)
-    test_btn.configure(command=test_connection)
-    connect_btn.configure(command=connect_shell)
-    disconnect_btn.configure(command=disconnect)
-    codex_btn.configure(command=configure_codex_alias)
+    local_btn.configure(command=guarded_action("diagnóstico local", on_local_diagnostics))
+    remote_btn.configure(command=guarded_action("teste remoto", test_remote))
+    trust_btn.configure(command=guarded_action("revisão de fingerprint", trust_selected_host))
+    test_btn.configure(command=guarded_action("teste SSH", test_connection))
+    connect_btn.configure(command=guarded_action("conexão SSH", connect_shell))
+    disconnect_btn.configure(command=guarded_action("desconexão SSH", disconnect))
+    codex_btn.configure(command=guarded_action("alias Codex", configure_codex_alias))
 
     def process_results() -> None:
         try:
@@ -530,8 +551,21 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                         show_results("Sessão SSH", f"Conectado como {selected['profile'].username}@{selected['profile'].host}:{selected['profile'].port}. A sessão é interativa; comandos são enviados somente após digitação.")
         except queue.Empty:
             pass
-        if parent.winfo_exists():
-            parent.after(80, process_results)
+        except Exception as exc:  # noqa: BLE001
+            # Uma resposta inesperada não pode matar o polling da fila: isso fazia
+            # com que os próximos cliques não atualizassem status nem resultados.
+            logging.getLogger("arkland.ssh").exception("Falha ao atualizar a interface SSH")
+            try:
+                show_results("Erro na interface SSH", f"A ação terminou, mas não foi possível exibir o resultado: {exc}")
+                status_var.set("Falha ao exibir o resultado; tente novamente")
+            except Exception:  # noqa: BLE001
+                logging.getLogger("arkland.ssh").exception("Falha ao exibir erro da interface SSH")
+        finally:
+            try:
+                if parent.winfo_exists():
+                    parent.after(80, process_results)
+            except Exception:  # noqa: BLE001
+                logging.getLogger("arkland.ssh").exception("Falha ao reagendar atualização da interface SSH")
 
     refresh_profiles()
     process_results()

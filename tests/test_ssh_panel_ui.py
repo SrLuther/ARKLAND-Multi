@@ -91,6 +91,17 @@ def test_ssh_panel_local_diagnostic_button_runs_and_renders_result(monkeypatch, 
         lambda _app, work_queue, label, fn, *args, **kwargs:
             work_queue.put((label, fn(*args, **kwargs), None)),
     )
+    format_results = ssh_panel._format_results
+    format_calls = 0
+
+    def fail_once(results):
+        nonlocal format_calls
+        format_calls += 1
+        if format_calls == 1:
+            raise ValueError("resposta de teste inválida")
+        return format_results(results)
+
+    monkeypatch.setattr(ssh_panel, "_format_results", fail_once)
 
     class Parent(_Widget):
         def after(self, _delay, callback): scheduled.append(callback)
@@ -103,7 +114,14 @@ def test_ssh_panel_local_diagnostic_button_runs_and_renders_result(monkeypatch, 
     assert callable(button.command)
     button.command()
     assert button.state == "disabled"
-    # Process one queued result on the UI side, as Tk's after loop does.
+    # Uma resposta inesperada deve ser mostrada sem matar o polling da fila.
+    scheduled.pop(0)()
+    assert button.state == "normal"
+    assert any("resposta de teste inválida" in widget.content for widget in textboxes)
+    assert scheduled
+
+    # O diagnóstico continua respondendo a um segundo clique.
+    button.command()
     scheduled.pop(0)()
     assert button.state == "normal"
     assert any("OpenSSH disponível" in widget.content for widget in textboxes)
