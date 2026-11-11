@@ -3082,7 +3082,7 @@
       line-height: 1.4;
     }
 
-    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
+    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, .catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
@@ -4589,7 +4589,7 @@
         width: 100%;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, .catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
       .recharge-grid {
         grid-template-columns: 1fr;
         gap: 12px;
@@ -4730,7 +4730,7 @@
         text-align: center;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-recharge-grid {
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, .catalog-licenses-grid, #catalog-recharge-grid {
         grid-template-columns: 1fr;
       }
 
@@ -7793,11 +7793,14 @@
     #page-catalog .catalog-search-wrap input { min-height:44px; border-color:rgba(255,255,255,.10); border-radius:10px; background:#111a1e; }
     #page-catalog .catalog-search-wrap input:focus { border-color:rgba(232,160,32,.58); box-shadow:0 0 0 3px rgba(232,160,32,.10); }
     #page-catalog .catalog-sort-select { min-height:44px; border-radius:10px; }
+    #page-catalog .catalog-license-section { margin:18px 0 24px; }
+    #page-catalog .catalog-license-section__title { margin:0 0 3px; color:var(--text); font-size:18px; font-weight:700; }
+    #page-catalog .catalog-license-section__hint { margin:0 0 12px; color:var(--text2); font-size:12px; }
     #page-catalog .catalog-cats { gap:8px; margin:0 0 14px; padding:4px 2px 9px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:thin; }
     #page-catalog .catalog-cat-chip { padding:8px 13px; border-radius:10px; background:rgba(255,255,255,.035); }
     #page-catalog .catalog-cat-chip.active { border-color:rgba(232,160,32,.5); background:rgba(232,160,32,.14); }
     #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
-    #page-catalog #catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid {
+    #page-catalog .catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid {
       grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr)); gap:14px;
     }
     #page-catalog .item-card { min-height:0; flex-direction:column; border-color:rgba(255,255,255,.09); border-radius:16px; background:linear-gradient(145deg,rgba(24,32,36,.98),rgba(13,19,22,.98)); }
@@ -7831,14 +7834,14 @@
       #page-catalog .catalog-utility-row { align-items:flex-start; flex-direction:column; }
       #page-catalog .catalog-utility-row__links { width:100%; justify-content:space-between; }
       #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
-      #page-catalog #catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); }
+      #page-catalog .catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr)); }
     }
     @media (max-width:480px) {
       #page-catalog .catalog-hero__facts { gap:6px; }
       #page-catalog .catalog-hero__facts span { font-size:10px; }
       #page-catalog .catalog-policy-strip { flex-direction:column; align-items:flex-start; }
       #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
-      #page-catalog #catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:1fr; }
+      #page-catalog .catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:1fr; }
     }
     .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; display:flex; align-items:center; gap:10px; border:1px solid rgba(91,163,184,.48); border-radius:999px; padding:11px 16px 11px 11px; color:#c6d8dc; background:linear-gradient(145deg,rgba(19,31,36,.98),rgba(8,15,19,.99)); box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.035); font:700 14px Rajdhani,sans-serif; cursor:pointer; transition:border-color .2s,box-shadow .2s,color .2s,transform .2s; }
     .support-fab:hover { color:#e0f4f7;border-color:rgba(105,203,221,.76);box-shadow:0 8px 30px rgba(0,0,0,.62),0 0 16px rgba(70,174,197,.13),inset 0 1px rgba(255,255,255,.05);transform:translateY(-2px); }
@@ -8419,7 +8422,17 @@
             </select>
           </div>
           <p id="catalog-licenses-result-count" class="catalog-result-count" style="display:none;"></p>
-          <div id="catalog-licenses-grid"></div>
+          <section id="catalog-licenses-amber-section" class="catalog-license-section" aria-labelledby="catalog-licenses-amber-title">
+            <h3 id="catalog-licenses-amber-title" class="catalog-license-section__title">Licenças com Âmbares por tempo</h3>
+            <p class="catalog-license-section__hint">Licenças que aumentam o ganho enquanto você joga.</p>
+            <div id="catalog-licenses-amber-grid" class="catalog-licenses-grid"></div>
+          </section>
+          <section id="catalog-licenses-special-section" class="catalog-license-section" aria-labelledby="catalog-licenses-special-title">
+            <h3 id="catalog-licenses-special-title" class="catalog-license-section__title">Licenças especiais</h3>
+            <p class="catalog-license-section__hint">Acessos a recursos e funcionalidades, como Nuvem e Fazenda.</p>
+            <div id="catalog-licenses-special-grid" class="catalog-licenses-grid"></div>
+          </section>
+          <div id="catalog-licenses-pager"></div>
           <div id="catalog-licenses-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-audit-dinos" class="catalog-panel">
@@ -16196,6 +16209,7 @@ async function applyCatalogPayload(data, opts = {}) {
       ..._catalogDinoMeta(v, key),
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
+      licenseTimedBonus: Number(v.license_timed_bonus) || 0,
     }));
 
     _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
@@ -16443,6 +16457,7 @@ async function _loadCatalogLegacyUnused() {
       ..._catalogDinoMeta(v, key),
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
+      licenseTimedBonus: Number(v.license_timed_bonus) || 0,
     }));
 
     _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
@@ -16718,10 +16733,14 @@ function renderCatalogKits() {
 function renderCatalogLicenses() {
   const search = (document.getElementById("catalog-licenses-search")?.value || "").trim();
   const sort = document.getElementById("catalog-licenses-sort")?.value || "name";
-  const grid = document.getElementById("catalog-licenses-grid");
+  const amberGrid = document.getElementById("catalog-licenses-amber-grid");
+  const specialGrid = document.getElementById("catalog-licenses-special-grid");
+  const amberSection = document.getElementById("catalog-licenses-amber-section");
+  const specialSection = document.getElementById("catalog-licenses-special-section");
+  const pager = document.getElementById("catalog-licenses-pager");
   const empty = document.getElementById("catalog-licenses-empty");
   const countEl = document.getElementById("catalog-licenses-result-count");
-  if (!grid) return;
+  if (!amberGrid || !specialGrid) return;
 
   const filtered = _catalogSortItems(_catalogItems.filter(i => {
     if (!_isLicenseItem(i)) return false;
@@ -16729,7 +16748,11 @@ function renderCatalogLicenses() {
   }), sort);
 
   if (!filtered.length) {
-    grid.innerHTML = "";
+    amberGrid.innerHTML = "";
+    specialGrid.innerHTML = "";
+    if (amberSection) amberSection.style.display = "none";
+    if (specialSection) specialSection.style.display = "none";
+    if (pager) pager.innerHTML = "";
     if (empty) {
       empty.style.display = "";
       empty.innerHTML = _catalogPanelIdleHtml("licenses", search, "");
@@ -16738,7 +16761,19 @@ function renderCatalogLicenses() {
     return;
   }
   if (empty) empty.style.display = "none";
-  _catalogFillPagedGrid(grid, countEl, filtered, "licenses", "licenças", (i) => _renderProductCard(i, "Resgatar Licença"));
+  const { slice, page, pages, total } = _catalogPageSlice(filtered, "licenses");
+  const timed = slice.filter(i => Number(i.licenseTimedBonus) > 0);
+  const special = slice.filter(i => Number(i.licenseTimedBonus) <= 0);
+  if (amberSection) amberSection.style.display = timed.length ? "" : "none";
+  if (specialSection) specialSection.style.display = special.length ? "" : "none";
+  amberGrid.innerHTML = timed.map(i => _renderProductCard(i, "Resgatar Licença")).join("");
+  specialGrid.innerHTML = special.map(i => _renderProductCard(i, "Resgatar Licença")).join("");
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(total, "licenças")
+      + (pages > 1 ? ` · página ${page + 1}/${pages}` : "");
+  }
+  if (pager) pager.innerHTML = _catalogPagerHtml("licenses", page, pages, total);
 }
 
 /** Nível/gênero no pedido pendente (dinos e kits com dinos). */

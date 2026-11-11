@@ -192,7 +192,13 @@ def test_index_catalog_dom_pagination_20():
     # Aba única «Dinos» — sem painel/paginação «dinos200».
     assert '_catalogFillPagedGrid(grid, countEl, filtered, "dinos200"' not in html
     assert '_catalogFillPagedGrid(grid, countEl, filtered, "kits"' in html
-    assert '_catalogFillPagedGrid(grid, countEl, filtered, "licenses"' in html
+    assert 'const { slice, page, pages, total } = _catalogPageSlice(filtered, "licenses")' in html
+    assert 'slice.filter(i => Number(i.licenseTimedBonus) > 0)' in html
+    assert 'slice.filter(i => Number(i.licenseTimedBonus) <= 0)' in html
+    assert 'id="catalog-licenses-amber-grid"' in html
+    assert 'id="catalog-licenses-special-grid"' in html
+    assert "Licenças com Âmbares por tempo" in html
+    assert "Licenças especiais" in html
     assert "_catalogResetDomPage('items')" in html
     assert "_catalogResetDomPage(tab)" in html
     assert "Anterior" in html and "Próxima" in html

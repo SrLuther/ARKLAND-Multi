@@ -987,6 +987,35 @@ class TestCatalogPathAlignment:
         assert str(rich) in str(meta.get("config_path") or "")
         assert meta.get("catalog_note")
 
+    def test_build_catalog_payload_marks_license_timed_bonus(self, tmp_path, monkeypatch):
+        catalog = tmp_path / "license_catalog.json"
+        catalog.write_text(
+            json.dumps({
+                "Items": {
+                    "licenca_omega": {
+                        "Type": "license",
+                        "Category": "Licenças",
+                        "LicenseGrant": {"Group": "Omega", "Days": 30},
+                    },
+                    "licenca_fazenda": {
+                        "Type": "license",
+                        "Category": "Licenças",
+                        "LicenseGrant": {"Group": "keyfarm", "Days": 30},
+                    },
+                },
+                "Kits": {},
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(catalog))
+        self._use_isolated_catalog(monkeypatch, catalog)
+        monkeypatch.setattr(_app_module, "_timed_points_groups_amounts", lambda: {"Omega": 35})
+
+        payload = _app_module._build_catalog_payload()
+
+        assert payload["items"]["licenca_omega"]["license_timed_bonus"] == 35
+        assert payload["items"]["licenca_fazenda"]["license_timed_bonus"] == 0
+
 
 # ── Player summary & history ──────────────────────────────────────────────────
 

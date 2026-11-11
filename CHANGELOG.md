@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-10 23:06:03 -->
-<!-- Total de versões: 557 | Primeira: 1.11.65 -->
+<!-- Gerado: 2026-11-11 00:19:41 -->
+<!-- Total de versões: 558 | Primeira: 1.11.66 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.11.66] - 2026-11-11
+
+### Other
+
+- Web Store: catálogo de licenças separado em grades para Âmbares por tempo e licenças especiais, classificadas pelo bônus efetivo de cada grupo.
 
 ## [1.11.65] - 2026-11-10
 

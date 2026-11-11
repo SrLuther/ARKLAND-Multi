@@ -1,9 +1,8 @@
 {
-    "version": "1.11.65",
-    "date": "2026-11-10",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.65/ARKLAND-Multi-Setup-v1.11.65.exe",
+    "version": "1.11.66",
+    "date": "2026-11-11",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.11.66/ARKLAND-Multi-Setup-v1.11.66.exe",
     "changelog": [
-        "Inicialização: o aplicativo passa a iniciar com o Windows por padrão, com opção para desativar nas configurações gerais.",
-        "Configurações anteriores recebem o novo padrão uma única vez; após salvar, a preferência escolhida pelo usuário é preservada."
+        "Web Store: catálogo de licenças separado em grades para Âmbares por tempo e licenças especiais, classificadas pelo bônus efetivo de cada grupo."
     ]
 }

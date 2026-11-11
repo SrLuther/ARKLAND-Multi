@@ -12450,6 +12450,17 @@ def _build_catalog_payload() -> dict:
     items = data.get("Items") or data.get("ShopItems") or {}
     kits = data.get("Kits") or {}
     items, kits = enrich_catalog_payload(items, kits)
+    # Publica apenas o bônus efetivo por produto de licença para o catálogo
+    # separar visualmente benefícios especiais dos que geram Âmbares por tempo.
+    # A origem continua sendo a configuração TimedPointsReward já usada pelo jogo.
+    timed_amounts = _timed_points_groups_amounts()
+    for item_id, entry in items.items():
+        if not isinstance(entry, dict) or not _is_catalog_license_item(entry, str(item_id)):
+            continue
+        group = _catalog_license_group(entry, str(item_id))
+        entry["license_timed_bonus"] = _timed_points_bonus_for_group(
+            group, amounts=timed_amounts,
+        ) if group else 0
     settings_block = data.get("Settings") or {}
     shop_name = _public_brand_name(
         settings_block.get("ShopName")
