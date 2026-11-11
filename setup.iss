@@ -43,10 +43,6 @@ RestartApplications=yes
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
-[InstallDelete]
-; O tradutor agora usa Azure; remove apenas o armazenamento legado dedicado ao Argos.
-Type: filesandordirs; Name: "{userappdata}\ARKLAND-ServerManager\arkshop_web\translation\argos-packages"
-
 [Files]
 Source: "dist\ARKLAND-ServerManager.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\ARKLAND-Updater.exe";       DestDir: "{app}"; Flags: ignoreversion
