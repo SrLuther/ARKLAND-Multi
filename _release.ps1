@@ -280,7 +280,10 @@ $releaseNewFiles = @(
     "tools/tek_safe_startup_smoke.py",
     "docs/VALIDACAO_PRODUCAO_RC_1.12.4.md"
 )
-& git add -- $releaseNewFiles 2>&1
+# Capture Git's CRLF warnings through cmd, as above. PowerShell 7 can surface
+# native stderr as NativeCommandError even when git add succeeds.
+$releaseAddArgs = $releaseNewFiles -join " "
+cmd.exe /d /c "git add -- $releaseAddArgs 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add de fontes novas falhou (exit $LASTEXITCODE)" }
 # catalog.json do usuário: tira do stage sem alterar o working tree.
 & git reset HEAD -- plugin/CustomShop/catalog.json 2>&1
