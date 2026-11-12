@@ -2,7 +2,7 @@
 
 **Atualizado:** 11/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** candidata 1.12.4 compilada localmente; publicar somente apos os gates finais. A validacao em servidores ARK, SSH externo e WebStore de producao segue pendente. Roteiro: `docs/VALIDACAO_PRODUCAO_RC_1.12.4.md`.
+**Publicacao:** release 1.12.4 publicada. Suite candidata: 2.380 aprovados, 6 ignorados e nenhuma falha. Integridade do instalador confirmada por SHA-256 apos download. Testes em servidores ARK, SSH externo e WebStore de producao continuam pendentes; roteiro: `docs/VALIDACAO_PRODUCAO_RC_1.12.4.md`.
 
 ## Em andamento
 
