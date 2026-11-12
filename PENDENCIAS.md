@@ -2,10 +2,10 @@
 
 **Atualizado:** 12/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicação:** candidata 1.12.5 em preparação sobre a base 1.12.4 publicada. O site publicado respondeu versão 1.12.4 em 12/11/2026; a exibição no rodapé depende desta atualização e a validação visual ocorrerá após publicação.
+**Publicação:** v1.12.5 publicada e instalada na máquina ArkServer em 12/11/2026. Os três executáveis instalados correspondem por SHA-256 aos artefatos da release; `/api/version` público e local respondeu `1.12.5`, e a página servida contém o indicador do rodapé.
 
 ## Em andamento
-- [ ] **WebStore - versão no rodapé.** O backend publicado já oferece `/api/version`, alimentado por `version.json`; em 12/11/2026 retornou `1.12.4`. O frontend local agora consulta esse endpoint e mostra `WebStore vX` junto ao status da loja. Pendente testar após publicar e decidir se o número deve ser igualado ao gerenciador em cada release.
+- [x] **WebStore - versão no rodapé.** A release 1.12.5 usa o endpoint existente `/api/version` e exibe `WebStore vX` junto ao status da loja. O endpoint público e o servidor local na máquina ArkServer responderam `1.12.5`; a página HTML publicada contém o elemento e a rotina de consulta. A versão é a mesma do gerenciador nesta release.
 - [ ] **Mascote virtual da ajuda.** O site publicado ainda mostra o botão “Precisa de ajuda?” com envelope e o título “Atendimento ARKLAND”; nenhum mascote aparece integrado. O projeto investigativo segue sem implementação; preservar a imagem de referência aprovada.
 - [ ] **WebStore - Fazenda: Blueprints Primal Fear.** O site lista o grupo de retirada Primal Fear (18 recursos), mas isso não comprova que o plugin produza ou entregue os itens. Validar configuração, estoque e entrega em ambiente autorizado.
 
