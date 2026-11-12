@@ -94,6 +94,39 @@ def _iso(value: Any) -> str | None:
     return str(value) if value else None
 
 
+def _as_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None) if value.tzinfo else value
+    if isinstance(value, str) and value:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+        except ValueError:
+            return None
+    return None
+
+
+def _session_duration(connected_at: Any, last_seen_at: Any, persisted_seconds: Any, now: datetime) -> int:
+    persisted = max(0, int(persisted_seconds or 0))
+    connected = _as_datetime(connected_at)
+    last_seen = _as_datetime(last_seen_at)
+    if connected is None or last_seen is None:
+        return persisted
+    cutoff = now - timedelta(minutes=5)
+    endpoint = now if last_seen >= cutoff else last_seen
+    elapsed = max(0, int((endpoint - connected).total_seconds()))
+    return max(persisted, elapsed)
+
+
+def _completed_session_duration(connected_at: Any, ended_at: Any, persisted_seconds: Any) -> int:
+    persisted = max(0, int(persisted_seconds or 0))
+    connected = _as_datetime(connected_at)
+    ended = _as_datetime(ended_at)
+    if connected is None or ended is None:
+        return persisted
+    return max(persisted, 0, int((ended - connected).total_seconds()))
+
+
 def _upsert_profile(db: Any, now: datetime, payload: dict[str, Any]) -> None:
     steam_id = payload["steam_id"]
     existing = db.execute(
@@ -175,11 +208,21 @@ def register_player_monitoring_routes(
             ), payload).first()
             if event == "connect":
                 # A duplicate connection on the same server closes the old session at its last heartbeat.
-                db.execute(text(
-                    "UPDATE game_player_sessions SET disconnected_at=last_seen_at "
+                old_sessions = db.execute(text(
+                    "SELECT session_id, connected_at, last_seen_at, duration_seconds "
+                    "FROM game_player_sessions "
                     "WHERE server_id=:server_id AND steam_id=:steam_id "
                     "AND disconnected_at IS NULL AND session_id<>:session_id"
-                ), payload)
+                ), payload).mappings().all()
+                for old in old_sessions:
+                    db.execute(text(
+                        "UPDATE game_player_sessions SET disconnected_at=:ended, duration_seconds=:duration "
+                        "WHERE session_id=:session_id AND disconnected_at IS NULL"
+                    ), {
+                        "ended": old["last_seen_at"],
+                        "duration": _completed_session_duration(old["connected_at"], old["last_seen_at"], old["duration_seconds"]),
+                        "session_id": old["session_id"],
+                    })
                 if row is None:
                     db.execute(text(
                         "INSERT INTO game_player_sessions "
@@ -269,11 +312,46 @@ def register_player_monitoring_routes(
                 "FROM game_players gp LEFT JOIN store_users su ON su.steam_id=gp.steam_id "
                 f"WHERE {clause} ORDER BY gp.last_seen_at DESC, gp.steam_id LIMIT :limit OFFSET :offset"
             ), {**params, "online_since": datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=5)}).mappings().all()
+            # Older sessions may have timestamps but a zero duration due to the previous
+            # tracking behavior. Also include the elapsed portion of open sessions between
+            # heartbeats. Both are read-only calculations; existing rows are not rewritten.
+            player_ids = [str(row["steam_id"]) for row in rows]
+            recovered_seconds: dict[str, int] = {}
+            if player_ids:
+                placeholders = ", ".join(f":sid_{index}" for index in range(len(player_ids)))
+                open_sessions = db.execute(text(
+                    "SELECT steam_id, connected_at, last_seen_at, disconnected_at, duration_seconds "
+                    "FROM game_player_sessions "
+                    f"WHERE steam_id IN ({placeholders}) "
+                    "AND (duration_seconds=0 OR disconnected_at IS NULL)"
+                ), {f"sid_{index}": steam_id for index, steam_id in enumerate(player_ids)}).mappings().all()
+                now = datetime.now(UTC).replace(tzinfo=None)
+                online_since = now - timedelta(minutes=5)
+                for session_row in open_sessions:
+                    steam_id = str(session_row["steam_id"])
+                    connected_at = _as_datetime(session_row["connected_at"])
+                    last_seen_at = _as_datetime(session_row["last_seen_at"])
+                    disconnected_at = _as_datetime(session_row["disconnected_at"])
+                    if connected_at is None:
+                        continue
+                    if disconnected_at is not None:
+                        endpoint = disconnected_at
+                    elif last_seen_at is not None and last_seen_at >= online_since:
+                        # A fresh heartbeat means the player is still online, so count to now.
+                        endpoint = now
+                    else:
+                        # Stop stale sessions at their last confirmed heartbeat.
+                        endpoint = last_seen_at
+                    if endpoint is None:
+                        continue
+                    effective = max(0, int((endpoint - connected_at).total_seconds()))
+                    persisted = max(0, int(session_row["duration_seconds"] or 0))
+                    recovered_seconds[steam_id] = recovered_seconds.get(steam_id, 0) + max(effective, persisted) - persisted
             return jsonify({"ok": True, "total": total, "limit": limit_n, "offset": offset, "players": [
                 {**dict(row), "first_seen_at": _iso(row["first_seen_at"]),
                  "last_seen_at": _iso(row["last_seen_at"]), "last_game_login": _iso(row["last_game_login"]),
                  "site_linked": bool(row["site_linked"]), "active_sessions": int(row["active_sessions"] or 0) > 0,
-                 "total_play_seconds": int(row["total_play_seconds"] or 0)}
+                 "total_play_seconds": int(row["total_play_seconds"] or 0) + recovered_seconds.get(str(row["steam_id"]), 0)}
                 for row in rows
             ]})
         except Exception:
@@ -294,10 +372,21 @@ def register_player_monitoring_routes(
         try:
             _ensure_schema(db.get_bind())
             cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=5)
-            db.execute(text(
-                "UPDATE game_player_sessions SET disconnected_at=last_seen_at "
+            stale_sessions = db.execute(text(
+                "SELECT session_id, connected_at, last_seen_at, duration_seconds "
+                "FROM game_player_sessions "
                 "WHERE steam_id=:steam_id AND disconnected_at IS NULL AND last_seen_at<:cutoff"
-            ), {"steam_id": steam_id, "cutoff": cutoff})
+            ), {"steam_id": steam_id, "cutoff": cutoff}).mappings().all()
+            now = datetime.now(UTC).replace(tzinfo=None)
+            for stale in stale_sessions:
+                db.execute(text(
+                    "UPDATE game_player_sessions SET disconnected_at=:ended, duration_seconds=:duration "
+                    "WHERE session_id=:session_id AND disconnected_at IS NULL"
+                ), {
+                    "ended": stale["last_seen_at"],
+                    "duration": _completed_session_duration(stale["connected_at"], stale["last_seen_at"], stale["duration_seconds"]),
+                    "session_id": stale["session_id"],
+                })
             db.commit()
             rows = db.execute(text(
                 "SELECT session_id, server_id, connected_at, last_seen_at, disconnected_at, duration_seconds "
@@ -305,7 +394,12 @@ def register_player_monitoring_routes(
             ), {"steam_id": steam_id}).mappings().all()
             return jsonify({"ok": True, "sessions": [
                 {**dict(row), "connected_at": _iso(row["connected_at"]), "last_seen_at": _iso(row["last_seen_at"]),
-                 "disconnected_at": _iso(row["disconnected_at"]), "duration_seconds": int(row["duration_seconds"] or 0)}
+                 "disconnected_at": _iso(row["disconnected_at"]), "duration_seconds": (
+                     _completed_session_duration(
+                         row["connected_at"], row["disconnected_at"], row["duration_seconds"]
+                     ) if row["disconnected_at"] is not None else
+                     _session_duration(row["connected_at"], row["last_seen_at"], row["duration_seconds"], now)
+                 )}
                 for row in rows
             ]})
         except Exception:

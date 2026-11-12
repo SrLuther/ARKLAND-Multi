@@ -7847,9 +7847,21 @@
       #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
       #page-catalog .catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:1fr; }
     }
-    .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; display:flex; align-items:center; gap:10px; border:1px solid rgba(91,163,184,.48); border-radius:999px; padding:11px 16px 11px 11px; color:#c6d8dc; background:linear-gradient(145deg,rgba(19,31,36,.98),rgba(8,15,19,.99)); box-shadow:0 8px 28px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.035); font:700 14px Rajdhani,sans-serif; cursor:pointer; transition:border-color .2s,box-shadow .2s,color .2s,transform .2s; }
-    .support-fab:hover { color:#e0f4f7;border-color:rgba(105,203,221,.76);box-shadow:0 8px 30px rgba(0,0,0,.62),0 0 16px rgba(70,174,197,.13),inset 0 1px rgba(255,255,255,.05);transform:translateY(-2px); }
-    .support-fab__icon { width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(91,163,184,.3);background:linear-gradient(145deg,rgba(71,155,177,.16),rgba(71,155,177,.045));color:#72c4d4;font-size:16px; }
+    .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; width:143px; min-height:165px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:0; border:0; padding:0 0 7px; color:#d9f6fa; background:transparent; font:700 14px Rajdhani,sans-serif; cursor:pointer; filter:drop-shadow(0 8px 12px rgba(0,0,0,.55)); transition:filter .2s,transform .2s; }
+    .support-fab:hover { filter:drop-shadow(0 9px 15px rgba(0,0,0,.64)) drop-shadow(0 0 8px rgba(70,174,197,.28)); }
+    .support-fab__character { position:absolute;z-index:0;inset:0 5px 22px;display:block;pointer-events:none; }
+    .support-fab__cat { position:absolute;inset:0;display:block;pointer-events:none; }
+    .support-fab__art { display:block;width:100%;height:100%;object-fit:contain; }
+    .support-fab__eyes { position:absolute;z-index:2;inset:0;width:100%;height:100%;overflow:visible; }
+    .support-fab__eye-white { fill:#fff0d4;stroke:#071a24;stroke-width:11;stroke-linejoin:round; }
+    .support-fab__iris { fill:url(#supportIris);stroke:#6a3100;stroke-width:8; }
+    .support-fab__pupil { fill:#071018;transition:transform .12s ease-out; }
+    .support-fab__glint { fill:#fff;pointer-events:none; }
+    .support-fab__lid { fill:#0b3043;transform:scaleY(0);transform-box:fill-box;transform-origin:top; }
+    .support-fab.is-blinking .support-fab__lid { animation:supportMascotBlink .16s ease-in-out; }
+    @keyframes supportMascotBlink { 0%,100%{transform:scaleY(0)} 45%,60%{transform:scaleY(1)} }
+    .support-fab__plaque { position:relative;z-index:1;display:block;width:100%;padding:8px 7px 7px;border:1px solid rgba(117,205,218,.62);border-radius:11px;background:linear-gradient(145deg,#27363a,#0e181d 68%,#18262a);box-shadow:inset 0 1px rgba(255,255,255,.16),inset 0 -3px rgba(0,0,0,.35),0 2px 0 #060b0e;color:#d8f5f7;text-shadow:0 1px 2px #071013;letter-spacing:.035em; }
+    .support-fab:focus-visible { outline:3px solid #ffc65b;outline-offset:4px; }
     .support-window { position:fixed;z-index:10021;right:26px;bottom:84px;width:min(390px,calc(100vw - 28px));height:min(570px,calc(100dvh - 112px));display:none;flex-direction:column;overflow:hidden;border:1px solid rgba(91,163,184,.32);border-radius:18px;background:linear-gradient(160deg,#111e24,#080d11 75%);box-shadow:0 24px 80px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.04);color:#e4edf0; }
     .support-window.open { display:flex;animation:supportPop .18s ease-out; }
     @keyframes supportPop { from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none} }
@@ -7909,7 +7921,12 @@
     .home-server-settings__row span { color:var(--text2); }
     .home-server-settings__row strong { color:var(--text);text-align:right;font-variant-numeric:tabular-nums; }
     .home-server-settings__note { margin:12px 0 0;color:var(--text2);font-size:11px;line-height:1.5; }
-    @media(max-width:600px){.support-fab{right:14px;bottom:14px;padding:10px 14px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
+    .support-faq-answer { padding:12px;border:1px solid rgba(91,163,184,.18);border-radius:11px;background:rgba(255,255,255,.025);color:#d6e4e7;font-size:13px;line-height:1.6;white-space:pre-line; }
+    .support-faq-actions { display:flex;gap:8px;margin-top:12px; }
+    .support-faq-actions button { flex:1;border:1px solid rgba(91,163,184,.25);border-radius:8px;padding:9px 7px;background:#111c21;color:#b9d2d7;font:600 12px Rajdhani,sans-serif;cursor:pointer; }
+    .support-faq-actions button:hover { border-color:rgba(105,203,221,.55);color:#d9f6fa; }
+    @media(max-width:600px){.support-fab{right:14px;bottom:14px;width:112px;min-height:134px;font-size:12px}.support-fab__character{inset:0 3px 19px}.support-fab__plaque{padding:6px 4px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
+    @media(prefers-reduced-motion:reduce){.support-fab,.support-fab__pupil{transition:none!important}.support-fab:hover{transform:none}.support-fab.is-blinking .support-fab__lid{animation:none!important}.support-window.open{animation:none!important}}
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
   <link rel="stylesheet" href="guia.css?v=__WEB_BUILD__" />
@@ -37014,12 +37031,27 @@ document.addEventListener("keydown", (e) => {
 </div>
 
 <!-- Atendimento rápido: widget flutuante de tickets -->
-<button id="support-fab" class="support-fab" type="button" onclick="supportWidgetToggle()" aria-expanded="false" aria-controls="support-window">
-  <span class="support-fab__icon">✉</span><span>Precisa de ajuda?</span>
+<button id="support-fab" class="support-fab" type="button" onclick="supportWidgetOpenHelp()" aria-label="Precisa de ajuda? Abrir dúvidas e atendimento" aria-expanded="false" aria-controls="support-window">
+  <span class="support-fab__character" aria-hidden="true">
+    <span class="support-fab__cat">
+      <img class="support-fab__art" src="arkland-help-cat-v1.png?v=__WEB_BUILD__" alt="" width="1294" height="1216" loading="lazy" fetchpriority="low">
+    </span>
+    <svg class="support-fab__eyes" viewBox="0 0 1294 1216" aria-hidden="true">
+      <defs><radialGradient id="supportIris" cx="38%" cy="34%"><stop offset="0" stop-color="#ffe879"/><stop offset=".72" stop-color="#ffb51c"/><stop offset="1" stop-color="#e57708"/></radialGradient></defs>
+      <path class="support-fab__eye-white" d="M552 420 Q586 365 641 360 Q712 353 751 419 Q716 458 662 465 Q594 469 552 420Z"/>
+      <path class="support-fab__eye-white" d="M844 390 Q873 321 924 315 Q984 309 1016 366 Q986 414 932 427 Q876 436 844 390Z"/>
+      <ellipse class="support-fab__iris" cx="663" cy="414" rx="48" ry="53"/><ellipse class="support-fab__iris" cx="925" cy="371" rx="43" ry="48"/>
+      <g data-support-pupil="left"><ellipse class="support-fab__pupil" cx="663" cy="414" rx="22" ry="32"/><circle class="support-fab__glint" cx="650" cy="394" r="9"/></g>
+      <g data-support-pupil="right"><ellipse class="support-fab__pupil" cx="925" cy="371" rx="20" ry="29"/><circle class="support-fab__glint" cx="913" cy="353" r="8"/></g>
+      <path class="support-fab__lid" d="M545 411 Q584 351 646 350 Q715 345 759 412 L755 425 Q707 374 651 375 Q590 375 551 429Z"/>
+      <path class="support-fab__lid" d="M836 379 Q867 309 929 305 Q992 300 1024 359 L1017 371 Q979 329 927 331 Q876 334 842 395Z"/>
+    </svg>
+  </span>
+  <span class="support-fab__plaque">Precisa de ajuda?</span>
 </button>
 <section id="support-window" class="support-window" role="dialog" aria-label="Atendimento ARKLAND">
-  <header class="support-head"><div><strong>Atendimento ARKLAND</strong><small>Tickets e suporte do servidor</small></div><div class="support-head__actions"><button id="support-translation-settings-toggle" class="support-settings-toggle" type="button" onclick="supportWidgetAzurePanelToggle()" aria-label="Configurações do tradutor" title="Configurações do tradutor" aria-expanded="false" aria-controls="support-translation-admin" hidden>⚙</button><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></div></header>
-  <nav class="support-tabs"><button id="support-tab-list" class="active" onclick="supportWidgetTab('list')">Meus tickets</button><button id="support-tab-new" onclick="supportWidgetTab('new')">+ Novo ticket</button><select id="support-language" class="support-language" aria-label="Idioma das traduções" onchange="supportWidgetSetLanguage(this.value)"><option value="en">English</option><option value="es">Español</option><option value="pt">Português</option></select></nav>
+  <header class="support-head"><div><strong id="support-head-title">Atendimento ARKLAND</strong><small>Dúvidas, tickets e suporte</small></div><div class="support-head__actions"><button id="support-translation-settings-toggle" class="support-settings-toggle" type="button" onclick="supportWidgetAzurePanelToggle()" aria-label="Configurações do tradutor" title="Configurações do tradutor" aria-expanded="false" aria-controls="support-translation-admin" hidden>⚙</button><button class="support-close" type="button" onclick="supportWidgetToggle(false)" aria-label="Fechar">×</button></div></header>
+  <nav class="support-tabs"><button id="support-tab-faq" class="active" onclick="supportWidgetTab('faq')">Dúvidas rápidas</button><button id="support-tab-list" onclick="supportWidgetTab('list')">Meus tickets</button><button id="support-tab-new" onclick="supportWidgetTab('new')">+ Novo ticket</button><select id="support-language" class="support-language" aria-label="Idioma das traduções" onchange="supportWidgetSetLanguage(this.value)"><option value="en">English</option><option value="es">Español</option><option value="pt">Português</option></select></nav>
   <section id="support-translation-admin" class="support-translation-admin" hidden aria-label="Administração do tradutor">
     <div class="support-translation-admin__head"><div class="support-translation-admin__title">Tradutor Azure</div><button class="support-settings-close" type="button" onclick="supportWidgetAzurePanelToggle(false)" aria-label="Fechar configurações">×</button></div>
     <div id="support-translation-admin-status" class="support-translation-admin__status" aria-live="polite">Carregando estado…</div>
@@ -37039,7 +37071,7 @@ document.addEventListener("keydown", (e) => {
 
 <script>
 const _supportPreview = new URLSearchParams(location.search).has("preview");
-let _supportTab = "list", _supportSelected = null;
+let _supportTab = "faq", _supportSelected = null, _supportFaqTicketContext = null;
 let _supportLanguage = localStorage.getItem("arkland-support-language") || "en";
 document.getElementById("support-language").value = _supportLanguage;
 let _supportFabAvoidFrame = 0;
@@ -37130,8 +37162,14 @@ function supportWidgetToggle(force) {
   const open=typeof force==="boolean"?force:!box.classList.contains("open");
   box.classList.toggle("open",open);fab.setAttribute("aria-expanded",String(open));
   document.getElementById("toast-container")?.classList.toggle("support-chat-open",open);
-  if(open) { supportWidgetTab(_supportTab); if(_auth?.is_admin)supportWidgetAzureStatus(false); }
+  if(open) { updateSupportMascotGreeting(); supportWidgetTab(_supportTab); if(_auth?.is_admin)supportWidgetAzureStatus(false); }
   else supportWidgetAzurePanelToggle(false);
+}
+function supportWidgetOpenHelp(){_supportTab="faq";supportWidgetToggle(true);}
+function updateSupportMascotGreeting(){
+  const title=document.getElementById("support-head-title");if(!title)return;
+  const name=String(_auth?.steam_persona||_auth?.display_name||"").trim();
+  title.textContent=name?`Olá ${name}, como podemos ajudar você?`:"Olá, como podemos ajudar você?";
 }
 function supportWidgetError(error) {
   const content=document.getElementById("support-content");
@@ -37142,11 +37180,32 @@ function supportWidgetError(error) {
 }
 function supportWidgetLaunchNew() { supportWidgetToggle(true); supportWidgetTab("new"); }
 function supportWidgetTab(tab) {
+  if(!["faq","list","new"].includes(tab))tab="faq";
   _supportTab=tab;_supportSelected=null;document.getElementById("support-reply").style.display="none";
+  document.getElementById("support-tab-faq").classList.toggle("active",tab==="faq");
   document.getElementById("support-tab-list").classList.toggle("active",tab==="list");
   document.getElementById("support-tab-new").classList.toggle("active",tab==="new");
-  if(tab==="new") supportWidgetRenderForm(); else supportWidgetLoad();
+  if(tab==="new") supportWidgetRenderForm(); else if(tab==="faq")supportWidgetRenderFaq();else supportWidgetLoad();
 }
+const _supportFaqEntries=[
+  {id:"catalogo",title:"Catálogo e criaturas",hint:"Encontrar itens e consultar opções",answer:"Abra a Loja e escolha Catálogo. Use as categorias e filtros para localizar itens e criaturas disponíveis. A disponibilidade e as regras exibidas na página do produto prevalecem."},
+  {id:"resgate",title:"Resgates e entregas",hint:"Acompanhar uma compra ou resgate",answer:"Confira seus pedidos e resgates na área da conta. Verifique o mapa/servidor selecionado e siga as instruções mostradas no pedido. Se a entrega não aparecer, abra um ticket em Resgate / entrega com o número do pedido e o servidor."},
+  {id:"kits",title:"Kits",hint:"Consultar ou resgatar kits",answer:"Consulte a área de Kits da Loja para ver disponibilidade, requisitos e instruções. Se um resgate válido não chegar ao personagem, informe o kit, servidor e horário em um ticket."},
+  {id:"licencas",title:"Licenças e Ambares",hint:"Licenças especiais e bônus por tempo",answer:"Veja suas licenças e o saldo/histórico na área da conta. Licenças especiais e licenças com bônus periódico podem ter regras diferentes; confira a descrição de cada licença antes de comprar ou resgatar."},
+  {id:"doacao",title:"Doações",hint:"Comprovantes e benefícios",answer:"Use a área de Doações para consultar as opções e o estado do pagamento. Para pagamento confirmado sem benefício aplicado, abra um ticket em Doação e inclua a referência da transação; não envie dados completos de cartão."},
+  {id:"discord",title:"Vincular Discord",hint:"Conectar a conta Discord ao site",answer:"Acesse sua conta e use a opção de vinculação do Discord. Confirme a autorização na página do Discord e retorne ao site para conferir o estado do vínculo. Nunca compartilhe senha ou token."}
+];
+function supportWidgetRenderFaq(){
+  const el=document.getElementById("support-content");document.getElementById("support-reply").style.display="none";
+  el.innerHTML=`<div class="support-note">Olá! Escolha um assunto para ver uma orientação rápida. Se não resolver, você pode falar com o suporte.</div>${_supportFaqEntries.map(item=>`<button class="support-item" type="button" onclick="supportWidgetFaqAnswer('${item.id}')"><b>${item.title}</b><small>${item.hint}</small></button>`).join("")}`;
+}
+function supportWidgetFaqAnswer(id){
+  const entry=_supportFaqEntries.find(item=>item.id===id);if(!entry)return;
+  _supportFaqTicketContext={subject:`Ajuda: ${entry.title}`,body:`Assunto: ${entry.title}\n\nAinda preciso de ajuda com esta orientação.\n`};
+  document.getElementById("support-content").innerHTML=`<button class="support-back" type="button" onclick="supportWidgetRenderFaq()">← Todas as dúvidas</button><h3 style="margin:12px 0 8px;color:#91d5df">${entry.title}</h3><div class="support-faq-answer">${entry.answer}</div><p style="margin:12px 0 4px;color:#a9bec3;font-size:12px">Esta orientação resolveu sua dúvida?</p><div class="support-faq-actions"><button type="button" onclick="supportWidgetFaqResolved()">Sim, obrigado</button><button type="button" onclick="supportWidgetFaqNeedHelp()">Ainda preciso de ajuda</button></div>`;
+}
+function supportWidgetFaqResolved(){document.getElementById("support-content").innerHTML='<div class="support-note" role="status">Que bom! Você pode voltar às dúvidas quando quiser.</div><button class="support-back" type="button" onclick="supportWidgetRenderFaq()">Ver outras dúvidas</button>';}
+function supportWidgetFaqNeedHelp(){supportWidgetTab("new");const subject=document.getElementById("sw-subject"),body=document.getElementById("sw-body");if(subject&&_supportFaqTicketContext)subject.value=_supportFaqTicketContext.subject;if(body&&_supportFaqTicketContext)body.value=_supportFaqTicketContext.body;}
 function supportWidgetRenderForm() {
   const preview=_supportPreview;
   document.getElementById("support-content").innerHTML=`${preview?'<div class="support-note">Prévia demonstrativa: o envio de tickets fica disponível no site com login conectado.</div>':''}<form class="support-form" onsubmit="supportWidgetCreate(event)">
@@ -37194,6 +37253,27 @@ async function supportWidgetDetail(id,demo=false) {
 async function supportWidgetSendReply(){const body=document.getElementById("sw-reply-body")?.value.trim();if(!body||!_supportSelected)return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/reply`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body,links:[]}),timeoutMs:15000});if(!d.ok)throw new Error(d.error||"Falha ao enviar");toast("Resposta enviada.","success");supportWidgetDetail(_supportSelected);}catch(e){supportWidgetError(e);}}
 async function supportWidgetRequestClose(){if(!_supportSelected||!confirm("Confirmar que o problema foi resolvido e solicitar o encerramento deste ticket? A equipe ainda fará a confirmação final."))return;try{const d=await fetchJson(`/api/tickets/${_supportSelected}/request-close`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({}),timeoutMs:12000});if(!d.ok)throw new Error(d.error||"Não foi possível solicitar o encerramento");toast("Pedido enviado à equipe de suporte.","success");supportWidgetDetail(_supportSelected);}catch(e){supportWidgetError(e);}}
 async function supportWidgetTranslate(button){const original=button.dataset.original||"",out=button.parentElement.querySelector(".support-translation");if(!original||!out)return;if(_supportPreview){const translations={en:["Hello! I have a question about progression on the server.","Hello! Can you tell us which map and situation this happened on? We’ll help you."],es:["¡Hola! Tengo una pregunta sobre la progresión en el servidor.","¡Hola! ¿Puedes decirnos en qué mapa y situación ocurrió? Te ayudaremos."]};const idx=[...document.querySelectorAll(".support-translate")].indexOf(button);out.textContent=(translations[_supportLanguage]||[])[idx]||original;return;}button.disabled=true;button.textContent="Traduzindo…";try{const d=await fetchJson("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:original,target:_supportLanguage}),timeoutMs:35000,retries:0});if(!d.ok)throw new Error(d.error||"Tradução temporariamente indisponível.");out.textContent=d.translated;button.textContent="Mostrar original";button.onclick=()=>{out.textContent="";button.textContent="Translate";button.onclick=()=>supportWidgetTranslate(button);};}catch(e){out.textContent="Tradução temporariamente indisponível. A mensagem original foi preservada.";button.textContent="Translate";}finally{button.disabled=false;}}
+</script>
+<script>
+(function initSupportMascot(){
+  const fab=document.getElementById("support-fab");if(!fab)return;
+  const reduced=window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const pupils=[...fab.querySelectorAll("[data-support-pupil]")];let frame=0,pointer=null,blinkTimer=0;
+  function paintGaze(){
+    frame=0;if(!pointer||reduced?.matches||document.hidden)return;
+    const rect=fab.querySelector(".support-fab__cat")?.getBoundingClientRect();if(!rect)return;
+    const cx=rect.left+rect.width*.614,cy=rect.top+rect.height*.327;
+    const dx=Math.max(-24,Math.min(24,(pointer.x-cx)/(rect.width*.25||1)*24));
+    const dy=Math.max(-17,Math.min(17,(pointer.y-cy)/(rect.height*.19||1)*17));
+    pupils.forEach(group=>group.setAttribute("transform",`translate(${dx.toFixed(1)} ${dy.toFixed(1)})`));
+  }
+  function onPointerMove(event){if(event.pointerType==="touch")return;pointer={x:event.clientX,y:event.clientY};if(!frame)frame=requestAnimationFrame(paintGaze);}
+  function centerGaze(){pointer=null;pupils.forEach(group=>group.removeAttribute("transform"));}
+  window.addEventListener("pointermove",onPointerMove,{passive:true});fab.addEventListener("pointerleave",centerGaze);
+  function scheduleBlink(){if(reduced?.matches)return;blinkTimer=window.setTimeout(()=>{fab.classList.remove("is-blinking");void fab.offsetWidth;fab.classList.add("is-blinking");window.setTimeout(()=>fab.classList.remove("is-blinking"),190);scheduleBlink();},3800+Math.random()*2600);}
+  document.addEventListener("visibilitychange",()=>{if(document.hidden){window.clearTimeout(blinkTimer);centerGaze();}else scheduleBlink();});
+  scheduleBlink();reduced?.addEventListener?.("change",event=>{if(event.matches){window.clearTimeout(blinkTimer);centerGaze();}else scheduleBlink();});
+})();
 </script>
 
 </body>

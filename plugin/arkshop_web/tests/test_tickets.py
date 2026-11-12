@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -553,14 +554,264 @@ def test_internal_discord_nickname_snapshot_uses_latest_linked_game_identity(tic
         api_key_required=lambda _allow_admin: (lambda fn: fn),
     )
     payload = route_app.test_client().get("/api/internal/discord/nickname-sync").get_json()
-    assert payload == {
-        "ok": True,
-        "users": [{
-            "discord_user_id": "555123456",
-            "character_name": "Ciano",
-            "tribe_name": "BøT",
-        }],
+    assert payload["ok"] is True
+    assert payload["users"][0]["discord_user_id"] == "555123456"
+    assert payload["users"][0]["character_name"] == "Ciano"
+    assert payload["users"][0]["identity_source"] == "last_known"
+    assert payload["users"][0]["identity_last_seen_at"] == "2026-11-05 10:00:00"
+    assert payload["diagnostics"]["active_source"] == "fallback"
+    assert "Tabelas de sessões online" in payload["diagnostics"]["active_error"]
+
+
+def test_internal_discord_nickname_snapshot_falls_back_to_player_monitor_for_pdid_member(ticket_db, tmp_path):
+    """A linked player still gets a nickname when TribeSync only has a pdid key."""
+    from flask import Flask, session
+    from ticket_routes import register_ticket_routes
+
+    Session = sessionmaker(bind=ticket_db.get_bind())
+    code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    assert confirm_discord_link_code_for_discord_user(
+        ticket_db, code["code"], discord_user_id="555123456", discord_username="CianoDiscord"
+    )["ok"] is True
+    ticket_db.execute(text("""
+        CREATE TABLE tribe_members (
+            steam_id TEXT NOT NULL, player_data_id INTEGER, character_name TEXT, tribe_name TEXT,
+            last_seen_at TEXT, server_id TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO tribe_members (steam_id,player_data_id,character_name,tribe_name,last_seen_at,server_id)
+        VALUES ('pdid:12345',12345,'Ciano','Primal Fear','2026-11-12 10:00:00','map_a')
+    """))
+    ticket_db.execute(text("""
+        CREATE TABLE game_players (
+            steam_id TEXT PRIMARY KEY, player_name TEXT, tribe_name TEXT, last_seen_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO game_players (steam_id,player_name,tribe_name,last_seen_at)
+        VALUES (:sid,'Ciano','Primal Fear','2026-11-12 10:01:00')
+    """), {"sid": USER_STEAM})
+    ticket_db.commit()
+
+    route_app = Flask("discord-nickname-pdid-fallback-test")
+    route_app.secret_key = "test-secret"
+    register_ticket_routes(
+        route_app,
+        db_ready=lambda: True,
+        session_factory=Session,
+        login_required=lambda fn: fn,
+        admin_required=lambda fn: fn,
+        ticket_staff_required=lambda fn: fn,
+        steam_id_from_session=lambda: session.get("steam_id"),
+        is_admin_steamid=lambda _sid: False,
+        can_manage_tickets=lambda _sid: False,
+        uploads_dir=tmp_path,
+        api_key_required=lambda _allow_admin: (lambda fn: fn),
+    )
+
+    payload = route_app.test_client().get("/api/internal/discord/nickname-sync").get_json()
+    assert payload["ok"] is True
+    assert payload["users"][0]["discord_user_id"] == "555123456"
+    assert payload["users"][0]["character_name"] == "Ciano"
+    assert payload["users"][0]["tribe_name"] == "Primal Fear"
+    assert payload["users"][0]["identity_source"] == "last_known"
+    assert payload["diagnostics"]["fallback"] == 1
+
+
+def test_internal_discord_nickname_snapshot_prefers_online_map_over_last_known_identity(ticket_db, tmp_path):
+    from flask import Flask, session
+    from ticket_routes import register_ticket_routes
+
+    Session = sessionmaker(bind=ticket_db.get_bind())
+    code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    assert confirm_discord_link_code_for_discord_user(
+        ticket_db, code["code"], discord_user_id="555123456", discord_username="CianoDiscord"
+    )["ok"] is True
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    online_at = now.strftime("%Y-%m-%d %H:%M:%S.%f")
+    skewed_history_at = (now + timedelta(seconds=10)).strftime("%Y-%m-%d %H:%M:%S.%f")
+    ticket_db.execute(text("""
+        CREATE TABLE tribe_members (
+            steam_id TEXT NOT NULL, character_name TEXT, tribe_name TEXT, last_seen_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO tribe_members (steam_id,character_name,tribe_name,last_seen_at)
+        VALUES (:sid,'NomeAntigo','TriboAntiga',:last_seen)
+    """), {"sid": USER_STEAM, "last_seen": skewed_history_at})
+    ticket_db.execute(text("""
+        CREATE TABLE game_players (
+            steam_id TEXT PRIMARY KEY, player_name TEXT, tribe_name TEXT, server_id TEXT, last_seen_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO game_players (steam_id,player_name,tribe_name,server_id,last_seen_at)
+        VALUES (:sid,'CianoNoMapaAtual','Primal Fear','map_b',:last_seen)
+    """), {"sid": USER_STEAM, "last_seen": online_at})
+    ticket_db.execute(text("""
+        CREATE TABLE game_player_sessions (
+            session_id TEXT PRIMARY KEY, server_id TEXT, steam_id TEXT,
+            last_seen_at TEXT, disconnected_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO game_player_sessions (session_id,server_id,steam_id,last_seen_at,disconnected_at)
+        VALUES ('session-map-b','map_b',:sid,:last_seen,NULL)
+    """), {"sid": USER_STEAM, "last_seen": online_at})
+    ticket_db.commit()
+
+    route_app = Flask("discord-nickname-online-priority-test")
+    route_app.secret_key = "test-secret"
+    register_ticket_routes(
+        route_app,
+        db_ready=lambda: True,
+        session_factory=Session,
+        login_required=lambda fn: fn,
+        admin_required=lambda fn: fn,
+        ticket_staff_required=lambda fn: fn,
+        steam_id_from_session=lambda: session.get("steam_id"),
+        is_admin_steamid=lambda _sid: False,
+        can_manage_tickets=lambda _sid: False,
+        uploads_dir=tmp_path,
+        api_key_required=lambda _allow_admin: (lambda fn: fn),
+    )
+
+    payload = route_app.test_client().get("/api/internal/discord/nickname-sync").get_json()
+    assert payload["ok"] is True
+    assert payload["users"] == [{
+        "discord_user_id": "555123456",
+        "character_name": "CianoNoMapaAtual",
+        "tribe_name": "Primal Fear",
+        "identity_source": "active_session",
+        "identity_last_seen_at": online_at,
+    }]
+    assert payload["diagnostics"] == {
+        "active_source": "available", "active_error": None, "online": 1, "fallback": 0,
     }
+
+
+def test_internal_discord_nickname_snapshot_includes_online_player_without_tribe(ticket_db, tmp_path):
+    """No-tribe players still reach the bot, which formats them as [Tribo] | Nick."""
+    from flask import Flask, session
+    from ticket_routes import register_ticket_routes
+
+    Session = sessionmaker(bind=ticket_db.get_bind())
+    code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    assert confirm_discord_link_code_for_discord_user(
+        ticket_db, code["code"], discord_user_id="555123456", discord_username="CianoDiscord"
+    )["ok"] is True
+    now = datetime.now(UTC).replace(tzinfo=None)
+    online_at = now.strftime("%Y-%m-%d %H:%M:%S.%f")
+    ticket_db.execute(text("""
+        CREATE TABLE game_players (
+            steam_id TEXT PRIMARY KEY, player_name TEXT, tribe_name TEXT, server_id TEXT, last_seen_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO game_players (steam_id,player_name,tribe_name,server_id,last_seen_at)
+        VALUES (:sid,'Ciano','', 'map_b',:last_seen)
+    """), {"sid": USER_STEAM, "last_seen": online_at})
+    ticket_db.execute(text("""
+        CREATE TABLE game_player_sessions (
+            session_id TEXT PRIMARY KEY, server_id TEXT, steam_id TEXT,
+            last_seen_at TEXT, disconnected_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO game_player_sessions (session_id,server_id,steam_id,last_seen_at,disconnected_at)
+        VALUES ('session-map-b','map_b',:sid,:last_seen,NULL)
+    """), {"sid": USER_STEAM, "last_seen": online_at})
+    ticket_db.commit()
+
+    route_app = Flask("discord-nickname-no-tribe-test")
+    route_app.secret_key = "test-secret"
+    register_ticket_routes(
+        route_app,
+        db_ready=lambda: True,
+        session_factory=Session,
+        login_required=lambda fn: fn,
+        admin_required=lambda fn: fn,
+        ticket_staff_required=lambda fn: fn,
+        steam_id_from_session=lambda: session.get("steam_id"),
+        is_admin_steamid=lambda _sid: False,
+        can_manage_tickets=lambda _sid: False,
+        uploads_dir=tmp_path,
+        api_key_required=lambda _allow_admin: (lambda fn: fn),
+    )
+
+    payload = route_app.test_client().get("/api/internal/discord/nickname-sync").get_json()
+    assert payload["ok"] is True
+    assert payload["users"] == [{
+        "discord_user_id": "555123456",
+        "character_name": "Ciano",
+        "tribe_name": "",
+        "identity_source": "active_session",
+        "identity_last_seen_at": online_at,
+    }]
+
+
+def test_internal_discord_nickname_snapshot_falls_back_and_logs_online_lookup_error(ticket_db, tmp_path, caplog):
+    from flask import Flask, session
+    from ticket_routes import register_ticket_routes
+
+    Session = sessionmaker(bind=ticket_db.get_bind())
+    code = generate_discord_link_code(ticket_db, steam_id=USER_STEAM)
+    assert confirm_discord_link_code_for_discord_user(
+        ticket_db, code["code"], discord_user_id="555123456", discord_username="CianoDiscord"
+    )["ok"] is True
+    ticket_db.execute(text("""
+        CREATE TABLE tribe_members (
+            steam_id TEXT NOT NULL, character_name TEXT, tribe_name TEXT, last_seen_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO tribe_members (steam_id,character_name,tribe_name,last_seen_at)
+        VALUES (:sid,'UltimoNome','UltimaTribo','2026-11-12 10:00:00')
+    """), {"sid": USER_STEAM})
+    ticket_db.execute(text("""
+        CREATE TABLE game_players (
+            steam_id TEXT PRIMARY KEY, player_name TEXT, tribe_name TEXT, server_id TEXT, last_seen_at TEXT
+        )
+    """))
+    ticket_db.execute(text("""
+        INSERT INTO game_players (steam_id,player_name,tribe_name,server_id,last_seen_at)
+        VALUES (:sid,'OnlineName','OnlineTribe','map_a','2026-11-12 10:00:00')
+    """), {"sid": USER_STEAM})
+    # A schema defect simulates an online-source failure; fallback sources remain valid.
+    ticket_db.execute(text("""
+        CREATE TABLE game_player_sessions (
+            session_id TEXT PRIMARY KEY, steam_id TEXT, last_seen_at TEXT, disconnected_at TEXT
+        )
+    """))
+    ticket_db.commit()
+
+    route_app = Flask("discord-nickname-online-error-fallback-test")
+    route_app.secret_key = "test-secret"
+    register_ticket_routes(
+        route_app,
+        db_ready=lambda: True,
+        session_factory=Session,
+        login_required=lambda fn: fn,
+        admin_required=lambda fn: fn,
+        ticket_staff_required=lambda fn: fn,
+        steam_id_from_session=lambda: session.get("steam_id"),
+        is_admin_steamid=lambda _sid: False,
+        can_manage_tickets=lambda _sid: False,
+        uploads_dir=tmp_path,
+        api_key_required=lambda _allow_admin: (lambda fn: fn),
+    )
+
+    with caplog.at_level("ERROR"):
+        response = route_app.test_client().get("/api/internal/discord/nickname-sync")
+    payload = response.get_json()
+    assert response.status_code == 200
+    assert payload["users"][0]["character_name"] == "UltimoNome"
+    assert payload["users"][0]["tribe_name"] == "UltimaTribo"
+    assert payload["users"][0]["identity_source"] == "last_known"
+    assert "OperationalError" in payload["diagnostics"]["active_error"]
+    assert "discord_nickname_active_lookup_failed" in caplog.text
 
 
 def test_confirm_discord_link_code_rejects_reused_discord_account(ticket_db):

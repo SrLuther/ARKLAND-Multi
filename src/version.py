@@ -4,13 +4,24 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.5"
+APP_VERSION: str = "1.12.6"
 BUILD_DATE: str = "2026-11-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.6",
+        "date": "2026-11-12",
+        "changes": [
+            "Atendimento Web: botão de ajuda usa a arte estática aprovada do mascote; somente o olhar e as piscadas permanecem animados.",
+            "Atendimento Web: adiciona dúvidas rápidas e saudação personalizada, preservando o fluxo existente de tickets.",
+            "Tickets: mostra os nomes Steam e Discord disponíveis na lista e nos detalhes administrativos.",
+            "Monitoramento: corrige o cálculo do tempo de jogo a partir das sessões e heartbeats registrados.",
+            "Bot Discord: sincroniza apelidos no formato [Tribo] | Nick, priorizando a sessão ativa e registrando o uso de identidade anterior em fallback.",
+        ],
+    },
     {
         "version": "1.12.5",
         "date": "2026-11-12",

@@ -5,11 +5,12 @@ from collections.abc import Callable
 import logging
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from flask import Flask, jsonify, request, send_file
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, inspect, text
 
 from ticket_service import (
     add_ticket_reply,
@@ -376,29 +377,117 @@ def register_ticket_routes(
                         continue
                     linked_by_steam[steam_id] = discord_user_id
                 if not linked_by_steam:
-                    return jsonify({"ok": True, "users": []})
-                identity_query = text("""
-                    SELECT steam_id, character_name, tribe_name
-                    FROM tribe_members
-                    WHERE steam_id IN :steam_ids
-                      AND character_name IS NOT NULL AND TRIM(character_name) <> ''
-                      AND tribe_name IS NOT NULL AND TRIM(tribe_name) <> ''
-                    ORDER BY last_seen_at DESC
-                """).bindparams(bindparam("steam_ids", expanding=True))
-                identities = db.execute(identity_query, {"steam_ids": list(linked_by_steam)}).fetchall()
+                    return jsonify({
+                        "ok": True, "users": [],
+                        "diagnostics": {"active_source": "available", "online": 0, "fallback": 0},
+                    })
                 users = []
                 seen_steam: set[str] = set()
+                has_game_players = inspect(db.get_bind()).has_table("game_players")
+                has_game_sessions = inspect(db.get_bind()).has_table("game_player_sessions")
+                active_lookup_error: str | None = None
+                online_count = 0
+
+                # A sessão ativa é a fonte de verdade para o mapa atual. O plugin
+                # envia heartbeat a cada 90 segundos; 4 minutos toleram uma perda
+                # de heartbeat sem manter online uma sessão abandonada após crash.
+                if has_game_players and has_game_sessions:
+                    try:
+                        online_query = text("""
+                            SELECT gp.steam_id, gp.player_name, gp.tribe_name, s.last_seen_at
+                            FROM game_player_sessions s
+                            JOIN game_players gp
+                              ON gp.steam_id = s.steam_id AND gp.server_id = s.server_id
+                            WHERE s.steam_id IN :online_steam_ids
+                              AND s.disconnected_at IS NULL
+                              AND s.last_seen_at >= :online_since
+                              AND gp.player_name IS NOT NULL AND TRIM(gp.player_name) <> ''
+                            ORDER BY s.last_seen_at DESC
+                        """).bindparams(bindparam("online_steam_ids", expanding=True))
+                        online_since = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=4)
+                        online_rows = db.execute(online_query, {
+                            "online_steam_ids": list(linked_by_steam),
+                            "online_since": online_since,
+                        }).fetchall()
+                        for online in online_rows:
+                            steam_id = str(online[0] or "").strip()
+                            if not steam_id or steam_id in seen_steam:
+                                continue
+                            seen_steam.add(steam_id)
+                            online_count += 1
+                            last_seen = online[3].isoformat() if hasattr(online[3], "isoformat") else str(online[3] or "")
+                            users.append({
+                                "discord_user_id": linked_by_steam[steam_id],
+                                "character_name": str(online[1] or "").strip(),
+                                "tribe_name": str(online[2] or "").strip(),
+                                "identity_source": "active_session",
+                                "identity_last_seen_at": last_seen,
+                            })
+                    except Exception as exc:
+                        db.rollback()
+                        active_lookup_error = f"{type(exc).__name__}: {exc}"
+                        app.logger.exception(
+                            "discord_nickname_active_lookup_failed; falling back to last-known identity"
+                        )
+                else:
+                    active_lookup_error = "Tabelas de sessões online ainda não estão disponíveis."
+                    app.logger.warning(
+                        "discord_nickname_active_lookup_unavailable; falling back to last-known identity"
+                    )
+
+                unresolved_steam = [sid for sid in linked_by_steam if sid not in seen_steam]
+                # If the player is offline, retain a useful fallback identity.
+                # TribeSync can persist offline members under ``pdid:<id>``; for
+                # those accounts game_players is the stable Steam-ID keyed source.
+                identity_sql = """
+                    SELECT steam_id, character_name, tribe_name, last_seen_at
+                    FROM tribe_members
+                    WHERE steam_id IN :tribe_steam_ids
+                      AND character_name IS NOT NULL AND TRIM(character_name) <> ''
+                """
+                identities = []
+                if unresolved_steam:
+                    bind_params = [bindparam("tribe_steam_ids", expanding=True)]
+                    identity_params: dict[str, Any] = {"tribe_steam_ids": unresolved_steam}
+                    if has_game_players:
+                        identity_sql += """
+                            UNION ALL
+                            SELECT steam_id, player_name AS character_name, tribe_name, last_seen_at
+                            FROM game_players
+                            WHERE steam_id IN :player_steam_ids
+                              AND player_name IS NOT NULL AND TRIM(player_name) <> ''
+                        """
+                        bind_params.append(bindparam("player_steam_ids", expanding=True))
+                        identity_params["player_steam_ids"] = unresolved_steam
+                    identity_query = text(
+                        f"SELECT steam_id, character_name, tribe_name, last_seen_at FROM ({identity_sql}) AS identities "
+                        "ORDER BY last_seen_at DESC"
+                    ).bindparams(*bind_params)
+                    identities = db.execute(identity_query, identity_params).fetchall()
                 for identity in identities:
                     steam_id = str(identity[0] or "").strip()
                     if not steam_id or steam_id in seen_steam:
                         continue
                     seen_steam.add(steam_id)
+                    last_seen = identity[3].isoformat() if hasattr(identity[3], "isoformat") else str(identity[3] or "")
                     users.append({
                         "discord_user_id": linked_by_steam[steam_id],
                         "character_name": str(identity[1] or "").strip(),
                         "tribe_name": str(identity[2] or "").strip(),
+                        "identity_source": "last_known",
+                        "identity_last_seen_at": last_seen,
                     })
-                return jsonify({"ok": True, "users": users})
+
+                return jsonify({
+                    "ok": True,
+                    "users": users,
+                    "diagnostics": {
+                        "active_source": "available" if not active_lookup_error else "fallback",
+                        "active_error": active_lookup_error,
+                        "online": online_count,
+                        "fallback": sum(1 for user in users if user.get("identity_source") == "last_known"),
+                    },
+                })
             except Exception:
                 db.rollback()
                 app.logger.exception("discord_nickname_sync_snapshot_failed")

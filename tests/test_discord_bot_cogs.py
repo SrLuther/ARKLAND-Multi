@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src.discord_bot import storage  # noqa: E402
 from src.discord_bot.bot import ObobonicBot, enabled_cog_modules, load_cogs  # noqa: E402
 from src.discord_bot.moderation import Moderation  # noqa: E402
-from src.discord_bot.nickname_sync import format_game_nickname  # noqa: E402
+from src.discord_bot.nickname_sync import NicknameSync, format_game_nickname  # noqa: E402
 from src.discord_bot.settings import BotSettings  # noqa: E402
 from src.discord_bot.voice_manager import VoiceManager  # noqa: E402
 
@@ -69,11 +69,106 @@ class TestBotLoadsConfiguredCogs:
         assert run(scenario())
 
     def test_linked_identity_nickname_format_is_limited_to_discord_length(self):
-        assert format_game_nickname("BøT", "Ciano") == "[BøT] Ciano"
+        assert format_game_nickname("BøT", "Ciano") == "[BøT] | Ciano"
+        assert format_game_nickname("", "Ciano") == "[Tribo] | Ciano"
         long_name = format_game_nickname("Tribo muito longa para Discord", "Personagem com nome muito longo")
         assert long_name.startswith("[")
         assert len(long_name) <= 32
-        assert "] " in long_name
+        assert "] | " in long_name
+        assert format_game_nickname("B", "C", limit=6) == ""
+
+    def test_nickname_sync_applies_linked_game_identity_to_discord_member(self, tmp_path):
+        settings = _settings(
+            tmp_path, guild_id=987654, arkshop_web_url="https://example.invalid", arkshop_api_key="fake-key"
+        )
+        member = SimpleNamespace(bot=False, nick="apelido antigo", edit=AsyncMock(), top_role=5)
+        guild = SimpleNamespace(
+            get_member=lambda _member_id: member,
+            fetch_member=AsyncMock(),
+            me=SimpleNamespace(
+                guild_permissions=SimpleNamespace(manage_nicknames=True),
+                top_role=10,
+            ),
+        )
+        bot = SimpleNamespace(settings=settings, get_guild=lambda guild_id: guild if guild_id == 987654 else None)
+        cog = NicknameSync(bot)  # type: ignore[arg-type]
+        cog._get_snapshot = lambda: {
+            "ok": True,
+            "users": [{"discord_user_id": "123456789", "character_name": "Ciano", "tribe_name": "Primal Fear"}],
+        }
+
+        run(cog._sync_once())
+
+        member.edit.assert_awaited_once_with(
+            nick="[Primal Fear] | Ciano",
+            reason="Sincronização da identidade ARKLAND vinculada",
+        )
+        assert cog._last_error is None
+
+    def test_nickname_sync_uses_tribo_label_when_linked_player_has_no_tribe(self, tmp_path):
+        settings = _settings(
+            tmp_path, guild_id=987654, arkshop_web_url="https://example.invalid", arkshop_api_key="fake-key"
+        )
+        member = SimpleNamespace(bot=False, nick="apelido antigo", edit=AsyncMock(), top_role=5)
+        guild = SimpleNamespace(
+            get_member=lambda _member_id: member,
+            fetch_member=AsyncMock(),
+            me=SimpleNamespace(
+                guild_permissions=SimpleNamespace(manage_nicknames=True),
+                top_role=10,
+            ),
+        )
+        bot = SimpleNamespace(settings=settings, get_guild=lambda _guild_id: guild)
+        cog = NicknameSync(bot)  # type: ignore[arg-type]
+        cog._get_snapshot = lambda: {
+            "ok": True,
+            "users": [{
+                "discord_user_id": "123456789",
+                "character_name": "Ciano",
+                "tribe_name": "",
+                "identity_source": "active_session",
+            }],
+        }
+
+        run(cog._sync_once())
+
+        member.edit.assert_awaited_once()
+        assert member.edit.await_args.kwargs["nick"] == "[Tribo] | Ciano"
+
+    def test_nickname_sync_reports_missing_guild_without_calling_web_api(self, tmp_path):
+        settings = _settings(
+            tmp_path, guild_id=987654, arkshop_web_url="https://example.invalid", arkshop_api_key="fake-key"
+        )
+        bot = SimpleNamespace(settings=settings, get_guild=lambda _guild_id: None)
+        cog = NicknameSync(bot)  # type: ignore[arg-type]
+        cog._get_snapshot = MagicMock()
+
+        run(cog._sync_once())
+
+        cog._get_snapshot.assert_not_called()
+        assert "não está no cache" in cog._last_error
+
+    def test_nickname_sync_reports_missing_manage_nicknames_permission(self, tmp_path):
+        settings = _settings(
+            tmp_path, guild_id=987654, arkshop_web_url="https://example.invalid", arkshop_api_key="fake-key"
+        )
+        member = SimpleNamespace(bot=False, nick="apelido antigo", edit=AsyncMock(), top_role=1)
+        guild = SimpleNamespace(
+            get_member=lambda _member_id: member,
+            me=SimpleNamespace(
+                guild_permissions=SimpleNamespace(manage_nicknames=False),
+                top_role=10,
+            ),
+        )
+        bot = SimpleNamespace(settings=settings, get_guild=lambda _guild_id: guild)
+        cog = NicknameSync(bot)  # type: ignore[arg-type]
+        cog._get_snapshot = MagicMock()
+
+        run(cog._sync_once())
+
+        cog._get_snapshot.assert_not_called()
+        member.edit.assert_not_called()
+        assert "Gerenciar apelidos" in cog._last_error
 
     def test_intents_match_original(self, tmp_path):
         bot = ObobonicBot(_settings(tmp_path))

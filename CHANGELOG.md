@@ -1,9 +1,19 @@
 # Changelog
 
-<!-- Gerado: 2026-11-12 14:42:27 -->
-<!-- Total de versões: 564 | Primeira: 1.12.5 -->
+<!-- Gerado: 2026-11-12 19:47:30 -->
+<!-- Total de versões: 565 | Primeira: 1.12.6 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.6] - 2026-11-12
+
+### Other
+
+- Atendimento Web: botão de ajuda usa a arte estática aprovada do mascote; somente o olhar e as piscadas permanecem animados.
+- Atendimento Web: adiciona dúvidas rápidas e saudação personalizada, preservando o fluxo existente de tickets.
+- Tickets: mostra os nomes Steam e Discord disponíveis na lista e nos detalhes administrativos.
+- Monitoramento: corrige o cálculo do tempo de jogo a partir das sessões e heartbeats registrados.
+- Bot Discord: sincroniza apelidos no formato [Tribo] | Nick, priorizando a sessão ativa e registrando o uso de identidade anterior em fallback.
 
 ## [1.12.5] - 2026-11-12
 
