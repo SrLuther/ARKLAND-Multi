@@ -297,7 +297,8 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "git add de fontes novas falhou (exit $LAS
 if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do catalog.json falhou (exit $LASTEXITCODE)" }
 & git reset HEAD -- plugin/CustomShop/ArkServerAPI 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do ArkServerAPI falhou (exit $LASTEXITCODE)" }
-$stagedNames = & git diff --cached --name-only 2>&1
+$stagedNames = cmd.exe /d /c 'git diff --cached --name-only 2>&1'
+$dropNames = New-Object System.Collections.Generic.List[string]
 foreach ($name in @($stagedNames)) {
     $norm = ([string]$name -replace '\\', '/')
     $drop = $false
@@ -312,10 +313,14 @@ foreach ($name in @($stagedNames)) {
     if ($norm -eq "plugin/CustomShop/bin/config.json") { $drop = $true }
     # Proposta comercial independente, fora do escopo funcional deste release.
     if ($norm -eq "docs/LICENCAS_PRECOS_PROPOSTA.md") { $drop = $true }
-    if ($drop) {
-        & git reset HEAD -- $name 2>&1
-        if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel tirar $name do stage" }
-    }
+    if ($drop) { $dropNames.Add($name) }
+}
+if ($dropNames.Count -gt 0) {
+    # Uma única chamada evita reset por arquivo, que era lenta e podia ser
+    # interrompida por avisos do Git no stderr em PowerShell com EAP=Stop.
+    $dropArgs = $dropNames -join " "
+    cmd.exe /d /c "git reset --quiet HEAD -- $dropArgs 2>&1"
+    if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel remover artefatos locais do stage" }
 }
 $catalogOut = & git diff --cached --name-only -- plugin/CustomShop/catalog.json 2>&1
 $catalogHit = @($catalogOut) | Where-Object { ($_ -replace '\\', '/') -eq "plugin/CustomShop/catalog.json" }
