@@ -1,12 +1,9 @@
 {
-    "version": "1.12.4",
-    "date": "2026-11-11",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.4/ARKLAND-Multi-Setup-v1.12.4.exe",
+    "version": "1.12.5",
+    "date": "2026-11-12",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.5/ARKLAND-Multi-Setup-v1.12.5.exe",
     "changelog": [
-        "TEK: reconciliação dos arquivos INI com manifesto de propriedade, preservação externa, codificação detectada e gravação atômica.",
-        "TEK: edição manual, importação e sincronização detectam conflitos e evitam que chaves gerenciadas removidas reapareçam.",
-        "TEK: persistência de configurações de mods, backups e agendamentos individuais, broadcasts por servidor, BattleMetrics e histórico de alterações.",
-        "Web Store: separa licenças com bônus de âmbares por tempo das licenças especiais e exibe os nicks Steam e Discord nos tickets administrativos.",
-        "Web Store: consulta administrativa de jogadores responde sem esperar a Steam; a busca de nomes segue em segundo plano."
+        "Web Store: exibe a versão atual da release no rodapé ao lado do status da loja, usando a fonte existente /api/version.",
+        "Web Store: a resposta de versão não fica armazenada em cache, evitando mostrar um número antigo após uma atualização."
     ]
 }

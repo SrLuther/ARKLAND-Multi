@@ -1,0 +1,3 @@
+[submodule "plugin/CustomShop/ArkServerAPI"]
+	path = plugin/CustomShop/ArkServerAPI
+	url = https://github.com/ArkServerApi/AseApi.git

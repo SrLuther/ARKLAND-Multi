@@ -211,6 +211,7 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "git add falhou (exit $LASTEXITCODE)" }
 # Fontes novas da reestruturação não aparecem em `git add -u`; liste-as
 # explicitamente para que o código-fonte do release corresponda ao executável.
 $releaseNewFiles = @(
+    ".gitmodules",
     "plugin/ArklandPluginDebug.h",
     "docs/ARKLAND_AUDITORIA_TECNICA_COMPLETA_2026-10-28.md",
     "docs/ESCOPO_RELEASE_1.11.0.md",
@@ -243,6 +244,7 @@ $releaseNewFiles = @(
     "plugin/arkshop_web/static/catalogo.png",
     "plugin/arkshop_web/static/sugestao.png",
     "plugin/arkshop_web/static/votacoes.png",
+    "plugin/arkshop_web/tests/test_site_version_statusbar.py",
     "src/discord_bot/activity_rewards.py",
     "src/ssh_access/__init__.py",
     "src/ssh_access/models.py",
@@ -317,7 +319,7 @@ if ($catalogHit) {
 }
 $gitCommitOutput = & git commit -m "release: v$Version" 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git commit falhou (exit $LASTEXITCODE)" }
-$gitPushOutput = & git push 2>&1
+$gitPushOutput = & git push origin HEAD:main 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git push falhou (exit $LASTEXITCODE)" }
 $ErrorActionPreference = $gitErrorActionPreference
 Write-Ok "Commit e push para main"

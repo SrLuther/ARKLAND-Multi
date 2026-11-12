@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-11 23:36:20 -->
-<!-- Total de versões: 563 | Primeira: 1.12.4 -->
+<!-- Gerado: 2026-11-12 14:42:27 -->
+<!-- Total de versões: 564 | Primeira: 1.12.5 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.5] - 2026-11-12
+
+### Other
+
+- Web Store: exibe a versão atual da release no rodapé ao lado do status da loja, usando a fonte existente /api/version.
+- Web Store: a resposta de versão não fica armazenada em cache, evitando mostrar um número antigo após uma atualização.
 
 ## [1.12.4] - 2026-11-11
 

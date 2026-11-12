@@ -1,42 +1,39 @@
 # Pendências - ARKLAND Multi
 
-**Atualizado:** 11/11/2026
+**Atualizado:** 12/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** release 1.12.4 publicada. Suite candidata: 2.380 aprovados, 6 ignorados e nenhuma falha. Integridade do instalador confirmada por SHA-256 apos download. Testes em servidores ARK, SSH externo e WebStore de producao continuam pendentes; roteiro: `docs/VALIDACAO_PRODUCAO_RC_1.12.4.md`.
+**Publicação:** candidata 1.12.5 em preparação sobre a base 1.12.4 publicada. O site publicado respondeu versão 1.12.4 em 12/11/2026; a exibição no rodapé depende desta atualização e a validação visual ocorrerá após publicação.
 
 ## Em andamento
+- [ ] **WebStore - versão no rodapé.** O backend publicado já oferece `/api/version`, alimentado por `version.json`; em 12/11/2026 retornou `1.12.4`. O frontend local agora consulta esse endpoint e mostra `WebStore vX` junto ao status da loja. Pendente testar após publicar e decidir se o número deve ser igualado ao gerenciador em cada release.
+- [ ] **Mascote virtual da ajuda.** O site publicado ainda mostra o botão “Precisa de ajuda?” com envelope e o título “Atendimento ARKLAND”; nenhum mascote aparece integrado. O projeto investigativo segue sem implementação; preservar a imagem de referência aprovada.
+- [ ] **WebStore - Fazenda: Blueprints Primal Fear.** O site lista o grupo de retirada Primal Fear (18 recursos), mas isso não comprova que o plugin produza ou entregue os itens. Validar configuração, estoque e entrega em ambiente autorizado.
 
-- [ ] **WebStore - Licencas: separar bonus de Ambares por tempo das licencas especiais.** Correcao local: o leitor aceita os campos atual e legado do catalogo em cache, e a vitrine usa grades distintas; no navegador, apos atualizar o bootstrap, 15 licencas com bonus e 2 especiais foram exibidas corretamente. Testes de regressao: 20 do bootstrap passaram. Pendente publicar a alteracao e validar a exibicao apos recarga/cache na WebStore de producao.
+- [ ] **SSH - feedback visual ao desconectar.** Correção implementada localmente na versão candidata: ao desconectar, a interface atualiza o estado, informa o host da sessão encerrada, mostra um aviso no terminal e habilita/desabilita os botões conforme o estado. Testes focados: 3 aprovados. Pendente validar visualmente no aplicativo instalado e incluir em uma atualização publicada.
 
-- [ ] **WebStore - Tickets: exibir nick Steam e Discord dos autores.** Implementação local concluída: lista e detalhe administrativo resolvem em lote o nick Steam atual e o vínculo Discord ativo para tickets antigos e autores das mensagens; o SteamID permanece visível. Snapshots e histórico não são regravados, e não há chamada Steam API por mensagem. Testes locais relacionados: 51 aprovados (tickets e bootstrap). Pendente publicar e validar visualmente na WebStore de produção.
+- [ ] **WebStore - saudação personalizada no atendimento.** A versão local tem a saudação com nome Steam e fallback; no site publicado, em 12/11/2026, o cabeçalho ainda mostrava “Atendimento ARKLAND”. Falta publicar e conferir com conta autenticada.
 
-- [ ] **Painel de jogadores do servidor para Admin/Suporte.** Primeira implementacao local: plugin CustomShop coleta SteamID, nome do personagem, PlayerDataID, tribo, servidor e sessoes; WebStore grava eventos autenticados de conexao, heartbeat e desconexao e calcula tempo/ultimo acesso, classificando vinculo via SteamID. Pagina somente leitura sob autorizacao Admin/Suporte; sem IP, chat ou acoes. A fila do plugin persiste localmente para sobreviver a falhas/reinicios. Pendente: validar hooks e campos reais no jogo, configurar ServerId distinto por servidor, validar recuperacao/reconexao e falha abrupta, privacidade e acesso negado; historico so comeca apos instalar a versao nova.
+- [ ] **WebStore - Tickets: exibir nick Steam e Discord dos autores.** A implementação local e 51 testes relacionados constam concluídos; na lista administrativa publicada, verificada em 12/11/2026, a coluna Jogador ainda mostra SteamID numérico, embora a coluna Discord apresente nomes vinculados. Falta publicar e validar lista e detalhe.
 
-- [ ] **WebStore - Fazenda: reduzir rolagem do catalogo.** Incluida na 1.11.50: recursos em grupos recolhiveis por categoria, ordenacao alfabetica, busca compartilhada e historicos compactos. Falta atualizar a WebStore em producao e revisar o catalogo completo em diferentes larguras.
+- [ ] **Painel de jogadores do servidor para Admin/Suporte.** Em 12/11/2026, os 15 registros da tela publicada mostravam `0h 0min`, apesar de sessões contadas de 1 a 7. A correção local ainda precisa ser publicada e validada com novos heartbeats; os dados observados não provam por si só a causa nem duração histórica correta.
 
-- [ ] **WebStore - Fazenda: exibir somente recursos em producao.** A grade de estoque da 1.11.57 filtra pelo estado `production_active`, ocultando recursos sem producao; a retirada permanece disponivel para recursos habilitados com saldo. Confirmar a visualizacao na WebStore de producao apos atualizar/reiniciar.
 
-- [ ] **WebStore - Equipes: renderizar Markdown no mural/regulamento.** A 1.11.57 formata titulos, listas, destaques, links seguros e blocos de codigo, com altura limitada e editor recolhivel. Confirmar formatacao e persistencia em producao.
 
-- [ ] **SeasonLand - trilha unica de recompensas Free/Premium.** Incluida na 1.11.50: trilha por nivel com Free e Premium em lados opostos, premios alinhados e preenchimento conforme o nivel. Falta atualizar a WebStore em producao e revisar em tela estreita/conta real.
 
-- [ ] **WebStore - administracao de votacoes.** Incluida na 1.11.50: edicao de votacoes ativas, opcoes/formato protegidos apos o primeiro voto e finalizadas/canceladas em card recolhivel. Falta atualizar a WebStore em producao e validar o fluxo completo.
+- [ ] **WebStore - administração de votações.** A página publicada mostra a votação ativa, os controles de edição e as ações administrativas. Não salvei alterações em votação real (havia 5 participantes); falta testar criação/edição em rascunho isolado e validar as regras após o primeiro voto.
 
-- [ ] **Fazenda - validar cat?logo Omega ap?s atualiza??o de produ??o.** A vers?o est?vel 1.11.48 est? publicada. Causa corrigida: configs gerenciadas pelo site n?o recebiam padr?es novos no plugin e o cat?logo MySQL antigo ocultava recursos do config. Aplicar a atualiza??o no WebStore e nos plugins dos servidores; confirmar migra??o autom?tica dos IDs ausentes e presen?a de Essence, Paragon, Token e demais recursos no site, preservando configura??es personalizadas.
+- [ ] **Fazenda - validar catálogo Omega em produção.** O site publicado mostra os grupos de retirada Default (1), Omega (51) e Primal Fear (18), além de Paragon Breaker e Paragon Shard na produção ativa. Vários itens Omega de Essence/Token estavam com estoque zero; a presença no catálogo não comprova carregamento dos Blueprints nem entrega no jogo. Falta validar configuração do plugin e ciclo real de produção/resgate.
 
-- [ ] **WebStore - Votações: identidade visual e formatação de descrições.** Editor com parágrafos, negrito, itálico, sublinhado, subtítulos, listas e citações; descrições sanitizadas no servidor. Falta revisar visualmente e validar persistência/renderização com votações formatadas.
 
-- [ ] **WebStore - Sorteio: participantes e legenda.** Implementação local separa os números do jogador e da equipe, mostra nomes públicos na lista, pagina os participantes e explica as origens com atalhos condicionais. Falta revisão visual integrada e validação no site publicado.
 
 - [ ] **Minha Área - bônus dos marcos no ganho de Âmbares.** Implementação local agora considera `StackRewards` (soma ou maior grupo), `TimedPointsReward.Enabled`, o valor `Default` inclusive quando zero e aplica o bônus dos marcos com divisão inteira igual ao plugin. Validação local: `py_compile` e 57 testes de licenças/equipes passaram; 10 scripts inline passaram na checagem de sintaxe antes da última alteração de texto. Falta validar visualmente com configurações reais do servidor e confirmar que o valor coincide no jogo.
 
-- [ ] **WebStore - reformulação da barra lateral.** Preservar nome e IDs visíveis junto ao nome. Foram aplicados estilos para simplificar a marca, destacar o cartão de conta/saldo e organizar ícones e seleção do menu; o controle de Modo Staff é um indicador circular verde/vermelho ao lado de Sair. Falta revisão visual em diferentes larguras e confirmar que nome, SteamID e DiscordID permanecem legíveis sem corte. Os ícones de Catálogo e Sugestões também foram integrados aos menus e cabeçalhos.
+- [ ] **WebStore - reformulação da barra lateral.** Na produção em 12/11/2026, nome, SteamID e DiscordID estavam visíveis em desktop sem corte. Falta conferir a legibilidade/abertura do menu nas larguras móveis e concluir a revisão visual.
 
-- [ ] **Bot Discord - sincronização do apelido com personagem e tribo.** Implementação local concluída: o bot consulta, pela API interna autenticada, contas vinculadas e a identidade mais recente sincronizada do jogo; define o apelido no formato `[NomeDaTribo] NomeDoPersonagem` (exemplo `[BøT] Ciano`). Cog incluído no carregamento e permissão `manage_nicknames` no convite. Validação local registrada: 63 testes do bot e 29 testes da rota passaram. Falta validar com bot/guilda reais, permissões e hierarquia de cargos após instalação.
+- [ ] **Bot Discord - sincronização do apelido com personagem e tribo.** Implementação local atualizada: prioriza a identidade da sessão ativa no servidor/mapa atual; consulta a cada minuto e usa o último registro conhecido como fallback quando o jogador está offline ou a consulta online falha. O fallback informa a origem e o horário da última atualização; falhas técnicas da consulta ativa são registradas com detalhes no log. Formato padronizado: `[Tribo] | NickDoJogador` (exemplo `[BøT] | Ciano`); sem tribo, o padrão usa o marcador literal `[Tribo] | Ciano`. O bot também diagnostica falta de permissão `manage_nicknames` e hierarquia insuficiente. Testes focados atuais: 29 do bot aprovados; nesta rodada, 33 testes combinados de bot e monitoramento passaram. Pendente: instalar e validar com bot, plugin e guilda reais; confirmar atualização ao trocar de mapa e observar os logs de fallback/erro.
 
-- [ ] **Bot Discord - preservar e validar comandos existentes na próxima atualização.** `!faxina`, `!limpar` e `!limpezageral` estão presentes em `src/discord_bot/moderation.py`; o cog é carregado em `src/discord_bot/bot.py`. Confirmar que continuam habilitados e funcionais no pacote atualizado, junto com filtros de convite e palavrões. Não substituir nem remover o cog ao adicionar sincronização de apelido.
 
-- [ ] **Fazenda - suporte e entrega de Blueprints ARK Omega.** A comparação de `docs/SpawnCodes.txt` encontrou 11 itens adicionais de Souls, God Souls e Tokens; agora são 51 recursos nos padrões do plugin e da WebStore. Três Soul Compressor/Furnace/Grinder foram identificadas como estruturas e ficaram fora da produção de recursos. Os caminhos usam `/Game/Mods/2447186973`; migração acrescenta IDs ausentes e corrige apenas o prefixo padrão antigo, preservando outras personalizações. A normalização preserva `_C` como no CustomShop. Versão local 0.1.29 compilada com sucesso; falta validar entrega real no jogo, quantidade, estoque e retomada da produção.
+- [ ] **Fazenda - suporte e entrega de Blueprints ARK Omega.** O site publicado mostra o grupo Omega e recursos como Essence, Token e Paragon; isso comprova a configuração visível, não a entrega. Permanecem pendentes a validação do plugin, dos Blueprints, estoque e resgate em servidor de teste/produção controlada.
 - [ ] **Fazenda - reconhecer aliases de caminho dos itens ARK Omega.** Implementado localmente na versão 0.1.31: a comparação de inventário aceita `/Game/Mods/2447186973/` e `/Game/Mods/ArkOmega/` como aliases, sem reescrever os caminhos persistidos na migração. Build concluído com sucesso. Falta instalar no servidor, confirmar a configuração mestre efetivamente carregada e validar itens reais dos dois formatos em `/fazenda`.
 
 
@@ -51,7 +48,18 @@
 
 
 ## Concluídas / confirmadas
+### Verificadas no site publicado em 12/11/2026 (inspeção somente leitura)
+- [x] **WebStore - Fazenda: navegação do catálogo.** Confirmado em produção: categorias recolhíveis, busca e grupos de recursos; em viewport de 390 px, documento e painel da Fazenda sem rolagem horizontal. Nenhum resgate foi enviado.
+- [x] **WebStore - Equipes: renderizar Markdown no mural/regulamento.** Confirmado no regulamento publicado de [BøT] STAFF: títulos, parágrafos, listas, negrito e citação renderizados. Inspeção somente leitura.
+- [x] **SeasonLand - trilha única de recompensas Free/Premium.** Gamma ativa, níveis 1–30 alinhados nas colunas Free/Nível/Premium e recompensas da conta autenticada indicadas como entregues. Em viewport de 390 px sem overflow horizontal.
+- [x] **WebStore - Votações: formatação das descrições.** Em votação pública, títulos, negrito, lista e citação renderizados. Nenhuma edição de votação foi feita.
+- [x] **WebStore - Sorteio: participantes e legenda.** Lista nominal paginada, números pessoais e de equipe separados e legenda das origens visível. Em viewport de 390 px sem overflow horizontal; nenhuma compra/contribuição foi feita.
+- [x] **WebStore - Fazenda: layout do agendamento de retirada.** Em viewport de 390 px, campos e botão dentro da área visível, sem overflow horizontal global. Formulário não foi enviado.
 
+- [x] **Bot Discord - preservar e validar comandos existentes na próxima atualização.** `!faxina`, `!limpar` e `!limpezageral` estão presentes em `src/discord_bot/moderation.py`; o cog é carregado em `src/discord_bot/bot.py`. Confirmar que continuam habilitados e funcionais no pacote atualizado, junto com filtros de convite e palavrões. Não substituir nem remover o cog ao adicionar sincronização de apelido. Confirmado pelo usuario: comandos existentes testados com sucesso na atualizacao.
+
+- [x] **WebStore - Licencas: separar bonus de Ambares por tempo das licencas especiais.** Confirmado na vitrine de producao: 15 licencas com bonus por tempo e 2 licencas especiais (Nuvem e Fazenda) aparecem em regioes distintas do catalogo.
+- [x] **WebStore - Fazenda: exibir somente recursos em producao.** Confirmado em Minha Area > Fazenda na producao: a secao informa 17 recursos em producao e os cartoes apresentados estao marcados como habilitados e "Producao ativa".
 - [x] **Inventário de Blueprints dos mods instalados.** O Ark_Spawn_Code_Generator foi executado dentro das pastas `WindowsNoEditor` dos 17 mods numéricos em `D:\DOC\TESTE SERVER\01\ShooterGame\Content\Mods`. Os resultados individuais ficaram nas pastas numéricas e o catálogo consolidado em `docs/SpawnCodes_InstalledMods.txt`, agrupado por ID, com 1.441 comandos de spawn. Três mods não produziram comandos de item/dino pelo gerador; seus arquivos de saída registram apenas os cabeçalhos vazios.
 
 - [x] **Comandos de moderação do bot preservados no código-fonte.** `!faxina` (`purgeall`), `!limpar` (`clear`) e `!limpezageral` (`limparall`) continuam no cog de moderação, que faz parte dos cogs carregados pelo bot. A validação em runtime do pacote atualizado permanece aberta acima.
@@ -67,6 +75,5 @@
 4. Não criar outro arquivo para acompanhar pendências.
 5. Preservar `ferramentas/Ark_Spawn_Code_Generator.exe`: utilitário do projeto para gerar a lista completa de Blueprints de qualquer mod; usar a partir da pasta do mod e manter os resultados de referência, como `docs/SpawnCodes.txt`.
 
-- [ ] **WebStore - Fazenda: layout do agendamento de retirada.** Cartao reorganizado para deixar nome/saldo em linha propria e quantidade/botao na linha seguinte; confirmar em varias larguras apos atualizar a WebStore.
 
 - [ ] **Fazenda - validar Blueprints Primal Fear.** 18 recursos (8 Souls e 10 Hides) adicionados ao grupo de estoque próprio primal_fear nas configurações padrão e na migração do plugin/WebStore. Confirmar que os Blueprints e limites de stack criam/entregam os itens corretamente no servidor ARK com o mod instalado.

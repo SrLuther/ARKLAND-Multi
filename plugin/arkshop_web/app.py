@@ -13546,7 +13546,9 @@ def delete_download(dl_id: str):
 @app.route("/api/version", methods=["GET"])
 def get_version():
     """Retorna a versão atual do projeto e o link de download do instalador."""
-    return jsonify(_get_project_release())
+    response = jsonify(_get_project_release())
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 
 # Ã¢â€â‚¬Ã¢â€â‚¬ Admin: pontos e entregas (banco + fila plugin) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬

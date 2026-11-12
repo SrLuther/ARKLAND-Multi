@@ -3986,6 +3986,10 @@
       align-items: center;
       gap: 12px;
     }
+    #sb-version {
+      margin-left: auto;
+      white-space: nowrap;
+    }
     .status-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -12742,6 +12746,7 @@
     <div id="statusbar">
       <span id="sb-dot" class="status-dot"></span>
       <span id="sb-text">Inicializando…</span>
+      <span id="sb-version" aria-label="Versão da WebStore" title="Versão da WebStore">WebStore v—</span>
     </div>
   </div>
 
@@ -18830,6 +18835,18 @@ function setStatus(ok, text) {
   const dot = document.getElementById("sb-dot");
   dot.className = "status-dot " + (ok ? "ok" : "err");
   document.getElementById("sb-text").textContent = text;
+}
+
+async function loadWebStoreVersion() {
+  const versionEl = document.getElementById("sb-version");
+  if (!versionEl) return;
+  try {
+    const release = await fetchJson("/api/version", { timeoutMs: 5000 });
+    const version = String(release?.version || "").trim();
+    versionEl.textContent = version ? `WebStore v${version}` : "WebStore versão indisponível";
+  } catch (_) {
+    versionEl.textContent = "WebStore versão indisponível";
+  }
 }
 
 // ── Type badge ────────────────────────────────────────────────────────────────
@@ -36655,6 +36672,7 @@ async function bootPortal() {
   handleMpCardReturn();
   handleMpBoletoReturn();
   setStatus(false, "A preparar a loja…");
+  void loadWebStoreVersion();
   try {
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
