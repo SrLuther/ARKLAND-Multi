@@ -13,12 +13,15 @@ from __future__ import annotations
 import os
 import subprocess
 import tkinter as tk
+from tkinter import messagebox
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..asm_engine.asm_server_config import AsmServerConfig
+from ..asm_engine.ini_document import IniDocument
+from ..ini_write_safety import find_install_conflicts, write_with_backup
 from ..ui_constants import get_theme
 
 if TYPE_CHECKING:
@@ -376,10 +379,22 @@ class _FileManagerWindow(ctk.CTkToplevel):
         win.grid_columnconfigure(0, weight=1)
         win.grid_rowconfigure(0, weight=1)
 
+        original_bytes: bytes | None = None
         try:
-            content = path.read_text(encoding="utf-8", errors="replace")
+            if path.is_file():
+                original_bytes = path.read_bytes()
+                content = (
+                    IniDocument.parse(original_bytes).to_text()
+                    if path.suffix.lower() == ".ini"
+                    else original_bytes.decode("utf-8-sig")
+                )
+            else:
+                content = ""
         except Exception as exc:
-            content = f"# Erro ao ler o arquivo: {exc}"
+            messagebox.showerror("Arquivo não pode ser aberto", str(exc), parent=win)
+            win.destroy()
+            return
+        win._arkland_original_bytes = original_bytes  # type: ignore[attr-defined]
 
         editor = ctk.CTkTextbox(
             win,
@@ -428,10 +443,51 @@ class _FileManagerWindow(ctk.CTkToplevel):
     ) -> None:
         content = editor.get("1.0", "end-1c")
         try:
-            path.write_text(content, encoding="utf-8")
-            win.title(f"Editar — {path.name}  ✔ Salvo")
+            if path.suffix.lower() == ".ini":
+                original = getattr(win, "_arkland_original_bytes", None)
+                if original is None:
+                    raise RuntimeError("Não foi possível preservar os bytes originais deste INI.")
+                if not self._srv.install_dir:
+                    raise RuntimeError("O perfil não possui diretório de instalação configurado.")
+                root = self._install_root.resolve()
+                target = path.resolve()
+                if not target.is_relative_to(root):
+                    raise RuntimeError("O arquivo está fora da instalação selecionada; a gravação foi bloqueada.")
+                status = str(self._app.asm_server_manager.get_status(self._srv.id)).lower()
+                if status in {"running", "starting", "stopping"}:
+                    raise RuntimeError("Pare o servidor pela interface antes de editar um arquivo INI.")
+                profiles = list(self._app.asm_config_manager.servers)
+                profiles.extend(getattr(getattr(self._app, "config_manager", None), "servers", []))
+                conflicts = find_install_conflicts(
+                    self._srv.id, self._srv.install_dir, profiles, target_profile=self._srv
+                )
+                if conflicts:
+                    names = ", ".join(str(getattr(item, "name", getattr(item, "id", "perfil"))) for item in conflicts)
+                    raise RuntimeError(f"Outra configuração aponta para esta instalação ({names}); resolva o conflito antes de gravar.")
+                proposed = IniDocument.parse(original).encode_text_like_source(content)
+                changes = _managed_ini_changes(path.name, original, proposed, self._srv)
+                if changes:
+                    messagebox.showwarning(
+                        "Chaves gerenciadas pelo TEK",
+                        "O arquivo contém chaves controladas pelo formulário TEK:\n\n"
+                        + "\n".join(changes[:20])
+                        + "\n\nGravação cancelada para evitar que o próximo salvamento recrie valores antigos. "
+                          "Altere essas opções no painel TEK; chaves de mods/externalizadas podem ser editadas aqui.",
+                        parent=win,
+                    )
+                    return
+                backup = write_with_backup(path, proposed, expected_original=original)
+                win._arkland_original_bytes = proposed  # type: ignore[attr-defined]
+                suffix = f" · backup: {backup}" if backup else ""
+                win.title(f"Editar — {path.name}  ✔ Salvo{suffix}")
+            else:
+                original = getattr(win, "_arkland_original_bytes", None)
+                write_with_backup(path, content.encode("utf-8"), expected_original=original)
+                win._arkland_original_bytes = content.encode("utf-8")  # type: ignore[attr-defined]
+                win.title(f"Editar — {path.name}  ✔ Salvo")
         except Exception as exc:
             win.title(f"Editar — {path.name}  ✘ Erro: {exc}")
+            messagebox.showerror("Arquivo não salvo", str(exc), parent=win)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -442,3 +498,31 @@ class _FileManagerWindow(ctk.CTkToplevel):
     def _copy_path(self, path: Path) -> None:
         self.clipboard_clear()
         self.clipboard_append(str(path))
+
+
+def _managed_ini_changes(filename: str, before: bytes, after: bytes, srv: AsmServerConfig) -> list[str]:
+    tag = {"gameusersettings.ini": "GUS", "game.ini": "Game", "engine.ini": "Engine"}.get(filename.casefold())
+    if not tag:
+        return []
+    manifest = getattr(srv, "managed_ini_options", {}) or {}
+    managed = {
+        (str(item.get("section", "")).casefold(), str(item.get("key", "")).casefold())
+        for item in manifest.get(tag, [])
+        if isinstance(item, dict) and item.get("section") and item.get("key")
+    }
+    if tag in {"GUS", "Game"}:
+        # Structured TEK fields remain manager-owned even before they have
+        # appeared in a persisted manifest (for example, a default-valued key).
+        from ..asm_engine.asm_ini_manager import INI_MAP, _resolve_ini_section
+        for _field, (file_key, section, key, _options) in INI_MAP.items():
+            mapped_tag = "GUS" if file_key.upper() == "GUS" else "Game"
+            if mapped_tag == tag:
+                managed.add((_resolve_ini_section(file_key, section).casefold(), key.casefold()))
+    old_doc, new_doc = IniDocument.parse(before), IniDocument.parse(after)
+    changed: list[str] = []
+    for section, key in sorted(managed):
+        old_values = [line.value or "" for line in old_doc.lines if line.kind == "key" and (line.section or "").casefold() == section and (line.key or "").casefold() == key]
+        new_values = [line.value or "" for line in new_doc.lines if line.kind == "key" and (line.section or "").casefold() == section and (line.key or "").casefold() == key]
+        if old_values != new_values:
+            changed.append(f"[{section}] {key}")
+    return changed

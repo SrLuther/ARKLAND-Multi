@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 from tkinter import messagebox
+from ..ark_ini import ArkIniManager, sections_to_ini_text
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
@@ -18,7 +19,13 @@ def ini_save(app: "ARKServerManagerApp", server_id: str) -> None:
     w = app._server_widgets.get(server_id, {})
 
     for file_key in ("gus", "game"):
-        data = w.get(f"_ini_{file_key}_data", [])
+        data_key = f"_ini_{file_key}_data"
+        # A file whose editor has not been loaded is not an empty declaration.
+        # Leave its persisted sections alone rather than interpreting absence
+        # of widgets as a user request to delete everything.
+        if data_key not in w:
+            continue
+        data = w[data_key]
         ini_key = f"{file_key}_ini"
         mod_buckets: dict = {}     # mod_id → list of section dicts
         custom_secs: list = []
@@ -40,10 +47,21 @@ def ini_save(app: "ARKServerManagerApp", server_id: str) -> None:
             else:
                 mod_buckets.setdefault(mid, []).append(plain_sec)
 
+        # A lista visível é a fonte de verdade para este arquivo. Remova do
+        # perfil buckets que desapareceram; mantenha o outro INI do mesmo mod.
+        for mod_id in list(srv.mod_ini_configs):
+            cfg = srv.mod_ini_configs[mod_id]
+            if mod_id not in mod_buckets:
+                cfg.pop(ini_key, None)
+            if not any(str(value or "").strip() for value in cfg.values()):
+                srv.mod_ini_configs.pop(mod_id, None)
+
         # Atualiza mod_ini_configs
         for mod_id, secs in mod_buckets.items():
             cfg = srv.mod_ini_configs.setdefault(mod_id, {})
             cfg[ini_key] = sections_to_ini_text(secs)
+            if not any(str(value or "").strip() for value in cfg.values()):
+                srv.mod_ini_configs.pop(mod_id, None)
 
         # Atualiza custom_ini_sections
         srv.custom_ini_sections[file_key] = custom_secs

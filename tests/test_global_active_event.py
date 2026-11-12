@@ -111,7 +111,8 @@ def test_apply_active_event_primitive_writes_ini(tmp_path):
     assert result.ok
     gus = install / "ShooterGame" / "Saved" / "Config" / "WindowsServer" / "GameUserSettings.ini"
     assert gus.is_file()
-    text = gus.read_text(encoding="utf-8")
+    assert gus.read_bytes().startswith(b"\xff\xfe")
+    text = gus.read_text(encoding="utf-16")
     assert "ActiveEvent=FearEvolved" in text or "ActiveEvent = FearEvolved" in text
     assert srv.active_event == "FearEvolved"
     app.config_manager.update_server.assert_called_once_with(srv)

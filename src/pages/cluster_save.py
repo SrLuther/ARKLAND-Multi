@@ -82,6 +82,7 @@ def cluster_save(app: "ARKServerManagerApp", cluster_id: str) -> None:
                     from ..asm_engine.asm_ini_manager import write_ini
                     if srv.install_dir:
                         write_ini(srv)
+                        asm_mgr.update_server(srv)
                 except Exception as exc:
                     ini_errors.append(f"{srv.name}: {exc}")
             elif getattr(srv, "cluster_profile_id", "") == cluster_id:

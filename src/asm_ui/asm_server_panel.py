@@ -1912,7 +1912,35 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
                 "Atualização automática",
                 ["enable_auto_update_check", "auto_update_check_minutes"],
             ),
+            CardSpec(
+                "Backup individual deste servidor",
+                [
+                    "backup_enabled", "backup_interval_hours", "backup_keep_count",
+                    "backup_include_saves", "backup_include_config",
+                    "backup_exclude_redundant", "backup_dir",
+                ],
+            ),
+            CardSpec(
+                "Broadcast agendado deste servidor",
+                [
+                    "enable_scheduled_broadcast", "scheduled_broadcast_time",
+                    "scheduled_broadcast_message",
+                ],
+            ),
             CardSpec("Notificações", ["notify_discord_on_events"], bool_grid=True),
+            CardSpec(
+                "Backup individual do servidor",
+                [
+                    "backup_enabled", "backup_interval_hours", "backup_keep_count",
+                    "backup_include_saves", "backup_include_config",
+                    "backup_exclude_redundant", "backup_dir",
+                ],
+            ),
+            CardSpec(
+                "Broadcast agendado do servidor",
+                ["enable_scheduled_broadcast", "scheduled_broadcast_time",
+                 "scheduled_broadcast_message"],
+            ),
             CardSpec("Desempenho do processo", ["process_priority"]),
         ],
     )
@@ -2072,6 +2100,7 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
         ctx,
         [
             CardSpec("BanList", ["enable_ban_list_url", "ban_list_url"]),
+            CardSpec("BattleMetrics", ["battlemetrics_id"]),
         ],
         start_row=2,
     )
@@ -2103,6 +2132,19 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
     notes_box.insert("1.0", srv.notes)
     vars_ref["_notes_text"] = notes_box
 
+    app = vars_ref.get("_app")
+
+    def _open_change_history() -> None:
+        from .asm_change_history import open_asm_change_history
+
+        open_asm_change_history(app, srv)
+
+    ctk.CTkButton(
+        sf,
+        text="Ver histórico de alterações TEK",
+        command=_open_change_history,
+    ).grid(row=row + 1, column=0, columnspan=2, padx=8, pady=(4, 8), sticky="w")
+
     add_collapsible_help(
         sf,
         [
@@ -2114,7 +2156,7 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
             ),
             ("Notas internas", "Campo livre para sua referência."),
         ],
-        row + 1,
+        row + 2,
     )
 
 
@@ -6134,6 +6176,15 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
         )
         return
 
+    from ..asm_engine.asm_change_history import snapshot_asm_server
+    history_before = snapshot_asm_server(srv)
+    history_before_profile = srv.to_dict()
+
+    # Migra os campos customizados antigos para o manifesto antes de a UI
+    # substituir o texto anterior (necessário para detectar remoções).
+    from ..asm_engine.asm_ini_manager import seed_managed_ini_options
+    seed_managed_ini_options(srv)
+
     # 1. Sincroniza UI → cfg em memória
     _sync_ui_to_cfg(app, srv)
     try:
@@ -6172,6 +6223,21 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
         )
         return
 
+    try:
+        from ..asm_engine.asm_change_history import record_asm_server_changes
+
+        record_asm_server_changes(
+            srv.id, history_before, snapshot_asm_server(srv),
+            before_profile=history_before_profile,
+            after_profile=srv.to_dict(),
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger("arkland").warning(
+            "Histórico TEK falhou para '%s'", srv.name, exc_info=True
+        )
+
     # 3. Invalida cache do frame deste servidor para forçar reconstrução na próxima abertura
     cache_key = f"server_{srv.id}"
     frame_cache = getattr(app, "_frame_cache", {})
@@ -6191,6 +6257,7 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
             from ..asm_engine.asm_ini_manager import copy_player_level_fields, write_ini
 
             write_ini(srv)
+            app.asm_config_manager.update_server(srv)
             cluster_id = (getattr(srv, "cluster_profile_id", "") or "").strip()
             if cluster_id:
                 asm_mgr = app.asm_config_manager

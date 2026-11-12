@@ -6,7 +6,7 @@ from src.asm_engine.ini_document import IniDocument
 from src.ark_ini_fields import GUS_SECTION_ORDER
 
 
-def test_writer_keeps_unknown_configuration_but_strips_comments_and_raw_lines(tmp_path):
+def test_writer_keeps_unknown_configuration_comments_and_unmodified_raw_lines(tmp_path):
     path = tmp_path / "Game.ini"
     original = (
         "; keep header\r\n"
@@ -28,11 +28,14 @@ def test_writer_keeps_unknown_configuration_but_strips_comments_and_raw_lines(tm
     text = document.to_text()
     assert result.startswith(b"\xef\xbb\xbf")
     assert document.find_values("ShooterGameMode", "Managed") == ["new  "]
-    assert "; keep header" not in text
-    assert "; keep comment" not in text
+    assert "; keep header" in text
+    assert "; keep comment" in text
     assert "UnknownOption=do not touch\r\n" in text
-    assert "RawUnparsedLine(...)" not in text
+    assert "RawUnparsedLine(...)\r\n" in text
     assert "[CustomRepeatedSection]\r\nKeep=second block\r\n" in text
+    backups = list((tmp_path / "ArklandIniBackups").glob("Game.ini_*.bak"))
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == original
 
 
 def test_writer_removes_only_requested_keys_and_keeps_unmanaged_duplicate_sections(tmp_path):
@@ -54,7 +57,7 @@ def test_writer_removes_only_requested_keys_and_keeps_unmanaged_duplicate_sectio
     assert document.find_values("ShooterGameMode", "DisableMe") == []
     assert document.find_values("ShooterGameMode", "Keep") == ["one", "two"]
     assert document.find_values("ShooterGameMode", "NewManaged") == ["yes"]
-    assert text.count("[ShooterGameMode]") == 1
+    assert text.count("[ShooterGameMode]") == 2
 
 
 def test_writer_keeps_required_gus_skeleton_and_uses_ark_encoding_for_new_file(tmp_path):

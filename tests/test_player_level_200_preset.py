@@ -174,13 +174,17 @@ def test_classic_save_after_shortcut_matches_fixture_only_when_saved(tmp_path):
     assert not game.exists()
 
     ArkIniManager(srv.install_dir).save_all(srv)
-    text = game.read_text(encoding="utf-8")
+    game_bytes = game.read_bytes()
+    assert game_bytes.startswith(b"\xff\xfe")
+    text = game_bytes.decode("utf-16")
     assert _relevant_lines(text) == fixture_lines
-    gus = get_ini_path(srv.install_dir, "GameUserSettings.ini").read_text(encoding="utf-8")
+    gus_bytes = get_ini_path(srv.install_dir, "GameUserSettings.ini").read_bytes()
+    assert gus_bytes.startswith(b"\xff\xfe")
+    gus = gus_bytes.decode("utf-16")
     assert "overridemaxexperiencepointsplayer" not in gus.lower()
 
     gs.player_level_progressions_enabled = False
     ArkIniManager(srv.install_dir).save_all(srv)
-    text_off = game.read_text(encoding="utf-8")
+    text_off = game.read_bytes().decode("utf-16")
     assert _relevant_lines(text_off) == []
     assert gs.player_level_progressions_enabled is False

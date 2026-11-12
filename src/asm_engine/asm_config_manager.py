@@ -78,15 +78,9 @@ class AsmConfigManager:
                                  item.get("id") if isinstance(item, dict) else None, exc_info=True)
             if migrated_profiles:
                 _LOG.warning(
-                    "Migração de cap total legado aplicada: %s",
-                    ", ".join(migrated_profiles),
+                    'Legacy total-cap conversion was applied in memory; profile JSON is unchanged until an explicit save: %s',
+                    ', '.join(migrated_profiles),
                 )
-                try:
-                    self.save()
-                except Exception:
-                    _LOG.exception(
-                        "A migração de cap foi aplicada em memória, mas não pôde ser persistida; será repetida no próximo início"
-                    )
         except Exception:
             _LOG.exception("Falha ao ler %s — lista de servidores TEK ficará vazia", self._servers_file)
             try:
@@ -163,6 +157,21 @@ class AsmConfigManager:
                         self._servers[i] = s
                         raise
                     break
+
+    def update_servers(self, servers: list[AsmServerConfig]) -> None:
+        """Persist a group of profile updates with one JSON replacement."""
+        with self._save_lock:
+            previous = self._servers
+            replacements = {server.id: server for server in servers}
+            missing = set(replacements) - {server.id for server in previous}
+            if missing:
+                raise KeyError(f"Perfis TEK não encontrados: {', '.join(sorted(missing))}")
+            self._servers = [replacements.get(server.id, server) for server in previous]
+            try:
+                self.save()
+            except Exception:
+                self._servers = previous
+                raise
 
     def remove_server(self, server_id: str) -> None:
         with self._save_lock:

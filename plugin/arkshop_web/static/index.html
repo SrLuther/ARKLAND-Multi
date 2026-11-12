@@ -16154,6 +16154,18 @@ async function runStoreWarmup() {
   return true;
 }
 
+// Compatibilidade entre o catálogo normalizado e caches/payloads anteriores.
+// O payload antigo expunha TimedPointsBonus; o atual também fornece
+// license_timed_bonus. O fallback evita classificar bônus existentes como zero.
+function _catalogLicenseTimedBonus(item) {
+  return Number(
+    item?.license_timed_bonus ??
+    item?.licenseTimedBonus ??
+    item?.TimedPointsBonus ??
+    item?.timed_points_bonus
+  ) || 0;
+}
+
 // Aplica o payload de catálogo (de /api/catalog, /api/store/bootstrap ou cache
 // local). opts.entitlements/timedPointsTotal evitam um round-trip extra quando
 // o warmup já os trouxe; opts.gen/opts.signal permitem cancelamento cooperativo.
@@ -16209,7 +16221,7 @@ async function applyCatalogPayload(data, opts = {}) {
       ..._catalogDinoMeta(v, key),
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
-      licenseTimedBonus: Number(v.license_timed_bonus) || 0,
+      licenseTimedBonus: _catalogLicenseTimedBonus(v),
     }));
 
     _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
@@ -16457,7 +16469,7 @@ async function _loadCatalogLegacyUnused() {
       ..._catalogDinoMeta(v, key),
       licenseDays: v.license_days,
       licenseGroup: v.license_group || "",
-      licenseTimedBonus: Number(v.license_timed_bonus) || 0,
+      licenseTimedBonus: _catalogLicenseTimedBonus(v),
     }));
 
     _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
@@ -19520,7 +19532,7 @@ function _renderTicketThread(hostId, messages, orphanAtts) {
       `<a class="btn btn-ghost btn-sm" href="${API}/api/tickets/attachments/${a.id}" target="_blank" rel="noopener">📎 ${escHtml(a.original_filename)}</a>`
     ).join(" ");
     return `<div style="margin-bottom:12px;padding:10px;border-radius:8px;background:${isAdmin ? 'rgba(232,120,32,.08)' : 'var(--surface2)'};">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">${escHtml(m.author_name || m.author_type)} · ${escHtml(m.created_at || "")}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">${escHtml(m.author_display_name || m.author_name || m.author_type)}${m.author_discord_name ? ` · Discord: ${escHtml(m.author_discord_name)}` : ""} · ${escHtml(m.created_at || "")}</div>
       <div style="white-space:pre-wrap;font-size:13px;">${escHtml(m.body || "")}</div>
       ${links ? `<div style="margin-top:6px;font-size:12px;">${links}</div>` : ""}
       ${atts ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${atts}</div>` : ""}
@@ -23212,12 +23224,12 @@ async function loadTicketsAdmin() {
       const rowCls = closed ? " ticket-row--closed" : "";
       return `<tr class="${rowCls.trim()}">
       <td>${t.id}</td>
-      <td><div>${escHtml(t.player_name)}</div><code style="font-size:10px;">${escHtml(t.steam_id)}</code></td>
+      <td><div>${escHtml(t.player_display_name || t.player_name || t.steam_id)}</div><code style="font-size:10px;">${escHtml(t.steam_id)}</code></td>
       <td>${escHtml(t.subject)}${t.order_id ? `<div style="font-size:10px;color:var(--text2);">📦 ${escHtml(t.order_id.substring(0,8))}…</div>` : ""}</td>
       <td>${_ticketCategoryBadge(t.category)}</td>
       <td>${_ticketPriorityBadge(t.priority)}</td>
       <td>${_ticketStatusBadge(t.status)}</td>
-      <td style="font-size:11px;">${escHtml(t.discord_username || t.discord_user_id || "—")}</td>
+      <td style="font-size:11px;">${escHtml(t.discord_display_name || t.discord_username || t.discord_user_id || "—")}</td>
       <td style="font-size:11px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
       <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminAttend(${t.id})">${btnLabel}</button></td>
     </tr>`;
@@ -23260,7 +23272,7 @@ async function ticketsAdminOpenDetail(id, cachedDetail) {
     const t = d.ticket;
     document.getElementById("tickets-admin-detail-title").textContent = `#${t.id} — ${t.subject}`;
     document.getElementById("tickets-admin-detail-meta").innerHTML =
-      `${escHtml(t.player_name)} · <code>${escHtml(t.steam_id)}</code> · Discord: ${escHtml(t.discord_username || t.discord_user_id || "—")}<br>` +
+      `${escHtml(t.player_display_name || t.player_name || t.steam_id)} · <code>${escHtml(t.steam_id)}</code> · Discord: ${escHtml(t.discord_display_name || t.discord_username || t.discord_user_id || "—")}<br>` +
       `${_ticketStatusBadge(t.status)} ${_ticketPriorityBadge(t.priority)} ${_ticketCategoryBadge(t.category)}`;
     const statusSel = document.getElementById("tickets-admin-status-select");
     const priSel = document.getElementById("tickets-admin-priority-select");

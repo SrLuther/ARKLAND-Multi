@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import tkinter as tk
 from tkinter import messagebox
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
@@ -162,10 +163,19 @@ def open_sync_ini_dialog(app: "ARKServerManagerApp", source_server_id: str) -> N
             return
 
         from ..ini_sync import diff_ini_entries, merge_ini_sections, sync_ini_targets
+        from ..ini_write_safety import find_install_conflicts, load_tek_profiles_read_only
+
+        try:
+            cross_arch_profiles = load_tek_profiles_read_only()
+        except Exception as exc:
+            messagebox.showerror("Sincronização bloqueada", str(exc), parent=dlg)
+            return
 
         plans: list[tuple[str, str, object, bytes, list[str], list[str]]] = []
         errors: list[str] = []
         seen: set[str] = set()
+        target_profiles: dict[Path, object] = {}
+        known_profiles = list(app.config_manager.servers) + cross_arch_profiles
         sections_by_file = {
             filename: {name for name, variable in variables.items() if variable.get()}
             for filename, variables in section_vars.items()
@@ -177,6 +187,16 @@ def open_sync_ini_dialog(app: "ARKServerManagerApp", source_server_id: str) -> N
             if not server.install_dir or not os.path.isdir(server.install_dir):
                 errors.append(f"{server.name}: diretório indisponível")
                 continue
+            if app.server_manager.is_server_running(server.id):
+                errors.append(f"{server.name}: servidor em execução; destino ignorado")
+                continue
+            conflicts = find_install_conflicts(
+                server.id, server.install_dir, known_profiles, target_profile=server
+            )
+            if conflicts:
+                conflict_names = ", ".join(str(getattr(item, "name", getattr(item, "id", "perfil"))) for item in conflicts)
+                errors.append(f"{server.name}: instalação também pertence a {conflict_names}; destino ignorado")
+                continue
             for filename, source_path in selected:
                 destination = get_ini_path(server.install_dir, filename)
                 key = os.path.normcase(os.path.abspath(str(destination)))
@@ -187,6 +207,7 @@ def open_sync_ini_dialog(app: "ARKServerManagerApp", source_server_id: str) -> N
                     errors.append(f"{server.name}: destino duplicado; confira as pastas cadastradas")
                     continue
                 seen.add(key)
+                target_profiles[destination.resolve()] = server
                 current = destination.read_bytes() if destination.exists() else None
                 selected_sections = sections_by_file.get(filename, set())
                 content = merge_ini_sections(source_path.read_bytes(), current, selected_sections)
@@ -205,7 +226,7 @@ def open_sync_ini_dialog(app: "ARKServerManagerApp", source_server_id: str) -> N
         preview.grab_set()
         ctk.CTkLabel(
             preview,
-            text="Confira a alteração por servidor. Os arquivos serão gravados sem comentários ou texto fora da configuração.",
+            text="Confira a alteração por servidor. Comentários, diretivas e seções não selecionadas serão preservados.",
             anchor="w",
             justify="left",
             wraplength=800,
@@ -232,8 +253,20 @@ def open_sync_ini_dialog(app: "ARKServerManagerApp", source_server_id: str) -> N
 
         def apply_sync() -> None:
             files = {destination: content for _server, _name, destination, content, _add, _remove in plans}
+
+            def validate_target(destination: Path) -> None:
+                server = target_profiles[destination.resolve()]
+                if app.server_manager.is_server_running(server.id):
+                    raise RuntimeError(f"{server.name} foi iniciado durante a revisão; sincronização cancelada.")
+                latest_profiles = list(app.config_manager.servers) + load_tek_profiles_read_only()
+                conflicts_now = find_install_conflicts(
+                    server.id, server.install_dir, latest_profiles, target_profile=server
+                )
+                if conflicts_now:
+                    raise RuntimeError(f"Foi detectado perfil concorrente para {server.name}; sincronização cancelada.")
+
             try:
-                backups = sync_ini_targets(files)  # type: ignore[arg-type]
+                backups = sync_ini_targets(files, validate_target=validate_target)  # type: ignore[arg-type]
             except Exception as exc:
                 messagebox.showerror(
                     "Sincronização revertida",

@@ -243,6 +243,17 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
               tc="#7dd3fc" if is_running else t_mut)
     if srv.active_mods:
         _chip(f"🔧  {len(srv.active_mods)} mods", border="#1e3a5f", tc="#7dd3fc")
+    if getattr(srv, "battlemetrics_id", ""):
+        bm_data = (getattr(app, "_asm_bm_data", {}) or {}).get(srv.id)
+        if bm_data is None:
+            _chip("BM indisponível", tc=t_mut)
+        elif bm_data.online:
+            _chip(
+                f"BM {bm_data.players}/{bm_data.max_players}",
+                border="#166534", tc="#4ade80",
+            )
+        else:
+            _chip("BM offline", border="#7f1d1d", tc="#fca5a5")
 
     if is_running and steam_st not in (STEAM_UNAVAILABLE, STEAM_UNKNOWN):
         from ..server_visibility import steam_chip

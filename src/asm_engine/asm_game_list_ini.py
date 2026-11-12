@@ -406,6 +406,10 @@ def patch_game_ini_repeated_lines(
         )
         occurrences[folded] = occurrence + 1
 
-    # The ARK config files must contain configuration directives only.
-    # Keep repeated ramp entries, but discard comments and non-config lines.
-    path.write_bytes(document.to_config_bytes())
+    # Preserve comments, external directives and original encoding. The patch
+    # changes only repeated keys owned by this subsystem.
+    from ..ini_write_safety import write_with_backup
+    original = path.read_bytes()
+    output = document.to_bytes()
+    if output != original:
+        write_with_backup(path, output, expected_original=original)

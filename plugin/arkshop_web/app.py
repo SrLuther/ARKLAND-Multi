@@ -3402,15 +3402,32 @@ def _list_admin_players(
                 cached_persona = None
             persona_entries.append((sid, cached_persona))
 
-        # Resolver os nicks que faltam dentro desta resposta. O helper tem
-        # timeout curto e consulta apenas IDs sem persona em cache; assim a UI
-        # recebe o resultado real, em vez de ficar presa num placeholder após
-        # uma tarefa de background sem confirmação de sucesso.
+        # A listagem administrativa nunca espera a Steam: responde com os
+        # nomes já persistidos e agenda os IDs sem cache em segundo plano.
+        # Assim uma API externa lenta não segura o painel; a lista seguinte
+        # mostrará os nicks depois que o worker persistir os resultados.
         db.commit()
         t_steam = time.perf_counter()
-        personas, persona_meta = _backfill_steam_personas(
-            db, persona_entries, return_status=True,
-        )
+        personas = {
+            sid: persona.strip()
+            for sid, persona in persona_entries
+            if persona and persona.strip() and persona.strip() != sid
+        }
+        missing_personas = [
+            sid for sid, persona in persona_entries
+            if sid and (not persona or not persona.strip() or persona.strip() == sid)
+        ]
+        steam_api_configured = _steam_api_key_configured()
+        if missing_personas and steam_api_configured:
+            _schedule_steam_persona_backfill(missing_personas)
+        elif missing_personas:
+            _warn_steam_api_key_missing("admin_players_list")
+        persona_meta = {
+            "steam_api_configured": steam_api_configured,
+            "steam_persona_warning": (
+                _STEAM_PERSONA_ADMIN_WARNING if missing_personas and not steam_api_configured else None
+            ),
+        }
         timing["steam_ms"] = int((time.perf_counter() - t_steam) * 1000)
         items: list[dict[str, Any]] = []
         for r in rows:

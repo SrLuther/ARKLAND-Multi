@@ -20,6 +20,8 @@ Opções disponíveis no dict:
 from __future__ import annotations
 
 import configparser
+import base64
+import hashlib
 import logging
 import re
 import shutil
@@ -452,6 +454,69 @@ def inject_raw_ini_text(
                 target.setdefault(current_sec, {})[k] = v
 
 
+def seed_managed_ini_options(cfg: AsmServerConfig) -> None:
+    """Seed ownership from custom INI text before the UI replaces that text.
+
+    Legacy profiles have no ownership manifest. This migration records only
+    entries explicitly present in their custom INI fields/sections.
+    """
+    manifest = getattr(cfg, "managed_ini_options", None)
+    if not isinstance(manifest, dict):
+        manifest = {}
+    collected: dict[str, set[tuple[str, str]]] = {"GUS": set(), "Game": set(), "Engine": set()}
+    for tag, raw in (
+        ("GUS", getattr(cfg, "custom_gus_ini_raw", "")),
+        ("Game", getattr(cfg, "custom_game_ini_raw", "")),
+        ("Engine", getattr(cfg, "custom_engine_ini_raw", "")),
+    ):
+        parsed: dict[str, dict[str, str]] = {}
+        default = _GAME_MODE_SECTION if tag == "Game" else _GUS_DEFAULT_SECTION
+        inject_raw_ini_text(str(raw or ""), parsed, default_section=default)
+        collected[tag].update((section, key) for section, values in parsed.items() for key in values)
+    custom_sections = getattr(cfg, "custom_ini_sections", []) or []
+    if isinstance(custom_sections, dict):
+        # TEK also accepts the grouped shape: {"gus": [...], "game": [...] }.
+        # Record only entries explicitly present in that profile structure.
+        for raw_file, section_list in custom_sections.items():
+            file_name = str(raw_file).upper()
+            if file_name in ("GUS", "GAMEUSERSETTINGS", "GAMEUSERSETTINGS.INI"):
+                tag = "GUS"
+            elif file_name in ("GAME", "GAME.INI"):
+                tag = "Game"
+            else:
+                continue
+            if not isinstance(section_list, list):
+                continue
+            for entry in section_list:
+                if not isinstance(entry, dict):
+                    continue
+                section = str(entry.get("section", ""))
+                for option in entry.get("entries", []) or []:
+                    if isinstance(option, dict) and option.get("key"):
+                        collected[tag].add((section, str(option["key"])))
+    elif isinstance(custom_sections, list):
+        for entry in custom_sections:
+            if not isinstance(entry, dict):
+                continue
+            raw_file = str(entry.get("file", "GUS")).upper()
+            tag = "GUS" if raw_file in ("GUS", "GAMEUSERSETTINGS", "GAMEUSERSETTINGS.INI") else "Game"
+            section = str(entry.get("section", ""))
+            for option in entry.get("entries", []) or []:
+                if isinstance(option, dict) and option.get("key"):
+                    collected[tag].add((section, str(option["key"])))
+    for tag, pairs in collected.items():
+        old = {
+            (str(item.get("section", "")), str(item.get("key", "")))
+            for item in manifest.get(tag, [])
+            if isinstance(item, dict) and item.get("section") and item.get("key")
+        }
+        manifest[tag] = [
+            {"section": section, "key": key}
+            for section, key in sorted(old | pairs)
+        ]
+    cfg.managed_ini_options = manifest
+
+
 def _iter_custom_ini_sections(cfg: AsmServerConfig):
     """Itera seções custom legadas (lista ASM ou dict ``gus``/``game`` do TEK)."""
     raw = cfg.custom_ini_sections
@@ -472,6 +537,120 @@ def _iter_custom_ini_sections(cfg: AsmServerConfig):
             continue
         f = custom.get("file", "GUS").upper()
         yield f, custom.get("section", ""), custom.get("entries", [])
+
+
+def _mod_ini_marker(mod_id: str, file_key: str, edge: str) -> str:
+    token = base64.urlsafe_b64encode(mod_id.encode("utf-8")).decode("ascii").rstrip("=")
+    return f"; ARKLAND-TEK-MOD:{edge}:{token}:{file_key}"
+
+
+def _mod_ini_content_hash(text: str) -> str:
+    normalized = re.sub(r"\r\n|\r|\n", "\n", text).strip("\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _reconcile_mod_ini_blocks(
+    text: str,
+    *,
+    file_key: str,
+    previous: list[dict],
+    desired: list[dict],
+) -> str:
+    """Replace only marker-delimited mod blocks proven by the profile manifest."""
+    newline_match = re.search(r"\r\n|\n|\r", text)
+    newline = newline_match.group(0) if newline_match else "\r\n"
+    lines = text.splitlines(keepends=True)
+    owned = {
+        str(item.get("mod_id", "")): item
+        for item in previous
+        if isinstance(item, dict) and str(item.get("file", "")).upper() == file_key.upper()
+    }
+    start_re = re.compile(r"^; ARKLAND-TEK-MOD:BEGIN:([A-Za-z0-9_-]+):" + re.escape(file_key) + r"\s*(?:\r?\n|\r)?$")
+    end_template = "; ARKLAND-TEK-MOD:END:{token}:" + file_key
+    token_to_id = {}
+    for mod_id in owned:
+        token = base64.urlsafe_b64encode(mod_id.encode("utf-8")).decode("ascii").rstrip("=")
+        token_to_id[token] = mod_id
+
+    kept: list[str] = []
+    found: set[str] = set()
+    index = 0
+    while index < len(lines):
+        match = start_re.match(lines[index])
+        if not match or match.group(1) not in token_to_id:
+            kept.append(lines[index])
+            index += 1
+            continue
+        token = match.group(1)
+        if token in found:
+            raise ValueError(f"Mais de um bloco TEK encontrado para mod {token} ({file_key}); arquivo preservado")
+        end_line = end_template.format(token=token)
+        end_index = next(
+            (i for i in range(index + 1, len(lines))
+             if lines[i].rstrip("\r\n") == end_line),
+            None,
+        )
+        if end_index is None:
+            raise ValueError(f"Bloco INI TEK incompleto para mod {token} ({file_key}); arquivo preservado")
+        found.add(token)
+        entry = owned[token_to_id[token]]
+        expected_hash = str(entry.get("content_hash", "") or "")
+        if expected_hash:
+            actual = "".join(lines[index + 1:end_index])
+            if _mod_ini_content_hash(actual) != expected_hash:
+                raise ValueError(
+                    f"O bloco INI do mod {token} ({file_key}) foi editado fora do perfil; "
+                    "reconciliação cancelada para preservar as alterações"
+                )
+        index = end_index + 1
+
+    missing = set(token_to_id) - found
+    if missing:
+        token = sorted(missing)[0]
+        raise ValueError(f"Marcador de propriedade ausente para mod {token} ({file_key}); arquivo preservado")
+
+    text = "".join(kept)
+    for item in desired:
+        mod_id = str(item.get("mod_id", "")).strip()
+        raw = str(item.get("raw", "") or "")
+        if not mod_id or not raw.strip():
+            continue
+        if "ARKLAND-TEK-MOD:" in raw:
+            raise ValueError("O texto de configuração do mod contém marcador reservado do TEK")
+        if text and not text.endswith(("\n", "\r")):
+            text += newline
+        if text and not text.endswith(newline + newline):
+            text += newline
+        content = re.sub(r"\r\n|\r|\n", newline, raw).strip("\r\n")
+        text += (
+            _mod_ini_marker(mod_id, file_key, "BEGIN") + newline
+            + content + newline
+            + _mod_ini_marker(mod_id, file_key, "END") + newline
+        )
+    return text
+
+
+def _preflight_mod_ini_blocks(
+    path: Path,
+    *,
+    file_key: str,
+    previous: list[dict],
+    desired: list[dict],
+) -> None:
+    """Validate ownership and edits before either ARK INI is written."""
+    from .ini_document import IniDocument
+
+    document = (
+        IniDocument.parse(path.read_bytes())
+        if path.exists()
+        else IniDocument.parse(b"\xff\xfe")
+    )
+    _reconcile_mod_ini_blocks(
+        document.to_text(),
+        file_key=file_key,
+        previous=previous,
+        desired=[item for item in desired if str(item.get("file", "")).upper() == file_key.upper()],
+    )
 
 
 def _render_ini_text(
@@ -629,7 +808,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
         if not opts.get("always_write") and value in ("", "False", "0", "0.0", "1.0", "1"):
             # Heurística simples: multipliers=1.0 e booleans=False são padrão
             # Para campos críticos (porta, etc.) usamos always_write
-            pass  # não pula — deixa escrever para garantir consistência
+            continue
 
         target = gus if file_key == "GUS" else game
         section_key = _resolve_ini_section(file_key, section)
@@ -736,8 +915,81 @@ def write_ini(cfg: AsmServerConfig) -> None:
         for _idx, _val in enumerate(_values):
             game_mode_sec[f"{_prefix}[{_idx}]"] = _format_value(_val)
 
-    _write_ini_file(_ini_path_for_cfg(cfg, "GUS", write=True),  gus, remove_options=remove_gus_options)
+    from .asm_game_list_ini import (
+        build_repeated_game_lines,
+        build_custom_repeated_game_sections,
+        patch_game_ini_repeated_lines,
+    )
+
+    managed_now: dict[str, set[tuple[str, str]]] = {"GUS": set(), "Game": set()}
+    for file_key, sections in (("GUS", gus), ("Game", game)):
+        for section, options in sections.items():
+            managed_now[file_key].update((section, key) for key in options)
+
+    # Inclui diretivas ARK de chave repetível, aplicadas no patch posterior.
+    repeated_sections = build_custom_repeated_game_sections(cfg)
+    repeated_lines = build_repeated_game_lines(cfg)
+    repeated_lines.extend(repeated_sections.pop(_GAME_MODE_SECTION, []))
+    for line in repeated_lines:
+        key = line.partition("=")[0].strip()
+        if key:
+            managed_now["Game"].add((_GAME_MODE_SECTION, key))
+    for section, lines in repeated_sections.items():
+        for line in lines:
+            key = line.partition("=")[0].strip()
+            if key:
+                managed_now["Game"].add((section, key))
+
+    # Migração segura: perfis antigos começam sem manifesto. Na primeira
+    # gravação, registramos somente o que o perfil declara atualmente.
+    previous = getattr(cfg, "managed_ini_options", {}) or {}
+    previous_mod_blocks = list(getattr(cfg, "managed_mod_ini_blocks", []) or [])
+    desired_mod_blocks: list[dict] = []
+    mod_ini_configs = getattr(cfg, "mod_ini_configs", {}) or {}
+    if not isinstance(mod_ini_configs, dict):
+        raise TypeError("mod_ini_configs deve ser um objeto indexado pelo ID do mod")
+    for mod_id, mod_config in mod_ini_configs.items():
+        if not isinstance(mod_config, dict):
+            continue
+        for config_key, file_key in (("gus_ini", "GUS"), ("game_ini", "Game")):
+            raw = str(mod_config.get(config_key, "") or "")
+            if raw.strip():
+                desired_mod_blocks.append({"mod_id": str(mod_id), "file": file_key, "raw": raw})
+    remove_stale: dict[str, list[tuple[str, str]]] = {"GUS": [], "Game": []}
+    for file_key in ("GUS", "Game"):
+        prior_pairs = {
+            (str(item.get("section", "")), str(item.get("key", "")))
+            for item in previous.get(file_key, [])
+            if isinstance(item, dict) and item.get("section") and item.get("key")
+        }
+        if not prior_pairs:
+            # Migração de perfis antigos: essas chaves pertencem aos campos
+            # estruturados do ARKLAND; entradas desconhecidas ficam intactas.
+            for _field, (mapped_file, section, key, _opts) in INI_MAP.items():
+                mapped_tag = "GUS" if mapped_file.upper() == "GUS" else "Game"
+                if mapped_tag == file_key:
+                    prior_pairs.add((_resolve_ini_section(mapped_file, section), key))
+        remove_stale[file_key] = sorted(prior_pairs - managed_now[file_key])
+
+    gus_path = _ini_path_for_cfg(cfg, "GUS", write=True)
     _game_path = _ini_path_for_cfg(cfg, "Game", write=True)
+    # Check both mod-owned blocks before touching either file. Otherwise a
+    # conflict in Game.ini could be discovered only after GUS was already saved.
+    for file_key, path in (("GUS", gus_path), ("Game", _game_path)):
+        _preflight_mod_ini_blocks(
+            path,
+            file_key=file_key,
+            previous=previous_mod_blocks,
+            desired=desired_mod_blocks,
+        )
+
+    _write_ini_file(
+        gus_path, gus,
+        remove_options=remove_gus_options + remove_stale["GUS"],
+        previous_mod_blocks=previous_mod_blocks,
+        desired_mod_blocks=desired_mod_blocks,
+        mod_file_key="GUS",
+    )
     remove_game_options: list[tuple[str, str]] = []
     # Campos condicionais precisam limpeza explícita quando desligados.
     # Caso contrário, valor legado no INI permanece e read_ini() religa o toggle.
@@ -749,29 +1001,67 @@ def write_ini(cfg: AsmServerConfig) -> None:
         remove_game_options.append(
             (_GAME_MODE_SECTION, "OverrideMaxExperiencePointsPlayer")
         )
-    _write_ini_file(_game_path, game, remove_options=remove_game_options or None)
-
-    from .asm_game_list_ini import (
-        build_repeated_game_lines,
-        build_custom_repeated_game_sections,
-        patch_game_ini_repeated_lines,
+    _write_ini_file(
+        _game_path, game,
+        remove_options=(remove_game_options or []) + remove_stale["Game"],
+        previous_mod_blocks=previous_mod_blocks,
+        desired_mod_blocks=desired_mod_blocks,
+        mod_file_key="Game",
     )
-    repeated_sections = build_custom_repeated_game_sections(cfg)
-    repeated_lines = build_repeated_game_lines(cfg)
-    repeated_lines.extend(repeated_sections.pop(_GAME_MODE_SECTION, []))
+
     patch_game_ini_repeated_lines(_game_path, repeated_lines)
     for section, section_lines in repeated_sections.items():
         patch_game_ini_repeated_lines(_game_path, section_lines, section=section)
     _assert_game_ini_ramp_written(_game_path, cfg, repeated_lines)
 
     # Engine.ini (apenas raw)
-    if cfg.custom_engine_ini_raw:
+    engine_options: list[tuple[str, str]] = []
+    if cfg.custom_engine_ini_raw or previous.get("Engine"):
         engine: dict[str, dict[str, str]] = {}
         inject_raw_ini_text(cfg.custom_engine_ini_raw, engine)
+        now_engine = {
+            (section, key)
+            for section, values in engine.items()
+            for key in values
+        }
+        old_engine = {
+            (str(item.get("section", "")), str(item.get("key", "")))
+            for item in previous.get("Engine", [])
+            if isinstance(item, dict) and item.get("section") and item.get("key")
+        }
+        engine_options = sorted(old_engine - now_engine)
         _write_ini_file(
             _windows_server_ini_dir(cfg) / "Engine.ini",
             engine,
+            remove_options=engine_options,
         )
+
+    cfg.managed_ini_options = {
+        file_key: [
+            {"section": section, "key": key}
+            for section, key in sorted(options)
+        ]
+        for file_key, options in managed_now.items()
+    }
+    if cfg.custom_engine_ini_raw or previous.get("Engine"):
+        engine_now = {
+            (section, key)
+            for section, values in engine.items()
+            for key in values
+        }
+        cfg.managed_ini_options["Engine"] = [
+            {"section": section, "key": key}
+            for section, key in sorted(engine_now)
+        ]
+
+    cfg.managed_mod_ini_blocks = [
+        {
+            "mod_id": item["mod_id"],
+            "file": item["file"],
+            "content_hash": _mod_ini_content_hash(item["raw"]),
+        }
+        for item in desired_mod_blocks
+    ]
 
     mirror_ini_to_user_config_folder(cfg)
 
@@ -781,6 +1071,9 @@ def _write_ini_file(
     sections: dict[str, dict[str, str]],
     *,
     remove_options: list[tuple[str, str]] | None = None,
+    previous_mod_blocks: list[dict] | None = None,
+    desired_mod_blocks: list[dict] | None = None,
+    mod_file_key: str | None = None,
 ) -> None:
     """Aplica o patch do gerenciador sem reserializar o INI inteiro."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -825,13 +1118,31 @@ def _write_ini_file(
                 case_sensitive=True,
             )
 
-    # The ARK parser accepts only configuration entries here: comments, blank
-    # lines and malformed/raw text are filtered out before the atomic write.
-    # Existing files keep their encoding/BOM; new ARK INIs use UTF-16 LE BOM.
-    tmp = path.with_suffix(".tmp")
-    with open(tmp, "wb") as fh:
-        fh.write(document.to_config_bytes())
-    tmp.replace(path)
+    if mod_file_key:
+        mod_text = _reconcile_mod_ini_blocks(
+            document.to_text(),
+            file_key=mod_file_key,
+            previous=previous_mod_blocks or [],
+            desired=[
+                item for item in (desired_mod_blocks or [])
+                if str(item.get("file", "")).upper() == mod_file_key.upper()
+            ],
+        )
+        if mod_text != document.to_text():
+            document = IniDocument.parse(document.encode_text_like_source(mod_text))
+
+    # Preserve comments, directives, unknown mod keys, line order and encoding;
+    # only the managed options above are changed. The original bytes are kept
+    # in a recoverable backup before the atomic replacement.
+    from ..ini_write_safety import write_with_backup
+    output = document.to_bytes()
+    if path.exists():
+        original = path.read_bytes()
+        if output == original:
+            return
+        write_with_backup(path, output, expected_original=original)
+    else:
+        write_with_backup(path, output, expected_original=None)
 
 
 @traced_read_ini

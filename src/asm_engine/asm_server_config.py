@@ -36,9 +36,16 @@ class AsmServerConfig:
     rcon_log_buffer:     int  = 600               # RCONServerGameLogBuffer
     admin_logging:       bool = False
     max_players:         int  = 70
+    # ID público BattleMetrics para status/contagem em runtime.
+    battlemetrics_id:    str  = ""
 
     # Mods (lista de IDs Steam Workshop)
     active_mods:         List[str] = field(default_factory=list)
+    # Blocos INI brutos por mod: {mod_id: {"game_ini": texto, "gus_ini": texto}}.
+    # Texto bruto preserva seções/chaves repetidas; os marcadores no INI e
+    # managed_mod_ini_blocks registram a propriedade TEK de cada bloco.
+    mod_ini_configs: dict = field(default_factory=dict)
+    managed_mod_ini_blocks: List[dict] = field(default_factory=list)
 
     # Sessão / save
     server_map:                 str   = "TheIsland"
@@ -400,6 +407,18 @@ class AsmServerConfig:
     restart_countdown_minutes:      int   = 15
     enable_auto_update_check:       bool  = False
     auto_update_check_minutes:      int   = 60
+    # Backup individual (o agendamento global continua em BackupConfig).
+    backup_enabled:                 bool  = False
+    backup_interval_hours:          int   = 6
+    backup_keep_count:              int   = 10
+    backup_include_saves:           bool  = True
+    backup_include_config:          bool  = False
+    backup_exclude_redundant:       bool  = True
+    backup_dir:                     str   = ""
+    # Broadcast individual; exige habilitação explícita e mensagem não vazia.
+    enable_scheduled_broadcast:     bool  = False
+    scheduled_broadcast_time:       str   = "12:00"
+    scheduled_broadcast_message:    str   = ""
     notify_discord_on_events:       bool  = False
 
     # ── Desempenho do Processo ────────────────────────────────────────────────
@@ -425,6 +444,10 @@ class AsmServerConfig:
     # legado — mantido para compatibilidade de dados antigos
     custom_ini_sections: List[dict] = field(default_factory=list)
 
+    # Pares (seção, chave) que já foram gravados pelo gerenciador por arquivo.
+    # Permite remover no futuro somente opções cuja propriedade é conhecida.
+    managed_ini_options: dict = field(default_factory=dict)
+
     # ── Loja CustomShop ───────────────────────────────────────────────────────
     shop_server_id: str = ""
     cross_chat_label: str = ""
@@ -437,11 +460,18 @@ class AsmServerConfig:
     color:  str = ""           # cor customizada do card (ex: "#22c55e"). Vazio = padrão
     tags:   List[str] = field(default_factory=list)  # etiquetas livres
     folder: str = ""           # grupo/pasta no dashboard (ex: "Cluster #1")
+    _extra_profile_fields: dict = field(default_factory=dict, repr=False, compare=False)
 
     # ─────────────────────────────────────────────────────────────────────────
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        data = asdict(self)
+        extras = data.pop("_extra_profile_fields", {})
+        if isinstance(extras, dict):
+            for key, value in extras.items():
+                if key not in data and key != "_extra_profile_fields":
+                    data[key] = value
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "AsmServerConfig":
@@ -505,13 +535,17 @@ class AsmServerConfig:
                 str(data.get("dino_level_stats_raw", "") or "").strip()
             )
 
-        field_map = {f.name: f for f in fields(cls)}
+        field_map = {f.name: f for f in fields(cls) if f.name != "_extra_profile_fields"}
         defaults = cls()
         kwargs: dict = {}
+        extras = dict(data.get("_extra_profile_fields", {})) if isinstance(data.get("_extra_profile_fields"), dict) else {}
         for key, raw in data.items():
             if key not in field_map:
+                if key != "_extra_profile_fields":
+                    extras[key] = raw
                 continue
             kwargs[key] = _coerce_config_field(field_map[key], raw, defaults)
+        kwargs["_extra_profile_fields"] = extras
         from ..ui_constants import normalize_active_event
         if "active_event" in kwargs:
             kwargs["active_event"] = normalize_active_event(kwargs.get("active_event", ""))

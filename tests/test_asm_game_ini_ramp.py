@@ -203,12 +203,12 @@ def test_patch_preserves_unmanaged_lines_duplicate_sections_and_utf8_encoding(tm
     )
 
     result = path.read_bytes().decode("utf-8")
-    assert "; keep header" not in result
-    assert "# keep comment" not in result
+    assert "; keep header" in result
+    assert "# keep comment" in result
     assert "Unknown=preserve\n" in result
     assert "Other=also-preserve\n" in result
     assert "MaxPlayers=70\n" in result
-    assert result.count("[" + _GAME_MODE_SECTION + "]") == 1
+    assert result.count("[" + _GAME_MODE_SECTION + "]") == 2
     assert count_ramp_lines_in_section(result, _GAME_MODE_SECTION) == 2
 
 

@@ -1,9 +1,19 @@
 # Changelog
 
-<!-- Gerado: 2026-11-11 12:46:59 -->
-<!-- Total de versões: 562 | Primeira: 1.12.3 -->
+<!-- Gerado: 2026-11-11 23:29:37 -->
+<!-- Total de versões: 563 | Primeira: 1.12.4 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.4] - 2026-11-11
+
+### Other
+
+- TEK: reconciliação dos arquivos INI com manifesto de propriedade, preservação externa, codificação detectada e gravação atômica.
+- TEK: edição manual, importação e sincronização detectam conflitos e evitam que chaves gerenciadas removidas reapareçam.
+- TEK: persistência de configurações de mods, backups e agendamentos individuais, broadcasts por servidor, BattleMetrics e histórico de alterações.
+- Web Store: separa licenças com bônus de âmbares por tempo das licenças especiais e exibe os nicks Steam e Discord nos tickets administrativos.
+- Web Store: consulta administrativa de jogadores responde sem esperar a Steam; a busca de nomes segue em segundo plano.
 
 ## [1.12.3] - 2026-11-11
 

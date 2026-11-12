@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 import app as _app_module
-from app import Order, StoreUser, app
+from app import Order, StoreUser, SupportTicketDiscordLink, app
 from ticket_service import (
     TICKET_CATEGORIES,
     add_ticket_reply,
@@ -618,6 +618,57 @@ def test_create_and_list_ticket(ticket_db):
     assert len(detail["history"]) >= 1
     assert detail["history"][0]["event_type"] == "created"
     assert detail["permissions"]["can_player_reply"] is True
+
+
+def test_admin_ticket_identity_uses_current_names_without_rewriting_history(ticket_db):
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name=USER_STEAM,
+        subject="Ticket legado sem nick",
+        body="Mensagem inicial",
+        discord_user_id=None,
+        discord_username=None,
+    )
+    ticket_id = created["ticket"]["id"]
+    ticket_db.add(StoreUser(
+        steam_id=USER_STEAM,
+        display_name="Nome de conta",
+        steam_persona="Nick Steam Atual",
+    ))
+    ticket_db.add(SupportTicketDiscordLink(
+        steam_id=USER_STEAM,
+        discord_user_id="555123456",
+        discord_username="NickDiscordAtual",
+    ))
+    ticket_db.commit()
+
+    detail = get_ticket_detail(ticket_db, ticket_id, is_admin=True)
+    assert detail is not None
+    assert detail["ticket"]["player_display_name"] == "Nick Steam Atual"
+    assert detail["ticket"]["discord_display_name"] == "NickDiscordAtual"
+    assert detail["ticket"]["player_name"] == USER_STEAM
+    assert detail["messages"][0]["author_display_name"] == "Nick Steam Atual"
+    assert detail["messages"][0]["author_discord_name"] == "NickDiscordAtual"
+    assert detail["messages"][0]["author_name"] == USER_STEAM
+
+    rows, total = list_tickets_admin(ticket_db)
+    assert total == 1
+    assert rows[0]["player_display_name"] == "Nick Steam Atual"
+    assert rows[0]["discord_display_name"] == "NickDiscordAtual"
+    # A consulta enriquece a resposta, mas preserva snapshots e histórico no banco.
+    stored = ticket_db.get(_app_module.SupportTicket, ticket_id)
+    assert stored.player_name == USER_STEAM
+    assert stored.discord_username is None
+
+
+def test_ticket_admin_ui_prefers_resolved_identity_fields():
+    from pathlib import Path
+
+    html = (Path(__file__).resolve().parents[1] / "static" / "index.html").read_text(encoding="utf-8")
+    assert "t.player_display_name || t.player_name || t.steam_id" in html
+    assert "t.discord_display_name || t.discord_username || t.discord_user_id" in html
+    assert "m.author_display_name || m.author_name || m.author_type" in html
 
 
 def test_player_visibility_after_admin_attend(ticket_db):

@@ -72,4 +72,10 @@ def test_catalog_supported_custom_keys_round_trip_to_the_two_ark_ini_files(tmp_p
     assert game.find_values("/Script/ShooterGame.ShooterGameMode", "bUseSingleplayerSettings") == ["True"]
     assert len(game.find_values("/Script/ShooterGame.ShooterGameMode", "DinoClassDamageMultipliers")) == 2
     assert game.find_values("ModInstaller", "ModIDS") == ["123456789", "987654321"]
-    assert all(line.kind in {"section", "key"} for path in ini_dir.glob("*.ini") for line in IniDocument.from_file(str(path)).lines)
+    # TEK's block ownership markers are valid INI comments and are needed to
+    # reconcile per-mod raw snippets without collapsing repeated keys.
+    assert all(
+        line.kind in {"section", "key", "comment", "blank"}
+        for path in ini_dir.glob("*.ini")
+        for line in IniDocument.from_file(str(path)).lines
+    )

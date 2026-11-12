@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.ini_sync import diff_ini_bytes, diff_ini_entries, merge_ini_sections, sync_ini_targets
+from src.ini_sync import diff_ini_bytes, diff_ini_entries, import_ini_targets, merge_ini_sections, sync_ini_targets
 
 
 def test_diff_counts_only_ini_entries_and_preserves_repeated_keys():
@@ -60,22 +60,63 @@ def test_merge_selected_sections_with_no_destination_uses_only_selected_sections
 
     merged = merge_ini_sections(source, None, {"B"})
 
-    assert merged == b"[B]\nValue=2\n"
+    assert merged.startswith(b"\xff\xfe")
+    assert merged.decode("utf-16").lstrip("\ufeff") == "[B]\r\nValue=2\r\n"
 
 
-def test_sync_creates_persistent_backup_and_writes_config_only(tmp_path: Path):
+def test_sync_creates_byte_exact_backup_and_preserves_source_comments(tmp_path: Path):
     destination = tmp_path / "Game.ini"
     destination.write_bytes(b"[Old]\nValue=old\n")
 
     backups = sync_ini_targets(
-        {destination: b"; remove prose\n[New]\nValue=ok\n"},
+        {destination: b"; keep comment\n[New]\nValue=ok\n"},
         timestamp="fixed",
     )
 
-    assert destination.read_bytes() == b"[New]\nValue=ok\n"
+    assert destination.read_bytes() == b"; keep comment\n[New]\nValue=ok\n"
     assert len(backups) == 1
     assert backups[0].read_bytes() == b"[Old]\nValue=old\n"
     assert backups[0].parent == tmp_path / "ArklandIniBackups"
+
+
+def test_ini_import_copies_source_bytes_exactly_and_backs_up_destination(tmp_path: Path):
+    source = tmp_path / "source" / "Game.ini"
+    target = tmp_path / "target" / "Game.ini"
+    source.parent.mkdir()
+    target.parent.mkdir()
+    imported = b"\xff\xfe" + "[ExternalMod]\r\nKey=ação\r\n; keep me\r\n".encode("utf-16-le")
+    original = b"\xef\xbb\xbf[Old]\nKey=old\n"
+    source.write_bytes(imported)
+    target.write_bytes(original)
+
+    backups = import_ini_targets({target: source})
+
+    assert target.read_bytes() == imported
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == original
+    assert source.read_bytes() == imported
+
+
+def test_merge_preserves_comments_directives_and_unselected_content_in_destination_encoding():
+    source = b"[Mods]\r\n; plugin comment\r\n+CustomStackSizeMultiplier=2\r\n[ServerSettings]\r\nA=2\r\n"
+    destination = b"\xef\xbb\xbf; local preamble\n[Mods]\nOld=1\n[ServerSettings]\nA=1\n; local note\n[Local]\nKeep=1\n"
+
+    merged = merge_ini_sections(source, destination, {"mods"})
+
+    assert merged.startswith(b"\xef\xbb\xbf")
+    text = merged.decode("utf-8-sig")
+    assert "; local preamble" in text
+    assert "; plugin comment" in text
+    assert "+CustomStackSizeMultiplier=2" in text
+    assert "[ServerSettings]\nA=1\n; local note" in text
+    assert "[Local]\nKeep=1" in text
+
+
+def test_merge_new_ark_ini_uses_utf16le_bom_and_preserves_selected_mod_directives():
+    merged = merge_ini_sections(b"[Mod]\n+Entry=1\n; note\n", None, {"Mod"})
+    assert merged.startswith(b"\xff\xfe")
+    assert "+Entry=1" in merged.decode("utf-16")
+    assert "; note" in merged.decode("utf-16")
 
 
 def test_sync_rolls_back_prior_targets_when_a_later_write_fails(tmp_path: Path, monkeypatch):
@@ -100,3 +141,20 @@ def test_sync_rolls_back_prior_targets_when_a_later_write_fails(tmp_path: Path, 
 
     assert first.read_bytes() == b"[S]\nK=old1\n"
     assert second.read_bytes() == b"[S]\nK=old2\n"
+
+
+def test_sync_revalidates_targets_before_writing(tmp_path: Path):
+    destination = tmp_path / "running.ini"
+    destination.write_bytes(b"[S]\nK=old\n")
+    calls = 0
+
+    def validate(_path: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("server started")
+
+    with pytest.raises(RuntimeError, match="server started"):
+        sync_ini_targets({destination: b"[S]\nK=new\n"}, validate_target=validate)
+
+    assert destination.read_bytes() == b"[S]\nK=old\n"

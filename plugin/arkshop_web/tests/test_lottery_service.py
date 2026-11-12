@@ -47,7 +47,7 @@ def lottery_db(tmp_path):
         conn.execute(
             text(
                 "CREATE TABLE IF NOT EXISTS store_users ("
-                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT, "
+                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT, display_name TEXT, "
                 "fixed_lottery_number INTEGER)"
             )
         )
@@ -254,15 +254,15 @@ def test_admin_report_stats_and_nicknames(lottery_db):
     cid = _active_campaign(lottery_db)
     lottery_db.execute(
         text(
-            "INSERT INTO store_users (steam_id, market_display_name, steam_persona) "
-            "VALUES (:s, 'ArkPlayer', 'SteamNick')"
+            "INSERT INTO store_users (steam_id, steam_persona) "
+            "VALUES (:s, 'SteamNick')"
         ),
         {"s": USER},
     )
     lottery_db.execute(
         text(
-            "INSERT INTO store_users (steam_id, market_display_name, steam_persona) "
-            "VALUES (:s, NULL, 'SecondPlayer')"
+            "INSERT INTO store_users (steam_id, steam_persona) "
+            "VALUES (:s, 'SecondPlayer')"
         ),
         {"s": USER2},
     )
@@ -279,7 +279,7 @@ def test_admin_report_stats_and_nicknames(lottery_db):
     assert report["summary"]["by_source"]["DONATION"] == 2
     assert report["summary"]["by_source"]["AMBER_RANDOM"] == 1
     by_sid = {p["steam_id"]: p for p in report["participants"]}
-    assert by_sid[USER]["steam_nickname"] == "ArkPlayer"
+    assert by_sid[USER]["steam_nickname"] == "SteamNick"
     assert by_sid[USER2]["steam_nickname"] == "SecondPlayer"
     assert len(by_sid[USER]["numbers"]) == 2
     assert len(by_sid[USER2]["numbers"]) == 1
@@ -290,7 +290,7 @@ def test_admin_report_shows_winning_numbers_when_completed(lottery_db, monkeypat
     cid = _active_campaign(lottery_db, base=100, w=1, draw_past=True)
     lottery_db.execute(
         text(
-            "INSERT INTO store_users (steam_id, market_display_name) VALUES (:s, 'WinnerNick')"
+            "INSERT INTO store_users (steam_id, steam_persona) VALUES (:s, 'WinnerNick')"
         ),
         {"s": USER},
     )
@@ -541,7 +541,7 @@ def test_lottery_public_http_routes(tmp_path, monkeypatch):
         conn.execute(
             text(
                 "CREATE TABLE IF NOT EXISTS store_users ("
-                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT)"
+                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT, display_name TEXT)"
             )
         )
         conn.commit()

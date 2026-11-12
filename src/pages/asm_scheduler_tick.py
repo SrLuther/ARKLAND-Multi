@@ -67,14 +67,20 @@ def _process_server_scheduled_tasks(app, srv, now, now_hhmm: str) -> None:
             setattr(app, last_attr, now)
             threading.Thread(target=app._asm_check_update_worker, args=(srv,), daemon=True).start()
 
-    if getattr(srv, "enable_auto_backup", False):
-        backup_time = (getattr(srv, "auto_backup_time", "") or "").strip()
-        if backup_time == now_hhmm:
-            last_date_attr = f"_backup_last_date_{srv.id}"
-            today_str = now.strftime("%Y-%m-%d")
-            if getattr(app, last_date_attr, None) != today_str:
-                setattr(app, last_date_attr, today_str)
-                threading.Thread(target=app._run_global_backup, daemon=True).start()
+    if getattr(srv, "backup_enabled", False):
+        interval_hours = max(1, int(getattr(srv, "backup_interval_hours", 6) or 6))
+        last_runs = getattr(app, "_asm_server_backup_last_run", None)
+        if last_runs is None:
+            last_runs = {}
+            app._asm_server_backup_last_run = last_runs
+        last = last_runs.get(srv.id)
+        if last is None:
+            # Prime the timer at startup; first automatic individual backup is
+            # due only after a full interval, never immediately at app launch.
+            last_runs[srv.id] = now
+        elif (now - last).total_seconds() >= interval_hours * 3600:
+            last_runs[srv.id] = now
+            threading.Thread(target=app._asm_do_scheduled_backup, args=(srv,), daemon=True).start()
 
     if getattr(srv, "enable_scheduled_broadcast", False):
         bc_time = (getattr(srv, "scheduled_broadcast_time", "") or "").strip()

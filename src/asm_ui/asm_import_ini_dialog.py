@@ -472,14 +472,28 @@ class _ImportIniDialog(ctk.CTkToplevel):
     def _apply_to_current(self) -> None:
         if self._tmp_cfg is None:
             return
+        try:
+            self._validate_profile_target(self._srv)
+        except Exception as exc:
+            messagebox.showerror("Importação bloqueada", str(exc), parent=self)
+            return
         selected = self._get_selected_categories()
         if not selected:
             messagebox.showwarning(
                 "Aviso", "Selecione pelo menos uma categoria.", parent=self)
             return
 
-        count = self._apply_categories_to(self._tmp_cfg, self._srv, selected)
-        self._app.asm_config_manager.update_server(self._srv)
+        updated = copy.deepcopy(self._srv)
+        count = self._apply_categories_to(self._tmp_cfg, updated, selected)
+        try:
+            self._app.asm_config_manager.update_server(updated)
+        except Exception as exc:
+            messagebox.showerror(
+                "Importação não salva",
+                f"O perfil original foi mantido.\n\n{exc}",
+                parent=self,
+            )
+            return
         self.destroy()
         self._app._asm_open_server_panel(self._srv.id)
         messagebox.showinfo(
@@ -506,18 +520,38 @@ class _ImportIniDialog(ctk.CTkToplevel):
             return
 
         srv_map = {s.id: s for s in self._app.asm_config_manager.servers}
+        selected_targets = [srv_map[sid] for sid in dest_ids if sid in srv_map]
+        try:
+            for target in selected_targets:
+                self._validate_profile_target(target)
+        except Exception as exc:
+            messagebox.showerror(
+                "Sincronização bloqueada",
+                f"Nenhum perfil foi alterado.\n\n{exc}",
+                parent=self,
+            )
+            return
+        updates: list[AsmServerConfig] = []
         total   = 0
         synced: list[str] = []
 
-        for sid in dest_ids:
-            target = srv_map.get(sid)
-            if target:
-                n = self._apply_categories_to(self._tmp_cfg, target, selected_cats)
-                total  += n
-                synced.append(target.name)
-                self._app.asm_config_manager.update_server(target)
+        for target in selected_targets:
+            updated = copy.deepcopy(target)
+            n = self._apply_categories_to(self._tmp_cfg, updated, selected_cats)
+            total  += n
+            synced.append(updated.name)
+            updates.append(updated)
 
         if synced:
+            try:
+                self._app.asm_config_manager.update_servers(updates)
+            except Exception as exc:
+                messagebox.showerror(
+                    "Sincronização não salva",
+                    f"Nenhum perfil foi alterado no arquivo JSON.\n\n{exc}",
+                    parent=self,
+                )
+                return
             self.destroy()
             messagebox.showinfo(
                 "Sincronização concluída",
@@ -526,6 +560,22 @@ class _ImportIniDialog(ctk.CTkToplevel):
                 + "\n\nAcesse cada servidor e salve para gravar nos arquivos .ini.",
                 parent=self._app,
             )
+
+    def _validate_profile_target(self, target: AsmServerConfig) -> None:
+        """Refuse profile imports that could lead to concurrent INI ownership."""
+        status = str(self._app.asm_server_manager.get_status(target.id)).lower()
+        if status in {"running", "starting", "stopping"}:
+            raise RuntimeError(f"{target.name} está {status}; pare-o pela interface antes de importar/sincronizar.")
+        from ..ini_write_safety import find_install_conflicts
+
+        profiles = list(self._app.asm_config_manager.servers)
+        profiles.extend(getattr(self._app.config_manager, "servers", []))
+        conflicts = find_install_conflicts(
+            target.id, target.install_dir, profiles, target_profile=target
+        )
+        if conflicts:
+            names = ", ".join(str(getattr(item, "name", getattr(item, "id", "perfil"))) for item in conflicts)
+            raise RuntimeError(f"A instalação de {target.name} também está associada a: {names}.")
 
 
 # ── Ponto de entrada (singleton por servidor) ──────────────────────────────────

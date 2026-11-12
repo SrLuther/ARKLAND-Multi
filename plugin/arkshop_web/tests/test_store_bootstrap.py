@@ -195,6 +195,13 @@ def test_index_catalog_dom_pagination_20():
     assert 'const { slice, page, pages, total } = _catalogPageSlice(filtered, "licenses")' in html
     assert 'slice.filter(i => Number(i.licenseTimedBonus) > 0)' in html
     assert 'slice.filter(i => Number(i.licenseTimedBonus) <= 0)' in html
+    # Catálogo em cache pode conter o campo legado TimedPointsBonus;
+    # a normalização deve aceitá-lo para não mandar bônus para "especiais".
+    assert "function _catalogLicenseTimedBonus(item)" in html
+    assert "item?.license_timed_bonus" in html
+    assert "item?.TimedPointsBonus" in html
+    assert html.count("licenseTimedBonus: _catalogLicenseTimedBonus(v)") == 2
+
     assert 'id="catalog-licenses-amber-grid"' in html
     assert 'id="catalog-licenses-special-grid"' in html
     assert "Licenças com Âmbares por tempo" in html
@@ -250,7 +257,10 @@ def test_index_pauses_pix_poll_when_hidden():
 def test_index_has_staff_mode_toggle():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     assert 'id="staff-mode-toggle"' in html
-    assert "MODO STAFF" in html
+    # O controle agora é representado por um ícone acessível; o texto visível
+    # foi removido, mas a ação continua exposta pelo rótulo acessível.
+    assert 'aria-label="Alternar modo Staff"' in html
+    assert 'title="Alternar modo Staff"' in html
     assert "toggleStaffMode" in html
     assert "_staffMode" in html
     assert "arkland_staff_mode" in html

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import configparser
 import io
+from dataclasses import MISSING, fields as dataclass_fields
 from pathlib import Path
 from typing import Optional
 
@@ -170,6 +171,22 @@ def _coerce(value: str, typ):
     return value
 
 
+def _matches_declared_default(instance: object, field_name: str, value: object) -> bool:
+    """Return whether a mapped setting equals its dataclass default."""
+    field = next(
+        (item for item in dataclass_fields(type(instance)) if item.name == field_name),
+        None,
+    )
+    if field is None:
+        return False
+    default = field.default
+    if default is MISSING:
+        if field.default_factory is MISSING:
+            return False
+        default = field.default_factory()
+    return value == default
+
+
 def get_ini_path(install_dir: str, filename: str) -> Path:
     """Retorna o caminho do arquivo INI dentro da instalação ARK."""
     return (
@@ -316,13 +333,15 @@ def _write_encoding(path: Path) -> str:
     """Retorna o encoding para escrever o arquivo preservando o BOM original.
 
     Se o arquivo existir e tiver BOM conhecido, usa o mesmo encoding.
-    Caso contrário, usa utf-8 (sem BOM) como padrão seguro.
+    Arquivos existentes sem BOM permanecem em UTF-8 sem BOM. Arquivos novos usam
+    UTF-16 LE com BOM, formato esperado pelo ARK para arquivos de configuração.
     """
     if path.exists():
         detected = _bom_encoding(path)
         if detected:
             return detected
-    return "utf-8"
+        return "utf-8"
+    return "utf-16"
 
 
 def _write_config_only_ini(path: Path, text: str) -> None:
@@ -1387,6 +1406,9 @@ class ArkIniManager:
             if not parser.has_section(section):
                 parser.add_section(section)
             value = getattr(gs, field_name)
+            if _matches_declared_default(gs, field_name, value):
+                parser.remove_option(section, key)
+                continue
             if typ is bool:
                 parser.set(section, key, _bool_to_str(value))
             else:
@@ -1657,7 +1679,14 @@ class ArkIniManager:
         # ── Campos de breeding (local canônico: Game.ini) ─────────────────
         gs = config.game_settings
         for field_name, key, typ in _GAME_INI_GAME_SETTINGS:
-            parser.set(section, key, str(getattr(gs, field_name)))
+            value = getattr(gs, field_name)
+            if (
+                field_name != "max_fall_speed_multiplier"
+                and _matches_declared_default(gs, field_name, value)
+            ):
+                parser.remove_option(section, key)
+                continue
+            parser.set(section, key, str(value))
 
         # ── PerLevelStatsMultiplier — escreve apenas valores não-padrão ───────
         for ini_key, attr in [

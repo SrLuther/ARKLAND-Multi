@@ -77,3 +77,62 @@ def test_persistent_windows_sharing_violation_preserves_old_json(
 
     assert profile.read_bytes() == original
     assert not list(profile.parent.glob("asm_servers.json.*.tmp"))
+
+
+def test_batch_profile_update_rolls_back_all_memory_changes_when_save_fails(managers, monkeypatch):
+    profile_path, manager, _ = managers
+    manager.add_server(AsmServerConfig(id="second", name="Before"))
+    before_bytes = profile_path.read_bytes()
+    before_profiles = manager.servers
+    first, second = [AsmServerConfig.from_dict(item.to_dict()) for item in before_profiles]
+    first.name = "Changed first"
+    second.name = "Changed second"
+
+    def fail_save():
+        raise OSError("simulated profile save failure")
+
+    monkeypatch.setattr(manager, "save", fail_save)
+    with pytest.raises(OSError, match="simulated profile save failure"):
+        manager.update_servers([first, second])
+
+    assert manager.servers == before_profiles
+    assert profile_path.read_bytes() == before_bytes
+
+
+def test_unknown_profile_fields_survive_load_edit_and_save(tmp_path, monkeypatch):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    profile_path = tmp_path / "ARKLAND-ServerManager" / "asm_servers.json"
+    profile_path.parent.mkdir(parents=True)
+    original = [{"id": "legacy", "name": "Legacy", "future_feature": {"enabled": True, "ids": [1, 2]}}]
+    profile_path.write_text(json.dumps(original), encoding="utf-8")
+
+    manager = AsmConfigManager()
+    loaded = manager.get_server("legacy")
+    assert loaded is not None
+    loaded.name = "Edited"
+    manager.update_server(loaded)
+
+    saved = json.loads(profile_path.read_text(encoding="utf-8"))[0]
+    assert saved["name"] == "Edited"
+    assert saved["future_feature"] == {"enabled": True, "ids": [1, 2]}
+
+
+def test_loading_legacy_profile_does_not_rewrite_json(tmp_path, monkeypatch):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    profile_path = tmp_path / "ARKLAND-ServerManager" / "asm_servers.json"
+    profile_path.parent.mkdir(parents=True)
+    original = [{
+        "id": "legacy-cap",
+        "name": "Legacy cap",
+        "player_xp_curve_mode": "custom",
+        "player_base_level": 250,
+        "player_level_progressions_enabled": True,
+        "player_level_stats_raw": "",
+    }]
+    original_bytes = json.dumps(original, indent=2).encode("utf-8")
+    profile_path.write_bytes(original_bytes)
+
+    manager = AsmConfigManager()
+
+    assert manager.get_server("legacy-cap").player_base_level == 150
+    assert profile_path.read_bytes() == original_bytes

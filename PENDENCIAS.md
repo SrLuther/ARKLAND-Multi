@@ -1,10 +1,14 @@
 # Pendências - ARKLAND Multi
 
-**Atualizado:** 09/11/2026
+**Atualizado:** 11/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicacao:** preparando a versao integral 1.11.58; inclui layout da retirada na Fazenda, imagens transparentes, painel inicial de jogadores e catálogo de Souls/Hides Primal Fear.
+**Publicacao:** candidata 1.12.4 compilada localmente; publicar somente apos os gates finais. A validacao em servidores ARK, SSH externo e WebStore de producao segue pendente. Roteiro: `docs/VALIDACAO_PRODUCAO_RC_1.12.4.md`.
 
 ## Em andamento
+
+- [ ] **WebStore - Licencas: separar bonus de Ambares por tempo das licencas especiais.** Correcao local: o leitor aceita os campos atual e legado do catalogo em cache, e a vitrine usa grades distintas; no navegador, apos atualizar o bootstrap, 15 licencas com bonus e 2 especiais foram exibidas corretamente. Testes de regressao: 20 do bootstrap passaram. Pendente publicar a alteracao e validar a exibicao apos recarga/cache na WebStore de producao.
+
+- [ ] **WebStore - Tickets: exibir nick Steam e Discord dos autores.** Implementação local concluída: lista e detalhe administrativo resolvem em lote o nick Steam atual e o vínculo Discord ativo para tickets antigos e autores das mensagens; o SteamID permanece visível. Snapshots e histórico não são regravados, e não há chamada Steam API por mensagem. Testes locais relacionados: 51 aprovados (tickets e bootstrap). Pendente publicar e validar visualmente na WebStore de produção.
 
 - [ ] **Painel de jogadores do servidor para Admin/Suporte.** Primeira implementacao local: plugin CustomShop coleta SteamID, nome do personagem, PlayerDataID, tribo, servidor e sessoes; WebStore grava eventos autenticados de conexao, heartbeat e desconexao e calcula tempo/ultimo acesso, classificando vinculo via SteamID. Pagina somente leitura sob autorizacao Admin/Suporte; sem IP, chat ou acoes. A fila do plugin persiste localmente para sobreviver a falhas/reinicios. Pendente: validar hooks e campos reais no jogo, configurar ServerId distinto por servidor, validar recuperacao/reconexao e falha abrupta, privacidade e acesso negado; historico so comeca apos instalar a versao nova.
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from src.asm_engine.asm_ini_manager import (
     _GAME_MODE_SECTION,
     inject_raw_ini_text,
+    seed_managed_ini_options,
     write_ini,
 )
 from src.asm_engine.asm_server_config import AsmServerConfig
@@ -143,3 +144,133 @@ def test_write_ini_removes_engrm_flags_when_disabled(tmp_path):
     block = _section_block(text, _GAME_MODE_SECTION).lower()
     assert "bautounlockallengrams" not in block
     assert "bonlyallowspecifiedengrams" not in block
+
+
+def test_removed_custom_gus_option_stays_removed_after_profile_reload_and_recreate(tmp_path):
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.custom_gus_ini_raw = (
+        "[CreatureFinderDeluxe]\n"
+        "FindAllCreatures=1000\n"
+        "ShowOnlyTamed=True\n"
+    )
+    gus_path = _gus_path(tmp_path)
+    gus_path.parent.mkdir(parents=True)
+    gus_path.write_text(
+        "[CreatureFinderDeluxe]\nExternalPluginOption=keep\n",
+        encoding="utf-8",
+    )
+
+    write_ini(cfg)
+    # Simula o save: guarda a propriedade anterior antes de a UI substituir
+    # o conteúdo do editor, depois remove uma das opções.
+    seed_managed_ini_options(cfg)
+    cfg.custom_gus_ini_raw = (
+        "[CreatureFinderDeluxe]\n"
+        "ShowOnlyTamed=False\n"
+    )
+    write_ini(cfg)
+
+    text = gus_path.read_text(encoding="utf-8")
+    assert "FindAllCreatures" not in text
+    assert "ShowOnlyTamed=False" in text
+    assert "ExternalPluginOption=keep" in text
+    assert text.count("ShowOnlyTamed=") == 1
+
+    # O manifesto pertence ao perfil e sobrevive ao reinício do aplicativo.
+    cfg = AsmServerConfig.from_dict(cfg.to_dict())
+    gus_path.unlink()
+    write_ini(cfg)
+    recreated = gus_path.read_text(encoding="utf-16")
+    assert "FindAllCreatures" not in recreated
+    assert "ShowOnlyTamed=False" in recreated
+    write_ini(cfg)
+    assert gus_path.read_text(encoding="utf-16").count("ShowOnlyTamed=") == 1
+
+
+def test_removed_custom_game_and_engine_options_are_reconciled(tmp_path):
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.custom_game_ini_raw = (
+        f"[{_GAME_MODE_SECTION}]\nManagedGameOption=old\n"
+    )
+    cfg.custom_engine_ini_raw = "[Core.System]\nManagedEngineOption=old\n"
+    write_ini(cfg)
+
+    seed_managed_ini_options(cfg)
+    cfg.custom_game_ini_raw = ""
+    cfg.custom_engine_ini_raw = ""
+    write_ini(cfg)
+
+    game = _game_path(tmp_path).read_text(encoding="utf-16")
+    engine = (tmp_path / "ShooterGame/Saved/Config/WindowsServer/Engine.ini").read_text(encoding="utf-16")
+    assert "ManagedGameOption" not in game
+    assert "ManagedEngineOption" not in engine
+
+
+def test_managed_ini_ownership_is_isolated_between_server_profiles(tmp_path):
+    first = AsmServerConfig()
+    first.install_dir = str(tmp_path / "first")
+    first.custom_gus_ini_raw = "[FirstPlugin]\nFirstOption=1\n"
+    second = AsmServerConfig()
+    second.install_dir = str(tmp_path / "second")
+    second.custom_gus_ini_raw = "[SecondPlugin]\nSecondOption=2\n"
+
+    write_ini(first)
+    write_ini(second)
+    seed_managed_ini_options(first)
+    first.custom_gus_ini_raw = ""
+    write_ini(first)
+
+    first_text = _gus_path(tmp_path / "first").read_text(encoding="utf-16")
+    second_text = _gus_path(tmp_path / "second").read_text(encoding="utf-16")
+    assert "FirstOption" not in first_text
+    assert "SecondOption=2" in second_text
+
+
+def test_grouped_custom_sections_are_seeded_and_removed_without_touching_external(tmp_path):
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.custom_ini_sections = {
+        "gus": [{
+            "section": "ModSection",
+            "entries": [{"key": "ManagedOption", "value": "old"}],
+        }],
+    }
+    path = _gus_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        "[ModSection]\nManagedOption=old\nExternalOption=keep\n",
+        encoding="utf-8",
+    )
+
+    seed_managed_ini_options(cfg)
+    cfg.custom_ini_sections = {"gus": []}
+    cfg = AsmServerConfig.from_dict(cfg.to_dict())
+    write_ini(cfg)
+
+    text = path.read_text(encoding="utf-8")
+    assert "ManagedOption" not in text
+    assert "ExternalOption=keep" in text
+    assert not any(
+        item["section"] == "ModSection" and item["key"] == "ManagedOption"
+        for item in cfg.managed_ini_options["GUS"]
+    )
+
+
+def test_default_structured_values_are_omitted_and_old_managed_value_is_cleared(tmp_path):
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    gus_path = _gus_path(tmp_path)
+    gus_path.parent.mkdir(parents=True)
+    gus_path.write_text(
+        "[ServerSettings]\nXPMultiplier=2.0\nExternalPluginOption=keep\n",
+        encoding="utf-8",
+    )
+
+    write_ini(cfg)
+
+    text = gus_path.read_text(encoding="utf-8")
+    assert "XPMultiplier=" not in text
+    assert "ExternalPluginOption=keep" in text
+    assert "RCONEnabled=" in text  # explicit always_write option

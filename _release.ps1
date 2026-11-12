@@ -263,7 +263,22 @@ $releaseNewFiles = @(
     "tests/test_level_progression_models.py",
     "tests/test_server_ini_catalog.py",
     "tests/test_update_ark_ase_config_catalog.py",
-    "tools/update_ark_ase_config_catalog.py"
+    "tools/update_ark_ase_config_catalog.py",
+    "docs/TEK_COMPATIBILITY_MATRIX.json",
+    "docs/TEK_PROFILE_MIGRATION_PREVIEW.md",
+    "src/asm_engine/asm_change_history.py",
+    "src/asm_ui/asm_change_history.py",
+    "src/diagnostics/tek_migration_preview.py",
+    "src/ini_write_safety.py",
+    "tests/test_asm_change_history.py",
+    "tests/test_asm_mod_ini_configs.py",
+    "tests/test_ini_manual_edit_safety.py",
+    "tests/test_ini_save_reconciliation.py",
+    "tests/test_installer_persistence_safety.py",
+    "tests/test_tek_battlemetrics.py",
+    "tests/test_tek_migration_preview.py",
+    "tools/tek_safe_startup_smoke.py",
+    "docs/VALIDACAO_PRODUCAO_RC_1.12.4.md"
 )
 & git add -- $releaseNewFiles 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add de fontes novas falhou (exit $LASTEXITCODE)" }

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import tkinter as tk
 import webbrowser
 from datetime import datetime
@@ -47,6 +48,25 @@ class ARKServerManagerApp(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
+
+        self._safe_startup_test = os.environ.get("ARKLAND_SAFE_STARTUP_TEST") == "1"
+        if self._safe_startup_test:
+            raw_test_data = os.environ.get("ARKLAND_SAFE_TEST_DATA", "").strip()
+            if not raw_test_data:
+                self.destroy()
+                raise RuntimeError("ARKLAND_SAFE_TEST_DATA deve apontar para uma pasta temporária isolada")
+            test_data = Path(raw_test_data).resolve()
+            temp_root = Path(tempfile.gettempdir()).resolve()
+            if test_data == temp_root or not test_data.is_relative_to(temp_root):
+                self.destroy()
+                raise RuntimeError("O modo de teste só aceita diretórios dentro da pasta temporária do sistema")
+            test_data.mkdir(parents=True, exist_ok=True)
+            if any(test_data.iterdir()):
+                self.destroy()
+                raise RuntimeError("A pasta ARKLAND_SAFE_TEST_DATA precisa estar vazia")
+            os.environ["APPDATA"] = str(test_data)
+            os.environ["LOCALAPPDATA"] = str(test_data)
+            self.withdraw()
 
         # Diagnóstico: logging central + captura de exceções (Tk/threads/asyncio).
         try:
@@ -91,9 +111,10 @@ class ARKServerManagerApp(ctk.CTk):
         self.asm_config_manager = AsmConfigManager()
         self.config_manager  = ConfigManager()
         from .ui_constants import _set_windows_startup
-        _set_windows_startup(self.config_manager.config.startup_with_windows)
+        if not self._safe_startup_test:
+            _set_windows_startup(self.config_manager.config.startup_with_windows)
         from .server_visibility import resolve_machine_public_ip
-        _pub_ip = resolve_machine_public_ip(self.config_manager.config)
+        _pub_ip = "127.0.0.1" if self._safe_startup_test else resolve_machine_public_ip(self.config_manager.config)
         self.asm_server_manager = AsmServerManager(
             on_status_change=self._on_server_status_change,
             on_visibility_change=self._on_server_visibility_change,
@@ -104,14 +125,22 @@ class ARKServerManagerApp(ctk.CTk):
             on_log=lambda msg, level: self._global_log(msg, level),
         )
         self.asm_server_manager.register_servers(self.asm_config_manager.servers)
-        from .pages.init_discord_notifier import init_discord_notifier
-        init_discord_notifier(self)
+        if self._safe_startup_test:
+            self._discord_notifier = None
+        else:
+            from .pages.init_discord_notifier import init_discord_notifier
+            init_discord_notifier(self)
         self.server_manager  = ServerManager(
+            on_bm_update=self._on_bm_update,
             discord_notifier=self._discord_notifier,
             get_mod_path_blacklist=lambda: list(
                 self.config_manager.config.mod_path_blacklist or []
             ),
+            start_background_workers=not self._safe_startup_test,
         )
+        self._asm_bm_data = {}
+        if not self._safe_startup_test:
+            self._asm_sync_battlemetrics()
         from .backup_manager import BackupManager
         from .db_backup_manager import DbBackupManager
         self._backup_manager = BackupManager(
@@ -234,6 +263,9 @@ class ARKServerManagerApp(ctk.CTk):
 
         # Mostra dashboard ao iniciar
         self._show_frame("dashboard")
+        if self._safe_startup_test:
+            self.protocol("WM_DELETE_WINDOW", self.destroy)
+            return
         # Watermark de fundo (aplicado após conteúdo existir)
         self.after(150, self._setup_bg_watermark)
         # Auto-start: sync e agente remoto (após UI estável)
@@ -1189,6 +1221,7 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _asm_refresh_dashboard(self, *, immediate: bool = False) -> None:
         """Atualiza os cards do dashboard (debounced por padrão)."""
+        self._asm_sync_battlemetrics()
         if immediate:
             self._asm_refresh_dashboard_now()
             return
@@ -1293,6 +1326,7 @@ class ARKServerManagerApp(ctk.CTk):
             try:
                 from .asm_engine.asm_ini_manager import write_ini
                 write_ini(fresh)
+                self.asm_config_manager.update_server(fresh)
             except Exception as exc:
                 logging.getLogger("arkland").exception("write_ini falhou; opera\u00e7\u00e3o cancelada")
                 raise RuntimeError(f"N\u00e3o foi poss\u00edvel gravar os INIs do servidor: {exc}") from exc
@@ -1567,6 +1601,41 @@ class ARKServerManagerApp(ctk.CTk):
     def _asm_do_auto_backup(self, srv: AsmServerConfig) -> None:
         """Executa backup automático do servidor (disparado pelo scheduler diário)."""
         self._run_global_backup()
+
+    def _asm_do_scheduled_backup(self, srv: AsmServerConfig) -> None:
+        """Executa backup automático somente do servidor TEK solicitado."""
+        import threading as _th
+
+        lock = getattr(self, "_asm_server_backups_lock", None)
+        if lock is None:
+            lock = _th.Lock()
+            self._asm_server_backups_lock = lock
+        with lock:
+            running = getattr(self, "_asm_server_backups_running", set())
+            if srv.id in running:
+                return
+            running.add(srv.id)
+            self._asm_server_backups_running = running
+
+        def _worker() -> None:
+            try:
+                global_bk = self.config_manager.config.backup
+                path = self._backup_manager.backup_server(srv, global_bk)
+                if path:
+                    last_runs = getattr(self, "_asm_server_backup_last_run", None)
+                    if isinstance(last_runs, dict):
+                        last_runs[srv.id] = datetime.now()
+            except Exception as exc:
+                import logging
+                logging.getLogger("arkland").warning(
+                    "backup individual TEK falhou para '%s': %s", srv.name, exc,
+                    exc_info=True,
+                )
+            finally:
+                with lock:
+                    self._asm_server_backups_running.discard(srv.id)
+
+        _th.Thread(target=_worker, daemon=True).start()
 
     def _run_global_backup(self) -> None:
         """Backup ZIP de todos os servidores TEK (manual ou agendado)."""
@@ -2439,7 +2508,34 @@ class ARKServerManagerApp(ctk.CTk):
         fetch_steam_name(steam_id, lambda name: lbl.configure(text=name or steam_id))
 
     def _on_bm_update(self, server_id: str) -> None:
-        pass  # BattleMetrics não usado em TEK mode
+        """Atualiza cache e card TEK após o callback do poller compartilhado."""
+        srv = self.asm_config_manager.get_server(server_id)
+        if not srv:
+            return
+        self._asm_bm_data[server_id] = self.server_manager.get_battlemetrics_data(server_id)
+
+        def _refresh() -> None:
+            from .asm_ui.asm_dashboard import rebuild_asm_dashboard_card
+
+            rebuild_asm_dashboard_card(self, server_id)
+
+        try:
+            self.after(0, _refresh)
+        except Exception:
+            pass
+
+    def _asm_sync_battlemetrics(self) -> None:
+        """Refresh TEK IDs in ServerManager's existing 60-second BM poller."""
+        manager = getattr(self, "server_manager", None)
+        config_manager = getattr(self, "asm_config_manager", None)
+        if manager is None or config_manager is None:
+            return
+        mapping = {
+            srv.id: str(getattr(srv, "battlemetrics_id", "") or "").strip()
+            for srv in config_manager.servers
+            if str(getattr(srv, "battlemetrics_id", "") or "").strip()
+        }
+        manager.set_external_battlemetrics_servers(mapping)
 
     def _on_server_log(self, server_id: str, msg: str, level: str = "info") -> None:
         pass  # logs de servidor não exibidos na UI TEK por padrão

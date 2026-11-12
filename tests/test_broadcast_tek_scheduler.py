@@ -58,3 +58,64 @@ def test_obobonic_config_auto_start_default():
 
     cfg = ObobonicBotConfig()
     assert cfg.auto_start is True
+
+
+def test_individual_backup_scheduler_calls_one_server_action_not_global(monkeypatch):
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+    import src.pages.asm_scheduler_tick as scheduler
+
+    calls = []
+
+    class ImmediateThread:
+        def __init__(self, target, args=(), daemon=None):
+            self.target, self.args = target, args
+        def start(self):
+            self.target(*self.args)
+
+    monkeypatch.setattr(scheduler.threading, "Thread", ImmediateThread)
+    now = datetime(2026, 11, 10, 12, 0)
+    srv = SimpleNamespace(
+        id="srv-one", enable_auto_restart=False, enable_auto_update_check=False,
+        backup_enabled=True, backup_interval_hours=1,
+        enable_scheduled_broadcast=False,
+    )
+    app = SimpleNamespace(
+        _asm_server_backup_last_run={"srv-one": now - timedelta(hours=1)},
+        _asm_do_scheduled_backup=lambda target: calls.append(target),
+        _run_global_backup=lambda: (_ for _ in ()).throw(AssertionError("global backup called")),
+    )
+
+    scheduler._process_server_scheduled_tasks(app, srv, now, "12:00")
+
+    assert calls == [srv]
+
+
+def test_scheduled_broadcast_passes_only_selected_server(monkeypatch):
+    from datetime import datetime
+    from types import SimpleNamespace
+    import src.pages.asm_scheduler_tick as scheduler
+
+    calls = []
+
+    class ImmediateThread:
+        def __init__(self, target, args=(), daemon=None):
+            self.target, self.args = target, args
+        def start(self):
+            self.target(*self.args)
+
+    monkeypatch.setattr(scheduler.threading, "Thread", ImmediateThread)
+    srv = SimpleNamespace(
+        id="srv-two", enable_auto_restart=False, enable_auto_update_check=False,
+        backup_enabled=False, enable_scheduled_broadcast=True,
+        scheduled_broadcast_time="12:30", scheduled_broadcast_message="hello",
+    )
+    app = SimpleNamespace(
+        _asm_do_scheduled_broadcast=lambda target, message: calls.append((target, message)),
+    )
+
+    scheduler._process_server_scheduled_tasks(
+        app, srv, datetime(2026, 11, 10, 12, 30), "12:30"
+    )
+
+    assert calls == [(srv, "hello")]

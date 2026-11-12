@@ -288,6 +288,79 @@ def build_mods_workshop_section(
                   font=ctk.CTkFont(size=11),
                   command=_do_fetch_workshop).pack(side="left")
 
+    def _open_mod_ini_editor() -> None:
+        top = ctk.CTkToplevel(sf.winfo_toplevel())
+        top.title("Configurações INI por mod")
+        top.geometry("860x620")
+        top.transient(sf.winfo_toplevel())
+        top.grab_set()
+        top.grid_columnconfigure((0, 1), weight=1)
+        top.grid_rowconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            top,
+            text="ID do mod (Steam Workshop)",
+            anchor="w",
+        ).grid(row=0, column=0, padx=12, pady=(12, 3), sticky="ew")
+        known_ids = list(dict.fromkeys(
+            [str(mid) for mid in (srv.active_mods or [])]
+            + list((srv.mod_ini_configs or {}).keys())
+        ))
+        id_var = tk.StringVar(value=known_ids[0] if known_ids else "")
+        id_entry = ctk.CTkEntry(top, textvariable=id_var, placeholder_text="ID do mod")
+        id_entry.grid(row=1, column=0, columnspan=2, padx=12, pady=(0, 8), sticky="ew")
+
+        ctk.CTkLabel(top, text="GameUserSettings.ini", anchor="w").grid(
+            row=2, column=0, padx=12, pady=(4, 3), sticky="new"
+        )
+        ctk.CTkLabel(top, text="Game.ini", anchor="w").grid(
+            row=2, column=1, padx=12, pady=(4, 3), sticky="new"
+        )
+        gus_box = ctk.CTkTextbox(top, wrap="none", font=ctk.CTkFont(family="Consolas", size=11))
+        game_box = ctk.CTkTextbox(top, wrap="none", font=ctk.CTkFont(family="Consolas", size=11))
+        gus_box.grid(row=2, column=0, padx=12, pady=(26, 8), sticky="nsew")
+        game_box.grid(row=2, column=1, padx=12, pady=(26, 8), sticky="nsew")
+
+        def _load_selected() -> None:
+            mod_id = id_var.get().strip()
+            config = (srv.mod_ini_configs or {}).get(mod_id, {})
+            for box, key in ((gus_box, "gus_ini"), (game_box, "game_ini")):
+                box.delete("1.0", "end")
+                box.insert("1.0", str(config.get(key, "") or ""))
+
+        def _save_selected() -> None:
+            mod_id = id_var.get().strip()
+            if not mod_id:
+                import tkinter.messagebox as mb
+                mb.showwarning("ID necessário", "Informe o ID do mod.", parent=top)
+                return
+            configs = dict(srv.mod_ini_configs or {})
+            previous = configs.get(mod_id, {})
+            entry = dict(previous) if isinstance(previous, dict) else {}
+            entry["gus_ini"] = gus_box.get("1.0", "end-1c")
+            entry["game_ini"] = game_box.get("1.0", "end-1c")
+            configs[mod_id] = entry
+            srv.mod_ini_configs = configs
+            import tkinter.messagebox as mb
+            mb.showinfo(
+                "Configuração preparada",
+                "O conteúdo foi associado ao mod no perfil. Clique em Salvar no painel TEK para gravá-lo nos INIs.",
+                parent=top,
+            )
+
+        actions = ctk.CTkFrame(top, fg_color="transparent")
+        actions.grid(row=3, column=0, columnspan=2, padx=12, pady=(0, 12), sticky="e")
+        ctk.CTkButton(actions, text="Carregar ID", command=_load_selected).pack(side="left", padx=4)
+        ctk.CTkButton(actions, text="Guardar no perfil", command=_save_selected).pack(side="left", padx=4)
+        ctk.CTkButton(actions, text="Fechar", command=top.destroy).pack(side="left", padx=4)
+        _load_selected()
+
+    ctk.CTkButton(
+        _mods_tb, text="INI por Mod", width=105, height=28,
+        fg_color="#334155", hover_color="#475569",
+        font=ctk.CTkFont(size=11), command=_open_mod_ini_editor,
+    ).pack(side="left", padx=(4, 0))
+
     _mods_hdr = ctk.CTkFrame(_mod_frame, fg_color="#0f2030", corner_radius=4, height=24)
     _mods_hdr.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 2))
     _mods_hdr.grid_columnconfigure(1, weight=1)

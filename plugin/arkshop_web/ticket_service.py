@@ -493,6 +493,58 @@ def _status_label(code: str | None) -> str:
     return TICKET_STATUS_LABELS.get(norm, code)
 
 
+def _ticket_identity_map(db: Any, steam_ids: list[str]) -> dict[str, dict[str, str | None]]:
+    """Resolve identidades atuais em lote; nÃ£o altera snapshots dos tickets."""
+    ids = sorted({str(value or "").strip() for value in steam_ids if str(value or "").strip()})
+    if not ids:
+        return {}
+
+    from app import StoreUser, SupportTicketDiscordLink
+
+    users = db.query(
+        StoreUser.steam_id, StoreUser.steam_persona, StoreUser.display_name
+    ).filter(StoreUser.steam_id.in_(ids)).all()
+    links = db.query(
+        SupportTicketDiscordLink.steam_id,
+        SupportTicketDiscordLink.discord_username,
+        SupportTicketDiscordLink.discord_user_id,
+    ).filter(
+        SupportTicketDiscordLink.steam_id.in_(ids),
+        SupportTicketDiscordLink.discord_user_id.is_not(None),
+        SupportTicketDiscordLink.discord_user_id != "",
+    ).all()
+
+    result: dict[str, dict[str, str | None]] = {
+        steam_id: {"steam_name": None, "discord_name": None, "discord_user_id": None}
+        for steam_id in ids
+    }
+    for steam_id, persona, display_name in users:
+        sid = str(steam_id)
+        candidates = (persona, display_name)
+        name = next(
+            (str(value).strip()[:128] for value in candidates
+             if value and str(value).strip() and str(value).strip() != sid),
+            None,
+        )
+        result.setdefault(sid, {"steam_name": None, "discord_name": None, "discord_user_id": None})
+        result[sid]["steam_name"] = name
+    for steam_id, discord_name, discord_user_id in links:
+        sid = str(steam_id)
+        result.setdefault(sid, {"steam_name": None, "discord_name": None, "discord_user_id": None})
+        result[sid]["discord_name"] = str(discord_name).strip()[:128] if discord_name and str(discord_name).strip() else None
+        result[sid]["discord_user_id"] = str(discord_user_id).strip() if discord_user_id else None
+    return result
+
+
+def _ticket_display_name(steam_id: str | None, current_name: str | None, snapshot: str | None) -> str:
+    sid = str(steam_id or "").strip()
+    for value in (current_name, snapshot):
+        name = str(value or "").strip()
+        if name and name != sid:
+            return name[:128]
+    return sid or str(snapshot or "")[:128]
+
+
 def _ticket_row_to_dict(row: Any) -> dict[str, Any]:
     status = _normalize_status(row.status) or row.status or "AGUARDANDO_SUPORTE"
     category = row.category or "geral"
@@ -501,8 +553,10 @@ def _ticket_row_to_dict(row: Any) -> dict[str, Any]:
         "id": int(row.id),
         "steam_id": row.steam_id,
         "player_name": row.player_name or "",
+        "player_display_name": row.player_name or row.steam_id,
         "discord_user_id": row.discord_user_id,
         "discord_username": row.discord_username,
+        "discord_display_name": row.discord_username or row.discord_user_id,
         "subject": row.subject,
         "category": category,
         "category_label": TICKET_CATEGORY_LABELS.get(category, category),
@@ -649,6 +703,8 @@ def _message_row_to_dict(row: Any, attachments: list[dict[str, Any]] | None = No
         "author_type": row.author_type,
         "author_steam_id": row.author_steam_id,
         "author_name": row.author_name or "",
+        "author_display_name": row.author_name or row.author_type,
+        "author_discord_name": None,
         "body": row.body or "",
         "links": links,
         "attachments": attachments or [],
@@ -1385,7 +1441,21 @@ def list_tickets_admin(
         .limit(min(100, max(1, limit)))
         .all()
     )
-    return [_ticket_row_to_dict(r) for r in rows], total
+    identities = _ticket_identity_map(db, [r.steam_id for r in rows])
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        item = _ticket_row_to_dict(row)
+        identity = identities.get(str(row.steam_id or ""), {})
+        item["player_display_name"] = _ticket_display_name(
+            row.steam_id, identity.get("steam_name"), row.player_name
+        )
+        item["discord_display_name"] = (
+            identity.get("discord_name")
+            or row.discord_username
+            or row.discord_user_id
+        )
+        items.append(item)
+    return items, total
 
 
 def _load_attachments_for_messages(db: Any, message_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
@@ -1450,6 +1520,32 @@ def get_ticket_detail(
         "history": history,
         "permissions": ticket_permissions(ticket.status, is_admin=is_admin),
     }
+    if is_admin:
+        author_ids = [
+            str(message.author_steam_id)
+            for message in messages
+            if message.author_steam_id
+        ]
+        identities = _ticket_identity_map(db, [str(ticket.steam_id), *author_ids])
+        ticket_identity = identities.get(str(ticket.steam_id), {})
+        result["ticket"]["player_display_name"] = _ticket_display_name(
+            ticket.steam_id,
+            ticket_identity.get("steam_name"),
+            ticket.player_name,
+        )
+        result["ticket"]["discord_display_name"] = (
+            ticket_identity.get("discord_name")
+            or ticket.discord_username
+            or ticket.discord_user_id
+        )
+        for message, payload in zip(messages, result["messages"]):
+            identity = identities.get(str(message.author_steam_id or ""), {})
+            payload["author_display_name"] = _ticket_display_name(
+                message.author_steam_id,
+                identity.get("steam_name"),
+                message.author_name,
+            )
+            payload["author_discord_name"] = identity.get("discord_name")
     if include_order or ticket.order_id:
         oid = ticket.order_id
         result["order"] = get_order_summary_for_ticket(

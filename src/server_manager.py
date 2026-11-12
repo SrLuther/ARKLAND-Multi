@@ -670,6 +670,7 @@ class ServerManager:
         get_dynamic_config_url: Optional[Callable[[str], str]] = None,
         get_mod_path_blacklist: Optional[Callable[[], List[str]]] = None,
         discord_notifier: Optional[Any] = None,
+        start_background_workers: bool = True,
     ) -> None:
         self._instances: Dict[str, ServerInstance] = {}
         self._lock = threading.Lock()
@@ -684,7 +685,7 @@ class ServerManager:
 
         # BattleMetrics poller
         self._bm_poller = BattleMetricsPoller(on_update=self._on_bm_update)
-        self._bm_poller.start()
+        self._external_bm_mapping: Dict[str, str] = {}
 
         # Scheduler de tarefas agendadas
         self._sched_fired: Dict[str, date] = {}   # chave: "{srv_id}::{task_idx}::{hhmm}"
@@ -693,7 +694,9 @@ class ServerManager:
         self._sched_thread = threading.Thread(
             target=self._scheduler_loop, daemon=True, name="ARKTaskScheduler"
         )
-        self._sched_thread.start()
+        if start_background_workers:
+            self._bm_poller.start()
+            self._sched_thread.start()
 
     # ── Scheduler de tarefas agendadas ────────────────────────────────────────
 
@@ -818,7 +821,22 @@ class ServerManager:
                 bm_id = inst.config.battlemetrics_id
                 if bm_id and bm_id.strip():
                     result[sid] = bm_id.strip()
+            result.update(self._external_bm_mapping)
         return result
+
+    def set_external_battlemetrics_servers(self, mapping: Dict[str, str]) -> None:
+        """Add non-ServerConfig profiles (TEK) to the existing shared poller."""
+        with self._lock:
+            self._external_bm_mapping = {
+                str(sid): str(bm_id).strip()
+                for sid, bm_id in mapping.items()
+                if bm_id and str(bm_id).strip()
+            }
+        self._refresh_bm_poller()
+
+    def get_battlemetrics_data(self, server_id: str) -> Optional[BattleMetricsData]:
+        """Return the latest shared-poller result for either manager profile."""
+        return self._bm_poller.get(server_id)
 
     def _refresh_bm_poller(self) -> None:
         """Atualiza a lista de servidores monitorados pelo BattleMetrics poller."""
@@ -828,16 +846,15 @@ class ServerManager:
         """Callback chamado pelo BattleMetricsPoller após cada consulta."""
         with self._lock:
             inst = self._instances.get(server_id)
-            if not inst:
-                return
-            if data is not None:
-                inst.bm_online = data.online
-                inst.bm_players = data.players
-                inst.bm_max_players = data.max_players
-            else:
-                inst.bm_online = None
-                inst.bm_players = None
-                inst.bm_max_players = None
+            if inst:
+                if data is not None:
+                    inst.bm_online = data.online
+                    inst.bm_players = data.players
+                    inst.bm_max_players = data.max_players
+                else:
+                    inst.bm_online = None
+                    inst.bm_players = None
+                    inst.bm_max_players = None
         try:
             self._on_bm_update_cb(server_id)
         except Exception:

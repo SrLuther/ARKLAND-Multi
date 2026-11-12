@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 from typing import TYPE_CHECKING
 
-from ..ark_ini import ArkIniManager
+from ..ark_ini import ArkIniManager, sections_to_ini_text
 from ..change_logger import diff_snapshots, snapshot_server
 from ..server_config import SERVER_STATUS_STOPPED
 from ..ui_constants import _ARK_EVENT_LABEL_TO_ID, normalize_active_event
@@ -596,6 +596,15 @@ def save_server_config(app: ARKServerManagerApp, server_id: str, silent: bool = 
         try:
             ini_mgr = ArkIniManager(srv.install_dir)
             ini_mgr.save_all(srv)
+            combined_mod_ini = dict(srv.mod_ini_configs)
+            custom_gus = sections_to_ini_text(srv.custom_ini_sections.get("gus", []))
+            custom_game = sections_to_ini_text(srv.custom_ini_sections.get("game", []))
+            if custom_gus or custom_game:
+                combined_mod_ini["_custom_"] = {
+                    "gus_ini": custom_gus,
+                    "game_ini": custom_game,
+                }
+            ini_mgr.apply_mod_ini_configs(combined_mod_ini)
             try:
                 from ..diagnostics.events import CAT_INI, diag_event
                 diag_event(CAT_INI, "save_all (clássico) ok", server=srv.name, install_dir=srv.install_dir)

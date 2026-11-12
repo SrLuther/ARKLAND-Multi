@@ -4,6 +4,7 @@ import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
@@ -94,10 +95,40 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
             )
             return
 
+        try:
+            from ..ini_write_safety import find_install_conflicts, load_tek_profiles_read_only
+            profiles = list(app.config_manager.servers) + load_tek_profiles_read_only()
+            if app.server_manager.is_server_running(server_id):
+                raise RuntimeError("Pare o servidor pela interface antes de importar os INIs.")
+            conflicts = find_install_conflicts(
+                srv.id, srv.install_dir, profiles, target_profile=srv
+            )
+            if conflicts:
+                names = ", ".join(str(getattr(item, "name", getattr(item, "id", "perfil"))) for item in conflicts)
+                raise RuntimeError(f"Outro perfil aponta para esta instalação ({names}); resolva o conflito antes de importar.")
+            from ..ark_ini import get_ini_path
+            replacements = []
+            for source in (gus_path, game_path):
+                if not source.exists():
+                    continue
+                target = get_ini_path(srv.install_dir, source.name)
+                if target.resolve() != source.resolve() and target.exists():
+                    replacements.append(target)
+            if replacements and not messagebox.askyesno(
+                "Confirmar substituição",
+                "A importação substituirá estes arquivos. Será criado backup byte a byte antes de gravar:\n\n"
+                + "\n".join(str(path) for path in replacements)
+                + "\n\nConfigurações de mods presentes somente no destino também serão substituídas. Continuar?",
+                parent=dlg,
+            ):
+                return
+        except Exception as exc:
+            messagebox.showerror("Importação bloqueada", str(exc), parent=dlg)
+            return
+
         # Usa ArkIniManager apontando para a pasta escolhida,
         # mas lê diretamente os arquivos lá presentes
         def _load_from_folder(target_srv, src_folder: str) -> None:
-            import shutil
             from ..ark_ini import (
                 populate_config_from_gus,
                 populate_custom_gus_from_file,
@@ -109,6 +140,15 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
                 apply_cmdline_args_to_config,
                 get_ini_path,
             )
+            from ..ini_write_safety import find_install_conflicts, load_tek_profiles_read_only
+            profiles = list(app.config_manager.servers) + load_tek_profiles_read_only()
+            if app.server_manager.is_server_running(server_id):
+                raise RuntimeError("O servidor foi iniciado durante a importação; nenhuma gravação foi feita.")
+            conflicts = find_install_conflicts(
+                target_srv.id, target_srv.install_dir, profiles, target_profile=srv
+            )
+            if conflicts:
+                raise RuntimeError("Foi detectado perfil concorrente para a instalação; nenhuma gravação foi feita.")
             p_gus = Path(src_folder) / "GameUserSettings.ini"
             if p_gus.exists():
                 parser = read_ini_with_fallback(p_gus, strict=False)
@@ -132,20 +172,31 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
                 except OSError:
                     pass
 
-            # ── Copia os arquivos brutos para o diretório do servidor ────────
-            # Preserva seções de mods (ex: [StructuresPlus], [DinoStorage2])
-            # que o app não conhece, evitando que sejam perdidas ao salvar.
+            # A importação mantém os bytes do arquivo de origem (encoding,
+            # comentários e seções de mods) e troca os dois destinos em lote.
             if target_srv.install_dir:
                 dst_gus  = get_ini_path(target_srv.install_dir, "GameUserSettings.ini")
                 dst_game = get_ini_path(target_srv.install_dir, "Game.ini")
+                sources = {}
                 if p_gus.exists() and dst_gus.resolve() != p_gus.resolve():
-                    dst_gus.parent.mkdir(parents=True, exist_ok=True)
-                    from ..asm_engine.ini_document import sanitize_ini_bytes
-                    dst_gus.write_bytes(sanitize_ini_bytes(p_gus.read_bytes()))
+                    sources[dst_gus] = p_gus
                 if p_game.exists() and dst_game.resolve() != p_game.resolve():
-                    dst_game.parent.mkdir(parents=True, exist_ok=True)
-                    from ..asm_engine.ini_document import sanitize_ini_bytes
-                    dst_game.write_bytes(sanitize_ini_bytes(p_game.read_bytes()))
+                    sources[dst_game] = p_game
+                if sources:
+                    from ..ini_sync import import_ini_targets
+
+                    def validate_target(destination: Path) -> None:
+                        if not Path(target_srv.install_dir).resolve() in destination.resolve().parents:
+                            raise RuntimeError("Destino de importação fora da instalação selecionada.")
+                        if app.server_manager.is_server_running(server_id):
+                            raise RuntimeError("O servidor foi iniciado durante a importação; gravação cancelada.")
+                        latest = list(app.config_manager.servers) + load_tek_profiles_read_only()
+                        if find_install_conflicts(
+                            target_srv.id, target_srv.install_dir, latest, target_profile=srv
+                        ):
+                            raise RuntimeError("Foi detectado perfil concorrente para a instalação; gravação cancelada.")
+
+                    import_ini_targets(sources, validate_target=validate_target)
 
         # Desabilita o botão de importar e mostra feedback visual
         import_btn.configure(state="disabled", text="⏳  Importando...")
@@ -154,8 +205,9 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
         import threading
 
         def _worker():
+            imported_srv = deepcopy(srv)
             try:
-                _load_from_folder(srv, folder)
+                _load_from_folder(imported_srv, folder)
                 err = None
             except Exception as exc:
                 err = exc
@@ -166,7 +218,7 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
                     btn_cancel.configure(state="normal")
                     messagebox.showerror("Erro ao importar", str(err), parent=dlg)
                     return
-                app.config_manager.update_server(srv)
+                app.config_manager.update_server(imported_srv)
                 dlg.destroy()
                 app._rebuild_server_panel(server_id)
                 found = []

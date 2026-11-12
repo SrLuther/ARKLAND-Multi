@@ -13,6 +13,9 @@ from typing import Iterable
 
 _SECTION_RE = re.compile(r"^\s*\[([^\]]+)\]\s*(?:[;#].*)?$")
 _KEY_RE = re.compile(r"^(\s*)([^=]+?)(\s*=\s*)(.*?)(\r\n|\n|\r)?$")
+_MANAGED_MOD_MARKER_RE = re.compile(
+    r"^\s*;\s*=+\s*(?:BEGIN|END) MOD CONFIGS\s*=+\s*$", re.IGNORECASE
+)
 
 
 @dataclass
@@ -154,10 +157,18 @@ class IniDocument:
                 if line.key and "=" in content:
                     current.append(content + newline)
         output: list[str] = []
+        preamble: list[str] = []
+        for line in self.lines:
+            if line.kind == "comment" and _MANAGED_MOD_MARKER_RE.match(line.raw.strip()):
+                marker = line.raw if line.raw.endswith(("\n", "\r")) else line.raw + newline
+                if line.section is None:
+                    preamble.append(marker)
+                else:
+                    by_name.setdefault(line.section.casefold(), []).append(marker)
         for section, entries in sections:
             output.append(f"[{section}]{newline}")
             output.extend(entries)
-        return "".join(output)
+        return "".join(preamble + output)
 
     def to_config_bytes(self) -> bytes:
         """Encode only valid INI structure and key/value configuration lines."""
@@ -172,6 +183,12 @@ class IniDocument:
             # No-op round-trip is byte exact, including unusual encodings.
             return self._original_bytes
         return self._encoding.bom + self.to_text().encode(self._encoding.codec)
+
+    def encode_text_like_source(self, text: str) -> bytes:
+        """Encode edited text with the original codec, BOM and newline style."""
+        newline = _newline_of(self.lines)
+        normalized = re.sub(r"\r\n|\r|\n", newline, text.lstrip("\ufeff"))
+        return self._encoding.bom + normalized.encode(self._encoding.codec)
 
     @property
     def _original_bytes(self) -> bytes:

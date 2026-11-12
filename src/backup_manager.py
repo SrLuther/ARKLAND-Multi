@@ -118,20 +118,37 @@ def _zip_backup_sizes(path: Path) -> tuple[int, int]:
     return compressed, uncompressed
 
 
-def asm_server_to_backup_target(asm_srv: "AsmServerConfig", global_bk: "BackupConfig") -> "ServerConfig":
-    """Converte servidor TEK + config global em ServerConfig para backup."""
+def asm_server_to_backup_target(
+    asm_srv: "AsmServerConfig",
+    global_bk: "BackupConfig",
+    *,
+    individual: bool = False,
+) -> "ServerConfig":
+    """Converte perfil TEK em alvo de backup global ou individual."""
     from .server_config import ServerConfig
 
     keep = global_bk.max_backup_count if global_bk.limit_backup_count else 0
+    include_saves = global_bk.include_savegames
+    include_config = global_bk.include_config
+    backup_dir = global_bk.backup_dir
+    exclude_redundant = getattr(global_bk, "backup_exclude_redundant", True)
+    if individual:
+        keep = max(0, int(getattr(asm_srv, "backup_keep_count", keep) or 0))
+        include_saves = bool(getattr(asm_srv, "backup_include_saves", include_saves))
+        include_config = bool(getattr(asm_srv, "backup_include_config", include_config))
+        backup_dir = str(getattr(asm_srv, "backup_dir", "") or backup_dir)
+        exclude_redundant = bool(
+            getattr(asm_srv, "backup_exclude_redundant", exclude_redundant)
+        )
     return ServerConfig(
         id=asm_srv.id,
         name=asm_srv.session_name or asm_srv.name,
         install_dir=asm_srv.install_dir,
         alt_save_directory_name=getattr(asm_srv, "alt_save_directory_name", "") or "savegame",
-        backup_dir=global_bk.backup_dir,
-        backup_include_saves=global_bk.include_savegames,
-        backup_include_config=global_bk.include_config,
-        backup_exclude_redundant=getattr(global_bk, "backup_exclude_redundant", True),
+        backup_dir=backup_dir,
+        backup_include_saves=include_saves,
+        backup_include_config=include_config,
+        backup_exclude_redundant=exclude_redundant,
         backup_keep_count=keep,
     )
 
@@ -380,6 +397,15 @@ class BackupManager:
                 created.append(path)
         self._on_log(f"[Backup] Backup global concluído ({len(created)}/{len(active)}).", "info")
         return created
+
+    def backup_server(
+        self,
+        asm_srv: "AsmServerConfig",
+        global_bk: "BackupConfig",
+    ) -> Optional[str]:
+        """Cria um único backup TEK com opções e retenção do perfil."""
+        target = asm_server_to_backup_target(asm_srv, global_bk, individual=True)
+        return self.do_backup(target)
 
     # ── Restaurar backup ──────────────────────────────────────────────────────
 

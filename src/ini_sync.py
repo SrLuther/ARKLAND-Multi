@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
-import os
 from pathlib import Path
-import tempfile
-from typing import Mapping
+import re
+from typing import Callable, Mapping
 
 from .asm_engine.ini_document import IniDocument, IniLine, sanitize_ini_bytes
+from .ini_write_safety import atomic_replace
 
 
 def _config_counter(data: bytes) -> Counter[tuple[str, str, str]]:
@@ -70,80 +70,86 @@ def merge_ini_sections(
     source is removed from the destination.
     """
     selected = {str(name).strip().casefold() for name in selected_sections if str(name).strip()}
-    source_doc = IniDocument.parse(sanitize_ini_bytes(source))
-    destination_doc = IniDocument.parse(destination or b"")
+    source_doc = IniDocument.parse(source)
+    # Files created by sync follow the ARK default; existing targets retain
+    # their own encoding/BOM because the destination document controls output.
+    destination_doc = IniDocument.parse(destination if destination is not None else b"\xff\xfe")
     if not selected:
-        return destination_doc.to_config_bytes()
+        return destination_doc.to_bytes()
 
-    def sections(document: IniDocument) -> list[tuple[str, list[IniLine]]]:
+    def sections(document: IniDocument) -> tuple[list[IniLine], list[tuple[str, list[IniLine]]]]:
+        prefix: list[IniLine] = []
         result: list[tuple[str, list[IniLine]]] = []
         current_name: str | None = None
         current_lines: list[IniLine] | None = None
         for line in document.lines:
             if line.kind == "section" and line.section:
                 current_name = line.section
-                current_lines = []
+                current_lines = [line]
                 result.append((current_name, current_lines))
-            elif line.kind == "key" and current_name is not None and current_lines is not None:
+            elif current_name is not None and current_lines is not None:
                 current_lines.append(line)
-        return result
+            else:
+                prefix.append(line)
+        return prefix, result
 
-    source_sections = [item for item in sections(source_doc) if item[0].casefold() in selected]
-    source_names = {name.casefold() for name, _ in source_sections}
-    ordered: list[tuple[str, list[IniLine]]] = []
-    emitted_source_names: set[str] = set()
-    for name, lines in sections(destination_doc):
-        folded = name.casefold()
-        if folded not in selected:
-            ordered.append((name, lines))
-        elif folded in source_names and folded not in emitted_source_names:
-            ordered.extend(item for item in source_sections if item[0].casefold() == folded)
-            emitted_source_names.add(folded)
-    ordered.extend(
-        item for item in source_sections if item[0].casefold() not in emitted_source_names
-    )
+    source_prefix, source_all = sections(source_doc)
+    destination_prefix, destination_all = sections(destination_doc)
+    del source_prefix  # A section sync does not import global preamble text.
+    source_sections = [item for item in source_all if item[0].casefold() in selected]
+    source_by_name: dict[str, list[tuple[str, list[IniLine]]]] = {}
+    for item in source_sections:
+        source_by_name.setdefault(item[0].casefold(), []).append(item)
 
     newline = "\r\n"
-    for line in destination_doc.lines or source_doc.lines:
-        if line.raw.endswith("\r\n"):
-            newline = "\r\n"
-            break
-        if line.raw.endswith("\n"):
-            newline = "\n"
-            break
-        if line.raw.endswith("\r"):
-            newline = "\r"
+    for line in destination_doc.lines:
+        if line.raw.endswith(("\r\n", "\n", "\r")):
+            newline = "\r\n" if line.raw.endswith("\r\n") else line.raw[-1]
             break
 
-    merged: list[IniLine] = []
-    occurrences: dict[str, int] = {}
-    for section_name, key_lines in ordered:
-        folded = section_name.casefold()
-        occurrence = occurrences.get(folded, 0)
-        occurrences[folded] = occurrence + 1
-        merged.append(IniLine(f"[{section_name}]{newline}", "section", section_name, occurrence))
-        for line in key_lines:
-            raw = line.raw.rstrip("\r\n")
-            merged.append(IniLine(raw + newline, "key", section_name, occurrence, line.key, line.value))
-    destination_doc.lines = merged
-    return destination_doc.to_config_bytes()
+    def with_target_newline(lines: list[IniLine]) -> list[IniLine]:
+        normalized: list[IniLine] = []
+        for line in lines:
+            raw = re.sub(r"\r\n|\r|\n", newline, line.raw)
+            normalized.append(IniLine(raw, line.kind, line.section, line.section_occurrence, line.key, line.value))
+        return normalized
+
+    emitted_source_names: set[str] = set()
+    merged_lines = list(destination_prefix)
+    for name, lines in destination_all:
+        folded = name.casefold()
+        if folded not in selected:
+            merged_lines.extend(lines)
+        elif folded in source_by_name and folded not in emitted_source_names:
+            for _source_name, source_lines in source_by_name[folded]:
+                merged_lines.extend(with_target_newline(source_lines))
+            emitted_source_names.add(folded)
+        # A selected destination section missing from the source is deliberately removed.
+    for name, lines in source_sections:
+        folded = name.casefold()
+        if folded not in emitted_source_names:
+            merged_lines.extend(with_target_newline(lines))
+            emitted_source_names.add(folded)
+    destination_doc.lines = merged_lines
+    return destination_doc.to_bytes()
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(tmp_name, path)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
-        raise
+    atomic_replace(path, data)
+
+
+def import_ini_targets(
+    sources: Mapping[Path, Path],
+    *,
+    validate_target: Callable[[Path], None] | None = None,
+) -> list[Path]:
+    """Copy selected source INI bytes as a backed-up, atomic target batch."""
+    payload: dict[Path, bytes] = {}
+    for target, source in sources.items():
+        if target.resolve() == source.resolve():
+            continue
+        payload[target] = source.read_bytes()
+    return sync_ini_targets(payload, validate_target=validate_target)
 
 
 def sync_ini_targets(
@@ -151,6 +157,7 @@ def sync_ini_targets(
     *,
     backup_dir: Path | None = None,
     timestamp: str | None = None,
+    validate_target: Callable[[Path], None] | None = None,
 ) -> list[Path]:
     """Back up all existing targets, then atomically replace them as one batch.
 
@@ -159,7 +166,10 @@ def sync_ini_targets(
     Persistent backups remain available for operator recovery after success.
     """
     stamp = timestamp or datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    normalized = {path.resolve(): sanitize_ini_bytes(data) for path, data in files.items()}
+    normalized = {path.resolve(): data for path, data in files.items()}
+    if validate_target:
+        for path in normalized:
+            validate_target(path)
     originals = {path: path.read_bytes() if path.exists() else None for path in normalized}
     backups: list[Path] = []
 
@@ -169,12 +179,16 @@ def sync_ini_targets(
         target_backup_dir = backup_dir or (path.parent / "ArklandIniBackups")
         target_backup_dir.mkdir(parents=True, exist_ok=True)
         backup = target_backup_dir / f"{path.stem}_{stamp}_{index}.bak"
+        if backup.exists():
+            raise FileExistsError(f"Backup já existe: {backup}")
         _atomic_write(backup, original)
         backups.append(backup)
 
     applied: list[Path] = []
     try:
         for path, data in normalized.items():
+            if validate_target:
+                validate_target(path)
             _atomic_write(path, data)
             applied.append(path)
     except Exception:

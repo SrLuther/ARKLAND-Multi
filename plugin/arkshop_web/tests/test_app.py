@@ -124,6 +124,23 @@ def _login(client, steam_id: str):
         sess["steam_id"] = steam_id
 
 
+def _seed_verified_discord_link(steam_id: str) -> None:
+    """Commerce tests model the verified Discord link required by production."""
+    db = _app_module._SessionLocal()
+    try:
+        row = db.get(_app_module.SupportTicketDiscordLink, steam_id)
+        if row is None:
+            db.add(_app_module.SupportTicketDiscordLink(
+                steam_id=steam_id,
+                discord_user_id=f"discord-{steam_id}",
+                discord_username=f"test-{steam_id}",
+                link_method="test",
+            ))
+            db.commit()
+    finally:
+        _app_module._release_db_session(db)
+
+
 def _create_cloud_fixture_tables():
     from sqlalchemy import text
     db = _app_module._SessionLocal()
@@ -579,6 +596,7 @@ class TestAuth:
 
     def test_purchase_allowed_without_display_name_gate(self, client, monkeypatch):
         monkeypatch.setattr(_app_module, "_safe_market_profile", lambda _db, _sid: None)
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
         monkeypatch.setattr(_app_module, "_catalog_entry", lambda _t, _i: {"Price": 0, "Type": "item"})
         r = client.post(
@@ -3049,6 +3067,7 @@ class TestKitRedemptionLimit:
     def test_purchase_kit_allowed_with_remaining_uses(self, client, monkeypatch, tmp_path):
         _mock_display_name_ok(monkeypatch)
         self._mock_kit_catalog(monkeypatch, tmp_path)
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
         r = client.post(
             "/api/player/purchase",
@@ -3061,6 +3080,7 @@ class TestKitRedemptionLimit:
         _mock_display_name_ok(monkeypatch)
         self._mock_kit_catalog(monkeypatch, tmp_path)
         self._seed_player_kits(USER_STEAM, {"starter": {"Amount": 0}})
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
         r = client.post(
             "/api/player/purchase",
@@ -3082,6 +3102,7 @@ class TestKitRedemptionLimit:
             item_type="kit",
             status="PENDENTE",
         )
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
         r = client.post(
             "/api/player/purchase",
@@ -3189,6 +3210,7 @@ class TestKitRedemptionLimit:
         _app_module._CONFIG_CACHE.clear()
         _mock_display_name_ok(monkeypatch)
         self._seed_player_kits(USER_STEAM, {"vip_free": {"Amount": 0}})
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
         r = client.post(
             "/api/player/purchase",
@@ -3245,6 +3267,7 @@ class TestKitRedemptionLimit:
             points_spent=0,
             created_at=_now() - timedelta(hours=25),
         )
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
 
         blocked = client.post(
@@ -3368,6 +3391,7 @@ class TestLicenseRenewalKitReset:
         self._seed_player_license(USER_STEAM, "Alfa")
         self._seed_player_kits(USER_STEAM, {"kit_alfa": {"Amount": 0}})
         _seed_player_points(USER_STEAM, 0)
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
 
         blocked = client.post(
@@ -3412,6 +3436,7 @@ class TestLicenseRenewalKitReset:
             points_spent=0,
         )
         _seed_player_points(USER_STEAM, 0)
+        _seed_verified_discord_link(USER_STEAM)
         _login(client, USER_STEAM)
 
         renew = client.post(

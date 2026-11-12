@@ -86,12 +86,14 @@ def apply_active_event_to_server(app: Any, entry: BuffServerEntry, event_id: str
             if srv is None:
                 return ApplyActiveEventResult(entry.id, entry.name, False, "perfil TEK ausente")
             srv.active_event = event_id
-            asm_cm.update_server(srv)
             if srv.install_dir:
                 from ..asm_engine.asm_ini_manager import mirror_ini_to_user_config_folder, write_ini
 
                 write_ini(srv)
                 mirror_ini_to_user_config_folder(srv)
+            # Persist once after INI generation so profile state and the new
+            # managed-options manifest are committed together.
+            asm_cm.update_server(srv)
             asm_cm.save()
             _sync_open_panel_active_event(app, entry.id, event_id)
             label = _ARK_EVENT_ID_TO_LABEL.get(event_id, event_id) or "(nenhum)"
