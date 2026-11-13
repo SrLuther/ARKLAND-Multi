@@ -1,12 +1,8 @@
 {
-    "version": "1.12.6",
+    "version": "1.12.7",
     "date": "2026-11-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.6/ARKLAND-Multi-Setup-v1.12.6.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.7/ARKLAND-Multi-Setup-v1.12.7.exe",
     "changelog": [
-        "Atendimento Web: botão de ajuda usa a arte estática aprovada do mascote; somente o olhar e as piscadas permanecem animados.",
-        "Atendimento Web: adiciona dúvidas rápidas e saudação personalizada, preservando o fluxo existente de tickets.",
-        "Tickets: mostra os nomes Steam e Discord disponíveis na lista e nos detalhes administrativos.",
-        "Monitoramento: corrige o cálculo do tempo de jogo a partir das sessões e heartbeats registrados.",
-        "Bot Discord: sincroniza apelidos no formato [Tribo] | Nick, priorizando a sessão ativa e registrando o uso de identidade anterior em fallback."
+        "Fazenda: corrige a migração das configurações ArkOmega no WebStore; os caminhos normalizados são persistidos no MySQL e deixam de voltar ao ID numérico ao recarregar."
     ]
 }

@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-12 19:47:30 -->
-<!-- Total de versões: 565 | Primeira: 1.12.6 -->
+<!-- Gerado: 2026-11-13 00:08:27 -->
+<!-- Total de versões: 566 | Primeira: 1.12.7 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.7] - 2026-11-12
+
+### Other
+
+- Fazenda: corrige a migração das configurações ArkOmega no WebStore; os caminhos normalizados são persistidos no MySQL e deixam de voltar ao ID numérico ao recarregar.
 
 ## [1.12.6] - 2026-11-12
 

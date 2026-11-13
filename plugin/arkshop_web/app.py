@@ -14528,8 +14528,8 @@ def _farm_omega_default_resources() -> list[dict[str, Any]]:
     return [{
         "Id": resource_id,
         "Name": name,
-        "ItemClass": f"/Game/Mods/2447186973/Items/{asset}.{asset.rsplit('/', 1)[-1]}_C",
-        "InputClass": f"/Game/Mods/2447186973/Items/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "ItemClass": f"/Game/Mods/ArkOmega/Items/{asset}.{asset.rsplit('/', 1)[-1]}_C",
+        "InputClass": f"/Game/Mods/ArkOmega/Items/{asset}.{asset.rsplit('/', 1)[-1]}_C",
         "InputQuantity": 1,
         "OutputQuantity": 1,
         "IntervalSeconds": 3600,
@@ -14612,6 +14612,38 @@ def _farm_default_config() -> dict[str, Any]:
     }}
 
 
+def _normalize_arkomega_config_paths(data: dict[str, Any]) -> bool:
+    root = data.get("FazendaRecursos")
+    categories = root.get("Categories") if isinstance(root, dict) else None
+    omega = categories.get("omega") if isinstance(categories, dict) else None
+    resources = omega.get("Resources") if isinstance(omega, dict) else None
+    if not isinstance(resources, list):
+        return False
+    changed = False
+    workshop_prefix = "/Game/Mods/2447186973/"
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+        for key in ("ItemClass", "InputClass"):
+            value = resource.get(key)
+            if isinstance(value, str) and value.lower().startswith(workshop_prefix.lower()):
+                resource[key] = "/Game/Mods/ArkOmega/" + value[len(workshop_prefix):]
+                changed = True
+    return changed
+
+
+def _persist_arkomega_path_migration(db: Any, row: Any, data: dict[str, Any]) -> bool:
+    if not _normalize_arkomega_config_paths(data):
+        return False
+    serialized = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    row.config_json = serialized
+    row.revision = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    row.updated_at = datetime.now(UTC)
+    db.commit()
+    log.info("farm_arkomega_paths_migrated", extra={"revision": row.revision})
+    return True
+
+
 def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
     root = data.get("FazendaRecursos")
     if not isinstance(root, dict):
@@ -14639,13 +14671,7 @@ def _merge_farm_default_resources(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(existing, list):
         existing = []
         omega["Resources"] = existing
-    for row in existing:
-        if not isinstance(row, dict):
-            continue
-        for key in ("ItemClass", "InputClass"):
-            value = row.get(key)
-            if isinstance(value, str) and value.startswith("/Game/Mods/ArkOmega/"):
-                row[key] = value.replace("/Game/Mods/ArkOmega/", "/Game/Mods/2447186973/", 1)
+    _normalize_arkomega_config_paths(data)
     known = {str(row.get("Id") or "") for row in existing if isinstance(row, dict)}
     existing.extend(resource for resource in _farm_omega_default_resources()
                     if resource["Id"] not in known)
@@ -14673,6 +14699,7 @@ def _read_farm_config(server_id: str = "default") -> dict[str, Any]:
             if row:
                 data = json.loads(row.config_json)
                 if isinstance(data, dict):
+                    _persist_arkomega_path_migration(db, row, data)
                     return _merge_farm_default_resources(data)
             catalog = db.query(FarmResourceCatalog.share_key).filter(
                 FarmResourceCatalog.server_id == server_id
@@ -14682,6 +14709,7 @@ def _read_farm_config(server_id: str = "default") -> dict[str, Any]:
             if legacy:
                 data = json.loads(legacy.config_json)
                 if isinstance(data, dict):
+                    _persist_arkomega_path_migration(db, legacy, data)
                     root = data.setdefault("FazendaRecursos", {})
                     if isinstance(root, dict):
                         root["ServerId"] = server_id
@@ -14736,6 +14764,13 @@ def _validate_farm_config(payload: Any) -> tuple[dict[str, Any] | None, str | No
         for resource in category.get("Resources", []):
             if not isinstance(resource, dict):
                 return None, f"Definição de recurso inválida na categoria {category_id}."
+            if category_id == "omega":
+                workshop_prefix = "/Game/Mods/2447186973/"
+                for key in ("ItemClass", "InputClass"):
+                    value = resource.get(key)
+                    if isinstance(value, str) and value.lower().startswith(workshop_prefix.lower()):
+                        value = "/Game/Mods/ArkOmega/" + value[len(workshop_prefix):]
+                        resource[key] = value
             if not isinstance(resource.get("Enabled", False), bool):
                 return None, f"Enabled inválido em um recurso da categoria {category_id}."
             if not str(resource.get("Id") or "").strip() or not str(resource.get("ItemClass") or "").strip():
@@ -15370,11 +15405,15 @@ def admin_get_farm_config():
         source = "mysql" if row else "default"
         if row:
             config = json.loads(row.config_json)
+            if isinstance(config, dict) and _persist_arkomega_path_migration(db, row, config):
+                source = "mysql_migrated"
         else:
             share_key = server_keys.get(server_id, "default")
             legacy = db.get(FarmShareConfig, share_key)
             if legacy:
                 config = json.loads(legacy.config_json)
+                if isinstance(config, dict) and _persist_arkomega_path_migration(db, legacy, config):
+                    source = "legacy_migrated"
                 source = "legacy"
             else:
                 config = _farm_default_config()
