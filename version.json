@@ -1,8 +1,9 @@
 {
-    "version": "1.12.7",
-    "date": "2026-11-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.7/ARKLAND-Multi-Setup-v1.12.7.exe",
+    "version": "1.12.8",
+    "date": "2026-11-13",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.8/ARKLAND-Multi-Setup-v1.12.8.exe",
     "changelog": [
-        "Fazenda: corrige a migração das configurações ArkOmega no WebStore; os caminhos normalizados são persistidos no MySQL e deixam de voltar ao ID numérico ao recarregar."
+        "Fazenda: a retirada reutiliza a classe gerada registrada no depósito quando corresponde ao blueprint configurado, em vez de recarregá-la por um alias.",
+        "Fazenda: se a classe do depósito não estiver carregada, o resgate continua pendente sem conceder o item e registra o motivo no log."
     ]
 }

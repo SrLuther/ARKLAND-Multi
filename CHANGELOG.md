@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-13 00:08:27 -->
-<!-- Total de versões: 566 | Primeira: 1.12.7 -->
+<!-- Gerado: 2026-11-13 22:25:44 -->
+<!-- Total de versões: 567 | Primeira: 1.12.8 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.8] - 2026-11-13
+
+### Other
+
+- Fazenda: a retirada reutiliza a classe gerada registrada no depósito quando corresponde ao blueprint configurado, em vez de recarregá-la por um alias.
+- Fazenda: se a classe do depósito não estiver carregada, o resgate continua pendente sem conceder o item e registra o motivo no log.
 
 ## [1.12.7] - 2026-11-12
 

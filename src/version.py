@@ -4,13 +4,21 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.7"
-BUILD_DATE: str = "2026-11-12"
+APP_VERSION: str = "1.12.8"
+BUILD_DATE: str = "2026-11-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.8",
+        "date": "2026-11-13",
+        "changes": [
+            "Fazenda: a retirada reutiliza a classe gerada registrada no depósito quando corresponde ao blueprint configurado, em vez de recarregá-la por um alias.",
+            "Fazenda: se a classe do depósito não estiver carregada, o resgate continua pendente sem conceder o item e registra o motivo no log.",
+        ],
+    },
     {
         "version": "1.12.7",
         "date": "2026-11-12",

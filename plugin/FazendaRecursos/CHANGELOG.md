@@ -1,5 +1,10 @@
 # FazendaRecursos - changelog
 
+## [0.1.35] - 2026-11-13
+
+- Reutiliza, na retirada, a classe gerada registrada no depósito quando ela corresponde ao blueprint configurado; evita depender de recarregar por alias um item que o próprio servidor já reconheceu.
+- Mantém a retirada pendente sem conceder o item quando a classe depositada não está presente no registro de objetos carregados.
+
 ## [0.1.34] - 2026-11-10
 
 - Adds complete ArkApi logger capture plus detailed upload preview/confirmation, production cycles and capacity pauses, status, and redemption events; uploads asynchronously with local spool retry.

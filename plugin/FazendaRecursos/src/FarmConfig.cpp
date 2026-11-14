@@ -73,7 +73,7 @@ nlohmann::json DefaultOmegaResources() {
         const std::string asset_name = slash == std::string::npos
             ? asset_path : asset_path.substr(slash + 1);
         const std::string item_class = std::string(
-            "/Game/Mods/2447186973/Items/") + asset_path + "." + asset_name + "_C";
+            "/Game/Mods/ArkOmega/Items/") + asset_path + "." + asset_name + "_C";
         resources.push_back({
             {"Id", id}, {"Name", name}, {"ItemClass", item_class},
             {"InputClass", item_class}, {"InputQuantity", 1},
@@ -171,6 +171,19 @@ bool MigrateFarmDefaults(nlohmann::json& full, nlohmann::json& root,
     for (const auto& resource : DefaultOmegaResources()) {
         const auto id = resource["Id"].get<std::string>();
         if (!known.contains(id)) { omega["Resources"].push_back(resource); changed = true; }
+    }
+    for (auto& resource : omega["Resources"]) {
+        if (!resource.is_object()) continue;
+        for (const char* key : {"ItemClass", "InputClass"}) {
+            if (!resource.contains(key) || !resource[key].is_string()) continue;
+            const auto value = resource[key].get<std::string>();
+            constexpr const char* workshop_prefix = "/Game/Mods/2447186973/";
+            if (value.rfind(workshop_prefix, 0) == 0) {
+                resource[key] = std::string("/Game/Mods/ArkOmega/") +
+                    value.substr(std::char_traits<char>::length(workshop_prefix));
+                changed = true;
+            }
+        }
     }
     if (!categories.contains("primal_fear")) {
         categories["primal_fear"] = {{"Enabled", true}, {"Required", false},

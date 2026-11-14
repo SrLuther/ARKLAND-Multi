@@ -77,21 +77,35 @@ std::string NormalizeFarmBlueprint(std::string raw) {
     return game_path == std::string::npos ? raw : raw.substr(game_path);
 }
 bool GiveFarmStack(AShooterPlayerController* controller, const std::string& configured_class,
-                   int quantity, std::string& failure_reason) {
+                   int quantity, std::string& failure_reason,
+                   const std::string& deposited_class_full_name = {}) {
     if (!controller || configured_class.empty() || quantity < 1) {
         failure_reason = "invalid arguments";
         return false;
     }
-    // Keep the configured generated-class suffix exactly as CustomShop does:
-    // BPLoadClass receives /Game/.../Item.Item_C, not the asset path without _C.
-    const std::string blueprint = NormalizeFarmBlueprint(configured_class);
-    FString fblueprint(blueprint.c_str());
-    UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
-    auto* inventory = controller->GetPlayerInventoryComponent();
-    if (!item_class) {
-        failure_reason = "BPLoadClass failed for normalized asset path " + blueprint;
-        return false;
+    UClass* item_class = nullptr;
+    if (!deposited_class_full_name.empty()) {
+        // The upload record preserves the exact generated UClass that the game
+        // had already resolved when the player deposited this resource. Reuse
+        // that same loaded class instead of re-loading an equivalent mod path.
+        item_class = Globals::FindClass(deposited_class_full_name);
+        if (!item_class) {
+            failure_reason = "deposited blueprint class is not present in the loaded object registry: " +
+                deposited_class_full_name;
+            return false;
+        }
+    } else {
+        // Keep the configured generated-class suffix exactly as CustomShop does:
+        // BPLoadClass receives /Game/.../Item.Item_C, not the asset path without _C.
+        const std::string blueprint = NormalizeFarmBlueprint(configured_class);
+        FString fblueprint(blueprint.c_str());
+        item_class = UVictoryCore::BPLoadClass(&fblueprint);
+        if (!item_class) {
+            failure_reason = "BPLoadClass failed for normalized asset path " + blueprint;
+            return false;
+        }
     }
+    auto* inventory = controller->GetPlayerInventoryComponent();
     if (!inventory) {
         failure_reason = "player inventory is unavailable";
         return false;
@@ -478,6 +492,7 @@ void CmdRedeem(APlayerController* pc, FString*, bool) {
     if (stacks.empty()) { Say(c, "Você não tem stacks pendentes para resgatar.", FColorList::Yellow); return; }
 
     const auto definitions = FazendaRecursos::FarmConfig::Get().ResourcesSnapshot();
+    const auto player_farm = FazendaRecursos::FarmState::Get().GetPlayer(steam);
     int delivered_stacks = 0, delivered_items = 0;
     bool failed = false;
     for (const auto& stack : stacks) {
@@ -493,8 +508,24 @@ void CmdRedeem(APlayerController* pc, FString*, bool) {
             failed = true;
             break;
         }
+        // Resource uploads retain the full class name observed on the actual
+        // deposited item (for example, BlueprintGeneratedClass /Game/Mods/...).
+        // When that class is the configured output blueprint, use that exact
+        // UClass identity. This also handles mods whose class is loaded from the
+        // inventory but cannot be reloaded later by BPLoadClass from its alias.
+        const FazendaRecursos::PlayerFarm::UploadedResource* source_upload = nullptr;
+        for (const auto& row : player_farm.uploaded_resources) {
+            const auto& upload = row.second;
+            if (upload.status != "active" || upload.resource_id != definition->id ||
+                upload.item_class.empty() ||
+                !MatchesConfiguredClass(upload.item_class, definition->item_class)) continue;
+            if (!source_upload || upload.uploaded_utc > source_upload->uploaded_utc)
+                source_upload = &upload;
+        }
+        const std::string deposited_class = source_upload ? source_upload->item_class : std::string{};
         std::string delivery_failure;
-        if (!GiveFarmStack(c, definition->item_class, stack.quantity, delivery_failure)) {
+        if (!GiveFarmStack(c, definition->item_class, stack.quantity, delivery_failure,
+                           deposited_class)) {
             Log::GetLog()->warn("Farm: Blueprint delivery failed; steam={} order={} stack={} qty={} class={} reason={}",
                 steam, stack.redemption_id, stack.stack_index, stack.quantity, definition->item_class,
                 delivery_failure);
@@ -502,6 +533,10 @@ void CmdRedeem(APlayerController* pc, FString*, bool) {
                 FazendaRecursos::FarmConfig::Get().ServerId(), false);
             failed = true;
             break;
+        }
+        if (!deposited_class.empty()) {
+            Log::GetLog()->info("Farm: delivery reused deposited blueprint class; steam={} order={} resource={} class={}",
+                steam, stack.redemption_id, definition->id, deposited_class);
         }
         if (!FazendaRecursos::FarmSync::CompleteRedemptionStack(stack, steam,
                 FazendaRecursos::FarmConfig::Get().ServerId(), true)) {
