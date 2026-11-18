@@ -1,11 +1,8 @@
 {
-    "version": "1.12.9",
+    "version": "1.12.10",
     "date": "2026-11-18",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.9/ARKLAND-Multi-Setup-v1.12.9.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.10/ARKLAND-Multi-Setup-v1.12.10.exe",
     "changelog": [
-        "Dashboard TEK: cards mais compactos em três colunas, ações principais sempre visíveis e ferramentas secundárias reunidas no menu Mais.",
-        "Home: centraliza o quinto servidor abaixo dos cards 3 e 4 e adapta o alinhamento para telas menores.",
-        "Status TEK: gera automaticamente o identificador público a partir do nome do perfil quando shop_server_id está vazio, mantendo o heartbeat alinhado com os demais mapas.",
-        "Conta: adiciona atalho para abrir o Discord durante a validação do vínculo."
+        "Home: centraliza o quinto card do cluster no centro horizontal da página, mantendo o alinhamento responsivo."
     ]
 }

@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-18 00:58:20 -->
-<!-- Total de versões: 568 | Primeira: 1.12.9 -->
+<!-- Gerado: 2026-11-18 03:29:11 -->
+<!-- Total de versões: 569 | Primeira: 1.12.10 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.10] - 2026-11-18
+
+### Other
+
+- Home: centraliza o quinto card do cluster no centro horizontal da página, mantendo o alinhamento responsivo.
 
 ## [1.12.9] - 2026-11-18
 
