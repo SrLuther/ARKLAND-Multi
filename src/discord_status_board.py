@@ -383,8 +383,17 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
             if not display:
                 display = (getattr(srv, "session_name", None) or getattr(srv, "name", None)
                            or getattr(srv, "id", "?") or "?").strip()
-            shop_id = (getattr(srv, "shop_server_id", None) or "").strip()
             asm_id = (getattr(srv, "id", None) or "").strip()
+            shop_id = (getattr(srv, "shop_server_id", None) or "").strip()
+            if not shop_id:
+                # Keep the TEK heartbeat aligned with Shop/RCON integrations
+                # when a profile has not had its shop_server_id initialized yet.
+                from .shop_integration import slugify_server_id
+
+                shop_id = slugify_server_id(
+                    getattr(srv, "name", "") or display,
+                    asm_id,
+                )
             sid = shop_id or asm_id
             process = ASM_STATUS_STOPPED
             steam = ""

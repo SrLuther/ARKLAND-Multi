@@ -4,13 +4,23 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.8"
-BUILD_DATE: str = "2026-11-13"
+APP_VERSION: str = "1.12.9"
+BUILD_DATE: str = "2026-11-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.9",
+        "date": "2026-11-18",
+        "changes": [
+            "Dashboard TEK: cards mais compactos em três colunas, ações principais sempre visíveis e ferramentas secundárias reunidas no menu Mais.",
+            "Home: centraliza o quinto servidor abaixo dos cards 3 e 4 e adapta o alinhamento para telas menores.",
+            "Status TEK: gera automaticamente o identificador público a partir do nome do perfil quando shop_server_id está vazio, mantendo o heartbeat alinhado com os demais mapas.",
+            "Conta: adiciona atalho para abrir o Discord durante a validação do vínculo.",
+        ],
+    },
     {
         "version": "1.12.8",
         "date": "2026-11-13",

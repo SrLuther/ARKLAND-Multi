@@ -1,9 +1,18 @@
 # Changelog
 
-<!-- Gerado: 2026-11-13 22:25:44 -->
-<!-- Total de versões: 567 | Primeira: 1.12.8 -->
+<!-- Gerado: 2026-11-18 00:58:20 -->
+<!-- Total de versões: 568 | Primeira: 1.12.9 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.9] - 2026-11-18
+
+### Other
+
+- Dashboard TEK: cards mais compactos em três colunas, ações principais sempre visíveis e ferramentas secundárias reunidas no menu Mais.
+- Home: centraliza o quinto servidor abaixo dos cards 3 e 4 e adapta o alinhamento para telas menores.
+- Status TEK: gera automaticamente o identificador público a partir do nome do perfil quando shop_server_id está vazio, mantendo o heartbeat alinhado com os demais mapas.
+- Conta: adiciona atalho para abrir o Discord durante a validação do vínculo.
 
 ## [1.12.8] - 2026-11-13
 

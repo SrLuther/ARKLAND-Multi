@@ -191,7 +191,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     cpu_pct, ram_pct = _get_perf()
 
     stats_f = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
-    stats_f.grid(row=1, column=0, sticky="ew", padx=16, pady=(14, 4))
+    stats_f.grid(row=1, column=0, sticky="ew", padx=16, pady=(8, 2))
     for i in range(5):
         stats_f.grid_columnconfigure(i, weight=1)
 
@@ -218,7 +218,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
 
         # ── Linha topo: [bolha icon] [LABEL] ─────────────────────────────────
         top_row = ctk.CTkFrame(card, fg_color="transparent")
-        top_row.grid(row=0, column=0, padx=12, pady=(12, 0), sticky="ew")
+        top_row.grid(row=0, column=0, padx=10, pady=(7, 0), sticky="ew")
         top_row.grid_columnconfigure(1, weight=1)
 
         icon_f = ctk.CTkFrame(top_row, fg_color=bg_col, corner_radius=8,
@@ -236,7 +236,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
 
         # ── Valor grande ──────────────────────────────────────────────────────
         val_lbl = ctk.CTkLabel(card, text=value,
-                     font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+                     font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
                      text_color=fg_col,
                      )
         val_lbl.grid(row=1, column=0, padx=12, pady=(6, 0), sticky="w")
@@ -258,7 +258,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
         # ── Subtítulo ─────────────────────────────────────────────────────────
         ctk.CTkLabel(card, text=sub[:26],
                      font=ctk.CTkFont(size=9), text_color=t_mut,
-                     ).grid(row=3, column=0, padx=12, pady=(4, 10), sticky="w")
+                     ).grid(row=3, column=0, padx=10, pady=(2, 6), sticky="w")
 
     # Guarda referência para refresh de stats sem recriar o dashboard todo
     app._asm_stats_frame = stats_f
@@ -289,7 +289,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
 
     cards_host = ctk.CTkFrame(scroll, fg_color=bg, corner_radius=0)
     cards_host.grid(row=0, column=0, sticky="nsew")
-    cards_host.grid_columnconfigure((0, 1), weight=1)
+    cards_host.grid_columnconfigure((0, 1, 2), weight=1, uniform="server_cards")
     app._asm_dashboard_cards_host = cards_host
     app._asm_dashboard_layout_sig = None
     app._asm_dashboard_cards = {}
@@ -381,13 +381,13 @@ def _refresh_asm_disks(app: "ARKServerManagerApp", theme: dict | None = None) ->
                 card, text=f"💾  {title}",
                 font=ctk.CTkFont(size=10, weight="bold"),
                 text_color=theme["text_secondary"],
-            ).grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
+            ).grid(row=0, column=0, padx=9, pady=(6, 0), sticky="w")
 
             free_txt = _format_disk_gb(d["free_gb"])
             total_txt = _format_disk_gb(d["total_gb"])
             val_lbl = ctk.CTkLabel(
                 card, text=free_txt,
-                font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+                font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"),
                 text_color=_disk_bar_color(d["used_pct"], is_light),
             )
             val_lbl.grid(row=1, column=0, padx=10, pady=(4, 0), sticky="w")
@@ -406,7 +406,7 @@ def _refresh_asm_disks(app: "ARKServerManagerApp", theme: dict | None = None) ->
                 font=ctk.CTkFont(size=9),
                 text_color=t_mut,
             )
-            sub_lbl.grid(row=3, column=0, padx=10, pady=(4, 10), sticky="w")
+            sub_lbl.grid(row=3, column=0, padx=9, pady=(3, 6), sticky="w")
 
             app._asm_disk_widgets[mount] = {
                 "val": val_lbl, "bar": bar, "sub": sub_lbl,
@@ -586,7 +586,7 @@ def _populate_cards_grid(app: "ARKServerManagerApp", host: ctk.CTkFrame) -> None
             host,
             text="Nenhum servidor TEK configurado.\nClique em '＋ Novo Servidor' para começar.",
             font=ctk.CTkFont(family="Segoe UI", size=15), text_color=t_sec, justify="center",
-        ).grid(row=0, column=0, columnspan=2, pady=60)
+        ).grid(row=0, column=0, columnspan=3, pady=60)
         return
 
     fm = app.asm_config_manager.folder_manager
@@ -601,7 +601,7 @@ def _populate_cards_grid(app: "ARKServerManagerApp", host: ctk.CTkFrame) -> None
             host, fg_color=folder_bg, corner_radius=6,
             border_width=1, border_color=folder_bdr,
         )
-        folder_hdr.grid(row=grid_row, column=0, columnspan=2, sticky="ew", padx=8, pady=(10, 2))
+        folder_hdr.grid(row=grid_row, column=0, columnspan=3, sticky="ew", padx=8, pady=(8, 2))
         folder_hdr.grid_columnconfigure(1, weight=1)
         grid_row += 1
 
@@ -644,11 +644,11 @@ def _populate_cards_grid(app: "ARKServerManagerApp", host: ctk.CTkFrame) -> None
 
         card_row_base = grid_row
         for idx, srv in enumerate(folder_servers):
-            r, c = divmod(idx, 2)
+            r, c = divmod(idx, 3)
             row, col = card_row_base + r, c
             build_asm_server_card(app, host, srv, row, col)
             app._asm_card_grid_pos[srv.id] = (row, col)
-        grid_row += (len(folder_servers) + 1) // 2
+        grid_row += (len(folder_servers) + 2) // 3
 
 
 def _update_folder_counts(app: "ARKServerManagerApp") -> None:
@@ -723,19 +723,12 @@ def _update_card_rich_labels(app: "ARKServerManagerApp") -> None:
         rich_key = f"_asm_rich_status_{srv.id}"
         rich_data: dict = getattr(app, rich_key, {})
         val_tc = accent if is_running else t_sec
-        val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
-
-        proc_val = rich_data.get("proc", "—")
-        if proc_val and proc_val != "—" and len(proc_val) > 32:
-            proc_val = "…" + proc_val[-31:]
+        val_font = ctk.CTkFont(family="Segoe UI", size=11, weight="bold")
 
         mapping = (
             ("Jogadores", rich_data.get("players", "—")),
             ("Uptime", rich_data.get("uptime", "—")),
             ("Memória", rich_data.get("ram", "—")),
-            ("Versão", rich_data.get("version", "—")),
-            ("PID", rich_data.get("pid", "—")),
-            ("Processo", proc_val),
         )
         for hint, val in mapping:
             lbl = refs.get(hint)

@@ -7708,6 +7708,23 @@
       .home-shortcuts__grid { gap:8px; }
       .home-shortcut { min-height:140px; padding:12px 10px; }
     }
+    /* Mantém o quinto mapa alinhado sob o meio do par final do cluster. */
+    #home-connect-section .home-servers-grid > .home-server-card:nth-child(5):last-child {
+      grid-column:3 / 5;
+      width:calc((100% - 13px) / 2);
+      justify-self:center;
+    }
+    @media (max-width: 1250px) {
+      #home-connect-section .home-servers-grid > .home-server-card:nth-child(5):last-child {
+        grid-column:1 / -1;
+        width:calc((100% - 13px) / 2);
+      }
+    }
+    @media (max-width: 420px) {
+      #home-connect-section .home-servers-grid > .home-server-card:nth-child(5):last-child {
+        width:100%;
+      }
+    }
     :root { --gold:#d2b477; --gold-soft:rgba(210,180,119,.22); --gold-dim:rgba(210,180,119,.1); }
     .brand-watermark {
       position:fixed;
@@ -10929,6 +10946,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center;">
               <button class="btn btn-primary btn-sm" onclick="myAreaGenerateDiscordCode(false)">Gerar código de verificação</button>
               <button class="btn btn-ghost btn-sm" onclick="myAreaGenerateDiscordCode(true)">Gerar novo código</button>
+              <a class="btn btn-ghost btn-sm" href="https://discord.gg/7wPswZkb8z" target="_blank" rel="noopener noreferrer">Abrir Discord para validar</a>
               <span id="myarea-discord-status" style="font-size:11px;color:var(--text2);">Carregando vínculo...</span>
             </div>
             <div id="myarea-discord-verification" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
