@@ -401,6 +401,7 @@ class AsmServerConfig:
 
     # ── Gerenciamento Automático ──────────────────────────────────────────────
     auto_start_on_launch:           bool  = False   # Iniciar ao abrir o app
+    auto_restart_on_crash:          bool  = False   # Reiniciar após encerramento inesperado
     enable_auto_restart:            bool  = False
     auto_restart_time:              str   = "03:00"
     auto_restart_days:              List[int] = field(default_factory=lambda: list(range(7)))  # 0=Seg … 6=Dom
@@ -409,7 +410,7 @@ class AsmServerConfig:
     auto_update_check_minutes:      int   = 60
     # Backup individual (o agendamento global continua em BackupConfig).
     backup_enabled:                 bool  = False
-    backup_interval_hours:          int   = 6
+    backup_interval_hours:          float = 0.5
     backup_keep_count:              int   = 10
     backup_include_saves:           bool  = True
     backup_include_config:          bool  = False

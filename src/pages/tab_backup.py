@@ -18,8 +18,8 @@ def build_tab_backup(app: "ARKServerManagerApp", parent, srv: "ServerConfig") ->
 
     w = app._server_widgets[srv.id]
 
-    _interval_opts = ["1h", "2h", "3h", "6h", "12h", "24h"]
-    _interval_map  = {1: "1h", 2: "2h", 3: "3h", 6: "6h", 12: "12h", 24: "24h"}
+    _interval_opts = ["30 min (fixo)"]
+    _interval_map  = {0.5: "30 min (fixo)"}
 
     # ── Card: configurações ───────────────────────────────────────────
     cfg_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
@@ -53,7 +53,7 @@ def build_tab_backup(app: "ARKServerManagerApp", parent, srv: "ServerConfig") ->
     ).grid(row=1, column=1, padx=(0, 16), pady=(4, 0), sticky="w")
 
     # Intervalo
-    w["backup_interval"] = tk.StringVar(value=_interval_map.get(srv.backup_interval_hours, "6h"))
+    w["backup_interval"] = tk.StringVar(value="30 min (fixo)")
     _lbl(cfg_card,
          "Intervalo entre backups",
          "Com que frequência o backup automático será executado."
@@ -66,11 +66,9 @@ def build_tab_backup(app: "ARKServerManagerApp", parent, srv: "ServerConfig") ->
     # Manter últimos N backups
     w["backup_keep"] = tk.StringVar(value=str(srv.backup_keep_count))
     _lbl(cfg_card,
-         "Manter últimos N backups",
-         "Backups mais antigos são excluídos automaticamente."
+         "Retenção de snapshots",
+         "Snapshots a cada 30 min por até 7h + 1 diário por 30 dias."
          ).grid(row=3, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
-    ctk.CTkEntry(cfg_card, textvariable=w["backup_keep"], width=80, height=32).grid(
-        row=3, column=1, padx=(0, 16), pady=4, sticky="w")
 
     # O que incluir
     w["backup_inc_saves"]  = tk.BooleanVar(value=srv.backup_include_saves)

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -46,6 +47,21 @@ def ensure_backup_tree(root: Path | None = None) -> Path:
         except OSError:
             pass
     return base
+
+
+def ensure_backup_destination(path: str | Path) -> Path:
+    """Cria a pasta selecionada e confirma que o disco permite gravação real."""
+    dest = Path(path).expanduser()
+    dest.mkdir(parents=True, exist_ok=True)
+    probe = dest / f".arkland-backup-write-{uuid.uuid4().hex}.tmp"
+    try:
+        with probe.open("xb") as handle:
+            handle.write(b"ARKLAND backup destination check")
+            handle.flush()
+            os.fsync(handle.fileno())
+    finally:
+        probe.unlink(missing_ok=True)
+    return dest
 
 
 _TZ_BR = timezone(timedelta(hours=-3))
@@ -425,6 +441,15 @@ def default_backups_saves_root() -> Path:
 def default_db_backup_dir() -> Path:
     """Padrão: ``D:\\Backups\\database``."""
     return resolve_backup_root() / "database"
+
+
+def shared_db_backup_dir(server_backup_root: str | Path | None = None) -> Path:
+    """Resolve o destino do banco no mesmo disco da pasta escolhida para servidores."""
+    raw = str(server_backup_root or "").strip()
+    root = Path(raw) if raw else default_backups_servers_root()
+    if root.name.casefold() == "servers":
+        return root.parent / "database"
+    return root / "database"
 
 
 def default_ini_backup_root() -> Path:

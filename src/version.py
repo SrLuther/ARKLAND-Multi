@@ -4,13 +4,29 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.10"
+APP_VERSION: str = "1.12.11"
 BUILD_DATE: str = "2026-11-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.11",
+        "date": "2026-11-18",
+        "changes": [
+            "Backup: snapshots a cada 30 minutos, retenção de 7 horas recentes e um ponto diário por servidor por 30 dias; a expectativa é reduzir a perda potencial de progresso e manter uma trilha diária recuperável.",
+            "Backup: inclui dumps do banco na mesma política e permite usar outro disco; o destino é validado antes da gravação para evitar configurar uma pasta indisponível.",
+            "Backup: envia SaveWorld antes dos snapshots, grava ZIP temporário com CRC e bloqueio por servidor; isso deve reduzir cópias incompletas, inconsistentes ou sobrepostas.",
+            "Backup (segurança): aguarda 60 segundos após SaveWorld, pula mapas em inicialização/parada e não copia snapshots online quando RCON/SaveWorld falha; isso reduz o risco de ZIPs com saves sendo escritos.",
+            "Crash (janela): reconhece a caixa de erro enquanto permanece aberta, arquiva a mensagem antes de encerrá-la e separa erro de preparação de uma falha real do processo; isso deve registrar o crash mesmo sem clique em OK.",
+            "Backup (migração): habilita uma única vez backups automáticos de servidor e banco em instalações existentes, preservando um destino de banco já selecionado.",
+            "Crash (monitor): consulta processos TEK a cada 2 segundos e combina código de saída, janelas de erro, crashstack, pasta de crash e log; rastros anteriores à execução atual não devem provocar falso crash.",
+            "Crash (pacote): arquiva diagnóstico, cauda de ShooterGame.log, crashstack/dump, manifesto e texto das janelas na pasta configurável; registra explicitamente quando o Windows não expõe o texto.",
+            "Crash (retomada): reinício opcional por servidor após 30 segundos, até 3 tentativas, contador zerado após 10 minutos estáveis; isso limita ciclos contínuos em falhas persistentes.",
+            "Processo de mudanças: documenta cada alteração local em Unreleased com status UNDEFINED, motivo e resultado esperado; isso mantém o histórico contínuo sem sinalizar que a versão foi publicada.",
+        ],
+    },
     {
         "version": "1.12.10",
         "date": "2026-11-18",

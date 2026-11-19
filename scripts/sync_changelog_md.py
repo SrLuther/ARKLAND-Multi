@@ -144,6 +144,10 @@ def _render(entries: list[dict]) -> str:
 
         linhas.append(f"## [{ver}] - {data}")
         linhas.append("")
+        status = str(entry.get("status", "") or "").strip()
+        if status:
+            linhas.append(f"> Status: **{status.upper()}** — alterações locais, ainda não publicadas.")
+            linhas.append("")
 
         secoes: dict[str, list[str]] = {}
         for mudanca in mudancas:

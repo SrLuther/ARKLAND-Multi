@@ -45,7 +45,7 @@ def _save_backup(app, bk) -> None:
     bk.rcon_broadcast_mode = _g(app, "_bk_rcon_mode_var")
     bk.save_message        = _g(app, "_bk_save_msg_var")
     bk.auto_backup         = _g(app, "_bk_auto_var",          tk.BooleanVar)
-    bk.backup_interval     = _g(app, "_bk_interval_var",      strip=True)
+    bk.backup_interval     = "00:30"
 
 
 def _save_auto_update(app, au) -> None:
@@ -143,7 +143,27 @@ def _save_startup_registry(app, cfg, winreg) -> str | None:
 
 def save_global_config_tek(app) -> None:
     import winreg as _winreg  # type: ignore[import]
+    from ..arkland_environment import (
+        default_backups_servers_root,
+        ensure_backup_destination,
+        shared_db_backup_dir,
+    )
     cfg = app.config_manager.config
+    selected_backup_dir = _g(app, "_bk_dir_var", strip=True)
+    try:
+        ensure_backup_destination(
+            selected_backup_dir or default_backups_servers_root()
+        )
+        if getattr(cfg.db_backup, "use_shared_backup_location", False):
+            ensure_backup_destination(shared_db_backup_dir(selected_backup_dir))
+    except OSError as exc:
+        from tkinter import messagebox
+        messagebox.showerror(
+            "Destino de backup indisponível",
+            f"Não foi possível gravar no disco/pasta selecionado.\n\n{exc}",
+            parent=app,
+        )
+        return
     cfg.steamcmd_path        = _g(app, "_steamcmd_var",            strip=True)
     cfg.default_install_dir  = _g(app, "_default_dir_var",         strip=True)
     cfg.startup_with_windows = _g(app, "_cfg_startup_var",         tk.BooleanVar)
@@ -167,6 +187,7 @@ def save_global_config_tek(app) -> None:
         warnings.append(f"Chaves de IA: {exc}")
     _save_discord(app, cfg.discord_notify)
     _save_backup(app, cfg.backup)
+    cfg.db_backup.shared_backup_root = cfg.backup.backup_dir
     _save_auto_update(app, cfg.auto_update)
     _save_shutdown(app, cfg.shutdown)
     _save_alert_messages(app, cfg.alert_messages)

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -619,6 +620,107 @@ def _windows_titles_by_pid() -> Dict[int, str]:
     return titles
 
 
+def _visible_ark_error_dialogs(install_dir: str) -> List[str]:
+    """Captura título e controles de texto de janelas do Shooter/Crash Reporter visíveis."""
+    if os.name != "nt":
+        return []
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        install_norm = _normalize_install_dir(install_dir)
+        found: list[str] = []
+        enum_child_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        enum_window_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def _read_text(hwnd) -> str:
+            length = min(int(user32.GetWindowTextLengthW(hwnd) or 0), 4096)
+            if length <= 0:
+                return ""
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            return (buf.value or "").strip()
+
+        def _enum_window(hwnd, _lparam):
+            try:
+                if not user32.IsWindowVisible(hwnd):
+                    return True
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                info = _inspect_pid(int(pid.value))
+                title = _read_text(hwnd)
+                belongs = bool(install_norm and install_norm in (info.get("exe", "") + " " + info.get("cmdline", "")))
+                if not belongs:
+                    return True
+                texts: list[str] = [title] if title else []
+
+                def _enum_child(child, _child_lparam):
+                    try:
+                        class_buf = ctypes.create_unicode_buffer(128)
+                        user32.GetClassNameW(child, class_buf, len(class_buf))
+                        class_name = class_buf.value.casefold()
+                        if class_name in ("static", "edit", "richedit20w", "richedit50w"):
+                            value = _read_text(child)
+                            if value and value not in texts:
+                                texts.append(value)
+                    except Exception:
+                        pass
+                    return True
+
+                child_cb = enum_child_proc(_enum_child)
+                user32.EnumChildWindows(hwnd, child_cb, 0)
+                blob = "\n".join(texts).casefold()
+                if texts and any(token in blob for token in (
+                    "crash", "fatal", "error", "exception", "unreal engine",
+                    "unexpectedly", "has stopped", "bug report",
+                )):
+                    found.append("\n".join(texts))
+            except Exception:
+                pass
+            return True
+
+        window_cb = enum_window_proc(_enum_window)
+        user32.EnumWindows(window_cb, 0)
+        return list(dict.fromkeys(found))[-20:]
+    except Exception:
+        return []
+
+
+def _has_recent_crash_evidence(
+    install_dir: str, alt_save_dir: str = "", *, since: Optional[float] = None
+) -> bool:
+    """Evita classificar saída limpa como crash; procura rastros recentes do UE/ARK."""
+    try:
+        saved = Path(install_dir) / "ShooterGame" / "Saved"
+        roots = [saved]
+        alt = (alt_save_dir or "").strip()
+        if alt and saved / alt != saved:
+            roots.append(saved / alt)
+        cutoff = float(since) if since is not None else time.time() - 15 * 60
+        for root in roots:
+            logs = root / "Logs"
+            if not logs.is_dir():
+                continue
+            for pattern in ("*.crashstack",):
+                if any(p.stat().st_mtime >= cutoff for p in logs.glob(pattern)):
+                    return True
+            crash_dirs = root / "Crashes"
+            if crash_dirs.is_dir() and any(
+                p.is_dir() and p.stat().st_mtime >= cutoff for p in crash_dirs.iterdir()
+            ):
+                return True
+            log = logs / "ShooterGame.log"
+            if log.is_file() and log.stat().st_mtime >= cutoff:
+                with log.open("rb") as source:
+                    source.seek(max(0, log.stat().st_size - 256 * 1024))
+                    if b"fatal error!" in source.read().lower():
+                        return True
+    except Exception:
+        return False
+    return False
+
+
 from .asm_server_config import (
     AsmServerConfig,
     ASM_STATUS_STOPPED,
@@ -647,6 +749,7 @@ class AsmServerInstance:
         self._monitor: Optional[threading.Thread] = None
         self._lock     = threading.Lock()
         self.uptime_start: Optional[float] = None
+        self.process_started_at: Optional[float] = None
         self.steam_status: str = "unavailable"
         self.steam_status_detail: str = ""
         self.listing_mode: str = "unavailable"
@@ -654,6 +757,8 @@ class AsmServerInstance:
         self.a2s_players: Optional[int] = None
         self.a2s_max_players: Optional[int] = None
         self.attached_exe: str = ""  # path verificado sob install_dir (UI PID/path)
+        self.crash_restart_attempts: int = 0
+        self.crash_dialog_messages: List[str] = []
 
     # ── Status helpers ──────────────────────────────────────────────────────
 
@@ -689,6 +794,7 @@ class AsmServerManager:
         machine_public_ip: str = "",
         get_mod_path_blacklist: Optional[Callable[[], List[str]]] = None,
         on_log: Optional[Callable[[str, str], None]] = None,
+        get_crash_archive_dir: Optional[Callable[[], str]] = None,
     ) -> None:
         """
         Args:
@@ -704,6 +810,7 @@ class AsmServerManager:
         self._machine_public_ip = (machine_public_ip or "").strip()
         self._get_mod_path_blacklist = get_mod_path_blacklist
         self._on_log = on_log or (lambda _msg, _level: None)
+        self._get_crash_archive_dir = get_crash_archive_dir
         self._lock = threading.Lock()
         # IDs com start/restart real (não scan/reconnect) — para ForceDay pós-RUNNING
         self._force_day_pending: set[str] = set()
@@ -928,8 +1035,10 @@ class AsmServerManager:
             info = _inspect_pid(pid)
             inst._proc = _PsutilProcessWrapper(raw)
             inst.cfg = cfg
+            inst.crash_dialog_messages.clear()
             inst.status = ASM_STATUS_RUNNING
             inst.uptime_start = float(create_time or time.time())
+            inst.process_started_at = inst.uptime_start
             inst.attached_exe = info.get("exe") or _expected_shooter_exe(cfg)
             self._start_monitor(inst)
             self._start_steam_watcher(inst)
@@ -1210,6 +1319,7 @@ class AsmServerManager:
                         on_done(False, "Servidor já em execução")
                     return
             inst.cfg = cfg
+            inst.crash_dialog_messages.clear()
 
         if inst.status == ASM_STATUS_STOPPED:
             # notifica UI se limpamos ghost (fora do lock)
@@ -1374,19 +1484,44 @@ class AsmServerManager:
 
             with inst._lock:
                 inst._proc = proc
+                inst.process_started_at = time.time()
+                inst.crash_dialog_messages.clear()
 
             # 6. Considera online após 10 s sem crash
             for _ in range(24):
                 time.sleep(5)
+                for message in _visible_ark_error_dialogs(cfg.install_dir):
+                    if message not in inst.crash_dialog_messages:
+                        inst.crash_dialog_messages.append(message)
+                inst.crash_dialog_messages = inst.crash_dialog_messages[-20:]
+                if inst.crash_dialog_messages and self._handle_visible_crash_dialog(inst, proc):
+                    if on_done:
+                        on_done(False, "Janela de erro do ARK detectada; evidências arquivadas.")
+                    return
                 if proc is not None and proc.poll() is not None:
+                    rc = proc.returncode if proc.returncode is not None else -1
+                    evidence = bool(inst.crash_dialog_messages) or _has_recent_crash_evidence(
+                        cfg.install_dir,
+                        getattr(cfg, "alt_save_directory_name", ""),
+                        since=inst.process_started_at,
+                    )
+                    crashed = rc not in (0, -1) or evidence
                     with self._lock:
                         self._force_day_pending.discard(cfg.id)
-                    inst.status = ASM_STATUS_CRASHED
+                    inst.status = ASM_STATUS_CRASHED if crashed else ASM_STATUS_STOPPED
+                    if crashed:
+                        inst.crash_restart_attempts += 1
                     self._stop_steam_watcher(cfg.id)
+                    if crashed:
+                        bundle = self._archive_crash_bundle(inst, rc, pid=getattr(proc, "pid", None))
+                        if bundle:
+                            self._on_log(f"Crash ao iniciar [{cfg.name or cfg.id}]: evidências salvas em {bundle}", "warning")
                     if self._on_status:
-                        self._on_status(cfg.id, ASM_STATUS_CRASHED)
+                        self._on_status(cfg.id, ASM_STATUS_CRASHED if crashed else ASM_STATUS_STOPPED)
                     if on_done:
                         on_done(False, f"Processo terminou com código {proc.returncode}")
+                    if crashed:
+                        self._maybe_restart_after_crash(inst)
                     return
                 if _ >= 2:
                     break
@@ -1417,10 +1552,23 @@ class AsmServerManager:
         except Exception as exc:
             with self._lock:
                 self._force_day_pending.discard(cfg.id)
-            inst.status = ASM_STATUS_CRASHED
+                live_proc = inst._proc
+            if live_proc is not None and live_proc.poll() is None:
+                inst.status = ASM_STATUS_RUNNING
+                inst.uptime_start = inst.uptime_start or time.time()
+                if self._on_status:
+                    self._on_status(cfg.id, ASM_STATUS_RUNNING)
+                self._on_log(f"[{cfg.name}] O processo foi iniciado, mas houve falha ao finalizar a configuração do monitor: {exc}", "error")
+                self._start_monitor(inst)
+                self._start_steam_watcher(inst)
+                if on_done:
+                    on_done(False, str(exc))
+                return
+            inst.status = ASM_STATUS_STOPPED
             self._stop_steam_watcher(cfg.id)
             if self._on_status:
-                self._on_status(cfg.id, ASM_STATUS_CRASHED)
+                self._on_status(cfg.id, ASM_STATUS_STOPPED)
+            self._on_log(f"[{cfg.name}] Falha ao preparar/iniciar o servidor; nenhum crash de processo foi confirmado: {exc}", "error")
             if on_done:
                 on_done(False, str(exc))
 
@@ -1542,25 +1690,52 @@ class AsmServerManager:
 
     def _monitor_worker(self, inst: AsmServerInstance) -> None:
         while True:
-            time.sleep(5)
+            time.sleep(2)
             proc = inst._proc
             if proc is None:
                 break
             if inst.status not in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
                 break
+            for message in _visible_ark_error_dialogs(inst.cfg.install_dir):
+                if message not in inst.crash_dialog_messages:
+                    inst.crash_dialog_messages.append(message)
+            inst.crash_dialog_messages = inst.crash_dialog_messages[-20:]
+            if inst.crash_dialog_messages and self._handle_visible_crash_dialog(inst, proc):
+                break
+            if (inst.crash_restart_attempts and inst.uptime_start
+                    and time.time() - inst.uptime_start >= 600):
+                inst.crash_restart_attempts = 0
             rc = proc.poll()
             if rc is not None:
+                crashed = False
+                handled_exit = False
+                crash_evidence = bool(inst.crash_dialog_messages) or _has_recent_crash_evidence(
+                    inst.cfg.install_dir,
+                    getattr(inst.cfg, "alt_save_directory_name", ""),
+                    since=inst.process_started_at,
+                )
+                # O wrapper psutil pode retornar -1 quando o código real de saída
+                # não está mais disponível; nesse caso exigimos rastro de crash.
+                crashed = rc not in (0, -1, None) or crash_evidence
                 with inst._lock:
                     if inst.status not in (ASM_STATUS_STOPPED, ASM_STATUS_STOPPING):
-                        inst.status = ASM_STATUS_CRASHED
+                        handled_exit = True
+                        inst.status = ASM_STATUS_CRASHED if crashed else ASM_STATUS_STOPPED
                         inst._proc = None
                         inst.uptime_start = None
+                        if crashed:
+                            inst.crash_restart_attempts += 1
                         self._stop_steam_watcher(inst.cfg.id)
                         _clear_last_pid(inst.cfg.id)
                         if self._on_status:
-                            self._on_status(inst.cfg.id, ASM_STATUS_CRASHED)
+                            self._on_status(inst.cfg.id, ASM_STATUS_CRASHED if crashed else ASM_STATUS_STOPPED)
+                if handled_exit and crashed:
+                    bundle = self._archive_crash_bundle(inst, rc, pid=getattr(proc, "pid", None))
+                    if bundle:
+                        self._on_log(f"Crash [{inst.cfg.name or inst.cfg.id}]: evidências salvas em {bundle}", "warning")
+                    self._maybe_restart_after_crash(inst)
                 break
-            # PID vivo mas não é o Shooter deste mapa → limpa ghost (não CRASHED)
+
             pid = int(getattr(proc, "pid", 0) or 0)
             if pid and inst.status == ASM_STATUS_RUNNING and not _pid_safe_to_kill(inst.cfg, pid):
                 with inst._lock:
@@ -1581,6 +1756,143 @@ class AsmServerManager:
                         if self._on_status:
                             self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
                 break
+
+    def _handle_visible_crash_dialog(self, inst: AsmServerInstance, proc: Any) -> bool:
+        """Arquiva e classifica a janela persistente de erro antes de fechá-la."""
+        if not inst.crash_dialog_messages or proc is None or proc.poll() is not None:
+            return False
+        with inst._lock:
+            if inst.status not in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING):
+                return False
+            inst.status = ASM_STATUS_CRASHED
+            inst._proc = None
+            inst.uptime_start = None
+            inst.crash_restart_attempts += 1
+        self._stop_steam_watcher(inst.cfg.id)
+        _clear_last_pid(inst.cfg.id)
+        if self._on_status:
+            self._on_status(inst.cfg.id, ASM_STATUS_CRASHED)
+        bundle = self._archive_crash_bundle(inst, -2, pid=getattr(proc, "pid", None))
+        if bundle:
+            self._on_log(f"Crash [{inst.cfg.name or inst.cfg.id}]: janela de erro detectada; evidências salvas em {bundle}", "warning")
+        else:
+            self._on_log(f"Crash [{inst.cfg.name or inst.cfg.id}]: janela de erro detectada, mas o pacote de evidências falhou.", "error")
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+        if proc.poll() is None:
+            try:
+                proc.kill()
+                proc.wait(timeout=5)
+            except Exception:
+                pass
+        self._maybe_restart_after_crash(inst)
+        return True
+
+    def _archive_crash_bundle(
+        self, inst: AsmServerInstance, return_code: int, *, pid: Optional[int] = None
+    ) -> Optional[Path]:
+        """Copia os artefatos recentes para uma pasta de diagnóstico por servidor."""
+        try:
+            from ..server_manager import _read_crash_info
+            import re
+
+            raw_dir = (self._get_crash_archive_dir() if self._get_crash_archive_dir else "") or ""
+            if not raw_dir:
+                raw_dir = str(Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "crash_reports")
+            safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", inst.cfg.id).strip("._") or "server"
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            target_root = Path(raw_dir) / safe_id / stamp
+            target_root.mkdir(parents=True, exist_ok=False)
+            saved = Path(inst.cfg.install_dir) / "ShooterGame" / "Saved"
+            roots = [saved]
+            alt = str(getattr(inst.cfg, "alt_save_directory_name", "") or "").strip()
+            if alt and saved / alt != saved:
+                roots.append(saved / alt)
+            cutoff = time.time() - 900
+            copied: list[str] = []
+            for index, root in enumerate(roots):
+                tag = "default" if index == 0 else "alternate"
+                logs = root / "Logs"
+                if logs.is_dir():
+                    stacks = sorted((p for p in logs.glob("*.crashstack") if p.stat().st_mtime >= cutoff),
+                                    key=lambda p: p.stat().st_mtime, reverse=True)
+                    for stack in stacks[:3]:
+                        out = target_root / tag / "Logs" / stack.name
+                        out.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(stack, out)
+                        copied.append(str(out.relative_to(target_root)))
+                        try:
+                            stack_time = stack.stat().st_mtime
+                            dumps = [p for p in logs.glob("Dump*.dmp") if abs(p.stat().st_mtime - stack_time) < 900]
+                            if dumps:
+                                dump = min(dumps, key=lambda p: abs(p.stat().st_mtime - stack_time))
+                                shutil.copy2(dump, out.parent / dump.name)
+                                copied.append(str((out.parent / dump.name).relative_to(target_root)))
+                        except OSError:
+                            pass
+                    log = logs / "ShooterGame.log"
+                    if log.is_file():
+                        out = target_root / tag / "Logs" / "ShooterGame.log.tail.txt"
+                        out.parent.mkdir(parents=True, exist_ok=True)
+                        with log.open("rb") as source:
+                            source.seek(max(0, log.stat().st_size - 5 * 1024 * 1024))
+                            out.write_bytes(source.read())
+                        copied.append(str(out.relative_to(target_root)))
+                crashes = root / "Crashes"
+                if crashes.is_dir():
+                    folders = sorted((p for p in crashes.iterdir() if p.is_dir() and p.stat().st_mtime >= cutoff),
+                                     key=lambda p: p.stat().st_mtime, reverse=True)
+                    for folder in folders[:2]:
+                        for pattern in ("*.dmp", "CrashContext*", "ShooterGame.log"):
+                            for artifact in folder.glob(pattern):
+                                if artifact.is_file():
+                                    out = target_root / tag / "Crashes" / folder.name / artifact.name
+                                    out.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.copy2(artifact, out)
+                                    copied.append(str(out.relative_to(target_root)))
+            manifest = {
+                "server_id": inst.cfg.id, "server_name": inst.cfg.name,
+                "captured_at": datetime.now().isoformat(timespec="seconds"),
+                "return_code": return_code, "pid": pid if pid is not None else inst.pid,
+                "diagnosis": _read_crash_info(inst.cfg.install_dir),
+                "visible_error_dialogs": list(inst.crash_dialog_messages),
+                "dialog_capture_note": (
+                    "Captured from visible Shooter/Crash Reporter windows while monitored."
+                    if inst.crash_dialog_messages else
+                    "No readable visible crash dialog was captured; use diagnosis, ShooterGame.log and crash artifacts."
+                ),
+                "files": copied,
+            }
+            dialog_text = "\n\n---\n\n".join(inst.crash_dialog_messages)
+            if not dialog_text:
+                dialog_text = (
+                    "Nenhum texto de janela de erro foi capturado. O diálogo pode não ter existido, "
+                    "ter fechado antes da leitura, ou o Windows pode não expor seus controles de texto.\n"
+                    "Consulte diagnosis e os arquivos ShooterGame.log/crashstack deste pacote."
+                )
+            (target_root / "mensagem-da-tela-de-erro.txt").write_text(dialog_text, encoding="utf-8")
+            copied.append("mensagem-da-tela-de-erro.txt")
+            (target_root / "manifest.json").write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            return target_root
+        except Exception as exc:
+            self._on_log(f"Crash [{inst.cfg.name or inst.cfg.id}]: falha ao arquivar evidências: {exc}", "warning")
+            return None
+
+    def _maybe_restart_after_crash(self, inst: AsmServerInstance) -> None:
+        if not getattr(inst.cfg, "auto_restart_on_crash", False):
+            return
+        if inst.crash_restart_attempts > 3:
+            self._on_log(f"Crash [{inst.cfg.name or inst.cfg.id}]: limite de 3 tentativas atingido; reinício automático pausado.", "error")
+            return
+        self._on_log(f"Crash [{inst.cfg.name or inst.cfg.id}]: reinício em 30 s (tentativa {inst.crash_restart_attempts}/3).", "warning")
+        time.sleep(30)
+        if inst.status == ASM_STATUS_CRASHED:
+            self.start(inst.cfg.id)
 
     def _start_steam_watcher(self, inst: AsmServerInstance) -> None:
         from ..server_visibility import get_steam_poller

@@ -1,6 +1,8 @@
 from __future__ import annotations
 import tkinter as tk
+from pathlib import Path
 from typing import TYPE_CHECKING
+from tkinter import messagebox
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
@@ -10,10 +12,26 @@ def save_backup_config(app: "ARKServerManagerApp", server_id: str) -> None:
     if not srv:
         return
     w = app._server_widgets.get(server_id, {})
-    _interval_rev = {"1h": 1, "2h": 2, "3h": 3, "6h": 6, "12h": 12, "24h": 24}
+    from ..arkland_environment import default_backups_servers_root, ensure_backup_destination
+    selected_dir = w.get("backup_dir", tk.StringVar()).get().strip()
+    global_dir = app.config_manager.config.backup.backup_dir.strip()
+    target_dir = (
+        Path(selected_dir or global_dir)
+        if selected_dir or global_dir
+        else default_backups_servers_root()
+    ) / srv.id
+    try:
+        ensure_backup_destination(target_dir)
+    except OSError as exc:
+        messagebox.showerror(
+            "Destino de backup indisponível",
+            f"Não foi possível gravar no disco/pasta selecionado.\n\n{exc}",
+            parent=app,
+        )
+        return
 
     srv.backup_enabled          = w.get("backup_enabled",  tk.BooleanVar()).get()
-    srv.backup_interval_hours   = _interval_rev.get(w.get("backup_interval", tk.StringVar(value="6h")).get(), 6)
+    srv.backup_interval_hours   = 0.5
     srv.backup_include_saves    = w.get("backup_inc_saves",  tk.BooleanVar(value=True)).get()
     srv.backup_include_config   = w.get("backup_inc_config", tk.BooleanVar(value=True)).get()
     srv.backup_dir              = w.get("backup_dir", tk.StringVar()).get().strip()

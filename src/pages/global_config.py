@@ -207,6 +207,7 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
 
     app._ai_nvidia_key_var = tk.StringVar(value=_ai_keys.get("nvidia", ""))
     app._ai_openai_key_var = tk.StringVar(value=_ai_keys.get("openai", ""))
+    app._crash_archive_dir_var = tk.StringVar(value=getattr(cfg, "crash_archive_dir", ""))
 
     ctk.CTkLabel(
         ai_card,
@@ -241,6 +242,20 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     ).grid(row=3, column=0, columnspan=2, padx=16, pady=(4, 14), sticky="w")
 
     # ── Seção Discord ───────────────────────────────────────────
+    ctk.CTkLabel(ai_card, text="Pasta local para evidências de crash:", width=200, anchor="w",
+                 text_color="gray60").grid(row=4, column=0, padx=16, pady=(4, 2), sticky="w")
+    crash_dir_row = ctk.CTkFrame(ai_card, fg_color="transparent")
+    crash_dir_row.grid(row=4, column=1, padx=(0, 16), pady=(4, 2), sticky="ew")
+    crash_dir_row.grid_columnconfigure(0, weight=1)
+    ctk.CTkEntry(
+        crash_dir_row, textvariable=app._crash_archive_dir_var, height=34,
+        placeholder_text=r"Padrão: %APPDATA%\ARKLAND-ServerManager\crash_reports",
+    ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+    ctk.CTkButton(
+        crash_dir_row, text="📁", width=34, height=34,
+        command=lambda: app._browse_dir(app._crash_archive_dir_var),
+    ).grid(row=0, column=1)
+
     app._section_lbl(parent, _next_row + 8, "🔔  Notificações Discord")
     disc_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
     disc_card.grid(row=_next_row + 9, column=0, padx=20, pady=(0, 14), sticky="ew")
@@ -455,7 +470,7 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     app._bk_rcon_mode_var       = tk.StringVar(value=bk.rcon_broadcast_mode)
     app._bk_save_msg_var        = tk.StringVar(value=bk.save_message)
     app._bk_auto_var            = tk.BooleanVar(value=bk.auto_backup)
-    app._bk_interval_var        = tk.StringVar(value=bk.backup_interval)
+    app._bk_interval_var        = tk.StringVar(value="00:30")
 
     ctk.CTkLabel(bk_card, text="Diretório de backup:", width=200, anchor="w",
                  text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 2), sticky="w")
@@ -500,12 +515,11 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
 
     fr_keep = ctk.CTkFrame(bk_card, fg_color="transparent")
     fr_keep.grid(row=5, column=0, columnspan=2, padx=16, pady=(2, 8), sticky="w")
-    ctk.CTkCheckBox(fr_keep, text="Manter apenas os",
-                    variable=app._bk_limit_count_var,
-                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                    ).pack(side="left")
-    ctk.CTkEntry(fr_keep, textvariable=app._bk_max_count_var, width=50, height=28).pack(side="left", padx=6)
-    ctk.CTkLabel(fr_keep, text="backups mais recentes por servidor", text_color="gray60").pack(side="left")
+    ctk.CTkLabel(
+        fr_keep,
+        text="Retenção: snapshots a cada 30 min por até 7 horas + 1 backup diário por servidor durante 30 dias",
+        text_color="gray60",
+    ).pack(side="left")
 
     fr_rcon = ctk.CTkFrame(bk_card, fg_color="transparent")
     fr_rcon.grid(row=6, column=0, columnspan=2, padx=16, pady=(4, 2), sticky="w")
@@ -524,9 +538,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                     ).grid(row=8, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
     fr_bk_int = ctk.CTkFrame(bk_card, fg_color="transparent")
     fr_bk_int.grid(row=9, column=0, columnspan=2, padx=16, pady=(2, 8), sticky="w")
-    ctk.CTkLabel(fr_bk_int, text="Intervalo entre backups (HH:MM):", text_color="gray60").pack(side="left")
+    ctk.CTkLabel(fr_bk_int, text="Intervalo entre backups:", text_color="gray60").pack(side="left")
     ctk.CTkEntry(fr_bk_int, textvariable=app._bk_interval_var, width=80, height=28,
-                 placeholder_text="06:00").pack(side="left", padx=6)
+                 state="disabled").pack(side="left", padx=6)
 
     def _run_global_backup_now() -> None:
         if hasattr(app, "_run_global_backup"):

@@ -57,6 +57,8 @@ _PT_OVERRIDES: dict[str, str] = {
     "admin_logging": "Log de admin",
     "max_players": "Máximo de jogadores",
     "active_mods": "Mods ativos",
+    "auto_start_on_launch": "Iniciar ao abrir o app",
+    "auto_restart_on_crash": "Reiniciar após crash",
     "server_map": "Mapa",
     "auto_save_period": "Intervalo de autosave (min)",
     "additional_args": "Args CLI adicionais",
@@ -224,6 +226,7 @@ _PT_OVERRIDES.update(EXTRA_PT_OVERRIDES)
 
 # ── Hints (tooltips) ──────────────────────────────────────────────────────────
 _HINTS: dict[str, str] = {
+    "auto_restart_on_crash": "Reinicia após encerramento inesperado. O ARKLAND arquiva as evidências antes e pausa após 3 tentativas consecutivas; o contador zera quando o servidor permanece estável por 10 minutos.",
     "xp_multiplier": "Multiplicador geral de XP. Outros tipos de XP são aplicados adicionalmente.",
     "player_damage_multiplier": "Valores acima de 1.0 aumentam o atributo; abaixo diminuem.",
     "override_max_xp_player": "Cap de XP em Game.ini (OverrideMaxExperiencePointsPlayer = último limiar da rampa + 1). Com progressões ON a rampa tem base+100 slots no mesmo arquivo.",

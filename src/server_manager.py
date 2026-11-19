@@ -5,6 +5,7 @@ Controla start/stop/restart, monitoramento e logs de cada instância.
 from __future__ import annotations
 
 import os
+import json
 import shutil
 import subprocess
 import sys
@@ -669,6 +670,7 @@ class ServerManager:
         get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = None,
         get_dynamic_config_url: Optional[Callable[[str], str]] = None,
         get_mod_path_blacklist: Optional[Callable[[], List[str]]] = None,
+        get_crash_archive_dir: Optional[Callable[[], str]] = None,
         discord_notifier: Optional[Any] = None,
         start_background_workers: bool = True,
     ) -> None:
@@ -681,6 +683,7 @@ class ServerManager:
         self._get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = get_cluster_profile
         self._get_dynamic_config_url: Optional[Callable[[str], str]] = get_dynamic_config_url
         self._get_mod_path_blacklist = get_mod_path_blacklist
+        self._get_crash_archive_dir = get_crash_archive_dir
         self._discord_notifier   = discord_notifier
 
         # BattleMetrics poller
@@ -1660,6 +1663,19 @@ class ServerManager:
         try:
             time.sleep(1.5)  # aguarda o ARK terminar de gravar os arquivos de crash
             info = _read_crash_info(install_dir)
+            archive_dir = ""
+            if self._get_crash_archive_dir:
+                try:
+                    archive_dir = (self._get_crash_archive_dir() or "").strip()
+                except Exception:
+                    archive_dir = ""
+            if not archive_dir:
+                archive_dir = str(Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "crash_reports")
+            try:
+                bundle = self._archive_crash_bundle(server_id, install_dir, Path(archive_dir), info)
+                self._emit_log(server_id, f"Pacote de diagnóstico salvo em: {bundle}", "info")
+            except Exception as exc:
+                self._emit_log(server_id, f"Não foi possível arquivar evidências do crash: {exc}", "warning")
             if info:
                 # Armazena para que _set_status(crashed) possa incluir no Discord
                 inst = self._instances.get(server_id)
@@ -1674,6 +1690,111 @@ class ServerManager:
             self._emit_log(server_id, f"Não foi possível ler arquivos de crash: {exc}", "debug")
 
     # ── Status ────────────────────────────────────────────────────────────────
+
+    def _archive_crash_bundle(self, server_id: str, install_dir: str, archive_root: Path, info: str) -> Path:
+        """Preserva evidências recentes sem mover/remover os originais do ARK."""
+        import re
+
+        inst = self._instances.get(server_id)
+        now = datetime.now()
+        stamp = now.strftime("%Y%m%d_%H%M%S_%f")
+        safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", server_id).strip("._") or "server"
+        destination = archive_root / safe_id / stamp
+        saved = Path(install_dir) / "ShooterGame" / "Saved"
+        saved_roots = [saved]
+        alt_name = str(getattr(getattr(inst, "config", None), "alt_save_directory_name", "") or "").strip()
+        if alt_name:
+            alt = saved / alt_name
+            if alt != saved:
+                saved_roots.append(alt)
+        cutoff = now.timestamp() - 15 * 60
+        copied: list[str] = []
+        destination.mkdir(parents=True, exist_ok=False)
+
+        for root_index, saved_root in enumerate(saved_roots):
+            tag = "default" if root_index == 0 else "alternate"
+            logs = saved_root / "Logs"
+            if logs.is_dir():
+                try:
+                    stacks = sorted(
+                        (p for p in logs.glob("*.crashstack") if p.stat().st_mtime >= cutoff),
+                        key=lambda p: p.stat().st_mtime, reverse=True,
+                    )
+                except OSError:
+                    stacks = []
+                for stack in stacks[:3]:
+                    target = destination / tag / "Logs" / stack.name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(stack, target)
+                    copied.append(str(target.relative_to(destination)))
+                    try:
+                        stack_time = stack.stat().st_mtime
+                        dumps = [p for p in logs.glob("Dump*.dmp") if abs(p.stat().st_mtime - stack_time) < 900]
+                        if dumps:
+                            dump = min(dumps, key=lambda p: abs(p.stat().st_mtime - stack_time))
+                            dump_target = target.parent / dump.name
+                            shutil.copy2(dump, dump_target)
+                            copied.append(str(dump_target.relative_to(destination)))
+                    except OSError:
+                        pass
+
+                log_file = logs / "ShooterGame.log"
+                if log_file.is_file():
+                    log_target = destination / tag / "Logs" / "ShooterGame.log.tail.txt"
+                    log_target.parent.mkdir(parents=True, exist_ok=True)
+                    with log_file.open("rb") as source:
+                        source.seek(max(0, log_file.stat().st_size - 5 * 1024 * 1024))
+                        log_target.write_bytes(source.read())
+                    copied.append(str(log_target.relative_to(destination)))
+
+            crashes = saved_root / "Crashes"
+            if crashes.is_dir():
+                try:
+                    crash_dirs = sorted(
+                        (p for p in crashes.iterdir() if p.is_dir() and p.stat().st_mtime >= cutoff),
+                        key=lambda p: p.stat().st_mtime, reverse=True,
+                    )
+                except OSError:
+                    crash_dirs = []
+                for crash_dir in crash_dirs[:2]:
+                    for pattern in ("*.dmp", "CrashContext*", "ShooterGame.log"):
+                        for artifact in crash_dir.glob(pattern):
+                            if artifact.is_file():
+                                target = destination / tag / "Crashes" / crash_dir.name / artifact.name
+                                target.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(artifact, target)
+                                copied.append(str(target.relative_to(destination)))
+
+        if inst:
+            (destination / "arkland-server-log.txt").write_text(
+                "\n".join(inst.log_buffer[-500:]), encoding="utf-8"
+            )
+            copied.append("arkland-server-log.txt")
+        dialog_messages: list[str] = []
+        try:
+            from .asm_engine.asm_server_manager import _visible_ark_error_dialogs
+            dialog_messages = _visible_ark_error_dialogs(install_dir)
+        except Exception:
+            pass
+        (destination / "mensagem-da-tela-de-erro.txt").write_text(
+            "\n\n---\n\n".join(dialog_messages) if dialog_messages else
+            "Nenhum texto de janela foi legível no instante da captura; consulte diagnosis e ShooterGame.log.",
+            encoding="utf-8",
+        )
+        copied.append("mensagem-da-tela-de-erro.txt")
+        manifest = {
+            "server_id": server_id,
+            "server_name": getattr(getattr(inst, "config", None), "name", server_id),
+            "captured_at": now.isoformat(timespec="seconds"),
+            "process_id": getattr(inst, "pid", None),
+            "diagnosis": info,
+            "visible_error_dialogs": dialog_messages,
+            "files": copied,
+        }
+        (destination / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return destination
 
     def is_server_running(self, server_id: str) -> bool:
         inst = self._instances.get(server_id)

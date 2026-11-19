@@ -91,15 +91,17 @@ class BackupConfig:
     backup_exclude_redundant: bool = True
     rcon_broadcast_mode:   str  = "Broadcast"
     save_message:          str  = "ARKLAND: Auto save em andamento"
-    auto_backup:           bool = False
-    backup_interval:       str  = "06:00"
+    auto_backup:           bool = True
+    backup_interval:       str  = "00:30"
 
 
 @dataclass
 class DbBackupConfig:
-    enabled:               bool = False
+    enabled:               bool = True
+    use_shared_backup_location: bool = True
+    shared_backup_root:    str  = ""
     backup_dir:            str  = ""  # "" = D:\Backups\database (ARKLAND_BACKUP_ROOT)
-    interval_hours:        int  = 6
+    interval_hours:        float = 0.5
     limit_backup_count:    bool = True
     max_backup_count:      int  = 10
     include_arkshop:       bool = True
@@ -294,6 +296,7 @@ class SmtpConfig:
 
 @dataclass
 class AppConfig:
+    backup_policy_version: int = 1
     # ── Global ────────────────────────────────────────────────────────────────
     steamcmd_path: str = ""                  # Caminho para steamcmd.exe
     default_install_dir: str = ""            # Diretório padrão de instalação
@@ -302,6 +305,7 @@ class AppConfig:
     minimize_to_tray: bool = False           # Minimizar para a bandeja ao fechar
     log_debug: bool = False                  # Log verboso
     update_url: str = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
+    crash_archive_dir: str = ""
 
     # ── Legado (sync cluster) ─────────────────────────────────────────────────
     local_cluster_path: str = ""
@@ -381,6 +385,10 @@ class ConfigManager:
                     "startup_with_windows" in data
                     and "startup_with_windows_preference_version" not in data
                 )
+                try:
+                    migrate_backup_policy = int(data.get("backup_policy_version", 0)) < 1
+                except (TypeError, ValueError):
+                    migrate_backup_policy = True
 
                 def _deserialize(dc_cls, key):
                     if key in raw and isinstance(raw[key], dict):
@@ -409,6 +417,21 @@ class ConfigManager:
                     raw["startup_with_windows"] = True
                     raw["startup_with_windows_preference_version"] = 1
                 self.config = AppConfig(**raw)
+                if migrate_backup_policy:
+                    # Migra uma vez para a política solicitada: snapshots de 30 min,
+                    # rotação recente + diários e dump automático do banco.
+                    self.config.backup.auto_backup = True
+                    self.config.backup.backup_interval = "00:30"
+                    self.config.db_backup.enabled = True
+                    self.config.db_backup.interval_hours = 0.5
+                    if self.config.db_backup.backup_dir:
+                        # Preserva o destino DB que o usuário já selecionou.
+                        self.config.db_backup.use_shared_backup_location = False
+                    else:
+                        self.config.db_backup.use_shared_backup_location = True
+                        self.config.db_backup.shared_backup_root = self.config.backup.backup_dir
+                    self.config.backup_policy_version = 1
+                    self.save()
                 from .shop_integration import (
                     is_ephemeral_pyinstaller_path,
                     is_webstore_catalog_path,

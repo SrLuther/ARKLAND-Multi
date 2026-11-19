@@ -122,6 +122,7 @@ class ARKServerManagerApp(ctk.CTk):
             get_mod_path_blacklist=lambda: list(
                 self.config_manager.config.mod_path_blacklist or []
             ),
+            get_crash_archive_dir=lambda: self.config_manager.config.crash_archive_dir,
             on_log=lambda msg, level: self._global_log(msg, level),
         )
         self.asm_server_manager.register_servers(self.asm_config_manager.servers)
@@ -136,6 +137,7 @@ class ARKServerManagerApp(ctk.CTk):
             get_mod_path_blacklist=lambda: list(
                 self.config_manager.config.mod_path_blacklist or []
             ),
+            get_crash_archive_dir=lambda: self.config_manager.config.crash_archive_dir,
             start_background_workers=not self._safe_startup_test,
         )
         self._asm_bm_data = {}
@@ -149,8 +151,8 @@ class ARKServerManagerApp(ctk.CTk):
             discord_notifier=self._discord_notifier,
         )
         self._db_backup_manager = DbBackupManager(on_log=self._global_log)
-        self._global_backup_last_run: Optional[datetime] = datetime.now()
-        self._db_backup_last_run: Optional[datetime] = datetime.now()
+        self._global_backup_last_run: Optional[datetime] = None
+        self._db_backup_last_run: Optional[datetime] = None
         self._global_backup_running = False
         self._db_backup_running = False
         from .mod_manager import ModManager
@@ -1600,7 +1602,7 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _asm_do_auto_backup(self, srv: AsmServerConfig) -> None:
         """Executa backup automático do servidor (disparado pelo scheduler diário)."""
-        self._run_global_backup()
+        self._run_global_backup(scheduled=True)
 
     def _asm_do_scheduled_backup(self, srv: AsmServerConfig) -> None:
         """Executa backup automático somente do servidor TEK solicitado."""
@@ -1620,7 +1622,13 @@ class ARKServerManagerApp(ctk.CTk):
         def _worker() -> None:
             try:
                 global_bk = self.config_manager.config.backup
-                path = self._backup_manager.backup_server(srv, global_bk)
+                status = self.asm_server_manager.get_status(srv.id)
+                if status.upper() in ("STARTING", "STOPPING", "INICIANDO", "PARANDO", "UPDATING"):
+                    self._global_log(f"[Backup] {srv.name}: ignorado enquanto o servidor está {status}.", "warning")
+                    return
+                path = self._backup_manager.backup_server(
+                    srv, global_bk, scheduled=True, server_running=status.upper() == "RUNNING",
+                )
                 if path:
                     last_runs = getattr(self, "_asm_server_backup_last_run", None)
                     if isinstance(last_runs, dict):
@@ -1637,7 +1645,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         _th.Thread(target=_worker, daemon=True).start()
 
-    def _run_global_backup(self) -> None:
+    def _run_global_backup(self, scheduled: bool = False) -> None:
         """Backup ZIP de todos os servidores TEK (manual ou agendado)."""
         import threading as _th
 
@@ -1650,7 +1658,10 @@ class ARKServerManagerApp(ctk.CTk):
         def _worker():
             try:
                 servers = self.asm_config_manager.servers
-                created = self._backup_manager.backup_all_servers(servers, bk)
+                statuses = {srv.id: self.asm_server_manager.get_status(srv.id) for srv in servers}
+                created = self._backup_manager.backup_all_servers(
+                    servers, bk, scheduled=scheduled, server_statuses=statuses,
+                )
                 active = [s for s in servers if (s.install_dir or "").strip()]
                 if not active or created:
                     self._global_backup_last_run = datetime.now()
@@ -1688,6 +1699,7 @@ class ARKServerManagerApp(ctk.CTk):
             try:
                 path = self._db_backup_manager.create_backup(
                     cfg, host=host, port=port, user=user, password=password,
+                    scheduled=True,
                 )
                 if path:
                     self._db_backup_last_run = datetime.now()
@@ -1917,12 +1929,31 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _save_global_config(self) -> None:
         import winreg as _winreg  # type: ignore[import]
+        from .arkland_environment import (
+            default_backups_servers_root,
+            ensure_backup_destination,
+            shared_db_backup_dir,
+        )
+        selected_backup_dir = getattr(self, "_bk_dir_var", tk.StringVar()).get().strip()
+        try:
+            ensure_backup_destination(selected_backup_dir or default_backups_servers_root())
+            if getattr(self.config_manager.config.db_backup, "use_shared_backup_location", False):
+                ensure_backup_destination(shared_db_backup_dir(selected_backup_dir))
+        except OSError as exc:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Destino de backup indisponível",
+                f"Não foi possível gravar no disco/pasta selecionado.\n\n{exc}",
+                parent=self,
+            )
+            return
         cfg = self.config_manager.config
         cfg.steamcmd_path        = getattr(self, "_steamcmd_var", tk.StringVar()).get().strip()
         cfg.default_install_dir  = getattr(self, "_default_dir_var", tk.StringVar()).get().strip()
         cfg.startup_with_windows = getattr(self, "_cfg_startup_var", tk.BooleanVar()).get()
         cfg.minimize_to_tray     = getattr(self, "_cfg_minimize_tray_var", tk.BooleanVar()).get()
         cfg.log_debug            = getattr(self, "_cfg_log_debug_var", tk.BooleanVar()).get()
+        cfg.crash_archive_dir = getattr(self, "_crash_archive_dir_var", tk.StringVar()).get().strip()
         # SetDay RCON crasha ASE 361.7 — nunca persistir enabled.
         cfg.force_day_on_start_enabled = False
         try:
@@ -1978,7 +2009,8 @@ class ARKServerManagerApp(ctk.CTk):
         bk.rcon_broadcast_mode = getattr(self, "_bk_rcon_mode_var",     tk.StringVar()).get()
         bk.save_message        = getattr(self, "_bk_save_msg_var",      tk.StringVar()).get()
         bk.auto_backup         = getattr(self, "_bk_auto_var",          tk.BooleanVar()).get()
-        bk.backup_interval     = getattr(self, "_bk_interval_var",      tk.StringVar()).get().strip()
+        bk.backup_interval     = "00:30"
+        cfg.db_backup.shared_backup_root = bk.backup_dir
         # Auto-update
         au = cfg.auto_update
         au.cache_dir                   = getattr(self, "_au_cache_dir_var",      tk.StringVar()).get().strip()

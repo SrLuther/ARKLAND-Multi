@@ -16,8 +16,9 @@ import os
 import re
 import shutil
 import threading
+import time
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, TYPE_CHECKING
 
@@ -29,6 +30,9 @@ if TYPE_CHECKING:
     from .asm_engine.asm_server_config import AsmServerConfig
 
 _DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+_RECENT_BACKUP_HOURS = 7
+_DAILY_BACKUP_DAYS = 30
+_BACKUP_INTERVAL_SECONDS = 30 * 60
 
 # Cópias internas do ARK: Map_DD.MM.YYYY_HH.MM.SS.ark (não confundir com Map.ark ativo)
 _DATED_ARK_BACKUP_RE = re.compile(
@@ -100,6 +104,15 @@ def _format_size(size_bytes: int | float) -> str:
     return f"{n:.1f} TB"
 
 
+def _snapshot_datetime(path: Path) -> datetime:
+    """Lê timestamp legado ou diário do nome; usa mtime para nomes desconhecidos."""
+    stem = path.stem.removesuffix("_daily")
+    try:
+        return datetime.strptime(stem, "%Y%m%d_%H%M%S")
+    except ValueError:
+        return datetime.fromtimestamp(path.stat().st_mtime)
+
+
 def _zip_backup_sizes(path: Path) -> tuple[int, int]:
     """Retorna (comprimido_bytes, original_bytes) de um snapshot ZIP."""
     compressed = path.stat().st_size if path.is_file() else 0
@@ -150,6 +163,10 @@ def asm_server_to_backup_target(
         backup_include_config=include_config,
         backup_exclude_redundant=exclude_redundant,
         backup_keep_count=keep,
+        rcon_enabled=bool(getattr(asm_srv, "rcon_enabled", False)),
+        rcon_port=int(getattr(asm_srv, "rcon_port", 27020) or 27020),
+        admin_password=str(getattr(asm_srv, "admin_password", "") or ""),
+        server_ip=str(getattr(asm_srv, "server_ip", "") or ""),
     )
 
 
@@ -162,7 +179,8 @@ class BackupEntry:
         if path.is_file() and path.suffix == ".zip":
             # ── Novo formato: arquivo ZIP comprimido ──────────────────────────
             self.is_zip       = True
-            self.timestamp    = path.stem
+            self.is_daily     = path.stem.endswith("_daily")
+            self.timestamp    = path.stem.removesuffix("_daily")
             with zipfile.ZipFile(path, "r") as zf:
                 names = zf.namelist()
                 self.has_config = any(n.startswith("config/") for n in names)
@@ -175,6 +193,7 @@ class BackupEntry:
         else:
             # ── Legado: diretório ─────────────────────────────────────────────
             self.is_zip          = False
+            self.is_daily       = False
             self.timestamp       = path.name
             self.has_saves       = (path / "saves").exists()
             self.has_config      = (path / "config").exists()
@@ -204,7 +223,8 @@ class BackupEntry:
             )
         else:
             size_str = _format_size(self.size_bytes)
-        return f"{self.dt.strftime('%d/%m/%Y %H:%M:%S')}  [{tag}]  {size_str}"
+        cadence = "Diário · " if self.is_daily else ""
+        return f"{cadence}{self.dt.strftime('%d/%m/%Y %H:%M:%S')}  [{tag}]  {size_str}"
 
 
 class BackupManager:
@@ -222,6 +242,8 @@ class BackupManager:
         self._backups_root = default_backups_servers_root()
         self._timers: Dict[str, threading.Timer] = {}
         self._lock = threading.Lock()
+        self._running_lock = threading.Lock()
+        self._running_servers: set[str] = set()
 
     # ── Caminho do diretório de backups ───────────────────────────────────────
 
@@ -232,16 +254,69 @@ class BackupManager:
 
     # ── Realizar backup ───────────────────────────────────────────────────────
 
-    def do_backup(self, srv: "ServerConfig") -> Optional[str]:
+    def do_backup(
+        self, srv: "ServerConfig", *, scheduled: bool = False,
+        server_running: Optional[bool] = None,
+    ) -> Optional[str]:
+        """Serializa snapshots do mesmo servidor e mantém a política horária/diária."""
+        with self._running_lock:
+            if srv.id in self._running_servers:
+                self._on_log(f"[Backup] {srv.name}: já existe um snapshot em andamento.", "warning")
+                return None
+            self._running_servers.add(srv.id)
+        try:
+            return self._do_backup(srv, scheduled=scheduled, server_running=server_running)
+        finally:
+            with self._running_lock:
+                self._running_servers.discard(srv.id)
+
+    def _do_backup(
+        self, srv: "ServerConfig", *, scheduled: bool = False,
+        server_running: Optional[bool] = None,
+    ) -> Optional[str]:
         """Faz backup dos arquivos selecionados em ZIP comprimido. Retorna caminho do .zip ou None."""
         if not srv.install_dir:
             self._on_log(f"[Backup] {srv.name}: diretório de instalação não configurado.", "warning")
             return None
 
-        ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if server_running is True or (
+            scheduled and server_running is None
+            and getattr(srv, "rcon_enabled", False) and getattr(srv, "admin_password", "")
+        ):
+            if not (getattr(srv, "rcon_enabled", False) and getattr(srv, "admin_password", "")):
+                self._on_log(f"[Backup] {srv.name}: backup ignorado; servidor online sem RCON configurado para confirmar SaveWorld.", "error")
+                return None
+            try:
+                from .rcon_client import RconClient
+                client = RconClient(
+                    getattr(srv, "server_ip", "") or "127.0.0.1",
+                    int(getattr(srv, "rcon_port", 27020) or 27020),
+                    srv.admin_password,
+                )
+                client.connect()
+                ok, response = client.send_command_safe("SaveWorld")
+                client.disconnect()
+                if ok:
+                    self._on_log(f"[Backup] {srv.name}: SaveWorld enviado; aguardando 60 segundos antes do snapshot.", "info")
+                    time.sleep(60)
+                    self._on_log(f"[Backup] {srv.name}: janela de gravação concluída; iniciando snapshot.", "info")
+                else:
+                    self._on_log(f"[Backup] {srv.name}: backup ignorado; SaveWorld falhou ({response}).", "error")
+                    return None
+            except Exception as exc:
+                self._on_log(f"[Backup] {srv.name}: backup ignorado; RCON indisponível para SaveWorld ({exc}).", "error")
+                return None
+        elif scheduled and server_running is None:
+            self._on_log(f"[Backup] {srv.name}: estado/RCON não confirmados; snapshot agendado ignorado para evitar cópia inconsistente.", "error")
+            return None
+
+        now = datetime.now()
+        ts = now.strftime("%Y%m%d_%H%M%S")
         bdir     = self.backup_dir(srv)
         bdir.mkdir(parents=True, exist_ok=True)
-        zip_path = bdir / f"{ts}.zip"
+        is_daily = scheduled and not any(bdir.glob(f"{now:%Y%m%d}_*_daily.zip"))
+        zip_path = bdir / f"{ts}{'_daily' if is_daily else ''}.zip"
+        temp_path = zip_path.with_name(zip_path.name + ".partial")
 
         added = False
         uncompressed_bytes = 0
@@ -252,7 +327,8 @@ class BackupManager:
         exclude_redundant = getattr(srv, "backup_exclude_redundant", True)
 
         try:
-            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+            # Execução a cada 30 min: nível baixo reduz impacto de CPU no host.
+            with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
                 if srv.backup_include_saves:
                     sbase = saved_root(srv.install_dir)
                     save_dirs = resolve_save_source_dirs(srv)
@@ -301,6 +377,7 @@ class BackupManager:
         except Exception as exc:
             self._on_log(f"[Backup] {srv.name}: erro ao criar ZIP — {exc}", "error")
             try:
+                temp_path.unlink(missing_ok=True)
                 zip_path.unlink(missing_ok=True)
             except Exception:
                 pass
@@ -308,6 +385,7 @@ class BackupManager:
 
         if not added:
             try:
+                temp_path.unlink(missing_ok=True)
                 zip_path.unlink(missing_ok=True)
             except Exception:
                 pass
@@ -317,6 +395,17 @@ class BackupManager:
                     f"verifique AltSaveDirectoryName e se o servidor já salvou ao menos uma vez.",
                     "error",
                 )
+            return None
+
+        try:
+            with zipfile.ZipFile(temp_path, "r") as verify_zip:
+                bad_member = verify_zip.testzip()
+                if bad_member:
+                    raise zipfile.BadZipFile(f"CRC inválido: {bad_member}")
+            os.replace(temp_path, zip_path)
+        except Exception as exc:
+            self._on_log(f"[Backup] {srv.name}: validação do snapshot falhou — {exc}", "error")
+            temp_path.unlink(missing_ok=True)
             return None
 
         compressed_bytes = zip_path.stat().st_size
@@ -357,23 +446,44 @@ class BackupManager:
         return str(zip_path)
 
     def _prune(self, srv: "ServerConfig") -> None:
-        """Remove os backups mais antigos excedendo o limite de retenção."""
-        keep = max(0, srv.backup_keep_count)
-        if keep <= 0:
-            return
+        """Mantém snapshots recentes por 7h e um ponto diário por 30 dias."""
         bdir = self.backup_dir(srv)
         if not bdir.exists():
             return
-        all_items = sorted(
-            [i for i in bdir.iterdir() if (i.is_file() and i.suffix == ".zip") or i.is_dir()],
-            key=lambda i: i.stem if i.suffix == ".zip" else i.name,
-        )
-        for old in all_items[:-keep]:
+        now = datetime.now()
+        recent_cutoff = now - timedelta(hours=_RECENT_BACKUP_HOURS)
+        daily_cutoff = now - timedelta(days=_DAILY_BACKUP_DAYS)
+        stale_partial_cutoff = now - timedelta(days=1)
+        for partial in bdir.glob("*.partial"):
             try:
-                if old.is_file():
-                    old.unlink()
-                else:
-                    shutil.rmtree(old)
+                if datetime.fromtimestamp(partial.stat().st_mtime) < stale_partial_cutoff:
+                    partial.unlink()
+            except OSError as exc:
+                self._on_log(f"[Backup] Não foi possível limpar temporário {partial.name}: {exc}", "warning")
+        keep_paths: set[Path] = set()
+        named_daily: dict[object, tuple[datetime, Path]] = {}
+        legacy_daily: dict[object, tuple[datetime, Path]] = {}
+        snapshots: list[tuple[Path, datetime, bool]] = []
+        for item in bdir.glob("*.zip"):
+            stamp = _snapshot_datetime(item)
+            is_daily = item.stem.endswith("_daily")
+            snapshots.append((item, stamp, is_daily))
+            if stamp >= recent_cutoff:
+                keep_paths.add(item)
+            elif stamp >= daily_cutoff:
+                target = named_daily if is_daily else legacy_daily
+                day = stamp.date()
+                if day not in target or stamp > target[day][0]:
+                    target[day] = (stamp, item)
+        for day, snapshot in legacy_daily.items():
+            named_daily.setdefault(day, snapshot)
+        keep_paths.update(path for _stamp, path in named_daily.values())
+
+        for old, _stamp, _is_daily in snapshots:
+            if old in keep_paths:
+                continue
+            try:
+                old.unlink()
                 self._on_log(f"[Backup] Snapshot antigo removido: {old.name}", "debug")
             except Exception as exc:
                 self._on_log(f"[Backup] Erro ao remover {old.name}: {exc}", "warning")
@@ -382,6 +492,9 @@ class BackupManager:
         self,
         servers: List["AsmServerConfig"],
         global_bk: "BackupConfig",
+        *,
+        scheduled: bool = False,
+        server_statuses: Optional[dict[str, str]] = None,
     ) -> List[str]:
         """Executa backup ZIP de todos os servidores com install_dir configurado."""
         created: List[str] = []
@@ -390,9 +503,15 @@ class BackupManager:
             self._on_log("[Backup] Nenhum servidor com pasta de instalação para backup.", "warning")
             return created
         self._on_log(f"[Backup] Iniciando backup global de {len(active)} servidor(es)...", "info")
+        transitional = {"STARTING", "STOPPING", "INICIANDO", "PARANDO", "UPDATING"}
         for asm_srv in active:
+            status = (server_statuses or {}).get(asm_srv.id, "UNKNOWN")
+            if status.upper() in transitional:
+                self._on_log(f"[Backup] {asm_srv.name}: ignorado enquanto o servidor está {status}.", "warning")
+                continue
             target = asm_server_to_backup_target(asm_srv, global_bk)
-            path = self.do_backup(target)
+            running = True if status.upper() == "RUNNING" else False if status.upper() == "STOPPED" else None
+            path = self.do_backup(target, scheduled=scheduled, server_running=running)
             if path:
                 created.append(path)
         self._on_log(f"[Backup] Backup global concluído ({len(created)}/{len(active)}).", "info")
@@ -402,10 +521,13 @@ class BackupManager:
         self,
         asm_srv: "AsmServerConfig",
         global_bk: "BackupConfig",
+        *,
+        scheduled: bool = False,
+        server_running: Optional[bool] = None,
     ) -> Optional[str]:
         """Cria um único backup TEK com opções e retenção do perfil."""
         target = asm_server_to_backup_target(asm_srv, global_bk, individual=True)
-        return self.do_backup(target)
+        return self.do_backup(target, scheduled=scheduled, server_running=server_running)
 
     # ── Restaurar backup ──────────────────────────────────────────────────────
 
@@ -527,14 +649,14 @@ class BackupManager:
         if not srv.backup_enabled or srv.backup_interval_hours <= 0:
             return
 
-        interval_s = srv.backup_interval_hours * 3600
+        interval_s = _BACKUP_INTERVAL_SECONDS
 
         def _run() -> None:
             current = self._find_server(srv.id)
             if not current or not current.backup_enabled:
                 return
             self._on_log(f"[Backup] Auto-backup iniciado: {current.name}.", "info")
-            self.do_backup(current)
+            self.do_backup(current, scheduled=True)
             # Reagenda para o próximo ciclo
             self.start_auto_backup(current)
 

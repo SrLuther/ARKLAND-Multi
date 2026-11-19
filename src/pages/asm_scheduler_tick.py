@@ -4,7 +4,6 @@ import threading
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from ..asm_engine.asm_server_config import ASM_STATUS_STOPPED, ASM_STATUS_RUNNING
-from ..backup_interval import parse_interval_seconds
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 
@@ -13,18 +12,20 @@ def _process_global_backups(app, now: datetime) -> None:
     """Backup global de servidores e do banco de dados (config em Configurações / Banco)."""
     bk = app.config_manager.config.backup
     if bk.auto_backup and not getattr(app, "_global_backup_running", False):
-        interval_s = parse_interval_seconds(bk.backup_interval, default=6 * 3600)
+        interval_s = 30 * 60
         last: Optional[datetime] = getattr(app, "_global_backup_last_run", None)
         elapsed = (now - last).total_seconds() if last else interval_s + 1
         if elapsed >= interval_s:
-            threading.Thread(target=app._run_global_backup, daemon=True).start()
+            app._global_backup_last_run = now
+            threading.Thread(target=app._run_global_backup, args=(True,), daemon=True).start()
 
     db_cfg = app.config_manager.config.db_backup
     if db_cfg.enabled and not getattr(app, "_db_backup_running", False):
-        interval_s = max(3600, db_cfg.interval_hours * 3600)
+        interval_s = 30 * 60
         last_db: Optional[datetime] = getattr(app, "_db_backup_last_run", None)
         elapsed_db = (now - last_db).total_seconds() if last_db else interval_s + 1
         if elapsed_db >= interval_s:
+            app._db_backup_last_run = now
             threading.Thread(target=app._run_scheduled_db_backup, daemon=True).start()
 
 
@@ -67,8 +68,10 @@ def _process_server_scheduled_tasks(app, srv, now, now_hhmm: str) -> None:
             setattr(app, last_attr, now)
             threading.Thread(target=app._asm_check_update_worker, args=(srv,), daemon=True).start()
 
-    if getattr(srv, "backup_enabled", False):
-        interval_hours = max(1, int(getattr(srv, "backup_interval_hours", 6) or 6))
+    global_backup_cfg = getattr(getattr(getattr(app, "config_manager", None), "config", None), "backup", None)
+    global_backup_enabled = bool(getattr(global_backup_cfg, "auto_backup", False))
+    if getattr(srv, "backup_enabled", False) and not global_backup_enabled:
+        interval_seconds = 30 * 60
         last_runs = getattr(app, "_asm_server_backup_last_run", None)
         if last_runs is None:
             last_runs = {}
@@ -78,7 +81,7 @@ def _process_server_scheduled_tasks(app, srv, now, now_hhmm: str) -> None:
             # Prime the timer at startup; first automatic individual backup is
             # due only after a full interval, never immediately at app launch.
             last_runs[srv.id] = now
-        elif (now - last).total_seconds() >= interval_hours * 3600:
+        elif (now - last).total_seconds() >= interval_seconds:
             last_runs[srv.id] = now
             threading.Thread(target=app._asm_do_scheduled_backup, args=(srv,), daemon=True).start()
 

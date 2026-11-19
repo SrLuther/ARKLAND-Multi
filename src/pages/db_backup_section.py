@@ -4,11 +4,13 @@ from __future__ import annotations
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..db_backup_manager import DbBackupManager
+from ..arkland_environment import shared_db_backup_dir
 
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
@@ -59,8 +61,12 @@ def build_db_backup_section(
     opts.grid_columnconfigure(1, weight=1)
 
     app._db_bk_enabled_var = tk.BooleanVar(value=cfg.enabled)
-    app._db_bk_dir_var = tk.StringVar(value=cfg.backup_dir)
-    app._db_bk_interval_var = tk.StringVar(value=str(cfg.interval_hours))
+    app._db_bk_shared_var = tk.BooleanVar(value=getattr(cfg, "use_shared_backup_location", True))
+    shared_dir = shared_db_backup_dir(app.config_manager.config.backup.backup_dir)
+    app._db_bk_dir_var = tk.StringVar(
+        value=str(shared_dir) if app._db_bk_shared_var.get() else cfg.backup_dir
+    )
+    app._db_bk_interval_var = tk.StringVar(value="30 min")
     app._db_bk_limit_var = tk.BooleanVar(value=cfg.limit_backup_count)
     app._db_bk_max_var = tk.StringVar(value=str(cfg.max_backup_count))
     app._db_bk_shop_var = tk.BooleanVar(value=cfg.include_arkshop)
@@ -73,42 +79,61 @@ def build_db_backup_section(
         fg_color=accent, command=lambda: _save_db_backup_cfg(app),
     ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 6))
 
+    shared_check = ctk.CTkCheckBox(
+        opts, text="Usar o mesmo disco/pasta base dos backups dos servidores",
+        variable=app._db_bk_shared_var,
+        font=ctk.CTkFont(size=11), text_color=t_sec, fg_color=accent,
+    )
+    shared_check.grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 5))
+
     ctk.CTkLabel(opts, text="Pasta de destino:", text_color=t_mut,
-                 font=ctk.CTkFont(size=11)).grid(row=1, column=0, sticky="w", padx=(0, 8))
+                 font=ctk.CTkFont(size=11)).grid(row=2, column=0, sticky="w", padx=(0, 8))
     dir_row = ctk.CTkFrame(opts, fg_color="transparent")
-    dir_row.grid(row=1, column=1, columnspan=2, sticky="ew")
+    dir_row.grid(row=2, column=1, columnspan=2, sticky="ew")
     dir_row.grid_columnconfigure(0, weight=1)
-    ctk.CTkEntry(
+    dir_entry = ctk.CTkEntry(
         dir_row, textvariable=app._db_bk_dir_var, height=28,
         placeholder_text="Padrão: D:\\Backups\\database",
         font=ctk.CTkFont(size=11),
-    ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-    ctk.CTkButton(
+    )
+    dir_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+    browse_btn = ctk.CTkButton(
         dir_row, text="📁", width=32, height=28,
         command=lambda: _browse(app, app._db_bk_dir_var),
-    ).grid(row=0, column=1)
+    )
+    browse_btn.grid(row=0, column=1)
 
-    ctk.CTkLabel(opts, text="Intervalo (horas):", text_color=t_mut,
-                 font=ctk.CTkFont(size=11)).grid(row=2, column=0, sticky="w", pady=(6, 0))
+    def _toggle_shared_location() -> None:
+        if app._db_bk_shared_var.get():
+            app._db_bk_dir_var.set(str(shared_db_backup_dir(app.config_manager.config.backup.backup_dir)))
+            dir_entry.configure(state="disabled")
+            browse_btn.configure(state="disabled")
+        else:
+            dir_entry.configure(state="normal")
+            browse_btn.configure(state="normal")
+        _save_db_backup_cfg(app)
+
+    shared_check.configure(command=_toggle_shared_location)
+    if app._db_bk_shared_var.get():
+        dir_entry.configure(state="disabled")
+        browse_btn.configure(state="disabled")
+
+    ctk.CTkLabel(opts, text="Frequência:", text_color=t_mut,
+                 font=ctk.CTkFont(size=11)).grid(row=3, column=0, sticky="w", pady=(6, 0))
     ctk.CTkEntry(
         opts, textvariable=app._db_bk_interval_var, width=70, height=28,
-        font=ctk.CTkFont(size=11),
-    ).grid(row=2, column=1, sticky="w", pady=(6, 0))
+        font=ctk.CTkFont(size=11), state="disabled",
+    ).grid(row=3, column=1, sticky="w", pady=(6, 0))
 
-    ctk.CTkCheckBox(
-        opts, text="Manter apenas os",
-        variable=app._db_bk_limit_var,
-        font=ctk.CTkFont(size=11), text_color=t_sec,
-        fg_color=accent, command=lambda: _save_db_backup_cfg(app),
-    ).grid(row=3, column=0, sticky="w", pady=(8, 0))
-    keep_row = ctk.CTkFrame(opts, fg_color="transparent")
-    keep_row.grid(row=3, column=1, columnspan=2, sticky="w", pady=(8, 0))
-    ctk.CTkEntry(keep_row, textvariable=app._db_bk_max_var, width=50, height=28).pack(side="left")
-    ctk.CTkLabel(keep_row, text=" backups mais recentes (ZIP compactado)",
-                 text_color=t_mut, font=ctk.CTkFont(size=11)).pack(side="left", padx=6)
+    ctk.CTkLabel(
+        opts,
+        text="Retenção: snapshots a cada 30 min por até 7 horas + 1 backup diário por 30 dias",
+        text_color=t_mut,
+        font=ctk.CTkFont(size=11),
+    ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
     db_row = ctk.CTkFrame(opts, fg_color="transparent")
-    db_row.grid(row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
+    db_row.grid(row=5, column=0, columnspan=3, sticky="w", pady=(8, 0))
     ctk.CTkLabel(db_row, text="Incluir bancos:", text_color=t_mut,
                  font=ctk.CTkFont(size=11)).pack(side="left", padx=(0, 8))
     ctk.CTkCheckBox(
@@ -132,7 +157,8 @@ def build_db_backup_section(
         parent.after(0, lambda m=msg: _status_var.set(m))
 
     def _run_backup() -> None:
-        _save_db_backup_cfg(app)
+        if not _save_db_backup_cfg(app):
+            return
         conn = get_connection()
         if not conn.get("host") or not conn.get("user"):
             messagebox.showwarning("Backup", "Configure host e usuário na barra de conexão.", parent=parent)
@@ -253,14 +279,30 @@ def _browse(app: "ARKTEKApp", var: tk.StringVar) -> None:
         var.set(path)
 
 
-def _save_db_backup_cfg(app: "ARKTEKApp") -> None:
+def _save_db_backup_cfg(app: "ARKTEKApp") -> bool:
+    from ..arkland_environment import ensure_backup_destination
     cfg = app.config_manager.config.db_backup
-    cfg.enabled = getattr(app, "_db_bk_enabled_var", tk.BooleanVar()).get()
-    cfg.backup_dir = getattr(app, "_db_bk_dir_var", tk.StringVar()).get().strip()
+    shared = getattr(app, "_db_bk_shared_var", tk.BooleanVar(value=True)).get()
+    shared_root = app.config_manager.config.backup.backup_dir
+    selected_dir = (
+        shared_db_backup_dir(shared_root)
+        if shared
+        else Path(getattr(app, "_db_bk_dir_var", tk.StringVar()).get().strip() or app.config_manager.config.db_backup.backup_dir or "D:/Backups/database")
+    )
     try:
-        cfg.interval_hours = max(1, int(getattr(app, "_db_bk_interval_var", tk.StringVar(value="6")).get()))
-    except ValueError:
-        cfg.interval_hours = 6
+        ensure_backup_destination(selected_dir)
+    except OSError as exc:
+        messagebox.showerror(
+            "Destino de backup indisponível",
+            f"Não foi possível gravar no disco/pasta selecionado.\n\n{exc}",
+            parent=app,
+        )
+        return False
+    cfg.enabled = getattr(app, "_db_bk_enabled_var", tk.BooleanVar()).get()
+    cfg.use_shared_backup_location = shared
+    cfg.shared_backup_root = shared_root
+    cfg.backup_dir = "" if shared else str(selected_dir)
+    cfg.interval_hours = 0.5
     cfg.limit_backup_count = getattr(app, "_db_bk_limit_var", tk.BooleanVar(value=True)).get()
     try:
         cfg.max_backup_count = max(1, int(getattr(app, "_db_bk_max_var", tk.StringVar(value="10")).get()))
@@ -269,3 +311,4 @@ def _save_db_backup_cfg(app: "ARKTEKApp") -> None:
     cfg.include_arkshop = getattr(app, "_db_bk_shop_var", tk.BooleanVar(value=True)).get()
     cfg.include_permissions = getattr(app, "_db_bk_perm_var", tk.BooleanVar(value=True)).get()
     app.config_manager.save()
+    return True

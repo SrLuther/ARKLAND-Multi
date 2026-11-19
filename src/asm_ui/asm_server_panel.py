@@ -1899,7 +1899,7 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
         sf,
         ctx,
         [
-            CardSpec("Inicialização", ["auto_start_on_launch"], bool_grid=True),
+            CardSpec("Inicialização", ["auto_start_on_launch", "auto_restart_on_crash"], bool_grid=True),
             CardSpec(
                 "Reinício programado",
                 [

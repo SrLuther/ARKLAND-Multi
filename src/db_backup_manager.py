@@ -5,12 +5,16 @@ import shutil
 import subprocess
 import threading
 import zipfile
+import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, List, Optional, TYPE_CHECKING
 
-from .arkland_environment import default_db_backup_dir
+from .arkland_environment import default_db_backup_dir, shared_db_backup_dir
+
+_RECENT_BACKUP_HOURS = 7
+_DAILY_BACKUP_DAYS = 30
 
 if TYPE_CHECKING:
     from .config_manager import DbBackupConfig
@@ -31,12 +35,13 @@ class DbBackupEntry:
     @property
     def label(self) -> str:
         try:
-            dt = datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
+            dt = datetime.strptime(self.timestamp.removesuffix("_daily"), "%Y%m%d_%H%M%S")
             when = dt.strftime("%d/%m/%Y %H:%M:%S")
         except ValueError:
             when = self.timestamp
         dbs = ", ".join(self.databases) if self.databases else "?"
-        return f"{when}  [{dbs}]  {self.size_mb} MB"
+        cadence = "Diário · " if self.path.stem.endswith("_daily") else ""
+        return f"{cadence}{when}  [{dbs}]  {self.size_mb} MB"
 
 
 class DbBackupManager:
@@ -51,6 +56,8 @@ class DbBackupManager:
       self._running = False
 
   def backup_dir(self, cfg: "DbBackupConfig") -> Path:
+      if getattr(cfg, "use_shared_backup_location", False):
+          return shared_db_backup_dir(getattr(cfg, "shared_backup_root", ""))
       raw = (cfg.backup_dir or "").strip()
       return Path(raw) if raw else default_db_backup_dir()
 
@@ -74,6 +81,7 @@ class DbBackupManager:
       port: int,
       user: str,
       password: str,
+      scheduled: bool = False,
   ) -> Optional[str]:
       """Executa mysqldump dos bancos selecionados. Retorna caminho do .zip."""
       with self._lock:
@@ -82,7 +90,10 @@ class DbBackupManager:
               return None
           self._running = True
       try:
-          return self._create_backup_unlocked(cfg, host=host, port=port, user=user, password=password)
+          return self._create_backup_unlocked(
+              cfg, host=host, port=port, user=user, password=password,
+              scheduled=scheduled,
+          )
       finally:
           with self._lock:
               self._running = False
@@ -146,6 +157,7 @@ class DbBackupManager:
       port: int,
       user: str,
       password: str,
+      scheduled: bool = False,
   ) -> Optional[str]:
       databases: List[str] = []
       if cfg.include_arkshop:
@@ -163,12 +175,15 @@ class DbBackupManager:
 
       bdir = self.backup_dir(cfg)
       bdir.mkdir(parents=True, exist_ok=True)
-      ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-      zip_path = bdir / f"{ts}.zip"
+      now = datetime.now()
+      ts = now.strftime("%Y%m%d_%H%M%S")
+      is_daily = scheduled and not any(bdir.glob(f"{now:%Y%m%d}_*_daily.zip"))
+      zip_path = bdir / f"{ts}{'_daily' if is_daily else ''}.zip"
+      temp_path = zip_path.with_name(zip_path.name + ".partial")
       added = 0
 
       try:
-          with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+          with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
               for db in databases:
                   self._on_log(f"[DB Backup] Exportando {db}...", "info")
                   proc = subprocess.run(
@@ -197,11 +212,28 @@ class DbBackupManager:
                       added += 1
       except Exception as exc:
           self._on_log(f"[DB Backup] Erro ao criar ZIP: {exc}", "error")
+          temp_path.unlink(missing_ok=True)
           zip_path.unlink(missing_ok=True)
           return None
 
-      if not added:
+      if added != len(databases):
+          temp_path.unlink(missing_ok=True)
           zip_path.unlink(missing_ok=True)
+          self._on_log(
+              f"[DB Backup] Snapshot descartado: apenas {added}/{len(databases)} banco(s) foram exportados.",
+              "error",
+          )
+          return None
+
+      try:
+          with zipfile.ZipFile(temp_path, "r") as verify_zip:
+              bad_member = verify_zip.testzip()
+              if bad_member:
+                  raise zipfile.BadZipFile(f"CRC inválido: {bad_member}")
+          os.replace(temp_path, zip_path)
+      except Exception as exc:
+          self._on_log(f"[DB Backup] Validação do snapshot falhou: {exc}", "error")
+          temp_path.unlink(missing_ok=True)
           return None
 
       entry = self._entry_from_zip(zip_path)
@@ -210,12 +242,44 @@ class DbBackupManager:
       return str(zip_path)
 
   def _prune(self, cfg: "DbBackupConfig") -> None:
-      if not cfg.limit_backup_count or cfg.max_backup_count <= 0:
-          return
       bdir = self.backup_dir(cfg)
-      items = sorted(bdir.glob("*.zip"), key=lambda p: p.stem)
-      keep = max(1, cfg.max_backup_count)
-      for old in items[:-keep]:
+      if not bdir.exists():
+          return
+      now = datetime.now()
+      recent_cutoff = now - timedelta(hours=_RECENT_BACKUP_HOURS)
+      daily_cutoff = now - timedelta(days=_DAILY_BACKUP_DAYS)
+      stale_partial_cutoff = now - timedelta(days=1)
+      for partial in bdir.glob("*.partial"):
+          try:
+              if datetime.fromtimestamp(partial.stat().st_mtime) < stale_partial_cutoff:
+                  partial.unlink()
+          except OSError as exc:
+              self._on_log(f"[DB Backup] Não foi possível limpar temporário {partial.name}: {exc}", "warning")
+      keep_paths: set[Path] = set()
+      named_daily: dict[object, tuple[datetime, Path]] = {}
+      legacy_daily: dict[object, tuple[datetime, Path]] = {}
+      snapshots: list[tuple[Path, datetime, bool]] = []
+      for item in bdir.glob("*.zip"):
+          try:
+              stamp = datetime.strptime(item.stem.removesuffix("_daily"), "%Y%m%d_%H%M%S")
+          except ValueError:
+              stamp = datetime.fromtimestamp(item.stat().st_mtime)
+          is_daily = item.stem.endswith("_daily")
+          snapshots.append((item, stamp, is_daily))
+          if stamp >= recent_cutoff:
+              keep_paths.add(item)
+          elif stamp >= daily_cutoff:
+              target = named_daily if is_daily else legacy_daily
+              day = stamp.date()
+              if day not in target or stamp > target[day][0]:
+                  target[day] = (stamp, item)
+      for day, snapshot in legacy_daily.items():
+          named_daily.setdefault(day, snapshot)
+      keep_paths.update(path for _stamp, path in named_daily.values())
+
+      for old, _stamp, _is_daily in snapshots:
+          if old in keep_paths:
+              continue
           try:
               old.unlink()
               self._on_log(f"[DB Backup] Backup antigo removido: {old.name}", "debug")

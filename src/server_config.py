@@ -568,7 +568,7 @@ class ServerConfig:
 
     # Backup automático
     backup_enabled: bool = False
-    backup_interval_hours: int = 6
+    backup_interval_hours: float = 0.5
     backup_keep_count: int = 10
     backup_include_saves: bool = True
     backup_include_config: bool = False  # INI opcional; saves do mundo são o essencial

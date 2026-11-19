@@ -177,6 +177,7 @@ class ARKServerManagerApp(ctk.CTk):
             get_mod_path_blacklist=lambda: list(
                 self.config_manager.config.mod_path_blacklist or []
             ),
+            get_crash_archive_dir=lambda: self.config_manager.config.crash_archive_dir,
         )
         self.mod_manager = ModManager(
             steamcmd_path=self.config_manager.config.steamcmd_path,
@@ -3779,6 +3780,7 @@ class ARKServerManagerApp(ctk.CTk):
         cfg.startup_with_windows = self._cfg_startup_var.get()
         cfg.minimize_to_tray     = self._cfg_minimize_tray_var.get()
         cfg.log_debug            = self._cfg_log_debug_var.get()
+        cfg.crash_archive_dir = getattr(self, "_crash_archive_dir_var", tk.StringVar()).get().strip()
         _set_windows_startup(cfg.startup_with_windows)
         self.config_manager.save()
         self.mod_manager.steamcmd_path = cfg.steamcmd_path
