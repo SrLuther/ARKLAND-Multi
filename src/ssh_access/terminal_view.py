@@ -22,7 +22,14 @@ _COLORS = {
 class TerminalView(ctk.CTkFrame):
     """Small xterm-compatible terminal surface backed by pyte and a Paramiko channel."""
 
-    def __init__(self, master, *, on_resize: Callable[[int, int], None] | None = None, **kwargs):
+    def __init__(
+        self,
+        master,
+        *,
+        on_resize: Callable[[int, int], None] | None = None,
+        on_disconnect: Callable[[str | None], None] | None = None,
+        **kwargs,
+    ):
         super().__init__(master, **kwargs)
         self.columns = 100
         self.lines = 28
@@ -31,6 +38,7 @@ class TerminalView(ctk.CTkFrame):
         self._connection: SSHConnection | None = None
         self._after_id: str | None = None
         self._on_resize = on_resize
+        self._on_disconnect = on_disconnect
         self._render_scheduled = False
         # CTkTextbox valida il tipo da font e rejeita tkinter.font.Font. Usar
         # CTkFont evita que a construção do painel SSH pare antes de os
@@ -78,8 +86,9 @@ class TerminalView(ctk.CTkFrame):
             try:
                 self._connection.send(value)
             except Exception as exc:  # noqa: BLE001
-                self.append_local(f"\n[SSH] Falha ao enviar entrada: {exc}\n")
-                self.disconnect()
+                reason = f"Falha ao enviar entrada: {exc}"
+                self.append_local(f"\n[SSH] {reason}\n")
+                self.disconnect(reason)
         return "break"
 
     def _on_paste(self, _event) -> str:
@@ -124,12 +133,14 @@ class TerminalView(ctk.CTkFrame):
                 self.stream.feed(chunk.decode("utf-8", errors="replace"))
                 self._schedule_render()
             if connection.channel.exit_status_ready() or connection.channel.closed:
-                self.append_local("\n[SSH] Sessão encerrada pelo host remoto.\n")
-                self.disconnect()
+                reason = "Sessão encerrada pelo host remoto."
+                self.append_local(f"\n[SSH] {reason}\n")
+                self.disconnect(reason)
                 return
         except Exception as exc:  # noqa: BLE001
-            self.append_local(f"\n[SSH] Conexão encerrada: {exc}\n")
-            self.disconnect()
+            reason = f"Conexão encerrada: {exc}"
+            self.append_local(f"\n[SSH] {reason}\n")
+            self.disconnect(reason)
             return
         self._after_id = self.after(40, self._poll_output)
 
@@ -186,7 +197,7 @@ class TerminalView(ctk.CTkFrame):
         self._text.insert("end", text, ("terminal_default",))
         self._text.see("end")
 
-    def disconnect(self) -> None:
+    def disconnect(self, reason: str | None = None) -> None:
         if self._after_id is not None:
             try:
                 self.after_cancel(self._after_id)
@@ -199,4 +210,9 @@ class TerminalView(ctk.CTkFrame):
                 connection.close()
             except Exception:
                 pass
+            if self._on_disconnect:
+                try:
+                    self._on_disconnect(reason)
+                except Exception:
+                    pass
 

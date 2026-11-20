@@ -1,54 +1,38 @@
 # Pendências - ARKLAND Multi
 
-**Atualizado:** 12/11/2026
+**Atualizado:** 20/11/2026
 **Fonte única de acompanhamento:** este arquivo.
-**Publicação:** v1.12.5 publicada e instalada na máquina ArkServer em 12/11/2026. Os três executáveis instalados correspondem por SHA-256 aos artefatos da release; `/api/version` público e local respondeu `1.12.5`, e a página servida contém o indicador do rodapé.
+**Estado de publicação conhecido:** verificado no site público em 20/11/2026: rodapé exibe WebStore v1.12.12. Isso confirma a WebStore, não a versão instalada do gerenciador desktop nem dos plugins ARK.
 
 ## Em andamento
-- [x] **WebStore - versão no rodapé.** A release 1.12.5 usa o endpoint existente `/api/version` e exibe `WebStore vX` junto ao status da loja. O endpoint público e o servidor local na máquina ArkServer responderam `1.12.5`; a página HTML publicada contém o elemento e a rotina de consulta. A versão é a mesma do gerenciador nesta release.
-- [ ] **Mascote virtual da ajuda.** O site publicado ainda mostra o botão “Precisa de ajuda?” com envelope e o título “Atendimento ARKLAND”; nenhum mascote aparece integrado. O projeto investigativo segue sem implementação; preservar a imagem de referência aprovada.
-- [ ] **WebStore - Fazenda: Blueprints Primal Fear.** O site lista o grupo de retirada Primal Fear (18 recursos), mas isso não comprova que o plugin produza ou entregue os itens. Validar configuração, estoque e entrega em ambiente autorizado.
+- [ ] **SSH - estado da interface após desconexão remota.** Correção implementada para limpar a conexão ativa, liberar os botões e exibir o motivo do encerramento. Próximo passo: validar visualmente após instalar a v1.12.13.
+- [ ] **WebStore - Tickets: conferir nomes na lista e no detalhe administrativo.** A implementação foi publicada na v1.12.6 (contida na versão pública v1.12.12). Falta conferir o resultado com uma sessão administrativa; esta verificação não foi feita nesta auditoria.
+- [ ] **Painel de jogadores para Admin/Suporte.** A correção do cálculo de tempo de jogo foi publicada na v1.12.6 (contida na versão pública v1.12.12). Próximo passo: conferir no painel autenticado se sessões recentes exibem duração correta; a página pública não expõe esse painel.
+- [ ] **WebStore - administração de votações.** Os controles existem, mas ainda não foram testados em rascunho isolado. Próximo passo: validar criação/edição e as regras após o primeiro voto, sem alterar a votação ativa.
+- [ ] **Fazenda - Blueprints Primal Fear.** Os 18 recursos estão configurados no grupo próprio, mas isso não comprova spawn/entrega. Próximo passo: validar configuração efetiva, estoque e resgate no servidor com o mod instalado.
+- [ ] **Fazenda - Blueprints ARK Omega e resgate.** O catálogo mostra Essence, Token e Paragon, mas há itens sem estoque; falta validar carregamento de classes, produção, recuperação e entrega ponta a ponta em ambiente controlado.
+- [ ] **Fazenda - aliases de caminho ARK Omega.** Implementado localmente na versão 0.1.31 e build concluído. Próximo passo: instalar, confirmar a configuração mestre carregada e validar itens reais nos dois formatos em `/fazenda`.
+- [ ] **Minha Área - bônus dos marcos em Âmbares.** Implementação local considera `StackRewards`, `TimedPointsReward.Enabled` e os valores de grupo, com validação local registrada. Próximo passo: comparar o resultado visual com configurações reais e com o valor concedido no jogo.
+- [ ] **Minha Área - barra lateral em telas móveis.** A home pública em viewport 390 px não tem overflow horizontal e mostra o menu compacto. Falta conferir a navegação da barra lateral dentro de Minha Área com uma conta autenticada.
+- [ ] **Bot Discord - correção da identidade da tribo.** A v1.12.13 inclui CustomShop 1.10.57, que prioriza `FTribeData`. Próximo passo: instalar o plugin atualizado nos mapas, confirmar heartbeat recente e validar o apelido de outro membro. O bloqueio de permissão observado para Ciano é independente.
+- [ ] **Agente remoto - acesso de outra rede.** A separação entre host público/DDNS e IP LAN está no código local. Próximo passo: validar conexão externa com TCP 32440 encaminhada/liberada e verificar CGNAT; se houver, documentar VPN/rede privada ou relay.
 
-- [ ] **SSH - feedback visual ao desconectar.** Correção implementada localmente na versão candidata: ao desconectar, a interface atualiza o estado, informa o host da sessão encerrada, mostra um aviso no terminal e habilita/desabilita os botões conforme o estado. Testes focados: 3 aprovados. Pendente validar visualmente no aplicativo instalado e incluir em uma atualização publicada.
-
-- [ ] **WebStore - saudação personalizada no atendimento.** A versão local tem a saudação com nome Steam e fallback; no site publicado, em 12/11/2026, o cabeçalho ainda mostrava “Atendimento ARKLAND”. Falta publicar e conferir com conta autenticada.
-
-- [ ] **WebStore - Tickets: exibir nick Steam e Discord dos autores.** A implementação local e 51 testes relacionados constam concluídos; na lista administrativa publicada, verificada em 12/11/2026, a coluna Jogador ainda mostra SteamID numérico, embora a coluna Discord apresente nomes vinculados. Falta publicar e validar lista e detalhe.
-
-- [ ] **Painel de jogadores do servidor para Admin/Suporte.** Em 12/11/2026, os 15 registros da tela publicada mostravam `0h 0min`, apesar de sessões contadas de 1 a 7. A correção local ainda precisa ser publicada e validada com novos heartbeats; os dados observados não provam por si só a causa nem duração histórica correta.
-
-
-
-
-- [ ] **WebStore - administração de votações.** A página publicada mostra a votação ativa, os controles de edição e as ações administrativas. Não salvei alterações em votação real (havia 5 participantes); falta testar criação/edição em rascunho isolado e validar as regras após o primeiro voto.
-
-- [ ] **Fazenda - validar catálogo Omega em produção.** O site publicado mostra os grupos de retirada Default (1), Omega (51) e Primal Fear (18), além de Paragon Breaker e Paragon Shard na produção ativa. Vários itens Omega de Essence/Token estavam com estoque zero; a presença no catálogo não comprova carregamento dos Blueprints nem entrega no jogo. Falta validar configuração do plugin e ciclo real de produção/resgate.
-
-
-
-- [ ] **Minha Área - bônus dos marcos no ganho de Âmbares.** Implementação local agora considera `StackRewards` (soma ou maior grupo), `TimedPointsReward.Enabled`, o valor `Default` inclusive quando zero e aplica o bônus dos marcos com divisão inteira igual ao plugin. Validação local: `py_compile` e 57 testes de licenças/equipes passaram; 10 scripts inline passaram na checagem de sintaxe antes da última alteração de texto. Falta validar visualmente com configurações reais do servidor e confirmar que o valor coincide no jogo.
-
-- [ ] **WebStore - reformulação da barra lateral.** Na produção em 12/11/2026, nome, SteamID e DiscordID estavam visíveis em desktop sem corte. Falta conferir a legibilidade/abertura do menu nas larguras móveis e concluir a revisão visual.
-
-- [ ] **Bot Discord - sincronização do apelido com personagem e tribo.** Implementação local atualizada: prioriza a identidade da sessão ativa no servidor/mapa atual; consulta a cada minuto e usa o último registro conhecido como fallback quando o jogador está offline ou a consulta online falha. O fallback informa a origem e o horário da última atualização; falhas técnicas da consulta ativa são registradas com detalhes no log. Formato padronizado: `[Tribo] | NickDoJogador` (exemplo `[BøT] | Ciano`); sem tribo, o padrão usa o marcador literal `[Tribo] | Ciano`. O bot também diagnostica falta de permissão `manage_nicknames` e hierarquia insuficiente. Testes focados atuais: 29 do bot aprovados; nesta rodada, 33 testes combinados de bot e monitoramento passaram. Pendente: instalar e validar com bot, plugin e guilda reais; confirmar atualização ao trocar de mapa e observar os logs de fallback/erro.
-
-
-- [ ] **Fazenda - suporte e entrega de Blueprints ARK Omega.** O site publicado mostra o grupo Omega e recursos como Essence, Token e Paragon; isso comprova a configuração visível, não a entrega. Permanecem pendentes a validação do plugin, dos Blueprints, estoque e resgate em servidor de teste/produção controlada.
-- [ ] **Fazenda - reconhecer aliases de caminho dos itens ARK Omega.** Implementado localmente na versão 0.1.31: a comparação de inventário aceita `/Game/Mods/2447186973/` e `/Game/Mods/ArkOmega/` como aliases, sem reescrever os caminhos persistidos na migração. Build concluído com sucesso. Falta instalar no servidor, confirmar a configuração mestre efetivamente carregada e validar itens reais dos dois formatos em `/fazenda`.
-
-
-- [ ] **Fazenda - fluxo integral de recuperação e resgate.** O código evoluiu após as pendências das versões 0.1.19-test e seguintes, mas os logs de entrega de Blueprint indicam que ainda falta validar recuperação, reenvio, consumo do estoque e entrega final no servidor real. Executar ciclo ponta a ponta após corrigir o carregamento de Blueprint.
-
-- [ ] **Agente remoto - acesso de outra rede.** A correção local para separar host público/DDNS do IP LAN ainda precisa de validação de conexão externa com TCP 32440 encaminhada e liberada no firewall. Verificar também CGNAT; se houver, documentar alternativa por VPN/rede privada ou relay.
-
-- [ ] **ArkEventHunt - evento real em produção.** O log anterior confirmou carregamento do plugin e registro dos comandos/hooks, mas a configuração estava `enabled=false`. Confirmar decisão de habilitar e, se habilitado, validar evento real e Mode B.
+## Aguardando decisão
+- **ArkEventHunt em produção.** A configuração observada estava `enabled=false`. A validação de evento real e Mode B depende de decidir habilitar o plugin.
 
 
 ## Aguardando discussao
 
 
 ## Concluídas / confirmadas
-### Verificadas no site publicado em 12/11/2026 (inspeção somente leitura)
+### Verificadas no site publicado em 20/11/2026 (inspeção somente leitura)
+- [x] **WebStore - versão no rodapé.** A página pública atual exibe `WebStore v1.12.12`.
+- [x] **Mascote no botão de ajuda.** O site publicado mostra o botão flutuante “Precisa de ajuda?” com imagem; a v1.12.6 registra a arte aprovada do mascote e a animação limitada ao olhar/piscadas. A pendência anterior que dizia que o mascote não estava integrado era falsa e foi removida.
+- [x] **WebStore - saudação personalizada no atendimento.** A implementação consta na v1.12.6, incluída na WebStore pública v1.12.12. O texto personalizado após autenticação não foi conferido nesta visita.
+- [x] **WebStore - menu móvel da home.** Em viewport 390 px, a página pública não tem overflow horizontal (`scrollWidth` e `clientWidth` 390 px) e apresenta o botão de menu. Minha Área autenticada continua pendente acima.
+- [x] **WebStore - exibir nomes Steam/Discord nos tickets administrativos.** A funcionalidade consta na v1.12.6 e na linha da v1.12.4; a inspeção autenticada da lista/detalhe permanece pendente acima.
+
+### Verificadas no site publicado em 12/11/2026 (inspeções anteriores)
 - [x] **WebStore - Fazenda: navegação do catálogo.** Confirmado em produção: categorias recolhíveis, busca e grupos de recursos; em viewport de 390 px, documento e painel da Fazenda sem rolagem horizontal. Nenhum resgate foi enviado.
 - [x] **WebStore - Equipes: renderizar Markdown no mural/regulamento.** Confirmado no regulamento publicado de [BøT] STAFF: títulos, parágrafos, listas, negrito e citação renderizados. Inspeção somente leitura.
 - [x] **SeasonLand - trilha única de recompensas Free/Premium.** Gamma ativa, níveis 1–30 alinhados nas colunas Free/Nível/Premium e recompensas da conta autenticada indicadas como entregues. Em viewport de 390 px sem overflow horizontal.
@@ -74,6 +58,4 @@
 3. Distinguir implementação local, validação em produção e publicação; uma etapa não comprova automaticamente as outras.
 4. Não criar outro arquivo para acompanhar pendências.
 5. Preservar `ferramentas/Ark_Spawn_Code_Generator.exe`: utilitário do projeto para gerar a lista completa de Blueprints de qualquer mod; usar a partir da pasta do mod e manter os resultados de referência, como `docs/SpawnCodes.txt`.
-
-
-- [ ] **Fazenda - validar Blueprints Primal Fear.** 18 recursos (8 Souls e 10 Hides) adicionados ao grupo de estoque próprio primal_fear nas configurações padrão e na migração do plugin/WebStore. Confirmar que os Blueprints e limites de stack criam/entregam os itens corretamente no servidor ARK com o mod instalado.
+6. Cada pendência aberta deve ter um próximo passo verificável; consolidar duplicatas e retirar da seção ativa assim que esse passo for confirmado.

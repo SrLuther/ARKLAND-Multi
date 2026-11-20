@@ -141,8 +141,21 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
     terminal_frame.grid(row=2, column=0, sticky="nsew", padx=12, pady=(4, 12))
     terminal_frame.grid_rowconfigure(0, weight=1)
     terminal_frame.grid_columnconfigure(0, weight=1)
-    terminal = TerminalView(terminal_frame, fg_color=theme["surface_bg"], corner_radius=8,
-                            on_resize=lambda w, h: app._ssh_connection.resize(w, h) if app._ssh_connection else None)
+    def on_terminal_disconnect(reason: str | None) -> None:
+        app._ssh_connection = None
+        connect_btn.configure(state="normal")
+        disconnect_btn.configure(state="disabled")
+        status_var.set("Desconectado")
+        if reason:
+            show_results("Sessão SSH encerrada", reason)
+
+    terminal = TerminalView(
+        terminal_frame,
+        fg_color=theme["surface_bg"],
+        corner_radius=8,
+        on_resize=lambda w, h: app._ssh_connection.resize(w, h) if app._ssh_connection else None,
+        on_disconnect=on_terminal_disconnect,
+    )
     terminal.grid(row=0, column=0, sticky="nsew")
     app._ssh_terminal = terminal
 
@@ -418,6 +431,8 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
         terminal.disconnect()
         app._ssh_connection = None
         status_var.set("Desconectado")
+        connect_btn.configure(state="normal")
+        disconnect_btn.configure(state="disabled")
 
     def configure_codex_alias() -> None:
         profile = selected["profile"]
@@ -547,6 +562,8 @@ def build_ssh_panel(app, parent) -> None:  # noqa: C901
                     else:
                         app._ssh_connection = result
                         terminal.attach(result)
+                        connect_btn.configure(state="disabled")
+                        disconnect_btn.configure(state="normal")
                         status_var.set(f"Conectado: {selected['profile'].host}")
                         show_results("Sessão SSH", f"Conectado como {selected['profile'].username}@{selected['profile'].host}:{selected['profile'].port}. A sessão é interativa; comandos são enviados somente após digitação.")
         except queue.Empty:

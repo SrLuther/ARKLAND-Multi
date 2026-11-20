@@ -107,10 +107,17 @@ nlohmann::json BuildPayload(AShooterPlayerController* player,
             auto* character = player->GetPlayerCharacter();
             if (character) {
                 player_name = character->PlayerNameField().ToString();
-                tribe_name = character->TribeNameField().ToString();
             }
             auto* state = static_cast<AShooterPlayerState*>(player->PlayerStateField());
             if (state) {
+                // TribeSync resolves the live FTribeData name first. The
+                // character's TribeNameField can remain cached after a rename,
+                // which would keep refreshing the database with the old name.
+                if (FTribeData* tribe = state->MyTribeDataField()) {
+                    const FString live_tribe_name = tribe->TribeNameField();
+                    if (!live_tribe_name.IsEmpty())
+                        tribe_name = live_tribe_name.ToString();
+                }
                 const int id = state->GetTribeId();
                 if (id > 0) tribe_id = std::to_string(id);
                 if (tribe_id.empty()) {
@@ -122,6 +129,10 @@ nlohmann::json BuildPayload(AShooterPlayerController* player,
                 const int team = player->TargetingTeamField();
                 if (team > 0) tribe_id = std::to_string(team);
             }
+            // FTribeData can be temporarily unavailable; retain the character
+            // field only as a fallback, never over a current tribe name.
+            if (tribe_name.empty() && character)
+                tribe_name = character->TribeNameField().ToString();
         }
     } catch (...) {
         // Partial profile data is valid; later heartbeats refresh it.

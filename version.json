@@ -1,9 +1,10 @@
 {
-    "version": "1.12.12",
-    "date": "2026-11-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.12/ARKLAND-Multi-Setup-v1.12.12.exe",
+    "version": "1.12.13",
+    "date": "2026-11-20",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.13/ARKLAND-Multi-Setup-v1.12.13.exe",
     "changelog": [
-        "Fix (INIs): o editor TEK grava GameUserSettings.ini/Game.ini e reimporta campos estruturados e opções personalizadas para o perfil; edições diretas deixam de ser bloqueadas ou revertidas no próximo salvamento.",
-        "Fix (Salvamento): o modo clássico confirma o perfil somente após gravar GameUserSettings.ini/Game.ini e mostra erros para caminho ausente ou falha de escrita; elimina a confirmação enganosa de sucesso."
+        "Fix (Salvamento TEK): grava GameUserSettings.ini/Game.ini antes de persistir o perfil; caminho ausente, inválido ou falha de escrita deixam de salvar apenas o JSON e exibir sucesso, e agora informam claramente que a configuração não foi confirmada.",
+        "Fix (SSH): quando o host encerra ou perde a sessão, a interface limpa a conexão ativa, libera os botões e mostra o motivo do encerramento.",
+        "Fix (CustomShop / Discord): o monitor envia primeiro o nome atual da tribo em FTribeData, evitando substituir um nome recém-renomeado pelo valor em cache da personagem."
     ]
 }

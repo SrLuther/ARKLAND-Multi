@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.12"
-BUILD_DATE: str = "2026-11-19"
+APP_VERSION: str = "1.12.13"
+BUILD_DATE: str = "2026-11-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.13",
+        "date": "2026-11-20",
+        "changes": [
+            "Fix (Salvamento TEK): grava GameUserSettings.ini/Game.ini antes de persistir o perfil; caminho ausente, inválido ou falha de escrita deixam de salvar apenas o JSON e exibir sucesso, e agora informam claramente que a configuração não foi confirmada.",
+            "Fix (SSH): quando o host encerra ou perde a sessão, a interface limpa a conexão ativa, libera os botões e mostra o motivo do encerramento.",
+            "Fix (CustomShop / Discord): o monitor envia primeiro o nome atual da tribo em FTribeData, evitando substituir um nome recém-renomeado pelo valor em cache da personagem.",
+        ],
+    },
     {
         "version": "1.12.12",
         "date": "2026-11-19",

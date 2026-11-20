@@ -6192,7 +6192,7 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
 
         diag_event(
             CAT_SAVE,
-            "Salvar perfil TEK",
+            "Tentativa de salvar perfil TEK",
             server=srv.name,
             server_id=srv.id,
             progressions_enabled=getattr(
@@ -6205,39 +6205,7 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
     except Exception:  # noqa: BLE001
         pass
 
-    # 2. Persiste no JSON
-    try:
-        app.asm_config_manager.update_server(srv)
-    except Exception as _e:
-        import logging
-
-        logging.getLogger("arkland").exception(
-            "Falha ao persistir perfil TEK '%s'", srv.name
-        )
-        import tkinter.messagebox as _mb
-
-        _mb.showerror(
-            "Erro ao salvar",
-            f"Não foi possível salvar: {_e}",
-            parent=cast(tk.Misc, app),
-        )
-        return
-
-    try:
-        from ..asm_engine.asm_change_history import record_asm_server_changes
-
-        record_asm_server_changes(
-            srv.id, history_before, snapshot_asm_server(srv),
-            before_profile=history_before_profile,
-            after_profile=srv.to_dict(),
-        )
-    except Exception:
-        import logging
-
-        logging.getLogger("arkland").warning(
-            "Histórico TEK falhou para '%s'", srv.name, exc_info=True
-        )
-
+    # O perfil só é persistido depois que write_ini confirma os INIs.
     # 3. Invalida cache do frame deste servidor para forçar reconstrução na próxima abertura
     cache_key = f"server_{srv.id}"
     frame_cache = getattr(app, "_frame_cache", {})
@@ -6281,6 +6249,24 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
             )
             ini_write_error = exc
 
+        if ini_write_error is None:
+            try:
+                from ..asm_engine.asm_change_history import record_asm_server_changes
+
+                record_asm_server_changes(
+                    srv.id,
+                    history_before,
+                    snapshot_asm_server(srv),
+                    before_profile=history_before_profile,
+                    after_profile=srv.to_dict(),
+                )
+            except Exception:
+                import logging
+
+                logging.getLogger("arkland").warning(
+                    "Histórico TEK falhou para '%s'", srv.name, exc_info=True
+                )
+
         from ..ark_server_files import write_allowed_cheater_steam_ids_safe
 
         def _warn(msg: str) -> None:
@@ -6298,6 +6284,9 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
         ini_write_error = FileNotFoundError(
             f"O diretório de instalação não existe: {srv.install_dir}"
         )
+
+    else:
+        ini_write_error = ValueError("diretório de instalação não configurado")
 
     # 5. Atualiza dashboard e sidebar
     try:
@@ -6320,16 +6309,17 @@ def _save(app: AsmPanelApp, srv: AsmServerConfig) -> None:
     try:
         from ..diagnostics.events import CAT_SAVE, diag_event
 
-        diag_event(CAT_SAVE, "Perfil TEK salvo", server=srv.name, server_id=srv.id)
+        if ini_write_error is None:
+            diag_event(CAT_SAVE, "Perfil TEK salvo", server=srv.name, server_id=srv.id)
     except Exception:  # noqa: BLE001
         pass
     import tkinter.messagebox as _mb2
 
     if ini_write_error is not None:
         _mb2.showwarning(
-            "Perfil salvo; INI não confirmado",
-            f"O perfil de '{srv.name}' foi gravado, mas houve falha ao escrever um ou mais INIs:\n\n"
-            f"{ini_write_error}\n\nConfira os arquivos antes de iniciar ou reiniciar o servidor.",
+            "Salvamento não confirmado",
+            f"As configurações de '{srv.name}' não foram confirmadas. Falha ao gravar GameUserSettings.ini/Game.ini:\n\n"
+            f"{ini_write_error}\n\nConfira o diretório de instalação e tente novamente.",
             parent=cast(tk.Misc, app),
         )
     else:

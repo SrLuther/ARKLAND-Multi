@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-19 21:30:51 -->
-<!-- Total de versões: 571 | Primeira: 1.12.12 -->
+<!-- Gerado: 2026-11-20 01:12:33 -->
+<!-- Total de versões: 572 | Primeira: 1.12.13 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.13] - 2026-11-20
+
+### Fix
+
+- Fix (Salvamento TEK): grava GameUserSettings.ini/Game.ini antes de persistir o perfil; caminho ausente, inválido ou falha de escrita deixam de salvar apenas o JSON e exibir sucesso, e agora informam claramente que a configuração não foi confirmada.
+- Fix (SSH): quando o host encerra ou perde a sessão, a interface limpa a conexão ativa, libera os botões e mostra o motivo do encerramento.
+- Fix (CustomShop / Discord): o monitor envia primeiro o nome atual da tribo em FTribeData, evitando substituir um nome recém-renomeado pelo valor em cache da personagem.
 
 ## [1.12.12] - 2026-11-19
 
