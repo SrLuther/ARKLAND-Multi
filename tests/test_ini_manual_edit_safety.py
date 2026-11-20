@@ -4,7 +4,9 @@ from types import SimpleNamespace
 import pytest
 
 from src.asm_engine.ini_document import IniDocument
-from src.asm_ui.asm_file_manager import _managed_ini_changes
+from src.asm_ui.asm_file_manager import _sync_edited_ini_to_profile
+from src.asm_engine.asm_server_config import AsmServerConfig
+from src.asm_engine.asm_ini_manager import write_ini
 from src.ini_write_safety import find_install_conflicts, normalized_install_path, write_with_backup
 
 
@@ -28,16 +30,30 @@ def test_editor_keeps_original_windows_newlines_when_text_widget_returns_lf():
     assert IniDocument.parse(encoded).to_text() == "[S]\r\nX=2\r\n"
 
 
-def test_manifest_policy_blocks_managed_change_but_allows_external_mod_key():
-    profile = SimpleNamespace(managed_ini_options={
-        "GUS": [{"section": "ServerSettings", "key": "DifficultyOffset"}],
-    })
-    original = b"[ServerSettings]\nDifficultyOffset=1\n[ExternalMod]\nOption=old\n"
-    external_edit = b"[ServerSettings]\nDifficultyOffset=1\n[ExternalMod]\nOption=new\n"
-    managed_edit = b"[ServerSettings]\nDifficultyOffset=2\n[ExternalMod]\nOption=old\n"
+def test_direct_gus_edit_is_imported_and_survives_later_profile_save(tmp_path):
+    cfg = AsmServerConfig(install_dir=str(tmp_path), custom_gus_ini_raw=(
+        "[ServerSettings]\nDifficultyOffset=0.2\nExternalOption=keep\nDeletedOption=stale\n"
+    ))
+    cfg.managed_ini_options = {"GUS": [
+        {"section": "ServerSettings", "key": "DeletedOption"},
+    ]}
+    gus = tmp_path / "ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini"
+    gus.parent.mkdir(parents=True)
+    gus.write_text(
+        "[ServerSettings]\nDifficultyOffset=4.5\nExternalOption=edited\n",
+        encoding="utf-8",
+    )
 
-    assert _managed_ini_changes("GameUserSettings.ini", original, external_edit, profile) == []
-    assert _managed_ini_changes("GameUserSettings.ini", original, managed_edit, profile) == ["[serversettings] difficultyoffset"]
+    _sync_edited_ini_to_profile(cfg, gus)
+    assert cfg.difficulty_offset == 4.5
+    assert "DifficultyOffset" not in cfg.custom_gus_ini_raw
+    assert "ExternalOption=edited" in cfg.custom_gus_ini_raw
+
+    write_ini(cfg)
+    saved = IniDocument.parse(gus.read_bytes())
+    assert saved.find_values("ServerSettings", "DifficultyOffset") == ["4.5"]
+    assert saved.find_values("ServerSettings", "ExternalOption") == ["edited"]
+    assert saved.find_values("ServerSettings", "DeletedOption") == []
 
 
 def test_install_conflicts_detect_windows_case_and_separators_and_samefile(tmp_path):

@@ -13,6 +13,8 @@ from __future__ import annotations
 import os
 import subprocess
 import tkinter as tk
+from copy import deepcopy
+from dataclasses import MISSING, fields
 from tkinter import messagebox
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -465,19 +467,11 @@ class _FileManagerWindow(ctk.CTkToplevel):
                     names = ", ".join(str(getattr(item, "name", getattr(item, "id", "perfil"))) for item in conflicts)
                     raise RuntimeError(f"Outra configuração aponta para esta instalação ({names}); resolva o conflito antes de gravar.")
                 proposed = IniDocument.parse(original).encode_text_like_source(content)
-                changes = _managed_ini_changes(path.name, original, proposed, self._srv)
-                if changes:
-                    messagebox.showwarning(
-                        "Chaves gerenciadas pelo TEK",
-                        "O arquivo contém chaves controladas pelo formulário TEK:\n\n"
-                        + "\n".join(changes[:20])
-                        + "\n\nGravação cancelada para evitar que o próximo salvamento recrie valores antigos. "
-                          "Altere essas opções no painel TEK; chaves de mods/externalizadas podem ser editadas aqui.",
-                        parent=win,
-                    )
-                    return
                 backup = write_with_backup(path, proposed, expected_original=original)
                 win._arkland_original_bytes = proposed  # type: ignore[attr-defined]
+                if path.name.casefold() in {"gameusersettings.ini", "game.ini"} and _sync_edited_ini_to_profile(self._srv, path):
+                    self._app.asm_config_manager.update_server(self._srv)
+                    _invalidate_server_panel(self._app, self._srv)
                 suffix = f" · backup: {backup}" if backup else ""
                 win.title(f"Editar — {path.name}  ✔ Salvo{suffix}")
             else:
@@ -500,29 +494,92 @@ class _FileManagerWindow(ctk.CTkToplevel):
         self.clipboard_append(str(path))
 
 
-def _managed_ini_changes(filename: str, before: bytes, after: bytes, srv: AsmServerConfig) -> list[str]:
-    tag = {"gameusersettings.ini": "GUS", "game.ini": "Game", "engine.ini": "Engine"}.get(filename.casefold())
-    if not tag:
-        return []
+def _sync_edited_ini_to_profile(srv: AsmServerConfig, path: Path) -> bool:
+    """Import direct GUS/Game edits so a later profile save cannot undo them."""
+    from ..asm_engine.asm_ini_manager import INI_MAP, read_ini, _resolve_ini_section
+
+    tag = "GUS" if path.name.casefold() == "gameusersettings.ini" else "Game"
+    mapped = {
+        (_resolve_ini_section(file_key, section).casefold(), key.casefold())
+        for file_key, section, key, _opts in INI_MAP.values()
+        if ("GUS" if file_key.upper() == "GUS" else "Game") == tag
+    }
+
+    # Refresh the raw snapshot too. Otherwise arbitrary/custom keys edited or
+    # deleted here could be reintroduced from stale profile-side raw text.
+    from ..asm_engine.asm_ini_manager import _ini_path_for_cfg
+
+    source_path = _ini_path_for_cfg(srv, "GUS" if tag == "GUS" else "Game", write=False)
+    if path.resolve() != source_path.resolve():
+        return False
+    disk_doc = IniDocument.parse(source_path.read_bytes())
+    current_options = {
+        (line.section or "", line.key or "")
+        for line in disk_doc.lines if line.kind == "key" and line.section and line.key
+    }
     manifest = getattr(srv, "managed_ini_options", {}) or {}
-    managed = {
-        (str(item.get("section", "")).casefold(), str(item.get("key", "")).casefold())
+    previous_options = {
+        (str(item.get("section", "")), str(item.get("key", "")))
         for item in manifest.get(tag, [])
         if isinstance(item, dict) and item.get("section") and item.get("key")
     }
-    if tag in {"GUS", "Game"}:
-        # Structured TEK fields remain manager-owned even before they have
-        # appeared in a persisted manifest (for example, a default-valued key).
-        from ..asm_engine.asm_ini_manager import INI_MAP, _resolve_ini_section
-        for _field, (file_key, section, key, _options) in INI_MAP.items():
-            mapped_tag = "GUS" if file_key.upper() == "GUS" else "Game"
-            if mapped_tag == tag:
-                managed.add((_resolve_ini_section(file_key, section).casefold(), key.casefold()))
-    old_doc, new_doc = IniDocument.parse(before), IniDocument.parse(after)
-    changed: list[str] = []
-    for section, key in sorted(managed):
-        old_values = [line.value or "" for line in old_doc.lines if line.kind == "key" and (line.section or "").casefold() == section and (line.key or "").casefold() == key]
-        new_values = [line.value or "" for line in new_doc.lines if line.kind == "key" and (line.section or "").casefold() == section and (line.key or "").casefold() == key]
-        if old_values != new_values:
-            changed.append(f"[{section}] {key}")
-    return changed
+    manifest[tag] = [
+        {"section": section, "key": key}
+        for section, key in sorted(previous_options | current_options)
+    ]
+    srv.managed_ini_options = manifest
+
+    source_doc = IniDocument.parse(source_path.read_bytes())
+    source_doc.lines = [
+        line for line in source_doc.lines
+        if not (line.kind == "key" and
+                ((line.section or "").casefold(), (line.key or "").casefold()) in mapped)
+    ]
+    raw_attr = "custom_gus_ini_raw" if tag == "GUS" else "custom_game_ini_raw"
+    setattr(srv, raw_attr, source_doc.to_text())
+
+    custom = getattr(srv, "custom_ini_sections", None)
+    section_groups = []
+    if isinstance(custom, list):
+        section_groups = [(str(item.get("file", "GUS")).upper(), item) for item in custom if isinstance(item, dict)]
+    elif isinstance(custom, dict):
+        section_groups = [
+            (str(file_name).upper(), section)
+            for file_name, sections in custom.items() if isinstance(sections, list)
+            for section in sections if isinstance(section, dict)
+        ]
+    for file_name, section in section_groups:
+        file_tag = "GUS" if file_name in {"GUS", "GAMEUSERSETTINGS", "GAMEUSERSETTINGS.INI"} else "Game"
+        if file_tag != tag:
+            continue
+        section["entries"] = []
+
+    # Missing keys must reset to their declared defaults, not keep stale values.
+    field_defs = {item.name: item for item in fields(type(srv))}
+    for field_name, (file_key, _section, _key, _opts) in INI_MAP.items():
+        if ("GUS" if file_key.upper() == "GUS" else "Game") != tag:
+            continue
+        item = field_defs.get(field_name)
+        if item is None:
+            continue
+        if item.default is not MISSING:
+            value = item.default
+        elif item.default_factory is not MISSING:
+            value = item.default_factory()
+        else:
+            continue
+        setattr(srv, field_name, deepcopy(value))
+    read_ini(srv)
+    return True
+
+
+def _invalidate_server_panel(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
+    cache_key = f"server_{srv.id}"
+    cached = getattr(app, "_frame_cache", {}).pop(cache_key, None)
+    if cached is not None:
+        try:
+            cached.destroy()
+        except Exception:
+            pass
+    if getattr(app, "_asm_panel_active_server_id", None) == srv.id:
+        app._show_frame("server_panel", srv=srv)

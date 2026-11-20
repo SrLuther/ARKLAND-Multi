@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-18 22:45:46 -->
-<!-- Total de versões: 570 | Primeira: 1.12.11 -->
+<!-- Gerado: 2026-11-19 21:30:51 -->
+<!-- Total de versões: 571 | Primeira: 1.12.12 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.12] - 2026-11-19
+
+### Fix
+
+- Fix (INIs): o editor TEK grava GameUserSettings.ini/Game.ini e reimporta campos estruturados e opções personalizadas para o perfil; edições diretas deixam de ser bloqueadas ou revertidas no próximo salvamento.
+- Fix (Salvamento): o modo clássico confirma o perfil somente após gravar GameUserSettings.ini/Game.ini e mostra erros para caminho ausente ou falha de escrita; elimina a confirmação enganosa de sucesso.
 
 ## [1.12.11] - 2026-11-18
 

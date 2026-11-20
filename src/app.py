@@ -3015,17 +3015,29 @@ class ARKServerManagerApp(ctk.CTk):
         if "_name_title_var" in w:
             w["_name_title_var"].set(srv.name)
 
-        # Persiste
+        # O perfil só pode ser confirmado como salvo quando os INIs também
+        # foram gravados no diretório selecionado.
+        if not srv.install_dir or not os.path.isdir(srv.install_dir):
+            messagebox.showerror(
+                "INI não salvo",
+                "O diretório de instalação não existe ou não está configurado. "
+                "As configurações não foram confirmadas; corrija o caminho e tente novamente.",
+                parent=self,
+            )
+            return
+        try:
+            ArkIniManager(srv.install_dir).save_all(srv)
+        except Exception as exc:
+            self._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
+            messagebox.showerror(
+                "INI não salvo",
+                f"Não foi possível gravar GameUserSettings.ini/Game.ini para {srv.name}:\n\n{exc}",
+                parent=self,
+            )
+            return
+
         self.config_manager.update_server(srv)
         self.server_manager.update_server_config(srv)
-
-        # Escreve .ini se o diretório existir
-        if srv.install_dir and os.path.isdir(srv.install_dir):
-            try:
-                ini_mgr = ArkIniManager(srv.install_dir)
-                ini_mgr.save_all(srv)
-            except Exception as exc:
-                self._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
         self._rebuild_server_sidebar()
         self._refresh_dashboard()
