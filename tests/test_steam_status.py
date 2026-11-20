@@ -13,6 +13,7 @@ from src.server_visibility import (
     classify_steam_status,
     format_status_badge,
     is_lan_match_config,
+    _parse_a2s_info,
     resolve_machine_public_ip,
 )
 
@@ -134,6 +135,30 @@ class TestResolvePublicIp(unittest.TestCase):
             shop=SimpleNamespace(public_ip="198.51.100.1"),
         )
         self.assertEqual(resolve_machine_public_ip(cfg), "198.51.100.1")
+
+
+class TestA2SInfoValidation(unittest.TestCase):
+    @staticmethod
+    def _payload(map_name: str, max_players: int) -> bytes:
+        fields = ["[ARKLAND] Ragnarok", map_name, "ark_survival_evolved", "ARK: Survival Evolved"]
+        payload = bytearray([17])
+        for field in fields:
+            payload.extend(field.encode("utf-8"))
+            payload.append(0)
+        payload.extend((0, 0))  # app id
+        payload.extend((0, max_players, 0))  # players, max players, bots
+        return bytes(payload)
+
+    def test_accepts_complete_server_metadata(self) -> None:
+        info = _parse_a2s_info(self._payload("Ragnarok", 35))
+        self.assertEqual(info["map"], "Ragnarok")
+        self.assertEqual(info["max_players"], 35)
+
+    def test_rejects_empty_map(self) -> None:
+        self.assertEqual(_parse_a2s_info(self._payload("", 35)), {})
+
+    def test_rejects_zero_capacity(self) -> None:
+        self.assertEqual(_parse_a2s_info(self._payload("Ragnarok", 0)), {})
 
 
 if __name__ == "__main__":

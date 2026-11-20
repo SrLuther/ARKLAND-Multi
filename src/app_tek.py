@@ -418,6 +418,8 @@ class ARKServerManagerApp(ctk.CTk):
 
                     # Players: A2S fresco no query_port do mapa (não só cache do poller)
                     a2s_n = None
+                    a2s_ok = False
+                    a2s_hosts = []
                     try:
                         from .server_visibility import probe_a2s_info
 
@@ -430,15 +432,21 @@ class ARKServerManagerApp(ctk.CTk):
                         if "127.0.0.1" not in hosts:
                             hosts.append("127.0.0.1")
                         for host in hosts:
+                            a2s_hosts.append(host)
                             info = probe_a2s_info(host, qport, timeout=0.8) if qport else None
                             if info is not None:
                                 a2s_n = info.get("players")
+                                a2s_ok = True
                                 if inst is not None:
                                     inst.a2s_players = a2s_n
                                     inst.a2s_max_players = info.get("max_players")
+                                self._asm_a2s_watchdog_observe(srv, inst, info, a2s_hosts)
                                 break
+                        if not a2s_ok:
+                            self._asm_a2s_watchdog_observe(srv, inst, None, a2s_hosts)
                     except Exception:
                         a2s_n = getattr(inst, "a2s_players", None) if inst else None
+                        self._asm_a2s_watchdog_observe(srv, inst, None, a2s_hosts)
 
                     if a2s_n is None and inst is not None:
                         a2s_n = getattr(inst, "a2s_players", None)
@@ -507,6 +515,160 @@ class ARKServerManagerApp(ctk.CTk):
 
         threading.Thread(target=_worker, daemon=True).start()
         self.after(interval, self._asm_status_tick)
+
+    def _asm_a2s_watchdog_observe(self, srv, inst, info, hosts) -> None:
+        """Monitora resposta A2S real e agenda uma única recuperação segura."""
+        import logging
+        import threading
+
+        states = getattr(self, "_asm_a2s_watchdog_states", None)
+        if states is None:
+            states = self._asm_a2s_watchdog_states = {}
+        state = states.setdefault(srv.id, {"failures": 0, "attempted": False, "busy": False})
+        if info is not None:
+            if state["failures"] or state["attempted"]:
+                try:
+                    from .diagnostics.events import CAT_SERVER, diag_event
+                    diag_event(CAT_SERVER, "A2S recuperado", server=srv.name, server_id=srv.id,
+                               map=info.get("map"), players=info.get("players"),
+                               max_players=info.get("max_players"))
+                except Exception:
+                    pass
+            state.update(failures=0, attempted=False)
+            return
+
+        if inst is None or inst.status != ASM_STATUS_RUNNING or state["busy"] or state["attempted"]:
+            return
+        started = getattr(inst, "uptime_start", None)
+        if not started or time.time() - float(started) < 15 * 60:
+            return  # ARK/mods têm inicialização longa; não confundir com falha persistente.
+        state["failures"] += 1
+        if state["failures"] < 3:
+            return
+        state.update(attempted=True, busy=True)
+        threading.Thread(target=self._asm_a2s_watchdog_recover,
+                         args=(srv, inst, list(hosts), state), daemon=True).start()
+
+    def _asm_a2s_watchdog_recover(self, srv, inst, hosts, state) -> None:
+        """Registra a falha e só reinicia após salvar e comprovar zero jogadores."""
+        import json
+        import logging
+        from pathlib import Path
+
+        from .diagnostics.events import CAT_SERVER, diag_event
+        from .rcon_client import RconClient
+        from .ui_constants import count_listplayers
+
+        name = getattr(srv, "name", None) or srv.id
+        pid = getattr(inst, "pid", None)
+        evidence = {
+            "detected_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "server": name, "server_id": srv.id, "pid": pid,
+            "query_port": getattr(srv, "query_port", None), "hosts_checked": hosts,
+            "consecutive_invalid_a2s_checks": state["failures"],
+            "process_uptime_seconds": max(0, int(time.time() - float(getattr(inst, "uptime_start", time.time())))),
+            "action": "pending RCON safety checks",
+        }
+        try:
+            import psutil
+            proc = psutil.Process(int(pid))
+            from .diagnostics.redact import redact_text
+            evidence["process_command_line"] = redact_text(" ".join(proc.cmdline()))
+            evidence["process_executable"] = proc.exe()
+        except Exception:
+            pass
+        try:
+            log_path = Path(srv.install_dir) / "ShooterGame" / "Saved" / "Logs" / "ShooterGame.log"
+            if log_path.is_file():
+                with log_path.open("rb") as fh:
+                    fh.seek(0, 2)
+                    size = fh.tell()
+                    fh.seek(max(0, size - 128 * 1024))
+                    evidence["shooter_log_tail"] = fh.read().decode("utf-8", errors="replace")[-24000:]
+                evidence["shooter_log_path"] = str(log_path)
+        except Exception:
+            pass
+        try:
+            root = (getattr(self.config_manager.config, "crash_archive_dir", "") or "").strip()
+            out = Path(root).expanduser() / "a2s-watchdog" if root else Path.home() / "ARKLAND-ServerManager" / "a2s-watchdog"
+            out.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            evidence_path = out / f"{stamp}-{srv.id}-a2s.json"
+            evidence_path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            evidence_path = None
+
+        def finish(action, level="warning"):
+            evidence["action"] = action
+            try:
+                if evidence_path:
+                    evidence_path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+            diag_event(CAT_SERVER, "Watchdog A2S: " + action, _level=getattr(logging, level.upper(), logging.WARNING),
+                       server=name, server_id=srv.id, pid=pid,
+                       evidence=str(evidence_path) if evidence_path else "unavailable")
+            try:
+                self._global_log(f"Watchdog A2S [{name}]: {action}", level)
+            except Exception:
+                pass
+            state["busy"] = False
+
+        try:
+            if inst.status != ASM_STATUS_RUNNING:
+                return finish("cancelado: processo deixou de estar RUNNING")
+            if not (getattr(srv, "rcon_enabled", False) and getattr(srv, "admin_password", "")):
+                return finish("sem reinício: RCON não está habilitado/configurado; impossível confirmar jogadores")
+            client = RconClient(getattr(srv, "server_ip", None) or "127.0.0.1",
+                                int(srv.rcon_port), srv.admin_password)
+            try:
+                client.connect()
+                ok, response = client.send_command_safe("ListPlayers")
+                evidence["rcon_listplayers_before"] = (response or "")[:2000]
+                if not ok or not (response or "").strip():
+                    return finish("sem reinício: RCON não confirmou a lista de jogadores")
+                count = count_listplayers(response)
+                evidence["players_before"] = count
+                if count:
+                    return finish(f"sem reinício: RCON confirmou {count} jogador(es) conectado(s)")
+                if "no players" not in response.lower():
+                    return finish("sem reinício: resposta RCON ambígua para lista vazia")
+                saved, save_response = client.send_command_safe("SaveWorld")
+                evidence["saveworld_acknowledged"] = bool(saved)
+                evidence["saveworld_response"] = (save_response or "")[:1000]
+                if not saved:
+                    return finish("sem reinício: SaveWorld não foi confirmado pelo RCON")
+            finally:
+                client.disconnect()
+
+            time.sleep(60)  # margem para o SaveWorld persistir antes de qualquer parada.
+            if inst.status != ASM_STATUS_RUNNING:
+                return finish("cancelado: estado do servidor mudou durante a janela de segurança")
+            client = RconClient(getattr(srv, "server_ip", None) or "127.0.0.1",
+                                int(srv.rcon_port), srv.admin_password)
+            try:
+                client.connect()
+                ok, response = client.send_command_safe("ListPlayers")
+                evidence["rcon_listplayers_before_restart"] = (response or "")[:2000]
+                if not ok or not (response or "").strip():
+                    return finish("sem reinício: segunda checagem RCON falhou após SaveWorld")
+                count = count_listplayers(response)
+                evidence["players_at_restart"] = count
+                if count or "no players" not in response.lower():
+                    return finish("sem reinício: jogadores conectados ou resposta RCON ambígua na segunda checagem")
+            finally:
+                client.disconnect()
+
+            evidence["action"] = "reinício controlado iniciado após SaveWorld + 60s e duas checagens RCON vazias"
+            if evidence_path:
+                evidence_path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+            diag_event(CAT_SERVER, "Watchdog A2S iniciando reinício controlado", server=name,
+                       server_id=srv.id, pid=pid, players=0)
+            self.asm_server_manager.restart_server(srv.id)
+            finish("reinício controlado solicitado ao gerente; tentativa automática única para esta ocorrência", "warning")
+        except Exception as exc:
+            evidence["recovery_error"] = f"{type(exc).__name__}: {exc}"
+            finish("sem reinício: recuperação falhou com segurança fechada", "error")
 
     def _on_server_status_change(self, server_id: str, new_status: str) -> None:
         """Chamado pela thread do monitor quando o status de um servidor muda."""

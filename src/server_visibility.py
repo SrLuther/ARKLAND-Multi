@@ -136,7 +136,8 @@ def probe_a2s_info(host: str, port: int, timeout: float = 2.0) -> Optional[dict[
                 return None
             if data[4] != 0x49:  # 'I' — A2S_INFO response
                 return None
-            return _parse_a2s_info(data[5:])
+            info = _parse_a2s_info(data[5:])
+            return info or None
     except OSError:
         return None
 
@@ -147,13 +148,25 @@ def _parse_a2s_info(payload: bytes) -> dict[str, Any]:
         idx = 0
         idx += 1  # protocol
         name, idx = _read_cstring(payload, idx)
-        idx = payload.index(b"\x00", idx) + 1  # map
-        idx = payload.index(b"\x00", idx) + 1  # folder
-        idx = payload.index(b"\x00", idx) + 1  # game
+        map_name, idx = _read_cstring(payload, idx)
+        _folder, idx = _read_cstring(payload, idx)
+        _game, idx = _read_cstring(payload, idx)
         idx += 2  # app id
         players = payload[idx]
         max_players = payload[idx + 1]
-        return {"name": name, "players": players, "max_players": max_players}
+        # A server can answer the UDP query socket before ARK has published
+        # usable game metadata. Treating an empty map or 0-slot response as a
+        # successful A2S probe creates a false "ONLINE · Steam" badge and
+        # hides the exact condition seen when Steam shows a saved row without
+        # map/player details.
+        if not name.strip() or not map_name.strip() or max_players < 1:
+            return {}
+        return {
+            "name": name,
+            "map": map_name,
+            "players": players,
+            "max_players": max_players,
+        }
     except (ValueError, IndexError):
         return {}
 

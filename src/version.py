@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.13"
+APP_VERSION: str = "1.12.14"
 BUILD_DATE: str = "2026-11-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.14",
+        "date": "2026-11-20",
+        "changes": [
+            "Fix (Steam / A2S): rejeita respostas de consulta com mapa vazio ou capacidade zero; o mapa 04 respondia por UDP, mas Steam recebia map='' e 0/0, gerando o selo incorreto ONLINE · Steam.",
+            "Watchdog Steam/A2S: detecta 3 respostas inválidas consecutivas após 15 minutos de inicialização, salva evidências do processo e do ShooterGame.log e tenta uma única recuperação por ocorrência.",
+            "Recuperação A2S protegida: só reinicia após RCON confirmar zero jogadores, SaveWorld ser enviado e uma segunda consulta confirmar servidor vazio após 60 segundos; falha/ambiguidade do RCON ou jogador conectado cancela o restart.",
+        ],
+    },
     {
         "version": "1.12.13",
         "date": "2026-11-20",

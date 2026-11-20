@@ -1,10 +1,10 @@
 {
-    "version": "1.12.13",
+    "version": "1.12.14",
     "date": "2026-11-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.13/ARKLAND-Multi-Setup-v1.12.13.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.14/ARKLAND-Multi-Setup-v1.12.14.exe",
     "changelog": [
-        "Fix (Salvamento TEK): grava GameUserSettings.ini/Game.ini antes de persistir o perfil; caminho ausente, inválido ou falha de escrita deixam de salvar apenas o JSON e exibir sucesso, e agora informam claramente que a configuração não foi confirmada.",
-        "Fix (SSH): quando o host encerra ou perde a sessão, a interface limpa a conexão ativa, libera os botões e mostra o motivo do encerramento.",
-        "Fix (CustomShop / Discord): o monitor envia primeiro o nome atual da tribo em FTribeData, evitando substituir um nome recém-renomeado pelo valor em cache da personagem."
+        "Fix (Steam / A2S): rejeita respostas de consulta com mapa vazio ou capacidade zero; o mapa 04 respondia por UDP, mas Steam recebia map='' e 0/0, gerando o selo incorreto ONLINE · Steam.",
+        "Watchdog Steam/A2S: detecta 3 respostas inválidas consecutivas após 15 minutos de inicialização, salva evidências do processo e do ShooterGame.log e tenta uma única recuperação por ocorrência.",
+        "Recuperação A2S protegida: só reinicia após RCON confirmar zero jogadores, SaveWorld ser enviado e uma segunda consulta confirmar servidor vazio após 60 segundos; falha/ambiguidade do RCON ou jogador conectado cancela o restart."
     ]
 }

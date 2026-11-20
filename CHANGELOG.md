@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-11-20 01:12:33 -->
-<!-- Total de versões: 572 | Primeira: 1.12.13 -->
+<!-- Gerado: 2026-11-20 10:18:52 -->
+<!-- Total de versões: 573 | Primeira: 1.12.14 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.14] - 2026-11-20
+
+### Fix
+
+- Fix (Steam / A2S): rejeita respostas de consulta com mapa vazio ou capacidade zero; o mapa 04 respondia por UDP, mas Steam recebia map='' e 0/0, gerando o selo incorreto ONLINE · Steam.
+
+### Other
+
+- Watchdog Steam/A2S: detecta 3 respostas inválidas consecutivas após 15 minutos de inicialização, salva evidências do processo e do ShooterGame.log e tenta uma única recuperação por ocorrência.
+- Recuperação A2S protegida: só reinicia após RCON confirmar zero jogadores, SaveWorld ser enviado e uma segunda consulta confirmar servidor vazio após 60 segundos; falha/ambiguidade do RCON ou jogador conectado cancela o restart.
 
 ## [1.12.13] - 2026-11-20
 
