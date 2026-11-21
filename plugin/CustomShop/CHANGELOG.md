@@ -8,6 +8,18 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.58] - 2026-11-20
+
+### Added
+
+- Auditoria central de comandos de chat via callback do ArkApi: grava em JSONL os comandos iniciados por `/`, SteamID, nome do personagem, PlayerDataID e se algum handler foi despachado. O campo de resultado distingue despacho do handler de sucesso funcional, pois nem todo plugin expõe retorno verificável.
+- Auditoria por etapa para `/homodeus` e `/concordo`, incluindo recusas, confirmação pendente e chamada nativa enviada.
+- `/homodeus` agora libera também todos os engramas catalogados do mapa (incluindo Tek) na mesma confirmação e pela rotina já usada pelo CustomShop. Se a rotina não conseguir executá-los, não solicita a ascensão e tenta devolver os Âmbares cobrados.
+
+### Fix
+
+- `/concordo` deixa de afirmar que as ascensões foram concedidas. `DefeatAllBosses` retorna `void`, portanto o plugin não consegue confirmar que o ARK aplicou a concessão; a resposta agora informa que o pedido foi enviado e orienta a verificar após renascer/reconectar. Isso evita uma confirmação falsa como a observada no servidor 4.
+
 ## [1.10.57] - 2026-11-20
 
 ### Fix

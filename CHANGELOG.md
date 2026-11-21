@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-11-20 10:18:52 -->
-<!-- Total de versões: 573 | Primeira: 1.12.14 -->
+<!-- Gerado: 2026-11-20 23:34:09 -->
+<!-- Total de versões: 574 | Primeira: 1.12.15 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.15] - 2026-11-20
+
+### Refactor
+
+- Documentação: inclui catálogo administrativo do ARK e inventário local do wrapper ArkServerAPI, com descrições em português e fontes para conferência.
+
+### Other
+
+- Central de Comandos ARK: nova área administrativa com catálogo pesquisável, mapas e jogadores conectados, parâmetros validados e cópia manual de sintaxe; comandos não são executados pelo site.
+- Central de Comandos ARK: separa SteamID64 de PlayerID numérico e identifica comandos exclusivos de ASA para evitar uso incorreto no ASE.
 
 ## [1.12.14] - 2026-11-20
 

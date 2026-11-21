@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.14"
+APP_VERSION: str = "1.12.15"
 BUILD_DATE: str = "2026-11-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.15",
+        "date": "2026-11-20",
+        "changes": [
+            "Central de Comandos ARK: nova área administrativa com catálogo pesquisável, mapas e jogadores conectados, parâmetros validados e cópia manual de sintaxe; comandos não são executados pelo site.",
+            "Central de Comandos ARK: separa SteamID64 de PlayerID numérico e identifica comandos exclusivos de ASA para evitar uso incorreto no ASE.",
+            "Documentação: inclui catálogo administrativo do ARK e inventário local do wrapper ArkServerAPI, com descrições em português e fontes para conferência.",
+        ],
+    },
     {
         "version": "1.12.14",
         "date": "2026-11-20",

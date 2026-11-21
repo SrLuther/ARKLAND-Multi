@@ -285,7 +285,12 @@ $releaseNewFiles = @(
     "tests/test_tek_battlemetrics.py",
     "tests/test_tek_migration_preview.py",
     "tools/tek_safe_startup_smoke.py",
-    "docs/VALIDACAO_PRODUCAO_RC_1.12.4.md"
+    "docs/VALIDACAO_PRODUCAO_RC_1.12.4.md",
+    "docs/ARK_ADMIN_COMMANDS.md",
+    "plugin/arkshop_web/static/ark_admin_commands.json",
+    "plugin/arkshop_web/static/command-center.css",
+    "plugin/arkshop_web/static/command-center.js",
+    "plugin/arkshop_web/tests/test_command_center_catalog.py"
 )
 # Capture Git's CRLF warnings through cmd, as above. PowerShell 7 can surface
 # native stderr as NativeCommandError even when git add succeeds.

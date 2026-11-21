@@ -10826,6 +10826,33 @@ def admin_map_members_online():
     return jsonify({"ok": True, "updated_at": datetime.now(UTC).isoformat(), "servers": results})
 
 
+@app.route("/api/admin/command-center/audit", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_command_center_audit():
+    """Audita intenção de cópia sem registrar argumentos nem executar RCON."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "JSON inválido"}), 400
+    command_name = str(body.get("command_name") or "").strip()
+    server_id = str(body.get("server_id") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_. -]{1,100}", command_name):
+        return jsonify({"ok": False, "error": "Nome de comando inválido"}), 400
+    if server_id and not any(
+        str(server.get("server_id") or "").strip() == server_id
+        for server in _load_servers(decrypt_secrets=False)
+        if isinstance(server, dict)
+    ):
+        return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
+    _log(
+        "admin_command_copied",
+        admin=_steam_id_from_session(),
+        command=command_name,
+        server_id=server_id or None,
+    )
+    return jsonify({"ok": True})
+
+
 @app.route("/api/servers/sync", methods=["POST"])
 @api_key_required(allow_admin_session=False)
 def sync_servers_from_client():

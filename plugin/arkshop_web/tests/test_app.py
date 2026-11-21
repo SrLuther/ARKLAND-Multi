@@ -119,6 +119,17 @@ def test_unknown_frontend_route_serves_spa_shell(client):
     assert "<!DOCTYPE html>" in r.get_data(as_text=True)
 
 
+def test_command_center_static_assets_are_served(client):
+    for path, expected in (
+        ("/command-center.js?v=1", "commandCenterCopy"),
+        ("/command-center.css?v=1", ".command-center-grid"),
+        ("/ark_admin_commands.json", '"description_pt"'),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert expected in response.get_data(as_text=True)
+
+
 def _login(client, steam_id: str):
     with client.session_transaction() as sess:
         sess["steam_id"] = steam_id

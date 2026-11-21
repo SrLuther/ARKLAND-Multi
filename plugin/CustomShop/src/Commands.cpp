@@ -41,6 +41,39 @@ struct PendingHomodeus {
 std::mutex g_homodeus_pending_mutex;
 std::unordered_map<std::string, PendingHomodeus> g_homodeus_pending;
 
+void AuditCommand(AShooterPlayerController* controller, const std::string& command,
+                  const char* result, const char* detail = "") {
+    nlohmann::json event = {
+        {"command", command},
+        {"result", result ? result : "unknown"},
+        {"detail", detail ? detail : ""},
+    };
+    if (controller) {
+        event["actor_steam_id"] = CustomShop::Bridge::GetSteamId(controller);
+        event["actor_name"] = ArkApi::GetApiUtils().GetCharacterName(controller).ToString();
+        event["player_data_id"] = controller->GetLinkedPlayerID();
+    }
+    CustomShop::Debug::WriteAlways("CommandAudit", event.dump());
+}
+
+bool OnPluginCommandAudit(AShooterPlayerController* player, FString* message,
+                          EChatSendMode::Type, bool, bool command_executed) {
+    if (!player || !message) return false;
+    const std::string text = message->ToString();
+    if (text.empty() || text.front() != '/') return false;
+
+    // Registra somente o nome do comando; argumentos podem conter dados privados.
+    const auto args_start = text.find_first_of(" \t");
+    const std::string command = text.substr(0, args_start);
+
+    AuditCommand(player, command,
+                 command_executed ? "handler_dispatched" : "unhandled",
+                 command_executed
+                     ? "ArkApi marcou um handler como executado; resultado funcional depende do plugin."
+                     : "Nenhum handler marcou este texto como executado.");
+    return false;
+}
+
 void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMode::Type);
 void CmdCloudUploadSlot(AShooterPlayerController* controller, int slot);
 void CmdCloudUploadSlot1(AShooterPlayerController* controller, FString* cmd, EChatSendMode::Type mode);
@@ -1086,6 +1119,7 @@ void CmdHomodeus(AShooterPlayerController* controller, FString*, EChatSendMode::
     if (!controller) return;
 
     if (ArkApi::IApiUtils::IsPlayerDead(controller)) {
+        AuditCommand(controller, "/homodeus", "rejected", "player_dead");
         SendMsg(controller, FColorList::Red,
                 "Nao foi possivel conceder as ascensoes. Voce precisa estar vivo.");
         return;
@@ -1095,6 +1129,7 @@ void CmdHomodeus(AShooterPlayerController* controller, FString*, EChatSendMode::
     const int player_id = controller->GetLinkedPlayerID();
     auto* cheat = static_cast<UShooterCheatManager*>(controller->CheatManagerField());
     if (steam_id.empty() || player_id <= 0 || !cheat) {
+        AuditCommand(controller, "/homodeus", "rejected", "invalid_player_context");
         SendMsg(controller, FColorList::Red,
                 "Nao foi possivel identificar seu personagem. Tente novamente ou contate a equipe.");
         Log::GetLog()->error("CmdHomodeus: invalid player context steam_id='{}' player_id={} cheat={}",
@@ -1105,6 +1140,7 @@ void CmdHomodeus(AShooterPlayerController* controller, FString*, EChatSendMode::
     const int price = CustomShop::ShopConfig::Get().HomodeusCommandPrice();
     const int balance_before = CustomShop::ShopPoints::Get().GetPoints(steam_id);
     if (balance_before < price) {
+        AuditCommand(controller, "/homodeus", "rejected", "insufficient_balance");
         SendMsg(controller, FColorList::Red,
                 "Saldo insuficiente. Custo: " + std::to_string(price)
                 + " ambares; seu saldo: " + std::to_string(balance_before) + ".");
@@ -1120,12 +1156,14 @@ void CmdHomodeus(AShooterPlayerController* controller, FString*, EChatSendMode::
         g_homodeus_pending[steam_id] = pending;
     }
 
+    AuditCommand(controller, "/homodeus", "confirmation_pending", "expires_in_120s");
+
     SendMsg(controller, FColorList::Yellow,
             "Custo: " + std::to_string(price) + " ambares. Seu saldo: "
             + std::to_string(balance_before) + " ambares.");
     SendMsg(controller, FColorList::Yellow,
-            "Digite /concordo em ate 2 minutos para confirmar as ascensoes Alpha. "
-            "Este comando nao entrega engramas Tek.");
+            "Digite /concordo em ate 2 minutos para confirmar as ascensoes Alpha e liberar "
+            "todos os engramas catalogados, inclusive Tek.");
 }
 
 void CmdHomodeusConfirm(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
@@ -1137,6 +1175,7 @@ void CmdHomodeusConfirm(AShooterPlayerController* controller, FString*, EChatSen
         std::lock_guard<std::mutex> lock(g_homodeus_pending_mutex);
         const auto it = g_homodeus_pending.find(steam_id);
         if (steam_id.empty() || it == g_homodeus_pending.end()) {
+            AuditCommand(controller, "/concordo", "rejected", "no_pending_homodeus");
             SendMsg(controller, FColorList::Red,
                     "Nenhuma confirmacao /homodeus pendente. Use /homodeus primeiro.");
             return;
@@ -1146,12 +1185,14 @@ void CmdHomodeusConfirm(AShooterPlayerController* controller, FString*, EChatSen
     }
 
     if (std::chrono::steady_clock::now() > pending.expires) {
+        AuditCommand(controller, "/concordo", "rejected", "confirmation_expired");
         SendMsg(controller, FColorList::Red,
                 "A confirmacao do /homodeus expirou. Use /homodeus novamente.");
         return;
     }
     if (ArkApi::IApiUtils::IsPlayerDead(controller)
         || controller->GetLinkedPlayerID() != pending.player_id) {
+        AuditCommand(controller, "/concordo", "rejected", "dead_or_character_changed");
         SendMsg(controller, FColorList::Red,
                 "Confirmacao cancelada. Voce precisa estar vivo com o mesmo personagem.");
         return;
@@ -1159,6 +1200,7 @@ void CmdHomodeusConfirm(AShooterPlayerController* controller, FString*, EChatSen
 
     auto* cheat = static_cast<UShooterCheatManager*>(controller->CheatManagerField());
     if (!cheat) {
+        AuditCommand(controller, "/concordo", "rejected", "cheat_manager_unavailable");
         SendMsg(controller, FColorList::Red,
                 "Nao foi possivel acessar seu personagem. Nenhuma ascensao foi concedida.");
         return;
@@ -1168,25 +1210,55 @@ void CmdHomodeusConfirm(AShooterPlayerController* controller, FString*, EChatSen
     if (balance_before < pending.price
         || (pending.price > 0
             && !CustomShop::ShopPoints::Get().SpendPoints(steam_id, pending.price))) {
+        AuditCommand(controller, "/concordo", "rejected", "balance_changed_or_charge_failed");
         SendMsg(controller, FColorList::Red,
                 "Saldo insuficiente ou alterado. Custo: " + std::to_string(pending.price)
                 + " ambares; saldo atual: " + std::to_string(balance_before) + ".");
         return;
     }
 
-    // One native call avoids a series of per-boss triggers/cutscenes.
-    cheat->DefeatAllBosses(pending.player_id);
-
     const int balance_after = CustomShop::ShopPoints::Get().GetPoints(steam_id);
     CustomShop::ShopPoints::Get().LogTransaction(
-        "ascension", steam_id, "", "homodeus_alpha_all", 1, balance_before, balance_after);
+        "ascension", steam_id, "", "homodeus_alpha_all_with_engrams", 1,
+        balance_before, balance_after);
+
+    // Unlock all catalogued engrams (including Tek) before requesting ascension.
+    // If this step cannot run, do not grant only half the Homodeus bundle: refund
+    // the charge and skip DefeatAllBosses.
+    int unlocked_engrams = 0;
+    if (!CustomShop::Engrams::UnlockAll(controller, false, &unlocked_engrams)) {
+        const bool refunded = CustomShop::ShopPoints::Get().AddPoints(steam_id, pending.price);
+        const int balance_after_refund = CustomShop::ShopPoints::Get().GetPoints(steam_id);
+        if (refunded) {
+            CustomShop::ShopPoints::Get().LogTransaction(
+                "refund", steam_id, "", "homodeus_engram_unlock_failed", 1,
+                balance_after, balance_after_refund);
+        }
+        AuditCommand(controller, "/concordo", refunded
+                         ? "failed_refunded" : "failed_refund_error",
+                     "engram_unlock_failed; ascension_not_called");
+        SendMsg(controller, FColorList::Red,
+                refunded
+                    ? "Nao foi possivel liberar os engramas; nenhuma ascensao foi solicitada. "
+                      "Os ambares foram devolvidos. Tente novamente mais tarde."
+                    : "Nao foi possivel liberar os engramas e devolver os ambares automaticamente. "
+                      "Nenhuma ascensao foi solicitada; contate a equipe.");
+        return;
+    }
+
+    // One native call avoids a series of per-boss triggers/cutscenes.
+    cheat->DefeatAllBosses(pending.player_id);
+    AuditCommand(controller, "/concordo", "engrams_unlocked_ascension_sent_unverified",
+                 "DefeatAllBosses is void; ArkApi exposes no success result for ascension.");
+
     SendMsg(controller, FColorList::Green,
-            "Homodeus: ascensoes Alpha concedidas. Foram cobrados "
+            "Homodeus: " + std::to_string(unlocked_engrams)
+            + " engramas novos liberados; pedido de ascensoes Alpha enviado. Foram cobrados "
             + std::to_string(pending.price) + " ambares.");
     SendMsg(controller, FColorList::Yellow,
-            "Apenas as ascensoes Alpha foram entregues; este comando nao entrega engramas Tek. "
-            "Os niveis extras atualizam ao renascer ou reconectar; o implante atualiza "
-            "depois de morrer. A concessao fica salva no personagem.");
+            "Se nenhum engrama novo foi informado, os engramas catalogados ja estavam liberados. "
+            "O plugin nao recebe confirmacao do jogo sobre a aplicacao das ascensoes; confira "
+            "apos renascer ou reconectar. Os engramas incluem Tek.");
 }
 
 } // anonymous namespace
@@ -1223,6 +1295,9 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/notas",         &CmdNotas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
         "CustomShopCloudChat", &OnCloudChatMessage);
+    // Observa comandos de todos os plugins via callback global do ArkApi.
+    ArkApi::GetCommands().AddOnChatMessageCallback(
+        "ArklandCommandAudit", &OnPluginCommandAudit);
 
     ShopMarket::RegisterCommands();
     CustomShop::Teams::RegisterCommands(); // /marco → preview → /confirmar
@@ -1275,6 +1350,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/limparnuvem3");
     ArkApi::GetCommands().RemoveChatCommand("/conf");
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
+    ArkApi::GetCommands().RemoveOnChatMessageCallback("ArklandCommandAudit");
     ShopMarket::UnregisterCommands();
     CustomShop::Teams::UnregisterCommands();
     CustomShop::Vitrine::UnregisterCommands();

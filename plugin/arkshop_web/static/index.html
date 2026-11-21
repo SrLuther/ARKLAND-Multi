@@ -8244,6 +8244,9 @@
     <div class="nav-item admin-only" data-page="map-members-admin" onclick="nav(this)">
       <span class="nav-icon">🗺️</span> Membros por mapa
     </div>
+    <div class="nav-item admin-only" data-page="command-center" onclick="nav(this)">
+      <span class="nav-icon">⌘</span> Central de Comandos ARK
+    </div>
     <div class="nav-item admin-only" data-page="teams-admin" onclick="nav(this)">
       <span class="nav-icon nav-icon--img"><img src="/ArkLnd_Equipes.png" alt="" width="18" height="18" /></span> Equipes
     </div>
@@ -11738,6 +11741,42 @@
         </div>
       </div>
 
+      <!-- PAGE: Central de Comandos ARK (admin; geração e cópia manual) -->
+      <div id="page-command-center" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">⌘ Central de Comandos ARK</div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Consulte os jogadores conectados, monte a sintaxe e copie para executar manualmente no console do jogo.</p>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" type="button" onclick="commandCenterRefresh()">↻ Atualizar mapas e jogadores</button>
+          </div>
+        </div>
+        <div class="command-center-grid">
+          <section class="card command-center-context">
+            <div class="card-title">Mapa e jogador</div>
+            <label for="cc-server">Mapa do cluster</label>
+            <select id="cc-server" class="form-control" onchange="commandCenterSelectServer()"><option value="">Carregando mapas…</option></select>
+            <div id="cc-server-state" class="cc-muted" role="status"></div>
+            <label for="cc-player">Jogador conectado (opcional)</label>
+            <select id="cc-player" class="form-control" onchange="commandCenterSelectPlayer()"><option value="">Nenhum jogador selecionado</option></select>
+            <div id="cc-player-identifiers" class="cc-identity" aria-live="polite">Selecione um jogador para ver os identificadores disponíveis.</div>
+            <div class="cc-notice"><strong>IDs não são intercambiáveis.</strong> A consulta ao vivo fornece SteamID64. Ela não fornece o Player ID numérico; comandos que exigem PlayerID precisarão desse valor informado separadamente. O sistema nunca colocará SteamID nesse campo.</div>
+          </section>
+          <section class="card command-center-catalog">
+            <div class="card-title">Catálogo administrativo ASE</div>
+            <div class="cc-search-row">
+              <input id="cc-search" class="form-control" type="search" placeholder="Buscar por comando, função ou palavra-chave…" oninput="commandCenterRenderList()" />
+              <select id="cc-category" class="form-control" onchange="commandCenterRenderList()"><option value="">Todas as categorias</option></select>
+              <label class="cc-asa-toggle"><input id="cc-include-asa" type="checkbox" onchange="commandCenterRenderList()" /> Mostrar também comandos exclusivos do ASA</label>
+            </div>
+            <div id="cc-count" class="cc-muted"></div>
+            <div id="cc-command-list" class="cc-command-list" role="listbox" aria-label="Comandos administrativos"></div>
+          </section>
+          <section class="card command-center-builder" aria-live="polite">
+            <div id="cc-command-detail"><div class="cc-empty">Selecione um comando para consultar a descrição e preencher os parâmetros.</div></div>
+          </section>
+        </div>
+      </div>
+
       <!-- PAGE: Gerenciar Jogadores (admin) -->
       <div id="page-players-admin" class="page admin-only">
         <div id="topbar">
@@ -13991,6 +14030,7 @@ function nav(el) {
   if (page === "blueprint-index") openBlueprintIndex();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); loadPlayers(); }
   if (page === "map-members-admin") loadMapMembersAdmin();
+  if (page === "command-center") commandCenterLoad();
   if (page === "tribe-admin") loadTribeAdmin();
   if (page === "teams") loadMyTeam();
   if (page === "teams-directory") loadTeamsDirectory();
@@ -37294,5 +37334,7 @@ async function supportWidgetTranslate(button){const original=button.dataset.orig
 })();
 </script>
 
+<link rel="stylesheet" href="/command-center.css?v=1" />
+<script src="/command-center.js?v=1" defer></script>
 </body>
 </html>

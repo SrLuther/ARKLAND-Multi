@@ -339,3 +339,27 @@ def test_admin_live_players_uses_read_only_rcon_and_labels_map(client, monkeypat
     assert payload["servers"][0]["status"] == "online"
     assert payload["servers"][0]["players"] == [{"name": "Ciano", "steam_id": "76561198000000011"}]
     assert calls == [("127.0.0.1", 27020, "secret", "ListPlayers")]
+
+
+def test_command_center_copy_audit_is_admin_only_and_omits_arguments(client, monkeypatch):
+    events = []
+    monkeypatch.setattr(_app_module, "_log", lambda *args, **kwargs: events.append((args, kwargs)))
+    response = client.post("/api/admin/command-center/audit", json={
+        "command_name": "GiveEngrams",
+        "server_id": SERVER_BR,
+        "arguments": ["must-not-be-logged"],
+    })
+    assert response.status_code == 401
+    _login(client, ADMIN_STEAM)
+    response = client.post("/api/admin/command-center/audit", json={
+        "command_name": "GiveEngrams",
+        "server_id": SERVER_BR,
+        "arguments": ["must-not-be-logged"],
+    })
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True}
+    assert [event for event in events if event[0] == ("admin_command_copied",)] == [(('admin_command_copied',), {
+        "admin": ADMIN_STEAM,
+        "command": "GiveEngrams",
+        "server_id": SERVER_BR,
+    })]

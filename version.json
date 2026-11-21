@@ -1,10 +1,10 @@
 {
-    "version": "1.12.14",
+    "version": "1.12.15",
     "date": "2026-11-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.14/ARKLAND-Multi-Setup-v1.12.14.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.15/ARKLAND-Multi-Setup-v1.12.15.exe",
     "changelog": [
-        "Fix (Steam / A2S): rejeita respostas de consulta com mapa vazio ou capacidade zero; o mapa 04 respondia por UDP, mas Steam recebia map='' e 0/0, gerando o selo incorreto ONLINE · Steam.",
-        "Watchdog Steam/A2S: detecta 3 respostas inválidas consecutivas após 15 minutos de inicialização, salva evidências do processo e do ShooterGame.log e tenta uma única recuperação por ocorrência.",
-        "Recuperação A2S protegida: só reinicia após RCON confirmar zero jogadores, SaveWorld ser enviado e uma segunda consulta confirmar servidor vazio após 60 segundos; falha/ambiguidade do RCON ou jogador conectado cancela o restart."
+        "Central de Comandos ARK: nova área administrativa com catálogo pesquisável, mapas e jogadores conectados, parâmetros validados e cópia manual de sintaxe; comandos não são executados pelo site.",
+        "Central de Comandos ARK: separa SteamID64 de PlayerID numérico e identifica comandos exclusivos de ASA para evitar uso incorreto no ASE.",
+        "Documentação: inclui catálogo administrativo do ARK e inventário local do wrapper ArkServerAPI, com descrições em português e fontes para conferência."
     ]
 }
