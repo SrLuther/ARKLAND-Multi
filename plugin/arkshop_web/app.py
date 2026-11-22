@@ -16660,6 +16660,153 @@ def player_myarea():
         _release_db_session(db)
 
 
+@app.route("/api/player/structure-limits", methods=["GET"])
+@login_required
+@limiter.limit("30 per minute; 300 per hour", override_defaults=True)
+def player_structure_limits():
+    """Read-only Structure Limits view, strictly scoped to the authenticated player.
+
+    The game plugin has not yet connected its outbox to this database. Missing
+    tables therefore produce an explicit integration state instead of creating
+    schema or returning fabricated/partial counts.
+    """
+    if (err := _require_db()) is not None:
+        return err
+
+    steam_id = str(_steam_id_from_session() or "").strip()
+    if not steam_id:
+        return jsonify({"ok": False, "error": "SteamID da sessão ausente."}), 401
+
+    db = _SessionLocal()
+    try:
+        # Probe all required tables in one read-only statement. Do not run DDL
+        # during a web request; deployment/migration remains an explicit step.
+        db.execute(text(
+            "SELECT 1 FROM structure_limits_instances i "
+            "LEFT JOIN structure_limits_owners o ON o.instance_key = i.instance_key "
+            "LEFT JOIN structure_limits_blueprints b ON b.instance_key = i.instance_key "
+            "LEFT JOIN structure_limits_counters c ON c.instance_key = i.instance_key "
+            "LEFT JOIN structure_limits_licenses l ON l.steam_id = :sid LIMIT 1"
+        ), {"sid": steam_id}).fetchone()
+
+        license_row = db.execute(text(
+            "SELECT valid_until, source FROM structure_limits_licenses "
+            "WHERE steam_id = :sid LIMIT 1"
+        ), {"sid": steam_id}).fetchone()
+        license_active = False
+        license_until = None
+        license_source = None
+        if license_row:
+            expiry = license_row[0]
+            license_until = expiry.isoformat() if hasattr(expiry, "isoformat") else str(expiry)
+            license_source = str(license_row[1] or "")
+            license_active = bool(db.execute(text(
+                "SELECT CASE WHEN :expiry > CURRENT_TIMESTAMP THEN 1 ELSE 0 END"
+            ), {"expiry": expiry}).scalar())
+
+        instances = db.execute(text(
+            "SELECT instance_key, map_id, map_name, global_primary, extra_percentage, "
+            "config_version, inventory_state, inventory_validated_at "
+            "FROM structure_limits_instances ORDER BY map_name, map_id, canonical_instance_path"
+        )).fetchall()
+        maps = []
+        for instance in instances:
+            instance_key = instance[0]
+            inventory_state = str(instance[6] or "unvalidated")
+            valid = inventory_state == "validated"
+            global_primary = int(instance[3] or 0)
+            percentage = int(instance[4] or 0)
+            global_extra = (global_primary * percentage + 99) // 100
+
+            owner = db.execute(text(
+                "SELECT owner_key, global_count FROM structure_limits_owners "
+                "WHERE instance_key = :ikey AND owner_key = :owner_key "
+                "AND owner_type = 'solo' AND steam_id = :sid LIMIT 1"
+            ), {"ikey": instance_key, "owner_key": "solo:" + steam_id, "sid": steam_id}).fetchone()
+            global_used = int(owner[1] or 0) if owner and valid else None
+
+            specific_rows = db.execute(text(
+                "SELECT b.blueprint, b.leg, COALESCE(c.structure_count, 0) "
+                "FROM structure_limits_blueprints b "
+                "LEFT JOIN structure_limits_counters c ON c.instance_key = b.instance_key "
+                "AND c.owner_key = :owner_key AND c.blueprint = b.blueprint "
+                "WHERE b.instance_key = :ikey AND b.enabled = 1 ORDER BY b.blueprint"
+            ), {"ikey": instance_key, "owner_key": "solo:" + steam_id}).fetchall()
+            specific = []
+            for row in specific_rows:
+                leg = int(row[1] or 0)
+                used = int(row[2] or 0) if valid and owner else None
+                extra = (leg * percentage + 99) // 100
+                specific.append({
+                    "blueprint": str(row[0]), "used": used, "leg": leg,
+                    "lee": extra,
+                    "remaining_primary": max(0, leg - used) if used is not None else None,
+                })
+
+            maps.append({
+                "map_id": str(instance[1]), "map_name": str(instance[2]),
+                "global_primary": global_primary,
+                "lpe": global_extra,
+                "global_max": global_primary + global_extra,
+                "global_used": global_used,
+                "global_remaining_primary": max(0, global_primary - global_used) if global_used is not None else None,
+                "extra_percentage": percentage,
+                "inventory_state": inventory_state,
+                "inventory_validated_at": instance[7].isoformat() if hasattr(instance[7], "isoformat") else (str(instance[7]) if instance[7] else None),
+                "config_version": int(instance[5] or 0),
+                "specific": specific,
+                "scope": "solo" if owner else "unavailable",
+            })
+
+        events = []
+        # Only solo-owner history is safe to expose until current tribe membership
+        # can be verified against a non-stale, instance-linked source.
+        event_rows = db.execute(text(
+            "SELECT e.occurred_at, e.event_type, e.blueprint, e.global_before, "
+            "e.global_after, e.specific_before, e.specific_after, e.steam_id "
+            "FROM structure_limits_events e "
+            "JOIN structure_limits_owners o ON o.instance_key = e.instance_key "
+            "AND o.owner_key = e.owner_key "
+            "WHERE o.owner_type = 'solo' AND o.steam_id = :sid "
+            "AND e.occurred_at >= CURRENT_TIMESTAMP - INTERVAL 30 DAY "
+            "ORDER BY e.occurred_at DESC LIMIT 100"
+        ), {"sid": steam_id}).fetchall()
+        for row in event_rows:
+            events.append({
+                "occurred_at": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
+                "event_type": str(row[1]), "blueprint": str(row[2] or ""),
+                "global_before": row[3], "global_after": row[4],
+                "specific_before": row[5], "specific_after": row[6],
+                "actor_is_player": str(row[7] or "") == steam_id,
+            })
+
+        return jsonify({
+            "ok": True,
+            "integration": "ready",
+            "steam_id": steam_id,
+            "license": {"active": license_active, "valid_until": license_until, "source": license_source},
+            "maps": maps,
+            "events": events,
+            "limitations": {
+                "tribe_counts": "hidden_until_current_membership_is_authoritatively_verified",
+                "solo_counts_only": True,
+            },
+        })
+    except Exception as exc:
+        db.rollback()
+        err_text = str(exc).lower()
+        if any(marker in err_text for marker in ("doesn't exist", "does not exist", "no such table", "unknown table")):
+            return jsonify({
+                "ok": True, "integration": "pending",
+                "message": "A integração de dados dos servidores ainda não foi ativada. Nenhuma contagem foi inventada.",
+                "license": None, "maps": [], "events": [],
+            })
+        _log_error("player_structure_limits", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": "Não foi possível carregar os limites agora."}), 503
+    finally:
+        _release_db_session(db)
+
+
 @app.route("/api/player/history", methods=["GET"])
 @login_required
 def player_history():

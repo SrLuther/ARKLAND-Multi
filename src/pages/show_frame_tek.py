@@ -117,8 +117,8 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
         except Exception:
             pass
 
-    # ── Reutiliza frame em cache (database sempre reconstrói — layout dinâmico) ─
-    if name != "database" and cache_key in app._frame_cache:
+    # ── Reutiliza o frame em cache para evitar reconstruções completas ───────
+    if cache_key in app._frame_cache:
         cached = app._frame_cache[cache_key]
         try:
             if cached.winfo_exists():
@@ -137,6 +137,10 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
                     app._start_perf_monitor()
                 elif name == "dashboard":
                     app._asm_refresh_dashboard(immediate=True)
+                elif name == "database":
+                    refresh = getattr(app, "_database_frame_refresh", None)
+                    if callable(refresh):
+                        refresh()
                 elif name == "saves":
                     fn = getattr(app, "_savegame_panel_refresh", None)
                     if callable(fn):
@@ -160,15 +164,6 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
         app._frame_cache.pop(cache_key, None)
 
     # ── Constrói novo frame ───────────────────────────────────────────────
-    if name == "database":
-        prev = getattr(app, "_database_frame", None)
-        if prev is not None:
-            try:
-                if prev.winfo_exists():
-                    prev.destroy()
-            except Exception:
-                pass
-
     frame = ctk.CTkFrame(app._page_area, fg_color=get_theme("tek")["bg"],
                          corner_radius=0)
     frame.grid(row=0, column=0, sticky="nsew")
@@ -190,8 +185,7 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
             app._current_frame = None
         raise
 
-    if name != "database":
-        app._frame_cache[cache_key] = frame
+    app._frame_cache[cache_key] = frame
 
     # Watermark em todas as páginas, atrás do conteúdo
     app._apply_watermark_to_frame(frame)

@@ -1,9 +1,52 @@
 # Changelog
 
-<!-- Gerado: 2026-11-20 23:34:09 -->
-<!-- Total de versões: 574 | Primeira: 1.12.15 -->
+<!-- Gerado: 2026-11-22 16:18:28 -->
+<!-- Total de versões: 577 | Primeira: 1.12.16 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.16] - 2026-11-22
+
+### Feature
+
+- Feature (Minha Área / Limites): adiciona uma página somente de leitura para exibir limites, licença, validação do inventário e eventos quando as tabelas da integração estiverem disponíveis; sem inventar contagens, criar schema, debitar Âmbares ou alterar limites. Motivo: adiantar a consulta do jogador enquanto a integração do plugin com os servidores permanece pendente.
+
+### Improvement
+
+- Melhoria (TEK / Navegação e Banco de Dados): mantém a página do banco em cache, executa as consultas de estado do MariaDB e firewall em segundo plano, limita as métricas de UI a 2.000 entradas e grava o baseline fora da thread visual. Motivo: reconstrução repetida e chamadas síncronas podiam congelar a interface; resultado esperado: navegação mais responsiva, retorno rápido à página e telemetria com custo limitado.
+- Melhoria (Catálogo ASE): traduz para português a descrição de -PreventHibernation no seletor de argumentos. Motivo: explicar o efeito real da opção para quem administra servidores em português sem alterar o argumento nem sua referência.
+
+### Other
+
+- Correção (Listagem Steam): só informa servidor listado quando há resposta A2S pública válida e confirmação da Steam; um registro mestre obsoleto sozinho não gera estado ONLINE · Steam. Motivo: evitar exibir como online/listado um servidor cuja lista ainda não confirma a publicação.
+
+## [Unreleased] - 2026-11-22
+
+> Status: **UNDEFINED** — alterações locais, ainda não publicadas.
+
+### Other
+
+- Plugin Structure Limits (UNDEFINED): adiciona parser JSON com validação estrita de mapa/pasta, LPG, percentual, blueprints duplicados e outbox; a configuração exemplo continua desabilitada. Motivo: falhas de configuração não devem carregar limites errados nem misturar dados de instâncias; resultado esperado: rejeitar estado inválido antes de qualquer enforcement.
+- Plugin Structure Limits (UNDEFINED): condiciona ativação a snapshot completo/validado, identidade exata e evidência interna de hook seguro; suspensão preserva reservas em voo e reconciliação não sobrescreve inventário com reservas abertas. Motivo: impedir bloqueio em runtime com hook não validado; resultado esperado: fail-open até prova explícita.
+- Plugin Structure Limits (UNDEFINED): amplia testes para parser, colisão/mismatch, licença compartilhada, redução de limite, reatribuição, reservas durante suspensão e recuperação do outbox após reabertura; os testes passaram em MSVC C++20. Motivo: verificar as regras sem servidor ARK; não comprova hooks, consumo de materiais, mods, MySQL ou world scan.
+- Plugin Structure Limits (UNDEFINED): adiciona snapshot local JSON versionado com CRC32, limite de 128 MiB, escrita atômica e validação de mapa/IDs; snapshot carregado é sempre candidato não validado e temporários interrompidos são sinalizados. Motivo: recuperar estado local sem tratar dado antigo como prova do mundo atual; resultado esperado: detecção de corrupção acidental e nenhuma ativação de enforcement sem novo scan. CRC32 não protege contra adulteração deliberada.
+- Plugin Structure Limits (UNDEFINED): adiciona worker genérico para enviar outbox em thread separada, confirmar arquivo apenas após sucesso do sink e repetir eventos pendentes após falha; a configuração habilitada passa a exigir caminho absoluto para snapshot e outbox. Motivo: manter rede/SQL fora do caminho de construção e não descartar eventos; resultado esperado: entrega at-least-once, exigindo sink idempotente e com timeout. Ainda não há sink MySQL nem integração Plugin_Init.
+- Plugin Structure Limits (UNDEFINED): amplia testes locais para snapshot válido, corrupção, identidade errada, snapshot antigo nunca validado, arquivo temporário órfão sem snapshot final e retry do worker; build MSVC C++20 passou. Motivo: verificar recuperação e retenção em falhas simuladas sem acessar produção; testes não simulam queda de energia real, hook Ark, MySQL ou servidor ativo.
+- Plugin Structure Limits (UNDEFINED): adiciona probe ArkServerAPI compilável, desativado por padrão, que observa IsAllowedToBuild apenas na verificação final, chama a implementação original antes e registra resultado e identidades disponíveis sem interferir na construção. Motivo: coletar evidência de chamadas do hook antes de projetar veto; resultado esperado: diagnósticos sem bloquear jogadores. O DLL compilou/linkou com o SDK local, mas não foi instalado ou executado; consumo de materiais e comportamento em runtime continuam desconhecidos.
+
+## [Unreleased] - 2026-11-21
+
+> Status: **UNDEFINED** — alterações locais, ainda não publicadas.
+
+### Refactor
+
+- Plugin Structure Limits (UNDEFINED): adiciona schema SQL versionado, configuração exemplo desabilitada, testes standalone e documentação do estado real. A finalidade é preparar evolução isolada; migração, DLL, instalação e produção continuam fora desta etapa.
+
+### Other
+
+- Plugin Structure Limits (UNDEFINED): inicia núcleo C++ local para LPG/LEG, extras por percentual com arredondamento para cima, licença individual de 30 dias, contagem solo, fusão pelo teto global e reservas concorrentes. A separação do núcleo permite validar regras sem arriscar os hooks do jogo; resultado esperado: regras reproduzíveis e testáveis antes da integração ArkServerAPI.
+- Plugin Structure Limits (UNDEFINED): fail-open até inventário completo e validado, com identidade mapa+pasta, reserva/cancelamento/commit, liberação idempotente e reatribuição de propriedade. A intenção é evitar bloquear jogadores por contagem parcial, overbooking concorrente ou contagem associada à tribo errada; os hooks e o inventário real ainda não estão integrados.
+- Plugin Structure Limits (UNDEFINED): adiciona outbox local Windows por evento com ID idempotente, gravação com FlushFileBuffers, publicação atômica, recuperação após reabertura e sinalização de temporários interrompidos sem apagá-los. A finalidade é preservar eventos até confirmação futura do banco; não existe sincronizador MySQL e nenhum banco foi alterado.
 
 ## [1.12.15] - 2026-11-20
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import queue
 import subprocess
 import sys
 import threading
@@ -877,11 +878,9 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
     # ── Funções do servidor local ──────────────────────────────────────────
 
-    def _refresh_srv_ui() -> None:
-        installed  = local_srv.is_installed()
-        running    = local_srv.is_running()
-        fw_ok      = DbLocalServer.check_firewall_rule()
+    _srv_refresh_in_flight = [False]
 
+    def _apply_srv_ui(installed: bool, running: bool, fw_ok: bool) -> None:
         bind = DbLocalServer.get_bind_address()
         if running:
             _srv_dot.configure(text_color="#22c55e")
@@ -926,6 +925,52 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                     _v_pass.set(local_srv.get_root_password())
             if not (_v_db.get() or "").strip():
                 _v_db.set(_DB_NAME)
+
+    def _refresh_srv_ui() -> None:
+        """Consulta o MariaDB e o firewall em background; a UI só recebe os resultados."""
+        if _srv_refresh_in_flight[0]:
+            return
+        _srv_refresh_in_flight[0] = True
+        result_queue: queue.SimpleQueue = queue.SimpleQueue()
+
+        def _worker() -> None:
+            try:
+                installed = local_srv.is_installed()
+                running = local_srv.is_running()
+                fw_ok = DbLocalServer.check_firewall_rule()
+                result_queue.put((installed, running, fw_ok))
+            except Exception:
+                result_queue.put(None)
+
+        def _poll_result() -> None:
+            try:
+                result = result_queue.get_nowait()
+            except queue.Empty:
+                try:
+                    if parent.winfo_exists():
+                        parent.after(50, _poll_result)
+                    else:
+                        _srv_refresh_in_flight[0] = False
+                except Exception:
+                    _srv_refresh_in_flight[0] = False
+                return
+
+            _srv_refresh_in_flight[0] = False
+            if result is None:
+                _srv_status_var.set("Falha ao consultar o estado do servidor local")
+                return
+            try:
+                if parent.winfo_exists():
+                    _apply_srv_ui(*result)
+            except Exception:
+                # A página pode ter sido fechada enquanto a consulta rodava.
+                pass
+
+        parent.after(50, _poll_result)
+        threading.Thread(target=_worker, daemon=True, name="DBStatusRefresh").start()
+
+    # Usado ao retornar à página em cache, sem reconstruir seus widgets.
+    app._database_frame_refresh = _refresh_srv_ui
 
     def _do_download() -> None:
         _btn_download.configure(state="disabled")
@@ -1033,8 +1078,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     _btn_fw.configure(command=_do_firewall)
 
     # Verifica status inicial em background
-    threading.Thread(target=lambda: parent.after(200, _refresh_srv_ui),
-                     daemon=True).start()
+    parent.after(200, _refresh_srv_ui)
 
     # ── Barra de conexão ───────────────────────────────────────────────────
     conn_bar = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)

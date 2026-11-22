@@ -10916,6 +10916,7 @@
         <nav class="myarea-tabs" aria-label="Seções da Minha Área">
           <button type="button" class="myarea-tab is-active" data-myarea-tab="account" onclick="setMyAreaTab('account')">Conta e resumo</button>
           <button type="button" class="myarea-tab" data-myarea-tab="game" onclick="setMyAreaTab('game')">Jogo e equipe</button>
+          <button type="button" class="myarea-tab" data-myarea-tab="limits" onclick="setMyAreaTab('limits')">Limites</button>
           <button type="button" class="myarea-tab" data-myarea-tab="farm" onclick="setMyAreaTab('farm')">Fazenda</button>
           <button type="button" class="myarea-tab" data-myarea-tab="history" onclick="setMyAreaTab('history')">Histórico</button>
         </nav>
@@ -11033,6 +11034,25 @@
           </div>
           <div id="myarea-teams-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
+        </section>
+
+        <section class="myarea-panel" data-myarea-panel="limits">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Limites de estruturas</div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="loadStructureLimits(true)">↻ Atualizar</button>
+            </div>
+            <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.6;">Consulte os limites por mapa, o uso registrado para seu personagem solo e a validade da licença. Limites de tribo só aparecem quando o site consegue confirmar sua participação atual naquela tribo.</p>
+            <div id="myarea-structure-limits" style="color:var(--text2);font-size:13px;">Carregando limites…</div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Atividade — últimos 30 dias</div></div>
+            <div id="myarea-structure-limits-events" style="color:var(--text2);font-size:13px;">Carregando histórico…</div>
+          </div>
+          <div class="card" style="border-color:rgba(232,160,32,.25);">
+            <div class="card-title" style="margin-bottom:6px;">Configuração e licenças</div>
+            <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.6;">A configuração administrativa por mapa e a contratação de licença ainda não estão conectadas ao serviço dos servidores. Esta página não debita Âmbares nem altera limites; esses controles só serão habilitados depois da integração e validação do fluxo completo.</p>
+          </div>
         </section>
 
         <section class="myarea-panel" data-myarea-panel="farm">
@@ -17780,7 +17800,7 @@ function fmtDate(iso) {
 }
 
 function setMyAreaTab(tab) {
-  const selected = ["account", "game", "farm", "history"].includes(String(tab)) ? String(tab) : "account";
+  const selected = ["account", "game", "limits", "farm", "history"].includes(String(tab)) ? String(tab) : "account";
   document.querySelectorAll(".myarea-tab").forEach((el) => {
     const active = el.dataset.myareaTab === selected;
     el.classList.toggle("is-active", active);
@@ -17791,6 +17811,57 @@ function setMyAreaTab(tab) {
   });
   if (selected === "farm") {
     loadMyFarm();
+  }
+  if (selected === "limits") {
+    loadStructureLimits();
+  }
+}
+
+async function loadStructureLimits(force) {
+  const host = document.getElementById("myarea-structure-limits");
+  const eventsHost = document.getElementById("myarea-structure-limits-events");
+  if (!host || !_auth.authenticated) return;
+  if (force) host.textContent = "Atualizando limites…";
+  try {
+    const response = await fetch(API + "/api/player/structure-limits", { credentials: "same-origin", cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || "Não foi possível carregar os limites.");
+    if (payload.integration === "pending") {
+      host.innerHTML = `<div role="status" style="padding:12px;border:1px solid var(--border);border-radius:8px;line-height:1.6;">${escHtml(payload.message || "A integração com os servidores ainda está pendente.")}<br><span style="font-size:11px;">Nenhum limite ou contador foi presumido.</span></div>`;
+      if (eventsHost) eventsHost.textContent = "O histórico será exibido quando a integração estiver ativa.";
+      return;
+    }
+    const license = payload.license;
+    const licenseHtml = license
+      ? `<div class="form-group" style="grid-column:1/-1;"><label>Licença de capacidade extra</label><input readonly value="${license.active ? "Ativa" : "Sem licença ativa"}${license.valid_until ? " — válida até " + escHtml(fmtDate(license.valid_until)) : ""}" /></div>`
+      : `<div style="grid-column:1/-1;color:var(--text2);font-size:12px;">Status da licença indisponível.</div>`;
+    const maps = Array.isArray(payload.maps) ? payload.maps : [];
+    const mapHtml = maps.length ? maps.map((map) => {
+      const usable = map.inventory_state === "validated";
+      const globalUse = map.global_used == null ? "Aguardando inventário validado" : `${map.global_used.toLocaleString("pt-BR")} / ${map.global_primary.toLocaleString("pt-BR")}`;
+      const globalRemaining = map.global_remaining_primary == null ? "—" : map.global_remaining_primary.toLocaleString("pt-BR");
+      const specificHtml = (map.specific || []).map((limit) => {
+        const count = limit.used == null ? "Contagem individual indisponível" : `${limit.used.toLocaleString("pt-BR")} / ${limit.leg.toLocaleString("pt-BR")}`;
+        return `<div class="form-group"><label>${escHtml(limit.blueprint)}</label><input readonly value="${count} LEG · ${limit.remaining_primary == null ? "—" : limit.remaining_primary.toLocaleString("pt-BR") + " restantes"} · LEE ${limit.lee.toLocaleString("pt-BR")}" /></div>`;
+      }).join("") || `<div style="grid-column:1/-1;color:var(--text2);font-size:12px;">Nenhum blueprint com LEG foi configurado neste mapa.</div>`;
+      const scopeNote = map.scope === "solo" ? "Dados vinculados ao seu SteamID (solo)." : "Contagem de tribo/solo ainda indisponível para esta conta.";
+      return `<article style="border:1px solid var(--border);border-radius:10px;padding:14px;margin:10px 0;">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><strong>${escHtml(map.map_name || map.map_id)}</strong><span class="badge">${usable ? "Inventário validado" : "Inventário " + escHtml(map.inventory_state)}</span></div>
+        <div class="form-grid">
+          <div class="form-group"><label>LPG usado / primário</label><input readonly value="${globalUse}" /></div>
+          <div class="form-group"><label>Primário restante</label><input readonly value="${globalRemaining}" /></div>
+          <div class="form-group"><label>LPE compartilhado (${map.extra_percentage}%)</label><input readonly value="${map.lpe.toLocaleString("pt-BR")} · máximo ${map.global_max.toLocaleString("pt-BR")}" /></div>
+          ${specificHtml}${licenseHtml}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:8px;">${escHtml(scopeNote)}${map.inventory_validated_at ? " Inventário validado em " + escHtml(fmtDate(map.inventory_validated_at)) + "." : ""}</div>
+      </article>`;
+    }).join("") : `<div style="padding:12px;color:var(--text2);">Nenhum mapa publicou configuração de limites ainda.</div>`;
+    host.innerHTML = mapHtml;
+    const events = Array.isArray(payload.events) ? payload.events : [];
+    if (eventsHost) eventsHost.innerHTML = events.length ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr><th style="text-align:left;padding:8px;">Data</th><th style="text-align:left;padding:8px;">Evento</th><th style="text-align:left;padding:8px;">Blueprint</th><th style="text-align:left;padding:8px;">Contagem global</th><th style="text-align:left;padding:8px;">Contagem específica</th></tr></thead><tbody>${events.map((event) => `<tr><td style="padding:8px;">${escHtml(fmtDate(event.occurred_at))}</td><td style="padding:8px;">${escHtml(event.event_type)}${event.actor_is_player ? " · você" : " · responsável não confirmado"}</td><td style="padding:8px;">${escHtml(event.blueprint || "—")}</td><td style="padding:8px;">${event.global_before == null ? "—" : Number(event.global_before).toLocaleString("pt-BR")} → ${event.global_after == null ? "—" : Number(event.global_after).toLocaleString("pt-BR")}</td><td style="padding:8px;">${event.specific_before == null ? "—" : Number(event.specific_before).toLocaleString("pt-BR")} → ${event.specific_after == null ? "—" : Number(event.specific_after).toLocaleString("pt-BR")}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma movimentação individual registrada nos últimos 30 dias.";
+  } catch (error) {
+    host.innerHTML = `<div role="alert" style="color:var(--danger);">${escHtml(error.message || "Falha ao consultar limites.")}</div>`;
+    if (eventsHost) eventsHost.textContent = "Histórico indisponível.";
   }
 }
 

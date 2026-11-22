@@ -970,7 +970,7 @@
       "key": "-PreventHibernation",
       "type": "",
       "default": "",
-      "description": "In both Single Player and Non-Dedicated sessions, creatures in inactive zones are in hibernation instead of in stasis. Use this option to prevent hibernation at the cost of performance and memory usage. Using this option on server will not override clients' behaviour, nor bring any benefit.",
+      "description": "Tanto no modo para um jogador quanto em sessões não dedicadas, as criaturas em zonas inativas entram em hibernação em vez de permanecerem em stasis. Use esta opção para impedir a hibernação, aumentando o consumo de desempenho e memória. Em servidores dedicados, ela não altera o comportamento dos clientes nem oferece benefício.",
       "since": "259.0",
       "command_line": false,
       "argument": "-PreventHibernation",

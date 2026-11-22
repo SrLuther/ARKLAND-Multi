@@ -1,10 +1,11 @@
 {
-    "version": "1.12.15",
-    "date": "2026-11-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.15/ARKLAND-Multi-Setup-v1.12.15.exe",
+    "version": "1.12.16",
+    "date": "2026-11-22",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.16/ARKLAND-Multi-Setup-v1.12.16.exe",
     "changelog": [
-        "Central de Comandos ARK: nova área administrativa com catálogo pesquisável, mapas e jogadores conectados, parâmetros validados e cópia manual de sintaxe; comandos não são executados pelo site.",
-        "Central de Comandos ARK: separa SteamID64 de PlayerID numérico e identifica comandos exclusivos de ASA para evitar uso incorreto no ASE.",
-        "Documentação: inclui catálogo administrativo do ARK e inventário local do wrapper ArkServerAPI, com descrições em português e fontes para conferência."
+        "Melhoria (TEK / Navegação e Banco de Dados): mantém a página do banco em cache, executa as consultas de estado do MariaDB e firewall em segundo plano, limita as métricas de UI a 2.000 entradas e grava o baseline fora da thread visual. Motivo: reconstrução repetida e chamadas síncronas podiam congelar a interface; resultado esperado: navegação mais responsiva, retorno rápido à página e telemetria com custo limitado.",
+        "Correção (Listagem Steam): só informa servidor listado quando há resposta A2S pública válida e confirmação da Steam; um registro mestre obsoleto sozinho não gera estado ONLINE · Steam. Motivo: evitar exibir como online/listado um servidor cuja lista ainda não confirma a publicação.",
+        "Melhoria (Catálogo ASE): traduz para português a descrição de -PreventHibernation no seletor de argumentos. Motivo: explicar o efeito real da opção para quem administra servidores em português sem alterar o argumento nem sua referência.",
+        "Feature (Minha Área / Limites): adiciona uma página somente de leitura para exibir limites, licença, validação do inventário e eventos quando as tabelas da integração estiverem disponíveis; sem inventar contagens, criar schema, debitar Âmbares ou alterar limites. Motivo: adiantar a consulta do jogador enquanto a integração do plugin com os servidores permanece pendente."
     ]
 }

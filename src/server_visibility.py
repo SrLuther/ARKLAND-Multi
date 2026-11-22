@@ -222,8 +222,21 @@ def classify_steam_status(
         return STEAM_UNAVAILABLE, "Processo ativo — aguardando porta de query (A2S)"
     if not public_ip:
         return STEAM_NEED_PUBLIC_IP, "Configure o IP público da máquina nas configurações globais"
-    if public_query_ok or steam_master_ok:
+    # Steam's master list can retain a stale entry after the A2S endpoint stops
+    # returning usable server metadata. A master-list hit alone is therefore
+    # not enough to claim that the server is currently online and listed.
+    if public_query_ok and steam_master_ok:
         return STEAM_AVAILABLE, "Publicado na lista Steam"
+    if steam_master_ok and not public_query_ok:
+        return (
+            STEAM_WAITING,
+            "Steam ainda retorna o registro, mas a consulta A2S pública é inválida; listagem não confirmada",
+        )
+    if public_query_ok:
+        return (
+            STEAM_WAITING,
+            "Consulta A2S pública válida — aguardando confirmação na lista Steam",
+        )
     return (
         STEAM_WAITING,
         "Query local OK — aguardando publicação na lista Steam (pode levar alguns minutos)",
@@ -334,10 +347,8 @@ class SteamStatusPoller:
             public_ok = probe_a2s_query(public_ip, query_port)
             now = time.monotonic()
             last = self._last_remote.get(sid, 0.0)
-            if not public_ok and now - last >= REMOTE_POLL_DELAY:
+            if now - last >= REMOTE_POLL_DELAY:
                 steam_master_ok = check_steam_master_list(public_ip, game_port, query_port)
-                self._last_remote[sid] = now
-            elif public_ok:
                 self._last_remote[sid] = now
 
         mode, detail = classify_steam_status(
