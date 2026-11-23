@@ -86,6 +86,9 @@ a = Analysis(
         'src.discord_bot.moderation',
         'src.discord_bot.nickname_sync',
         'src.discord_bot.voice_manager',
+        # Importado dinamicamente por init_discord_notifier; mantê-lo explícito
+        # evita que a análise do PyInstaller o omita do executável de produção.
+        'src.discord_status_board',
     ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports + dpy_hiddenimports + aio_hiddenimports + ssh_hiddenimports + pyte_hiddenimports + src_hiddenimports,
     hookspath=[],
     hooksconfig={},

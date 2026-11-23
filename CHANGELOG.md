@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-23 01:22:48 -->
-<!-- Total de versões: 581 | Primeira: 1.12.20 -->
+<!-- Gerado: 2026-11-23 01:52:07 -->
+<!-- Total de versões: 582 | Primeira: 1.12.21 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.21] - 2026-11-23
+
+### Other
+
+- Correção de empacotamento: inclui explicitamente o módulo src.discord_status_board no executável. Motivo: a inicialização do notificador o importa dinamicamente e a versão publicada falhou com ModuleNotFoundError. Resultado esperado: o aplicativo inicia sem essa exceção e o painel de status do Discord pode ser inicializado.
 
 ## [1.12.20] - 2026-11-23
 
