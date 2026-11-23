@@ -1,9 +1,9 @@
-"""
-Painel fixo Discord — status dos servidores TEK.
+﻿"""
+Painel fixo Discord â€” status dos servidores TEK.
 
-Uma única mensagem (embed) é criada após limpar o canal no arranque do app
-e depois só é editada (PATCH) enquanto o processo corre.
-ONLINE só quando listado na Steam (STEAM_AVAILABLE).
+Uma Ãºnica mensagem (embed) Ã© criada apÃ³s limpar o canal no arranque do app
+e depois sÃ³ Ã© editada (PATCH) enquanto o processo corre.
+ONLINE sÃ³ quando listado na Steam (STEAM_AVAILABLE).
 """
 from __future__ import annotations
 
@@ -44,28 +44,28 @@ STATUS_QUERY_PENDING = "QUERY_PENDENTE"
 STATUS_INDISPONIVEL = "INDISPONIVEL"
 
 _STATUS_META: dict[str, tuple[str, int]] = {
-    STATUS_PARADO: ("🔴", 0x95A5A6),
-    STATUS_INICIANDO: ("🟡", 0xF1C40F),
-    STATUS_ATUALIZANDO: ("🔄", 0x3498DB),
-    STATUS_ONLINE: ("🟢", 0x2ECC71),
-    STATUS_ONLINE_UNLISTED: ("🟡", 0xF1C40F),
-    STATUS_ONLINE_LAN: ("🔵", 0x3498DB),
-    STATUS_QUERY_PENDING: ("🟠", 0xE67E22),
-    STATUS_INDISPONIVEL: ("⚪", 0x64748B),
+    STATUS_PARADO: ("ðŸ”´", 0x95A5A6),
+    STATUS_INICIANDO: ("ðŸŸ¡", 0xF1C40F),
+    STATUS_ATUALIZANDO: ("ðŸ”„", 0x3498DB),
+    STATUS_ONLINE: ("ðŸŸ¢", 0x2ECC71),
+    STATUS_ONLINE_UNLISTED: ("ðŸŸ¡", 0xF1C40F),
+    STATUS_ONLINE_LAN: ("ðŸ”µ", 0x3498DB),
+    STATUS_QUERY_PENDING: ("ðŸŸ ", 0xE67E22),
+    STATUS_INDISPONIVEL: ("âšª", 0x64748B),
 }
 
 _STATUS_SECTIONS: tuple[tuple[str, str], ...] = (
-    (STATUS_ONLINE, "🟢 ONLINE"),
-    (STATUS_ONLINE_UNLISTED, "🟡 AGUARDANDO STEAM"),
-    (STATUS_QUERY_PENDING, "🟠 AGUARDANDO QUERY"),
-    (STATUS_PARADO, "🔴 OFFLINE"),
-    (STATUS_INDISPONIVEL, "⚪ INDISPONÍVEL"),
-    (STATUS_ONLINE_LAN, "🔵 ONLINE NA REDE LOCAL"),
-    (STATUS_INICIANDO, "🟡 INICIANDO"),
-    (STATUS_ATUALIZANDO, "🔄 ATUALIZANDO"),
-}
+    (STATUS_ONLINE, "ðŸŸ¢ ONLINE"),
+    (STATUS_ONLINE_UNLISTED, "ðŸŸ¡ AGUARDANDO STEAM"),
+    (STATUS_QUERY_PENDING, "ðŸŸ  AGUARDANDO QUERY"),
+    (STATUS_PARADO, "ðŸ”´ OFFLINE"),
+    (STATUS_INDISPONIVEL, "âšª INDISPONÃVEL"),
+    (STATUS_ONLINE_LAN, "ðŸ”µ ONLINE NA REDE LOCAL"),
+    (STATUS_INICIANDO, "ðŸŸ¡ INICIANDO"),
+    (STATUS_ATUALIZANDO, "ðŸ”„ ATUALIZANDO"),
+)
 
-_FOOTER = "ARKLAND · painel de status"
+_FOOTER = "ARKLAND Â· painel de status"
 _OFFICIAL_SITE_URL = "https://arkland.com.br/"
 _DEBOUNCE_S = 8.0
 _API = "https://discord.com/api/v10"
@@ -75,12 +75,12 @@ _status_change_by_server: dict[str, tuple[str, str, float]] = {}
 
 
 def _now_brasilia_label() -> str:
-    """Data/hora de Brasília (UTC−3) para o rodapé do painel."""
+    """Data/hora de BrasÃ­lia (UTCâˆ’3) para o rodapÃ© do painel."""
     return datetime.now(_TZ_BRASILIA).strftime("%d/%m/%Y %H:%M:%S")
 
 
 def _status_changed_at(server_id: str, status: str, label: str, unix_time: float) -> tuple[str, float]:
-    """Mantém o instante da última transição de estado de cada servidor."""
+    """MantÃ©m o instante da Ãºltima transiÃ§Ã£o de estado de cada servidor."""
     key = (server_id or "?").strip() or "?"
     with _status_change_lock:
         previous = _status_change_by_server.get(key)
@@ -93,14 +93,14 @@ def _status_changed_at(server_id: str, status: str, label: str, unix_time: float
 def connected_label(status: str, players: Optional[int]) -> str:
     """Texto de pessoas conectadas no card.
 
-    Usa a contagem A2S já guardada no servidor. Servidor parado ou em
-    atualização não tem query ao vivo — traço, sem reaproveitar cache antigo.
-    Query ausente (None) também vira traço. Não inventa um número.
+    Usa a contagem A2S jÃ¡ guardada no servidor. Servidor parado ou em
+    atualizaÃ§Ã£o nÃ£o tem query ao vivo â€” traÃ§o, sem reaproveitar cache antigo.
+    Query ausente (None) tambÃ©m vira traÃ§o. NÃ£o inventa um nÃºmero.
     """
     if status in (STATUS_PARADO, STATUS_INICIANDO, STATUS_ATUALIZANDO, STATUS_QUERY_PENDING):
-        return "—"
+        return "â€”"
     if players is None:
-        return "—"
+        return "â€”"
     return f"{players} jogadores"
 
 
@@ -133,7 +133,7 @@ def build_embed(rows: list) -> dict:
         latest = max(members, key=lambda item: item[2])
         lines.append(f"**{title} - {latest[1]}**")
         lines.extend(
-            f"• {name}"
+            f"â€¢ {name}"
             for name, _timestamp, _unix in sorted(members, key=lambda item: item[0].casefold())
         )
 
@@ -143,24 +143,24 @@ def build_embed(rows: list) -> dict:
     unavailable_n = sum(1 for s in counted if s == STATUS_INDISPONIVEL)
     total_n = len(counted)
     counts = (
-        f"{online_n} online · {waiting_n} aguardando · {offline_n} offline · "
-        f"{unavailable_n} indisponível · {total_n} total"
+        f"{online_n} online Â· {waiting_n} aguardando Â· {offline_n} offline Â· "
+        f"{unavailable_n} indisponÃ­vel Â· {total_n} total"
     )
     warning = (
-        "⚠️ O painel é atualizado periodicamente e pode ter atraso. "
-        "Consulte também o site oficial e adicione os servidores aos favoritos da Steam."
+        "âš ï¸ O painel Ã© atualizado periodicamente e pode ter atraso. "
+        "Consulte tambÃ©m o site oficial e adicione os servidores aos favoritos da Steam."
     )
     lines.extend(("", warning))
     color = 0x2ECC71 if online_n and not waiting_n and not offline_n else 0x3498DB
 
     return {
-        "title": "📊 STATUS DOS SERVIDORES",
+        "title": "ðŸ“Š STATUS DOS SERVIDORES",
         "description": "\n".join(lines)[:4000],
         "color": color,
         "footer": {
             "text": (
-                f"{_FOOTER} · {counts} · Dados consultados em "
-                f"{updated_at} (horário de Brasília)"
+                f"{_FOOTER} Â· {counts} Â· Dados consultados em "
+                f"{updated_at} (horÃ¡rio de BrasÃ­lia)"
             )[:2048],
         },
     }
@@ -186,7 +186,7 @@ def _warn_push(msg: str, *args: Any) -> None:
 
 
 def map_public_status(process_status: str, steam_status: str) -> str:
-    """Mapeia processo + listagem Steam → estado público do painel."""
+    """Mapeia processo + listagem Steam â†’ estado pÃºblico do painel."""
     ps = (process_status or "").strip().lower()
     ss = (steam_status or "").strip().lower()
 
@@ -298,7 +298,7 @@ def purge_channel_messages(bot_token: str, channel_id: str) -> tuple[int, str]:
         )
         if code in (401, 403):
             return deleted, (
-                f"Bot sem permissão no canal ({code}). "
+                f"Bot sem permissÃ£o no canal ({code}). "
                 "Precisa Manage Messages + Read Message History."
             )
         if code != 200:
@@ -319,7 +319,7 @@ def purge_channel_messages(bot_token: str, channel_id: str) -> tuple[int, str]:
                 deleted += len(ids[:100])
                 time.sleep(0.4)
                 continue
-            _logger.warning("bulk-delete falhou (%s): %s — a apagar 1 a 1", bcode, bbody)
+            _logger.warning("bulk-delete falhou (%s): %s â€” a apagar 1 a 1", bcode, bbody)
         for mid in ids:
             dcode, _ = _http_json(
                 "DELETE",
@@ -365,7 +365,7 @@ def _status_components() -> list[dict[str, Any]]:
 
 
 def _webhook_create(url: str, username: str, embed: dict) -> str:
-    """POST ?wait=true → devolve message id."""
+    """POST ?wait=true â†’ devolve message id."""
     base = url.split("?")[0].rstrip("/")
     code, body = _http_json(
         "POST",
@@ -401,11 +401,11 @@ def _persist_message_id(app: Any, message_id: str) -> None:
     try:
         app.config_manager.save()
     except Exception as exc:
-        _logger.warning("Não gravou status_board_message_id: %s", exc)
+        _logger.warning("NÃ£o gravou status_board_message_id: %s", exc)
 
 
 def _webhook_url(cfg: Any) -> str:
-    """Webhook dedicado do painel (não o de eventos)."""
+    """Webhook dedicado do painel (nÃ£o o de eventos)."""
     return (getattr(cfg, "status_board_webhook_url", "") or "").strip()
 
 
@@ -481,8 +481,8 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
                 if inst is not None:
                     process = getattr(inst, "status", ASM_STATUS_STOPPED) or ASM_STATUS_STOPPED
                     steam = getattr(inst, "steam_status", "") or ""
-                    # Contagem já preenchida pelo poller A2S (mesma fonte do card «pessoas»).
-                    # None = query falhou ou ainda não correu — o card mostra traço.
+                    # Contagem jÃ¡ preenchida pelo poller A2S (mesma fonte do card Â«pessoasÂ»).
+                    # None = query falhou ou ainda nÃ£o correu â€” o card mostra traÃ§o.
                     players = _opt_int(getattr(inst, "a2s_players", None))
                     max_players = _opt_int(getattr(inst, "a2s_max_players", None))
             if max_players is None:
@@ -512,7 +512,7 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
                 "max_players": max_players,
             }
             rows_out.append(item)
-            # Alias pelo id ASM se diferente do shop_id — home pode usar qualquer um.
+            # Alias pelo id ASM se diferente do shop_id â€” home pode usar qualquer um.
             if shop_id and asm_id and shop_id != asm_id:
                 rows_out.append({**item, "server_id": asm_id})
         except Exception:
@@ -535,7 +535,7 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
 
 
 def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = None) -> None:
-    """Envia status runtime à Web Store (best-effort, thread-safe no caller)."""
+    """Envia status runtime Ã  Web Store (best-effort, thread-safe no caller)."""
     try:
         from .shop_integration import resolve_plugin_api_url
     except Exception:
@@ -547,7 +547,7 @@ def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = No
         if not api_key:
             _warn_push(
                 "runtime-status push ignorado: shop.api_key vazio "
-                "(home fica em «Aguardando status do TEK…»)."
+                "(home fica em Â«Aguardando status do TEKâ€¦Â»)."
             )
             return
         api_url = resolve_plugin_api_url(shop).rstrip("/")
@@ -577,16 +577,16 @@ def push_status_to_webstore(app: Any, items: Optional[list[dict[str, Any]]] = No
                 diag_event(CAT_WEBSTORE, "runtime-status push ok", _level=10,
                            servers=len(payload_items), url=api_url)
     except Exception as exc:
-        # Auth/URL/rede — sem isto a home fica eternamente «Aguardando status do TEK…».
+        # Auth/URL/rede â€” sem isto a home fica eternamente Â«Aguardando status do TEKâ€¦Â».
         _warn_push("runtime-status push falhou: %s", exc)
 
 
 def boot_webstore_status_push(app: Any) -> None:
-    """No arranque: envia status à Web Store mesmo sem painel Discord activo."""
+    """No arranque: envia status Ã  Web Store mesmo sem painel Discord activo."""
 
     def _worker() -> None:
         try:
-            # Pequeno atraso para reconnect/Steam poller terem estado útil.
+            # Pequeno atraso para reconnect/Steam poller terem estado Ãºtil.
             time.sleep(3.0)
             push_status_to_webstore(app)
         except Exception as exc:
@@ -598,7 +598,7 @@ def boot_webstore_status_push(app: Any) -> None:
 
 
 def _rows_for_embed(payload: list[dict[str, Any]]) -> list[tuple[str, str, str, float]]:
-    """Uma linha por servidor: nome exibido, estado e instante da transição."""
+    """Uma linha por servidor: nome exibido, estado e instante da transiÃ§Ã£o."""
     seen: set[str] = set()
     rows: list[tuple[str, str, str, float]] = []
     for item in payload:
@@ -622,12 +622,12 @@ def _rows_for_embed(payload: list[dict[str, Any]]) -> list[tuple[str, str, str, 
 
 
 def _collect_rows(app: Any) -> list[tuple[str, str, str, float]]:
-    """Lista (nome, estado, instante da transição) ordenada por nome."""
+    """Lista (nome, estado, instante da transiÃ§Ã£o) ordenada por nome."""
     return _rows_for_embed(collect_status_payload(app))
 
 
 def _push_now(app: Any) -> None:
-    """Edita a mensagem existente; só cria se ainda não houver ID (com lock)."""
+    """Edita a mensagem existente; sÃ³ cria se ainda nÃ£o houver ID (com lock)."""
     global _suppress_updates
     if _suppress_updates:
         return
@@ -675,7 +675,7 @@ def _recreate_sync(app: Any) -> dict[str, Any]:
         result["warnings"].append("Webhook do painel vazio.")
         return result
 
-    # 1) Apaga a mensagem conhecida via webhook (não precisa de bot).
+    # 1) Apaga a mensagem conhecida via webhook (nÃ£o precisa de bot).
     old_mid = (getattr(cfg, "status_board_message_id", "") or "").strip()
     if old_mid:
         if _webhook_delete(url, old_mid):
@@ -694,15 +694,15 @@ def _recreate_sync(app: Any) -> dict[str, Any]:
             _logger.info("Painel Discord: canal %s limpo (%s msgs)", channel_id, purged)
     elif not channel_id:
         result["warnings"].append(
-            "ID do canal em falta — não limpei a sala (só tentei apagar a msg conhecida)."
+            "ID do canal em falta â€” nÃ£o limpei a sala (sÃ³ tentei apagar a msg conhecida)."
         )
     else:
         result["warnings"].append(
-            "Token do Discord Bot em falta — não limpei a sala. "
-            "Mensagens antigas ficam; configure o token em «Discord Bot»."
+            "Token do Discord Bot em falta â€” nÃ£o limpei a sala. "
+            "Mensagens antigas ficam; configure o token em Â«Discord BotÂ»."
         )
 
-    # 3) Uma única mensagem nova.
+    # 3) Uma Ãºnica mensagem nova.
     payload = collect_status_payload(app)
     new_id = _webhook_create(url, _sender_name(cfg), build_embed(_rows_for_embed(payload)))
     if new_id:
@@ -719,7 +719,7 @@ def _recreate_sync(app: Any) -> dict[str, Any]:
 def boot_status_board(app: Any) -> None:
     """No arranque: limpa o canal e publica painel novo (webhook dedicado)."""
     global _boot_done, _suppress_updates
-    # Home pública NÃO depende do painel Discord — sempre faz push runtime.
+    # Home pÃºblica NÃƒO depende do painel Discord â€” sempre faz push runtime.
     boot_webstore_status_push(app)
 
     cfg = _status_cfg(app)
@@ -727,7 +727,7 @@ def boot_status_board(app: Any) -> None:
         return
     if not _webhook_url(cfg):
         _logger.warning(
-            "Painel Discord: webhook do painel vazio — configure o webhook "
+            "Painel Discord: webhook do painel vazio â€” configure o webhook "
             "dedicado do canal de status."
         )
         return
@@ -749,13 +749,13 @@ def boot_status_board(app: Any) -> None:
 
 
 def schedule_status_board_update(app: Any, *, force_new: bool = False) -> None:
-    """Agenda atualização com debounce (edita a mesma mensagem + push Web Store)."""
+    """Agenda atualizaÃ§Ã£o com debounce (edita a mesma mensagem + push Web Store)."""
     global _last_push, _pending_timer
     if force_new:
         recreate_status_board(app)
         return
     if _suppress_updates:
-        # Durante recreate Discord, a home não pode ficar sem heartbeat.
+        # Durante recreate Discord, a home nÃ£o pode ficar sem heartbeat.
         try:
             push_status_to_webstore(app)
         except Exception:
@@ -768,14 +768,14 @@ def schedule_status_board_update(app: Any, *, force_new: bool = False) -> None:
             _pending_timer = None
             _last_push = time.monotonic()
         try:
-            # Home sempre atualiza; Discord só se o painel estiver ativo.
+            # Home sempre atualiza; Discord sÃ³ se o painel estiver ativo.
             cfg = _status_cfg(app)
             if cfg is not None and getattr(cfg, "status_board_enabled", False) and _webhook_url(cfg):
                 _push_now(app)
             else:
                 push_status_to_webstore(app)
         except Exception as exc:
-            _logger.warning("Atualização painel Discord falhou: %s", exc)
+            _logger.warning("AtualizaÃ§Ã£o painel Discord falhou: %s", exc)
 
     with _lock:
         now = time.monotonic()
@@ -823,5 +823,5 @@ def recreate_status_board(app: Any, *, sync: bool = False) -> dict[str, Any]:
 
 
 def recreate_status_board_blocking(app: Any) -> dict[str, Any]:
-    """Versão síncrona para o botão da UI (mostra resultado real)."""
+    """VersÃ£o sÃ­ncrona para o botÃ£o da UI (mostra resultado real)."""
     return recreate_status_board(app, sync=True)

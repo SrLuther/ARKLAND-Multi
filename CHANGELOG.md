@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-23 01:52:07 -->
-<!-- Total de versões: 582 | Primeira: 1.12.21 -->
+<!-- Gerado: 2026-11-23 02:05:51 -->
+<!-- Total de versões: 583 | Primeira: 1.12.22 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.22] - 2026-11-23
+
+### Other
+
+- Correção de inicialização do aplicativo: fecha corretamente a tupla de estados no módulo do painel Discord. Motivo: a versão 1.12.21 ainda falhava porque o arquivo tinha erro de sintaxe e era descartado pelo PyInstaller apesar de estar declarado como import oculto. Resultado esperado: src.discord_status_board é compilado e incluído no executável, eliminando o ModuleNotFoundError ao iniciar.
 
 ## [1.12.21] - 2026-11-23
 

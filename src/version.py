@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.21"
+APP_VERSION: str = "1.12.22"
 BUILD_DATE: str = "2026-11-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.22",
+        "date": "2026-11-23",
+        "changes": [
+            "Correção de inicialização do aplicativo: fecha corretamente a tupla de estados no módulo do painel Discord. Motivo: a versão 1.12.21 ainda falhava porque o arquivo tinha erro de sintaxe e era descartado pelo PyInstaller apesar de estar declarado como import oculto. Resultado esperado: src.discord_status_board é compilado e incluído no executável, eliminando o ModuleNotFoundError ao iniciar.",
+        ],
+    },
     {
         "version": "1.12.21",
         "date": "2026-11-23",
