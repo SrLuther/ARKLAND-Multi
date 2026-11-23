@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-23 02:05:51 -->
-<!-- Total de versões: 583 | Primeira: 1.12.22 -->
+<!-- Gerado: 2026-11-23 02:21:25 -->
+<!-- Total de versões: 584 | Primeira: 1.12.23 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.23] - 2026-11-23
+
+### Other
+
+- Correção (Painel Discord): restaura a codificação correta de emojis, acentos e marcadores no embed; corrige o componente de botão para o formato de linha de ação exigido pelo Discord e direciona ao site https://www.arkland.com.br/. Motivo: o texto do painel era exibido como caracteres corrompidos e a estrutura inválida impedia a renderização do botão. Resultado esperado: painel legível em português e botão SITE OFICIAL visível e funcional.
 
 ## [1.12.22] - 2026-11-23
 

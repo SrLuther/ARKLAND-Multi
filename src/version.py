@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.22"
+APP_VERSION: str = "1.12.23"
 BUILD_DATE: str = "2026-11-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.23",
+        "date": "2026-11-23",
+        "changes": [
+            "Correção (Painel Discord): restaura a codificação correta de emojis, acentos e marcadores no embed; corrige o componente de botão para o formato de linha de ação exigido pelo Discord e direciona ao site https://www.arkland.com.br/. Motivo: o texto do painel era exibido como caracteres corrompidos e a estrutura inválida impedia a renderização do botão. Resultado esperado: painel legível em português e botão SITE OFICIAL visível e funcional.",
+        ],
+    },
     {
         "version": "1.12.22",
         "date": "2026-11-23",

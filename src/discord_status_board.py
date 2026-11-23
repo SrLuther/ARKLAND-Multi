@@ -44,29 +44,29 @@ STATUS_QUERY_PENDING = "QUERY_PENDENTE"
 STATUS_INDISPONIVEL = "INDISPONIVEL"
 
 _STATUS_META: dict[str, tuple[str, int]] = {
-    STATUS_PARADO: ("ðŸ”´", 0x95A5A6),
-    STATUS_INICIANDO: ("ðŸŸ¡", 0xF1C40F),
-    STATUS_ATUALIZANDO: ("ðŸ”„", 0x3498DB),
-    STATUS_ONLINE: ("ðŸŸ¢", 0x2ECC71),
-    STATUS_ONLINE_UNLISTED: ("ðŸŸ¡", 0xF1C40F),
-    STATUS_ONLINE_LAN: ("ðŸ”µ", 0x3498DB),
-    STATUS_QUERY_PENDING: ("ðŸŸ ", 0xE67E22),
-    STATUS_INDISPONIVEL: ("âšª", 0x64748B),
+    STATUS_PARADO: ("\U0001F534", 0x95A5A6),
+    STATUS_INICIANDO: ("\U0001F7E1", 0xF1C40F),
+    STATUS_ATUALIZANDO: ("\U0001F504", 0x3498DB),
+    STATUS_ONLINE: ("\U0001F7E2", 0x2ECC71),
+    STATUS_ONLINE_UNLISTED: ("\U0001F7E1", 0xF1C40F),
+    STATUS_ONLINE_LAN: ("\U0001F535", 0x3498DB),
+    STATUS_QUERY_PENDING: ("\U0001F7E0", 0xE67E22),
+    STATUS_INDISPONIVEL: ("\u26AA", 0x64748B),
 }
 
 _STATUS_SECTIONS: tuple[tuple[str, str], ...] = (
-    (STATUS_ONLINE, "ðŸŸ¢ ONLINE"),
-    (STATUS_ONLINE_UNLISTED, "ðŸŸ¡ AGUARDANDO STEAM"),
-    (STATUS_QUERY_PENDING, "ðŸŸ  AGUARDANDO QUERY"),
-    (STATUS_PARADO, "ðŸ”´ OFFLINE"),
-    (STATUS_INDISPONIVEL, "âšª INDISPONÃVEL"),
-    (STATUS_ONLINE_LAN, "ðŸ”µ ONLINE NA REDE LOCAL"),
-    (STATUS_INICIANDO, "ðŸŸ¡ INICIANDO"),
-    (STATUS_ATUALIZANDO, "ðŸ”„ ATUALIZANDO"),
+    (STATUS_ONLINE, "\U0001F7E2 ONLINE"),
+    (STATUS_ONLINE_UNLISTED, "\U0001F7E1 AGUARDANDO STEAM"),
+    (STATUS_QUERY_PENDING, "\U0001F7E0 AGUARDANDO QUERY"),
+    (STATUS_PARADO, "\U0001F534 OFFLINE"),
+    (STATUS_INDISPONIVEL, "\u26AA INDISPON\u00cdVEL"),
+    (STATUS_ONLINE_LAN, "\U0001F535 ONLINE NA REDE LOCAL"),
+    (STATUS_INICIANDO, "\U0001F7E1 INICIANDO"),
+    (STATUS_ATUALIZANDO, "\U0001F504 ATUALIZANDO"),
 )
 
-_FOOTER = "ARKLAND Â· painel de status"
-_OFFICIAL_SITE_URL = "https://arkland.com.br/"
+_FOOTER = "ARKLAND \u00b7 painel de status"
+_OFFICIAL_SITE_URL = "https://www.arkland.com.br/"
 _DEBOUNCE_S = 8.0
 _API = "https://discord.com/api/v10"
 _TZ_BRASILIA = timezone(timedelta(hours=-3), name="BRT")
@@ -91,16 +91,11 @@ def _status_changed_at(server_id: str, status: str, label: str, unix_time: float
 
 
 def connected_label(status: str, players: Optional[int]) -> str:
-    """Texto de pessoas conectadas no card.
-
-    Usa a contagem A2S jÃ¡ guardada no servidor. Servidor parado ou em
-    atualizaÃ§Ã£o nÃ£o tem query ao vivo â€” traÃ§o, sem reaproveitar cache antigo.
-    Query ausente (None) tambÃ©m vira traÃ§o. NÃ£o inventa um nÃºmero.
-    """
+    """Retorna a contagem A2S atual ou travess?o quando indispon?vel."""
     if status in (STATUS_PARADO, STATUS_INICIANDO, STATUS_ATUALIZANDO, STATUS_QUERY_PENDING):
-        return "â€”"
+        return "\u2014"
     if players is None:
-        return "â€”"
+        return "\u2014"
     return f"{players} jogadores"
 
 
@@ -133,7 +128,7 @@ def build_embed(rows: list) -> dict:
         latest = max(members, key=lambda item: item[2])
         lines.append(f"**{title} - {latest[1]}**")
         lines.extend(
-            f"â€¢ {name}"
+            f"\u2022 {name}"
             for name, _timestamp, _unix in sorted(members, key=lambda item: item[0].casefold())
         )
 
@@ -143,27 +138,28 @@ def build_embed(rows: list) -> dict:
     unavailable_n = sum(1 for s in counted if s == STATUS_INDISPONIVEL)
     total_n = len(counted)
     counts = (
-        f"{online_n} online Â· {waiting_n} aguardando Â· {offline_n} offline Â· "
-        f"{unavailable_n} indisponÃ­vel Â· {total_n} total"
+        f"{online_n} online \u00b7 {waiting_n} aguardando \u00b7 {offline_n} offline \u00b7 "
+        f"{unavailable_n} indispon\u00edvel \u00b7 {total_n} total"
     )
     warning = (
-        "âš ï¸ O painel Ã© atualizado periodicamente e pode ter atraso. "
-        "Consulte tambÃ©m o site oficial e adicione os servidores aos favoritos da Steam."
+        "\u26a0\ufe0f O painel \u00e9 atualizado periodicamente e pode ter atraso. "
+        "Consulte tamb\u00e9m o site oficial e adicione os servidores aos favoritos da Steam."
     )
     lines.extend(("", warning))
     color = 0x2ECC71 if online_n and not waiting_n and not offline_n else 0x3498DB
 
     return {
-        "title": "ðŸ“Š STATUS DOS SERVIDORES",
+        "title": "\U0001F4CA STATUS DOS SERVIDORES",
         "description": "\n".join(lines)[:4000],
         "color": color,
         "footer": {
             "text": (
-                f"{_FOOTER} Â· {counts} Â· Dados consultados em "
-                f"{updated_at} (horÃ¡rio de BrasÃ­lia)"
+                f"{_FOOTER} \u00b7 {counts} \u00b7 Dados consultados em "
+                f"{updated_at} (hor\u00e1rio de Bras\u00edlia)"
             )[:2048],
         },
     }
+
 
 _lock = threading.Lock()
 _io_lock = threading.Lock()

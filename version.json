@@ -1,8 +1,8 @@
 {
-    "version": "1.12.22",
+    "version": "1.12.23",
     "date": "2026-11-23",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.22/ARKLAND-Multi-Setup-v1.12.22.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.23/ARKLAND-Multi-Setup-v1.12.23.exe",
     "changelog": [
-        "Correção de inicialização do aplicativo: fecha corretamente a tupla de estados no módulo do painel Discord. Motivo: a versão 1.12.21 ainda falhava porque o arquivo tinha erro de sintaxe e era descartado pelo PyInstaller apesar de estar declarado como import oculto. Resultado esperado: src.discord_status_board é compilado e incluído no executável, eliminando o ModuleNotFoundError ao iniciar."
+        "Correção (Painel Discord): restaura a codificação correta de emojis, acentos e marcadores no embed; corrige o componente de botão para o formato de linha de ação exigido pelo Discord e direciona ao site https://www.arkland.com.br/. Motivo: o texto do painel era exibido como caracteres corrompidos e a estrutura inválida impedia a renderização do botão. Resultado esperado: painel legível em português e botão SITE OFICIAL visível e funcional."
     ]
 }
