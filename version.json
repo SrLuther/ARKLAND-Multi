@@ -1,8 +1,8 @@
 {
-    "version": "1.12.18",
+    "version": "1.12.19",
     "date": "2026-11-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.18/ARKLAND-Multi-Setup-v1.12.18.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.19/ARKLAND-Multi-Setup-v1.12.19.exe",
     "changelog": [
-        "Correção (Listagem Steam / Discord e site): consulta a lista Steam uma vez por IP, valida as query ports de todas as instâncias na resposta e reutiliza o resultado durante a janela de limitação. Motivo: a consulta anterior chamava a API por servidor e tentava primeiro a porta de jogo; a Steam limitava chamadas repetidas e o status permanecia ONLINE · AGUARDANDO STEAM mesmo com os mapas listados. Resultado esperado: os mapas confirmados pela lista Steam passam a ONLINE no Discord e na home; erros transitórios ou rate limit preservam confirmação recente por até 3 minutos, sempre exigindo resposta A2S pública válida."
+        "Correção (Listagem Steam / Discord e site): conserva por servidor a última confirmação positiva da lista Steam entre as atualizações rápidas do painel; limpa a confirmação quando a instância para, perde a resposta A2S local ou deixa de ter IP público. Motivo: embora a Steam listasse os mapas e o resultado fosse consultado a cada 60 segundos, os ciclos de atualização de 5 segundos descartavam o resultado nos intervalos e mostravam ONLINE · AGUARDANDO STEAM. Resultado esperado: após confirmação Steam, o estado permanece ONLINE · STEAM continuamente enquanto a consulta A2S pública continuar respondendo."
     ]
 }

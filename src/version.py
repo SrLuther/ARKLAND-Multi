@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.18"
+APP_VERSION: str = "1.12.19"
 BUILD_DATE: str = "2026-11-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.19",
+        "date": "2026-11-22",
+        "changes": [
+            "Correção (Listagem Steam / Discord e site): conserva por servidor a última confirmação positiva da lista Steam entre as atualizações rápidas do painel; limpa a confirmação quando a instância para, perde a resposta A2S local ou deixa de ter IP público. Motivo: embora a Steam listasse os mapas e o resultado fosse consultado a cada 60 segundos, os ciclos de atualização de 5 segundos descartavam o resultado nos intervalos e mostravam ONLINE · AGUARDANDO STEAM. Resultado esperado: após confirmação Steam, o estado permanece ONLINE · STEAM continuamente enquanto a consulta A2S pública continuar respondendo.",
+        ],
+    },
     {
         "version": "1.12.18",
         "date": "2026-11-22",

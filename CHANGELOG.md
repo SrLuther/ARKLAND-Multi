@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-22 23:17:04 -->
-<!-- Total de versões: 579 | Primeira: 1.12.18 -->
+<!-- Gerado: 2026-11-23 00:04:32 -->
+<!-- Total de versões: 580 | Primeira: 1.12.19 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.19] - 2026-11-22
+
+### Other
+
+- Correção (Listagem Steam / Discord e site): conserva por servidor a última confirmação positiva da lista Steam entre as atualizações rápidas do painel; limpa a confirmação quando a instância para, perde a resposta A2S local ou deixa de ter IP público. Motivo: embora a Steam listasse os mapas e o resultado fosse consultado a cada 60 segundos, os ciclos de atualização de 5 segundos descartavam o resultado nos intervalos e mostravam ONLINE · AGUARDANDO STEAM. Resultado esperado: após confirmação Steam, o estado permanece ONLINE · STEAM continuamente enquanto a consulta A2S pública continuar respondendo.
 
 ## [1.12.18] - 2026-11-22
 

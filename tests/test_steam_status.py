@@ -230,5 +230,40 @@ class TestSteamMasterListCache(unittest.TestCase):
         self.assertEqual(get.call_count, 2)
 
 
+class TestSteamStatusPollerMasterRetention(unittest.TestCase):
+    def test_confirmed_master_result_survives_intermediate_ui_polls(self) -> None:
+        poller = server_visibility.SteamStatusPoller()
+        cfg = SimpleNamespace(
+            additional_args="",
+            server_map="Ragnarok",
+            server_ip="",
+            server_port=7781,
+            query_port=27016,
+        )
+        inst = SimpleNamespace()
+        reg = server_visibility._ServerRegistration(
+            server_id="02_ragnarok",
+            cfg=cfg,
+            inst=inst,
+            is_running=lambda: True,
+        )
+        poller.set_machine_public_ip("179.185.19.88")
+
+        with patch("src.server_visibility.probe_a2s_info", return_value={"players": 0, "max_players": 35}), \
+             patch("src.server_visibility.probe_a2s_query", return_value=True), \
+             patch("src.server_visibility.check_steam_master_list", return_value=True) as check_master, \
+             patch("src.server_visibility.time.monotonic", side_effect=[100.0, 105.0]):
+            poller._poll_one(reg)
+            self.assertEqual(inst.steam_status, STEAM_AVAILABLE)
+
+            # The public/master probes are rate-limited to once per minute,
+            # but status is refreshed every five seconds. A cached positive
+            # master-list result must remain effective between those probes.
+            poller._poll_one(reg)
+
+        self.assertEqual(inst.steam_status, STEAM_AVAILABLE)
+        self.assertEqual(check_master.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

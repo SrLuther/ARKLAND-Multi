@@ -301,6 +301,11 @@ class SteamStatusPoller:
     def __init__(self) -> None:
         self._regs: dict[str, _ServerRegistration] = {}
         self._last_remote: dict[str, float] = {}
+        # Keep the last master-list result per server between the 5s UI polls.
+        # The Steam endpoint is intentionally queried only once per minute;
+        # resetting this to False on every intervening poll made a confirmed
+        # server oscillate back to "waiting for Steam" for most of each minute.
+        self._steam_master_results: dict[str, bool] = {}
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
         self._on_change: Optional[VisibilityCallback] = None
@@ -329,12 +334,14 @@ class SteamStatusPoller:
                 is_running=is_running or (lambda: True),
             )
             self._last_remote.setdefault(server_id, 0.0)
+            self._steam_master_results.setdefault(server_id, False)
             self._ensure_thread()
 
     def unregister(self, server_id: str) -> None:
         with self._lock:
             self._regs.pop(server_id, None)
             self._last_remote.pop(server_id, None)
+            self._steam_master_results.pop(server_id, None)
         self._apply(server_id, None, STEAM_UNAVAILABLE, "Servidor parado")
 
     def _ensure_thread(self) -> None:
@@ -394,6 +401,13 @@ class SteamStatusPoller:
             if now - last >= REMOTE_POLL_DELAY:
                 steam_master_ok = check_steam_master_list(public_ip, game_port, query_port)
                 self._last_remote[sid] = now
+                self._steam_master_results[sid] = steam_master_ok
+            else:
+                steam_master_ok = self._steam_master_results.get(sid, False)
+        else:
+            # Don't carry a positive result across a stop, invalid local query,
+            # LAN mode, or loss of the configured public address.
+            self._steam_master_results[sid] = False
 
         mode, detail = classify_steam_status(
             process_running=running,
