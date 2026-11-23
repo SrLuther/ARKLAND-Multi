@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-22 16:18:28 -->
-<!-- Total de versões: 577 | Primeira: 1.12.16 -->
+<!-- Gerado: 2026-11-22 22:33:26 -->
+<!-- Total de versões: 578 | Primeira: 1.12.17 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.17] - 2026-11-22
+
+### Other
+
+- Correção (Status dos servidores / site e Discord): diferencia o processo ativo da confirmação da lista Steam. Query A2S local válida sem confirmação pública passa a exibir ONLINE · AGUARDANDO STEAM; modo LAN mostra ONLINE · LAN; processo ativo sem query confirmada mostra PROCESSO ATIVO · QUERY PENDENTE. A API pública preserva o detalhe da listagem e a home apresenta os estados em português. Motivo: servidores com processo em execução e jogadores conectados ficavam presos em INICIANDO; resultado esperado: informar disponibilidade e situação da listagem sem afirmar que a Steam confirmou o servidor.
 
 ## [1.12.16] - 2026-11-22
 

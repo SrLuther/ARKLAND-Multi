@@ -25,6 +25,12 @@ from .asm_engine.asm_server_config import (
     ASM_STATUS_UPDATING,
 )
 from .server_visibility import STEAM_AVAILABLE
+from .server_visibility import (
+    STEAM_LAN,
+    STEAM_NEED_PUBLIC_IP,
+    STEAM_UNAVAILABLE,
+    STEAM_WAITING,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -32,12 +38,28 @@ STATUS_PARADO = "PARADO"
 STATUS_INICIANDO = "INICIANDO"
 STATUS_ATUALIZANDO = "ATUALIZANDO"
 STATUS_ONLINE = "ONLINE"
+STATUS_ONLINE_UNLISTED = "ONLINE_SEM_LISTAGEM"
+STATUS_ONLINE_LAN = "ONLINE_LAN"
+STATUS_QUERY_PENDING = "QUERY_PENDENTE"
 
 _STATUS_META: dict[str, tuple[str, int]] = {
     STATUS_PARADO: ("🔴", 0x95A5A6),
     STATUS_INICIANDO: ("🟡", 0xF1C40F),
     STATUS_ATUALIZANDO: ("🔄", 0x3498DB),
     STATUS_ONLINE: ("🟢", 0x2ECC71),
+    STATUS_ONLINE_UNLISTED: ("🟡", 0xF1C40F),
+    STATUS_ONLINE_LAN: ("🔵", 0x3498DB),
+    STATUS_QUERY_PENDING: ("🟠", 0xE67E22),
+}
+
+_STATUS_LABELS: dict[str, str] = {
+    STATUS_PARADO: "PARADO",
+    STATUS_INICIANDO: "INICIANDO",
+    STATUS_ATUALIZANDO: "ATUALIZANDO",
+    STATUS_ONLINE: "ONLINE · STEAM",
+    STATUS_ONLINE_UNLISTED: "ONLINE · AGUARDANDO STEAM",
+    STATUS_ONLINE_LAN: "ONLINE · LAN",
+    STATUS_QUERY_PENDING: "PROCESSO ATIVO · QUERY PENDENTE",
 }
 
 _FOOTER = "ARKLAND · painel de status"
@@ -58,7 +80,7 @@ def connected_label(status: str, players: Optional[int]) -> str:
     atualização não tem query ao vivo — traço, sem reaproveitar cache antigo.
     Query ausente (None) também vira traço. Não inventa um número.
     """
-    if status in (STATUS_PARADO, STATUS_INICIANDO, STATUS_ATUALIZANDO):
+    if status in (STATUS_PARADO, STATUS_INICIANDO, STATUS_ATUALIZANDO, STATUS_QUERY_PENDING):
         return "—"
     if players is None:
         return "—"
@@ -74,7 +96,11 @@ def build_embed(rows: list) -> dict:
     else:
         lines: list[str] = []
         worst = STATUS_ONLINE
-        order = [STATUS_PARADO, STATUS_ATUALIZANDO, STATUS_INICIANDO, STATUS_ONLINE]
+        order = [
+            STATUS_PARADO, STATUS_ATUALIZANDO, STATUS_INICIANDO,
+            STATUS_QUERY_PENDING, STATUS_ONLINE_UNLISTED, STATUS_ONLINE_LAN,
+            STATUS_ONLINE,
+        ]
         for row in rows:
             try:
                 name = str(row[0])
@@ -84,7 +110,8 @@ def build_embed(rows: list) -> dict:
                 players = _opt_int(row[2]) if len(row) > 2 else None
                 emoji, _ = _STATUS_META.get(status, ("⚪", 0x64748B))
                 lines.append(
-                    f"{emoji} **{name}** — `{status}` · {connected_label(status, players)}"
+                    f"{emoji} **{name}** — `{_STATUS_LABELS.get(status, status)}` · "
+                    f"{connected_label(status, players)}"
                 )
                 counted.append(status)
                 if order.index(status) < order.index(worst):
@@ -96,7 +123,9 @@ def build_embed(rows: list) -> dict:
         description = "\n".join(lines) if lines else "_Nenhum servidor configurado._"
         color = _STATUS_META.get(worst, ("", 0x64748B))[1]
 
-    online_n = sum(1 for s in counted if s == STATUS_ONLINE)
+    online_n = sum(1 for s in counted if s in (
+        STATUS_ONLINE, STATUS_ONLINE_UNLISTED, STATUS_ONLINE_LAN,
+    ))
     total_n = len(counted)
     return {
         "title": "🖥️  Status dos servidores",
@@ -144,7 +173,17 @@ def map_public_status(process_status: str, steam_status: str) -> str:
     if ps == ASM_STATUS_RUNNING:
         if ss == STEAM_AVAILABLE:
             return STATUS_ONLINE
-        return STATUS_INICIANDO
+        if ss == STEAM_LAN:
+            return STATUS_ONLINE_LAN
+        if ss in (STEAM_WAITING, STEAM_NEED_PUBLIC_IP):
+            # Waiting is emitted only after the local A2S query responds. The
+            # process is online, but public Steam listing is not confirmed.
+            return STATUS_ONLINE_UNLISTED
+        if ss == STEAM_UNAVAILABLE or not ss:
+            # The process is alive but the query endpoint is not confirmed;
+            # never leave it labeled as starting indefinitely.
+            return STATUS_QUERY_PENDING
+        return STATUS_QUERY_PENDING
     return STATUS_PARADO
 
 
@@ -418,6 +457,10 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
             item = {
                 "server_id": sid,
                 "status": status,
+                "listing_status": str(steam or "").strip().lower(),
+                "status_detail": str(
+                    getattr(inst, "steam_status_detail", "") if inst is not None else ""
+                ).strip(),
                 "display_name": display,
                 "updated_at": updated_at,
                 "updated_at_unix": now_unix,

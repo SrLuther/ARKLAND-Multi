@@ -5470,6 +5470,9 @@
       letter-spacing: 0.02em;
     }
     .home-server-card__status--online { color: #22c55e; }
+    .home-server-card__status--online-pending { color: #f59e0b; }
+    .home-server-card__status--online-lan { color: #38bdf8; }
+    .home-server-card__status--query-pending { color: #fb923c; }
     .home-server-card__status--iniciando { color: #f59e0b; }
     .home-server-card__status--atualizando { color: #38bdf8; }
     .home-server-card__status--parado { color: #94a3b8; }
@@ -31868,11 +31871,15 @@ function _applyHomeServerStatuses(items) {
     const st = String((row && row.status) || "").trim().toUpperCase();
     const map = {
       ONLINE: { cls: "online", emoji: "🟢", label: "ONLINE" },
+      ONLINE_SEM_LISTAGEM: { cls: "online-pending", emoji: "🟡", label: "ONLINE · AGUARDANDO STEAM" },
+      ONLINE_LAN: { cls: "online-lan", emoji: "🔵", label: "ONLINE · LAN" },
+      QUERY_PENDENTE: { cls: "query-pending", emoji: "🟠", label: "PROCESSO ATIVO · QUERY PENDENTE" },
       INICIANDO: { cls: "iniciando", emoji: "🟡", label: "INICIANDO" },
       ATUALIZANDO: { cls: "atualizando", emoji: "🔄", label: "ATUALIZANDO" },
       PARADO: { cls: "parado", emoji: "🔴", label: "PARADO" },
     };
     const meta = map[st];
+    el.title = (row && row.status_detail) || "";
     el.className = "home-server-card__status home-server-card__status--" + (meta ? meta.cls : "unknown");
     el.textContent = meta
       ? `${meta.emoji} ${meta.label}`
@@ -31881,7 +31888,8 @@ function _applyHomeServerStatuses(items) {
   const visibleIds = Array.from(document.querySelectorAll("#home-connect-section .home-server-card[data-server-id]"))
     .map(card => card.getAttribute("data-server-id"))
     .filter(Boolean);
-  const onlineRows = visibleIds.map(id => byId[id]).filter(row => row && String(row.status || "").trim().toUpperCase() === "ONLINE");
+  const onlineStatuses = new Set(["ONLINE", "ONLINE_SEM_LISTAGEM", "ONLINE_LAN"]);
+  const onlineRows = visibleIds.map(id => byId[id]).filter(row => row && onlineStatuses.has(String(row.status || "").trim().toUpperCase()));
   const onlineEl = document.getElementById("home-online-count");
   const totalEl = document.getElementById("home-server-count");
   if (onlineEl) onlineEl.textContent = String(onlineRows.length);
@@ -33062,6 +33070,9 @@ function _homeRuntimeStatusHtml(s) {
   const st = String(s.runtime_status || "").trim().toUpperCase();
   const map = {
     ONLINE: { cls: "online", emoji: "🟢", label: "ONLINE" },
+    ONLINE_SEM_LISTAGEM: { cls: "online-pending", emoji: "🟡", label: "ONLINE · AGUARDANDO STEAM" },
+    ONLINE_LAN: { cls: "online-lan", emoji: "🔵", label: "ONLINE · LAN" },
+    QUERY_PENDENTE: { cls: "query-pending", emoji: "🟠", label: "PROCESSO ATIVO · QUERY PENDENTE" },
     INICIANDO: { cls: "iniciando", emoji: "🟡", label: "INICIANDO" },
     ATUALIZANDO: { cls: "atualizando", emoji: "🔄", label: "ATUALIZANDO" },
     PARADO: { cls: "parado", emoji: "🔴", label: "PARADO" },
@@ -33072,6 +33083,7 @@ function _homeRuntimeStatusHtml(s) {
       data-server-status="${escHtml(s.server_id || "")}">● Aguardando status do TEK…</div>`;
   }
   return `<div class="home-server-card__status home-server-card__status--${meta.cls}"
+    title="${escHtml(s.runtime_detail || "")}"
     data-server-status="${escHtml(s.server_id || "")}">${meta.emoji} ${meta.label}</div>`;
 }
 

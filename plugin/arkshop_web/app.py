@@ -10678,6 +10678,8 @@ def public_server_status():
         rows.append({
             "server_id": sid,
             "status": runtime.get("status") or "",
+            "listing_status": runtime.get("listing_status") or "",
+            "status_detail": runtime.get("status_detail") or "",
             "display_name": runtime.get("display_name") or srv.get("label") or "",
             "updated_at": runtime.get("updated_at") or "",
             "players": runtime.get("players"),
@@ -10691,6 +10693,8 @@ def public_server_status():
         rows.append({
             "server_id": sid,
             "status": runtime.get("status"),
+            "listing_status": runtime.get("listing_status") or "",
+            "status_detail": runtime.get("status_detail") or "",
             "display_name": runtime.get("display_name") or "",
             "updated_at": runtime.get("updated_at") or "",
             "players": runtime.get("players"),
@@ -12161,11 +12165,15 @@ def _build_public_home_payload() -> dict[str, Any]:
         rt = runtime.get(str(entry["server_id"] or "").strip())
         if rt:
             entry["runtime_status"] = rt.get("status") or ""
+            entry["runtime_detail"] = rt.get("status_detail") or ""
+            entry["listing_status"] = rt.get("listing_status") or ""
             entry["runtime_updated_at"] = rt.get("updated_at") or ""
             entry["players"] = rt.get("players")
             entry["max_players"] = rt.get("max_players")
         else:
             entry["runtime_status"] = ""
+            entry["runtime_detail"] = ""
+            entry["listing_status"] = ""
             entry["runtime_updated_at"] = ""
             entry["players"] = None
             entry["max_players"] = None

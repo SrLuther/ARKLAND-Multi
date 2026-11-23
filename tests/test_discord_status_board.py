@@ -7,6 +7,9 @@ from src.discord_status_board import (
     STATUS_ATUALIZANDO,
     STATUS_INICIANDO,
     STATUS_ONLINE,
+    STATUS_ONLINE_LAN,
+    STATUS_ONLINE_UNLISTED,
+    STATUS_QUERY_PENDING,
     STATUS_PARADO,
     build_embed,
     connected_label,
@@ -29,15 +32,22 @@ def test_map_parado():
 
 def test_map_iniciando():
     assert map_public_status("starting", STEAM_WAITING) == STATUS_INICIANDO
-    assert map_public_status("running", STEAM_WAITING) == STATUS_INICIANDO
-    assert map_public_status("running", STEAM_UNAVAILABLE) == STATUS_INICIANDO
-    assert map_public_status("running", STEAM_LAN) == STATUS_INICIANDO
-    assert map_public_status("running", "") == STATUS_INICIANDO
+    assert map_public_status("running", STEAM_WAITING) == STATUS_ONLINE_UNLISTED
+    assert map_public_status("running", STEAM_UNAVAILABLE) == STATUS_QUERY_PENDING
+    assert map_public_status("running", STEAM_LAN) == STATUS_ONLINE_LAN
+    assert map_public_status("running", "") == STATUS_QUERY_PENDING
 
 
 def test_map_online_only_steam_listed():
     assert map_public_status("running", STEAM_AVAILABLE) == STATUS_ONLINE
     assert map_public_status("starting", STEAM_AVAILABLE) == STATUS_INICIANDO
+
+
+def test_running_process_is_not_reported_as_starting_forever():
+    # Processo rodando + query A2S local válida, mas ainda sem prova na master list.
+    status = map_public_status("running", STEAM_WAITING)
+    assert status == STATUS_ONLINE_UNLISTED
+    assert status != STATUS_INICIANDO
 
 
 def test_map_atualizando():
@@ -48,21 +58,22 @@ def test_map_atualizando():
 def test_build_embed_lines():
     emb = build_embed([
         ("Ragnarok", STATUS_ONLINE, 12),
-        ("TheIsland", STATUS_INICIANDO, None),
+        ("TheIsland", STATUS_ONLINE_UNLISTED, 0),
         ("Aberration", STATUS_PARADO, 99),
     ])
     assert emb["title"]
     desc = emb["description"]
     assert "Ragnarok" in desc and "ONLINE" in desc and "12 jogadores" in desc
-    assert "TheIsland" in desc and "INICIANDO" in desc
+    assert "TheIsland" in desc and "ONLINE · AGUARDANDO STEAM" in desc
     assert "Aberration" in desc and "PARADO" in desc
+    assert "2/3 online" in emb["footer"]["text"]
     # parado / query ausente: traço, sem reaproveitar contagem antiga
     assert "99" not in desc
     island_line = next(line for line in desc.splitlines() if "TheIsland" in line)
     aberr_line = next(line for line in desc.splitlines() if "Aberration" in line)
     assert "—" in island_line
     assert "—" in aberr_line
-    assert "1/3 online" in emb["footer"]["text"]
+    assert "2/3 online" in emb["footer"]["text"]
     assert "Atualizado" in emb["footer"]["text"]
     assert "Brasília" in emb["footer"]["text"]
     # dd/mm/yyyy hh:mm:ss

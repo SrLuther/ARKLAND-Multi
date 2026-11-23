@@ -48,7 +48,9 @@ def test_upsert_and_public_endpoint(client):
     n = upsert_statuses([
         {
             "server_id": "brighamia",
-            "status": "ONLINE",
+            "status": "ONLINE_SEM_LISTAGEM",
+            "listing_status": "waiting",
+            "status_detail": "Consulta A2S pública válida — aguardando Steam",
             "display_name": "[ARKLAND BR] - Brighamia",
             "updated_at": "26/07/2026 23:00:00",
             "updated_at_unix": 9999999999,
@@ -58,7 +60,9 @@ def test_upsert_and_public_endpoint(client):
     ])
     assert n == 1
     row = get_all_statuses()["brighamia"]
-    assert row["status"] == "ONLINE"
+    assert row["status"] == "ONLINE_SEM_LISTAGEM"
+    assert row["listing_status"] == "waiting"
+    assert row["status_detail"].startswith("Consulta A2S")
     assert row["players"] == 12
     assert row["max_players"] == 70
 
@@ -67,7 +71,9 @@ def test_upsert_and_public_endpoint(client):
     body = r.get_json()
     assert body["ok"] is True
     match = next(s for s in body["servers"] if s["server_id"] == "brighamia")
-    assert match["status"] == "ONLINE"
+    assert match["status"] == "ONLINE_SEM_LISTAGEM"
+    assert match["listing_status"] == "waiting"
+    assert match["status_detail"].startswith("Consulta A2S")
     assert match["players"] == 12
     assert match["max_players"] == 70
 
@@ -89,7 +95,9 @@ def test_home_includes_runtime_status(client, tmp_path, monkeypatch):
     monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
     upsert_statuses([{
         "server_id": "brighamia",
-        "status": "INICIANDO",
+        "status": "ONLINE_SEM_LISTAGEM",
+        "listing_status": "waiting",
+        "status_detail": "Consulta A2S pública válida — aguardando confirmação na Steam",
         "updated_at_unix": 9999999999,
         "players": 0,
         "max_players": 70,
@@ -97,7 +105,9 @@ def test_home_includes_runtime_status(client, tmp_path, monkeypatch):
     _app_module._invalidate_public_home_cache()
     home = client.get("/api/public/home").get_json()
     srv = next(s for s in home["servers"] if s["server_id"] == "brighamia")
-    assert srv["runtime_status"] == "INICIANDO"
+    assert srv["runtime_status"] == "ONLINE_SEM_LISTAGEM"
+    assert srv["listing_status"] == "waiting"
+    assert "aguardando confirmação" in srv["runtime_detail"]
     assert srv["join_address"] == "203.0.113.20:7777"
     assert srv["players"] == 0
     assert srv["max_players"] == 70

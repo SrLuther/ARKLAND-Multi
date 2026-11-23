@@ -1,11 +1,8 @@
 {
-    "version": "1.12.16",
+    "version": "1.12.17",
     "date": "2026-11-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.16/ARKLAND-Multi-Setup-v1.12.16.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.17/ARKLAND-Multi-Setup-v1.12.17.exe",
     "changelog": [
-        "Melhoria (TEK / Navegação e Banco de Dados): mantém a página do banco em cache, executa as consultas de estado do MariaDB e firewall em segundo plano, limita as métricas de UI a 2.000 entradas e grava o baseline fora da thread visual. Motivo: reconstrução repetida e chamadas síncronas podiam congelar a interface; resultado esperado: navegação mais responsiva, retorno rápido à página e telemetria com custo limitado.",
-        "Correção (Listagem Steam): só informa servidor listado quando há resposta A2S pública válida e confirmação da Steam; um registro mestre obsoleto sozinho não gera estado ONLINE · Steam. Motivo: evitar exibir como online/listado um servidor cuja lista ainda não confirma a publicação.",
-        "Melhoria (Catálogo ASE): traduz para português a descrição de -PreventHibernation no seletor de argumentos. Motivo: explicar o efeito real da opção para quem administra servidores em português sem alterar o argumento nem sua referência.",
-        "Feature (Minha Área / Limites): adiciona uma página somente de leitura para exibir limites, licença, validação do inventário e eventos quando as tabelas da integração estiverem disponíveis; sem inventar contagens, criar schema, debitar Âmbares ou alterar limites. Motivo: adiantar a consulta do jogador enquanto a integração do plugin com os servidores permanece pendente."
+        "Correção (Status dos servidores / site e Discord): diferencia o processo ativo da confirmação da lista Steam. Query A2S local válida sem confirmação pública passa a exibir ONLINE · AGUARDANDO STEAM; modo LAN mostra ONLINE · LAN; processo ativo sem query confirmada mostra PROCESSO ATIVO · QUERY PENDENTE. A API pública preserva o detalhe da listagem e a home apresenta os estados em português. Motivo: servidores com processo em execução e jogadores conectados ficavam presos em INICIANDO; resultado esperado: informar disponibilidade e situação da listagem sem afirmar que a Steam confirmou o servidor."
     ]
 }

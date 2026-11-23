@@ -14,7 +14,10 @@ _lock = threading.Lock()
 _cache: dict[str, Any] = {"at": 0.0, "by_id": {}}
 _CACHE_TTL_S = 2.0
 
-VALID_STATUSES = frozenset({"PARADO", "INICIANDO", "ATUALIZANDO", "ONLINE"})
+VALID_STATUSES = frozenset({
+    "PARADO", "INICIANDO", "ATUALIZANDO", "ONLINE",
+    "ONLINE_SEM_LISTAGEM", "ONLINE_LAN", "QUERY_PENDENTE",
+})
 
 
 def _opt_int(value: Any) -> int | None:
@@ -59,6 +62,8 @@ def _read_disk() -> dict[str, dict[str, Any]]:
             continue
         entry: dict[str, Any] = {
             "status": status,
+            "listing_status": str(row.get("listing_status") or "").strip().lower(),
+            "status_detail": str(row.get("status_detail") or "").strip()[:240],
             "display_name": str(row.get("display_name") or "").strip(),
             "updated_at": str(row.get("updated_at") or "").strip(),
             "updated_at_unix": float(row.get("updated_at_unix") or 0) or 0.0,
@@ -123,6 +128,8 @@ def upsert_statuses(items: list[dict[str, Any]]) -> int:
                 continue
             entry: dict[str, Any] = {
                 "status": status,
+                "listing_status": str(raw.get("listing_status") or "").strip().lower(),
+                "status_detail": str(raw.get("status_detail") or "").strip()[:240],
                 "display_name": str(raw.get("display_name") or "").strip(),
                 "updated_at": str(raw.get("updated_at") or "").strip(),
                 "updated_at_unix": float(raw.get("updated_at_unix") or now) or now,

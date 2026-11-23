@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.16"
+APP_VERSION: str = "1.12.17"
 BUILD_DATE: str = "2026-11-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.17",
+        "date": "2026-11-22",
+        "changes": [
+            "Correção (Status dos servidores / site e Discord): diferencia o processo ativo da confirmação da lista Steam. Query A2S local válida sem confirmação pública passa a exibir ONLINE · AGUARDANDO STEAM; modo LAN mostra ONLINE · LAN; processo ativo sem query confirmada mostra PROCESSO ATIVO · QUERY PENDENTE. A API pública preserva o detalhe da listagem e a home apresenta os estados em português. Motivo: servidores com processo em execução e jogadores conectados ficavam presos em INICIANDO; resultado esperado: informar disponibilidade e situação da listagem sem afirmar que a Steam confirmou o servidor.",
+        ],
+    },
     {
         "version": "1.12.16",
         "date": "2026-11-22",
