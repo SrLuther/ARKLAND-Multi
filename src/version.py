@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.17"
+APP_VERSION: str = "1.12.18"
 BUILD_DATE: str = "2026-11-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.18",
+        "date": "2026-11-22",
+        "changes": [
+            "Correção (Listagem Steam / Discord e site): consulta a lista Steam uma vez por IP, valida as query ports de todas as instâncias na resposta e reutiliza o resultado durante a janela de limitação. Motivo: a consulta anterior chamava a API por servidor e tentava primeiro a porta de jogo; a Steam limitava chamadas repetidas e o status permanecia ONLINE · AGUARDANDO STEAM mesmo com os mapas listados. Resultado esperado: os mapas confirmados pela lista Steam passam a ONLINE no Discord e na home; erros transitórios ou rate limit preservam confirmação recente por até 3 minutos, sempre exigindo resposta A2S pública válida.",
+        ],
+    },
     {
         "version": "1.12.17",
         "date": "2026-11-22",

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import unittest
+import json
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from src.server_visibility import (
     STEAM_AVAILABLE,
@@ -14,8 +16,10 @@ from src.server_visibility import (
     format_status_badge,
     is_lan_match_config,
     _parse_a2s_info,
+    check_steam_master_list,
     resolve_machine_public_ip,
 )
+import src.server_visibility as server_visibility
 
 
 class TestClassifySteamStatus(unittest.TestCase):
@@ -74,7 +78,7 @@ class TestClassifySteamStatus(unittest.TestCase):
         )
         self.assertEqual(mode, STEAM_WAITING)
 
-    def test_available_public_query(self) -> None:
+    def test_public_query_without_master_listing_waits(self) -> None:
         mode, _ = classify_steam_status(
             process_running=True,
             lan_configured=False,
@@ -83,15 +87,26 @@ class TestClassifySteamStatus(unittest.TestCase):
             public_query_ok=True,
             steam_master_ok=False,
         )
-        self.assertEqual(mode, STEAM_AVAILABLE)
+        self.assertEqual(mode, STEAM_WAITING)
 
-    def test_available_steam_master(self) -> None:
+    def test_master_listing_without_public_query_waits(self) -> None:
         mode, _ = classify_steam_status(
             process_running=True,
             lan_configured=False,
             local_query_ok=True,
             public_ip="1.2.3.4",
             public_query_ok=False,
+            steam_master_ok=True,
+        )
+        self.assertEqual(mode, STEAM_WAITING)
+
+    def test_available_requires_public_query_and_master_listing(self) -> None:
+        mode, _ = classify_steam_status(
+            process_running=True,
+            lan_configured=False,
+            local_query_ok=True,
+            public_ip="1.2.3.4",
+            public_query_ok=True,
             steam_master_ok=True,
         )
         self.assertEqual(mode, STEAM_AVAILABLE)
@@ -159,6 +174,60 @@ class TestA2SInfoValidation(unittest.TestCase):
 
     def test_rejects_zero_capacity(self) -> None:
         self.assertEqual(_parse_a2s_info(self._payload("Ragnarok", 0)), {})
+
+
+class TestSteamMasterListCache(unittest.TestCase):
+    def setUp(self) -> None:
+        with server_visibility._steam_master_cache_lock:
+            server_visibility._steam_master_cache.clear()
+
+    @staticmethod
+    def _response(payload: dict[str, object]):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return json.dumps(payload).encode("utf-8")
+
+        return Response()
+
+    def test_one_ip_query_confirms_multiple_map_query_ports(self) -> None:
+        payload = {"response": {"success": True, "servers": [
+            {"addr": "179.185.19.88:27015", "appid": 346110},
+            {"addr": "179.185.19.88:27017", "appid": 346110},
+            {"addr": "179.185.19.88:27020", "appid": 346110},
+            {"addr": "179.185.19.88:27021", "appid": 730},
+        ]}}
+        with patch("src.server_visibility.urllib.request.urlopen", return_value=self._response(payload)) as get, \
+             patch("src.server_visibility.time.monotonic", return_value=100.0):
+            self.assertTrue(check_steam_master_list("179.185.19.88", 7777, 27015))
+            self.assertTrue(check_steam_master_list("179.185.19.88", 7781, 27017))
+            self.assertTrue(check_steam_master_list("179.185.19.88", 7787, 27020))
+            self.assertFalse(check_steam_master_list("179.185.19.88", 7789, 27021))
+
+        self.assertEqual(get.call_count, 1)
+        self.assertTrue(get.call_args.args[0].full_url.endswith("addr=179.185.19.88"))
+
+    def test_rate_limit_preserves_recent_positive_result(self) -> None:
+        listed = self._response({"response": {"success": True, "servers": [
+            {"addr": "179.185.19.88:27015", "appid": 346110},
+        ]}})
+        limited = self._response({"response": {
+            "success": False, "message": "Please don't call this API more often than once per minute for a given IP.",
+        }})
+        with patch("src.server_visibility.urllib.request.urlopen", side_effect=[listed, limited]) as get, \
+             patch("src.server_visibility.time.monotonic", side_effect=[100.0, 161.0, 162.0]):
+            self.assertTrue(check_steam_master_list("179.185.19.88", 7777, 27015))
+            self.assertTrue(check_steam_master_list("179.185.19.88", 7777, 27015))
+            # A later same-minute poll reuses the previous positive listing
+            # instead of dropping the confirmed map after a rate-limit reply.
+            self.assertTrue(check_steam_master_list("179.185.19.88", 7777, 27015))
+
+        self.assertEqual(get.call_count, 2)
 
 
 if __name__ == "__main__":

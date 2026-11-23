@@ -38,6 +38,10 @@ VIS_LABELS = STEAM_LABELS
 
 LOCAL_POLL_DELAY = 5.0
 REMOTE_POLL_DELAY = 60.0
+_STEAM_MASTER_CACHE_TTL_S = 60.0
+_STEAM_MASTER_STALE_MAX_S = 180.0
+_steam_master_cache_lock = threading.Lock()
+_steam_master_cache: dict[str, dict[str, Any]] = {}
 
 VisibilityCallback = Callable[[str, str, str], None]
 
@@ -177,29 +181,69 @@ def _read_cstring(data: bytes, start: int) -> tuple[str, int]:
 
 
 def check_steam_master_list(host: str, game_port: int, query_port: int, timeout: float = 8.0) -> bool:
-    """Fallback: API Steam GetServersAtAddress (tenta porta de jogo e de query)."""
+    """Consulta a lista Steam por IP e reaproveita o resultado para todos os mapas.
+
+    GetServersAtAddress aceita o IP sem porta e devolve os servidores desse
+    endereço. A Steam limita chamadas repetidas para o mesmo IP; consultar
+    game/query port a cada servidor fazia as chamadas seguintes serem recusadas
+    e deixava o estado preso em ``waiting``. A resposta inclui ``addr`` com a
+    query port, que é o identificador usado para confirmar cada instância.
+    """
     host = (host or "").strip()
-    if not host:
+    query_port = int(query_port or 0)
+    if not host or not query_port:
         return False
-    ports: list[int] = []
-    for p in (game_port, query_port):
-        if p and p not in ports:
-            ports.append(int(p))
-    for port in ports:
+
+    now = time.monotonic()
+    with _steam_master_cache_lock:
+        cached = _steam_master_cache.get(host)
+        if cached and now - float(cached.get("last_attempt") or 0.0) < _STEAM_MASTER_CACHE_TTL_S:
+            return query_port in cached.get("query_ports", set()) and now - float(
+                cached.get("last_success") or 0.0
+            ) <= _STEAM_MASTER_STALE_MAX_S
+
         url = (
             "https://api.steampowered.com/ISteamApps/GetServersAtAddress/v1/"
-            f"?format=json&addr={host}:{port}"
+            f"?format=json&addr={host}"
         )
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "ARKLAND/1.0"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8", errors="replace"))
-            servers = (body.get("response") or {}).get("servers") or []
-            if servers:
-                return True
+            response = body.get("response") if isinstance(body, dict) else None
+            if not isinstance(response, dict) or response.get("success") is not True:
+                raise ValueError("Steam GetServersAtAddress recusou ou invalidou a consulta")
+            query_ports: set[int] = set()
+            for server in response.get("servers") or []:
+                if not isinstance(server, dict):
+                    continue
+                try:
+                    appid = int(server.get("appid") or 0)
+                    listed_port = int(str(server.get("addr") or "").rsplit(":", 1)[1])
+                except (IndexError, TypeError, ValueError):
+                    continue
+                if appid == 346110 and listed_port > 0:
+                    query_ports.add(listed_port)
+            _steam_master_cache[host] = {
+                "last_attempt": now,
+                "last_success": now,
+                "query_ports": query_ports,
+            }
         except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError):
-            continue
-    return False
+            # Rate limits and transient Steam errors must not erase a recent
+            # positive listing. The independent public A2S probe still has to
+            # answer before the caller reports the server as online.
+            previous_ports = cached.get("query_ports", set()) if cached else set()
+            last_success = float(cached.get("last_success") or 0.0) if cached else 0.0
+            _steam_master_cache[host] = {
+                "last_attempt": now,
+                "last_success": last_success,
+                "query_ports": previous_ports,
+            }
+        current = _steam_master_cache[host]
+        return query_port in current.get("query_ports", set()) and now - float(
+            current.get("last_success") or 0.0
+        ) <= _STEAM_MASTER_STALE_MAX_S
 
 
 def classify_steam_status(

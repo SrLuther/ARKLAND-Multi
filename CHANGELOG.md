@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-22 22:33:26 -->
-<!-- Total de versões: 578 | Primeira: 1.12.17 -->
+<!-- Gerado: 2026-11-22 23:17:04 -->
+<!-- Total de versões: 579 | Primeira: 1.12.18 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.18] - 2026-11-22
+
+### Other
+
+- Correção (Listagem Steam / Discord e site): consulta a lista Steam uma vez por IP, valida as query ports de todas as instâncias na resposta e reutiliza o resultado durante a janela de limitação. Motivo: a consulta anterior chamava a API por servidor e tentava primeiro a porta de jogo; a Steam limitava chamadas repetidas e o status permanecia ONLINE · AGUARDANDO STEAM mesmo com os mapas listados. Resultado esperado: os mapas confirmados pela lista Steam passam a ONLINE no Discord e na home; erros transitórios ou rate limit preservam confirmação recente por até 3 minutos, sempre exigindo resposta A2S pública válida.
 
 ## [1.12.17] - 2026-11-22
 
