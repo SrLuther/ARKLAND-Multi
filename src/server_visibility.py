@@ -43,6 +43,17 @@ _STEAM_MASTER_STALE_MAX_S = 180.0
 _steam_master_cache_lock = threading.Lock()
 _steam_master_cache: dict[str, dict[str, Any]] = {}
 
+
+def steam_master_listing_name(host: str, query_port: int) -> str:
+    """Retorna o nome exato entregue pela master list para a porta de query."""
+    with _steam_master_cache_lock:
+        cached = _steam_master_cache.get((host or "").strip())
+        if not cached:
+            return ""
+        if time.monotonic() - float(cached.get("last_success") or 0.0) > _STEAM_MASTER_STALE_MAX_S:
+            return ""
+        return str((cached.get("names_by_port") or {}).get(int(query_port or 0), ""))
+
 VisibilityCallback = Callable[[str, str, str], None]
 
 
@@ -214,6 +225,7 @@ def check_steam_master_list(host: str, game_port: int, query_port: int, timeout:
             if not isinstance(response, dict) or response.get("success") is not True:
                 raise ValueError("Steam GetServersAtAddress recusou ou invalidou a consulta")
             query_ports: set[int] = set()
+            names_by_port: dict[int, str] = {}
             for server in response.get("servers") or []:
                 if not isinstance(server, dict):
                     continue
@@ -224,21 +236,27 @@ def check_steam_master_list(host: str, game_port: int, query_port: int, timeout:
                     continue
                 if appid == 346110 and listed_port > 0:
                     query_ports.add(listed_port)
+                    name = str(server.get("name") or "").strip()
+                    if name:
+                        names_by_port[listed_port] = name
             _steam_master_cache[host] = {
                 "last_attempt": now,
                 "last_success": now,
                 "query_ports": query_ports,
+                "names_by_port": names_by_port,
             }
         except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError):
             # Rate limits and transient Steam errors must not erase a recent
             # positive listing. The independent public A2S probe still has to
             # answer before the caller reports the server as online.
             previous_ports = cached.get("query_ports", set()) if cached else set()
+            previous_names = cached.get("names_by_port", {}) if cached else {}
             last_success = float(cached.get("last_success") or 0.0) if cached else 0.0
             _steam_master_cache[host] = {
                 "last_attempt": now,
                 "last_success": last_success,
                 "query_ports": previous_ports,
+                "names_by_port": previous_names,
             }
         current = _steam_master_cache[host]
         return query_port in current.get("query_ports", set()) and now - float(
@@ -404,10 +422,15 @@ class SteamStatusPoller:
                 self._steam_master_results[sid] = steam_master_ok
             else:
                 steam_master_ok = self._steam_master_results.get(sid, False)
+            inst.steam_listing_name = (
+                steam_master_listing_name(public_ip, query_port) if steam_master_ok else ""
+            )
         else:
             # Don't carry a positive result across a stop, invalid local query,
             # LAN mode, or loss of the configured public address.
             self._steam_master_results[sid] = False
+            if inst is not None:
+                inst.steam_listing_name = ""
 
         mode, detail = classify_steam_status(
             process_running=running,

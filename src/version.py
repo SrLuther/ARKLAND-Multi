@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.19"
-BUILD_DATE: str = "2026-11-22"
+APP_VERSION: str = "1.12.20"
+BUILD_DATE: str = "2026-11-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.20",
+        "date": "2026-11-23",
+        "changes": [
+            "Painel Discord: agrupa servidores por estado, remove textos explicativos e contagens de jogadores, mostra data/hora da última mudança ao lado de cada estado e omite categorias vazias. Motivo: deixar o painel direto e conferir visualmente o estado e o nome listado. Resultado esperado: leitura mais rápida, sem legendas redundantes e com horário claro por categoria; o aviso sobre possível atraso, o horário geral da consulta e o botão do site permanecem.",
+            "Painel Discord: servidores confirmados como online usam o nome retornado pela lista mestra da Steam. Motivo: permitir que jogadores comparem o painel ao nome que encontram nos favoritos/listagem da Steam. Resultado esperado: mostrar o nome público confirmado sem alterar nomes configurados para os demais estados.",
+            "CustomShop / Cofre na nuvem: adapta pilhas serializadas ao limite máximo do mapa de destino, dividindo pilhas grandes em pilhas válidas com IDs próprios e sem mesclar itens durante a restauração. Motivo: mapas podem ter limites de pilha diferentes, e uma pilha válida no mapa de origem podia ser recusada no destino. Resultado esperado: restaurar a mesma quantidade total sem exceder o limite local; o cofre só é removido após a restauração completa.",
+        ],
+    },
     {
         "version": "1.12.19",
         "date": "2026-11-22",

@@ -526,16 +526,17 @@ void ShopCloudInventory::SyncInventoryToClient(UPrimalInventoryComponent* inv,
 bool ShopCloudInventory::TryAddItemToInventory(UPrimalInventoryComponent* inv,
                                                UPrimalItem* item,
                                                AShooterCharacter* character,
-                                               UPrimalItem** out_added) const {
+                                               UPrimalItem** out_added,
+                                               bool dont_stack) const {
     if (!inv || !item) return false;
 
-    UPrimalItem* added = inv->AddItemObject(item);
+    UPrimalItem* added = dont_stack ? nullptr : inv->AddItemObject(item);
     if (!added) {
         added = inv->AddItemObjectEx(
             item,
             /*bEquipItem=*/false,
             /*AddToSlot=*/false,
-            /*bDontStack=*/false,
+            /*bDontStack=*/dont_stack,
             /*ShowHUDNotification=*/true,
             /*bDontRecalcSpoilingTime=*/false,
             /*bForceIncompleteStacking=*/false,
@@ -849,7 +850,13 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, i
     }
 
     // Ignora implantes antigos e blobs que nao desserializam neste mapa.
-    std::vector<std::vector<unsigned char>> restore_rows;
+    struct RestoreRow {
+        std::vector<unsigned char> bytes;
+        int quantity = 1;
+        int destination_stack_limit = 1;
+        int piece_count = 1;
+    };
+    std::vector<RestoreRow> restore_rows;
     restore_rows.reserve(blob_rows.size());
     int skipped_implants = 0;
     int skipped_bad_blob = 0;
@@ -873,10 +880,36 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, i
                 "ShopCloudInventory: skipping specimen implant blob steam={}", steam_id);
             continue;
         }
-        restore_rows.push_back(raw);
+
+        int quantity = probe->GetItemQuantity();
+        if (quantity < 1) quantity = 1;
+        int stack_limit = 0;
+        UWorld* world = ArkApi::GetApiUtils().GetWorld();
+        if (world) {
+            if (UClass* item_class = probe->ClassField()) {
+                if (UPrimalItem* cdo = static_cast<UPrimalItem*>(item_class->GetDefaultObject(true)))
+                    stack_limit = cdo->GetMaxItemQuantity(world);
+            }
+        }
+        if (stack_limit < 1 && world)
+            stack_limit = probe->GetMaxItemQuantity(world);
+        if (stack_limit < 1)
+            stack_limit = probe->MaxItemQuantityField();
+        if (stack_limit < 1)
+            stack_limit = quantity;
+
+        RestoreRow restore_row;
+        restore_row.bytes = raw;
+        restore_row.quantity = quantity;
+        restore_row.destination_stack_limit = stack_limit;
+        restore_row.piece_count = std::max(1, (quantity - 1) / stack_limit + 1);
+        restore_rows.push_back(std::move(restore_row));
     }
 
-    last_diag_count_ = static_cast<int>(restore_rows.size());
+    int required_slots = 0;
+    for (const RestoreRow& row : restore_rows)
+        required_slots += row.piece_count;
+    last_diag_count_ = required_slots;
 
     if (restore_rows.empty()) {
         if (skipped_implants > 0 && skipped_bad_blob == 0) {
@@ -894,23 +927,23 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, i
         return CloudResult::DataInconsistent;
     }
 
-    if (free_slots < static_cast<int>(restore_rows.size())) {
+    if (free_slots < required_slots) {
         Log::GetLog()->warn(
             "ShopCloudInventory: download rejected steam={} need={} free={} "
             "(skipped_implants={} bad_blobs={} capacity={} occupied={})",
-            steam_id, restore_rows.size(), free_slots, skipped_implants,
+            steam_id, required_slots, free_slots, skipped_implants,
             skipped_bad_blob, capacity, occupied);
         return CloudResult::InventoryFull;
     }
 
     std::vector<UPrimalItem*> added_items;
-    added_items.reserve(restore_rows.size());
+    added_items.reserve(static_cast<size_t>(required_slots));
     int restored = 0;
 
     for (size_t i = 0; i < restore_rows.size(); ++i) {
         TArray<unsigned char> bytes;
-        bytes.Reserve(static_cast<int>(restore_rows[i].size()));
-        for (unsigned char b : restore_rows[i])
+        bytes.Reserve(static_cast<int>(restore_rows[i].bytes.size()));
+        for (unsigned char b : restore_rows[i].bytes)
             bytes.Add(b);
 
         UPrimalItem* new_item = UPrimalItem::CreateFromBytes(&bytes);
@@ -929,21 +962,49 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller, i
             continue;
         }
 
-        UPrimalItem* added = nullptr;
-        if (!TryAddItemToInventory(inv, new_item, character, &added) || !added) {
-            Log::GetLog()->error(
-                "ShopCloudInventory: add failed steam={} index={}/{}",
-                steam_id, i, restore_rows.size());
-            for (UPrimalItem* rollback_item : added_items)
-                RemoveUploadedItem(rollback_item, inv, controller);
-            return CloudResult::PartialRestore;
-        }
+        int remaining = restore_rows[i].quantity;
+        for (int piece = 0; piece < restore_rows[i].piece_count; ++piece) {
+            UPrimalItem* item_piece = new_item;
+            if (piece > 0) {
+                TArray<unsigned char> clone_bytes;
+                clone_bytes.Reserve(static_cast<int>(restore_rows[i].bytes.size()));
+                for (unsigned char b : restore_rows[i].bytes)
+                    clone_bytes.Add(b);
+                item_piece = UPrimalItem::CreateFromBytes(&clone_bytes);
+                if (!item_piece) {
+                    Log::GetLog()->error(
+                        "ShopCloudInventory: stack clone failed steam={} row={} piece={}/{}",
+                        steam_id, i, piece + 1, restore_rows[i].piece_count);
+                    for (UPrimalItem* rollback_item : added_items)
+                        RemoveUploadedItem(rollback_item, inv, controller);
+                    return CloudResult::PartialRestore;
+                }
+                UPrimalItem::GenerateItemID(&item_piece->ItemIDField());
+            }
 
-        added_items.push_back(added);
-        ++restored;
+            const int piece_quantity = std::min(remaining, restore_rows[i].destination_stack_limit);
+            item_piece->MaxItemQuantityField() = restore_rows[i].destination_stack_limit;
+            item_piece->ItemQuantityField() = piece_quantity;
+
+            UPrimalItem* added = nullptr;
+            if (!TryAddItemToInventory(inv, item_piece, character, &added, true) || !added) {
+                Log::GetLog()->error(
+                    "ShopCloudInventory: add failed steam={} index={}/{} piece={}/{} qty={} max_stack={}",
+                    steam_id, i, restore_rows.size(), piece + 1,
+                    restore_rows[i].piece_count, piece_quantity,
+                    restore_rows[i].destination_stack_limit);
+                for (UPrimalItem* rollback_item : added_items)
+                    RemoveUploadedItem(rollback_item, inv, controller);
+                return CloudResult::PartialRestore;
+            }
+
+            added_items.push_back(added);
+            remaining -= piece_quantity;
+            ++restored;
+        }
     }
 
-    if (restored != static_cast<int>(restore_rows.size())) {
+    if (restored != required_slots) {
         for (UPrimalItem* rollback_item : added_items)
             RemoveUploadedItem(rollback_item, inv, controller);
         return CloudResult::PartialRestore;

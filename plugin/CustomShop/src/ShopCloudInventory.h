@@ -100,7 +100,8 @@ private:
     bool TryAddItemToInventory(UPrimalInventoryComponent* inv,
                                UPrimalItem* item,
                                AShooterCharacter* character,
-                               UPrimalItem** out_added = nullptr) const;
+                               UPrimalItem** out_added = nullptr,
+                               bool dont_stack = false) const;
     int  RestoreItemsFromHex(UPrimalInventoryComponent* inv,
                              const std::vector<std::string>& hex_rows,
                              AShooterCharacter* character) const;

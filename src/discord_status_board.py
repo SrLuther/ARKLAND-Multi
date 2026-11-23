@@ -41,6 +41,7 @@ STATUS_ONLINE = "ONLINE"
 STATUS_ONLINE_UNLISTED = "ONLINE_SEM_LISTAGEM"
 STATUS_ONLINE_LAN = "ONLINE_LAN"
 STATUS_QUERY_PENDING = "QUERY_PENDENTE"
+STATUS_INDISPONIVEL = "INDISPONIVEL"
 
 _STATUS_META: dict[str, tuple[str, int]] = {
     STATUS_PARADO: ("🔴", 0x95A5A6),
@@ -50,27 +51,43 @@ _STATUS_META: dict[str, tuple[str, int]] = {
     STATUS_ONLINE_UNLISTED: ("🟡", 0xF1C40F),
     STATUS_ONLINE_LAN: ("🔵", 0x3498DB),
     STATUS_QUERY_PENDING: ("🟠", 0xE67E22),
+    STATUS_INDISPONIVEL: ("⚪", 0x64748B),
 }
 
-_STATUS_LABELS: dict[str, str] = {
-    STATUS_PARADO: "PARADO",
-    STATUS_INICIANDO: "INICIANDO",
-    STATUS_ATUALIZANDO: "ATUALIZANDO",
-    STATUS_ONLINE: "ONLINE · STEAM",
-    STATUS_ONLINE_UNLISTED: "ONLINE · AGUARDANDO STEAM",
-    STATUS_ONLINE_LAN: "ONLINE · LAN",
-    STATUS_QUERY_PENDING: "PROCESSO ATIVO · QUERY PENDENTE",
+_STATUS_SECTIONS: tuple[tuple[str, str], ...] = (
+    (STATUS_ONLINE, "🟢 ONLINE"),
+    (STATUS_ONLINE_UNLISTED, "🟡 AGUARDANDO STEAM"),
+    (STATUS_QUERY_PENDING, "🟠 AGUARDANDO QUERY"),
+    (STATUS_PARADO, "🔴 OFFLINE"),
+    (STATUS_INDISPONIVEL, "⚪ INDISPONÍVEL"),
+    (STATUS_ONLINE_LAN, "🔵 ONLINE NA REDE LOCAL"),
+    (STATUS_INICIANDO, "🟡 INICIANDO"),
+    (STATUS_ATUALIZANDO, "🔄 ATUALIZANDO"),
 }
 
 _FOOTER = "ARKLAND · painel de status"
+_OFFICIAL_SITE_URL = "https://arkland.com.br/"
 _DEBOUNCE_S = 8.0
 _API = "https://discord.com/api/v10"
 _TZ_BRASILIA = timezone(timedelta(hours=-3), name="BRT")
+_status_change_lock = threading.Lock()
+_status_change_by_server: dict[str, tuple[str, str, float]] = {}
 
 
 def _now_brasilia_label() -> str:
     """Data/hora de Brasília (UTC−3) para o rodapé do painel."""
     return datetime.now(_TZ_BRASILIA).strftime("%d/%m/%Y %H:%M:%S")
+
+
+def _status_changed_at(server_id: str, status: str, label: str, unix_time: float) -> tuple[str, float]:
+    """Mantém o instante da última transição de estado de cada servidor."""
+    key = (server_id or "?").strip() or "?"
+    with _status_change_lock:
+        previous = _status_change_by_server.get(key)
+        if previous and previous[0] == status:
+            return previous[1], previous[2]
+        _status_change_by_server[key] = (status, label, unix_time)
+        return label, unix_time
 
 
 def connected_label(status: str, players: Optional[int]) -> str:
@@ -90,51 +107,60 @@ def connected_label(status: str, players: Optional[int]) -> str:
 def build_embed(rows: list) -> dict:
     updated_at = _now_brasilia_label()
     counted: list[str] = []
-    if not rows:
-        description = "_Nenhum servidor configurado._"
-        color = 0x64748B
-    else:
-        lines: list[str] = []
-        worst = STATUS_ONLINE
-        order = [
-            STATUS_PARADO, STATUS_ATUALIZANDO, STATUS_INICIANDO,
-            STATUS_QUERY_PENDING, STATUS_ONLINE_UNLISTED, STATUS_ONLINE_LAN,
-            STATUS_ONLINE,
-        ]
-        for row in rows:
-            try:
-                name = str(row[0])
-                status = str(row[1]) if len(row) > 1 else STATUS_PARADO
-                if status not in _STATUS_META:
-                    status = STATUS_PARADO
-                players = _opt_int(row[2]) if len(row) > 2 else None
-                emoji, _ = _STATUS_META.get(status, ("⚪", 0x64748B))
-                lines.append(
-                    f"{emoji} **{name}** — `{_STATUS_LABELS.get(status, status)}` · "
-                    f"{connected_label(status, players)}"
-                )
-                counted.append(status)
-                if order.index(status) < order.index(worst):
-                    worst = status
-            except Exception:
-                _logger.debug("Linha do painel Discord ignorada", exc_info=True)
-                lines.append("⚪ **?** — `PARADO` · —")
-                counted.append(STATUS_PARADO)
-        description = "\n".join(lines) if lines else "_Nenhum servidor configurado._"
-        color = _STATUS_META.get(worst, ("", 0x64748B))[1]
+    grouped: dict[str, list[tuple[str, str, float]]] = {
+        status: [] for status, _ in _STATUS_SECTIONS
+    }
+    for row in rows or []:
+        try:
+            name = str(row[0])
+            status = str(row[1]) if len(row) > 1 else STATUS_INDISPONIVEL
+            if status not in grouped:
+                status = STATUS_INDISPONIVEL
+            changed_label = str(row[2]) if len(row) > 2 and isinstance(row[2], str) else updated_at
+            changed_unix = float(row[3]) if len(row) > 3 and row[3] is not None else 0.0
+            grouped[status].append((name, changed_label or updated_at, changed_unix))
+            counted.append(status)
+        except Exception:
+            _logger.debug("Linha do painel Discord ignorada", exc_info=True)
 
-    online_n = sum(1 for s in counted if s in (
-        STATUS_ONLINE, STATUS_ONLINE_UNLISTED, STATUS_ONLINE_LAN,
-    ))
+    lines: list[str] = []
+    if not counted:
+        lines.append("_Nenhum servidor configurado._")
+    for status, title in _STATUS_SECTIONS:
+        members = grouped[status]
+        if not members:
+            continue
+        latest = max(members, key=lambda item: item[2])
+        lines.append(f"**{title} - {latest[1]}**")
+        lines.extend(
+            f"• {name}"
+            for name, _timestamp, _unix in sorted(members, key=lambda item: item[0].casefold())
+        )
+
+    online_n = sum(1 for s in counted if s in (STATUS_ONLINE, STATUS_ONLINE_LAN))
+    waiting_n = sum(1 for s in counted if s in (STATUS_ONLINE_UNLISTED, STATUS_QUERY_PENDING, STATUS_INICIANDO, STATUS_ATUALIZANDO))
+    offline_n = sum(1 for s in counted if s == STATUS_PARADO)
+    unavailable_n = sum(1 for s in counted if s == STATUS_INDISPONIVEL)
     total_n = len(counted)
+    counts = (
+        f"{online_n} online · {waiting_n} aguardando · {offline_n} offline · "
+        f"{unavailable_n} indisponível · {total_n} total"
+    )
+    warning = (
+        "⚠️ O painel é atualizado periodicamente e pode ter atraso. "
+        "Consulte também o site oficial e adicione os servidores aos favoritos da Steam."
+    )
+    lines.extend(("", warning))
+    color = 0x2ECC71 if online_n and not waiting_n and not offline_n else 0x3498DB
+
     return {
-        "title": "🖥️  Status dos servidores",
-        "description": description[:4000],
+        "title": "📊 STATUS DOS SERVIDORES",
+        "description": "\n".join(lines)[:4000],
         "color": color,
         "footer": {
             "text": (
-                f"{_FOOTER} · {online_n}/{total_n} online · "
-                f"Atualizado {updated_at} (Brasília)"
+                f"{_FOOTER} · {counts} · Dados consultados em "
+                f"{updated_at} (horário de Brasília)"
             )[:2048],
         },
     }
@@ -331,13 +357,20 @@ def _bot_token(app: Any) -> str:
         return ""
 
 
+def _status_components() -> list[dict[str, Any]]:
+    return [{
+        "type": 1,
+        "components": [{"type": 2, "style": 5, "label": "SITE OFICIAL", "url": _OFFICIAL_SITE_URL}],
+    }]
+
+
 def _webhook_create(url: str, username: str, embed: dict) -> str:
     """POST ?wait=true → devolve message id."""
     base = url.split("?")[0].rstrip("/")
     code, body = _http_json(
         "POST",
         f"{base}?wait=true",
-        payload={"username": username or "ARKLAND", "embeds": [embed]},
+        payload={"username": username or "ARKLAND", "embeds": [embed], "components": _status_components()},
     )
     if code not in (200, 201) or not isinstance(body, dict):
         _logger.warning("Falha a criar painel Discord (%s): %s", code, body)
@@ -352,7 +385,7 @@ def _webhook_edit(url: str, message_id: str, username: str, embed: dict) -> bool
     code, body = _http_json(
         "PATCH",
         f"{_API}/webhooks/{wid}/{token}/messages/{message_id}",
-        payload={"username": username or "ARKLAND", "embeds": [embed]},
+        payload={"username": username or "ARKLAND", "embeds": [embed], "components": _status_components()},
     )
     if code in (200, 201):
         return True
@@ -436,6 +469,7 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
             sid = shop_id or asm_id
             process = ASM_STATUS_STOPPED
             steam = ""
+            inst = None
             players: Optional[int] = None
             max_players: Optional[int] = None
             if mgr is not None and asm_id:
@@ -454,16 +488,26 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
             if max_players is None:
                 max_players = _opt_int(getattr(srv, "max_players", None))
             status = map_public_status(process, steam)
+            discord_status = STATUS_INDISPONIVEL if mgr is None or inst is None else status
+            status_changed_at, status_changed_at_unix = _status_changed_at(
+                sid, discord_status, updated_at, now_unix
+            )
             item = {
                 "server_id": sid,
                 "status": status,
+                "discord_status": discord_status,
                 "listing_status": str(steam or "").strip().lower(),
                 "status_detail": str(
                     getattr(inst, "steam_status_detail", "") if inst is not None else ""
                 ).strip(),
                 "display_name": display,
+                "steam_listing_name": str(
+                    getattr(inst, "steam_listing_name", "") if inst is not None else ""
+                ).strip(),
                 "updated_at": updated_at,
                 "updated_at_unix": now_unix,
+                "status_changed_at": status_changed_at,
+                "status_changed_at_unix": status_changed_at_unix,
                 "players": players,
                 "max_players": max_players,
             }
@@ -477,9 +521,13 @@ def collect_status_payload(app: Any) -> list[dict[str, Any]]:
             rows_out.append({
                 "server_id": getattr(srv, "id", "") or "?",
                 "status": STATUS_PARADO,
+                "discord_status": STATUS_INDISPONIVEL,
                 "display_name": str(name),
+                "steam_listing_name": "",
                 "updated_at": updated_at,
                 "updated_at_unix": now_unix,
+                "status_changed_at": updated_at,
+                "status_changed_at_unix": now_unix,
                 "players": None,
                 "max_players": None,
             })
@@ -549,28 +597,32 @@ def boot_webstore_status_push(app: Any) -> None:
     ).start()
 
 
-def _rows_for_embed(payload: list[dict[str, Any]]) -> list[tuple[str, str, Optional[int]]]:
-    """Uma linha por mapa: nome, status público, jogadores A2S (ou None)."""
+def _rows_for_embed(payload: list[dict[str, Any]]) -> list[tuple[str, str, str, float]]:
+    """Uma linha por servidor: nome exibido, estado e instante da transição."""
     seen: set[str] = set()
-    rows: list[tuple[str, str, Optional[int]]] = []
+    rows: list[tuple[str, str, str, float]] = []
     for item in payload:
         try:
-            name = str(item.get("display_name") or item.get("server_id") or "?")
+            status = str(item.get("discord_status") or item.get("status") or STATUS_PARADO)
+            listed_name = str(item.get("steam_listing_name") or "").strip()
+            name = listed_name if status == STATUS_ONLINE and listed_name else str(
+                item.get("display_name") or item.get("server_id") or "?"
+            )
             key = name.lower()
             if key in seen:
                 continue
             seen.add(key)
-            status = str(item.get("status") or STATUS_PARADO)
-            players = _opt_int(item.get("players"))
-            rows.append((name, status, players))
+            changed_at = str(item.get("status_changed_at") or item.get("updated_at") or "")
+            changed_unix = _opt_int(item.get("status_changed_at_unix")) or 0
+            rows.append((name, status, changed_at, float(changed_unix)))
         except Exception:
             _logger.debug("Item de status ignorado no card", exc_info=True)
     rows.sort(key=lambda r: r[0].lower())
     return rows
 
 
-def _collect_rows(app: Any) -> list[tuple[str, str, Optional[int]]]:
-    """Lista (nome, status, jogadores A2S) ordenada por nome."""
+def _collect_rows(app: Any) -> list[tuple[str, str, str, float]]:
+    """Lista (nome, estado, instante da transição) ordenada por nome."""
     return _rows_for_embed(collect_status_payload(app))
 
 

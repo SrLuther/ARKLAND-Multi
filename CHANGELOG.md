@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-23 00:04:32 -->
-<!-- Total de versões: 580 | Primeira: 1.12.19 -->
+<!-- Gerado: 2026-11-23 01:22:48 -->
+<!-- Total de versões: 581 | Primeira: 1.12.20 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.20] - 2026-11-23
+
+### Other
+
+- Painel Discord: agrupa servidores por estado, remove textos explicativos e contagens de jogadores, mostra data/hora da última mudança ao lado de cada estado e omite categorias vazias. Motivo: deixar o painel direto e conferir visualmente o estado e o nome listado. Resultado esperado: leitura mais rápida, sem legendas redundantes e com horário claro por categoria; o aviso sobre possível atraso, o horário geral da consulta e o botão do site permanecem.
+- Painel Discord: servidores confirmados como online usam o nome retornado pela lista mestra da Steam. Motivo: permitir que jogadores comparem o painel ao nome que encontram nos favoritos/listagem da Steam. Resultado esperado: mostrar o nome público confirmado sem alterar nomes configurados para os demais estados.
+- CustomShop / Cofre na nuvem: adapta pilhas serializadas ao limite máximo do mapa de destino, dividindo pilhas grandes em pilhas válidas com IDs próprios e sem mesclar itens durante a restauração. Motivo: mapas podem ter limites de pilha diferentes, e uma pilha válida no mapa de origem podia ser recusada no destino. Resultado esperado: restaurar a mesma quantidade total sem exceder o limite local; o cofre só é removido após a restauração completa.
 
 ## [1.12.19] - 2026-11-22
 

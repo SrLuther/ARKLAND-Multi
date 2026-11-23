@@ -8,6 +8,12 @@ A UI «Versões esperadas» lê `PluginInfo.json` embutido no app (`VersionLabel
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.59] - 2026-11-23
+
+### Fix
+
+- Cloud inventory restore now adapts saved stack quantities to the destination map's current per-item maximum. Oversized saved stacks are split into legal stacks with fresh item IDs, and each restored stack is inserted without merging so the saved quantities remain intact. Capacity is checked against the resulting stack count before modifying the inventory; on failure, the cloud record remains available.
+
 ## [1.10.58] - 2026-11-20
 
 ### Added
