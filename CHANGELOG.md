@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-23 02:21:25 -->
-<!-- Total de versões: 584 | Primeira: 1.12.23 -->
+<!-- Gerado: 2026-11-25 00:25:09 -->
+<!-- Total de versões: 585 | Primeira: 1.12.24 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.24] - 2026-11-24
+
+### Other
+
+- Correção (Servidores do site): os cards agora acompanham o nome atual definido no ARKLAND Server Manager e atualizam após a sincronização, sem manter rótulos antigos. Motivo: renomeações de mapas continuavam aparecendo com o nome anterior no site. Também recupera o catálogo configurado pelo gerenciador quando as configurações persistidas apontam para um caminho removido, evitando que a página inicial carregue sem servidores.
 
 ## [1.12.23] - 2026-11-23
 

@@ -397,6 +397,27 @@ def _write_settings(tmp_path, **overrides):
     (tmp_path / "settings.json").write_text(json.dumps(data), encoding="utf-8")
 
 
+def test_load_settings_recovers_missing_catalog_from_manager_default(tmp_path, monkeypatch):
+    missing = tmp_path / "removed_map_catalog.json"
+    manager_catalog = tmp_path / "manager_catalog.json"
+    manager_catalog.write_text(json.dumps({"Items": {}, "Kits": {}}), encoding="utf-8")
+    state_file = tmp_path / "settings.json"
+    state_file.write_text(
+        json.dumps({"catalog_path": str(missing), "config_path": str(missing), "shop_name": "ARKLAND"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", state_file)
+    monkeypatch.setattr(_app_module, "_DEFAULT_CONFIG_PATH", str(manager_catalog))
+
+    settings = _app_module._load_settings()
+
+    assert settings["catalog_path"] == str(manager_catalog)
+    assert settings["config_path"] == str(manager_catalog)
+    saved = json.loads(state_file.read_text(encoding="utf-8"))
+    assert saved["catalog_path"] == str(manager_catalog)
+    assert saved["config_path"] == str(manager_catalog)
+
+
 def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default", points_spent=0, item_type="shop", created_at=None):
     db = _app_module._SessionLocal()
     try:

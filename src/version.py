@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.23"
-BUILD_DATE: str = "2026-11-23"
+APP_VERSION: str = "1.12.24"
+BUILD_DATE: str = "2026-11-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.24",
+        "date": "2026-11-24",
+        "changes": [
+            "Correção (Servidores do site): os cards agora acompanham o nome atual definido no ARKLAND Server Manager e atualizam após a sincronização, sem manter rótulos antigos. Motivo: renomeações de mapas continuavam aparecendo com o nome anterior no site. Também recupera o catálogo configurado pelo gerenciador quando as configurações persistidas apontam para um caminho removido, evitando que a página inicial carregue sem servidores.",
+        ],
+    },
     {
         "version": "1.12.23",
         "date": "2026-11-23",

@@ -4919,7 +4919,7 @@ def _merge_arkland_server_entry(
     entry: Dict[str, Any],
     srv: Any,
 ) -> Dict[str, Any]:
-    """Preserva label customizado e show_on_home do admin web quando aplicável."""
+    """Aplica o nome atual do gerenciador e preserva preferências web compatíveis."""
     out = dict(entry)
     out["arkland_ref"] = entry.get("arkland_ref", "")
     out["managed_by"] = "arkland"
@@ -4930,10 +4930,8 @@ def _merge_arkland_server_entry(
         out["show_on_home"] = bool(show_home)
     auto_label = entry.get("label", "")
     if existing:
-        prev_label = str(existing.get("label") or "").strip()
-        prev_auto = str(existing.get("_auto_label") or auto_label).strip()
-        if prev_label and prev_label != prev_auto:
-            out["label"] = prev_label
+        # O nome público acompanha o gerenciador; rótulos locais antigos não
+        # devem sobreviver a uma renomeação recebida pela sincronização.
         join_host = str(existing.get("join_host") or "").strip()
         if join_host:
             out["join_host"] = join_host

@@ -31868,6 +31868,12 @@ function _applyHomeServerStatuses(items) {
   document.querySelectorAll("[data-server-status]").forEach(el => {
     const sid = el.getAttribute("data-server-status") || "";
     const row = byId[sid];
+    const card = el.closest(".home-server-card[data-server-id]");
+    const currentName = String(row?.label || "").trim();
+    const nameEl = card?.querySelector(".home-server-card__name");
+    if (currentName && nameEl && nameEl.textContent.trim() !== currentName) {
+      nameEl.textContent = currentName;
+    }
     const st = String((row && row.status) || "").trim().toUpperCase();
     const map = {
       ONLINE: { cls: "online", emoji: "🟢", label: "ONLINE" },

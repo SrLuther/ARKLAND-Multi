@@ -1,8 +1,8 @@
 {
-    "version": "1.12.23",
-    "date": "2026-11-23",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.23/ARKLAND-Multi-Setup-v1.12.23.exe",
+    "version": "1.12.24",
+    "date": "2026-11-24",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.24/ARKLAND-Multi-Setup-v1.12.24.exe",
     "changelog": [
-        "Correção (Painel Discord): restaura a codificação correta de emojis, acentos e marcadores no embed; corrige o componente de botão para o formato de linha de ação exigido pelo Discord e direciona ao site https://www.arkland.com.br/. Motivo: o texto do painel era exibido como caracteres corrompidos e a estrutura inválida impedia a renderização do botão. Resultado esperado: painel legível em português e botão SITE OFICIAL visível e funcional."
+        "Correção (Servidores do site): os cards agora acompanham o nome atual definido no ARKLAND Server Manager e atualizam após a sincronização, sem manter rótulos antigos. Motivo: renomeações de mapas continuavam aparecendo com o nome anterior no site. Também recupera o catálogo configurado pelo gerenciador quando as configurações persistidas apontam para um caminho removido, evitando que a página inicial carregue sem servidores."
     ]
 }

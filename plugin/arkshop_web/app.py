@@ -3067,6 +3067,17 @@ def _load_settings() -> dict[str, Any]:
                 or ""
             ).strip()
             canonical = _resolve_settings_catalog_path(cp)
+            default_catalog = _resolve_settings_catalog_path(_DEFAULT_CONFIG_PATH)
+            if (
+                cp
+                and not Path(canonical).is_file()
+                and Path(default_catalog).is_file()
+            ):
+                log.warning(
+                    "Caminho de catálogo persistido não existe; usando o catálogo configurado pelo gerenciador: %s",
+                    default_catalog,
+                )
+                canonical = default_catalog
             persisted_catalog = str(data.get("catalog_path") or "").strip()
             persisted_config = str(data.get("config_path") or "").strip()
             merged["catalog_path"] = canonical
@@ -10677,6 +10688,7 @@ def public_server_status():
         raw_snapshot = srv.get("config_snapshot")
         rows.append({
             "server_id": sid,
+            "label": str(srv.get("label") or sid),
             "status": runtime.get("status") or "",
             "listing_status": runtime.get("listing_status") or "",
             "status_detail": runtime.get("status_detail") or "",
@@ -10917,6 +10929,7 @@ def sync_servers_from_client():
         by_id, machine_label, incoming, active_refs,
     )
     _save_servers(list(by_id.values()))
+    _invalidate_public_home_cache()
     _log(
         "servers_synced",
         machine_label=machine_label,

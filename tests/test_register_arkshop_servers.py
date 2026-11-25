@@ -307,3 +307,23 @@ def test_merge_incoming_query_port_wins():
     incoming = {"server_id": "alps", "query_port": 27019, "arkland_ref": "tek:tek-1"}
     merged = _merge_arkland_server_entry(existing, incoming, _FakeSrv(id="tek-1", name="Alps"))
     assert merged["query_port"] == 27019
+
+
+def test_merge_uses_manager_name_after_server_rename():
+    existing = {
+        "server_id": "alps",
+        "arkland_ref": "tek:tek-1",
+        "label": "Ragnarok antigo",
+        "_auto_label": "Ragnarok antigo",
+    }
+    incoming = {
+        "server_id": "alps",
+        "arkland_ref": "tek:tek-1",
+        "label": "Valguero Omega",
+    }
+
+    merged = _merge_arkland_server_entry(
+        existing, incoming, _FakeSrv(id="tek-1", name="Valguero Omega"),
+    )
+
+    assert merged["label"] == "Valguero Omega"
