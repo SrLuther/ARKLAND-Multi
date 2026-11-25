@@ -154,12 +154,36 @@ def build_response(match: TriggerMatch, data: dict[str, Any], config: dict[str, 
     """Retorna (título, descrição); dados ausentes/falhas nunca viram valores fictícios."""
     if match.key == "STATUS":
         channel_id = str(config.get("lumo_status_channel_id") or config.get("status_channel_id") or "").strip()
-        if not channel_id.isdigit():
-            return "Status dos servidores ARKLAND", "O canal oficial de status ainda não foi configurado. Consulte o site oficial: " + SITE_URL
-        return "Status dos servidores ARKLAND", (
-            "Olá, sobrevivente! Acompanhe o estado atualizado dos mapas no canal oficial "
-            f"<#{channel_id}>.\n\nNos vemos nas ilhas!"
-        )
+        systems = data.get("systems", []) if isinstance(data, dict) else []
+        incidents = data.get("incidents", []) if isinstance(data, dict) else []
+        if not data.get("ok"):
+            raise RuntimeError("A central de status está temporariamente indisponível.")
+        if not isinstance(systems, list):
+            systems = []
+        unverified = sum(1 for item in systems if isinstance(item, dict) and (
+            item.get("maturity") == "NAO_AVALIADO" or item.get("operational") in {"NAO_MONITORADO", "STATUS_DESCONHECIDO"}
+        ))
+        lines = ["Olá, sobrevivente! Consulte o painel central para ver o estágio e as condições atuais dos serviços ARKLAND:", SITE_URL + "#/system-status"]
+        lines.append(f"\nRegistros públicos: {len(systems)}. {unverified} ainda aguardam avaliação ou monitoramento.")
+        cluster = next((item for item in systems if isinstance(item, dict) and item.get("system_key") == "ark-cluster"), {})
+        maps = cluster.get("instances", []) if isinstance(cluster, dict) else []
+        if maps:
+            status_labels = {"ONLINE":"Online", "INICIANDO":"Iniciando", "ATUALIZANDO":"Atualizando", "PARADO":"Parado",
+                             "ONLINE_SEM_LISTAGEM":"Online, sem listagem", "ONLINE_LAN":"Online na rede local", "QUERY_PENDENTE":"Aguardando query"}
+            lines.append("\n\nMapas (último estado recebido do gerenciador):")
+            for item in maps[:12]:
+                state = str(item.get("operational") or "STATUS_DESCONHECIDO")
+                lines.append(f"\n• {str(item.get('display_name') or item.get('map_name') or 'Servidor')[:120]} — {status_labels.get(state, state.replace('_', ' ').lower())}")
+        else:
+            lines.append("\n\nAinda não há estado recente dos mapas recebido do gerenciador.")
+        active = [item for item in incidents if isinstance(item, dict)][:5]
+        if active:
+            lines.append("\nIncidentes ou manutenções em andamento:")
+            lines.extend(f"\n• {str(item.get('title') or 'Incidente')[:160]} — {str(item.get('state') or '').replace('_', ' ').lower()}" for item in active)
+        if channel_id.isdigit():
+            lines.append(f"\n\nAcompanhe também o canal de status: <#{channel_id}>.")
+        lines.append("\nO painel pode ter atraso em relação às fontes operacionais.")
+        return "Status dos sistemas ARKLAND", "".join(lines)
 
     if match.key == "BETLAND":
         campaign = data.get("campaign") if isinstance(data, dict) else None

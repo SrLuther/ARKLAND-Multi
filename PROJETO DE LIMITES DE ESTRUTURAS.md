@@ -267,3 +267,9 @@ Testes unitários já cobrem subconjuntos da regra. A futura integração deve t
 Este desenvolvimento local está autorizado. Permanecem proibidos nesta autorização: alterar servidor de produção, instalar plugin, reiniciar ARK, modificar saves, excluir/mover estruturas, editar configuração ativa, consultar/escrever no MySQL de produção ou executar migrações reais. Testes locais seguros são permitidos. Qualquer validação que dependa do runtime real, dados de jogadores ou impacto operacional exige procedimento isolado e autorização específica.
 
 Alterações locais permanecem `UNDEFINED`; não incrementar versão publicada nem anunciar release. O próximo relatório deve separar o que foi implementado, testado, bloqueado por dependência técnica e ainda não integrado.
+
+## 21. Investigação do inventário inicial — 25/11/2026
+
+O SDK local expõe `UWorld::LevelsField()` e `ULevelBase::GetActorsField()`, permitindo enumerar atores residentes nas fases carregadas. A próxima build diagnóstica 0.7-dev adiciona o opt-in `ResidentInventoryProbeEnabled` e mede uma varredura única após o mundo e um jogador estarem disponíveis. Ela reconhece `APrimalStructure`, deduplica ponteiros de ator, exclui supply crates da classe-base já conhecida e registra totais e qualidade básica dos IDs/metadados.
+
+**A varredura não é inventário completo e nunca liga a fiscalização.** A enumeração de níveis não comprova cobertura de atores em stasis/descarregados ou dos registros persistidos apenas no save; `TargetingTeam`/`OwningPlayerID` também não foram validados como vínculo de propriedade confiável para todos os mapas/mods. O log sinaliza `complete_inventory=false`, e o snapshot local continua sem ser alimentado por esses dados. A medição serve para orientar investigação no servidor de teste e não deve ser confundida com uma contagem oficial.

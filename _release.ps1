@@ -171,10 +171,31 @@ Write-Ok "CHANGELOG.md    →  sincronizado com src\version.py"
 # ── 6) Build ──────────────────────────────────────────────────────────────────
 Write-Step 3 7 "Rodando build.bat..."
 Push-Location $root
+# Evita recompilar DLLs de plugins sem alterações nos seus fontes. O build manual
+# continua compilando todos por padrão; este filtro só é usado no release.
+$pluginBuildPaths = [ordered]@{
+    CustomShop = "plugin/CustomShop/src"
+    CustomDinoDeliver = "plugin/CustomDinoDeliver/src"
+    ArkPlayer = "plugin/ArkPlayer/src"
+    FazendaRecursos = "plugin/FazendaRecursos/src"
+}
+$pluginsToBuild = New-Object System.Collections.Generic.List[string]
+foreach ($pluginName in $pluginBuildPaths.Keys) {
+    $sourceRoot = $pluginBuildPaths[$pluginName]
+    $changed = @(& git diff --name-only HEAD -- $sourceRoot 2>$null)
+    $changed += @(& git ls-files --others --exclude-standard -- $sourceRoot 2>$null)
+    if ($changed | Where-Object { $_ -match '\.(cpp|c|h|hpp|cc|cxx)$' -or $_ -match '/CMakeLists\.txt$' }) {
+        $pluginsToBuild.Add($pluginName)
+    }
+}
+$oldBuildPluginList = $env:BUILD_PLUGIN_LIST
+$env:BUILD_PLUGIN_LIST = if ($pluginsToBuild.Count) { $pluginsToBuild -join "," } else { "none" }
+Write-Host "      Plugins recompilados nesta versao: $($env:BUILD_PLUGIN_LIST)"
 # 2>&1 faz o merge de stderr→stdout no nível do cmd, evitando NativeCommandError
 # quando $ErrorActionPreference = Stop e o script está num pipeline (Tee-Object).
 cmd /c "build.bat 2>&1"
 $buildExit = $LASTEXITCODE
+if ($null -eq $oldBuildPluginList) { Remove-Item Env:BUILD_PLUGIN_LIST -ErrorAction SilentlyContinue } else { $env:BUILD_PLUGIN_LIST = $oldBuildPluginList }
 Pop-Location
 if ($buildExit -ne 0) { Write-Fail "build.bat falhou (exit $buildExit)" }
 
@@ -293,6 +314,11 @@ $releaseNewFiles = @(
     "plugin/arkshop_web/tests/test_command_center_catalog.py",
     "docs/LUMO_CENTRAL_COMUNICACAO.md",
     "docs/LUMO_2.0.md",
+    "docs/CENTRAL_STATUS_SISTEMAS.md",
+    "plugin/arkshop_web/system_status_center.py",
+    "plugin/arkshop_web/static/system-status-center.css",
+    "plugin/arkshop_web/static/system-status-center.js",
+    "plugin/arkshop_web/tests/test_system_status_center.py",
     "plugin/arkshop_web/lumo_routes.py",
     "plugin/arkshop_web/lumo_assistant.py",
     "plugin/arkshop_web/lumo_gateway.py",

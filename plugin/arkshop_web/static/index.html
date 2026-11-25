@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="ARKLAND" />
   <meta name="arkland-web-build" content="__WEB_BUILD__" />
   <link rel="manifest" href="/manifest.webmanifest?v=__WEB_BUILD__" />
+  <link rel="stylesheet" href="system-status-center.css?v=__WEB_BUILD__" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <title>ARKLAND DONATIONS — Doações e Resgates</title>
@@ -8294,6 +8295,9 @@
     <div class="nav-item active" data-page="home" onclick="nav(this)">
       <span class="nav-icon">🏠</span> Início
     </div>
+    <div class="nav-item" data-page="system-status" onclick="nav(this)">
+      <span class="nav-icon">◉</span> Status dos sistemas
+    </div>
     <div class="nav-item" data-page="catalog" onclick="nav(this)">
       <span class="nav-icon nav-icon--img"><img src="/catalogo.png" alt="" width="18" height="18" /></span> Catálogo
     </div>
@@ -8359,6 +8363,45 @@
       </div>
 
       <!-- PAGE: Catálogo (público — login só para doar/resgatar) -->
+      <div id="page-system-status" class="page">
+        <section class="system-status-page">
+          <header class="system-status-hero">
+            <div><p class="system-status-eyebrow">ARKLAND · TRANSPARÊNCIA</p><h1>Status dos sistemas</h1>
+              <p>Consulte o estágio de desenvolvimento, a disponibilidade e as condições operacionais registrados para os serviços da comunidade.</p></div>
+            <div class="system-status-actions"><button class="btn btn-ghost" type="button" onclick="systemStatusLoad(true)">Atualizar</button>
+              <a class="btn btn-primary" href="https://www.arkland.com.br/" target="_blank" rel="noopener noreferrer">Site oficial</a></div>
+          </header>
+          <div class="system-status-notice">Os dados são atualizados conforme as fontes disponíveis e as revisões da equipe. “Não monitorado” ou “não avaliado” significa que ainda não há confirmação registrada; não representa uma falha confirmada.</div>
+          <div id="system-status-summary" class="system-status-summary" aria-live="polite"></div>
+          <div class="system-status-toolbar"><label class="system-status-search">Pesquisar <input id="system-status-search" type="search" placeholder="Nome, categoria ou descrição" oninput="systemStatusRender()"></label>
+            <label>Categoria <select id="system-status-category" onchange="systemStatusRender()"><option value="">Todas</option></select></label></div>
+          <div id="system-status-incidents" class="system-status-incidents"></div>
+          <div id="system-status-list" class="system-status-grid" aria-live="polite"><p>Carregando status…</p></div>
+          <section id="system-status-admin" class="system-status-admin" hidden><details><summary>Administração da central</summary>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="systemStatusAdminNew()">Novo sistema</button><div class="system-status-admin-grid">
+              <label>Chave (somente letras minúsculas, números, ponto, hífen e sublinhado) <input id="ssa-key" maxlength="80" disabled></label>
+              <label>Sistema existente <select id="ssa-system" onchange="systemStatusAdminSelect()"></select></label><label>Nome público <input id="ssa-name" maxlength="160"></label>
+              <label>Categoria <input id="ssa-category" maxlength="100"></label><label>Versão <input id="ssa-version" maxlength="80"></label>
+              <label>Estágio <select id="ssa-maturity"></select></label><label>Estado operacional <select id="ssa-operational"></select></label>
+              <label>Disponibilidade <select id="ssa-availability"></select></label><label>URL pública <input id="ssa-url" type="url" placeholder="https://…"></label>
+              <label class="system-status-admin-wide">Descrição <textarea id="ssa-description" rows="2" maxlength="2000"></textarea></label>
+              <label>Já disponível (um item por linha) <textarea id="ssa-implemented" rows="4"></textarea></label>
+              <label>Em desenvolvimento (um item por linha) <textarea id="ssa-development" rows="4"></textarea></label>
+              <label>Limitações conhecidas (um item por linha) <textarea id="ssa-limitations" rows="4"></textarea></label>
+              <label>Problemas conhecidos (um item por linha) <textarea id="ssa-issues" rows="4"></textarea></label>
+              <label class="system-status-admin-wide">Observação para jogadores <textarea id="ssa-note" rows="2" maxlength="2000"></textarea></label>
+              <label><input id="ssa-public" type="checkbox"> Exibir publicamente</label><label><input id="ssa-archived" type="checkbox"> Arquivar</label>
+            </div><button class="btn btn-primary" type="button" onclick="systemStatusAdminSave()">Salvar sistema</button><p id="ssa-feedback" role="status"></p>
+            <details><summary>Histórico administrativo</summary><div id="system-status-audit"></div></details>
+            <h3>Registrar incidente ou manutenção</h3><div class="system-status-admin-grid">
+              <label>Sistema <select id="ssi-system"></select></label><label>Título <input id="ssi-title" maxlength="200"></label>
+              <label>Etapa <select id="ssi-state"></select></label><label class="system-status-admin-wide">Descrição <textarea id="ssi-description" rows="3"></textarea></label>
+              <label><input id="ssi-public" type="checkbox" checked> Aviso público</label></div><button class="btn btn-ghost" type="button" onclick="systemStatusIncidentCreate()">Registrar</button>
+            <div id="system-status-admin-incidents"></div></details></section>
+          <footer id="system-status-updated" class="system-status-updated"></footer>
+        </section>
+      </div>
+
       <div id="page-catalog" class="page">
         <div class="catalog-hero">
           <img class="catalog-hero__mark" src="/catalogo.png" alt="" aria-hidden="true" />
@@ -13324,6 +13367,7 @@
 <script src="primal_fear_ficha.js?v=__WEB_BUILD__" defer></script>
 <script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
 <script src="lumo.js?v=__WEB_BUILD__" defer></script>
+<script src="system-status-center.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -14040,11 +14084,11 @@ function nav(el) {
     promptLogin("Sugestões");
     return;
   }
-  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "sorteio" && page !== "sorteio-regulamento" && page !== "season-pass" && playerNeedsRegulamentoAccept()) {
+  if (page !== "regulamento" && page !== "home" && page !== "system-status" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "sorteio" && page !== "sorteio-regulamento" && page !== "season-pass" && playerNeedsRegulamentoAccept()) {
     showRegulamentoGate();
     return;
   }
-  if (playerNeedsDisplayName() && page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "season-pass") {
+  if (playerNeedsDisplayName() && page !== "regulamento" && page !== "home" && page !== "system-status" && page !== "catalog" && page !== "season-pass") {
     showDisplayNameGate("navegar no portal");
     return;
   }
@@ -14062,6 +14106,7 @@ function nav(el) {
   if (isMobileNav()) closeSidebar();
   // Troca de página é síncrona (DOM já montado). Loads abaixo são TTL/cache — não bloqueiam paint.
   if (page === "home") loadHome();
+  if (page === "system-status" && typeof window.systemStatusLoad === "function") window.systemStatusLoad(false);
   if (page === "lumo" && _auth?.is_admin && typeof window.loadLumoAdmin === "function") window.loadLumoAdmin();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }

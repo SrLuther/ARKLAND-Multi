@@ -2207,6 +2207,12 @@ def _migrate_schema(engine: Any) -> None:
             ensure_home_notice_schema(engine)
         except Exception as exc:
             log.warning("Mural home (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from system_status_center import ensure_system_status_schema
+
+            ensure_system_status_schema(engine)
+        except Exception as exc:
+            log.warning("Central de status: migrate falhou: %s", exc)
         _ensure_blueprint_index(engine)
         return
     with engine.connect() as conn:
@@ -2448,6 +2454,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_home_notice_schema(engine)
     except Exception as exc:
         log.warning("Mural home: migrate falhou: %s", exc)
+    try:
+        from system_status_center import ensure_system_status_schema
+
+        ensure_system_status_schema(engine)
+    except Exception as exc:
+        log.warning("Central de status: migrate falhou: %s", exc)
     _ensure_blueprint_index(engine)
 
 
@@ -19205,6 +19217,20 @@ register_player_monitoring_routes(
     ticket_staff_required=ticket_staff_required,
     limiter=limiter,
 )
+
+from system_status_center import register_system_status_routes
+
+register_system_status_routes(
+    app,
+    db_ready=_db_ready,
+    engine_getter=lambda: _ENGINE,
+    admin_required=admin_required,
+    api_key_required=api_key_required,
+    actor_getter=lambda: _steam_id_from_session(),
+    load_servers=lambda: _load_servers(decrypt_secrets=False),
+    runtime_statuses=get_all_statuses,
+    limiter=limiter,
+)
 app.config["ARKLAND_RELEASE"] = _get_project_release()
 
 from regulamento_service import register_regulamento_routes
@@ -19987,7 +20013,19 @@ from lumo_routes import register_lumo_routes
 def _lumo_source_provider(source: str) -> dict[str, Any]:
     """Fontes internas oficiais para respostas do Gateway e modo de teste."""
     if source == "status":
-        return {"ok": True}
+        if not _db_ready() or _ENGINE is None:
+            return {"ok": False}
+        try:
+            from system_status_center import lumo_status_snapshot
+
+            return lumo_status_snapshot(
+                _ENGINE,
+                servers=_load_servers(decrypt_secrets=False),
+                runtime_statuses=get_all_statuses(max_age_s=600.0),
+            )
+        except Exception as exc:
+            log.warning("Lumo: consulta da central de status falhou (%s)", type(exc).__name__)
+            return {"ok": False}
     if not _db_ready():
         return {"ok": False}
     if source == "betland":

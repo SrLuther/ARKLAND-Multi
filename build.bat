@@ -108,6 +108,10 @@ if "%SKIP_PLUGIN_BUILD%"=="1" (
 )
 
 echo [1b/4] Compilando CustomShop.dll...
+if defined BUILD_PLUGIN_LIST (
+    echo ,%BUILD_PLUGIN_LIST%, | findstr /i /c:",CustomShop," >nul
+    if errorlevel 1 goto :skip_customshop_build
+)
 if exist "%~dp0plugin\CustomShop\build_cl.bat" (
     pushd "%~dp0plugin\CustomShop"
     call build_cl.bat
@@ -121,9 +125,14 @@ if exist "%~dp0plugin\CustomShop\build_cl.bat" (
 ) else (
     echo [AVISO] plugin\CustomShop\build_cl.bat nao encontrado — pulando compile do plugin.
 )
+:skip_customshop_build
 echo.
 
 echo [1c/4] Compilando CustomDinoDeliver.dll...
+if defined BUILD_PLUGIN_LIST (
+    echo ,%BUILD_PLUGIN_LIST%, | findstr /i /c:",CustomDinoDeliver," >nul
+    if errorlevel 1 goto :skip_customdinodeliver_build
+)
 if exist "%~dp0plugin\CustomDinoDeliver\build_cl.bat" (
     pushd "%~dp0plugin\CustomDinoDeliver"
     call build_cl.bat
@@ -137,9 +146,14 @@ if exist "%~dp0plugin\CustomDinoDeliver\build_cl.bat" (
 ) else (
     echo [AVISO] plugin\CustomDinoDeliver\build_cl.bat nao encontrado — pulando compile do plugin.
 )
+:skip_customdinodeliver_build
 echo.
 
 echo [1d/4] Compilando ArkPlayer.dll...
+if defined BUILD_PLUGIN_LIST (
+    echo ,%BUILD_PLUGIN_LIST%, | findstr /i /c:",ArkPlayer," >nul
+    if errorlevel 1 goto :skip_arkplayer_build
+)
 if exist "%~dp0plugin\ArkPlayer\build_cl.bat" (
     pushd "%~dp0plugin\ArkPlayer"
     call build_cl.bat
@@ -153,9 +167,14 @@ if exist "%~dp0plugin\ArkPlayer\build_cl.bat" (
 ) else (
     echo [AVISO] plugin\ArkPlayer\build_cl.bat nao encontrado — pulando compile do plugin.
 )
+:skip_arkplayer_build
 echo.
 
 echo [1e/4] Building FazendaRecursos.dll...
+if defined BUILD_PLUGIN_LIST (
+    echo ,%BUILD_PLUGIN_LIST%, | findstr /i /c:",FazendaRecursos," >nul
+    if errorlevel 1 goto :skip_fazendarecursos_build
+)
 if exist "%~dp0plugin\FazendaRecursos\build_cl.bat" (
     pushd "%~dp0plugin\FazendaRecursos"
     call build_cl.bat
@@ -171,6 +190,7 @@ if exist "%~dp0plugin\FazendaRecursos\build_cl.bat" (
     echo [ERRO] plugin\FazendaRecursos\build_cl.bat not found.
     exit /b 1
 )
+:skip_fazendarecursos_build
 echo.
 
 :after_plugin_builds

@@ -4,6 +4,7 @@
     "ObservationProbeEnabled": false,
     "LifecycleObservationEnabled": false,
     "LifecycleBeginPlayObservationEnabled": false,
+    "ResidentInventoryProbeEnabled": false,
     "MapName": "",
     "InstancePath": "",
     "LPG": 0,

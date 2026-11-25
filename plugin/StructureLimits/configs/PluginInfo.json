@@ -1,9 +1,9 @@
 ﻿{
-    "FullName":  "ARKLAND Structure Limits (probe de identidade de blueprint)",
-    "Version":  0.6,
+    "FullName":  "ARKLAND Structure Limits (probe de inventário residente)",
+    "Version":  0.7,
     "MinApiVersion":  3.54,
-    "VersionLabel":  "0.6-dev",
-    "Description":  "Observação de posicionamento com chave canônica de blueprint; não aplica limites",
+    "VersionLabel":  "0.7-dev",
+    "Description":  "Varredura diagnóstica de atores residentes; inventário incompleto, não aplica limites",
     "Dependencies":  [
 
                      ]

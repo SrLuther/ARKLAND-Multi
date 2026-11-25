@@ -1,11 +1,14 @@
 #include <API/ARK/Ark.h>
 
+#include <cstddef>
 #include "StructureLimitsConfig.h"
 #include "DurableOutbox.h"
 #include "LocalSnapshotStore.h"
 
 #include <memory>
+#include <set>
 #include <string>
+#include <unordered_set>
 #include <immintrin.h>
 
 #pragma comment(lib, "ArkApi.lib")
@@ -18,6 +21,8 @@ bool g_destroyedHookInstalled = false;
 bool g_demolishHookInstalled = false;
 bool g_pickupHookInstalled = false;
 bool g_multiUseHookInstalled = false;
+bool g_residentProbeTimerInstalled = false;
+bool g_residentProbeCompleted = false;
 UClass* g_supplyCrateBaseClass = nullptr;
 std::unique_ptr<StructureLimits::LimitEngine> g_limitEngine;
 std::unique_ptr<StructureLimits::LocalSnapshotStore> g_snapshotStore;
@@ -42,6 +47,63 @@ DECLARE_HOOK(APrimalStructure_TryMultiUse, bool, APrimalStructure*,
     APlayerController*, int);
 
 namespace {
+
+void ProbeResidentWorldOncePlayersArePresent() {
+    if (g_residentProbeCompleted) return;
+    auto* world = ArkApi::GetApiUtils().GetWorld();
+    if (world == nullptr || world->PlayerControllerListField().Num() == 0) return;
+
+    g_residentProbeCompleted = true;
+    const auto structureClass = APrimalStructure::GetPrivateStaticClass();
+    std::unordered_set<AActor*> seenActors;
+    std::set<unsigned int> structureIds;
+    std::size_t levelsScanned = 0;
+    std::size_t actorsScanned = 0;
+    std::size_t structuresFound = 0;
+    std::size_t supplyCratesExcluded = 0;
+    std::size_t structuresWithTeam = 0;
+    std::size_t structuresWithPlayerId = 0;
+    std::size_t structuresWithoutStableId = 0;
+    std::size_t duplicateStructureIds = 0;
+
+    const auto levels = world->LevelsField();
+    for (int levelIndex = 0; levelIndex < levels.Num(); ++levelIndex) {
+        auto* level = levels[levelIndex];
+        if (level == nullptr) continue;
+        ++levelsScanned;
+        const auto actors = level->GetActorsField();
+        actorsScanned += static_cast<std::size_t>(actors.Num());
+        for (int actorIndex = 0; actorIndex < actors.Num(); ++actorIndex) {
+            auto* actor = actors[actorIndex];
+            if (actor == nullptr || !seenActors.insert(actor).second ||
+                !actor->IsA(structureClass)) continue;
+
+            auto* structure = static_cast<APrimalStructure*>(actor);
+            if (g_supplyCrateBaseClass != nullptr &&
+                structure->IsA(g_supplyCrateBaseClass)) {
+                ++supplyCratesExcluded;
+                continue;
+            }
+
+            ++structuresFound;
+            if (structure->TargetingTeamField() != 0) ++structuresWithTeam;
+            if (structure->OwningPlayerIDField() != 0) ++structuresWithPlayerId;
+            const auto structureId = structure->StructureIDField();
+            if (structureId == 0) ++structuresWithoutStableId;
+            else if (!structureIds.insert(structureId).second) ++duplicateStructureIds;
+        }
+    }
+
+    Log::GetLog()->info(
+        "StructureLimits probe: resident_world_scan complete_inventory=false "
+        "reason=loaded_level_actors_only levels={} actors={} structures={} "
+        "with_targeting_team={} with_owning_player_id={} missing_structure_id={} "
+        "duplicate_structure_id={} supply_crates_excluded={}; stasis/unloaded "
+        "save records and reliable ownership attribution are not established",
+        levelsScanned, actorsScanned, structuresFound, structuresWithTeam,
+        structuresWithPlayerId, structuresWithoutStableId,
+        duplicateStructureIds, supplyCratesExcluded);
+}
 
 bool LogStructureLifecycle(const char* eventName, APrimalStructure* structure) {
     if (structure == nullptr || structure->ClassField() == nullptr) return false;
@@ -279,9 +341,10 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
         const bool observePlacement = config.observationProbeEnabled;
         const bool observeLifecycle = config.lifecycleObservationEnabled;
+        const bool observeResidentInventory = config.residentInventoryProbeEnabled;
         const bool observeBeginPlay = observeLifecycle &&
             config.lifecycleBeginPlayObservationEnabled;
-        if (!observePlacement && !observeLifecycle) {
+        if (!observePlacement && !observeLifecycle && !observeResidentInventory) {
             Log::GetLog()->warn("StructureLimits: observers are disabled; no game hooks installed");
             Log::GetLog()->warn("StructureLimits: enforcement suspended; complete live inventory and validated placement hook are unavailable");
             return;
@@ -323,10 +386,21 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
                 &APrimalStructure_TryMultiUse_original);
             g_multiUseHookInstalled = true;
         }
+        if (observeResidentInventory) {
+            ArkApi::GetCommands().AddOnTimerCallback(
+                "StructureLimitsResidentInventoryProbe",
+                &ProbeResidentWorldOncePlayersArePresent);
+            g_residentProbeTimerInstalled = true;
+        }
         Log::GetLog()->warn(
             "StructureLimits: observer hooks only; enforcement suspended; removal action hooks (Demolish/BPOnStructurePickup/TryMultiUse) are diagnostic candidates and require validation before counting");
     } catch (const std::exception& e) {
         DisableInstalledHooks();
+        if (g_residentProbeTimerInstalled) {
+            ArkApi::GetCommands().RemoveOnTimerCallback(
+                "StructureLimitsResidentInventoryProbe");
+            g_residentProbeTimerInstalled = false;
+        }
         g_limitEngine.reset();
         g_snapshotStore.reset();
         g_outbox.reset();
@@ -337,6 +411,12 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
     DisableInstalledHooks();
+    if (g_residentProbeTimerInstalled) {
+        ArkApi::GetCommands().RemoveOnTimerCallback(
+            "StructureLimitsResidentInventoryProbe");
+        g_residentProbeTimerInstalled = false;
+    }
+    g_residentProbeCompleted = false;
     g_limitEngine.reset();
     g_snapshotStore.reset();
     g_outbox.reset();

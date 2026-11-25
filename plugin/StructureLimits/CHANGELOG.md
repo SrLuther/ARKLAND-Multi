@@ -1,5 +1,14 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.7-dev — alvo ARKLAND Multi v1.12.26] — 2026-11-25
+
+Status: probe local em desenvolvimento; ainda não instalado no servidor.
+
+- Adiciona `ResidentInventoryProbeEnabled` (desativado por padrão). Quando ativado, uma varredura única é executada no timer do ArkServerAPI depois que o mundo e ao menos um jogador estiverem presentes.
+- Percorre os atores das `UWorld.Levels`, identifica estruturas por `APrimalStructure`, elimina referências repetidas ao mesmo ator, exclui supply crates derivados da classe-base conhecida e registra totais de níveis, atores, estruturas, metadados de time/jogador, IDs ausentes/duplicados e crates excluídos.
+- O resultado declara explicitamente `complete_inventory=false`: atores em stasis/descarregados, registros persistidos no save e atribuição confiável de proprietário/tribo não são garantidos por essa enumeração. A varredura nunca alimenta snapshots nem ativa enforcement.
+- Objetivo: medir a cobertura real do SDK no mapa de teste e orientar a próxima prova de inventário. Por ser opt-in e somente leitura, a configuração padrão não altera o comportamento atual do servidor.
+
 ## [0.6-dev — alvo ARKLAND Multi v1.12.25] — 2026-11-25
 
 - Validação em jogo no servidor 05: após as ações do administrador, o log correlacionou chamadas `TryMultiUse` e `Destroyed` pelos mesmos StructureIDs, incluindo a fundação S+ `239749036`, que também aparecia em um `final-check` anterior. O callback `BPOnStructurePickup` e o hook `Demolish` não foram observados nessa sequência; `handled` variou entre falso e verdadeiro. Motivo: distinguir quais sinais de remoção o servidor realmente emite para essas estruturas. Conclusão limitada: a interação e o teardown foram observados, mas ainda não há prova suficiente para contar uma recolha ou demolição como remoção autoritativa. Enforcement continua suspenso.
