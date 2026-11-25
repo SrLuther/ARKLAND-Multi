@@ -1,10 +1,8 @@
 {
-    "version": "1.12.26",
+    "version": "1.12.27",
     "date": "2026-11-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.26/ARKLAND-Multi-Setup-v1.12.26.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.27/ARKLAND-Multi-Setup-v1.12.27.exe",
     "changelog": [
-        "Lumo 2.0: adiciona assistente interativo do Discord com Gateway, restrição a um servidor e um canal, respostas em português para status, Bet Land, licenças e votações, além de saudações variadas.",
-        "Lumo 2.0: acrescenta anúncios automáticos independentes para sorteios e votações abertas, com intervalo aleatório de 3 a 4 horas, agenda persistida, limites contra repetição e dados obtidos dos serviços internos.",
-        "Lumo 2.0: inclui configuração administrativa, prévia sem publicação, gestão de respostas de saudação, telemetria e auditoria sem registrar conteúdo privado; token do bot protegido no armazenamento e Gateway desativado por padrão."
+        "Configuração do ARK ASE: adiciona opção dedicada para iniciar com -newsaveformat, disponível nos perfis Geral e TEK, salva junto ao perfil e sem permitir conflito com -oldsaveformat. As descrições do catálogo agora estão em português."
     ]
 }

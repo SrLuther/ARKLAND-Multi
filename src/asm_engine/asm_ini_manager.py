@@ -1497,7 +1497,9 @@ def _launch_dash_flags(cfg: AsmServerConfig) -> list[str]:
         flags.append("-lowmemory")
     if cfg.use_cache:
         flags.append("-usecache")
-    if cfg.use_old_save_format:
+    if cfg.use_new_save_format:
+        flags.append("-newsaveformat")
+    elif cfg.use_old_save_format:
         flags.append("-oldsaveformat")
     if cfg.use_no_memory_bias:
         flags.append("-nomemorybias")

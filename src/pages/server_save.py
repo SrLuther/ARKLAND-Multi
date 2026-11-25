@@ -114,6 +114,7 @@ def save_server_config(app: ARKServerManagerApp, server_id: str, silent: bool = 
             pass
         srv.disable_player_move_physics_opt = bool(w.get("disable_player_move_physics_opt", tk.BooleanVar()).get())
         srv.use_cache                       = bool(w.get("use_cache",                       tk.BooleanVar()).get())
+        srv.use_new_save_format             = bool(w.get("use_new_save_format",             tk.BooleanVar()).get())
         srv.use_old_save_format             = bool(w.get("use_old_save_format",             tk.BooleanVar()).get())
         srv.use_no_memory_bias              = bool(w.get("use_no_memory_bias",              tk.BooleanVar()).get())
         srv.stasis_keep_controllers         = bool(w.get("stasis_keep_controllers",         tk.BooleanVar()).get())

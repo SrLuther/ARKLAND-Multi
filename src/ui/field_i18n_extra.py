@@ -141,6 +141,7 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     "server_rcon_output_tribe_logs": "Enviar logs de tribo via RCON",
     "supply_crate_overrides_raw": "Substituições de caixas de loot (Game.ini bruto)",
     "use_old_save_format": "Usar formato antigo de arquivo de save",
+    "use_new_save_format": "Usar novo formato de arquivo de save",
     "pvp_dino_decay": "Deterioração de dino em PvP",
     "pve_dino_decay_period_multiplier": "Período de deterioração de dino (PvE)",
     # ── Campos que dependiam do legacy_pt_labels ──────────────────────────────
@@ -193,6 +194,8 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
 }
 
 EXTRA_HINTS: dict[str, str] = {
+    "use_new_save_format": "Adiciona -newsaveformat à inicialização. O formato padrão já se baseia no formato novo; deixe desligado salvo necessidade específica. Para carregar backups oficiais de servidores 2023, o catálogo do ARK indica que também é necessário -usestore.",
+    "use_old_save_format": "Adiciona -oldsaveformat para forçar o formato legado. Use somente para compatibilidade quando o formato padrão ou novo não funcionar.",
     # Rede / admin
     "server_port": "Porta principal do jogo. A porta peer é sempre game+1 (automática).",
     "query_port": "Porta listada no browser de servidores Steam/Epic.",

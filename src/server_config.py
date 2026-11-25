@@ -491,6 +491,7 @@ class ServerConfig:
     speed_hack_bias: float = 1.0                   # -speedhackbias=N
     disable_player_move_physics_opt: bool = False  # -nocombineclientmoves
     use_cache: bool = False                        # -usecache
+    use_new_save_format: bool = False              # -newsaveformat
     use_old_save_format: bool = False              # -oldsaveformat
     use_no_memory_bias: bool = False               # -nomemorybias
     stasis_keep_controllers: bool = False          # -StasisKeepControllers
@@ -751,7 +752,9 @@ class ServerConfig:
             flags.append("-lowmemory")
         if self.use_cache:
             flags.append("-usecache")
-        if self.use_old_save_format:
+        if self.use_new_save_format:
+            flags.append("-newsaveformat")
+        elif self.use_old_save_format:
             flags.append("-oldsaveformat")
         if self.use_no_memory_bias:
             flags.append("-nomemorybias")

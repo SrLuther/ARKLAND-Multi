@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.26"
+APP_VERSION: str = "1.12.27"
 BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.27",
+        "date": "2026-11-25",
+        "changes": [
+            "Configuração do ARK ASE: adiciona opção dedicada para iniciar com -newsaveformat, disponível nos perfis Geral e TEK, salva junto ao perfil e sem permitir conflito com -oldsaveformat. As descrições do catálogo agora estão em português.",
+        ],
+    },
     {
         "version": "1.12.26",
         "date": "2026-11-25",

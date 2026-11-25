@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 09:31:43 -->
-<!-- Total de versões: 587 | Primeira: 1.12.26 -->
+<!-- Gerado: 2026-11-25 10:59:17 -->
+<!-- Total de versões: 588 | Primeira: 1.12.27 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.27] - 2026-11-25
+
+### Other
+
+- Configuração do ARK ASE: adiciona opção dedicada para iniciar com -newsaveformat, disponível nos perfis Geral e TEK, salva junto ao perfil e sem permitir conflito com -oldsaveformat. As descrições do catálogo agora estão em português.
 
 ## [1.12.26] - 2026-11-25
 

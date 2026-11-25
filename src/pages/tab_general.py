@@ -167,6 +167,7 @@ def build_tab_general(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
     w["speed_hack_bias"]                  = tk.StringVar(value=str(srv.speed_hack_bias))
     w["disable_player_move_physics_opt"]  = tk.BooleanVar(value=srv.disable_player_move_physics_opt)
     w["use_cache"]                        = tk.BooleanVar(value=srv.use_cache)
+    w["use_new_save_format"]              = tk.BooleanVar(value=srv.use_new_save_format)
     w["use_old_save_format"]              = tk.BooleanVar(value=srv.use_old_save_format)
     w["use_no_memory_bias"]               = tk.BooleanVar(value=srv.use_no_memory_bias)
     w["stasis_keep_controllers"]          = tk.BooleanVar(value=srv.stasis_keep_controllers)
@@ -510,8 +511,11 @@ def build_tab_general(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         ("Usar Cache (-usecache)",
          "Ativa o cache de assets do servidor para carregamento mais rápido.",
          w["use_cache"]),
+        ("Novo formato de jogo salvo (-newsaveformat)",
+         "Ativa o formato novo de save. Use somente quando necessário; para backups oficiais de 2023, o catálogo do ARK exige também -usestore.",
+         w["use_new_save_format"]),
         ("Formato de Save Antigo (-oldsaveformat)",
-         "Usa o formato de arquivo de save legado. Útil para compatibilidade com backups.",
+         "Força o formato legado. O jogo já usa por padrão um formato baseado no novo; mantenha esta opção desligada salvo necessidade de compatibilidade.",
          w["use_old_save_format"]),
         ("Sem Bias de Memória (-nomemorybias)",
          "Desativa o viés de alocação de memória. Pode reduzir uso de RAM.",

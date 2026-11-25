@@ -23,7 +23,7 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "crossplay", "epic_only", "public_ip_for_epic", "use_vivox", "use_item_dupe_check",
         "use_raw_sockets", "no_net_threading", "force_net_threading", "no_transfer_from_filtering",
         "disable_vac", "disable_anti_speed_hack", "speed_hack_bias", "disable_player_move_physics_opt",
-        "use_cache", "use_old_save_format", "use_no_memory_bias", "stasis_keep_controllers",
+        "use_cache", "use_new_save_format", "use_old_save_format", "use_no_memory_bias", "stasis_keep_controllers",
         "use_no_hang_detection", "server_allow_ansel", "no_dinos", "force_dx10",
         "force_shader_model4", "force_low_memory", "allow_cave_flyers",
         "enable_auto_destroy_structures", "enable_no_fish_loot",

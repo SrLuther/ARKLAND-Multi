@@ -89,6 +89,7 @@ class AsmServerConfig:
     speed_hack_bias: float = 1.0
     disable_player_move_physics_opt: bool = False
     use_cache: bool = False
+    use_new_save_format: bool = False
     use_old_save_format: bool = False
     use_no_memory_bias: bool = False
     stasis_keep_controllers: bool = False

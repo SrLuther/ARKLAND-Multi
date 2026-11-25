@@ -24,7 +24,7 @@ _CLI_CARDS: list[CardSpec] = [
         "disable_player_move_physics_opt",
     ]),
     CardSpec("Performance / memória", [
-        "use_cache", "use_old_save_format", "use_no_memory_bias",
+        "use_cache", "use_new_save_format", "use_old_save_format", "use_no_memory_bias",
         "stasis_keep_controllers", "use_no_hang_detection", "server_allow_ansel",
         "no_dinos", "force_dx10", "force_shader_model4", "force_low_memory",
     ], bool_grid=True),
