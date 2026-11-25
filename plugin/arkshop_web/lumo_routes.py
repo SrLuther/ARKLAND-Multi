@@ -10,9 +10,11 @@ import urllib.parse
 import urllib.request
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Callable
 
-from flask import jsonify, request
+from flask import jsonify, request, send_file
+from lumo_assets import MAX_IMAGE_BYTES, cleanup_assets, resolve_asset, validate_and_store
 from lumo_assistant import GREETING_REPLIES
 from lumo_gateway import configure_lumo_runtime
 
@@ -126,13 +128,28 @@ def _safe_json_response(response: Any) -> dict[str, Any]:
         return {}
 
 
-def _discord_request(url: str, *, method: str = "GET", payload: dict[str, Any] | None = None) -> tuple[int, dict[str, Any], dict[str, str]]:
-    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8") if payload is not None else None
+def _discord_request(url: str, *, method: str = "GET", payload: dict[str, Any] | None = None,
+                     files: list[tuple[str, str, str, bytes]] | None = None) -> tuple[int, dict[str, Any], dict[str, str]]:
+    headers = {"Accept": "application/json", "User-Agent": "ARKLAND-Lumo/1.0"}
+    if files:
+        boundary = "----ARKLANDLumo" + uuid.uuid4().hex
+        chunks = [f"--{boundary}\r\nContent-Disposition: form-data; name=\"payload_json\"\r\nContent-Type: application/json\r\n\r\n".encode(),
+                  json.dumps(payload or {}, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), b"\r\n"]
+        for index, (field_name, filename, mime, content) in enumerate(files):
+            safe_filename = Path(filename).name.replace('"', "")
+            chunks.extend([f"--{boundary}\r\nContent-Disposition: form-data; name=\"files[{index}]\"; filename=\"{safe_filename}\"\r\nContent-Type: {mime}\r\n\r\n".encode(), content, b"\r\n"])
+        chunks.append(f"--{boundary}--\r\n".encode())
+        body = b"".join(chunks)
+        headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+    else:
+        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8") if payload is not None else None
+        if body is not None:
+            headers["Content-Type"] = "application/json"
     req = urllib.request.Request(
         url,
         data=body,
         method=method,
-        headers={"Accept": "application/json", "User-Agent": "ARKLAND-Lumo/1.0", **({"Content-Type": "application/json"} if body is not None else {})},
+        headers=headers,
     )
     opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=ssl.create_default_context()))
     try:
@@ -164,6 +181,25 @@ def _assistant_view(settings: dict[str, Any], runtime: Any) -> dict[str, Any]:
         "token_configured": bool(settings.get("lumo_bot_token")),
         "guild_id": str(settings.get("lumo_guild_id") or ""),
         "interaction_channel_id": str(settings.get("lumo_interaction_channel_id") or ""),
+        "game_chat_enabled": bool(settings.get("lumo_game_chat_enabled", False)),
+        "game_chat_channel_id": str(settings.get("lumo_game_chat_channel_id") or ""),
+        "game_chat_webhooks_enabled": bool(settings.get("lumo_game_chat_webhooks_enabled", False)),
+        "game_chat_keywords_enabled": bool(settings.get("lumo_game_chat_keywords_enabled", False)),
+        "game_chat_announcements_enabled": bool(settings.get("lumo_game_chat_announcements_enabled", False)),
+        "game_general_announcements_enabled": bool(settings.get("lumo_game_general_announcements_enabled", False)),
+        "game_auto_betland_enabled": bool(settings.get("lumo_game_auto_betland_enabled", False)),
+        "game_auto_polls_enabled": bool(settings.get("lumo_game_auto_polls_enabled", False)),
+        "game_general_next_at": str(settings.get("lumo_game_general_next_at") or ""),
+        "game_auto_betland_next_at": str(settings.get("lumo_game_auto_betland_next_at") or ""),
+        "game_auto_polls_next_at": str(settings.get("lumo_game_auto_polls_next_at") or ""),
+        "game_chat_max_chars": int(settings.get("lumo_game_chat_max_chars", 250) or 250),
+        "game_chat_trigger_aliases": dict(settings.get("lumo_game_chat_trigger_aliases") or {}),
+        "game_chat_topic_enabled": dict(settings.get("lumo_game_chat_topic_enabled") or {}),
+        "game_chat_greeting_cooldown_seconds": int(settings.get("lumo_game_chat_greeting_cooldown_seconds", 600) or 0),
+        "game_chat_topic_cooldown_seconds": int(settings.get("lumo_game_chat_topic_cooldown_seconds", 120) or 0),
+        "game_chat_user_topic_cooldown_seconds": int(settings.get("lumo_game_chat_user_topic_cooldown_seconds", 300) or 0),
+        "game_chat_global_cooldown_seconds": int(settings.get("lumo_game_chat_global_cooldown_seconds", 5) or 0),
+        "bot_user_id": str(settings.get("lumo_bot_user_id") or ""),
         "status_channel_id": str(settings.get("lumo_status_channel_id") or ""),
         "trigger_enabled": dict(settings.get("lumo_trigger_enabled") or {"STATUS": True, "BETLAND": True, "LICENCAS": True, "VOTACAO": True}),
         "trigger_aliases": dict(settings.get("lumo_trigger_aliases") or {}),
@@ -217,8 +253,29 @@ def register_lumo_routes(
     index_view: Callable[[], Any],
     db_ready: Callable[[], bool],
     source_provider: Callable[[str], dict[str, Any]] | None = None,
+    uploads_dir: Path | str | None = None,
 ) -> None:
     runtime = configure_lumo_runtime(load_settings, save_settings, source_provider or (lambda _source: {"ok": False}), audit_event)
+    asset_dir = Path(uploads_dir or (Path(app.instance_path) / "lumo_uploads")).resolve()
+
+    def expire_assets(settings: dict[str, Any]) -> dict[str, Any]:
+        now_utc = datetime.now(UTC)
+        last = str(settings.get("lumo_asset_cleanup_at") or "")
+        try:
+            last_dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
+        except ValueError:
+            last_dt = None
+        if last_dt and (now_utc - last_dt).total_seconds() < 86400:
+            return settings
+        records = settings.get("lumo_media_assets")
+        records = records if isinstance(records, list) else []
+        updated, removed = cleanup_assets(asset_dir, records, retention_days=int(settings.get("lumo_asset_retention_days", 30) or 30), now=now_utc)
+        settings["lumo_media_assets"] = updated
+        settings["lumo_asset_cleanup_at"] = now_utc.isoformat(timespec="seconds")
+        if removed:
+            audit_event("lumo_asset_cleanup", source="lumo_assets", actor_type="system", severity="info", message="Limpeza diária de imagens Lumo", status_after="success", count=len(removed), asset_ids=removed)
+        save_settings(settings)
+        return settings
     @app.get("/admin/lumo")
     @admin_required
     def lumo_admin_page():
@@ -235,7 +292,8 @@ def register_lumo_routes(
     @admin_required
     @limiter.limit("60 per minute")
     def lumo_get_assistant_config():
-        return jsonify({"ok": True, "assistant": _assistant_view(load_settings(), runtime), "greeting_replies": list(load_settings().get("lumo_greeting_replies") or GREETING_REPLIES)})
+        settings = expire_assets(load_settings())
+        return jsonify({"ok": True, "assistant": _assistant_view(settings, runtime), "greeting_replies": list(settings.get("lumo_greeting_replies") or GREETING_REPLIES)})
 
     @app.post("/api/admin/lumo/assistant/config")
     @admin_required
@@ -248,16 +306,29 @@ def register_lumo_routes(
         guild_id = str(body.get("guild_id", settings.get("lumo_guild_id", "")) or "").strip()
         channel_id = str(body.get("interaction_channel_id", settings.get("lumo_interaction_channel_id", "")) or "").strip()
         status_id = str(body.get("status_channel_id", settings.get("lumo_status_channel_id", "")) or "").strip()
+        game_channel_id = str(body.get("game_chat_channel_id", settings.get("lumo_game_chat_channel_id", "")) or "").strip()
+        bot_user_id = str(body.get("bot_user_id", settings.get("lumo_bot_user_id", "")) or "").strip()
         if guild_id and not re.fullmatch(r"\d{17,22}", guild_id):
             return jsonify({"ok": False, "error": "O ID do servidor Discord deve conter entre 17 e 22 dígitos."}), 400
         if channel_id and not re.fullmatch(r"\d{17,22}", channel_id):
             return jsonify({"ok": False, "error": "O ID do canal autorizado deve conter entre 17 e 22 dígitos."}), 400
         if status_id and not re.fullmatch(r"\d{17,22}", status_id):
             return jsonify({"ok": False, "error": "O ID do canal de status deve conter entre 17 e 22 dígitos."}), 400
+        if game_channel_id and not re.fullmatch(r"\d{17,22}", game_channel_id):
+            return jsonify({"ok": False, "error": "O ID do canal de chat do jogo deve conter entre 17 e 22 dígitos."}), 400
+        if bot_user_id and not re.fullmatch(r"\d{17,22}", bot_user_id):
+            return jsonify({"ok": False, "error": "O ID do usuário Lumo deve conter entre 17 e 22 dígitos."}), 400
         enabled_raw = body.get("enabled", settings.get("lumo_assistant_enabled", False))
         if not isinstance(enabled_raw, bool):
             return jsonify({"ok": False, "error": "A ativação precisa ser true/false."}), 400
         enabled = enabled_raw
+        game_enabled = body.get("game_chat_enabled", settings.get("lumo_game_chat_enabled", False))
+        if not isinstance(game_enabled, bool):
+            return jsonify({"ok": False, "error": "A ativação do Chat do Jogo precisa ser true/false."}), 400
+        if game_enabled and not game_channel_id:
+            return jsonify({"ok": False, "error": "Informe o ID do canal integrado ao chat do jogo antes de ativá-lo."}), 400
+        if game_enabled and enabled and game_channel_id == channel_id:
+            return jsonify({"ok": False, "error": "Use canais diferentes para o Chat Global e o Chat do Jogo."}), 400
         token = str(body.get("bot_token") or "").strip()
         if token and (len(token) > 256 or any(ch.isspace() for ch in token)):
             return jsonify({"ok": False, "error": "O token do bot tem formato inválido."}), 400
@@ -270,8 +341,10 @@ def register_lumo_routes(
             settings["lumo_bot_token"] = token
         elif body.get("clear_bot_token"):
             settings["lumo_bot_token"] = ""
-        if enabled and not (settings.get("lumo_bot_token") and guild_id and channel_id):
-            return jsonify({"ok": False, "error": "Para ativar o Lumo, informe token, ID do servidor e ID de um único canal autorizado."}), 400
+        if (enabled or game_enabled) and not (settings.get("lumo_bot_token") and guild_id):
+            return jsonify({"ok": False, "error": "Para ativar o Gateway, informe o token do bot e o ID do servidor."}), 400
+        if enabled and not channel_id:
+            return jsonify({"ok": False, "error": "Informe o canal global autorizado para ativar as respostas do Lumo no Discord."}), 400
 
         bool_keys = ("auto_betland_enabled", "auto_polls_enabled")
         settings.update({
@@ -279,7 +352,51 @@ def register_lumo_routes(
             "lumo_guild_id": guild_id,
             "lumo_interaction_channel_id": channel_id,
             "lumo_status_channel_id": status_id,
+            "lumo_game_chat_channel_id": game_channel_id,
+            "lumo_game_chat_enabled": game_enabled,
+            "lumo_bot_user_id": bot_user_id,
         })
+        for key in ("game_chat_webhooks_enabled", "game_chat_keywords_enabled", "game_chat_announcements_enabled", "game_general_announcements_enabled", "game_auto_betland_enabled", "game_auto_polls_enabled"):
+            if key in body:
+                if not isinstance(body[key], bool):
+                    return jsonify({"ok": False, "error": f"{key} precisa ser true/false."}), 400
+                settings[f"lumo_{key}"] = body[key]
+        for key, default, maximum in (
+            ("game_chat_greeting_cooldown_seconds", 600, 86400),
+            ("game_chat_topic_cooldown_seconds", 120, 3600),
+            ("game_chat_user_topic_cooldown_seconds", 300, 3600),
+            ("game_chat_global_cooldown_seconds", 5, 120),
+        ):
+            if key in body:
+                try:
+                    settings[f"lumo_{key}"] = max(default if key.endswith("greeting_cooldown_seconds") else 0, min(maximum, int(body[key])))
+                except (TypeError, ValueError):
+                    return jsonify({"ok": False, "error": f"Valor inválido para {key}."}), 400
+        if "game_chat_max_chars" in body:
+            try:
+                settings["lumo_game_chat_max_chars"] = max(80, min(250, int(body["game_chat_max_chars"])))
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "Limite de tamanho inválido."}), 400
+        if "game_chat_trigger_aliases" in body:
+            aliases = body["game_chat_trigger_aliases"]
+            allowed = {"BETLAND", "VOTACAO", "SEASON", "SUPPORT", "SITE", "LINK", "STARTER", "CATALOG", "STATUS", "LIMIT", "LUMO"}
+            if not isinstance(aliases, dict) or set(aliases) - allowed:
+                return jsonify({"ok": False, "error": "Aliases do Chat do Jogo inválidos."}), 400
+            clean_aliases = {}
+            for topic, values in aliases.items():
+                if not isinstance(values, list) or len(values) > 30:
+                    return jsonify({"ok": False, "error": f"Informe até 30 aliases para {topic}."}), 400
+                clean = [str(value).strip()[:60] for value in values if str(value).strip()]
+                if any(len(value) < 2 for value in clean):
+                    return jsonify({"ok": False, "error": "Cada alias precisa ter ao menos 2 caracteres."}), 400
+                clean_aliases[topic] = clean
+            settings["lumo_game_chat_trigger_aliases"] = clean_aliases
+        if "game_chat_topic_enabled" in body:
+            topic_enabled = body["game_chat_topic_enabled"]
+            allowed_topics = {"BETLAND", "VOTACAO", "SEASON", "SUPPORT", "SITE", "LINK", "STARTER", "CATALOG", "STATUS", "LIMIT", "LUMO"}
+            if not isinstance(topic_enabled, dict) or set(topic_enabled) - allowed_topics or any(not isinstance(value, bool) for value in topic_enabled.values()):
+                return jsonify({"ok": False, "error": "Ativações de assuntos inválidas."}), 400
+            settings["lumo_game_chat_topic_enabled"] = {key: topic_enabled.get(key, True) for key in allowed_topics}
         for key in bool_keys:
             if key in body:
                 if not isinstance(body[key], bool):
@@ -336,6 +453,40 @@ def register_lumo_routes(
             return jsonify({"ok": True, **result})
         except Exception:
             return jsonify({"ok": False, "error": "O modo de teste não conseguiu consultar as fontes agora."}), 503
+
+    @app.post("/api/admin/lumo/assistant/game-preview")
+    @admin_required
+    @limiter.limit("60 per minute", override_defaults=True)
+    def lumo_game_preview():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        body = request.get_json(silent=True) or {}
+        text = str(body.get("text") or "").strip()
+        if not text or len(text) > 1000:
+            return jsonify({"ok": False, "error": "Informe uma mensagem de até 1.000 caracteres."}), 400
+        try:
+            return jsonify({"ok": True, **asyncio.run(runtime.preview_game_chat(text))})
+        except Exception:
+            return jsonify({"ok": False, "error": "A simulação do Chat do Jogo falhou ao consultar as fontes."}), 503
+
+    @app.post("/api/admin/lumo/game-chat/send")
+    @admin_required
+    @limiter.limit("5 per minute", override_defaults=True)
+    def lumo_game_manual_send():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        body = request.get_json(silent=True) or {}
+        text = " ".join(str(body.get("text") or "").split())
+        if not text or len(text) > 250:
+            return jsonify({"ok": False, "error": "A mensagem deve conter de 1 a 250 caracteres."}), 400
+        try:
+            message_id = runtime.send_game_message(text)
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc) or "O envio pelo Chat do Jogo falhou."}), 503
+        audit_event("lumo_game_manual_message", source="admin", actor_type="admin", actor_steam_id=str(get_admin_id() or ""), severity="info", message="Mensagem administrativa enviada pelo Chat do Jogo", status_after="success", channel_id=str(load_settings().get("lumo_game_chat_channel_id") or ""), discord_message_id=message_id)
+        return jsonify({"ok": True, "message": "Mensagem enviada uma vez ao canal compartilhado do Chat do Jogo."})
 
     @app.put("/api/admin/lumo/assistant/greetings")
     @admin_required
@@ -433,14 +584,29 @@ def register_lumo_routes(
         if not _same_origin_request():
             return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
         body = request.get_json(silent=True) or {}
+        settings = load_settings()
+        records = settings.get("lumo_media_assets") if isinstance(settings.get("lumo_media_assets"), list) else []
+        records_by_id = {str(row.get("id")): row for row in records if isinstance(row, dict)}
+        selected_assets: list[dict[str, Any]] = []
         try:
             embed = validate_embed(body.get("title"), body.get("content"), body.get("title_url"), body.get("image_url"), body.get("thumbnail_url"))
-            url = validate_webhook_url(str(load_settings().get("lumo_webhook_url") or ""))
+            for body_key, embed_key in (("image_asset_id", "image"), ("thumbnail_asset_id", "thumbnail")):
+                asset_id = str(body.get(body_key) or "").strip()
+                if not asset_id:
+                    continue
+                if body.get("image_url" if embed_key == "image" else "thumbnail_url"):
+                    raise ValueError("Escolha URL externa ou upload para cada campo de imagem, não ambos.")
+                record = records_by_id.get(asset_id)
+                if not record:
+                    raise ValueError("A imagem selecionada não existe mais. Atualize a lista de imagens.")
+                path = resolve_asset(asset_dir, record)
+                embed[embed_key] = {"url": "attachment://" + str(record["filename"])}
+                selected_assets.append({"record": record, "path": path})
+            url = validate_webhook_url(str(settings.get("lumo_webhook_url") or ""))
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
         except Exception:
             return jsonify({"ok": False, "error": "Configure e verifique o webhook antes de publicar."}), 400
-        settings = load_settings()
         if settings.get("lumo_webhook_status") != "verified":
             return jsonify({"ok": False, "error": "Verifique a integração com Discord antes de publicar."}), 409
         key = str(body.get("request_id") or "").strip()
@@ -460,11 +626,19 @@ def register_lumo_routes(
             "embeds": [embed],
             "allowed_mentions": {"parse": []},
         }
+        payload["attachments"] = [{"id": index, "filename": item["record"]["filename"]} for index, item in enumerate(selected_assets)]
+        upload_files = [(str(index), item["record"]["filename"], item["record"]["mime_type"], item["path"].read_bytes()) for index, item in enumerate(selected_assets)]
         endpoint = url + "?wait=true"
         try:
-            code, data, headers = _discord_request(endpoint, method="POST", payload=payload)
+            code, data, headers = _discord_request(endpoint, method="POST", payload=payload, files=upload_files or None)
             if code in (200, 201) and data.get("id"):
                 published_at = now().astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+                for selected in selected_assets:
+                    selected["record"]["last_used_at"] = published_at
+                    selected["record"]["last_used_by"] = admin_id[:64]
+                    selected["record"]["references"] = []
+                if selected_assets:
+                    save_settings(settings)
                 settings["lumo_last_published_at"] = published_at
                 settings["lumo_webhook_channel_id"] = str(data.get("channel_id") or settings.get("lumo_webhook_channel_id") or "")
                 settings["lumo_webhook_guild_id"] = str(data.get("guild_id") or settings.get("lumo_webhook_guild_id") or "")
@@ -494,6 +668,96 @@ def register_lumo_routes(
             message = "O resultado da publicação não pôde ser determinado. Confira o histórico antes de tentar novamente."
             audit_event("lumo_publish", source="admin", actor_type="admin", actor_steam_id=admin_id, severity="warning", message=message, status_after="uncertain", title=embed.get("title", ""), description=embed["description"], embed=embed)
             return jsonify({"ok": False, "error": message, "result": "uncertain"}), 502
+
+    @app.get("/api/admin/lumo/assets")
+    @admin_required
+    @limiter.limit("60 per minute")
+    def lumo_asset_list():
+        settings = expire_assets(load_settings())
+        records = settings.get("lumo_media_assets") if isinstance(settings.get("lumo_media_assets"), list) else []
+        return jsonify({"ok": True, "assets": [{k: row.get(k) for k in ("id", "original_name", "mime_type", "size", "width", "height", "uploaded_at", "last_used_at", "uploaded_by", "references", "status")} for row in records if isinstance(row, dict)], "retention_days": int(settings.get("lumo_asset_retention_days", 30) or 30)})
+
+    @app.post("/api/admin/lumo/assets")
+    @admin_required
+    @limiter.limit("20 per hour", override_defaults=True)
+    def lumo_asset_upload():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        uploaded = request.files.get("file")
+        if uploaded is None:
+            return jsonify({"ok": False, "error": "Selecione um arquivo de imagem."}), 400
+        if request.content_length and request.content_length > MAX_IMAGE_BYTES + 128 * 1024:
+            return jsonify({"ok": False, "error": "O arquivo excede o limite de 8 MB."}), 413
+        try:
+            record = validate_and_store(asset_dir, uploaded.stream, uploaded.filename or "imagem", str(get_admin_id() or ""))
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        settings = load_settings()
+        records = settings.get("lumo_media_assets") if isinstance(settings.get("lumo_media_assets"), list) else []
+        records.append(record)
+        settings["lumo_media_assets"] = records
+        save_settings(settings)
+        audit_event("lumo_asset_upload", source="admin", actor_type="admin", actor_steam_id=str(get_admin_id() or ""), severity="info", message="Imagem enviada para a Comunicação Lumo", status_after="success", asset_id=record["id"], size=record["size"], mime_type=record["mime_type"])
+        return jsonify({"ok": True, "asset": {**record, "preview_url": f"/api/admin/lumo/assets/{record['id']}/preview"}}), 201
+
+    @app.get("/api/admin/lumo/assets/<asset_id>/preview")
+    @admin_required
+    @limiter.limit("120 per minute")
+    def lumo_asset_preview(asset_id: str):
+        if not re.fullmatch(r"[a-f0-9]{32}", asset_id):
+            return jsonify({"ok": False, "error": "Imagem não encontrada."}), 404
+        records = load_settings().get("lumo_media_assets") or []
+        record = next((row for row in records if isinstance(row, dict) and row.get("id") == asset_id), None)
+        if not record:
+            return jsonify({"ok": False, "error": "Imagem não encontrada."}), 404
+        try:
+            path = resolve_asset(asset_dir, record)
+        except ValueError:
+            return jsonify({"ok": False, "error": "Imagem não encontrada."}), 404
+        response = send_file(path, mimetype=record["mime_type"], conditional=True, max_age=0)
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
+    @app.delete("/api/admin/lumo/assets/<asset_id>")
+    @admin_required
+    @limiter.limit("30 per hour", override_defaults=True)
+    def lumo_asset_delete(asset_id: str):
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        settings = load_settings()
+        records = settings.get("lumo_media_assets") if isinstance(settings.get("lumo_media_assets"), list) else []
+        record = next((row for row in records if isinstance(row, dict) and row.get("id") == asset_id), None)
+        if not record:
+            return jsonify({"ok": False, "error": "Imagem não encontrada."}), 404
+        if record.get("references"):
+            return jsonify({"ok": False, "error": "Esta imagem está vinculada a uma comunicação e não pode ser removida."}), 409
+        try:
+            resolve_asset(asset_dir, record).unlink(missing_ok=True)
+        except ValueError:
+            pass
+        settings["lumo_media_assets"] = [row for row in records if row is not record]
+        save_settings(settings)
+        audit_event("lumo_asset_delete", source="admin", actor_type="admin", actor_steam_id=str(get_admin_id() or ""), severity="info", message="Imagem removida da Comunicação Lumo", status_after="success", asset_id=asset_id)
+        return jsonify({"ok": True})
+
+    @app.post("/api/admin/lumo/assets/retention")
+    @admin_required
+    @limiter.limit("20 per hour", override_defaults=True)
+    def lumo_asset_retention():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        body = request.get_json(silent=True) or {}
+        try:
+            days = int(body.get("days"))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Informe um prazo em dias."}), 400
+        if not 1 <= days <= 3650:
+            return jsonify({"ok": False, "error": "O prazo deve estar entre 1 e 3.650 dias."}), 400
+        settings = load_settings()
+        settings["lumo_asset_retention_days"] = days
+        save_settings(settings)
+        return jsonify({"ok": True, "retention_days": days})
 
     @app.get("/api/admin/lumo/history")
     @admin_required

@@ -25,6 +25,8 @@
   const redoStack = [];
   let beforeInputState = null;
   let assistantConfig = null;
+  let pendingAssetDraft = {};
+  let lumoAssets = [];
 
   const $ = (id) => document.getElementById(id);
   const val = (id) => ($(id)?.value || "");
@@ -52,14 +54,14 @@
     return blocks.replace(/@@CODE(\d+)@@/g, (_m, index) => codeBlocks[Number(index)] || "");
   }
 
-  function draftData() { return { title: val("lumo-title"), content: val("lumo-content"), title_url: val("lumo-title-url"), image_url: val("lumo-image-url"), thumbnail_url: val("lumo-thumbnail-url") }; }
+  function draftData() { return { title: val("lumo-title"), content: val("lumo-content"), title_url: val("lumo-title-url"), image_url: val("lumo-image-url"), thumbnail_url: val("lumo-thumbnail-url"), image_asset_id: val("lumo-image-asset"), thumbnail_asset_id: val("lumo-thumbnail-asset") }; }
   function saveDraft(showMessage = false) {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draftData(), saved_at: new Date().toISOString() }));
     dirty = false;
     if (showMessage) toast("Rascunho salvo neste navegador. A URL do webhook não é incluída.", "success");
   }
   function restoreDraft() {
-    try { const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); if (!saved) return; Object.entries(saved).forEach(([key, id]) => { const domId = ({ title:"lumo-title", content:"lumo-content", title_url:"lumo-title-url", image_url:"lumo-image-url", thumbnail_url:"lumo-thumbnail-url" })[key]; if (domId) setVal(domId, id); }); }
+    try { const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); if (!saved) return; Object.entries(saved).forEach(([key, id]) => { const domId = ({ title:"lumo-title", content:"lumo-content", title_url:"lumo-title-url", image_url:"lumo-image-url", thumbnail_url:"lumo-thumbnail-url" })[key]; if (domId) setVal(domId, id); }); pendingAssetDraft = { image_asset_id:saved.image_asset_id || "", thumbnail_asset_id:saved.thumbnail_asset_id || "" }; }
     catch { localStorage.removeItem(DRAFT_KEY); }
   }
   function updatePreview() {
@@ -71,7 +73,8 @@
     titleEl.innerHTML = title ? (safeTitleUrl ? `<a href="${escapeHtml(safeTitleUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>` : escapeHtml(title)) : "Comunicado oficial";
     $("lumo-preview-body").innerHTML = renderMarkdown(content || "Olá, sobreviventes!\n\nA pré-visualização do comunicado aparece aqui.");
     const image = val("lumo-image-url").trim(); const thumb = val("lumo-thumbnail-url").trim();
-    const safeImage = safeHttps(image); const safeThumb = safeHttps(thumb);
+    const imageAsset = lumoAssets.find((asset) => asset.id === val("lumo-image-asset")); const thumbAsset = lumoAssets.find((asset) => asset.id === val("lumo-thumbnail-asset"));
+    const safeImage = imageAsset ? `/api/admin/lumo/assets/${encodeURIComponent(imageAsset.id)}/preview` : safeHttps(image); const safeThumb = thumbAsset ? `/api/admin/lumo/assets/${encodeURIComponent(thumbAsset.id)}/preview` : safeHttps(thumb);
     $("lumo-preview-image").hidden = !safeImage; if (safeImage) $("lumo-preview-image").src = safeImage;
     $("lumo-preview-thumb").hidden = !safeThumb; if (safeThumb) $("lumo-preview-thumb").src = safeThumb;
     const titleLength = title.length; const descriptionLength = content.length;
@@ -133,6 +136,7 @@
     const badge = $("lumo-connection");
     try {
       const data = await fetchJson("/api/admin/lumo/config", { retries: 0 }); integration = data.integration;
+      await loadLumoAssets();
       const labels = { not_configured:"Webhook não configurado", unverified:"Configurado · não verificado", verified:"Conexão verificada", failed:"Falha na integração" };
       badge.dataset.state = integration.status; $("lumo-connection-state").textContent = labels[integration.status] || "Status desconhecido";
       $("lumo-connection-detail").textContent = integration.configured ? `${integration.masked_url}${integration.last_checked_at ? ` · verificado ${new Date(integration.last_checked_at).toLocaleString("pt-BR")}` : ""}` : "Configure uma URL de webhook para começar.";
@@ -146,6 +150,13 @@
         const stateEl = $("lumo-assistant-state");
         if (stateEl) { stateEl.dataset.state = state; stateEl.textContent = ({online:"Conectado",starting:"Conectando",reconnecting:"Reconectando",error:"Falha",stopped:"Desconectado"})[state] || state; }
         setVal("lumo-guild-id", assistantConfig.guild_id); setVal("lumo-interaction-channel-id", assistantConfig.interaction_channel_id); setVal("lumo-status-channel-id", assistantConfig.status_channel_id);
+        setVal("lumo-game-channel-id", assistantConfig.game_chat_channel_id || ""); setVal("lumo-bot-user-id", assistantConfig.bot_user_id || "");
+        $("lumo-game-enabled").checked = !!assistantConfig.game_chat_enabled; $("lumo-game-webhooks").checked = !!assistantConfig.game_chat_webhooks_enabled;
+        $("lumo-game-keywords").checked = !!assistantConfig.game_chat_keywords_enabled; $("lumo-game-announcements").checked = !!assistantConfig.game_chat_announcements_enabled;
+        document.querySelectorAll("[data-lumo-game-topic]").forEach((input) => { input.checked = assistantConfig.game_chat_topic_enabled?.[input.dataset.lumoGameTopic] !== false; });
+        $("lumo-game-general-auto").checked = !!assistantConfig.game_general_announcements_enabled; $("lumo-game-betland-auto").checked = !!assistantConfig.game_auto_betland_enabled; $("lumo-game-polls-auto").checked = !!assistantConfig.game_auto_polls_enabled;
+        setVal("lumo-game-greeting-cooldown", assistantConfig.game_chat_greeting_cooldown_seconds ?? 600); setVal("lumo-game-topic-cooldown", assistantConfig.game_chat_topic_cooldown_seconds ?? 120); setVal("lumo-game-user-cooldown", assistantConfig.game_chat_user_topic_cooldown_seconds ?? 300); setVal("lumo-game-global-cooldown", assistantConfig.game_chat_global_cooldown_seconds ?? 5); setVal("lumo-game-max-chars", assistantConfig.game_chat_max_chars ?? 250);
+        setVal("lumo-game-aliases", JSON.stringify(assistantConfig.game_chat_trigger_aliases || {}, null, 2));
         setVal("lumo-user-cooldown", assistantConfig.user_cooldown_seconds ?? 15); setVal("lumo-trigger-cooldown", assistantConfig.trigger_cooldown_seconds ?? 20); setVal("lumo-global-cooldown", assistantConfig.global_cooldown_seconds ?? 3); setVal("lumo-global-hourly-limit", assistantConfig.global_hourly_limit ?? 40);
         $("lumo-assistant-enabled").checked = !!assistantConfig.enabled; $("lumo-trigger-status").checked = assistantConfig.trigger_enabled?.STATUS !== false; $("lumo-trigger-betland").checked = assistantConfig.trigger_enabled?.BETLAND !== false; $("lumo-trigger-licenses").checked = assistantConfig.trigger_enabled?.LICENCAS !== false; $("lumo-trigger-polls").checked = assistantConfig.trigger_enabled?.VOTACAO !== false;
         $("lumo-auto-betland").checked = !!assistantConfig.auto_betland_enabled; $("lumo-auto-polls").checked = !!assistantConfig.auto_polls_enabled;
@@ -157,12 +168,67 @@
         schedule.push(`Respostas: ${runtime.responses || 0}; anúncios: ${runtime.announcements || 0}; última interação: ${runtime.last_interaction_at ? new Date(runtime.last_interaction_at).toLocaleString("pt-BR") : "nenhuma"}.`);
         if (runtime.last_error) schedule.push(`Falha recente: ${runtime.last_error}`);
         $("lumo-auto-schedule-state").textContent = schedule.join("\n");
+        const gameSchedule = [];
+        if (assistantConfig.game_general_announcements_enabled) gameSchedule.push(`Geral: próxima ${assistantConfig.game_general_next_at ? new Date(assistantConfig.game_general_next_at).toLocaleString("pt-BR") : "a agendar"}`);
+        if (assistantConfig.game_auto_betland_enabled) gameSchedule.push(`BetLand: próxima ${assistantConfig.game_auto_betland_next_at ? new Date(assistantConfig.game_auto_betland_next_at).toLocaleString("pt-BR") : "a agendar"}`);
+        if (assistantConfig.game_auto_polls_enabled) gameSchedule.push(`Votações: próxima ${assistantConfig.game_auto_polls_next_at ? new Date(assistantConfig.game_auto_polls_next_at).toLocaleString("pt-BR") : "a agendar"}`);
+        $("lumo-game-schedule-state").textContent = gameSchedule.join("\n") || "Agendamentos desligados.";
         try {
           const greetings = await fetchJson("/api/admin/lumo/assistant/config", { retries: 0 });
           setVal("lumo-greeting-replies", (greetings.greeting_replies || []).join("\n"));
         } catch (_) {}
       }
     } catch (error) { badge.dataset.state = "failed"; $("lumo-connection-state").textContent = "Falha ao consultar o serviço"; $("lumo-connection-detail").textContent = error.message || "Tente novamente."; }
+  }
+  async function loadLumoAssets() {
+    try {
+      const data = await fetchJson("/api/admin/lumo/assets", { retries:0 }); lumoAssets = data.assets || [];
+      for (const [selectId, key] of [["lumo-image-asset", "image_asset_id"], ["lumo-thumbnail-asset", "thumbnail_asset_id"]]) {
+        const select = $(selectId); if (!select) continue;
+        const previous = val(selectId) || pendingAssetDraft[key];
+        select.innerHTML = `<option value="">Sem upload selecionado</option>` + lumoAssets.map((asset) => `<option value="${escapeHtml(asset.id)}">${escapeHtml(asset.original_name)} · ${Math.ceil(asset.size/1024)} KB</option>`).join("");
+        if (lumoAssets.some((asset) => asset.id === previous)) select.value = previous;
+      }
+      pendingAssetDraft = {};
+      setVal("lumo-asset-retention", data.retention_days || 30);
+      $("lumo-assets-state").textContent = `${lumoAssets.length} imagem(ns) armazenada(s) · retenção ${data.retention_days || 30} dias após a última utilização.`;
+      updatePreview();
+    } catch (error) { $("lumo-assets-state").textContent = error.message || "Não foi possível carregar as imagens."; }
+  }
+  async function uploadLumoImage(kind) {
+    const fileInput = $(kind === "image" ? "lumo-image-file" : "lumo-thumbnail-file");
+    const file = fileInput.files?.[0]; if (!file) { toast("Selecione uma imagem antes de enviar.", "error"); return; }
+    const form = new FormData(); form.append("file", file);
+    try {
+      const response = await fetch("/api/admin/lumo/assets", { method:"POST", body:form, credentials:"same-origin", headers: { "X-Requested-With":"XMLHttpRequest" } });
+      const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error || "Falha no upload.");
+      await loadLumoAssets(); setVal(kind === "image" ? "lumo-image-asset" : "lumo-thumbnail-asset", data.asset.id);
+      setVal(kind === "image" ? "lumo-image-url" : "lumo-thumbnail-url", ""); fileInput.value = ""; markDirty(); toast("Imagem armazenada com segurança.", "success");
+    } catch (error) { toast(error.message || "Falha no upload.", "error"); }
+  }
+  async function saveAssetRetention() {
+    try { const data = await fetchJson("/api/admin/lumo/assets/retention", { method:"POST", body:{ days:Number(val("lumo-asset-retention")) }, retries:0 }); toast(`Retenção definida para ${data.retention_days} dias.`, "success"); await loadLumoAssets(); }
+    catch (error) { toast(error.message || "Não foi possível salvar a retenção.", "error"); }
+  }
+  async function deleteLumoImage(kind) {
+    const select = $(kind === "image" ? "lumo-image-asset" : "lumo-thumbnail-asset"); const id = select.value;
+    if (!id) { toast("Selecione um arquivo enviado para excluí-lo.", "error"); return; }
+    if (!confirm("Excluir este arquivo armazenado? Comunicados já publicados continuarão com o anexo no Discord.")) return;
+    try { await fetchJson(`/api/admin/lumo/assets/${encodeURIComponent(id)}`, { method:"DELETE", body:{}, retries:0 }); select.value = ""; markDirty(); await loadLumoAssets(); toast("Arquivo local removido.", "success"); }
+    catch (error) { toast(error.message || "Não foi possível excluir o arquivo.", "error"); }
+  }
+  async function previewGameChat() {
+    const target = $("lumo-game-test-result"); target.textContent = "Consultando fonte real sem enviar mensagem…";
+    try {
+      const data = await fetchJson("/api/admin/lumo/assistant/game-preview", { method:"POST", body:{ text:val("lumo-game-test-input").trim() }, retries:0 });
+      target.textContent = data.recognized ? (data.message ? `${data.trigger}: ${data.message}` : `${data.trigger}: ${data.reason}`) : (data.reason || "Nenhum gatilho reconhecido.");
+    } catch (error) { target.textContent = error.message || "A simulação falhou."; }
+  }
+  async function sendGameManual() {
+    const text = val("lumo-game-manual-text").trim(); if (!text) { toast("Escreva a mensagem antes de enviar.", "error"); return; }
+    if (!confirm("Enviar esta mensagem simples uma vez ao canal da ponte? Todos os mapas ligados ao canal podem recebê-la. O plugin acrescentará o prefixo do chat.")) return;
+    try { const data = await fetchJson("/api/admin/lumo/game-chat/send", { method:"POST", body:{ text }, retries:0, timeoutMs:15000 }); toast(data.message || "Mensagem enviada.", "success"); setVal("lumo-game-manual-text", ""); }
+    catch (error) { toast(error.message || "Não foi possível enviar ao Chat do Jogo.", "error"); }
   }
   async function saveAssistant() {
     let aliases;
@@ -186,6 +252,25 @@
       toast(result.message || "Configuração do Lumo salva.", result.ok ? "success" : "warning");
       await loadIntegration();
     } catch (error) { toast(error.message || "Não foi possível salvar a configuração do Lumo.", "error"); }
+  }
+  async function saveGameChat() {
+    let aliases;
+    try { aliases = JSON.parse(val("lumo-game-aliases") || "{}"); }
+    catch { toast("JSON de gatilhos inválido.", "error"); return; }
+    const body = {
+      enabled: $("lumo-assistant-enabled").checked,
+      guild_id: val("lumo-guild-id").trim(), interaction_channel_id: val("lumo-interaction-channel-id").trim(), status_channel_id: val("lumo-status-channel-id").trim(),
+      game_chat_channel_id: val("lumo-game-channel-id").trim(), bot_user_id: val("lumo-bot-user-id").trim(), game_chat_enabled: $("lumo-game-enabled").checked,
+      game_chat_webhooks_enabled: $("lumo-game-webhooks").checked, game_chat_keywords_enabled: $("lumo-game-keywords").checked,
+      game_chat_announcements_enabled: $("lumo-game-announcements").checked, game_general_announcements_enabled: $("lumo-game-general-auto").checked,
+      game_chat_topic_enabled: Object.fromEntries([...document.querySelectorAll("[data-lumo-game-topic]")].map((input) => [input.dataset.lumoGameTopic, input.checked])),
+      game_auto_betland_enabled: $("lumo-game-betland-auto").checked, game_auto_polls_enabled: $("lumo-game-polls-auto").checked,
+      game_chat_greeting_cooldown_seconds: Number(val("lumo-game-greeting-cooldown")), game_chat_topic_cooldown_seconds: Number(val("lumo-game-topic-cooldown")),
+      game_chat_user_topic_cooldown_seconds: Number(val("lumo-game-user-cooldown")), game_chat_max_chars: Number(val("lumo-game-max-chars")), game_chat_trigger_aliases: aliases,
+      game_chat_global_cooldown_seconds: Number(val("lumo-game-global-cooldown")),
+    };
+    try { const result = await fetchJson("/api/admin/lumo/assistant/config", { method:"POST", body, retries:0 }); toast(result.message || "Configuração do Chat do Jogo salva.", result.ok ? "success" : "warning"); await loadIntegration(); }
+    catch (error) { toast(error.message || "Não foi possível salvar o Chat do Jogo.", "error"); }
   }
   async function runAssistantTest() {
     const text = val("lumo-test-input").trim();
@@ -245,7 +330,12 @@
   }
   function bind() {
     document.querySelectorAll("[data-lumo-tab]").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.lumoTab)));
-    ["lumo-title","lumo-title-url","lumo-image-url","lumo-thumbnail-url"].forEach((id) => $(id).addEventListener("input", markDirty));
+    ["lumo-title","lumo-title-url","lumo-image-url","lumo-thumbnail-url"].forEach((id) => $(id).addEventListener("input", () => { if (id === "lumo-image-url") setVal("lumo-image-asset", ""); if (id === "lumo-thumbnail-url") setVal("lumo-thumbnail-asset", ""); markDirty(); }));
+    $("lumo-image-asset")?.addEventListener("change", () => { if (val("lumo-image-asset")) setVal("lumo-image-url", ""); markDirty(); });
+    $("lumo-thumbnail-asset")?.addEventListener("change", () => { if (val("lumo-thumbnail-asset")) setVal("lumo-thumbnail-url", ""); markDirty(); });
+    $("lumo-upload-image")?.addEventListener("click", () => uploadLumoImage("image")); $("lumo-upload-thumbnail")?.addEventListener("click", () => uploadLumoImage("thumbnail"));
+    $("lumo-save-retention")?.addEventListener("click", saveAssetRetention);
+    $("lumo-delete-image")?.addEventListener("click", () => deleteLumoImage("image")); $("lumo-delete-thumbnail")?.addEventListener("click", () => deleteLumoImage("thumbnail"));
     const editor = $("lumo-content");
     editor.addEventListener("beforeinput", () => { beforeInputState = { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd }; });
     editor.addEventListener("input", () => { if (beforeInputState && beforeInputState.value !== editor.value) pushUndo(beforeInputState); beforeInputState = null; markDirty(); });
@@ -253,10 +343,12 @@
     $("lumo-redo").addEventListener("click", () => restoreEditorState(redoStack, undoStack));
     document.querySelectorAll("[data-lumo-format]").forEach((button) => button.addEventListener("click", () => applyFormat(button.dataset.lumoFormat)));
     $("lumo-insert-emoji").addEventListener("click", () => { const editor = $("lumo-content"); const start = editor.selectionStart; const end = editor.selectionEnd; replaceEditorRange(editor, "😀", start, end); editor.focus(); markDirty(); });
-    $("lumo-publish").addEventListener("click", publish); $("lumo-clear").addEventListener("click", () => { if (confirm("Limpar o conteúdo atual do editor?")) { ["lumo-title","lumo-title-url","lumo-image-url","lumo-thumbnail-url"].forEach((id) => setVal(id,"")); replaceEditorText(""); } });
+    $("lumo-publish").addEventListener("click", publish); $("lumo-clear").addEventListener("click", () => { if (confirm("Limpar o conteúdo atual do editor?")) { ["lumo-title","lumo-title-url","lumo-image-url","lumo-thumbnail-url","lumo-image-asset","lumo-thumbnail-asset"].forEach((id) => setVal(id,"")); replaceEditorText(""); } });
     $("lumo-save-draft").addEventListener("click", () => saveDraft(true)); $("lumo-copy-markdown").addEventListener("click", async () => { await navigator.clipboard.writeText(val("lumo-content")); toast("Markdown copiado.","success"); });
     $("lumo-save-webhook").addEventListener("click", saveWebhook); $("lumo-verify-webhook").addEventListener("click", verifyWebhook); $("lumo-reload-history").addEventListener("click", () => loadHistory(true));
     $("lumo-save-assistant")?.addEventListener("click", saveAssistant); $("lumo-reload-assistant")?.addEventListener("click", loadIntegration); $("lumo-run-test")?.addEventListener("click", runAssistantTest);
+    $("lumo-game-save")?.addEventListener("click", saveGameChat);
+    $("lumo-game-test")?.addEventListener("click", previewGameChat); $("lumo-game-manual-send")?.addEventListener("click", sendGameManual);
     $("lumo-history-more").addEventListener("click", () => { historyOffset += 20; loadHistory(false); });
     $("lumo-history-query").addEventListener("keydown", (event) => { if (event.key === "Enter") loadHistory(true); });
     $("lumo-content").addEventListener("keydown", (event) => { if (!event.ctrlKey) return; const key = event.key.toLowerCase(); if ((key === "z" && !event.shiftKey && undoStack.length) || (key === "y" && redoStack.length) || (key === "z" && event.shiftKey && redoStack.length)) { event.preventDefault(); restoreEditorState(key === "z" && !event.shiftKey ? undoStack : redoStack, key === "z" && !event.shiftKey ? redoStack : undoStack); return; } const map = { b:"bold", i:"italic", u:"underline", "shift+x":"strike", "shift+s":"spoiler" }; const format = map[`${event.shiftKey ? "shift+" : ""}${key}`] || map[key]; if (format) { event.preventDefault(); applyFormat(format); } });

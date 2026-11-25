@@ -9,6 +9,7 @@ from sqlalchemy import create_engine, text
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from system_status_center import (
+    SEED_SYSTEMS,
     ensure_system_status_schema,
     lumo_status_snapshot,
     register_system_status_routes,
@@ -33,7 +34,7 @@ def test_catalog_seed_is_idempotent_and_does_not_claim_verified_status(tmp_path:
         row = conn.execute(text(
             "SELECT maturity,operational,availability FROM system_status_catalog WHERE system_key='structure-limits'"
         )).one()
-    assert count >= 20
+    assert count == len(SEED_SYSTEMS) == 30
     assert tuple(row) == ("NAO_AVALIADO", "NAO_MONITORADO", None)
 
 

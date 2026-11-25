@@ -16,6 +16,24 @@ Os mapas usam o feed já recebido em `/api/servers/runtime-status` e o cadastro 
 
 As informações de maturidade, recursos, limitações e incidentes são mantidas pela administração. Edições e transições de incidentes geram histórico em `system_status_audit`. Mudanças de disponibilidade operacional devem ser feitas após validação; o registro não as deduz do nome do serviço ou da existência de arquivos.
 
+## Inventário identificado no código
+
+O cadastro inicial cobre os sistemas de jogador, os plugins próprios e as integrações observáveis no repositório. Além dos 23 registros iniciais, o levantamento dos módulos de rotas e serviços identificou e separou ARKBANK, notificações, sugestões, avisos da página inicial, mídia da comunidade, presença de jogadores e aceite do regulamento. A lista inicial, portanto, contém 30 entradas.
+
+| Área cadastrada | Evidência principal no projeto |
+| --- | --- |
+| Web Store, economia, pagamentos e licenças | `app.py`, `amber_ledger.py`, `arkbank_service.py`, `lottery_service.py` e rotas de pedidos |
+| Catálogo, entregas, comércio e Dino Lab | `catalog_feed_service.py`, `dino_order_service.py`, `market_service.py`, `custom_dino_service.py` |
+| Fazenda de Recursos | `resource_vitrine_service.py` e plugin `FazendaRecursos` |
+| Equipes e tribos | `team_service.py`, `tribe_service.py`, `tribe_invite_service.py` |
+| SeasonLand, BetLand, votações e eventos | `season_pass_service.py`, `lottery_service.py`, `poll_service.py`, `event_hunt_service.py`, plugin `ArkEventHunt` |
+| Suporte, regulamento, notificações, sugestões e avisos | `ticket_service.py`, `regulamento_service.py`, `notification_service.py`, `suggestion_service.py`, `home_notice_service.py` |
+| Lumo, mídia e presença de jogadores | `lumo_routes.py`, `media_service.py`, `player_monitoring_routes.py` |
+| Cluster ARK e plugins próprios | integração de status em `app.py`, diretórios de plugins `CustomShop`, `CustomDinoDeliver`, `ArkPlayer`, `ArkEventHunt`, `EngramLevel`, `FazendaRecursos`, `StructureLimits` e `Permissions` |
+| Discord e pagamentos externos | rotas de integração, bot do Discord e adaptadores de checkout presentes no projeto |
+
+O inventário prova que o componente está no código; não prova que ele esteja instalado, liberado, saudável ou operacional em produção. Por isso os registros continuam como **Não avaliado / Não monitorado** até uma pessoa responsável validar cada estado. A validação administrativa do status real e a cobertura dos heartbeats continuam sendo etapas de homologação, e não são mascaradas como concluídas.
+
 Há um endpoint de heartbeat de plugin autenticado em `/api/plugin/systems-status/heartbeat`, limitado a mapas registrados no gerenciador. Nenhum plugin é considerado monitorado por esse endpoint até que seu código passe a enviar heartbeats. Um estado ausente não é convertido em “indisponível”.
 
 ## Administração

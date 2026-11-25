@@ -2,20 +2,25 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections import deque
 import logging
 import random
+import re
 import threading
 import time
+from types import SimpleNamespace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from lumo_assistant import (
+    GAME_CHAT_REPLIES,
     GREETING_REPLIES,
     TriggerMatch,
     build_response,
     make_embed_payload,
     pick_greeting,
+    recognize_game_topic,
     recognize_trigger,
 )
 
@@ -68,6 +73,12 @@ class LumoGatewayRunner:
         self._global_hour: deque[float] = deque()
         self._seen_messages: deque[str] = deque(maxlen=5000)
         self._seen_message_ids: set[str] = set()
+        self._grouped_content_by_id: dict[str, str] = {}
+        self._grouped_content_order: deque[str] = deque(maxlen=2000)
+        self._game_topic_last: dict[str, float] = {}
+        self._game_user_topic_last: dict[str, float] = {}
+        self._game_greeting_last = 0.0
+        self._game_global_last = 0.0
         self._source_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._scheduler_task: asyncio.Task[Any] | None = None
 
@@ -90,16 +101,19 @@ class LumoGatewayRunner:
 
     def reconfigure(self) -> tuple[bool, str]:
         settings = self._load_settings()
-        enabled = bool(settings.get("lumo_assistant_enabled"))
+        enabled = bool(settings.get("lumo_assistant_enabled") or settings.get("lumo_game_chat_enabled"))
         token = str(settings.get("lumo_bot_token") or "").strip()
         guild_id = str(settings.get("lumo_guild_id") or "").strip()
         channel_id = str(settings.get("lumo_interaction_channel_id") or "").strip()
         if not enabled:
             self.stop()
             return True, "Assistente interativo desativado."
-        if not token or not guild_id.isdigit() or not channel_id.isdigit():
+        game_channel_id = str(settings.get("lumo_game_chat_channel_id") or "").strip()
+        if (not token or not guild_id.isdigit()
+                or (settings.get("lumo_assistant_enabled") and not channel_id.isdigit())
+                or (settings.get("lumo_game_chat_enabled") and not game_channel_id.isdigit())):
             self.stop()
-            return False, "Configure o token e os IDs do servidor e do único canal autorizado antes de ativar."
+            return False, "Configure token, servidor e os IDs dos canais habilitados antes de ativar."
         with self._lock:
             old_thread = self._thread if self._thread and self._thread.is_alive() else None
             client, loop = self._client, self._loop
@@ -149,6 +163,14 @@ class LumoGatewayRunner:
                         self._last_error = ""
                         self._started_at = self._started_at or time.time()
                     log.info("Lumo Gateway conectado (bot_id=%s)", getattr(inner_self.user, "id", ""))
+                    try:
+                        settings = self._load_settings()
+                        bot_id = str(getattr(inner_self.user, "id", "") or "")
+                        if bot_id and settings.get("lumo_bot_user_id") != bot_id:
+                            settings["lumo_bot_user_id"] = bot_id
+                            self._save_settings(settings)
+                    except Exception:
+                        log.debug("Não foi possível persistir o ID do usuário Lumo", exc_info=True)
                     if self._scheduler_task is None or self._scheduler_task.done():
                         self._scheduler_task = asyncio.create_task(self._scheduler(inner_self))
 
@@ -163,6 +185,9 @@ class LumoGatewayRunner:
 
                 async def on_message(inner_self, message: Any) -> None:
                     await self._on_message(inner_self, message)
+
+                async def on_message_edit(inner_self, before: Any, after: Any) -> None:
+                    await self._on_message_edit(inner_self, before, after)
 
             client = LumoClient(intents=intents)
             with self._lock:
@@ -219,18 +244,93 @@ class LumoGatewayRunner:
         except Exception as exc:
             return {"recognized": True, "trigger": match.key, "rule": match.rule, "source": source, "embed": None, "reason": str(exc)}
 
+    async def preview_game_chat(self, text: str) -> dict[str, Any]:
+        config = self._load_settings()
+        topic = recognize_game_topic(text, config.get("lumo_game_chat_trigger_aliases"), config.get("lumo_game_chat_topic_enabled"))
+        if not topic:
+            return {"recognized": False, "reason": "Nenhum gatilho do Chat do Jogo foi identificado."}
+        if topic == "BETLAND":
+            data = await self._get_data("betland")
+            if not data.get("ok"):
+                return {"recognized": True, "trigger": topic, "message": "", "reason": "Fonte BetLand indisponível; nenhuma resposta seria enviada."}
+            campaign = data.get("campaign") or {}
+            if data.get("enabled") and str(campaign.get("status") or "").upper() == "ACTIVE" and campaign.get("prize_amber_total") is not None and campaign.get("seconds_remaining") is not None:
+                hours, minutes = divmod(max(0, int(campaign["seconds_remaining"])) // 60, 60)
+                message = f"A BetLand está com {int(campaign['prize_amber_total']):,} Âmbares e faltam {hours}h{minutes:02d} para o sorteio. arkland.com.br".replace(",", ".")
+            else:
+                message = "No momento não há sorteio aberto na BetLand. Confira as novidades em arkland.com.br."
+        elif topic == "VOTACAO":
+            data = await self._get_data("polls")
+            if not data.get("ok"):
+                return {"recognized": True, "trigger": topic, "message": "", "reason": "Fonte de votações indisponível; nenhuma resposta seria enviada."}
+            polls = [item for item in data.get("polls", []) if isinstance(item, dict) and item.get("is_open")]
+            message = f"Há {len(polls)} votação(ões) aberta(s) no site. Participe em arkland.com.br." if polls else "No momento não há votações abertas. Acompanhe em arkland.com.br."
+        elif topic == "SEASON":
+            data = await self._get_data("season")
+            if not data.get("ok"):
+                return {"recognized": True, "trigger": topic, "message": "", "reason": "Fonte SeasonLand indisponível; nenhuma resposta seria enviada."}
+            season = data.get("season") or {}
+            if str(season.get("status") or "").lower() == "active":
+                remaining = season.get("days_remaining")
+                message = f"A {season.get('name') or 'SeasonLand'} está ativa" + (f" por mais {int(remaining)} dia(s)" if remaining is not None else "") + ". Confira em arkland.com.br."
+            else:
+                message = "No momento não há temporada ativa na SeasonLand. Acompanhe as novidades em arkland.com.br."
+        else:
+            message = GAME_CHAT_REPLIES[topic]
+        maximum = max(80, min(250, int(config.get("lumo_game_chat_max_chars", 250))))
+        if len(message) > maximum:
+            return {"recognized": True, "trigger": topic, "message": "", "reason": f"A resposta excede o limite atual de {maximum} caracteres e seria omitida."}
+        return {"recognized": True, "trigger": topic, "message": message, "reason": "Simulação local; nada foi enviado."}
+
+    def send_game_message(self, text: str, timeout: float = 12.0) -> str:
+        config = self._load_settings()
+        if not config.get("lumo_game_chat_enabled") or not config.get("lumo_game_chat_channel_id"):
+            raise RuntimeError("Chat do Jogo desativado ou canal não configurado.")
+        with self._lock:
+            client, loop = self._client, self._loop
+        if client is None or loop is None or loop.is_closed():
+            raise RuntimeError("O Gateway do Lumo não está conectado.")
+        future = asyncio.run_coroutine_threadsafe(self._send_manual_game_message(client, text, config), loop)
+        return future.result(timeout=timeout)
+
+    async def _send_manual_game_message(self, client: Any, text: str, config: dict[str, Any]) -> str:
+        channel = client.get_channel(int(config["lumo_game_chat_channel_id"]))
+        if channel is None:
+            raise RuntimeError("O Gateway não encontrou o canal do Chat do Jogo.")
+        maximum = max(80, min(250, int(config.get("lumo_game_chat_max_chars", 250))))
+        text = " ".join(str(text).split())
+        if not text or len(text) > maximum:
+            raise ValueError(f"A mensagem deve conter entre 1 e {maximum} caracteres.")
+        sent = await channel.send(text, allowed_mentions=__import__("discord").AllowedMentions.none())
+        self._audit("lumo_game_manual_message", status="success", channel_id=str(channel.id), discord_message_id=str(getattr(sent, "id", "")))
+        return str(getattr(sent, "id", ""))
+
     async def _on_message(self, client: Any, message: Any) -> None:
         # Validar canal/servidor antes de processar texto, menção ou qualquer consulta.
         config = self._load_settings()
-        if not config.get("lumo_assistant_enabled"):
+        if not (config.get("lumo_assistant_enabled") or config.get("lumo_game_chat_enabled")):
             return
-        if getattr(message, "guild", None) is None or getattr(message, "webhook_id", None):
+        if getattr(message, "guild", None) is None:
             return
-        if getattr(message.author, "bot", False) or message.author.id == getattr(client.user, "id", None):
+        bot_id = str(getattr(client.user, "id", "") or "")
+        is_webhook = bool(getattr(message, "webhook_id", None))
+        if ((getattr(message.author, "bot", False) and not is_webhook)
+                or str(getattr(message.author, "id", "")) == bot_id
+                or str(getattr(message.author, "id", "")) == str(config.get("lumo_bot_user_id") or "")):
             return
         if str(message.guild.id) != str(config.get("lumo_guild_id") or ""):
             return
-        if str(message.channel.id) != str(config.get("lumo_interaction_channel_id") or ""):
+        channel_id = str(message.channel.id)
+        global_channel = str(config.get("lumo_interaction_channel_id") or "")
+        game_channel = str(config.get("lumo_game_chat_channel_id") or "")
+        is_game_channel = bool(config.get("lumo_game_chat_enabled")) and bool(game_channel) and channel_id == game_channel
+        is_global_channel = bool(global_channel) and channel_id == global_channel
+        if not is_game_channel and not (config.get("lumo_assistant_enabled") and is_global_channel and not is_webhook):
+            return
+        if is_game_channel:
+            if is_webhook and not config.get("lumo_game_chat_webhooks_enabled"):
+                return
+            await self._on_game_chat_message(client, message, config, is_webhook)
             return
         message_id = str(getattr(message, "id", "") or "")
         if message_id and message_id in self._seen_message_ids:
@@ -310,6 +410,168 @@ class LumoGatewayRunner:
             self._audit("lumo_interaction", status="failed", trigger=trigger_key, channel_id=str(message.channel.id), user_id=user_key, reason=safe)
             log.warning("Resposta do Lumo não enviada (%s)", type(exc).__name__)
 
+    async def _on_game_chat_message(self, client: Any, message: Any, config: dict[str, Any], is_webhook: bool) -> None:
+        """Responde somente com o texto que deve vir depois do ':' no chat do jogo."""
+        if not config.get("lumo_game_chat_keywords_enabled"):
+            return
+        author = getattr(message, "author", None)
+        if ((getattr(author, "bot", False) and not is_webhook)
+                or str(getattr(author, "id", "")) == str(getattr(client.user, "id", "") or "")
+                or str(getattr(author, "id", "")) == str(config.get("lumo_bot_user_id") or "")):
+            return
+        message_id = str(getattr(message, "id", "") or "")
+        if message_id and not message_id.startswith("grouped:") and message_id not in self._grouped_content_by_id:
+            if len(self._grouped_content_order) == self._grouped_content_order.maxlen:
+                self._grouped_content_by_id.pop(self._grouped_content_order[0], None)
+            self._grouped_content_order.append(message_id)
+        if message_id and not message_id.startswith("grouped:"):
+            self._grouped_content_by_id[message_id] = str(getattr(message, "content", "") or "")
+        if message_id and message_id in self._seen_message_ids:
+            return
+        if message_id:
+            if len(self._seen_messages) == self._seen_messages.maxlen:
+                self._seen_message_ids.discard(self._seen_messages[0])
+            self._seen_messages.append(message_id)
+            self._seen_message_ids.add(message_id)
+
+        content = str(getattr(message, "content", "") or "").strip()
+        player_key = str(getattr(getattr(message, "author", None), "id", "") or "")
+        # O plugin de ponte adiciona horário/origem/licença/nickname/tribo. Esses
+        # campos servem só para retirar o envelope; nunca são identidade/autorização.
+        bridge = re.match(
+            r"^\[\d{1,2}:\d{2}\]\[(?:Discord|.+?)\]\s*(?:<[^>]{1,80}>\s*)?(.+?):\s*(.*)$",
+            content, re.I | re.S,
+        )
+        if bridge:
+            label, content = bridge.group(1).strip(), bridge.group(2).strip()
+            if re.sub(r"[^a-z]", "", label.casefold()) == "lumo":
+                self._audit("lumo_game_message_ignored", status="own_message", channel_id=str(message.channel.id), webhook=is_webhook)
+                return
+            player_key = f"bridge:{getattr(message, 'webhook_id', '')}:{label.casefold()[:80]}"
+        if not content:
+            return
+        topic = recognize_game_topic(content, config.get("lumo_game_chat_trigger_aliases"), config.get("lumo_game_chat_topic_enabled"))
+        if not topic:
+            return
+
+        now_mono = time.monotonic()
+        try:
+            topic_cooldown = max(0, min(3600, int(config.get("lumo_game_chat_topic_cooldown_seconds", 120))))
+            user_cooldown = max(0, min(3600, int(config.get("lumo_game_chat_user_topic_cooldown_seconds", 300))))
+            greeting_cooldown = max(600, min(86400, int(config.get("lumo_game_chat_greeting_cooldown_seconds", 600))))
+            global_cooldown = max(0, min(120, int(config.get("lumo_game_chat_global_cooldown_seconds", 5))))
+            max_chars = max(80, min(250, int(config.get("lumo_game_chat_max_chars", 250))))
+        except (TypeError, ValueError):
+            log.warning("Configuração inválida do Chat do Jogo; mensagem ignorada")
+            return
+        if topic == "LUMO" and now_mono - self._game_greeting_last < greeting_cooldown:
+            self._audit("lumo_game_response", status="cooldown", trigger=topic, channel_id=str(message.channel.id))
+            return
+        user_topic = f"{player_key}:{topic}"
+        if (now_mono - self._game_topic_last.get(topic, 0) < topic_cooldown
+                or now_mono - self._game_user_topic_last.get(user_topic, 0) < user_cooldown
+                or now_mono - self._game_global_last < global_cooldown):
+            self._audit("lumo_game_response", status="cooldown", trigger=topic, channel_id=str(message.channel.id))
+            return
+
+        if topic == "BETLAND":
+            data = await self._get_data("betland")
+            campaign = data.get("campaign") or {}
+            if not data.get("ok"):
+                self._audit("lumo_game_response", status="source_unavailable", trigger=topic, channel_id=str(message.channel.id))
+                return
+            if data.get("enabled") and str(campaign.get("status") or "").upper() == "ACTIVE":
+                prize = campaign.get("prize_amber_total")
+                remaining = campaign.get("seconds_remaining")
+                if prize is None or remaining is None:
+                    return
+                hours, minutes = divmod(max(0, int(remaining)) // 60, 60)
+                reply = f"A BetLand está com {int(prize):,} Âmbares e faltam {hours}h{minutes:02d} para o sorteio. arkland.com.br".replace(",", ".")
+            else:
+                reply = "No momento não há sorteio aberto na BetLand. Confira as novidades em arkland.com.br."
+        elif topic == "VOTACAO":
+            data = await self._get_data("polls")
+            if not data.get("ok"):
+                self._audit("lumo_game_response", status="source_unavailable", trigger=topic, channel_id=str(message.channel.id))
+                return
+            polls = [item for item in data.get("polls", []) if isinstance(item, dict) and item.get("is_open")]
+            if polls:
+                first = polls[0]
+                reward = first.get("reward_amber")
+                reply = f"Há {len(polls)} votação(ões) aberta(s) no site. Participe em arkland.com.br" + (f"; recompensa atual: {int(reward):,} Âmbares.".replace(",", ".") if reward is not None else ".")
+            else:
+                reply = "No momento não há votações abertas. Acompanhe em arkland.com.br."
+        elif topic == "SEASON":
+            data = await self._get_data("season")
+            if not data.get("ok"):
+                self._audit("lumo_game_response", status="source_unavailable", trigger=topic, channel_id=str(message.channel.id))
+                return
+            season = data.get("season") or {}
+            if str(season.get("status") or "").lower() == "active":
+                remaining = season.get("days_remaining")
+                reply = f"A {season.get('name') or 'SeasonLand'} está ativa" + (f" por mais {int(remaining)} dia(s)" if remaining is not None else "") + ". Confira em arkland.com.br."
+            else:
+                reply = "No momento não há temporada ativa na SeasonLand. Acompanhe as novidades em arkland.com.br."
+        else:
+            reply = GAME_CHAT_REPLIES[topic]
+        reply = " ".join(str(reply).split())
+        if len(reply) > max_chars:
+            # Não truncar detalhes que possam mudar o sentido da resposta.
+            self._audit("lumo_game_response", status="message_too_long", trigger=topic, channel_id=str(message.channel.id))
+            return
+        try:
+            sent = await message.channel.send(reply, allowed_mentions=__import__("discord").AllowedMentions.none())
+            self._game_topic_last[topic] = now_mono
+            self._game_user_topic_last[user_topic] = now_mono
+            self._game_global_last = now_mono
+            if topic == "LUMO":
+                self._game_greeting_last = now_mono
+            self._last_interaction = _utc_iso()
+            self._responses += 1
+            self._audit("lumo_game_response", status="success", trigger=topic, channel_id=str(message.channel.id), discord_message_id=str(getattr(sent, "id", "")), webhook=is_webhook)
+        except Exception as exc:
+            self._audit("lumo_game_response", status="failed", trigger=topic, channel_id=str(message.channel.id), reason=type(exc).__name__)
+            log.warning("Resposta de chat do Lumo não enviada (%s)", type(exc).__name__)
+
+    async def _on_message_edit(self, client: Any, before: Any, after: Any) -> None:
+        """Extrai apenas linhas novas quando a ponte agrega o chat editando uma mensagem."""
+        config = self._load_settings()
+        if not config.get("lumo_game_chat_enabled") or str(getattr(getattr(after, "guild", None), "id", "")) != str(config.get("lumo_guild_id") or ""):
+            return
+        if str(getattr(getattr(after, "channel", None), "id", "")) != str(config.get("lumo_game_chat_channel_id") or ""):
+            return
+        is_webhook = bool(getattr(after, "webhook_id", None))
+        if is_webhook and not config.get("lumo_game_chat_webhooks_enabled"):
+            return
+        message_id = str(getattr(after, "id", "") or "")
+        previous = self._grouped_content_by_id.get(message_id, str(getattr(before, "content", "") or ""))
+        current = str(getattr(after, "content", "") or "")
+        if current.startswith(previous):
+            additions = current[len(previous):].splitlines()
+        else:
+            remaining: dict[str, int] = {}
+            for line in previous.splitlines():
+                remaining[line] = remaining.get(line, 0) + 1
+            additions = []
+            for line in current.splitlines():
+                if remaining.get(line, 0):
+                    remaining[line] -= 1
+                else:
+                    additions.append(line)
+        self._grouped_content_by_id[message_id] = current
+        for index, line in enumerate(item.strip() for item in additions if item.strip()):
+            fingerprint = hashlib.sha256(f"{message_id}:{current}:{index}:{line}".encode("utf-8")).hexdigest()
+            grouped = SimpleNamespace(
+                id="grouped:" + fingerprint,
+                guild=after.guild,
+                channel=after.channel,
+                author=after.author,
+                webhook_id=getattr(after, "webhook_id", None),
+                content=line,
+                mentions=getattr(after, "mentions", []),
+            )
+            await self._on_game_chat_message(client, grouped, config, is_webhook)
+
     def _audit(self, event: str, **details: Any) -> None:
         try:
             self._audit_event(
@@ -331,8 +593,9 @@ class LumoGatewayRunner:
 
     async def _scheduler_tick(self, client: Any) -> None:
         config = self._load_settings()
-        if not config.get("lumo_assistant_enabled"):
+        if not (config.get("lumo_assistant_enabled") or config.get("lumo_game_chat_enabled")):
             return
+        await self._game_scheduler_tick(client, config)
         channel = client.get_channel(int(config.get("lumo_interaction_channel_id") or 0))
         if channel is None:
             return
@@ -387,6 +650,125 @@ class LumoGatewayRunner:
                 config[state_key] = _utc_iso(now + timedelta(minutes=15))
                 self._save_settings(config)
                 self._audit("lumo_automatic_announcement", status="failed", trigger=category, channel_id=str(channel.id), reason=type(exc).__name__)
+
+    async def _game_scheduler_tick(self, client: Any, config: dict[str, Any]) -> None:
+        if not config.get("lumo_game_chat_enabled") or not config.get("lumo_game_chat_announcements_enabled"):
+            return
+        channel_id = str(config.get("lumo_game_chat_channel_id") or "")
+        if not channel_id.isdigit():
+            return
+        channel = client.get_channel(int(channel_id))
+        if channel is None:
+            return
+        now = datetime.now(_UTC)
+        last_auto = _parse_utc(config.get("lumo_game_last_auto_announcement_at"))
+        if last_auto and now - last_auto < timedelta(minutes=2):
+            return
+        # Anúncios gerais: fila simples de assuntos estáticos, intervalo 30–60 min.
+        if config.get("lumo_game_general_announcements_enabled"):
+            state_key = "lumo_game_general_next_at"
+            due = _parse_utc(config.get(state_key))
+            if due is None:
+                config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(30, 60)))
+                self._save_settings(config)
+            elif due <= now:
+                available_topics = ("SITE", "LINK", "CATALOG", "STARTER", "SUPPORT", "STATUS", "SEASON", "LIMIT")
+                enabled_topics = config.get("lumo_game_chat_topic_enabled") or {}
+                topics = tuple(topic for topic in available_topics if enabled_topics.get(topic, True))
+                if not topics:
+                    config[state_key] = ""
+                    self._save_settings(config)
+                    return
+                previous = str(config.get("lumo_game_general_last_topic") or "")
+                choices = [topic for topic in topics if topic != previous]
+                topic = random.choice(choices or list(topics))
+                if topic == "SEASON":
+                    season_data = await self._get_data("season")
+                    season = season_data.get("season") or {}
+                    if not season_data.get("ok") or str(season.get("status") or "").lower() != "active":
+                        config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(30, 60)))
+                        self._save_settings(config)
+                        return
+                    remaining = season.get("days_remaining")
+                    text = f"A {season.get('name') or 'SeasonLand'} está ativa" + (f" por mais {int(remaining)} dia(s)" if remaining is not None else "") + ". Confira em arkland.com.br."
+                    sent_general = await self._send_game_text(channel, text, "AUTO_SEASON", config)
+                else:
+                    sent_general = await self._send_game_announcement(channel, topic, now, config, next_minutes=random.randint(30, 60))
+                config["lumo_game_general_last_topic"] = topic
+                config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(30, 60)))
+                if sent_general:
+                    config["lumo_game_last_auto_announcement_at"] = _utc_iso(now)
+                self._save_settings(config)
+                if sent_general:
+                    return
+        # BetLand e votações mantêm relógios independentes e só anunciam dados atuais.
+        for category, source in (("betland", "betland"), ("polls", "polls")):
+            if not config.get(f"lumo_game_auto_{category}_enabled"):
+                continue
+            state_key = f"lumo_game_auto_{category}_next_at"
+            due = _parse_utc(config.get(state_key))
+            if due is None:
+                config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(180, 240)))
+                self._save_settings(config)
+                continue
+            if due > now:
+                continue
+            data = await self._get_data(source)
+            if not data.get("ok"):
+                config[state_key] = _utc_iso(now + timedelta(minutes=15))
+                config[f"lumo_game_auto_{category}_last_result"] = "source_unavailable"
+                self._save_settings(config)
+                self._audit("lumo_game_announcement", status="source_unavailable", trigger=category, channel_id=channel_id)
+                continue
+            if category == "betland":
+                campaign = data.get("campaign") or {}
+                if not data.get("enabled") or str(campaign.get("status") or "").upper() != "ACTIVE":
+                    config[state_key] = ""
+                    config[f"lumo_game_auto_{category}_last_result"] = "no_active_campaign"
+                    self._save_settings(config)
+                    continue
+                prize, remaining = campaign.get("prize_amber_total"), campaign.get("seconds_remaining")
+                if prize is None or remaining is None:
+                    config[state_key] = _utc_iso(now + timedelta(minutes=15))
+                    self._save_settings(config)
+                    continue
+                hours, minutes = divmod(max(0, int(remaining)) // 60, 60)
+                message = f"BetLand: prêmio atual de {int(prize):,} Âmbares; faltam {hours}h{minutes:02d} para o sorteio. arkland.com.br".replace(",", ".")
+            else:
+                polls = [p for p in data.get("polls", []) if isinstance(p, dict) and p.get("is_open")]
+                if not polls:
+                    config[state_key] = ""
+                    config[f"lumo_game_auto_{category}_last_result"] = "no_open_polls"
+                    self._save_settings(config)
+                    continue
+                message = f"Há {len(polls)} votação(ões) aberta(s) no site. Participe em arkland.com.br."
+            sent = await self._send_game_text(channel, message, category.upper(), config)
+            config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(180, 240)))
+            config[f"lumo_game_auto_{category}_last_result"] = "success"
+            config[f"lumo_game_auto_{category}_last_at"] = _utc_iso(now)
+            if sent:
+                config["lumo_game_last_auto_announcement_at"] = _utc_iso(now)
+            self._save_settings(config)
+
+    async def _send_game_announcement(self, channel: Any, topic: str, now: datetime, config: dict[str, Any], *, next_minutes: int) -> bool:
+        return await self._send_game_text(channel, GAME_CHAT_REPLIES[topic], f"AUTO_{topic}", config)
+
+    async def _send_game_text(self, channel: Any, message: str, topic: str, config: dict[str, Any]) -> bool:
+        message = " ".join(str(message).split())
+        maximum = max(80, min(250, int(config.get("lumo_game_chat_max_chars", 250))))
+        if len(message) > maximum:
+            self._audit("lumo_game_announcement", status="message_too_long", trigger=topic, channel_id=str(channel.id))
+            return False
+        try:
+            sent = await channel.send(message, allowed_mentions=__import__("discord").AllowedMentions.none())
+            self._last_announcement = _utc_iso()
+            self._announcements += 1
+            self._audit("lumo_game_announcement", status="success", trigger=topic, channel_id=str(channel.id), discord_message_id=str(getattr(sent, "id", "")))
+            return True
+        except Exception as exc:
+            self._audit("lumo_game_announcement", status="failed", trigger=topic, channel_id=str(channel.id), reason=type(exc).__name__)
+            log.warning("Anúncio do Chat do Jogo não enviado (%s)", type(exc).__name__)
+            return False
 
 
 _RUNTIME: LumoGatewayRunner | None = None

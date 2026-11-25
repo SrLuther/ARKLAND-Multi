@@ -72,6 +72,54 @@ TRIGGERS: dict[str, dict[str, Any]] = {
     },
 }
 
+# Tópicos de texto simples do canal de chat compartilhado com o ARK. Estes
+# gatilhos não alteram o canal global nem usam embeds.
+GAME_CHAT_TOPICS: dict[str, tuple[str, ...]] = {
+    "BETLAND": ("betland", "bet land", "sorteio"),
+    "VOTACAO": ("votacao", "votacoes", "votar", "enquete", "enquetes"),
+    "SEASON": ("seasonland", "temporada"),
+    "SUPPORT": ("bug", "erro", "problema", "ticket", "suporte"),
+    "SITE": ("site", "website", "arkland.com.br"),
+    "LINK": ("vincular", "vinculacao", "vincular conta"),
+    "STARTER": ("kit inicial", "starter kit"),
+    "CATALOG": ("catalogo", "resgate", "resgates"),
+    "STATUS": ("status", "servidor", "servidores", "mapa", "mapas"),
+    "LIMIT": ("limite", "limites", "structures limit"),
+    "LUMO": ("lumo",),
+}
+
+GAME_CHAT_REPLIES = {
+    "SEASON": "Consulte as informações atuais da SeasonLand no site oficial: arkland.com.br.",
+    "SUPPORT": "Precisa de ajuda? Abra um ticket pelo site arkland.com.br.",
+    "SITE": "Site oficial ARKLAND: arkland.com.br.",
+    "LINK": "Para vincular sua conta do Discord, acesse arkland.com.br e abra a área da sua conta.",
+    "STARTER": "O kit inicial tem condições de elegibilidade. Confira os detalhes no catálogo em arkland.com.br.",
+    "CATALOG": "O catálogo pode ter resgates gratuitos e pagos. Confira as opções atuais em arkland.com.br.",
+    "STATUS": "Consulte o status e os avisos atuais dos serviços em arkland.com.br.",
+    "LIMIT": "Consulte as regras e os limites de estruturas no site ou abra um ticket em arkland.com.br.",
+    "LUMO": "Sou Lumo, assistente de informações da ARKLAND. Para suporte detalhado, abra um ticket em arkland.com.br.",
+}
+
+
+def recognize_game_topic(message: str, aliases: dict[str, Any] | None = None, enabled: dict[str, Any] | None = None) -> str | None:
+    """Reconhece um tópico por palavra/frase completa; retorna o primeiro prioritário."""
+    text = normalize_text(message)
+    # Evita respostas a negações explícitas como "não fale do site".
+    if re.search(r"\b(nao|nunca|pare de|sem falar|nao precisa)\b.{0,35}$", text):
+        return None
+    custom = aliases if isinstance(aliases, dict) else {}
+    priority = ("BETLAND", "VOTACAO", "SEASON", "SUPPORT", "LINK", "STARTER", "CATALOG", "LIMIT", "STATUS", "SITE", "LUMO")
+    for topic in priority:
+        if isinstance(enabled, dict) and enabled.get(topic) is False:
+            continue
+        candidates = list(GAME_CHAT_TOPICS[topic])
+        values = custom.get(topic, [])
+        if isinstance(values, list):
+            candidates.extend(str(value) for value in values[:30] if str(value).strip())
+        if any(_contains_phrase(text, value) for value in candidates):
+            return topic
+    return None
+
 _LICENSE_CONTEXT = re.compile(
     r"\b(licen[cs](?:a|as|e|es)?|comprar|pre[cç]o|custa|valor|rendimento|ganh[oa]|"
     r"retorno|investimento|vale a pena|dura[cç][aã]o|validade|renovar)\b", re.I,

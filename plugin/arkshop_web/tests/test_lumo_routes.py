@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import functools
+from io import BytesIO
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from flask import Flask, jsonify
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -29,7 +31,7 @@ class Idempotency:
         return True
 
 
-def make_app(*, initial_settings=None, encrypted=True):
+def make_app(*, initial_settings=None, encrypted=True, uploads_dir=None):
     app = Flask(__name__)
     app.secret_key = "test"
     state = {"settings": {"lumo_webhook_url": "", "lumo_webhook_status": "not_configured", **(initial_settings or {})}}
@@ -68,6 +70,7 @@ def make_app(*, initial_settings=None, encrypted=True):
         get_admin_id=lambda: "76561198000000000",
         index_view=lambda: "admin page",
         db_ready=lambda: True,
+        uploads_dir=uploads_dir,
     )
     return app, state, audit, access, idem
 
@@ -167,3 +170,46 @@ def test_admin_page_and_apis_are_denied_without_admin():
     assert client.get("/admin/lumo").status_code == 403
     assert client.get("/api/admin/lumo/config").status_code == 403
     assert client.post("/api/admin/lumo/publish", json={}).status_code == 403
+
+
+def test_game_chat_requires_a_separate_numeric_channel():
+    app, _state, _audit, _access, _idem = make_app()
+    client = app.test_client()
+    bad_id = client.post("/api/admin/lumo/assistant/config", json={
+        "enabled": False, "guild_id": "76543210987654321", "game_chat_enabled": True,
+        "game_chat_channel_id": "not-a-channel",
+    })
+    assert bad_id.status_code == 400
+    same = client.post("/api/admin/lumo/assistant/config", json={
+        "enabled": True, "guild_id": "76543210987654321", "interaction_channel_id": "98765432109876543",
+        "game_chat_enabled": True, "game_chat_channel_id": "98765432109876543",
+    })
+    assert same.status_code == 400 and "canais diferentes" in same.get_json()["error"]
+
+
+def test_uploaded_image_is_stored_and_sent_as_discord_attachment(tmp_path, monkeypatch):
+    url = "https://discord.com/api/webhooks/12345678901234567/abcdefghijklmnopqrstuvwxyz"
+    app, state, _audit, _access, _idem = make_app(
+        initial_settings={"lumo_webhook_url": url, "lumo_webhook_status": "verified"}, uploads_dir=tmp_path,
+    )
+    output = BytesIO()
+    Image.new("RGB", (20, 12), "green").save(output, format="PNG")
+    upload = app.test_client().post("/api/admin/lumo/assets", data={"file": (BytesIO(output.getvalue()), "poster.png")}, content_type="multipart/form-data")
+    assert upload.status_code == 201
+    asset = upload.get_json()["asset"]
+    assert asset["mime_type"] == "image/png" and asset["width"] == 20
+    assert (tmp_path / asset["filename"]).is_file()
+
+    calls = []
+    def fake_request(target, **kwargs):
+        calls.append((target, kwargs))
+        return 200, {"id": "11223344556677889", "channel_id": "98765432109876543", "guild_id": "76543210987654321"}, {}
+    monkeypatch.setattr(lumo_routes, "_discord_request", fake_request)
+    response = app.test_client().post("/api/admin/lumo/publish", json={
+        "title": "Imagem", "content": "Comunicado", "image_asset_id": asset["id"], "request_id": "b" * 32,
+    })
+    assert response.status_code == 200
+    options = calls[0][1]
+    assert options["payload"]["embeds"][0]["image"]["url"] == f"attachment://{asset['filename']}"
+    assert options["files"][0][1:3] == (asset["filename"], "image/png")
+    assert state["settings"]["lumo_media_assets"][0]["last_used_at"]

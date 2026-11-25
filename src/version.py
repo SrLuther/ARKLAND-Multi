@@ -4,13 +4,25 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.27"
+APP_VERSION: str = "1.12.28"
 BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.28",
+        "date": "2026-11-25",
+        "changes": [
+            "Lumo Chat do Jogo: adiciona integração independente ao canal Discord da ponte ARK, respostas curtas em texto puro, gatilhos configuráveis e independentes, cooldowns antispam, simulação local, envio manual administrativo e anúncios gerais/BetLand/votações com agendamento persistente; SeasonLand é anunciada somente quando a fonte interna confirma temporada ativa. Os recursos ficam desligados até configuração.",
+            "Comunicação Lumo: aceita upload autenticado de PNG, JPEG, GIF e WebP com validação do conteúdo/dimensões e armazenamento persistente; embeds podem anexar miniatura e imagem complementar ao próprio Discord. Adiciona gestão de imagens, prévia protegida, retenção configurável e limpeza diária idempotente por inatividade, preservando imagens referenciadas.",
+            "Central de Status dos Sistemas: adiciona painel administrativo e API pública para catálogo, maturidade, disponibilidade, incidentes e histórico auditável, com integração ao estado operacional dos servidores e respostas do Lumo.",
+            "Central de Status: amplia o inventário inicial para 30 sistemas e funcionalidades com evidências nos módulos do projeto; mantém maturidade e operação como não avaliadas até validação administrativa, sem inventar disponibilidade.",
+            "StructureLimits: amplia a configuração de limites e os registros de posicionamento/remoção em modo de desenvolvimento, mantendo a fiscalização desativada até validação autoritativa no servidor.",
+            "Build de release: recompila somente plugins oficiais com fontes alterados, reduzindo o tempo de publicação sem mudar o build manual completo.",
+        ],
+    },
     {
         "version": "1.12.27",
         "date": "2026-11-25",

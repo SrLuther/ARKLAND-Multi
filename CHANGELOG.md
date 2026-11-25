@@ -1,9 +1,20 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 10:59:17 -->
-<!-- Total de versões: 588 | Primeira: 1.12.27 -->
+<!-- Gerado: 2026-11-25 18:44:50 -->
+<!-- Total de versões: 589 | Primeira: 1.12.28 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.28] - 2026-11-25
+
+### Other
+
+- Lumo Chat do Jogo: adiciona integração independente ao canal Discord da ponte ARK, respostas curtas em texto puro, gatilhos configuráveis e independentes, cooldowns antispam, simulação local, envio manual administrativo e anúncios gerais/BetLand/votações com agendamento persistente; SeasonLand é anunciada somente quando a fonte interna confirma temporada ativa. Os recursos ficam desligados até configuração.
+- Comunicação Lumo: aceita upload autenticado de PNG, JPEG, GIF e WebP com validação do conteúdo/dimensões e armazenamento persistente; embeds podem anexar miniatura e imagem complementar ao próprio Discord. Adiciona gestão de imagens, prévia protegida, retenção configurável e limpeza diária idempotente por inatividade, preservando imagens referenciadas.
+- Central de Status dos Sistemas: adiciona painel administrativo e API pública para catálogo, maturidade, disponibilidade, incidentes e histórico auditável, com integração ao estado operacional dos servidores e respostas do Lumo.
+- Central de Status: amplia o inventário inicial para 30 sistemas e funcionalidades com evidências nos módulos do projeto; mantém maturidade e operação como não avaliadas até validação administrativa, sem inventar disponibilidade.
+- StructureLimits: amplia a configuração de limites e os registros de posicionamento/remoção em modo de desenvolvimento, mantendo a fiscalização desativada até validação autoritativa no servidor.
+- Build de release: recompila somente plugins oficiais com fontes alterados, reduzindo o tempo de publicação sem mudar o build manual completo.
 
 ## [1.12.27] - 2026-11-25
 

@@ -44,6 +44,13 @@ SEED_SYSTEMS = (
     ("permissions", "Permissions", "Permissões e grupos usados pelos plugins ArkApi", "Integrações e automações"),
     ("discord", "Integração com Discord", "Bot, notificações e painéis de status da comunidade", "Integrações e automações"),
     ("payments", "Pagamentos", "Integração de checkout e confirmação de pagamentos", "Integrações e automações"),
+    ("arkbank", "ARKBANK", "Saldo bancário, transferências, depósitos e extratos de Âmbares", "Economia e recompensas"),
+    ("notifications", "Central de notificações", "Avisos pessoais e notificações geradas pelos sistemas do portal", "Comunidade e comunicação"),
+    ("suggestions", "Sugestões da comunidade", "Envio, acompanhamento e avaliação de sugestões dos jogadores", "Comunidade e comunicação"),
+    ("home-notices", "Avisos e destaques do portal", "Comunicados e destaques apresentados na página inicial", "Comunidade e comunicação"),
+    ("community-media", "Mídia da comunidade", "Envio e exibição de imagens vinculadas às comunicações do portal", "Comunidade e comunicação"),
+    ("player-monitoring", "Presença de jogadores", "Leitura e exibição de jogadores ativos por mapa", "Servidores e plugins"),
+    ("regulations", "Regulamento e aceite", "Exibição do regulamento e registro do aceite necessário para recursos protegidos", "Suporte e atendimento"),
 )
 
 
@@ -111,13 +118,15 @@ def lumo_status_snapshot(engine: Any, *, servers: list[dict[str, Any]] | None = 
     cluster = next((item for item in systems if item["system_key"] == "ark-cluster"), None)
     if cluster is not None:
         configs = {str(item.get("server_id") or ""): item for item in (servers or []) if isinstance(item, dict)}
+        ids = sorted(set(configs) | set((runtime_statuses or {}).keys()))
         cluster["instances"] = [
             {"instance_key": server_id,
-             "display_name": str(status.get("display_name") or configs.get(server_id, {}).get("label") or server_id),
+             "display_name": str((runtime_statuses or {}).get(server_id, {}).get("display_name") or configs.get(server_id, {}).get("label") or server_id),
              "map_name": str(configs.get(server_id, {}).get("server_map") or ""),
-             "operational": str(status.get("status") or "STATUS_DESCONHECIDO"),
-             "checked_at": status.get("updated_at") or "", "details": str(status.get("status_detail") or "")}
-            for server_id, status in sorted((runtime_statuses or {}).items())
+             "operational": str((runtime_statuses or {}).get(server_id, {}).get("status") or "STATUS_DESCONHECIDO"),
+             "checked_at": (runtime_statuses or {}).get(server_id, {}).get("updated_at") or "",
+             "details": str((runtime_statuses or {}).get(server_id, {}).get("status_detail") or ("Sem atualização de status recebida." if server_id not in (runtime_statuses or {}) else ""))}
+            for server_id in ids
         ]
     return {
         "ok": True,
@@ -208,7 +217,9 @@ def register_system_status_routes(app: Any, *, db_ready: Callable[[], bool], eng
             )).fetchall()]
         # Existing manager feed is the authoritative server-process/listing source.
         try:
-            runtime = runtime_statuses(max_age_s=600)
+            # A UI precisa mostrar também PARADO e instâncias sem sinal recente.
+            # A idade continua visível em checked_at; não descartar servidores offline.
+            runtime = runtime_statuses(max_age_s=0)
             configs = {str(s.get("server_id") or ""): s for s in load_servers() if isinstance(s, dict)}
             cluster = next((s for s in systems if s["system_key"] == "ark-cluster"), None)
             if cluster is not None:

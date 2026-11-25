@@ -21,6 +21,17 @@ def test_disabled_trigger_and_custom_alias_are_applied():
     assert match and match.key == "STATUS"
 
 
+def test_game_topics_are_accent_insensitive_whole_words_and_choose_one_topic():
+    assert assistant.recognize_game_topic("Como funciona o SORTEIO?") == "BETLAND"
+    assert assistant.recognize_game_topic("quero vincular minha conta") == "LINK"
+    assert assistant.recognize_game_topic("temporadas") is None
+    assert assistant.recognize_game_topic("BetLand e votação") == "BETLAND"
+    assert assistant.recognize_game_topic("BetLand", enabled={"BETLAND": False}) is None
+    assert assistant.recognize_game_topic("não quero falar de BetLand") is None
+    assert assistant.recognize_game_topic("como obter kit inicial") == "STARTER"
+    assert len(assistant.GAME_CHAT_REPLIES["SITE"]) <= 250
+
+
 def test_specific_license_requires_license_or_economic_context():
     licenses = [{"group": "Ascensão", "label": "Licença Ascensão", "item_id": "asc", "aliases": ["ascensao"]}]
     assert assistant.recognize_trigger("O que acha da Ascensão?", licenses) is None

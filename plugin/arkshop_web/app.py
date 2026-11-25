@@ -3053,6 +3053,28 @@ def _load_settings() -> dict[str, Any]:
         "lumo_guild_id": "",
         "lumo_interaction_channel_id": "",
         "lumo_status_channel_id": "",
+        "lumo_game_chat_enabled": False,
+        "lumo_game_chat_channel_id": "",
+        "lumo_game_chat_webhooks_enabled": False,
+        "lumo_game_chat_keywords_enabled": False,
+        "lumo_game_chat_announcements_enabled": False,
+        "lumo_game_general_announcements_enabled": False,
+        "lumo_game_auto_betland_enabled": False,
+        "lumo_game_auto_polls_enabled": False,
+        "lumo_game_general_next_at": "",
+        "lumo_game_auto_betland_next_at": "",
+        "lumo_game_auto_polls_next_at": "",
+        "lumo_game_chat_greeting_cooldown_seconds": 600,
+        "lumo_game_chat_topic_cooldown_seconds": 120,
+        "lumo_game_chat_user_topic_cooldown_seconds": 300,
+        "lumo_game_chat_global_cooldown_seconds": 5,
+        "lumo_game_chat_max_chars": 250,
+        "lumo_game_chat_trigger_aliases": {},
+        "lumo_game_chat_topic_enabled": {"BETLAND": True, "VOTACAO": True, "SEASON": True, "SUPPORT": True, "SITE": True, "LINK": True, "STARTER": True, "CATALOG": True, "STATUS": True, "LIMIT": True, "LUMO": True},
+        "lumo_bot_user_id": "",
+        "lumo_media_assets": [],
+        "lumo_asset_retention_days": 30,
+        "lumo_asset_cleanup_at": "",
         "lumo_trigger_enabled": {"STATUS": True, "BETLAND": True, "LICENCAS": True, "VOTACAO": True},
         "lumo_trigger_aliases": {},
         "lumo_user_cooldown_seconds": 15,
@@ -20012,6 +20034,16 @@ from lumo_routes import register_lumo_routes
 
 def _lumo_source_provider(source: str) -> dict[str, Any]:
     """Fontes internas oficiais para respostas do Gateway e modo de teste."""
+    if source == "season":
+        try:
+            if not _SEASON_PASS_CONFIG_FILE.is_file():
+                return {"ok": True, "season": {"status": "inactive", "name": "SeasonLand"}}
+            import season_pass_config
+            from season_pass_service import season_public
+            return {"ok": True, "season": season_public(season_pass_config.load_config())}
+        except Exception as exc:
+            log.warning("Lumo: consulta interna da SeasonLand falhou (%s)", type(exc).__name__)
+            return {"ok": False}
     if source == "status":
         if not _db_ready() or _ENGINE is None:
             return {"ok": False}
@@ -20021,7 +20053,7 @@ def _lumo_source_provider(source: str) -> dict[str, Any]:
             return lumo_status_snapshot(
                 _ENGINE,
                 servers=_load_servers(decrypt_secrets=False),
-                runtime_statuses=get_all_statuses(max_age_s=600.0),
+                runtime_statuses=get_all_statuses(max_age_s=0),
             )
         except Exception as exc:
             log.warning("Lumo: consulta da central de status falhou (%s)", type(exc).__name__)
@@ -20097,6 +20129,7 @@ register_lumo_routes(
     index_view=index,
     db_ready=_db_ready,
     source_provider=_lumo_source_provider,
+    uploads_dir=_DATA_DIR / "lumo_uploads",
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
