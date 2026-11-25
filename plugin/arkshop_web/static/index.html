@@ -12051,7 +12051,7 @@
       <div id="page-map-members-admin" class="page admin-only">
         <div id="topbar">
           <div class="page-title">🗺️ Membros por mapa</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">A lista ao vivo consulta todos os jogadores conectados via RCON. A lista de membros abaixo vem do TribeSync e inclui personagens atuais ou offline que já tiveram a tribo sincronizada. Use <strong>DADOS</strong> para ver PlayerDataID, SteamID, tribo e mapas associados.</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">A lista ao vivo consulta jogadores conectados via RCON. A lista de membros do TribeSync inclui todos os personagens já sincronizados, mesmo offline, e mostra SteamID, ID do personagem (PlayerDataID) e ID/nome da tribo. ONLINE/OFFLINE é confirmado pelo RCON; se o mapa não responder, o estado aparece como não verificado. Use <strong>DADOS</strong> para consultar mapas associados.</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadMapMembersAdmin()">↺ Recarregar</button>
           </div>
@@ -34039,6 +34039,7 @@ async function syncAllPermissionsAdmin() {
 
 let _mapMembersCache = null;
 let _mapOnlinePollTimer = null;
+let _mapOnlinePresenceByServer = Object.create(null);
 
 function _mmDash(v) {
   if (v === null || v === undefined || v === "") return "—";
@@ -34067,31 +34068,70 @@ async function loadMapMembersAdmin() {
   grid.innerHTML = "<p style='color:var(--text2)'>Carregando…</p>";
   closeMapMemberDetail();
   try {
-    const d = await fetchJson("/api/admin/map-members?limit=200");
+    const d = await fetchJson("/api/admin/map-members?limit=500");
     if (!d.ok) {
       grid.innerHTML = `<p style="color:var(--danger)">${escHtml(d.error || "Erro")}</p>`;
       return;
     }
-    _mapMembersCache = d.maps || [];
+    _mapMembersCache = [
+      ...(d.maps || []),
+      ...(d.unregistered || []).map(m => ({ ...m, registered: false })),
+    ];
+    await Promise.all(_mapMembersCache.map(async m => {
+      m.items = Array.isArray(m.items) ? m.items : [];
+      const total = Math.max(m.items.length, Number(m.total || 0));
+      try {
+        while (m.items.length < total) {
+          const offset = m.items.length;
+          const page = await fetchJson(`/api/admin/map-members?server_id=${encodeURIComponent(m.server_id)}&limit=500&offset=${offset}`);
+          const pageMap = (page.maps || [])[0];
+          const nextItems = pageMap && Array.isArray(pageMap.items) ? pageMap.items : [];
+          if (!page.ok || !nextItems.length) {
+            m.partialLoad = true;
+            break;
+          }
+          m.items.push(...nextItems);
+        }
+      } catch (_pageError) { m.partialLoad = true; }
+    }));
     if (!_mapMembersCache.length) {
       grid.innerHTML = "<p style='color:var(--text2)'>Nenhum servidor cadastrado. Configure em Servidores.</p>";
       return;
     }
-    grid.innerHTML = _mapMembersCache.map(m => {
+    renderMapMembersAdmin();
+  } catch (err) {
+    grid.innerHTML = `<p style="color:var(--danger)">${escHtml(err.message || "Erro ao carregar")}</p>`;
+  }
+}
+
+function renderMapMembersAdmin() {
+  const grid = document.getElementById("map-members-grid");
+  if (!grid || !_mapMembersCache) return;
+  grid.innerHTML = _mapMembersCache.map(m => {
       const items = m.items || [];
       const rows = items.length
         ? items.map(it => {
             const name = it.character_name || it.steam_id || "?";
             const tribe = it.tribe_name ? escHtml(it.tribe_name) : "";
             const offlineIdentity = Boolean(it.is_offline_identity) || String(it.steam_id || "").startsWith("pdid:");
+            const live = _mapOnlinePresenceByServer[m.server_id];
+            const steamId = String(it.steam_id || "");
+            const playerIsOnline = !offlineIdentity && live?.status === "online" && live.steamIds.has(steamId);
+            const presenceLabel = offlineIdentity || (live?.status === "online" && !playerIsOnline)
+              ? "OFFLINE" : playerIsOnline ? "ONLINE" : "STATUS NÃO VERIFICADO";
+            const presenceClass = presenceLabel === "ONLINE" ? "badge-success"
+              : presenceLabel === "OFFLINE" ? "badge-ghost" : "badge-warning";
             const playerId = String(it.steam_id || "").startsWith("pdid:")
               ? String(it.steam_id).slice(5) : "";
+            const characterId = playerId || _mmDash(it.player_data_id);
+            const lastSeen = it.last_seen_at ? ` · último sync ${escHtml(it.last_seen_at)}` : "";
             return `<div class="map-members-row">
               <div style="min-width:0;flex:1;">
                 <div class="mm-name" title="${escHtml(it.steam_id || "")}">${escHtml(name)}</div>
-                <div class="mm-meta">${offlineIdentity ? `Offline no último sync · PlayerDataID ${escHtml(playerId || _mmDash(it.player_data_id))}` : `SteamID ${escHtml(it.steam_id || "—")}`}</div>
+                <div class="mm-meta">SteamID ${offlineIdentity ? "não associado" : escHtml(steamId || "—")} · ID do personagem ${escHtml(characterId)} · ID da tribo ${escHtml(_mmDash(it.tribe_id))}${lastSeen}</div>
                 ${tribe ? `<div class="mm-meta">${tribe}</div>` : ""}
               </div>
+              <span class="badge ${presenceClass}">${presenceLabel}</span>
               <button type="button" class="btn btn-ghost btn-sm"
                 onclick="openMapMemberDados('${escHtml(m.server_id)}','${escHtml(it.steam_id)}')">DADOS</button>
             </div>`;
@@ -34100,12 +34140,10 @@ async function loadMapMembersAdmin() {
       return `<div class="map-members-col card" style="padding:12px;margin:0;">
         <h3>${escHtml(m.label || m.server_id)} <span style="font-weight:500;color:var(--text2);font-size:12px;">(${Number(m.total || 0)})</span></h3>
         ${m.registered === false ? `<div class="mm-meta" style="margin:-5px 0 9px;color:var(--warning,#f0ad4e);">ID do plugin não cadastrado: <code>${escHtml(m.server_id)}</code></div>` : ""}
+        ${m.partialLoad ? `<div class="mm-meta" style="color:var(--warning,#f0ad4e);">Lista parcial: não foi possível carregar todos os membros deste mapa.</div>` : ""}
         <div class="map-members-list">${rows}</div>
       </div>`;
     }).join("");
-  } catch (err) {
-    grid.innerHTML = `<p style="color:var(--danger)">${escHtml(err.message || "Erro ao carregar")}</p>`;
-  }
 }
 
 async function loadMapOnlinePlayers() {
@@ -34117,6 +34155,11 @@ async function loadMapOnlinePlayers() {
     const d = await fetchJson("/api/admin/map-members/online", { timeoutMs: 16000, retries: 0 });
     if (!d.ok) throw new Error(d.error || "Não foi possível consultar os mapas.");
     const servers = d.servers || [];
+    _mapOnlinePresenceByServer = Object.fromEntries(servers.map(s => [String(s.server_id || ""), {
+      status: String(s.status || "unavailable"),
+      steamIds: new Set((s.players || []).map(p => String(p.steam_id || "")).filter(Boolean)),
+    }]));
+    renderMapMembersAdmin();
     const count = servers.reduce((n, s) => n + (s.players || []).length, 0);
     const offline = servers.filter((s) => s.status === "offline").length;
     const unavailable = servers.filter((s) => s.status === "unavailable").length;

@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.28"
+APP_VERSION: str = "1.12.29"
 BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.29",
+        "date": "2026-11-25",
+        "changes": [
+            "Membros por mapa: inclui também os registros offline retornados pelo TribeSync com IDs de servidor ainda não vinculados ao cadastro, carrega todos os membros em páginas e exibe o estado ONLINE/OFFLINE quando confirmado pelo RCON. Mostra SteamID, ID do personagem (PlayerDataID), ID/nome da tribo e último sync; quando o RCON não responde, informa que o estado não foi verificado.",
+        ],
+    },
     {
         "version": "1.12.28",
         "date": "2026-11-25",

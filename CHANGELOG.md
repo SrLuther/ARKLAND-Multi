@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 18:44:50 -->
-<!-- Total de versões: 589 | Primeira: 1.12.28 -->
+<!-- Gerado: 2026-11-25 20:40:46 -->
+<!-- Total de versões: 590 | Primeira: 1.12.29 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.29] - 2026-11-25
+
+### Other
+
+- Membros por mapa: inclui também os registros offline retornados pelo TribeSync com IDs de servidor ainda não vinculados ao cadastro, carrega todos os membros em páginas e exibe o estado ONLINE/OFFLINE quando confirmado pelo RCON. Mostra SteamID, ID do personagem (PlayerDataID), ID/nome da tribo e último sync; quando o RCON não responde, informa que o estado não foi verificado.
 
 ## [1.12.28] - 2026-11-25
 
