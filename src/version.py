@@ -4,13 +4,21 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.24"
-BUILD_DATE: str = "2026-11-24"
+APP_VERSION: str = "1.12.25"
+BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.25",
+        "date": "2026-11-25",
+        "changes": [
+            "Lumo: inclui no portal administrativo a central de comunica\u00e7\u00e3o da assistente, com editor Markdown, pr\u00e9via de embed, modelos, rascunhos locais, hist\u00f3rico audit\u00e1vel, configura\u00e7\u00e3o protegida de webhook, verifica\u00e7\u00e3o sem envio e publica\u00e7\u00e3o com confirma\u00e7\u00e3o expl\u00edcita e men\u00e7\u00f5es desativadas. O webhook precisa ser configurado pela administra\u00e7\u00e3o antes do primeiro envio.",
+            "StructureLimits (desenvolvimento): inclui a base e a vers\u00e3o observacional 0.6-dev do plugin no reposit\u00f3rio. A valida\u00e7\u00e3o em jogo permanece em modo fail-open, sem aplicar limites; os callbacks observados ainda n\u00e3o comprovam remo\u00e7\u00f5es de forma autoritativa.",
+        ],
+    },
     {
         "version": "1.12.24",
         "date": "2026-11-24",

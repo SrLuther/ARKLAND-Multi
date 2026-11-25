@@ -7950,6 +7950,7 @@
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
   <link rel="stylesheet" href="guia.css?v=__WEB_BUILD__" />
+  <link rel="stylesheet" href="/lumo.css?v=__WEB_BUILD__" />
 </head>
 <body>
 <script>
@@ -8273,6 +8274,9 @@
       <span class="nav-icon">🔎</span> Busca de blueprints
     </div>
 
+    <div class="nav-item admin-only" data-page="lumo" onclick="nav(this)">
+      <span class="nav-icon nav-icon--img"><img src="/lumo-avatar.png" alt="" width="18" height="18" /></span> Lumo — Comunicação
+    </div>
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
     <div class="nav-item admin-only" data-page="server-console" onclick="nav(this)">
@@ -10510,6 +10514,31 @@
           </div>
 
         </div>
+      </div>
+
+      <!-- PAGE: Lumo — Central administrativa de comunicação -->
+      <div id="page-lumo" class="page admin-only">
+        <div class="lumo-header">
+          <img class="lumo-header__avatar" src="/lumo-avatar.png" alt="Avatar oficial de Lumo" width="72" height="72" />
+          <div><div class="lumo-header__identity"><h1>LUMO</h1><span>Assistente oficial da comunidade ARKLAND</span></div><p class="lumo-header__description">Conectando sobreviventes, compartilhando informações e aproximando a comunidade ARKLAND.</p></div>
+          <div id="lumo-connection" class="lumo-connection" data-state="not_configured" role="status" aria-live="polite"><strong id="lumo-connection-state">Webhook não configurado</strong><span id="lumo-connection-detail">Configure uma URL de webhook para começar.</span></div>
+        </div>
+        <div class="lumo-tabs" role="tablist" aria-label="Central de comunicação Lumo">
+          <button class="lumo-tab is-active" data-lumo-tab="communication" role="tab" type="button">Comunicação</button><button class="lumo-tab" data-lumo-tab="templates" role="tab" type="button">Modelos</button><button class="lumo-tab" data-lumo-tab="history" role="tab" type="button">Histórico</button><button class="lumo-tab" data-lumo-tab="settings" role="tab" type="button">Configurações</button>
+        </div>
+        <section class="lumo-panel is-active" data-lumo-panel="communication" role="tabpanel"><div class="lumo-workspace">
+          <div class="lumo-card"><h2>Editor de comunicado</h2><div class="lumo-form-grid">
+            <div class="lumo-field lumo-field--wide"><label for="lumo-title">Título <span class="lumo-muted">(opcional, até 256 caracteres)</span></label><input id="lumo-title" maxlength="256" placeholder="Comunicado oficial" /></div>
+            <div class="lumo-field lumo-field--wide"><label for="lumo-content">Conteúdo do comunicado <span class="lumo-muted">(obrigatório)</span></label><div class="lumo-toolbar" aria-label="Formatação Markdown">
+              <button type="button" data-lumo-format="bold" title="Negrito (Ctrl+B)"><strong>B</strong></button><button type="button" data-lumo-format="italic" title="Itálico (Ctrl+I)"><em>I</em></button><button type="button" data-lumo-format="underline" title="Sublinhado (Ctrl+U)"><u>U</u></button><button type="button" data-lumo-format="strike" title="Tachado"><s>S</s></button><button type="button" data-lumo-format="spoiler" title="Spoiler">◧</button><button type="button" data-lumo-format="heading1" title="Título principal">H₁</button><button type="button" data-lumo-format="heading" title="Subtítulo">H₂</button><button type="button" data-lumo-format="quote" title="Citação">❞</button><button type="button" data-lumo-format="bullet" title="Lista com marcadores">• ☰</button><button type="button" data-lumo-format="number" title="Lista numerada">1. ☰</button><button type="button" data-lumo-format="code" title="Código em linha">&lt;/&gt;</button><button type="button" data-lumo-format="codeblock" title="Bloco de código">▤</button><button type="button" data-lumo-format="link" title="Inserir link HTTPS">🔗</button><button id="lumo-insert-emoji" type="button" title="Inserir emoji">😀</button><button id="lumo-undo" type="button" title="Desfazer (Ctrl+Z)" aria-label="Desfazer">↶</button><button id="lumo-redo" type="button" title="Refazer (Ctrl+Y)" aria-label="Refazer">↷</button>
+            </div><textarea id="lumo-content" class="lumo-editor" maxlength="4096" rows="12" placeholder="Escreva aqui. A formatação usa Markdown do Discord."></textarea><div id="lumo-counter" class="lumo-counter">Título 0/256 · Descrição 0/4.096 · Total 0/6.000</div></div>
+            <div class="lumo-field lumo-field--wide"><label for="lumo-title-url">Link associado ao título (opcional)</label><input id="lumo-title-url" type="url" placeholder="https://…" /></div><div class="lumo-field"><label for="lumo-image-url">Imagem complementar (HTTPS)</label><input id="lumo-image-url" type="url" placeholder="https://…" /></div><div class="lumo-field"><label for="lumo-thumbnail-url">Miniatura (HTTPS)</label><input id="lumo-thumbnail-url" type="url" placeholder="https://…" /></div>
+          </div><div class="lumo-actions"><button id="lumo-publish" class="btn btn-primary" type="button" disabled>Enviar ao Discord</button><button id="lumo-clear" class="btn btn-ghost" type="button">Limpar editor</button><button id="lumo-save-draft" class="btn btn-ghost" type="button">Salvar rascunho</button><button id="lumo-copy-markdown" class="btn btn-ghost" type="button">Copiar Markdown</button></div><p class="lumo-status-note">A publicação é sempre um embed ciano assinado por Lumo. O Discord só recebe a mensagem após confirmação explícita. Menções automáticas ficam desativadas.</p></div>
+          <div class="lumo-card"><h2>Pré-visualização do Discord</h2><div class="lumo-preview-shell"><div class="lumo-discord-message"><img class="lumo-discord-avatar" src="/lumo-avatar.png" alt="" width="40" height="40" /><div><div class="lumo-discord-meta"><span class="lumo-discord-name">Lumo</span><span class="lumo-app-tag">APP</span><span class="lumo-discord-time">Hoje</span></div><div class="lumo-embed"><img id="lumo-preview-thumb" class="lumo-embed__thumb" alt="Miniatura do comunicado" hidden /><strong id="lumo-preview-title" class="lumo-embed__title">Comunicado oficial</strong><div id="lumo-preview-body" class="lumo-embed__body"></div><img id="lumo-preview-image" class="lumo-embed__image" alt="Imagem complementar" hidden /><div class="lumo-embed__footer">Lumo • Assistente oficial da ARKLAND</div></div></div></div></div><p class="lumo-status-note">A prévia representa as formatações mais comuns de embeds. O Discord é a referência final de renderização.</p></div>
+        </div></section>
+        <section class="lumo-panel" data-lumo-panel="templates" role="tabpanel"><div class="lumo-card"><h2>Modelos de comunicação</h2><p class="lumo-muted">Escolha um modelo para preencher o editor. Revise todos os campos antes de publicar.</p><div id="lumo-templates" class="lumo-template-list"></div></div></section>
+        <section class="lumo-panel" data-lumo-panel="history" role="tabpanel"><div class="lumo-card"><div class="lumo-history-item__head"><div><h2>Histórico de comunicações</h2><p class="lumo-muted">Tentativas de publicação registradas pelo site. Nenhum token é armazenado neste histórico.</p></div><button id="lumo-reload-history" class="btn btn-ghost btn-sm" type="button">Atualizar</button></div><div class="lumo-filter"><input id="lumo-history-query" placeholder="Pesquisar título ou mensagem" aria-label="Pesquisar histórico" /><select id="lumo-history-status" aria-label="Filtrar status"><option value="">Todos os resultados</option><option value="success">Publicado</option><option value="rejected">Recusado</option><option value="rate_limited">Limite temporário</option><option value="uncertain">Resultado incerto</option></select><input id="lumo-history-admin" placeholder="SteamID do administrador" aria-label="Filtrar administrador" /><input id="lumo-history-from" type="date" aria-label="Data inicial" /><input id="lumo-history-to" type="date" aria-label="Data final" /></div><div id="lumo-history-list" aria-live="polite"></div><button id="lumo-history-more" class="btn btn-ghost" type="button" hidden>Carregar mais</button></div></section>
+        <section class="lumo-panel" data-lumo-panel="settings" role="tabpanel"><div class="lumo-card"><h2>Integração com Discord</h2><p class="lumo-muted">O endereço do webhook é uma credencial. Ele é criptografado no armazenamento do site, nunca aparece novamente completo e não é gravado nos rascunhos nem nos logs.</p><div class="lumo-settings-grid"><div class="lumo-field"><label for="lumo-webhook-url">URL do webhook</label><input id="lumo-webhook-url" type="password" autocomplete="new-password" spellcheck="false" placeholder="https://discord.com/api/webhooks/…" /></div><button id="lumo-save-webhook" class="btn btn-primary" type="button">Salvar / substituir</button></div><p id="lumo-saved-webhook" class="lumo-status-note">Nenhum webhook configurado.</p><div class="lumo-actions"><button id="lumo-verify-webhook" class="btn btn-ghost" type="button">Verificar conexão sem publicar</button></div><p id="lumo-channel-info" class="lumo-status-note">O canal será identificado quando a URL for verificada.</p><p id="lumo-webhook-error" role="alert" style="color:#ff9292;"></p><p><strong>Última publicação:</strong> <span id="lumo-last-published">Nenhuma publicação registrada.</span></p><p class="lumo-status-note">A verificação consulta os metadados do webhook. Nenhuma mensagem de teste é enviada. Confirme com a administração que o canal identificado é o destino desejado.</p></div></section>
       </div>
 
       <!-- PAGE: Gerenciar Links (admin) -->
@@ -13268,6 +13297,7 @@
 <script src="guia.js?v=__WEB_BUILD__" defer></script>
 <script src="primal_fear_ficha.js?v=__WEB_BUILD__" defer></script>
 <script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
+<script src="lumo.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -13966,6 +13996,7 @@ function _syncStoreWarmupReady() {
 function nav(el) {
   if (!_syncStoreWarmupReady()) return;
   let page = resolveLegacyPage(el.dataset.page);
+  if (page === "lumo" && !_auth?.is_admin) return;
   if (page !== el.dataset.page) {
     const target = document.querySelector(`.nav-item[data-page="${page}"]`);
     if (!target) return;
@@ -14005,6 +14036,7 @@ function nav(el) {
   if (isMobileNav()) closeSidebar();
   // Troca de página é síncrona (DOM já montado). Loads abaixo são TTL/cache — não bloqueiam paint.
   if (page === "home") loadHome();
+  if (page === "lumo" && _auth?.is_admin && typeof window.loadLumoAdmin === "function") window.loadLumoAdmin();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "polls") loadPolls();

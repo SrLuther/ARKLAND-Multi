@@ -470,7 +470,14 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token", "azure_translator_key")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token", "azure_translator_key", "lumo_webhook_url")
+
+
+def _get_lumo_fernet() -> Optional[Fernet]:
+    """Lumo refuses to persist a webhook under the repository's public dev key."""
+    if app.secret_key == "arkshop-web-dev-secret-change-me-in-prod":
+        return None
+    return _get_fernet()
 
 _AMBER_SINGULAR = "Ambar"
 _AMBER_PLURAL = "Ambares"
@@ -3022,6 +3029,13 @@ def _load_settings() -> dict[str, Any]:
         "ticket_discord_enabled": False,
         "ticket_discord_channel_id": "",
         "ticket_discord_token": "",
+        "lumo_webhook_url": "",
+        "lumo_webhook_status": "not_configured",
+        "lumo_webhook_checked_at": "",
+        "lumo_webhook_channel_id": "",
+        "lumo_webhook_guild_id": "",
+        "lumo_webhook_error": "",
+        "lumo_last_published_at": "",
         "server_agent_url": "",
         "server_agent_token": "",
         "discord_validation_channel_id": "",
@@ -19946,6 +19960,26 @@ register_discord_engagement_routes(
     load_settings=_load_settings,
     add_points_tx=_add_player_points_tx,
     limiter=limiter,
+)
+
+from lumo_routes import register_lumo_routes
+
+register_lumo_routes(
+    app,
+    admin_required=admin_required,
+    limiter=limiter,
+    load_settings=_load_settings,
+    save_settings=_save_settings,
+    get_fernet=_get_lumo_fernet,
+    encrypt_value=_encrypt_value,
+    audit_event=_audit_event,
+    session_factory=_db_session_factory,
+    audit_model=AuditEvent,
+    idempotency_store=_idempotency_store,
+    now=_now,
+    get_admin_id=_steam_id_from_session,
+    index_view=index,
+    db_ready=_db_ready,
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":

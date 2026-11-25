@@ -1,0 +1,16 @@
+{
+  "StructureLimits": {
+    "Enabled": false,
+    "ObservationProbeEnabled": false,
+    "LifecycleObservationEnabled": false,
+    "LifecycleBeginPlayObservationEnabled": false,
+    "MapName": "",
+    "InstancePath": "",
+    "LPG": 0,
+    "ExtraPercentage": 25,
+    "SpecificBlueprints": [],
+    "EnforcementRequiresValidatedInventory": true,
+    "LocalSnapshotFile": "",
+    "LocalOutboxDirectory": ""
+  }
+}

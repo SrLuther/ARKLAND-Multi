@@ -1,8 +1,9 @@
 {
-    "version": "1.12.24",
-    "date": "2026-11-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.24/ARKLAND-Multi-Setup-v1.12.24.exe",
+    "version": "1.12.25",
+    "date": "2026-11-25",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.25/ARKLAND-Multi-Setup-v1.12.25.exe",
     "changelog": [
-        "Correção (Servidores do site): os cards agora acompanham o nome atual definido no ARKLAND Server Manager e atualizam após a sincronização, sem manter rótulos antigos. Motivo: renomeações de mapas continuavam aparecendo com o nome anterior no site. Também recupera o catálogo configurado pelo gerenciador quando as configurações persistidas apontam para um caminho removido, evitando que a página inicial carregue sem servidores."
+        "Lumo: inclui no portal administrativo a central de comunicação da assistente, com editor Markdown, prévia de embed, modelos, rascunhos locais, histórico auditável, configuração protegida de webhook, verificação sem envio e publicação com confirmação explícita e menções desativadas. O webhook precisa ser configurado pela administração antes do primeiro envio.",
+        "StructureLimits (desenvolvimento): inclui a base e a versão observacional 0.6-dev do plugin no repositório. A validação em jogo permanece em modo fail-open, sem aplicar limites; os callbacks observados ainda não comprovam remoções de forma autoritativa."
     ]
 }

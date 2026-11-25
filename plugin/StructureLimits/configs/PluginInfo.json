@@ -1,0 +1,10 @@
+﻿{
+    "FullName":  "ARKLAND Structure Limits (probe de identidade de blueprint)",
+    "Version":  0.6,
+    "MinApiVersion":  3.54,
+    "VersionLabel":  "0.6-dev",
+    "Description":  "Observação de posicionamento com chave canônica de blueprint; não aplica limites",
+    "Dependencies":  [
+
+                     ]
+}

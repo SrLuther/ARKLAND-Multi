@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 00:25:09 -->
-<!-- Total de versões: 585 | Primeira: 1.12.24 -->
+<!-- Gerado: 2026-11-25 03:54:49 -->
+<!-- Total de versões: 586 | Primeira: 1.12.25 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.25] - 2026-11-25
+
+### Other
+
+- Lumo: inclui no portal administrativo a central de comunicação da assistente, com editor Markdown, prévia de embed, modelos, rascunhos locais, histórico auditável, configuração protegida de webhook, verificação sem envio e publicação com confirmação explícita e menções desativadas. O webhook precisa ser configurado pela administração antes do primeiro envio.
+- StructureLimits (desenvolvimento): inclui a base e a versão observacional 0.6-dev do plugin no repositório. A validação em jogo permanece em modo fail-open, sem aplicar limites; os callbacks observados ainda não comprovam remoções de forma autoritativa.
 
 ## [1.12.24] - 2026-11-24
 

@@ -290,13 +290,42 @@ $releaseNewFiles = @(
     "plugin/arkshop_web/static/ark_admin_commands.json",
     "plugin/arkshop_web/static/command-center.css",
     "plugin/arkshop_web/static/command-center.js",
-    "plugin/arkshop_web/tests/test_command_center_catalog.py"
+    "plugin/arkshop_web/tests/test_command_center_catalog.py",
+    "docs/LUMO_CENTRAL_COMUNICACAO.md",
+    "plugin/arkshop_web/lumo_routes.py",
+    "plugin/arkshop_web/static/lumo.css",
+    "plugin/arkshop_web/static/lumo.js",
+    "plugin/arkshop_web/static/lumo-avatar.png",
+    "plugin/arkshop_web/tests/test_lumo_routes.py",
+    "plugin/StructureLimits/CMakeLists.txt",
+    "plugin/StructureLimits/CHANGELOG.md",
+    "plugin/StructureLimits/README.md",
+    "plugin/StructureLimits/build_core_tests.bat",
+    "plugin/StructureLimits/build_plugin_probe.bat",
+    "plugin/StructureLimits/configs/config.json.example",
+    "plugin/StructureLimits/configs/PluginInfo.json",
+    "plugin/StructureLimits/migrations/001_structure_limits.sql",
+    "plugin/StructureLimits/plugin_version.txt",
+    "plugin/StructureLimits/src/DurableOutbox.cpp",
+    "plugin/StructureLimits/src/DurableOutbox.h",
+    "plugin/StructureLimits/src/LocalSnapshotStore.cpp",
+    "plugin/StructureLimits/src/LocalSnapshotStore.h",
+    "plugin/StructureLimits/src/Main.cpp",
+    "plugin/StructureLimits/src/OutboxSynchronizer.cpp",
+    "plugin/StructureLimits/src/OutboxSynchronizer.h",
+    "plugin/StructureLimits/src/StructureLimitsConfig.cpp",
+    "plugin/StructureLimits/src/StructureLimitsConfig.h",
+    "plugin/StructureLimits/src/StructureLimitsCore.cpp",
+    "plugin/StructureLimits/src/StructureLimitsCore.h",
+    "plugin/StructureLimits/tests/core_tests.cpp"
 )
 # Capture Git's CRLF warnings through cmd, as above. PowerShell 7 can surface
 # native stderr as NativeCommandError even when git add succeeds.
 $releaseAddArgs = $releaseNewFiles -join " "
 cmd.exe /d /c "git add -- $releaseAddArgs 2>&1"
 if ($LASTEXITCODE -ne 0) { Write-Fail "git add de fontes novas falhou (exit $LASTEXITCODE)" }
+& git add -- "PROJETO DE LIMITES DE ESTRUTURAS.md" 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Fail "nao foi possivel adicionar a documentacao do StructureLimits" }
 # catalog.json do usuário: tira do stage sem alterar o working tree.
 & git reset HEAD -- plugin/CustomShop/catalog.json 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Fail "git reset HEAD do catalog.json falhou (exit $LASTEXITCODE)" }
