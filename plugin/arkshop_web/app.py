@@ -470,7 +470,7 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token", "azure_translator_key", "lumo_webhook_url")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "mp_webhook_secret", "steam_api_key", "ticket_discord_token", "server_agent_token", "azure_translator_key", "lumo_webhook_url", "lumo_bot_token")
 
 
 def _get_lumo_fernet() -> Optional[Fernet]:
@@ -3036,6 +3036,25 @@ def _load_settings() -> dict[str, Any]:
         "lumo_webhook_guild_id": "",
         "lumo_webhook_error": "",
         "lumo_last_published_at": "",
+        "lumo_assistant_enabled": False,
+        "lumo_bot_token": "",
+        "lumo_guild_id": "",
+        "lumo_interaction_channel_id": "",
+        "lumo_status_channel_id": "",
+        "lumo_trigger_enabled": {"STATUS": True, "BETLAND": True, "LICENCAS": True, "VOTACAO": True},
+        "lumo_trigger_aliases": {},
+        "lumo_user_cooldown_seconds": 15,
+        "lumo_trigger_cooldown_seconds": 20,
+        "lumo_global_cooldown_seconds": 3,
+        "lumo_global_hourly_limit": 40,
+        "lumo_auto_betland_enabled": False,
+        "lumo_auto_polls_enabled": False,
+        "lumo_auto_betland_next_at": "",
+        "lumo_auto_polls_next_at": "",
+        "lumo_auto_betland_last_at": "",
+        "lumo_auto_polls_last_at": "",
+        "lumo_last_auto_announcement_at": "",
+        "lumo_greeting_replies": [],
         "server_agent_url": "",
         "server_agent_token": "",
         "discord_validation_channel_id": "",
@@ -19964,6 +19983,65 @@ register_discord_engagement_routes(
 
 from lumo_routes import register_lumo_routes
 
+
+def _lumo_source_provider(source: str) -> dict[str, Any]:
+    """Fontes internas oficiais para respostas do Gateway e modo de teste."""
+    if source == "status":
+        return {"ok": True}
+    if not _db_ready():
+        return {"ok": False}
+    if source == "betland":
+        db = _db_session_factory()
+        try:
+            from lottery_service import get_public_current
+            return get_public_current(db)
+        except Exception as exc:
+            db.rollback()
+            log.warning("Lumo: consulta interna do Bet Land falhou (%s)", type(exc).__name__)
+            return {"ok": False}
+        finally:
+            db.close()
+    if source == "polls":
+        db = _db_session_factory()
+        try:
+            from poll_service import list_polls_public
+            polls = list_polls_public(db, include_closed=False, limit=50)
+            return {"ok": True, "polls": [poll for poll in polls if poll.get("is_open")]}
+        except Exception as exc:
+            db.rollback()
+            log.warning("Lumo: consulta interna de votações falhou (%s)", type(exc).__name__)
+            return {"ok": False, "polls": []}
+        finally:
+            db.close()
+    if source == "licenses":
+        try:
+            data = _read_shop_config()
+            items = _catalog_item_map(data)
+            output = []
+            seen_groups: set[str] = set()
+            for item_id, entry in items.items():
+                if not isinstance(entry, dict) or not _is_catalog_license_item(entry, str(item_id)):
+                    continue
+                group = _catalog_license_group(entry, str(item_id))
+                if not group or group in seen_groups:
+                    continue
+                seen_groups.add(group)
+                output.append({
+                    "item_id": str(item_id),
+                    "group": group,
+                    "label": str(entry.get("Description") or entry.get("Name") or group),
+                    "aliases": [str(item_id), group, str(entry.get("Name") or "")],
+                    "days": _catalog_license_days(entry, str(item_id)),
+                    "price_amber": max(0, int(_catalog_price(entry, 1))),
+                    "bonus_per_cycle": _timed_points_bonus_for_group(group),
+                })
+            output.sort(key=lambda item: str(item["label"]).casefold())
+            return {"ok": True, "licenses": output}
+        except Exception as exc:
+            log.warning("Lumo: catálogo interno de licenças indisponível (%s)", type(exc).__name__)
+            return {"ok": False, "licenses": []}
+    return {"ok": False}
+
 register_lumo_routes(
     app,
     admin_required=admin_required,
@@ -19980,6 +20058,7 @@ register_lumo_routes(
     get_admin_id=_steam_id_from_session,
     index_view=index,
     db_ready=_db_ready,
+    source_provider=_lumo_source_provider,
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
@@ -20130,6 +20209,17 @@ if __name__ == "__main__":
     if not _acquire_webstore_instance_lock():
         raise SystemExit(1)
     atexit.register(_release_webstore_instance_lock)
+    # O Gateway só inicia quando a administração o habilitou e configurou.
+    # O lock de instância já foi obtido, evitando dois processos publicarem anúncios.
+    try:
+        from lumo_gateway import get_lumo_runtime
+        _lumo_runtime = get_lumo_runtime()
+        if _lumo_runtime is not None and _load_settings().get("lumo_assistant_enabled"):
+            _lumo_ok, _lumo_message = _lumo_runtime.reconfigure()
+            log.info("Lumo Gateway boot: %s", _lumo_message)
+        atexit.register(lambda: _lumo_runtime.stop() if _lumo_runtime is not None else None)
+    except Exception as _lumo_boot_exc:
+        log.warning("Lumo Gateway não iniciou no boot (%s)", type(_lumo_boot_exc).__name__)
     port = int(os.environ.get("PORT", "5177"))
     # Fase 5: threads = clamp((CPU×2)+1, 4–8), cap ao pool_size (Fase 1 = 20).
     # Override: ARKSHOP_HTTP_THREADS; FORCE=1 desliga cap; CAP_TO_POOL=0 legado.

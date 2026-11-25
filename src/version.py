@@ -4,13 +4,22 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.25"
+APP_VERSION: str = "1.12.26"
 BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.26",
+        "date": "2026-11-25",
+        "changes": [
+            "Lumo 2.0: adiciona assistente interativo do Discord com Gateway, restrição a um servidor e um canal, respostas em português para status, Bet Land, licenças e votações, além de saudações variadas.",
+            "Lumo 2.0: acrescenta anúncios automáticos independentes para sorteios e votações abertas, com intervalo aleatório de 3 a 4 horas, agenda persistida, limites contra repetição e dados obtidos dos serviços internos.",
+            "Lumo 2.0: inclui configuração administrativa, prévia sem publicação, gestão de respostas de saudação, telemetria e auditoria sem registrar conteúdo privado; token do bot protegido no armazenamento e Gateway desativado por padrão.",
+        ],
+    },
     {
         "version": "1.12.25",
         "date": "2026-11-25",

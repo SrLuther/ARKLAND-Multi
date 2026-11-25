@@ -10523,8 +10523,8 @@
           <div><div class="lumo-header__identity"><h1>LUMO</h1><span>Assistente oficial da comunidade ARKLAND</span></div><p class="lumo-header__description">Conectando sobreviventes, compartilhando informações e aproximando a comunidade ARKLAND.</p></div>
           <div id="lumo-connection" class="lumo-connection" data-state="not_configured" role="status" aria-live="polite"><strong id="lumo-connection-state">Webhook não configurado</strong><span id="lumo-connection-detail">Configure uma URL de webhook para começar.</span></div>
         </div>
-        <div class="lumo-tabs" role="tablist" aria-label="Central de comunicação Lumo">
-          <button class="lumo-tab is-active" data-lumo-tab="communication" role="tab" type="button">Comunicação</button><button class="lumo-tab" data-lumo-tab="templates" role="tab" type="button">Modelos</button><button class="lumo-tab" data-lumo-tab="history" role="tab" type="button">Histórico</button><button class="lumo-tab" data-lumo-tab="settings" role="tab" type="button">Configurações</button>
+          <div class="lumo-tabs" role="tablist" aria-label="Central de comunicação Lumo">
+            <button class="lumo-tab is-active" data-lumo-tab="communication" role="tab" type="button">Comunicação</button><button class="lumo-tab" data-lumo-tab="assistant" role="tab" type="button">Lumo 2.0</button><button class="lumo-tab" data-lumo-tab="test" role="tab" type="button">Modo de teste</button><button class="lumo-tab" data-lumo-tab="templates" role="tab" type="button">Modelos</button><button class="lumo-tab" data-lumo-tab="history" role="tab" type="button">Histórico</button><button class="lumo-tab" data-lumo-tab="settings" role="tab" type="button">Configurações</button>
         </div>
         <section class="lumo-panel is-active" data-lumo-panel="communication" role="tabpanel"><div class="lumo-workspace">
           <div class="lumo-card"><h2>Editor de comunicado</h2><div class="lumo-form-grid">
@@ -10536,6 +10536,32 @@
           </div><div class="lumo-actions"><button id="lumo-publish" class="btn btn-primary" type="button" disabled>Enviar ao Discord</button><button id="lumo-clear" class="btn btn-ghost" type="button">Limpar editor</button><button id="lumo-save-draft" class="btn btn-ghost" type="button">Salvar rascunho</button><button id="lumo-copy-markdown" class="btn btn-ghost" type="button">Copiar Markdown</button></div><p class="lumo-status-note">A publicação é sempre um embed ciano assinado por Lumo. O Discord só recebe a mensagem após confirmação explícita. Menções automáticas ficam desativadas.</p></div>
           <div class="lumo-card"><h2>Pré-visualização do Discord</h2><div class="lumo-preview-shell"><div class="lumo-discord-message"><img class="lumo-discord-avatar" src="/lumo-avatar.png" alt="" width="40" height="40" /><div><div class="lumo-discord-meta"><span class="lumo-discord-name">Lumo</span><span class="lumo-app-tag">APP</span><span class="lumo-discord-time">Hoje</span></div><div class="lumo-embed"><img id="lumo-preview-thumb" class="lumo-embed__thumb" alt="Miniatura do comunicado" hidden /><strong id="lumo-preview-title" class="lumo-embed__title">Comunicado oficial</strong><div id="lumo-preview-body" class="lumo-embed__body"></div><img id="lumo-preview-image" class="lumo-embed__image" alt="Imagem complementar" hidden /><div class="lumo-embed__footer">Lumo • Assistente oficial da ARKLAND</div></div></div></div></div><p class="lumo-status-note">A prévia representa as formatações mais comuns de embeds. O Discord é a referência final de renderização.</p></div>
         </div></section>
+          <section class="lumo-panel" data-lumo-panel="assistant" role="tabpanel">
+            <div class="lumo-card"><div class="lumo-history-item__head"><div><h2>Assistente interativo</h2><p class="lumo-muted">O Gateway só inicia quando ativado e configurado. Fora do servidor e do canal escolhidos, Lumo ignora as mensagens antes de ler o conteúdo.</p></div><span id="lumo-assistant-state" class="lumo-pill" role="status">Desativado</span></div>
+              <div class="lumo-form-grid">
+                <div class="lumo-field"><label for="lumo-bot-token">Token da aplicação de bot</label><input id="lumo-bot-token" type="password" autocomplete="new-password" spellcheck="false" placeholder="Informe apenas ao configurar ou trocar" /></div>
+                <label class="lumo-check"><input id="lumo-clear-bot-token" type="checkbox" /> Remover o token salvo</label>
+                <div class="lumo-field"><label for="lumo-guild-id">ID do servidor Discord autorizado</label><input id="lumo-guild-id" inputmode="numeric" maxlength="22" placeholder="ID numérico do servidor" /></div>
+                <div class="lumo-field"><label for="lumo-interaction-channel-id">Único canal em que Lumo interage</label><input id="lumo-interaction-channel-id" inputmode="numeric" maxlength="22" placeholder="ID numérico do canal" /></div>
+                <div class="lumo-field lumo-field--wide"><label for="lumo-status-channel-id">Canal oficial de status (pode ser diferente do canal de interação)</label><input id="lumo-status-channel-id" inputmode="numeric" maxlength="22" placeholder="ID numérico do canal de monitoramento" /></div>
+                <div class="lumo-field"><label for="lumo-user-cooldown">Intervalo por jogador (segundos)</label><input id="lumo-user-cooldown" type="number" min="0" max="3600" /></div>
+                <div class="lumo-field"><label for="lumo-trigger-cooldown">Intervalo por gatilho (segundos)</label><input id="lumo-trigger-cooldown" type="number" min="0" max="3600" /></div>
+                <div class="lumo-field"><label for="lumo-global-cooldown">Intervalo global (segundos)</label><input id="lumo-global-cooldown" type="number" min="0" max="120" /></div>
+                <div class="lumo-field"><label for="lumo-global-hourly-limit">Máximo global por hora</label><input id="lumo-global-hourly-limit" type="number" min="1" max="500" /></div>
+                <div class="lumo-field lumo-field--wide"><label>Gatilhos autorizados</label><div class="lumo-check-row"><label class="lumo-check"><input type="checkbox" id="lumo-trigger-status" /> Status</label><label class="lumo-check"><input type="checkbox" id="lumo-trigger-betland" /> Bet Land</label><label class="lumo-check"><input type="checkbox" id="lumo-trigger-licenses" /> Licenças</label><label class="lumo-check"><input type="checkbox" id="lumo-trigger-polls" /> Votações</label></div></div>
+                <div class="lumo-field lumo-field--wide"><label for="lumo-trigger-aliases">Aliases adicionais por gatilho (JSON)</label><textarea id="lumo-trigger-aliases" class="lumo-compact-textarea" rows="5" spellcheck="false" placeholder='{"STATUS":["status do cluster"],"BETLAND":[],"LICENCAS":[],"VOTACAO":[]}'></textarea><span class="lumo-muted">Use frases ou palavras completas. Não são permitidos comandos, SQL ou expressões executáveis.</span></div>
+                <div class="lumo-field lumo-field--wide"><label>Publicações automáticas (cada categoria tem intervalo independente, aleatório entre 180 e 240 minutos)</label><div class="lumo-check-row"><label class="lumo-check"><input type="checkbox" id="lumo-auto-betland" /> Bet Land enquanto houver sorteio aberto</label><label class="lumo-check"><input type="checkbox" id="lumo-auto-polls" /> Votações enquanto houver votações abertas</label></div><div id="lumo-auto-schedule-state" class="lumo-status-note">Aguardando configuração.</div></div>
+                <div class="lumo-field lumo-field--wide"><label for="lumo-greeting-replies">Respostas variadas quando alguém mencionar Lumo (uma por linha)</label><textarea id="lumo-greeting-replies" class="lumo-compact-textarea" rows="10"></textarea><span class="lumo-muted">Mantenha pelo menos uma resposta. O sistema evita repetir a mesma saudação em sequência para o mesmo jogador.</span></div>
+              </div>
+              <div class="lumo-actions"><label class="lumo-check lumo-enable"><input type="checkbox" id="lumo-assistant-enabled" /> Ativar Lumo 2.0</label><button id="lumo-save-assistant" class="btn btn-primary" type="button">Salvar configuração</button><button id="lumo-reload-assistant" class="btn btn-ghost" type="button">Atualizar estado</button></div>
+              <p class="lumo-status-note">Requer uma aplicação de bot Discord com Message Content Intent habilitado e permissões mínimas de ver/ler/enviar mensagens e embeds no canal autorizado. O token é criptografado no backend e nunca é devolvido à página. As publicações automáticas são informativas e usam os dados atuais do sistema.</p>
+            </div>
+          </section>
+          <section class="lumo-panel" data-lumo-panel="test" role="tabpanel">
+            <div class="lumo-workspace"><div class="lumo-card"><h2>Simular uma pergunta</h2><p class="lumo-muted">Consulta os serviços internos reais e mostra a resposta que Lumo produziria. Não publica no Discord, não altera agendamentos e não consome os limites de jogadores.</p><div class="lumo-field"><label for="lumo-test-input">Mensagem simulada</label><textarea id="lumo-test-input" class="lumo-compact-textarea" rows="4" maxlength="1000" placeholder="Ex.: Qual é o status dos servidores?"></textarea></div><div class="lumo-actions"><button id="lumo-run-test" class="btn btn-primary" type="button">Executar teste local</button></div><div id="lumo-test-result" class="lumo-status-note" role="status" aria-live="polite">Nenhum teste executado.</div></div>
+              <div class="lumo-card"><h2>Prévia da resposta simulada</h2><div class="lumo-preview-shell"><div class="lumo-discord-message"><img class="lumo-discord-avatar" src="/lumo-avatar.png" alt="" width="40" height="40" /><div><div class="lumo-discord-meta"><span class="lumo-discord-name">Lumo</span><span class="lumo-app-tag">APP</span><span class="lumo-discord-time">Prévia</span></div><div class="lumo-embed"><strong id="lumo-test-title" class="lumo-embed__title">A resposta aparecerá aqui</strong><div id="lumo-test-body" class="lumo-embed__body"></div><div class="lumo-embed__footer">Lumo • Assistente oficial da ARKLAND</div></div></div></div></div></div>
+            </div>
+          </section>
         <section class="lumo-panel" data-lumo-panel="templates" role="tabpanel"><div class="lumo-card"><h2>Modelos de comunicação</h2><p class="lumo-muted">Escolha um modelo para preencher o editor. Revise todos os campos antes de publicar.</p><div id="lumo-templates" class="lumo-template-list"></div></div></section>
         <section class="lumo-panel" data-lumo-panel="history" role="tabpanel"><div class="lumo-card"><div class="lumo-history-item__head"><div><h2>Histórico de comunicações</h2><p class="lumo-muted">Tentativas de publicação registradas pelo site. Nenhum token é armazenado neste histórico.</p></div><button id="lumo-reload-history" class="btn btn-ghost btn-sm" type="button">Atualizar</button></div><div class="lumo-filter"><input id="lumo-history-query" placeholder="Pesquisar título ou mensagem" aria-label="Pesquisar histórico" /><select id="lumo-history-status" aria-label="Filtrar status"><option value="">Todos os resultados</option><option value="success">Publicado</option><option value="rejected">Recusado</option><option value="rate_limited">Limite temporário</option><option value="uncertain">Resultado incerto</option></select><input id="lumo-history-admin" placeholder="SteamID do administrador" aria-label="Filtrar administrador" /><input id="lumo-history-from" type="date" aria-label="Data inicial" /><input id="lumo-history-to" type="date" aria-label="Data final" /></div><div id="lumo-history-list" aria-live="polite"></div><button id="lumo-history-more" class="btn btn-ghost" type="button" hidden>Carregar mais</button></div></section>
         <section class="lumo-panel" data-lumo-panel="settings" role="tabpanel"><div class="lumo-card"><h2>Integração com Discord</h2><p class="lumo-muted">O endereço do webhook é uma credencial. Ele é criptografado no armazenamento do site, nunca aparece novamente completo e não é gravado nos rascunhos nem nos logs.</p><div class="lumo-settings-grid"><div class="lumo-field"><label for="lumo-webhook-url">URL do webhook</label><input id="lumo-webhook-url" type="password" autocomplete="new-password" spellcheck="false" placeholder="https://discord.com/api/webhooks/…" /></div><button id="lumo-save-webhook" class="btn btn-primary" type="button">Salvar / substituir</button></div><p id="lumo-saved-webhook" class="lumo-status-note">Nenhum webhook configurado.</p><div class="lumo-actions"><button id="lumo-verify-webhook" class="btn btn-ghost" type="button">Verificar conexão sem publicar</button></div><p id="lumo-channel-info" class="lumo-status-note">O canal será identificado quando a URL for verificada.</p><p id="lumo-webhook-error" role="alert" style="color:#ff9292;"></p><p><strong>Última publicação:</strong> <span id="lumo-last-published">Nenhuma publicação registrada.</span></p><p class="lumo-status-note">A verificação consulta os metadados do webhook. Nenhuma mensagem de teste é enviada. Confirme com a administração que o canal identificado é o destino desejado.</p></div></section>
@@ -19840,7 +19866,7 @@ function _renderPollsFromCache() {
         ? `<button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="submitPollVote(${poll.id})">Confirmar voto</button>` : "";
       const loginHint = poll.is_open && !poll.viewer_has_voted && !_auth.authenticated
         ? `<button class="btn btn-ghost btn-sm" style="margin-top:12px;" onclick="loginWithSteam()">Entrar com Steam para votar</button>` : "";
-      return `<div class="card">
+      return `<div class="card" id="community-poll-${Number(poll.id)}">
         <div class="card-header" style="flex-wrap:wrap;gap:8px;">
           <div>
             <div class="card-title">${escHtml(poll.title)}</div>
@@ -19873,6 +19899,11 @@ async function loadPolls(opts) {
     _renderPollsFromCache();
     root.dataset.loaded = "1";
     _navPageMark("polls");
+    const targetId = Number(window.__communityPollTargetId || 0);
+    if (targetId) {
+      window.__communityPollTargetId = 0;
+      setTimeout(() => document.getElementById(`community-poll-${targetId}`)?.scrollIntoView({ behavior:"smooth", block:"center" }), 80);
+    }
   } catch (e) {
     root.dataset.loaded = "";
     root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
@@ -36938,6 +36969,14 @@ async function bootPortal() {
       } else if (hashRoute === "sorteio") {
         const lotNav = document.querySelector('.nav-item[data-page="sorteio"]');
         if (lotNav) nav(lotNav);
+      } else if (hashRoute === "polls" || hashRoute.startsWith("polls/")) {
+        const pollsNav = document.querySelector('.nav-item[data-page="polls"]');
+        const targetMatch = hashRoute.match(/^polls\/(\d+)$/);
+        if (targetMatch) window.__communityPollTargetId = Number(targetMatch[1]);
+        if (pollsNav) nav(pollsNav);
+      } else if (hashRoute === "licencas") {
+        const catalogNav = document.querySelector('.nav-item[data-page="catalog"]');
+        if (catalogNav) { nav(catalogNav); setTimeout(() => setCatalogTab("licenses"), 80); }
       }
     }
 

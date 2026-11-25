@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 03:54:49 -->
-<!-- Total de versões: 586 | Primeira: 1.12.25 -->
+<!-- Gerado: 2026-11-25 09:31:43 -->
+<!-- Total de versões: 587 | Primeira: 1.12.26 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.26] - 2026-11-25
+
+### Other
+
+- Lumo 2.0: adiciona assistente interativo do Discord com Gateway, restrição a um servidor e um canal, respostas em português para status, Bet Land, licenças e votações, além de saudações variadas.
+- Lumo 2.0: acrescenta anúncios automáticos independentes para sorteios e votações abertas, com intervalo aleatório de 3 a 4 horas, agenda persistida, limites contra repetição e dados obtidos dos serviços internos.
+- Lumo 2.0: inclui configuração administrativa, prévia sem publicação, gestão de respostas de saudação, telemetria e auditoria sem registrar conteúdo privado; token do bot protegido no armazenamento e Gateway desativado por padrão.
 
 ## [1.12.25] - 2026-11-25
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import ssl
+import asyncio
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -12,6 +13,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Callable
 
 from flask import jsonify, request
+from lumo_assistant import GREETING_REPLIES
+from lumo_gateway import configure_lumo_runtime
 
 
 WEBHOOK_RE = re.compile(r"^/api/webhooks/(\d{17,22})/([A-Za-z0-9._-]{20,200})$")
@@ -154,6 +157,32 @@ def _integration_view(settings: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _assistant_view(settings: dict[str, Any], runtime: Any) -> dict[str, Any]:
+    """Configuração operacional sem retornar o token do bot ou o webhook."""
+    return {
+        "enabled": bool(settings.get("lumo_assistant_enabled", False)),
+        "token_configured": bool(settings.get("lumo_bot_token")),
+        "guild_id": str(settings.get("lumo_guild_id") or ""),
+        "interaction_channel_id": str(settings.get("lumo_interaction_channel_id") or ""),
+        "status_channel_id": str(settings.get("lumo_status_channel_id") or ""),
+        "trigger_enabled": dict(settings.get("lumo_trigger_enabled") or {"STATUS": True, "BETLAND": True, "LICENCAS": True, "VOTACAO": True}),
+        "trigger_aliases": dict(settings.get("lumo_trigger_aliases") or {}),
+        "auto_betland_enabled": bool(settings.get("lumo_auto_betland_enabled", False)),
+        "auto_polls_enabled": bool(settings.get("lumo_auto_polls_enabled", False)),
+        "user_cooldown_seconds": int(settings.get("lumo_user_cooldown_seconds", 15) or 0),
+        "trigger_cooldown_seconds": int(settings.get("lumo_trigger_cooldown_seconds", 20) or 0),
+        "global_cooldown_seconds": int(settings.get("lumo_global_cooldown_seconds", 3) or 0),
+        "global_hourly_limit": int(settings.get("lumo_global_hourly_limit", 40) or 0),
+        "auto_betland_last_at": str(settings.get("lumo_auto_betland_last_at") or ""),
+        "auto_betland_next_at": str(settings.get("lumo_auto_betland_next_at") or ""),
+        "auto_betland_last_result": str(settings.get("lumo_auto_betland_last_result") or ""),
+        "auto_polls_last_at": str(settings.get("lumo_auto_polls_last_at") or ""),
+        "auto_polls_next_at": str(settings.get("lumo_auto_polls_next_at") or ""),
+        "auto_polls_last_result": str(settings.get("lumo_auto_polls_last_result") or ""),
+        "runtime": runtime.snapshot(),
+    }
+
+
 def _same_origin_request() -> bool:
     """Defesa CSRF adicional às cookies SameSite e ao payload JSON."""
     site = (request.headers.get("Sec-Fetch-Site") or "").lower()
@@ -187,7 +216,9 @@ def register_lumo_routes(
     get_admin_id: Callable[[], Any],
     index_view: Callable[[], Any],
     db_ready: Callable[[], bool],
+    source_provider: Callable[[str], dict[str, Any]] | None = None,
 ) -> None:
+    runtime = configure_lumo_runtime(load_settings, save_settings, source_provider or (lambda _source: {"ok": False}), audit_event)
     @app.get("/admin/lumo")
     @admin_required
     def lumo_admin_page():
@@ -197,7 +228,134 @@ def register_lumo_routes(
     @admin_required
     @limiter.limit("60 per minute")
     def lumo_get_config():
-        return jsonify({"ok": True, "integration": _integration_view(load_settings())})
+        settings = load_settings()
+        return jsonify({"ok": True, "integration": _integration_view(settings), "assistant": _assistant_view(settings, runtime)})
+
+    @app.get("/api/admin/lumo/assistant/config")
+    @admin_required
+    @limiter.limit("60 per minute")
+    def lumo_get_assistant_config():
+        return jsonify({"ok": True, "assistant": _assistant_view(load_settings(), runtime), "greeting_replies": list(load_settings().get("lumo_greeting_replies") or GREETING_REPLIES)})
+
+    @app.post("/api/admin/lumo/assistant/config")
+    @admin_required
+    @limiter.limit("20 per hour", override_defaults=True)
+    def lumo_save_assistant_config():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        body = request.get_json(silent=True) or {}
+        settings = load_settings()
+        guild_id = str(body.get("guild_id", settings.get("lumo_guild_id", "")) or "").strip()
+        channel_id = str(body.get("interaction_channel_id", settings.get("lumo_interaction_channel_id", "")) or "").strip()
+        status_id = str(body.get("status_channel_id", settings.get("lumo_status_channel_id", "")) or "").strip()
+        if guild_id and not re.fullmatch(r"\d{17,22}", guild_id):
+            return jsonify({"ok": False, "error": "O ID do servidor Discord deve conter entre 17 e 22 dígitos."}), 400
+        if channel_id and not re.fullmatch(r"\d{17,22}", channel_id):
+            return jsonify({"ok": False, "error": "O ID do canal autorizado deve conter entre 17 e 22 dígitos."}), 400
+        if status_id and not re.fullmatch(r"\d{17,22}", status_id):
+            return jsonify({"ok": False, "error": "O ID do canal de status deve conter entre 17 e 22 dígitos."}), 400
+        enabled_raw = body.get("enabled", settings.get("lumo_assistant_enabled", False))
+        if not isinstance(enabled_raw, bool):
+            return jsonify({"ok": False, "error": "A ativação precisa ser true/false."}), 400
+        enabled = enabled_raw
+        token = str(body.get("bot_token") or "").strip()
+        if token and (len(token) > 256 or any(ch.isspace() for ch in token)):
+            return jsonify({"ok": False, "error": "O token do bot tem formato inválido."}), 400
+        if token:
+            if get_fernet() is None:
+                return jsonify({"ok": False, "error": "A chave segura do site não está disponível; o token não foi salvo."}), 503
+            encrypted = str(encrypt_value(token))
+            if not encrypted.startswith("ENC:"):
+                return jsonify({"ok": False, "error": "Não foi possível criptografar o token; ele não foi salvo."}), 503
+            settings["lumo_bot_token"] = token
+        elif body.get("clear_bot_token"):
+            settings["lumo_bot_token"] = ""
+        if enabled and not (settings.get("lumo_bot_token") and guild_id and channel_id):
+            return jsonify({"ok": False, "error": "Para ativar o Lumo, informe token, ID do servidor e ID de um único canal autorizado."}), 400
+
+        bool_keys = ("auto_betland_enabled", "auto_polls_enabled")
+        settings.update({
+            "lumo_assistant_enabled": enabled,
+            "lumo_guild_id": guild_id,
+            "lumo_interaction_channel_id": channel_id,
+            "lumo_status_channel_id": status_id,
+        })
+        for key in bool_keys:
+            if key in body:
+                if not isinstance(body[key], bool):
+                    return jsonify({"ok": False, "error": f"{key} precisa ser true/false."}), 400
+                settings[f"lumo_{key}"] = body[key]
+        for key, default, maximum in (
+            ("user_cooldown_seconds", 15, 3600),
+            ("trigger_cooldown_seconds", 20, 3600),
+            ("global_cooldown_seconds", 3, 120),
+            ("global_hourly_limit", 40, 500),
+        ):
+            if key in body:
+                try:
+                    settings[f"lumo_{key}"] = max(0, min(maximum, int(body[key])))
+                except (TypeError, ValueError):
+                    return jsonify({"ok": False, "error": f"Valor inválido para {key}."}), 400
+
+        if "trigger_enabled" in body:
+            trigger_enabled = body.get("trigger_enabled")
+            if not isinstance(trigger_enabled, dict) or any(k not in {"STATUS", "BETLAND", "LICENCAS", "VOTACAO"} for k in trigger_enabled) or any(not isinstance(v, bool) for v in trigger_enabled.values()):
+                return jsonify({"ok": False, "error": "Configuração de gatilhos inválida."}), 400
+            settings["lumo_trigger_enabled"] = {k: trigger_enabled.get(k, True) for k in ("STATUS", "BETLAND", "LICENCAS", "VOTACAO")}
+        if "trigger_aliases" in body:
+            aliases = body.get("trigger_aliases")
+            if not isinstance(aliases, dict) or any(k not in {"STATUS", "BETLAND", "LICENCAS", "VOTACAO"} for k in aliases):
+                return jsonify({"ok": False, "error": "Aliases de gatilho inválidos."}), 400
+            normalized_aliases: dict[str, list[str]] = {}
+            for key, values in aliases.items():
+                if not isinstance(values, list) or len(values) > 40:
+                    return jsonify({"ok": False, "error": f"Informe até 40 aliases para {key}."}), 400
+                clean = [str(value).strip()[:60] for value in values if str(value).strip()]
+                if any(len(value) < 2 for value in clean):
+                    return jsonify({"ok": False, "error": "Cada alias precisa ter pelo menos 2 caracteres."}), 400
+                normalized_aliases[key] = clean
+            settings["lumo_trigger_aliases"] = normalized_aliases
+        save_settings(settings)
+        ok, message = runtime.reconfigure()
+        audit_event("lumo_assistant_configured", source="admin", actor_type="admin", actor_steam_id=str(get_admin_id() or ""), severity="info", message="Configuração operacional do Lumo atualizada", status_after="enabled" if enabled else "disabled")
+        updated = load_settings()
+        return jsonify({"ok": ok, "message": message, "assistant": _assistant_view(updated, runtime)}), 200 if ok else 409
+
+    @app.post("/api/admin/lumo/assistant/preview")
+    @admin_required
+    @limiter.limit("60 per minute", override_defaults=True)
+    def lumo_assistant_preview():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        body = request.get_json(silent=True) or {}
+        text = str(body.get("text") or "").strip()
+        if not text or len(text) > 1000:
+            return jsonify({"ok": False, "error": "Escreva uma mensagem de teste com até 1.000 caracteres."}), 400
+        try:
+            result = asyncio.run(runtime.preview(text))
+            return jsonify({"ok": True, **result})
+        except Exception:
+            return jsonify({"ok": False, "error": "O modo de teste não conseguiu consultar as fontes agora."}), 503
+
+    @app.put("/api/admin/lumo/assistant/greetings")
+    @admin_required
+    @limiter.limit("30 per hour", override_defaults=True)
+    def lumo_save_greetings():
+        if not _same_origin_request():
+            return jsonify({"ok": False, "error": "Origem da solicitação inválida."}), 403
+        body = request.get_json(silent=True) or {}
+        replies = body.get("replies")
+        if not isinstance(replies, list) or not 1 <= len(replies) <= 100:
+            return jsonify({"ok": False, "error": "Mantenha entre 1 e 100 respostas de saudação."}), 400
+        clean = [str(item).strip() for item in replies if str(item).strip()]
+        if len(clean) != len(replies) or any(len(item) > 1000 for item in clean):
+            return jsonify({"ok": False, "error": "Cada resposta deve ser texto não vazio com até 1.000 caracteres."}), 400
+        if any(re.search(r"\{(?!jogador\}|nome\})[^{}]{1,30}\}", item, flags=re.I) for item in clean):
+            return jsonify({"ok": False, "error": "Variáveis disponíveis: {jogador} e {nome}."}), 400
+        settings = load_settings()
+        settings["lumo_greeting_replies"] = clean
+        save_settings(settings)
+        return jsonify({"ok": True, "replies": clean})
 
     @app.post("/api/admin/lumo/config")
     @admin_required
@@ -353,7 +511,9 @@ def register_lumo_routes(
         admin_filter = str(request.args.get("admin") or "").strip()[:32]
         db = session_factory()
         try:
-            query = db.query(audit_model).filter(audit_model.event_type == "lumo_publish")
+            query = db.query(audit_model).filter(audit_model.event_type.in_((
+                "lumo_publish", "lumo_interaction", "lumo_automatic_announcement",
+            )))
             if status_filter:
                 query = query.filter(audit_model.status_after == status_filter)
             if admin_filter:
@@ -378,7 +538,22 @@ def register_lumo_routes(
                     payload = json.loads(row.payload_json or "{}")
                 except Exception:
                     payload = {}
-                items.append({"id": row.id, "message_id": payload.get("discord_message_id", ""), "channel_id": payload.get("channel_id", ""), "guild_id": payload.get("guild_id", ""), "title": payload.get("title", ""), "content": payload.get("description", ""), "embed": payload.get("embed", {}), "created_at": row.created_at.isoformat() if row.created_at else "", "admin_steam_id": row.actor_steam_id or "", "status": row.status_after or "unknown", "error": row.message or ""})
+                items.append({
+                    "id": row.id,
+                    "type": row.event_type,
+                    "trigger": payload.get("trigger", ""),
+                    "player_id": payload.get("user_id", ""),
+                    "message_id": payload.get("discord_message_id", ""),
+                    "channel_id": payload.get("channel_id", ""),
+                    "guild_id": payload.get("guild_id", ""),
+                    "title": payload.get("title", ""),
+                    "content": payload.get("description", ""),
+                    "embed": payload.get("embed", {}),
+                    "created_at": row.created_at.isoformat() if row.created_at else "",
+                    "admin_steam_id": row.actor_steam_id or "",
+                    "status": row.status_after or "unknown",
+                    "error": row.message or "",
+                })
             return jsonify({"ok": True, "items": items, "has_more": has_more, "limit": limit, "offset": offset})
         finally:
             db.close()

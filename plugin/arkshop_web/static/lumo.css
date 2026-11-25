@@ -66,5 +66,12 @@
 .lumo-template-card p { min-height:38px;color:var(--text2);font-size:12px; }
 .lumo-filter { display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px; }
 .lumo-filter input,.lumo-filter select { width:auto;min-width:180px; }
+.lumo-check { display:flex;align-items:center;gap:8px;color:#c3d2d8;font-size:13px;font-weight:700; }
+.lumo-check input { accent-color:#00dada;width:16px;height:16px; }
+.lumo-check-row { display:flex;flex-wrap:wrap;gap:12px 20px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(0,0,0,.13); }
+.lumo-compact-textarea { min-height:100px!important;resize:vertical;line-height:1.5; }
+.lumo-enable { padding:9px 13px;border:1px solid rgba(0,255,255,.3);border-radius:9px;background:rgba(0,255,255,.06); }
+#lumo-assistant-state[data-state="online"] { background:rgba(65,190,110,.16);color:#8df0aa; }
+#lumo-assistant-state[data-state="error"] { background:rgba(240,70,70,.16);color:#ffaaaa; }
 @media(max-width:960px){.lumo-workspace{grid-template-columns:1fr}.lumo-header{grid-template-columns:64px minmax(0,1fr)}.lumo-header__avatar{width:60px;height:60px}.lumo-connection{grid-column:1/-1;max-width:none}}
 @media(max-width:560px){.lumo-form-grid{grid-template-columns:1fr}.lumo-field--wide{grid-column:auto}.lumo-header{padding:14px}.lumo-header__identity h1{font-size:20px}.lumo-card{padding:13px}.lumo-field textarea{min-height:220px}.lumo-settings-grid{grid-template-columns:1fr}}

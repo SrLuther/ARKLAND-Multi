@@ -24,6 +24,7 @@
   const undoStack = [];
   const redoStack = [];
   let beforeInputState = null;
+  let assistantConfig = null;
 
   const $ = (id) => document.getElementById(id);
   const val = (id) => ($(id)?.value || "");
@@ -85,6 +86,7 @@
     if (name === "templates") renderTemplates();
     if (name === "history") loadHistory(true);
     if (name === "settings") loadIntegration();
+    if (name === "assistant") loadIntegration();
   }
   function applyFormat(kind) {
     const editor = $("lumo-content"); const start = editor.selectionStart; const end = editor.selectionEnd; const selected = editor.value.slice(start, end) || "texto";
@@ -138,7 +140,64 @@
       $("lumo-channel-info").textContent = integration.channel_id ? `Canal confirmado pelo Discord: ${integration.channel_id}${integration.guild_id ? ` · servidor ${integration.guild_id}` : ""}. O sistema não presume que este seja o canal principal.` : "O canal será identificado quando a URL for verificada.";
       $("lumo-webhook-error").textContent = integration.last_error || "";
       $("lumo-last-published").textContent = integration.last_published_at ? new Date(integration.last_published_at).toLocaleString("pt-BR") : "Nenhuma publicação registrada.";
+      if (data.assistant) {
+        assistantConfig = data.assistant;
+        const state = assistantConfig.runtime?.state || "stopped";
+        const stateEl = $("lumo-assistant-state");
+        if (stateEl) { stateEl.dataset.state = state; stateEl.textContent = ({online:"Conectado",starting:"Conectando",reconnecting:"Reconectando",error:"Falha",stopped:"Desconectado"})[state] || state; }
+        setVal("lumo-guild-id", assistantConfig.guild_id); setVal("lumo-interaction-channel-id", assistantConfig.interaction_channel_id); setVal("lumo-status-channel-id", assistantConfig.status_channel_id);
+        setVal("lumo-user-cooldown", assistantConfig.user_cooldown_seconds ?? 15); setVal("lumo-trigger-cooldown", assistantConfig.trigger_cooldown_seconds ?? 20); setVal("lumo-global-cooldown", assistantConfig.global_cooldown_seconds ?? 3); setVal("lumo-global-hourly-limit", assistantConfig.global_hourly_limit ?? 40);
+        $("lumo-assistant-enabled").checked = !!assistantConfig.enabled; $("lumo-trigger-status").checked = assistantConfig.trigger_enabled?.STATUS !== false; $("lumo-trigger-betland").checked = assistantConfig.trigger_enabled?.BETLAND !== false; $("lumo-trigger-licenses").checked = assistantConfig.trigger_enabled?.LICENCAS !== false; $("lumo-trigger-polls").checked = assistantConfig.trigger_enabled?.VOTACAO !== false;
+        $("lumo-auto-betland").checked = !!assistantConfig.auto_betland_enabled; $("lumo-auto-polls").checked = !!assistantConfig.auto_polls_enabled;
+        setVal("lumo-trigger-aliases", JSON.stringify(assistantConfig.trigger_aliases || {}, null, 2));
+        const runtime = assistantConfig.runtime || {};
+        const schedule = [];
+        if (assistantConfig.auto_betland_enabled) schedule.push(`Bet Land: última ${assistantConfig.auto_betland_last_at ? new Date(assistantConfig.auto_betland_last_at).toLocaleString("pt-BR") : "nenhuma"}; próxima ${assistantConfig.auto_betland_next_at ? new Date(assistantConfig.auto_betland_next_at).toLocaleString("pt-BR") : "a agendar"} (${assistantConfig.auto_betland_last_result || "sem tentativas"})`);
+        if (assistantConfig.auto_polls_enabled) schedule.push(`Votações: última ${assistantConfig.auto_polls_last_at ? new Date(assistantConfig.auto_polls_last_at).toLocaleString("pt-BR") : "nenhuma"}; próxima ${assistantConfig.auto_polls_next_at ? new Date(assistantConfig.auto_polls_next_at).toLocaleString("pt-BR") : "a agendar"} (${assistantConfig.auto_polls_last_result || "sem tentativas"})`);
+        schedule.push(`Respostas: ${runtime.responses || 0}; anúncios: ${runtime.announcements || 0}; última interação: ${runtime.last_interaction_at ? new Date(runtime.last_interaction_at).toLocaleString("pt-BR") : "nenhuma"}.`);
+        if (runtime.last_error) schedule.push(`Falha recente: ${runtime.last_error}`);
+        $("lumo-auto-schedule-state").textContent = schedule.join("\n");
+        try {
+          const greetings = await fetchJson("/api/admin/lumo/assistant/config", { retries: 0 });
+          setVal("lumo-greeting-replies", (greetings.greeting_replies || []).join("\n"));
+        } catch (_) {}
+      }
     } catch (error) { badge.dataset.state = "failed"; $("lumo-connection-state").textContent = "Falha ao consultar o serviço"; $("lumo-connection-detail").textContent = error.message || "Tente novamente."; }
+  }
+  async function saveAssistant() {
+    let aliases;
+    try { aliases = JSON.parse(val("lumo-trigger-aliases") || "{}"); }
+    catch { toast("Aliases inválidos: corrija o JSON antes de salvar.", "error"); return; }
+    const body = {
+      enabled: $("lumo-assistant-enabled").checked,
+      bot_token: val("lumo-bot-token").trim(),
+      clear_bot_token: $("lumo-clear-bot-token").checked,
+      guild_id: val("lumo-guild-id").trim(), interaction_channel_id: val("lumo-interaction-channel-id").trim(), status_channel_id: val("lumo-status-channel-id").trim(),
+      user_cooldown_seconds: Number(val("lumo-user-cooldown")), trigger_cooldown_seconds: Number(val("lumo-trigger-cooldown")), global_cooldown_seconds: Number(val("lumo-global-cooldown")), global_hourly_limit: Number(val("lumo-global-hourly-limit")),
+      auto_betland_enabled: $("lumo-auto-betland").checked, auto_polls_enabled: $("lumo-auto-polls").checked,
+      trigger_enabled: { STATUS: $("lumo-trigger-status").checked, BETLAND: $("lumo-trigger-betland").checked, LICENCAS: $("lumo-trigger-licenses").checked, VOTACAO: $("lumo-trigger-polls").checked },
+      trigger_aliases: aliases,
+    };
+    try {
+      const result = await fetchJson("/api/admin/lumo/assistant/config", { method:"POST", body, retries:0 });
+      setVal("lumo-bot-token", ""); $("lumo-clear-bot-token").checked = false;
+      const replies = val("lumo-greeting-replies").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+      await fetchJson("/api/admin/lumo/assistant/greetings", { method:"PUT", body:{ replies }, retries:0 });
+      toast(result.message || "Configuração do Lumo salva.", result.ok ? "success" : "warning");
+      await loadIntegration();
+    } catch (error) { toast(error.message || "Não foi possível salvar a configuração do Lumo.", "error"); }
+  }
+  async function runAssistantTest() {
+    const text = val("lumo-test-input").trim();
+    $("lumo-test-result").textContent = "Consultando fontes internas…";
+    $("lumo-test-title").textContent = "Consultando…"; $("lumo-test-body").textContent = "";
+    try {
+      const result = await fetchJson("/api/admin/lumo/assistant/preview", { method:"POST", body:{ text }, retries:0, timeoutMs:20000 });
+      if (!result.recognized) { $("lumo-test-result").textContent = result.reason || "Nenhum gatilho reconhecido."; $("lumo-test-title").textContent = "Sem resposta"; return; }
+      if (!result.embed) { $("lumo-test-result").textContent = `${result.trigger} · regra ${result.rule} · fonte ${result.source} · ${result.reason}`; $("lumo-test-title").textContent = "Dados indisponíveis"; return; }
+      $("lumo-test-result").textContent = `Gatilho: ${result.trigger} · Regra: ${result.rule} · Fonte consultada: ${result.source}. Simulação local; nada foi enviado.`;
+      $("lumo-test-title").textContent = result.embed.title || "Lumo"; $("lumo-test-body").innerHTML = renderMarkdown(result.embed.description || "");
+    } catch (error) { $("lumo-test-result").textContent = error.message || "O teste falhou."; $("lumo-test-title").textContent = "Falha na consulta"; }
   }
   async function saveWebhook() {
     const webhook = val("lumo-webhook-url").trim();
@@ -172,8 +231,12 @@
       const root = $("lumo-history-list");
       root.innerHTML = (reset ? "" : root.innerHTML) + (data.items.length ? data.items.map((item) => {
         const statusLabel = { success:"Publicado", rejected:"Recusado pelo Discord", rate_limited:"Limite temporário", uncertain:"Resultado incerto" }[item.status] || item.status;
+        const typeLabel = { lumo_publish:"Comunicado administrativo", lumo_interaction:"Resposta interativa", lumo_automatic_announcement:"Anúncio automático" }[item.type] || "Evento Lumo";
         const jump = item.guild_id && item.channel_id && item.message_id ? `<a target="_blank" rel="noopener noreferrer" href="https://discord.com/channels/${encodeURIComponent(item.guild_id)}/${encodeURIComponent(item.channel_id)}/${encodeURIComponent(item.message_id)}">Abrir no Discord</a>` : "";
-        return `<article class="lumo-history-item"><div class="lumo-history-item__head"><strong>${escapeHtml(item.title || "Comunicado sem título")}</strong><span class="lumo-pill">${escapeHtml(statusLabel)}</span></div><div class="lumo-muted">${escapeHtml(item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "")} · Admin ${escapeHtml(item.admin_steam_id || "não identificado")}</div><p class="lumo-history-item__content">${escapeHtml(item.content || item.error)}</p><div class="lumo-actions"><button class="btn btn-ghost btn-sm" data-reuse="${item.id}">Reutilizar no editor</button><button class="btn btn-ghost btn-sm" data-copy="${item.id}">Copiar conteúdo</button>${jump}</div></article>`;
+        const actor = item.player_id ? `Jogador Discord ${item.player_id}` : `Admin Steam ${item.admin_steam_id || "não identificado"}`;
+        const detail = item.content || (item.trigger ? `Gatilho: ${item.trigger}` : item.error || "Evento registrado sem conteúdo de conversa.");
+        const actions = item.type === "lumo_publish" && item.content ? `<button class="btn btn-ghost btn-sm" data-reuse="${item.id}">Reutilizar no editor</button><button class="btn btn-ghost btn-sm" data-copy="${item.id}">Copiar conteúdo</button>` : "";
+        return `<article class="lumo-history-item"><div class="lumo-history-item__head"><strong>${escapeHtml(item.title || typeLabel)}</strong><span class="lumo-pill">${escapeHtml(statusLabel)}</span></div><div class="lumo-muted">${escapeHtml(item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "")} · ${escapeHtml(actor)}</div><p class="lumo-history-item__content">${escapeHtml(detail)}</p><div class="lumo-actions">${actions}${jump}</div></article>`;
       }).join("") : `<p class="lumo-muted">${reset ? "Nenhuma tentativa de publicação encontrada." : "Fim do histórico."}</p>`);
       root.querySelectorAll("[data-reuse]").forEach((button) => button.addEventListener("click", () => { const item = data.items.find((x) => String(x.id) === button.dataset.reuse); if (!item) return; setVal("lumo-title",item.title); replaceEditorText(item.content); setTab("communication"); }));
       root.querySelectorAll("[data-copy]").forEach((button) => button.addEventListener("click", async () => { const item = data.items.find((x) => String(x.id) === button.dataset.copy); if (item) { await navigator.clipboard.writeText(item.content || ""); toast("Conteúdo copiado.","success"); } }));
@@ -193,6 +256,7 @@
     $("lumo-publish").addEventListener("click", publish); $("lumo-clear").addEventListener("click", () => { if (confirm("Limpar o conteúdo atual do editor?")) { ["lumo-title","lumo-title-url","lumo-image-url","lumo-thumbnail-url"].forEach((id) => setVal(id,"")); replaceEditorText(""); } });
     $("lumo-save-draft").addEventListener("click", () => saveDraft(true)); $("lumo-copy-markdown").addEventListener("click", async () => { await navigator.clipboard.writeText(val("lumo-content")); toast("Markdown copiado.","success"); });
     $("lumo-save-webhook").addEventListener("click", saveWebhook); $("lumo-verify-webhook").addEventListener("click", verifyWebhook); $("lumo-reload-history").addEventListener("click", () => loadHistory(true));
+    $("lumo-save-assistant")?.addEventListener("click", saveAssistant); $("lumo-reload-assistant")?.addEventListener("click", loadIntegration); $("lumo-run-test")?.addEventListener("click", runAssistantTest);
     $("lumo-history-more").addEventListener("click", () => { historyOffset += 20; loadHistory(false); });
     $("lumo-history-query").addEventListener("keydown", (event) => { if (event.key === "Enter") loadHistory(true); });
     $("lumo-content").addEventListener("keydown", (event) => { if (!event.ctrlKey) return; const key = event.key.toLowerCase(); if ((key === "z" && !event.shiftKey && undoStack.length) || (key === "y" && redoStack.length) || (key === "z" && event.shiftKey && redoStack.length)) { event.preventDefault(); restoreEditorState(key === "z" && !event.shiftKey ? undoStack : redoStack, key === "z" && !event.shiftKey ? redoStack : undoStack); return; } const map = { b:"bold", i:"italic", u:"underline", "shift+x":"strike", "shift+s":"spoiler" }; const format = map[`${event.shiftKey ? "shift+" : ""}${key}`] || map[key]; if (format) { event.preventDefault(); applyFormat(format); } });

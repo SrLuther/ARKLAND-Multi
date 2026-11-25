@@ -9,7 +9,7 @@ if not exist "%PYTHON%" set PYTHON=%~dp0..\..\.python-full\python.exe
 if not exist "%PYTHON%" set PYTHON=python
 
 :: Instala dependências se necessário
-"%PYTHON%" -m pip show flask >nul 2>&1 || "%PYTHON%" -m pip install -r "%~dp0requirements.txt" -q
+"%PYTHON%" -c "import flask, discord" >nul 2>&1 || "%PYTHON%" -m pip install -r "%~dp0requirements.txt" -q
 
 :: Define porta padrão
 set PORT=5177
