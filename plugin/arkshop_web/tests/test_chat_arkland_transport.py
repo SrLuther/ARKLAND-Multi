@@ -88,8 +88,8 @@ def test_discord_only_real_lumo_and_linked_humans_not_impersonators(monkeypatch)
         for invalid in (message(author=98), message(webhook=1), message(guild=11), message(channel=21)):
             assert await transport.incoming(client, invalid) is None
         assert calls == []
-        relay = await transport.incoming(client, message(nonce='ca:42'))
-        assert relay['body'] == 'texto verificado' and relay['seq'] == 42 and calls == []
+        assert await transport.incoming(client, message(nonce='ca:42')) is None
+        assert calls == []  # Eco do bloco não cria outra mensagem nem reação.
         await transport.incoming(client, message())
         assert calls[-1][1] == {'lumo': True}
         await transport.incoming(client, message(author=55, bot=False, nonce='ca:42', content='/pm 1 NÃO executar'))
@@ -99,16 +99,13 @@ def test_discord_only_real_lumo_and_linked_humans_not_impersonators(monkeypatch)
 
 def test_lumo_uses_verified_original_body_without_bot_impersonation():
     from lumo_gateway import LumoGatewayRunner
-    runner=LumoGatewayRunner(lambda:{'lumo_game_chat_enabled':True},lambda _:None,lambda _: {},lambda *args,**kwargs:None)
+    runner=LumoGatewayRunner(lambda:{'lumo_game_chat_enabled':True,'lumo_guild_id':'10','lumo_game_chat_channel_id':'20'},lambda _:None,lambda _: {},lambda *args,**kwargs:None)
     captured=[]
-    async def incoming(client,message):
-        return {'event_id':'uuid-fixture','steam_id':'76561198000000001','body':'Lumo, ajuda'}
     async def handler(client,message,config,is_webhook):
         captured.append((message,is_webhook))
-    runner._chat_transport.incoming=incoming
     runner._on_game_chat_message=handler
-    message=NS(guild=NS(id=10),channel=NS(id=20),author=NS(id=99,bot=True),content='texto do relay')
-    asyncio.run(runner._on_message(NS(user=NS(id=99)),message))
+    channel=NS(guild=NS(id=10),id=20)
+    asyncio.run(runner._on_verified_game_relay(NS(user=NS(id=99)),channel,{'event_id':'uuid-fixture','steam_id':'76561198000000001','body':'Lumo, ajuda'}))
     assert len(captured)==1
     forwarded,is_webhook=captured[0]
     assert forwarded.content=='Lumo, ajuda' and forwarded.author.id=='76561198000000001'

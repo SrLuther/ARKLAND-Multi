@@ -83,7 +83,7 @@ class LumoGatewayRunner:
         self._scheduler_task: asyncio.Task[Any] | None = None
         self._chat_task: asyncio.Task[Any] | None = None
         from chat_arkland_discord import ChatDiscordTransport
-        self._chat_transport = ChatDiscordTransport(lambda: self._load_settings())
+        self._chat_transport = ChatDiscordTransport(lambda: self._load_settings(), relay_handler=self._on_verified_game_relay)
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -321,15 +321,7 @@ class LumoGatewayRunner:
     async def _on_message(self, client: Any, message: Any) -> None:
         # Validar canal/servidor antes de processar texto, menção ou qualquer consulta.
         config = self._load_settings()
-        context = await self._chat_transport.incoming(client, message)
-        if context:
-            # O contexto vem do evento original do hub, não de nomes/texto do bot.
-            if config.get("lumo_game_chat_enabled"):
-                verified = SimpleNamespace(id="ca:" + context["event_id"], guild=message.guild,
-                    channel=message.channel, author=SimpleNamespace(id=context["steam_id"], bot=False),
-                    content=context["body"], webhook_id=None, mentions=[])
-                await self._on_game_chat_message(client, verified, config, False)
-            return
+        await self._chat_transport.incoming(client, message)
         if not (config.get("lumo_assistant_enabled") or config.get("lumo_game_chat_enabled")):
             return
         if getattr(message, "guild", None) is None:
@@ -432,6 +424,17 @@ class LumoGatewayRunner:
             self._audit("lumo_interaction", status="failed", trigger=trigger_key, channel_id=str(message.channel.id), user_id=user_key, reason=safe)
             log.warning("Resposta do Lumo não enviada (%s)", type(exc).__name__)
 
+    async def _on_verified_game_relay(self, client: Any, channel: Any, context: dict[str, Any]) -> None:
+        """Evento original autenticado do hub; não reinterpreta o bloco do bot."""
+        config = self._load_settings()
+        if (not config.get("lumo_game_chat_enabled") or str(getattr(getattr(channel, "guild", None), "id", "")) != str(config.get("lumo_guild_id") or "")
+                or str(channel.id) != str(config.get("lumo_game_chat_channel_id") or "")):
+            return
+        verified = SimpleNamespace(id="ca:" + context["event_id"], guild=channel.guild,
+            channel=channel, author=SimpleNamespace(id=context["steam_id"], bot=False),
+            content=context["body"], webhook_id=None, mentions=[], verified_chat_event=True)
+        await self._on_game_chat_message(client, verified, config, False)
+
     async def _on_game_chat_message(self, client: Any, message: Any, config: dict[str, Any], is_webhook: bool) -> None:
         """Responde somente com o texto que deve vir depois do ':' no chat do jogo."""
         if not config.get("lumo_game_chat_keywords_enabled"):
@@ -460,7 +463,7 @@ class LumoGatewayRunner:
         player_key = str(getattr(getattr(message, "author", None), "id", "") or "")
         # O plugin de ponte adiciona horário/origem/licença/nickname/tribo. Esses
         # campos servem só para retirar o envelope; nunca são identidade/autorização.
-        bridge = re.match(
+        bridge = None if getattr(message, "verified_chat_event", False) else re.match(
             r"^\[\d{1,2}:\d{2}\]\[(?:Discord|.+?)\]\s*(?:<[^>]{1,80}>\s*)?(.+?):\s*(.*)$",
             content, re.I | re.S,
         )
@@ -557,6 +560,8 @@ class LumoGatewayRunner:
 
     async def _on_message_edit(self, client: Any, before: Any, after: Any) -> None:
         """Extrai apenas linhas novas quando a ponte agrega o chat editando uma mensagem."""
+        if str(getattr(getattr(after, "author", None), "id", "")) == str(getattr(getattr(client, "user", None), "id", "")) and self._chat_transport.is_relay_message(after):
+            return
         config = self._load_settings()
         if not config.get("lumo_game_chat_enabled") or str(getattr(getattr(after, "guild", None), "id", "")) != str(config.get("lumo_guild_id") or ""):
             return
@@ -647,7 +652,7 @@ class LumoGatewayRunner:
                 continue
             last_auto = _parse_utc(config.get("lumo_last_auto_announcement_at"))
             if last_auto and now - last_auto < timedelta(minutes=15):
-                config[state_key] = _utc_iso(last_auto + timedelta(minutes=15))
+                config[state_key] = _utc_iso(last_auto + timedelta(minutes=random.randint(15, 20)))
                 self._save_settings(config)
                 continue
             match = TriggerMatch("BETLAND", "automatic_announcement") if category == "betland" else TriggerMatch("VOTACAO", "automatic_announcement")
@@ -684,8 +689,21 @@ class LumoGatewayRunner:
             return
         now = datetime.now(_UTC)
         last_auto = _parse_utc(config.get("lumo_game_last_auto_announcement_at"))
-        if last_auto and now - last_auto < timedelta(minutes=2):
+        not_before = _parse_utc(config.get("lumo_game_announcements_not_before"))
+        if last_auto and (not_before is None or not_before < last_auto + timedelta(minutes=15)):
+            not_before = last_auto + timedelta(minutes=random.randint(15, 20))
+            config["lumo_game_announcements_not_before"] = _utc_iso(not_before)
+            self._save_settings(config)
+        if not_before and not_before > now:
             return
+        pending = []
+        for category, enabled_key, due_key in (("general", "lumo_game_general_announcements_enabled", "lumo_game_general_next_at"),
+                ("betland", "lumo_game_auto_betland_enabled", "lumo_game_auto_betland_next_at"),
+                ("polls", "lumo_game_auto_polls_enabled", "lumo_game_auto_polls_next_at")):
+            due = _parse_utc(config.get(due_key))
+            if config.get(enabled_key) and due is not None and due <= now:
+                pending.append((due, category))
+        oldest = min(pending)[1] if pending else None
         # Anúncios gerais: fila simples de assuntos estáticos, intervalo 30–60 min.
         if config.get("lumo_game_general_announcements_enabled"):
             state_key = "lumo_game_general_next_at"
@@ -693,7 +711,7 @@ class LumoGatewayRunner:
             if due is None:
                 config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(30, 60)))
                 self._save_settings(config)
-            elif due <= now:
+            elif due <= now and oldest == "general":
                 available_topics = ("SITE", "LINK", "CATALOG", "STARTER", "SUPPORT", "STATUS", "SEASON", "LIMIT")
                 enabled_topics = config.get("lumo_game_chat_topic_enabled") or {}
                 topics = tuple(topic for topic in available_topics if enabled_topics.get(topic, True))
@@ -719,10 +737,11 @@ class LumoGatewayRunner:
                 config["lumo_game_general_last_topic"] = topic
                 config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(30, 60)))
                 if sent_general:
-                    config["lumo_game_last_auto_announcement_at"] = _utc_iso(now)
+                    self._mark_game_announcement(config, now)
+                else:
+                    config["lumo_game_announcements_not_before"] = _utc_iso(now + timedelta(minutes=15))
                 self._save_settings(config)
-                if sent_general:
-                    return
+                return
         # BetLand e votações mantêm relógios independentes e só anunciam dados atuais.
         for category, source in (("betland", "betland"), ("polls", "polls")):
             if not config.get(f"lumo_game_auto_{category}_enabled"):
@@ -734,6 +753,8 @@ class LumoGatewayRunner:
                 self._save_settings(config)
                 continue
             if due > now:
+                continue
+            if oldest is not None and oldest != category:
                 continue
             data = await self._get_data(source)
             if not data.get("ok"):
@@ -765,12 +786,20 @@ class LumoGatewayRunner:
                     continue
                 message = f"Há {len(polls)} votação(ões) aberta(s) no site. Participe em arkland.com.br."
             sent = await self._send_game_text(channel, message, category.upper(), config)
-            config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(180, 240)))
-            config[f"lumo_game_auto_{category}_last_result"] = "success"
-            config[f"lumo_game_auto_{category}_last_at"] = _utc_iso(now)
+            config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(180, 240) if sent else 15))
+            config[f"lumo_game_auto_{category}_last_result"] = "success" if sent else "failed"
             if sent:
-                config["lumo_game_last_auto_announcement_at"] = _utc_iso(now)
+                config[f"lumo_game_auto_{category}_last_at"] = _utc_iso(now)
+                self._mark_game_announcement(config, now)
+            else:
+                config["lumo_game_announcements_not_before"] = _utc_iso(now + timedelta(minutes=15))
             self._save_settings(config)
+            return  # Uma tentativa por ciclo; resultado ambíguo também reserva pausa.
+
+    @staticmethod
+    def _mark_game_announcement(config: dict[str, Any], now: datetime) -> None:
+        config["lumo_game_last_auto_announcement_at"] = _utc_iso(now)
+        config["lumo_game_announcements_not_before"] = _utc_iso(now + timedelta(minutes=random.randint(15, 20)))
 
     async def _send_game_announcement(self, channel: Any, topic: str, now: datetime, config: dict[str, Any], *, next_minutes: int) -> bool:
         return await self._send_game_text(channel, GAME_CHAT_REPLIES[topic], f"AUTO_{topic}", config)

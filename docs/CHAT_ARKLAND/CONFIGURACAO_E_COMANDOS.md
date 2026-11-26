@@ -36,6 +36,12 @@ Falha de rede mantém o chat nativo disponível; comandos privados informam indi
 
 O painel não ativa automaticamente STAFF, Mod nem licenças descobertas. Cada regra exige aprovação e ativação. A descoberta consulta o catálogo atual, sem presumir a hierarquia final pelo preço. Aprovação administrativa é necessária para regras especiais.
 
+## Apresentação no Discord (1.12.34)
+
+Mensagens globais do jogo são agrupadas em blocos monoespaçados de texto, conforme a referência visual aprovada pelo Ciano. O publicador atualiza somente seu bloco corrente; ao atingir o limite de 2000 unidades UTF-16, 40 linhas ou aparecer outra conversa no canal, abre outro bloco sem apagar o anterior. Crases do conteúdo são representadas por um caractere visual equivalente para impedir fechamento indevido do bloco. Menções continuam desativadas. IDs, horários, tags e nomes são preservados; cores RGBA do jogo não são simuladas no Discord.
+
+O Lumo recebe uma vez o evento original autenticado do hub, em fila separada, sem depender do texto do bloco ou dos eventos de edição. Ecos do próprio relay não são retransmitidos ao jogo nem reinterpretados como novas perguntas. Depois de reiniciar o Gateway, um bloco novo é iniciado; não se edita um bloco antigo sem estado confirmado. Resultado de envio/edição ambíguo fica incerto e não é republicado às cegas.
+
 ## Formato e identidade
 
 Formato do jogo: `[HH:mm][MAPA] <TAG> Jogador (ID) [Tribo]: Mensagem`. Tag/tribo ausentes não deixam separadores vazios. Horário obrigatório em 24 horas, Brasília; Windows usa UTC−03 no formatador local. O backend usa America/Sao_Paulo quando disponível, com fallback UTC−03.

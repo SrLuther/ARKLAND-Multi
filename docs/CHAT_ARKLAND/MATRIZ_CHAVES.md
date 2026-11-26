@@ -48,7 +48,7 @@ Classificações: **mantida** preserva a função; **reorganizada** muda o camin
 - GlobalChat.AllowDiscordToIngame — **reorganizada** em Discord.AllowDiscordToIngame; não desliga por si só Jogo → Discord.
 - HostServerDiscordId — **reaproveitada** a configuração lumo_guild_id. Os IDs históricos são referências conferidas, não substituições automáticas.
 - Token — **reaproveitado** o armazenamento protegido e Gateway do Lumo. Ausente nos arquivos dos mapas e nas respostas de consulta administrativa.
-- ShowCodeBlocks — **descartada**: mensagens textuais legíveis, sem blocos de código; escape de Markdown e menções desativadas na publicação central.
+- ShowCodeBlocks — **substituída por apresentação fixa**, ajustada conforme referência visual posterior do Ciano (1.12.34): mensagens do jogo agrupadas em blocos monoespaçados, com limite de tamanho, sem menções e sem opção comercial herdada. Um bloco novo é criado quando necessário; não é um painel permanente nem republicação do histórico.
 - Use24HourTimeFormat — **substituída por regra fixa** de 24 horas, sem chave administrativa.
 - DefaultChatFromDiscord / IngameChatFromDiscordConfig — **unificados** em Messages.Discord, Colors/Tags, vínculos reais e mesmo mecanismo de licenças/permissões. Não há hierarquia concorrente por origem.
 - ShowServerStatusChannels — **descartada** deste plugin; o painel de status existente continua independente.

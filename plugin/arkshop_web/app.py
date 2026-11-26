@@ -3064,6 +3064,7 @@ def _load_settings() -> dict[str, Any]:
         "lumo_game_general_next_at": "",
         "lumo_game_auto_betland_next_at": "",
         "lumo_game_auto_polls_next_at": "",
+        "lumo_game_announcements_not_before": "",
         "lumo_game_chat_greeting_cooldown_seconds": 600,
         "lumo_game_chat_topic_cooldown_seconds": 120,
         "lumo_game_chat_user_topic_cooldown_seconds": 300,

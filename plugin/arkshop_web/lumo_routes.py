@@ -192,6 +192,8 @@ def _assistant_view(settings: dict[str, Any], runtime: Any) -> dict[str, Any]:
         "game_general_next_at": str(settings.get("lumo_game_general_next_at") or ""),
         "game_auto_betland_next_at": str(settings.get("lumo_game_auto_betland_next_at") or ""),
         "game_auto_polls_next_at": str(settings.get("lumo_game_auto_polls_next_at") or ""),
+        "game_announcements_not_before": str(settings.get("lumo_game_announcements_not_before") or ""),
+        "game_announcement_gap_minutes": [15, 20],
         "game_chat_max_chars": int(settings.get("lumo_game_chat_max_chars", 250) or 250),
         "game_chat_trigger_aliases": dict(settings.get("lumo_game_chat_trigger_aliases") or {}),
         "game_chat_topic_enabled": dict(settings.get("lumo_game_chat_topic_enabled") or {}),

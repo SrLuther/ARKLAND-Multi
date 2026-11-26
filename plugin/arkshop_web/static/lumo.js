@@ -169,6 +169,7 @@
         if (runtime.last_error) schedule.push(`Falha recente: ${runtime.last_error}`);
         $("lumo-auto-schedule-state").textContent = schedule.join("\n");
         const gameSchedule = [];
+        if (assistantConfig.game_announcements_not_before) gameSchedule.push(`Pausa entre anúncios: ${(assistantConfig.game_announcement_gap_minutes || [15,20]).join("–")} min; próximo envio permitido a partir de ${new Date(assistantConfig.game_announcements_not_before).toLocaleString("pt-BR")}.`);
         if (assistantConfig.game_general_announcements_enabled) gameSchedule.push(`Geral: próxima ${assistantConfig.game_general_next_at ? new Date(assistantConfig.game_general_next_at).toLocaleString("pt-BR") : "a agendar"}`);
         if (assistantConfig.game_auto_betland_enabled) gameSchedule.push(`BetLand: próxima ${assistantConfig.game_auto_betland_next_at ? new Date(assistantConfig.game_auto_betland_next_at).toLocaleString("pt-BR") : "a agendar"}`);
         if (assistantConfig.game_auto_polls_enabled) gameSchedule.push(`Votações: próxima ${assistantConfig.game_auto_polls_next_at ? new Date(assistantConfig.game_auto_polls_next_at).toLocaleString("pt-BR") : "a agendar"}`);

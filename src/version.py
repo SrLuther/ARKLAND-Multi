@@ -12,6 +12,15 @@ BUILD_DATE: str = "2026-11-26"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.34",
+        "date": "2026-11-26",
+        "changes": [
+            "Chat Arkland no Discord: apresenta mensagens do jogo em blocos monoespaçados agrupados, atualizando o bloco corrente e abrindo outro ao atingir o limite ou haver outra conversa no canal. Preserva horário, mapa, nome, ID, tribo e tag; neutraliza delimitadores de código e mantém menções desativadas.",
+            "Lumo: separa anúncios automáticos do Chat do Jogo por uma pausa aleatória persistente de 15 a 20 minutos. Envia somente um por ciclo, dá prioridade ao aviso pendente mais antigo e mantém as agendas próprias de BetLand, votações e assuntos gerais. Respostas interativas continuam independentes dessa pausa.",
+            "Integração Chat Arkland/Lumo: processa cada evento original autenticado em fila separada, sem reprocessar os ecos ou as edições do bloco do bot. Evita reenviar resultados ambíguos e mantém a privacidade das mensagens privadas.",
+        ],
+    },
+    {
         "version": "1.12.33",
         "date": "2026-11-26",
         "changes": [
