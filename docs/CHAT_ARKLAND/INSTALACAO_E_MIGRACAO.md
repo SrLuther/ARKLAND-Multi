@@ -2,9 +2,9 @@
 
 ## Situação desta entrega
 
-O código está na branch `feature/chat-arkland`, criada a partir da 1.12.32 em um worktree separado. O checkout de trabalho original possuía alterações e versão antiga; ele não foi sobrescrito. O backend da produção não foi substituído e nenhum mapa foi reiniciado nesta implementação. O ZIP é experimental, não um release final do gerenciador.
+O desenvolvimento começou na branch `feature/chat-arkland`, a partir da 1.12.32, preservando o checkout original que possuía alterações locais. A Web Store 1.12.33 foi publicada e o plugin 0.1.0 foi instalado somente no piloto 05. O pacote do plugin continua experimental, aguardando os testes funcionais dentro do jogo. Veja o [registro da implantação](IMPLANTACAO_2026-11-26.md).
 
-A consulta SSH confirmou o mapa 05 com KalsCrossChat e os plugins próprios existentes. Não removemos o legado. Instalar somente a nova DLL contra uma Web Store sem os endpoints novos não ativa o transporte.
+A investigação inicial encontrou KalsCrossChat no 05. Na implantação autorizada, o Ciano já havia parado o mapa e retirado o legado; a DLL nova foi copiada com o processo parado. Somente o 05 foi habilitado na configuração central. Instalar a DLL contra uma Web Store sem os endpoints novos não ativa o transporte.
 
 ## Pré-requisitos do piloto
 

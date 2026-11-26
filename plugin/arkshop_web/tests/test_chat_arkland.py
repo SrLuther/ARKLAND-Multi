@@ -261,3 +261,35 @@ def test_status_reports_transport_without_claiming_game_validation(hub):
     status=chat_instances_snapshot(engine,service.servers())
     assert len(status)==2 and status[1]['operational']=='NAO_MONITORADO'
     assert status[0]['operational']!='OPERACIONAL'
+
+
+@pytest.mark.parametrize('legacy_first',[True,False])
+def test_reuses_legacy_monitor_session_and_preserves_disconnect_notice(hub,legacy_first):
+    from player_monitoring_routes import ingest_session_event
+    service,sessions,now=hub
+    pa,pb=player(A,'aaaaaaaa',name='João'),player(B,'bbbbbbbb')
+    exchange(service,'tek:bbb','bbbbbbbb',[pb])
+    payload={'steam_id':A,'server_id':'map-a','session_id':'legacy-session',
+             'player_name':'João','character_id':'123','tribe_id':'456','tribe_name':'Tribo'}
+    def legacy(event_type):
+        with sessions() as db:
+            result,status=ingest_session_event(db,payload,event_type,now=now[0]);db.commit()
+            assert status==200
+    if legacy_first:
+        legacy('connect')
+    exchange(service,'tek:aaa','aaaaaaaa',[pa])
+    if not legacy_first:
+        legacy('connect')
+    exchange(service,'tek:aaa','aaaaaaaa',[pa])
+    with sessions() as db:
+        opened=db.execute(text("SELECT session_id FROM game_player_sessions WHERE steam_id=:steam AND disconnected_at IS NULL"),{'steam':A}).scalars().all()
+        assert opened==['legacy-session']
+    legacy('heartbeat')
+    still_online=exchange(service,'tek:aaa','aaaaaaaa',[pa],[event(A,'online','')])
+    assert any(item['kind']=='online' and 'João' in item['text'] for item in still_online['deliveries'])
+    exchange(service,'tek:aaa','aaaaaaaa',[])
+    response=exchange(service,'tek:bbb','bbbbbbbb',[pb])
+    departures=[item for item in response['deliveries'] if item['kind']=='notification' and 'João' in item['text'] and 'saiu' in item['text']]
+    assert len(departures)==1
+    with sessions() as db:
+        assert db.execute(text("SELECT COUNT(*) FROM game_player_sessions WHERE steam_id=:steam AND disconnected_at IS NULL"),{'steam':A}).scalar()==0
