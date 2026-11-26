@@ -98,14 +98,18 @@ void TickBody(){
     for(int budget=0;scanning&&budget<512&&std::chrono::steady_clock::now()<deadline;++budget){
         if(stage==0){
             auto* level=world->PersistentLevelField();
-            if(!level||actorIndex>=level->GetActorsField().Num()){stage=1;actorIndex=0;continue;}
-            ScanActor(level->GetActorsField()[actorIndex++]);
+            if(!level){stage=1;actorIndex=0;continue;}
+            const auto& actors=*GetNativePointerField<TArray<AActor*>*>(level,"ULevelBase.Actors");
+            if(actorIndex>=actors.Num()){stage=1;actorIndex=0;continue;}
+            ScanActor(actors[actorIndex++]);
         }else if(stage==1){
-            const auto levels=world->LevelsField();
+            const auto& levels=*GetNativePointerField<TArray<ULevel*>*>(world,"UWorld.Levels");
             if(levelIndex>=levels.Num()){stage=2;actorIndex=0;continue;}
             auto* level=levels[levelIndex];
-            if(!level||level==world->PersistentLevelField()||actorIndex>=level->GetActorsField().Num()){++levelIndex;actorIndex=0;continue;}
-            ScanActor(level->GetActorsField()[actorIndex++]);
+            if(!level||level==world->PersistentLevelField()){++levelIndex;actorIndex=0;continue;}
+            const auto& actors=*GetNativePointerField<TArray<AActor*>*>(level,"ULevelBase.Actors");
+            if(actorIndex>=actors.Num()){++levelIndex;actorIndex=0;continue;}
+            ScanActor(actors[actorIndex++]);
         }else{
             auto& stasis=world->LocalStasisActorsField();
             if(actorIndex>=stasis.Num()){

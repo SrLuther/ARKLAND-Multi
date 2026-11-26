@@ -4,13 +4,13 @@
 
 Esta build conta estruturas observadas e registra colocações concluídas/remoções. Não bloqueia construções. Não remove nem modifica atores existentes. O inventário parcial não é publicado como contagem autoritativa no site e não é usado pelo motor de enforcement.
 
-DLL x64: 750.080 bytes, SHA-256 `52402A843C1E0367DAF90CE59892EDCD6AFB216D10E446E36C4F430F4B576746`.
+DLL x64: 749.056 bytes, SHA-256 `1C5F6CD5BD480E5FDF8333A69AECC3DC5407040802166777FAD45CBE4CDD7A60`.
 
 Instalação: DLL, metadados, configuração, estado derivado e outbox permanecem dentro de `ShooterGame/Binaries/Win64/ArkApi/Plugins/StructureLimits/`. Backup da 0.6-dev preservado fora da pasta do plugin.
 
 ## Teste do jogador
 
-1. Conectar ao mapa 05 e executar `/limites`. Registrar a contagem observada inicial.
+1. Conectar ao mapa 05, aguardar 30 segundos e executar `/limites`. Registrar a contagem observada inicial.
 2. Colocar uma fundação de madeira. Executar `/limites`: a contagem deve aumentar uma unidade.
 3. Recolher essa fundação. Executar `/limites`: deve voltar ao valor inicial.
 4. Colocar novamente e demolir. Executar `/limites`: deve voltar ao valor inicial novamente.

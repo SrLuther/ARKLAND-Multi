@@ -1,7 +1,7 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.8-dev em homologação no servidor 05; inventário observado, eventos de colocação/remoção, GPS e comando integrados; fiscalização ainda suspensa  
+**Estado:** 0.8-dev em homologação no servidor 05; inventário observado, eventos de colocação/remoção, GPS e comando integrados; fiscalização ainda suspensa
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  

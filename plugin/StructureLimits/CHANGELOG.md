@@ -6,11 +6,13 @@
 - Hook de `FinalStructurePlacement` registra colocações somente depois de o original retornar sucesso; verificações `IsAllowedToBuild` continuam sem ser tratadas como construção. Nenhuma decisão do jogo é alterada.
 - Remoções `Destroyed` durante servidor pronto liberam apenas IDs presentes. A causa permanece não especificada; não se presume que todo callback seja ação de jogador. Cobertura de decay e mods continua em homologação.
 - Varredura incremental de PersistentLevel, níveis residentes e LocalStasisActors, com deduplicação, exclusão de supply crates/previews e orçamento por tick. Ausência em uma coleção parcial nunca é interpretada como destruição.
+- Corrige a cópia repetida de `TArray` causada pelos getters do SDK. A varredura acessa referências aos campos nativos durante o callback, sem manter ponteiros para uso por workers ou entre ticks. No piloto, completou a visita a 92.405 entradas e manteve 231 estruturas observadas, todas com coordenadas, sem conflitos de ID.
 - Latitude/longitude por conversão do SDK, XYZ, blueprint canônico, time, PlayerDataID e vínculo SteamID/tribo quando comprovado. Troca de time invalida a atribuição anterior.
 - Comando `/limites` integrado ao jogo para LPG/LEG observados, com aviso explícito de inventário parcial. RCON `StructureLimits.Status` permite conferir saúde e contagem sem depender do painel web.
 - Worker grava estado derivado atomicamente e eventos em outbox; serialização integral e disco fora da thread do jogo. O estado anterior nunca habilita fiscalização.
 - Opt-in `LiveInventoryEnabled`; o modelo permanece desativado. Não habilita enforcement nem declara completo o inventário residente/stasis. Rede/SQL, inventário completo do save e veto pré-consumo permanecem etapas pendentes.
 - Testes locais acrescentam idempotência, remoção repetida, retenção em scans parciais, isolamento solo/tribo, troca de proprietário, conflitos de ID e journal assíncrono. A instalação/homologação real é registrada separadamente.
+- Instalada somente no mapa 05, processo 6924. Carga confirmada no ArkApi 3.56, consulta RCON funcional e journal saudável. Colocação/remoção pela nova build ainda aguardam sequência em jogo do administrador. SHA-256 instalado: `1C5F6CD5BD480E5FDF8333A69AECC3DC5407040802166777FAD45CBE4CDD7A60`.
 
 ## [0.7-dev — alvo ARKLAND Multi v1.12.26] — 2026-11-25
 
