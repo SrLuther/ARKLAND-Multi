@@ -1,5 +1,15 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.9-dev — auditoria independente de inventário] — 26/11/2026
+
+- Identidade do ator (`actor_name` e nome completo) e fontes de observação por registro: PersistentLevel, outros níveis, stasis e colocação concluída. Conflitos de nome completo para um mesmo StructureID ficam explícitos; fontes repetidas não duplicam a contagem.
+- Catálogo de classes classificadas pelo SDK, sem lista manual de inclusão/exclusão. Snapshot separado da última varredura concluída, com contagens por fonte, mudanças nas coleções e duplicidade de IDs. Diagnóstico exporta os atores sem identidade/propriedade e registra limites do catálogo; exceder esses limites não declara cobertura validada.
+- Consulta adicional ao cadastro de tribos residente no GameMode, sem carregar perfis ou executar I/O no callback. No piloto sem jogadores esse cadastro retornou vazio; não representa solução completa para propriedade offline.
+- Ferramenta opcional `tools/save_audit.py` para ler cópia estável de save ASE, conferir hash/instância, comparar atores/classes/proprietários/XYZ e distinguir duplicatas idênticas de conflitos. Parser MIT fixado em commit; leitura sob demanda e liberação de propriedades. A ferramenta recusa o save vivo e não ativa fiscalização.
+- Auditoria real do formato 11 do 05: 84.286 objetos, 39.557 registros de atores e zero erros reportados pelo parser. As 231 estruturas observadas corresponderam por nome, classe, proprietário e XYZ, com diferença máxima zero. Colapsadas 226 duplicatas de metadados idênticos. Identificados 221 atores de origem no arquivo do mapa, sem proprietário jogador. Permanecem 32 atores dinâmicos para classificar, além de mutações das coleções durante scan; resultado global de completude continua reprovado.
+- 24 casos standalone C++ e 14 testes do comparador aprovados; DLL x64 compilada e carregada somente no 05 vazio, por recarga do plugin. Configuração preservada e cinco processos de jogo mantidos. Banco, site e plugins de outros mapas preservados. O ARK executou o salvamento normal solicitado; não houve edição ou restauração de save. Cópias privadas foram usadas para auditoria.
+- DLL final: 779.264 bytes, SHA-256 `43E40E44D4E0DB7BB7CD87CE2DFC4D7A1AE1BBAD4133C20ABD76868080730213`. Inventário continua parcial e fiscalização desativada. Registro detalhado em `IMPLANTACAO_0.9.md`.
+
 ## [0.8-dev — desenvolvimento posterior ao ARKLAND Multi 1.12.34] — 2026-11-26
 
 - Runtime deixa de produzir somente linhas de diagnóstico e mantém inventário observado por StructureID. Contagens de adição, remoção e reatribuição são idempotentes; callbacks repetidos não somam nem descontam duas vezes. IDs removidos não retornam por uma varredura defasada.

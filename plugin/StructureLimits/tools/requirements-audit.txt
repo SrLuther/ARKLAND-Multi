@@ -1,0 +1,3 @@
+# Optional development tool only. Never included in the DLL or game server.
+# Upstream MIT license: https://github.com/vertyco/arkparser/blob/1d9a3e2b1a8052fdfc187174edfc920ca53216f3/LICENSE
+arkparser @ git+https://github.com/vertyco/arkparser.git@1d9a3e2b1a8052fdfc187174edfc920ca53216f3

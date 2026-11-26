@@ -15,6 +15,9 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
     if (found == records_.end()) { records_.emplace(value.id, std::move(value)); return Change::Added; }
     auto& old = found->second;
     if (old.blueprint != value.blueprint) { ++conflicts_; return Change::Conflict; }
+    if (!old.actorFullName.empty() && !value.actorFullName.empty() && old.actorFullName != value.actorFullName) {
+        ++conflicts_; return Change::Conflict;
+    }
     // Attribution from a current connected controller is stronger than a raw census.
     // A change of team invalidates old owner attribution until proven again.
     if (old.targetingTeam != value.targetingTeam) {
@@ -24,6 +27,9 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
     if (value.steamId.empty()) value.steamId = old.steamId;
     if (value.tribeId.empty()) value.tribeId = old.tribeId;
     value.placementConfirmed = value.placementConfirmed || old.placementConfirmed;
+    value.observedSources |= old.observedSources;
+    if(value.actorName.empty()) value.actorName=old.actorName;
+    if(value.actorFullName.empty()) value.actorFullName=old.actorFullName;
     if (!value.hasCoordinates && old.hasCoordinates) {
         value.x=old.x; value.y=old.y; value.z=old.z;
         value.latitude=old.latitude; value.longitude=old.longitude; value.hasCoordinates=true;
@@ -31,6 +37,7 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
     const bool changed = old.targetingTeam != value.targetingTeam || old.playerId != value.playerId ||
         old.tribeId != value.tribeId || old.steamId != value.steamId ||
         old.placementConfirmed != value.placementConfirmed || old.hasCoordinates != value.hasCoordinates ||
+        old.actorName != value.actorName || old.actorFullName != value.actorFullName || old.observedSources != value.observedSources ||
         old.x != value.x || old.y != value.y || old.z != value.z;
     old = std::move(value);
     return changed ? Change::Updated : Change::None;

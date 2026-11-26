@@ -1,6 +1,14 @@
 # ARKLAND Structure Limits
 
-## Evolução atual — 0.8-dev (26/11/2026)
+## Evolução atual — 0.9-dev (26/11/2026)
+
+A build piloto do 05 agora exporta identidade dos atores, proveniência das observações, catálogo de classes do SDK e evidências dos atores excluídos por identidade/propriedade ausente. A última varredura concluída fica separada da varredura corrente e registra mutações de coleções e conflitos.
+
+A ferramenta [save_audit.py](tools/save_audit.py) compara uma cópia estável do save com esse censo. No piloto, as 231 estruturas observadas corresponderam ao save em nome, classe, proprietário e XYZ, com diferença zero. A auditoria também identificou 221 atores de origem no mapa, sem dono jogador, e manteve 32 atores dinâmicos como classificação pendente. O resultado global não foi promovido a inventário completo: `complete_inventory=false`, `enforcement=false`.
+
+Foram aprovados 24 casos C++ e 14 testes do comparador. A versão foi carregada somente no 05, preservando os processos de jogo. Evidências, limitações e procedimento em [IMPLANTACAO_0.9.md](IMPLANTACAO_0.9.md). O teste em jogo seguinte é conferir estabilidade da contagem ao mudar de região.
+
+## Histórico — evolução 0.8-dev (26/11/2026)
 
 O runtime agora mantém inventário observado por StructureID, com consulta `/limites`, confirmação de colocação pelo retorno bem-sucedido de `FinalStructurePlacement`, remoção idempotente pelo ciclo `Destroyed` durante servidor pronto e coordenadas XYZ/latitude/longitude usando a conversão do SDK para o mapa atual.
 

@@ -1,8 +1,8 @@
 ﻿{
     "FullName":  "ARKLAND Structure Limits (inventário ao vivo)",
-    "Version":  0.8,
+    "Version":  0.9,
     "MinApiVersion":  3.54,
-    "VersionLabel":  "0.8-dev",
+    "VersionLabel":  "0.9-dev",
     "Description":  "Contagem observada, colocações concluídas, remoções por ID, GPS e /limites; fiscalização suspensa",
     "Dependencies":  [
 

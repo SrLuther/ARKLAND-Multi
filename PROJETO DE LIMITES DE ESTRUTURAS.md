@@ -1,11 +1,11 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.8-dev em homologação no servidor 05; inventário observado, eventos de colocação/remoção, GPS e comando integrados; fiscalização ainda suspensa
+**Estado:** 0.9-dev em homologação no servidor 05; censo nativo comparado a cópia do save, com correspondência das 231 estruturas observadas; classificação/cobertura contínua ainda em validação e fiscalização suspensa
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.8-dev experimental; a versão estável atual do sistema é 1.12.34. Consulte o changelog próprio do plugin para o avanço posterior.
+**Versão do plugin:** 0.9-dev experimental; a versão estável atual do sistema é 1.12.35. Consulte o changelog próprio do plugin para o avanço posterior.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
@@ -171,6 +171,10 @@ Limitações observáveis no código consultado:
 **Conclusão:** a referência ajuda a identificar assinaturas e um formato de blueprint que merece validação. Ela não atende aos requisitos do ARKLAND sem redesenho de contagem, reservas, identidade, licenças, persistência e fail-open. O código não foi copiado para o plugin novo; não foi executado nem testado em servidor.
 
 ## 15. Estado da implementação local
+
+### 15.0 Estado atual — 0.9-dev
+
+O runtime está instalado no 05 e exporta identidade de ator, proveniência e catálogo de classes do SDK. Auditoria independente de um save formato 11 comparou nome, classe, proprietário e XYZ de 231 estruturas observadas: 231 correspondências, sem diferença de posição. Foram colapsadas 226 duplicatas persistidas com metadados relevantes idênticos e identificados 221 atores de origem em arquivo do mapa sem proprietário jogador. Restam 32 atores dinâmicos para classificação, mutações das coleções, propriedade offline e cobertura contínua. `complete_inventory=false` e `enforcement=false` continuam obrigatórios. Evidências, 24 casos C++ e 14 testes do comparador em [IMPLANTACAO_0.9.md](./plugin/StructureLimits/IMPLANTACAO_0.9.md). As subseções antigas abaixo registram a implementação e as pendências de etapas anteriores.
 
 ### 15.1 Implementado nesta etapa
 

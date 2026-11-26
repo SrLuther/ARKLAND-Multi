@@ -447,7 +447,26 @@ void TestAsynchronousInventoryJournal() {
     std::error_code ec;std::filesystem::remove_all(path,ec);
 }
 
+void TestObservedActorIdentityAndSources() {
+    StructureLimits::ObservedInventory inventory;
+    using Change=StructureLimits::ObservedInventory::Change;
+    StructureLimits::ObservedStructure value;
+    value.id="9";value.blueprint="bp/floor";value.targetingTeam=50001;
+    value.actorName="Floor_C_1";value.actorFullName="Floor_C TheIsland.PersistentLevel.Floor_C_1";value.observedSources=1;
+    assert(inventory.Observe(value)==Change::Added);
+    value.observedSources=4;
+    assert(inventory.Observe(value)==Change::Updated);
+    assert(inventory.Records().at("9").observedSources==5);
+    value.actorName.clear();value.actorFullName.clear();value.observedSources=0;
+    assert(inventory.Observe(value)==Change::None);
+    assert(inventory.Records().at("9").actorName=="Floor_C_1");
+    value.actorName="Floor_C_2";value.actorFullName="Floor_C TheIsland.PersistentLevel.Floor_C_2";
+    assert(inventory.Observe(value)==Change::Conflict);
+    assert(inventory.Records().at("9").actorName=="Floor_C_1"&&inventory.Conflicts()==1);
+}
+
 int main() {
+    TestObservedActorIdentityAndSources();
     TestAsynchronousInventoryJournal();
     TestObservedLedgerIdempotencyAndPartialCoverage();
     TestObservedLedgerOwnershipAndConflict();

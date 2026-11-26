@@ -7,6 +7,8 @@
 namespace StructureLimits {
 struct ObservedStructure {
     std::string id, blueprint, steamId, tribeId;
+    std::string actorName, actorFullName;
+    std::uint32_t observedSources = 0;
     int targetingTeam = 0;
     int playerId = 0;
     double x = 0, y = 0, z = 0, latitude = 0, longitude = 0;

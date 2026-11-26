@@ -68,6 +68,7 @@ CRASH_ANALYSIS.md
 node_modules
 
 # Web Store — dados locais (nunca versionar)
+/.local/
 **/webstore.log
 plugin/arkshop_web/admin_steamids.json
 plugin/arkshop_web/support_steamids.json
