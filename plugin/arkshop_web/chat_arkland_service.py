@@ -36,7 +36,8 @@ INSTANCES = Table("chat_arkland_instances", META, Column("server_key", String(10
     Column("boot_id", String(8), nullable=False), Column("last_seen_at", DateTime, nullable=False),
     Column("last_monitor_at", DateTime), Column("revision", Integer, nullable=False),
     Column("plugin_version", String(32), nullable=False), Column("observer", Boolean, nullable=False),
-    Column("last_error", String(256), nullable=False), Column("player_count", Integer, nullable=False))
+    Column("last_error", String(256), nullable=False), Column("player_count", Integer, nullable=False),
+    Column("snapshot_json", JSON_TEXT, nullable=False, server_default=text("'{}'")))
 EVENTS = Table("chat_arkland_events", META, Column("event_id", String(64), primary_key=True), Column("expires_at", DateTime, nullable=False))
 MESSAGES_TABLE = Table("chat_arkland_messages", META, Column("seq", SEQUENCE, primary_key=True, autoincrement=True),
     Column("event_id", String(64), nullable=False, unique=True), Column("kind", String(16), nullable=False),
@@ -349,30 +350,44 @@ class ChatArklandService:
 
     def _sync_players(self, db, server_key, server, boot, players, config, previous):
         now = self.clock()
-        prefix = "ca-" + boot + "-"
-        existing = db.execute(text("SELECT s.session_id,s.steam_id,s.connected_at,g.player_name FROM game_player_sessions s LEFT JOIN game_players g ON g.steam_id=s.steam_id WHERE s.server_id=:server AND s.session_id LIKE :prefix AND s.disconnected_at IS NULL"),
-                              {"server": server["server_id"], "prefix": prefix + "%"}).mappings().all()
-        current = {player["session_id"] for player in players.values()}
-        for row in existing:
-            if row["session_id"] not in current:
-                identity = self._id(db, row["steam_id"])
-                ingest_session_event(db, {"steam_id": row["steam_id"], "server_id": server["server_id"], "session_id": row["session_id"],
+        prior = json.loads(previous["snapshot_json"] or "{}") if previous else {}
+        # Este ledger apenas correlaciona callbacks SDK com a sessão canônica do
+        # monitor existente. Não é uma segunda fonte de presença para /online.
+        for steam, row in prior.items():
+            if steam not in players or players[steam]["session_id"] != row["sdk_session_id"]:
+                identity = self._id(db, steam)
+                ingest_session_event(db, {"steam_id": steam, "server_id": row["monitor_server_id"], "session_id": row["monitor_session_id"],
                     "player_name": "", "character_id": "", "tribe_id": "", "tribe_name": ""}, "disconnect", now=now, update_profile=False)
-                self._notification(db, f"leave:{row['session_id']}", "Leave", server_key, server, str(identity["public_id"]), row["player_name"] or row["steam_id"], config)
+                self._notification(db, f"leave:{row['sdk_session_id']}", "Leave", server_key, server, str(identity["public_id"]), row.get("name") or steam, config)
+        aliases = list(dict.fromkeys(server.get("identity_server_ids", []) + [server["server_id"]]))
+        params = {"since": now - timedelta(seconds=config["PresenceTtlSeconds"]), **{f"a{i}": value for i, value in enumerate(aliases)}}
+        placeholders = ",".join(f":a{i}" for i in range(len(aliases)))
+        rows = db.execute(text(f"SELECT session_id,server_id,steam_id FROM game_player_sessions WHERE server_id IN ({placeholders}) "
+            "AND disconnected_at IS NULL AND last_seen_at>=:since ORDER BY last_seen_at DESC,session_id"), params).mappings().all()
+        canonical = {}
+        for row in rows:
+            canonical.setdefault(row["steam_id"], row)
         last_monitor = previous["last_monitor_at"] if previous else None
-        existing_ids = {row["session_id"] for row in existing}
+        snapshot = {}
         for steam, player in players.items():
-            fresh = player["session_id"] not in existing_ids
-            if not fresh and last_monitor and (now - last_monitor).total_seconds() < 10:
+            old = prior.get(steam, {})
+            fresh = old.get("sdk_session_id") != player["session_id"]
+            monitor = canonical.get(steam)
+            session_id = monitor["session_id"] if monitor else "cm-" + uuid.uuid4().hex
+            monitor_server = monitor["server_id"] if monitor else server["server_id"]
+            snapshot[steam] = {"sdk_session_id": player["session_id"], "monitor_session_id": session_id,
+                               "monitor_server_id": monitor_server, "name": player["name"]}
+            if not fresh and monitor and old.get("monitor_session_id") == session_id and last_monitor and (now - last_monitor).total_seconds() < 10:
                 continue
-            result, code = ingest_session_event(db, {"steam_id": steam, "server_id": server["server_id"], "session_id": player["session_id"],
+            result, code = ingest_session_event(db, {"steam_id": steam, "server_id": monitor_server, "session_id": session_id,
                 "player_name": player["name"], "character_id": str(player.get("character_id", "")),
-                "tribe_id": str(player.get("tribe_id", "")), "tribe_name": player.get("tribe_name", "")}, "connect" if fresh else "heartbeat", now=now, authoritative_profile=True)
+                "tribe_id": str(player.get("tribe_id", "")), "tribe_name": player.get("tribe_name", "")}, "heartbeat" if monitor else "connect", now=now, authoritative_profile=True)
             if code >= 400:
                 raise ValueError("Snapshot de sessão inválido.")
             if fresh:
                 identity = self._id(db, steam)
                 self._notification(db, f"join:{player['session_id']}", "Join", server_key, server, str(identity["public_id"]), player["name"], config)
+        return snapshot
 
     def _notification(self, db, event_id, kind, server_key, server, public_id, name, config):
         if not config["CrossMapNotifications"]["Enabled"] or not self._event(db, event_id):
@@ -452,8 +467,9 @@ class ChatArklandService:
             previous = db.execute(select(INSTANCES).where(INSTANCES.c.server_key == key).with_for_update()).mappings().first()
             if previous and previous["boot_id"] != boot and previous["last_seen_at"] > self.clock() - timedelta(seconds=config["PresenceTtlSeconds"]):
                 raise ValueError("Outra instância com a mesma ServerKey ainda está ativa.")
+            monitor_snapshot = json.loads(previous["snapshot_json"] or "{}") if previous else {}
             if not observer:
-                self._sync_players(db, key, server, boot, players, config, previous)
+                monitor_snapshot = self._sync_players(db, key, server, boot, players, config, previous)
             identities = self._ids(db, players)
             licenses = self.license_provider(db, list(players)) if players else {}
             for steam, actor in players.items():
@@ -492,6 +508,7 @@ class ChatArklandService:
             values = {"boot_id": boot, "last_seen_at": self.clock() - timedelta(seconds=config["PresenceTtlSeconds"] + 1) if body.get("stopping") else self.clock(), "revision": max(0, int(body.get("revision", 0))),
                       "plugin_version": str(body.get("plugin_version", ""))[:32], "observer": observer,
                       "last_error": "" if not rejected else "Há eventos inválidos no último lote.", "player_count": len(players),
+                      "snapshot_json": _dump(monitor_snapshot),
                       "last_monitor_at": self.clock() if not previous or not previous["last_monitor_at"] or (self.clock() - previous["last_monitor_at"]).total_seconds() >= 10 else previous["last_monitor_at"]}
             if previous:
                 db.execute(update(INSTANCES).where(INSTANCES.c.server_key == key).values(**values))

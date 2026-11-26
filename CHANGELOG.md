@@ -1,13 +1,20 @@
 # Changelog
 
-## [Unreleased] — Chat Arkland
-
-- Implementação experimental do Chat Arkland 0.1.0 como plugin ASE independente: ID público persistente, chat global, mensagens privadas, consulta online, notificações, tags e cores, censura, hub autenticado com revisões e interface administrativa em português. Reutiliza monitoramento, vínculos, licenças e Gateway do Lumo. Inclui compilação própria, migrações, empacotamento e procedimentos de homologação/reversão. Validação dentro do ARK e substituição do chat legado ainda pendentes; não é anúncio de release em produção.
-
-<!-- Gerado: 2026-11-25 22:53:30 -->
-<!-- Total de versões: 593 | Primeira: 1.12.32 -->
+<!-- Gerado: 2026-11-26 01:56:58 -->
+<!-- Total de versões: 594 | Primeira: 1.12.33 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.33] - 2026-11-26
+
+### Feature
+
+- Novo Chat Arkland experimental: plugin ASE independente com painel administrativo em português, configurações revisionadas, mapas dinâmicos, IDs públicos permanentes, mensagens privadas, consulta online, notificações, tags, cores e filtro por asteriscos. Implantação inicial restrita ao servidor 05 para homologação; não substitui automaticamente o chat dos demais mapas.
+
+### Other
+
+- Chat Arkland: reutiliza o monitoramento de jogadores, licenças, permissões, vínculos Discord e o Gateway central do Lumo. Não distribui token Discord ou senha MySQL aos mapas e mantém proteção contra duplicidade, ciclos e exposição de mensagens privadas.
+- Banco do Chat Arkland: tabelas próprias em InnoDB/utf8mb4 e compatibilidade Unicode no monitoramento compartilhado; preservação do registro permanente de IDs e dos dados existentes. Inclui pacote independente, procedimentos de atualização/reversão e relatório de testes, mantendo explícita a homologação em jogo pendente.
 
 ## [1.12.32] - 2026-11-25
 
