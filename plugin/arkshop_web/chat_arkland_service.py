@@ -52,6 +52,11 @@ DELIVERIES = Table("chat_arkland_deliveries", META, Column("delivery_id", String
 LEADER = Table("chat_arkland_discord_lease", META, Column("id", Integer, primary_key=True),
     Column("owner", String(40)), Column("until_at", DateTime))
 SCHEMA = Table("chat_arkland_schema", META, Column("version", Integer, primary_key=True), Column("applied_at", DateTime, nullable=False))
+for _table in META.tables.values():
+    # Não herdar latin1 de instalações antigas: templates e nomes contêm Unicode.
+    _table.dialect_options["mysql"]["charset"] = "utf8mb4"
+    _table.dialect_options["mysql"]["collate"] = "utf8mb4_unicode_ci"
+    _table.dialect_options["mysql"]["engine"] = "InnoDB"
 Index("ix_ca_messages_cursor", MESSAGES_TABLE.c.seq, MESSAGES_TABLE.c.expires_at)
 Index("ix_ca_private_recipient", DELIVERIES.c.recipient, DELIVERIES.c.acked_at, DELIVERIES.c.expires_at)
 Index("ix_ca_messages_discord", MESSAGES_TABLE.c.discord_state, MESSAGES_TABLE.c.seq)

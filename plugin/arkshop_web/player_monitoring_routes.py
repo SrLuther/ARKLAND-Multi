@@ -34,14 +34,14 @@ def _ensure_schema(engine: Any) -> None:
                     "tribe_id VARCHAR(32) NOT NULL DEFAULT '', "
                     "tribe_name VARCHAR(128) NOT NULL DEFAULT '', "
                     "server_id VARCHAR(80) NOT NULL DEFAULT '', "
-                    "first_seen_at DATETIME NOT NULL, last_seen_at DATETIME NOT NULL)"
+                    "first_seen_at DATETIME NOT NULL, last_seen_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
                 ))
                 conn.execute(text(
                     "CREATE TABLE IF NOT EXISTS game_player_sessions ("
                     "session_id VARCHAR(64) NOT NULL PRIMARY KEY, "
                     "server_id VARCHAR(80) NOT NULL, steam_id VARCHAR(32) NOT NULL, "
                     "connected_at DATETIME NOT NULL, last_seen_at DATETIME NOT NULL, "
-                    "disconnected_at DATETIME NULL, duration_seconds INT NOT NULL DEFAULT 0)"
+                    "disconnected_at DATETIME NULL, duration_seconds INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
                 ))
                 for name, ddl in (
                     ("ix_game_players_last_seen", "CREATE INDEX ix_game_players_last_seen ON game_players (last_seen_at)"),

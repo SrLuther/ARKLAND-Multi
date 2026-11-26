@@ -66,9 +66,9 @@ CREATE TABLE IF NOT EXISTS chat_arkland_messages (
 	UNIQUE (event_id)
 );
 
-CREATE INDEX ix_ca_messages_cursor ON chat_arkland_messages (seq, expires_at);
-
 CREATE INDEX ix_ca_messages_discord ON chat_arkland_messages (discord_state, seq);
+
+CREATE INDEX ix_ca_messages_cursor ON chat_arkland_messages (seq, expires_at);
 
 CREATE TABLE IF NOT EXISTS chat_arkland_players (
 	public_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

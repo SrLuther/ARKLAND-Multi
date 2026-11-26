@@ -12,6 +12,15 @@ BUILD_DATE: str = "2026-11-25"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.33",
+        "date": "2026-11-26",
+        "changes": [
+            "Novo Chat Arkland experimental: plugin ASE independente com painel administrativo em português, configurações revisionadas, mapas dinâmicos, IDs públicos permanentes, mensagens privadas, consulta online, notificações, tags, cores e filtro por asteriscos. Implantação inicial restrita ao servidor 05 para homologação; não substitui automaticamente o chat dos demais mapas.",
+            "Chat Arkland: reutiliza o monitoramento de jogadores, licenças, permissões, vínculos Discord e o Gateway central do Lumo. Não distribui token Discord ou senha MySQL aos mapas e mantém proteção contra duplicidade, ciclos e exposição de mensagens privadas.",
+            "Banco do Chat Arkland: tabelas próprias em InnoDB/utf8mb4 e compatibilidade Unicode no monitoramento compartilhado; preservação do registro permanente de IDs e dos dados existentes. Inclui pacote independente, procedimentos de atualização/reversão e relatório de testes, mantendo explícita a homologação em jogo pendente.",
+        ],
+    },
+    {
         "version": "1.12.32",
         "date": "2026-11-25",
         "changes": [

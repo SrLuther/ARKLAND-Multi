@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS chat_arkland_config (
 	changed_at DATETIME NOT NULL,
 	actor VARCHAR(40) NOT NULL,
 	PRIMARY KEY (id)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_arkland_deliveries (
 	delivery_id VARCHAR(64) NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS chat_arkland_deliveries (
 	expires_at DATETIME NOT NULL,
 	PRIMARY KEY (delivery_id),
 	UNIQUE (event_id, recipient)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE INDEX ix_ca_private_recipient ON chat_arkland_deliveries (recipient, acked_at, expires_at);
 
@@ -28,13 +28,13 @@ CREATE TABLE IF NOT EXISTS chat_arkland_discord_lease (
 	owner VARCHAR(40),
 	until_at DATETIME,
 	PRIMARY KEY (id)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_arkland_events (
 	event_id VARCHAR(64) NOT NULL,
 	expires_at DATETIME NOT NULL,
 	PRIMARY KEY (event_id)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_arkland_instances (
 	server_key VARCHAR(100) NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS chat_arkland_instances (
 	last_error VARCHAR(256) NOT NULL,
 	player_count INTEGER NOT NULL,
 	PRIMARY KEY (server_key)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_arkland_messages (
 	seq BIGINT NOT NULL AUTO_INCREMENT,
@@ -65,11 +65,11 @@ CREATE TABLE IF NOT EXISTS chat_arkland_messages (
 	claimed_at DATETIME,
 	PRIMARY KEY (seq),
 	UNIQUE (event_id)
-);
-
-CREATE INDEX ix_ca_messages_cursor ON chat_arkland_messages (seq, expires_at);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE INDEX ix_ca_messages_discord ON chat_arkland_messages (discord_state, seq);
+
+CREATE INDEX ix_ca_messages_cursor ON chat_arkland_messages (seq, expires_at);
 
 CREATE TABLE IF NOT EXISTS chat_arkland_players (
 	public_id BIGINT NOT NULL AUTO_INCREMENT,
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS chat_arkland_players (
 	last_global_at DATETIME,
 	PRIMARY KEY (public_id),
 	UNIQUE (steam_id)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_arkland_revisions (
 	revision INTEGER NOT NULL AUTO_INCREMENT,
@@ -87,10 +87,10 @@ CREATE TABLE IF NOT EXISTS chat_arkland_revisions (
 	changed_at DATETIME NOT NULL,
 	actor VARCHAR(40) NOT NULL,
 	PRIMARY KEY (revision)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS chat_arkland_schema (
 	version INTEGER NOT NULL AUTO_INCREMENT,
 	applied_at DATETIME NOT NULL,
 	PRIMARY KEY (version)
-);
+)CHARSET=utf8mb4 ENGINE=InnoDB COLLATE utf8mb4_unicode_ci;

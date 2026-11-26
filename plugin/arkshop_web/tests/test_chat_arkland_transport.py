@@ -60,6 +60,15 @@ def test_http_admin_api_and_secret_boundaries(tmp_path, monkeypatch):
     assert client.get('/api/admin/chat-arkland', headers=admin_headers).json['revision'] == 1
 
 
+def test_mysql_tables_do_not_inherit_legacy_latin1():
+    from sqlalchemy.dialects import mysql
+    from sqlalchemy.schema import CreateTable
+    from chat_arkland_service import META
+    for table in META.tables.values():
+        ddl=str(CreateTable(table).compile(dialect=mysql.dialect()))
+        assert 'utf8mb4' in ddl and 'InnoDB' in ddl
+
+
 def test_discord_only_real_lumo_and_linked_humans_not_impersonators(monkeypatch):
     calls = []
     class Service:
