@@ -62,7 +62,7 @@ Não declarar produção validada antes de registrar os resultados seguintes:
 
 ## Reprodução
 
-No ambiente Python do projeto, executar pytest para os arquivos `test_chat_arkland.py`, `test_chat_arkland_transport.py`, `test_player_monitoring_routes.py`, `test_system_status_center.py`, `test_lumo_routes.py`, `test_lumo_assistant.py` e `test_lumo_assets.py` de `plugin/arkshop_web/tests`.
+No ambiente Python do projeto, executar pytest para os arquivos `test_chat_arkland.py`, `test_chat_arkland_transport.py`, `test_chat_discord_presentation.py`, `test_chat_discord_mirrors.py`, `test_player_monitoring_routes.py`, `test_system_status_center.py`, `test_lumo_routes.py`, `test_lumo_assistant.py`, `test_lumo_assets.py` e `test_lumo_announcement_spacing.py` de `plugin/arkshop_web/tests`.
 
 Para a interface, iniciar `tools/chat_arkland_preview.py` em loopback e executar `chat-arkland-browser.test.cjs` com Node/Playwright e Edge. O teste verifica explicitamente a identificação de dados fictícios e usa somente 127.0.0.1:5188. Nunca apontá-lo para produção.
 
