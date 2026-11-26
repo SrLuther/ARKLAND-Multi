@@ -1,13 +1,13 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** desenvolvimento local iniciado; núcleo de regras e testes implementados; integração com o jogo ainda não comprovada  
+**Estado:** 0.8-dev em homologação no servidor 05; inventário observado, eventos de colocação/remoção, GPS e comando integrados; fiscalização ainda suspensa  
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Release:** nenhuma; alterações permanecem `UNDEFINED`.
+**Versão do plugin:** 0.8-dev experimental; a versão estável atual do sistema é 1.12.34. Consulte o changelog próprio do plugin para o avanço posterior.
 
-> Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. O trabalho atual não está instalado em servidores ARK e não acessa nem altera produção.
+> Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
 ## 1. Objetivo e princípio de segurança
 
@@ -144,7 +144,7 @@ O comando de jogador deve apresentar no mapa atual:
 - uso, LEG e restante de cada blueprint configurado;
 - aviso de que LPE/LEE, licença e detalhes adicionais ficam na Minha Área do site ARKLAND.
 
-O comando de chat não deve exibir LPE/LEE. A implementação atual contém somente um formatador de resumo; não há comando registrado no jogo.
+O comando de chat não deve exibir LPE/LEE. A 0.8-dev registra `/limites` no jogo e usa o formatador para LPG/LEG observados, com aviso explícito de inventário em validação e bloqueio desativado. O RCON `StructureLimits.Status` complementa o diagnóstico administrativo.
 
 ## 14. SDK e evidências técnicas
 
