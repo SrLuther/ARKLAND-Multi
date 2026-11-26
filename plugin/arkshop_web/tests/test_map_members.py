@@ -363,3 +363,103 @@ def test_command_center_copy_audit_is_admin_only_and_omits_arguments(client, mon
         "command": "GiveEngrams",
         "server_id": SERVER_BR,
     })]
+
+
+def _monitor_rows(db, rows):
+    db.execute(text("CREATE TABLE IF NOT EXISTS game_players (steam_id TEXT PRIMARY KEY, "
+                    "player_name TEXT, character_id TEXT, tribe_id TEXT, tribe_name TEXT, "
+                    "server_id TEXT, last_seen_at TEXT)"))
+    for steam, server, name, pdid, tribe in rows:
+        db.execute(text("INSERT INTO game_players VALUES (:steam,:name,:pdid,:tribe,'Tribo',:server,'2026-12-01 12:00:00')"),
+                   dict(steam=steam, server=server, name=name, pdid=str(pdid), tribe=str(tribe)))
+    db.commit()
+
+
+def test_current_plugin_id_maps_monitor_players_and_preserves_old_world(db, tmp_path):
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"Settings": {"ServerId": "03_alps_omega_9dd54f"}}), encoding="utf-8")
+    servers = [{"server_id": "03_alps_omg", "label": "03 Alps Omega", "plugin_config_path": str(config)}]
+    _monitor_rows(db, [(USER_A, "03_alps_omega_9dd54f", "Atual", 123, 456),
+                       (USER_B, "03_tunguska_9dd54f", "Mundo antigo", 987, 654)])
+    payload = build_map_members_payload(db, servers=servers)
+    current = payload["maps"][0]
+    assert current["server_id"] == "03_alps_omg"
+    assert current["total"] == 1
+    player = current["items"][0]
+    assert (player["character_name"], player["player_data_id"], player["tribe_id"]) == ("Atual", 123, 456)
+    assert player["source"] == "monitor"
+    assert player["source_server_id"] == "03_alps_omega_9dd54f"
+    assert [(m["server_id"], m["total"]) for m in payload["unregistered"]] == [("03_tunguska_9dd54f", 1)]
+    detail = get_member_detail(db, server_id="03_alps_omg", steam_id=USER_A, servers=servers)
+    assert detail["map_label"] == "03 Alps Omega"
+    assert detail["player_data_id"] == 123
+    assert get_member_detail(db, server_id="03_alps_omg", steam_id=USER_B, servers=servers) is None
+
+
+def test_merged_sources_paginate_without_duplicate_players_and_include_solo(db):
+    _seed_two_maps(db)
+    _monitor_rows(db, [(USER_A, SERVER_BR, "Atualizado", 700, 0),
+                       ("76561198000000013", SERVER_BR, "Novo", 701, 2),
+                       ("76561198000000014", SERVER_BR, "Outro", 702, 3)])
+    first = list_members_for_server(db, server_id=SERVER_BR, limit=2)
+    second = list_members_for_server(db, server_id=SERVER_BR, limit=2, offset=2)
+    assert first["total"] == second["total"] == 4
+    items = first["items"] + second["items"]
+    assert len({p["steam_id"] for p in items}) == 4
+    player = next(p for p in items if p["steam_id"] == USER_A)
+    assert player["character_name"] == "Atualizado"
+    assert player["player_data_id"] == 700
+    assert player["tribe_id"] is None
+    detail = get_member_detail(db, server_id=SERVER_BR, steam_id=USER_A)
+    assert detail["player_data_id"] == 700
+    assert any(m["server_id"] == SERVER_ALPS for m in detail["associated_maps"])
+
+
+def test_presence_history_is_deduplicated_before_pagination(db):
+    for _ in range(5):
+        db.execute(text("INSERT INTO tribe_presences (steam_id,server_id,map_name,tribe_id,captured_at,source) "
+                        "VALUES (:steam,'empty','empty',9,CURRENT_TIMESTAMP,'plugin_sync')"), {"steam": USER_A})
+    db.execute(text("INSERT INTO tribe_presences (steam_id,server_id,map_name,tribe_id,captured_at,source) "
+                    "VALUES (:steam,'empty','empty',0,CURRENT_TIMESTAMP,'plugin_leave')"), {"steam": USER_B})
+    db.commit()
+    pages = [list_members_for_server(db, server_id="empty", limit=1, offset=i) for i in (0, 1)]
+    assert [p["total"] for p in pages] == [2, 2]
+    assert {p["items"][0]["steam_id"] for p in pages} == {USER_A, USER_B}
+
+
+def test_shared_plugin_id_does_not_mix_maps(db, tmp_path):
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"Settings": {"ServerId": "duplicated-id"}}), encoding="utf-8")
+    _monitor_rows(db, [(USER_A, "duplicated-id", "Jogador", 123, 456)])
+    payload = build_map_members_payload(db, servers=[
+        {"server_id": "map-a", "plugin_config_path": str(config)},
+        {"server_id": "map-b", "plugin_config_path": str(config)},
+    ])
+    assert all(m["total"] == 0 and m["identity_warning"] for m in payload["maps"])
+    assert payload["unregistered"][0]["total"] == 1
+
+
+def test_changed_plugin_configuration_invalidates_identity_cache(db, tmp_path):
+    import os
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"Settings": {"ServerId": "old-world"}}), encoding="utf-8")
+    _monitor_rows(db, [(USER_A, "old-world", "Antigo", 1, 2), (USER_B, "new-world", "Novo", 3, 4)])
+    servers = [{"server_id": "map", "plugin_config_path": str(config)}]
+    assert build_map_members_payload(db, servers=servers)["maps"][0]["items"][0]["steam_id"] == USER_A
+    stat = config.stat()
+    config.write_text(json.dumps({"Settings": {"ServerId": "new-world"}}), encoding="utf-8")
+    os.utime(config, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+    payload = build_map_members_payload(db, servers=servers)
+    assert payload["maps"][0]["items"][0]["steam_id"] == USER_B
+    assert payload["unregistered"][0]["server_id"] == "old-world"
+
+
+def test_partial_presence_does_not_erase_character_identity(db):
+    _seed_two_maps(db)
+    db.execute(text("INSERT INTO tribe_presences (steam_id,server_id,map_name,tribe_id,captured_at,source) "
+                    "VALUES (:steam,:server,:server,1001,'2099-01-01 00:00:00','plugin_sync')"),
+               {"steam": USER_A, "server": SERVER_BR})
+    db.commit()
+    detail = get_member_detail(db, server_id=SERVER_BR, steam_id=USER_A)
+    assert detail["character_name"] == "oCiano"
+    assert detail["player_data_id"] == 543086853

@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.31"
+APP_VERSION: str = "1.12.32"
 BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.32",
+        "date": "2026-11-25",
+        "changes": [
+            "Correção em Membros por mapa: reúne as identidades do monitoramento com os registros do TribeSync, incluindo jogadores offline e sem tribo. Associa o ID do plugin ao cadastro pela configuração real de cada instância, sem inferir vínculos pelo nome ou sufixo do ID. Preserva IDs históricos não vinculados em uma seção própria, elimina duplicações antes de paginar e faz o botão DADOS consultar as mesmas fontes e associações. Falhas de RCON deixam de manter marcações antigas de ONLINE.",
+        ],
+    },
     {
         "version": "1.12.31",
         "date": "2026-11-25",

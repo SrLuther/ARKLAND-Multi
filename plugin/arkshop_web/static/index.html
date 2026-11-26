@@ -12052,7 +12052,7 @@
       <div id="page-map-members-admin" class="page admin-only">
         <div id="topbar">
           <div class="page-title">🗺️ Membros por mapa</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">A lista ao vivo consulta jogadores conectados via RCON. A lista de membros do TribeSync inclui todos os personagens já sincronizados, mesmo offline, e mostra SteamID, ID do personagem (PlayerDataID) e ID/nome da tribo. ONLINE/OFFLINE é confirmado pelo RCON; se o mapa não responder, o estado aparece como não verificado. Use <strong>DADOS</strong> para consultar mapas associados.</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">A lista ao vivo consulta jogadores conectados via RCON. Os jogadores conhecidos reúnem TribeSync e a última identidade registrada pelo monitoramento, incluindo offline e jogadores sem tribo, com SteamID, ID do personagem e ID/nome da tribo quando disponíveis. Isso não é uma leitura completa dos saves. ONLINE/OFFLINE depende da consulta RCON; falhas aparecem como estado não verificado. Use <strong>DADOS</strong> para consultar mapas associados.</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadMapMembersAdmin()">↺ Recarregar</button>
           </div>
@@ -12069,7 +12069,12 @@
             <div id="map-online-list" class="map-members-grid" style="margin-top:12px;">Carregando…</div>
           </div>
           <div class="card">
+            <div class="card-title">Jogadores conhecidos nos mapas cadastrados</div>
             <div id="map-members-grid" class="map-members-grid">Carregando…</div>
+            <details id="map-members-history" style="margin-top:16px;" hidden><summary id="map-members-history-title">Histórico de IDs não vinculados</summary>
+              <p class="mm-meta" style="margin:10px 0;">Registros preservados de IDs sem vínculo confirmado com os mapas atuais. Não são associados automaticamente por nome, número do mapa ou sufixo do ID.</p>
+              <div id="map-members-history-grid" class="map-members-grid"></div>
+            </details>
           </div>
           <div id="map-member-detail-panel" class="card map-member-detail-panel hidden"></div>
         </div>
@@ -34069,6 +34074,9 @@ async function loadMapMembersAdmin() {
   }, 30000);
   grid.innerHTML = "<p style='color:var(--text2)'>Carregando…</p>";
   closeMapMemberDetail();
+  _mapMembersCache = null;
+  const history = document.getElementById("map-members-history");
+  if (history) history.hidden = true;
   try {
     const d = await fetchJson("/api/admin/map-members?limit=500");
     if (!d.ok) {
@@ -34109,7 +34117,7 @@ async function loadMapMembersAdmin() {
 function renderMapMembersAdmin() {
   const grid = document.getElementById("map-members-grid");
   if (!grid || !_mapMembersCache) return;
-  grid.innerHTML = _mapMembersCache.map(m => {
+  const renderCard = m => {
       const items = m.items || [];
       const rows = items.length
         ? items.map(it => {
@@ -34119,18 +34127,20 @@ function renderMapMembersAdmin() {
             const live = _mapOnlinePresenceByServer[m.server_id];
             const steamId = String(it.steam_id || "");
             const playerIsOnline = !offlineIdentity && live?.status === "online" && live.steamIds.has(steamId);
-            const presenceLabel = offlineIdentity || (live?.status === "online" && !playerIsOnline)
+            const presenceLabel = offlineIdentity ? "STEAMID NÃO ASSOCIADO" : (live?.status === "online" && !playerIsOnline)
               ? "OFFLINE" : playerIsOnline ? "ONLINE" : "STATUS NÃO VERIFICADO";
             const presenceClass = presenceLabel === "ONLINE" ? "badge-success"
               : presenceLabel === "OFFLINE" ? "badge-ghost" : "badge-warning";
             const playerId = String(it.steam_id || "").startsWith("pdid:")
               ? String(it.steam_id).slice(5) : "";
             const characterId = playerId || _mmDash(it.player_data_id);
-            const lastSeen = it.last_seen_at ? ` · último sync ${escHtml(it.last_seen_at)}` : "";
+            const lastSeen = it.last_seen_at ? ` · último registro ${escHtml(it.last_seen_at)}` : "";
+            const source = it.source === "monitor" ? "Monitoramento" : it.source === "presence" ? "Presença de tribo" : "TribeSync";
             return `<div class="map-members-row">
               <div style="min-width:0;flex:1;">
                 <div class="mm-name" title="${escHtml(it.steam_id || "")}">${escHtml(name)}</div>
                 <div class="mm-meta">SteamID ${offlineIdentity ? "não associado" : escHtml(steamId || "—")} · ID do personagem ${escHtml(characterId)} · ID da tribo ${escHtml(_mmDash(it.tribe_id))}${lastSeen}</div>
+                <div class="mm-meta">Fonte: ${source}</div>
                 ${tribe ? `<div class="mm-meta">${tribe}</div>` : ""}
               </div>
               <span class="badge ${presenceClass}">${presenceLabel}</span>
@@ -34138,14 +34148,23 @@ function renderMapMembersAdmin() {
                 onclick="openMapMemberDados('${escHtml(m.server_id)}','${escHtml(it.steam_id)}')">DADOS</button>
             </div>`;
           }).join("")
-        : `<div style="color:var(--text2);font-size:12px;margin:0;"><p>Nenhum membro de tribo foi recebido pelo TribeSync neste mapa. Personagens sem SteamID também aparecem quando o plugin os sincroniza.</p><p style="margin:6px 0 0;">Se esperava registros, confira se <code>Settings.ServerId</code> ou <code>CrossChat.ServerId</code> no CustomShop corresponde ao ID do mapa cadastrado e se a API/banco configurados no plugin são os desta Web Store. Para forçar uma coleta, execute <code>Shop.TribeSync</code> no mapa.</p></div>`;
+        : `<p class="mm-meta">Nenhuma identidade recebida pelo TribeSync ou monitoramento para este mapa. Isso não comprova que o save esteja sem personagens.</p>`;
       return `<div class="map-members-col card" style="padding:12px;margin:0;">
         <h3>${escHtml(m.label || m.server_id)} <span style="font-weight:500;color:var(--text2);font-size:12px;">(${Number(m.total || 0)})</span></h3>
         ${m.registered === false ? `<div class="mm-meta" style="margin:-5px 0 9px;color:var(--warning,#f0ad4e);">ID do plugin não cadastrado: <code>${escHtml(m.server_id)}</code></div>` : ""}
+        ${m.identity_warning ? `<p class="mm-meta" role="alert">${escHtml(m.identity_warning)}</p>` : ""}
         ${m.partialLoad ? `<div class="mm-meta" style="color:var(--warning,#f0ad4e);">Lista parcial: não foi possível carregar todos os membros deste mapa.</div>` : ""}
         <div class="map-members-list">${rows}</div>
       </div>`;
-    }).join("");
+    };
+  grid.innerHTML = _mapMembersCache.filter(m => m.registered !== false).map(renderCard).join("");
+  const historical = _mapMembersCache.filter(m => m.registered === false);
+  const history = document.getElementById("map-members-history");
+  if (history) {
+    history.hidden = !historical.length;
+    document.getElementById("map-members-history-title").textContent = `Histórico de IDs não vinculados (${historical.length})`;
+    document.getElementById("map-members-history-grid").innerHTML = historical.map(renderCard).join("");
+  }
 }
 
 async function loadMapOnlinePlayers() {
@@ -34177,6 +34196,8 @@ async function loadMapOnlinePlayers() {
     }).join("") : "<p style='color:var(--text2)'>Nenhum servidor configurado para consulta ao vivo.</p>";
   } catch (err) {
     if (updated) updated.textContent = "Consulta ao vivo indisponível.";
+    _mapOnlinePresenceByServer = Object.create(null);
+    renderMapMembersAdmin();
     list.innerHTML = `<p style="color:var(--danger)">${escHtml(err.message || "Falha ao consultar jogadores.")}</p>`;
   }
 }

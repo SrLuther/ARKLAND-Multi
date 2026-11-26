@@ -1072,6 +1072,7 @@ def register_tribe_routes(
                 server_id=str(server_id or "").strip(),
                 steam_id=str(steam_id or "").strip(),
                 map_labels=_map_labels(),
+                servers=_server_catalog(),
             )
             if not detail:
                 return _fail("Jogador não encontrado neste mapa", 404)

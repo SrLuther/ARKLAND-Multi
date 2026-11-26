@@ -1,8 +1,8 @@
 {
-    "version": "1.12.31",
+    "version": "1.12.32",
     "date": "2026-11-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.31/ARKLAND-Multi-Setup-v1.12.31.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.32/ARKLAND-Multi-Setup-v1.12.32.exe",
     "changelog": [
-        "Correção na Central de Status dos Sistemas: reconhece a sessão administrativa real do portal e libera o formulário de revisão e atualização dos sistemas, inclusive após o carregamento do login. Mantém os controles ocultos para visitantes e jogadores, e informa falhas de carregamento da administração com opção de tentar novamente pelo botão Atualizar. As alterações continuam protegidas pela API e registradas no histórico administrativo."
+        "Correção em Membros por mapa: reúne as identidades do monitoramento com os registros do TribeSync, incluindo jogadores offline e sem tribo. Associa o ID do plugin ao cadastro pela configuração real de cada instância, sem inferir vínculos pelo nome ou sufixo do ID. Preserva IDs históricos não vinculados em uma seção própria, elimina duplicações antes de paginar e faz o botão DADOS consultar as mesmas fontes e associações. Falhas de RCON deixam de manter marcações antigas de ONLINE."
     ]
 }

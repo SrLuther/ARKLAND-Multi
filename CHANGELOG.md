@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 22:18:33 -->
-<!-- Total de versões: 592 | Primeira: 1.12.31 -->
+<!-- Gerado: 2026-11-25 22:53:30 -->
+<!-- Total de versões: 593 | Primeira: 1.12.32 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.32] - 2026-11-25
+
+### Other
+
+- Correção em Membros por mapa: reúne as identidades do monitoramento com os registros do TribeSync, incluindo jogadores offline e sem tribo. Associa o ID do plugin ao cadastro pela configuração real de cada instância, sem inferir vínculos pelo nome ou sufixo do ID. Preserva IDs históricos não vinculados em uma seção própria, elimina duplicações antes de paginar e faz o botão DADOS consultar as mesmas fontes e associações. Falhas de RCON deixam de manter marcações antigas de ONLINE.
 
 ## [1.12.31] - 2026-11-25
 
