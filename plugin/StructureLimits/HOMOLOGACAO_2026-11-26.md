@@ -9,6 +9,7 @@ O estado anterior foi preservado às 23:09:13 UTC no backup privado `E:\ARKLAND_
 - Cinco colocações e cinco remoções de TekLight, entre 23:18:10 e 23:20:18 UTC. IDs: 227759632, 950903498, 719602867, 1940750618 e 1988796081. Cada ID teve exatamente um evento de colocação e um de remoção; nenhum permaneceu ativo.
 - Atribuição final da tribo: 227. Nenhum ID das 231 estruturas do inventário geral inicial desapareceu.
 - Um evento de remoção adicional de `AmargaSpike_Armor` não pertence ao conjunto colocado pelo jogador e foi mantido separado da comprovação.
+- No caminho específico, o log contém `demolish_called` e posterior remoção para o ID 227759632. O marcador de ação foi observado; a autoria veio sem SteamID válido. As demais remoções não foram classificadas individualmente como pickup, dano ou decay.
 - Inventário geral: 231 → 244. Os 13 IDs novos restantes eram DeathItemCache, sem atribuição de tribo/Steam; portanto o total geral não foi declarado correto apenas porque o total da tribo fechou. Isso motivou a correção por marcadores nativos da 0.9.1-dev.
 - Runtime/journal saudáveis, fila vazia e conflitos de ID zero. Não houve ativação de fiscalização nem reinício para conferir esta rodada.
 
@@ -17,3 +18,9 @@ O estado anterior foi preservado às 23:09:13 UTC no backup privado `E:\ARKLAND_
 O helper `FVectorToCoords` do SDK aplica `floor(coordenada*10)/10`. Assim, os logs 36,0/59,1 são compatíveis com a imagem 36,06/59,12 dentro dessa precisão. A 0.9.1-dev passa a calcular sem esse corte, usando a mesma calibração do mundo; isso exige nova conferência visual quando instalada.
 
 As cinco construções registradas usaram o mesmo blueprint. Esta rodada não comprova diversidade de blueprints, decay, fusão, recuperação após reinício, licença, limite específico ou veto antes de consumir materiais. `Destroyed` continua registrando causa não especificada, sem inventar pickup/demolição/decay individualmente.
+
+## Correções preparadas
+
+0.9.1-dev compilada com exclusão pelos marcadores nativos de death cache e GPS sem corte decimal; 25 casos C++ e 15 testes do comparador aprovados. SHA-256 da DLL: `FD551F3E4A733D08BBD87953E944E43E04F8D2E6B8FE85AFA9D756B3475C6637`.
+
+A tentativa de instalação no piloto foi adiada porque havia jogador conectado. A DLL instalada segue 0.9-dev. O código novo está versionado, mas a exclusão dos 13 caches pelos marcadores e a precisão visual nova ainda não foram confirmadas em runtime. O script preservou os arquivos instalados e os demais servidores.

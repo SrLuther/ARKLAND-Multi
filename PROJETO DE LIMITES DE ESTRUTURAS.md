@@ -5,7 +5,7 @@
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.9-dev experimental; a versão estável atual do sistema é 1.12.35. Consulte o changelog próprio do plugin para o avanço posterior.
+**Versão do plugin:** 0.9-dev experimental instalada no 05; 0.9.1-dev compilada, aguardando janela com o piloto vazio. A versão estável atual do sistema é 1.12.36. Consulte o changelog próprio do plugin para o avanço posterior.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
