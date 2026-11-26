@@ -15,7 +15,7 @@
     PARADO: "Parado", INICIANDO: "Iniciando", ATUALIZANDO: "Atualizando", ONLINE: "Online", ONLINE_SEM_LISTAGEM: "Online · sem listagem",
     ONLINE_LAN: "Online · rede local", QUERY_PENDENTE: "Aguardando query"
   };
-  let payload = null, adminData = null, selectedAdmin = "", creatingSystem = false;
+  let payload = null, adminData = null, selectedAdmin = "", creatingSystem = false, adminLoadPromise = null;
   const byId = id => document.getElementById(id);
   const esc = value => String(value == null ? "" : value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   const label = key => LABEL[key] || String(key || "Não informado").replaceAll("_", " ");
@@ -73,8 +73,27 @@
     try {
       payload = await api("/api/public/systems-status" + (force ? `?t=${Date.now()}` : ""));
       window.systemStatusRender();
-      if (window._auth?.is_admin) await loadAdmin();
+      await window.systemStatusRefreshAdmin(true);
     } catch (error) { if (list) list.innerHTML = `<p role="alert">Não foi possível carregar a central: ${esc(error.message)}. Tente atualizar novamente.</p>`; }
+  };
+  function isAdmin() {
+    // A sessão do portal é declarada com let; não é uma propriedade de window.
+    return typeof _auth !== "undefined" && !!_auth?.authenticated && !!_auth?.is_admin;
+  }
+  window.systemStatusRefreshAdmin = async function (force = false) {
+    const root = byId("system-status-admin"), error = byId("system-status-admin-error");
+    if (!root) return;
+    if (!isAdmin()) {
+      root.hidden = true;
+      if (error) error.hidden = true;
+      adminData = null;
+      return;
+    }
+    if (!byId("page-system-status")?.classList.contains("active")) return;
+    if (adminLoadPromise) return adminLoadPromise;
+    if (adminData && !force) return;
+    adminLoadPromise = loadAdmin().finally(() => { adminLoadPromise = null; });
+    return adminLoadPromise;
   };
   function fillSelect(id, values, allowEmpty) {
     const select = byId(id); if (!select) return;
@@ -83,7 +102,20 @@
   }
   async function loadAdmin() {
     const root = byId("system-status-admin");
-    try { adminData = await api("/api/admin/systems-status"); } catch (_) { root.hidden = true; return; }
+    const error = byId("system-status-admin-error");
+    try {
+      const result = await api("/api/admin/systems-status");
+      if (!isAdmin()) { root.hidden = true; return; }
+      adminData = result;
+    } catch (failure) {
+      root.hidden = true;
+      if (error && isAdmin()) {
+        error.textContent = `Não foi possível carregar a administração da central: ${failure.message}. Clique em Atualizar para tentar novamente.`;
+        error.hidden = false;
+      }
+      return;
+    }
+    if (error) error.hidden = true;
     root.hidden = false;
     const options = adminData.systems.map(system => `<option value="${esc(system.system_key)}">${esc(system.name)}</option>`).join("");
     byId("ssa-system").innerHTML = options; byId("ssi-system").innerHTML = options;

@@ -8377,6 +8377,7 @@
             <label>Categoria <select id="system-status-category" onchange="systemStatusRender()"><option value="">Todas</option></select></label></div>
           <div id="system-status-incidents" class="system-status-incidents"></div>
           <div id="system-status-list" class="system-status-grid" aria-live="polite"><p>Carregando status…</p></div>
+          <p id="system-status-admin-error" role="alert" hidden></p>
           <section id="system-status-admin" class="system-status-admin" hidden><details><summary>Administração da central</summary>
             <button class="btn btn-ghost btn-sm" type="button" onclick="systemStatusAdminNew()">Novo sistema</button><div class="system-status-admin-grid">
               <label>Chave (somente letras minúsculas, números, ponto, hífen e sublinhado) <input id="ssa-key" maxlength="80" disabled></label>
@@ -14822,6 +14823,7 @@ function applyRoleUi(deferAdminNav = false) {
   }
 
   if (_auth.authenticated) refreshPlayerBalance();
+  if (typeof window.systemStatusRefreshAdmin === "function") window.systemStatusRefreshAdmin();
 }
 
 function formatPoints(n) {

@@ -1,8 +1,8 @@
 {
-    "version": "1.12.30",
+    "version": "1.12.31",
     "date": "2026-11-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.30/ARKLAND-Multi-Setup-v1.12.30.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.31/ARKLAND-Multi-Setup-v1.12.31.exe",
     "changelog": [
-        "Correção no empacotamento da Web Store: inclui Pillow no executável para carregar o módulo PIL usado pelo armazenamento e validação de imagens da comunicação Lumo."
+        "Correção na Central de Status dos Sistemas: reconhece a sessão administrativa real do portal e libera o formulário de revisão e atualização dos sistemas, inclusive após o carregamento do login. Mantém os controles ocultos para visitantes e jogadores, e informa falhas de carregamento da administração com opção de tentar novamente pelo botão Atualizar. As alterações continuam protegidas pela API e registradas no histórico administrativo."
     ]
 }

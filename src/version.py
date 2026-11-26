@@ -4,13 +4,20 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.30"
+APP_VERSION: str = "1.12.31"
 BUILD_DATE: str = "2026-11-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 # Entrada "Unreleased" = notas para a próxima release (não bump APP_VERSION até ship).
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.12.31",
+        "date": "2026-11-25",
+        "changes": [
+            "Correção na Central de Status dos Sistemas: reconhece a sessão administrativa real do portal e libera o formulário de revisão e atualização dos sistemas, inclusive após o carregamento do login. Mantém os controles ocultos para visitantes e jogadores, e informa falhas de carregamento da administração com opção de tentar novamente pelo botão Atualizar. As alterações continuam protegidas pela API e registradas no histórico administrativo.",
+        ],
+    },
     {
         "version": "1.12.30",
         "date": "2026-11-25",

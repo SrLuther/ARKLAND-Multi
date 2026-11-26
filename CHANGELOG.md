@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 21:05:09 -->
-<!-- Total de versões: 591 | Primeira: 1.12.30 -->
+<!-- Gerado: 2026-11-25 22:18:33 -->
+<!-- Total de versões: 592 | Primeira: 1.12.31 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.31] - 2026-11-25
+
+### Other
+
+- Correção na Central de Status dos Sistemas: reconhece a sessão administrativa real do portal e libera o formulário de revisão e atualização dos sistemas, inclusive após o carregamento do login. Mantém os controles ocultos para visitantes e jogadores, e informa falhas de carregamento da administração com opção de tentar novamente pelo botão Atualizar. As alterações continuam protegidas pela API e registradas no histórico administrativo.
 
 ## [1.12.30] - 2026-11-25
 

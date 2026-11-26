@@ -38,6 +38,8 @@ Há um endpoint de heartbeat de plugin autenticado em `/api/plugin/systems-statu
 
 ## Administração
 
+Com uma conta administradora autenticada, abra **Status dos sistemas** e expanda **Administração da central**, ao final dos cards. Selecione **Sistema existente**, revise os campos e clique em **Salvar sistema**. O histórico registra o responsável e os valores alterados. O painel acompanha o carregamento da sessão; se a consulta administrativa falhar, apresenta um aviso e permite tentar novamente pelo botão **Atualizar**. Visitantes e jogadores não recebem os controles administrativos.
+
 Administradores autenticados podem revisar nome, categoria, descrição, versão, estágio, estado operacional, disponibilidade, recursos disponíveis, desenvolvimento, limitações, problemas conhecidos, observação pública e visibilidade. Também podem registrar incidente/manutenção, avançar sua etapa e marcá-lo como resolvido. As rotas de escrita exigem `admin_required`; heartbeats usam a autenticação de API existente.
 
 ## Persistência e rotas
