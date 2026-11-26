@@ -29,6 +29,7 @@ std::size_t collectionMutations=0;
 Json lastCompletedScan=nullptr;
 std::map<std::string,Json> scanExcluded,lastExcluded;
 bool exclusionOverflow=false;
+MapCalibration gpsCalibration;
 std::unordered_map<int,std::string> teamTribes,playerSteam;
 std::chrono::steady_clock::time_point nextScan,nextPublish;
 bool Ready(){return ArkApi::GetApiUtils().GetStatus()==ArkApi::ServerStatus::Ready;}
@@ -41,6 +42,11 @@ const ClassEvidence* Classify(AActor* actor){
     FString full;cls->GetFullName(&full,nullptr);const auto name=Text(full);
     ClassEvidence value{NormalizeBlueprintKey(name),ShortName(name),actor->IsA(APrimalStructure::GetPrivateStaticClass()),supplyClass&&actor->IsA(supplyClass)};
     return &classEvidence.emplace(cls,std::move(value)).first->second;
+}
+bool DeathCache(APrimalStructure* structure){
+    if(!structure||!structure->IsA(APrimalStructureItemContainer::GetPrivateStaticClass()))return false;
+    auto* container=static_cast<APrimalStructureItemContainer*>(structure);
+    return IsGeneratedDeathCache(container->bUseDeathCacheCharacterID().Get(),static_cast<double>(container->DeathCacheCreationTimeField()));
 }
 Json Record(const ObservedStructure& record){
     Json result={{"structure_id",record.id},{"blueprint",record.blueprint},{"targeting_team",record.targetingTeam},
@@ -74,7 +80,7 @@ void RefreshOwners(){
 std::optional<ObservedStructure> Capture(APrimalStructure* structure,bool removing=false){
     if(!structure||!structure->ClassField()||structure->bIsPreviewStructure().Get()||
        (!removing&&structure->IsPendingKillPending())||
-       (supplyClass&&structure->IsA(supplyClass)))return std::nullopt;
+       (supplyClass&&structure->IsA(supplyClass))||DeathCache(structure))return std::nullopt;
     ObservedStructure value;value.id=std::to_string(structure->StructureIDField());
     value.targetingTeam=structure->TargetingTeamField();value.playerId=structure->OwningPlayerIDField();
     if(value.id=="0"||(!value.targetingTeam&&!value.playerId))return std::nullopt;
@@ -89,14 +95,16 @@ std::optional<ObservedStructure> Capture(APrimalStructure* structure,bool removi
         value.x=xyz[0];value.y=xyz[1];value.z=xyz[2];
         auto* world=ArkApi::GetApiUtils().GetWorld();
         if(world&&world->GetWorldSettings(false,true)){
-            const auto coords=ArkApi::GetApiUtils().FVectorToCoords(FVector(xyz[0],xyz[1],xyz[2]));
-            value.latitude=coords.y;value.longitude=coords.x;value.hasCoordinates=true;
+            auto* settings=static_cast<APrimalWorldSettings*>(world->GetWorldSettings(false,true));
+            gpsCalibration={settings->LatitudeScaleField(),settings->LongitudeScaleField(),settings->LatitudeOriginField(),settings->LongitudeOriginField()};
+            if(const auto coords=PreciseMapPosition(xyz[0],xyz[1],gpsCalibration)){
+                value.latitude=coords->latitude;value.longitude=coords->longitude;value.hasCoordinates=true;}
         }
     }
     return value;
 }
 Json Status(bool includeRecords,bool includeCatalog=false){
-    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9-dev"},
+    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.1-dev"},
         {"instance",configuration.Identity().displayId},{"canonical_instance_path",configuration.Identity().canonicalInstancePath},
         {"complete_inventory",false},{"enforcement",false},{"reason","resident_and_local_stasis_coverage_not_yet_validated"},
         {"observed_structures",inventory.Records().size()},{"removed_this_boot",inventory.RemovedCount()},
@@ -107,6 +115,8 @@ Json Status(bool includeRecords,bool includeCatalog=false){
         {"excluded_identity_actors",lastExcluded.size()},{"excluded_identity_overflow",exclusionOverflow},
         {"updated_at_unix",std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()}};
     state["class_catalog_count"]=classEvidence.size();
+    state["gps_calibration"]={{"latitude_scale",gpsCalibration.latitudeScale},{"longitude_scale",gpsCalibration.longitudeScale},
+        {"latitude_origin",gpsCalibration.latitudeOrigin},{"longitude_origin",gpsCalibration.longitudeOrigin},{"rounded",false}};
     if(includeCatalog){state["class_catalog"]=Json::array();for(const auto& [cls,value]:classEvidence)
         state["class_catalog"].push_back({{"class_name",value.shortName},{"blueprint",value.blueprint},
             {"is_structure",value.structure},{"is_supply_crate",value.supplyCrate}});
@@ -122,14 +132,18 @@ void ScanActor(AActor* actor,unsigned source){
         auto* structure=static_cast<APrimalStructure*>(actor);
         const auto* type=Classify(actor);
         if(type&&!type->supplyCrate&&!structure->bIsPreviewStructure().Get()&&!structure->IsPendingKillPending()&&
-            (!structure->StructureIDField()||(!structure->TargetingTeamField()&&!structure->OwningPlayerIDField()))){
+            (DeathCache(structure)||!structure->StructureIDField()||(!structure->TargetingTeamField()&&!structure->OwningPlayerIDField()))){
             FString full;structure->GetFullName(&full,nullptr);const auto name=Text(full);
             if(scanExcluded.size()<4096||scanExcluded.count(name)){
                 Json evidence={{"actor_name",ShortName(name)},{"actor_full_name",name},{"class_name",type->shortName},
                     {"blueprint",type->blueprint},{"structure_id",std::to_string(structure->StructureIDField())},
                     {"targeting_team",structure->TargetingTeamField()},{"player_data_id",static_cast<std::uint32_t>(structure->OwningPlayerIDField())},
                     {"net_startup",structure->bNetStartup().Get()},{"loaded_from_save",structure->bLoadedFromSaveGame().Get()},
-                    {"reason",!structure->StructureIDField()?"missing_structure_id":"missing_player_ownership"}};
+                    {"reason",DeathCache(structure)?"generated_death_cache":!structure->StructureIDField()?"missing_structure_id":"missing_player_ownership"}};
+                if(structure->IsA(APrimalStructureItemContainer::GetPrivateStaticClass())){
+                    auto* container=static_cast<APrimalStructureItemContainer*>(structure);
+                    evidence["death_cache_character_id_marker"]=container->bUseDeathCacheCharacterID().Get();
+                    evidence["death_cache_creation_time"]=static_cast<double>(container->DeathCacheCreationTimeField());}
                 if(auto* root=structure->RootComponentField()){float xyz[4]{};_mm_storeu_ps(xyz,root->ComponentToWorldField().Translation);
                     evidence["xyz"]={xyz[0],xyz[1],xyz[2]};}
                 scanExcluded[name]=std::move(evidence);
@@ -223,7 +237,7 @@ void StartLiveInventory(const PluginConfiguration& config,DurableOutbox& outbox)
     ArkApi::GetCommands().AddRconCommand(L"StructureLimits.Status",&RconStatus);
     scanning=false;scans=0;nextScan={};nextPublish={};dirty=true;lastCompletedScan=nullptr;
     classEvidence.clear();classCatalogOverflow=false;scanExcluded.clear();lastExcluded.clear();exclusionOverflow=false;
-    Log::GetLog()->info("StructureLimits 0.9-dev: live ledger, actor names, class census, source coverage and offline tribe registry active; enforcement=false");
+    Log::GetLog()->info("StructureLimits 0.9.1-dev: native death-cache markers excluded, precise map GPS, observed census active; enforcement=false");
 }
 void StopLiveInventory(){
     acceptingEvents=false;

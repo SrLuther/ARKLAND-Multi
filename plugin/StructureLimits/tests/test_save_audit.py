@@ -120,6 +120,16 @@ class SaveAuditTests(unittest.TestCase):
             "is_structure": False, "is_supply_crate": False} for value in ("/game/tree.tree", "/mod/tree.tree")])
         self.assertTrue(audit.compare(self.saved + [other], self.live)["checkpoint_matches"])
 
+    def test_death_cache_requires_native_marker_and_creation_time(self):
+        actor = {**self.saved[0], "names": ["Bag_1"]}
+        evidence = {"class_name": "ModFloor_C", "actor_name": "Bag_1", "structure_id": "900",
+            "targeting_team": 90000, "player_data_id": 123, "xyz": [1., 2., 3.],
+            "reason": "generated_death_cache", "death_cache_character_id_marker": True, "death_cache_creation_time": 100}
+        self.live["excluded_structure_actors"] = [evidence]
+        self.assertTrue(audit.compare(self.saved + [actor], self.live)["checkpoint_matches"])
+        evidence["death_cache_character_id_marker"] = False
+        self.assertFalse(audit.compare(self.saved + [actor], self.live)["checkpoint_matches"])
+
 
 if __name__ == "__main__":
     unittest.main()

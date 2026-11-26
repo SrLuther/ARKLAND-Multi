@@ -5,6 +5,10 @@
 #include <set>
 
 namespace StructureLimits {
+struct MapCalibration { double latitudeScale=800,longitudeScale=800,latitudeOrigin=-400000,longitudeOrigin=-400000; };
+struct MapPosition { double latitude,longitude; };
+std::optional<MapPosition> PreciseMapPosition(double x,double y,const MapCalibration& calibration);
+bool IsGeneratedDeathCache(bool useDeathCacheCharacterId,double deathCacheCreationTime);
 struct ObservedStructure {
     std::string id, blueprint, steamId, tribeId;
     std::string actorName, actorFullName;

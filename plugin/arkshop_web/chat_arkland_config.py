@@ -8,6 +8,7 @@ import re
 from string import Formatter
 import unicodedata
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from chat_arkland_emojis import normalize_emojis, render_emojis
 
 try:
     BRAZIL = ZoneInfo("America/Sao_Paulo")
@@ -264,7 +265,7 @@ def format_global(config: dict, actor: dict, public_id: str | None, map_label: s
     name = display_name(actor.get("steam_name") if config["ShowSteamName"] and actor.get("steam_name") else actor.get("name") or "Sobrevivente")
     tribe = display_name(actor.get("tribe_name") or "")
     colors = colors or config["Colors"]
-    body = censor(clean_text(body, config["MaxMessageLength"]), config)
+    body = censor(clean_text(normalize_emojis(body), config["MaxMessageLength"]), config)
     label = display_name(map_label)
     values = {"hora": stamp, "mapa": label, "tag": f"<{display_name(tag['Label'])}> " if tag else "",
               "jogador": name, "id": str(public_id or ""), "tribo": f" [{tribe}]" if tribe and not colors["HideTribeName"] else "", "mensagem": body}
@@ -281,6 +282,6 @@ def format_global(config: dict, actor: dict, public_id: str | None, map_label: s
         "mapa": rich(label, colors["Map"] if origin == "game" else colors["Discord"]),
         "tag": rich(values["tag"], tag.get("Color", colors["Tag"])) if tag else "",
         "jogador": rich(name, colors["Name"]), "id": rich(values["id"], colors["Id"]),
-        "tribo": rich(values["tribo"], colors["Tribe"]), "mensagem": rich(body, colors["Message"])}
+        "tribo": rich(values["tribo"], colors["Tribe"]), "mensagem": render_emojis(body, lambda text: rich(text, colors["Message"]))}
     return {"plain": plain, "rich": template.format_map(rich_values), "body": body,
             "sender_name": name, "tag": tag["Label"] if tag else "", "public_id": public_id}

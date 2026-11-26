@@ -27,6 +27,18 @@ int main(){
         Check(formatted.find("[]")==std::string::npos,"Sem tribo vazia");
         Check(NewId().size()==36&&CompactId().size()==32,"UUIDs");
         Check(Color("#FF0000FF")[0]==1.f,"Cor valida");
+        const auto smile=std::string("<img src=\"Chat.Image\" path=\"/Game/PrimalEarth/Emo/Emo_Smile.Emo_Smile\"/>");
+        Check(NormalizeEmojis("Olá :) ;) :D :( :P >:) :| :O")=="Olá 🙂 😉 😄 🙁 😛 😈 😐 😮","Oito emojis basicos");
+        Check(NormalizeEmojis("Oi "+smile)=="Oi 🙂","Tag nativa normalizada");
+        Check(GameChatText("Oi :)")=="Oi "+smile,"Emoji renderizado no jogo");
+        Check(GameChatText("<img src=\"Chat.Image\" path=\"/Other/Unsafe.Unsafe\"/>").find("&lt;img")!=std::string::npos,"Imagem arbitraria escapada");
+        Check(GameChatText("<RichColor Color=\"1,0,0,1\">fake</>").find("&lt;RichColor")!=std::string::npos,"Markup arbitrario escapado");
+        Check(NormalizeEmojis("https://arkland.com.br/:) www.exemplo.com/:P")=="https://arkland.com.br/:) www.exemplo.com/:P","URLs preservadas");
+        auto colored=GameChatText("Oi :) tudo", "#FFFFFFFF");
+        Check(colored.find("</>"+smile+"<RichColor")!=std::string::npos,"Imagem fora dos spans de cor");
+        actor["body"]="Oi "+smile;
+        formatted=LocalFormat(state,actor,"Mapa",false);
+        Check(formatted.find(smile)!=std::string::npos&&formatted.find("&lt;img")==std::string::npos,"Fallback preserva emoji");
         std::cout<<"Chat Arkland: testes C++ do nucleo passaram.\n";return 0;
     }catch(const std::exception& failure){std::cerr<<failure.what()<<"\n";return 1;}
 }

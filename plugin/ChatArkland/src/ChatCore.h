@@ -21,6 +21,8 @@ std::string Utf8(const std::wstring& text);
 std::string NewId();
 std::string CompactId();
 std::string Escape(const std::string& text);
+std::string NormalizeEmojis(const std::string& text);
+std::string GameChatText(const std::string& text, const std::string& paint = "");
 std::string Name(const std::string& text);
 std::array<float,4> Color(const std::string& color);
 void ValidateShared(const Json& config);

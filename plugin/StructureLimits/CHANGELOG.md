@@ -1,5 +1,13 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.9.1-dev — correções após rodada humana] — 26/11/2026
+
+- Homologação do administrador: contagem da tribo começou/terminou em 227; colocar incrementou e remover decrementou uma unidade; distância não derrubou a contagem. SSH confirmou cinco IDs de TekLight, cada um com um evento de colocação e um de remoção, nenhum deles ainda ativo. O teste não comprova decay nem identifica a causa específica das remoções.
+- A comparação do inventário geral encontrou 13 novos atores DeathItemCache e nenhum ID da referência inicial desaparecido. Essas bolsas não tinham atribuição de tribo/Steam e não alteraram o 227 mostrado ao jogador; a falha de classificação do ledger geral ficou explícita.
+- Adiciona exclusão de caches gerados usando marcadores nativos de contêiner (`bUseDeathCacheCharacterID` e `DeathCacheCreationTime` válido), sem lista manual de blueprints. A auditoria exige os mesmos marcadores antes de tratar um ator como cache.
+- Latitude/longitude passam a usar a escala/origem do mapa sem o `floor(...*10)/10` do helper do SDK. Mantém XYZ e sinaliza a calibração utilizada; eventos antigos não são reescritos. Testes cobrem 36,06/59,12 e calibração padrão.
+- 25 casos standalone C++ e 15 testes do comparador aprovados. Fiscalização permanece suspensa. Implantação e confirmação dos marcadores no piloto devem ser registradas separadamente.
+
 ## [0.9-dev — auditoria independente de inventário] — 26/11/2026
 
 - Identidade do ator (`actor_name` e nome completo) e fontes de observação por registro: PersistentLevel, outros níveis, stasis e colocação concluída. Conflitos de nome completo para um mesmo StructureID ficam explícitos; fontes repetidas não duplicam a contagem.

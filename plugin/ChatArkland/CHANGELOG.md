@@ -1,5 +1,13 @@
 # Changelog — Chat Arkland
 
+## 0.1.1 — emojis básicos — 26/11/2026
+
+- Corrige tags `<img src="Chat.Image" ...>` dos emojis nativos que apareciam como texto no global. O serviço central normaliza tags conhecidas, emoticons e Unicode e emite somente os oito assets confirmados no servidor: Smile, Sad, Laugh, Wink, Tongue, Evil, Blank e Eyes.
+- Ícones são emitidos como runs próprios, fora dos spans de cor; markup, caminhos e atributos arbitrários continuam escapados. URLs e identificadores não são convertidos em emoticons.
+- DLL normaliza antes do filtro e renderiza os mesmos ícones nas mensagens privadas e no fallback local. Os canais nativos de tribo/local/aliados preservam sua mensagem quando não houver censura; a ponte continua restrita ao global.
+- As definições de emojis são compartilhadas pelo Python e pelo contrato C++ gerado. O build usa `--contract-only` e não reescreve migrações SQL durante a compilação.
+- 91 testes Python aprovados, incluindo 15 casos novos dos emojis, e testes C++ do núcleo aprovados. Compilação confirma o código; apresentação visual no jogo ainda deve ser conferida depois da implantação.
+
 ## Serviço central 1.12.35 — 26/11/2026
 
 - Captura imutável das mensagens novas de humanos e do Lumo no canal configurado, incluindo autoria estável e horário, com apresentação nos blocos do chat do jogo.

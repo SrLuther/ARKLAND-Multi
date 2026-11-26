@@ -118,7 +118,7 @@ void Transport::Run(){
             while(!outbound_.empty()&&std::time(nullptr)-outbound_.front().value("_queued_at",int64_t(0))>state_->config.at("MessageTtlSeconds").get<int>())outbound_.pop_front();
             for(size_t i=0;i<std::min<size_t>(50,outbound_.size());++i){Json event=outbound_[i];event.erase("_actor");event.erase("_fallback");event.erase("_queued_at");batch.push_back(std::move(event));}
             Json ack_batch=Json::array();for(size_t i=0;i<std::min<size_t>(200,acks_.size());++i)ack_batch.push_back(acks_[i]);ack_count=ack_batch.size();
-            body={{"server_key",server_key_},{"boot_id",boot_},{"plugin_version","0.1.0"},{"observer",ObserveOnly()},
+            body={{"server_key",server_key_},{"boot_id",boot_},{"plugin_version","0.1.1"},{"observer",ObserveOnly()},
                   {"revision",state_->revision},{"players",stopping?Json::array():snapshot_},{"events",batch},{"acks",ack_batch},
                   {"cursor",cursor_},{"resume",resume_},{"stopping",stopping}};
         }

@@ -8,7 +8,7 @@ if not exist "%SDK_LIB%\ArkApi.lib" set "SDK_LIB=%CHAT_SDK_ROOT%\lib"
 if not exist "%SDK_PUBLIC%\API\ARK\Ark.h" (echo SDK do ArkServerAPI ASE nao encontrado. & exit /b 1)
 if not exist "%SDK_LIB%\ArkApi.lib" (echo ArkApi.lib nao encontrada. & exit /b 1)
 if not defined CHAT_PYTHON (echo Defina CHAT_PYTHON com o interpretador do ambiente do projeto. & exit /b 1)
-"%CHAT_PYTHON%" "%PLUGIN_DIR%generate_assets.py"
+"%CHAT_PYTHON%" "%PLUGIN_DIR%generate_assets.py" --contract-only
 if errorlevel 1 exit /b 1
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_DIR=%%i"

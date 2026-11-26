@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from chat_arkland_config import DEFAULTS, MESSAGES, censor, clean_text, display_name, format_global, select_style, validate_config
 from player_monitoring_routes import _ensure_schema as ensure_monitor_schema, ingest_session_event
 from chat_arkland_mirrors import define_mirrors, DiscordMirrorStore
+from chat_arkland_emojis import normalize_emojis
 
 META = MetaData()
 JSON_TEXT = Text().with_variant(LONGTEXT(), "mysql")
@@ -256,7 +257,7 @@ class ChatArklandService:
             return self._notice(db, event_id, actor["steam_id"], "Disabled", config)
         kind = str(event.get("kind", ""))
         try:
-            body = clean_text(event.get("body"), config["MaxMessageLength"])
+            body = clean_text(normalize_emojis(event.get("body")), config["MaxMessageLength"])
         except ValueError:
             return self._notice(db, event_id, actor["steam_id"], "TooLong", config)
         steam = actor["steam_id"]

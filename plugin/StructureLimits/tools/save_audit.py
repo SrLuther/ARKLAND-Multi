@@ -69,6 +69,7 @@ def compare(saved, live, *, parse_errors=(), tolerance=0.05):
     duplicate_records = 0
     confirmed_map_actors = 0
     excluded_identity_actors = 0
+    confirmed_death_caches = 0
     for identity, rows in candidates.items():
         signatures = {(u32(r["targeting_team"]), u32(r["player_data_id"]), coordinates(r["xyz"])) for r in rows}
         if len(signatures) != 1:
@@ -92,7 +93,10 @@ def compare(saved, live, *, parse_errors=(), tolerance=0.05):
             # confirms no player ownership on this exact actor. StructureID and
             # NetStartup are not origin proofs: map actors can have a nonzero ID
             # and NetStartup is false on most map-origin ASE actors in this checkpoint.
-            if row["from_data_file"] and owner == (0, 0):
+            if (evidence.get("reason") == "generated_death_cache" and evidence.get("death_cache_character_id_marker") is True
+                    and math.isfinite(float(evidence.get("death_cache_creation_time", 0))) and float(evidence.get("death_cache_creation_time", 0)) > 0):
+                confirmed_death_caches += 1
+            elif row["from_data_file"] and owner == (0, 0):
                 confirmed_map_actors += 1
             else:
                 issues["unresolved_actor_classification"].append({"class": identity[0], "actor": row["names"][0],
@@ -148,6 +152,7 @@ def compare(saved, live, *, parse_errors=(), tolerance=0.05):
         "duplicate_save_records_collapsed": duplicate_records, "live_structures": len(live["structures"]),
         "matched": matched, "classified_non_countable_actor_records": excluded,
         "confirmed_static_map_actors": confirmed_map_actors, "excluded_identity_actors_compared": excluded_identity_actors,
+        "confirmed_generated_death_caches": confirmed_death_caches,
         "maximum_xyz_delta": maximum_delta, "parser_error_count": len(parse_errors),
         "issues": issues, "limitation": "One checkpoint comparison; not proof of every lifecycle, mod or pre-consumption veto."}
 

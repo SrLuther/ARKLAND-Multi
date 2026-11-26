@@ -8,10 +8,12 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -465,7 +467,20 @@ void TestObservedActorIdentityAndSources() {
     assert(inventory.Records().at("9").actorName=="Floor_C_1"&&inventory.Conflicts()==1);
 }
 
+void TestPreciseGpsAndNativeDeathCacheMarkers(){
+    const auto position=StructureLimits::PreciseMapPosition(72960,-111520,{});
+    assert(position&&std::abs(position->latitude-36.06)<0.0000001&&std::abs(position->longitude-59.12)<0.0000001);
+    const auto defaults=StructureLimits::PreciseMapPosition(0,0,{0,0,0,0});
+    assert(defaults&&defaults->latitude==50&&defaults->longitude==50);
+    assert(!StructureLimits::PreciseMapPosition(std::numeric_limits<double>::quiet_NaN(),0,{}));
+    assert(StructureLimits::IsGeneratedDeathCache(true,100));
+    assert(!StructureLimits::IsGeneratedDeathCache(false,100));
+    assert(!StructureLimits::IsGeneratedDeathCache(true,0));
+    assert(!StructureLimits::IsGeneratedDeathCache(true,std::numeric_limits<double>::infinity()));
+}
+
 int main() {
+    TestPreciseGpsAndNativeDeathCacheMarkers();
     TestObservedActorIdentityAndSources();
     TestAsynchronousInventoryJournal();
     TestObservedLedgerIdempotencyAndPartialCoverage();

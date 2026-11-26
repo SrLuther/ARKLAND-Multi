@@ -65,7 +65,7 @@ bool OwnCommands(){
     auto state=transport->State();auto map=state->config.at("Maps").value(transport->ServerKey(),Json::object());return map.value("Enabled",false);
 }
 void Chat(AShooterPlayerController* player,const std::string& text,bool rich=false){
-    FChatMessage message{};message.Message=GameString(rich?text:Escape(text));player->ClientChatMessage(message);
+    FChatMessage message{};message.Message=GameString(rich?text:GameChatText(text));player->ClientChatMessage(message);
 }
 void Notice(AShooterPlayerController* player,const std::string& text,float scale=0.5f,float seconds=10.f,std::array<float,4> color={1,1,1,1}){
     ArkApi::GetApiUtils().SendNotification(player,{color[0],color[1],color[2],color[3]},scale,seconds,nullptr,L"{}",Wide(Escape(text)).c_str());
@@ -116,9 +116,9 @@ bool OnChat(AShooterPlayerController* player,FString* message,EChatSendMode::Typ
         // nossos no callback evita remover comandos pertencentes a outro plugin.
         if(HandleCommand(player,message))return true;
         if(!Active())return false;
-        auto state=transport->State();std::string original=String(*message);
+        auto state=transport->State();std::string original=NormalizeEmojis(String(*message));
         if(original.empty()||original.front()=='/')return false;
-        std::string body=state->filter->Apply(original);if(body!=original)*message=GameString(body);
+        std::string body=state->filter->Apply(original);if(body!=original)*message=GameString(GameChatText(body));
         // Mensagens locais, de tribo e de aliados nunca entram no transporte.
         if(mode!=EChatSendMode::GlobalChat||!state->config.at("UseCrossChat").get<bool>())return false;
         if(!transport->Healthy())return false;
@@ -203,7 +203,7 @@ extern "C" __declspec(dllexport) void Plugin_Init(){
         ArkApi::GetCommands().AddOnChatMessageCallback(L"ChatArkland.Chat",OnChat);
         ArkApi::GetCommands().AddConsoleCommand(L"ChatArkland.Status",Status);
         transport->Start();
-        Log::GetLog()->info("Chat Arkland 0.1.0 carregado; aguardando configuração e validação da instância.");
+        Log::GetLog()->info("Chat Arkland 0.1.1 carregado; aguardando configuração e validação da instância.");
     }catch(...){Log::GetLog()->error("Chat Arkland não iniciou. Verifique o arquivo config.json; o chat nativo permanece disponível.");}
 }
 extern "C" __declspec(dllexport) void Plugin_Unload(){

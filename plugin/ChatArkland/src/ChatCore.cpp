@@ -1,4 +1,5 @@
 #include "ChatCore.h"
+#include "ChatEmojis.h"
 #include <algorithm>
 #include <cmath>
 #include <cctype>
@@ -11,6 +12,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <objbase.h>
+#include <regex>
 
 namespace ChatArkland {
 std::wstring Wide(const std::string& value) {
@@ -102,10 +104,66 @@ std::wstring Fold(const std::wstring& input,std::vector<size_t>* positions=nullp
 void Replace(std::string& text,const std::string& token,const std::string& value) {
     size_t position=0; while((position=text.find(token,position))!=std::string::npos){text.replace(position,token.size(),value);position+=value.size();}
 }
+struct Emoji { std::string asset,unicode;std::vector<std::string> ascii,aliases; };
+const std::vector<Emoji>& Emojis(){
+    static const auto values=[](){std::vector<Emoji> rows;for(const auto& row:Json::parse(kChatEmojis))
+        rows.push_back({row.at("asset").get<std::string>(),row.at("unicode").get<std::string>(),row.at("ascii").get<std::vector<std::string>>(),row.at("aliases").get<std::vector<std::string>>()});return rows;}();
+    return values;
+}
+bool WordByte(unsigned char c){return c>=128||std::isalnum(c)||c=='_';}
+std::string Image(const Emoji& value){return "<img src=\"Chat.Image\" path=\"/Game/PrimalEarth/Emo/"+value.asset+"."+value.asset+"\"/>";}
 std::string Span(const std::string& value,const std::string& paint) {
     auto rgba=Color(paint);std::ostringstream out;out.imbue(std::locale::classic());
     out<<"<RichColor Color=\""<<std::fixed<<std::setprecision(4)<<rgba[0]<<","<<rgba[1]<<","<<rgba[2]<<","<<rgba[3]<<"\">"<<Escape(value)<<"</>";return out.str();
 }
+}
+std::string NormalizeEmojis(const std::string& input){
+    static const std::regex native(R"CA_EMO(<img\s+src="Chat\.Image"\s+path="/Game/PrimalEarth/Emo/(Emo_[A-Za-z]+)\.\1"\s*/>)CA_EMO",std::regex::optimize);
+    static const std::regex url(R"CA_URL((?:[A-Za-z][A-Za-z0-9+.-]*://|www\.)[^\s<>]+)CA_URL",std::regex::optimize);
+    std::string text;std::size_t previous=0;
+    for(std::sregex_iterator it(input.begin(),input.end(),native),end;it!=end;++it){
+        const auto& match=*it;text.append(input,previous,static_cast<std::size_t>(match.position())-previous);
+        auto found=std::find_if(Emojis().begin(),Emojis().end(),[&](const auto& value){return value.asset==match[1].str();});
+        text+=found==Emojis().end()?match.str():found->unicode;previous=static_cast<std::size_t>(match.position()+match.length());
+    }
+    text.append(input,previous,std::string::npos);
+    std::vector<std::pair<std::string,std::string>> aliases,tokens;
+    for(const auto& emoji:Emojis()){
+        for(const auto& value:emoji.aliases)aliases.push_back({value,emoji.unicode});
+        for(const auto& value:emoji.ascii)tokens.push_back({value,emoji.unicode});
+    }
+    auto longest=[](const auto& a,const auto& b){return a.first.size()>b.first.size();};
+    std::stable_sort(aliases.begin(),aliases.end(),longest);std::stable_sort(tokens.begin(),tokens.end(),longest);
+    for(const auto& [alias,value]:aliases)Replace(text,alias,value);
+    std::string result;
+    for(std::size_t position=0;position<text.size();){
+        std::match_results<std::string::const_iterator> match;
+        if(std::regex_search(text.cbegin()+position,text.cend(),match,url,std::regex_constants::match_continuous)){
+            result+=match.str();position+=static_cast<std::size_t>(match.length());continue;
+        }
+        bool replaced=false;
+        for(const auto& [token,value]:tokens){const auto after=position+token.size();
+            if(text.compare(position,token.size(),token)==0&&
+                (position==0||(!WordByte(static_cast<unsigned char>(text[position-1]))&&text[position-1]!=':'&&text[position-1]!='/'))&&
+                (after==text.size()||!WordByte(static_cast<unsigned char>(text[after])))){
+                result+=value;position=after;replaced=true;break;
+            }
+        }
+        if(!replaced)result+=text[position++];
+    }
+    return result;
+}
+std::string GameChatText(const std::string& input,const std::string& paint){
+    const auto text=NormalizeEmojis(input);std::string output;std::size_t start=0;
+    auto formatted=[&](const std::string& value){return paint.empty()?Escape(value):Span(value,paint);};
+    for(std::size_t position=0;position<text.size();){
+        auto emoji=std::find_if(Emojis().begin(),Emojis().end(),[&](const auto& value){return text.compare(position,value.unicode.size(),value.unicode)==0;});
+        if(emoji==Emojis().end()){++position;continue;}
+        if(position>start)output+=formatted(text.substr(start,position-start));
+        output+=Image(*emoji);position+=emoji->unicode.size();start=position;
+    }
+    if(start<text.size()||output.empty())output+=formatted(text.substr(start));
+    return output;
 }
 WordFilter::WordFilter(const Json& cfg) {
     enabled_=cfg.at("BadWords").at("Enabled").get<bool>();
@@ -184,6 +242,6 @@ std::string LocalFormat(const SharedState& state,const Json& actor,const std::st
     Replace(output,"{jogador}",Span(Name(name),colors.at("Name").get<std::string>()));
     Replace(output,"{id}",Span(state.players.at(steam).at("public_id").get<std::string>(),colors.at("Id").get<std::string>()));
     Replace(output,"{tribo}",tribe.empty()||colors.at("HideTribeName").get<bool>()?"":Span(" ["+Name(tribe)+"]",colors.at("Tribe").get<std::string>()));
-    Replace(output,"{mensagem}",Span(message,colors.at("Message").get<std::string>()));return output;
+    Replace(output,"{mensagem}",GameChatText(message,colors.at("Message").get<std::string>()));return output;
 }
 }

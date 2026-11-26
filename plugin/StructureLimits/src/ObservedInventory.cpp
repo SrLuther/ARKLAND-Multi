@@ -3,6 +3,19 @@
 #include <cmath>
 
 namespace StructureLimits {
+std::optional<MapPosition> PreciseMapPosition(double x,double y,const MapCalibration& input){
+    auto c=input;
+    if(c.latitudeScale==0)c.latitudeScale=800;if(c.longitudeScale==0)c.longitudeScale=800;
+    if(c.latitudeOrigin==0)c.latitudeOrigin=-400000;if(c.longitudeOrigin==0)c.longitudeOrigin=-400000;
+    if(!std::isfinite(x)||!std::isfinite(y)||!std::isfinite(c.latitudeScale)||!std::isfinite(c.longitudeScale)||
+       !std::isfinite(c.latitudeOrigin)||!std::isfinite(c.longitudeOrigin))return std::nullopt;
+    MapPosition result{(y+std::abs(c.latitudeOrigin))/(10*c.latitudeScale),(x+std::abs(c.longitudeOrigin))/(10*c.longitudeScale)};
+    if(!std::isfinite(result.latitude)||!std::isfinite(result.longitude))return std::nullopt;
+    return result;
+}
+bool IsGeneratedDeathCache(bool useDeathCacheCharacterId,double deathCacheCreationTime){
+    return useDeathCacheCharacterId&&std::isfinite(deathCacheCreationTime)&&deathCacheCreationTime>0;
+}
 ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
     value.blueprint = NormalizeBlueprintKey(value.blueprint);
     if (value.id.empty() || value.id == "0" || value.blueprint.empty() ||

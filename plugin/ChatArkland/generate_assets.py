@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "plugin" / "arkshop_web"))
 from chat_arkland_config import DEFAULTS, validate_config
 from chat_arkland_service import META
+from chat_arkland_emojis import EMOJIS
 from sqlalchemy.dialects import mysql, sqlite
 from sqlalchemy.schema import CreateTable, CreateIndex
 
@@ -17,9 +18,15 @@ encoded = json.dumps(defaults, ensure_ascii=False, separators=(",", ":"))
 (base / "src" / "ChatDefaults.h").write_text(
     '#pragma once\nnamespace ChatArkland { inline constexpr char kDefaultShared[] = R"CA_JSON('
     + encoded + ')CA_JSON"; }\n', encoding="utf-8", newline="\n")
+(base / "src" / "ChatEmojis.h").write_text(
+    '#pragma once\nnamespace ChatArkland { inline constexpr char kChatEmojis[] = R"CA_EMO_JSON('
+    + json.dumps(EMOJIS, ensure_ascii=False, separators=(",", ":")) + ')CA_EMO_JSON"; }\n', encoding="utf-8", newline="\n")
 example = {"Local": {"ServerKey": "", "ApiUrl": "https://arkland.com.br", "ApiKey": "", "ObserveOnly": True},
            "Shared": {"revision": 0, "config": defaults}, "Runtime": {"Cursor": 0, "Resume": False, "Players": {}, "Seen": []}}
 (base / "configs" / "config.json").write_text(json.dumps(example, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+if "--contract-only" in sys.argv:
+    print("Contrato C++, emojis e exemplo sem credenciais gerados; migrações preservadas.")
+    raise SystemExit(0)
 for name, dialect in (("mysql", mysql.dialect()), ("sqlite", sqlite.dialect())):
     statements = ["-- Chat Arkland: versão de esquema 1. Sem alterações em tabelas de outros sistemas."]
     for table in META.sorted_tables:
