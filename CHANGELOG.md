@@ -1,9 +1,17 @@
 # Changelog
 
-<!-- Gerado: 2026-11-26 14:36:41 -->
-<!-- Total de versões: 596 | Primeira: 1.12.35 -->
+<!-- Gerado: 2026-11-26 20:51:13 -->
+<!-- Total de versões: 597 | Primeira: 1.12.36 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.36] - 2026-11-26
+
+### Other
+
+- Chat Arkland: corrige emojis básicos como :), :(, :D, ;) e :P. Normaliza as tags de imagem geradas pelo ARK para texto Unicode na ponte e reconstitui somente os oito ícones nativos verificados no jogo, sem exibir o código da imagem. Preserva cores, filtros e privacidade; mensagens para o Discord usam a representação portátil.
+- Chat Arkland 0.1.1: amplia o tratamento de emojis para mensagens privadas e fallback local. A correção central do global é compatível com a DLL 0.1.0; os demais caminhos usam a DLL atualizada. O build do plugin passa a preservar as migrações SQL quando gera apenas o contrato compilado.
+- StructureLimits 0.9.1-dev experimental: adiciona exclusão de bolsas de morte por marcadores nativos do SDK e coordenadas GPS sem o corte para uma casa decimal. Registra a homologação humana de cinco colocações e cinco remoções, retorno a 227 estruturas da tribo e estabilidade à distância. A fiscalização continua desligada; classificação e cobertura completas, licenças remotas e veto pré-consumo permanecem pendentes.
 
 ## [1.12.35] - 2026-11-26
 

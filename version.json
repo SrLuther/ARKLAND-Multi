@@ -1,10 +1,10 @@
 {
-    "version": "1.12.35",
+    "version": "1.12.36",
     "date": "2026-11-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.35/ARKLAND-Multi-Setup-v1.12.35.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.36/ARKLAND-Multi-Setup-v1.12.36.exe",
     "changelog": [
-        "Chat Arkland no Discord: consolida mensagens novas de jogadores e do próprio Lumo nos mesmos blocos monoespaçados usados pelo jogo, com horário e autoria identificada. Captura a primeira versão da mensagem e não reaplica edições posteriores; remove o original somente depois de confirmar a cópia completa.",
-        "Consolidação do canal: fila persistente no banco, deduplicação, cópia de anexos e divisão de textos longos sem truncamento. Falhas de envio com resultado desconhecido preservam o original sem repetição automática; falhas de remoção repetem apenas a remoção. O painel mostra permissões, filas e ocorrências. Mensagens anteriores à atualização não são reorganizadas.",
-        "Chat Arkland: homologação ampliada aos servidores 01–04, com carga da DLL e resposta RCON confirmadas, preservando o 05 ocupado e o 06 desativado. StructureLimits não foi instalado nos 01–04. A atualização da consolidação é central e mantém compatibilidade com a DLL 0.1.0, sem exigir reinício dos mapas."
+        "Chat Arkland: corrige emojis básicos como :), :(, :D, ;) e :P. Normaliza as tags de imagem geradas pelo ARK para texto Unicode na ponte e reconstitui somente os oito ícones nativos verificados no jogo, sem exibir o código da imagem. Preserva cores, filtros e privacidade; mensagens para o Discord usam a representação portátil.",
+        "Chat Arkland 0.1.1: amplia o tratamento de emojis para mensagens privadas e fallback local. A correção central do global é compatível com a DLL 0.1.0; os demais caminhos usam a DLL atualizada. O build do plugin passa a preservar as migrações SQL quando gera apenas o contrato compilado.",
+        "StructureLimits 0.9.1-dev experimental: adiciona exclusão de bolsas de morte por marcadores nativos do SDK e coordenadas GPS sem o corte para uma casa decimal. Registra a homologação humana de cinco colocações e cinco remoções, retorno a 227 estruturas da tribo e estabilidade à distância. A fiscalização continua desligada; classificação e cobertura completas, licenças remotas e veto pré-consumo permanecem pendentes."
     ]
 }
