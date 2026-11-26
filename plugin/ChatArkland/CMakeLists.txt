@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.24)
+project(ChatArkland VERSION 0.1.0 LANGUAGES CXX)
+if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(FATAL_ERROR "Chat Arkland requer Windows, MSVC e destino x64 (ASE).")
+endif()
+set(CHAT_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../CustomShop/ArkServerAPI" CACHE PATH "SDK publico do ArkServerAPI ASE")
+set(CHAT_PUBLIC "${CHAT_SDK_ROOT}/version/Core/Public")
+find_library(CHAT_API_LIB ArkApi PATHS "${CHAT_SDK_ROOT}/out_lib" "${CHAT_SDK_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
+add_library(ChatArkland SHARED src/Main.cpp src/ChatCore.cpp src/ChatTransport.cpp)
+target_compile_features(ChatArkland PRIVATE cxx_std_20)
+target_compile_definitions(ChatArkland PRIVATE WIN32 _WINDOWS ARK_GAME UNICODE _UNICODE _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
+target_compile_options(ChatArkland PRIVATE /utf-8 /EHsc /d2FH4-)
+target_include_directories(ChatArkland PRIVATE "${CHAT_PUBLIC}" "${CHAT_SDK_ROOT}" src)
+target_link_libraries(ChatArkland PRIVATE "${CHAT_API_LIB}" winhttp normaliz ole32 user32 advapi32)
+set_property(TARGET ChatArkland PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set_target_properties(ChatArkland PROPERTIES PREFIX "")
+# Os assets versionados são gerados por generate_assets.py. CMake não executa
+# Python nem compila qualquer outro plugin; recompila somente fontes alteradas.

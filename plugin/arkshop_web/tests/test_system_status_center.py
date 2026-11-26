@@ -34,7 +34,8 @@ def test_catalog_seed_is_idempotent_and_does_not_claim_verified_status(tmp_path:
         row = conn.execute(text(
             "SELECT maturity,operational,availability FROM system_status_catalog WHERE system_key='structure-limits'"
         )).one()
-    assert count == len(SEED_SYSTEMS) == 30
+    assert count == len(SEED_SYSTEMS)
+    assert any(item[0] == "chat-arkland" for item in SEED_SYSTEMS)
     assert tuple(row) == ("NAO_AVALIADO", "NAO_MONITORADO", None)
 
 

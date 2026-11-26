@@ -1,0 +1,8 @@
+{
+  "FullName": "Chat Arkland",
+  "Description": "Comunicação própria do ARKLAND entre mapas, Discord e Lumo. Inicialização segura em modo observacional.",
+  "Version": 0.1,
+  "VersionLabel": "0.1.0",
+  "MinApiVersion": 3.54,
+  "Dependencies": []
+}

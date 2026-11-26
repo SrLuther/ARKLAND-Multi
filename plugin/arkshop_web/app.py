@@ -19885,6 +19885,36 @@ register_tribe_routes(
 )
 
 # Ã¢â€â‚¬Ã¢â€â‚¬ Modo Equipe (substitui Tribo na UI jogador; flag teams_enabled, default on) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+from chat_arkland_routes import register_chat_arkland_routes
+from sqlalchemy import select
+
+
+def _chat_discord_identity(db: Any, discord_user_id: str) -> dict[str, Any] | None:
+    links = db.execute(select(SupportTicketDiscordLink.steam_id).where(
+        SupportTicketDiscordLink.discord_user_id == discord_user_id).limit(2)).all()
+    if len(links) != 1:
+        return None  # Vínculo ausente ou ambíguo nunca concede uma identidade/cargo.
+    steam = str(links[0][0])
+    groups = ["Default"]
+    try:
+        from src.permission_entitlements_sync import read_active_player_groups
+        groups = read_active_player_groups(_ACTIVE_DATABASE_URL or _DATABASE_URL, steam)
+    except Exception as failure:
+        log.warning("Grupos do Chat Arkland não confirmados (%s)", type(failure).__name__)
+    user = db.get(StoreUser, steam)
+    return {"steam_id": steam, "groups": groups, "steam_name": user.steam_persona if user else ""}
+
+
+register_chat_arkland_routes(
+    app, db_ready=_db_ready, session_factory=_db_session_factory, engine_getter=lambda: _ENGINE,
+    load_servers=_load_servers, admin_required=admin_required, api_key_required=api_key_required,
+    actor_getter=_steam_id_from_session,
+    license_provider=lambda db, ids: _get_player_entitlements_batch(db, ids, allow_ddl=False),
+    license_catalog=_catalog_license_options, discord_identity=_chat_discord_identity,
+    load_settings=_load_settings, limiter=limiter, bootstrap_key=lambda: _ARKSHOP_API_KEY,
+    public_url=_shop_public_base_url,
+)
+
 from team_routes import register_team_routes
 from team_service import configure_team_service
 
@@ -20285,7 +20315,7 @@ if __name__ == "__main__":
     try:
         from lumo_gateway import get_lumo_runtime
         _lumo_runtime = get_lumo_runtime()
-        if _lumo_runtime is not None and _load_settings().get("lumo_assistant_enabled"):
+        if _lumo_runtime is not None:
             _lumo_ok, _lumo_message = _lumo_runtime.reconfigure()
             log.info("Lumo Gateway boot: %s", _lumo_message)
         atexit.register(lambda: _lumo_runtime.stop() if _lumo_runtime is not None else None)

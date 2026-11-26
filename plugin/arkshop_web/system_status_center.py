@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Callable
 
 from flask import jsonify, request
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 log = logging.getLogger("arkshop.system_status")
 
@@ -34,6 +34,7 @@ SEED_SYSTEMS = (
     ("polls", "Votações", "Enquetes públicas e administração de votações", "Eventos e competições"),
     ("support", "Suporte e tickets", "Atendimento, mensagens, anexos e acompanhamento de tickets", "Suporte e atendimento"),
     ("lumo", "Lumo", "Assistente da comunidade e central de comunicação", "Inteligência artificial e assistentes"),
+    ("chat-arkland", "Chat Arkland", "Plugin independente de comunicação entre mapas, Discord e Lumo; homologação em jogo pendente", "Comunidade e comunicação"),
     ("ark-cluster", "Servidores ARK", "Instâncias ASE e status de processo/listagem por mapa", "Servidores e plugins"),
     ("customshop", "Plugin CustomShop", "Economia in-game, comandos e entregas de compras", "Plugins dos servidores"),
     ("customdino-deliver", "Plugin CustomDinoDeliver", "Entrega de criaturas personalizadas no servidor", "Plugins dos servidores"),
@@ -93,13 +94,46 @@ def ensure_system_status_schema(engine: Any) -> None:
             conn.execute(text(
                 "INSERT INTO system_status_catalog "
                 "(system_key,name,description,category,maturity,operational,availability,implemented_json,development_json,limitations_json,known_issues_json,player_note,public_url,is_public,is_archived,changed_at) "
-                "VALUES (:key,:name,:description,:category,'NAO_AVALIADO','NAO_MONITORADO',NULL,'[]','[]','[]','[]','Aguardando validação administrativa.','',1,0,:now) "
+                "VALUES (:key,:name,:description,:category,:maturity,'NAO_MONITORADO',:availability,'[]','[]','[]','[]',:note,'',1,0,:now) "
                 "ON DUPLICATE KEY UPDATE system_key=VALUES(system_key)"
             ) if mysql else text(
                 "INSERT OR IGNORE INTO system_status_catalog "
                 "(system_key,name,description,category,maturity,operational,availability,implemented_json,development_json,limitations_json,known_issues_json,player_note,public_url,is_public,is_archived,changed_at) "
-                "VALUES (:key,:name,:description,:category,'NAO_AVALIADO','NAO_MONITORADO',NULL,'[]','[]','[]','[]','Aguardando validação administrativa.','',1,0,:now)"
-            ), {"key": key, "name": name, "description": description, "category": category, "now": _now()})
+                "VALUES (:key,:name,:description,:category,:maturity,'NAO_MONITORADO',:availability,'[]','[]','[]','[]',:note,'',1,0,:now)"
+            ), {"key": key, "name": name, "description": description, "category": category, "now": _now(),
+                "maturity": "EM_DESENVOLVIMENTO" if key == "chat-arkland" else "NAO_AVALIADO",
+                "availability": "NOT_RELEASED" if key == "chat-arkland" else None,
+                "note": "Implementação em desenvolvimento; homologação em jogo pendente." if key == "chat-arkland" else "Aguardando validação administrativa."})
+
+
+def chat_instances_snapshot(engine: Any, servers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Saúde do transporte não certifica a homologação dos recursos do chat."""
+    if not inspect(engine).has_table("chat_arkland_instances"):
+        return []
+    with engine.connect() as conn:
+        rows = {str(row.server_key): dict(row._mapping) for row in conn.execute(text("SELECT * FROM chat_arkland_instances"))}
+        shared = conn.execute(text("SELECT revision,config_json FROM chat_arkland_config WHERE id=1")).first()
+    if not shared:
+        return []
+    config = json.loads(shared.config_json)
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=config.get("PresenceTtlSeconds", 45))
+    result = []
+    for server in servers:
+        key = str(server.get("arkland_ref") or "")
+        if not key:
+            continue
+        row = rows.get(key)
+        checked = row.get("last_seen_at") if row else None
+        if isinstance(checked, str):
+            checked = datetime.fromisoformat(checked.replace("Z", "+00:00")).replace(tzinfo=None)
+        fresh = bool(checked and checked > cutoff)
+        status = "NAO_MONITORADO" if not row else "STATUS_DESCONHECIDO" if not fresh else "EM_MANUTENCAO" if row["observer"] else "INSTAVEL" if row["last_error"] or row["revision"] != shared.revision else "PARCIALMENTE_OPERACIONAL"
+        details = "Sem contato do plugin." if not row else "Contato expirado; estado atual não confirmado." if not fresh else "Observação; não encaminha mensagens." if row["observer"] else "Transporte em comunicação; homologação funcional em jogo pendente."
+        result.append({"instance_key": key, "map_id": server.get("server_id"), "display_name": server.get("label") or key,
+            "map_name": server.get("server_map") or "", "version": row["plugin_version"] if row else None,
+            "operational": status, "source": "chat_arkland_transport", "checked_at": checked.isoformat() + "Z" if checked else None,
+            "details": details})
+    return result
 
 
 def lumo_status_snapshot(engine: Any, *, servers: list[dict[str, Any]] | None = None,
@@ -128,6 +162,9 @@ def lumo_status_snapshot(engine: Any, *, servers: list[dict[str, Any]] | None = 
              "details": str((runtime_statuses or {}).get(server_id, {}).get("status_detail") or ("Sem atualização de status recebida." if server_id not in (runtime_statuses or {}) else ""))}
             for server_id in ids
         ]
+    chat = next((item for item in systems if item["system_key"] == "chat-arkland"), None)
+    if chat is not None:
+        chat["instances"] = chat_instances_snapshot(engine, servers or [])
     return {
         "ok": True,
         "systems": systems,
@@ -240,6 +277,11 @@ def register_system_status_routes(app: Any, *, db_ready: Callable[[], bool], eng
         for system in systems:
             if system.get("system_key") != "ark-cluster":
                 system["instances"] = grouped.get(system["system_key"], [])
+            if system.get("system_key") == "chat-arkland":
+                try:
+                    system["instances"] = chat_instances_snapshot(engine_getter(), load_servers())
+                except Exception:
+                    log.warning("Não foi possível consultar o transporte do Chat Arkland")
         counts = {"total": len(systems), "operational": sum(s["operational"] == "OPERACIONAL" for s in systems),
             "in_development": sum(s["maturity"] in {"PLANEJADO", "EM_DESENVOLVIMENTO", "ALPHA", "BETA", "EM_HOMOLOGACAO", "EM_REFORMULACAO"} for s in systems),
             "with_issues": sum(s["operational"] in {"PARCIALMENTE_OPERACIONAL", "INSTAVEL", "EM_MANUTENCAO", "INDISPONIVEL"} for s in systems)}

@@ -159,6 +159,74 @@ def _upsert_profile(db: Any, now: datetime, payload: dict[str, Any]) -> None:
         ), values)
 
 
+def ingest_session_event(db: Any, payload: dict[str, Any], event: str, *, now: datetime | None = None, update_profile: bool = True, authoritative_profile: bool = False) -> tuple[dict[str, Any], int]:
+    """Ingest?o compartilhada; a transa??o pertence ao chamador autenticado."""
+    if event not in {"connect", "heartbeat", "disconnect"} or not _SERVER_ID_RE.fullmatch(str(payload.get("server_id", ""))) or not _STEAM_ID_RE.fullmatch(str(payload.get("steam_id", ""))) or not 1 <= len(str(payload.get("session_id", ""))) <= 64:
+        return {"ok": False, "error": "invalid_identity"}, 400
+    now = now or datetime.now(UTC).replace(tzinfo=None)
+    session_id = payload["session_id"]
+    if update_profile:
+        _upsert_profile(db, now, payload)
+        if authoritative_profile:
+            db.execute(text("UPDATE game_players SET tribe_id=:tribe_id,tribe_name=:tribe_name WHERE steam_id=:steam_id"), payload)
+    row = db.execute(text(
+        "SELECT connected_at, duration_seconds, disconnected_at FROM game_player_sessions "
+        "WHERE session_id=:session_id AND steam_id=:steam_id AND server_id=:server_id"
+    ), payload).first()
+    if event == "connect":
+        # A duplicate connection on the same server closes the old session at its last heartbeat.
+        old_sessions = db.execute(text(
+            "SELECT session_id, connected_at, last_seen_at, duration_seconds "
+            "FROM game_player_sessions "
+            "WHERE server_id=:server_id AND steam_id=:steam_id "
+            "AND disconnected_at IS NULL AND session_id<>:session_id"
+        ), payload).mappings().all()
+        for old in old_sessions:
+            db.execute(text(
+                "UPDATE game_player_sessions SET disconnected_at=:ended, duration_seconds=:duration "
+                "WHERE session_id=:session_id AND disconnected_at IS NULL"
+            ), {
+                "ended": old["last_seen_at"],
+                "duration": _completed_session_duration(old["connected_at"], old["last_seen_at"], old["duration_seconds"]),
+                "session_id": old["session_id"],
+            })
+        if row is None:
+            db.execute(text(
+                "INSERT INTO game_player_sessions "
+                "(session_id, server_id, steam_id, connected_at, last_seen_at, duration_seconds) "
+                "VALUES (:session_id, :server_id, :steam_id, :now, :now, 0)"
+            ), {**payload, "now": now})
+        elif row[2] is not None:
+            # Replays are expected when the plugin retries after a lost response.
+            return {"ok": True, "duplicate": True}, 200
+        else:
+            db.execute(text(
+                "UPDATE game_player_sessions SET last_seen_at=:now "
+                "WHERE session_id=:session_id"
+            ), {"now": now, "session_id": session_id})
+    elif row is not None and row[2] is None:
+        connected = row[0]
+        if isinstance(connected, str):
+            connected = datetime.fromisoformat(connected)
+        elapsed = max(0, int((now - connected).total_seconds()))
+        duration = max(int(row[1] or 0), elapsed)
+        ended = now if event == "disconnect" else None
+        db.execute(text(
+            "UPDATE game_player_sessions SET last_seen_at=:now, duration_seconds=:duration, "
+            "disconnected_at=:ended WHERE session_id=:session_id"
+        ), {"now": now, "duration": duration, "ended": ended, "session_id": session_id})
+    elif row is None and event == "heartbeat":
+        # A heartbeat after a plugin/server restart recovers a missed connect event.
+        db.execute(text(
+            "INSERT INTO game_player_sessions "
+            "(session_id, server_id, steam_id, connected_at, last_seen_at, duration_seconds) "
+            "VALUES (:session_id, :server_id, :steam_id, :now, :now, 0)"
+        ), {**payload, "now": now})
+    elif row is None:
+        return {"ok": False, "error": "session_not_found"}, 404
+    return {"ok": True}, 200
+
+
 def register_player_monitoring_routes(
     app: Flask,
     *,
@@ -189,78 +257,18 @@ def register_player_monitoring_routes(
             return jsonify({"ok": False, "error": "invalid_identity"}), 400
 
         now = datetime.now(UTC).replace(tzinfo=None)
-        payload = {
-            "steam_id": steam_id,
-            "server_id": server_id,
-            "session_id": session_id,
-            "player_name": _clean(body.get("player_name"), 128),
-            "character_id": _clean(body.get("character_id"), 32),
-            "tribe_id": _clean(body.get("tribe_id"), 32),
-            "tribe_name": _clean(body.get("tribe_name"), 128),
-        }
+        payload = {"steam_id": steam_id, "server_id": server_id, "session_id": session_id,
+                   **{key: _clean(body.get(key), size) for key, size in
+                      (("player_name", 128), ("character_id", 32), ("tribe_id", 32), ("tribe_name", 128))}}
         db = session_factory()
         try:
             _ensure_schema(db.get_bind())
-            _upsert_profile(db, now, payload)
-            row = db.execute(text(
-                "SELECT connected_at, duration_seconds, disconnected_at FROM game_player_sessions "
-                "WHERE session_id=:session_id AND steam_id=:steam_id AND server_id=:server_id"
-            ), payload).first()
-            if event == "connect":
-                # A duplicate connection on the same server closes the old session at its last heartbeat.
-                old_sessions = db.execute(text(
-                    "SELECT session_id, connected_at, last_seen_at, duration_seconds "
-                    "FROM game_player_sessions "
-                    "WHERE server_id=:server_id AND steam_id=:steam_id "
-                    "AND disconnected_at IS NULL AND session_id<>:session_id"
-                ), payload).mappings().all()
-                for old in old_sessions:
-                    db.execute(text(
-                        "UPDATE game_player_sessions SET disconnected_at=:ended, duration_seconds=:duration "
-                        "WHERE session_id=:session_id AND disconnected_at IS NULL"
-                    ), {
-                        "ended": old["last_seen_at"],
-                        "duration": _completed_session_duration(old["connected_at"], old["last_seen_at"], old["duration_seconds"]),
-                        "session_id": old["session_id"],
-                    })
-                if row is None:
-                    db.execute(text(
-                        "INSERT INTO game_player_sessions "
-                        "(session_id, server_id, steam_id, connected_at, last_seen_at, duration_seconds) "
-                        "VALUES (:session_id, :server_id, :steam_id, :now, :now, 0)"
-                    ), {**payload, "now": now})
-                elif row[2] is not None:
-                    # Replays are expected when the plugin retries after a lost response.
-                    db.commit()
-                    return jsonify({"ok": True, "duplicate": True})
-                else:
-                    db.execute(text(
-                        "UPDATE game_player_sessions SET last_seen_at=:now "
-                        "WHERE session_id=:session_id"
-                    ), {"now": now, "session_id": session_id})
-            elif row is not None and row[2] is None:
-                connected = row[0]
-                if isinstance(connected, str):
-                    connected = datetime.fromisoformat(connected)
-                elapsed = max(0, int((now - connected).total_seconds()))
-                duration = max(int(row[1] or 0), elapsed)
-                ended = now if event == "disconnect" else None
-                db.execute(text(
-                    "UPDATE game_player_sessions SET last_seen_at=:now, duration_seconds=:duration, "
-                    "disconnected_at=:ended WHERE session_id=:session_id"
-                ), {"now": now, "duration": duration, "ended": ended, "session_id": session_id})
-            elif row is None and event == "heartbeat":
-                # A heartbeat after a plugin/server restart recovers a missed connect event.
-                db.execute(text(
-                    "INSERT INTO game_player_sessions "
-                    "(session_id, server_id, steam_id, connected_at, last_seen_at, duration_seconds) "
-                    "VALUES (:session_id, :server_id, :steam_id, :now, :now, 0)"
-                ), {**payload, "now": now})
-            elif row is None:
+            result, status = ingest_session_event(db, payload, event, now=now)
+            if status >= 400:
                 db.rollback()
-                return jsonify({"ok": False, "error": "session_not_found"}), 404
-            db.commit()
-            return jsonify({"ok": True})
+            else:
+                db.commit()
+            return jsonify(result), status
         except Exception:
             db.rollback()
             app.logger.exception("player_monitoring_ingest_failed")

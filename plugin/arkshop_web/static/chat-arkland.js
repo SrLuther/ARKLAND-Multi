@@ -1,0 +1,134 @@
+(function(){
+  'use strict';
+  let data=null,draft=null,tab='geral',candidates=[],sample={groups:['Default'],licenses:[]};
+  const tabs={geral:'Geral',funcionalidades:'Funcionalidades',tags:'Tags e licenças',cores:'Cores',mapas:'Mapas',filtro:'Filtro de palavras',discord:'Discord',mensagens:'Mensagens',sincronizacao:'Sincronização'};
+  const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const root=()=>document.getElementById('chat-arkland-root');
+  const get=path=>path.split('.').reduce((value,key)=>value?.[key],draft);
+  function set(path,value){const parts=path.split('.');let target=draft;for(const key of parts.slice(0,-1))target=target[key];target[parts.at(-1)]=value;}
+  async function api(path,options={}){const r=await fetch(path,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...options});const body=await r.json().catch(()=>({}));if(!r.ok)throw Error(body.error||`Falha HTTP ${r.status}`);return body;}
+  function feedback(text,error=false){const el=document.getElementById('ca-feedback');if(el){el.textContent=text;el.classList.toggle('ca-error',error);}}
+  function field(path,label,type='text',help=''){
+    const value=get(path),check=type==='checkbox';
+    const input=type==='textarea'?`<textarea data-field="${esc(path)}" rows="4">${esc(value||'')}</textarea>`:
+      type==='list'?`<input data-field="${esc(path)}" data-type="list" value="${esc((value||[]).join(', '))}">`:
+      `<input type="${type}" data-field="${esc(path)}" ${check?(value?'checked':''):`value="${esc(value)}"`} ${type==='number'?'step="any"':''}>`;
+    return `<label class="ca-field ${check?'ca-check':''}">${check?input:''}<span>${esc(label)}</span>${check?'':input}${help?`<small class="ca-help">${esc(help)}</small>`:''}</label>`;
+  }
+  function paint(path,label){const value=get(path)||'#FFFFFFFF';return `<label class="ca-field"><span>${esc(label)}</span><span class="ca-color"><input type="color" data-paint="${esc(path)}" value="${esc(value.slice(0,7))}"><input type="range" min="0" max="255" data-alpha="${esc(path)}" value="${parseInt(value.slice(7)||'FF',16)}" aria-label="Opacidade: ${esc(label)}"><span class="ca-help" data-color-label="${esc(path)}">${Math.round(parseInt(value.slice(7)||'FF',16)/255*100)}%</span></span></label>`;}
+  const card=(title,content,help='')=>`<section class="ca-card"><h2>${esc(title)}</h2>${help?`<p class="ca-help">${esc(help)}</p>`:''}<div class="ca-grid">${content}</div></section>`;
+  function general(){return card('Funcionamento geral',[
+    field('ClusterName','Nome do cluster'),field('PollRate','Intervalo de consultas (segundos)','number','Aceita decimais. Padrão: 1 segundo; intervalo entre 0,1 e 30.'),
+    field('DisableChat','Suspender o Chat Arkland; preservar o chat nativo','checkbox'),field('UseCrossChat','Chat global personalizado','checkbox'),
+    field('DisableCrossServerChat','Suspender encaminhamento entre mapas','checkbox'),field('Debug','Diagnóstico sem conteúdo privado ou credenciais','checkbox'),
+    field('ShowMapName','Exibir identificação do mapa','checkbox'),field('HideServerTagOnLocal','Ocultar identificação para jogadores do mapa de origem','checkbox'),
+    field('ShowSteamName','Exibir nome Steam no lugar do personagem','checkbox'),field('MaxMessageLength','Máximo de caracteres','number'),
+    field('GlobalChatSpamDelaySec','Intervalo mínimo entre mensagens globais (segundos)','number'),field('AdminImmuneToMuteAndSpamDelay','Isentar grupos administrativos do intervalo','checkbox'),
+    field('AdminGroups','Grupos administrativos autorizados','list'),field('MessageTtlSeconds','Validade de mensagens pendentes (segundos)','number'),
+    field('PresenceTtlSeconds','Prazo de confirmação de presença (segundos)','number')].join(''),
+    'O ID público é persistente e obrigatório nas mensagens do jogo. Nome, tribo, licença e troca de mapa não modificam esse ID.');}
+  function features(){return card('Notificações de conexão e desconexão',[
+    field('CrossMapNotifications.Enabled','Ativar notificações dentro do jogo','checkbox'),field('CrossMapNotifications.ToggleCommand','Comando de preferência individual'),
+    field('CrossMapNotifications.DisplayScale','Escala','number'),field('CrossMapNotifications.DisplayTime','Duração (segundos)','number'),
+    paint('CrossMapNotifications.JoinSameColor','Entrada no mesmo mapa'),paint('CrossMapNotifications.LeaveSameColor','Saída do mesmo mapa'),
+    paint('CrossMapNotifications.JoinDifferentColor','Entrada em outro mapa'),paint('CrossMapNotifications.LeaveDifferentColor','Saída de outro mapa')].join(''))+
+    card('Consulta de jogadores online',[
+    field('OnlinePlayersCommand.Enabled','Ativar /online','checkbox'),field('OnlinePlayersCommand.Command','Comando de consulta'),
+    field('OnlinePlayersCommand.ShowTribes','Exibir tribos','checkbox'),field('OnlinePlayersCommand.ShowOnlineTime','Exibir tempo conectado','checkbox'),
+    field('OnlinePlayersCommand.AmountPerPage','Jogadores por página','number'),field('OnlinePlayersCommand.DisplayScale','Escala','number'),
+    field('OnlinePlayersCommand.DisplayTime','Duração (segundos)','number'),field('OnlinePlayersCommand.OnlyShowMapToGroups','Grupos autorizados a ver o mapa','list'),
+    field('OnlinePlayersCommand.RestrictCommandToPermissions','Grupos autorizados a consultar','list')].join(''))+
+    card('Mensagens privadas',[
+    field('PrivateMessages.Enabled','Ativar mensagens privadas','checkbox'),field('PrivateMessages.Command','Comando de mensagem privada'),field('PrivateMessages.ReplyCommand','Comando de resposta')].join(''),
+    'Use /pm ID Mensagem e /r Mensagem. Mensagens privadas não são publicadas no Discord nem no chat global.');}
+  function ruleFields(rule,index,collection){
+    const path=`${collection}.${index}`;
+    return `<section class="ca-card ${!rule.Approved||!rule.Enabled?'ca-muted':''}"><div class="ca-head"><h3>${esc(rule.Label||rule.Key)}</h3><span class="ca-status">${rule.Kind==='admin'?'Administrativa':rule.Kind==='license'?'Licença':rule.Kind==='everyone'?'Todos':'Personalizada'} · prioridade ${rule.Priority}</span></div><div class="ca-grid">`+
+      field(path+'.Key','Chave da regra')+field(path+'.Label',collection==='Tags'?'Texto da tag':'Nome da regra visual')+
+      `<label class="ca-field"><span>Tipo</span><select data-field="${path}.Kind">${[['admin','Administrativa'],['license','Licença'],['custom','Personalizada'],...(collection==='ChatColors'?[['everyone','Todos']]:[])].map(([key,label])=>`<option value="${key}" ${key===rule.Kind?'selected':''}>${label}</option>`).join('')}</select></label>`+
+      field(path+'.Priority','Prioridade dentro da categoria (menor primeiro)','number')+field(path+'.PermissionGroups','Grupos de permissões','list')+
+      field(path+'.LicenseGroups','Licenças autorizadoras','list')+field(path+'.SteamIds','SteamIDs específicos','list')+field(path+'.TribeIds','IDs de tribos específicos','list')+
+      (collection==='Tags'?paint(path+'.Color','Cor da tag'):'')+
+      field(path+'.Approved','Confirmo a regra e sua posição na hierarquia','checkbox')+field(path+'.Enabled','Ativar após confirmação','checkbox')+'</div>'+
+      (collection==='ChatColors'?`<div class="ca-grid">${Object.keys(draft.Colors).map(key=>{
+        const selected=Object.hasOwn(rule.Colors||{},key);
+        if(typeof draft.Colors[key]==='boolean')return `<label class="ca-field"><span>${esc(colorLabel(key))}</span><select data-override-bool="${index}:${key}"><option value="inherit" ${!selected?'selected':''}>Herdar configuração geral</option><option value="true" ${selected&&rule.Colors[key]?'selected':''}>Sim</option><option value="false" ${selected&&!rule.Colors[key]?'selected':''}>Não</option></select></label>`;
+        return `<div><label class="ca-field ca-check"><input type="checkbox" data-override="${index}:${key}" ${selected?'checked':''}>Personalizar ${esc(colorLabel(key))}</label>${selected?paint(path+'.Colors.'+key,colorLabel(key)):''}</div>`;
+      }).join('')}</div>`:'')+
+      `<div class="ca-actions"><button class="btn btn-ghost btn-sm" data-move="${collection}:${index}:-1">Subir</button><button class="btn btn-ghost btn-sm" data-move="${collection}:${index}:1">Descer</button><button class="btn btn-ghost btn-sm" data-remove="${collection}:${index}">Remover regra</button></div></section>`;
+  }
+  function hierarchy(){const ordered=[...draft.Tags].sort((a,b)=>(a.Kind==='admin'?0:1)-(b.Kind==='admin'?0:1)||a.Priority-b.Priority||(a.Key<b.Key?-1:a.Key>b.Key?1:0));return `<section class="ca-card"><h2>Hierarquia de seleção</h2><p class="ca-help">A primeira regra autorizada para o jogador vence. Regras pendentes ou desativadas não participam.</p>${ordered.length?`<ol>${ordered.map(rule=>`<li>${esc(rule.Label)} · ${rule.Kind==='admin'?'administrativa':'licença ou personalizada'} · prioridade ${rule.Priority} · ${rule.Approved&&rule.Enabled?'aprovada e ativa':'pendente ou desativada'}</li>`).join('')}</ol>`:'<p>Nenhuma tag cadastrada. O nome será exibido sem tag.</p>'}</section>`;}
+  function tags(){return `<div class="ca-banner">Somente uma tag é exibida. Regras administrativas sempre precedem licenças. Descoberta não concede permissão e não ativa tags automaticamente.</div>`+hierarchy()+`<div class="ca-actions"><button class="btn btn-ghost" id="ca-discover">Consultar licenças e referências administrativas</button><button class="btn btn-ghost" data-add="Tags">Nova tag</button></div>`+
+    candidates.filter(item=>!draft.Tags.some(rule=>rule.Key===item.Key)).map((item,index)=>`<div class="ca-card"><div class="ca-head"><span>${esc(item.Label)} · ${esc((item.LicenseGroups||item.PermissionGroups||[]).join(', '))} · pendente de confirmação</span><button class="btn btn-ghost btn-sm" data-candidate="${index}">Adicionar como pendente</button></div></div>`).join('')+
+    draft.Tags.map((rule,index)=>ruleFields(rule,index,'Tags')).join('');}
+  function colorLabel(key){return ({Message:'mensagem',Name:'nome do jogador',Tribe:'tribo',Tag:'tag',Map:'mapa',Discord:'origem Discord',Id:'ID público',OverrideGraySelfNameColor:'Manter a cor configurada no próprio nome',HideTribeName:'Ocultar nome da tribo'})[key]||key;}
+  function colors(){return card('Cores gerais',Object.keys(draft.Colors).map(key=>typeof draft.Colors[key]==='boolean'?field('Colors.'+key,colorLabel(key),'checkbox'):paint('Colors.'+key,colorLabel(key))).join(''),
+    'As cores do jogo são convertidas para RGBA. Mensagens comuns do Discord não reproduzem essas cores.')+
+    `<div class="ca-actions"><h2>Regras específicas de cores</h2><button class="btn btn-ghost" data-add="ChatColors">Nova regra visual</button></div>`+
+    draft.ChatColors.map((rule,index)=>ruleFields(rule,index,'ChatColors')).join('');}
+  function maps(){return data.maps.map(map=>{
+    if(!draft.Maps[map.server_key])draft.Maps[map.server_key]={Enabled:false,Label:map.label,Color:draft.Colors.Map};
+    // ServerKey contém pontos/UUIDs; os campos são editados por uma chave própria.
+    const value=draft.Maps[map.server_key];
+    return `<section class="ca-card"><div class="ca-head"><h2>${esc(map.label)}</h2><span class="ca-status">${esc(map.status)}</span></div><p class="ca-help">Chave permanente: ${esc(map.server_key)}</p><div class="ca-grid"><label class="ca-field ca-check"><input type="checkbox" data-map="${esc(map.server_key)}" data-map-field="Enabled" ${value.Enabled?'checked':''}>Participar do Chat Arkland</label><label class="ca-field"><span>Nome exibido no chat</span><input data-map="${esc(map.server_key)}" data-map-field="Label" value="${esc(value.Label)}"></label><label class="ca-field"><span>Cor do mapa</span><input type="color" data-map="${esc(map.server_key)}" data-map-field="Color" value="${esc(value.Color.slice(0,7))}"></label></div><div class="ca-actions"><a class="btn btn-ghost btn-sm" href="/api/admin/chat-arkland/bootstrap/${encodeURIComponent(map.server_key)}">Baixar config.json protegido (observação)</a></div></section>`;
+  }).join('')+card('Opacidade das cores dos mapas',data.maps.map(map=>`<label class="ca-field"><span>${esc(map.label)}</span><input type="range" min="0" max="255" data-map-alpha="${esc(map.server_key)}" value="${parseInt(draft.Maps[map.server_key].Color.slice(7)||'FF',16)}"><small class="ca-help" data-map-opacity="${esc(map.server_key)}">${Math.round(parseInt(draft.Maps[map.server_key].Color.slice(7)||'FF',16)/255*100)}%</small></label>`).join(''));}
+  function filter(){return card('Censura por asteriscos',field('BadWords.Enabled','Ativar filtro de palavras','checkbox')+
+    `<label class="ca-field ca-wide"><span>Palavras ou expressões (uma por linha)</span><textarea id="ca-words" rows="12">${esc(draft.BadWords.Words.join('\n'))}</textarea></label><label class="ca-field"><span>Sinais ignorados entre letras</span><input id="ca-ignored" value="${esc(draft.BadWords.IgnoredLetters.filter(c=>c!==' ').join(''))}"></label><label class="ca-field ca-check"><input type="checkbox" id="ca-ignore-space" ${draft.BadWords.IgnoredLetters.includes(' ')?'checked':''}>Considerar espaços em tentativas de evasão</label>`,
+    'O filtro substitui o trecho por asteriscos antes de encaminhar; não bloqueia automaticamente a mensagem nem aplica punições. A lista inicial é vazia.');}
+  function discord(){return card('Integração global',field('Discord.Enabled','Ativar Jogo → Discord','checkbox')+field('Discord.AllowDiscordToIngame','Ativar Discord → Jogo','checkbox')+field('Discord.ShowMap','Exibir mapa nas mensagens do Discord','checkbox')+
+    `<p class="ca-help ca-wide">Servidor: ${esc(data.discord.guild_id||'Não configurado')} · canal global: ${esc(data.discord.channel_id||'Não configurado')} · credencial: ${data.discord.token_configured?'configurada no armazenamento protegido':'não configurada'}. Fonte: ${esc(data.discord.source)}.</p><div class="ca-wide"><button type="button" class="btn btn-ghost" id="ca-open-lumo">Abrir configuração compartilhada do Lumo</button></div>`,
+    'Um único Gateway central faz o transporte. Apenas mensagens humanas e o usuário real do Lumo são autorizados; nomes e apelidos não concedem confiança. Não há comandos RCON no Discord.');}
+  const messageLabels={Global:'Mensagem global do jogo',Discord:'Mensagem vinda do Discord',PrivateFrom:'Mensagem privada recebida',PrivateTo:'Cópia privada para o remetente',Join:'Entrada de jogador',Leave:'Saída de jogador',OnlineHeader:'Cabeçalho de jogadores online',OnlinePlayer:'Linha de jogador online',NoPermission:'Sem permissão',Spam:'Intervalo contra spam',PrivateUsage:'Como enviar mensagem privada',ReplyUsage:'Como responder mensagem privada',NoConversation:'Sem conversa anterior',InvalidId:'ID inválido ou inexistente',Offline:'Destinatário desconectado',SelfMessage:'Mensagem para si mesmo',EmptyMessage:'Mensagem vazia',TooLong:'Mensagem muito longa',Disabled:'Funcionalidade desativada',NotificationsOn:'Notificações ativadas',NotificationsOff:'Notificações desativadas',Unavailable:'Transporte indisponível',PendingIdentity:'ID em sincronização',DeliveryFailed:'Entrega privada não confirmada'};
+  function messages(){return card('Mensagens em português',Object.keys(draft.Messages).map(key=>`<label class="ca-field"><span>${esc(messageLabels[key]||key)}</span><textarea data-field="Messages.${esc(key)}" rows="3">${esc(draft.Messages[key])}</textarea><small class="ca-message-vars">Variáveis: ${esc((data.message_variables?.[key]||[]).map(x=>'{'+x+'}').join(', ')||'nenhuma')}</small></label>`).join(''),
+    'O formato global deve manter horário em 24 horas, jogador e ID. O nome do cluster possui uma única configuração em Geral.');}
+  function sync(){return `<div class="ca-banner">${esc(data.validation)} Revisão publicada: ${data.revision}. Atualização: ${esc(data.changed_at)} · responsável: ${esc(data.actor)}.</div>`+
+    data.maps.map(map=>`<section class="ca-card"><h3>${esc(map.label)}</h3><p>${esc(map.status)}</p><p class="ca-help">${map.instance?`Plugin ${esc(map.instance.plugin_version)} · revisão aplicada ${map.instance.revision} · último contato ${esc(map.instance.last_seen_at)} · ${map.instance.player_count} jogador(es) na amostra`: 'Nenhuma instância deste plugin se comunicou.'}</p>${map.instance?.last_error?`<p class="ca-error">${esc(map.instance.last_error)}</p>`:''}</section>`).join('')+
+    card('Histórico de configurações',data.revisions.map(revision=>`<div class="ca-head"><span>Revisão ${revision.revision} · ${esc(revision.actor)} · ${esc(revision.changed_at)}</span>${revision.revision!==data.revision?`<button class="btn btn-ghost btn-sm" data-rollback="${revision.revision}">Restaurar como nova revisão</button>`:''}</div>`).join(''))+
+    `<p class="ca-help">Envios Discord sem confirmação: ${Number(data.discord_deliveries.uncertain||0)}. Eles não são reenviados automaticamente para evitar duplicidade.</p>`;}
+  const content={geral:general,funcionalidades:features,tags,cores:colors,mapas:maps,filtro:filter,discord,mensagens:messages,sincronizacao:sync};
+  function render(){if(!root()||!draft)return;root().innerHTML=`<section class="ca-admin"><header class="ca-head"><div><h1>Chat Arkland</h1><p class="ca-help">Configuração central, transporte entre mapas, Discord e Lumo.</p></div><button class="btn btn-ghost" id="ca-reload">Atualizar dados</button></header><div class="ca-banner">Em desenvolvimento e homologação. Mapas novos não participam automaticamente. O modo observacional local e a presença do KalsCrossChat impedem dois encaminhamentos simultâneos.</div><nav class="ca-tabs" aria-label="Configurações do Chat Arkland">${Object.entries(tabs).map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-tab="${key}" aria-selected="${tab===key}">${label}</button>`).join('')}</nav><div id="ca-tab-content">${content[tab]()}</div><details class="ca-card"><summary>Dados fictícios para a prévia</summary><p class="ca-help">Não altera permissões ou licenças de jogadores.</p><div class="ca-grid"><label class="ca-field"><span>Grupos do jogador de exemplo</span><input id="ca-sample-groups" value="${esc(sample.groups.join(', '))}"></label><label class="ca-field"><span>Licenças do jogador de exemplo</span><input id="ca-sample-licenses" value="${esc(sample.licenses.join(', '))}"></label></div></details><div id="ca-preview" class="ca-preview" hidden></div><footer class="ca-footer"><button class="btn btn-ghost" id="ca-preview-button">Validar e visualizar exemplo</button><button class="btn btn-primary" id="ca-publish">Publicar configuração</button><span id="ca-feedback" class="ca-feedback" role="status">Revisão ${data.revision}. Alterações só são distribuídas após publicar.</span></footer></section>`;bind();}
+  function read(input){if(input.type==='checkbox')return input.checked;if(input.type==='number')return Number(input.value);if(input.dataset.type==='list')return input.value.split(',').map(s=>s.trim()).filter(Boolean);return input.value;}
+  function bind(){
+    root().querySelectorAll('[data-field]').forEach(input=>input.addEventListener('change',()=>set(input.dataset.field,read(input))));
+    root().querySelectorAll('[data-paint]').forEach(input=>input.addEventListener('input',()=>{const path=input.dataset.paint;set(path,input.value+(get(path)||'#FFFFFFFF').slice(7));}));
+    root().querySelectorAll('[data-alpha]').forEach(input=>input.addEventListener('input',()=>{const path=input.dataset.alpha;set(path,(get(path)||'#FFFFFFFF').slice(0,7)+Number(input.value).toString(16).padStart(2,'0'));root().querySelector(`[data-color-label="${path}"]`).textContent=Math.round(Number(input.value)/255*100)+'%';}));
+    root().querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{tab=button.dataset.tab;render();});
+    root().querySelectorAll('[data-map]').forEach(input=>input.onchange=()=>{const value=draft.Maps[input.dataset.map];value[input.dataset.mapField]=input.dataset.mapField==='Color'?input.value+(value.Color.slice(7)||'FF'):read(input);});
+    root().querySelectorAll('[data-map-alpha]').forEach(input=>input.oninput=()=>{const key=input.dataset.mapAlpha;draft.Maps[key].Color=draft.Maps[key].Color.slice(0,7)+Number(input.value).toString(16).padStart(2,'0');root().querySelectorAll('[data-map-opacity]').forEach(label=>{if(label.dataset.mapOpacity===key)label.textContent=Math.round(Number(input.value)/255*100)+'%';});});
+    root().querySelectorAll('[data-remove]').forEach(button=>button.onclick=()=>{const [collection,index]=button.dataset.remove.split(':');draft[collection].splice(Number(index),1);render();});
+    root().querySelectorAll('[data-add]').forEach(button=>button.onclick=()=>{const collection=button.dataset.add;draft[collection].push({Key:'regra-'+Date.now(),Label:collection==='Tags'?'NOVA TAG':'Regra visual',Kind:'custom',Priority:1000,Approved:false,Enabled:false,PermissionGroups:[],LicenseGroups:[],SteamIds:[],TribeIds:[],...(collection==='Tags'?{Color:draft.Colors.Tag}:{Colors:{}})});render();});
+    root().querySelectorAll('[data-move]').forEach(button=>button.onclick=()=>{const [collection,index,delta]=button.dataset.move.split(':');const a=Number(index),b=a+Number(delta);if(b<0||b>=draft[collection].length)return;[draft[collection][a],draft[collection][b]]=[draft[collection][b],draft[collection][a]];draft[collection].forEach((rule,i)=>rule.Priority=i);render();});
+    root().querySelectorAll('[data-override]').forEach(input=>input.onchange=()=>{const [index,key]=input.dataset.override.split(':');if(input.checked)draft.ChatColors[index].Colors[key]=draft.Colors[key];else delete draft.ChatColors[index].Colors[key];render();});
+    root().querySelectorAll('[data-override-bool]').forEach(input=>input.onchange=()=>{const [index,key]=input.dataset.overrideBool.split(':');if(input.value==='inherit')delete draft.ChatColors[index].Colors[key];else draft.ChatColors[index].Colors[key]=input.value==='true';});
+    const words=document.getElementById('ca-words');if(words)words.onchange=()=>{draft.BadWords.Words=words.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);};
+    const ignored=document.getElementById('ca-ignored'),space=document.getElementById('ca-ignore-space');if(ignored){const update=()=>{draft.BadWords.IgnoredLetters=[...new Set([...ignored.value,...(space.checked?[' ']:[])])];};ignored.onchange=space.onchange=update;}
+    document.getElementById('ca-reload').onclick=()=>window.loadChatArkland();
+    document.getElementById('ca-publish').onclick=publish;
+    document.getElementById('ca-sample-groups').onchange=e=>{sample.groups=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);};
+    document.getElementById('ca-sample-licenses').onchange=e=>{sample.licenses=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);};
+    document.getElementById('ca-preview-button').onclick=preview;
+    const open=document.getElementById('ca-open-lumo');if(open)open.onclick=()=>goToPage('lumo');
+    const discover=document.getElementById('ca-discover');if(discover)discover.onclick=async()=>{try{candidates=(await api('/api/admin/chat-arkland/tag-candidates')).candidates;render();}catch(error){feedback(error.message,true);}};
+    root().querySelectorAll('[data-candidate]').forEach(button=>button.onclick=()=>{const available=candidates.filter(item=>!draft.Tags.some(rule=>rule.Key===item.Key));const rule=structuredClone(available[Number(button.dataset.candidate)]);if(rule){rule.PermissionGroups||=[];rule.LicenseGroups||=[];rule.SteamIds=[];rule.TribeIds=[];draft.Tags.push(rule);render();}});
+    root().querySelectorAll('[data-rollback]').forEach(button=>button.onclick=async()=>{try{await api('/api/admin/chat-arkland/rollback',{method:'POST',body:JSON.stringify({revision:Number(button.dataset.rollback),expected_revision:data.revision})});await window.loadChatArkland();feedback('Revisão restaurada como nova publicação.');}catch(error){feedback(error.message,true);}});
+  }
+  function showPreview(el,result){
+    el.replaceChildren();
+    const line=document.createElement('div');line.className='ca-preview-message';
+    const decode=value=>value.replace(/&(amp|lt|gt);/g,(_,name)=>({amp:'&',lt:'<',gt:'>'})[name]);
+    const rich=String(result.rich||result.plain),pattern=/<RichColor Color="([0-9.,]+)">([\s\S]*?)<\/>/g;
+    let offset=0,match;
+    while((match=pattern.exec(rich))){
+      line.append(document.createTextNode(decode(rich.slice(offset,match.index))));
+      const span=document.createElement('span'),rgba=match[1].split(',').map(Number);
+      if(rgba.length===4&&rgba.every(value=>Number.isFinite(value)&&value>=0&&value<=1))span.style.color=`rgba(${rgba.slice(0,3).map(value=>Math.round(value*255)).join(',')},${rgba[3]})`;
+      span.textContent=decode(match[2]);line.append(span);offset=pattern.lastIndex;
+    }
+    line.append(document.createTextNode(decode(rich.slice(offset))));
+    const notice=document.createElement('p');notice.className='ca-help';notice.textContent=result.notice;
+    el.append(line,notice);el.hidden=false;
+  }
+  async function preview(){try{const result=await api('/api/admin/chat-arkland/preview',{method:'POST',body:JSON.stringify({config:draft,sample})});showPreview(document.getElementById('ca-preview'),result);feedback('Configuração válida para prévia. Nada foi publicado.');}catch(error){feedback(error.message,true);}}
+  async function publish(){try{feedback('Validando e publicando…');await api('/api/admin/chat-arkland/config',{method:'PUT',body:JSON.stringify({config:draft,expected_revision:data.revision})});await window.loadChatArkland();feedback('Configuração publicada. Confira a revisão aplicada em Sincronização.');}catch(error){feedback(error.message,true);}}
+  window.loadChatArkland=async function(){if(!root())return;if(typeof _auth==='undefined'||!_auth?.is_admin){root().textContent='Acesso restrito à administração.';return;}root().textContent='Carregando Chat Arkland…';try{data=await api('/api/admin/chat-arkland');draft=structuredClone(data.config);render();}catch(error){root().textContent='Não foi possível carregar o Chat Arkland: '+error.message;}};
+})();

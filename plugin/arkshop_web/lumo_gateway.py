@@ -81,6 +81,9 @@ class LumoGatewayRunner:
         self._game_global_last = 0.0
         self._source_cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._scheduler_task: asyncio.Task[Any] | None = None
+        self._chat_task: asyncio.Task[Any] | None = None
+        from chat_arkland_discord import ChatDiscordTransport
+        self._chat_transport = ChatDiscordTransport(lambda: self._load_settings())
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -101,7 +104,9 @@ class LumoGatewayRunner:
 
     def reconfigure(self) -> tuple[bool, str]:
         settings = self._load_settings()
-        enabled = bool(settings.get("lumo_assistant_enabled") or settings.get("lumo_game_chat_enabled"))
+        from chat_arkland_discord import transport_enabled
+        chat_enabled = transport_enabled()
+        enabled = bool(settings.get("lumo_assistant_enabled") or settings.get("lumo_game_chat_enabled") or chat_enabled)
         token = str(settings.get("lumo_bot_token") or "").strip()
         guild_id = str(settings.get("lumo_guild_id") or "").strip()
         channel_id = str(settings.get("lumo_interaction_channel_id") or "").strip()
@@ -111,7 +116,7 @@ class LumoGatewayRunner:
         game_channel_id = str(settings.get("lumo_game_chat_channel_id") or "").strip()
         if (not token or not guild_id.isdigit()
                 or (settings.get("lumo_assistant_enabled") and not channel_id.isdigit())
-                or (settings.get("lumo_game_chat_enabled") and not game_channel_id.isdigit())):
+                or ((settings.get("lumo_game_chat_enabled") or chat_enabled) and not game_channel_id.isdigit())):
             self.stop()
             return False, "Configure token, servidor e os IDs dos canais habilitados antes de ativar."
         with self._lock:
@@ -173,6 +178,8 @@ class LumoGatewayRunner:
                         log.debug("Não foi possível persistir o ID do usuário Lumo", exc_info=True)
                     if self._scheduler_task is None or self._scheduler_task.done():
                         self._scheduler_task = asyncio.create_task(self._scheduler(inner_self))
+                    if self._chat_task is None or self._chat_task.done():
+                        self._chat_task = asyncio.create_task(self._chat_transport.run(inner_self))
 
                 async def on_disconnect(inner_self) -> None:
                     with self._lock:
@@ -201,6 +208,12 @@ class LumoGatewayRunner:
                 self._state = "error"
             log.error("Falha no Gateway do Lumo: %s", safe)
         finally:
+            pending = [task for task in (self._scheduler_task, self._chat_task) if task is not None and not task.done()]
+            for task in pending:
+                task.cancel()
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            self._scheduler_task = self._chat_task = None
             with self._lock:
                 self._client = None
                 self._loop = None
@@ -308,6 +321,15 @@ class LumoGatewayRunner:
     async def _on_message(self, client: Any, message: Any) -> None:
         # Validar canal/servidor antes de processar texto, menção ou qualquer consulta.
         config = self._load_settings()
+        context = await self._chat_transport.incoming(client, message)
+        if context:
+            # O contexto vem do evento original do hub, não de nomes/texto do bot.
+            if config.get("lumo_game_chat_enabled"):
+                verified = SimpleNamespace(id="ca:" + context["event_id"], guild=message.guild,
+                    channel=message.channel, author=SimpleNamespace(id=context["steam_id"], bot=False),
+                    content=context["body"], webhook_id=None, mentions=[])
+                await self._on_game_chat_message(client, verified, config, False)
+            return
         if not (config.get("lumo_assistant_enabled") or config.get("lumo_game_chat_enabled")):
             return
         if getattr(message, "guild", None) is None:

@@ -79,6 +79,9 @@ plugin/CustomShop/configs/config.json
 plugin/CustomShop/bin/config.json
 plugin/CustomDinoDeliver/configs/config.json
 plugin/CustomDinoDeliver/bin/config.json
+plugin/ChatArkland/bin/
+plugin/ChatArkland/obj/
+plugin/ChatArkland/logs/
 
 # Pontos/grupos legacy de jogadores (dados sensíveis)
 plugin/CustomShop/configs/jogadores_pontos_grupos.csv

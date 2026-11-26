@@ -11,6 +11,7 @@
   <meta name="arkland-web-build" content="__WEB_BUILD__" />
   <link rel="manifest" href="/manifest.webmanifest?v=__WEB_BUILD__" />
   <link rel="stylesheet" href="system-status-center.css?v=__WEB_BUILD__" />
+  <link rel="stylesheet" href="chat-arkland.css?v=__WEB_BUILD__" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <title>ARKLAND DONATIONS — Doações e Resgates</title>
@@ -8278,6 +8279,7 @@
     <div class="nav-item admin-only" data-page="lumo" onclick="nav(this)">
       <span class="nav-icon nav-icon--img"><img src="/lumo-avatar.png" alt="" width="18" height="18" /></span> Lumo — Comunicação
     </div>
+    <div class="nav-item admin-only" data-page="chat-arkland" onclick="nav(this)"><span class="nav-icon">💬</span> Chat Arkland</div>
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
     <div class="nav-item admin-only" data-page="server-console" onclick="nav(this)">
@@ -10561,6 +10563,7 @@
       </div>
 
       <!-- PAGE: Lumo — Central administrativa de comunicação -->
+      <div id="page-chat-arkland" class="page admin-only"><div id="chat-arkland-root">Carregando Chat Arkland…</div></div>
       <div id="page-lumo" class="page admin-only">
         <div class="lumo-header">
           <img class="lumo-header__avatar" src="/lumo-avatar.png" alt="Avatar oficial de Lumo" width="72" height="72" />
@@ -13393,6 +13396,7 @@
 <script src="pwa-install.js?v=__WEB_BUILD__" defer></script>
 <script src="lumo.js?v=__WEB_BUILD__" defer></script>
 <script src="system-status-center.js?v=__WEB_BUILD__" defer></script>
+<script src="chat-arkland.js?v=__WEB_BUILD__" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
 var _bootWatchdog = setTimeout(function () {
@@ -14132,6 +14136,7 @@ function nav(el) {
   // Troca de página é síncrona (DOM já montado). Loads abaixo são TTL/cache — não bloqueiam paint.
   if (page === "home") loadHome();
   if (page === "system-status" && typeof window.systemStatusLoad === "function") window.systemStatusLoad(false);
+  if (page === "chat-arkland" && _auth?.is_admin && typeof window.loadChatArkland === "function") window.loadChatArkland();
   if (page === "lumo" && _auth?.is_admin && typeof window.loadLumoAdmin === "function") window.loadLumoAdmin();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }

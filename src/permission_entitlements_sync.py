@@ -614,6 +614,31 @@ def _fetch_permission_players(perm_engine: Engine) -> dict[str, tuple[str, str]]
     return out
 
 
+def read_active_player_groups(shop_db_url: str, steam_id: str) -> list[str]:
+    """Leitura compartilhada; não concede nem sincroniza cargos."""
+    if not _is_valid_steam_id(steam_id):
+        return ["Default"]
+    engine = _perm_engine(shop_db_url)
+    if engine is None:
+        return ["Default"]
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT PermissionGroups,TimedPermissionGroups FROM players WHERE SteamId=:steam"), {"steam": steam_id}).first()
+    if not row:
+        return ["Default"]
+    groups, now = _split_csv_groups(row[0]), int(time.time())
+    for value in str(row[1] or "").split(","):
+        parts = value.split(";")
+        if len(parts) < 3:
+            continue
+        try:
+            start, expiry = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        if start <= now < expiry and parts[2].strip():
+            groups.append(parts[2].strip())
+    return _dedupe_groups(["Default", *groups])
+
+
 def _player_has_managed_permission_only(perm_pg: str, perm_tpg: str) -> bool:
     actual_perm = _split_csv_groups(perm_pg)
     actual_timed = _parse_timed_groups(perm_tpg)
