@@ -18,11 +18,17 @@ DLL final: 749.056 bytes; SHA-256 `1C5F6CD5BD480E5FDF8333A69AECC3DC5407040802166
 - RCON `StructureLimits.Status` respondeu com `plugin_version=0.8-dev`, instância correta, 231 estruturas, scan concluído, conflitos/duplicidade zero, runtime e journal saudáveis e fila vazia.
 - Estado derivado contém 231 registros e 231 posições com latitude/longitude. Nenhum blueprint contendo SupplyCrate presente no ledger. A varredura visitou 92.405 entradas, contando referências das coleções percorridas; esse número não representa atores únicos nem prova completude do save.
 - Chat Arkland continuou carregado, conectado ao hub e com revisão 4 aplicada após o reinício.
-- 23 testes standalone passaram. As ações de colocação, recolhimento, demolição e validação visual por GPS pela nova DLL aguardam homologação humana conforme `TESTE_0.8.md`.
+- 23 testes standalone passaram. Na primeira etapa, as ações de colocação, recolhimento, demolição e validação visual por GPS aguardavam homologação humana conforme `TESTE_0.8.md`; a conferência posterior consta abaixo.
+
+### Validação posterior do administrador
+
+Em 26/11, as capturas enviadas pelo administrador mostraram LPG observado 227 → 228 → 227. O log do 05 registrou `placement_confirmed`/colocação às 13:06 e remoção às 13:08 para o mesmo ID; o total observado foi 231 → 232 → 231. Não foi alterado nem reiniciado o 05 ocupado. Ainda é necessário distinguir os cenários de pickup, demolição e decay, validar o GPS visualmente e comprovar o inventário completo antes de qualquer veto.
 
 ## Pendência operacional do TEK
 
 O agente HTTP do gerenciador continua sem responder após a requisição de parada. Não foi reiniciado o gerenciador: o código de startup inclui autostart, limpeza de blacklist de mods e migração de URLs em todos os mapas, o que excederia a autorização restrita ao 05. A operação e a validação do piloto usaram RCON diretamente e caminho/PID exatos. A indisponibilidade afeta a atualização de status no site; não significa que os demais processos de jogo tenham sido desligados.
+
+Atualização da conferência posterior: às 13h o agente HTTP já respondia normalmente. A causa e a ação que o restabeleceram não foram determinadas. A WebStore foi encontrada sem processo ativo e sua tarefa existente 1.12.34 foi retomada; API local e acesso administrativo do site voltaram a responder. Esse estado posterior não demonstra correção da causa original do travamento.
 
 ## Limites desta entrega
 

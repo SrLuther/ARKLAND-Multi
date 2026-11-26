@@ -51,7 +51,7 @@ Não declarar produção validada antes de registrar os resultados seguintes:
 - Não há certificação de entrega exatamente uma vez em caso de crash entre exibição e gravação do ACK. O protocolo usa UUID, retenção limitada, lease, ACK e cache; envios Discord ambíguos não são repetidos às cegas.
 - Falta de heartbeat não prova que o jogador desconectou. Notificações de saída são geradas por snapshots explícitos de ausência; uma queda de processo/rede não inventa uma saída confirmada.
 - Os comandos de outros plugins são executados antes do callback público do SDK. Colisões de comandos e callbacks precisam ser isoladas no piloto. Detectar Kals carregado força observação, mas não identifica toda implementação de terceiros possível.
-- Interface/backend publicados na Web Store 1.12.33 e piloto 05 sincronizado. A homologação funcional dentro do ARK e a comunicação real com jogadores/Discord continuam pendentes; somente o 05 participa.
+- Interface/backend publicados na Web Store 1.12.34. Em 26/11, homologação ampliada do 05 para 01–05, por autorização expressa e instalação somente nos mapas vazios/parados. Carga da DLL e transporte autenticado/revisões confirmados nos cinco; a comunicação funcional entre jogadores/mapas continua sujeita à sequência de homologação acima. Nenhuma mensagem artificial foi enviada ao Discord ou aos jogadores para declarar o transporte testado.
 - O pacote é experimental. A Central de Status permanece Em desenvolvimento / Não disponibilizado até avaliação administrativa respaldada pela homologação.
 
 ## Reprodução
