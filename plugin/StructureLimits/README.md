@@ -1,5 +1,19 @@
 # ARKLAND Structure Limits
 
+## Evolução atual — 0.8-dev (26/11/2026)
+
+O runtime agora mantém inventário observado por StructureID, com consulta `/limites`, confirmação de colocação pelo retorno bem-sucedido de `FinalStructurePlacement`, remoção idempotente pelo ciclo `Destroyed` durante servidor pronto e coordenadas XYZ/latitude/longitude usando a conversão do SDK para o mapa atual.
+
+`LiveInventoryEnabled` é opt-in e desativado no modelo. A varredura incremental cobre PersistentLevel, demais níveis residentes e LocalStasisActors, deduplicando IDs. Ela respeita orçamento de 2 ms/512 entradas por tick. Ausência em uma varredura não remove um registro. Supply crates e previews são excluídos. Atribuição de tribo usa a associação comprovada de controladores conectados; jogador solo requer SteamID associado ao PlayerDataID. Atores ainda sem identidade atribuível permanecem no inventário técnico, sem serem atribuídos arbitrariamente a jogadores.
+
+`observed-inventory.json` é um estado derivado e explicitamente parcial, gravado atomicamente por worker. Eventos confirmados ficam na outbox durável; não são apagados por idade. A fila é limitada e sinaliza falha ao saturar. Serialização do inventário completo e disco ficam no worker; callbacks nunca esperam rede/SQL. O estado observado anterior não é restaurado como verdade após reinício.
+
+`StructureLimits.Status` no RCON informa saúde do worker, contagens, scans, conflitos e estado de fiscalização. `/limites` apresenta contagem observada, LPG/LEG e aviso de inventário em validação. Não exibe LPE/LEE no jogo.
+
+**Ainda não aplica bloqueios.** A cobertura de estruturas descarregadas/save, o veto antes do consumo de materiais e as regras de propriedade/transferência precisam ser comprovados. Uma destruição não informa automaticamente a causa: pickup, demolição, dano e decaimento compartilham a liberação do ID observado, sem inventar a origem. Encerramento/carregamento são ignorados enquanto o servidor não está pronto. Falhas de disco não produzem garantias de recuperação de eventos que ainda estavam somente em memória.
+
+Compilação: os scripts aceitam `STRUCTURELIMITS_SDK_ROOT` para reaproveitar um SDK existente. Somente este plugin é compilado. A instalação piloto continua restrita ao servidor 05; seções abaixo registram as etapas anteriores e suas limitações históricas.
+
 Plugin em desenvolvimento para ARK: Survival Evolved / ArkServerAPI. Este diretório contém núcleo C++ independente do jogo, parser/validador JSON, persistência local, outbox durável, testes locais, schema versionado e build observacional. **Ainda não é um plugin funcional de limites**: a build 0.2-dev foi carregada no servidor de teste 05 (ARK 361.7 / ArkServerAPI 3.56) e registrou uma verificação final permitida para uma fundação de madeira do Structures Plus. A build local 0.4-dev inicializa o núcleo, abre a outbox, carrega snapshots somente como candidatos não validados e instala hooks observacionais por opt-in; também exclui callbacks lifecycle de atores derivados da classe-base de supply crate. A versão 0.4-dev não foi carregada em servidor. Continua sem bloquear construção, sem fazer inventário completo do mundo, sem integração MySQL e sem prova de consumo de materiais.
 
 ## Regras já representadas no núcleo

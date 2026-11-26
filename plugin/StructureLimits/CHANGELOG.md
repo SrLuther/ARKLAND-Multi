@@ -1,5 +1,17 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.8-dev — desenvolvimento posterior ao ARKLAND Multi 1.12.34] — 2026-11-26
+
+- Runtime deixa de produzir somente linhas de diagnóstico e mantém inventário observado por StructureID. Contagens de adição, remoção e reatribuição são idempotentes; callbacks repetidos não somam nem descontam duas vezes. IDs removidos não retornam por uma varredura defasada.
+- Hook de `FinalStructurePlacement` registra colocações somente depois de o original retornar sucesso; verificações `IsAllowedToBuild` continuam sem ser tratadas como construção. Nenhuma decisão do jogo é alterada.
+- Remoções `Destroyed` durante servidor pronto liberam apenas IDs presentes. A causa permanece não especificada; não se presume que todo callback seja ação de jogador. Cobertura de decay e mods continua em homologação.
+- Varredura incremental de PersistentLevel, níveis residentes e LocalStasisActors, com deduplicação, exclusão de supply crates/previews e orçamento por tick. Ausência em uma coleção parcial nunca é interpretada como destruição.
+- Latitude/longitude por conversão do SDK, XYZ, blueprint canônico, time, PlayerDataID e vínculo SteamID/tribo quando comprovado. Troca de time invalida a atribuição anterior.
+- Comando `/limites` integrado ao jogo para LPG/LEG observados, com aviso explícito de inventário parcial. RCON `StructureLimits.Status` permite conferir saúde e contagem sem depender do painel web.
+- Worker grava estado derivado atomicamente e eventos em outbox; serialização integral e disco fora da thread do jogo. O estado anterior nunca habilita fiscalização.
+- Opt-in `LiveInventoryEnabled`; o modelo permanece desativado. Não habilita enforcement nem declara completo o inventário residente/stasis. Rede/SQL, inventário completo do save e veto pré-consumo permanecem etapas pendentes.
+- Testes locais acrescentam idempotência, remoção repetida, retenção em scans parciais, isolamento solo/tribo, troca de proprietário, conflitos de ID e journal assíncrono. A instalação/homologação real é registrada separadamente.
+
 ## [0.7-dev — alvo ARKLAND Multi v1.12.26] — 2026-11-25
 
 Status: probe local em desenvolvimento; ainda não instalado no servidor.

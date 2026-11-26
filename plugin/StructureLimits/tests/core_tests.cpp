@@ -3,6 +3,8 @@
 #include "StructureLimitsConfig.h"
 #include "LocalSnapshotStore.h"
 #include "OutboxSynchronizer.h"
+#include "ObservedInventory.h"
+#include "InventoryJournal.h"
 
 #include <atomic>
 #include <chrono>
@@ -372,7 +374,83 @@ void TestOutboxSynchronizerRetriesWithoutDroppingEvent() {
 
 } // namespace
 
+void TestObservedLedgerIdempotencyAndPartialCoverage() {
+    StructureLimits::ObservedInventory inventory;
+    using Change=StructureLimits::ObservedInventory::Change;
+    StructureLimits::ObservedStructure first;
+    first.id="123";first.blueprint="/Game/Test/Foundation.Foundation_C";
+    first.targetingTeam=50001;first.playerId=10;first.tribeId="50001";first.steamId="steam-a";
+    first.hasCoordinates=true;first.latitude=52.5;first.longitude=42.1;
+    assert(inventory.Observe(first)==Change::Added);
+    assert(inventory.Observe(first)==Change::None);
+    first.placementConfirmed=true;
+    assert(inventory.Observe(first)==Change::Updated);
+    assert(inventory.Records().size()==1);
+    const Configuration config{100,25,{}};
+    assert(inventory.Summary(Owner::ForPlayer("50001","steam-b"),config).globalUsed==1);
+    assert(inventory.Summary(Owner::ForPlayer("other","steam-a"),config).globalUsed==0);
+    auto partial=first;partial.id="234";partial.tribeId="other";
+    assert(inventory.Observe(partial)==Change::Added);
+    // A later partial scan does not erase the original structure.
+    assert(inventory.Observe(partial)==Change::None);
+    assert(inventory.Records().size()==2);
+    auto removed=inventory.Remove("123");assert(removed&&removed->latitude==52.5);
+    assert(!inventory.Remove("123"));
+    assert(inventory.Records().size()==1&&inventory.RemovedCount()==1);
+    assert(inventory.Observe(first)==Change::Tombstoned);
+    assert(inventory.Summary(Owner::ForPlayer("50001","steam-a"),config).globalUsed==0);
+}
+
+void TestObservedLedgerOwnershipAndConflict() {
+    StructureLimits::ObservedInventory inventory;
+    using Change=StructureLimits::ObservedInventory::Change;
+    StructureLimits::ObservedStructure value;
+    value.id="1";value.blueprint="bp/wall";value.targetingTeam=400;value.playerId=10;
+    value.steamId="solo-a";
+    assert(inventory.Observe(value)==Change::Added);
+    Configuration config{100,25,{}};
+    assert(inventory.Summary(Owner::ForPlayer("","solo-a"),config).globalUsed==1);
+    assert(inventory.Summary(Owner::ForPlayer("","solo-b"),config).globalUsed==0);
+    auto changed=value;changed.targetingTeam=50002;changed.steamId.clear();
+    assert(inventory.Observe(changed)==Change::Updated);
+    assert(inventory.Summary(Owner::ForPlayer("","solo-a"),config).globalUsed==0);
+    changed.tribeId="50002";
+    assert(inventory.Observe(changed)==Change::Updated);
+    assert(inventory.Summary(Owner::ForPlayer("50002","solo-b"),config).globalUsed==1);
+    changed.blueprint="bp/door";
+    assert(inventory.Observe(changed)==Change::Conflict&&inventory.Conflicts()==1);
+    assert(inventory.Records().at("1").blueprint==NormalizeBlueprintKey("bp/wall"));
+    changed.id="0";assert(inventory.Observe(changed)==Change::Invalid);
+}
+
+void TestAsynchronousInventoryJournal() {
+    const auto path=std::filesystem::temp_directory_path()/("arkland-inventory-journal-test-"+
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    DurableOutbox outbox(path);outbox.Initialize();
+    {
+        InventoryJournal journal(outbox,path/"observed-inventory.json");
+        assert(journal.Event({{"type","placement_confirmed"},{"structure_id","123"}}));
+        assert(journal.Event({{"type","removed"},{"structure_id","123"}}));
+        journal.Record("123",{{"structure_id","123"},{"latitude",52.5}});
+        journal.Record("123",nullptr);
+        journal.Record("456",{{"structure_id","456"},{"latitude",42.3}});
+        journal.State({{"complete_inventory",false},{"observed_structures",0}});
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+        while((journal.Pending()||!std::filesystem::exists(path/"observed-inventory.json"))&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        assert(journal.Healthy()&&journal.Pending()==0);
+    }
+    const auto pending=outbox.Pending();assert(pending.size()==2&&pending[0].eventId!=pending[1].eventId);
+    assert(std::filesystem::exists(path/"observed-inventory.json"));
+    {std::ifstream file(path/"observed-inventory.json");nlohmann::json state;file>>state;
+        assert(state.at("structures").size()==1&&state.at("structures")[0].at("structure_id")=="456");}
+    std::error_code ec;std::filesystem::remove_all(path,ec);
+}
+
 int main() {
+    TestAsynchronousInventoryJournal();
+    TestObservedLedgerIdempotencyAndPartialCoverage();
+    TestObservedLedgerOwnershipAndConflict();
     TestExtraRoundingAndValidation();
     TestConfigurationParsingAndFailSafeValidation();
     TestMapIdentity();

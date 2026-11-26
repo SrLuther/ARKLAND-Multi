@@ -4,6 +4,7 @@
 #include "StructureLimitsConfig.h"
 #include "DurableOutbox.h"
 #include "LocalSnapshotStore.h"
+#include "LiveInventoryRuntime.h"
 
 #include <memory>
 #include <set>
@@ -23,6 +24,8 @@ bool g_pickupHookInstalled = false;
 bool g_multiUseHookInstalled = false;
 bool g_residentProbeTimerInstalled = false;
 bool g_residentProbeCompleted = false;
+bool g_finalPlacementInstalled = false;
+bool g_worldCleanupInstalled = false;
 UClass* g_supplyCrateBaseClass = nullptr;
 std::unique_ptr<StructureLimits::LimitEngine> g_limitEngine;
 std::unique_ptr<StructureLimits::LocalSnapshotStore> g_snapshotStore;
@@ -45,6 +48,9 @@ DECLARE_HOOK(APrimalStructure_BPOnStructurePickup, void, APrimalStructure*,
     APlayerController*, TSubclassOf<UPrimalItem>, UPrimalItem*, bool);
 DECLARE_HOOK(APrimalStructure_TryMultiUse, bool, APrimalStructure*,
     APlayerController*, int);
+DECLARE_HOOK(APrimalStructure_FinalStructurePlacement, bool, APrimalStructure*,
+    APlayerController*, FVector, FRotator, FRotator, APawn*, FName, bool);
+DECLARE_HOOK(UWorld_CleanupWorld,void,UWorld*,bool,bool,UWorld*);
 
 namespace {
 
@@ -150,10 +156,27 @@ void __fastcall Hook_APrimalStructure_BeginPlay(APrimalStructure* structure) {
     LogStructureLifecycle("begin_play", structure);
 }
 
+void __fastcall Hook_UWorld_CleanupWorld(UWorld* world,bool sessionEnded,bool resources,UWorld* nextWorld){
+    if(world==ArkApi::GetApiUtils().GetWorld())StructureLimits::SuspendLiveInventory();
+    UWorld_CleanupWorld_original(world,sessionEnded,resources,nextWorld);
+}
+
 void __fastcall Hook_APrimalStructure_Destroyed(APrimalStructure* structure) {
     // Capture identity before the original teardown can invalidate actor data.
     LogStructureLifecycle("destroyed_callback", structure);
+    try { StructureLimits::ObserveLiveDestruction(structure); }
+    catch (const std::exception& e) { Log::GetLog()->error("StructureLimits live destruction: {}",e.what()); }
     APrimalStructure_Destroyed_original(structure);
+}
+
+bool __fastcall Hook_APrimalStructure_FinalStructurePlacement(
+    APrimalStructure* structure,APlayerController* player,FVector location,
+    FRotator rotation,FRotator view,APawn* attach,FName bone,bool flipped) {
+    const bool placed=APrimalStructure_FinalStructurePlacement_original(
+        structure,player,location,rotation,view,attach,bone,flipped);
+    if(placed)try { StructureLimits::ObserveCompletedPlacement(structure,player); }
+    catch(const std::exception& e){Log::GetLog()->error("StructureLimits completed placement: {}",e.what());}
+    return placed;
 }
 
 void __fastcall Hook_APrimalStructure_Demolish(
@@ -259,6 +282,14 @@ int __fastcall Hook_APrimalStructure_IsAllowedToBuild(
 
 namespace {
 void DisableInstalledHooks() {
+    if(g_worldCleanupInstalled){
+        ArkApi::GetHooks().DisableHook("UWorld.CleanupWorld",Hook_UWorld_CleanupWorld);
+        g_worldCleanupInstalled=false;
+    }
+    if(g_finalPlacementInstalled){
+        ArkApi::GetHooks().DisableHook("APrimalStructure.FinalStructurePlacement",Hook_APrimalStructure_FinalStructurePlacement);
+        g_finalPlacementInstalled=false;
+    }
     if (g_probeHookInstalled) {
         ArkApi::GetHooks().DisableHook(
             "APrimalStructure.IsAllowedToBuild",
@@ -342,9 +373,10 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         const bool observePlacement = config.observationProbeEnabled;
         const bool observeLifecycle = config.lifecycleObservationEnabled;
         const bool observeResidentInventory = config.residentInventoryProbeEnabled;
+        const bool liveInventory = config.liveInventoryEnabled;
         const bool observeBeginPlay = observeLifecycle &&
             config.lifecycleBeginPlayObservationEnabled;
-        if (!observePlacement && !observeLifecycle && !observeResidentInventory) {
+        if (!observePlacement && !observeLifecycle && !observeResidentInventory && !liveInventory) {
             Log::GetLog()->warn("StructureLimits: observers are disabled; no game hooks installed");
             Log::GetLog()->warn("StructureLimits: enforcement suspended; complete live inventory and validated placement hook are unavailable");
             return;
@@ -364,7 +396,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
                 &APrimalStructure_BeginPlay_original);
             g_beginPlayHookInstalled = true;
         }
-        if (observeLifecycle) {
+        if (observeLifecycle || liveInventory) {
             ArkApi::GetHooks().SetHook(
                 "APrimalStructure.Destroyed",
                 Hook_APrimalStructure_Destroyed,
@@ -392,9 +424,17 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
                 &ProbeResidentWorldOncePlayersArePresent);
             g_residentProbeTimerInstalled = true;
         }
+        if(liveInventory){
+            ArkApi::GetHooks().SetHook("UWorld.CleanupWorld",Hook_UWorld_CleanupWorld,&UWorld_CleanupWorld_original);
+            g_worldCleanupInstalled=true;
+            ArkApi::GetHooks().SetHook("APrimalStructure.FinalStructurePlacement",Hook_APrimalStructure_FinalStructurePlacement,&APrimalStructure_FinalStructurePlacement_original);
+            g_finalPlacementInstalled=true;
+            StructureLimits::StartLiveInventory(config,*g_outbox);
+        }
         Log::GetLog()->warn(
-            "StructureLimits: observer hooks only; enforcement suspended; removal action hooks (Demolish/BPOnStructurePickup/TryMultiUse) are diagnostic candidates and require validation before counting");
+            "StructureLimits: enforcement suspended; live ledger is observational; complete coverage and pre-consumption veto are not validated");
     } catch (const std::exception& e) {
+        StructureLimits::StopLiveInventory();
         DisableInstalledHooks();
         if (g_residentProbeTimerInstalled) {
             ArkApi::GetCommands().RemoveOnTimerCallback(
@@ -411,6 +451,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
     DisableInstalledHooks();
+    StructureLimits::StopLiveInventory();
     if (g_residentProbeTimerInstalled) {
         ArkApi::GetCommands().RemoveOnTimerCallback(
             "StructureLimitsResidentInventoryProbe");

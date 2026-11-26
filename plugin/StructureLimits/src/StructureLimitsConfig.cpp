@@ -96,6 +96,7 @@ PluginConfiguration ParsePluginConfiguration(const std::string& jsonText) {
         section, "LifecycleBeginPlayObservationEnabled", false);
     result.residentInventoryProbeEnabled = ReadBoolean(
         section, "ResidentInventoryProbeEnabled", false);
+    result.liveInventoryEnabled = ReadBoolean(section,"LiveInventoryEnabled",false);
     result.enforcementRequiresValidatedInventory =
         ReadBoolean(section, "EnforcementRequiresValidatedInventory", true);
     if (!result.enforcementRequiresValidatedInventory)

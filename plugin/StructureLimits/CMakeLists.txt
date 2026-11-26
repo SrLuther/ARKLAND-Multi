@@ -11,11 +11,16 @@ add_library(StructureLimitsCore STATIC
     src/LocalSnapshotStore.cpp
     src/OutboxSynchronizer.cpp
     src/StructureLimitsConfig.cpp
+    src/ObservedInventory.cpp
+    src/InventoryJournal.cpp
 )
 target_include_directories(StructureLimitsCore PUBLIC
     src
     ../CustomShop/ArkServerAPI/version/Core/Public
 )
+if(WIN32)
+    target_link_libraries(StructureLimitsCore PUBLIC ole32)
+endif()
 if(MSVC)
     target_compile_options(StructureLimitsCore PRIVATE /W4 /permissive-)
 else()

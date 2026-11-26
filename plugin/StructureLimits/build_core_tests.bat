@@ -2,6 +2,7 @@
 setlocal
 
 set "PLUGIN_DIR=%~dp0"
+if not defined STRUCTURELIMITS_SDK_ROOT set "STRUCTURELIMITS_SDK_ROOT=%PLUGIN_DIR%..\CustomShop\ArkServerAPI"
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if not exist "%VSWHERE%" (
   echo ERROR: vswhere.exe nao encontrado.
@@ -24,14 +25,16 @@ if errorlevel 1 exit /b 1
 
 pushd "%BUILD_DIR%"
 cl /nologo /std:c++20 /EHsc /W4 /I"%PLUGIN_DIR%src" ^
-  /I"%PLUGIN_DIR%..\CustomShop\ArkServerAPI\version\Core\Public" ^
+  /I"%STRUCTURELIMITS_SDK_ROOT%\version\Core\Public" ^
   "%PLUGIN_DIR%src\StructureLimitsCore.cpp" ^
   "%PLUGIN_DIR%src\DurableOutbox.cpp" ^
   "%PLUGIN_DIR%src\LocalSnapshotStore.cpp" ^
   "%PLUGIN_DIR%src\OutboxSynchronizer.cpp" ^
   "%PLUGIN_DIR%src\StructureLimitsConfig.cpp" ^
+  "%PLUGIN_DIR%src\ObservedInventory.cpp" ^
+  "%PLUGIN_DIR%src\InventoryJournal.cpp" ^
   "%PLUGIN_DIR%tests\core_tests.cpp" ^
-  /Fe:StructureLimitsCoreTests.exe
+  /Fe:StructureLimitsCoreTests.exe /link ole32.lib
 if errorlevel 1 goto :error
 
 StructureLimitsCoreTests.exe

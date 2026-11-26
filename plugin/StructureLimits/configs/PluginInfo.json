@@ -1,9 +1,9 @@
 ﻿{
-    "FullName":  "ARKLAND Structure Limits (probe de inventário residente)",
-    "Version":  0.7,
+    "FullName":  "ARKLAND Structure Limits (inventário ao vivo)",
+    "Version":  0.8,
     "MinApiVersion":  3.54,
-    "VersionLabel":  "0.7-dev",
-    "Description":  "Varredura diagnóstica de atores residentes; inventário incompleto, não aplica limites",
+    "VersionLabel":  "0.8-dev",
+    "Description":  "Contagem observada, colocações concluídas, remoções por ID, GPS e /limites; fiscalização suspensa",
     "Dependencies":  [
 
                      ]

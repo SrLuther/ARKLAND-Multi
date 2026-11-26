@@ -4,6 +4,7 @@ setlocal EnableDelayedExpansion
 set "PLUGIN_DIR=%~dp0"
 set "SRC_DIR=%PLUGIN_DIR%src"
 set "SDK_ROOT=%PLUGIN_DIR%..\CustomShop\ArkServerAPI"
+if defined STRUCTURELIMITS_SDK_ROOT set "SDK_ROOT=%STRUCTURELIMITS_SDK_ROOT%"
 set "SDK_DIR=%SDK_ROOT%\version\Core\Public"
 set "LIB_DIR=%SDK_ROOT%\out_lib"
 if not exist "%LIB_DIR%\ArkApi.lib" set "LIB_DIR=%SDK_ROOT%\lib"
@@ -31,9 +32,9 @@ if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 call "%VS_DIR%\VC\Auxiliary\Build\vcvarsall.bat" x64
 if errorlevel 1 exit /b 1
 pushd "%BUILD_DIR%"
-cl /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" /I"%SDK_DIR%" /I"%SDK_ROOT%" /I"%SRC_DIR%" /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME /DUNICODE /D_UNICODE /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR "%SRC_DIR%\Main.cpp" "%SRC_DIR%\StructureLimitsCore.cpp" "%SRC_DIR%\StructureLimitsConfig.cpp" "%SRC_DIR%\DurableOutbox.cpp" "%SRC_DIR%\LocalSnapshotStore.cpp" "%SRC_DIR%\OutboxSynchronizer.cpp"
+cl /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" /I"%SDK_DIR%" /I"%SDK_ROOT%" /I"%SRC_DIR%" /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME /DUNICODE /D_UNICODE /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR "%SRC_DIR%\Main.cpp" "%SRC_DIR%\StructureLimitsCore.cpp" "%SRC_DIR%\StructureLimitsConfig.cpp" "%SRC_DIR%\DurableOutbox.cpp" "%SRC_DIR%\LocalSnapshotStore.cpp" "%SRC_DIR%\OutboxSynchronizer.cpp" "%SRC_DIR%\ObservedInventory.cpp" "%SRC_DIR%\InventoryJournal.cpp" "%SRC_DIR%\LiveInventoryRuntime.cpp"
 if errorlevel 1 exit /b 1
-link /DLL /NOLOGO /OUT:"%BUILD_DIR%\StructureLimits.dll" /LIBPATH:"%LIB_DIR%" /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" /LIBPATH:"%WIN_SDK_LIB%\um\x64" ArkApi.lib kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib "%BUILD_DIR%\Main.obj" "%BUILD_DIR%\StructureLimitsCore.obj" "%BUILD_DIR%\StructureLimitsConfig.obj" "%BUILD_DIR%\DurableOutbox.obj" "%BUILD_DIR%\LocalSnapshotStore.obj" "%BUILD_DIR%\OutboxSynchronizer.obj"
+link /DLL /NOLOGO /OUT:"%BUILD_DIR%\StructureLimits.dll" /LIBPATH:"%LIB_DIR%" /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" /LIBPATH:"%WIN_SDK_LIB%\um\x64" ArkApi.lib kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib "%BUILD_DIR%\Main.obj" "%BUILD_DIR%\StructureLimitsCore.obj" "%BUILD_DIR%\StructureLimitsConfig.obj" "%BUILD_DIR%\DurableOutbox.obj" "%BUILD_DIR%\LocalSnapshotStore.obj" "%BUILD_DIR%\OutboxSynchronizer.obj" "%BUILD_DIR%\ObservedInventory.obj" "%BUILD_DIR%\InventoryJournal.obj" "%BUILD_DIR%\LiveInventoryRuntime.obj"
 if errorlevel 1 exit /b 1
 echo BUILD SUCCEEDED: %BUILD_DIR%\StructureLimits.dll
 echo This artifact wires configuration, core engine, local snapshot and outbox startup plus diagnostic hooks.
