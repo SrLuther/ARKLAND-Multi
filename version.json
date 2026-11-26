@@ -1,8 +1,8 @@
 {
-    "version": "1.12.29",
+    "version": "1.12.30",
     "date": "2026-11-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.29/ARKLAND-Multi-Setup-v1.12.29.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.30/ARKLAND-Multi-Setup-v1.12.30.exe",
     "changelog": [
-        "Membros por mapa: inclui também os registros offline retornados pelo TribeSync com IDs de servidor ainda não vinculados ao cadastro, carrega todos os membros em páginas e exibe o estado ONLINE/OFFLINE quando confirmado pelo RCON. Mostra SteamID, ID do personagem (PlayerDataID), ID/nome da tribo e último sync; quando o RCON não responde, informa que o estado não foi verificado."
+        "Correção no empacotamento da Web Store: inclui Pillow no executável para carregar o módulo PIL usado pelo armazenamento e validação de imagens da comunicação Lumo."
     ]
 }

@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-25 20:40:46 -->
-<!-- Total de versões: 590 | Primeira: 1.12.29 -->
+<!-- Gerado: 2026-11-25 21:05:09 -->
+<!-- Total de versões: 591 | Primeira: 1.12.30 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.30] - 2026-11-25
+
+### Other
+
+- Correção no empacotamento da Web Store: inclui Pillow no executável para carregar o módulo PIL usado pelo armazenamento e validação de imagens da comunicação Lumo.
 
 ## [1.12.29] - 2026-11-25
 

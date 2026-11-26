@@ -46,17 +46,18 @@ limiter_datas, limiter_binaries, limiter_hiddenimports = collect_all('flask_limi
 dotenv_datas, dotenv_binaries, dotenv_hiddenimports = collect_all('dotenv')
 crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography')
 discord_datas, discord_binaries, discord_hiddenimports = collect_all('discord')
+pil_datas, pil_binaries, pil_hiddenimports = collect_all('PIL')
 
 a = Analysis(
     ['plugin/arkshop_web/app.py'],
     pathex=[str(_project_root)],
-    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries + discord_binaries,
+    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries + discord_binaries + pil_binaries,
     datas=[
         *_collect_webstore_static_datas(),
         ('plugin/arkshop_web/data', 'data'),
         *_catalog_datas,
         ('version.json', '.'),
-    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas + discord_datas,
+    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas + discord_datas + pil_datas,
     hiddenimports=[
         'flask',
         'flask_cors',
@@ -89,13 +90,14 @@ a = Analysis(
         'audioop',
     ] + collect_submodules('sqlalchemy')
       + collect_submodules('discord')
+      + pil_hiddenimports
       + flask_hiddenimports + cors_hiddenimports + limiter_hiddenimports
       + dotenv_hiddenimports + crypto_hiddenimports + discord_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=['matplotlib', 'numpy', 'scipy', 'pandas', 'PyQt5', 'PyQt6',
-              'customtkinter', 'PIL', 'pystray', 'pytest', 'stanza', 'spacy',
+              'customtkinter', 'pystray', 'pytest', 'stanza', 'spacy',
               'thinc', 'onnxruntime', 'tensorflow', 'torch', 'functorch',
               'torchgen', 'argostranslate', 'ctranslate2', 'sentencepiece',
               'langdetect'],

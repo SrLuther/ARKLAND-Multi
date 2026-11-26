@@ -11,6 +11,15 @@ def test_every_pyinstaller_build_cleans_cached_analysis_before_packaging():
     assert all("--clean" in line for line in invocations)
 
 
+def test_webstore_packages_pillow_required_by_lumo_asset_routes():
+    spec = (ROOT / "ARKLAND-WebStore.spec").read_text(encoding="utf-8")
+    requirements = (ROOT / "plugin" / "arkshop_web" / "requirements.txt").read_text(encoding="utf-8")
+    assert "collect_all('PIL')" in spec
+    assert "pil_binaries" in spec and "pil_datas" in spec and "pil_hiddenimports" in spec
+    assert "'PIL'" not in spec.split("excludes=[", 1)[1].split("],", 1)[0]
+    assert "Pillow" in requirements
+
+
 def test_release_version_matches_update_manifest():
     import json
     import re
