@@ -1,10 +1,10 @@
 {
-    "version": "1.12.33",
+    "version": "1.12.34",
     "date": "2026-11-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.33/ARKLAND-Multi-Setup-v1.12.33.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.34/ARKLAND-Multi-Setup-v1.12.34.exe",
     "changelog": [
-        "Novo Chat Arkland experimental: plugin ASE independente com painel administrativo em português, configurações revisionadas, mapas dinâmicos, IDs públicos permanentes, mensagens privadas, consulta online, notificações, tags, cores e filtro por asteriscos. Implantação inicial restrita ao servidor 05 para homologação; não substitui automaticamente o chat dos demais mapas.",
-        "Chat Arkland: reutiliza o monitoramento de jogadores, licenças, permissões, vínculos Discord e o Gateway central do Lumo. Não distribui token Discord ou senha MySQL aos mapas e mantém proteção contra duplicidade, ciclos e exposição de mensagens privadas.",
-        "Banco do Chat Arkland: tabelas próprias em InnoDB/utf8mb4 e compatibilidade Unicode no monitoramento compartilhado; preservação do registro permanente de IDs e dos dados existentes. Inclui pacote independente, procedimentos de atualização/reversão e relatório de testes, mantendo explícita a homologação em jogo pendente."
+        "Chat Arkland no Discord: apresenta mensagens do jogo em blocos monoespaçados agrupados, atualizando o bloco corrente e abrindo outro ao atingir o limite ou haver outra conversa no canal. Preserva horário, mapa, nome, ID, tribo e tag; neutraliza delimitadores de código e mantém menções desativadas.",
+        "Lumo: separa anúncios automáticos do Chat do Jogo por uma pausa aleatória persistente de 15 a 20 minutos. Envia somente um por ciclo, dá prioridade ao aviso pendente mais antigo e mantém as agendas próprias de BetLand, votações e assuntos gerais. Respostas interativas continuam independentes dessa pausa.",
+        "Integração Chat Arkland/Lumo: processa cada evento original autenticado em fila separada, sem reprocessar os ecos ou as edições do bloco do bot. Evita reenviar resultados ambíguos e mantém a privacidade das mensagens privadas."
     ]
 }
