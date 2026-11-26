@@ -100,6 +100,7 @@ class LumoGatewayRunner:
                 "responses": self._responses,
                 "announcements": self._announcements,
                 "scheduler_running": bool(self._scheduler_task and not self._scheduler_task.done()),
+                "chat_channel_mirror": self._chat_transport.mirror_snapshot(),
             }
 
     def reconfigure(self) -> tuple[bool, str]:
@@ -560,6 +561,8 @@ class LumoGatewayRunner:
 
     async def _on_message_edit(self, client: Any, before: Any, after: Any) -> None:
         """Extrai apenas linhas novas quando a ponte agrega o chat editando uma mensagem."""
+        if self._chat_transport.normalizes(client, after):
+            return  # A versão original capturada é imutável; edições não geram outras falas.
         if str(getattr(getattr(after, "author", None), "id", "")) == str(getattr(getattr(client, "user", None), "id", "")) and self._chat_transport.is_relay_message(after):
             return
         config = self._load_settings()

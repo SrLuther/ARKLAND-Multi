@@ -4,7 +4,7 @@
 
 Em 26/11/2026, no worktree feature/chat-arkland, a partir da versão publicada 1.12.32:
 
-- **61 testes Python aprovados na evolução 1.12.34** (53 na implantação 1.12.33): Chat Arkland, rotas/transportes, monitoramento, Central de Status e Lumo. Inclui agrupamento de mensagens, limites Unicode, falhas de edição, reação única por evento, ausência de ciclos e espaçamento persistente dos anúncios, inclusive depois de reiniciar o Gateway. Execução com Python 3.12.13; fixtures locais sem postar mensagens reais no Discord; não equivale a teste de concorrência em MariaDB de produção.
+- **76 testes Python aprovados na evolução 1.12.35** (61 na 1.12.34; 53 na 1.12.33): Chat Arkland, rotas/transportes, monitoramento, Central de Status e Lumo. Inclui agrupamento, Unicode, reação única, ausência de ciclos, espaçamento persistente dos anúncios e os 15 cenários da consolidação detalhados abaixo. Execução com Python 3.12.13; fixtures locais sem postar mensagens reais no Discord; não equivale a teste de concorrência em MariaDB de produção.
 - **Build MSVC x64 aprovado** da DLL independente com headers/biblioteca reais do ArkServerAPI ASE. Link sem CustomShop.dll e sem biblioteca MySQL do cliente.
 - **Testes C++ do núcleo aprovados**: UTF-8/Unicode, censura por caixa/acentos/evasão simples, limites de palavras, PollRate decimal/limites, formato com ID, ausência de tribo vazia, RGBA e UUIDs. O executável de teste não carrega o mundo ARK.
 - **Fluxo em navegador Edge headless aprovado** na prévia Flask local: todas as nove abas, rejeição de PollRate zero, valor decimal, prévia com ID/cores, ausência de interpretação de HTML, descoberta de três referências fictícias e adição sem aprovação automática, participação de mapas, publicação com CAS, histórico/rollback como nova revisão e tela de 390 px sem rolagem horizontal. Nenhuma mensagem real ao Discord ou jogo foi enviada.
@@ -15,6 +15,12 @@ Em 26/11/2026, no worktree feature/chat-arkland, a partir da versão publicada 1
 - **Web Store 1.12.33 oficial**: interface administrativa abriu na sessão real; publicação autenticada de configuração conferida; Lumo Gateway conectado. A inicialização persistente usa tarefa do Windows, independente da sessão SSH.
 
 ## Cobertura dos testes do hub
+
+### Consolidação Discord — 1.12.35
+
+Quinze cenários em `test_chat_discord_mirrors.py`: primeira versão imutável e encaminhamento idempotente; identidade de humano chamado Lumo distinta do bot real; humano e Lumo no bloco com remoção posterior à confirmação; envio ambíguo preservando o original; repetição somente da remoção quando esta falha; falta de Gerenciar mensagens; cópia dos bytes do anexo antes de remover; divisão Unicode sem truncamento e neutralização de cercas; edições sem nova reação; fila recuperável em outra instância do serviço; original removido não recriado; eco próprio identificado pelo nonce; textos longos sem duplicar partes no jogo; validação de canal e recibos; e worker completo com cópia/remoção e diagnóstico de permissões.
+
+`node --check` aprovado para a interface administrativa. Esta cobertura usa transporte simulado; a confirmação no canal real deve ser registrada separadamente após implantação, sem tratar os mocks como entrega no Discord.
 
 - Validação estrita de tipos, cores, configurações desconhecidas, templates e ID obrigatório.
 - Uma tag por jogador; prioridade administrativa e rejeição de grupo pago sem licença vigente; aprovação administrativa obrigatória.

@@ -86,6 +86,7 @@ a = Analysis(
         'chat_arkland_service',
         'chat_arkland_routes',
         'chat_arkland_discord',
+        'chat_arkland_mirrors',
         'src.permission_entitlements_sync',
         'discord',
         'discord.ext.commands',

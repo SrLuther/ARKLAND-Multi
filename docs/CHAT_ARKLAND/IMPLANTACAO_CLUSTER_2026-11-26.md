@@ -19,7 +19,7 @@ No momento da instalação, as pastas KalsCrossChat dos 01–04 já estavam ause
 
 - Logs do ArkApi confirmaram Chat Arkland 0.1.0 e `Loaded all plugins` nos 01–04, sem erro do Chat Arkland.
 - Consulta administrativa confirmou 01–05 conectados, sincronizados na revisão 6, `observer=false`, `last_error` vazio.
-- O carregamento de mundo é uma etapa separada: heartbeat do worker e processo ativo não comprovam que o ARK já aceita jogadores. A checagem de RCON/listagem continua após a carga da DLL.
+- Após o carregamento do mundo, os quatro servidores 01–04 responderam ao comando RCON `ListPlayers` com resposta vazia reconhecida. O 01 foi o último a concluir essa etapa. Não houve falha do plugin nos logs conferidos. Heartbeat do worker e processo ativo não foram usados isoladamente como comprovação de prontidão.
 - Não foram enviadas mensagens artificiais ao Discord, chats ou jogadores. Global entre mapas, PM, notificações e apresentação visual continuam sujeitos aos testes funcionais com jogadores.
 
 ## Serviço central

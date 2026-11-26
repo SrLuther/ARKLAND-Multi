@@ -61,7 +61,11 @@ def register_chat_arkland_routes(app, *, db_ready, session_factory, engine_gette
             return failed("Banco central temporariamente indisponível.", 503)
         try:
             settings = load_settings()
-            return jsonify({"ok": True, **service.admin_snapshot(),
+            snapshot = service.admin_snapshot()
+            from lumo_gateway import get_lumo_runtime
+            runner = get_lumo_runtime()
+            snapshot["discord_mirror"]["runtime"] = runner.snapshot().get("chat_channel_mirror", {}) if runner else {}
+            return jsonify({"ok": True, **snapshot,
                 "message_variables": {key: sorted({field for _, field, _, _ in Formatter().parse(value) if field}) for key, value in MESSAGES.items()}, "discord": {
                 "guild_id": str(settings.get("lumo_guild_id") or ""),
                 "channel_id": str(settings.get("lumo_game_chat_channel_id") or ""),

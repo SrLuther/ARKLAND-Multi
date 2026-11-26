@@ -12,6 +12,15 @@ BUILD_DATE: str = "2026-11-26"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.35",
+        "date": "2026-11-26",
+        "changes": [
+            "Chat Arkland no Discord: consolida mensagens novas de jogadores e do próprio Lumo nos mesmos blocos monoespaçados usados pelo jogo, com horário e autoria identificada. Captura a primeira versão da mensagem e não reaplica edições posteriores; remove o original somente depois de confirmar a cópia completa.",
+            "Consolidação do canal: fila persistente no banco, deduplicação, cópia de anexos e divisão de textos longos sem truncamento. Falhas de envio com resultado desconhecido preservam o original sem repetição automática; falhas de remoção repetem apenas a remoção. O painel mostra permissões, filas e ocorrências. Mensagens anteriores à atualização não são reorganizadas.",
+            "Chat Arkland: homologação ampliada aos servidores 01–04, com carga da DLL e resposta RCON confirmadas, preservando o 05 ocupado e o 06 desativado. StructureLimits não foi instalado nos 01–04. A atualização da consolidação é central e mantém compatibilidade com a DLL 0.1.0, sem exigir reinício dos mapas.",
+        ],
+    },
+    {
         "version": "1.12.34",
         "date": "2026-11-26",
         "changes": [

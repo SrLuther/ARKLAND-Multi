@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 
 from chat_arkland_config import DEFAULTS, MESSAGES, censor, clean_text, display_name, format_global, select_style, validate_config
 from player_monitoring_routes import _ensure_schema as ensure_monitor_schema, ingest_session_event
+from chat_arkland_mirrors import define_mirrors, DiscordMirrorStore
 
 META = MetaData()
 JSON_TEXT = Text().with_variant(LONGTEXT(), "mysql")
@@ -53,6 +54,7 @@ DELIVERIES = Table("chat_arkland_deliveries", META, Column("delivery_id", String
 LEADER = Table("chat_arkland_discord_lease", META, Column("id", Integer, primary_key=True),
     Column("owner", String(40)), Column("until_at", DateTime))
 SCHEMA = Table("chat_arkland_schema", META, Column("version", Integer, primary_key=True), Column("applied_at", DateTime, nullable=False))
+DISCORD_SOURCES = define_mirrors(META, JSON_TEXT)
 for _table in META.tables.values():
     # Não herdar latin1 de instalações antigas: templates e nomes contêm Unicode.
     _table.dialect_options["mysql"]["charset"] = "utf8mb4"
@@ -100,6 +102,8 @@ def ensure_chat_schema(engine):
                 conn.execute(insert(LEADER).values(id=1))
             if conn.execute(select(SCHEMA.c.version).where(SCHEMA.c.version == 1)).first() is None:
                 conn.execute(insert(SCHEMA).values(version=1, applied_at=datetime.utcnow()))
+            if conn.execute(select(SCHEMA.c.version).where(SCHEMA.c.version == 4)).first() is None:
+                conn.execute(insert(SCHEMA).values(version=4, applied_at=datetime.utcnow()))
         _READY.add(engine)
 
 
@@ -117,6 +121,7 @@ class ChatArklandService:
         self._config_time = 0.0
         self._lock = threading.RLock()
         self._cleanup_at = 0.0
+        self.mirrors = DiscordMirrorStore(self, DISCORD_SOURCES, LEADER)
 
     def database(self):
         engine = self.engine_getter()
@@ -555,6 +560,35 @@ class ChatArklandService:
             MESSAGES_TABLE.c.claimed_at < now - timedelta(seconds=30)).values(discord_state="uncertain"))
         self._cleanup_at = time.monotonic()
 
+    def render_discord(self, db, config, author_id, author_name, body, *, lumo=False, limit=None, when=None, immutable_identity=False):
+        actor = {"name": "Lumo" if lumo else clean_text(author_name, 128), "tribe_name": "", "groups": []}
+        public_id, tag, colors = None, None, config["Colors"]
+        if not lumo:
+            linked = self.discord_identity(db, str(author_id))
+            if linked:
+                actor.update(linked)
+                public_id = str(self._id(db, actor["steam_id"])["public_id"])
+                tag, colors = self._actor_style(db, config, actor)
+        policy = {**config, "MaxMessageLength": limit} if limit else config
+        if immutable_identity and not lumo:
+            template = policy["Messages"]["Discord"]
+            has_id = bool(re.search(r"\{id(?:[!:}]|$)", template))
+            suffix = (" (" + public_id + ")") if public_id and not has_id else ""
+            if not public_id:
+                suffix = " [Discord ID " + str(author_id) + "]"
+                template = template.replace("({id})", "").replace("[{id}]", "")
+            if suffix:
+                template = re.sub(r"(\{jogador(?:![rsa])?(?::[^{}]*)?\})", lambda match: match[1] + suffix, template)
+                policy = {**policy, "Messages": {**policy["Messages"], "Discord": template}}
+        rendered = format_global(policy, actor, public_id, "Discord", body,
+            origin="lumo" if lumo else "discord", tag=tag, colors=colors, now=when)
+        rendered["_sender_steam"] = actor.get("steam_id")
+        identity_name = rendered["sender_name"]
+        if immutable_identity and not lumo:
+            identity_name += " (" + public_id + ")" if public_id else " [Discord ID " + str(author_id) + "]"
+        rendered["_identity_name"] = identity_name
+        return rendered
+
     def ingest_discord(self, message_id, author_id, author_name, body, *, lumo=False):
         db = self.database()
         try:
@@ -565,17 +599,11 @@ class ChatArklandService:
             if not self._event(db, event_id):
                 db.commit()
                 return False
-            actor = {"name": "Lumo" if lumo else clean_text(author_name, 128), "tribe_name": "", "groups": []}
-            public_id, tag, colors = None, None, config["Colors"]
-            if not lumo:
-                linked = self.discord_identity(db, str(author_id))
-                if linked:
-                    actor.update(linked)
-                    public_id = str(self._id(db, actor["steam_id"])["public_id"])
-                    tag, colors = self._actor_style(db, config, actor)
             # Texto vindo do Discord nunca é interpretado como /pm, RCON ou comando.
-            rendered = format_global(config, actor, public_id, "Discord", body, origin="lumo" if lumo else "discord", tag=tag, colors=colors)
-            self._message(db, event_id, "global", "lumo" if lumo else "discord", "discord", actor.get("steam_id"), rendered, config)
+            rendered = self.render_discord(db, config, author_id, author_name, body, lumo=lumo)
+            sender = rendered.pop("_sender_steam", None)
+            rendered.pop("_identity_name", None)
+            self._message(db, event_id, "global", "lumo" if lumo else "discord", "discord", sender, rendered, config)
             db.commit()
             return True
         except Exception:
@@ -642,7 +670,7 @@ class ChatArklandService:
                     "status": "Observação" if connected and instance["observer"] else "Sincronizado" if connected and instance["revision"] == shared["revision"] else "Configuração pendente" if connected else "Sem comunicação recente"})
             revisions = db.execute(select(REVISIONS.c.revision, REVISIONS.c.changed_at, REVISIONS.c.actor).order_by(REVISIONS.c.revision.desc()).limit(30)).mappings().all()
             delivery_states = dict(db.execute(select(MESSAGES_TABLE.c.discord_state, func.count()).group_by(MESSAGES_TABLE.c.discord_state)).all())
-            return {**shared, "maps": maps, "revisions": [{**row, "changed_at": row["changed_at"].isoformat() + "Z"} for row in revisions],
+            return {**shared, "maps": maps, "discord_mirror": self.mirrors.stats(db), "revisions": [{**row, "changed_at": row["changed_at"].isoformat() + "Z"} for row in revisions],
                     "discord_deliveries": delivery_states,
                     "validation": "Em desenvolvimento; testes automatizados não substituem a homologação em jogo."}
         finally:
