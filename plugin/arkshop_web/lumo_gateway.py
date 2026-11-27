@@ -27,6 +27,7 @@ from lumo_assistant import (
 log = logging.getLogger("arkshop_web.lumo.gateway")
 _UTC = timezone.utc
 _AUTO_TYPES = ("betland", "polls")
+_MAIN_ANNOUNCEMENT_INTERVAL = timedelta(hours=6)
 
 
 class _GameAudienceDeferred(Exception):
@@ -73,6 +74,7 @@ class LumoGatewayRunner:
         self._responses = 0
         self._announcements = 0
         self._game_audience = {'state': 'not_checked', 'checked_at': '', 'confirmed_players': 0}
+        self._main_announcement_gate = {'state': 'not_checked', 'checked_at': ''}
         self._last_greeting: dict[str, str] = {}
         self._user_last: dict[str, float] = {}
         self._trigger_last: dict[str, float] = {}
@@ -107,6 +109,7 @@ class LumoGatewayRunner:
                 "responses": self._responses,
                 "announcements": self._announcements,
                 "game_announcement_audience": dict(self._game_audience),
+                "main_announcement_gate": dict(self._main_announcement_gate),
                 "scheduler_running": bool(self._scheduler_task and not self._scheduler_task.done()),
                 "chat_channel_mirror": self._chat_transport.mirror_snapshot(),
             }
@@ -640,6 +643,9 @@ class LumoGatewayRunner:
             return
         now = datetime.now(_UTC)
         shared_game_channel = str(channel.id) == str(config.get('lumo_game_chat_channel_id') or '')
+        if not shared_game_channel:
+            await self._main_scheduler_tick(client, channel, config, now)
+            return
         if shared_game_channel:
             not_before = _parse_utc(config.get('lumo_game_announcements_not_before'))
             if not_before and not_before > now:
@@ -702,6 +708,107 @@ class LumoGatewayRunner:
                 config[state_key] = _utc_iso(now + timedelta(minutes=15))
                 self._save_settings(config)
                 self._audit("lumo_automatic_announcement", status="failed", trigger=category, channel_id=str(channel.id), reason=type(exc).__name__)
+
+    def _save_main_schedule(self, config: dict[str, Any], updates: dict[str, Any]) -> None:
+        # Merge only scheduler state; do not overwrite concurrent admin changes.
+        latest = self._load_settings()
+        latest.update(updates)
+        self._save_settings(latest)
+        config.update(updates)
+
+    async def _main_scheduler_tick(self, client: Any, channel: Any, config: dict[str, Any], now: datetime) -> None:
+        """Independent community channel: six hours globally, one pending topic."""
+        if not config.get('lumo_assistant_enabled'):
+            return
+        last_values = [_parse_utc(config.get(key)) for key in (
+            'lumo_last_auto_announcement_at', 'lumo_auto_betland_last_at', 'lumo_auto_polls_last_at')]
+        last_auto = max((value for value in last_values if value), default=None)
+        if last_auto and now < last_auto + _MAIN_ANNOUNCEMENT_INTERVAL:
+            self._main_announcement_gate = {'state': 'cooldown', 'checked_at': ''}
+            return
+        retry_at = _parse_utc(config.get('lumo_main_announcements_not_before'))
+        if retry_at and retry_at > now:
+            return
+        candidates = []
+        for category in _AUTO_TYPES:
+            state_key = f'lumo_auto_{category}_next_at'
+            if not config.get(f'lumo_auto_{category}_enabled'):
+                if config.get(state_key):
+                    self._save_main_schedule(config, {state_key: ''})
+                continue
+            data = await self._get_data(category)
+            if not data.get('ok'):
+                continue  # A source outage must not consume the pending topic.
+            active = (bool(data.get('enabled')) and bool(data.get('campaign'))
+                      and str((data.get('campaign') or {}).get('status') or '').upper() == 'ACTIVE') if category == 'betland' else bool(data.get('polls'))
+            if not active:
+                if config.get(state_key):
+                    self._save_main_schedule(config, {state_key: ''})
+                continue
+            due = _parse_utc(config.get(state_key))
+            if due is None:
+                self._save_main_schedule(config, {state_key: _utc_iso(now + _MAIN_ANNOUNCEMENT_INTERVAL)})
+            elif due <= now:
+                candidates.append((due, category, data))
+        if not candidates:
+            return
+        # Oldest pending topic wins; a fixed category order would starve polls.
+        _, category, data = min(candidates, key=lambda item: (item[0], item[1]))
+        match = TriggerMatch('BETLAND' if category == 'betland' else 'VOTACAO', 'automatic_announcement')
+        title, description = build_response(match, data, config)
+        import discord
+        embed = discord.Embed.from_dict(make_embed_payload(title, description))
+        embed.set_author(name='Lumo • Assistente oficial da ARKLAND', icon_url='https://arkland.com.br/lumo-avatar.png')
+        state = 'unavailable'
+        try:
+            own_id = str(getattr(getattr(client, 'user', None), 'id', '') or '')
+            if own_id:
+                # REST history, not last_message_id or Gateway memory: survives restarts.
+                async for message in channel.history(limit=1):
+                    author = getattr(message, 'author', None)
+                    author_id = str(getattr(author, 'id', '') or '')
+                    if author_id == own_id:
+                        state = 'waiting_for_conversation'
+                    elif author_id and not getattr(author, 'bot', True) and not getattr(message, 'webhook_id', None):
+                        state = 'ready'
+                    else:
+                        state = 'waiting_for_conversation'
+                    break
+                else:
+                    state = 'ready'  # Empty channel permits its first announcement.
+        except Exception:
+            state = 'unavailable'
+        self._main_announcement_gate = {'state': state, 'checked_at': _utc_iso()}
+        if state != 'ready':
+            self._save_main_schedule(config, {'lumo_main_announcements_not_before': _utc_iso(now + timedelta(seconds=60))})
+            self._audit('lumo_automatic_announcement', status='deferred_' + state,
+                        trigger=category, channel_id=str(channel.id))
+            return
+        try:
+            sent = await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+            published_at = datetime.now(_UTC)
+            published = _utc_iso(published_at)
+            self._save_main_schedule(config, {
+                f'lumo_auto_{category}_last_at': published,
+                f'lumo_auto_{category}_last_result': 'success',
+                f'lumo_auto_{category}_last_error': '',
+                f'lumo_auto_{category}_next_at': _utc_iso(published_at + _MAIN_ANNOUNCEMENT_INTERVAL),
+                'lumo_last_auto_announcement_at': published,
+                'lumo_main_announcements_not_before': '',
+            })
+            self._main_announcement_gate = {'state': 'cooldown', 'checked_at': _utc_iso()}
+            self._last_announcement = published
+            self._announcements += 1
+            self._audit('lumo_automatic_announcement', status='success', trigger=category,
+                        channel_id=str(channel.id), discord_message_id=str(getattr(sent, 'id', '')))
+        except Exception as exc:
+            self._save_main_schedule(config, {
+                f'lumo_auto_{category}_last_result': 'failed',
+                f'lumo_auto_{category}_last_error': type(exc).__name__,
+                'lumo_main_announcements_not_before': _utc_iso(now + timedelta(minutes=15)),
+            })
+            self._audit('lumo_automatic_announcement', status='failed', trigger=category,
+                        channel_id=str(channel.id), reason=type(exc).__name__)
 
     async def _game_scheduler_tick(self, client: Any, config: dict[str, Any]) -> None:
         try:

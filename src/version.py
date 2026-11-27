@@ -12,6 +12,13 @@ BUILD_DATE: str = "2026-11-27"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.42",
+        "date": "2026-11-27",
+        "changes": [
+            "Lumo — canal principal do Discord: intervalo global mínimo de 6 horas entre anúncios automáticos de BetLand e votações, permitindo até quatro por dia no total. Consulta a última mensagem pelo histórico antes de enviar; enquanto for do Lumo ou de outro bot, aguarda uma pessoa conversar. Histórico indisponível adia o envio. Preserva pendências e horários após reinício, escolhe o assunto vencido há mais tempo e envia um único aviso por ciclo, sem disparar acúmulos. Painel informa a regra e o motivo da espera. Respostas diretas e programação do Chat do Jogo permanecem independentes.",
+        ],
+    },
+    {
         "version": "1.12.41",
         "date": "2026-11-27",
         "changes": [

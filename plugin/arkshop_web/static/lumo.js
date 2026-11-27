@@ -163,6 +163,11 @@
         setVal("lumo-trigger-aliases", JSON.stringify(assistantConfig.trigger_aliases || {}, null, 2));
         const runtime = assistantConfig.runtime || {};
         const schedule = [];
+        schedule.push("Canal principal: intervalo mínimo de 6 h entre anúncios automáticos (até 4 por dia). Aguarda conversa quando a última mensagem é do Lumo ou de outro bot. Respostas diretas não são afetadas.");
+        const mainGate = runtime.main_announcement_gate;
+        const mainStates = { cooldown: "intervalo de 6 h em andamento", waiting_for_conversation: "aguardando mensagem de uma pessoa", unavailable: "histórico indisponível; envio adiado", ready: "conversa confirmada", not_checked: "histórico ainda não consultado" };
+        if (mainGate) schedule.push(`Situação: ${mainStates[mainGate.state] || mainGate.state}${mainGate.checked_at ? ` · ${new Date(mainGate.checked_at).toLocaleString("pt-BR")}` : ""}.`);
+        if (assistantConfig.last_auto_announcement_at) schedule.push(`Intervalo global: próximo anúncio permitido a partir de ${new Date(new Date(assistantConfig.last_auto_announcement_at).getTime() + 6 * 3600000).toLocaleString("pt-BR")}, sujeito à conversa no canal.`);
         if (assistantConfig.auto_betland_enabled) schedule.push(`Bet Land: última ${assistantConfig.auto_betland_last_at ? new Date(assistantConfig.auto_betland_last_at).toLocaleString("pt-BR") : "nenhuma"}; próxima ${assistantConfig.auto_betland_next_at ? new Date(assistantConfig.auto_betland_next_at).toLocaleString("pt-BR") : "a agendar"} (${assistantConfig.auto_betland_last_result || "sem tentativas"})`);
         if (assistantConfig.auto_polls_enabled) schedule.push(`Votações: última ${assistantConfig.auto_polls_last_at ? new Date(assistantConfig.auto_polls_last_at).toLocaleString("pt-BR") : "nenhuma"}; próxima ${assistantConfig.auto_polls_next_at ? new Date(assistantConfig.auto_polls_next_at).toLocaleString("pt-BR") : "a agendar"} (${assistantConfig.auto_polls_last_result || "sem tentativas"})`);
         schedule.push(`Respostas: ${runtime.responses || 0}; anúncios: ${runtime.announcements || 0}; última interação: ${runtime.last_interaction_at ? new Date(runtime.last_interaction_at).toLocaleString("pt-BR") : "nenhuma"}.`);

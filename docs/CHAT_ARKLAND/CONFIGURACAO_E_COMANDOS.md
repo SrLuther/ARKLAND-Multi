@@ -44,7 +44,13 @@ O Lumo recebe uma vez o evento original autenticado do hub, em fila separada, se
 
 ## Formato e identidade
 
-### Público dos avisos automáticos — 1.12.40
+## Avisos automáticos por canal
+
+### Canal principal do Discord — 1.12.42
+
+No canal de interação separado do Chat do Jogo, anúncios automáticos de BetLand e votações compartilham um intervalo mínimo de **seis horas**: até quatro por dia no total, podendo ser menos quando não houver conversa. A mensagem mais recente é consultada diretamente no histórico do Discord antes do envio. Se for do Lumo, de outro bot ou webhook, o assunto permanece pendente até uma pessoa conversar. Ausência de acesso ao histórico também adia o aviso, com nova consulta após 60 segundos. Um canal vazio permite o primeiro aviso. O horário do último envio é persistente; reiniciar o serviço não libera o intervalo. Entre assuntos vencidos, vence o mais antigo; não há disparo acumulado após uma conversa. Respostas diretas continuam disponíveis. Essa regra não usa atividade de outro canal nem a contagem de jogadores do game.
+
+### Público do Chat do Jogo
 
 Antes de publicar avisos gerais, SeasonLand, BetLand ou votações no Chat do Jogo, Lumo consulta `ListPlayers` por RCON nos mapas habilitados com relay ativo e heartbeat recente. A consulta não usa o cache público de jogadores nem o cache de fontes do assistente. Uma resposta positiva reconhecida confirma público; resposta vazia/desconhecida ou falha de consulta não autoriza envio.
 
