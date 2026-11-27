@@ -22,6 +22,7 @@ from chat_arkland_config import DEFAULTS, MESSAGES, censor, clean_text, display_
 from player_monitoring_routes import _ensure_schema as ensure_monitor_schema, ingest_session_event
 from chat_arkland_mirrors import define_mirrors, DiscordMirrorStore
 from chat_arkland_emojis import normalize_emojis
+from chat_arkland_online import online_table
 
 META = MetaData()
 JSON_TEXT = Text().with_variant(LONGTEXT(), "mysql")
@@ -285,7 +286,12 @@ class ChatArklandService:
             except ValueError:
                 page = 1
             lines = [config["ClusterName"] + " · " + config["Messages"]["OnlineHeader"].format(total=len(players), pagina=page, total_paginas=pages)]
-            for player in players[(page - 1) * policy["AmountPerPage"]:page * policy["AmountPerPage"]]:
+            page_players = players[(page - 1) * policy["AmountPerPage"]:page * policy["AmountPerPage"]]
+            if config["Messages"]["OnlinePlayer"] == MESSAGES["OnlinePlayer"]:
+                lines.extend(online_table(page_players, policy,
+                    bool(groups.intersection(policy["OnlyShowMapToGroups"])), self.clock()))
+            # Explicitly customized legacy templates retain their saved layout.
+            for player in ([] if config["Messages"]["OnlinePlayer"] == MESSAGES["OnlinePlayer"] else page_players):
                 seconds = max(0, int((self.clock() - player["connected_at"]).total_seconds())) if player["connected_at"] else 0
                 lines.append(config["Messages"]["OnlinePlayer"].format(jogador=display_name(player["name"]), id=player["public_id"],
                     tribo=f" [{display_name(player['tribe_name'])}]" if policy["ShowTribes"] and player["tribe_name"] else "",

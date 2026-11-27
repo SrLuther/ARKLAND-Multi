@@ -55,6 +55,14 @@ O ID compacto é uma sequência permanente associada ao SteamID64 na tabela `cha
 - `/online` ou `/online 2`: consulta jogadores com presença recente, página limitada, ID igual ao chat e permissões específicas para mostrar mapa. Não transmite a listagem ao Discord.
 - `/joinleave`: alterna notificações de entrada/saída para o próprio jogador; preferência persistente.
 
+### Colunas da consulta online (sistema 1.12.37)
+
+Com o modelo padrão de `Messages.OnlinePlayer`, a consulta apresenta NOME, ID, TRIBO, MAPA e TEMPO em colunas. `ShowTribes`, `ShowOnlineTime` e `OnlyShowMapToGroups` continuam controlando as colunas disponíveis. O ID não é abreviado; nomes, tribos e mapas longos recebem `...`, e ausência de tribo aparece como `--`. O tempo usa `0h50m`.
+
+O espaçamento usa avanços de caracteres medidos na fonte Roboto Bold distribuída no servidor, limites absolutos de coluna e um delimitador final que preserva a largura de cada linha no aviso centralizado do ASE. Não usa contagem simples de caracteres nem tabulações. A correspondência exata depende da fonte efetivamente usada pelo cliente; fontes modificadas podem exigir ajuste visual. A homologação em jogo desta disposição ainda está pendente.
+
+Um `Messages.OnlinePlayer` personalizado mantém sua disposição anterior; restaurar o modelo padrão `{jogador} ({id}){tribo}{mapa}{tempo}` ativa as colunas. A alteração ocorre no backend e não exige trocar DLLs nem migrar o banco. Os arquivos de fonte não são distribuídos no pacote.
+
 Não digitar os prefixos nativos de horário/Discord/Lumo no corpo da resposta da assistente. Mensagens locais, de tribo e de aliados não entram no hub. Texto recebido do Discord, inclusive `/pm` ou RCON, permanece texto e não executa comandos.
 
 ## Banco e retenção

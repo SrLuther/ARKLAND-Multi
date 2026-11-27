@@ -229,12 +229,39 @@ def test_online_pagination_identity_and_disconnect_name(hub):
     exchange(service,'tek:bbb','bbbbbbbb',[pb])
     response=exchange(service,'tek:aaa','aaaaaaaa',[pa],[event(A,'online','1')])
     listing=next(item for item in response['deliveries'] if item['kind']=='online')
-    assert 'página 1/2' in listing['text'] and f'João ({aid})' in listing['text']
+    assert 'página 1/2' in listing['text'] and 'João' in listing['text']
+    assert listing['text'].splitlines()[1].split('|')[0].strip() == 'NOME'
+    assert listing['text'].splitlines()[2].split('|')[1].strip() == aid
     assert 'Mapa A' not in listing['text']  # Default não revela localização.
     cursor=response['cursor']
     exchange(service,'tek:aaa','aaaaaaaa',[])
     remaining=exchange(service,'tek:bbb','bbbbbbbb',[pb],cursor=cursor)
     assert any('João' in item.get('text','') and 'saiu' in item.get('text','') for item in remaining['deliveries'])
+
+
+@pytest.mark.parametrize('admin', [False, True])
+def test_online_table_map_permission_and_only_requester(hub, admin):
+    service, _, _ = hub
+    pa = player(A, 'aaaaaaaa', name='Ciano', groups=['Admins'] if admin else ['Default'])
+    pb = player(B, 'aaaaaaaa', name='FLP')
+    exchange(service, 'tek:aaa', 'aaaaaaaa', [pa, pb])
+    response = exchange(service, 'tek:aaa', 'aaaaaaaa', [pa, pb], [event(A, 'online', '')])
+    listing = next(item for item in response['deliveries'] if item['kind'] == 'online')
+    assert listing['recipients'] == [A]
+    assert ('MAPA' in listing['text']) == admin
+    assert ('Mapa A' in listing['text']) == admin
+
+
+def test_online_explicit_legacy_template_preserved(hub):
+    service, _, _ = hub
+    config = copy.deepcopy(service.load_config()['config'])
+    config['Messages']['OnlinePlayer'] = 'ID {id}: {jogador}'
+    service.publish_config(config, 2, 'admin')
+    pa = player(A, 'aaaaaaaa', name='Ciano')
+    identity = exchange(service, 'tek:aaa', 'aaaaaaaa', [pa])['players'][A]['public_id']
+    response = exchange(service, 'tek:aaa', 'aaaaaaaa', [pa], [event(A, 'online', '')])
+    listing = next(item for item in response['deliveries'] if item['kind'] == 'online')
+    assert listing['text'].splitlines()[1] == f'ID {identity}: Ciano'
 
 
 def test_cross_disabled_keeps_local_and_offline_private_target_is_not_delivered(hub):
