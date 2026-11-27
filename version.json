@@ -1,8 +1,8 @@
 {
-    "version": "1.12.37",
+    "version": "1.12.38",
     "date": "2026-11-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.37/ARKLAND-Multi-Setup-v1.12.37.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.38/ARKLAND-Multi-Setup-v1.12.38.exe",
     "changelog": [
-        "Chat Arkland: organiza /online em colunas de nome, ID, tribo, mapa e tempo, com cabeçalhos, espaçamento proporcional às métricas da fonte do servidor e abreviação de nomes longos. Preserva IDs completos, paginação, permissões de localização e modelos personalizados. Atualização central compatível com a DLL atual, sem reiniciar os mapas; alinhamento visual final sujeito à fonte do cliente."
+        "Chat Arkland: corrige o desalinhamento da tabela /online introduzido na 1.12.37. Usa os glifos e o kerning do asset real Roboto51/Sansation Bold do HUD, em vez da fonte TrueType da interface, e considera a centralização de cada linha ao distribuir os espaços. Adiciona regressão baseada na captura do administrador; mantém tamanho, permissões, IDs, paginação e compatibilidade com as DLLs já instaladas."
     ]
 }

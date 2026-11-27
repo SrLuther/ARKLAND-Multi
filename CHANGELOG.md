@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-26 22:17:22 -->
-<!-- Total de versões: 598 | Primeira: 1.12.37 -->
+<!-- Gerado: 2026-11-26 23:06:09 -->
+<!-- Total de versões: 599 | Primeira: 1.12.38 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.38] - 2026-11-26
+
+### Other
+
+- Chat Arkland: corrige o desalinhamento da tabela /online introduzido na 1.12.37. Usa os glifos e o kerning do asset real Roboto51/Sansation Bold do HUD, em vez da fonte TrueType da interface, e considera a centralização de cada linha ao distribuir os espaços. Adiciona regressão baseada na captura do administrador; mantém tamanho, permissões, IDs, paginação e compatibilidade com as DLLs já instaladas.
 
 ## [1.12.37] - 2026-11-26
 
