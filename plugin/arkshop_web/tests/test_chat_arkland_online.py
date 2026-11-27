@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from chat_arkland_online import online_table, width
-from chat_arkland_online_metrics import ADVANCES
+from chat_arkland_online_metrics import ADVANCES, KERNING
 
 NOW = datetime(2026, 11, 26, 21)
 POLICY = {'ShowTribes': True, 'ShowOnlineTime': True}
@@ -54,8 +54,50 @@ def test_unicode_separators_and_absent_tribe_or_connection():
     assert rows[1].split('|')[2].strip() == '--'
     assert rows[1].split('|')[4].strip() == '0h00m'
     assert width('WWWW') > width('iiii')
-    assert width('é') > 0 and width('a\u0301') == width('a')
+    assert width('é') > 0 and width('a\u0301') == width('á')
 
 
 def test_empty_page_is_still_a_valid_header():
     assert len(online_table([], POLICY, True, NOW)) == 1
+
+
+def test_baked_font_and_whitespace_kerning_regression():
+    assert len(ADVANCES) == 256
+    assert KERNING == -9
+    assert ADVANCES[32] == 19 and ADVANCES[ord('W')] == 40
+    assert width('AA') == 2 * ADVANCES[ord('A')] - 9
+    assert width('A A') == 2 * ADVANCES[ord('A')] + 19 - 9
+    assert width('A  A') == width('A A') + 19
+    assert width('🙂') == 2 * ADVANCES[127] - 9  # FString surrogate pair.
+
+
+def test_model_reproduces_the_reported_bad_capture():
+    # Literal 1.12.37 output, with measured bar centers from the administrator's
+    # screenshot. These are independent of the new layout's padding algorithm.
+    old_rows = [
+        'NOME          | ID  | TRIBO                          | TEMPO  |',
+        'Ciano           | 1    | Tribo de Santh          | 1h21m   |',
+        'Santh           | 3   | Tribo de Santh           | 0h55m   |',
+        'Curalzinho  | 4    | Tribo de Curalzinho  | 0h48m  |',
+    ]
+    measured = [[307.5,377,797,921.5], [356.5,436.5,757,880],
+                [349,420,753.5,888.5], [347.5,432.5,706,830.5]]
+    for row, expected in zip(old_rows, measured):
+        predicted = [0.6719 * (width(row[:i]) - width(row) / 2) + 516.65
+                     for i, char in enumerate(row) if char == '|']
+        assert max(abs(a - b) for a, b in zip(predicted, expected)) < .5
+
+
+def test_reported_players_align_after_client_centering():
+    players = [entry('Ciano', 1, 'Tribo de Santh', minutes=81),
+               entry('Santh', 3, 'Tribo de Santh', minutes=55),
+               entry('Curalzinho', 4, 'Tribo de Curalzinho', minutes=48)]
+    rows = online_table(players, POLICY, False, NOW)
+    positions = []
+    for row in rows:
+        starts = [0] + [i + 2 for i, char in enumerate(row) if char == '|' and i + 2 < len(row)]
+        positions.append([width(row[:i + 1]) - ADVANCES[ord(row[i])] - width(row) / 2 for i in starts])
+    # Spaces are indivisible. Bound the residual with the *captured* HUD scale,
+    # rather than assuming equal character counts or validating a desktop font.
+    for index in range(4):
+        assert (max(row[index] for row in positions) - min(row[index] for row in positions)) * .6719 < 8

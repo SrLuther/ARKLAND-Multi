@@ -65,6 +65,14 @@ Um `Messages.OnlinePlayer` personalizado mantém sua disposição anterior; rest
 
 Implementação publicada na [release 1.12.37](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.37) e aplicada na WebStore oficial em 26/11. SHA-256 do executável: `4DEC2BB2E87CA600F6B7802D286EB9D9DA6563F353432B669DE9E9F4F71C3EBF`. Foram aprovados 35 testes de serviço/transporte/formatação e executado o formatador extraído do executável congelado. Changelog do gerenciador e módulos/tabela de métricas no pacote foram conferidos. Backup consistente do banco e configurações foi preservado; nenhum mapa foi reiniciado. A conferência dentro do cliente permanece pendente.
 
+### Correção da disposição — 1.12.38
+
+A captura posterior do administrador **reprovou a disposição da 1.12.37**. A validação com a fonte TrueType de Slate não representava o HUD do jogo. Os assets antigos chamados Roboto contêm Sansation Bold com glifos já rasterizados; o Roboto51 usa kerning -9 e espaço com largura 19 em unidades do asset. O Canvas aplica o kerning antes do próximo caractere não branco, e a centralização depende da largura final de cada linha.
+
+A 1.12.38 extrai as larguras do asset `OldAssets/UI/HUD/Roboto51.uasset`, calcula esse kerning e distribui os espaços considerando as larguras finais das linhas centralizadas. O extrator é [measure_notification_font.py](../../plugin/ChatArkland/tools/measure_notification_font.py); não distribui fontes nem texturas. O modelo explica as 16 barras da captura anterior com erro máximo inferior a meio pixel. A regressão também verifica os campos após a centralização, em vez de apenas somar caracteres ou reproduzir uma fonte de desktop.
+
+Foram aprovados 38 testes de serviço, transporte e disposição. Espaços inteiros ainda impõem pequena discretização; não se promete alinhamento subpixel com esse RPC. A nova disposição ainda precisa de conferência visual no cliente. Permissões de mapa, modelos personalizados, IDs completos e tamanho do aviso são preservados.
+
 Não digitar os prefixos nativos de horário/Discord/Lumo no corpo da resposta da assistente. Mensagens locais, de tribo e de aliados não entram no hub. Texto recebido do Discord, inclusive `/pm` ou RCON, permanece texto e não executa comandos.
 
 ## Banco e retenção

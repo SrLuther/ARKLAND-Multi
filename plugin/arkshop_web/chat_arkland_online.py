@@ -1,7 +1,7 @@
 """Column layout for the proportional, centered ASE notification.
 
-Advances are measured from the server's Engine/Content/Slate/Fonts/Roboto-Bold.ttf.
-They approximate the stock client font; client/mod font changes require visual QA.
+Uses the baked Roboto51 HUD asset (Sansation Bold), including its negative
+kerning before non-whitespace characters. TrueType/Slate metrics are different.
 No font file or Pillow dependency is needed at runtime.
 """
 from __future__ import annotations
@@ -9,16 +9,19 @@ from __future__ import annotations
 import unicodedata
 
 from chat_arkland_config import display_name
-from chat_arkland_online_metrics import ADVANCES
+from chat_arkland_online_metrics import ADVANCES, KERNING
+
+_WHITESPACE = frozenset('\t\n\v\f\r \x85\xa0')
 
 
 def width(text: str) -> float:
-    result = 0.0
-    for char in text:
-        if unicodedata.combining(char):
-            continue
-        result += ADVANCES.get(ord(char), 1000 if unicodedata.east_asian_width(char) in {"F", "W"} else 600)
-    return result
+    text = unicodedata.normalize('NFC', text)
+    # FString is UTF-16; the non-remapped font uses the null glyph for unknowns.
+    codes = text.encode('utf-16-le', errors='replace')
+    chars = [chr(int.from_bytes(codes[i:i + 2], 'little')) for i in range(0, len(codes), 2)]
+    return sum(ADVANCES.get(ord(char), ADVANCES[127]) +
+        (KERNING if index + 1 < len(chars) and chars[index + 1] not in _WHITESPACE else 0)
+        for index, char in enumerate(chars))
 
 
 def _cell(value) -> str:
@@ -40,11 +43,11 @@ def online_table(players: list[dict], policy: dict, show_map: bool, now) -> list
     Closing bars preserve the last column's padding when the client centers each
     line. Ordinary ljust()/tabs would align characters, not rendered glyphs.
     """
-    columns = [("NOME", "name", 9000), ("ID", "id", None)]
+    columns = [("NOME", "name", 324), ("ID", "id", None)]
     if policy["ShowTribes"]:
-        columns.append(("TRIBO", "tribe", 11000))
+        columns.append(("TRIBO", "tribe", 396))
     if show_map:
-        columns.append(("MAPA", "map", 9000))
+        columns.append(("MAPA", "map", 324))
     if policy["ShowOnlineTime"]:
         columns.append(("TEMPO", "time", None))
     rows = [[label for label, _, _ in columns]]
@@ -54,17 +57,42 @@ def online_table(players: list[dict], policy: dict, show_map: bool, now) -> list
                   "tribe": _cell(player["tribe_name"]), "map": _cell(player["map"]),
                   "time": f"{seconds // 3600}h{seconds // 60 % 60:02d}m"}
         rows.append([_clip(values[key], maximum) if maximum else values[key] for _, key, maximum in columns])
-    widths = [max(width(row[index]) for row in rows) + ADVANCES[32] for index in range(len(columns))]
-    result = []
-    separator = " | "
-    for row in rows:
-        line, stop = "", 0.0
-        for index, value in enumerate(row):
-            line += value
-            stop += widths[index]
-            # Measure the entire prefix so rounding errors don't compound.
-            line += " " * max(0, round((stop - width(line)) / ADVANCES[32]))
-            line += separator
-            stop += width(separator)
-        result.append(line.rstrip())
-    return result
+    widths = [max(width(row[index]) for row in rows) for index in range(len(columns))]
+    space, bar = ADVANCES[32], ADVANCES[ord('|')]
+    base_widths = [width('  | '.join(row) + '  |') for row in rows]
+    total = sum(widths) + len(columns) * (3 * space + 2 * KERNING + bar) - space - KERNING
+    total += len(columns) * space  # Room for quantization without squeezing cells.
+    layouts = []
+    # Centering changes every column when the last field's width changes. Pick
+    # whole-row widths first, then optimize the actual centered column stops.
+    for total_phase in range(space):
+        target_width = total + total_phase
+        row_widths = [base + max(0, (target_width - base + space - 1) // space) * space for base in base_widths]
+        lines = [''] * len(rows)
+        spans = [(max(row_widths) - min(row_widths)) / 2]
+        stop = 0
+        valid = True
+        for index, cell_width in enumerate(widths):
+            prefixes = [line + row[index] for line, row in zip(lines, rows)]
+            bases = [width(prefix) + KERNING for prefix in prefixes]
+            stop += cell_width + 2 * space
+            if index == len(columns) - 1:
+                pads = [(size - base - bar) // space for size, base in zip(row_widths, bases)]
+                if any(pad < 2 for pad in pads):
+                    valid = False
+                    break
+            else:
+                candidates = []
+                for phase in range(space):
+                    target = stop + phase - target_width / 2
+                    pads = [max(2, round((target - base + size / 2) / space)) for base, size in zip(bases, row_widths)]
+                    positions = [base + pad * space - size / 2 for base, pad, size in zip(bases, pads, row_widths)]
+                    candidates.append((max(positions) - min(positions), phase, pads))
+                span, phase, pads = min(candidates)
+                spans.append(span)
+                stop += phase
+            lines = [prefix + ' ' * pad + '| ' for prefix, pad in zip(prefixes, pads)]
+            stop += bar + space + KERNING
+        if valid:
+            layouts.append(((max(spans), sum(spans), max(row_widths)), [line.rstrip() for line in lines]))
+    return min(layouts, key=lambda entry: entry[0])[1]

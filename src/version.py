@@ -12,6 +12,13 @@ BUILD_DATE: str = "2026-11-26"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.38",
+        "date": "2026-11-26",
+        "changes": [
+            "Chat Arkland: corrige o desalinhamento da tabela /online introduzido na 1.12.37. Usa os glifos e o kerning do asset real Roboto51/Sansation Bold do HUD, em vez da fonte TrueType da interface, e considera a centralização de cada linha ao distribuir os espaços. Adiciona regressão baseada na captura do administrador; mantém tamanho, permissões, IDs, paginação e compatibilidade com as DLLs já instaladas.",
+        ],
+    },
+    {
         "version": "1.12.37",
         "date": "2026-11-26",
         "changes": [
