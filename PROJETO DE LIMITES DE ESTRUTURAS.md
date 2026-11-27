@@ -1,11 +1,11 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.9-dev em homologação no servidor 05; censo nativo comparado a cópia do save, com correspondência das 231 estruturas observadas; classificação/cobertura contínua ainda em validação e fiscalização suspensa
+**Estado:** 0.9.1-dev em homologação no servidor 05; censo nativo comparado a cópia do save, com correspondência das 231 estruturas observadas; classificação/cobertura contínua ainda em validação e fiscalização suspensa
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.9-dev experimental instalada no 05; 0.9.1-dev compilada, aguardando janela com o piloto vazio. A versão estável atual do sistema é 1.12.36. Consulte o changelog próprio do plugin para o avanço posterior.
+**Versão do plugin:** 0.9.1-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; 13 bolsas DeathItemCache deixaram o inventário observado e os outros 231 IDs foram preservados. Fiscalização desligada. A versão estável atual do sistema é 1.12.37. Consulte o changelog próprio do plugin e a homologação de 26/11 para as evidências e limitações.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
@@ -172,7 +172,9 @@ Limitações observáveis no código consultado:
 
 ## 15. Estado da implementação local
 
-### 15.0 Estado atual — 0.9-dev
+### 15.0 Estado atual — 0.9.1-dev
+
+A 0.9.1-dev foi aplicada no piloto 05 vazio, mantendo os processos do jogo e o bloqueio desligado. A rodada humana confirmou cinco colocações e cinco remoções, retorno da tribo a 227 e estabilidade à distância. Depois da atualização, os 13 IDs de DeathItemCache deixaram o inventário observado, preservando os outros 231 IDs. GPS sem corte decimal implementado; conferência visual ainda pendente. Foram aprovados 25 casos C++ e 15 testes do comparador. Consulte [HOMOLOGACAO_2026-11-26.md](./plugin/StructureLimits/HOMOLOGACAO_2026-11-26.md).
 
 O runtime está instalado no 05 e exporta identidade de ator, proveniência e catálogo de classes do SDK. Auditoria independente de um save formato 11 comparou nome, classe, proprietário e XYZ de 231 estruturas observadas: 231 correspondências, sem diferença de posição. Foram colapsadas 226 duplicatas persistidas com metadados relevantes idênticos e identificados 221 atores de origem em arquivo do mapa sem proprietário jogador. Restam 32 atores dinâmicos para classificação, mutações das coleções, propriedade offline e cobertura contínua. `complete_inventory=false` e `enforcement=false` continuam obrigatórios. Evidências, 24 casos C++ e 14 testes do comparador em [IMPLANTACAO_0.9.md](./plugin/StructureLimits/IMPLANTACAO_0.9.md). As subseções antigas abaixo registram a implementação e as pendências de etapas anteriores.
 

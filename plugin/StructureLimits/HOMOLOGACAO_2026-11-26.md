@@ -23,4 +23,10 @@ As cinco construções registradas usaram o mesmo blueprint. Esta rodada não co
 
 0.9.1-dev compilada com exclusão pelos marcadores nativos de death cache e GPS sem corte decimal; 25 casos C++ e 15 testes do comparador aprovados. SHA-256 da DLL: `FD551F3E4A733D08BBD87953E944E43E04F8D2E6B8FE85AFA9D756B3475C6637`.
 
-A tentativa de instalação no piloto foi adiada porque havia jogador conectado. A DLL instalada segue 0.9-dev. O código novo está versionado, mas a exclusão dos 13 caches pelos marcadores e a precisão visual nova ainda não foram confirmadas em runtime. O script preservou os arquivos instalados e os demais servidores.
+A primeira tentativa de instalação foi adiada porque havia jogador conectado; nessa tentativa nenhum arquivo instalado foi alterado.
+
+## Implantação no piloto vazio — 0.9.1-dev
+
+Em nova verificação de 26/11, o RCON confirmou o 05 vazio antes de cada troca. StructureLimits 0.9.1-dev e Chat Arkland 0.1.1 foram carregados somente nesse servidor, preservando as configurações locais e os cinco processos do jogo. O bloqueio continua desativado e `complete_inventory=false`.
+
+A comparação com o snapshot posterior à rodada humana passou de 244 para 231 registros: os 13 IDs ausentes são exatamente os DeathItemCache; nenhum ID de outro blueprint desapareceu. O snapshot novo não contém DeathItemCache. A evidência posterior foi preservada como `after-0.9.1-observed-inventory.json` no mesmo backup privado da rodada. Runtime e journal saudáveis, sem ativar fiscalização. Atribuição offline, cobertura completa, causas de remoção e precisão visual do GPS ainda precisam de homologação; a exclusão observada não torna o inventário completo.

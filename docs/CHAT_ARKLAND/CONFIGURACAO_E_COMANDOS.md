@@ -63,6 +63,8 @@ O espaçamento usa avanços de caracteres medidos na fonte Roboto Bold distribu�
 
 Um `Messages.OnlinePlayer` personalizado mantém sua disposição anterior; restaurar o modelo padrão `{jogador} ({id}){tribo}{mapa}{tempo}` ativa as colunas. A alteração ocorre no backend e não exige trocar DLLs nem migrar o banco. Os arquivos de fonte não são distribuídos no pacote.
 
+Implementação publicada na [release 1.12.37](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.37) e aplicada na WebStore oficial em 26/11. SHA-256 do executável: `4DEC2BB2E87CA600F6B7802D286EB9D9DA6563F353432B669DE9E9F4F71C3EBF`. Foram aprovados 35 testes de serviço/transporte/formatação e executado o formatador extraído do executável congelado. Changelog do gerenciador e módulos/tabela de métricas no pacote foram conferidos. Backup consistente do banco e configurações foi preservado; nenhum mapa foi reiniciado. A conferência dentro do cliente permanece pendente.
+
 Não digitar os prefixos nativos de horário/Discord/Lumo no corpo da resposta da assistente. Mensagens locais, de tribo e de aliados não entram no hub. Texto recebido do Discord, inclusive `/pm` ou RCON, permanece texto e não executa comandos.
 
 ## Banco e retenção

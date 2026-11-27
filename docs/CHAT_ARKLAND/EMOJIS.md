@@ -27,3 +27,7 @@ WebStore 1.12.36 aplicada, SHA-256 `ABCF601E1FF8FF9EF61FED89A207D2A4990702084436
 API pública/local confirmou 1.12.36; tarefa persistente `ARKLAND-WebStore-Update-1.12.36` em execução após desconectar SSH. Gateway online, consolidação pronta sem erro e cinco mapas conectados. Os cinco processos de jogo permaneceram os mesmos.
 
 A instalação das DLLs no piloto foi **adiada automaticamente**: RCON confirmou o 05 ocupado. Nenhum arquivo instalado do plugin foi substituído nessa tentativa. As cinco DLLs Chat Arkland continuam reportando 0.1.0; a correção central do global está disponível, enquanto mensagens privadas/fallback com imagens requerem a DLL 0.1.1. A apresentação no cliente do jogo ainda aguarda confirmação do administrador com mensagem nova.
+
+### Janela posterior com o 05 vazio
+
+Na verificação seguinte, RCON confirmou ausência de jogadores antes de cada troca. Chat Arkland 0.1.1 e StructureLimits 0.9.1-dev foram aplicados somente no 05, com hashes conferidos, backup das DLLs/configurações e preservação dos cinco processos de jogo. O painel central confirmou o 05 reportando 0.1.1, sem erro de transporte; 01–04 continuam com Chat 0.1.0. A homologação visual de emojis novos e mensagens privadas continua pendente. A WebStore foi posteriormente atualizada para 1.12.37, mantendo essa correção de emojis.
