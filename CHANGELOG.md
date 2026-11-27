@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-26 20:51:13 -->
-<!-- Total de versões: 597 | Primeira: 1.12.36 -->
+<!-- Gerado: 2026-11-26 22:17:22 -->
+<!-- Total de versões: 598 | Primeira: 1.12.37 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.37] - 2026-11-26
+
+### Other
+
+- Chat Arkland: organiza /online em colunas de nome, ID, tribo, mapa e tempo, com cabeçalhos, espaçamento proporcional às métricas da fonte do servidor e abreviação de nomes longos. Preserva IDs completos, paginação, permissões de localização e modelos personalizados. Atualização central compatível com a DLL atual, sem reiniciar os mapas; alinhamento visual final sujeito à fonte do cliente.
 
 ## [1.12.36] - 2026-11-26
 
