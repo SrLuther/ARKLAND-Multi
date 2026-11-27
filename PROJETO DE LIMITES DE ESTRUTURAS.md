@@ -5,7 +5,7 @@
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.9.1-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; 13 bolsas DeathItemCache deixaram o inventário observado e os outros 231 IDs foram preservados. Fiscalização desligada. A versão estável atual do sistema é 1.12.38. Consulte o changelog próprio do plugin e a homologação de 26/11 para as evidências e limitações.
+**Versão do plugin:** 0.9.1-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; 13 bolsas DeathItemCache deixaram o inventário observado e os outros 231 IDs foram preservados. Fiscalização desligada. A versão estável atual do sistema é 1.12.39. Consulte o changelog próprio do plugin e a homologação de 26/11 para as evidências e limitações.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
