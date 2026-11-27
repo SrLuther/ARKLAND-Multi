@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-26 23:06:09 -->
-<!-- Total de versões: 599 | Primeira: 1.12.38 -->
+<!-- Gerado: 2026-11-26 23:27:28 -->
+<!-- Total de versões: 600 | Primeira: 1.12.39 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.39] - 2026-11-26
+
+### Other
+
+- Chat Arkland: acrescenta uma linha horizontal entre os cabeçalhos e os jogadores na tabela /online. O separador acompanha a largura da tabela usando as métricas nativas do HUD e preserva as colunas, permissões e tamanho do aviso.
 
 ## [1.12.38] - 2026-11-26
 

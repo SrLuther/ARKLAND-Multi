@@ -1,8 +1,8 @@
 {
-    "version": "1.12.38",
+    "version": "1.12.39",
     "date": "2026-11-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.38/ARKLAND-Multi-Setup-v1.12.38.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.39/ARKLAND-Multi-Setup-v1.12.39.exe",
     "changelog": [
-        "Chat Arkland: corrige o desalinhamento da tabela /online introduzido na 1.12.37. Usa os glifos e o kerning do asset real Roboto51/Sansation Bold do HUD, em vez da fonte TrueType da interface, e considera a centralização de cada linha ao distribuir os espaços. Adiciona regressão baseada na captura do administrador; mantém tamanho, permissões, IDs, paginação e compatibilidade com as DLLs já instaladas."
+        "Chat Arkland: acrescenta uma linha horizontal entre os cabeçalhos e os jogadores na tabela /online. O separador acompanha a largura da tabela usando as métricas nativas do HUD e preserva as colunas, permissões e tamanho do aviso."
     ]
 }
