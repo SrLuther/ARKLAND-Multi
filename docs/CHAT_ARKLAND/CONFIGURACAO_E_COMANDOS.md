@@ -73,6 +73,10 @@ A 1.12.38 extrai as larguras do asset `OldAssets/UI/HUD/Roboto51.uasset`, calcul
 
 Foram aprovados 38 testes de serviço, transporte e disposição. Espaços inteiros ainda impõem pequena discretização; não se promete alinhamento subpixel com esse RPC. A nova disposição ainda precisa de conferência visual no cliente. Permissões de mapa, modelos personalizados, IDs completos e tamanho do aviso são preservados.
 
+Publicada na [release 1.12.38](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.38), com instalador e changelog atualizados. Aplicada na WebStore oficial, SHA-256 `860A0671E85E21236D35FC118B0A4F5EE6963B1F0E14D98D5B29ED2B7BE4BC05`; API pública 1.12.38, revisão 12 e escala 1 preservadas, Gateway online. O formatador extraído do executável também passou na regressão da captura. Backup consistente privado preservado (71.181.833 bytes), sem mudança de schema.
+
+A primeira aplicação reverteu por divergência com o registro de processos feito no backup: o 03 havia encerrado normalmente às 23:06:30, antes da inicialização da WebStore às 23:07:34; uma tentativa posterior de inicialização desse mapa gerou dump. Os logs foram apenas consultados, sem alterar/iniciar o mapa. A nova aplicação capturou uma referência imediatamente anterior à troca central e preservou os quatro processos ativos. Tarefa persistente `ARKLAND-WebStore-Update-1.12.38` confirmada em execução após desconectar SSH. A homologação visual nova foi solicitada ao administrador e permanece pendente.
+
 Não digitar os prefixos nativos de horário/Discord/Lumo no corpo da resposta da assistente. Mensagens locais, de tribo e de aliados não entram no hub. Texto recebido do Discord, inclusive `/pm` ou RCON, permanece texto e não executa comandos.
 
 ## Banco e retenção
