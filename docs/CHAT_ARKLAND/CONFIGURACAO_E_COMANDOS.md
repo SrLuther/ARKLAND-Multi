@@ -52,6 +52,8 @@ No canal de interação separado do Chat do Jogo, anúncios automáticos de BetL
 
 A rotação também inclui Status dos sistemas, Catálogo, Tutoriais, Guia de conteúdo, SeasonLand, Sugestões e Equipes. São sete avisos de orientação com links diretos, sem afirmar disponibilidade ou recompensas não consultadas. O painel permite consultar os textos e ativar/desativar o grupo. Cada assunto mantém sua pendência, mas os nove compartilham o mesmo intervalo global: não são quatro avisos por assunto. BetLand e votações continuam condicionados às fontes atuais e à atividade aberta. As orientações começam habilitadas no canal principal quando o assistente já está ativo, com primeira elegibilidade após seis horas.
 
+Publicada e aplicada na [1.12.42](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.42). API confirmou intervalo de 6 h, sete novas orientações habilitadas, Lumo online e estado de espera pelo cooldown, preservando o último envio anterior à atualização. Não houve anúncio artificial de teste. Cinco processos de jogo preservados e configuração central do chat na revisão 12; nenhuma migração nova do banco foi necessária. Backup privado consistente antes da aplicação: 73.021.390 bytes. SHA-256 da WebStore instalada: `732D039AC5024339F7D5F05119B60C32F515928F20A9C5411F5E1C2796D99C10`.
+
 ### Público do Chat do Jogo
 
 Antes de publicar avisos gerais, SeasonLand, BetLand ou votações no Chat do Jogo, Lumo consulta `ListPlayers` por RCON nos mapas habilitados com relay ativo e heartbeat recente. A consulta não usa o cache público de jogadores nem o cache de fontes do assistente. Uma resposta positiva reconhecida confirma público; resposta vazia/desconhecida ou falha de consulta não autoriza envio.
