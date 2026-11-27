@@ -1,9 +1,16 @@
 # Changelog
 
-<!-- Gerado: 2026-11-27 04:57:24 -->
-<!-- Total de versões: 601 | Primeira: 1.12.40 -->
+<!-- Gerado: 2026-11-27 05:35:59 -->
+<!-- Total de versões: 602 | Primeira: 1.12.41 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.41] - 2026-11-27
+
+### Other
+
+- StructureLimits 0.9.2-dev experimental: adiciona atribuição offline por índice extraído de cópias verificadas de tribos/perfis, com escopo da instância e hashes conferidos em segundo plano. Homologação no 05 vazio atribuiu as 231 estruturas a duas tribos (227 e 4), sem perder ou adicionar IDs e sem reiniciar mapas. Registra a origem da atribuição e invalida evidências se os arquivos mudarem; dados nativos têm prioridade. Inventário completo e fiscalização continuam desligados; cobertura, licenças e veto antes do consumo ainda estão em desenvolvimento.
+- Build: opção explícita de empacotamento incremental reutiliza caches do PyInstaller; o modo limpo continua sendo o padrão. Preserva os gates de versão, changelog, tamanho e seleção dos plugins modificados.
 
 ## [1.12.40] - 2026-11-27
 

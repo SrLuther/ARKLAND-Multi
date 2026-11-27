@@ -1,8 +1,9 @@
 {
-    "version": "1.12.40",
+    "version": "1.12.41",
     "date": "2026-11-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.40/ARKLAND-Multi-Setup-v1.12.40.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.41/ARKLAND-Multi-Setup-v1.12.41.exe",
     "changelog": [
-        "Lumo: verifica por RCON se há jogadores nos mapas ativos do Chat Arkland imediatamente antes dos avisos automáticos do Chat do Jogo. Sem presença confirmada, preserva o aviso pendente e repete a consulta após 60 segundos, inclusive depois de reiniciar o serviço. Não usa contagem em cache, não marca adiamento como envio e mantém o intervalo de 15–20 minutos entre avisos enviados. O painel mostra a última verificação; a regra também cobre os anúncios do canal de interação quando ele é o mesmo Chat do Jogo."
+        "StructureLimits 0.9.2-dev experimental: adiciona atribuição offline por índice extraído de cópias verificadas de tribos/perfis, com escopo da instância e hashes conferidos em segundo plano. Homologação no 05 vazio atribuiu as 231 estruturas a duas tribos (227 e 4), sem perder ou adicionar IDs e sem reiniciar mapas. Registra a origem da atribuição e invalida evidências se os arquivos mudarem; dados nativos têm prioridade. Inventário completo e fiscalização continuam desligados; cobertura, licenças e veto antes do consumo ainda estão em desenvolvimento.",
+        "Build: opção explícita de empacotamento incremental reutiliza caches do PyInstaller; o modo limpo continua sendo o padrão. Preserva os gates de versão, changelog, tamanho e seleção dos plugins modificados."
     ]
 }
