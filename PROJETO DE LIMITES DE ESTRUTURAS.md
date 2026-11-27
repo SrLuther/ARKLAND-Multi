@@ -1,11 +1,11 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.9.2-dev em homologação no servidor 05; 231 estruturas observadas com atribuição offline verificada em duas tribos (227 e 4); classificação/cobertura contínua ainda em validação e fiscalização suspensa
+**Estado:** 0.9.3-dev implementada para piloto de veto de uso único, com reserva/commit/cancel ligados ao posicionamento. Instalação e prova humana de retenção do item pendentes de janela vazia no 05. Runtime instalado segue 0.9.2-dev, com 231 estruturas observadas; fiscalização geral suspensa.
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.9.2-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; índice de proprietários verificado por hashes, sem perder/adicionar StructureIDs. Fiscalização desligada. A versão estável atual do sistema é 1.12.41, publicada e aplicada, com o pacote experimental anexado à release. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
+**Versão do plugin instalada:** 0.9.2-dev experimental no 05; homologação offline entregue com a 1.12.41. A 0.9.3-dev está preparada para a próxima janela vazia e o teste de veto. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
@@ -172,7 +172,17 @@ Limitações observáveis no código consultado:
 
 ## 15. Estado da implementação local
 
-### 15.0 Estado atual — 0.9.2-dev
+### 15.0 Estado atual — preparação da 0.9.3-dev
+
+### Próximo piloto — 0.9.3-dev
+
+O caminho de posicionamento passa a consultar o núcleo, manter uma reserva por tentativa e confirmar/cancelar após o retorno do jogo. Timeout, erro de identidade ou journal suspendem a fiscalização. A ativação geral ainda não possui inventário completo certificado e não é habilitada por configuração.
+
+O piloto de veto é separado das regras gerais: comando RCON, um SteamID conectado, uma tentativa final permitida pelo jogo, validade de 120 segundos. A quantidade do item é capturada ao armar, conferida no hook e comparada dois segundos após a recusa. Mudança entre armar e tentar invalida a prova; nenhuma reposição de item é feita. Callback de colocação após o veto também invalida o resultado. A evidência fica restrita ao blueprint efetivamente exercitado. Não repetir a contagem básica de três colocações/remoções.
+
+Também registra marcadores nativos dos atores excluídos para investigar os 32 atores dinâmicos pendentes, e mede repetição de identidades em scans consecutivos sem declarar essa repetição como inventário completo. Compilação local e preparação no backup privado do 05; a janela de instalação exige ausência confirmada de jogadores. Referência operacional e estados em [README.md](./plugin/StructureLimits/README.md).
+
+### Última etapa homologada — 0.9.2-dev
 
 A atribuição offline deixou de depender de jogador conectado: cópias estáveis de tribos/perfis geraram um índice vinculado à instância, conferido em worker por SHA-256. No piloto vazio, foram verificados 231 vínculos em duas tribos (227 e 4), sem mudança no conjunto de IDs nem reinício dos processos. Dados nativos têm prioridade; origens alteradas invalidam evidências e exigem atualização do índice. Não há sincronização automática completa das fontes ainda. Testes: 30 funções C++ e 26 casos Python. Consulte [HOMOLOGACAO_2026-11-27.md](./plugin/StructureLimits/HOMOLOGACAO_2026-11-27.md). Não repetir os testes básicos de somar/remover ou perto/longe já confirmados.
 

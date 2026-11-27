@@ -1,5 +1,14 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.9.3-dev — integração do posicionamento e piloto de veto] — 27/11/2026
+
+- Liga o hook final à reserva do núcleo e ao commit/cancelamento após `FinalStructurePlacement`; reserva pendente sem conclusão suspende a fiscalização em vez de liberar uma vaga e continuar bloqueando com contagem incerta.
+- Piloto RCON de uso único, opt-in `PlacementPilotEnabled`, restrito a um SteamID conectado e a um blueprint ou à próxima tentativa válida. Expira após 120 segundos e não ativa limites gerais.
+- Captura quantidades do inventário ao armar, confere o item consumido pela estrutura no hook e compara novamente dois segundos após o veto. Mudanças anteriores à tentativa invalidam a prova; não há reposição artificial de itens. Registra eventual colocação após a recusa e só registra evidência para o blueprint efetivamente exercitado.
+- RCON expõe piloto, reservas, recusas e evidências; `/limites` informa ao alvo quando o piloto está armado. Falha de journal/runtime suspende a autorização de bloqueios.
+- Acrescenta marcadores nativos de estrutura de ambiente e item consumido aos atores excluídos, e comparação de identidades entre varreduras consecutivas. São evidências para a cobertura, não um atalho para declarar inventário completo.
+- A prova humana de retenção do item está pendente. `complete_inventory=false` e bloqueio geral por limites permanecem desativados.
+
 ## [0.9.2-dev — atribuição offline verificável] — 27/11/2026
 
 - Índice observacional exportado de cópias verificadas de `.arktribe`/`.arkprofile`, parser fixado na revisão revisada e escopo da instância explícito.

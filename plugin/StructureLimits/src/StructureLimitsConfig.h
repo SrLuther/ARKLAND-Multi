@@ -13,6 +13,7 @@ struct PluginConfiguration {
     bool lifecycleBeginPlayObservationEnabled = false;
     bool residentInventoryProbeEnabled = false;
     bool liveInventoryEnabled = false;
+    bool placementPilotEnabled = false;
     bool enforcementRequiresValidatedInventory = true;
     std::string mapName;
     std::string instancePath;

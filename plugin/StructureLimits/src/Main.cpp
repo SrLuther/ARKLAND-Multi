@@ -5,6 +5,7 @@
 #include "DurableOutbox.h"
 #include "LocalSnapshotStore.h"
 #include "LiveInventoryRuntime.h"
+#include "PlacementRuntime.h"
 
 #include <memory>
 #include <set>
@@ -165,7 +166,9 @@ void __fastcall Hook_APrimalStructure_Destroyed(APrimalStructure* structure) {
     // Capture identity before the original teardown can invalidate actor data.
     LogStructureLifecycle("destroyed_callback", structure);
     try { StructureLimits::ObserveLiveDestruction(structure); }
-    catch (const std::exception& e) { Log::GetLog()->error("StructureLimits live destruction: {}",e.what()); }
+    catch (const std::exception& e) { StructureLimits::SuspendPlacementRuntime(e.what());Log::GetLog()->error("StructureLimits live destruction: {}",e.what()); }
+    try { StructureLimits::RemovePlacementGate(structure); }
+    catch(const std::exception& e){StructureLimits::SuspendPlacementRuntime(e.what());}
     APrimalStructure_Destroyed_original(structure);
 }
 
@@ -174,8 +177,10 @@ bool __fastcall Hook_APrimalStructure_FinalStructurePlacement(
     FRotator rotation,FRotator view,APawn* attach,FName bone,bool flipped) {
     const bool placed=APrimalStructure_FinalStructurePlacement_original(
         structure,player,location,rotation,view,attach,bone,flipped);
+    try { StructureLimits::CompletePlacementGate(structure,player,placed); }
+    catch(const std::exception& e){StructureLimits::SuspendPlacementRuntime(e.what());}
     if(placed)try { StructureLimits::ObserveCompletedPlacement(structure,player); }
-    catch(const std::exception& e){Log::GetLog()->error("StructureLimits completed placement: {}",e.what());}
+    catch(const std::exception& e){StructureLimits::SuspendPlacementRuntime(e.what());Log::GetLog()->error("StructureLimits completed placement: {}",e.what());}
     return placed;
 }
 
@@ -254,8 +259,7 @@ int __fastcall Hook_APrimalStructure_IsAllowedToBuild(
         structure, controller, atLocation, atRotation, placementData,
         dontAdjustForMaxRange, playerViewRotation, finalPlacement);
 
-    // Diagnostic only: observe final checks after the game's decision. Never
-    // veto, reserve capacity, consume items, or claim that placement succeeded.
+    // Preserve the game's result. The gate only handles otherwise allowed final checks.
     if (finalPlacement && structure != nullptr) {
         std::string blueprint = "<unknown>";
         if (structure->ClassField() != nullptr) {
@@ -277,7 +281,8 @@ int __fastcall Hook_APrimalStructure_IsAllowedToBuild(
             structure->TargetingTeamField(), blueprint, blueprintKey,
             atLocation.X, atLocation.Y, atLocation.Z);
     }
-    return originalResult;
+    try{return StructureLimits::CheckPlacementGate(structure,controller,atLocation,finalPlacement,originalResult);}
+    catch(const std::exception& e){StructureLimits::SuspendPlacementRuntime(e.what());return originalResult;}
 }
 
 namespace {
@@ -370,7 +375,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         if (!outboxError.empty())
             Log::GetLog()->warn("StructureLimits: outbox needs attention: {}", outboxError);
 
-        const bool observePlacement = config.observationProbeEnabled;
+        const bool observePlacement = config.observationProbeEnabled || config.liveInventoryEnabled;
         const bool observeLifecycle = config.lifecycleObservationEnabled;
         const bool observeResidentInventory = config.residentInventoryProbeEnabled;
         const bool liveInventory = config.liveInventoryEnabled;
@@ -429,7 +434,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
             g_worldCleanupInstalled=true;
             ArkApi::GetHooks().SetHook("APrimalStructure.FinalStructurePlacement",Hook_APrimalStructure_FinalStructurePlacement,&APrimalStructure_FinalStructurePlacement_original);
             g_finalPlacementInstalled=true;
-            StructureLimits::StartLiveInventory(config,*g_outbox);
+            StructureLimits::StartLiveInventory(config,*g_outbox,*g_limitEngine);
         }
         Log::GetLog()->warn(
             "StructureLimits: enforcement suspended; live ledger is observational; complete coverage and pre-consumption veto are not validated");

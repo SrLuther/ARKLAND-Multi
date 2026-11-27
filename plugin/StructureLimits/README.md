@@ -1,6 +1,14 @@
 # ARKLAND Structure Limits
 
-## Evolução atual — 0.9.2-dev (27/11/2026)
+## Evolução atual — 0.9.3-dev (27/11/2026)
+
+Integra a decisão de colocação ao núcleo (reservar, confirmar/cancelar e suspender em falha) e fornece o primeiro veto controlado. Com `PlacementPilotEnabled=true`, o administrador usa `StructureLimits.Pilot <SteamID64 conectado> next` pelo RCON. O piloto recusa **uma única tentativa final que o jogo permitiria**, apenas desse jogador, e expira em 120 segundos. É possível trocar `next` por um blueprint exato. `StructureLimits.Pilot cancel` cancela uma tentativa ainda armada.
+
+Antes de armar, deixe o item no inventário. Depois, faça uma tentativa e aguarde dois segundos sem mover/craftar o item nem tentar novamente. `StructureLimits.Status` apresenta `placement.pilot_state`, `item_before`, `item_after` e `placement_callbacks_after_veto`. `item_preserved` só significa que aquele blueprint preservou a quantidade nessa tentativa e não gerou callback de colocação; não certifica todos os mods. `inventory_changed_before_hook` invalida a prova e preserva o retorno original do jogo. Não são alterados, repostos ou retirados itens pelo plugin.
+
+O opt-in é falso no exemplo. Nenhum piloto é armado ao iniciar/recarregar o plugin. A contagem básica já validada não precisa ser repetida. A próxima validação humana é **uma recusa com retenção do item**, preferencialmente uma estrutura vanilla e uma do mod usado. O bloqueio geral continua dependendo de inventário completo e validação do caminho de colocação; os indicadores globais continuam falsos.
+
+## Histórico — 0.9.2-dev (27/11/2026)
 
 Atribuição offline por índice de fatos exportado de cópias estáveis de tribos/perfis com o parser fixado. Um worker lê o índice e verifica os hashes dos arquivos reais na instância; não existe I/O de perfil, SQL ou rede no callback do jogo. Fontes alteradas deixam de autorizar essa atribuição. Dados nativos têm prioridade, e cada estrutura informa `owner_source`.
 

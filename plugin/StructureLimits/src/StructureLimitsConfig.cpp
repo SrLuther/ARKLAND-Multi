@@ -97,6 +97,9 @@ PluginConfiguration ParsePluginConfiguration(const std::string& jsonText) {
     result.residentInventoryProbeEnabled = ReadBoolean(
         section, "ResidentInventoryProbeEnabled", false);
     result.liveInventoryEnabled = ReadBoolean(section,"LiveInventoryEnabled",false);
+    result.placementPilotEnabled = ReadBoolean(section,"PlacementPilotEnabled",false);
+    if(result.placementPilotEnabled&&!result.liveInventoryEnabled)
+        throw std::invalid_argument("PlacementPilotEnabled requires LiveInventoryEnabled");
     result.enforcementRequiresValidatedInventory =
         ReadBoolean(section, "EnforcementRequiresValidatedInventory", true);
     if (!result.enforcementRequiresValidatedInventory)

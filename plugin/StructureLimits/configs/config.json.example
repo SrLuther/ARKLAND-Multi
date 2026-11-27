@@ -6,6 +6,7 @@
     "LifecycleBeginPlayObservationEnabled": false,
     "ResidentInventoryProbeEnabled": false,
     "LiveInventoryEnabled": false,
+    "PlacementPilotEnabled": false,
     "MapName": "",
     "InstancePath": "",
     "LPG": 0,

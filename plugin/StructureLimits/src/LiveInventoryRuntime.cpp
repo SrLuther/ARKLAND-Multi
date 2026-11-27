@@ -1,6 +1,7 @@
 #include "LiveInventoryRuntime.h"
 #include "ObservedInventory.h"
 #include "OwnerDirectory.h"
+#include "PlacementRuntime.h"
 #include <chrono>
 #include <immintrin.h>
 #include <unordered_map>
@@ -29,6 +30,8 @@ std::unordered_map<ULevel*,int> collectionSizes;
 int initialLevelCount=0,priorStasisSize=-1;
 std::size_t collectionMutations=0;
 Json lastCompletedScan=nullptr;
+std::map<std::string,std::string> previousStructureScan,currentStructureScan;
+std::uint64_t stableStructureScans=0;
 std::map<std::string,Json> scanExcluded,lastExcluded;
 bool exclusionOverflow=false;
 MapCalibration gpsCalibration;
@@ -118,7 +121,7 @@ std::optional<ObservedStructure> Capture(APrimalStructure* structure,bool removi
     return value;
 }
 Json Status(bool includeRecords,bool includeCatalog=false){
-    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.2-dev"},
+    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.3-dev"},
         {"instance",configuration.Identity().displayId},{"canonical_instance_path",configuration.Identity().canonicalInstancePath},
         {"complete_inventory",false},{"enforcement",false},{"reason","resident_and_local_stasis_coverage_not_yet_validated"},
         {"observed_structures",inventory.Records().size()},{"removed_this_boot",inventory.RemovedCount()},
@@ -129,6 +132,7 @@ Json Status(bool includeRecords,bool includeCatalog=false){
         {"excluded_identity_actors",lastExcluded.size()},{"excluded_identity_overflow",exclusionOverflow},
         {"updated_at_unix",std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()}};
     state["class_catalog_count"]=classEvidence.size();
+    state["placement"]=PlacementRuntimeStatus();
     if(ownerDirectory){const auto owners=ownerDirectory->Snapshot();
         state["offline_owners"]={{"state",owners->state},{"verified",owners->valid},{"tribes",owners->tribes.size()},
             {"solos",owners->solos.size()},{"sources",owners->sources.size()},{"index_sha256",owners->fingerprint}};}
@@ -156,6 +160,9 @@ void ScanActor(AActor* actor,unsigned source){
                     {"blueprint",type->blueprint},{"structure_id",std::to_string(structure->StructureIDField())},
                     {"targeting_team",structure->TargetingTeamField()},{"player_data_id",static_cast<std::uint32_t>(structure->OwningPlayerIDField())},
                     {"net_startup",structure->bNetStartup().Get()},{"loaded_from_save",structure->bLoadedFromSaveGame().Get()},
+                    {"environment_structure",structure->bIsEnvironmentStructure().Get()},
+                    {"is_placing_player_structure",structure->bIsPlacingPlayerStructure().Get()},
+                    {"consumed_item_blueprint",[&]{FString name;if(auto* type=structure->ConsumesPrimalItemField().uClass)type->GetFullName(&name,nullptr);return NormalizeBlueprintKey(Text(name));}()},
                     {"reason",DeathCache(structure)?"generated_death_cache":!structure->StructureIDField()?"missing_structure_id":"missing_player_ownership"}};
                 if(structure->IsA(APrimalStructureItemContainer::GetPrivateStaticClass())){
                     auto* container=static_cast<APrimalStructureItemContainer*>(structure);
@@ -168,6 +175,7 @@ void ScanActor(AActor* actor,unsigned source){
         }
         return;}
     const unsigned mask=1u<<source;record->observedSources=mask;
+    currentStructureScan[record->id]=record->blueprint+"|"+std::to_string(record->targetingTeam)+"|"+std::to_string(record->playerId);
     const auto prior=scanIds.find(record->id);
     if(prior!=scanIds.end()){
         if(prior->second.actor!=actor){++duplicates;return;}
@@ -184,6 +192,7 @@ void TickBody(){
     if(!scanning&&now>=nextScan){
         RefreshOwners();scanning=true;stage=0;levelIndex=0;actorIndex=0;scanned=0;excluded=0;duplicates=0;scanIds.clear();
         sourceEntries={};sourceStructures={};collectionSizes.clear();collectionMutations=0;priorStasisSize=-1;scanExcluded.clear();
+        currentStructureScan.clear();
         initialLevelCount=GetNativePointerField<TArray<ULevel*>*>(world,"UWorld.Levels")->Num();
     }
     const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(2);
@@ -211,9 +220,12 @@ void TickBody(){
             if(actorIndex>=stasis.Num()){
                 scanning=false;++scans;nextScan=now+std::chrono::seconds(30);dirty=true;
                 lastExcluded=std::move(scanExcluded);
+                stableStructureScans=!duplicates&&currentStructureScan==previousStructureScan?stableStructureScans+1:0;
+                previousStructureScan=currentStructureScan;
                 lastCompletedScan={{"sequence",scans},{"unique_structures",scanIds.size()},
                     {"entries",sourceEntries},{"unique_structures_by_source",sourceStructures},
                     {"collection_mutations",collectionMutations},{"duplicate_ids",duplicates},
+                    {"consecutive_identical_structure_scans",stableStructureScans},
                     {"completed_at_unix",std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()}};
                 Log::GetLog()->info("StructureLimits inventory: observed={} scans={} visited={} excluded={} duplicate_ids={} complete=false enforcement=false",inventory.Records().size(),scans,scanned,excluded,duplicates);
                 break;
@@ -227,6 +239,7 @@ void Tick(float){
     if(!runtimeHealthy)return;
     try {TickBody();}
     catch(const std::exception& error){runtimeHealthy=false;
+        SuspendPlacementRuntime("live_inventory_runtime_error");
         Log::GetLog()->error("StructureLimits live inventory suspended: {}",error.what());}
 }
 void ShowLimits(AShooterPlayerController* player,FString*,bool){
@@ -236,7 +249,7 @@ void ShowLimits(AShooterPlayerController* player,FString*,bool){
     const auto steam=ArkApi::GetApiUtils().GetSteamIdFromController(player);
     if(!steam)return;
     const auto summary=inventory.Summary(Owner::ForPlayer(tribe,std::to_string(steam)),configuration.limits);
-    const auto text=std::string("Contagem observada (inventario em validacao; bloqueio desativado).\n")+FormatPrimaryLimitsMessage(summary);
+    const auto text=std::string("Contagem observada (inventario em validacao; bloqueio por limite desativado).\n")+FormatPrimaryLimitsMessage(summary)+PlacementPilotMessage(std::to_string(steam));
     ArkApi::GetApiUtils().SendChatMessage(player,L"ARKLAND",L"{}",ArkApi::Tools::Utf8Decode(text).c_str());
 }
 void RconStatus(RCONClientConnection* connection,RCONPacket* packet,UWorld*){
@@ -244,28 +257,31 @@ void RconStatus(RCONClientConnection* connection,RCONPacket* packet,UWorld*){
     connection->SendMessageW(packet->Id,0,&response);
 }
 }
-void StartLiveInventory(const PluginConfiguration& config,DurableOutbox& outbox){
+void StartLiveInventory(const PluginConfiguration& config,DurableOutbox& outbox,LimitEngine& engine){
     configuration=config;inventory=ObservedInventory();
     ownerDirectory=std::make_unique<OwnerDirectoryStore>(config.offlineOwnersFile,config.Identity());
     supplyClass=APrimalStructureItemContainer_SupplyCrate::GetPrivateStaticClass(nullptr);
     journal=std::make_unique<InventoryJournal>(outbox,config.localSnapshotFile.parent_path()/"observed-inventory.json");
+    StartPlacementRuntime(config,engine,*journal);
     installed=true;runtimeHealthy=true;acceptingEvents=true;
     ArkApi::GetCommands().AddOnTickCallback("StructureLimitsLiveInventory",&Tick);
     ArkApi::GetCommands().AddChatCommand(L"/limites",&ShowLimits);
     ArkApi::GetCommands().AddRconCommand(L"StructureLimits.Status",&RconStatus);
     scanning=false;scans=0;nextScan={};nextPublish={};dirty=true;lastCompletedScan=nullptr;
+    previousStructureScan.clear();currentStructureScan.clear();stableStructureScans=0;
     classEvidence.clear();classCatalogOverflow=false;scanExcluded.clear();lastExcluded.clear();exclusionOverflow=false;
-    Log::GetLog()->info("StructureLimits 0.9.1-dev: native death-cache markers excluded, precise map GPS, observed census active; enforcement=false");
+    Log::GetLog()->info("StructureLimits 0.9.3-dev: placement reservations wired, one-shot veto pilot available by RCON; cap enforcement=false");
 }
 void StopLiveInventory(){
     acceptingEvents=false;
+    StopPlacementRuntime();
     ownerDirectory.reset();
     if(installed){ArkApi::GetCommands().RemoveOnTickCallback("StructureLimitsLiveInventory");
         ArkApi::GetCommands().RemoveChatCommand(L"/limites");ArkApi::GetCommands().RemoveRconCommand(L"StructureLimits.Status");installed=false;}
     if(journal)journal->State(Status(false,true));
     journal.reset();inventory=ObservedInventory();scanIds.clear();teamTribes.clear();playerSteam.clear();classEvidence.clear();collectionSizes.clear();scanExcluded.clear();lastExcluded.clear();
 }
-void SuspendLiveInventory(){acceptingEvents=false;}
+void SuspendLiveInventory(){acceptingEvents=false;SuspendPlacementRuntime("world_cleanup");}
 void ObserveCompletedPlacement(APrimalStructure* structure,APlayerController* player){
     if(!journal||!acceptingEvents||!Ready())return;
     RefreshOwners();auto value=Capture(structure);if(!value)return;value->placementConfirmed=true;value->observedSources=8;
@@ -290,7 +306,7 @@ void ObserveLiveDestruction(APrimalStructure* structure){
     // An untracked destruction cannot subtract another structure's count.
     auto event=Record(prior?*prior:*value);event["type"]=prior?"removed":"untracked_destruction";
     event["removal_cause"]="unspecified";event["instance"]=configuration.Identity().displayId;
-    if(prior){journal->Record(value->id,nullptr);journal->Event(std::move(event));dirty=true;
+    if(prior){ReleasePlacementCount(value->id);journal->Record(value->id,nullptr);journal->Event(std::move(event));dirty=true;
         Log::GetLog()->info("StructureLimits inventory: removed id={} observed={} lat={} lon={} cause=unspecified",value->id,inventory.Records().size(),value->latitude,value->longitude);}
 }
 }
