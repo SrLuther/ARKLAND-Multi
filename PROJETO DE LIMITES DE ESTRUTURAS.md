@@ -1,11 +1,11 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.9.3-dev implementada para piloto de veto de uso único, com reserva/commit/cancel ligados ao posicionamento. Instalação e prova humana de retenção do item pendentes de janela vazia no 05. Runtime instalado segue 0.9.2-dev, com 231 estruturas observadas; fiscalização geral suspensa.
+**Estado:** 0.9.3-dev instalada e online no 05 após encerramento autorizado, com reserva/commit/cancel ligados ao posicionamento. A2S e RCON confirmados, runtime/journal saudáveis e 231 construções reconciliadas. Prova humana de retenção do item ainda pendente; fiscalização geral suspensa.
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin instalada:** 0.9.2-dev experimental no 05; homologação offline entregue com a 1.12.41. A 0.9.3-dev está preparada para a próxima janela vazia e o teste de veto. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
+**Versão do plugin instalada:** 0.9.3-dev experimental no 05, com backup do mundo e preservação dos outros quatro processos. A homologação offline anterior foi entregue com a 1.12.41. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
@@ -180,7 +180,7 @@ O caminho de posicionamento passa a consultar o núcleo, manter uma reserva por 
 
 O piloto de veto é separado das regras gerais: comando RCON, um SteamID conectado, uma tentativa final permitida pelo jogo, validade de 120 segundos. A quantidade do item é capturada ao armar, conferida no hook e comparada dois segundos após a recusa. Mudança entre armar e tentar invalida a prova; nenhuma reposição de item é feita. Callback de colocação após o veto também invalida o resultado. A evidência fica restrita ao blueprint efetivamente exercitado. Não repetir a contagem básica de três colocações/remoções.
 
-Também registra marcadores nativos dos atores excluídos para investigar os 32 atores dinâmicos pendentes, e mede repetição de identidades em scans consecutivos sem declarar essa repetição como inventário completo. Compilação local e preparação no backup privado do 05; a janela de instalação exige ausência confirmada de jogadores. Referência operacional e estados em [README.md](./plugin/StructureLimits/README.md).
+Também registra marcadores nativos dos atores excluídos e mede repetição de identidades em scans consecutivos sem declarar essa repetição como inventário completo. Após autorização de desligamento, foi instalada no 05 com backup do mundo e os outros quatro processos preservados; A2S e RCON confirmaram a nova partida online. A comparação da cópia recém-salva manteve 231 correspondências, sem faltantes, diferenças de metadados/posição ou erros do parser; 110 atores auxiliares permanecem pendentes de classificação nesse checkpoint. Após o reinício, as mesmas 231 construções foram reconciliadas por classe/nome/propriedade/XYZ, mas seus IDs de execução foram renumerados: persistência não deve pressupor StructureIDs estáveis entre partidas. Referência operacional e estados em [README.md](./plugin/StructureLimits/README.md).
 
 ### Última etapa homologada — 0.9.2-dev
 

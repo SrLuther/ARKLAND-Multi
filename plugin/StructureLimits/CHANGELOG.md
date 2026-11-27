@@ -8,6 +8,7 @@
 - RCON expõe piloto, reservas, recusas e evidências; `/limites` informa ao alvo quando o piloto está armado. Falha de journal/runtime suspende a autorização de bloqueios.
 - Acrescenta marcadores nativos de estrutura de ambiente e item consumido aos atores excluídos, e comparação de identidades entre varreduras consecutivas. São evidências para a cobertura, não um atalho para declarar inventário completo.
 - A prova humana de retenção do item está pendente. `complete_inventory=false` e bloqueio geral por limites permanecem desativados.
+- Instalada somente no 05 após salvamento e encerramento autorizados; backup do mundo com 69.383.352 bytes, outros quatro processos preservados, consulta pública A2S e RCON confirmados. Runtime/journal saudáveis, 231 construções e grupos 227/4. Os IDs de execução foram renumerados no reinício, mas as 231 identidades físicas corresponderam sem divergência de classe/nome/proprietário/XYZ. SHA-256 da DLL instalada: `92CB43E0D3BC4F3087B0413184CE6CEEAAF24D01F081E149A4D8AC598C601E29`.
 
 ## [0.9.2-dev — atribuição offline verificável] — 27/11/2026
 
