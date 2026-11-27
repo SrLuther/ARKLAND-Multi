@@ -1,7 +1,7 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.9.3-dev instalada e online no 05 após encerramento autorizado, com reserva/commit/cancel ligados ao posicionamento. A2S e RCON confirmados, runtime/journal saudáveis e 231 construções reconciliadas no reinício. Prova humana de veto da fundação Tek vanilla aprovada: 19 itens antes/19 depois, uma recusa e zero callbacks de colocação após o veto, confirmados por RCON e pelo administrador. Prova de blueprint do mod e inventário completo ainda pendentes; fiscalização geral suspensa.
+**Estado:** 0.9.3-dev instalada e online no 05 após encerramento autorizado, com reserva/commit/cancel ligados ao posicionamento. A2S e RCON confirmados, runtime/journal saudáveis e 231 construções reconciliadas no reinício. Provas humanas de veto das fundações Tek vanilla e metálica S+ aprovadas: quantidades agregadas preservadas (19/19 e 11/11), uma recusa por classe e zero callbacks de colocação após cada veto, confirmados por RCON e pelo administrador. Inventário completo e fiscalização geral por cota ainda pendentes; não há certificação automática de outros blueprints.
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  

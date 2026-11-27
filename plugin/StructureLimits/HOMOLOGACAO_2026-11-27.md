@@ -45,7 +45,7 @@ O empacotamento utilizou a opção explícita de cache incremental do PyInstalle
 - A cópia recém-salva, analisada pelo parser fixado, contém 105.119 objetos e 49.309 registros de ator. Houve 231 correspondências com o censo anterior, sem erros de parser, faltantes ou divergências de propriedade/posição. O checkpoint ainda contém 110 atores auxiliares pendentes (108 paredes de horda e dois beaver dams); essa auditoria não declarou completude.
 - Na nova partida, todos os StructureIDs dessas 231 construções foram renumerados: a diferença entre conjuntos tem 462 entradas, mas a reconciliação por blueprint/nome de ator/TargetingTeam/OwningPlayerID/tribo/XYZ encontrou 231 correspondências, sem chaves repetidas ou divergências (tolerância 0,05). IDs de execução não podem ser tratados como identidade persistente entre partidas. O snapshot anterior permaneceu candidato não validado e não foi restaurado como contador autoritativo.
 - O arquivo atual `ShooterGame.log` permaneceu sem marcador de início durante essa verificação. A prontidão foi comprovada por A2S ativo, RCON, versão da DLL e varreduras concluídas; os logs do ArkApi confirmaram o carregamento da 0.9.3.
-- A prova de veto vanilla foi concluída na seção seguinte. Bloqueio geral e inventário completo continuam falsos; um blueprint do mod ainda precisa de prova própria.
+- As provas de veto vanilla e de uma fundação S+ foram concluídas nas seções seguintes. Bloqueio geral e inventário completo continuam falsos.
 
 ## Veto com retenção — fundação Tek vanilla
 
@@ -53,3 +53,10 @@ O empacotamento utilizou a opção explícita de cache incremental do PyInstalle
 - Após rearmar, o administrador confirmou a recusa e que o item não foi consumido. A captura RCON privada `after-tek-veto-status.json` confirmou `pilot_state=item_preserved`, `denied=1`, `item_before=19`, `item_after=19`, `placement_callbacks_after_veto=0` e nenhuma reserva pendente. O total observado permaneceu 234; runtime/journal saudáveis.
 - Blueprint de ator efetivamente exercitado: `/game/primalearth/structures/tektier/floor_tek.floor_tek`. O comando de item fornecido pelo administrador usa `PrimalItemStructure_TekFloor`; não foi confundido com o caminho do ator.
 - Resultado: veto controlado comprovado para essa classe nesta execução, sem reposição artificial do item. Isso não prova cobertura de mods, fiscalização contínua por cota nem completude do inventário. `complete_inventory=false`, `enforcement=false` e `placement.cap_enforcement=false` permanecem explícitos.
+
+## Veto com retenção — fundação metálica S+
+
+- Item selecionado pelo administrador: `PrimalItemStructure_Foundation_Metal`, de Structures Plus. Depois de armar uma nova tentativa, o administrador confirmou visualmente que bloqueou e não consumiu; a captura de tela mantém o stack visível em 10.
+- A captura RCON privada `after-splus-metal-veto-status.json` confirmou `pilot_state=item_preserved`, quantidade agregada da classe `item_before=11` e `item_after=11`, `placement_callbacks_after_veto=0`, nenhuma reserva pendente e `denied=2` acumulado (Tek + S+). O método soma os registros da classe em `InventoryItemsField()`, não somente o stack destacado; não se presume a origem da diferença entre o total nativo e o stack visível.
+- Blueprint de ator exercitado: `/game/mods/structuresplusmod/structures/foundations/square/metal/bp_foundation_metal.bp_foundation_metal`. A lista de evidências desta execução contém essa classe e a fundação Tek. Total observado 234, runtime/journal saudáveis.
+- Resultado: segundo veto controlado comprovado, agora para essa classe do S+, sem reposição artificial. Não habilita fiscalização geral por cota nem certifica outras estruturas S+. Inventário completo e enforcement continuam falsos.
