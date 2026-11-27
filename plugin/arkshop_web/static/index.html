@@ -7869,20 +7869,16 @@
       #page-catalog #catalog-grid, #page-catalog #catalog-dinos-grid, #page-catalog #catalog-kits-grid,
       #page-catalog .catalog-licenses-grid, #page-catalog #catalog-available-grid, #page-catalog #catalog-recharge-grid { grid-template-columns:1fr; }
     }
-    .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; width:143px; min-height:165px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:0; border:0; padding:0 0 7px; color:#d9f6fa; background:transparent; font:700 14px Rajdhani,sans-serif; cursor:pointer; filter:drop-shadow(0 8px 12px rgba(0,0,0,.55)); transition:filter .2s,transform .2s; }
+    .support-fab { position:fixed; z-index:10020; right:26px; bottom:24px; width:86px; min-height:104px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:0; border:0; padding:0 0 4px; color:#d9f6fa; background:transparent; font:700 11px Rajdhani,sans-serif; cursor:pointer; filter:drop-shadow(0 6px 10px rgba(0,0,0,.5)); transition:filter .2s,transform .2s; }
     .support-fab:hover { filter:drop-shadow(0 9px 15px rgba(0,0,0,.64)) drop-shadow(0 0 8px rgba(70,174,197,.28)); }
-    .support-fab__character { position:absolute;z-index:0;inset:0 5px 22px;display:block;pointer-events:none; }
-    .support-fab__cat { position:absolute;inset:0;display:block;pointer-events:none; }
+    .support-fab__character { position:absolute;z-index:0;inset:0 0 20px;display:block;pointer-events:none; }
+    .support-fab__robot { position:absolute;inset:0;display:block;pointer-events:none; }
     .support-fab__art { display:block;width:100%;height:100%;object-fit:contain; }
     .support-fab__eyes { position:absolute;z-index:2;inset:0;width:100%;height:100%;overflow:visible; }
-    .support-fab__eye-white { fill:#fff0d4;stroke:#071a24;stroke-width:11;stroke-linejoin:round; }
-    .support-fab__iris { fill:url(#supportIris);stroke:#6a3100;stroke-width:8; }
-    .support-fab__pupil { fill:#071018;transition:transform .12s ease-out; }
-    .support-fab__glint { fill:#fff;pointer-events:none; }
-    .support-fab__lid { fill:#0b3043;transform:scaleY(0);transform-box:fill-box;transform-origin:top; }
-    .support-fab.is-blinking .support-fab__lid { animation:supportMascotBlink .16s ease-in-out; }
-    @keyframes supportMascotBlink { 0%,100%{transform:scaleY(0)} 45%,60%{transform:scaleY(1)} }
-    .support-fab__plaque { position:relative;z-index:1;display:block;width:100%;padding:8px 7px 7px;border:1px solid rgba(117,205,218,.62);border-radius:11px;background:linear-gradient(145deg,#27363a,#0e181d 68%,#18262a);box-shadow:inset 0 1px rgba(255,255,255,.16),inset 0 -3px rgba(0,0,0,.35),0 2px 0 #060b0e;color:#d8f5f7;text-shadow:0 1px 2px #071013;letter-spacing:.035em; }
+    .support-fab__pupil { fill:none;stroke:#53f3ff;stroke-width:17;stroke-linecap:round;filter:drop-shadow(0 0 5px #12e5ff);transform-box:fill-box;transform-origin:center; }
+    .support-fab.is-blinking .support-fab__pupil { animation:supportRobotBlink .18s ease-in-out; }
+    @keyframes supportRobotBlink { 0%,100%{transform:scaleY(1)}50%{transform:scaleY(.12)} }
+    .support-fab__plaque { position:relative;z-index:1;display:block;width:100%;padding:5px 3px;border:1px solid rgba(117,205,218,.62);border-radius:8px;background:linear-gradient(145deg,#27363a,#0e181d 68%,#18262a);box-shadow:inset 0 1px rgba(255,255,255,.16),inset 0 -2px rgba(0,0,0,.35),0 2px 0 #060b0e;color:#d8f5f7;text-shadow:0 1px 2px #071013;letter-spacing:0;white-space:nowrap; }
     .support-fab:focus-visible { outline:3px solid #ffc65b;outline-offset:4px; }
     .support-window { position:fixed;z-index:10021;right:26px;bottom:84px;width:min(390px,calc(100vw - 28px));height:min(570px,calc(100dvh - 112px));display:none;flex-direction:column;overflow:hidden;border:1px solid rgba(91,163,184,.32);border-radius:18px;background:linear-gradient(160deg,#111e24,#080d11 75%);box-shadow:0 24px 80px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.04);color:#e4edf0; }
     .support-window.open { display:flex;animation:supportPop .18s ease-out; }
@@ -7947,8 +7943,8 @@
     .support-faq-actions { display:flex;gap:8px;margin-top:12px; }
     .support-faq-actions button { flex:1;border:1px solid rgba(91,163,184,.25);border-radius:8px;padding:9px 7px;background:#111c21;color:#b9d2d7;font:600 12px Rajdhani,sans-serif;cursor:pointer; }
     .support-faq-actions button:hover { border-color:rgba(105,203,221,.55);color:#d9f6fa; }
-    @media(max-width:600px){.support-fab{right:14px;bottom:14px;width:112px;min-height:134px;font-size:12px}.support-fab__character{inset:0 3px 19px}.support-fab__plaque{padding:6px 4px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
-    @media(prefers-reduced-motion:reduce){.support-fab,.support-fab__pupil{transition:none!important}.support-fab:hover{transform:none}.support-fab.is-blinking .support-fab__lid{animation:none!important}.support-window.open{animation:none!important}}
+    @media(max-width:600px){.support-fab{right:14px;bottom:14px}.support-window{right:8px;bottom:72px;width:calc(100vw - 16px);height:min(620px,calc(100dvh - 86px));border-radius:16px}}
+    @media(prefers-reduced-motion:reduce){.support-fab,.support-fab__pupil{transition:none!important}.support-fab:hover{transform:none}.support-fab.is-blinking .support-fab__pupil{animation:none!important}.support-window.open{animation:none!important}}
   </style>
   <link rel="stylesheet" href="resource_vitrine.css?v=__WEB_BUILD__" />
   <link rel="stylesheet" href="guia.css?v=__WEB_BUILD__" />
@@ -10597,7 +10593,7 @@
                 <div class="lumo-field"><label for="lumo-global-hourly-limit">Máximo global por hora</label><input id="lumo-global-hourly-limit" type="number" min="1" max="500" /></div>
                 <div class="lumo-field lumo-field--wide"><label>Gatilhos autorizados</label><div class="lumo-check-row"><label class="lumo-check"><input type="checkbox" id="lumo-trigger-status" /> Status</label><label class="lumo-check"><input type="checkbox" id="lumo-trigger-betland" /> Bet Land</label><label class="lumo-check"><input type="checkbox" id="lumo-trigger-licenses" /> Licenças</label><label class="lumo-check"><input type="checkbox" id="lumo-trigger-polls" /> Votações</label></div></div>
                 <div class="lumo-field lumo-field--wide"><label for="lumo-trigger-aliases">Aliases adicionais por gatilho (JSON)</label><textarea id="lumo-trigger-aliases" class="lumo-compact-textarea" rows="5" spellcheck="false" placeholder='{"STATUS":["status do cluster"],"BETLAND":[],"LICENCAS":[],"VOTACAO":[]}'></textarea><span class="lumo-muted">Use frases ou palavras completas. Não são permitidos comandos, SQL ou expressões executáveis.</span></div>
-                <div class="lumo-field lumo-field--wide"><label>Publicações automáticas no canal principal (intervalo compartilhado de 6 horas, até 4 por dia, aguardando conversa entre avisos)</label><div class="lumo-check-row"><label class="lumo-check"><input type="checkbox" id="lumo-auto-betland" /> Bet Land enquanto houver sorteio aberto</label><label class="lumo-check"><input type="checkbox" id="lumo-auto-polls" /> Votações enquanto houver votações abertas</label></div><div id="lumo-auto-schedule-state" class="lumo-status-note">Aguardando configuração.</div></div>
+                <div class="lumo-field lumo-field--wide"><label>Publicações automáticas no canal principal (intervalo compartilhado de 6 horas, até 4 por dia, aguardando conversa entre avisos)</label><div class="lumo-check-row"><label class="lumo-check"><input type="checkbox" id="lumo-auto-betland" /> Bet Land enquanto houver sorteio aberto</label><label class="lumo-check"><input type="checkbox" id="lumo-auto-polls" /> Votações enquanto houver votações abertas</label><label class="lumo-check"><input type="checkbox" id="lumo-auto-community" /> Status, catálogo, tutoriais, guia, SeasonLand, sugestões e equipes</label></div><div id="lumo-auto-schedule-state" class="lumo-status-note">Aguardando configuração.</div><details><summary>Textos dos avisos de orientação</summary><div id="lumo-community-notices"></div><p class="lumo-muted">BetLand e votações usam os anúncios com dados atuais do sorteio e das votações abertas.</p></details></div>
                 <div class="lumo-field lumo-field--wide"><label for="lumo-greeting-replies">Respostas variadas quando alguém mencionar Lumo (uma por linha)</label><textarea id="lumo-greeting-replies" class="lumo-compact-textarea" rows="10"></textarea><span class="lumo-muted">Mantenha pelo menos uma resposta. O sistema evita repetir a mesma saudação em sequência para o mesmo jogador.</span></div>
               </div>
               <div class="lumo-actions"><label class="lumo-check lumo-enable"><input type="checkbox" id="lumo-assistant-enabled" /> Ativar Lumo 2.0</label><button id="lumo-save-assistant" class="btn btn-primary" type="button">Salvar configuração</button><button id="lumo-reload-assistant" class="btn btn-ghost" type="button">Atualizar estado</button></div>
@@ -37390,18 +37386,16 @@ document.addEventListener("keydown", (e) => {
 <!-- Atendimento rápido: widget flutuante de tickets -->
 <button id="support-fab" class="support-fab" type="button" onclick="supportWidgetOpenHelp()" aria-label="Precisa de ajuda? Abrir dúvidas e atendimento" aria-expanded="false" aria-controls="support-window">
   <span class="support-fab__character" aria-hidden="true">
-    <span class="support-fab__cat">
-      <img class="support-fab__art" src="arkland-help-cat-v1.png?v=__WEB_BUILD__" alt="" width="1294" height="1216" loading="lazy" fetchpriority="low">
-    </span>
-    <svg class="support-fab__eyes" viewBox="0 0 1294 1216" aria-hidden="true">
-      <defs><radialGradient id="supportIris" cx="38%" cy="34%"><stop offset="0" stop-color="#ffe879"/><stop offset=".72" stop-color="#ffb51c"/><stop offset="1" stop-color="#e57708"/></radialGradient></defs>
-      <path class="support-fab__eye-white" d="M552 420 Q586 365 641 360 Q712 353 751 419 Q716 458 662 465 Q594 469 552 420Z"/>
-      <path class="support-fab__eye-white" d="M844 390 Q873 321 924 315 Q984 309 1016 366 Q986 414 932 427 Q876 436 844 390Z"/>
-      <ellipse class="support-fab__iris" cx="663" cy="414" rx="48" ry="53"/><ellipse class="support-fab__iris" cx="925" cy="371" rx="43" ry="48"/>
-      <g data-support-pupil="left"><ellipse class="support-fab__pupil" cx="663" cy="414" rx="22" ry="32"/><circle class="support-fab__glint" cx="650" cy="394" r="9"/></g>
-      <g data-support-pupil="right"><ellipse class="support-fab__pupil" cx="925" cy="371" rx="20" ry="29"/><circle class="support-fab__glint" cx="913" cy="353" r="8"/></g>
-      <path class="support-fab__lid" d="M545 411 Q584 351 646 350 Q715 345 759 412 L755 425 Q707 374 651 375 Q590 375 551 429Z"/>
-      <path class="support-fab__lid" d="M836 379 Q867 309 929 305 Q992 300 1024 359 L1017 371 Q979 329 927 331 Q876 334 842 395Z"/>
+    <svg class="support-fab__robot" viewBox="330 220 610 650" width="86" height="84" aria-hidden="true">
+      <defs>
+        <radialGradient id="supportRobotVisor"><stop stop-color="#043749"/><stop offset="1" stop-color="#001622"/></radialGradient>
+        <mask id="supportRobotFace"><rect width="1310" height="1201" fill="white"/><ellipse cx="670" cy="534" rx="70" ry="43" fill="black"/><ellipse cx="826" cy="508" rx="44" ry="42" fill="black"/></mask>
+      </defs>
+      <ellipse cx="670" cy="534" rx="73" ry="46" fill="url(#supportRobotVisor)"/>
+      <ellipse cx="826" cy="508" rx="47" ry="45" fill="url(#supportRobotVisor)"/>
+      <image href="lumo-help-robot-v1.png?v=__WEB_BUILD__" width="1310" height="1201" mask="url(#supportRobotFace)"/>
+      <g data-support-pupil="left"><path class="support-fab__pupil" d="M622 550 Q670 493 719 546"/></g>
+      <g data-support-pupil="right"><path class="support-fab__pupil" d="M801 527 Q826 477 854 518"/></g>
     </svg>
   </span>
   <span class="support-fab__plaque">Precisa de ajuda?</span>
@@ -37618,15 +37612,15 @@ async function supportWidgetTranslate(button){const original=button.dataset.orig
   const pupils=[...fab.querySelectorAll("[data-support-pupil]")];let frame=0,pointer=null,blinkTimer=0;
   function paintGaze(){
     frame=0;if(!pointer||reduced?.matches||document.hidden)return;
-    const rect=fab.querySelector(".support-fab__cat")?.getBoundingClientRect();if(!rect)return;
-    const cx=rect.left+rect.width*.614,cy=rect.top+rect.height*.327;
-    const dx=Math.max(-24,Math.min(24,(pointer.x-cx)/(rect.width*.25||1)*24));
-    const dy=Math.max(-17,Math.min(17,(pointer.y-cy)/(rect.height*.19||1)*17));
+    const rect=fab.querySelector(".support-fab__robot")?.getBoundingClientRect();if(!rect)return;
+    const cx=rect.left+rect.width*.68,cy=rect.top+rect.height*.47;
+    const dx=Math.max(-16,Math.min(16,(pointer.x-cx)/(rect.width*2||1)*16));
+    const dy=Math.max(-10,Math.min(10,(pointer.y-cy)/(rect.height*2||1)*10));
     pupils.forEach(group=>group.setAttribute("transform",`translate(${dx.toFixed(1)} ${dy.toFixed(1)})`));
   }
   function onPointerMove(event){if(event.pointerType==="touch")return;pointer={x:event.clientX,y:event.clientY};if(!frame)frame=requestAnimationFrame(paintGaze);}
   function centerGaze(){pointer=null;pupils.forEach(group=>group.removeAttribute("transform"));}
-  window.addEventListener("pointermove",onPointerMove,{passive:true});fab.addEventListener("pointerleave",centerGaze);
+  window.addEventListener("pointermove",onPointerMove,{passive:true});document.documentElement.addEventListener("pointerleave",centerGaze);
   function scheduleBlink(){if(reduced?.matches)return;blinkTimer=window.setTimeout(()=>{fab.classList.remove("is-blinking");void fab.offsetWidth;fab.classList.add("is-blinking");window.setTimeout(()=>fab.classList.remove("is-blinking"),190);scheduleBlink();},3800+Math.random()*2600);}
   document.addEventListener("visibilitychange",()=>{if(document.hidden){window.clearTimeout(blinkTimer);centerGaze();}else scheduleBlink();});
   scheduleBlink();reduced?.addEventListener?.("change",event=>{if(event.matches){window.clearTimeout(blinkTimer);centerGaze();}else scheduleBlink();});

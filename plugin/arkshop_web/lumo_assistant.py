@@ -20,6 +20,24 @@ BETLAND_URL = SITE_URL + "#/sorteio"
 POLLS_URL = SITE_URL + "#/polls"
 LICENSES_URL = SITE_URL + "#/licencas"
 
+# Community-channel notices. These describe navigation, not unverified live status.
+COMMUNITY_ANNOUNCEMENTS = {
+    'systems': ('Status dos sistemas | ARKLAND',
+                'Quer acompanhar a situação dos serviços? Consulte a central de status para ver as informações disponíveis, revisões da equipe e incidentes registrados.\n\n[Consultar os sistemas](https://arkland.com.br/#/system-status)'),
+    'catalog': ('Catálogo | Explore a ARKLAND',
+                'Procurando itens, criaturas ou serviços? Explore o catálogo e confira as opções, valores e condições de cada resgate antes de escolher.\n\n[Abrir o catálogo](https://arkland.com.br/#/catalog)'),
+    'tutorials': ('Tutoriais | Aprenda no seu ritmo',
+                  'Uma dúvida sobre como jogar ou usar os recursos da ARKLAND? Consulte os tutoriais disponíveis e encontre orientações para sua jornada.\n\n[Ver tutoriais](https://arkland.com.br/#/tutoriais)'),
+    'guide': ('Guia de conteúdo | Conheça o cluster',
+              'Antes da próxima aventura, consulte o guia de conteúdo da ARKLAND. Conheça as informações disponíveis sobre os conteúdos do servidor e planeje seus próximos passos.\n\n[Explorar o guia](https://arkland.com.br/#/guia)'),
+    'season': ('SeasonLand | Sua próxima jornada',
+               'Conheça a SeasonLand e consulte no site a situação da temporada, suas regras, objetivos e recompensas disponíveis. Confira os detalhes antes de participar.\n\n[Conhecer a SeasonLand](https://arkland.com.br/#/season-pass)'),
+    'suggestions': ('Sugestões | Ajude a construir a ARKLAND',
+                    'Tem uma ideia para a comunidade? Visite a área de sugestões, confira o que já foi proposto e apresente sua ideia com contexto e exemplos.\n\n[Abrir sugestões](https://arkland.com.br/#/sugestoes)'),
+    'teams': ('Equipes | Encontre seu grupo',
+              'A jornada também é feita em equipe. Conheça as equipes da comunidade e consulte no portal as informações e opções disponíveis para participar.\n\n[Conhecer as equipes](https://arkland.com.br/#/teams-directory)'),
+}
+
 GREETING_REPLIES = (
     "Olá, sobrevivente! Estou por aqui para ajudar na sua jornada pela ARKLAND.",
     "À disposição, sobrevivente! Que sua próxima aventura pelas ilhas seja incrível.",

@@ -4,7 +4,7 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 # flake8: noqa
 
-APP_VERSION: str = "1.12.41"
+APP_VERSION: str = "1.12.42"
 BUILD_DATE: str = "2026-11-27"
 
 # Cada entrada: version, date, changes (lista de strings)
@@ -16,6 +16,8 @@ CHANGELOG: list[dict] = [
         "date": "2026-11-27",
         "changes": [
             "Lumo — canal principal do Discord: intervalo global mínimo de 6 horas entre anúncios automáticos de BetLand e votações, permitindo até quatro por dia no total. Consulta a última mensagem pelo histórico antes de enviar; enquanto for do Lumo ou de outro bot, aguarda uma pessoa conversar. Histórico indisponível adia o envio. Preserva pendências e horários após reinício, escolhe o assunto vencido há mais tempo e envia um único aviso por ciclo, sem disparar acúmulos. Painel informa a regra e o motivo da espera. Respostas diretas e programação do Chat do Jogo permanecem independentes.",
+            "Lumo: amplia a rotação do canal principal com anúncios de Status dos sistemas, Catálogo, Tutoriais, Guia de conteúdo, SeasonLand, Sugestões e Equipes, com links diretos e textos consultáveis no painel. Compartilham as seis horas com BetLand e votações; estes dois mantêm os dados atuais e dependem de atividade aberta. Não aumenta a frequência total de avisos nem publica todos de uma vez.",
+            "Atendimento: substitui o gato pelo mascote robô neon fornecido, reduz o botão para aproximadamente 60% do tamanho anterior e adapta os olhos luminosos para acompanhar o cursor e piscar. Preserva a abertura da ajuda, teclado, toque e preferência de movimento reduzido.",
         ],
     },
     {

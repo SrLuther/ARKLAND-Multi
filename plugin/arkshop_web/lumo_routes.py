@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 from flask import jsonify, request, send_file
 from lumo_assets import MAX_IMAGE_BYTES, cleanup_assets, resolve_asset, validate_and_store
-from lumo_assistant import GREETING_REPLIES
+from lumo_assistant import COMMUNITY_ANNOUNCEMENTS, GREETING_REPLIES
 from lumo_gateway import configure_lumo_runtime
 
 
@@ -207,6 +207,13 @@ def _assistant_view(settings: dict[str, Any], runtime: Any) -> dict[str, Any]:
         "trigger_aliases": dict(settings.get("lumo_trigger_aliases") or {}),
         "auto_betland_enabled": bool(settings.get("lumo_auto_betland_enabled", False)),
         "auto_polls_enabled": bool(settings.get("lumo_auto_polls_enabled", False)),
+        "auto_community_enabled": bool(settings.get("lumo_auto_community_enabled", True)),
+        "community_announcements": [
+            {"key": key, "title": content[0], "description": content[1],
+             "last_at": str(settings.get(f"lumo_auto_{key}_last_at") or ""),
+             "next_at": str(settings.get(f"lumo_auto_{key}_next_at") or "")}
+            for key, content in COMMUNITY_ANNOUNCEMENTS.items()
+        ],
         "auto_announcement_interval_hours": 6,
         "auto_announcements_not_before": str(settings.get("lumo_main_announcements_not_before") or ""),
         "last_auto_announcement_at": str(settings.get("lumo_last_auto_announcement_at") or ""),
@@ -351,7 +358,7 @@ def register_lumo_routes(
         if enabled and not channel_id:
             return jsonify({"ok": False, "error": "Informe o canal global autorizado para ativar as respostas do Lumo no Discord."}), 400
 
-        bool_keys = ("auto_betland_enabled", "auto_polls_enabled")
+        bool_keys = ("auto_betland_enabled", "auto_polls_enabled", "auto_community_enabled")
         settings.update({
             "lumo_assistant_enabled": enabled,
             "lumo_guild_id": guild_id,

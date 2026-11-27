@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from lumo_assistant import (
+    COMMUNITY_ANNOUNCEMENTS,
     GAME_CHAT_REPLIES,
     GREETING_REPLIES,
     TriggerMatch,
@@ -730,17 +731,19 @@ class LumoGatewayRunner:
         if retry_at and retry_at > now:
             return
         candidates = []
-        for category in _AUTO_TYPES:
+        for category in (*_AUTO_TYPES, *COMMUNITY_ANNOUNCEMENTS):
             state_key = f'lumo_auto_{category}_next_at'
-            if not config.get(f'lumo_auto_{category}_enabled'):
+            community = category in COMMUNITY_ANNOUNCEMENTS
+            enabled = config.get('lumo_auto_community_enabled', True) if community else config.get(f'lumo_auto_{category}_enabled')
+            if not enabled:
                 if config.get(state_key):
                     self._save_main_schedule(config, {state_key: ''})
                 continue
-            data = await self._get_data(category)
+            data = {'ok': True} if community else await self._get_data(category)
             if not data.get('ok'):
                 continue  # A source outage must not consume the pending topic.
-            active = (bool(data.get('enabled')) and bool(data.get('campaign'))
-                      and str((data.get('campaign') or {}).get('status') or '').upper() == 'ACTIVE') if category == 'betland' else bool(data.get('polls'))
+            active = community or ((bool(data.get('enabled')) and bool(data.get('campaign'))
+                      and str((data.get('campaign') or {}).get('status') or '').upper() == 'ACTIVE') if category == 'betland' else bool(data.get('polls')))
             if not active:
                 if config.get(state_key):
                     self._save_main_schedule(config, {state_key: ''})
@@ -755,7 +758,7 @@ class LumoGatewayRunner:
         # Oldest pending topic wins; a fixed category order would starve polls.
         _, category, data = min(candidates, key=lambda item: (item[0], item[1]))
         match = TriggerMatch('BETLAND' if category == 'betland' else 'VOTACAO', 'automatic_announcement')
-        title, description = build_response(match, data, config)
+        title, description = COMMUNITY_ANNOUNCEMENTS[category] if category in COMMUNITY_ANNOUNCEMENTS else build_response(match, data, config)
         import discord
         embed = discord.Embed.from_dict(make_embed_payload(title, description))
         embed.set_author(name='Lumo • Assistente oficial da ARKLAND', icon_url='https://arkland.com.br/lumo-avatar.png')

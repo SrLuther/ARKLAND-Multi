@@ -14,6 +14,14 @@ Os anúncios gerais percorrem uma fila rotativa de assuntos habilitados a cada 3
 
 O painel oferece simulação local de gatilhos e envio manual administrativo com confirmação. O envio manual publica uma única mensagem no canal compartilhado e pode alcançar todos os mapas ligados a ele. Nenhuma mensagem de teste é enviada automaticamente.
 
+## Canal principal do Discord — 1.12.42
+
+É separado do Chat do Jogo. Os anúncios de Status dos sistemas, Catálogo, Tutoriais, Guia de conteúdo, Votações, BetLand, SeasonLand, Sugestões e Equipes compartilham seis horas entre envios, com até quatro por dia no total. BetLand e votações consultam atividade aberta; as demais mensagens são orientações com links. O histórico do canal é consultado antes do envio: última mensagem de bot ou histórico indisponível deixam o aviso pendente. Uma pessoa precisa conversar para permitir outro anúncio, ainda respeitando as seis horas. Não há disparo de vários avisos acumulados. Estado persistido e prioridade do assunto mais antigo mantêm a rotação após reinício. O painel permite consultar os textos e desativar as orientações, com BetLand/votações em controles próprios. Respostas interativas não aguardam esse intervalo. Nenhuma dessas mudanças altera os intervalos do Chat do Jogo.
+
+## Mascote do atendimento — 1.12.42
+
+O botão de ajuda usa o PNG original do robô neon fornecido, incorporado como `static/lumo-help-robot-v1.png`. O enquadramento e os olhos luminosos são camadas SVG/CSS, preservando o arquivo original. Botão de 86 × 104 px, aproximadamente 60% do anterior de 143 × 165 px. Os olhos acompanham o cursor com deslocamento limitado; piscar e movimento são suspensos pela preferência de movimento reduzido. Mantém acesso por teclado, toque e abertura do atendimento.
+
 ## Upload de imagens da Comunicação
 
 Os campos de imagem complementar e miniatura aceitam URLs HTTPS externas como antes ou arquivos PNG, JPEG, GIF e WebP. O upload valida o conteúdo real da imagem, dimensões e limite de 8 MB, cria nomes internos aleatórios e grava os arquivos em `webstore_data/lumo_uploads` (diretório persistente de dados do aplicativo). A prévia autenticada não torna os arquivos públicos.

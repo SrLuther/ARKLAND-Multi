@@ -160,6 +160,7 @@
         setVal("lumo-user-cooldown", assistantConfig.user_cooldown_seconds ?? 15); setVal("lumo-trigger-cooldown", assistantConfig.trigger_cooldown_seconds ?? 20); setVal("lumo-global-cooldown", assistantConfig.global_cooldown_seconds ?? 3); setVal("lumo-global-hourly-limit", assistantConfig.global_hourly_limit ?? 40);
         $("lumo-assistant-enabled").checked = !!assistantConfig.enabled; $("lumo-trigger-status").checked = assistantConfig.trigger_enabled?.STATUS !== false; $("lumo-trigger-betland").checked = assistantConfig.trigger_enabled?.BETLAND !== false; $("lumo-trigger-licenses").checked = assistantConfig.trigger_enabled?.LICENCAS !== false; $("lumo-trigger-polls").checked = assistantConfig.trigger_enabled?.VOTACAO !== false;
         $("lumo-auto-betland").checked = !!assistantConfig.auto_betland_enabled; $("lumo-auto-polls").checked = !!assistantConfig.auto_polls_enabled;
+        $("lumo-auto-community").checked = assistantConfig.auto_community_enabled !== false;
         setVal("lumo-trigger-aliases", JSON.stringify(assistantConfig.trigger_aliases || {}, null, 2));
         const runtime = assistantConfig.runtime || {};
         const schedule = [];
@@ -173,6 +174,16 @@
         schedule.push(`Respostas: ${runtime.responses || 0}; anúncios: ${runtime.announcements || 0}; última interação: ${runtime.last_interaction_at ? new Date(runtime.last_interaction_at).toLocaleString("pt-BR") : "nenhuma"}.`);
         if (runtime.last_error) schedule.push(`Falha recente: ${runtime.last_error}`);
         $("lumo-auto-schedule-state").textContent = schedule.join("\n");
+        const noticeList = $("lumo-community-notices");
+        noticeList.replaceChildren();
+        for (const notice of assistantConfig.community_announcements || []) {
+          const item = document.createElement("details"), title = document.createElement("summary"), body = document.createElement("p");
+          title.textContent = notice.title;
+          body.textContent = notice.description;
+          body.style.whiteSpace = "pre-wrap";
+          body.className = "lumo-muted";
+          item.append(title, body); noticeList.append(item);
+        }
         const gameSchedule = [];
         if (assistantConfig.game_announcements_not_before) gameSchedule.push(`Intervalo entre avisos enviados: ${(assistantConfig.game_announcement_gap_minutes || [15,20]).join("–")} min; próxima tentativa permitida a partir de ${new Date(assistantConfig.game_announcements_not_before).toLocaleString("pt-BR")}.`);
         const audience = runtime.game_announcement_audience;
@@ -252,6 +263,7 @@
       guild_id: val("lumo-guild-id").trim(), interaction_channel_id: val("lumo-interaction-channel-id").trim(), status_channel_id: val("lumo-status-channel-id").trim(),
       user_cooldown_seconds: Number(val("lumo-user-cooldown")), trigger_cooldown_seconds: Number(val("lumo-trigger-cooldown")), global_cooldown_seconds: Number(val("lumo-global-cooldown")), global_hourly_limit: Number(val("lumo-global-hourly-limit")),
       auto_betland_enabled: $("lumo-auto-betland").checked, auto_polls_enabled: $("lumo-auto-polls").checked,
+      auto_community_enabled: $("lumo-auto-community").checked,
       trigger_enabled: { STATUS: $("lumo-trigger-status").checked, BETLAND: $("lumo-trigger-betland").checked, LICENCAS: $("lumo-trigger-licenses").checked, VOTACAO: $("lumo-trigger-polls").checked },
       trigger_aliases: aliases,
     };
