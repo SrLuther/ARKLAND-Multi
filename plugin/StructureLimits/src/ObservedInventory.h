@@ -12,6 +12,7 @@ bool IsGeneratedDeathCache(bool useDeathCacheCharacterId,double deathCacheCreati
 struct ObservedStructure {
     std::string id, blueprint, steamId, tribeId;
     std::string actorName, actorFullName;
+    std::string ownerSource;
     std::uint32_t observedSources = 0;
     int targetingTeam = 0;
     int playerId = 0;

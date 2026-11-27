@@ -1,6 +1,12 @@
 # ARKLAND Structure Limits
 
-## Evolução atual — 0.9-dev (26/11/2026)
+## Evolução atual — 0.9.2-dev (27/11/2026)
+
+Atribuição offline por índice de fatos exportado de cópias estáveis de tribos/perfis com o parser fixado. Um worker lê o índice e verifica os hashes dos arquivos reais na instância; não existe I/O de perfil, SQL ou rede no callback do jogo. Fontes alteradas deixam de autorizar essa atribuição. Dados nativos têm prioridade, e cada estrutura informa `owner_source`.
+
+No 05 vazio, as 231 estruturas foram atribuídas às duas tribos corretas (227 e 4), preservando todos os IDs. Não foi necessário repetir o teste de colocar/remover estruturas. Fiscalização e inventário completo permanecem desligados. O caminho solo tem testes locais, mas não foi homologado com jogador solo no piloto. Evidências e atualização do índice em [HOMOLOGACAO_2026-11-27.md](HOMOLOGACAO_2026-11-27.md).
+
+## Histórico — evolução 0.9-dev (26/11/2026)
 
 A build piloto do 05 agora exporta identidade dos atores, proveniência das observações, catálogo de classes do SDK e evidências dos atores excluídos por identidade/propriedade ausente. A última varredura concluída fica separada da varredura corrente e registra mutações de coleções e conflitos.
 

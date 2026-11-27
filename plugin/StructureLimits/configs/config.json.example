@@ -13,6 +13,7 @@
     "SpecificBlueprints": [],
     "EnforcementRequiresValidatedInventory": true,
     "LocalSnapshotFile": "",
-    "LocalOutboxDirectory": ""
+    "LocalOutboxDirectory": "",
+    "OfflineOwnersFile": ""
   }
 }

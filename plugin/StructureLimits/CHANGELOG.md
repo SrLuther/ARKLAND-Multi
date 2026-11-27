@@ -1,5 +1,13 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.9.2-dev — atribuição offline verificável] — 27/11/2026
+
+- Índice observacional exportado de cópias verificadas de `.arktribe`/`.arkprofile`, parser fixado na revisão revisada e escopo da instância explícito.
+- Leitura e SHA-256 em worker sem ponteiros do jogo, SQL ou rede. Origem alterada invalida a evidência; o ledger não ressuscita a atribuição invalidada. Dados nativos têm prioridade.
+- Proveniência `owner_source` por estrutura e diagnóstico `offline_owners` via RCON. Perfis sem tribo explícita não são tratados como tribo artificial; solo exige identidade e time compatíveis.
+- Fiscalização e inventário completo continuam desativados. O índice de proprietários não constitui um snapshot completo nem valida veto antes do consumo de recursos.
+- Homologação no 05 vazio: 231/231 vínculos offline, grupos 227 e 4, nenhum ID perdido/novo e conflitos zero; os cinco processos de jogo foram preservados. 30 funções de teste C++ e 26 testes Python aprovados. Evidências em `HOMOLOGACAO_2026-11-27.md`.
+
 ## [0.9.1-dev — correções após rodada humana] — 26/11/2026
 
 - Homologação do administrador: contagem da tribo começou/terminou em 227; colocar incrementou e remover decrementou uma unidade; distância não derrubou a contagem. SSH confirmou cinco IDs de TekLight, cada um com um evento de colocação e um de remoção, nenhum deles ainda ativo. O teste não comprova decay nem identifica a causa específica das remoções.

@@ -1,5 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
+set "PYINSTALLER_CLEAN=--clean"
+if /I "%ARKLAND_INCREMENTAL_FREEZE%"=="1" (
+    set "PYINSTALLER_CLEAN="
+    echo Empacotamento incremental: reutilizando caches verificados pelo PyInstaller.
+)
 echo ============================================================
 echo  ARKLAND - Server Manager  -  Build Script
 echo ============================================================
@@ -197,7 +202,7 @@ echo.
 
 :: -- Gera o execut?vel --------------------------------------------------------
 echo [2/4] Gerando executavel com PyInstaller (modo onefile)...
-"%PYTHON%" -m PyInstaller --clean --noconfirm "%~dp0ARKLAND-Multi.spec"
+"%PYTHON%" -m PyInstaller !PYINSTALLER_CLEAN! --noconfirm "%~dp0ARKLAND-Multi.spec"
 if !errorlevel! neq 0 (
     echo [ERRO] PyInstaller falhou. Verifique os erros acima.
     pause
@@ -207,7 +212,7 @@ echo       Executavel: dist\ARKLAND-ServerManager.exe
 echo.
 
 echo [2b/4] Gerando ARKLAND-Updater.exe...
-"%PYTHON%" -m PyInstaller --clean --noconfirm "%~dp0ARKLAND-Updater.spec"
+"%PYTHON%" -m PyInstaller !PYINSTALLER_CLEAN! --noconfirm "%~dp0ARKLAND-Updater.spec"
 if !errorlevel! neq 0 (
     echo [ERRO] PyInstaller falhou ao gerar ARKLAND-Updater.exe.
     pause
@@ -226,7 +231,7 @@ if !errorlevel! neq 0 (
 echo.
 
 echo [2d/4] Gerando ARKLAND-WebStore.exe...
-"%PYTHON%" -m PyInstaller --clean --noconfirm "%~dp0ARKLAND-WebStore.spec"
+"%PYTHON%" -m PyInstaller !PYINSTALLER_CLEAN! --noconfirm "%~dp0ARKLAND-WebStore.spec"
 if !errorlevel! neq 0 (
     echo [ERRO] PyInstaller falhou ao gerar ARKLAND-WebStore.exe.
     pause

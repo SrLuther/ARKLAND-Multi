@@ -127,6 +127,9 @@ PluginConfiguration ParsePluginConfiguration(const std::string& jsonText) {
 
     result.localOutboxDirectory = PathFromUtf8(
         ReadString(section, "LocalOutboxDirectory"));
+    result.offlineOwnersFile = PathFromUtf8(ReadString(section, "OfflineOwnersFile"));
+    if(!result.offlineOwnersFile.empty()&&!result.offlineOwnersFile.is_absolute())
+        throw std::invalid_argument("OfflineOwnersFile must be absolute");
     result.localSnapshotFile = PathFromUtf8(
         ReadString(section, "LocalSnapshotFile"));
     if (result.enabled) {

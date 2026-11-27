@@ -33,8 +33,9 @@ cl /nologo /std:c++20 /EHsc /W4 /I"%PLUGIN_DIR%src" ^
   "%PLUGIN_DIR%src\StructureLimitsConfig.cpp" ^
   "%PLUGIN_DIR%src\ObservedInventory.cpp" ^
   "%PLUGIN_DIR%src\InventoryJournal.cpp" ^
+  "%PLUGIN_DIR%src\OwnerDirectory.cpp" ^
   "%PLUGIN_DIR%tests\core_tests.cpp" ^
-  /Fe:StructureLimitsCoreTests.exe /link ole32.lib
+  /Fe:StructureLimitsCoreTests.exe /link ole32.lib bcrypt.lib
 if errorlevel 1 goto :error
 
 StructureLimitsCoreTests.exe

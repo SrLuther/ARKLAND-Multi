@@ -19,6 +19,7 @@ struct PluginConfiguration {
     Configuration limits;
     std::filesystem::path localSnapshotFile;
     std::filesystem::path localOutboxDirectory;
+    std::filesystem::path offlineOwnersFile;
 
     MapIdentity Identity() const;
 };

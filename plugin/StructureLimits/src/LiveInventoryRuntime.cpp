@@ -1,5 +1,6 @@
 #include "LiveInventoryRuntime.h"
 #include "ObservedInventory.h"
+#include "OwnerDirectory.h"
 #include <chrono>
 #include <immintrin.h>
 #include <unordered_map>
@@ -11,6 +12,7 @@ using Json=nlohmann::json;
 ObservedInventory inventory;
 PluginConfiguration configuration;
 std::unique_ptr<InventoryJournal> journal;
+std::unique_ptr<OwnerDirectoryStore> ownerDirectory;
 UClass* supplyClass=nullptr;
 bool installed=false,scanning=false,dirty=false;
 bool runtimeHealthy=true;
@@ -31,6 +33,8 @@ std::map<std::string,Json> scanExcluded,lastExcluded;
 bool exclusionOverflow=false;
 MapCalibration gpsCalibration;
 std::unordered_map<int,std::string> teamTribes,playerSteam;
+std::unordered_map<int,std::string> teamProofs,playerProofs;
+std::unordered_map<int,int> playerTeams;
 std::chrono::steady_clock::time_point nextScan,nextPublish;
 bool Ready(){return ArkApi::GetApiUtils().GetStatus()==ArkApi::ServerStatus::Ready;}
 std::string Text(const FString& value){return value.IsEmpty()?"":value.ToString();}
@@ -51,19 +55,23 @@ bool DeathCache(APrimalStructure* structure){
 Json Record(const ObservedStructure& record){
     Json result={{"structure_id",record.id},{"blueprint",record.blueprint},{"targeting_team",record.targetingTeam},
         {"player_data_id",static_cast<std::uint32_t>(record.playerId)},{"steam_id",record.steamId},{"tribe_id",record.tribeId},
-        {"placement_confirmed",record.placementConfirmed},{"coordinates_available",record.hasCoordinates},
+        {"placement_confirmed",record.placementConfirmed},{"coordinates_available",record.hasCoordinates},{"owner_source",record.ownerSource},
         {"actor_name",record.actorName},{"actor_full_name",record.actorFullName},{"observed_sources",record.observedSources}};
     if(record.hasCoordinates)result["position"]={{"x",record.x},{"y",record.y},{"z",record.z},{"latitude",record.latitude},{"longitude",record.longitude}};
     return result;
 }
 void RefreshOwners(){
-    teamTribes.clear();playerSteam.clear();
+    teamTribes.clear();playerSteam.clear();teamProofs.clear();playerProofs.clear();playerTeams.clear();
+    if(ownerDirectory){const auto offline=ownerDirectory->Snapshot();if(offline->valid){
+        for(const auto& [id,value]:offline->tribes){teamTribes[static_cast<int>(id)]=value;teamProofs[static_cast<int>(id)]="offline_checkpoint_tribe";}
+        for(const auto& [id,value]:offline->solos){playerSteam[static_cast<int>(id)]=value;playerProofs[static_cast<int>(id)]="offline_checkpoint_solo";playerTeams[static_cast<int>(id)]=static_cast<int>(id);}
+    }}
     auto* world=ArkApi::GetApiUtils().GetWorld();
     if(auto* mode=static_cast<AShooterGameMode*>(world->AuthorityGameModeField())){
         // Read only the resident tribe registry; no profile loading or I/O in a callback.
         auto& tribes=*GetNativePointerField<TArray<FTribeData>*>(mode,"AShooterGameMode.TribesData");
         for(auto& entry:tribes){const int id=entry.TribeIDField();
-            if(id>0)teamTribes[id]=std::to_string(id);}
+            if(id!=0&&id!=-1){teamTribes[id]=std::to_string(static_cast<std::uint32_t>(id));teamProofs[id]="native_tribe";}}
     }
     for(auto weak:ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField()){
         auto* player=static_cast<AShooterPlayerController*>(weak.Get());if(!player)continue;
@@ -71,9 +79,11 @@ void RefreshOwners(){
         const auto playerId=ArkApi::GetApiUtils().GetPlayerID(player);
         auto* state=static_cast<AShooterPlayerState*>(player->PlayerStateField());
         if(state){if(auto* tribe=state->MyTribeDataField()){
-            const int id=tribe->TribeIDField();if(id>0&&player->TargetingTeamField()==id)teamTribes[id]=std::to_string(id);
-        }else if(state->GetTribeId()<=0&&steam&&playerId&&playerId!=static_cast<std::uint64_t>(-1)){
+            const int id=tribe->TribeIDField();if(id!=0&&id!=-1&&player->TargetingTeamField()==id){teamTribes[id]=std::to_string(static_cast<std::uint32_t>(id));teamProofs[id]="native_tribe";}
+        }else if(state->GetTribeId()<=0&&steam&&playerId&&playerId<0xffffffffULL&&player->TargetingTeamField()!=0&&player->TargetingTeamField()!=-1){
             playerSteam[static_cast<int>(playerId)]=std::to_string(steam);
+            playerProofs[static_cast<int>(playerId)]="native_solo";
+            playerTeams[static_cast<int>(playerId)]=player->TargetingTeamField();
         }}
     }
 }
@@ -88,8 +98,12 @@ std::optional<ObservedStructure> Capture(APrimalStructure* structure,bool removi
     else {FString name;structure->ClassField()->GetFullName(&name,nullptr);value.blueprint=NormalizeBlueprintKey(Text(name));}
     FString actorName;structure->GetFullName(&actorName,nullptr);
     value.actorFullName=Text(actorName);value.actorName=ShortName(value.actorFullName);
-    if(auto tribe=teamTribes.find(value.targetingTeam);tribe!=teamTribes.end())value.tribeId=tribe->second;
-    if(auto player=playerSteam.find(value.playerId);player!=playerSteam.end())value.steamId=player->second;
+    value.ownerSource="unresolved";
+    if(auto tribe=teamTribes.find(value.targetingTeam);tribe!=teamTribes.end()){
+        value.tribeId=tribe->second;value.ownerSource=teamProofs[value.targetingTeam];
+    }else if(auto player=playerSteam.find(value.playerId);player!=playerSteam.end()&&value.targetingTeam==playerTeams[value.playerId]){
+        value.steamId=player->second;value.ownerSource=playerProofs[value.playerId];
+    }
     if(auto* root=structure->RootComponentField()){
         float xyz[4]{};_mm_storeu_ps(xyz,root->ComponentToWorldField().Translation);
         value.x=xyz[0];value.y=xyz[1];value.z=xyz[2];
@@ -104,7 +118,7 @@ std::optional<ObservedStructure> Capture(APrimalStructure* structure,bool removi
     return value;
 }
 Json Status(bool includeRecords,bool includeCatalog=false){
-    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.1-dev"},
+    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.2-dev"},
         {"instance",configuration.Identity().displayId},{"canonical_instance_path",configuration.Identity().canonicalInstancePath},
         {"complete_inventory",false},{"enforcement",false},{"reason","resident_and_local_stasis_coverage_not_yet_validated"},
         {"observed_structures",inventory.Records().size()},{"removed_this_boot",inventory.RemovedCount()},
@@ -115,6 +129,9 @@ Json Status(bool includeRecords,bool includeCatalog=false){
         {"excluded_identity_actors",lastExcluded.size()},{"excluded_identity_overflow",exclusionOverflow},
         {"updated_at_unix",std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()}};
     state["class_catalog_count"]=classEvidence.size();
+    if(ownerDirectory){const auto owners=ownerDirectory->Snapshot();
+        state["offline_owners"]={{"state",owners->state},{"verified",owners->valid},{"tribes",owners->tribes.size()},
+            {"solos",owners->solos.size()},{"sources",owners->sources.size()},{"index_sha256",owners->fingerprint}};}
     state["gps_calibration"]={{"latitude_scale",gpsCalibration.latitudeScale},{"longitude_scale",gpsCalibration.longitudeScale},
         {"latitude_origin",gpsCalibration.latitudeOrigin},{"longitude_origin",gpsCalibration.longitudeOrigin},{"rounded",false}};
     if(includeCatalog){state["class_catalog"]=Json::array();for(const auto& [cls,value]:classEvidence)
@@ -229,6 +246,7 @@ void RconStatus(RCONClientConnection* connection,RCONPacket* packet,UWorld*){
 }
 void StartLiveInventory(const PluginConfiguration& config,DurableOutbox& outbox){
     configuration=config;inventory=ObservedInventory();
+    ownerDirectory=std::make_unique<OwnerDirectoryStore>(config.offlineOwnersFile,config.Identity());
     supplyClass=APrimalStructureItemContainer_SupplyCrate::GetPrivateStaticClass(nullptr);
     journal=std::make_unique<InventoryJournal>(outbox,config.localSnapshotFile.parent_path()/"observed-inventory.json");
     installed=true;runtimeHealthy=true;acceptingEvents=true;
@@ -241,6 +259,7 @@ void StartLiveInventory(const PluginConfiguration& config,DurableOutbox& outbox)
 }
 void StopLiveInventory(){
     acceptingEvents=false;
+    ownerDirectory.reset();
     if(installed){ArkApi::GetCommands().RemoveOnTickCallback("StructureLimitsLiveInventory");
         ArkApi::GetCommands().RemoveChatCommand(L"/limites");ArkApi::GetCommands().RemoveRconCommand(L"StructureLimits.Status");installed=false;}
     if(journal)journal->State(Status(false,true));

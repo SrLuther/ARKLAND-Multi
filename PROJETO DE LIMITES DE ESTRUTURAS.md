@@ -1,11 +1,11 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.9.1-dev em homologação no servidor 05; censo nativo comparado a cópia do save, com correspondência das 231 estruturas observadas; classificação/cobertura contínua ainda em validação e fiscalização suspensa
+**Estado:** 0.9.2-dev em homologação no servidor 05; 231 estruturas observadas com atribuição offline verificada em duas tribos (227 e 4); classificação/cobertura contínua ainda em validação e fiscalização suspensa
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.9.1-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; 13 bolsas DeathItemCache deixaram o inventário observado e os outros 231 IDs foram preservados. Fiscalização desligada. A versão estável atual do sistema é 1.12.39. Consulte o changelog próprio do plugin e a homologação de 26/11 para as evidências e limitações.
+**Versão do plugin:** 0.9.2-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; índice de proprietários verificado por hashes, sem perder/adicionar StructureIDs. Fiscalização desligada. A versão estável atual do sistema é 1.12.40. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 
@@ -172,7 +172,9 @@ Limitações observáveis no código consultado:
 
 ## 15. Estado da implementação local
 
-### 15.0 Estado atual — 0.9.1-dev
+### 15.0 Estado atual — 0.9.2-dev
+
+A atribuição offline deixou de depender de jogador conectado: cópias estáveis de tribos/perfis geraram um índice vinculado à instância, conferido em worker por SHA-256. No piloto vazio, foram verificados 231 vínculos em duas tribos (227 e 4), sem mudança no conjunto de IDs nem reinício dos processos. Dados nativos têm prioridade; origens alteradas invalidam evidências e exigem atualização do índice. Não há sincronização automática completa das fontes ainda. Testes: 30 funções C++ e 26 casos Python. Consulte [HOMOLOGACAO_2026-11-27.md](./plugin/StructureLimits/HOMOLOGACAO_2026-11-27.md). Não repetir os testes básicos de somar/remover ou perto/longe já confirmados.
 
 A 0.9.1-dev foi aplicada no piloto 05 vazio, mantendo os processos do jogo e o bloqueio desligado. A rodada humana confirmou cinco colocações e cinco remoções, retorno da tribo a 227 e estabilidade à distância. Depois da atualização, os 13 IDs de DeathItemCache deixaram o inventário observado, preservando os outros 231 IDs. GPS sem corte decimal implementado; conferência visual ainda pendente. Foram aprovados 25 casos C++ e 15 testes do comparador. Consulte [HOMOLOGACAO_2026-11-26.md](./plugin/StructureLimits/HOMOLOGACAO_2026-11-26.md).
 

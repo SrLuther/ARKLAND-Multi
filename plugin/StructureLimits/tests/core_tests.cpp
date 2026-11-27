@@ -5,6 +5,7 @@
 #include "OutboxSynchronizer.h"
 #include "ObservedInventory.h"
 #include "InventoryJournal.h"
+#include "OwnerDirectory.h"
 
 #include <atomic>
 #include <chrono>
@@ -479,7 +480,80 @@ void TestPreciseGpsAndNativeDeathCacheMarkers(){
     assert(!StructureLimits::IsGeneratedDeathCache(true,std::numeric_limits<double>::infinity()));
 }
 
+nlohmann::json OwnerPayload(){
+    const auto map=Map();return {{"format","arkland-owner-directory-v1"},{"instance",map.displayId},
+        {"canonical_instance_path",map.canonicalInstancePath},{"saved_directory","savegame"},
+        {"parser_commit","1d9a3e2b1a8052fdfc187174edfc920ca53216f3"},{"enforcement_authority",false},
+        {"sources",nlohmann::json::array({{{"name","123.arktribe"},{"sha256",std::string(64,'a')},{"bytes",100}}})},
+        {"tribes",nlohmann::json::array({{{"tribe_id",123},{"source","123.arktribe"}}})},{"solos",nlohmann::json::array()}};
+}
+void TestOwnerDirectoryParsingAndScope(){
+    auto payload=OwnerPayload();auto parsed=ParseOwnerDirectory(payload.dump(),Map());
+    assert(!parsed.valid&&parsed.tribes.at(123)=="123");
+    for(int scenario=0;scenario<8;++scenario){auto bad=payload;
+        if(scenario==0)bad["instance"]="OTHER";
+        if(scenario==1)bad["canonical_instance_path"]="e:\\mapas\\05";
+        if(scenario==2)bad["saved_directory"]="../other";
+        if(scenario==3)bad["sources"][0]["name"]="../123.arktribe";
+        if(scenario==4)bad["tribes"][0]["tribe_id"]=124;
+        if(scenario==5)bad["enforcement_authority"]=true;
+        if(scenario==6)bad["parser_commit"]="unreviewed";
+        if(scenario==7)bad["sources"].push_back(bad["sources"][0]);
+        bool rejected=false;try{ParseOwnerDirectory(bad.dump(),Map());}catch(...){rejected=true;}assert(rejected);
+    }
+}
+void TestOwnerSourceVerificationAndSolos(){
+    auto payload=OwnerPayload();const std::string steam="76561198000000001";
+    payload["sources"].push_back({{"name",steam+".arkprofile"},{"sha256",std::string(64,'b')},{"bytes",200}});
+    payload["solos"].push_back({{"player_data_id",456},{"steam_id",steam},{"raw_tribe_id",0},{"source",steam+".arkprofile"}});
+    auto parsed=ParseOwnerDirectory(payload.dump(),Map());
+    assert(VerifyOwnerSources(parsed,[](const OwnerSource&){return true;})&&parsed.valid&&parsed.solos.at(456)==steam);
+    assert(!VerifyOwnerSources(parsed,[](const OwnerSource& s){return s.bytes!=200;}));
+    assert(!parsed.valid&&parsed.tribes.empty()&&parsed.solos.empty()&&parsed.state=="source_changed");
+}
+void TestCheckpointOwnerEvidenceCannotSurviveInvalidation(){
+    ObservedInventory inventory;ObservedStructure value;value.id="1";value.blueprint="Test_C";
+    value.targetingTeam=123;value.playerId=456;value.tribeId="123";value.ownerSource="offline_checkpoint_tribe";
+    assert(inventory.Observe(value)==ObservedInventory::Change::Added);
+    value.tribeId.clear();value.ownerSource="unresolved";
+    assert(inventory.Observe(value)==ObservedInventory::Change::Updated);
+    assert(inventory.Records().at("1").tribeId.empty());
+    value.tribeId="123";value.ownerSource="native_tribe";inventory.Observe(value);
+    value.tribeId.clear();value.ownerSource="unresolved";inventory.Observe(value);
+    assert(inventory.Records().at("1").tribeId=="123"&&inventory.Records().at("1").ownerSource=="retained_native");
+}
+void TestDisabledOwnerStoreIsReadOnly(){
+    OwnerDirectoryStore store({},Map());assert(!store.Snapshot()->valid&&store.Snapshot()->state=="disabled");
+}
+void TestOwnerStoreVerifiesActualFilesOffThread(){
+#ifdef _WIN32
+    auto root=std::filesystem::temp_directory_path()/("ARKLAND-OwnerTest-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    auto mapRoot=root/"Mapas"/"05";auto sources=mapRoot/"ShooterGame"/"Saved"/"savegame";std::filesystem::create_directories(sources);
+    auto map=MakeMapIdentity("TheIsland",mapRoot.string());auto payload=OwnerPayload();payload["instance"]=map.displayId;
+    payload["canonical_instance_path"]=map.canonicalInstancePath;payload["sources"][0]["bytes"]=3;
+    payload["sources"][0]["sha256"]="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    {std::ofstream source(sources/"123.arktribe",std::ios::binary);source<<"abc";}
+    auto index=root/"owners.json";{std::ofstream file(index);file<<payload.dump();}
+    {
+        OwnerDirectoryStore store(index,map);
+        for(int i=0;i<500&&!store.Snapshot()->valid;++i)std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        assert(store.Snapshot()->valid&&store.Snapshot()->tribes.at(123)=="123");
+    }
+    {std::ofstream source(sources/"123.arktribe",std::ios::binary);source<<"abd";}
+    {
+        OwnerDirectoryStore store(index,map);
+        for(int i=0;i<500&&store.Snapshot()->state!="source_changed";++i)std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        assert(!store.Snapshot()->valid&&store.Snapshot()->tribes.empty());
+    }
+#endif
+}
+
 int main() {
+    TestOwnerDirectoryParsingAndScope();
+    TestOwnerSourceVerificationAndSolos();
+    TestCheckpointOwnerEvidenceCannotSurviveInvalidation();
+    TestDisabledOwnerStoreIsReadOnly();
+    TestOwnerStoreVerifiesActualFilesOffThread();
     TestPreciseGpsAndNativeDeathCacheMarkers();
     TestObservedActorIdentityAndSources();
     TestAsynchronousInventoryJournal();

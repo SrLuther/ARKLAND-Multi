@@ -37,8 +37,14 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
         old.tribeId.clear(); old.steamId.clear();
     }
     if(old.playerId != value.playerId) old.steamId.clear();
+    // A changed source file invalidates checkpoint-derived ownership. Never
+    // resurrect it through the normal retained attribution fallback below.
+    if(old.ownerSource.rfind("offline_checkpoint_",0)==0&&value.ownerSource=="unresolved"){
+        old.tribeId.clear();old.steamId.clear();
+    }
     if (value.steamId.empty()) value.steamId = old.steamId;
     if (value.tribeId.empty()) value.tribeId = old.tribeId;
+    if(value.ownerSource=="unresolved"&&(!value.steamId.empty()||!value.tribeId.empty()))value.ownerSource="retained_native";
     value.placementConfirmed = value.placementConfirmed || old.placementConfirmed;
     value.observedSources |= old.observedSources;
     if(value.actorName.empty()) value.actorName=old.actorName;
@@ -51,6 +57,7 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
         old.tribeId != value.tribeId || old.steamId != value.steamId ||
         old.placementConfirmed != value.placementConfirmed || old.hasCoordinates != value.hasCoordinates ||
         old.actorName != value.actorName || old.actorFullName != value.actorFullName || old.observedSources != value.observedSources ||
+        old.ownerSource != value.ownerSource ||
         old.x != value.x || old.y != value.y || old.z != value.z;
     old = std::move(value);
     return changed ? Change::Updated : Change::None;

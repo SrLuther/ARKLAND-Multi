@@ -12,6 +12,14 @@ BUILD_DATE: str = "2026-11-27"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.41",
+        "date": "2026-11-27",
+        "changes": [
+            "StructureLimits 0.9.2-dev experimental: adiciona atribuição offline por índice extraído de cópias verificadas de tribos/perfis, com escopo da instância e hashes conferidos em segundo plano. Homologação no 05 vazio atribuiu as 231 estruturas a duas tribos (227 e 4), sem perder ou adicionar IDs e sem reiniciar mapas. Registra a origem da atribuição e invalida evidências se os arquivos mudarem; dados nativos têm prioridade. Inventário completo e fiscalização continuam desligados; cobertura, licenças e veto antes do consumo ainda estão em desenvolvimento.",
+            "Build: opção explícita de empacotamento incremental reutiliza caches do PyInstaller; o modo limpo continua sendo o padrão. Preserva os gates de versão, changelog, tamanho e seleção dos plugins modificados.",
+        ],
+    },
+    {
         "version": "1.12.40",
         "date": "2026-11-27",
         "changes": [
