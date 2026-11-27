@@ -5,7 +5,7 @@
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin:** 0.9.2-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; índice de proprietários verificado por hashes, sem perder/adicionar StructureIDs. Fiscalização desligada. A versão estável atual do sistema é 1.12.40. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
+**Versão do plugin:** 0.9.2-dev experimental instalada no 05 após confirmação RCON de ausência de jogadores; índice de proprietários verificado por hashes, sem perder/adicionar StructureIDs. Fiscalização desligada. A versão estável atual do sistema é 1.12.41, publicada e aplicada, com o pacote experimental anexado à release. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 

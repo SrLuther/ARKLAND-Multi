@@ -54,6 +54,8 @@ O painel do Lumo apresenta o resultado e horário da última consulta de públic
 
 Publicada e aplicada na [1.12.40](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.40), com 72 testes aprovados e confirmação do adiamento no código extraído do executável, inclusive diante de positivo antigo em cache. SHA-256 da WebStore: `7B0DE88A9C1ED899B7C23D5F2AF6AD0F21D602EA9B2B5C4AA4C89F5497C54C24`. Backup consistente privado do banco (72.772.138 bytes), revisão 12 preservada, Gateway online e cinco processos de jogo mantidos.
 
+A [1.12.41](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.41) mantém essa regra, novamente conferida no executável congelado. Site/API confirmados em 1.12.41, Gateway online, revisão 12 e os cinco processos de jogo preservados. A implantação não exigiu nova migração do banco. O navegador que já estava aberto conserva a versão carregada no rodapé até atualizar a página; uma página nova exibiu `WebStore v1.12.41`.
+
 Formato do jogo: `[HH:mm][MAPA] <TAG> Jogador (ID) [Tribo]: Mensagem`. Tag/tribo ausentes não deixam separadores vazios. Horário obrigatório em 24 horas, Brasília; Windows usa UTC−03 no formatador local. O backend usa America/Sao_Paulo quando disponível, com fallback UTC−03.
 
 O ID compacto é uma sequência permanente associada ao SteamID64 na tabela `chat_arkland_players`. Não depende do nome, tribo, PlayerDataID, sessão ou mapa. O banco possui restrição única por SteamID. Não excluir, zerar contador ou restaurar parcialmente esse registro: o downgrade deliberadamente preserva a tabela. Backups devem preservar a associação completa. Um rollback de banco para antes da emissão de novos IDs exige bloquear o piloto e reconciliar essas emissões, nunca reutilizá-las silenciosamente.

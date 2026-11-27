@@ -24,6 +24,16 @@ python tools/owner_directory.py --checkpoint <copia-privada> --parser-root <pars
 
 `OfflineOwnersFile` é opcional e vazio por padrão. O arquivo produzido é privado e não entra no ZIP experimental. No piloto aponta para o índice dentro da pasta do plugin. O worker confere os hashes das fontes da instância a cada cinco segundos; se mudarem, o índice deve ser reexportado a partir de novas cópias verificadas. A substituição do índice pode ser lida sem reiniciar o mapa. Isso ainda não é um serviço completo de atualização automática das fontes.
 
-## Limites desta etapa
+## Publicação e conferência após aplicação
+
+A [release 1.12.41](https://github.com/SrLuther/ARKLAND-Multi/releases/tag/v1.12.41) contém o instalador, o changelog desta evolução e o pacote `StructureLimits-0.9.2-experimental.zip`. O ZIP possui configuração desabilitada por padrão e não inclui o índice privado nem arquivos reais de personagens/tribos.
+
+A WebStore foi aplicada e conferida pela API pública e por uma nova página do site, ambas na versão 1.12.41. SHA-256 do executável instalado: `9FFA1783D676ADF295B5414D8187D9E399D4869F1F74D4D3A46ADBDD9B8BF965`. Backup privado do banco antes da aplicação: 72.817.251 bytes; esquema preservado, sem nova migração nesta versão. Gateway online e configuração do chat na revisão 12.
+
+Os cinco processos de jogo presentes imediatamente antes da aplicação continuaram com os mesmos PIDs e caminhos. Na conferência posterior do plugin, após 50 varreduras: runtime/journal saudáveis, 231 atribuições offline, grupos 227/4, conflitos zero e nenhuma diferença no conjunto de StructureIDs em relação à varredura completa homologada. Inventário completo e fiscalização permaneciam desligados.
+
+O empacotamento utilizou a opção explícita de cache incremental do PyInstaller. Os gates do executável congelado aprovaram dependências, histórico até 1.12.41, apresentação online e adiamento dos anúncios diante de público vazio, inclusive com positivo antigo no cache. Nenhum plugin oficial sem alterações foi recompilado.
+
+## Trabalho ainda pendente
 
 `complete_inventory=false` e `enforcement=false` continuam obrigatórios. Atribuição de proprietários não prova cobertura de todas as estruturas: a auditoria anterior ainda apontava 32 atores dinâmicos pendentes, mutações de coleções e cobertura de stasis por validar. Licenças remotas, integração final com a loja, fusão/transferência, decay e veto antes do consumo de materiais continuam pendentes. O caminho solo foi testado no núcleo, não com personagem solo real neste piloto. Recuperação após recarga do plugin foi comprovada; não foi realizado novo reinício completo do servidor.
