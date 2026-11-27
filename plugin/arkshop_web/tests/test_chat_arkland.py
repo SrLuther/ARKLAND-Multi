@@ -264,6 +264,20 @@ def test_online_explicit_legacy_template_preserved(hub):
     assert listing['text'].splitlines()[1] == f'ID {identity}: Ciano'
 
 
+@pytest.mark.parametrize('case', ['active','observer','stale','disabled_map','disabled_discord'])
+def test_announcement_targets_require_enabled_live_relay(hub, case):
+    service, _, now = hub
+    exchange(service,'tek:aaa','aaaaaaaa',[],observer=case=='observer')
+    config=copy.deepcopy(service.load_config()['config'])
+    if case=='stale':now[0]+=timedelta(seconds=config['PresenceTtlSeconds']+1)
+    if case=='disabled_map':config['Maps']['tek:aaa']['Enabled']=False
+    if case=='disabled_discord':config['Discord']['AllowDiscordToIngame']=False
+    if case in {'disabled_map','disabled_discord'}:service.publish_config(config,2,'admin')
+    targets=service.announcement_targets()
+    assert len(targets)==(1 if case=='active' else 0)
+    if targets:assert targets[0]['server_id']=='map-a'
+
+
 def test_cross_disabled_keeps_local_and_offline_private_target_is_not_delivered(hub):
     service,sessions,now=hub
     pa,pb=player(A,'aaaaaaaa'),player(B,'bbbbbbbb')

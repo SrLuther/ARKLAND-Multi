@@ -44,6 +44,14 @@ O Lumo recebe uma vez o evento original autenticado do hub, em fila separada, se
 
 ## Formato e identidade
 
+### Público dos avisos automáticos — 1.12.40
+
+Antes de publicar avisos gerais, SeasonLand, BetLand ou votações no Chat do Jogo, Lumo consulta `ListPlayers` por RCON nos mapas habilitados com relay ativo e heartbeat recente. A consulta não usa o cache público de jogadores nem o cache de fontes do assistente. Uma resposta positiva reconhecida confirma público; resposta vazia/desconhecida ou falha de consulta não autoriza envio.
+
+Sem público confirmado, a categoria e seu prazo vencido permanecem pendentes, sem avançar o assunto ou marcar envio. Uma pausa persistente de 60 segundos agenda nova verificação e sobrevive ao reinício da WebStore. Quando há público, continua saindo somente um aviso por vez, com pausa de 15–20 minutos entre envios. Respostas interativas não passam por essa trava. Se o canal de interação também for o Chat do Jogo, seus anúncios automáticos usam a mesma verificação e pausa. Outros canais de comunidade mantêm sua programação.
+
+O painel do Lumo apresenta o resultado e horário da última consulta de público, sem expor jogadores, credenciais ou respostas brutas de RCON. Não foram enviados anúncios artificiais para validar a implementação; os testes usam canais simulados.
+
 Formato do jogo: `[HH:mm][MAPA] <TAG> Jogador (ID) [Tribo]: Mensagem`. Tag/tribo ausentes não deixam separadores vazios. Horário obrigatório em 24 horas, Brasília; Windows usa UTC−03 no formatador local. O backend usa America/Sao_Paulo quando disponível, com fallback UTC−03.
 
 O ID compacto é uma sequência permanente associada ao SteamID64 na tabela `chat_arkland_players`. Não depende do nome, tribo, PlayerDataID, sessão ou mapa. O banco possui restrição única por SteamID. Não excluir, zerar contador ou restaurar parcialmente esse registro: o downgrade deliberadamente preserva a tabela. Backups devem preservar a associação completa. Um rollback de banco para antes da emissão de novos IDs exige bloquear o piloto e reconciliar essas emissões, nunca reutilizá-las silenciosamente.

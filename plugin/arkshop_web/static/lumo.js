@@ -169,7 +169,12 @@
         if (runtime.last_error) schedule.push(`Falha recente: ${runtime.last_error}`);
         $("lumo-auto-schedule-state").textContent = schedule.join("\n");
         const gameSchedule = [];
-        if (assistantConfig.game_announcements_not_before) gameSchedule.push(`Pausa entre anúncios: ${(assistantConfig.game_announcement_gap_minutes || [15,20]).join("–")} min; próximo envio permitido a partir de ${new Date(assistantConfig.game_announcements_not_before).toLocaleString("pt-BR")}.`);
+        if (assistantConfig.game_announcements_not_before) gameSchedule.push(`Intervalo entre avisos enviados: ${(assistantConfig.game_announcement_gap_minutes || [15,20]).join("–")} min; próxima tentativa permitida a partir de ${new Date(assistantConfig.game_announcements_not_before).toLocaleString("pt-BR")}.`);
+        const audience = runtime.game_announcement_audience;
+        if (audience) {
+          const audienceText = audience.state === "present" ? `jogadores confirmados (ao menos ${audience.confirmed_players})` : audience.state === "empty" ? "sem jogadores; aviso pendente" : audience.state === "unavailable" ? "presença não confirmada; aviso pendente" : "presença ainda não consultada";
+          gameSchedule.push(`Última verificação do público: ${audienceText}${audience.checked_at ? ` · ${new Date(audience.checked_at).toLocaleString("pt-BR")}` : ""}. Sem público confirmado, nova consulta em 60 s.`);
+        }
         if (assistantConfig.game_general_announcements_enabled) gameSchedule.push(`Geral: próxima ${assistantConfig.game_general_next_at ? new Date(assistantConfig.game_general_next_at).toLocaleString("pt-BR") : "a agendar"}`);
         if (assistantConfig.game_auto_betland_enabled) gameSchedule.push(`BetLand: próxima ${assistantConfig.game_auto_betland_next_at ? new Date(assistantConfig.game_auto_betland_next_at).toLocaleString("pt-BR") : "a agendar"}`);
         if (assistantConfig.game_auto_polls_enabled) gameSchedule.push(`Votações: próxima ${assistantConfig.game_auto_polls_next_at ? new Date(assistantConfig.game_auto_polls_next_at).toLocaleString("pt-BR") : "a agendar"}`);

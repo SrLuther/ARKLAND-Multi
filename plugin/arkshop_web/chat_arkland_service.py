@@ -181,6 +181,21 @@ class ChatArklandService:
                 result[key] = server
         return result
 
+    def announcement_targets(self):
+        """Configured maps with a fresh, active relay; player counts aren't reused."""
+        db = self.database()
+        try:
+            config = self.load_config(db)['config']
+            if config['DisableChat'] or not config['UseCrossChat'] or not config['Discord']['Enabled'] or not config['Discord']['AllowDiscordToIngame']:
+                return []
+            active = set(db.execute(select(INSTANCES.c.server_key).where(
+                INSTANCES.c.last_seen_at >= self.clock() - timedelta(seconds=config['PresenceTtlSeconds']),
+                INSTANCES.c.observer.is_(False))).scalars())
+            return [server for key, server in self.catalog().items()
+                    if key in active and config['Maps'].get(key, {}).get('Enabled', False)]
+        finally:
+            db.close()
+
     def _id(self, db, steam):
         if not _STEAM.fullmatch(steam):
             raise ValueError("Identidade de jogador inválida.")

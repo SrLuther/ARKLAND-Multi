@@ -26,6 +26,8 @@ def test_simultaneous_announcements_wait_persisted_gap_after_restart(monkeypatch
     client=NS(get_channel=lambda _:Channel())
     def save(value):settings.update(copy.deepcopy(value))
     def source(category):
+        if category == 'game_audience':
+            return {'ok':True,'has_players':True,'confirmed_players':1}
         return {'ok':True,'enabled':True,'campaign':{'status':'ACTIVE','prize_amber_total':100,'seconds_remaining':3600}} if category=='betland' else {'ok':True,'polls':[{'is_open':True}]}
     def runner():return gateway.LumoGatewayRunner(lambda:copy.deepcopy(settings),save,source,lambda *args,**kwargs:None)
     async def scenario():
@@ -81,7 +83,7 @@ def test_failed_attempt_is_not_marked_sent_and_does_not_try_next_notice(monkeypa
         'lumo_game_auto_betland_next_at':now.isoformat(),'lumo_game_auto_polls_next_at':now.isoformat()}
     attempts=[]
     async def fail_send(*args,**kwargs):attempts.append(args);raise TimeoutError('Envio desconhecido')
-    source=lambda kind:{'ok':True,'enabled':True,'campaign':{'status':'ACTIVE','prize_amber_total':100,'seconds_remaining':3600},'polls':[{'is_open':True}]}
+    source=lambda kind:({'ok':True,'has_players':True,'confirmed_players':1} if kind=='game_audience' else {'ok':True,'enabled':True,'campaign':{'status':'ACTIVE','prize_amber_total':100,'seconds_remaining':3600},'polls':[{'is_open':True}]})
     runner=gateway.LumoGatewayRunner(lambda:config,lambda _:None,source,lambda *args,**kwargs:None)
     asyncio.run(runner._game_scheduler_tick(NS(get_channel=lambda _:NS(id=20,send=fail_send)),config))
     assert len(attempts)==1 and config['lumo_game_auto_betland_last_result']=='failed'

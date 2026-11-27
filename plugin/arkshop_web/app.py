@@ -20065,6 +20065,24 @@ from lumo_routes import register_lumo_routes
 
 def _lumo_source_provider(source: str) -> dict[str, Any]:
     """Fontes internas oficiais para respostas do Gateway e modo de teste."""
+    if source == 'game_audience':
+        try:
+            from functools import partial
+            from chat_arkland_routes import get_chat_service
+            from lumo_audience import game_audience_snapshot, query_game_server
+            service = get_chat_service()
+            if service is None or not _db_ready():
+                return {'ok': False}
+            targets = service.announcement_targets()
+            # Resolve credentials afresh, using the same permanent server IDs.
+            servers = {str(server.get('server_id') or ''): server for server in _load_servers() if isinstance(server, dict)}
+            targets = [servers.get(str(server.get('server_id') or ''), server) for server in targets]
+            query = partial(query_game_server, settings=_get_server_settings, hosts=_rcon_hosts_to_try,
+                            sanitize=sanitize_rcon_password, execute=_rcon_command, parse=_parse_agent_list_players)
+            return game_audience_snapshot(targets, query)
+        except Exception as exc:
+            log.warning('Lumo: verificação de presença indisponível (%s)', type(exc).__name__)
+            return {'ok': False}
     if source == "season":
         try:
             if not _SEASON_PASS_CONFIG_FILE.is_file():

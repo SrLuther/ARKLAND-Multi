@@ -29,6 +29,12 @@ _UTC = timezone.utc
 _AUTO_TYPES = ("betland", "polls")
 
 
+class _GameAudienceDeferred(Exception):
+    def __init__(self, state: str, topic: str):
+        self.state, self.topic = state, topic
+        super().__init__(state)
+
+
 def _utc_iso(value: datetime | None = None) -> str:
     return (value or datetime.now(_UTC)).astimezone(_UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -66,6 +72,7 @@ class LumoGatewayRunner:
         self._last_announcement = ""
         self._responses = 0
         self._announcements = 0
+        self._game_audience = {'state': 'not_checked', 'checked_at': '', 'confirmed_players': 0}
         self._last_greeting: dict[str, str] = {}
         self._user_last: dict[str, float] = {}
         self._trigger_last: dict[str, float] = {}
@@ -99,6 +106,7 @@ class LumoGatewayRunner:
                 "last_announcement_at": self._last_announcement,
                 "responses": self._responses,
                 "announcements": self._announcements,
+                "game_announcement_audience": dict(self._game_audience),
                 "scheduler_running": bool(self._scheduler_task and not self._scheduler_task.done()),
                 "chat_channel_mirror": self._chat_transport.mirror_snapshot(),
             }
@@ -226,14 +234,15 @@ class LumoGatewayRunner:
                 pass
             loop.close()
 
-    async def _get_data(self, source: str) -> dict[str, Any]:
+    async def _get_data(self, source: str, *, fresh: bool = False) -> dict[str, Any]:
         cached = self._source_cache.get(source)
-        if cached and time.monotonic() - cached[0] < 30:
+        if not fresh and cached and time.monotonic() - cached[0] < 30:
             return dict(cached[1])
         try:
             result = await asyncio.to_thread(self._source_provider, source)
             result = result if isinstance(result, dict) else {"ok": False}
-            self._source_cache[source] = (time.monotonic(), dict(result))
+            if not fresh:
+                self._source_cache[source] = (time.monotonic(), dict(result))
             return result
         except Exception as exc:
             log.warning("Consulta da fonte Lumo %s falhou: %s", source, type(exc).__name__)
@@ -630,6 +639,11 @@ class LumoGatewayRunner:
         if channel is None:
             return
         now = datetime.now(_UTC)
+        shared_game_channel = str(channel.id) == str(config.get('lumo_game_chat_channel_id') or '')
+        if shared_game_channel:
+            not_before = _parse_utc(config.get('lumo_game_announcements_not_before'))
+            if not_before and not_before > now:
+                return
         for category in _AUTO_TYPES:
             enabled = bool(config.get(f"lumo_auto_{category}_enabled"))
             state_key = f"lumo_auto_{category}_next_at"
@@ -659,6 +673,12 @@ class LumoGatewayRunner:
                 self._save_settings(config)
                 continue
             match = TriggerMatch("BETLAND", "automatic_announcement") if category == "betland" else TriggerMatch("VOTACAO", "automatic_announcement")
+            if shared_game_channel:
+                try:
+                    await self._require_game_audience(category.upper())
+                except _GameAudienceDeferred as deferred:
+                    self._defer_game_audience(config, deferred)
+                    return
             try:
                 title, description = build_response(match, data, config)
                 import discord
@@ -670,6 +690,8 @@ class LumoGatewayRunner:
                 config[f"lumo_auto_{category}_last_result"] = "success"
                 config[state_key] = _utc_iso(now + timedelta(minutes=random.randint(180, 240)))
                 config["lumo_last_auto_announcement_at"] = published
+                if shared_game_channel:
+                    self._mark_game_announcement(config, now)
                 self._save_settings(config)
                 self._last_announcement = published
                 self._announcements += 1
@@ -682,6 +704,22 @@ class LumoGatewayRunner:
                 self._audit("lumo_automatic_announcement", status="failed", trigger=category, channel_id=str(channel.id), reason=type(exc).__name__)
 
     async def _game_scheduler_tick(self, client: Any, config: dict[str, Any]) -> None:
+        try:
+            await self._game_scheduler_ready_tick(client, config)
+        except _GameAudienceDeferred as deferred:
+            self._defer_game_audience(config, deferred)
+
+    def _defer_game_audience(self, config: dict[str, Any], deferred: _GameAudienceDeferred) -> None:
+        # Keep the pending category, topic and last-success timestamp intact.
+        # One persistent retry gate prevents polling empty maps every 15 s.
+        config['lumo_game_announcements_not_before'] = _utc_iso(datetime.now(_UTC) + timedelta(seconds=60))
+        latest = self._load_settings()
+        latest['lumo_game_announcements_not_before'] = config['lumo_game_announcements_not_before']
+        self._save_settings(latest)
+        self._audit('lumo_game_announcement', status='deferred_' + deferred.state,
+                    trigger=deferred.topic, channel_id=str(config.get('lumo_game_chat_channel_id') or ''))
+
+    async def _game_scheduler_ready_tick(self, client: Any, config: dict[str, Any]) -> None:
         if not config.get("lumo_game_chat_enabled") or not config.get("lumo_game_chat_announcements_enabled"):
             return
         channel_id = str(config.get("lumo_game_chat_channel_id") or "")
@@ -813,6 +851,7 @@ class LumoGatewayRunner:
         if len(message) > maximum:
             self._audit("lumo_game_announcement", status="message_too_long", trigger=topic, channel_id=str(channel.id))
             return False
+        await self._require_game_audience(topic)
         try:
             sent = await channel.send(message, allowed_mentions=__import__("discord").AllowedMentions.none())
             self._last_announcement = _utc_iso()
@@ -823,6 +862,18 @@ class LumoGatewayRunner:
             self._audit("lumo_game_announcement", status="failed", trigger=topic, channel_id=str(channel.id), reason=type(exc).__name__)
             log.warning("Anúncio do Chat do Jogo não enviado (%s)", type(exc).__name__)
             return False
+
+    async def _require_game_audience(self, topic: str) -> None:
+        audience = await self._get_data('game_audience', fresh=True)
+        count = audience.get('confirmed_players')
+        confirmed = (audience.get('ok') is True and audience.get('has_players') is True
+                     and type(count) is int and count > 0)
+        empty = audience.get('ok') is True and audience.get('has_players') is False and count == 0
+        state = 'present' if confirmed else 'empty' if empty else 'unavailable'
+        with self._lock:
+            self._game_audience = {'state': state, 'checked_at': _utc_iso(), 'confirmed_players': count if confirmed else 0}
+        if not confirmed:
+            raise _GameAudienceDeferred(state, topic)
 
 
 _RUNTIME: LumoGatewayRunner | None = None
