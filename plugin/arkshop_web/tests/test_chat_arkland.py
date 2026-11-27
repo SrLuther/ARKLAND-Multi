@@ -231,7 +231,7 @@ def test_online_pagination_identity_and_disconnect_name(hub):
     listing=next(item for item in response['deliveries'] if item['kind']=='online')
     assert 'página 1/2' in listing['text'] and 'João' in listing['text']
     assert listing['text'].splitlines()[1].split('|')[0].strip() == 'NOME'
-    assert listing['text'].splitlines()[2].split('|')[1].strip() == aid
+    assert listing['text'].splitlines()[3].split('|')[1].strip() == aid
     assert 'Mapa A' not in listing['text']  # Default não revela localização.
     cursor=response['cursor']
     exchange(service,'tek:aaa','aaaaaaaa',[])

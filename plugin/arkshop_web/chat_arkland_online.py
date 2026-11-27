@@ -95,4 +95,9 @@ def online_table(players: list[dict], policy: dict, show_map: bool, now) -> list
             stop += bar + space + KERNING
         if valid:
             layouts.append(((max(spans), sum(spans), max(row_widths)), [line.rstrip() for line in lines]))
-    return min(layouts, key=lambda entry: entry[0])[1]
+    result = min(layouts, key=lambda entry: entry[0])[1]
+    # Use ASCII: box-drawing Unicode is absent from the baked ASE HUD font.
+    target = (min(map(width, result)) + max(map(width, result))) / 2
+    dash_advance = ADVANCES[ord('-')] + KERNING
+    rule = '-' * max(1, round((target + KERNING) / dash_advance))
+    return [result[0], rule, *result[1:]]

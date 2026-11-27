@@ -77,6 +77,10 @@ Publicada na [release 1.12.38](https://github.com/SrLuther/ARKLAND-Multi/release
 
 A primeira aplicação reverteu por divergência com o registro de processos feito no backup: o 03 havia encerrado normalmente às 23:06:30, antes da inicialização da WebStore às 23:07:34; uma tentativa posterior de inicialização desse mapa gerou dump. Os logs foram apenas consultados, sem alterar/iniciar o mapa. A nova aplicação capturou uma referência imediatamente anterior à troca central e preservou os quatro processos ativos. Tarefa persistente `ARKLAND-WebStore-Update-1.12.38` confirmada em execução após desconectar SSH. A homologação visual nova foi solicitada ao administrador e permanece pendente.
 
+### Separador entre cabeçalhos e conteúdo — 1.12.39
+
+O administrador enviou nova captura da 1.12.38 e pediu apenas uma linha entre cabeçalhos e jogadores, como no exemplo de referência. A 1.12.39 insere esse separador usando hífens ASCII (presentes na fonte nativa), dimensionados para a largura média das linhas da tabela. Mantém as colunas e o tamanho do texto. Foram aprovados 40 testes, incluindo separador com e sem permissão de mapa; não exige atualização de DLL nem mudança no banco.
+
 Não digitar os prefixos nativos de horário/Discord/Lumo no corpo da resposta da assistente. Mensagens locais, de tribo e de aliados não entram no hub. Texto recebido do Discord, inclusive `/pm` ou RCON, permanece texto e não executa comandos.
 
 ## Banco e retenção

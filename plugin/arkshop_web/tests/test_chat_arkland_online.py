@@ -21,6 +21,7 @@ def test_absolute_column_stops_and_centered_row_widths():
     rows = online_table([entry('Ciano'), entry('FLP', 2, 'The Hunter'),
                          entry('Santh', 3, 'Tribo de Santh'),
                          entry('Curalzinho', 4, 'Tribo de Curalzinho', 'Alps P.F.')], POLICY, True, NOW)
+    rows = [row for row in rows if '|' in row]
     for index in range(5):
         positions = [width('|'.join(row.split('|')[:index + 1])) for row in rows]
         assert max(positions) - min(positions) <= ADVANCES[32] + .001
@@ -34,31 +35,31 @@ def test_disabled_and_private_columns_omitted(tribes, time, map):
     assert ('TRIBO' in rows[0]) == tribes
     assert ('TEMPO' in rows[0]) == time
     assert ('MAPA' in rows[0]) == map
-    assert ('Valguero' in rows[1]) == map
+    assert ('Valguero' in rows[2]) == map
 
 
 def test_long_wide_names_clip_without_truncating_id_or_hours():
     rows = online_table([entry('W' * 100, 123456789012, 'M' * 100, minutes=600000)], POLICY, True, NOW)
-    assert rows[1].split('|')[0].strip().endswith('...')
-    assert rows[1].split('|')[1].strip() == '123456789012'
-    assert rows[1].split('|')[2].strip().endswith('...')
-    assert rows[1].split('|')[4].strip() == '10000h00m'
-    assert '|' == rows[1][-1]
+    assert rows[2].split('|')[0].strip().endswith('...')
+    assert rows[2].split('|')[1].strip() == '123456789012'
+    assert rows[2].split('|')[2].strip().endswith('...')
+    assert rows[2].split('|')[4].strip() == '10000h00m'
+    assert '|' == rows[2][-1]
 
 
 def test_unicode_separators_and_absent_tribe_or_connection():
     player = entry('João | Águia', tribe='')
     player['connected_at'] = None
     rows = online_table([player], POLICY, True, NOW)
-    assert rows[1].split('|')[0].strip() == 'João / Águia'
-    assert rows[1].split('|')[2].strip() == '--'
-    assert rows[1].split('|')[4].strip() == '0h00m'
+    assert rows[2].split('|')[0].strip() == 'João / Águia'
+    assert rows[2].split('|')[2].strip() == '--'
+    assert rows[2].split('|')[4].strip() == '0h00m'
     assert width('WWWW') > width('iiii')
     assert width('é') > 0 and width('a\u0301') == width('á')
 
 
 def test_empty_page_is_still_a_valid_header():
-    assert len(online_table([], POLICY, True, NOW)) == 1
+    assert len(online_table([], POLICY, True, NOW)) == 2
 
 
 def test_baked_font_and_whitespace_kerning_regression():
@@ -93,6 +94,7 @@ def test_reported_players_align_after_client_centering():
                entry('Santh', 3, 'Tribo de Santh', minutes=55),
                entry('Curalzinho', 4, 'Tribo de Curalzinho', minutes=48)]
     rows = online_table(players, POLICY, False, NOW)
+    rows = [row for row in rows if '|' in row]
     positions = []
     for row in rows:
         starts = [0] + [i + 2 for i, char in enumerate(row) if char == '|' and i + 2 < len(row)]
@@ -101,3 +103,13 @@ def test_reported_players_align_after_client_centering():
     # rather than assuming equal character counts or validating a desktop font.
     for index in range(4):
         assert (max(row[index] for row in positions) - min(row[index] for row in positions)) * .6719 < 8
+
+
+@pytest.mark.parametrize('show_map', [False, True])
+def test_horizontal_rule_between_header_and_players(show_map):
+    rows = online_table([entry('Ciano'), entry('Curalzinho', 4, 'Tribo de Curalzinho')], POLICY, show_map, NOW)
+    assert rows[0].startswith('NOME')
+    assert set(rows[1]) == {'-'}
+    assert rows[2].startswith('Ciano') and rows[3].startswith('Curalzinho')
+    target = (min(width(row) for row in rows if '|' in row) + max(width(row) for row in rows if '|' in row)) / 2
+    assert abs(width(rows[1]) - target) <= (ADVANCES[ord('-')] + KERNING) / 2

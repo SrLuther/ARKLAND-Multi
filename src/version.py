@@ -12,6 +12,13 @@ BUILD_DATE: str = "2026-11-26"
 # Só incluir "Unreleased" quando houver changes reais; entrada vazia aparece como "vUnreleased" no Sobre.
 CHANGELOG: list[dict] = [
     {
+        "version": "1.12.39",
+        "date": "2026-11-26",
+        "changes": [
+            "Chat Arkland: acrescenta uma linha horizontal entre os cabeçalhos e os jogadores na tabela /online. O separador acompanha a largura da tabela usando as métricas nativas do HUD e preserva as colunas, permissões e tamanho do aviso.",
+        ],
+    },
+    {
         "version": "1.12.38",
         "date": "2026-11-26",
         "changes": [
