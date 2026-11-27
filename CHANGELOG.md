@@ -1,9 +1,15 @@
 # Changelog
 
-<!-- Gerado: 2026-11-26 23:27:28 -->
-<!-- Total de versões: 600 | Primeira: 1.12.39 -->
+<!-- Gerado: 2026-11-27 04:57:24 -->
+<!-- Total de versões: 601 | Primeira: 1.12.40 -->
 
 <!-- markdownlint-disable MD024 -->
+
+## [1.12.40] - 2026-11-27
+
+### Other
+
+- Lumo: verifica por RCON se há jogadores nos mapas ativos do Chat Arkland imediatamente antes dos avisos automáticos do Chat do Jogo. Sem presença confirmada, preserva o aviso pendente e repete a consulta após 60 segundos, inclusive depois de reiniciar o serviço. Não usa contagem em cache, não marca adiamento como envio e mantém o intervalo de 15–20 minutos entre avisos enviados. O painel mostra a última verificação; a regra também cobre os anúncios do canal de interação quando ele é o mesmo Chat do Jogo.
 
 ## [1.12.39] - 2026-11-26
 

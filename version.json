@@ -1,8 +1,8 @@
 {
-    "version": "1.12.39",
-    "date": "2026-11-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.39/ARKLAND-Multi-Setup-v1.12.39.exe",
+    "version": "1.12.40",
+    "date": "2026-11-27",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.12.40/ARKLAND-Multi-Setup-v1.12.40.exe",
     "changelog": [
-        "Chat Arkland: acrescenta uma linha horizontal entre os cabeçalhos e os jogadores na tabela /online. O separador acompanha a largura da tabela usando as métricas nativas do HUD e preserva as colunas, permissões e tamanho do aviso."
+        "Lumo: verifica por RCON se há jogadores nos mapas ativos do Chat Arkland imediatamente antes dos avisos automáticos do Chat do Jogo. Sem presença confirmada, preserva o aviso pendente e repete a consulta após 60 segundos, inclusive depois de reiniciar o serviço. Não usa contagem em cache, não marca adiamento como envio e mantém o intervalo de 15–20 minutos entre avisos enviados. O painel mostra a última verificação; a regra também cobre os anúncios do canal de interação quando ele é o mesmo Chat do Jogo."
     ]
 }
