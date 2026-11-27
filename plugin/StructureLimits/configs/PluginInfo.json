@@ -2,8 +2,8 @@
     "FullName":  "ARKLAND Structure Limits (piloto de posicionamento)",
     "Version":  0.9,
     "MinApiVersion":  3.54,
-    "VersionLabel":  "0.9.3-dev",
-    "Description":  "Reserva/commit/cancel de posicionamento, piloto pontual de veto e retenção do item; limites gerais suspensos",
+    "VersionLabel":  "0.9.4-dev",
+    "Description":  "Reconciliação do censo por execução e propriedade, proveniência de atores e piloto de veto; limites gerais suspensos",
     "Dependencies":  [
 
                      ]

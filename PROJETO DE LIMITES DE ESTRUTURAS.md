@@ -1,11 +1,13 @@
 # Projeto de Limites de Estruturas — ARKLAND
 
 **Produto:** ARKLAND Brasil PvE — ARK: Survival Evolved (ASE) / ArkServerAPI  
-**Estado:** 0.9.3-dev instalada e online no 05 após encerramento autorizado, com reserva/commit/cancel ligados ao posicionamento. A2S e RCON confirmados, runtime/journal saudáveis e 231 construções reconciliadas no reinício. Provas humanas de veto das fundações Tek vanilla e metálica S+ aprovadas: quantidades agregadas preservadas (19/19 e 11/11), uma recusa por classe e zero callbacks de colocação após cada veto, confirmados por RCON e pelo administrador. Inventário completo e fiscalização geral por cota ainda pendentes; não há certificação automática de outros blueprints.
+**Estado:** 0.9.4-dev instalada e online no 05, com reconciliação por execução/revisão e 234 estruturas preservadas (grupos 230/4). Provas humanas de veto das fundações Tek vanilla e metálica S+ na 0.9.3 aprovadas: quantidades agregadas preservadas (19/19 e 11/11), uma recusa por classe e zero callbacks de colocação após cada veto, confirmados por RCON e pelo administrador. A recarga não restaura automaticamente essas evidências como autoridade na execução nova. Inventário completo e fiscalização geral por cota ainda pendentes; não há certificação automática de outros blueprints.
 **Requisitos consolidados:** 21/11/2026  
 **Implementação local:** 21/11/2026  
 **Decisões de produto:** Ciano, com discussão técnica de Lumo e Codex  
-**Versão do plugin instalada:** 0.9.3-dev experimental no 05, com backup do mundo e preservação dos outros quatro processos. A homologação offline anterior foi entregue com a 1.12.41. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
+**Versão do plugin instalada:** 0.9.4-dev experimental no 05. Aplicada por recarga do plugin com o mapa vazio, configuração preservada e os cinco processos de jogo mantidos. A homologação offline anterior foi entregue com a 1.12.41. Consulte o changelog próprio do plugin e as homologações de 26/11 e 27/11 para as evidências e limitações.
+
+**Reconciliação — 0.9.4-dev:** reconciliação exata entre ledger e varredura, identidade de execução, revisão coerente do journal e captura privada verificável do save. A comparação atual preservou as 234 construções, sem diferenças; os 51 atores pendentes são duas barragens de castor e 49 paredes de horda. Não são tratados como bolsas/drops por aproximação de nome. A nova proveniência do ator e a relação item↔estrutura servem para investigar a classificação sem uma lista manual geral de exclusões. Ainda não há autorização automática de fiscalização por esses diagnósticos.
 
 > Esta versão substitui decisões anteriores incompatíveis. Não reabrir regras marcadas como definitivas. A instalação piloto é restrita a `E:/Mapas/05`. Inventário observado não equivale a inventário completo e não autoriza bloquear construções. As seções de investigação anteriores documentam evidências e limitações históricas.
 

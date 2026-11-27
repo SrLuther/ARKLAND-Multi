@@ -31,9 +31,11 @@ public:
     LimitsSummary Summary(const Owner& owner, const Configuration& config) const;
     std::size_t Conflicts() const { return conflicts_; }
     std::size_t RemovedCount() const { return tombstones_.size(); }
+    std::uint64_t Revision() const { return revision_; }
 private:
     std::map<std::string, ObservedStructure> records_;
     std::set<std::string> tombstones_;
     std::size_t conflicts_ = 0;
+    std::uint64_t revision_ = 0;
 };
 }

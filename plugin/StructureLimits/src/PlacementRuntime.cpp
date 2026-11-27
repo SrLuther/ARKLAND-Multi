@@ -165,7 +165,8 @@ int CheckPlacementGate(APrimalStructure* structure,APlayerController* player,con
     }
     if(!engine->IsEnforcing()){++bypassed;return originalResult;}
     // Evidence is scoped to the blueprint actually exercised, never a global JSON bypass.
-    if(!provenBlueprints.count(blueprint)){++bypassed;return originalResult;}
+    if(!provenBlueprints.count(blueprint)){
+        SuspendPlacementRuntime("placement_blueprint_not_proven");++bypassed;return originalResult;}
     const Key key{reinterpret_cast<std::uintptr_t>(structure),steam};
     if(auto prior=pending.find(key);prior!=pending.end()){
         if(prior->second.blueprint==blueprint&&prior->second.location.X==location.X&&prior->second.location.Y==location.Y&&prior->second.location.Z==location.Z)return originalResult;

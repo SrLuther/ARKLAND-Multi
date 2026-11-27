@@ -46,25 +46,31 @@ bool InventoryJournal::Event(nlohmann::json payload){
     events_.push_back({id,payload.dump()});wake_.notify_all();return true;
 }
 void InventoryJournal::State(nlohmann::json payload){std::lock_guard lock(mutex_);state_=std::move(payload);wake_.notify_all();}
-void InventoryJournal::Record(const std::string& id,nlohmann::json payload){
+void InventoryJournal::Record(const std::string& id,nlohmann::json payload,std::uint64_t inventoryRevision){
     std::lock_guard lock(mutex_);
     if(recordUpdates_.size()>=16384&&!recordUpdates_.count(id)){healthy_=false;return;}
-    recordUpdates_[id]=std::move(payload);wake_.notify_all();
+    recordUpdates_[id]={std::move(payload),inventoryRevision};wake_.notify_all();
 }
 std::size_t InventoryJournal::Pending()const{std::lock_guard lock(mutex_);return events_.size();}
 void InventoryJournal::Run(){
     std::map<std::string,nlohmann::json> records;
+    std::uint64_t appliedRevision=0;
     for(;;){
         std::optional<OutboxEvent> event;std::optional<nlohmann::json> state;bool stopping;
-        std::map<std::string,nlohmann::json> updates;
+        std::map<std::string,RecordUpdate> updates;
         {std::unique_lock lock(mutex_);wake_.wait(lock,[&]{return stopping_||!events_.empty()||state_.has_value()||!recordUpdates_.empty();});
          stopping=stopping_;if(!events_.empty())event=events_.front();if(state_)state=std::move(state_);state_.reset();updates.swap(recordUpdates_);}
         bool success=true;
         try{
-            for(auto& [id,value]:updates){if(value.is_null())records.erase(id);else records[id]=std::move(value);}
+            for(auto& [id,value]:updates){
+                if(value.payload.is_null())records.erase(id);else records[id]=std::move(value.payload);
+                if(value.revision>appliedRevision)appliedRevision=value.revision;
+            }
             if(event){std::string error;if(!outbox_.Enqueue(event->eventId,event->payload,&error))throw std::runtime_error(error);
                 std::lock_guard lock(mutex_);events_.pop_front();}
             if(state){(*state)["structures"]=nlohmann::json::array();
+                (*state)["journal_applied_revision"]=appliedRevision;
+                (*state)["journal_state_revision_match"]=state->value("inventory_revision",std::uint64_t(0))==appliedRevision;
                 for(const auto& [id,value]:records)(*state)["structures"].push_back(value);
                 AtomicState(stateFile_,state->dump());}
         }catch(...){success=false;healthy_=false;

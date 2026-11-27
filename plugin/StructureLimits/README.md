@@ -1,6 +1,14 @@
 # ARKLAND Structure Limits
 
-## Evolução atual — 0.9.3-dev (27/11/2026)
+## Evolução atual — 0.9.4-dev (27/11/2026)
+
+Reconciliação do censo por identidade completa e execução: `run_id`, `inventory_revision` e `reconciliation` no RCON/arquivo observado. A última varredura é comparada ao ledger por ID, classe, nome, propriedade e XYZ; alterações após a varredura, ausência de estruturas, conflitos e atribuições sem prova ficam explícitos. Coleções alteradas durante scan não contam como estabilidade. `live_checkpoint_consistent` é somente uma condição local: exige ainda auditoria independente do save e não habilita limites.
+
+O auditor informa `activation_blockers`, `run_scoped_checkpoint` e agrupamento dos atores não classificados, com a evidência de cada ator preservada. Capturas anteriores sem identificador de execução não são certificadas retroativamente. A nova versão também consulta proveniência do ator e o tipo que o item consumido constrói, sem criar itens/carregar assets nem descartar automaticamente classes desconhecidas. A comparação atual encontrou as 234 construções do censo no save, sem divergências; 49 paredes de horda e duas barragens permanecem em investigação. Build/implantação em [HOMOLOGACAO_2026-11-27.md](HOMOLOGACAO_2026-11-27.md).
+
+Depois da conclusão de `SaveWorld`, [capture_checkpoint.ps1](tools/capture_checkpoint.ps1) recebe `-NativeStateFile`, `-SaveFile`, `-OutputDirectory` (novo e fora do Saved vivo) e `-ExpectedInstance`. Ele confere SHA-256/tamanho/timestamp da origem e da cópia, exige run/revisão estáveis antes/depois e `journal_state_revision_match=true`. Grava `world.ark`, `live.json` e `manifest.json` privados para a auditoria, sem enviar comandos ao jogo. Requer o runtime 0.9.4 e recusa revisões incoerentes ou estados antigos; capturas sem manifesto final após erro não são verificadas.
+
+## Piloto de posicionamento — 0.9.3-dev
 
 Integra a decisão de colocação ao núcleo (reservar, confirmar/cancelar e suspender em falha) e fornece o primeiro veto controlado. Com `PlacementPilotEnabled=true`, o administrador usa `StructureLimits.Pilot <SteamID64 conectado> next` pelo RCON. O piloto recusa **uma única tentativa final que o jogo permitiria**, apenas desse jogador, e expira em 120 segundos. É possível trocar `next` por um blueprint exato. `StructureLimits.Pilot cancel` cancela uma tentativa ainda armada.
 

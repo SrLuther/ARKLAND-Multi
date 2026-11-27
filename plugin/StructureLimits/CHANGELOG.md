@@ -1,5 +1,15 @@
 # Changelog — ARKLAND Structure Limits
 
+## [0.9.4-dev — reconciliação por execução] — 27/11/2026
+
+- Identifica cada carga por `run_id` e publica uma revisão monotônica do inventário, sem presumir StructureIDs persistentes entre partidas.
+- Journal publica a revisão efetivamente aplicada aos registros e sinaliza divergências com os metadados. Captura privada `tools/capture_checkpoint.ps1` recusa estados antigos, inconsistentes, de outra instância ou que mudaram durante a cópia; confere hash da origem/cópia e vincula manifesto à execução/revisão. Não salva nem altera o mundo.
+- Compara o ledger com a última varredura concluída por ID, classe, nome de ator, proprietário e XYZ; informa faltantes, alterações e atribuições não resolvidas. Varredura com mutação de coleção não aumenta a sequência de estabilidade. Igualdade de totais não é certificação de inventário completo.
+- Auditor independente incorpora o escopo da execução e os impedimentos de ativação. Agrupa atores pendentes e preserva suas evidências nativas; arquivos antigos sem escopo continuam comparáveis, mas não se tornam aptos à ativação.
+- Diagnóstico de atores excluídos inclui proprietário de ator, instigador, nome de proprietário, criação e correspondência com a estrutura do item consumido. Somente consulta CDO já carregado; divergência ou campo ausente não exclui automaticamente uma classe de mod.
+- Um blueprint sem prova de veto suspende a futura fiscalização antes de preservar a decisão original do jogo; não mantém um contador ativo enquanto permite uma construção sem reserva.
+- Comparação privada atual do 05: 234/234 construções correspondentes ao save, zero diferenças de classe/propriedade/posição ou erros do parser; 51 atores pendentes (49 paredes de horda e duas barragens de castor). Compilação completa aprovada; instalada por recarga somente no 05 vazio, cinco processos preservados, grupos 230/4 e revisões de estado/journal coerentes. Fiscalização geral continua desativada. Evidências na homologação de 27/11.
+
 ## [0.9.3-dev — integração do posicionamento e piloto de veto] — 27/11/2026
 
 - Liga o hook final à reserva do núcleo e ao commit/cancelamento após `FinalStructurePlacement`; reserva pendente sem conclusão suspende a fiscalização em vez de liberar uma vaga e continuar bloqueando com contagem incerta.

@@ -10,6 +10,7 @@ import ntpath
 from pathlib import Path
 import subprocess
 import sys
+import uuid
 
 PARSER_COMMIT = "1d9a3e2b1a8052fdfc187174edfc920ca53216f3"
 
@@ -100,7 +101,14 @@ def compare(saved, live, *, parse_errors=(), tolerance=0.05):
                 confirmed_map_actors += 1
             else:
                 issues["unresolved_actor_classification"].append({"class": identity[0], "actor": row["names"][0],
-                    "reason": evidence["reason"], "structure_id": evidence["structure_id"]})
+                    "reason": evidence["reason"], "structure_id": evidence["structure_id"],
+                    "saved_from_data_file": row["from_data_file"],
+                    "saved_owner": {"targeting_team": owner[0], "player_data_id": owner[1]},
+                    "native_evidence": {key: evidence[key] for key in (
+                        "blueprint", "environment_structure", "is_placing_player_structure", "consumed_item_blueprint",
+                        "loaded_from_save", "net_startup", "owner_name", "owner_actor_blueprint",
+                        "instigator_blueprint", "original_creation_time", "item_structure_blueprint",
+                        "matches_item_structure") if key in evidence}})
             continue
         unique.append(row)
     saved_index, live_index = defaultdict(list), defaultdict(list)
@@ -143,10 +151,45 @@ def compare(saved, live, *, parse_errors=(), tolerance=0.05):
         health.append("scan_and_ledger_disagree")
     if live.get("observed_structures") != len(live["structures"]):
         health.append("journal_and_status_disagree")
+    reconciliation = live.get("reconciliation")
+    run_id = live.get("run_id")
+    scoped_checkpoint = False
+    if run_id is not None or reconciliation is not None:
+        try:
+            if not isinstance(run_id, str) or str(uuid.UUID(run_id)).casefold() != run_id.casefold():
+                raise ValueError("Invalid run identity")
+            revision = live["inventory_revision"]
+            if type(revision) is not int or revision < 0:
+                raise ValueError("Invalid inventory revision")
+            if live.get("journal_state_revision_match") is not True or type(live.get("journal_applied_revision")) is not int or live["journal_applied_revision"] != revision:
+                raise ValueError("Journal contains records from a different revision")
+            if not isinstance(reconciliation, dict) or reconciliation.get("live_checkpoint_consistent") is not True:
+                raise ValueError("Census not reconciled")
+            if reconciliation.get("scan_matches_ledger") is not True or any(
+                    type(reconciliation.get(key)) is not int or reconciliation[key] != 0 for key in (
+                        "ledger_absent_from_scan", "changed_since_scan", "scan_absent_from_ledger", "unresolved_owners")):
+                raise ValueError("Census identity/ownership mismatch")
+            scan_revision = last_scan["inventory_revision"]
+            if type(scan_revision) is not int or scan_revision < 0 or scan_revision > revision:
+                raise ValueError("Invalid scan revision")
+            scoped_checkpoint = True
+        except (KeyError, TypeError, ValueError, AttributeError):
+            health.append("run_scoped_reconciliation_unavailable")
     tracked_matches = not parse_errors and matched == len(live["structures"]) and not any(issues[key] for key in (
         "class_collisions", "unknown_classes", "save_identity_conflicts", "live_identity_conflicts", "missing_live", "missing_save", "metadata_mismatches"))
+    blockers = [{"reason": key, "count": len(value)} for key, value in issues.items() if value]
+    if parse_errors:
+        blockers.append({"reason": "parser_errors", "count": len(parse_errors)})
+    if not scoped_checkpoint:
+        blockers.append({"reason": "current_run_identity_and_reconciliation_required", "count": 1})
+    unresolved_groups = defaultdict(int)
+    for row in issues["unresolved_actor_classification"]:
+        unresolved_groups[row["class"]] += 1
     return {"format": "arkland-structure-save-audit-v1", "checkpoint_matches": not parse_errors and not any(issues.values()),
         "tracked_structures_match": tracked_matches,
+        "run_id": run_id, "inventory_revision": live.get("inventory_revision"),
+        "run_scoped_checkpoint": scoped_checkpoint, "activation_blockers": blockers,
+        "unresolved_actor_groups": dict(sorted(unresolved_groups.items())),
         "complete_inventory": False, "enforcement": False, "saved_actor_records": len(saved),
         "save_structure_records": sum(len(rows) for rows in candidates.values()), "save_unique_structures": len(unique),
         "duplicate_save_records_collapsed": duplicate_records, "live_structures": len(live["structures"]),
@@ -196,6 +239,9 @@ def main(argv=None):
     manifest = json.loads(args.manifest.read_text(encoding="utf-8-sig"))
     if live.get("instance") != args.expected_instance or manifest.get("instance") != args.expected_instance:
         raise ValueError("Checkpoint belongs to another instance")
+    if live.get("run_id") is not None and (manifest.get("run_id") != live["run_id"] or
+            manifest.get("inventory_revision") != live.get("inventory_revision")):
+        raise ValueError("Save checkpoint is not bound to the native run/revision")
     source = ntpath.normcase(ntpath.normpath(manifest["source"]))
     if ntpath.normcase(ntpath.normpath(str(args.save.resolve()))) == source:
         raise ValueError("Refusing to parse the live server save; use a stable copied checkpoint")

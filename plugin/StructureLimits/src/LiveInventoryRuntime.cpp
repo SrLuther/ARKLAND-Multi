@@ -6,6 +6,8 @@
 #include <immintrin.h>
 #include <unordered_map>
 #include <array>
+#include <algorithm>
+#include <tuple>
 
 namespace StructureLimits {
 namespace {
@@ -30,7 +32,7 @@ std::unordered_map<ULevel*,int> collectionSizes;
 int initialLevelCount=0,priorStasisSize=-1;
 std::size_t collectionMutations=0;
 Json lastCompletedScan=nullptr;
-std::map<std::string,std::string> previousStructureScan,currentStructureScan;
+std::map<std::string,ObservedStructure> currentStructureScan,lastStructureScan;
 std::uint64_t stableStructureScans=0;
 std::map<std::string,Json> scanExcluded,lastExcluded;
 bool exclusionOverflow=false;
@@ -55,6 +57,21 @@ bool DeathCache(APrimalStructure* structure){
     auto* container=static_cast<APrimalStructureItemContainer*>(structure);
     return IsGeneratedDeathCache(container->bUseDeathCacheCharacterID().Get(),static_cast<double>(container->DeathCacheCreationTimeField()));
 }
+Json PlacementItemEvidence(APrimalStructure* structure){
+    Json result={{"item_structure_blueprint",nullptr},{"matches_item_structure",nullptr}};
+    auto* itemClass=structure->ConsumesPrimalItemField().uClass;
+    if(!itemClass)return result;
+    // Only inspect an already loaded CDO. Nulls and mod overrides remain
+    // unknown evidence; a mismatch never excludes an actor automatically.
+    auto* item=itemClass->GetDefaultObject(false);
+    if(!item||!item->IsA(UPrimalItem::GetPrivateStaticClass()))return result;
+    auto* actorClass=static_cast<UPrimalItem*>(item)->StructureToBuildField().uClass;
+    if(!actorClass)return result;
+    FString name;actorClass->GetFullName(&name,nullptr);
+    result["item_structure_blueprint"]=NormalizeBlueprintKey(Text(name));
+    result["matches_item_structure"]=structure->IsA(actorClass);
+    return result;
+}
 Json Record(const ObservedStructure& record){
     Json result={{"structure_id",record.id},{"blueprint",record.blueprint},{"targeting_team",record.targetingTeam},
         {"player_data_id",static_cast<std::uint32_t>(record.playerId)},{"steam_id",record.steamId},{"tribe_id",record.tribeId},
@@ -62,6 +79,46 @@ Json Record(const ObservedStructure& record){
         {"actor_name",record.actorName},{"actor_full_name",record.actorFullName},{"observed_sources",record.observedSources}};
     if(record.hasCoordinates)result["position"]={{"x",record.x},{"y",record.y},{"z",record.z},{"latitude",record.latitude},{"longitude",record.longitude}};
     return result;
+}
+// Exact physical/ownership identity, independent of transient source flags and
+// placement callbacks. Equal totals alone cannot certify a census.
+auto CensusIdentity(const ObservedStructure& record){
+    return std::tie(record.blueprint,record.actorFullName,record.targetingTeam,
+        record.playerId,record.tribeId,record.steamId,record.hasCoordinates,
+        record.x,record.y,record.z);
+}
+Json ReconciliationStatus(){
+    std::size_t missing=0,changed=0,extra=0,unresolved=0;
+    const auto owners=ownerDirectory?ownerDirectory->Snapshot():nullptr;
+    for(const auto& [id,value]:inventory.Records()){
+        const auto found=lastStructureScan.find(id);
+        if(found==lastStructureScan.end())++missing;
+        else if(CensusIdentity(found->second)!=CensusIdentity(value))++changed;
+        const auto expectedTeam=std::to_string(static_cast<std::uint32_t>(value.targetingTeam));
+        const bool tribeProof=value.ownerSource=="native_tribe"||
+            (value.ownerSource=="offline_checkpoint_tribe"&&owners&&owners->valid&&
+             owners->tribes.count(static_cast<std::uint32_t>(value.targetingTeam)));
+        const bool tribe=tribeProof&&!value.tribeId.empty()&&value.tribeId==expectedTeam&&value.targetingTeam!=0&&value.targetingTeam!=-1;
+        const bool soloProof=value.ownerSource=="native_solo"||
+            (value.ownerSource=="offline_checkpoint_solo"&&owners&&owners->valid&&
+             owners->solos.count(static_cast<std::uint32_t>(value.playerId))&&
+             owners->solos.at(static_cast<std::uint32_t>(value.playerId))==value.steamId);
+        const bool solo=value.tribeId.empty()&&value.playerId!=0&&value.playerId!=-1&&
+            value.targetingTeam!=0&&value.targetingTeam!=-1&&value.steamId.size()==17&&
+            value.steamId.find_first_not_of("0123456789")==std::string::npos&&
+            soloProof;
+        if(!tribe&&!solo)++unresolved;
+    }
+    for(const auto& [id,value]:lastStructureScan)if(!inventory.Records().count(id))++extra;
+    const bool stable=!lastCompletedScan.is_null()&&lastCompletedScan.value("collection_mutations",1u)==0&&
+        lastCompletedScan.value("duplicate_ids",1u)==0&&
+        lastCompletedScan.value("unique_structures",std::size_t(0))==lastStructureScan.size()&&
+        !classCatalogOverflow&&!exclusionOverflow&&inventory.Conflicts()==0;
+    const bool matching=stable&&!missing&&!changed&&!extra;
+    return {{"scan_matches_ledger",matching},{"ledger_absent_from_scan",missing},
+        {"changed_since_scan",changed},{"scan_absent_from_ledger",extra},{"unresolved_owners",unresolved},
+        {"live_checkpoint_consistent",matching&&!unresolved&&runtimeHealthy&&acceptingEvents&&Ready()&&journal&&journal->Healthy()},
+        {"independent_save_audit_required",true},{"cap_activation_available",false}};
 }
 void RefreshOwners(){
     teamTribes.clear();playerSteam.clear();teamProofs.clear();playerProofs.clear();playerTeams.clear();
@@ -121,18 +178,20 @@ std::optional<ObservedStructure> Capture(APrimalStructure* structure,bool removi
     return value;
 }
 Json Status(bool includeRecords,bool includeCatalog=false){
-    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.3-dev"},
+    Json state={{"format","arkland-structure-limits-observed-v2"},{"plugin_version","0.9.4-dev"},
+        {"run_id",journal?journal->RunId():std::string()},{"inventory_revision",inventory.Revision()},
         {"instance",configuration.Identity().displayId},{"canonical_instance_path",configuration.Identity().canonicalInstancePath},
         {"complete_inventory",false},{"enforcement",false},{"reason","resident_and_local_stasis_coverage_not_yet_validated"},
         {"observed_structures",inventory.Records().size()},{"removed_this_boot",inventory.RemovedCount()},
         {"identity_conflicts",inventory.Conflicts()},{"scan_duplicate_ids",duplicates},{"scan_in_progress",scanning},
         {"completed_scans",scans},{"actors_visited",scanned},{"excluded_actors",excluded},
-        {"runtime_healthy",runtimeHealthy},{"journal_healthy",journal&&journal->Healthy()},{"journal_pending",journal?journal->Pending():0},
+        {"runtime_healthy",runtimeHealthy&&acceptingEvents&&Ready()},{"journal_healthy",journal&&journal->Healthy()},{"journal_pending",journal?journal->Pending():0},
         {"last_completed_scan",lastCompletedScan},{"class_catalog_overflow",classCatalogOverflow},{"known_tribes",teamTribes.size()},
         {"excluded_identity_actors",lastExcluded.size()},{"excluded_identity_overflow",exclusionOverflow},
         {"updated_at_unix",std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()}};
     state["class_catalog_count"]=classEvidence.size();
     state["placement"]=PlacementRuntimeStatus();
+    state["reconciliation"]=ReconciliationStatus();
     if(ownerDirectory){const auto owners=ownerDirectory->Snapshot();
         state["offline_owners"]={{"state",owners->state},{"verified",owners->valid},{"tribes",owners->tribes.size()},
             {"solos",owners->solos.size()},{"sources",owners->sources.size()},{"index_sha256",owners->fingerprint}};}
@@ -162,12 +221,17 @@ void ScanActor(AActor* actor,unsigned source){
                     {"net_startup",structure->bNetStartup().Get()},{"loaded_from_save",structure->bLoadedFromSaveGame().Get()},
                     {"environment_structure",structure->bIsEnvironmentStructure().Get()},
                     {"is_placing_player_structure",structure->bIsPlacingPlayerStructure().Get()},
+                    {"owner_name",Text(structure->OwnerNameField())},
+                    {"owner_actor_blueprint",[&]{const auto* type=Classify(structure->OwnerField());return type?type->blueprint:std::string();}()},
+                    {"instigator_blueprint",[&]{const auto* type=Classify(structure->InstigatorField());return type?type->blueprint:std::string();}()},
+                    {"original_creation_time",static_cast<double>(structure->OriginalCreationTimeField())},
                     {"consumed_item_blueprint",[&]{FString name;if(auto* type=structure->ConsumesPrimalItemField().uClass)type->GetFullName(&name,nullptr);return NormalizeBlueprintKey(Text(name));}()},
                     {"reason",DeathCache(structure)?"generated_death_cache":!structure->StructureIDField()?"missing_structure_id":"missing_player_ownership"}};
                 if(structure->IsA(APrimalStructureItemContainer::GetPrivateStaticClass())){
                     auto* container=static_cast<APrimalStructureItemContainer*>(structure);
                     evidence["death_cache_character_id_marker"]=container->bUseDeathCacheCharacterID().Get();
                     evidence["death_cache_creation_time"]=static_cast<double>(container->DeathCacheCreationTimeField());}
+                evidence.update(PlacementItemEvidence(structure));
                 if(auto* root=structure->RootComponentField()){float xyz[4]{};_mm_storeu_ps(xyz,root->ComponentToWorldField().Translation);
                     evidence["xyz"]={xyz[0],xyz[1],xyz[2]};}
                 scanExcluded[name]=std::move(evidence);
@@ -175,15 +239,19 @@ void ScanActor(AActor* actor,unsigned source){
         }
         return;}
     const unsigned mask=1u<<source;record->observedSources=mask;
-    currentStructureScan[record->id]=record->blueprint+"|"+std::to_string(record->targetingTeam)+"|"+std::to_string(record->playerId);
     const auto prior=scanIds.find(record->id);
     if(prior!=scanIds.end()){
         if(prior->second.actor!=actor){++duplicates;return;}
         if(!(prior->second.sources&mask)){++sourceStructures[source];prior->second.sources|=mask;}
     }else{scanIds.emplace(record->id,ScanReference{actor,mask});++sourceStructures[source];}
     const auto change=inventory.Observe(*record);
+    // Capture the actual reconciled record after attribution, including native
+    // evidence retained by the ledger. Repeated sources must not mask conflicts.
+    if(change!=ObservedInventory::Change::Conflict&&change!=ObservedInventory::Change::Invalid&&
+       change!=ObservedInventory::Change::Tombstoned)
+        currentStructureScan[record->id]=inventory.Records().at(record->id);
     if(change==ObservedInventory::Change::Added||change==ObservedInventory::Change::Updated){
-        journal->Record(record->id,Record(inventory.Records().at(record->id)));dirty=true;}
+        journal->Record(record->id,Record(inventory.Records().at(record->id)),inventory.Revision());dirty=true;}
 }
 void TickBody(){
     if(!journal||!acceptingEvents||!Ready())return;
@@ -220,12 +288,16 @@ void TickBody(){
             if(actorIndex>=stasis.Num()){
                 scanning=false;++scans;nextScan=now+std::chrono::seconds(30);dirty=true;
                 lastExcluded=std::move(scanExcluded);
-                stableStructureScans=!duplicates&&currentStructureScan==previousStructureScan?stableStructureScans+1:0;
-                previousStructureScan=currentStructureScan;
+                const bool identical=currentStructureScan.size()==lastStructureScan.size()&&
+                    std::equal(currentStructureScan.begin(),currentStructureScan.end(),lastStructureScan.begin(),
+                        [](const auto& a,const auto& b){return a.first==b.first&&CensusIdentity(a.second)==CensusIdentity(b.second);});
+                stableStructureScans=!duplicates&&!collectionMutations&&identical?stableStructureScans+1:0;
+                lastStructureScan=std::move(currentStructureScan);
                 lastCompletedScan={{"sequence",scans},{"unique_structures",scanIds.size()},
                     {"entries",sourceEntries},{"unique_structures_by_source",sourceStructures},
                     {"collection_mutations",collectionMutations},{"duplicate_ids",duplicates},
                     {"consecutive_identical_structure_scans",stableStructureScans},
+                    {"inventory_revision",inventory.Revision()},
                     {"completed_at_unix",std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()}};
                 Log::GetLog()->info("StructureLimits inventory: observed={} scans={} visited={} excluded={} duplicate_ids={} complete=false enforcement=false",inventory.Records().size(),scans,scanned,excluded,duplicates);
                 break;
@@ -268,9 +340,9 @@ void StartLiveInventory(const PluginConfiguration& config,DurableOutbox& outbox,
     ArkApi::GetCommands().AddChatCommand(L"/limites",&ShowLimits);
     ArkApi::GetCommands().AddRconCommand(L"StructureLimits.Status",&RconStatus);
     scanning=false;scans=0;nextScan={};nextPublish={};dirty=true;lastCompletedScan=nullptr;
-    previousStructureScan.clear();currentStructureScan.clear();stableStructureScans=0;
+    currentStructureScan.clear();lastStructureScan.clear();stableStructureScans=0;
     classEvidence.clear();classCatalogOverflow=false;scanExcluded.clear();lastExcluded.clear();exclusionOverflow=false;
-    Log::GetLog()->info("StructureLimits 0.9.3-dev: placement reservations wired, one-shot veto pilot available by RCON; cap enforcement=false");
+    Log::GetLog()->info("StructureLimits 0.9.4-dev: run-scoped census reconciliation and actor provenance; cap enforcement=false");
 }
 void StopLiveInventory(){
     acceptingEvents=false;
@@ -281,7 +353,10 @@ void StopLiveInventory(){
     if(journal)journal->State(Status(false,true));
     journal.reset();inventory=ObservedInventory();scanIds.clear();teamTribes.clear();playerSteam.clear();classEvidence.clear();collectionSizes.clear();scanExcluded.clear();lastExcluded.clear();
 }
-void SuspendLiveInventory(){acceptingEvents=false;SuspendPlacementRuntime("world_cleanup");}
+void SuspendLiveInventory(){
+    acceptingEvents=false;SuspendPlacementRuntime("world_cleanup");
+    if(journal)journal->State(Status(false,true));
+}
 void ObserveCompletedPlacement(APrimalStructure* structure,APlayerController* player){
     if(!journal||!acceptingEvents||!Ready())return;
     RefreshOwners();auto value=Capture(structure);if(!value)return;value->placementConfirmed=true;value->observedSources=8;
@@ -289,7 +364,7 @@ void ObserveCompletedPlacement(APrimalStructure* structure,APlayerController* pl
     const bool alreadyConfirmed=prior!=inventory.Records().end()&&prior->second.placementConfirmed;
     const auto change=inventory.Observe(*value);
     if(change!=ObservedInventory::Change::Added&&change!=ObservedInventory::Change::Updated)return;
-    journal->Record(value->id,Record(inventory.Records().at(value->id)));
+    journal->Record(value->id,Record(inventory.Records().at(value->id)),inventory.Revision());
     dirty=true;if(alreadyConfirmed)return;
     auto event=Record(*value);event["type"]="placement_confirmed";event["instance"]=configuration.Identity().displayId;
     if(player&&player->IsA(AShooterPlayerController::GetPrivateStaticClass()))
@@ -306,7 +381,7 @@ void ObserveLiveDestruction(APrimalStructure* structure){
     // An untracked destruction cannot subtract another structure's count.
     auto event=Record(prior?*prior:*value);event["type"]=prior?"removed":"untracked_destruction";
     event["removal_cause"]="unspecified";event["instance"]=configuration.Identity().displayId;
-    if(prior){ReleasePlacementCount(value->id);journal->Record(value->id,nullptr);journal->Event(std::move(event));dirty=true;
+    if(prior){ReleasePlacementCount(value->id);journal->Record(value->id,nullptr,inventory.Revision());journal->Event(std::move(event));dirty=true;
         Log::GetLog()->info("StructureLimits inventory: removed id={} observed={} lat={} lon={} cause=unspecified",value->id,inventory.Records().size(),value->latitude,value->longitude);}
 }
 }

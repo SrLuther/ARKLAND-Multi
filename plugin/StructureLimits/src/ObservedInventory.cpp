@@ -25,7 +25,7 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
         value.hasCoordinates = false;
     if (tombstones_.count(value.id)) return Change::Tombstoned;
     const auto found = records_.find(value.id);
-    if (found == records_.end()) { records_.emplace(value.id, std::move(value)); return Change::Added; }
+    if (found == records_.end()) { records_.emplace(value.id, std::move(value)); ++revision_; return Change::Added; }
     auto& old = found->second;
     if (old.blueprint != value.blueprint) { ++conflicts_; return Change::Conflict; }
     if (!old.actorFullName.empty() && !value.actorFullName.empty() && old.actorFullName != value.actorFullName) {
@@ -60,6 +60,7 @@ ObservedInventory::Change ObservedInventory::Observe(ObservedStructure value) {
         old.ownerSource != value.ownerSource ||
         old.x != value.x || old.y != value.y || old.z != value.z;
     old = std::move(value);
+    if(changed) ++revision_;
     return changed ? Change::Updated : Change::None;
 }
 std::optional<ObservedStructure> ObservedInventory::Remove(const std::string& id) {
@@ -67,7 +68,7 @@ std::optional<ObservedStructure> ObservedInventory::Remove(const std::string& id
     tombstones_.insert(id);
     const auto found=records_.find(id);
     if(found==records_.end()) return std::nullopt;
-    auto value=found->second; records_.erase(found); return value;
+    auto value=found->second; records_.erase(found); ++revision_; return value;
 }
 LimitsSummary ObservedInventory::Summary(const Owner& owner, const Configuration& config) const {
     LimitsSummary summary; summary.globalPrimary=config.globalPrimary;

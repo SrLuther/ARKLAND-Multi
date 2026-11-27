@@ -18,8 +18,9 @@ public:
     ~InventoryJournal();
     bool Event(nlohmann::json payload);
     void State(nlohmann::json payload);
-    void Record(const std::string& id,nlohmann::json payload);
+    void Record(const std::string& id,nlohmann::json payload,std::uint64_t inventoryRevision);
     bool Healthy() const { return healthy_; }
+    const std::string& RunId() const { return boot_; }
     std::size_t Pending() const;
 private:
     void Run();
@@ -29,7 +30,8 @@ private:
     std::condition_variable wake_;
     std::deque<OutboxEvent> events_;
     std::optional<nlohmann::json> state_;
-    std::map<std::string,nlohmann::json> recordUpdates_;
+    struct RecordUpdate { nlohmann::json payload; std::uint64_t revision; };
+    std::map<std::string,RecordUpdate> recordUpdates_;
     std::thread thread_;
     std::atomic<bool> healthy_{true};
     bool stopping_ = false;

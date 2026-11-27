@@ -434,9 +434,9 @@ void TestAsynchronousInventoryJournal() {
         InventoryJournal journal(outbox,path/"observed-inventory.json");
         assert(journal.Event({{"type","placement_confirmed"},{"structure_id","123"}}));
         assert(journal.Event({{"type","removed"},{"structure_id","123"}}));
-        journal.Record("123",{{"structure_id","123"},{"latitude",52.5}});
-        journal.Record("123",nullptr);
-        journal.Record("456",{{"structure_id","456"},{"latitude",42.3}});
+        journal.Record("123",{{"structure_id","123"},{"latitude",52.5}},1);
+        journal.Record("123",nullptr,2);
+        journal.Record("456",{{"structure_id","456"},{"latitude",42.3}},3);
         journal.State({{"complete_inventory",false},{"observed_structures",0}});
         const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
         while((journal.Pending()||!std::filesystem::exists(path/"observed-inventory.json"))&&std::chrono::steady_clock::now()<deadline)
